@@ -336,8 +336,9 @@ test("conversation routes keep authenticated ownership and reject unknown identi
   assert.equal(accepted.payload.status, "accepted");
   await f.dispatched[0].promise;
   const body = JSON.parse(f.requests[0].body);
-  assert.match(body.messages[0].content, /^Answer briefly\.\n\nCurrent state, from the system\. /u, "The system prompt, then the engine's state note");
-  assert.equal(body.messages.at(-1).content, "Use the host configuration.");
+  assert.equal(body.messages[0].content, "Answer briefly.", "The host's system prompt");
+  assert.equal(body.messages.at(-2).content, "Use the host configuration.");
+  assert.match(body.messages.at(-1).content, /^Current state, from the system\. /u, "The engine's state note follows the conversation");
   assert.equal((await f.invoke("GET")).payload.engine, "api");
 });
 
@@ -390,7 +391,7 @@ test("declared conversation data keeps the authored target without becoming auth
   const state = (await f.invoke("GET")).payload;
   assert.deepEqual(state.conversationLog[0].user.data, data);
   assert.equal(state.engine, "api");
-  assert.match(JSON.parse(f.requests[0].body).messages[0].content, /^Answer briefly\.\n\nCurrent state, from the system\. /u);
+  assert.equal(JSON.parse(f.requests[0].body).messages[0].content, "Answer briefly.");
   const repeated = await f.invoke("POST", "/messages", { body: input });
   assert.equal(repeated.payload.duplicate, true);
   assert.equal(repeated.payload.turnId, accepted.payload.turnId);

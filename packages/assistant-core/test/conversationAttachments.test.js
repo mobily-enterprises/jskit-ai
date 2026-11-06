@@ -147,7 +147,7 @@ test("authorized image bytes reach the API once and only safe receipts enter sto
   assert.equal(f.reads[0].context, context);
   assert.equal(f.reads[0].conversationId, "one");
   assert.deepEqual(f.reads[0].attachmentIds, [receipt.attachmentId]);
-  assert.deepEqual(f.requests[0].messages.at(-1).content, [
+  assert.deepEqual(f.requests[0].messages.at(-2).content, [
     { type: "text", text: input.text }, { type: "image_url", image_url: { url: `data:image/png;base64,${image.toString("base64")}` } }
   ]);
   assert.deepEqual(state.conversationLog[0].user.attachments, [receipt]);
@@ -174,7 +174,7 @@ test("API history and continuity reauthorize files after reopen and renewal", as
   await resumed.conversation.replace({ operationId: "renew", reason: "renewal", expectedSegmentId: first.segmentId });
   await resumed.conversation.send({ messageId: "third", text: "Look again" });
   await resumed.conversation.wait();
-  assert.equal(resumed.requests[1].messages.at(-1).content[1].type, "image_url");
+  assert.equal(resumed.requests[1].messages.at(-2).content[1].type, "image_url");
   allowed = false;
   await assert.rejects(resumed.conversation.send({ messageId: "denied", text: "Look again" }), /attachment access/);
   assert.equal(resumed.requests.length, 2);
@@ -185,8 +185,8 @@ test("an image-only request is accepted without invented user text", async t => 
   const f = await fixture(t);
   await f.conversation.send({ ...input, text: "" });
   const state = await f.conversation.wait();
-  assert.equal(f.requests[0].messages.at(-1).content.length, 1);
-  assert.equal(f.requests[0].messages.at(-1).content[0].type, "image_url");
+  assert.equal(f.requests[0].messages.at(-2).content.length, 1);
+  assert.equal(f.requests[0].messages.at(-2).content[0].type, "image_url");
   assert.equal(state.conversationLog[0].user.text, "");
 });
 

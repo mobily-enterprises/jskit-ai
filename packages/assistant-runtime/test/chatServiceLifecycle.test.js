@@ -302,9 +302,12 @@ test("a reply that only announces work carries on once, and the state note gives
   const system = harness.completionRequests[0].messages[0];
   assert.equal(system.role, "system");
   assert.match(system.content, /use the current time in the system's state note/u);
-  assert.match(system.content, /\n\nCurrent state, from the system\. It is the truth; earlier messages may be out of date:\n- The time: .+ UTC\./u,
-    "The state note at the end of the system prompt tells the model the current time");
-  assert.match(messageText(harness.completionRequests[1].messages.at(-1)), /^\(Check from the app: your reply ended by saying what you'd do next/u,
+  assert.doesNotMatch(system.content, /Current state, from the system/u, "The state note is not in the system prompt");
+  const note = harness.completionRequests[0].messages.at(-1);
+  assert.equal(note.role, "user");
+  assert.match(messageText(note), /^Current state, from the system\. It is the truth; earlier messages may be out of date:\n- The time: .+ UTC\./u,
+    "The state note after the conversation tells the model the current time");
+  assert.match(messageText(harness.completionRequests[1].messages.at(-2)), /^\(Check from the app: your reply ended by saying what you'd do next/u,
     "The reply that only announced work carries on once with the engine's check");
   assert.deepEqual(assistantMessages(harness.streamEvents), ["It is Tuesday in the workspace timezone."]);
   assert.ok(harness.streamEvents.some((event) => event.method === "sendAssistantDelta"));
@@ -416,7 +419,7 @@ test("tool calls written as text never run, never become answer deltas, and the 
   const harness = createHarness([response(), textCompletion("The search is complete.")]);
   await harness.run();
   assert.deepEqual(harness.executedTools, [], "A tool call written as text is not run");
-  assert.match(messageText(harness.completionRequests[1].messages.at(-1)), /^\(Check from the app: your last message contained raw markup/u);
+  assert.match(messageText(harness.completionRequests[1].messages.at(-2)), /^\(Check from the app: your last message contained raw markup/u);
   assert.doesNotMatch(JSON.stringify(harness.streamEvents), /DSML|private reasoning|private arguments/u);
   assert.deepEqual(assistantMessages(harness.streamEvents), ["The search is complete."]);
 });
@@ -435,7 +438,7 @@ test("application-authorized attachments reach the model and are authorized agai
   await harness.run("Read this", { attachmentIds: ["file-one"] });
   assert.equal(calls.length, 1, "The new message's file is authorized before admission");
   assert.deepEqual(harness.transcriptMessages[0].metadata.attachments, [receipt]);
-  assert.deepEqual(harness.completionRequests[0].messages.at(-1).content, [
+  assert.deepEqual(harness.completionRequests[0].messages.at(-2).content, [
     { type: "text", text: "Read this" }, { type: "text", text: "Authorized file bytes" }
   ]);
   await harness.run("What do they say?", { messageId: "message_2" });

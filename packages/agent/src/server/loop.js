@@ -14,8 +14,10 @@ export const REPLY_DEADLINE_MS = (Number(process.env.AGENT_REPLY_MINUTES) || 15)
  * tool results give way inside a long turn; each finished step can be saved. A reply always ends
  * with a message: one that stops early ends with the model's own account of where it got to.
  *
- * `history` is the conversation as model messages. The summary, the state note and any other
- * system messages in it go into the system prompt, after the instructions, in that order.
+ * `history` is the conversation as model messages. The summary and any other system messages in it
+ * go into the system prompt, after the instructions, in that order. The state note, which changes
+ * every turn (it carries the time), is sent after the history as the last message, so the
+ * provider's prompt cache keeps the whole history from one turn to the next.
  * Returns { text, transcript, unfinished?, account? }; `unfinished` (out of steps or time) means the
  * job can carry on from here, and `account` is the account the reply ends with, when it ends with
  * one, so a check that sends a reply back can leave the engine's own words alone. With `onText(text)` the reply streams: each step's words so far, as they
@@ -35,9 +37,11 @@ export async function runLoop({
   // A transcript cut mid-way must not start with a tool result.
   while (messages.length && messages[0].role === "tool") messages.shift();
   if (summary) messages.unshift({ role: "system", content: summaryNote(summary) });
-  if (state) messages.splice(Math.max(0, messages.length - 1), 0, { role: "system", content: state });
   const system = [instructions, ...messages.filter((message) => message.role === "system").map((message) => message.content)];
   const conversation = messages.filter((message) => message.role !== "system");
+  // The note comes last: a prompt cache only reuses an unchanged start. The account still reads
+  // the person's request from `conversation`.
+  const sent = state ? [...conversation, { role: "user", content: state }] : conversation;
 
   // Each step reports only its own messages; the run's transcript is all of them, in order.
   const done = [];
@@ -51,7 +55,7 @@ export async function runLoop({
     const call = {
       model,
       instructions: systemPrompt(model, system),
-      messages: conversation,
+      messages: sent,
       tools: modelTools(tools),
       stopWhen: stepCountIs(maxSteps),
       providerOptions: reasoning,

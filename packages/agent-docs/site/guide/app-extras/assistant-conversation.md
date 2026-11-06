@@ -2471,8 +2471,9 @@ accounts) authorizes the same connection again and stops the reply when access i
 gone. A configured `effort` reaches every provider as the AI SDK's standard
 reasoning setting; without one, the engine's default applies (adaptive thinking at
 high effort for Anthropic-format models). The system prompt is the configured
-instructions, then the summary, then the engine's state note with the current UTC
-time.
+instructions, then the summary. The engine's state note with the current UTC time
+follows the conversation as its last message, so the provider's prompt cache keeps
+the whole history from one turn to the next.
 
 An application can set server-owned `limits.maxApiToolProgressCharacters` to a
 positive safe integer to bound the decoded text accompanying confirmed API tool

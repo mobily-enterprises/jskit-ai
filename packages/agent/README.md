@@ -99,7 +99,8 @@ person's message
 - **Output cap:** 32,000 tokens for loop steps (`LOOP_OUTPUT_TOKENS`; the Anthropic format needs
   one, and its default is 4,096).
 - **System prompt:** one message in the OpenAI style, parts joined by a blank line; separate blocks
-  in the Anthropic format. Instructions, then the summary, then the state note.
+  in the Anthropic format. Instructions, then the summary. The state note is not in it: it changes
+  every turn, so it goes after the history, as the last message.
 
 ## 4. What the agent is told
 
@@ -123,7 +124,7 @@ The instructions are the app's, but what was learned writing them belongs with t
 | Inside one turn | the oldest tool results become a one-line note ("run the tool again if you need it"), never the newest 20; once left out they stay out, so the cache keeps hitting (`trimOldResults`) | past **700k**, down to **500k** |
 | Old results in history | a long tool result from an earlier turn is clipped (`clipOldResult`) | 6,000 characters |
 | Each tool result | command output shows its first and last 8,000 characters; the **whole output is a file**; files are read in parts (`textPart`) | parts of 120,000 characters; whole outputs up to 16 MB |
-| The prompt's start | instructions, then summary, then history; the state note just before the last message | 65–95% of input cached |
+| The prompt's start | instructions, then summary, then history; the state note after the history, as the last message, so the next turn's prompt starts with everything this one sent except its note | 65–95% of input cached |
 
 ## 6. Keeping things in mind
 

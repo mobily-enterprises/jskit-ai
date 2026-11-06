@@ -65,7 +65,7 @@ test("an existing API client keeps opaque receipts path-safe and selected histor
   assert.deepEqual(requests[0][1], { role: "user", content: [
     { type: "text", text: "Selected prior context" }, { type: "text", text: "Authorized historical bytes" }
   ] });
-  assert.deepEqual(requests[0].at(-1), { role: "user", content: [
+  assert.deepEqual(requests[0].at(-2), { role: "user", content: [
     { type: "text", text: "Current question" }, { type: "text", text: "Authorized current bytes" }
   ] });
   const files = await readdir(directory);
@@ -84,8 +84,9 @@ test("an existing API client keeps opaque receipts path-safe and selected histor
   context.history = [];
   await conversation.send({ messageId: "empty-context", text: "No prior model context" });
   const last = await conversation.wait();
-  assert.match(requests[2][0].content, /^Existing instructions\n\nCurrent state, from the system\./u);
-  assert.deepEqual(requests[2].slice(1).map(message => message.content), ["No prior model context"]);
+  assert.equal(requests[2][0].content, "Existing instructions");
+  assert.deepEqual(requests[2].slice(1, -1).map(message => message.content), ["No prior model context"]);
+  assert.match(requests[2].at(-1).content, /^Current state, from the system\./u, "The engine's state note follows the conversation");
   assert.equal(last.conversationLog.length, 3, "Explicitly empty model context never removes saved conversation history");
   await assert.rejects(conversation.send({ messageId: "x".repeat(129), text: "Must not dispatch" }), { code: "conversation_invalid_message" });
   assert.equal(requests.length, 3);

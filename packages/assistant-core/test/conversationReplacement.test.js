@@ -60,7 +60,7 @@ test("renewal preserves logical history and receipts while subsequent inference 
   assert.equal(f.requests.length, 1, "Replacement itself does not perform inference");
   await f.say("Continue", "second");
   const sent = f.requests[1].messages;
-  assert.equal(sent.at(-1).content, "Continue");
+  assert.equal(sent.at(-2).content, "Continue", "The request comes last, before the engine's state note");
   assert.match(sent[1].content, /Retain the agreed colour: blue/);
   assert.match(sent[1].content, /Keep my context/);
   assert.match(sent[1].content, /Reply 1/);

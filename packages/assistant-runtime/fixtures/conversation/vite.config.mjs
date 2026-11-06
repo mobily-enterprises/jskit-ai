@@ -68,7 +68,8 @@ export default defineConfig({
               aiClientFactory: { async resolveClient(_surface, { integrationId }) {
                 return { enabled: true, provider: "fixture", defaultModel: integrationId, supportsAttachments: true,
                   model: createScriptedModel(async function* ({ messages }) {
-                    stream.receivedFiles = messages.at(-1).content;
+                    // The request, before the engine's state note.
+                    stream.receivedFiles = messages.at(-2).content;
                     await nextChunk();
                     yield { choices: [{ delta: { content: "Partial answer" } }] };
                     await nextChunk();

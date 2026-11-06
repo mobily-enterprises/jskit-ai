@@ -155,7 +155,8 @@ test("voice example streams five chats, stops one independently and reconnects w
   // File-backed turn IDs are allocated inside each conversation, not globally.
   assert.equal(new Set([...accepted].map(([id, receipt]) => JSON.stringify([id, receipt.turnId]))).size, 5);
   await f.until(() => f.requests.length === 5, "five authorized API inferences");
-  const inference = new Map(ids.map(id => [id, f.requests.find(request => request.body.messages.at(-1).content === inputs.get(id).text)]));
+  // Each request ends with the person's message, then the engine's state note.
+  const inference = new Map(ids.map(id => [id, f.requests.find(request => request.body.messages.at(-2).content === inputs.get(id).text)]));
   for (const [id, request] of inference) {
     assert.ok(request, `The actual ${id} send reached the configured inference endpoint`);
     assert.equal(request.body.model, "mimo-v2.5-free");
@@ -248,10 +249,9 @@ test("voice example runs a direct file-backed headless task while denying browse
   // Keep an early provider failure observed while waiting for its controlled stream.
   answer.catch(() => {});
   await f.until(() => f.requests.length === 1, "the actual runHeadless inference");
-  assert.match(f.requests[0].body.messages[0].content,
-    /^You are the assistant for Headless task\. Answer briefly in plain language\.\n\nCurrent state, from the system\. /u,
-    "The system prompt, then the engine's state note");
-  assert.equal(f.requests[0].body.messages.at(-1).content, text);
+  assert.equal(f.requests[0].body.messages[0].content, "You are the assistant for Headless task. Answer briefly in plain language.", "The system prompt");
+  assert.equal(f.requests[0].body.messages.at(-2).content, text);
+  assert.match(f.requests[0].body.messages.at(-1).content, /^Current state, from the system\. /u, "The engine's state note follows the conversation");
   f.requests[0].text("The headless task is complete.");
   f.requests[0].finish();
   assert.equal(await answer, "The headless task is complete.");
@@ -335,7 +335,7 @@ test("the mounted voice starter shares five standard cards and retains its origi
     await input("Planning").fill("Planning question from the mounted starter.");
     await input("Planning").press("Enter");
     await f.until(() => f.requests.length === 1, "the mounted Planning card's actual inference");
-    assert.equal(f.requests[0].body.messages.at(-1).content, "Planning question from the mounted starter.");
+    assert.equal(f.requests[0].body.messages.at(-2).content, "Planning question from the mounted starter.");
     f.requests[0].text("Planning answer is streaming.");
     await expect(card("Planning").getByText("Planning answer is streaming.", { exact: true })).toBeVisible();
     await expect(input("Planning")).toHaveValue("");

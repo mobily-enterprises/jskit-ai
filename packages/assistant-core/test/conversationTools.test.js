@@ -87,7 +87,7 @@ test("split internal tags and tool arguments never become common answer deltas",
   await f.conversation.send(message);
   const result = await f.conversation.wait();
   assert.deepEqual(f.observed.executions, [{ left: 2, right: 3 }]);
-  assert.equal(f.observed.requests[1].messages.at(-1).content, checkTexts("the app").markup);
+  assert.equal(f.observed.requests[1].messages.at(-2).content, checkTexts("the app").markup, "The check comes last, before the engine's state note");
   assert.deepEqual(f.observed.events.filter(event => event.type === "message" && event.status !== "complete")
     .map(event => event.text), ["The search is complete."]);
   assert.equal(result.conversationLog[0].assistant.text, "The search is complete.");
@@ -101,7 +101,7 @@ test("text-encoded calls never run or reach the person, even when written again 
   const result = await f.conversation.wait();
   assert.deepEqual(f.observed.executions, []);
   assert.equal(f.observed.requests.length, 2, "The check sends the reply back once");
-  assert.equal(f.observed.requests[1].messages.at(-1).content, checkTexts("the app").markup);
+  assert.equal(f.observed.requests[1].messages.at(-2).content, checkTexts("the app").markup, "The check comes last, before the engine's state note");
   assert.deepEqual(result.conversationLog[0].metadata.applicationTools, []);
   assert.equal(f.observed.events.some(event => event.type === "message" && /invoke|function_calls/u.test(event.text)), false);
 });

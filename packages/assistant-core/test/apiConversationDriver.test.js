@@ -6,7 +6,8 @@ import { createApiConversationDriver } from "../src/server/conversation/provider
 const CHECKS = checkTexts("the app");
 const frame = (delta, finish_reason) => `data: ${JSON.stringify({ choices: [{ index: 0, delta, finish_reason }] })}\n\n`;
 const schema = tool => ({ type: "function", function: { name: tool.name, parameters: tool.parameters } });
-const lastText = body => body.messages.at(-1).content;
+// The engine's state note ends every request's conversation; what the app sent last comes before it.
+const lastText = body => body.messages.at(-2).content;
 
 // One step of a streamed reply: words, an action call or both. Calls the engine
 // makes without streaming (accounts, checks, summaries) answer with `once`.
@@ -113,7 +114,10 @@ test("admission precedes every model call, the state note gives the time, and a 
   await f.run("What day is it today?");
   assert.deepEqual(f.order, ["accept", "model"]);
   assert.deepEqual(f.executions, [], "No action runs before the model asks for one");
-  assert.match(f.requests[0].messages[0].content, /^Use the supplied actions\.\n\nCurrent state, from the system\. It is the truth; earlier messages may be out of date:\n- The time: .+ UTC\. The person may be in another time zone\.$/u);
+  assert.equal(f.requests[0].messages[0].content, "Use the supplied actions.", "The state note is not in the system prompt");
+  assert.equal(f.requests[0].messages.at(-1).role, "user");
+  assert.match(f.requests[0].messages.at(-1).content, /^Current state, from the system\. It is the truth; earlier messages may be out of date:\n- The time: .+ UTC\. The person may be in another time zone\.$/u,
+    "The state note follows the conversation, so the history before it stays in the provider's prompt cache");
   const denied = fixture({ authorize: () => { throw new Error("Connection access revoked"); } });
   await assert.rejects(denied.run(), /Connection access revoked/);
   assert.deepEqual(denied.requests, []);
@@ -223,7 +227,7 @@ test("a long history is compacted: the summary and its last turn are saved, and 
   assert.ok(kept.length > 0 && kept.length < turns.length);
   const [request] = f.streamed;
   assert.match(request.messages[0].content, /Summary of the earlier part of this conversation[^]*The person asked six long questions\./u);
-  assert.deepEqual(request.messages.filter(message => message.role === "user").map(message => message.content),
+  assert.deepEqual(request.messages.slice(0, -1).filter(message => message.role === "user").map(message => message.content),
     [...kept.map(turn => turn.user.text), "Next question"]);
   assert.deepEqual(phases, ["compacting", "working"]);
 });
@@ -248,5 +252,5 @@ test("a short history is read whole with its stored summary, and nothing is save
   assert.deepEqual(saved, []);
   assert.equal(f.requests.length, 1);
   assert.match(f.requests[0].messages[0].content, /Summary of the earlier part of this conversation[^]*Earlier: hello\./u);
-  assert.deepEqual(f.requests[0].messages.slice(1).map(message => message.content), ["Hi", "Hello", "Next question"]);
+  assert.deepEqual(f.requests[0].messages.slice(1, -1).map(message => message.content), ["Hi", "Hello", "Next question"]);
 });

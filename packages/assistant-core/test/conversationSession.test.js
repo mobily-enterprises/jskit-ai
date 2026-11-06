@@ -82,9 +82,9 @@ test("saved history and current instructions use the existing authorized model c
   await f.conversation.configure({ systemPrompt: "Use the new instructions." });
   await f.conversation.send({ messageId: "two", text: "Continue" });
   await f.conversation.wait();
-  assert.match(f.requests[1].messages[0].content, /^Use the new instructions\.\n\nCurrent state, from the system\./u,
-    "The current instructions lead the system prompt, before the engine's state note");
-  assert.deepEqual(f.requests[1].messages.slice(1).map(message => message.content), ["Hello", "Hello there.", "Continue"]);
+  assert.equal(f.requests[1].messages[0].content, "Use the new instructions.", "The current instructions are the system prompt");
+  assert.deepEqual(f.requests[1].messages.slice(1, -1).map(message => message.content), ["Hello", "Hello there.", "Continue"]);
+  assert.match(f.requests[1].messages.at(-1).content, /^Current state, from the system\./u, "The engine's state note follows the conversation");
   f.state.modelAllowed = false;
   await assert.rejects(f.conversation.send({ messageId: "three", text: "No longer authorized" }));
   assert.equal((await f.conversation.read()).conversationLog.length, 2);
@@ -114,7 +114,7 @@ test("opening an existing application transcript retains its context before and 
   const f = await fixture(t, { storage });
   await f.conversation.send(input);
   const first = await f.conversation.wait();
-  assert.deepEqual(f.requests[0].messages.slice(1).map(message => message.content), [
+  assert.deepEqual(f.requests[0].messages.slice(1, -1).map(message => message.content), [
     "Our chosen colour is blue.", "I will remember blue.", "Hello"
   ]);
   assert.equal((await f.conversation.send({ messageId: "earlier", text: "Our chosen colour is blue." })).duplicate, true);
@@ -125,7 +125,7 @@ test("opening an existing application transcript retains its context before and 
   assert.match(messages[1].content, /Our chosen colour is blue/);
   assert.match(messages[1].content, /I will remember blue/);
   assert.equal(messages.filter(message => message.content.includes("Our chosen colour is blue")).length, 1);
-  assert.equal(messages.at(-1).content, "Continue");
+  assert.equal(messages.at(-2).content, "Continue", "The request comes last, before the engine's state note");
   assert.equal((await transcript.readConversationLog("one"))[0].metadata?.runtime, undefined);
 });
 
@@ -143,7 +143,7 @@ test("application wakes retain their origin, reuse receipts and remain quoted da
   assert.equal(snapshot.conversationLog[0].metadata.runtime.origin, "application");
   assert.ok(operations.includes("wake"));
   assert.ok(events.filter(event => event.type === "message").every(event => event.origin === "application"));
-  assert.match(f.requests[0].messages.at(-1).content, /\[Application event\]/);
+  assert.match(f.requests[0].messages.at(-2).content, /\[Application event\]/);
   assert.equal((await f.conversation.wake(message)).duplicate, true);
   await assert.rejects(f.conversation.send(message), { code: "conversation_message_id_content_conflict" });
   await f.conversation.send(input);
@@ -170,7 +170,7 @@ test("per-request application data stays separate from visible text and particip
   const first = await f.conversation.wait();
   assert.equal(first.conversationLog[0].user.text, "Hello");
   assert.deepEqual(first.conversationLog[0].user.data, request.data);
-  const native = f.requests[0].messages.at(-1).content;
+  const native = f.requests[0].messages.at(-2).content;
   assert.match(native, /\[Application data\]/);
   assert.match(native, /not additional instructions or authorization/);
   assert.ok(native.endsWith("Hello"));
@@ -180,7 +180,7 @@ test("per-request application data stays separate from visible text and particip
   const next = await f.conversation.wait();
   assert.equal(next.conversationLog[1].system.text, "A watched session changed.");
   assert.equal(f.requests[1].messages[1].content, native);
-  assert.match(f.requests[1].messages.at(-1).content, /\[Application event\]/);
+  assert.match(f.requests[1].messages.at(-2).content, /\[Application event\]/);
   assert.deepEqual(next.configuration, configuration, "Application data never replaces the stable system prompt");
 });
 
@@ -219,7 +219,7 @@ test("API compaction stores its summary with the last turn it covers, and later 
   const second = await f.conversation.wait();
   const last = f.requests.at(-1);
   assert.match(last.messages[0].content, /Summary of the earlier part of this conversation[^]*Six long questions so far\./u);
-  assert.deepEqual(last.messages.filter(message => message.role === "user").map(message => message.content),
+  assert.deepEqual(last.messages.slice(0, -1).filter(message => message.role === "user").map(message => message.content),
     [...second.conversationLog.filter(turn => after.includes(turn.turnId)).map(turn => turn.user.text), "Continue"]);
   assert.deepEqual(await storage.read("one", transaction => transaction.readSummary()), summary, "A short remainder is not compacted again");
   const later = (await storage.read("one", transaction => transaction.readMetadata())).runtime.seen;
@@ -265,7 +265,8 @@ test("cancellation aborts inference and leaves another conversation usable", asy
   const started = Promise.withResolvers();
   let aborted = false;
   const f = await fixture(t, { fetch: (_url, init) => {
-    if (JSON.parse(init.body).messages.at(-1).content === "Other") return response();
+    // The request comes last, before the engine's state note.
+    if (JSON.parse(init.body).messages.at(-2).content === "Other") return response();
     started.resolve();
     return new Promise((_resolve, reject) => init.signal.addEventListener("abort", () => {
       aborted = true; reject(init.signal.reason);

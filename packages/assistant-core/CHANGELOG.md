@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The API driver's state note, which carries the current time, follows the conversation as its last message instead of ending the system prompt, so the provider's prompt cache keeps the whole history from one turn to the next instead of charging it uncached on each turn's first model call (`@jskit-ai/agent` `runLoop`).
 - Assistant failures that reach a person translate: 63 more undotted codes render from `jskit.errors.<code>`, and 98 sentences that share a code with others, or are sent without one, carry a `messageCode` (`assistant.claude.*`, `assistant.codex.*`, `assistant.opencode.*`, `assistant.conversation.*`, `assistant.turn.*`). The English messages are unchanged.
 - The OpenCode version mismatch, Claude control-request timeout and unreadable saved Claude conversation errors carry `params` for their catalog English.
 - The assistant settings resource sends its system prompt field messages in the coded `{ code, message, params }` form.
