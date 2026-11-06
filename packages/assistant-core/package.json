@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.2.22",
+  "version": "0.2.23",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -220,6 +220,6 @@
     }
   },
   "devDependencies": {
-    "@jskit-ai/material-web": "0.1.0"
+    "@jskit-ai/material-web": "0.1.1"
   }
 }

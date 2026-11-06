@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.2.11",
+  "version": "0.2.12",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -46,7 +46,7 @@
     "@jskit-ai/architecture-inspector": "0.1.8"
   },
   "devDependencies": {
-    "@jskit-ai/material-web": "0.1.0",
+    "@jskit-ai/material-web": "0.1.1",
     "@vue/compiler-sfc": "3.5.44"
   },
   "peerDependencies": {

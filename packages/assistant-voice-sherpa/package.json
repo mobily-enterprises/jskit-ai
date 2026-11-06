@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-voice-sherpa",
-  "version": "0.1.71",
+  "version": "0.1.72",
   "type": "module",
   "description": "Optional native Sherpa speech engine and explicit model preparation for assistant voice.",
   "scripts": {
@@ -19,7 +19,7 @@
     "tooling"
   ],
   "dependencies": {
-    "@jskit-ai/assistant-voice": "0.2.24",
+    "@jskit-ai/assistant-voice": "0.2.25",
     "sherpa-onnx-node": "1.13.6"
   },
   "jskit": {
