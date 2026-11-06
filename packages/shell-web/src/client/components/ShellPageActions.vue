@@ -7,8 +7,8 @@ import {
 
 /**
  * The app bar's actions target. The current page's actions show in the shell's top app bar after the page title
- * (Material 3 puts a page's actions there); put ShellPageAction buttons inside. Outside a ShellLayout they render
- * where they are written.
+ * (Material 3 puts a page's actions there); put ShellPageAction buttons inside. Outside a layout that owns the top
+ * app bar (ShellLayout, or one that calls useShellAppBar()) they render where they are written.
  * @type {string}
  */
 const target = inject(SHELL_PAGE_ACTIONS_TARGET_KEY, NO_SHELL_PAGE_ACTIONS_TARGET);

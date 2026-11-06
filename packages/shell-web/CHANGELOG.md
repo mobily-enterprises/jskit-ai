@@ -7,6 +7,7 @@
 - The application-shell pattern's not-found view renders in the shell, so the top app bar carries its title and the navigation leads back into the app; the shell foundation has it too.
 - `ShellListDetail` lays out list-detail pages such as settings: the list beside the open detail on expanded windows (with the landing child as the empty detail), one pane at a time on narrower ones. The foundation and shell patterns' settings pages use it instead of redirecting their landing page to the first section.
 - The drawer is 360dp wide by default; `drawerWidth="content"` fits it to its labels. A modal drawer (compact and medium windows) opens over the app bar and closes from its scrim or Escape. The drawer's divider shows only between primary and secondary destinations. The `--shell-chrome-*` custom properties, the rail and drawer item tooltips and `@mdi/js` are gone.
+- A layout that draws its own top app bar builds it from the pieces of `ShellLayout`'s bar: `ShellUpButton` (the Up arrow, shown only on inner pages), `ShellPageTitle` (the page's one `h1`) and `ShellPageActionsTarget`, with `useShellAppBar()` once in the layout so its pages enter the trail and their `ShellPageActions` show in its bar. `ShellLayout` is built from the same pieces and looks and behaves as before.
 - Upgrading: see the guide's [Move an app to the Material 3 defaults](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/material-3-migration).
 
 ## 0.2.0 - 2026-10-29

@@ -82,7 +82,6 @@ Exports
 - None
 Local functions
 - `updateScrolled()`
-- `goUp()`
 
 ### `src/client/components/ShellListDetail.vue`
 Exports
@@ -123,6 +122,14 @@ Local functions
 Exports
 - None
 
+### `src/client/components/ShellPageActionsTarget.vue`
+Exports
+- None
+
+### `src/client/components/ShellPageTitle.vue`
+Exports
+- None
+
 ### `src/client/components/ShellRouteTransition.vue`
 Exports
 - None
@@ -135,11 +142,21 @@ Exports
 Exports
 - None
 
+### `src/client/components/ShellUpButton.vue`
+Exports
+- None
+Local functions
+- `goUp()`
+
 ### `src/client/composables/shellLayoutDrawerPreference.js`
 Exports
 - `SHELL_LAYOUT_DRAWER_DEFAULT_OPEN_STORAGE_KEY`
 - `readDrawerDefaultOpenPreference({ storage = pageStorage() } = {})`
 - `writeDrawerDefaultOpenPreference(open, { storage = pageStorage() } = {})`
+
+### `src/client/composables/useShellAppBar.js`
+Exports
+- `useShellAppBar()`
 
 ### `src/client/composables/useShellDrawer.js`
 Exports
@@ -278,6 +295,10 @@ Exports
 - `ShellPageActions`
 - `ShellPageAction`
 - `ShellListDetail`
+- `ShellUpButton`
+- `ShellPageTitle`
+- `ShellPageActionsTarget`
+- `useShellAppBar`
 - `useShellLayoutState`
 - `useShellPageTitle`
 - `useShellWindowSizeClass`
@@ -640,6 +661,10 @@ Local functions
 - `createSurfacePlacements(surface)`
 - `refuseBlockedRecord(to)`
 
+### `fixtures/adaptive-shell/src/OwnBarLayout.vue`
+Exports
+- None
+
 ### `fixtures/adaptive-shell/src/RecordListPage.vue`
 Exports
 - None
@@ -657,6 +682,10 @@ Exports
 - None
 
 ### `fixtures/adaptive-shell/src/SettingsPage.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/src/StudioPage.vue`
 Exports
 - None
 

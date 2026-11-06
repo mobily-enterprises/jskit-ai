@@ -452,6 +452,50 @@ test("shell-web's app bar fills with surface-container once the page scrolls und
   }
 });
 
+test("shell-web's bar pieces give a layout that draws its own top app bar the shell's Up, title and actions", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    for (const viewport of DEFAULT_VIEWPORTS) {
+      const page = await browser.newPage({
+        baseURL: vite.baseURL,
+        viewport: { width: viewport.width, height: viewport.height }
+      });
+      const at = `${viewport.width}px`;
+      const ownBar = page.getByTestId("fixture-own-bar");
+
+      // A top-level page: the title is the page's one h1, in the app's own bar, with no arrow.
+      await page.goto("/home/studio");
+      await expect(ownBar.getByRole("heading", { level: 1, name: "Studio" }), at).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1 }), at).toHaveCount(1);
+      await expect(shellBackButton(page), at).toHaveCount(0);
+
+      // An inner page: Up, its title and its actions, in the app's own bar; Up returns along the trail.
+      await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
+      await expect(page).toHaveURL(/\/home\/studio\/ada$/u);
+      await expect(ownBar.getByTestId("jskit-shell-page-title"), at).toHaveText("Ada Lovelace");
+      await expect(ownBar.getByTestId("jskit-shell-back"), at).toHaveAccessibleName("Back");
+      await expect(ownBar.getByRole("button", { name: "Run" }), at).toBeVisible();
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home\/studio$/u);
+      await expect(shellBackButton(page), at).toHaveCount(0);
+
+      // A pasted link goes Up to the declared parent.
+      await page.goto("/home/studio/ada");
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home\/studio$/u);
+      await page.close();
+    }
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
 async function openMainDestination(page, label) {
   await page.getByRole("link", { name: label, exact: true }).filter({ visible: true }).first().click();
 }

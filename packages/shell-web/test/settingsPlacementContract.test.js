@@ -70,7 +70,21 @@ test("shell-web application pattern exposes surface-derived settings outlets", a
 });
 
 test("shell-web shell layout registers navigation at the app layout level", async () => {
+  const layoutSource = await readClientSources("components/ShellLayout.vue");
   const source = await readClientSources("composables/useShellDrawer.js", "components/ShellLayout.vue");
+  const barPieces = await readClientSources(
+    "components/ShellUpButton.vue",
+    "components/ShellPageTitle.vue",
+    "components/ShellPageActionsTarget.vue",
+    "composables/useShellAppBar.js"
+  );
+
+  // ShellLayout's bar is made of the pieces a layout with its own top app bar uses: one owner, no copy.
+  assert.match(layoutSource, /useShellAppBar\(\);/u);
+  assert.match(layoutSource, /<ShellUpButton v-if="canGoUp" class="shell-layout__leading" \/>/u);
+  assert.match(layoutSource, /<ShellPageTitle :title="fallbackTitle" \/>/u);
+  assert.match(layoutSource, /<ShellPageActionsTarget \/>/u);
+  assert.doesNotMatch(layoutSource, /\$arrowBack|PAGE_TITLE_ID|SHELL_PAGE_ACTIONS_ID|attachShell/u);
 
   assert.doesNotMatch(source, /<v-layout\b/);
   assert.doesNotMatch(source, /overflow-hidden/);
@@ -80,9 +94,11 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /data-testid="jskit-shell-app-bar"/);
   assert.match(source, /:height="64"/u);
   assert.match(source, /:color="scrolled \? 'surface-container' : 'surface'"/u);
-  assert.match(source, /data-testid="jskit-shell-back"[\s\S]*:aria-label="t\('jskit\.shell\.actions\.back'\)"/u);
-  assert.match(source, /:id="PAGE_TITLE_ID"/u);
-  assert.match(source, /:id="SHELL_PAGE_ACTIONS_ID"/u);
+  assert.match(barPieces, /data-testid="jskit-shell-back"[\s\S]*:aria-label="t\('jskit\.shell\.actions\.back'\)"/u);
+  assert.match(barPieces, /:id="PAGE_TITLE_ID"/u);
+  assert.match(barPieces, /:id="SHELL_PAGE_ACTIONS_ID"/u);
+  assert.match(barPieces, /provide\(SHELL_PAGE_ACTIONS_TARGET_KEY, `#\$\{SHELL_PAGE_ACTIONS_ID\}`\)/u);
+  assert.match(barPieces, /release = navigationRuntime\.attachShell\(\);/u);
   assert.match(source, /shell-layout__surface-label/);
   assert.doesNotMatch(source, /shell-layout__surface-chip/);
   assert.doesNotMatch(source, /<v-chip[^>]*resolvedSurfaceLabel/);

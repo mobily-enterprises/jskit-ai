@@ -1,7 +1,7 @@
 <script setup>
-import { computed, inject, onBeforeUnmount, onMounted, provide, ref } from "vue";
-import { useRoute } from "vue-router";
+import { computed, inject, onBeforeUnmount, onMounted, ref } from "vue";
 import { useDisplay } from "vuetify";
+import { useShellAppBar } from "../composables/useShellAppBar.js";
 import { useShellDrawer } from "../composables/useShellDrawer.js";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
 import { useShellPullToRefresh } from "../composables/useShellPullToRefresh.js";
@@ -10,15 +10,16 @@ import {
   DEFAULT_SHELL_RAIL_WIDTH
 } from "../support/drawerWidth.js";
 import { normalizeDesktopDrawerClosedMode } from "../support/drawerPresentation.js";
-import { SHELL_PAGE_ACTIONS_ID, SHELL_PAGE_ACTIONS_TARGET_KEY } from "../support/navigationPresentation.js";
 import { resolveShellLayoutClass } from "../support/shellLayoutClass.js";
 import { resolveWindowSizeClass } from "../support/windowSizeClass.js";
 import { NO_SHELL_WEB_REFRESH_RUNTIME, SHELL_WEB_REFRESH_RUNTIME_KEY } from "../runtime/refreshRuntime.js";
-import { PAGE_TITLE_ID, resolvePageTitle } from "../navigation/shellNavigationRuntime.js";
-import { useShellNavigation, useShellNavigationRuntime } from "../navigation/useShellNavigation.js";
+import { useShellNavigation } from "../navigation/useShellNavigation.js";
 import ShellNavigationScope from "./ShellNavigationScope.vue";
 import ShellOutlet from "./ShellOutlet.vue";
+import ShellPageActionsTarget from "./ShellPageActionsTarget.vue";
+import ShellPageTitle from "./ShellPageTitle.vue";
 import ShellRouteTransition from "./ShellRouteTransition.vue";
+import ShellUpButton from "./ShellUpButton.vue";
 import { useJskitText } from "../i18n.js";
 
 const { t, text } = useJskitText();
@@ -72,14 +73,11 @@ const {
   resolvedSurfaceLabel
 } = layoutState;
 const display = useDisplay();
-const route = useRoute();
 /** @type {import("../types.js").ShellRefreshRuntime} */
 const refreshRuntime = inject(SHELL_WEB_REFRESH_RUNTIME_KEY, NO_SHELL_WEB_REFRESH_RUNTIME);
-const navigationRuntime = useShellNavigationRuntime();
-const { canGoUp, up } = useShellNavigation();
+const { canGoUp } = useShellNavigation();
 const navigationToggle = ref(null);
 const scrolled = ref(false);
-let releaseShell = null;
 
 const viewportWidth = computed(() => display.width.value);
 const sizeClass = computed(() => resolveWindowSizeClass(display.width.value));
@@ -111,39 +109,24 @@ const standardDrawerVisible = computed(() => !modalLayout.value && drawerPresent
 // The menu control sits in the rail or drawer header when one shows, otherwise first in the app bar of a top-level
 // page; an inner page's leading slot is its Up arrow.
 const toggleInAppBar = computed(() => !showsMediumRail.value && !standardDrawerVisible.value);
-const pageTitle = computed(() => {
-  const source = navigationRuntime.pageTitleSource.value;
-  const runtimeTitle = typeof source === "function" ? source() : "";
-  return (
-    text(runtimeTitle) ||
-    text(resolvePageTitle(route.matched)) ||
-    text(props.title) ||
-    resolvedSurfaceLabel.value
-  );
-});
+const fallbackTitle = computed(() => text(props.title) || resolvedSurfaceLabel.value);
 const navigationStyle = computed(() => ({
   "--shell-navigation-item-spacing": `${resolvedNavigationItemSpacing.value}px`,
   "--shell-navigation-rail-width": `${resolvedRailWidth.value}px`
 }));
 
-provide(SHELL_PAGE_ACTIONS_TARGET_KEY, `#${SHELL_PAGE_ACTIONS_ID}`);
+useShellAppBar();
 
 function updateScrolled() {
   scrolled.value = window.scrollY > 0;
 }
 
-function goUp() {
-  void up();
-}
-
 onMounted(() => {
-  releaseShell = navigationRuntime.attachShell();
   window.addEventListener("scroll", updateScrolled, { passive: true });
   updateScrolled();
 });
 
 onBeforeUnmount(() => {
-  releaseShell?.();
   window.removeEventListener("scroll", updateScrolled);
 });
 </script>
@@ -159,19 +142,7 @@ onBeforeUnmount(() => {
     :data-size-class="sizeClass"
   >
     <div class="shell-layout__app-bar-row">
-      <v-btn
-        v-if="canGoUp"
-        class="shell-layout__leading"
-        icon
-        variant="text"
-        color="on-surface"
-        data-testid="jskit-shell-back"
-        :aria-label="t('jskit.shell.actions.back')"
-        @click="goUp"
-      >
-        <v-icon icon="$arrowBack" />
-        <v-tooltip activator="parent" location="bottom" :text="t('jskit.shell.actions.back')" />
-      </v-btn>
+      <ShellUpButton v-if="canGoUp" class="shell-layout__leading" />
       <v-btn
         v-else-if="toggleInAppBar"
         ref="navigationToggle"
@@ -187,13 +158,11 @@ onBeforeUnmount(() => {
       />
 
       <div class="shell-layout__headline" :class="{ 'shell-layout__headline--leading': canGoUp || toggleInAppBar }">
-        <h1 :id="PAGE_TITLE_ID" class="shell-layout__page-title" tabindex="-1" data-testid="jskit-shell-page-title">
-          {{ pageTitle }}
-        </h1>
+        <ShellPageTitle :title="fallbackTitle" />
         <p v-if="props.subtitle" class="shell-layout__page-subtitle">{{ text(props.subtitle) }}</p>
       </div>
 
-      <div :id="SHELL_PAGE_ACTIONS_ID" class="shell-layout__page-actions" />
+      <ShellPageActionsTarget />
 
       <slot name="top-right" :surface="resolvedSurface">
         <div class="shell-layout__top-right">
@@ -403,19 +372,6 @@ onBeforeUnmount(() => {
   padding-inline-start: 4px;
 }
 
-.shell-layout__page-title {
-  color: rgb(var(--v-theme-on-surface));
-  font-size: 1.375rem;
-  font-weight: 400;
-  letter-spacing: 0;
-  line-height: 1.75rem;
-  margin: 0;
-  outline: none;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .shell-layout__page-subtitle {
   color: rgb(var(--v-theme-on-surface-variant));
   font-size: 0.75rem;
@@ -428,17 +384,12 @@ onBeforeUnmount(() => {
   white-space: nowrap;
 }
 
-.shell-layout__page-actions,
 .shell-layout__top-right {
   align-items: center;
   color: rgb(var(--v-theme-on-surface-variant));
   display: flex;
   flex: 0 0 auto;
   min-width: 0;
-}
-
-.shell-layout__page-actions:empty {
-  display: none;
 }
 
 /* Navigation rail (medium windows, and expanded ones with the drawer collapsed): 80dp, menu control on top. */

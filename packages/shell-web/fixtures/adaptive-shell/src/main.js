@@ -13,6 +13,7 @@ import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
 import ScreenPage from "./ScreenPage.vue";
+import StudioPage from "./StudioPage.vue";
 import SettingsPage from "./SettingsPage.vue";
 import ShellMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellMenuLinkItem";
 import ShellSurfaceAwareMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellSurfaceAwareMenuLinkItem";
@@ -161,6 +162,9 @@ const routes = [
     beforeEnter: refuseBlockedRecord,
     meta: { kind: "suppliers", jskit: { parent: "/suppliers" } }
   },
+  // A layout that draws its own top app bar from the shell's pieces.
+  { path: "/home/studio", component: StudioPage, meta: { ownBar: true, jskit: { title: "Studio" } } },
+  { path: "/home/studio/:id", component: StudioPage, meta: { ownBar: true, jskit: { parent: "/studio" } } },
   { path: "/home/:section?", component: ScreenPage, meta: { title: "Home surface" } },
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
   { path: "/help", component: ScreenPage, meta: { title: "Help and support" } },
