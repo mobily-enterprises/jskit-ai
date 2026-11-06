@@ -1,7 +1,9 @@
 <script setup>
 import { computed, useId } from "vue";
-import { mdiDeleteOutline } from "@mdi/js";
+import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
 import { useJskitText } from "../i18n.js";
+
+// Delete as a page action (in the top app bar, an icon on compact windows), confirmed in a Material 3 dialog.
 
 const props = defineProps({
   action: {
@@ -35,20 +37,16 @@ function handleDialogModelUpdate(isOpen) {
 </script>
 
 <template>
-  <v-btn
-    color="error"
-    variant="tonal"
-    :prepend-icon="mdiDeleteOutline"
-    min-height="48"
+  <ShellPageAction
+    icon="$delete"
+    :label="t('jskit.http.crud.delete.button', { resource: resourceLabel })"
     :disabled="!action.canDelete"
     @click="action.request"
-  >
-    {{ t("jskit.http.crud.delete.button", { resource: resourceLabel }) }}
-  </v-btn>
+  />
 
   <v-dialog
     :model-value="action.isOpen"
-    max-width="32rem"
+    max-width="560"
     role="alertdialog"
     aria-modal="true"
     :aria-labelledby="titleId"
@@ -57,7 +55,9 @@ function handleDialogModelUpdate(isOpen) {
     @update:model-value="handleDialogModelUpdate"
   >
     <v-card>
-      <v-card-title :id="titleId">{{ t("jskit.http.crud.delete.title", { resource: resourceLabel }) }}</v-card-title>
+      <v-card-title :id="titleId" class="crud-delete-action__headline">
+        {{ t("jskit.http.crud.delete.title", { resource: resourceLabel }) }}
+      </v-card-title>
       <v-card-text>
         <p :id="descriptionId" class="mb-0">
           {{ t("jskit.http.crud.delete.description", { resource: resourceLabel.toLowerCase() }) }}
@@ -65,8 +65,10 @@ function handleDialogModelUpdate(isOpen) {
         <v-alert
           v-if="action.error"
           class="mt-4"
-          type="error"
-          variant="tonal"
+          color="error-container"
+          icon="$warning"
+          variant="flat"
+          :rounded="12"
         >
           {{ action.error }}
         </v-alert>
@@ -83,7 +85,7 @@ function handleDialogModelUpdate(isOpen) {
         </v-btn>
         <v-btn
           color="error"
-          variant="flat"
+          variant="text"
           :disabled="!action.canDelete"
           @click="action.confirm"
         >
@@ -93,3 +95,13 @@ function handleDialogModelUpdate(isOpen) {
     </v-card>
   </v-dialog>
 </template>
+
+<style scoped>
+.crud-delete-action__headline {
+  font-size: 1.5rem;
+  font-weight: 400;
+  line-height: 2rem;
+  padding: 24px 24px 16px;
+  white-space: normal;
+}
+</style>

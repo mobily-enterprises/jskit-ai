@@ -1,6 +1,12 @@
 <script setup>
 import { computed, unref } from "vue";
+import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
+import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
+import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
 import { useJskitText } from "../i18n.js";
+
+// A new or edit page as Material 3 lays it out: Cancel and Save in the top app bar, Save its one primary action, and
+// the form's fields below on the page.
 
 const props = defineProps({
   screen: {
@@ -46,11 +52,20 @@ function resolveFieldErrors(fieldKey) {
 function resolveCancelTo(target = cancelTo.value) {
   return props.screen.resolveCancelTo(target);
 }
+
+// Cancel leaves the form the way it came, or to its cancel route when it was opened directly, replacing the form's
+// history entry so neither Up nor Back reopens it.
+const navigation = useShellNavigation();
+const canCancel = computed(() => Boolean(cancelTo.value || navigation.upTarget.value));
+
+function cancel() {
+  return navigation.upTarget.value ? navigation.finish() : navigation.finish(resolveCancelTo(cancelTo.value));
+}
 </script>
 
 <template>
-  <section class="crud-screen crud-screen--operator crud-add-edit-form d-flex flex-column ga-4">
-    <div class="crud-add-edit-form__actions">
+  <section class="crud-screen crud-add-edit-form">
+    <ShellPageActions>
       <slot
         name="actions"
         :screen="screen"
@@ -62,95 +77,75 @@ function resolveCancelTo(target = cancelTo.value) {
         :cancel-to="resolveCancelTo()"
         :submit="addEdit.submit"
       >
-        <v-btn v-if="cancelTo" color="primary" variant="outlined" :to="resolveCancelTo(cancelTo)">
-          {{ t("jskit.http.actions.cancel") }}
-        </v-btn>
-        <v-btn
-          color="primary"
-          variant="flat"
+        <ShellPageAction
+          v-if="canCancel"
+          icon="$close"
+          :label="t('jskit.http.actions.cancel')"
+          @click="cancel"
+        />
+        <ShellPageAction
+          primary
+          :label="addEdit.isSaving ? t('jskit.http.actions.saving') : saveLabel"
           :disabled="addEdit.isSubmitDisabled"
           @click="addEdit.submit"
-        >
-          {{ addEdit.isSaving ? t("jskit.http.actions.saving") : saveLabel }}
-        </v-btn>
+        />
       </slot>
-    </div>
+    </ShellPageActions>
 
-    <v-sheet rounded="lg" border class="crud-add-edit-form__panel">
-      <div v-if="addEdit.loadError" class="crud-add-edit-form__state">
-        <p class="text-body-2 text-medium-emphasis mb-4">
-          {{ addEdit.loadError }}
-        </p>
-        <v-btn
-          v-if="addEdit.canRetryLoad"
-          color="primary"
-          variant="tonal"
-          :disabled="addEdit.isFetching"
-          @click="addEdit.refresh"
-        >
-          {{ addEdit.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}
-        </v-btn>
-      </div>
-      <template v-else-if="formRuntime.showFormSkeleton">
-        <div class="pa-4">
-          <v-skeleton-loader type="text@2, article" />
-        </div>
-      </template>
-      <v-form v-else class="pa-4" @submit.prevent="addEdit.submit" novalidate>
-        <v-row class="crud-add-edit-form__fields">
-          <slot
-            name="fields"
-            :mode="mode"
-            :form-runtime="formRuntime"
-            :form-state="formState"
-            :add-edit="addEdit"
-            :resolve-field-errors="resolveFieldErrors"
-            :resolve-lookup-items="resolveLookupItems"
-            :resolve-lookup-loading="resolveLookupLoading"
-            :resolve-lookup-search="resolveLookupSearch"
-            :set-lookup-search="setLookupSearch"
-          />
-        </v-row>
-      </v-form>
-    </v-sheet>
+    <div v-if="addEdit.loadError" class="crud-add-edit-form__state">
+      <v-icon icon="$cloudOff" size="48" />
+      <p class="text-body-large">{{ addEdit.loadError }}</p>
+      <v-btn
+        v-if="addEdit.canRetryLoad"
+        color="secondary-container"
+        prepend-icon="$refresh"
+        :disabled="addEdit.isFetching"
+        @click="addEdit.refresh"
+      >
+        {{ addEdit.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}
+      </v-btn>
+    </div>
+    <v-skeleton-loader v-else-if="formRuntime.showFormSkeleton" type="text@2, article" />
+    <v-form v-else @submit.prevent="addEdit.submit" novalidate>
+      <v-row class="crud-add-edit-form__fields">
+        <slot
+          name="fields"
+          :mode="mode"
+          :form-runtime="formRuntime"
+          :form-state="formState"
+          :add-edit="addEdit"
+          :resolve-field-errors="resolveFieldErrors"
+          :resolve-lookup-items="resolveLookupItems"
+          :resolve-lookup-loading="resolveLookupLoading"
+          :resolve-lookup-search="resolveLookupSearch"
+          :set-lookup-search="setLookupSearch"
+        />
+      </v-row>
+    </v-form>
   </section>
 </template>
 
 <style scoped>
-.crud-add-edit-form__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: flex-end;
-}
-
-.crud-add-edit-form__panel {
-  overflow: hidden;
+.crud-add-edit-form {
+  margin-inline: auto;
+  max-width: 840px;
+  min-width: 0;
+  width: 100%;
 }
 
 .crud-add-edit-form__state {
+  align-items: center;
+  color: rgb(var(--v-theme-on-surface-variant));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
   margin-inline: auto;
-  max-width: 30rem;
-  padding: 2rem 1rem;
+  max-width: 480px;
+  padding: 48px 16px;
   text-align: center;
 }
 
 .crud-add-edit-form__fields :deep(.v-col) {
   min-width: 0;
-}
-
-@media (max-width: 960px) {
-  .crud-add-edit-form__actions {
-    width: 100%;
-  }
-
-  .crud-add-edit-form__actions :deep(.v-btn) {
-    min-height: 48px;
-    flex: 1 1 10rem;
-  }
-
-  .crud-add-edit-form__state :deep(.v-btn) {
-    min-height: 48px;
-  }
 }
 </style>

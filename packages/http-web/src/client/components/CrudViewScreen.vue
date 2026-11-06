@@ -1,7 +1,12 @@
 <script setup>
-import { computed, unref } from "vue";
+import { computed, unref, watch } from "vue";
+import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
+import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
+import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
 import { useJskitText } from "../i18n.js";
 
+// A record page as Material 3 lays it out: Edit and the page's own actions in the top app bar, a header naming the
+// record, then its values as a two-line list, each value above its label. Up (the app bar's arrow) leaves the page.
 // Unset titles come from the catalog; passed titles may be message keys.
 const props = defineProps({
   screen: {
@@ -11,10 +16,6 @@ const props = defineProps({
   resourceSingularTitle: {
     type: String,
     default: undefined
-  },
-  resourcePluralTitle: {
-    type: String,
-    default: undefined
   }
 });
 
@@ -22,79 +23,67 @@ const { t, text } = useJskitText();
 const singularTitle = computed(() =>
   props.resourceSingularTitle === undefined ? t("jskit.http.crud.record") : text(props.resourceSingularTitle)
 );
-const pluralTitle = computed(() =>
-  props.resourcePluralTitle === undefined ? t("jskit.http.crud.records") : text(props.resourcePluralTitle)
-);
 
 const view = computed(() => props.screen.view);
-const listLocation = computed(() => unref(props.screen.listLocation) || null);
 const editLocation = computed(() => unref(props.screen.editLocation) || null);
+const recordTitle = computed(() => String(unref(props.screen.recordTitle) || ""));
+const isNotFound = computed(() => Boolean(unref(view.value.isNotFound)));
+
+// A record that is gone when Up returns here sends the reader on to this page's parent instead.
+const { pageUnavailable } = useShellNavigation();
+watch(isNotFound, (notFound) => {
+  if (notFound) {
+    pageUnavailable();
+  }
+}, { immediate: true });
 </script>
 
 <template>
-  <section class="crud-screen crud-screen--operator crud-view-element d-flex flex-column ga-4">
-    <div class="crud-view-actions">
-      <v-btn
-        v-if="listLocation"
-        color="primary"
-        variant="outlined"
-        :to="listLocation"
-      >
-        {{ t("jskit.http.crud.view.backTo", { resources: pluralTitle }) }}
-      </v-btn>
+  <section class="crud-screen crud-view">
+    <ShellPageActions>
       <slot name="actions" :screen="screen" :view="view" />
-      <v-btn
-        v-if="editLocation"
-        color="primary"
-        variant="flat"
+      <ShellPageAction
+        v-if="editLocation && !isNotFound"
+        icon="$edit"
+        :label="t('jskit.http.actions.edit')"
         :to="editLocation"
+      />
+    </ShellPageActions>
+
+    <div v-if="view.loadError" class="crud-view-state">
+      <v-icon icon="$cloudOff" size="48" />
+      <p class="text-body-large">{{ view.loadError }}</p>
+      <v-btn
+        color="secondary-container"
+        prepend-icon="$refresh"
+        :disabled="view.isFetching"
+        @click="view.refresh"
       >
-        {{ t("jskit.http.actions.edit") }}
+        {{ view.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}
       </v-btn>
     </div>
 
-    <v-sheet rounded="lg" border class="crud-view-panel">
-      <div v-if="view.loadError || view.isNotFound" class="crud-view-state">
-        <p class="text-body-2 text-medium-emphasis mb-4">
-          {{ view.loadError || t("jskit.http.crud.view.notFound", { resource: singularTitle }) }}
-        </p>
-        <div class="crud-view-state__actions">
-          <v-btn
-            v-if="view.loadError"
-            color="primary"
-            variant="tonal"
-            :disabled="view.isFetching"
-            @click="view.refresh"
-          >
-            {{ view.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}
-          </v-btn>
-          <v-btn
-            v-else-if="listLocation"
-            color="primary"
-            variant="tonal"
-            :to="listLocation"
-          >
-            {{ t("jskit.http.crud.view.backTo", { resources: pluralTitle }) }}
-          </v-btn>
-        </div>
-      </div>
+    <div v-else-if="isNotFound" class="crud-view-state">
+      <v-icon icon="$searchOff" size="48" />
+      <p class="text-body-large">{{ t("jskit.http.crud.view.notFound", { resource: singularTitle }) }}</p>
+    </div>
 
-      <template v-else-if="view.isLoading">
-        <div class="pa-4">
-          <v-skeleton-loader type="text@2, list-item-two-line@5" />
-        </div>
-      </template>
+    <v-card v-else-if="view.isLoading" class="crud-view-panel">
+      <v-skeleton-loader type="heading, list-item-two-line@4" />
+    </v-card>
 
-      <template v-else>
-        <div class="pa-4">
-          <slot name="before-fields" :view="view" />
-          <v-row class="crud-view-fields">
-            <slot name="fields" :view="view" />
-          </v-row>
-          <slot name="after-fields" :view="view" />
-        </div>
-      </template>
-    </v-sheet>
+    <template v-else>
+      <header v-if="recordTitle" class="crud-view-header">
+        <h2 class="text-headline-small">{{ recordTitle }}</h2>
+      </header>
+      <slot name="before-fields" :view="view" />
+      <v-card class="crud-view-panel">
+        <v-list class="crud-view-fields" lines="two">
+          <slot name="fields" :view="view" />
+        </v-list>
+      </v-card>
+      <slot name="after-fields" :view="view" />
+    </template>
 
     <div v-if="$slots['supporting-content']" class="crud-view-supporting-content">
       <slot name="supporting-content" :view="view" />
@@ -103,51 +92,45 @@ const editLocation = computed(() => unref(props.screen.editLocation) || null);
 </template>
 
 <style scoped>
-.crud-view-actions {
+.crud-view {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 16px;
+  margin-inline: auto;
+  max-width: 840px;
+  min-width: 0;
+  width: 100%;
+}
+
+.crud-view-header h2 {
+  color: rgb(var(--v-theme-on-surface));
+  font-weight: 400;
+  margin: 0;
+  overflow-wrap: anywhere;
 }
 
 .crud-view-panel {
-  overflow: hidden;
+  min-width: 0;
+}
+
+.crud-view-fields :deep(.v-list-item-title) {
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .crud-view-state {
-  margin-inline: auto;
-  max-width: 30rem;
-  padding: 2rem 1rem;
-  text-align: center;
-}
-
-.crud-view-state__actions {
+  align-items: center;
+  color: rgb(var(--v-theme-on-surface-variant));
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  justify-content: center;
-}
-
-.crud-view-fields :deep(.v-col) {
-  min-width: 0;
+  flex-direction: column;
+  gap: 16px;
+  margin-inline: auto;
+  max-width: 480px;
+  padding: 48px 16px;
+  text-align: center;
 }
 
 .crud-view-supporting-content {
   min-width: 0;
-}
-
-@media (max-width: 960px) {
-  .crud-view-actions {
-    width: 100%;
-  }
-
-  .crud-view-actions :deep(.v-btn) {
-    min-height: 48px;
-    flex: 1 1 10rem;
-  }
-
-  .crud-view-state__actions :deep(.v-btn) {
-    min-height: 48px;
-  }
 }
 </style>

@@ -14,14 +14,15 @@ test("CrudListBulkActionSurface stays adaptive and runtime-owned", async () => {
   );
 
   assert.match(source, /defineProps/);
-  assert.match(source, /useDisplay/);
+  assert.match(source, /useShellWindowSizeClass/);
   assert.match(source, /v-if="shouldRender"/);
   assert.match(source, /selectedCount/);
   assert.match(source, /hasActions/);
   assert.match(source, /hasSelection/);
   assert.match(source, /v-menu/);
   assert.match(source, /jskit\.http\.crud\.bulk\.actions/);
-  assert.match(source, /min-height:\s*48px/);
+  assert.match(source, /background: rgb\(var\(--v-theme-secondary-container\)\);/);
+  assert.doesNotMatch(source, /\bborder(?:-block|-inline)?\s*:|min-height:\s*48px/u);
   assert.doesNotMatch(source, /useCrudList\(/);
   assert.doesNotMatch(source, /apiSuffix|repository|server/);
 });

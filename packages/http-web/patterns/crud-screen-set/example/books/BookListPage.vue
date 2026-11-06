@@ -4,6 +4,9 @@ import { useCrudListScreen } from "@jskit-ai/http-web/client/composables/useCrud
 import { bookResource } from "@local/books/shared";
 import { listBulkActions, listFilters, listRowActions } from "./listExtensions.js";
 
+// A main menu destination: the app bar shows its title and no Up arrow.
+definePage({ meta: { jskit: { title: "Books" } } });
+
 const screen = useCrudListScreen({
   resource: bookResource,
   resourceNamespace: "books",
@@ -31,8 +34,8 @@ const screen = useCrudListScreen({
     <template #card-fields="{ record, formatListCardValue }">
       <dl class="d-grid ga-2 mb-0">
         <div>
-          <dt class="text-caption text-medium-emphasis">Author</dt>
-          <dd class="text-body-2 mb-0">{{ formatListCardValue(record.author) }}</dd>
+          <dt class="text-body-small on-surface-variant">Author</dt>
+          <dd class="text-body-medium ma-0">{{ formatListCardValue(record.author) }}</dd>
         </div>
       </dl>
     </template>

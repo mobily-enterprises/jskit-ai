@@ -132,7 +132,6 @@ function handleActivatorKeydown(event) {
         readonly
         inputmode="none"
         variant="outlined"
-        density="comfortable"
         hide-details="auto"
         class="crud-list-date-filter-control"
         @click:control="openMenu"

@@ -50,7 +50,6 @@ function placeholder(filter = {}, fallbackKey = "") {
         v-model="runtimeValues[filter.key]"
         :label="filterLabel(filter)"
         color="primary"
-        density="comfortable"
         hide-details
         class="crud-list-filter-surface__control"
       />
@@ -66,8 +65,6 @@ function placeholder(filter = {}, fallbackKey = "") {
         clearable
         item-title="label"
         item-value="value"
-        variant="outlined"
-        density="comfortable"
         hide-details="auto"
         class="crud-list-filter-surface__control"
       />
@@ -80,8 +77,6 @@ function placeholder(filter = {}, fallbackKey = "") {
         chips
         closable-chips
         clearable
-        variant="outlined"
-        density="comfortable"
         hide-details="auto"
         class="crud-list-filter-surface__control"
       />
@@ -91,8 +86,6 @@ function placeholder(filter = {}, fallbackKey = "") {
         :label="filterLabel(filter)"
         :placeholder="placeholder(filter, 'jskit.http.crud.filters.enterId')"
         clearable
-        variant="outlined"
-        density="comfortable"
         hide-details="auto"
         class="crud-list-filter-surface__control"
       />
@@ -122,16 +115,12 @@ function placeholder(filter = {}, fallbackKey = "") {
           v-model="runtimeValues[filter.key].min"
           :label="filterLabel(filter, 'jskit.http.crud.filters.rangeMin')"
           type="number"
-          variant="outlined"
-          density="comfortable"
           hide-details="auto"
         />
         <v-text-field
           v-model="runtimeValues[filter.key].max"
           :label="filterLabel(filter, 'jskit.http.crud.filters.rangeMax')"
           type="number"
-          variant="outlined"
-          density="comfortable"
           hide-details="auto"
         />
       </div>

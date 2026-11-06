@@ -1,6 +1,6 @@
 <script setup>
 import { computed } from "vue";
-import { useDisplay } from "vuetify";
+import { useShellWindowSizeClass } from "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
@@ -19,7 +19,7 @@ const resolvedTitle = computed(() =>
   props.title === undefined ? t("jskit.http.crud.bulk.selection") : text(props.title)
 );
 
-const { smAndDown: isCompactLayout } = useDisplay();
+const { isCompact: isCompactLayout } = useShellWindowSizeClass();
 
 const actions = computed(() => props.runtime.actions);
 const selectedCount = computed(() => props.runtime.selectedCount.value);
@@ -56,10 +56,10 @@ function actionLabel(action = {}) {
   <section v-if="shouldRender" class="crud-list-bulk-action-surface">
     <div class="crud-list-bulk-action-surface__summary">
       <div class="crud-list-bulk-action-surface__copy">
-        <span class="text-overline text-medium-emphasis">{{ resolvedTitle }}</span>
-        <strong>{{ t("jskit.http.crud.bulk.selected", { count: selectedCount }) }}</strong>
+        <span class="crud-list-bulk-action-surface__title">{{ resolvedTitle }}</span>
+        <span class="crud-list-bulk-action-surface__count">{{ t("jskit.http.crud.bulk.selected", { count: selectedCount }) }}</span>
       </div>
-      <v-btn size="small" variant="text" @click="clearSelection">{{ t("jskit.http.actions.clear") }}</v-btn>
+      <v-btn variant="text" color="on-secondary-container" @click="clearSelection">{{ t("jskit.http.actions.clear") }}</v-btn>
     </div>
 
     <div v-if="!isCompactLayout" class="crud-list-bulk-action-surface__actions">
@@ -78,9 +78,9 @@ function actionLabel(action = {}) {
 
     <v-menu v-else location="bottom end">
       <template #activator="{ props: menuProps }">
-        <v-btn v-bind="menuProps" color="primary" variant="tonal">{{ t("jskit.http.crud.bulk.actions") }}</v-btn>
+        <v-btn v-bind="menuProps" color="primary">{{ t("jskit.http.crud.bulk.actions") }}</v-btn>
       </template>
-      <v-list density="compact" min-width="180">
+      <v-list min-width="180">
         <v-list-item
           v-for="action in actions"
           :key="action.key"
@@ -95,15 +95,18 @@ function actionLabel(action = {}) {
 </template>
 
 <style scoped>
+/* A selection toolbar in the secondary container, as Material 3 marks a selected state. */
 .crud-list-bulk-action-surface {
   align-items: center;
-  background: rgba(var(--v-theme-primary), 0.08);
-  border-block: 1px solid rgba(var(--v-theme-primary), 0.18);
+  background: rgb(var(--v-theme-secondary-container));
+  border-radius: 16px;
+  color: rgb(var(--v-theme-on-secondary-container));
   display: flex;
-  gap: 0.75rem;
+  flex-wrap: wrap;
+  gap: 8px;
   justify-content: space-between;
   min-width: 0;
-  padding: 0.75rem 1rem;
+  padding: 8px 8px 8px 16px;
 }
 
 .crud-list-bulk-action-surface__summary,
@@ -111,24 +114,26 @@ function actionLabel(action = {}) {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 8px;
   min-width: 0;
 }
 
 .crud-list-bulk-action-surface__copy {
   display: grid;
-  gap: 0.1rem;
   min-width: 0;
 }
 
-.crud-list-bulk-action-surface :deep(.v-btn) {
-  min-height: 48px;
+.crud-list-bulk-action-surface__title {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.03125rem;
+  line-height: 1rem;
 }
 
-@media (max-width: 640px) {
-  .crud-list-bulk-action-surface {
-    align-items: stretch;
-    flex-direction: column;
-  }
+.crud-list-bulk-action-surface__count {
+  font-size: 1rem;
+  font-weight: 500;
+  letter-spacing: 0.009375rem;
+  line-height: 1.5rem;
 }
 </style>

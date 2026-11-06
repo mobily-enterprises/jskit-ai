@@ -7,6 +7,8 @@ import { bookResource } from "@local/books/shared";
 import BookFormFields from "./BookFormFields.vue";
 import { bookFormFields } from "./formFields.js";
 
+definePage({ meta: { jskit: { title: "Edit book", parent: "/books/:bookId" } } });
+
 const route = useRoute();
 const routeRecordId = computed(() => String(route.params.bookId || "").trim());
 

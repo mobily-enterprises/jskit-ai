@@ -496,7 +496,6 @@
  * @property {import("vue").MaybeRef<string>} [apiUrlTemplate]
  * @property {string} [access]
  * @property {HttpClient} [client]
- * @property {Pick<import("vue-router").Router, "push">} [router]
  * @property {string} [fallbackDeleteError]
  */
 

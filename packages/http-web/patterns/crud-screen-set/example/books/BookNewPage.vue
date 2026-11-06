@@ -5,6 +5,8 @@ import { bookResource } from "@local/books/shared";
 import BookFormFields from "./BookFormFields.vue";
 import { bookFormFields } from "./formFields.js";
 
+definePage({ meta: { jskit: { title: "New book", parent: "/books" } } });
+
 const screen = useCrudAddEditScreen({
   mode: "new",
   saveLabel: "Save book",

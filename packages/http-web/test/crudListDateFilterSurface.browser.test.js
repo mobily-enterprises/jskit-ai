@@ -21,12 +21,12 @@ async function readContract(page) {
   return JSON.parse(await page.getByTestId("date-filter-contract").textContent());
 }
 
-async function openCompactFilters(page) {
-  const openButton = page.getByRole("button", { name: /^Filters/u });
-  if (await openButton.isVisible()) {
-    await openButton.click();
-    await page.getByRole("dialog").waitFor({ state: "visible" });
-  }
+// Every filter control lives behind the Filters chip: a bottom sheet on compact windows, a dialog on wider ones.
+async function openFilters(page) {
+  await page.getByRole("button", { name: /^Filters/u }).click();
+  const sheet = page.getByRole("dialog");
+  await sheet.waitFor({ state: "visible" });
+  return sheet;
 }
 
 async function assertResponsiveDateControls(page, width) {
@@ -34,7 +34,7 @@ async function assertResponsiveDateControls(page, width) {
   await page.goto(`/${QUERY}`, {
     waitUntil: "networkidle"
   });
-  await openCompactFilters(page);
+  await openFilters(page);
 
   for (const name of ["Submitted date", "Arrival from", "Arrival to"]) {
     const field = page.getByLabel(name, { exact: true });
@@ -110,6 +110,7 @@ test("CRUD date filters render and operate without clipping across responsive la
     });
     await page.getByText("Submitted date: Apr 18, 2026", { exact: true }).waitFor();
     await page.getByText("Arrival: May 4, 2026 to May 10, 2026", { exact: true }).waitFor();
+    const filterSheet = await openFilters(page);
 
     const submittedField = page.getByLabel("Submitted date", { exact: true });
     await submittedField.focus();
@@ -154,7 +155,7 @@ test("CRUD date filters render and operate without clipping across responsive la
     await page.keyboard.press("Escape");
     assert.equal(await arrivalFromField.evaluate((element) => element === document.activeElement), true);
 
-    const clearAll = page.getByRole("button", { name: "Clear all", exact: true });
+    const clearAll = filterSheet.getByRole("button", { name: "Clear all", exact: true });
     await clearAll.focus();
     await clearAll.press("Space");
     assert.deepEqual((await readContract(page)).values, {
@@ -164,14 +165,22 @@ test("CRUD date filters render and operate without clipping across responsive la
 
     await page.setViewportSize({ width: 375, height: 812 });
     await page.reload({ waitUntil: "networkidle" });
-    const openFilters = page.getByRole("button", { name: /^Filters/u });
-    const openButtonBox = await openFilters.boundingBox();
-    assert.ok(openButtonBox && openButtonBox.height >= 48);
-    await openFilters.click();
-    const mobileSheet = page.getByRole("dialog");
-    await mobileSheet.waitFor({ state: "visible" });
+    const filtersChip = page.getByRole("button", { name: /^Filters/u });
+    const filtersChipBox = await filtersChip.boundingBox();
+    assert.equal(filtersChipBox?.height, 32, "The Filters chip is Material 3's 32dp chip.");
+    assert.equal(
+      await filtersChip.evaluate((chip) => getComputedStyle(chip, "::after").height),
+      "48px",
+      "The Filters chip has a 48dp touch target."
+    );
+    const mobileSheet = await openFilters(page);
     const mobileSheetBox = await mobileSheet.boundingBox();
     assert.ok(mobileSheetBox && mobileSheetBox.width <= 375);
+    assert.equal(
+      await page.locator(".v-bottom-sheet").count(),
+      1,
+      "Compact windows show the filters in a bottom sheet."
+    );
     await page.getByLabel("Arrival from", { exact: true }).waitFor({ state: "visible" });
   } finally {
     if (browser) {

@@ -1,5 +1,6 @@
 import { computed, proxyRefs, reactive, watch } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
+import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveCrudJsonApiTransport } from "../crud/crudJsonApiTransportSupport.js";
 import { resolveCrudHttpClient } from "../crud/crudHttpClientSupport.js";
@@ -117,7 +118,8 @@ function useCrudAddEdit({
   mapPayloadToModel,
   input
 }) {
-  const router = useRouter();
+  // Saving leaves the form by replacing its history entry, so neither Up nor Back reopens it.
+  const navigation = useShellNavigation();
   const route = useRoute();
   const normalizedFields = normalizeCrudFormFields(formFields);
   const normalizedAddEditOptions = asPlainObject(addEditOptions);
@@ -209,7 +211,7 @@ function useCrudAddEdit({
       const viewUrl = addEdit.resolveSavedViewUrl(payload) ||
         addEdit.resolveViewUrl(addEdit.recordId);
       if (viewUrl) {
-        await router.push(viewUrl);
+        await navigation.finish(viewUrl);
         return;
       }
     }
@@ -220,7 +222,7 @@ function useCrudAddEdit({
 
     const listUrl = addEdit.resolveParams(saveSuccessOptions.listUrlTemplate);
     if (listUrl) {
-      await router.push(listUrl);
+      await navigation.finish(listUrl);
     }
   }
 

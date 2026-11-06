@@ -1,6 +1,6 @@
 import { computed, nextTick, proxyRefs, ref, unref } from "vue";
-import { useRouter } from "vue-router";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
 import { resolveCrudJsonApiTransport } from "./crud/crudJsonApiTransportSupport.js";
 import { resolveCrudHttpClient } from "./crud/crudHttpClientSupport.js";
 import { toQueryErrorMessage } from "./support/errorMessageHelpers.js";
@@ -37,7 +37,6 @@ function useCrudDeleteAction({
   apiUrlTemplate = "",
   access = "auto",
   client,
-  router = useRouter(),
   fallbackDeleteError = t("jskit.http.crud.delete.failed")
 }) {
   const deleteOperation = requireCrudDeleteOperation(resource);
@@ -48,6 +47,7 @@ function useCrudDeleteAction({
     throw new TypeError("useCrudDeleteAction requires resourceNamespace or resource.namespace.");
   }
 
+  const navigation = useShellNavigation();
   const isOpen = ref(false);
   const error = ref("");
   const deleteApiSuffix = computed(() => resolveDeleteApiSuffix(screen, apiUrlTemplate));
@@ -61,7 +61,8 @@ function useCrudDeleteAction({
     isOpen.value = false;
     // Leave the deleted record's view before invalidating: while its view query is
     // still observed, invalidation would refetch it and report "Record not found.".
-    await router.push(listLocation);
+    // The list replaces the record's history entry, so neither Up nor Back reopens it.
+    await navigation.finish(listLocation);
     await nextTick();
     await context.queryClient.invalidateQueries({
       queryKey: ["crud", namespace]

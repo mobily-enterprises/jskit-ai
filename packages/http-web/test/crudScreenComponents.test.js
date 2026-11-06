@@ -23,9 +23,16 @@ async function readClientFile(...parts) {
 
 test("every CRUD list create action retains its configured label and destination", async () => {
   const componentUrl = new URL("../src/client/components/CrudListScreen.vue", import.meta.url).href;
+  const createActionUrl = new URL("../src/client/components/CrudListCreateAction.vue", import.meta.url).href;
   const hooks = registerHooks({
     load(url, context, nextLoad) {
       if (!url.endsWith(".vue")) return nextLoad(url, context);
+      if (url === createActionUrl) {
+        return {
+          format: "module", shortCircuit: true,
+          source: "import { h } from \"vue\"; export default { props: [\"label\", \"to\"], setup: (props) => () => h(\"a\", { href: props.to }, props.label) };"
+        };
+      }
       if (url !== componentUrl) {
         return { format: "module", shortCircuit: true, source: "export default { render: () => null };" };
       }
@@ -65,13 +72,14 @@ test("every CRUD list create action retains its configured label and destination
         props: { to: { type: [String, Object], default: undefined } },
         setup: (props, { slots }) => () => h("a", { href: props.to }, slots.default?.())
       }));
-      for (const name of ["VSheet", "VTable", "VTextField", "VSkeletonLoader", "VCheckboxBtn"]) {
+      for (const name of ["VCard", "VTable", "VTextField", "VSkeletonLoader", "VCheckboxBtn", "VIcon", "VTooltip"]) {
         app.component(name, defineComponent({ setup: (_props, { slots }) => () => h("div", slots.default?.()) }));
       }
       const html = await renderToString(app);
       const labels = [...html.matchAll(/<a[^>]*href="\/books\/new"[^>]*>(.*?)<\/a>/gs)]
         .map((match) => match[1].trim());
-      assert.deepEqual(labels, Array(populated ? 2 : 3).fill(createLabel ?? "New record"));
+      // The FAB or app bar action, plus the empty state's own button.
+      assert.deepEqual(labels, Array(populated ? 1 : 2).fill(createLabel ?? "New record"));
     }
   }
 });
@@ -84,41 +92,55 @@ test("CRUD screen components own list/view/form chrome centrally", async () => {
   const bulkActionSource = await readComponent("CrudListBulkActionSurface.vue");
   const rowActionSource = await readComponent("CrudListRecordActionMenu.vue");
 
+  const createActionSource = await readComponent("CrudListCreateAction.vue");
+
   assert.match(listSource, /CrudListBulkActionSurface/);
   assert.match(listSource, /CrudListFilterSurface/);
   assert.match(listSource, /CrudListRecordActionMenu/);
+  assert.match(listSource, /<CrudListCreateAction v-if="listPrimaryAction"/);
+  assert.match(listSource, /<ShellPageActions>[\s\S]*icon="\$refresh"[\s\S]*<\/ShellPageActions>/);
   assert.match(listSource, /class="crud-list-cards"/);
   assert.match(listSource, /class="crud-list-table"/);
-  assert.match(listSource, /class="crud-list-fab"/);
-  assert.doesNotMatch(listSource, /crud-list-cards d-md-none/);
-  assert.doesNotMatch(listSource, /crud-list-table d-none d-md-block/);
-  assert.doesNotMatch(listSource, /class="crud-list-fab d-md-none"/);
   assert.match(listSource, /\.crud-list-table\s*\{\s*display:\s*none;/);
+  // The list's own width, not the window's, picks cards or the table.
+  assert.match(listSource, /container: crud-list \/ inline-size;/);
   assert.match(
     listSource,
-    /@media \(min-width: 960px\)[\s\S]*\.crud-list-cards\s*\{\s*display:\s*none;[\s\S]*\.crud-list-table\s*\{\s*display:\s*block;[\s\S]*\.crud-list-fab\s*\{\s*display:\s*none;/
+    /@container crud-list \(min-width: 720px\)[\s\S]*\.crud-list-cards\s*\{\s*display:\s*none;[\s\S]*\.crud-list-table\s*\{\s*display:\s*block;/
   );
-  assert.match(listSource, /:button-label="t\('jskit\.http\.actions\.more'\)"/);
+  assert.match(listSource, /table-layout: fixed;/);
+  assert.match(listSource, /text-overflow: ellipsis;/);
+  assert.match(listSource, /@click="openRow\(row, \$event\)"/);
+  assert.match(listSource, /class="crud-list-card__title crud-list-card__link"/);
+  assert.match(listSource, /icon="\$inbox"/);
+  assert.match(listSource, /icon="\$cloudOff"/);
+  assert.match(listSource, /variant="solo-filled"[\s\S]*rounded="pill"[\s\S]*prepend-inner-icon="\$search"/);
+  assert.doesNotMatch(listSource, /@media|<v-sheet|\sborder(?=[\s>])|\bborder\s*:|min-height:\s*48px/u);
   assert.match(listSource, /selectableRows/);
-  assert.match(
-    listSource,
-    /\.crud-list-element :deep\(\.v-btn\)\s*\{\s*min-height:\s*48px;/
-  );
+  assert.match(createActionSource, /<v-fab[\s\S]*v-if="isCompact \|\| isMedium"[\s\S]*\bapp\b[\s\S]*\bextended\b/);
+  assert.match(createActionSource, /<ShellPageAction primary icon="\$add"/);
+  assert.match(rowActionSource, /icon="\$moreVert"/);
   assert.match(listSource, /<slot[\s\S]*name="card-fields"/);
   assert.match(listSource, /<slot name="table-header"/);
   assert.match(listSource, /<slot[\s\S]*name="table-row"/);
   assert.match(listSource, /:row="row"/);
 
-  assert.match(viewSource, /crud-screen crud-screen--operator crud-view-element/);
+  assert.match(viewSource, /class="crud-screen crud-view"/);
   assert.match(viewSource, /crud-view-panel/);
   assert.match(viewSource, /@click="view\.refresh"/);
-  assert.match(viewSource, /<slot name="actions" :screen="screen" :view="view" \/>/);
+  assert.match(viewSource, /<ShellPageActions>\s*<slot name="actions" :screen="screen" :view="view" \/>/);
+  assert.match(viewSource, /pageUnavailable\(\)/);
+  assert.match(viewSource, /<v-list class="crud-view-fields" lines="two">/);
+  assert.doesNotMatch(viewSource, /backTo|Back to/u);
   assert.match(viewSource, /<slot name="before-fields"/);
   assert.match(viewSource, /<slot name="fields"/);
   assert.match(viewSource, /<slot name="after-fields"/);
   assert.match(viewSource, /supporting-content/);
 
-  assert.match(addEditSource, /crud-screen crud-screen--operator crud-add-edit-form/);
+  assert.match(addEditSource, /class="crud-screen crud-add-edit-form"/);
+  assert.match(addEditSource, /<ShellPageActions>\s*<slot\s+name="actions"/);
+  assert.match(addEditSource, /<ShellPageAction\s+primary/);
+  assert.match(addEditSource, /navigation\.finish\(/);
   assert.match(addEditSource, /addEdit\.canRetryLoad/);
   assert.match(addEditSource, /@click="addEdit\.refresh"/);
   assert.match(addEditSource, /<slot[\s\S]*name="fields"/);
@@ -127,6 +149,7 @@ test("CRUD screen components own list/view/form chrome centrally", async () => {
   assert.match(deleteActionSource, /@click="action\.confirm"/);
   assert.match(deleteActionSource, /@click="closeDialog"/);
   assert.doesNotMatch(deleteActionSource, /\bactivator=/);
+  assert.match(deleteActionSource, /<ShellPageAction\s+icon="\$delete"/);
 
   const sharedSources = [
     listSource,
@@ -134,10 +157,12 @@ test("CRUD screen components own list/view/form chrome centrally", async () => {
     addEditSource,
     deleteActionSource,
     bulkActionSource,
-    rowActionSource
+    rowActionSource,
+    createActionSource
   ].join("\n");
   assert.doesNotMatch(sharedSources, /:loading=|v-progress-(?:circular|linear)/u);
   assert.doesNotMatch(sharedSources, /ui-generator|generated-ui/u);
+  assert.doesNotMatch(sharedSources, /@mdi\/js|mdi-|!important/u);
   assert.match(listSource, /v-skeleton-loader/u);
   assert.match(viewSource, /v-skeleton-loader/u);
   assert.match(addEditSource, /v-skeleton-loader/u);

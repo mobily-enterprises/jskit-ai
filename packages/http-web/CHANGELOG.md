@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The CRUD screens are exact Material 3. The list is a search bar and one row of filter chips (the Filters chip opens every control in a bottom sheet on compact windows and a dialog on wider ones), then cards or, when the list is at least 720px wide, a table; cards and rows open their record when tapped and keep their other actions in a trailing overflow menu (a table row's Open is a trailing chevron, its Edit a pencil); cards no longer show the record's id; the create action is an extended FAB on compact and medium windows and the app bar's primary action on wider ones; empty and error states have an icon. The view is a header and value-first details, its Edit and Delete in the app bar; new and edit pages have Cancel and Save in the app bar.
+- Save, Cancel and delete replace the form's history entry through shell-web's `useShellNavigation().finish()`, so Back no longer reopens a finished form; `useCrudDeleteAction()` no longer takes `router`. A view whose record is not found tells the shell (`pageUnavailable()`), so Up returning to it goes on to its parent.
+- `CrudViewScreen` no longer takes `resourcePluralTitle` and its "Back to" button is gone; `CrudListRecordActionMenu` takes the record's `title` instead of `buttonLabel`, `buttonVariant` and `buttonSize`. Message keys: `jskit.http.actions.actions` and `jskit.http.crud.view.backTo` are removed, `jskit.http.crud.list.recordActions` ("Actions for {title}") is new. `@mdi/js` is gone; icons are `$aliases`.
+- The crud-screen-set pattern's pages declare their titles and parents in `definePage()`.
+- Upgrading: see the guide's [Move an app to the Material 3 defaults](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/material-3-migration).
 - CRUD list filters show the presence choices and the default filter chips through the app's translator, from resource-crud-core's new catalog (registered with http-web's own). The English is unchanged.
 
 ## 0.2.0 - 2026-10-29

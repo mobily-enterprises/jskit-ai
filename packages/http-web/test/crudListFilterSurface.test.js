@@ -25,28 +25,32 @@ test("http-web exposes client-side CRUD list filter definition helpers", async (
   assert.equal(filters.status.options[0].label, "Active");
 });
 
-test("CrudListFilterSurface provides adaptive controls without owning server semantics", async () => {
+test("CrudListFilterSurface is one Material 3 chip row over a filter sheet, without owning server semantics", async () => {
   const componentsDir = path.join(PACKAGE_DIR, "src", "client", "components");
   const surfaceSource = await readFile(path.join(componentsDir, "CrudListFilterSurface.vue"), "utf8");
+  const sheetSource = await readFile(path.join(componentsDir, "CrudListFilterSheet.vue"), "utf8");
   const controlsSource = await readFile(path.join(componentsDir, "CrudListFilterControls.vue"), "utf8");
-  const source = `${surfaceSource}\n${controlsSource}`;
+  const source = `${surfaceSource}\n${sheetSource}\n${controlsSource}`;
 
-  assert.match(surfaceSource, /<CrudListFilterControls[^>]*:runtime="runtime"[^>]*\/>/);
-  assert.match(surfaceSource, /<CrudListFilterControls[^>]*\bstacked\b[^>]*\/>/);
+  assert.match(sheetSource, /<CrudListFilterControls[^>]*:runtime="props\.runtime"[^>]*\bstacked\b[^>]*\/>/);
+  assert.match(surfaceSource, /<v-bottom-sheet v-if="isCompact" v-model="sheetOpen">\s*<CrudListFilterSheet/);
+  assert.match(surfaceSource, /<v-dialog v-else v-model="sheetOpen" max-width="560">\s*<CrudListFilterSheet/);
+  assert.match(surfaceSource, /useShellWindowSizeClass/);
+  assert.match(surfaceSource, /prepend-icon="\$tune"/);
+  assert.match(surfaceSource, /v-for="filter in flagFilters"[\s\S]*:aria-pressed=/);
+  assert.match(surfaceSource, /v-for="chip in valueChips"[\s\S]*closable/);
 
   assert.match(source, /defineProps/);
-  assert.match(source, /useDisplay/);
   assert.match(source, /v-if="shouldRender"/);
   assert.match(source, /filterEntries/);
   assert.match(source, /runtimeValues\[filter\.key\]/);
   assert.match(source, /activeChips/);
   assert.match(source, /clearChip/);
   assert.match(source, /clearFilters/);
-  assert.match(source, /v-dialog/);
-  assert.match(source, /min-height:\s*48px/);
   assert.match(source, /CrudListDateFilterControl/);
   assert.match(source, /crud-list-filter-surface__range--date/);
   assert.match(source, /grid-column:\s*span 2/);
+  assert.doesNotMatch(`${surfaceSource}\n${sheetSource}`, /@media|<v-sheet|\sborder(?=[\s>])|\bborder\s*:|min-height:\s*48px/u);
   assert.doesNotMatch(source, /type="date"/);
   assert.doesNotMatch(source, /useCrudList\(/);
   assert.doesNotMatch(source, /apiSuffix|server|repository/);

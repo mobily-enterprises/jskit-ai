@@ -62,7 +62,11 @@ async function importCrudListScreen() {
     load(url, context, nextLoad) {
       if (!url.endsWith(".vue")) return nextLoad(url, context);
       if (url !== componentUrl) {
-        return { format: "module", shortCircuit: true, source: "export default { render: () => null };" };
+        // Child components show the label they are given (the app bar's actions), or else their content.
+        return {
+          format: "module", shortCircuit: true,
+          source: "import { h } from \"vue\"; export default { props: [\"label\"], setup: (props, { slots }) => () => props.label ? h(\"span\", props.label) : h(\"div\", slots.default?.()) };"
+        };
       }
       const { descriptor } = parse(readFileSync(new URL(url), "utf8"));
       return {
@@ -86,7 +90,7 @@ async function renderCrudListScreen(props) {
   });
   await router.push("/books");
   app.use(router);
-  for (const name of ["VBtn", "VSheet", "VTable", "VTextField", "VSkeletonLoader", "VCheckboxBtn"]) {
+  for (const name of ["VBtn", "VCard", "VTable", "VTextField", "VSkeletonLoader", "VCheckboxBtn", "VIcon", "VTooltip"]) {
     app.component(name, defineComponent({ setup: (_props, { slots }) => () => h("div", slots.default?.()) }));
   }
   return renderToString(app);

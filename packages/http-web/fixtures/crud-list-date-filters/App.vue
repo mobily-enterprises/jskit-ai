@@ -66,9 +66,9 @@ const contractSnapshot = computed(() => JSON.stringify({
     <v-main>
       <v-container class="date-filter-fixture py-8">
         <div class="mb-6">
-          <div class="text-overline text-primary">JSKIT http-web</div>
-          <h1 class="text-h4 mb-2">Date filter controls</h1>
-          <p class="text-body-1 text-medium-emphasis mb-0">
+          <div class="text-label-small text-primary">JSKIT http-web</div>
+          <h1 class="text-headline-large mb-2">Date filter controls</h1>
+          <p class="text-body-large on-surface-variant mb-0">
             Date and date-range filters beside ordinary Vuetify selects.
           </p>
         </div>

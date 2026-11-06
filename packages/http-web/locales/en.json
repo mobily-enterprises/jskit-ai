@@ -6,7 +6,6 @@
         "routeParamsRequired": "Route parameters {params} are required for surface \"{surface}\"."
       },
       "actions": {
-        "actions": "Actions",
         "apply": "Apply",
         "cancel": "Cancel",
         "clear": "Clear",
@@ -66,6 +65,7 @@
           "loadErrorBody": "Check the connection and try again.",
           "loadFailed": "Unable to load records.",
           "newRecord": "New record",
+          "recordActions": "Actions for {title}",
           "selectRecord": "Select {title}",
           "selectVisibleRows": "Select visible rows"
         },
@@ -82,7 +82,6 @@
         "recordNotFound": "Record not found.",
         "records": "Records",
         "view": {
-          "backTo": "Back to {resources}",
           "loadFailed": "Unable to load record.",
           "notFound": "This {resource} could not be found."
         },

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, ref } from "vue";
-import { useDisplay } from "vuetify";
-import CrudListFilterControls from "./CrudListFilterControls.vue";
+import { useShellWindowSizeClass } from "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass";
+import CrudListFilterSheet from "./CrudListFilterSheet.vue";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
@@ -24,7 +24,10 @@ const resolvedTitle = computed(() =>
   props.title === undefined ? t("jskit.http.crud.filters.title") : text(props.title)
 );
 
-const { smAndDown: isCompactLayout } = useDisplay();
+// Material 3 filters: one row of chips. The Filters chip opens every control, in a bottom sheet on compact windows and a
+// dialog on wider ones; on/off filters are toggle chips in the row itself, and each other active filter is a chip
+// that clears it.
+const { isCompact } = useShellWindowSizeClass();
 
 const sheetOpen = ref(false);
 
@@ -34,119 +37,90 @@ const filterEntries = computed(() =>
     : {})
     .filter((filter) => filter?.key && filter?.type)
 );
+const flagFilters = computed(() => filterEntries.value.filter((filter) => filter.type === "flag"));
+const runtimeValues = computed(() => props.runtime.values);
 const activeChips = computed(() => props.runtime.activeChips.value);
+const valueChips = computed(() =>
+  activeChips.value.filter((chip) => !flagFilters.value.some((filter) => filter.key === chip.filterKey))
+);
 const hasActiveFilters = computed(() => props.runtime.hasActiveFilters.value);
 const shouldRender = computed(() => filterEntries.value.length > 0);
 
-function clearChip(chip) {
-  props.runtime.clearChip(chip);
+function toggleFlag(filter) {
+  runtimeValues.value[filter.key] = !runtimeValues.value[filter.key];
 }
 
-function clearFilters() {
-  props.runtime.clearFilters();
+function clearChip(chip) {
+  props.runtime.clearChip(chip);
 }
 </script>
 
 <template>
   <section v-if="shouldRender" class="crud-list-filter-surface">
-    <div class="crud-list-filter-surface__summary">
-      <v-btn
-        v-if="isCompactLayout"
-        color="primary"
-        variant="tonal"
+    <div class="crud-list-filter-surface__chips">
+      <v-chip
+        tag="button"
+        type="button"
         class="crud-list-filter-surface__open"
+        prepend-icon="$tune"
+        :variant="hasActiveFilters ? 'flat' : 'outlined'"
+        :color="hasActiveFilters ? 'secondary-container' : undefined"
+        aria-haspopup="dialog"
         @click="sheetOpen = true"
       >
         {{ resolvedTitle }}
-        <v-chip v-if="activeChips.length > 0" class="ml-2" size="x-small" color="primary" variant="flat">
-          {{ activeChips.length }}
-        </v-chip>
-      </v-btn>
-
-      <div v-if="hasActiveFilters" class="crud-list-filter-surface__chips">
-        <v-chip
-          v-for="chip in activeChips"
-          :key="chip.id"
-          closable
-          :close-label="t('jskit.http.actions.close')"
-          size="small"
-          variant="tonal"
-          @click:close="clearChip(chip)"
-        >
-          {{ chip.label }}
-        </v-chip>
-        <v-btn size="small" variant="text" @click="clearFilters">{{ t("jskit.http.actions.clearAll") }}</v-btn>
-      </div>
+        <span v-if="activeChips.length > 0" class="crud-list-filter-surface__count">{{ activeChips.length }}</span>
+      </v-chip>
+      <v-chip
+        v-for="filter in flagFilters"
+        :key="filter.key"
+        tag="button"
+        type="button"
+        :variant="runtimeValues[filter.key] ? 'flat' : 'outlined'"
+        :color="runtimeValues[filter.key] ? 'secondary-container' : undefined"
+        :prepend-icon="runtimeValues[filter.key] ? '$check' : undefined"
+        :aria-pressed="runtimeValues[filter.key] ? 'true' : 'false'"
+        @click="toggleFlag(filter)"
+      >
+        {{ text(filter.label) }}
+      </v-chip>
+      <v-chip
+        v-for="chip in valueChips"
+        :key="chip.id"
+        variant="flat"
+        color="secondary-container"
+        closable
+        :close-label="t('jskit.http.actions.clear')"
+        @click:close="clearChip(chip)"
+      >
+        {{ chip.label }}
+      </v-chip>
+      <v-btn v-if="hasActiveFilters" variant="text" @click="props.runtime.clearFilters()">{{ t("jskit.http.actions.clearAll") }}</v-btn>
     </div>
 
-    <v-sheet v-if="!isCompactLayout" rounded="lg" border class="crud-list-filter-surface__panel">
-      <CrudListFilterControls :filters="filterEntries" :runtime="runtime" />
-    </v-sheet>
-
-    <v-dialog v-model="sheetOpen" max-width="640" location="bottom">
-      <v-card rounded="lg" class="crud-list-filter-surface__sheet">
-        <v-card-title class="d-flex align-center justify-space-between">
-          <span>{{ resolvedTitle }}</span>
-          <v-btn variant="text" @click="sheetOpen = false">{{ t("jskit.http.actions.close") }}</v-btn>
-        </v-card-title>
-        <v-card-text>
-          <CrudListFilterControls :filters="filterEntries" :runtime="runtime" stacked />
-        </v-card-text>
-        <v-card-actions class="justify-space-between">
-          <v-btn variant="text" @click="clearFilters">{{ t("jskit.http.actions.clearAll") }}</v-btn>
-          <v-btn color="primary" variant="flat" @click="sheetOpen = false">{{ t("jskit.http.actions.apply") }}</v-btn>
-        </v-card-actions>
-      </v-card>
+    <v-bottom-sheet v-if="isCompact" v-model="sheetOpen">
+      <CrudListFilterSheet :filters="filterEntries" :runtime="runtime" :title="resolvedTitle" @close="sheetOpen = false" />
+    </v-bottom-sheet>
+    <v-dialog v-else v-model="sheetOpen" max-width="560">
+      <CrudListFilterSheet :filters="filterEntries" :runtime="runtime" :title="resolvedTitle" @close="sheetOpen = false" />
     </v-dialog>
   </section>
 </template>
 
 <style scoped>
 .crud-list-filter-surface {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
   min-width: 0;
-}
-
-.crud-list-filter-surface__summary {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: space-between;
-}
-
-.crud-list-filter-surface__open {
-  min-height: 48px;
 }
 
 .crud-list-filter-surface__chips {
   align-items: center;
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
+  gap: 8px;
   min-width: 0;
 }
 
-.crud-list-filter-surface__panel {
-  padding: 1rem;
-}
-
-.crud-list-filter-surface__sheet {
-  margin: 0.75rem;
-}
-
-.crud-list-filter-surface :deep(.v-field),
-.crud-list-filter-surface :deep(.v-btn),
-.crud-list-filter-surface :deep(.v-selection-control) {
-  min-height: 48px;
-}
-
-@media (max-width: 640px) {
-  .crud-list-filter-surface__summary {
-    align-items: stretch;
-    flex-direction: column;
-  }
+.crud-list-filter-surface__count {
+  margin-inline-start: 6px;
 }
 </style>

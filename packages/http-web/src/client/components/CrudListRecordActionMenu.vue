@@ -31,23 +31,16 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
-  buttonLabel: {
+  // The record's title, which names the menu for assistive technology.
+  title: {
     type: String,
-    default: undefined
-  },
-  buttonVariant: {
-    type: String,
-    default: "text"
-  },
-  buttonSize: {
-    type: String,
-    default: "small"
+    default: ""
   }
 });
 
 const { t, text } = useJskitText();
-const resolvedButtonLabel = computed(() =>
-  props.buttonLabel === undefined ? t("jskit.http.actions.actions") : text(props.buttonLabel)
+const buttonLabel = computed(() =>
+  props.title ? t("jskit.http.crud.list.recordActions", { title: props.title }) : t("jskit.http.actions.more")
 );
 
 const visibleRowActions = computed(() => props.rowActions.visibleActionsFor(props.record, props.index));
@@ -81,20 +74,23 @@ function runRowAction(action) {
     <template #activator="{ props: menuProps }">
       <v-btn
         v-bind="menuProps"
-        :variant="buttonVariant"
-        :size="buttonSize"
-      >
-        {{ resolvedButtonLabel }}
-      </v-btn>
+        class="crud-list-record-action-menu"
+        icon="$moreVert"
+        variant="text"
+        color="on-surface-variant"
+        :aria-label="buttonLabel"
+      />
     </template>
-    <v-list density="compact" min-width="150">
+    <v-list min-width="160">
       <v-list-item
         v-if="hasViewAction"
+        prepend-icon="$visibility"
         :title="t('jskit.http.actions.open')"
         :to="viewLocation"
       />
       <v-list-item
         v-if="hasEditAction"
+        prepend-icon="$edit"
         :title="t('jskit.http.actions.edit')"
         :to="editLocation"
       />

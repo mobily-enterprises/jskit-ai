@@ -23,6 +23,9 @@ const patternRoot = path.resolve(
 );
 const exampleRoot = path.join(patternRoot, "example", "books");
 
+// definePage() is the file-based router's compile-time macro: an application build removes it from page setup.
+globalThis.definePage = () => {};
+
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "@local/books/shared") {

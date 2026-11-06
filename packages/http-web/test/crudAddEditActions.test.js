@@ -11,8 +11,17 @@ import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/plac
 import { useCrudAddEditScreen } from "../src/client/composables/useCrudAddEditScreen.js";
 
 const componentUrl = new URL("../src/client/components/CrudAddEditScreen.vue", import.meta.url).href;
+// The shell's app bar actions render in place as buttons; to, disabled and the click handler fall through to them.
+const SHELL_PAGE_ACTION_STUBS = {
+  "/ShellPageActions.vue":
+    'import { defineComponent, h } from "vue"; export default defineComponent({ setup: (_props, { slots }) => () => h("div", {}, slots.default?.()) });',
+  "/ShellPageAction.vue":
+    'import { defineComponent, h } from "vue"; export default defineComponent({ props: { label: [String, Object], icon: String, primary: Boolean }, setup: (props) => () => h("button", {}, String(props.label)) });'
+};
 const hooks = registerHooks({
   load(url, context, nextLoad) {
+    const stub = Object.entries(SHELL_PAGE_ACTION_STUBS).find(([suffix]) => url.endsWith(suffix));
+    if (stub) return { format: "module", shortCircuit: true, source: stub[1] };
     if (url !== componentUrl) return nextLoad(url, context);
     const { descriptor } = parse(readFileSync(new URL(url), "utf8"));
     return {
@@ -142,9 +151,17 @@ async function fixture(t, { actions, onSaveSuccess, request, screenResource = nu
 }
 
 test("default form actions retain Cancel, Save, validation feedback, and keyboard submission", async (t) => {
-  const { screen, reports, calls, all, button } = await fixture(t);
+  const { screen, reports, calls, all, button, router } = await fixture(t);
   const { addEdit, formState } = screen;
-  assert.deepEqual(button("Cancel").props.to, { path: "/books/new", query: { source: "list" } });
+  // Cancel leaves for its cancel route by replacing the form's history entry.
+  const replaced = [];
+  const replace = router.replace.bind(router);
+  router.replace = (to) => {
+    replaced.push(to);
+    return replace(to);
+  };
+  await button("Cancel").props.onClick();
+  assert.deepEqual(replaced, [{ path: "/books/new", query: { source: "list" } }]);
   assert.equal(button("Save book").props.disabled, false);
   assert.equal(addEdit.validationAttempted, false);
   assert.deepEqual(addEdit.validationErrors, {});
