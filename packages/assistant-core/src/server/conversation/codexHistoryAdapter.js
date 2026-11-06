@@ -6,7 +6,7 @@ import path from "node:path";
 import { Readable } from "node:stream";
 import { isDeepStrictEqual } from "node:util";
 import { gunzipSync, zstdDecompressSync } from "node:zlib";
-import { nativeAiModel, nativeAiProvider } from "../../shared/nativeProviders.js";
+import { CUSTOM_AI_PROVIDER_ID, nativeAiModel, nativeAiProvider } from "../../shared/nativeProviders.js";
 
 const MAX_REQUEST_BYTES = 32 * 1024 * 1024;
 const UPSTREAMS = Object.freeze({
@@ -18,6 +18,28 @@ const UPSTREAMS = Object.freeze({
 });
 const HOP_HEADERS = ["connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
   "te", "trailer", "transfer-encoding", "upgrade"];
+
+// A custom endpoint's route segment carries its own base URL, so any runtime can
+// reach the endpoint a thread names; its single model is qualified for history
+// recovery like the curated routes.
+function historyRouted(destination) {
+  return Boolean(nativeAiProvider(destination) || destination === CUSTOM_AI_PROVIDER_ID);
+}
+
+function customRouteSegment(baseUrl) {
+  return `${CUSTOM_AI_PROVIDER_ID}~${Buffer.from(baseUrl.replace(/\/$/u, "")).toString("base64url")}`;
+}
+
+function customUpstream(encoded = "") {
+  let url;
+  try {
+    url = new URL(Buffer.from(encoded, "base64url").toString("utf8"));
+  } catch {
+    return undefined;
+  }
+  return ["http:", "https:"].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash
+    ? url.href.replace(/\/$/u, "") : undefined;
+}
 
 function unsupportedHistory(message) {
   return new AppError(422, message, { code: "assistant_codex_history_unsupported" });
@@ -170,9 +192,10 @@ async function* readCodexHistoryRows(file, start, end, signal, { strictComplete 
 // cannot read OpenAI's encrypted replacement. Recover that exact boundary as
 // historical data, only when it is actually present in a foreign request.
 async function restoreCompactedHistory(body, { destination, historyPath, codexHome, signal, maxRequestBytes }) {
-  if (!nativeAiProvider(destination) || !Array.isArray(body?.input) ||
+  if (!historyRouted(destination) || !Array.isArray(body?.input) ||
       !body.input.some((item) => item?.type === "compaction")) return body;
-  const model = nativeAiModel(body.model, destination);
+  const model = destination === CUSTOM_AI_PROVIDER_ID ? { modelProviderId: destination, codexHistoryRouting: true }
+    : nativeAiModel(body.model, destination);
   if (model?.modelProviderId !== destination || !model.codexHistoryRouting) {
     throw compactionHistoryError("this model has not been qualified for history recovery.");
   }
@@ -342,8 +365,8 @@ async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath = re
     try {
       const url = new URL(request.url, "http://127.0.0.1");
       const parts = url.pathname.split("/");
-      const destination = parts[3];
-      const upstream = UPSTREAMS[destination];
+      const [destination, encodedUpstream] = (parts[3] || "").split("~", 2);
+      const upstream = destination === CUSTOM_AI_PROVIDER_ID ? customUpstream(encodedUpstream) : UPSTREAMS[destination];
       const hasHistory = parts[4] === "history";
       let historyPath = hasHistory ? Buffer.from(parts[5] || "", "base64url").toString("utf8") : "";
       const route = parts.slice(hasHistory ? 6 : 4).join("/");
@@ -370,7 +393,7 @@ async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath = re
         } catch {
           throw new AppError(400, "Codex sent an unreadable or oversized history request.", { code: "assistant_codex_history_request_unreadable" });
         }
-        if (!historyPath && nativeAiProvider(destination) && Array.isArray(body?.input) && body.input.some(item => item?.type === "compaction")) {
+        if (!historyPath && historyRouted(destination) && Array.isArray(body?.input) && body.input.some(item => item?.type === "compaction")) {
           // An exclusively owned conversation can resolve its current native
           // file, including compaction during its very first turn.
           historyPath = await readHistoryPath(abort.signal);
@@ -381,9 +404,17 @@ async function startCodexHistoryAdapter({ token, codexHome, readHistoryPath = re
       }
       const headers = forwardedHeaders(request.headers);
       headers.set("accept-encoding", "identity");
-      const result = await fetchImpl(`${upstream}/${route}${url.search}`, {
-        method: request.method, headers, body, signal: abort.signal, redirect: "error"
-      });
+      let result;
+      try {
+        result = await fetchImpl(`${upstream}/${route}${url.search}`, {
+          method: request.method, headers, body, signal: abort.signal, redirect: "error"
+        });
+      } catch (error) {
+        // The owner's own server is down more often than a provider: say which and what to do.
+        if (destination !== CUSTOM_AI_PROVIDER_ID || abort.signal.aborted) throw error;
+        throw Object.assign(new AppError(502, `Your model server at ${upstream} isn't answering. Start it, then send your message again.`,
+          { code: "assistant_custom_endpoint_unreachable" }), { params: { upstream } });
+      }
       // DeepSeek labels this explicit context rejection as a generic invalid
       // request. Preserve the provider's details while exposing the native
       // recovery code; the adapter never retries the rejected inference.
@@ -446,13 +477,18 @@ async function prepareCodexHistory(params, client, { baseUrl, modelProviderId, .
   if (!baseUrl) return params;
   const modelProvider = params.modelProvider || modelProviderId || "openai";
   const curatedProvider = nativeAiProvider(modelProvider);
-  if (curatedProvider) {
+  if (curatedProvider || modelProvider === CUSTOM_AI_PROVIDER_ID) {
     const configKey = `model_providers.${modelProvider}`;
     const config = params.config?.[configKey];
     // Only the curated route owns these credentials. Do not redirect an
-    // unrelated custom provider to our fixed upstream.
-    const providerUrl = `${baseUrl}/${modelProvider}`;
-    if (config?.base_url !== curatedProvider.baseUrl &&
+    // unrelated provider to our fixed upstream. The custom endpoint's route
+    // names the base URL its thread configuration gave.
+    if (!curatedProvider && typeof config?.base_url !== "string") return params;
+    const customPrefix = `${baseUrl}/${CUSTOM_AI_PROVIDER_ID}~`;
+    const providerUrl = curatedProvider ? `${baseUrl}/${modelProvider}`
+      : config.base_url.startsWith(customPrefix) ? `${baseUrl}/${config.base_url.slice(baseUrl.length + 1).split("/")[0]}`
+        : `${baseUrl}/${customRouteSegment(config.base_url)}`;
+    if (curatedProvider && config?.base_url !== curatedProvider.baseUrl &&
         config?.base_url !== providerUrl && !config?.base_url?.startsWith(`${providerUrl}/history/`)) return params;
     let historyPath = options.historyPath;
     if (!historyPath && options.threadId) {

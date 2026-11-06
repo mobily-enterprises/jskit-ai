@@ -10,7 +10,7 @@ import { codexToolFreeConfiguration } from "../codexIsolation.js";
 import { codexCommandHookCommand } from "../commandWrapper.js";
 import { validateConnectionModel } from "../configuration.js";
 import { jsonHash as hash } from "../normalize.js";
-import { nativeAiProvider, nativeAiModel } from "../../../shared/nativeProviders.js";
+import { connectionAiProvider } from "../../../shared/nativeProviders.js";
 
 /**
  * The native side of one driver conversation: its observation, the provider it acquires and stops, the account it
@@ -197,8 +197,8 @@ export function createCodexDriverConnection({
     }
     const connection = await connections.resolve({ context, integrationId: configuration.integrationId });
     signal.throwIfAborted();
-    const provider = nativeAiProvider(connection.providerId);
-    const model = nativeAiModel(connection.model, connection.providerId);
+    const provider = connectionAiProvider(connection.providerId, connection);
+    const model = provider?.models.find(({ id }) => id === connection.model) || null;
     if (!provider || !model) throw Object.assign(new Error("This exact provider/model is not supported by the Codex integration. Choose a supported model without renaming it."), {
       messageCode: "assistant.codex.modelUnsupported", messageParams: {}
     });

@@ -7,7 +7,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { createConversationProcessIdentity } from "./processIdentity.js";
 import { isRecord, normalizePositiveInteger } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeNullableText } from "./normalize.js";
-import { prepareCodexModelCatalog } from "./codexConfiguration.js";
+import { prepareCodexModelCatalog, readCodexCustomModels } from "./codexConfiguration.js";
 import { startCodexHistoryAdapter } from "./codexHistoryAdapter.js";
 
 const CODEX_APP_SERVER_METADATA_FILE = "runtime.json";
@@ -28,11 +28,13 @@ export async function runCodexAppServerProcess({
   process.once("SIGTERM", abortStartup);
   process.once("SIGINT", abortStartup);
   const codexHome = env.CODEX_HOME || path.join(os.homedir(), ".codex");
+  // A custom endpoint's home brings its own model's catalogue row.
+  const customModels = await readCodexCustomModels(codexHome);
   const catalogPath = await prepareCodexModelCatalog({
     command,
     runtimeDir,
     bundled,
-    additionalModels,
+    additionalModels: [...additionalModels, ...customModels],
     codexHome,
     signal: startup.signal
   });

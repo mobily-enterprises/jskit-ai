@@ -292,6 +292,10 @@
                 "summary": "Advanced native host: Exact native provider routes, engine configuration facts and qualified model capabilities; applications choose which models to offer."
               },
               {
+                "subpath": "./server/custom-endpoint",
+                "summary": "Advanced native host: Checks of a model server the person runs: one connect-time request on the engine's own API, the context Ollama really loaded, and a model-list read for health."
+              },
+              {
                 "subpath": "./server/codex-provider",
                 "summary": "Advanced native host: Original Codex provider acquisition, thread selection, control, recovery, native history retirement and private renewal identity operations."
               },

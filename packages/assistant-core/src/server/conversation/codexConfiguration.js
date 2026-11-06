@@ -320,7 +320,7 @@ export function codexProviderModelCatalog({ models }) {
       context_window: model.contextWindow,
       max_context_window: model.contextWindow,
       effective_context_window_percent: 95,
-      supports_parallel_tool_calls: true,
+      supports_parallel_tool_calls: model.parallelToolCalls !== false,
       experimental_supported_tools: [],
       input_modalities: model.images ? ["text", "image"] : ["text"],
       prefer_websockets: false,
@@ -336,7 +336,9 @@ export function codexProviderConfiguration(provider, apiKey) {
     web_search: provider.webSearch ? "live" : "disabled",
     [`model_providers.${provider.id}`]: {
       name: provider.label || provider.id, base_url: provider.baseUrl, wire_api: "responses",
-      requires_openai_auth: false, experimental_bearer_token: apiKey
+      requires_openai_auth: false,
+      // A custom endpoint may need no key; Codex then sends no Authorization header.
+      ...(apiKey ? { experimental_bearer_token: apiKey } : {})
     }
   };
 }
@@ -356,7 +358,7 @@ export function codexProviderFileConfiguration(provider, key, codexHome) {
     `model = ${JSON.stringify(provider.models[0].id)}`,
     `model_provider = ${JSON.stringify(provider.id)}`,
     codexProviderCatalogSetting(codexHome),
-    `model_reasoning_effort = ${JSON.stringify(provider.models[0].defaultThinking)}`,
+    ...(provider.models[0].defaultThinking ? [`model_reasoning_effort = ${JSON.stringify(provider.models[0].defaultThinking)}`] : []),
     'model_reasoning_summary = "none"',
     `web_search = "${provider.webSearch ? "live" : "disabled"}"`,
     `[model_providers.${provider.id}]`,
@@ -364,9 +366,25 @@ export function codexProviderFileConfiguration(provider, key, codexHome) {
     `base_url = ${JSON.stringify(provider.baseUrl)}`,
     'wire_api = "responses"',
     'requires_openai_auth = false',
-    `experimental_bearer_token = ${JSON.stringify(key)}`,
+    ...(key ? [`experimental_bearer_token = ${JSON.stringify(key)}`] : []),
     ""
   ].join("\n");
+}
+
+/**
+ * The catalogue rows of a home codexProviderFileConfiguration wrote for a
+ * custom endpoint, whose model only its saved connection names; none for any
+ * other home.
+ */
+export async function readCodexCustomModels(codexHome) {
+  const config = await readFile(path.join(codexHome, "config.toml"), "utf8").catch((error) => {
+    if (error.code === "ENOENT") return "";
+    throw error;
+  });
+  if (!/^model_provider = "custom"$/mu.test(config)) return [];
+  const catalogue = JSON.parse(await readFile(codexProviderCatalogPath(codexHome), "utf8"));
+  if (!Array.isArray(catalogue?.models)) throw new Error("Codex custom endpoint home is incomplete.");
+  return catalogue.models;
 }
 
 /**

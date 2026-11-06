@@ -1,0 +1,90 @@
+{
+  "source": "Ollama 0.40.15 serving qwen3.5:4b-q4_K_M on 2026-11-06. Recorded: the Messages reply Claude Code 2.1.317 saved in its proof run, the chat completion and both /api/ps replies (read with curl before and after OLLAMA_CONTEXT_LENGTH=65536), and OpenCode 1.18.31's error once the server had stopped. Constructed: the Responses reply (the fields Codex 0.163.0 reads) and the model-missing 404 body.",
+  "model": "qwen3.5:4b-q4_K_M",
+  "messages": {
+    "id": "msg_ac8a55117ab9c4d3ec25734f",
+    "type": "message",
+    "role": "assistant",
+    "model": "qwen3.5:4b-q4_K_M",
+    "content": [
+      {
+        "type": "tool_use",
+        "id": "call_4wnyqz70",
+        "name": "Bash",
+        "input": {
+          "command": "cat greeting.txt && echo SHELL-OK"
+        }
+      }
+    ],
+    "stop_reason": "tool_use",
+    "usage": {
+      "input_tokens": 11114,
+      "output_tokens": 138
+    }
+  },
+  "chatCompletion": {
+    "id": "chatcmpl-128",
+    "object": "chat.completion",
+    "created": 1793950047,
+    "model": "qwen3.5:4b-q4_K_M",
+    "system_fingerprint": "fp_ollama",
+    "choices": [
+      {
+        "index": 0,
+        "message": {
+          "role": "assistant",
+          "content": "OK",
+          "reasoning": "Thinking Process:\n\n1.  **Analyze the Request:**"
+        },
+        "finish_reason": "stop"
+      }
+    ]
+  },
+  "response": {
+    "id": "resp_128",
+    "object": "response",
+    "status": "completed",
+    "model": "qwen3.5:4b-q4_K_M",
+    "output": [
+      {
+        "type": "message",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "output_text",
+            "text": "OK"
+          }
+        ]
+      }
+    ]
+  },
+  "psDefaultContext": {
+    "models": [
+      {
+        "name": "qwen3.5:4b-q4_K_M",
+        "model": "qwen3.5:4b-q4_K_M",
+        "size": 3085046905,
+        "size_vram": 3085046905,
+        "context_length": 4096
+      }
+    ]
+  },
+  "psRaisedContext": {
+    "models": [
+      {
+        "name": "qwen3.5:4b-q4_K_M",
+        "model": "qwen3.5:4b-q4_K_M",
+        "size": 4466021497,
+        "size_vram": 4466021497,
+        "context_length": 65536
+      }
+    ]
+  },
+  "modelMissing": {
+    "error": {
+      "message": "model 'qwen9:1b' not found",
+      "type": "not_found_error"
+    }
+  },
+  "openCodeServerDown": "Cannot connect to API: Unable to connect. Is the computer able to access the url?"
+}

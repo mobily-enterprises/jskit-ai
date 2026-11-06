@@ -530,6 +530,7 @@
       "assistant_codex_provider_switch_busy": "Stop the current turn before immediately changing model providers.",
       "assistant_codex_history_request_too_large": "Codex history exceeds the adapter request limit.",
       "assistant_codex_history_request_unreadable": "Codex sent an unreadable or oversized history request.",
+      "assistant_custom_endpoint_unreachable": "Your model server at {upstream} isn't answering. Start it, then send your message again.",
       "assistant_codex_app_server_message_too_large": "Codex app-server message exceeded the configured transport limit.",
       "codex_reconnect_required": "Sign in with codex login before continuing.",
       "codex_provider_connection_changed": "This Codex provider connection changed. Work is stopped; use Send or Resume after reconnecting.",

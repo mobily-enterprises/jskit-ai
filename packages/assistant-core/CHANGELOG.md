@@ -7,7 +7,10 @@
 - The OpenCode version mismatch, Claude control-request timeout and unreadable saved Claude conversation errors carry `params` for their catalog English.
 - The assistant settings resource sends its system prompt field messages in the coded `{ code, message, params }` form.
 
-### New message keys (163)
+- Custom model endpoints: `customAiProvider({ engineId, baseUrl, model, contextWindow })` (with `CUSTOM_AI_PROVIDER_ID`, `CUSTOM_AI_MINIMUM_CONTEXT`, `CUSTOM_AI_PLACEHOLDER_TOKEN` and `connectionAiProvider`) in `shared/native-providers` describes a model server the host's user runs, such as Ollama, LM Studio, `llama-server` or vLLM, in the native provider shape, so Codex, Claude Code and the Colleague drivers connect to it. Codex gets no bearer token without a key, no freeform `apply_patch` and no parallel tool calls; Claude Code always gets a token (the key, or `local`) so a saved claude.ai login never reaches the endpoint, its model in every slot and an output limit of a quarter of the context. The Codex history adapter routes `custom~<base64url(baseUrl)>` to plain `http(s)` upstreams only and ends a turn whose server is down with `assistant_custom_endpoint_unreachable`. `readCodexCustomModels(codexHome)` reads a custom Codex home's catalogue.
+- `server/custom-endpoint` adds `checkCustomEndpoint` (one bounded request on the engine's own API, up to 2 minutes, then Ollama's loaded context from `/api/ps`, refusing one smaller than entered), `verifyCustomEndpoint`, `readOllamaLoadedContext` and `probeCustomEndpoint` (one model-list read for health). Errors carry `custom_endpoint_*` codes and say what to fix.
+
+### New message keys (164)
 
 <details><summary>Key list</summary>
 
@@ -174,10 +177,11 @@
 - `jskit.errors.assistant_tool_output_invalid`
 - `jskit.errors.assistant_tool_unknown`
 - `jskit.errors.assistant_claude_control_timeout`
+- `jskit.errors.assistant_custom_endpoint_unreachable`
 
 </details>
 
-### Codes (163)
+### Codes (164)
 
 Error, field-error and message codes this package now sends, with their English. Undotted codes kept their existing values and render from `jskit.errors.<code>`.
 
@@ -346,6 +350,7 @@ Error, field-error and message codes this package now sends, with their English.
 | `assistant_tool_output_invalid` | Assistant tool output validation failed. |
 | `assistant_tool_unknown` | Unknown tool. |
 | `assistant_claude_control_timeout` | Claude {request} timed out. |
+| `assistant_custom_endpoint_unreachable` | Your model server at {upstream} isn't answering. Start it, then send your message again. |
 
 ## 0.2.0 - 2026-10-29
 

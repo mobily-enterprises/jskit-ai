@@ -5,7 +5,7 @@ import path from "node:path";
 import { realpath } from "node:fs/promises";
 import { isDeepStrictEqual } from "node:util";
 import { bindClaudeConversationAccount, claudeConnectionIdentity, claudeFlagSettings, claudeModelConfiguration, readClaudeCodeAuthStatus } from "../claudeProcess.js";
-import { nativeAiModel, nativeAiProvider } from "../../../shared/nativeProviders.js";
+import { connectionAiProvider } from "../../../shared/nativeProviders.js";
 import { claudeNativeMessageId, requireClaudeSessionId, listClaudeConversationStorage } from "../claudeHistory.js";
 import { createClaudeConversationOwner } from "../claudeTurn.js";
 import { CLAUDE_APPLICATION_TOOL_SERVER } from "../claudeTools.js";
@@ -221,8 +221,8 @@ export function createClaudeConversationDriver({
       if (requireBound && !accountBinding?.connectionIdentities?.[providerId]) {
         throw new Error("The completed Claude response has no saved provider account fingerprint.");
       }
-      const provider = nativeAiProvider(providerId);
-      const model = nativeAiModel(connection.model, providerId);
+      const provider = connectionAiProvider(providerId, connection);
+      const model = provider?.models.find(({ id }) => id === connection.model) || null;
       if (providerId !== "anthropic" && (!provider || !model)) throw Object.assign(new Error("This exact provider/model is not supported by the Claude integration. Choose a supported model without renaming it."), {
         messageCode: "assistant.claude.modelUnsupported", messageParams: {}
       });
@@ -231,7 +231,8 @@ export function createClaudeConversationDriver({
         messageCode: "assistant.claude.reasoningEffortUnsupported", messageParams: {}
       });
       selected = claudeModelConfiguration({ providerId, model: connection.model }, {
-        apiKey: connection.apiKey, baseUrl: provider?.claudeBaseUrl || connection.baseURL || "https://api.anthropic.com"
+        apiKey: connection.apiKey, provider: connection.provider,
+        baseUrl: provider?.claudeBaseUrl || connection.baseURL || "https://api.anthropic.com"
       });
       identity = claudeConnectionIdentity(configRoot, providerId, selected.env.ANTHROPIC_BASE_URL, connection.apiKey);
     } else {

@@ -1,5 +1,5 @@
 import { jsonHash } from "./normalize.js";
-import { nativeAiProvider } from "../../shared/nativeProviders.js";
+import { CUSTOM_AI_PLACEHOLDER_TOKEN, CUSTOM_AI_PROVIDER_ID, connectionAiProvider, nativeAiProvider } from "../../shared/nativeProviders.js";
 import { Duplex } from "node:stream";
 import { stat } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -132,18 +132,24 @@ export function claudeConnectionIdentity(configRoot, providerId, baseUrl, apiKey
 
 /** Native provider routing; the application supplies only its authorized selection. */
 export function claudeModelConfiguration({ providerId, model: modelId }, connection) {
-  const provider = nativeAiProvider(providerId);
+  const provider = connectionAiProvider(providerId, connection);
   const definition = provider?.models.find(({ id }) => id === modelId);
-  if (provider && (!definition || !connection?.apiKey)) throw Object.assign(new Error("Choose a connected Claude Code model."), {
+  if ((provider || providerId === CUSTOM_AI_PROVIDER_ID) &&
+      (!definition || !(connection?.apiKey || provider.custom))) throw Object.assign(new Error("Choose a connected Claude Code model."), {
     messageCode: "assistant.claude.chooseConnectedModel", messageParams: {}
   });
-  const model = definition?.contextWindow >= 1000000 ? `${definition.id}[1m]` : modelId;
+  const model = !provider?.custom && definition?.contextWindow >= 1000000 ? `${definition.id}[1m]` : modelId;
+  // A custom endpoint's own window: Claude Code assumes 200K and 32K output for
+  // a model it does not know, past what most model servers load.
+  const outputTokens = provider?.custom ? Math.min(32000, Math.floor(definition.contextWindow / 4)) : 0;
   const externalModel = provider ? model : "";
   // Reset every provider override when returning to the native subscription.
   // Background calls and subagents must stay on the selected provider too.
   const env = {
     ANTHROPIC_BASE_URL: connection?.baseUrl || "https://api.anthropic.com",
-    ANTHROPIC_AUTH_TOKEN: connection?.apiKey || "", ANTHROPIC_API_KEY: "", CLAUDE_CODE_OAUTH_TOKEN: "",
+    // Never empty for a custom endpoint, so the saved claude.ai login is not sent there.
+    ANTHROPIC_AUTH_TOKEN: connection?.apiKey || (provider?.custom ? CUSTOM_AI_PLACEHOLDER_TOKEN : ""),
+    ANTHROPIC_API_KEY: "", CLAUDE_CODE_OAUTH_TOKEN: "",
     ANTHROPIC_MODEL: externalModel, ANTHROPIC_DEFAULT_MODEL: externalModel,
     ANTHROPIC_DEFAULT_OPUS_MODEL: externalModel,
     ANTHROPIC_DEFAULT_SONNET_MODEL: externalModel,
@@ -151,6 +157,7 @@ export function claudeModelConfiguration({ providerId, model: modelId }, connect
     ANTHROPIC_DEFAULT_HAIKU_MODEL: definition?.id || "",
     CLAUDE_CODE_SUBAGENT_MODEL: definition?.id || "",
     CLAUDE_CODE_AUTO_COMPACT_WINDOW: provider ? String(provider.claudeAutoCompactWindow) : "",
+    CLAUDE_CODE_MAX_OUTPUT_TOKENS: outputTokens ? String(outputTokens) : "",
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: provider ? "1" : "",
     CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST: "1"
   };
@@ -244,7 +251,7 @@ export async function stopClaudeCodeProcess({ process: native, executionId, stop
 
 export async function bindClaudeConversationAccount(entry, { identity, providerId, allowAccountChange = false, stop, save }) {
   entry.accountIdentities ||= {};
-  if (!nativeAiProvider(providerId) && entry.accountIdentities[providerId] && entry.accountIdentities[providerId] !== identity) {
+  if (!nativeAiProvider(providerId) && providerId !== CUSTOM_AI_PROVIDER_ID && entry.accountIdentities[providerId] && entry.accountIdentities[providerId] !== identity) {
     await stop(entry, "The signed-in Claude account changed.");
     if (!allowAccountChange) {
       throw Object.assign(new Error("This conversation belongs to another Claude account. Reconnect that account or start a new session."), {

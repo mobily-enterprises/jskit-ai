@@ -14,6 +14,7 @@ export {
   codexProviderConfiguration,
   codexProviderFileConfiguration,
   codexProviderCatalogPath,
+  readCodexCustomModels,
   verifyCodexProviderKey
 } from "../conversation/codexConfiguration.js";
 export { codexAuthOutputRequiresReconnect, createCodexAccountReader } from "../conversation/codexAccountReader.js";
