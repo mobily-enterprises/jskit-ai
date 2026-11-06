@@ -19,7 +19,7 @@
     "@jskit-ai/shell-web": "0.2.8",
     "@mdi/js": "^7.4.47",
     "@tanstack/vue-query": "^5.90.5",
-    "fastify": "^5.8.0",
+    "fastify": "^5.12.7",
     "pinia": "^4.0.3",
     "vue": "^3.5.44",
     "vue-router": "^5.3.1",
