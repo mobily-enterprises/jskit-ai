@@ -3,6 +3,7 @@ import { AUTH_PASSWORD_MAX_LENGTH } from "@jskit-ai/auth-core/shared/authConstra
 import { ensureDevAuthExchangeAvailable, isDevAuthBootstrapEnabled } from "@jskit-ai/auth-core/server/devAuth";
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { AUTH_TEXTS, authFieldErrorDetails, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
+import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
 import { DEV_AUTH_SESSION_PURPOSE, buildAuthPayload, buildAuthResult, findExistingAppProfile } from "./authPayloads.js";
 import { forgottenFailuresBefore, recordSignInFailure, signInLockedError, signInWaitMs } from "./signInThrottle.js";
 import { createId } from "./tokens.js";
@@ -147,6 +148,14 @@ function createLocalAccounts({
 }) {
   const { devAuth } = config;
 
+  // With self-registration off, an account registers only by an invitation a feature resolved (one passed through as
+  // given proves nothing), or as the app's first account.
+  async function admitClosedRegistration(profileOptions) {
+    if (invitationContextResolver !== invitationAsGiven && profileOptions.invitation) return;
+    if (!(await backend.withTransaction((tx) => tx.users.hasAny()))) return;
+    throw new AppError(403, "This app's accounts are by invitation only.", { code: "auth.local.register.closed" });
+  }
+
   async function register(input) {
     const email = validateEmailInput(input.email);
     validatePasswordInput(input.password, config.passwordMinLength);
@@ -154,6 +163,7 @@ function createLocalAccounts({
     await firstAccountSetup.admitRegistration(input.setupCode);
     // Checked now, so a registration with an invitation it cannot use is refused at once.
     const profileOptions = await resolveRegistrationProfileOptions(invitationContextResolver, input.invitation, email);
+    if (!config.selfRegistration) await admitClosedRegistration(profileOptions);
     const password = await passwords.hashPassword(input.password);
     if (config.emailConfirmation) {
       return emailConfirmation.begin({ email, displayName, password, invitation: normalizeInvitationInput(input.invitation) });

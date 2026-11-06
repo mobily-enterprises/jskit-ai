@@ -1357,11 +1357,55 @@ test("in production, email confirmation needs an auth.local.confirmation-sender,
     () => createStartedApp({ env: production }),
     (error) => String(error.details?.cause?.message || error.message || "") ===
       "Local auth confirms each new account's email address in production, and no auth.local.confirmation-sender " +
-        "is installed to email the confirmation links. Install one, or set AUTH_LOCAL_EMAIL_CONFIRMATION=false " +
-        "to let accounts register without confirming their email."
+        "is installed to email the confirmation links. Install one, set AUTH_LOCAL_EMAIL_CONFIRMATION=false " +
+        "to let accounts register without confirming their email, or set AUTH_LOCAL_SELF_REGISTRATION=false " +
+        "when accounts are only invited."
   );
   const optedOut = await createStartedApp({ env: { ...production, AUTH_LOCAL_EMAIL_CONFIRMATION: "false" } });
   assert.equal(optedOut.authService.getCapabilities().features.emailConfirmation, false);
+});
+
+// Confirmation guards self-registration, so an app whose accounts are only invited (or made by the first account)
+// starts in production without a confirmation sender: anyone else's registration is refused.
+test("with AUTH_LOCAL_SELF_REGISTRATION=false, production starts without a confirmation sender and only invitations register", async (t) => {
+  const app = await createStartedApp({
+    env: {
+      NODE_ENV: "production",
+      AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
+      AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+      AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
+      AUTH_LOCAL_EMAIL_CONFIRMATION: "",
+      AUTH_LOCAL_SELF_REGISTRATION: "false"
+    },
+    invitationContextResolver: {
+      async resolveInvitationContext({ token, email }) {
+        return token === "invite-for-bea" && email === "bea@example.com" ? { token, source: "test-invite" } : null;
+      }
+    }
+  });
+  t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
+  assert.equal(app.authService.getCapabilities().features.emailConfirmation, false);
+  // The first account registers with its setup code.
+  const owner = await app.authService.register({
+    email: "owner@example.com",
+    password: "correct horse battery staple",
+    setupCode: await firstAccountSetupCode(app.storeDir)
+  });
+  assert.equal(owner.actor.email, "owner@example.com");
+  const closed = { status: 403, code: "auth.local.register.closed" };
+  await assert.rejects(() => app.authService.register({ email: "eve@example.com", password: "correct horse battery staple" }), closed);
+  await assert.rejects(() => app.authService.register({
+    email: "eve@example.com",
+    password: "correct horse battery staple",
+    invitation: { token: "invite-for-bea" }
+  }), closed);
+  const invited = await app.authService.register({
+    email: "bea@example.com",
+    password: "correct horse battery staple",
+    invitation: { token: "invite-for-bea" }
+  });
+  assert.equal(invited.actor.email, "bea@example.com");
+  assert.equal(invited.requiresEmailConfirmation, false);
 });
 
 test("the confirmation sender emails the link, which is never returned or logged, and the register hook runs on confirming", async (t) => {

@@ -111,20 +111,24 @@ function resolveRecoveryDelivery(env, { emailRecovery, isProduction }) {
  * (AUTH_LOCAL_EMAIL_CONFIRMATION, on unless set to false), and how its link
  * reaches the person: by email through the installed confirmation sender, or,
  * in development without one, in the registration's response (the sign-in
- * screen shows it) and the log. Production without a sender stops startup,
- * because nobody could confirm.
+ * screen shows it) and the log. Confirmation guards self-registration: in
+ * production without a sender, startup stops while anyone may register,
+ * because nobody could confirm, and with self-registration off (invited
+ * accounts and the first one, admitted by its setup code) nothing is confirmed.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ emailConfirmationSender: boolean, isProduction: boolean }} options
+ * @param {{ emailConfirmationSender: boolean, isProduction: boolean, selfRegistration: boolean }} options
  * @returns {"email" | "dev-response" | "off"}
  */
-function resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction }) {
+function resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction, selfRegistration }) {
   if (!parseBooleanFlag(env.AUTH_LOCAL_EMAIL_CONFIRMATION, true)) return "off";
   if (emailConfirmationSender) return "email";
   if (isProduction) {
+    if (!selfRegistration) return "off";
     throw new Error(
       "Local auth confirms each new account's email address in production, and no auth.local.confirmation-sender " +
-        "is installed to email the confirmation links. Install one, or set AUTH_LOCAL_EMAIL_CONFIRMATION=false " +
-        "to let accounts register without confirming their email."
+        "is installed to email the confirmation links. Install one, set AUTH_LOCAL_EMAIL_CONFIRMATION=false " +
+        "to let accounts register without confirming their email, or set AUTH_LOCAL_SELF_REGISTRATION=false " +
+        "when accounts are only invited."
     );
   }
   return "dev-response";
@@ -169,7 +173,10 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
   const oauthProviders = resolveOAuthProviders(env);
   const oauthEnabled = oauthProviders.length > 0;
   const recoveryDelivery = resolveRecoveryDelivery(env, { emailRecovery, isProduction });
-  const confirmationDelivery = resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction });
+  // AUTH_LOCAL_SELF_REGISTRATION, on unless set to false: off, an account registers only by an invitation a feature
+  // resolves, or as the first account.
+  const selfRegistration = parseBooleanFlag(env.AUTH_LOCAL_SELF_REGISTRATION, true);
+  const confirmationDelivery = resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction, selfRegistration });
   return Object.freeze({
     storeDir,
     isProduction,
@@ -184,6 +191,7 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
     setupCode: resolveSetupCode(env, { isProduction }),
     recoveryDelivery,
     recoveryEnabled: recoveryDelivery !== "disabled",
+    selfRegistration,
     confirmationDelivery,
     emailConfirmation: confirmationDelivery !== "off",
     passwordMinLength: resolvePasswordMinLength(env),
