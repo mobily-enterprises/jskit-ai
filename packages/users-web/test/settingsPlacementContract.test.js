@@ -90,7 +90,10 @@ test("package-owned account settings host is placement-backed rather than scaffo
   );
 
   assert.match(source, /useAccountSettingsSections/);
-  assert.match(source, /settings-panel__header/);
+  // The app bar carries the title and the Done action; the page keeps only its intro.
+  assert.match(source, /settings-panel__intro/);
+  assert.match(source, /useShellPageTitle/);
+  assert.doesNotMatch(source, /<h1/u);
   assert.doesNotMatch(source, /AccountSettingsProfileSection|AccountSettingsPreferencesSection|AccountSettingsNotificationsSection/);
 });
 

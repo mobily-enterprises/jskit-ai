@@ -4,7 +4,7 @@
       "accountSettings": {
         "title": "Account settings",
         "subtitle": "Global profile, preferences, notifications, and account controls.",
-        "back": "Back",
+        "done": "Done",
         "loadFailedTitle": "Unable to load account settings",
         "loadFailed": "Unable to load settings.",
         "retry": "Retry",

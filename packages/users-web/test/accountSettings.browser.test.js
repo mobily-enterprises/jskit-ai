@@ -127,7 +127,9 @@ test("the profile section loads, saves, shows a refused field and removes the av
   const name = page.getByLabel("Display name");
   await expect(name).toHaveValue("Ada");
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue("ada@example.com");
-  await expect(page.getByRole("link", { name: "Back" })).toHaveAttribute("href", "/home");
+  // The page's Done action (in the shell's app bar, or in place without one) returns to returnTo; there is no in-page h1.
+  await expect(page.getByRole("link", { name: "Done" })).toHaveAttribute("href", "/home");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
 
   await name.fill("  Ada Lovelace ");
   await page.getByRole("button", { name: "Save profile" }).click();
@@ -147,7 +149,7 @@ test("the profile section loads, saves, shows a refused field and removes the av
   await expect(page.getByRole("button", { name: "Remove avatar" })).toHaveCount(0);
   await expect.poll(() => lastReport(page)).toBe("Avatar removed.");
 
-  await page.getByRole("link", { name: "Back" }).click();
+  await page.getByRole("link", { name: "Done" }).click();
   await expect(page.getByTestId("home")).toBeVisible();
   await finish(api);
 });

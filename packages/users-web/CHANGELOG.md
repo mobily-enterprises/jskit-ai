@@ -2,7 +2,8 @@
 
 ## Unreleased
 
-- The account settings page and the account-settings pattern's sections sit directly on the page, without bordered sheets; the title is `text-headline-small` and the section list has no extra border or tint.
+- The account settings page and the account-settings pattern's sections sit directly on the page, without bordered sheets, and the section list has no extra border or tint.
+- The account settings page has no in-page title or Back button: it gives the shell's top app bar its title (`useShellPageTitle`) and a Done action (`ShellPageAction`) that returns to `returnTo`, another of the app's origins included, as Back did. Message keys: `jskit.users.accountSettings.back` is removed and `jskit.users.accountSettings.done` ("Done") is new. The pattern's section buttons no longer set a fixed height; they are Material 3's 40dp buttons inside material-web's 48dp touch target.
 - Account settings text uses Vuetify 4's Material 3 type classes (`text-body-medium`, `text-title-large`, ...) instead of Material 2 ones, which Vuetify 4 no longer styles, and the account settings page pattern declares its title and its parent (the home surface's root). Upgrading: see the guide's [Move an app to the Material 3 defaults](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/material-3-migration).
 
 ## 0.2.0 - 2026-10-29

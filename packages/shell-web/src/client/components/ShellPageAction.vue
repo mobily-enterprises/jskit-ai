@@ -20,6 +20,11 @@ const props = defineProps({
     type: [String, Object],
     default: undefined
   },
+  // A link outside the app (another origin); `to` is for the app's own pages.
+  href: {
+    type: String,
+    default: undefined
+  },
   primary: {
     type: Boolean,
     default: false
@@ -55,6 +60,7 @@ function handleClick(event) {
         variant="text"
         color="on-surface-variant"
         :to="props.to"
+        :href="props.href"
         :disabled="props.disabled"
         :loading="props.loading"
         :aria-label="resolvedLabel"
@@ -69,6 +75,7 @@ function handleClick(event) {
     :color="props.primary ? 'primary' : 'on-surface-variant'"
     :prepend-icon="props.icon || undefined"
     :to="props.to"
+    :href="props.href"
     :disabled="props.disabled"
     :loading="props.loading"
     @click="handleClick"

@@ -2,6 +2,9 @@
 import { computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { normalizeOneOf } from "@jskit-ai/kernel/shared/support/normalize";
+import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
+import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
+import { useShellPageTitle } from "@jskit-ai/shell-web/client/composables/useShellPageTitle";
 import { useAccountSettingsRuntime } from "../composables/useAccountSettingsRuntime.js";
 import { useAccountSettingsSections } from "../account-settings/sections.js";
 import { useJskitText } from "../i18n.js";
@@ -11,6 +14,10 @@ const runtime = useAccountSettingsRuntime();
 const route = useRoute();
 const router = useRouter();
 const sections = useAccountSettingsSections();
+// The app bar carries the page's title and its Done action, which returns to where the person came from (returnTo,
+// which may be another of the app's origins).
+useShellPageTitle(() => t("jskit.users.accountSettings.title"));
+const doneTarget = computed(() => runtime.backNavigationTarget.value);
 const sectionValues = computed(() => Object.freeze(sections.value.map((section) => section.value)));
 const defaultSection = computed(() => {
   if (sectionValues.value.includes("profile")) {
@@ -58,23 +65,17 @@ const activeTab = computed({
 
 <template>
   <section class="settings-view py-2 py-md-4">
+    <ShellPageActions>
+      <ShellPageAction
+        :label="t('jskit.users.accountSettings.done')"
+        :to="doneTarget.sameOrigin ? doneTarget.href : undefined"
+        :href="doneTarget.sameOrigin ? undefined : doneTarget.href"
+      />
+    </ShellPageActions>
     <div class="settings-panel">
-      <header class="settings-panel__header">
-        <div>
-          <h1 class="settings-panel__title text-headline-small">{{ t("jskit.users.accountSettings.title") }}</h1>
-          <p class="text-body-medium on-surface-variant mb-0">
-            {{ t("jskit.users.accountSettings.subtitle") }}
-          </p>
-        </div>
-        <v-btn
-          variant="text"
-          color="secondary"
-          :to="runtime.backNavigationTarget.value.sameOrigin ? runtime.backNavigationTarget.value.href : undefined"
-          :href="runtime.backNavigationTarget.value.sameOrigin ? undefined : runtime.backNavigationTarget.value.href"
-        >
-          {{ t("jskit.users.accountSettings.back") }}
-        </v-btn>
-      </header>
+      <p class="settings-panel__intro text-body-medium on-surface-variant">
+        {{ t("jskit.users.accountSettings.subtitle") }}
+      </p>
 
       <div class="settings-panel__body">
         <template v-if="runtime.loadingSettings.value">
@@ -139,16 +140,9 @@ const activeTab = computed({
   overflow: hidden;
 }
 
-.settings-panel__header {
-  align-items: flex-start;
-  display: flex;
-  gap: 1rem;
-  justify-content: space-between;
+.settings-panel__intro {
+  margin: 0;
   padding: 1rem 1rem 0;
-}
-
-.settings-panel__title {
-  margin: 0 0 0.35rem;
 }
 
 .settings-panel__body {
@@ -160,11 +154,5 @@ const activeTab = computed({
   max-width: 30rem;
   padding: 2rem 1rem;
   text-align: center;
-}
-
-@media (max-width: 960px) {
-  .settings-panel__header {
-    flex-direction: column;
-  }
 }
 </style>
