@@ -124,7 +124,7 @@ Local functions
 ### `scripts/navigation.mjs`
 Exports
 - `NAVIGATION_RULES`
-- `checkBackControl(tag, report)`
+- `checkBackControl(tag, report, script = "")`
 - `checkLinkAttribute(tag, entry, report)`
 - `checkNavigationCode(code, offset, report)`
 - `checkPageParents({ root, appFiles, pageFiles, report })`
@@ -134,6 +134,10 @@ Exports
 Local functions
 - `compact(text)`
 - `isPlacementLink(code, offset)`
+- `definitionOf(script, name)`
+- `statementFrom(text, start)`
+- `navigatesApp(code, script, seen = new Set())`
+- `navigatesFromControl(tag, script)`
 - `attribute(tag, name)`
 - `visibleText(inner)`
 - `isBackTag(tag)`
@@ -149,6 +153,8 @@ Local functions
 - `surfaceOf(route, surfaces)`
 - `routeDeclarations(source)`
 - `readPage(file, source)`
+- `createShellBarReader(appFiles, read)`
+- `localComponent(file, specifier, known)`
 - `pageKey(file)`
 
 ### `scripts/pattern-assets.mjs`

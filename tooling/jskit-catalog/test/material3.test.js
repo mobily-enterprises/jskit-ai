@@ -39,7 +39,7 @@ const DRIFTING_PAGE = [
   "<script setup>", // 1
   "import { useRouter } from \"vue-router\";", // 2
   "import { mdiHome } from \"@mdi/js\";", // 3
-  "import PageBackButton from \"@/components/PageBackButton.vue\";", // 4
+  "const goBack = () => up();", // 4
   "const router = useRouter();", // 5
   "function leave() {", // 6
   "  window.location.href = \"/home\";", // 7
@@ -61,7 +61,7 @@ const DRIFTING_PAGE = [
   "        <v-btn prepend-icon=\"$arrowBack\" @click=\"router.back()\"><v-icon>mdi-home</v-icon></v-btn>", // 23
   "        <v-btn icon=\"$chevronLeft\" :to=\"paths.page('/books')\" aria-label=\"Books\" />", // 24
   "        <v-btn icon=\"$prev\" @click=\"previousMonth\" aria-label=\"Previous month\" />", // 25
-  "        <page-back-button />", // 26
+  "        <page-back-button @click=\"leave\" />", // 26
   "        <v-breadcrumbs :items=\"crumbs\" />", // 27
   "      </v-card>", // 28
   "    </v-sheet>", // 29
@@ -442,6 +442,108 @@ test("every inner shell page declares a parent and no main-navigation page decla
 
     const section = await checkMaterial3({ projectRoot: root, paths: ["src/pages/home/suppliers"] });
     assert.deepEqual(findingLines(section), ["src/pages/home/suppliers/[supplierId]/edit.vue:2 nav/missing-parent"]);
+  });
+});
+
+// A layout that draws its own top app bar (a workspace bar) from shell-web's pieces, through an app component.
+const OWN_BAR_APP = {
+  "package.json": SHELL_MANIFEST,
+  "config/public.js": "const config = {};\nconfig.surfaceDefinitions = {};\nconfig.surfaceDefinitions.app = { id: \"app\", pagesRoot: \"app\" };\nconfig.surfaceDefinitions.bare = { id: \"bare\", pagesRoot: \"bare\" };\nexport { config };\n",
+  "src/components/WorkspaceBar.vue": [
+    "<script setup>",
+    "import { ShellPageActionsTarget, ShellPageTitle, ShellUpButton, useShellAppBar } from \"@jskit-ai/shell-web/client\";",
+    "useShellAppBar();",
+    "</script>",
+    "<template>",
+    "  <v-app-bar>",
+    "    <ShellUpButton />",
+    "    <ShellPageTitle />",
+    "    <ShellPageActionsTarget />",
+    "  </v-app-bar>",
+    "</template>",
+    ""
+  ].join("\n"),
+  "src/components/StudioLayout.vue": "<script setup>\nimport WorkspaceBar from \"./WorkspaceBar.vue\";\n</script>\n<template>\n  <WorkspaceBar />\n  <v-main><slot /></v-main>\n</template>\n",
+  "src/components/PlainLayout.vue": "<template>\n  <v-main><slot /></v-main>\n</template>\n",
+  "src/pages/app.vue": "<route lang=\"json\">\n{ \"meta\": { \"jskit\": { \"surface\": \"app\" } } }\n</route>\n<script setup>\nimport StudioLayout from \"@/components/StudioLayout.vue\";\n</script>\n<template>\n  <StudioLayout>\n    <RouterView />\n  </StudioLayout>\n</template>\n",
+  "src/pages/app/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/app/projects/[slug].vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/app/projects/[slug]/run.vue": pageWith("definePage({ meta: { jskit: { parent: \"/projects/:slug\" } } });"),
+  "src/pages/bare.vue": "<script setup>\nimport PlainLayout from \"@/components/PlainLayout.vue\";\n</script>\n<template>\n  <PlainLayout>\n    <RouterView />\n  </PlainLayout>\n</template>\n",
+  "src/pages/bare/notes/[id].vue": "<template>\n  <section />\n</template>\n",
+  "src/components/HandMadeUp.vue": [
+    "<script setup>",
+    "import { useShellNavigation } from \"@jskit-ai/shell-web/client\";",
+    "const { up } = useShellNavigation();",
+    "</script>",
+    "<template>",
+    "  <v-btn icon=\"$arrowBack\" aria-label=\"Back\" @click=\"up\" />",
+    "</template>",
+    ""
+  ].join("\n")
+};
+
+test("a layout that draws its own top app bar with ShellUpButton is a shell layout, and only a hand-made Up is a back control", async () => {
+  await withApp(OWN_BAR_APP, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.deepEqual(findingLines(result), [
+      "src/components/HandMadeUp.vue:6 nav/back-control",
+      "src/pages/app/projects/[slug].vue:1 nav/missing-parent"
+    ]);
+    assert.match(result.findings[0].message, /ShellUpButton in a bar the layout draws itself/u);
+    assert.deepEqual(result.pages.map(({ route, topLevel, parent }) => [route, topLevel ? "top" : "", parent || ""].join(" ").trim()), [
+      "/ top",
+      "/projects/:slug",
+      "/projects/:slug/run  own"
+    ]);
+    assert.match(formatNavigationReport(result), /2 error\(s\) in \d+ file\(s\) and 3 shell page\(s\)/u);
+  });
+});
+
+// Controls that read as back but navigate nothing in the app: prose, variables, an in-component step, a link within
+// the page and a preview browser's Back and Forward through its frame's own history.
+const NOT_BACK_PAGE = [
+  "<script setup>",
+  "import { computed, ref } from \"vue\";",
+  "const frame = ref(null);",
+  "const step = ref(1);",
+  "const showBack = ref(false);",
+  "const back = computed(() => step.value > 1);",
+  "const rollBack = ref(false);",
+  "function goPreviewBack() {",
+  "  frame.value.contentWindow.history.back();",
+  "}",
+  "const goPreviewForward = () => frame.value?.contentWindow?.history.forward();",
+  "function previousStep() {",
+  "  step.value -= 1;",
+  "}",
+  "</script>",
+  "<template>",
+  "  <v-list-item>Back from version 2</v-list-item>",
+  "  <v-chip @click=\"showBack = !showBack\">back from version 2</v-chip>",
+  "  <v-btn icon=\"$arrowBack\" aria-label=\"Back\" @click=\"goPreviewBack\" />",
+  "  <v-btn icon=\"$arrowForward\" aria-label=\"Forward\" @click=\"goPreviewForward()\" />",
+  "  <v-btn prepend-icon=\"$arrowBack\" @click=\"previousStep\">Previous step</v-btn>",
+  "  <v-btn :disabled=\"!back\" @click=\"rollBack = true\">Roll back</v-btn>",
+  "  <a href=\"#top\">Back to top</a>",
+  "  <iframe ref=\"frame\" title=\"Preview\" />",
+  "</template>",
+  ""
+].join("\n");
+
+test("nav/back-control flags controls that navigate the app, not prose, variables, steps or an embedded frame's history", async () => {
+  await withApp({ "package.json": SHELL_MANIFEST, "src/components/PreviewBrowser.vue": NOT_BACK_PAGE }, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+  });
+  const navigating = NOT_BACK_PAGE
+    .replace("frame.value.contentWindow.history.back();", "router.push(paths.page(\"/projects\"));")
+    .replace("  step.value -= 1;", "  up();");
+  await withApp({ "package.json": SHELL_MANIFEST, "src/components/PreviewBrowser.vue": navigating }, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), [
+      "src/components/PreviewBrowser.vue:8 nav/back-control",
+      "src/components/PreviewBrowser.vue:19 nav/back-control",
+      "src/components/PreviewBrowser.vue:21 nav/back-control"
+    ]);
   });
 });
 

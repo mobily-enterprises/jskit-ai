@@ -216,7 +216,7 @@ function checkTemplate(template, context) {
     }
     if (SURFACE_TAGS.has(tag.name)) checkSurface(tag, report);
     if (tag.name === "v-btn") checkButtonSize(tag, report);
-    checkBackControl(tag, report);
+    checkBackControl(tag, report, context.script);
     if (tag.name === "h1") {
       headings += 1;
       if (headings > 1) report("m3/duplicate-h1", tag.offset, "A second h1 in one template. A page has one title, carried by the top app bar.");
@@ -263,7 +263,9 @@ function checkFile(file, source, context) {
   const extension = path.extname(file);
   if (extension === ".vue") {
     const { template, scripts, styles } = splitVue(source);
-    if (template) checkTemplate({ offset: template.offset, text: blankHtmlComments(template.text) }, fileContext);
+    // The template's handlers are defined in the component's script.
+    const script = scripts.map((block) => blankJsComments(block.text)).join("\n");
+    if (template) checkTemplate({ offset: template.offset, text: blankHtmlComments(template.text) }, { ...fileContext, script });
     for (const block of scripts) checkScript(blankJsComments(block.text), block.offset, fileContext);
     for (const block of styles) checkCss(blankCssComments(block.text), block.offset, fileContext);
   } else if (extension === ".css" || extension === ".scss") {

@@ -29,7 +29,7 @@ const BOUND_PATH = /^\s*(?:\{\s*path\s*:\s*)?(["'`])(\/[^"'`]*)/u;
 // A back handler or back component: goBack, onBack, handleBackClick, useBackNavigation, PageBackButton, backToList.
 const BACK_NAME = String.raw`(?:[A-Za-z][\w$]*Back(?:[A-Z][\w$]*)?|Back[A-Z][\w$]*|back(?:To[A-Z][\w$]*)?)`;
 const BACK_IDENTIFIER = new RegExp(String.raw`(?<![\w$])${BACK_NAME}(?![\w$])`, "u");
-const BACK_DEFINITION = new RegExp(String.raw`\b(?:function\s*\*?\s*|const\s+|let\s+|var\s+|import\s+)(${BACK_NAME})(?![\w$])|\bimport\s*\{[^}]*?(?<![\w$])(${BACK_NAME})(?![\w$])[^}]*\}`, "gu");
+const BACK_DEFINITION = new RegExp(String.raw`\b(?:function\s*\*?\s*|const\s+|let\s+|var\s+)(${BACK_NAME})(?![\w$])`, "gu");
 const BACK_TEXT = /^\s*(?:[←‹«]|(?:go\s+)?back\b|return to\b)|\bback to\b/iu;
 const BACK_KEY = /\bback(?:To)?\b/iu;
 const ARROW_ICON = /arrow[-_]?back|arrow[-_]?left|keyboard[-_]?backspace|keyboard[-_]?return/iu;
@@ -40,10 +40,27 @@ const LABEL_ATTRIBUTES = new Set(["aria-label", "title", "label", "text"]);
 const ICON_ATTRIBUTES = new Set(["icon", "prepend-icon", "append-icon"]);
 const LINK_ATTRIBUTES = new Set(["to", "href"]);
 const NAVIGATES = /(?<![\w$])(?:[\w$]*router|useRouter\(\s*\))\s*\.\s*(?:push|replace)\s*\(|\.page\s*\(|resolve\w*Url\s*\(/iu;
+// App navigation in a handler or a function: the router, JSKIT paths, the shell's up() and finish(), a RouterLink's
+// navigate(), and the browser's own history and location.
+const APP_NAVIGATION = new RegExp([
+  NAVIGATES.source,
+  ROUTER_HISTORY_CALL.source,
+  HISTORY_CALL.source,
+  LOCATION_WRITE.source,
+  String.raw`(?<![\w$])(?:up|finish|navigate)\s*\(`,
+  String.raw`\.\s*(?:up|finish)\s*\(`
+].join("|"), "iu");
+// An embedded frame's history and location (a preview browser's Back and Forward) are the frame's, not the app's.
+const FRAME_NAVIGATION = /\bcontentWindow\s*\??\.\s*(?:history|location)(?:\s*\??\.\s*[\w$]+)*/gu;
+const CALLED_NAME = /(?<![\w$.])([A-Za-z_$][\w$]*)\s*\(/gu;
+const UP_OWNER = "Up belongs to the shell's top app bar: ShellLayout's, or ShellUpButton in a bar the layout draws itself";
 // Main navigation: the navigation bar, rail and drawer render shell.primary-nav and shell.secondary-nav links.
 const MAIN_NAV_TARGET = /\btarget\s*:\s*["']shell\.(?:primary|secondary)-nav["']/gu;
-// A layout that imports the app's ShellLayout wrapper or shell-web's ShellLayout renders the top app bar.
+// A layout that imports the app's ShellLayout wrapper or shell-web's ShellLayout renders the top app bar; one that
+// draws its own bar renders shell-web's Up control in it.
 const SHELL_LAYOUT_IMPORT = /\bfrom\s*["'](?:@\/components\/ShellLayout|@jskit-ai\/shell-web\/client\/components\/ShellLayout)(?:\.vue)?["']/u;
+const SHELL_UP_TAG = /<\s*(?:ShellUpButton|shell-up-button)\b/u;
+const LOCAL_IMPORT = /\bfrom\s*["']((?:@\/|\.{1,2}\/)[^"']+)["']/gu;
 const ROUTER_VIEW_TAG = /<\s*(?:RouterView|router-view)\b/u;
 
 function isInAppPath(value) {
@@ -84,11 +101,66 @@ function isPlacementLink(code, offset) {
   return Boolean(placement) && /\btarget\s*:\s*["'`][\w.-]+["'`]/u.test(placement.text) && /\bkind\s*:/u.test(placement.text);
 }
 
+// A back-named function that navigates the app; a variable, an import or an in-component step is not back logic.
 function checkScriptBackNames(code, offset, report) {
   for (const match of code.matchAll(BACK_DEFINITION)) {
-    const name = match[1] || match[2];
-    report("nav/back-control", offset + match.index, `${name} is back logic in the app. Up belongs to the shell; delete it and declare the page's parent.`);
+    if (!navigatesApp(definitionOf(code, match[1]), code)) continue;
+    report("nav/back-control", offset + match.index, `${match[1]} navigates back in the app. ${UP_OWNER}; delete it and declare the page's parent.`);
   }
+}
+
+// The text of a local function's definition: function name(...) { ... }, or const name = ... to its end.
+function definitionOf(script, name) {
+  const escaped = name.replace(/\$/gu, "\\$");
+  const declaration = new RegExp(String.raw`\bfunction\s*\*?\s*${escaped}\s*\(`, "u").exec(script);
+  if (declaration) {
+    const parameters = balancedFrom(script, declaration.index + declaration[0].length - 1, "(", ")");
+    return parameters ? balancedFrom(script, parameters.end)?.text || "" : "";
+  }
+  const binding = new RegExp(String.raw`\b(?:const|let|var)\s+${escaped}\s*=`, "u").exec(script);
+  return binding ? statementFrom(script, binding.index + binding[0].length) : "";
+}
+
+// An initialiser up to its statement's end: a semicolon or a line break outside brackets that ends the expression.
+function statementFrom(text, start) {
+  let depth = 0;
+  for (let index = start; index < text.length; index += 1) {
+    const char = text[index];
+    if ("([{".includes(char)) depth += 1;
+    else if (")]}".includes(char)) {
+      if (depth === 0) return text.slice(start, index);
+      depth -= 1;
+    } else if (depth === 0 && (char === ";" || char === "\n")) {
+      const sofar = text.slice(start, index);
+      if (char === ";" || (sofar.trim() && !/(?:=>|[=(,?:&|+*/-])\s*$/u.test(sofar))) return sofar;
+    }
+  }
+  return text.slice(start);
+}
+
+// Whether code navigates the app, directly or through the functions it calls that the component defines.
+function navigatesApp(code, script, seen = new Set()) {
+  const own = code.replace(FRAME_NAVIGATION, "");
+  if (APP_NAVIGATION.test(own)) return true;
+  for (const match of own.matchAll(CALLED_NAME)) {
+    if (seen.has(match[1])) continue;
+    seen.add(match[1]);
+    const definition = definitionOf(script, match[1]);
+    if (definition && navigatesApp(definition, script, seen)) return true;
+  }
+  return false;
+}
+
+// A control navigates the app when it links into it (to, or an in-app href) or one of its handlers navigates; a bare
+// handler name is a call. "Back to top" (href="#top") scrolls the page.
+function navigatesFromControl(tag, script) {
+  return tag.attributes.some((entry) => {
+    if (entry.name === "to") return true;
+    if (entry.name === "href") return entry.bound || isInAppPath(entry.value);
+    if (!entry.event) return false;
+    const handler = entry.value.trim();
+    return navigatesApp(/^[\w$.]+$/u.test(handler) ? `${handler}()` : handler, script);
+  });
 }
 
 function attribute(tag, name) {
@@ -108,33 +180,35 @@ function looksLikeBack(tag) {
   const mustaches = [...tag.inner.matchAll(/\{\{([\s\S]*?)\}\}/gu)].map((match) => match[1]);
   const labels = tag.attributes.filter((entry) => LABEL_ATTRIBUTES.has(entry.name));
   const icons = tag.attributes.filter((entry) => ICON_ATTRIBUTES.has(entry.name)).map((entry) => entry.value);
-  const navigates = tag.attributes.some((entry) => LINK_ATTRIBUTES.has(entry.name) || (entry.event && NAVIGATES.test(entry.value)));
   const iconText = [...icons, tag.inner].join(" ");
   return BACK_TEXT.test(visibleText(tag.inner)) ||
     mustaches.some((expression) => BACK_KEY.test(expression)) ||
     labels.some((entry) => (entry.bound ? BACK_KEY : BACK_TEXT).test(entry.value)) ||
     ARROW_ICON.test(iconText) ||
-    (navigates && CHEVRON_ICON.test(iconText));
+    CHEVRON_ICON.test(iconText);
 }
 
-// Every back control but the shell's Up arrow: "Back to X", arrows and navigating chevrons, breadcrumbs, back
-// components and back handlers.
-function checkBackControl(tag, report) {
+// Every back control but the shell's Up arrow: a control that navigates the app and reads as back ("Back to X", an
+// arrow or chevron, a back component or handler), and breadcrumbs. Prose, a variable, an in-component step and an
+// embedded frame's own Back and Forward navigate nothing in the app. `script` is the component's script, where its
+// handlers are defined.
+function checkBackControl(tag, report, script = "") {
   if (BREADCRUMB_TAGS.has(tag.name)) {
     report("nav/back-control", tag.offset, "Breadcrumbs navigate back up the hierarchy. The shell's Up arrow does that; the app bar title says where the person is.");
     return;
   }
+  if (!navigatesFromControl(tag, script)) return;
   if (isBackTag(tag)) {
-    report("nav/back-control", tag.offset, `<${tag.name}> is a back control. Up belongs to the shell; remove it and declare the page's parent.`);
+    report("nav/back-control", tag.offset, `<${tag.name}> is a back control. ${UP_OWNER}; remove it and declare the page's parent.`);
     return;
   }
   const handler = tag.attributes.find((entry) => entry.event && BACK_IDENTIFIER.test(entry.value));
   if (handler) {
-    report("nav/back-control", handler.offset, `${handler.raw}="${handler.value.trim()}" is a back handler. Up belongs to the shell; remove the control and declare the page's parent.`);
+    report("nav/back-control", handler.offset, `${handler.raw}="${handler.value.trim()}" is a back handler. ${UP_OWNER}; remove the control and declare the page's parent.`);
     return;
   }
   if (CLICKABLE_TAGS.has(tag.name) && looksLikeBack(tag)) {
-    report("nav/back-control", tag.offset, "A back control in the page. Up appears once, in the top app bar, from the trail or the declared parent; remove this one.");
+    report("nav/back-control", tag.offset, `A back control in the page. ${UP_OWNER}, from the trail or the declared parent; remove this one.`);
   }
 }
 
@@ -254,8 +328,37 @@ function readPage(file, source) {
     redirect: REDIRECT_KEY.test(meta),
     parent: declarations.find(({ text }) => PARENT_KEY.test(text)),
     surfaceRoot: SURFACE_KEY.test(meta.replace(PARENT_OBJECT, "")),
-    shell: SHELL_LAYOUT_IMPORT.test(source)
+    shell: false
   };
+}
+
+// Whether a component draws the shell's top app bar, and with it Up: it, or a component it imports from the app,
+// renders ShellLayout (directly or through the app's wrapper) or shell-web's ShellUpButton in a bar of its own.
+function createShellBarReader(appFiles, read) {
+  const known = new Set(appFiles);
+  const verdicts = new Map();
+  async function drawsShellBar(file) {
+    if (verdicts.has(file)) return verdicts.get(file);
+    verdicts.set(file, false);
+    const source = await read(file);
+    let verdict = SHELL_LAYOUT_IMPORT.test(source) || SHELL_UP_TAG.test(splitVue(source).template?.text || "");
+    for (const match of source.matchAll(LOCAL_IMPORT)) {
+      if (verdict) break;
+      const imported = localComponent(file, match[1], known);
+      verdict = Boolean(imported) && await drawsShellBar(imported);
+    }
+    verdicts.set(file, verdict);
+    return verdict;
+  }
+  return drawsShellBar;
+}
+
+// The app's .vue file an import names: "@/components/Bar.vue" is src/components/Bar.vue; "./Bar" is beside the file.
+function localComponent(file, specifier, known) {
+  const base = specifier.startsWith("@/")
+    ? path.posix.join("src", specifier.slice(2))
+    : path.posix.join(path.posix.dirname(file), specifier);
+  return [base, `${base}.vue`].find((candidate) => candidate.endsWith(".vue") && known.has(candidate)) || null;
 }
 
 /**
@@ -274,6 +377,10 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
   }
   const pages = new Map();
   for (const file of appFiles.filter(isPageFile)) pages.set(pageKey(file), readPage(file, await read(file)));
+  const drawsShellBar = createShellBarReader(appFiles, read);
+  for (const page of pages.values()) {
+    if (page.layout) page.shell = await drawsShellBar(page.file);
+  }
   const surfaces = readSurfaces(configSource, [...pages.values()].map(({ file }) => routeOf(file)));
   const scripts = appFiles.filter((file) => /\.(?:[cm]?[jt]s|vue)$/u.test(file));
   const navigation = readMainNavigation(await Promise.all(scripts.map(async (file) => blankJsComments(await read(file)))));
