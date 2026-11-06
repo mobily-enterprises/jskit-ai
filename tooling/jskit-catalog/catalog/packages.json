@@ -5014,7 +5014,8 @@
         "src/components/account/settings/AccountSettingsPreferencesSection.vue",
         "src/components/account/settings/AccountSettingsProfileSection.vue",
         "src/components/account/settings/AccountSettingsSignInMethodsSection.vue",
-        "src/pages/account/index.vue"
+        "src/pages/account/index.vue",
+        "src/pages/account.vue"
       ]
     },
     {

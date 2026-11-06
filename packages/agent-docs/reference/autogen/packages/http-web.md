@@ -724,8 +724,6 @@ Exports
 ### `fixtures/crud-screens/main.js`
 Exports
 - None
-Local functions
-- `destination(order, label, suffix, icon)`
 
 ### `fixtures/crud-screens/vite.config.mjs`
 Exports

@@ -182,6 +182,10 @@ Exports
 - `shellNavigationLinkProps`
 - `useShellNavigationLink(props)`
 
+### `src/client/composables/useShellOutletPlacements.js`
+Exports
+- `useShellOutletPlacements(target, context = {})`
+
 ### `src/client/composables/useShellPageTitle.js`
 Exports
 - `useShellPageTitle(title)`
@@ -327,7 +331,7 @@ Local functions
 
 ### `src/client/navigation/documentNavigation.js`
 Exports
-- `leaveApp(url)`
+- `leaveApp(url, { replace = false } = {})`
 - `reloadAppPage(target)`
 
 ### `src/client/navigation/linkResolver.js`
@@ -335,7 +339,7 @@ Exports
 - `resolveShellLinkPath({ context = null, surface = "", explicitTo = "", relativePath = "/", surfaceRelativePath = "", params = {}, strictParams = true } = {})`
 - `useShellLinkResolver({ surface = "" } = {})`
 Local functions
-- `materializeSurfaceRouteBase(routeBaseTemplate = "/", { params = {}, strictParams = true, surface = "" } = {})`
+- `fillPathParams(pathTemplate = "/", { params = {}, strictParams = true, label = "route params" } = {})`
 - `resolveSurfaceBasePath(context = null, surface = "", { params = {}, strictParams = true } = {})`
 
 ### `src/client/navigation/shellNavigationRuntime.js`
@@ -547,6 +551,7 @@ Exports
 - `normalizeDesktopDrawerClosedMode(value = "rail")`
 - `resolveShellDrawerPresentation({ modal = false, open = false, desktopClosedMode = "rail" } = {})`
 - `resolveShellDrawerToggleLabel({ modal = false, open = false } = {})`
+- `shellLayoutHasDrawer({ menuSlot = false, menuCount = 0, identityCount = 0, bottomNavigationCount = 0 } = {})`
 
 ### `src/client/support/drawerWidth.js`
 Exports
@@ -653,12 +658,14 @@ Exports
 Exports
 - None
 
+### `fixtures/adaptive-shell/src/ButtonsPage.vue`
+Exports
+- None
+
 ### `fixtures/adaptive-shell/src/main.js`
 Exports
 - None
 Local functions
-- `createSurfacePlacement(surface, order, label, suffix)`
-- `createSurfacePlacements(surface)`
 - `refuseBlockedRecord(to)`
 
 ### `fixtures/adaptive-shell/src/OwnBarLayout.vue`

@@ -71,7 +71,11 @@ Delete, rather than port:
   page needs no frame at all;
 - `!important`, Sass variable overrides and component size or radius tweaks.
   `material.css` sets 40dp buttons with a 48dp touch target, 12dp cards, 28dp
-  dialogs and sheets, 8dp chips and 16dp FABs, and an app's own props still win.
+  dialogs and sheets, 8dp chips and 16dp FABs, and an app's own props still win;
+- every `height` and `min-height` on a button, as a prop, a style or CSS. A
+  button that should look smaller becomes `size="small"` or `size="x-small"`:
+  it keeps the 48dp touch target. A long label ends in an ellipsis instead of
+  spilling out; give a label that can run long its `title`.
 
 Use colour roles (`color="secondary-container"`, `bg-color="surface-container-high"`,
 the `on-surface-variant` class) instead of colours.
@@ -110,8 +114,13 @@ definePage({ meta: { jskit: { title: "Edit book", parent: "/books/:bookId" } } }
 ```
 
 `parent` is a path on the page's own surface, or `{ surface, path }` for
-another one. A main navigation destination declares no parent and shows no
-arrow. The shell's Up arrow returns to the page the person came from, or else
+another one; its `:param` segments take the current route's values. A main
+navigation destination declares no parent and shows no arrow. A page with a
+parent renders in its surface's shell layout (`ShellLayout` around
+`<RouterView />`), which draws the bar with its title, Up and actions:
+`jskit check` reports `nav/missing-shell-layout` until it does. The account
+settings page needs `src/pages/account.vue` from the users/account-settings
+pattern. The shell's Up arrow returns to the page the person came from, or else
 to the parent, so:
 
 - delete "Back to X" buttons, `router.back()` and `history.back()` calls;
@@ -202,6 +211,11 @@ its items instead. Medium windows show the navigation rail, whose menu control
 opens the drawer over the page. A modal drawer opens over the app bar, as
 Material 3 draws it, so a browser test that clicked the menu control again to
 close it taps the scrim or presses Escape instead.
+
+Each main-navigation placement is literal data, one `addPlacement({ ... })`
+per destination with plain string `surface` and suffixes; one a helper builds is
+a `nav/placement-data` finding, and no page is judged for a missing parent until
+it is declared literally.
 
 ## 9. Check it
 

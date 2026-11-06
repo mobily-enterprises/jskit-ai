@@ -57,10 +57,15 @@ provider offers provider linking (`providerLinking` in its capabilities).
 - Loading uses layout-stable skeletons, never an indeterminate spinner.
 - Pending controls keep stable labels and prevent duplicate submission.
 - The route and placement owner agree.
+- The account surface renders in its own layout, `src/pages/account.vue`
+  (`ShellLayout` around `<RouterView />`, `meta.jskit.surface: "account"`), so
+  the settings page's title, Up arrow and Done action are in the top app bar.
+  With no navigation items, the surface shows no navigation bar, rail or drawer.
 
 ## Example files
 
-`example/` contains an account route and four concrete settings sections.
+`example/` contains the account surface's layout, an account route and four
+concrete settings sections.
 Adapt their fields and copy while retaining the shared account runtime.
 
 ## Variation points

@@ -209,6 +209,10 @@ Exports
 Exports
 - None
 
+### `patterns/account-settings/example/src/pages/account.vue`
+Exports
+- None
+
 ### `patterns/account-settings/example/src/pages/account/index.vue`
 Exports
 - None

@@ -52,7 +52,7 @@ Local functions
 - `resolveSetupCode(env, { isProduction })`
 - `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled })`
 - `resolveRecoveryDelivery(env, { emailRecovery, isProduction })`
-- `resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction })`
+- `resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction, selfRegistration })`
 - `resolvePasswordMinLength(env)`
 
 ### `src/server/lib/emailConfirmation.js`

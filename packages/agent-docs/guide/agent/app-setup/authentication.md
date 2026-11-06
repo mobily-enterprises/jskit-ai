@@ -154,8 +154,9 @@ like the recovery sender below; with it, `APP_PUBLIC_URL` is required and the
 link is never returned or logged. In development without one, the link is in
 the registration's answer (`confirmationUrl`) and the log, and the sign-in page
 shows it with a button that confirms it. In production (`NODE_ENV=production`)
-without one, the server refuses to start, naming both ways out: install a
-sender, or set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`. For direct library
+without one, while anyone may register, the server refuses to start, naming
+the ways out: install a sender, set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`, or
+set `AUTH_LOCAL_SELF_REGISTRATION=false`. For direct library
 composition, pass the sender as `confirmationSender` to
 `createLocalAuthService()`, with `emailConfirmationSender: true` in
 `resolveLocalAuthConfig()`; without one, pass
@@ -164,6 +165,16 @@ composition, pass the sender as `confirmationSender` to
 | Env | Default | Meaning |
 | --- | --- | --- |
 | `AUTH_LOCAL_EMAIL_CONFIRMATION` | on | `false` registers and signs in at once, without confirming the email. |
+| `AUTH_LOCAL_SELF_REGISTRATION` | on | `false`: only invited accounts and the first account register; anyone else is refused with 403 `auth.local.register.closed`. |
+
+Confirmation guards self-registration. An app whose accounts are only invited,
+or created through the first account, sets `AUTH_LOCAL_SELF_REGISTRATION=false`
+and needs no confirmation sender: an invitation counts when a feature's
+invitation context resolver (such as workspace invites) resolves it for that
+email, and the first account is admitted by its setup code. In production
+without a sender, those registrations sign in at once; with one, they confirm
+as usual. An app that refused the register routes itself, with a 404 hook,
+can drop the hook for this setting.
 
 Accounts that exist already are confirmed: only registrations made after the
 upgrade wait. Waiting registrations are kept in the file store

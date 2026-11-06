@@ -131,6 +131,7 @@ Exports
 - `checkScriptBackNames(code, offset, report)`
 - `isInAppPath(value)`
 - `isPageFile(file)`
+- `readTitledFiles({ root, appFiles })`
 Local functions
 - `compact(text)`
 - `isPlacementLink(code, offset)`
@@ -146,6 +147,7 @@ Local functions
 - `enclosingObject(text, offset)`
 - `stringValue(text, key)`
 - `readMainNavigation(sources)`
+- `computedPlacementPart(placement)`
 - `normalisePath(value)`
 - `routeOf(file)`
 - `routePattern(route)`
@@ -153,7 +155,7 @@ Local functions
 - `surfaceOf(route, surfaces)`
 - `routeDeclarations(source)`
 - `readPage(file, source)`
-- `createShellBarReader(appFiles, read)`
+- `createShellBarReader(appFiles, read, tag = SHELL_UP_TAG)`
 - `localComponent(file, specifier, known)`
 - `pageKey(file)`
 

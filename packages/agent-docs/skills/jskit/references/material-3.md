@@ -82,7 +82,10 @@ Exactly this, and nothing more:
 2. **Each top-level destination is a main-navigation item** (a `kind: "link"`
    placement with `target: "shell.primary-nav"` or `"shell.secondary-nav"`) and
    declares no parent; nor do its tabs. A shell page with no parent is
-   top-level: no arrow, a fresh trail.
+   top-level: no arrow, a fresh trail. Placements are literal declarative data,
+   one `addPlacement({ ... })` per destination with plain string `surface`,
+   `scopedSuffix` and `unscopedSuffix`, never built by a helper, a spread or a
+   template, so a reader and `jskit check` can map every destination.
 3. **Every in-app link and navigation goes through JSKIT navigation:**
    `:to="paths.page('/suppliers')"` and `router.push(paths.page(...))` with
    `usePaths()`, the CRUD runtime's `resolveViewUrl()`, `resolveEditUrl()` and
@@ -98,7 +101,10 @@ Exactly this, and nothing more:
 5. **A full page load goes through the shell too:** `reloadAppPage(path)`
    (after sign-in or a user switch, to rebuild client state) and
    `leaveApp(url)` (an external site in the same tab, such as a payment page),
-   from `@jskit-ai/shell-web/client/navigation/documentNavigation`.
+   from `@jskit-ai/shell-web/client/navigation/documentNavigation`. `leaveApp`
+   opens the site with a push, so Back returns to the page; a hand-off page
+   that only forwards (to an OAuth consent screen) uses
+   `leaveApp(url, { replace: true })`, so Back from the site doesn't rerun it.
 
 ### Forbidden in app code
 
@@ -110,6 +116,8 @@ Exactly this, and nothing more:
 | `nav/back-control` | any back control but the shell's Up that navigates the app: "Back to X", "← Suppliers", back arrows and navigating chevrons, breadcrumbs, a custom app-bar back button, a back component, a `goBack()`-style handler |
 | `nav/missing-parent` | an inner page of a shell surface without a declared parent |
 | `nav/top-level-parent` | a main-navigation destination that declares a parent |
+| `nav/placement-data` | a main-navigation placement that isn't literal data (no page is judged for a missing parent until it is) |
+| `nav/missing-shell-layout` | a page that declares a parent with no shell layout rendering it, so its title, Up and actions never show |
 | `nav/allow` | any `m3-check: allow nav/...` comment: nothing excuses a navigation rule |
 
 ### Each rule, right and wrong
@@ -182,10 +190,16 @@ JSKIT ships these exact sizes; an app never re-implements or overrides them,
 and needs no Sass and no `!important` (Vuetify 4 keeps its CSS in cascade
 layers):
 
-- 40dp buttons with a 48dp touch target, icon buttons included;
-- 12dp cards;
+- 40dp buttons with a 48dp touch target, icon buttons included; a smaller
+  button is `size="small"` or `size="x-small"`, which keeps its smaller look
+  and the 48dp target;
+- one-line button labels: a label longer than its button ends in an ellipsis.
+  Keep labels short, and give a button whose label can run long, such as a
+  name, the full label as its `title`;
+- 12dp cards: elevated (the default) at level 1, flat and tonal at level 0;
 - 28dp dialogs and bottom-sheet top corners, square full-screen dialogs;
-- 8dp chips and 16dp FABs;
+- 8dp chips, and FABs of 56dp (small 40dp, large 96dp; extended 56dp tall)
+  with 16dp corners;
 - emphasized easing, with reduced motion honoured.
 
 So never set `height` or `min-height` on a button, or a radius on a card,
@@ -197,7 +211,9 @@ dialog, chip or FAB. A missing size is a JSKIT defect.
   `useShellPageTitle(title)` (`@jskit-ai/shell-web/client/composables/useShellPageTitle`)
   for a runtime title such as the record's name. The shell renders it as the
   app bar's only `h1`; pages add no `h1`, page header, title block or
-  standalone heading. A section inside a page uses a title role.
+  standalone heading. A section inside a page uses a title role. A page with
+  no top app bar (a hero front page, an intro, an invite or hand-off page)
+  has its own one `h1`.
 - **Up** sits in the bar on every inner page (see Navigation and Up). On phones
   it replaces the menu icon.
 - **A layout that draws its own top app bar** (a workspace bar with the
@@ -206,7 +222,9 @@ dialog, chip or FAB. A missing size is a JSKIT defect.
   once, so its pages enter the trail and their `ShellPageActions` show in its
   bar, and renders `ShellUpButton` first, then `ShellPageTitle` (the page's one
   `h1`: `useShellPageTitle()`, else the route's `jskit.title`, else its `title`
-  prop) and `ShellPageActionsTarget`. `jskit check` counts it as a shell
+  prop) and `ShellPageActionsTarget`. A title that is also a switcher, such as a
+  project menu, goes in `ShellPageTitle`'s default slot (given `{ title }`) as
+  the menu's activator, so it stays the one `h1`. `jskit check` counts it as a shell
   layout, so its inner pages need parents; an Up the app draws itself is a
   `nav/back-control` finding.
 - **Actions:** a screen's actions go in the bar inside `ShellPageActions`
@@ -216,7 +234,9 @@ dialog, chip or FAB. A missing size is a JSKIT defect.
   On compact widths every action shows only its icon except the single
   `primary` one.
 - **Window size classes:** compact under 600 (navigation bar), medium 600–839
-  (navigation rail), expanded 840–1199 and large from 1200 (drawer). Read them
+  (navigation rail), expanded 840–1199 and large from 1200 (drawer). A surface
+  with no navigation destinations, such as an account surface, draws no
+  navigation bar, rail or drawer; its pages keep the app bar. Read them
   from `useShellWindowSizeClass()`
   (`@jskit-ai/shell-web/client/composables/useShellWindowSizeClass`), never from
   copied breakpoint numbers.
@@ -316,8 +336,8 @@ and so every app's verify, fail on them too:
 
 | Rule | Finds |
 |---|---|
-| `m3/duplicate-h1` | a second `h1`, or an in-page `h1` in an app that uses the JSKIT shell |
-| `m3/raw-hex` | a hex colour outside `src/theme/` |
+| `m3/duplicate-h1` | a second `h1`, or an in-page `h1` under the shell's page title |
+| `m3/raw-hex` | a hex colour outside `src/theme/` (`palettes.js` holds content colours) |
 | `m3/dark-scheme` | no dark scheme, or the theme pinned to light |
 | `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet |
 | `m3/mdi-icon` | `mdi-*` icon strings and `@mdi/js` imports |
@@ -338,14 +358,36 @@ Take the approved route first; none needs an exception:
   `<v-chip color="partner">`. A hex string is harmonized toward the seed; a
   colour that must keep its hue is `{ value: "#F5C518", blend: false }`
   (Material Theme Builder's Blend switched off), with the same four roles.
-- **Chart and data colours** come from the theme: `const theme = useTheme()`,
-  then `["primary", "tertiary"].map((role) => theme.current.value.colors[role])`.
+- **Content colours**, colours that are content rather than UI, keep one
+  value in both schemes: an identity palette a person picks and the server
+  stores, avatar and illustration artwork, brand marks (a language's
+  file-type tint), fixed chart series, QR codes, colours written into
+  exported files. They are named exports of plain hex values in
+  `src/theme/palettes.js`, used as they are, never for UI chrome (a theme
+  colour is toned per scheme, so it can't keep an identity the same).
+  Components read them through bindings:
+
+  ```vue
+  <script setup>
+  // src/theme/palettes.js: export const botColours = ["#6750A4", "#B3261E"];
+  import { botColours } from "@/theme/palettes.js";
+  const props = defineProps({ bot: Object });
+  const ring = botColours[props.bot.colour];
+  </script>
+  <template>
+    <v-avatar :style="{ backgroundColor: ring }"><svg><path :fill="ring" /></svg></v-avatar>
+  </template>
+  <style scoped>.v-avatar { outline: 2px solid v-bind(ring); }</style>
+  ```
+- **Chart and data colours** that follow the scheme come from the theme:
+  `const theme = useTheme()`, then
+  `["primary", "tertiary"].map((role) => theme.current.value.colors[role])`.
 - **A third-party widget** lives in one wrapper component, such as
   `src/components/RouteMap.vue`, that hands it theme colours; pages use only
   the wrapper.
 
-What is left may be excused one line at a time, on its line or the line
-before: `<!-- m3-check: allow m3/raw-hex - the partner's contractual logo colour -->`
+What is left, such as a colour inside static SVG markup that can't import,
+may be excused one line at a time, on its line or the line before: `<!-- m3-check: allow m3/raw-hex - the partner's contractual logo colour -->`
 (`// m3-check: ...` in scripts, `/* ... */` in CSS). **Never add one on your
 own:** ask the person first, naming the rule and the reason. A comment with no
 reason (`m3/allow-reason`) or an unknown rule (`m3/allow-rule`), and any
