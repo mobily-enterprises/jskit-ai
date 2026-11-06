@@ -3,6 +3,7 @@
   "version": "0.2.8",
   "type": "module",
   "dependencies": {
+    "@fastify/rate-limit": "^11.2.0",
     "json-rest-schema": "^1.0.17"
   },
   "scripts": {

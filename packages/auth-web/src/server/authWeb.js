@@ -1,4 +1,5 @@
 import { isDevAuthBootstrapEnabled, resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth-core/server/devAuth";
+import { resolveAuthRateLimits } from "./authRateLimits.js";
 import { AuthController } from "./controllers/AuthController.js";
 import { buildRoutes } from "./routes/authRoutes.js";
 import { AuthWebService } from "./services/AuthWebService.js";
@@ -11,15 +12,17 @@ import { AuthWebService } from "./services/AuthWebService.js";
  * @param {object} dependencies
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
  */
-function createAuthWeb({ authService, env }) {
+function createAuthWeb({ authService, env, config }) {
   const service = new AuthWebService({
     authService,
     devAuthBootstrapEnabled: isDevAuthBootstrapEnabled(resolveDevAuthPolicyFromEnv(env))
   });
   const controller = new AuthController({ service });
   const routes = buildRoutes(controller, {
-    includeDevLoginAs: service.isDevLoginAsAvailable()
+    includeDevLoginAs: service.isDevLoginAsAvailable(),
+    rateLimits: resolveAuthRateLimits(config)
   });
   return Object.freeze({
     controller,

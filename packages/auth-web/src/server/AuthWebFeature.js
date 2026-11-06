@@ -6,6 +6,7 @@ const AuthWebFeature = defineFeature({
   domain: "auth",
   requires: {
     authService: "auth.service",
+    config: "runtime.config",
     env: "runtime.env",
     http: "runtime.http"
   },
@@ -15,11 +16,12 @@ const AuthWebFeature = defineFeature({
   /**
    * @param {object} capabilities
    * @param {import("@jskit-ai/auth-core/server/types").AuthService} capabilities.authService
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} capabilities.config
    * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} capabilities.env
    * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
    */
-  setup({ authService, env, http }) {
-    const authWeb = createAuthWeb({ authService, env });
+  setup({ authService, config, env, http }) {
+    const authWeb = createAuthWeb({ authService, env, config });
     for (const route of authWeb.routes) {
       http.router.register(route.method, route.path, route, route.handler);
     }

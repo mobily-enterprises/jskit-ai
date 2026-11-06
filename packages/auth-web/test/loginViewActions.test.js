@@ -342,3 +342,43 @@ test("OAuth buttons name their provider in the sign-in sentence", () => {
   state.isRegister.value = true;
   assert.equal(actions.oauthProviderButtonLabel(github), "Register with GitHub");
 });
+
+for (const refusal of [
+  {
+    name: "the route's rate limit",
+    payload: { error: "Too many requests. Try again in 42 seconds.", code: "kernel.http.rateLimited", params: { count: 42 } }
+  },
+  {
+    name: "the account's failed sign-ins",
+    payload: {
+      error: "Too many failed sign-ins for this account. Try again in 2 minutes.",
+      code: "auth.local.login.locked",
+      params: { count: 2, retryAfterSeconds: 90 }
+    }
+  }
+]) {
+  test(`a sign-in refused by ${refusal.name} says how long to wait`, async (t) => {
+    clearAuthCsrfTokenCache();
+    t.after(clearAuthCsrfTokenCache);
+    const state = createMinimalLoginViewState("/");
+    const reports = [];
+    t.mock.method(globalThis, "fetch", async (url, options = {}) => {
+      if (url === "/api/session") {
+        return createJsonResponse({ authenticated: false, csrfToken: "csrf-a" });
+      }
+      assert.equal(`${options.method} ${url}`, "POST /api/login");
+      return createJsonResponse(refusal.payload, { status: 429 });
+    });
+    const actions = useLoginViewActions({
+      state,
+      validation: { canSubmit: { value: true } },
+      queryClient: { fetchQuery: ({ queryFn }) => queryFn() },
+      errorRuntime: { report: (entry) => reports.push(entry) }
+    });
+
+    await actions.submitAuth();
+
+    assert.equal(state.errorMessage.value, refusal.payload.error);
+    assert.equal(reports[0]?.message, refusal.payload.error);
+  });
+}

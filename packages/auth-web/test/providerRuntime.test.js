@@ -16,6 +16,7 @@ function createFastifyStub() {
     addHook(name, handler) {
       this.hooks.push({ name, handler });
     },
+    async register() {},
     route(definition) {
       this.routes.push(definition);
     },
@@ -108,6 +109,7 @@ async function startAuthWeb({ env = {}, authService = null } = {}) {
     inputs: {
       "runtime.logger": silentLogger,
       "auth.service": authService || createAuthService(),
+      "runtime.config": {},
       "runtime.env": { NODE_ENV: "test", ...env },
       "runtime.fastify": fastify
     },

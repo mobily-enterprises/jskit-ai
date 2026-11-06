@@ -15,12 +15,18 @@ import {
   authSessionReadCommand
 } from "@jskit-ai/auth-core/shared/commands";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
+import { DEFAULT_AUTH_RATE_LIMITS } from "../authRateLimits.js";
 
 /**
+ * The auth routes, each limited per client address by its entry in
+ * `rateLimits` (none when that entry is null).
  * @param {import("../controllers/AuthController.js").AuthController} controller
- * @param {{ includeDevLoginAs?: boolean }} [options]
+ * @param {{
+ *   includeDevLoginAs?: boolean,
+ *   rateLimits?: ReturnType<typeof import("../authRateLimits.js").resolveAuthRateLimits>
+ * }} [options]
  */
-function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
+function buildRoutes(controller, { includeDevLoginAs = false, rateLimits = DEFAULT_AUTH_RATE_LIMITS } = {}) {
   return [
     {
       path: AUTH_PATHS.REGISTER,
@@ -37,10 +43,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 10,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.register,
       handler: (request, reply) => controller.register(request, reply)
     },
     {
@@ -58,10 +61,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 5,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.registerConfirmationResend,
       handler: (request, reply) => controller.resendRegisterConfirmation(request, reply)
     },
     {
@@ -79,10 +79,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 10,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.login,
       handler: (request, reply) => controller.login(request, reply)
     },
     {
@@ -100,10 +97,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 10,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.loginOtpRequest,
       handler: (request, reply) => controller.requestOtpLogin(request, reply)
     },
     {
@@ -121,10 +115,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 10,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.loginOtpVerify,
       handler: (request, reply) => controller.verifyOtpLogin(request, reply)
     },
     {
@@ -144,10 +135,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 20,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.oauthStart,
       handler: (request, reply) => controller.oauthStart(request, reply)
     },
     {
@@ -165,10 +153,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 20,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.oauthComplete,
       handler: (request, reply) => controller.oauthComplete(request, reply)
     },
     ...(includeDevLoginAs ? [{
@@ -186,10 +171,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 30,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.devLoginAs,
       handler: (request, reply) => controller.devLoginAs(request, reply)
     }] : []),
     {
@@ -207,10 +189,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 5,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.passwordForgot,
       handler: (request, reply) => controller.requestPasswordReset(request, reply)
     },
     {
@@ -228,10 +207,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 20,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.passwordRecovery,
       handler: (request, reply) => controller.completePasswordRecovery(request, reply)
     },
     {
@@ -249,10 +225,7 @@ function buildRoutes(controller, { includeDevLoginAs = false } = {}) {
         },
         { includeValidation400: true }
       ),
-      rateLimit: {
-        max: 20,
-        timeWindow: "1 minute"
-      },
+      rateLimit: rateLimits.passwordReset,
       handler: (request, reply) => controller.resetPassword(request, reply)
     },
     {

@@ -24,8 +24,8 @@ const HttpProvider = defineProvider({
    * @param {object} _dependencies
    * @param {{ outputs: { http: import("../types.js").RuntimeHttp } }} lifecycle
    */
-  boot(_dependencies, { outputs }) {
-    outputs.http.start();
+  async boot(_dependencies, { outputs }) {
+    await outputs.http.start();
   }
 });
 

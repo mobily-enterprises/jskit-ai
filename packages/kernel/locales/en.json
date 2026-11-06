@@ -22,6 +22,9 @@
       "unsupported_media_type": "Content-Type must be {contentType}."
     },
     "kernel": {
+      "http": {
+        "rateLimited": "Too many requests. Try again in {count} second. | Too many requests. Try again in {count} seconds."
+      },
       "validation": {
         "required": "must have required property '{missingProperty}'",
         "type": "must be {type}",

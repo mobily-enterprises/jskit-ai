@@ -8,6 +8,7 @@ import { resolveRequest } from "../actions/actionContributorHelpers.js";
 import { normalizeActionChannel } from "../actions/executionContext.js";
 import { createRouter } from "./lib/router.js";
 import { registerRoutes } from "./lib/routeRegistration.js";
+import { registerRouteRateLimiter } from "./lib/routeRateLimits.js";
 import {
   registerApiErrorHandler,
   registerBodylessContentTypeNormalizer
@@ -98,14 +99,16 @@ function createCapabilityHttpRuntime({ fastify, actions }) {
     }
   });
 
-  function start() {
+  async function start() {
     assertOpen();
     started = true;
     registerBodylessContentTypeNormalizer(fastify);
     registerApiErrorHandler(fastify);
+    const routes = router.list().filter((route) => route.internal !== true);
+    await registerRouteRateLimiter(fastify, routes);
     registration = Object.freeze(registerRoutes(fastify, {
       actions,
-      routes: router.list()
+      routes
     }));
     return registration;
   }

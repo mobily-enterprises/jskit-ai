@@ -64,7 +64,6 @@
   "dependencies": {
     "@fastify/cookie": "^11.1.2",
     "@fastify/csrf-protection": "^8.0.1",
-    "@fastify/rate-limit": "^11.2.0",
     "json-rest-schema": "^1.0.17"
   },
   "jskit": {

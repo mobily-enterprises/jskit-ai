@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The auth policy no longer registers `@fastify/rate-limit`, which it did after the routes existed, so no route limit applied; the kernel now registers it before the routes and enforces each route's `rateLimit`.
+
 - Every auth command's field messages (sign-in, registration, one-time codes, OAuth, password reset and recovery, dev sign-in) are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.
 - The default access-denied texts carry the messageCodes `auth.denied.notAllowlistedDefault`, `auth.denied.blockedDefault` and `auth.denied.unspecified`; `./shared/authDenied` adds `AUTH_DENIED_DEFAULT_TEXTS` and `AUTH_DENIED_FALLBACK_TEXT` (`{ message, messageCode }`). `AUTH_DENIED_DEFAULT_MESSAGES` and the English are unchanged.
 

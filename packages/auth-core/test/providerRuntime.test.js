@@ -44,7 +44,8 @@ test("AuthPolicyProvider installs Fastify policy and explicit action/visibility 
   assert.ok(state.requestDecorators.has("membership"));
   assert.ok(state.requestDecorators.has("permissions"));
   assert.equal(typeof state.preHandler, "function");
-  assert.ok(state.registeredPlugins.length >= 3);
+  // Cookies and CSRF; the kernel registers the rate limiter with the routes.
+  assert.equal(state.registeredPlugins.length, 2);
   assert.ok(runtime.diagnostics().capabilityIds.includes("auth.policy"));
 });
 

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The account security routes' declared rate limits apply, now that the kernel enforces route limits.
 - The settings, security and avatar field messages are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.
 - The resources' validation feedback names the catalog key `jskit.users.feedback.validationFailed` instead of plain English; JSKIT's forms render it with `text()`, so the English shown is unchanged.
 - `USER_PROFILE_EMAIL_CONFLICT` has its English in the catalog, so it translates.

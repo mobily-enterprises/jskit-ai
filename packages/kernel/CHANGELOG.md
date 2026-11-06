@@ -4,11 +4,13 @@
 
 - `createInstalledRuntime` adds security headers to every response its Fastify server sends: `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` always, and in production (`NODE_ENV=production`) `Strict-Transport-Security: max-age=31536000`, `Content-Security-Policy: frame-ancestors 'self'` and a report-only content policy that JSKIT's client runs under. `config.securityHeaders` changes or switches each one off; a route's own header wins. `registerSecurityHeaders` (`@jskit-ai/kernel/server/http`) does the same for a server composed without `createInstalledRuntime`.
 - `createInstalledRuntime` returns `health`, whose `check()` runs the checks providers register through the optional `runtime.health` capability, each within two seconds, and reports `{ ok, checks }` without error details.
+- A route's `rateLimit: { max, timeWindow }` is enforced. The kernel registers `@fastify/rate-limit` (now its dependency) before the routes whenever one declares a limit, counts each client address on each limited route, and refuses a request over the limit with status 429, the code `kernel.http.rateLimited` (`params.count` is the seconds to wait) and a `Retry-After` header. Before, the router dropped `rateLimit`, so no declared limit applied. A malformed `rateLimit`, or one given as `config.rateLimit`, stops the route's definition. New message key: `jskit.kernel.http.rateLimited`.
 
 ### Upgrading
 
 - A production server that another site frames, such as an editor's preview of a production build, lists that site in `config.securityHeaders.frameAncestors`.
 - Move `/api/health` after `createInstalledRuntime` and answer `503` when `runtime.health.check()` is not ok, as the foundations do.
+- The client address is Fastify's `request.ip`; behind a reverse proxy, create Fastify with `trustProxy` set to the proxy's address, or every client shares the proxy's count. A Fastify test stub serving routes that declare a limit needs an `async register() {}`.
 
 - `createServerI18n()` also returns `resolveLocale(preferences)`: from a person's preferred locales (most preferred first, such as `ui_locales` or `Accept-Language`) the first the app has translations for, exactly or by language, else `en`.
 

@@ -7,6 +7,7 @@ import { RouteRegistrationError } from "./errors.js";
 import { attachDirectRequestActionExecutor } from "../directRequestActionExecutor.js";
 import { resolveRouteLabel } from "./routeSupport.js";
 import { JSON_API_CONTENT_TYPE } from "./routeTransport.js";
+import { rateLimitRouteConfig } from "./routeRateLimits.js";
 
 /** @typedef {import("../../types.js").ActionCatalogue} ActionCatalogue */
 /** @typedef {import("../../types.js").RuntimeFastify} RuntimeFastify */
@@ -27,7 +28,8 @@ function toFastifyRouteOptions(route) {
     ...(route.bodyLimit ? { bodyLimit: route.bodyLimit } : {}),
     config: {
       ...normalizeObject(route.config),
-      ...(route.transport ? { transport: route.transport } : {})
+      ...(route.transport ? { transport: route.transport } : {}),
+      ...rateLimitRouteConfig(route.rateLimit)
     }
   };
 }

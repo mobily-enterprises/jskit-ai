@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The auth routes' rate limits apply, per client address: `login`, `register`, `loginOtpRequest` and `loginOtpVerify` 10 a minute; `registerConfirmationResend` and `passwordForgot` 5; `oauthStart`, `oauthComplete`, `passwordRecovery` and `passwordReset` 20; `devLoginAs` 30. A refused request answers 429 with `kernel.http.rateLimited` and `Retry-After`, and the login page shows it.
+- `config.auth.rateLimits.<route>` changes a route's limit (`{ max, timeWindow }`, merged over the default) or removes it (`false`); an unknown route name or a malformed value stops startup. `AuthWebFeature` therefore requires `runtime.config`, which every installed runtime provides.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

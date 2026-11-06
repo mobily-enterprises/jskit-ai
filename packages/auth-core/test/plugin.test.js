@@ -5,7 +5,7 @@ import { createFakeFastifyPolicyRuntime } from "../../../tooling/testUtils/fakeF
 
 import { authPolicyPlugin } from "../src/server/lib/index.js";
 
-test("auth policy protects real Fastify requests with CSRF and route rate limits", async (t) => {
+test("auth policy protects real Fastify requests with CSRF", async (t) => {
   const app = Fastify();
   t.after(() => app.close());
   await authPolicyPlugin({
@@ -21,9 +21,6 @@ test("auth policy protects real Fastify requests with CSRF and route rate limits
     token: reply.generateCsrf()
   }));
   app.post("/api/write", { config: { authPolicy: "public" } }, () => ({ accepted: true }));
-  app.get("/api/limited", {
-    config: { authPolicy: "public", rateLimit: { max: 1, timeWindow: "1 minute" } }
-  }, () => ({ accepted: true }));
 
   const missingToken = await app.inject({ method: "POST", url: "/api/write" });
   assert.equal(missingToken.statusCode, 403);
@@ -44,8 +41,6 @@ test("auth policy protects real Fastify requests with CSRF and route rate limits
     method: "POST", url: "/api/write", cookies, headers: { "x-csrf-token": "invalid" }
   });
   assert.equal(invalidToken.statusCode, 403);
-  assert.equal((await app.inject({ method: "GET", url: "/api/limited" })).statusCode, 200);
-  assert.equal((await app.inject({ method: "GET", url: "/api/limited" })).statusCode, 429);
 });
 
 test("production CSRF secrets live in a host-only __Host- cookie a sibling host cannot plant", async (t) => {

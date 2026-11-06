@@ -1,6 +1,5 @@
 import fastifyCookie from "@fastify/cookie";
 import fastifyCsrfProtection from "@fastify/csrf-protection";
-import fastifyRateLimit from "@fastify/rate-limit";
 import { safeRequestUrl } from "@jskit-ai/kernel/server/runtime/requestUrl";
 import { isProductionNodeEnv } from "../devAuth.js";
 import { hostOnlyCookieName } from "../utils.js";
@@ -10,9 +9,6 @@ import { AUTH_POLICY_DENY_REASONS, createAuthPolicyError } from "./errors.js";
 import { AUTH_POLICIES, CONTEXT_POLICIES, resolveAuthPolicyMeta } from "./routeMeta.js";
 
 const DEFAULT_API_PREFIX = "/api/";
-const DEFAULT_RATE_LIMIT_PLUGIN_OPTIONS = Object.freeze({
-  global: false
-});
 const DEFAULT_UNSAFE_METHODS = Object.freeze(["POST", "PUT", "PATCH", "DELETE"]);
 
 function normalizeUnsafeMethods(methodsValue) {
@@ -23,16 +19,6 @@ function normalizeUnsafeMethods(methodsValue) {
 function normalizeApiPrefix(value) {
   const normalized = String(value || "").trim();
   return normalized || DEFAULT_API_PREFIX;
-}
-
-function normalizeRateLimitPluginOptions(value) {
-  if (!value || typeof value !== "object") {
-    return {
-      ...DEFAULT_RATE_LIMIT_PLUGIN_OPTIONS
-    };
-  }
-
-  return value;
 }
 
 function resolveRouteConfig(request) {
@@ -87,7 +73,6 @@ function authPolicyPlugin(deps = {}, options = {}) {
   const { resolveActor, resolveContext, hasPermission, onPolicyDenied } = assertAuthPolicyDeps(deps);
   const apiPrefix = normalizeApiPrefix(options.apiPrefix);
   const unsafeMethods = normalizeUnsafeMethods(options.unsafeMethods);
-  const rateLimitPluginOptions = normalizeRateLimitPluginOptions(options.rateLimitPluginOptions);
   const csrfCookieOpts =
     options.csrfCookieOpts && typeof options.csrfCookieOpts === "object" ? options.csrfCookieOpts : {};
   // createError(status, englishMessage, { code }) builds each refusal.
@@ -108,7 +93,6 @@ function authPolicyPlugin(deps = {}, options = {}) {
 
   return async function registerAuthPolicyPlugin(fastify) {
     await fastify.register(fastifyCookie);
-    await fastify.register(fastifyRateLimit, rateLimitPluginOptions);
     await fastify.register(fastifyCsrfProtection, {
       getToken: resolveCsrfTokenFn,
       cookieKey: hostOnlyCookieName("_csrf", csrfCookieHostOnly),

@@ -733,6 +733,11 @@ for anything that reads or writes the domain.**
   `request.executeAction({ actionId: ACTION_X, input })` returns.
 - A route that bypasses actions (a provider's callback) gets its own named
   registrar. Summaries are sentences.
+- A route that repetition can abuse (sign-in, codes, sending email) declares
+  `rateLimit: { max, timeWindow }`, which the kernel enforces per client
+  address and refuses with 429, `kernel.http.rateLimited` and `Retry-After`.
+  A limit worth changing per application is read from its config, as
+  `config.auth.rateLimits` is.
 
 Why: an action is the one place a domain operation's policy, input and
 events are declared.

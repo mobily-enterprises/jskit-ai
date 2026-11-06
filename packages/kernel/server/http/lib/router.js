@@ -3,6 +3,7 @@ import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteValidatorOptions } from "./routeValidator.js";
 import { resolveRouteLabel } from "./routeSupport.js";
 import { normalizeRouteOutputTransform, normalizeRouteTransport } from "./routeTransport.js";
+import { normalizeRouteRateLimit } from "./routeRateLimits.js";
 
 function normalizeMethod(method) {
   return ensureNonEmptyText(method, "route method").toUpperCase();
@@ -23,6 +24,14 @@ function normalizeRouteMiddleware(value, routeLabel) {
     throw new RouteDefinitionError(`Route ${routeLabel} middleware entries must be functions.`);
   }
   return Object.freeze([...middleware]);
+}
+
+function normalizeRouteConfig(value, routeLabel) {
+  const config = normalizeObject(value);
+  if (Object.hasOwn(config, "rateLimit")) {
+    throw new RouteDefinitionError(`Route ${routeLabel} declares config.rateLimit; declare rateLimit on the route instead.`);
+  }
+  return config;
 }
 
 function normalizeRouteInternal(value, { method = "", path = "" } = {}) {
@@ -74,7 +83,8 @@ class HttpRouter {
       path: input.path,
       options: input.options
     });
-    const routeMiddleware = normalizeRouteMiddleware(resolvedOptions.middleware, `${input.method} ${input.path}`);
+    const routeLabel = `${input.method} ${input.path}`;
+    const routeMiddleware = normalizeRouteMiddleware(resolvedOptions.middleware, routeLabel);
     const routeInput = Object.hasOwn(resolvedOptions, "input") ? resolvedOptions.input : null;
     const routeOutput = normalizeRouteOutputTransform(
       Object.hasOwn(resolvedOptions, "output") ? resolvedOptions.output : null,
@@ -100,7 +110,7 @@ class HttpRouter {
       input: routeInput,
       output: routeOutput,
       transport: routeTransport,
-      config: normalizeObject(resolvedOptions.config),
+      config: normalizeRouteConfig(resolvedOptions.config, routeLabel),
       auth: resolvedOptions.auth,
       contextPolicy: resolvedOptions.contextPolicy,
       surface: resolvedOptions.surface,
@@ -115,6 +125,7 @@ class HttpRouter {
       ownerResolver: resolvedOptions.ownerResolver,
       csrfProtection: resolvedOptions.csrfProtection,
       bodyLimit: resolvedOptions.bodyLimit,
+      rateLimit: normalizeRouteRateLimit(resolvedOptions.rateLimit, routeLabel),
       middleware: routeMiddleware,
       handler: input.handler
     });
