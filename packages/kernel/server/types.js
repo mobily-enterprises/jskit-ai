@@ -6,6 +6,7 @@
 /** @typedef {ReturnType<typeof import("./runtime/bootstrapRuntime.js").createBootstrapRuntime>} RuntimeBootstrap */
 /** @typedef {ReturnType<typeof import("./runtime/eventRuntime.js").createEventRuntime>} RuntimeEvents */
 /** @typedef {ReturnType<typeof import("./http/capabilityHttpRuntime.js").createCapabilityHttpRuntime>} RuntimeHttp */
+/** @typedef {ReturnType<typeof import("./runtime/healthRuntime.js").createHealthRuntime>} RuntimeHealth The health checks providers register and the application's health route runs. */
 /** @typedef {ReturnType<typeof import("./http/lib/router.js").createRouter>} RuntimeRouter The router of `runtime.http`, on which features register their routes. */
 
 /** @typedef {string} RuntimeAppRoot The application's root directory. */

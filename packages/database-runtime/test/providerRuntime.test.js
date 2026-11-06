@@ -50,6 +50,12 @@ async function withAppRootKnexStub(callback) {
       "    __source: 'app-root-knex',",
       "    __config: config,",
       "    destroyCalls: 0,",
+      "    rawQueries: [],",
+      "    raw: async function raw(sql) {",
+      "      this.rawQueries.push(sql);",
+      "      if (config.connection.host === 'db.down') throw new Error('connect ECONNREFUSED');",
+      "      return [];",
+      "    },",
       "    transaction: async function transaction(callback) {",
       "      return callback({ trxId: 'trx-app-root' });",
       "    },",
@@ -158,5 +164,41 @@ test("DatabaseProvider rejects environment dialect mismatch", async () => {
       runtime.start(),
       /DB_CLIENT="pg" does not match installed database driver "mysql2"\./
     );
+  });
+});
+
+test("DatabaseProvider adds a database health check that runs a trivial query", async () => {
+  await withAppRootKnexStub(async () => {
+    for (const [host, healthy] of [["db.local", true], ["db.down", false]]) {
+      const checks = new Map();
+      let database;
+      const runtime = createCapabilityRuntime({
+        inputs: {
+          "runtime.env": { DB_HOST: host, DB_NAME: "appdb", DB_USER: "appuser" },
+          "runtime.health": { register: (id, check) => checks.set(id, check) }
+        },
+        providers: [driverProvider(), DatabaseProvider, databaseConsumer((value) => { database = value; })]
+      });
+      await runtime.start();
+      assert.deepEqual([...checks.keys()], ["database"]);
+      if (healthy) {
+        await checks.get("database")();
+      } else {
+        await assert.rejects(checks.get("database")(), /ECONNREFUSED/u);
+      }
+      assert.deepEqual(database.knex.rawQueries, ["select 1"]);
+      await runtime.shutdown();
+    }
+  });
+});
+
+test("DatabaseProvider starts without health checks", async () => {
+  await withAppRootKnexStub(async () => {
+    const runtime = createCapabilityRuntime({
+      inputs: { "runtime.env": { DB_NAME: "appdb", DB_USER: "appuser" } },
+      providers: [driverProvider(), DatabaseProvider]
+    });
+    await runtime.start();
+    await runtime.shutdown();
   });
 });

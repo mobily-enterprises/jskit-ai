@@ -98,6 +98,24 @@ loading. Do not replace them with generic spinners. Keep failures local when a
 resource cannot render; use shared toast/snackbar feedback for transient user
 commands so errors do not push the working page down.
 
+## Health endpoint
+
+Both foundations register `GET /api/health` after `createInstalledRuntime` and
+answer from the installed runtime's `health.check()`: `200` with
+`{ ok: true, checks, app }` when every check the installed packages register
+passes, and `503` with `ok: false` when one fails. `@jskit-ai/database-runtime`
+registers a `database` check that runs `select 1`. Each check has two seconds;
+a failure is logged on the server and the response only names which checks
+passed, so the route can stay public for load balancers and uptime monitors.
+Requests that arrive while a check runs share it. An application that adopted
+an older foundation, where the route answered `ok: true` before the runtime was
+created, moves the route after `createInstalledRuntime` in the same way.
+
+A package adds its own check through the optional `runtime.health`
+capability: `optional: { health: "runtime.health" }`, then
+`health?.register("queue", () => queue.ping())` in `setup()`. The check resolves
+when healthy and rejects or hangs when not.
+
 ## Security headers
 
 `createInstalledRuntime` adds security headers to every response its Fastify

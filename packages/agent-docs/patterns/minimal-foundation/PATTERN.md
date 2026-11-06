@@ -146,7 +146,9 @@ verification, not only against Vite development mode.
 After adapting the example, install the declared packages once and run
 `npm run develop` for the live application. Then run the application's lint,
 server tests, client tests, production build, and focused browser smoke.
-Confirm `/api/health` and the first product route.
+Confirm `/api/health` and the first product route. The health route answers
+from the installed runtime's `health.check()` after `createInstalledRuntime`, so
+it returns `503` while a registered check, such as the database's, fails.
 
 ## Avoid
 

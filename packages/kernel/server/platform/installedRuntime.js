@@ -4,6 +4,7 @@ import { HttpProvider } from "../http/HttpProvider.js";
 import { registerSecurityHeaders } from "../http/securityHeaders.js";
 import { BootstrapProvider } from "../runtime/BootstrapProvider.js";
 import { EventProvider } from "../runtime/EventProvider.js";
+import { createHealthRuntime } from "../runtime/healthRuntime.js";
 import {
   assertManifestMatchesProviders,
   collectGlobalUiPaths,
@@ -19,6 +20,7 @@ import {
 /** @typedef {import("../types.js").RuntimeConfig} RuntimeConfig */
 /** @typedef {import("../types.js").RuntimeEnv} RuntimeEnv */
 /** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
+/** @typedef {import("../types.js").RuntimeHealth} RuntimeHealth */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
 
 const RUNTIME_LOGGER_METHODS = Object.freeze(["debug", "info", "warn", "error"]);
@@ -30,16 +32,18 @@ const RUNTIME_LOGGER_METHODS = Object.freeze(["debug", "info", "warn", "error"])
  * @param {RuntimeConfig} seeds.config
  * @param {RuntimeEnv} seeds.env
  * @param {RuntimeLogger} seeds.logger
+ * @param {RuntimeHealth} seeds.health
  * @param {RuntimeFastify | null} seeds.httpServer The Fastify instance that serves HTTP, if any.
  * @param {string} seeds.appRoot
  */
-function seedInputCapabilities({ inputs, config, env, logger, httpServer, appRoot }) {
+function seedInputCapabilities({ inputs, config, env, logger, health, httpServer, appRoot }) {
   return Object.freeze({
     ...inputs,
     "runtime.app-root": appRoot,
     "runtime.config": Object.freeze({ ...config }),
     "runtime.env": Object.freeze({ ...env }),
     "runtime.logger": logger,
+    "runtime.health": health,
     ...(httpServer ? { "runtime.fastify": httpServer } : {})
   });
 }
@@ -61,7 +65,9 @@ function builtinCapabilityProviders(inputCapabilities) {
 /**
  * The application's capability runtime: the kernel's providers, then each
  * installed package's, then the application's own. A Fastify instance adds HTTP, and the
- * security headers `config.securityHeaders` describes on every response it sends.
+ * security headers `config.securityHeaders` describes on every response it sends. The result's
+ * `health` runs the health checks providers register (`runtime.health`), for the application's
+ * health route.
  * @param {object} options
  * @param {string} options.appRoot
  * @param {string} [options.profile]
@@ -100,7 +106,8 @@ async function createInstalledRuntime({
     // Before any provider registers a plugin, so every route and plugin inherits the hook.
     registerSecurityHeaders(httpServer, { config, env });
   }
-  const inputCapabilities = seedInputCapabilities({ inputs, config, env, logger, httpServer, appRoot });
+  const health = createHealthRuntime({ logger });
+  const inputCapabilities = seedInputCapabilities({ inputs, config, env, logger, health, httpServer, appRoot });
   const installedPackages = await resolveInstalledJskitPackages({ appRoot });
   validatePackageCapabilities(installedPackages, {
     builtinProvidersByCapability: builtinCapabilityProviders(inputCapabilities)
@@ -158,6 +165,7 @@ async function createInstalledRuntime({
 
   return Object.freeze({
     runtime,
+    health,
     packageOrder: Object.freeze(orderedPackages.map((entry) => entry.packageId)),
     providerPackageOrder: Object.freeze(providerPackageOrder),
     globalUiPaths: collectGlobalUiPaths(orderedPackages),

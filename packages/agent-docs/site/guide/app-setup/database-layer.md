@@ -43,6 +43,10 @@ also derives its dialect from the installed driver and rejects a conflicting
 The application or hosting environment creates the database and provides its
 credentials. JSKIT never guesses or commits them.
 
+The running database provider registers a `database` health check that runs
+`select 1` within two seconds. The foundations' `GET /api/health` answers `503`
+while it fails; see [Health endpoint](./initial-scaffolding.md#health-endpoint).
+
 ## Migration configuration
 
 Use the fixed-dialect pattern owned by the selected driver. The important
