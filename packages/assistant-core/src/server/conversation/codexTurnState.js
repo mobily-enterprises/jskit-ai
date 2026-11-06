@@ -39,6 +39,19 @@ function codexAppServerThreadStatus(thread = {}) {
 }
 
 /**
+ * Whether a thread read lists exactly this turn as finished, completed or failed. Codex lists a turn it has accepted
+ * but not yet started as interrupted, so only these two say that it ran.
+ * @param {Record<string, unknown> | null} thread a read with its latest turn observed
+ * @param {string} turnId
+ */
+function codexAppServerObservedTurnFinished(thread = null, turnId = "") {
+  const observed = isRecord(thread?.observedTurn) ? thread.observedTurn : null;
+  const normalizedTurnId = normalizeNullableText(turnId);
+  if (!observed || !normalizedTurnId || normalizeNullableText(observed.id) !== normalizedTurnId) return false;
+  return ["completed", "failed"].includes(normalizeNullableText(observed.status));
+}
+
+/**
  * Reads a native thread's status, and with observeLatestTurn its latest turn too.
  * @param {import("./codexProvider.js").CodexAppServerAgentProvider | null} provider
  * @param {string} threadId
@@ -604,4 +617,4 @@ function codexPromptInputFromRequest(input = {}) {
   return codexAppServerMessageText(input);
 }
 
-export { codexAppServerRunInputSource, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerErrorMessage, codexAppServerMessageDeferred, codexPromptInputFromRequest, CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_APP_SERVER_RESULT_PROCESSED_EVENT, CODEX_AGENT_PROVIDER, CODEX_APP_SERVER_ACTIVE_RUN_STATES };
+export { codexAppServerRunInputSource, codexAppServerThreadStatus, codexAppServerObservedTurnFinished, codexAppServerReadThreadStatus, codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerErrorMessage, codexAppServerMessageDeferred, codexPromptInputFromRequest, CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_APP_SERVER_RESULT_PROCESSED_EVENT, CODEX_AGENT_PROVIDER, CODEX_APP_SERVER_ACTIVE_RUN_STATES };

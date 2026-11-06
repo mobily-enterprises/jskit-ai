@@ -1,4 +1,4 @@
-import { codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerAgentRun, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerTurnCanAdoptSuccessor, codexAppServerErrorMessage, codexAppServerTurnKey } from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, codexAppServerObservedTurnFinished, codexAppServerReadThreadStatus, codexAppServerAgentRun, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerTurnCanAdoptSuccessor, codexAppServerErrorMessage } from "./codexTurnState.js";
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { codexAppServerStatusFromValue } from "./codexEvents.js";
 import { codexAppServerThreadRawValue, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexThreadSnapshot.js";
@@ -200,12 +200,16 @@ export function createCodexThreadStatus({ journal, settlement, recovery, output,
         turnId
       };
     }
+    // Codex lists the tracked turn as finished: it ran, even if its notifications about it were missed.
+    if (trackedProviderTurn && codexAppServerObservedTurnFinished(thread, trackedProviderTurn.turnId)) {
+      journal.noteTurnReported(trackedProviderTurn.threadId, trackedProviderTurn.turnId);
+    }
     // Codex has accepted the tracked turn but not started it. Until it does, its thread reads idle and lists the
     // turn as interrupted, so only Codex's own report about the turn settles it.
     if (
       trackedProviderTurn?.state === "active" &&
       !codexAppServerTurnStatusIsActive(status) &&
-      journal.unstartedTurns.has(codexAppServerTurnKey(trackedProviderTurn.threadId, trackedProviderTurn.turnId))
+      journal.turnIsUnstarted(trackedProviderTurn.threadId, trackedProviderTurn.turnId)
     ) {
       debugLog("appServerThread.reconcile.awaitingProviderStart", {
         sessionId: normalizedSessionId,

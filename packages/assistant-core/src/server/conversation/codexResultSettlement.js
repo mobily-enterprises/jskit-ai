@@ -1,4 +1,4 @@
-import { CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_APP_SERVER_RESULT_PROCESSED_EVENT, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerProcessedResultEvent, codexAppServerTurnAwaitsProviderIdentity, codexAppServerTurnCanAdoptSuccessor, codexAppServerAgentRun, CODEX_APP_SERVER_RUN_STATE, codexAppServerTurnKey } from "./codexTurnState.js";
+import { CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_APP_SERVER_RESULT_PROCESSED_EVENT, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerProcessedResultEvent, codexAppServerTurnAwaitsProviderIdentity, codexAppServerTurnCanAdoptSuccessor, codexAppServerAgentRun, CODEX_APP_SERVER_RUN_STATE } from "./codexTurnState.js";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
@@ -325,10 +325,7 @@ export function createCodexResultSettlement({ journal, output, createRuntime, pu
       normalizedThreadId,
       previousTurnId
     );
-    journal.completedTurns.add(codexAppServerTurnKey(
-      normalizedThreadId,
-      previousTurnId
-    ));
+    journal.markTurnCompleted(normalizedThreadId, previousTurnId);
     const previousResultKey = output.resultFinalizationKey(
       normalizedSessionId,
       normalizedThreadId,

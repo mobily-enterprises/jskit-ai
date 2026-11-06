@@ -1,4 +1,4 @@
-import { codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerAgentRun, codexAppServerPendingUserMessageOwnership, codexAppServerTurnCanAdoptSuccessor, codexAppServerTurnKey } from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerThreadStatus, codexAppServerObservedTurnFinished, codexAppServerReadThreadStatus, codexAppServerAgentRun, codexAppServerPendingUserMessageOwnership, codexAppServerTurnCanAdoptSuccessor } from "./codexTurnState.js";
 import { codexAppServerProviderTurnForOperation, codexAppServerThreadTurnId, codexAppServerThreadError } from "./codexThreadSnapshot.js";
 import { createCodexTurnActivity } from "./codexTurnActivity.js";
 import { createCodexTurnEndings } from "./codexTurnEndings.js";
@@ -270,16 +270,21 @@ export function createCodexTurnRecovery({
     if (!codexAppServerTurnStatusIsComplete(status)) {
       return currentSession;
     }
-    if (journal.unstartedTurns.has(codexAppServerTurnKey(currentTurn.threadId, currentTurn.turnId))) {
-      // Codex has accepted this turn but not started it, and its thread reads idle until it does.
-      debugLog("appServerTurn.reconcile.awaitingProviderStart", {
-        sessionId,
-        status,
-        threadId: currentTurn.threadId,
-        turnId: currentTurn.turnId
-      });
-      scheduleCodexAppServerActiveRecovery(sessionId);
-      return currentSession;
+    if (journal.turnIsUnstarted(currentTurn.threadId, currentTurn.turnId)) {
+      // Codex may have accepted this turn without starting it: its thread reads idle until it does. Only Codex's own
+      // listing of the turn as finished settles it before a notification about the turn arrives.
+      const observed = await codexAppServerReadThreadStatus(provider, currentTurn.threadId, { observeLatestTurn: true });
+      if (!codexAppServerObservedTurnFinished(observed, currentTurn.turnId)) {
+        debugLog("appServerTurn.reconcile.awaitingProviderStart", {
+          sessionId,
+          status,
+          threadId: currentTurn.threadId,
+          turnId: currentTurn.turnId
+        });
+        scheduleCodexAppServerActiveRecovery(sessionId);
+        return currentSession;
+      }
+      journal.noteTurnReported(currentTurn.threadId, currentTurn.turnId);
     }
     const completedTurnId = providerTurnId || currentTurn.turnId;
     debugLog("appServerTurn.reconcile.complete", {

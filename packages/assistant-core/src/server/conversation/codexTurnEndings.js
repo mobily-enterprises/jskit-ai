@@ -1,4 +1,4 @@
-import { codexAppServerTurnStatusIsActive, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerAgentRun, codexAppServerTurnOwnsActiveGoal, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerTurnAwaitsProviderIdentity, codexAppServerTurnCanReceiveProviderActivity, codexAppServerTurnKey } from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsActive, codexAppServerThreadStatus, codexAppServerReadThreadStatus, codexAppServerAgentRun, codexAppServerTurnOwnsActiveGoal, codexAppServerTurnCanReceiveProviderCompletion, codexAppServerTurnAwaitsProviderIdentity, codexAppServerTurnCanReceiveProviderActivity } from "./codexTurnState.js";
 import { codexAppServerThreadTurnId } from "./codexThreadSnapshot.js";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
@@ -201,7 +201,7 @@ export function createCodexTurnEndings({
       };
     }
     if (journal.runInputSource(codexAppServerAgentRun(session)) === "terminal") {
-      journal.completedTurns.add(codexAppServerTurnKey(normalizedThreadId, normalizedTurnId));
+      journal.markTurnCompleted(normalizedThreadId, normalizedTurnId);
       output.cleanupUntrackedTurn(normalizedThreadId, normalizedTurnId);
       await journal.markTurnIdle(normalizedSessionId, {
         status: normalizedStatus,
@@ -217,7 +217,7 @@ export function createCodexTurnEndings({
     const alreadyFinalizing = existingTurn.state === "finalizing" &&
       existingTurn.threadId === normalizedThreadId &&
       existingTurn.turnId === normalizedTurnId;
-    journal.completedTurns.add(codexAppServerTurnKey(normalizedThreadId, normalizedTurnId));
+    journal.markTurnCompleted(normalizedThreadId, normalizedTurnId);
     if (!alreadyFinalizing) {
       await journal.markTurnFinalizing(normalizedSessionId, {
         status: normalizedStatus,

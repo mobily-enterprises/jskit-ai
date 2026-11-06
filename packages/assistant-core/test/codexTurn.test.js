@@ -1955,6 +1955,82 @@ for (const read of ["starting watchdog", "status check"]) {
   });
 }
 
+// A turn Codex has accepted and not yet reported; `sendTurn` runs before Codex's answer to turn/start.
+async function unstartedTurnFixture(t, { sendTurn } = {}) {
+  const notices = [];
+  const f = await receiptFixture({
+    finalizingGraceMs: 30,
+    outcomeNotice(_runtime, _sessionId, _threadId, _turnId, outcome) { notices.push(outcome); }
+  });
+  t.after(() => f.owner.clearSessionRecoveryTimers(f.sessionId));
+  const context = dispatchContext(f);
+  f.codexStatus = "idle";
+  f.notices = notices;
+  f.started = { method: "turn/started", params: { threadId: f.threadId, turn: { id: f.turnId, status: "inProgress" } } };
+  f.run = { ...f.run, state: "starting", providerTurnId: "", providerStatus: "", outerTurnId: context.messageId };
+  f.provider.sendTurn = async () => {
+    await sendTurn?.(f);
+    return { id: f.turnId, status: "inProgress" };
+  };
+  f.provider.readThreadStatus = async () => ({ raw: { status: { type: f.codexStatus } } });
+  f.history = [turn(f.turnId, "interrupted")];
+  f.observe();
+  assert.equal((await f.owner.startTurn(f.sessionId, {}, context)).providerFailure, "");
+  assert.equal(f.run.state, "active");
+  // Codex finishes the turn, and its turn/completed notification is lost: only its thread and history say so.
+  f.finish = () => {
+    f.codexStatus = "idle";
+    f.history = [turn(f.turnId, "completed", "The complete reply.")];
+  };
+  return f;
+}
+
+async function assertSettledWithReply(f) {
+  await f.drain();
+  assert.equal(f.run.state, "completed");
+  assert.deepEqual((await f.replies()).map(row => row.assistant.text), ["The complete reply."]);
+  assert.deepEqual(f.notices, []);
+}
+
+// Codex usually answers turn/start before its turn/started notification, but may send turn/started first. Either way
+// Codex has reported the turn, so a thread status check after it finishes settles the turn with its answer.
+for (const order of ["after", "before"]) {
+  test(`a turn Codex reports ${order} its turn/start answer is settled by a later idle status check`, async t => {
+    const f = await unstartedTurnFixture(t, {
+      sendTurn(fixture) { if (order === "before") fixture.emit(fixture.started); }
+    });
+    if (order === "after") f.emit(f.started);
+    await f.drain();
+    assert.equal(f.run.state, "active");
+    f.finish();
+    await f.owner.reconcileThreadStatus(f.sessionId, f.provider, f.threadId, { source: "wellbeing" });
+    await assertSettledWithReply(f);
+  });
+}
+
+// When turn/started is missed, the mark does not outlive Codex's next report about the turn: a later notification
+// naming it, or Codex listing it as completed, settles it like any other turn. No timer is involved.
+for (const report of ["a later notification naming the turn", "the starting watchdog reading it as completed",
+  "a status check reading it as completed"]) {
+  test(`a delivered turn whose turn/started is missed is settled by ${report}`, async t => {
+    const f = await unstartedTurnFixture(t);
+    await f.owner.reconcileThreadStatus(f.sessionId, f.provider, f.threadId, { observeLatestTurn: true, source: "wellbeing" });
+    await f.drain();
+    assert.equal(f.run.state, "active", "Codex's idle thread and interrupted listing before it reports the turn do not end it");
+    f.finish();
+    if (report === "a later notification naming the turn") {
+      f.emit({ method: "item/started", params: { threadId: f.threadId, turnId: f.turnId, item: { id: "thinking", type: "reasoning" } } });
+      await f.drain();
+      await f.owner.reconcileThreadStatus(f.sessionId, f.provider, f.threadId, { source: "wellbeing" });
+    } else if (report === "the starting watchdog reading it as completed") {
+      await f.owner.recoverActiveTurn(f.sessionId, { provider: f.provider, retryOnError: false });
+    } else {
+      await f.owner.reconcileThreadStatus(f.sessionId, f.provider, f.threadId, { observeLatestTurn: true, source: "wellbeing" });
+    }
+    await assertSettledWithReply(f);
+  });
+}
+
 function controlContext(f, overrides = {}) {
   return {
     runtime: f.runtime,

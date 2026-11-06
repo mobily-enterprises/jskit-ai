@@ -1,4 +1,4 @@
-import { codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerErrorMessage, codexAppServerSteerFailure, codexAppServerMessageRequiresNewTurn, codexAppServerMessageDeferred, codexAppServerTurnKey } from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsComplete, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerErrorMessage, codexAppServerSteerFailure, codexAppServerMessageRequiresNewTurn, codexAppServerMessageDeferred } from "./codexTurnState.js";
 import { codexAppServerRequestIsInvalid } from "./codexProviderThreads.js";
 import { codexLocalImageInput, codexAppServerDeliveredTurn, sendCodexAppServerPrompt } from "./codexProviderTurns.js";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -74,9 +74,9 @@ export function createCodexPromptDispatch({
     if (!deliveredTurnId) {
       throw new Error("Codex app-server accepted the prompt without returning a turn id.");
     }
-    // Codex answers turn/start before it starts the turn; its notifications about the turn say when it has.
+    // Codex usually answers turn/start before it starts the turn; its notifications about the turn say when it has.
     if (!codexAppServerTurnStatusIsComplete(deliveredTurnStatus)) {
-      journal.unstartedTurns.add(codexAppServerTurnKey(threadId, deliveredTurnId));
+      journal.markTurnUnstarted(threadId, deliveredTurnId);
     }
     delivery.pendingUserMessage(promptSessionId, clientUserMessageId)?.onNativeReceipt();
     await recovery.markTurnActive(sessionId, {

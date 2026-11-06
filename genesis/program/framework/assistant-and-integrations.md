@@ -336,8 +336,11 @@ is reported rather than treating paused scheduling as proof that work stopped.
 
 Codex answers `turn/start` before it starts the turn; until then its thread
 reads idle and lists the new turn as interrupted. A delivered turn therefore
-stays active through the starting watchdog and status checks until a Codex
-notification names it, and only Codex's own reports settle it.
+stays active through the starting watchdog and status checks until Codex
+reports it, and only Codex's own reports settle it: any notification naming the
+turn, including a `turn/started` that arrives before the `turn/start` answer,
+or a thread read listing exactly that turn as completed or failed, which also
+settles a turn whose notifications were missed. No timer ends the wait.
 
 The native settings bridge authorizes configuration against the original scope
 and uses its configured host and driver. Claude applies model and effort controls

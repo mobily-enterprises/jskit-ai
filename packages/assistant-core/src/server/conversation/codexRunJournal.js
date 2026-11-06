@@ -3,6 +3,7 @@ import crypto from "node:crypto";
 import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const CODEX_APP_SERVER_PROMPT_CLAIM_GRACE_MS = 15000;
+const CODEX_APP_SERVER_REPORTED_TURN_LIMIT = 256;
 const CODEX_APP_SERVER_STOPPED_BY_SHUTDOWN_EVENT = "codex-app-server-stopped-by-shutdown";
 
 /**
@@ -47,6 +48,55 @@ function codexAppServerDateValueMs(value = "") {
 }
 
 /**
+ * Which turns Codex accepted with turn/start but has not reported yet: until it reports one, its thread still reads
+ * idle, so an idle read cannot settle it. Codex's turn/started can also arrive before its answer to turn/start, so the
+ * turns it reported most recently are remembered and never marked as not started. Only a turn whose answer is still on
+ * its way needs that, so the newest few are enough.
+ * @param {Set<string>} completedTurns the journal's settled turn keys, which markTurnCompleted adds to
+ */
+function createCodexAppServerTurnStarts(completedTurns) {
+  const unstartedTurns = new Set();
+  // Oldest first.
+  const reportedTurns = new Set();
+
+  /** Codex reported this turn, in a notification or by listing it as finished, so it has started it. */
+  function noteTurnReported(threadId = "", turnId = "") {
+    if (!normalizeText(turnId)) return;
+    const key = codexAppServerTurnKey(threadId, turnId);
+    unstartedTurns.delete(key);
+    reportedTurns.delete(key);
+    reportedTurns.add(key);
+    if (reportedTurns.size > CODEX_APP_SERVER_REPORTED_TURN_LIMIT) {
+      reportedTurns.delete(reportedTurns.values().next().value);
+    }
+  }
+
+  /** A turn Codex accepted waits for its report before an idle read can settle it, unless Codex already reported it. */
+  function markTurnUnstarted(threadId = "", turnId = "") {
+    const key = codexAppServerTurnKey(threadId, turnId);
+    if (!reportedTurns.has(key)) unstartedTurns.add(key);
+  }
+
+  function turnIsUnstarted(threadId = "", turnId = "") {
+    return unstartedTurns.has(codexAppServerTurnKey(threadId, turnId));
+  }
+
+  /** The run owner settled this turn: nothing waits for Codex to start it any more. */
+  function markTurnCompleted(threadId = "", turnId = "") {
+    const key = codexAppServerTurnKey(threadId, turnId);
+    completedTurns.add(key);
+    unstartedTurns.delete(key);
+  }
+
+  return Object.freeze({
+    noteTurnReported,
+    markTurnUnstarted,
+    turnIsUnstarted,
+    markTurnCompleted
+  });
+}
+
+/**
  * Native run claims, guarded journal writes and status retirement. The containing run owner shares these exact Sets
  * and Maps by reference.
  * @param {object} dependencies
@@ -88,8 +138,7 @@ export function createCodexRunJournal({
   isClosing
 }) {
   const codexAppServerCompletedTurns = new Set();
-  // Turns Codex accepted with turn/start but has not yet reported: until it does, its thread still reads idle.
-  const codexAppServerUnstartedTurns = new Set();
+  const turnStarts = createCodexAppServerTurnStarts(codexAppServerCompletedTurns);
   const codexAppServerProcessedTurns = new Set();
   const codexAppServerActiveTimers = new Map();
   const codexAppServerFinalizingTimers = new Map();
@@ -639,7 +688,10 @@ export function createCodexRunJournal({
 
   return Object.freeze({
     completedTurns: codexAppServerCompletedTurns,
-    unstartedTurns: codexAppServerUnstartedTurns,
+    noteTurnReported: turnStarts.noteTurnReported,
+    markTurnUnstarted: turnStarts.markTurnUnstarted,
+    turnIsUnstarted: turnStarts.turnIsUnstarted,
+    markTurnCompleted: turnStarts.markTurnCompleted,
     processedTurns: codexAppServerProcessedTurns,
     activeTimers: codexAppServerActiveTimers,
     finalizingTimers: codexAppServerFinalizingTimers,

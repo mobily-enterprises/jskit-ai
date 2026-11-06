@@ -943,6 +943,7 @@ Exports
 Local functions
 - `terminalCodexAppServerAgentRunState(status = "")`
 - `codexAppServerDateValueMs(value = "")`
+- `createCodexAppServerTurnStarts(completedTurns)`
 
 ### `src/server/conversation/codexRuntime.js`
 Exports
@@ -1150,6 +1151,7 @@ Exports
 - `CODEX_APP_SERVER_RUN_STATE`
 - `codexAppServerRunInputSource(run)`
 - `codexAppServerThreadStatus(thread = {})`
+- `codexAppServerObservedTurnFinished(thread = null, turnId = "")`
 - `codexAppServerReadThreadStatus(provider = null, threadId = "", { observeLatestTurn = false } = {})`
 - `codexAppServerTurnStatusIsActive(status = "")`
 - `codexAppServerTurnStatusIsComplete(status = "")`
