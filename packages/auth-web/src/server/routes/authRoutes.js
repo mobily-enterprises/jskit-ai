@@ -2,6 +2,7 @@ import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/valida
 import {
   authRegisterCommand,
   authRegisterConfirmationResendCommand,
+  authRegisterConfirmCommand,
   authLoginPasswordCommand,
   authLoginOtpRequestCommand,
   authLoginOtpVerifyCommand,
@@ -63,6 +64,24 @@ function buildRoutes(controller, { includeDevLoginAs = false, rateLimits = DEFAU
       ),
       rateLimit: rateLimits.registerConfirmationResend,
       handler: (request, reply) => controller.resendRegisterConfirmation(request, reply)
+    },
+    {
+      path: AUTH_PATHS.REGISTER_CONFIRM,
+      method: "POST",
+      auth: "public",
+      meta: {
+        tags: ["auth"],
+        summary: "Confirm a registration's email with the code from its link"
+      },
+      body: authRegisterConfirmCommand.operation.body,
+      responses: withStandardErrorResponses(
+        {
+          200: authRegisterConfirmCommand.operation.response
+        },
+        { includeValidation400: true }
+      ),
+      rateLimit: rateLimits.registerConfirm,
+      handler: (request, reply) => controller.confirmRegistration(request, reply)
     },
     {
       path: AUTH_PATHS.LOGIN,

@@ -2,7 +2,8 @@
   "jskit": {
     "auth": {
       "register": {
-        "confirmEmail": "Check your email to confirm the account before logging in."
+        "confirmEmail": "Check your email to confirm the account before logging in.",
+        "confirmed": "Your email is confirmed."
       },
       "login": {
         "title": {
@@ -33,13 +34,17 @@
           "email": "Email",
           "password": "Password",
           "confirmPassword": "Confirm password",
-          "otpCode": "One-time code"
+          "otpCode": "One-time code",
+          "confirmationCode": "Confirmation link or code"
         },
         "confirmEmail": {
           "message": "Please confirm your email address. After confirmation, you can sign in.",
           "goToMainScreen": "Go to main screen",
           "resend": "Resend confirmation email",
-          "resent": "If an account exists for that email, a confirmation email has been sent."
+          "resent": "If an account exists for that email, a confirmation email has been sent.",
+          "confirm": "Confirm",
+          "devLink": "Development: no email is sent, so here is the confirmation link.",
+          "useDevLink": "Confirm with this link"
         },
         "rememberedAccount": {
           "welcomeBack": "Welcome back, {name}",
@@ -74,6 +79,7 @@
           "otpRequestFailed": "Unable to request one-time code.",
           "emailRequiredForConfirmation": "Enter an email address before requesting confirmation.",
           "resendConfirmationFailed": "Unable to resend confirmation email.",
+          "confirmRegistrationFailed": "Unable to confirm the email address.",
           "oauthCompleteFailed": "Unable to complete OAuth sign-in.",
           "oauthProviderInvalid": "OAuth provider id is invalid.",
           "oauthReturnToInvalid": "OAuth return path is invalid.",

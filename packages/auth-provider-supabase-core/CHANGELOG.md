@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `confirmRegistration` answers `AUTH_OPERATION_UNSUPPORTED`: Supabase confirms an email through its own link.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

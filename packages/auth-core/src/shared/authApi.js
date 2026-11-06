@@ -23,6 +23,10 @@ function createApi({ request }) {
     return request(AUTH_PATHS.REGISTER_CONFIRMATION_RESEND, { method: "POST", body: payload });
   }
 
+  function confirmRegistration(payload) {
+    return request(AUTH_PATHS.REGISTER_CONFIRM, { method: "POST", body: payload });
+  }
+
   function login(payload) {
     return request(AUTH_PATHS.LOGIN, { method: "POST", body: payload });
   }
@@ -76,6 +80,7 @@ function createApi({ request }) {
     session,
     register,
     resendRegisterConfirmation,
+    confirmRegistration,
     login,
     requestOtp,
     verifyOtp,

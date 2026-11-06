@@ -34,6 +34,13 @@ class AuthWebService {
     });
   }
 
+  async confirmRegistration(request, payload) {
+    return request.executeAction({
+      actionId: AUTH_ACTION_IDS.REGISTER_CONFIRM,
+      input: payload
+    });
+  }
+
   async login(request, payload) {
     return request.executeAction({
       actionId: AUTH_ACTION_IDS.LOGIN_PASSWORD,

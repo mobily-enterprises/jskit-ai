@@ -101,41 +101,60 @@ function normalizeInvitationInput(value) {
 }
 
 /**
- * The accounts of local auth: registering one, signing in with its password
- * (failures slow the account down, as config.signInThrottle says) or as a dev
- * user, and renaming it.
+ * The profile options an invitation gives a new account: none without one.
+ * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} invitationContextResolver
+ * @param {unknown} invitationInput
+ * @param {string} email
+ */
+async function resolveRegistrationProfileOptions(invitationContextResolver, invitationInput, email) {
+  const invitation = normalizeInvitationInput(invitationInput);
+  if (!invitation) {
+    return {};
+  }
+  const resolvedInvitation = await invitationContextResolver.resolveInvitationContext({ ...invitation, email });
+  return {
+    source: resolvedInvitation?.source || "workspace-invite",
+    invitation: resolvedInvitation
+  };
+}
+
+/**
+ * The accounts of local auth: registering one (which waits for its email to
+ * be confirmed while config.emailConfirmation is on), signing in with its
+ * password (failures slow the account down, as config.signInThrottle says) or
+ * as a dev user, and renaming it.
  * @param {object} dependencies
  * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {ReturnType<typeof import("./emailConfirmation.js").createLocalEmailConfirmation>} dependencies.emailConfirmation
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {import("../types.js").AuthLocalPasswords} dependencies.passwords
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
-function createLocalAccounts({ appProfileProjection, backend, config, invitationContextResolver, passwords, profileProjector, sessions }) {
+function createLocalAccounts({
+  appProfileProjection,
+  backend,
+  config,
+  emailConfirmation,
+  invitationContextResolver,
+  passwords,
+  profileProjector,
+  sessions
+}) {
   const { devAuth } = config;
-
-  async function resolveProfileOptionsForRegistration(input, email) {
-    const invitation = normalizeInvitationInput(input.invitation);
-    if (!invitation) {
-      return {};
-    }
-
-    const resolvedInvitation = await invitationContextResolver.resolveInvitationContext({ ...invitation, email });
-
-    return {
-      source: resolvedInvitation?.source || "workspace-invite",
-      invitation: resolvedInvitation
-    };
-  }
 
   async function register(input) {
     const email = validateEmailInput(input.email);
     validatePasswordInput(input.password, config.passwordMinLength);
     const displayName = normalizeDisplayName(input.displayName, email);
-    const profileOptions = await resolveProfileOptionsForRegistration(input, email);
+    // Checked now, so a registration with an invitation it cannot use is refused at once.
+    const profileOptions = await resolveRegistrationProfileOptions(invitationContextResolver, input.invitation, email);
     const password = await passwords.hashPassword(input.password);
+    if (config.emailConfirmation) {
+      return emailConfirmation.begin({ email, displayName, password, invitation: normalizeInvitationInput(input.invitation) });
+    }
     const result = await backend.withTransaction(async (tx) => {
       const existing = await tx.users.findByEmail(email);
       if (existing) {
@@ -180,6 +199,11 @@ function createLocalAccounts({ appProfileProjection, backend, config, invitation
         return { waitMs };
       }
       const user = await tx.users.findByEmail(email);
+      if (!user && config.emailConfirmation &&
+        (await emailConfirmation.isWaitingWithPassword(tx, email, (registration) =>
+          passwords.verifyPassword(password, registration.password)))) {
+        return { unconfirmed: true };
+      }
       if (!user || user.disabled || !hasPassword(user) || !(await passwords.verifyPassword(password, user.password))) {
         await tx.signInFailures.deleteBefore(forgottenFailuresBefore(now));
         await tx.signInFailures.save(recordSignInFailure(config.signInThrottle, failures, email, now));
@@ -197,6 +221,9 @@ function createLocalAccounts({ appProfileProjection, backend, config, invitation
     }
     if (outcome.failed) {
       throw createAuthError(AUTH_TEXTS.invalidCredentials);
+    }
+    if (outcome.unconfirmed) {
+      throw createAuthError(AUTH_TEXTS.emailUnconfirmed);
     }
     return outcome.payload;
   }
@@ -267,6 +294,7 @@ export {
   createLocalAccounts,
   hasPassword,
   normalizeDisplayName,
+  resolveRegistrationProfileOptions,
   validateEmailInput,
   validatePasswordInput
 };

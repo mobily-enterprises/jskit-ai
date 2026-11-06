@@ -61,6 +61,9 @@
             },
             {
               "tableName": "auth_local_sign_in_failures"
+            },
+            {
+              "tableName": "auth_local_registrations"
             }
           ]
         }

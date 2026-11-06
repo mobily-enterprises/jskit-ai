@@ -1,5 +1,6 @@
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { ensureDevAuthExchangeAvailable } from "@jskit-ai/auth-core/server/devAuth";
+import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { createSupabaseAccountFlows } from "./accountFlows.js";
 import { requireAuthenticatedProfile } from "./authenticatedProfile.js";
 import { createDevAuthSession, resolveDevAuthProfile } from "./devAuthBootstrap.js";
@@ -82,6 +83,11 @@ function createSupabaseAuthService({ config, profiles }) {
     return config.oauthCatalog;
   }
 
+  // Supabase confirms an email through its own link, which returns through oauthComplete.
+  function confirmRegistration() {
+    throwUnsupportedAuthOperation("confirmRegistration");
+  }
+
   function isDevAuthBootstrapEnabled() {
     return config.devAuth.enabled === true;
   }
@@ -104,6 +110,7 @@ function createSupabaseAuthService({ config, profiles }) {
     getCapabilities,
     register: profileMirror.withActorResult(accountFlows.register),
     resendRegisterConfirmation: accountFlows.resendRegisterConfirmation,
+    confirmRegistration,
     login: profileMirror.withActorResult(accountFlows.login),
     requestOtpLogin: accountFlows.requestOtpLogin,
     verifyOtpLogin: profileMirror.withActorResult(accountFlows.verifyOtpLogin),

@@ -254,16 +254,69 @@ function serializeSignInFailures(records) {
     .join("\n") + (records.length > 0 ? "\n" : "");
 }
 
+// A registration waiting for its email to be confirmed; the invitation fields
+// are empty when it came without one.
+function parseRegistrations(content) {
+  const records = [];
+  for (const line of String(content || "").split("\n").filter(Boolean)) {
+    const parts = splitLine(line, "registration");
+    if (parts.length !== 13) {
+      throw new Error("Invalid registration record field count.");
+    }
+    const invitationToken = decodeField(parts[8]);
+    records.push({
+      email: decodeField(parts[2]),
+      displayName: decodeField(parts[3]),
+      password: {
+        algorithm: parts[4],
+        version: parts[5],
+        salt: parts[6],
+        hash: parts[7]
+      },
+      invitation: invitationToken ? { token: invitationToken, source: decodeField(parts[9]) } : null,
+      tokenHash: parts[10],
+      createdAt: decodeField(parts[11]),
+      expiresAt: decodeField(parts[12])
+    });
+  }
+  return records;
+}
+
+function serializeRegistrations(records) {
+  return [...records]
+    .sort((left, right) => String(left.email).localeCompare(String(right.email)))
+    .map((record) =>
+      [
+        "registration",
+        "v1",
+        encodeField(record.email),
+        encodeField(record.displayName),
+        record.password.algorithm,
+        record.password.version,
+        record.password.salt,
+        record.password.hash,
+        encodeField(record.invitation?.token || ""),
+        encodeField(record.invitation?.source || ""),
+        record.tokenHash,
+        encodeField(record.createdAt),
+        encodeField(record.expiresAt)
+      ].join(":")
+    )
+    .join("\n") + (records.length > 0 ? "\n" : "");
+}
+
 export {
   parseIdentities,
   parseOAuthAttempts,
   parseRecovery,
+  parseRegistrations,
   parseSessions,
   parseSignInFailures,
   parseUsers,
   serializeIdentities,
   serializeOAuthAttempts,
   serializeRecovery,
+  serializeRegistrations,
   serializeSessions,
   serializeSignInFailures,
   serializeUsers

@@ -4,12 +4,14 @@ import {
   parseIdentities,
   parseOAuthAttempts,
   parseRecovery,
+  parseRegistrations,
   parseSessions,
   parseSignInFailures,
   parseUsers,
   serializeIdentities,
   serializeOAuthAttempts,
   serializeRecovery,
+  serializeRegistrations,
   serializeSessions,
   serializeSignInFailures,
   serializeUsers
@@ -21,6 +23,7 @@ const RECOVERY_FILE = "recovery.passwd";
 const IDENTITY_FILE = "identities.passwd";
 const OAUTH_ATTEMPT_FILE = "oauth-attempts.passwd";
 const SIGN_IN_FAILURE_FILE = "sign-in-failures.passwd";
+const REGISTRATION_FILE = "registrations.passwd";
 const LOCK_FILE = "store.lock";
 const JOURNAL_FILE = "transaction.journal";
 const LOCK_STALE_MS = 30_000;
@@ -77,7 +80,8 @@ function parseJournal(content) {
   }
   return parsed.files.map((entry) => {
     const name = String(entry?.name || "").trim();
-    if (![USER_FILE, SESSION_FILE, RECOVERY_FILE, IDENTITY_FILE, OAUTH_ATTEMPT_FILE, SIGN_IN_FAILURE_FILE].includes(name)) {
+    const files = [USER_FILE, SESSION_FILE, RECOVERY_FILE, IDENTITY_FILE, OAUTH_ATTEMPT_FILE, SIGN_IN_FAILURE_FILE, REGISTRATION_FILE];
+    if (!files.includes(name)) {
       throw new Error("Invalid local auth transaction journal file.");
     }
     return {
@@ -407,6 +411,40 @@ function createTx(state, touched) {
         }
         return count;
       }
+    }),
+    registrations: Object.freeze({
+      async save(record) {
+        state.registrations = [
+          ...state.registrations.filter((entry) => entry.email !== record.email),
+          clone(record)
+        ];
+        mark("registrations");
+        return clone(record);
+      },
+      async findByEmail(email) {
+        return clone(state.registrations.find((record) => record.email === email) || null);
+      },
+      async findByTokenHash(tokenHash) {
+        return clone(state.registrations.find((record) => record.tokenHash === tokenHash) || null);
+      },
+      async delete(email) {
+        const before = state.registrations.length;
+        state.registrations = state.registrations.filter((entry) => entry.email !== email);
+        const count = before - state.registrations.length;
+        if (count > 0) {
+          mark("registrations");
+        }
+        return count;
+      },
+      async deleteExpired(now) {
+        const before = state.registrations.length;
+        state.registrations = state.registrations.filter((entry) => Date.parse(entry.expiresAt) > Date.parse(now));
+        const count = before - state.registrations.length;
+        if (count > 0) {
+          mark("registrations");
+        }
+        return count;
+      }
     })
   });
 }
@@ -425,7 +463,8 @@ function createLocalFileBackend({ storeDir }) {
         recovery: parseRecovery(await readText(path.join(resolvedStoreDir, RECOVERY_FILE))),
         identities: parseIdentities(await readText(path.join(resolvedStoreDir, IDENTITY_FILE))),
         oauthAttempts: parseOAuthAttempts(await readText(path.join(resolvedStoreDir, OAUTH_ATTEMPT_FILE))),
-        signInFailures: parseSignInFailures(await readText(path.join(resolvedStoreDir, SIGN_IN_FAILURE_FILE)))
+        signInFailures: parseSignInFailures(await readText(path.join(resolvedStoreDir, SIGN_IN_FAILURE_FILE))),
+        registrations: parseRegistrations(await readText(path.join(resolvedStoreDir, REGISTRATION_FILE)))
       };
       const touched = new Set();
       const result = await callback(createTx(state, touched));
@@ -464,6 +503,12 @@ function createLocalFileBackend({ storeDir }) {
         commitEntries.push({
           name: SIGN_IN_FAILURE_FILE,
           content: serializeSignInFailures(state.signInFailures)
+        });
+      }
+      if (touched.has("registrations")) {
+        commitEntries.push({
+          name: REGISTRATION_FILE,
+          content: serializeRegistrations(state.registrations)
         });
       }
       if (commitEntries.length > 0) {

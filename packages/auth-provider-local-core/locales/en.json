@@ -11,7 +11,9 @@
           "changed": "Password updated."
         },
         "register": {
-          "emailTaken": "An account already exists for this email."
+          "emailTaken": "An account already exists for this email.",
+          "confirmationInvalid": "This confirmation link is invalid or has expired. Register again to get a new one.",
+          "confirmationResent": "If a registration is waiting for that email, a new confirmation link has been sent."
         },
         "login": {
           "locked": "Too many failed sign-ins for this account. Try again in {count} minute. | Too many failed sign-ins for this account. Try again in {count} minutes."

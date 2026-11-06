@@ -159,3 +159,65 @@ test("auth session route returns provider capabilities", async () => {
   assert.equal(reply.payload.authCapabilities.provider.id, "local");
   assert.equal(reply.payload.authCapabilities.features.password.register, true);
 });
+
+test("registration confirmation: the register answer carries the development link, and confirming signs the person in", async () => {
+  const events = [];
+  const authService = {
+    ...createAuthService(events),
+    async register(input) {
+      return {
+        actor: null,
+        session: null,
+        requiresEmailConfirmation: true,
+        email: input.email,
+        confirmationUrl: "http://localhost:5173/auth/login?confirmation_token=dev-token"
+      };
+    },
+    async confirmRegistration(input) {
+      events.push({ type: "confirm", token: input.token });
+      return {
+        actor: { displayName: "Ada", email: "ada@example.com" },
+        session: { access_token: "confirm-a", refresh_token: "confirm-r" }
+      };
+    }
+  };
+  const { fastify } = await startAuthWeb({ authService });
+  const route = (url) => fastify.routes.find((entry) => entry.method === "POST" && entry.url === url);
+
+  const registerReply = createReplyStub();
+  await route("/api/register").handler(
+    { body: { email: "ada@example.com", password: "correct horse battery staple" } },
+    registerReply
+  );
+  assert.equal(registerReply.statusCode, 201);
+  assert.deepEqual(registerReply.payload, {
+    ok: true,
+    requiresEmailConfirmation: true,
+    message: "Check your email to confirm the account before logging in.",
+    messageCode: "auth.register.confirmEmail",
+    messageParams: {},
+    confirmationUrl: "http://localhost:5173/auth/login?confirmation_token=dev-token"
+  });
+
+  const confirmRoute = route("/api/register/confirm");
+  assert.deepEqual(confirmRoute.config.rateLimit, { max: 10, timeWindow: 60_000 });
+  const confirmReply = createReplyStub();
+  await confirmRoute.handler({ body: { token: "dev-token" } }, confirmReply);
+  assert.equal(confirmReply.statusCode, 200);
+  assert.deepEqual(confirmReply.payload, {
+    ok: true,
+    email: "ada@example.com",
+    username: "Ada",
+    message: "Your email is confirmed.",
+    messageCode: "auth.register.confirmed",
+    messageParams: {}
+  });
+  // Registering wrote no session; confirming wrote the new one.
+  assert.deepEqual(
+    events.filter((entry) => entry.type === "confirm" || (entry.type === "writeSession" && entry.session)),
+    [
+      { type: "confirm", token: "dev-token" },
+      { type: "writeSession", session: { access_token: "confirm-a", refresh_token: "confirm-r" } }
+    ]
+  );
+});

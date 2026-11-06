@@ -6,7 +6,8 @@ const TABLES = Object.freeze({
   recovery: "auth_local_recovery",
   identities: "auth_local_identities",
   oauthAttempts: "auth_local_oauth_attempts",
-  signInFailures: "auth_local_sign_in_failures"
+  signInFailures: "auth_local_sign_in_failures",
+  registrations: "auth_local_registrations"
 });
 
 function nowIso() {
@@ -138,6 +139,35 @@ function mapSignInFailures(row) {
     failures: Number(row.failures || 0),
     lastFailedAt: readDateTime(row.last_failed_at),
     lockedUntil: readDateTime(row.locked_until)
+  };
+}
+
+function mapRegistration(row) {
+  if (!row) {
+    return null;
+  }
+  const invitationToken = String(row.invitation_token || "");
+  return {
+    email: String(row.email || ""),
+    displayName: String(row.display_name || ""),
+    password: readPassword(row),
+    invitation: invitationToken ? { token: invitationToken, source: String(row.invitation_source || "") } : null,
+    tokenHash: String(row.token_hash || ""),
+    createdAt: readDateTime(row.created_at),
+    expiresAt: readDateTime(row.expires_at)
+  };
+}
+
+function registrationRow(record = {}) {
+  return {
+    email: String(record.email || ""),
+    display_name: String(record.displayName || ""),
+    ...writePassword(record.password),
+    invitation_token: record.invitation?.token ? String(record.invitation.token) : null,
+    invitation_source: record.invitation?.token ? String(record.invitation.source || "") : null,
+    token_hash: String(record.tokenHash || ""),
+    created_at: requiredDateTime(record.createdAt),
+    expires_at: requiredDateTime(record.expiresAt)
   };
 }
 
@@ -395,6 +425,31 @@ function createLocalDbBackend({ knex, transactionManager }) {
         async deleteBefore(lastFailedAt) {
           const count = await table(client, TABLES.signInFailures)
             .where("last_failed_at", "<", requiredDateTime(lastFailedAt))
+            .delete();
+          return Number(count || 0);
+        }
+      }),
+      registrations: Object.freeze({
+        async save(record) {
+          const row = registrationRow(record);
+          await table(client, TABLES.registrations).insert(row).onConflict("email").merge();
+          return mapRegistration(row);
+        },
+        async findByEmail(email) {
+          return mapRegistration(await table(client, TABLES.registrations).where({ email: String(email || "") }).first());
+        },
+        async findByTokenHash(tokenHash) {
+          return mapRegistration(await table(client, TABLES.registrations)
+            .where({ token_hash: String(tokenHash || "") })
+            .first());
+        },
+        async delete(email) {
+          const count = await table(client, TABLES.registrations).where({ email: String(email || "") }).delete();
+          return Number(count || 0);
+        },
+        async deleteExpired(now) {
+          const count = await table(client, TABLES.registrations)
+            .where("expires_at", "<=", requiredDateTime(now))
             .delete();
           return Number(count || 0);
         }

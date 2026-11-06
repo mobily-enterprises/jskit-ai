@@ -4,6 +4,7 @@ import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { createLocalAccounts } from "./accounts.js";
 import { PROVIDER_ID } from "./authPayloads.js";
+import { createLocalEmailConfirmation } from "./emailConfirmation.js";
 import { createLocalOAuthFlows } from "./oauthFlows.js";
 import { createLocalPasswordFlows } from "./passwordFlows.js";
 import { normalizePasswordStrategy } from "./passwords.js";
@@ -16,6 +17,8 @@ import { createLocalSessions } from "./sessions.js";
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
+ *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender.
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("../types.js").AuthLocalPasswordStrategy} dependencies.passwordStrategy The
@@ -28,6 +31,7 @@ import { createLocalSessions } from "./sessions.js";
 function createLocalAuthService({
   backend,
   config,
+  confirmationSender,
   invitationContextResolver,
   logger,
   passwordStrategy,
@@ -62,7 +66,8 @@ function createLocalAuthService({
         enabled: oauthEnabled,
         providers: config.oauthProviders.map(({ id, label }) => ({ id, label }))
       },
-      emailConfirmation: false,
+      emailConfirmation: config.emailConfirmation,
+      emailConfirmationCode: config.emailConfirmation,
       profileUpdate: true,
       providerLinking: {
         start: oauthEnabled,
@@ -76,10 +81,19 @@ function createLocalAuthService({
   });
 
   const sessions = createLocalSessions({ appProfileProjection, backend, config, profileProjector });
+  const emailConfirmation = createLocalEmailConfirmation({
+    backend,
+    config,
+    confirmationSender,
+    invitationContextResolver,
+    profileProjector,
+    sessions
+  });
   const accounts = createLocalAccounts({
     appProfileProjection,
     backend,
     config,
+    emailConfirmation,
     invitationContextResolver,
     passwords,
     profileProjector,
@@ -108,8 +122,18 @@ function createLocalAuthService({
     return capabilities;
   }
 
-  function resendRegisterConfirmation() {
-    return throwUnsupportedAuthOperation("resendRegisterConfirmation");
+  function resendRegisterConfirmation(input) {
+    if (!config.emailConfirmation) {
+      return throwUnsupportedAuthOperation("resendRegisterConfirmation");
+    }
+    return emailConfirmation.resend(input);
+  }
+
+  function confirmRegistration(input) {
+    if (!config.emailConfirmation) {
+      return throwUnsupportedAuthOperation("confirmRegistration");
+    }
+    return emailConfirmation.confirm(input);
   }
 
   function requestOtpLogin() {
@@ -135,6 +159,7 @@ function createLocalAuthService({
     clearSessionCookies: sessions.clearSessionCookies,
     register: accounts.register,
     resendRegisterConfirmation,
+    confirmRegistration,
     login: accounts.login,
     requestOtpLogin,
     verifyOtpLogin,

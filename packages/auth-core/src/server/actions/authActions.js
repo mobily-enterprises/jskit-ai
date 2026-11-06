@@ -10,6 +10,7 @@ import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import {
   authRegisterCommand,
   authRegisterConfirmationResendCommand,
+  authRegisterConfirmCommand,
   authLoginPasswordCommand,
   authLoginOtpRequestCommand,
   authLoginOtpVerifyCommand,
@@ -60,6 +61,15 @@ function createAuthActions({ authService }) {
       surfaces: ["*"],
       input: authRegisterConfirmationResendCommand.operation.body,
       execute: (input) => authService.resendRegisterConfirmation(input)
+    }),
+    Object.freeze({
+      id: "auth.register.confirm",
+      version: 1,
+      kind: "command",
+      channels: ["api", "internal"],
+      surfaces: ["*"],
+      input: authRegisterConfirmCommand.operation.body,
+      execute: (input) => authService.confirmRegistration(input)
     }),
     Object.freeze({
       id: "auth.login.password",

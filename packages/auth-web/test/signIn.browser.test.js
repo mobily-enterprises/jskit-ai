@@ -53,7 +53,7 @@ async function openApp({ session = SIGNED_OUT, routes = {}, viewport = { width: 
   const page = await browser.newPage({ baseURL: runtime.baseURL, viewport });
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(60_000);
-  const api = { session, requests: [], unexpected: [], errors: [], page };
+  const api = { session, routes, requests: [], unexpected: [], errors: [], page };
   page.on("pageerror", (error) => api.errors.push(error.message));
   await page.route("**/api/**", async (route) => {
     const request = route.request();
@@ -64,12 +64,13 @@ async function openApp({ session = SIGNED_OUT, routes = {}, viewport = { width: 
       return;
     }
     api.requests.push({ key, search, body: request.postDataJSON(), csrf: request.headers()["csrf-token"] });
-    if (!routes[key]) {
+    const answerFor = api.routes[key];
+    if (!answerFor) {
       api.unexpected.push(key);
       await route.fulfill({ status: 500, json: { error: `unexpected ${key}` } });
       return;
     }
-    const answer = typeof routes[key] === "function" ? routes[key](request.postDataJSON()) : routes[key];
+    const answer = typeof answerFor === "function" ? answerFor(request.postDataJSON()) : answerFor;
     await route.fulfill(answer);
   });
   return api;
@@ -83,6 +84,11 @@ async function finish(api) {
 
 function reports(page) {
   return page.evaluate(() => window.authFixture.reports);
+}
+
+// The page itself, not a sign-in page whose returnTo=/home also ends the address.
+function waitForHome(page) {
+  return page.waitForURL((url) => url.pathname === "/home");
 }
 
 async function signIn(page, email, password) {
@@ -175,7 +181,7 @@ test("a signed-in visitor leaves the sign-in page, on opening it and when a sess
   await expect(page.getByTestId("auth-submit")).toBeVisible();
   api.session = SIGNED_IN;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
-  await page.waitForURL("**/home");
+  await waitForHome(page);
   await finish(api);
 });
 
@@ -259,8 +265,94 @@ test("register waits for email confirmation, and the other modes reach their req
   assert.deepEqual(api.requests.at(-1).body, { email: "ada@example.com", returnTo: "/home" });
   await page.getByLabel("One-time code").fill("123456");
   await page.getByTestId("auth-submit").click();
-  await page.waitForURL("**/home");
+  await waitForHome(page);
   await finish(api);
+});
+
+test("email confirmation: the development link, a pasted link after an unconfirmed sign-in, and the emailed link", options, async () => {
+  const session = {
+    ...SIGNED_OUT,
+    authCapabilities: { ...CAPABILITIES, features: { ...CAPABILITIES.features, emailConfirmationCode: true } }
+  };
+  const confirmations = [];
+  async function openConfirmingApp() {
+    const api = await openApp({ session });
+    Object.assign(api.routes, {
+      "POST /api/register": {
+        status: 201,
+        json: {
+          ok: true,
+          requiresEmailConfirmation: true,
+          message: "Check your email to confirm the account before logging in.",
+          messageCode: "auth.register.confirmEmail",
+          messageParams: {},
+          confirmationUrl: "http://localhost:5173/auth/login?confirmation_token=dev-token-1"
+        }
+      },
+      "POST /api/register/confirm": (body) => {
+        confirmations.push(body.token);
+        if (body.token === "expired-token") {
+          return {
+            status: 400,
+            json: {
+              error: "This confirmation link is invalid or has expired. Register again to get a new one.",
+              code: "auth.local.register.confirmationInvalid"
+            }
+          };
+        }
+        api.session = SIGNED_IN;
+        return { json: { ok: true, email: "ada@example.com", username: "Ada", message: "Your email is confirmed." } };
+      },
+      "POST /api/login": {
+        status: 403,
+        json: {
+          error: "Confirm your email address before signing in: open the link we emailed you, or ask for a new one.",
+          code: "auth.login.emailUnconfirmed"
+        }
+      }
+    });
+    return api;
+  }
+
+  // Registering in development shows the link, and its button confirms and signs in.
+  const registering = await openConfirmingApp();
+  await registering.page.goto("/auth/login?mode=register&returnTo=/home");
+  await registering.page.getByLabel("Email").fill("ada@example.com");
+  await registering.page.getByLabel("Password", { exact: true }).fill("Correct-horse-1");
+  await registering.page.getByLabel("Confirm password", { exact: true }).fill("Correct-horse-1");
+  await registering.page.getByTestId("auth-submit").click();
+  await expect(registering.page.getByTestId("auth-confirmation-dev-link")).toContainText("confirmation_token=dev-token-1");
+  await registering.page.getByTestId("auth-confirmation-dev-confirm").click();
+  await waitForHome(registering.page);
+  assert.deepEqual(confirmations, ["dev-token-1"]);
+  await finish(registering);
+
+  // Signing in before confirming opens "Confirm your email", where a pasted link confirms.
+  const signingIn = await openConfirmingApp();
+  await signingIn.page.goto("/auth/login?returnTo=/home");
+  await signIn(signingIn.page, "ada@example.com", "Correct-horse-1");
+  await expect(signingIn.page.getByText("Confirm your email", { exact: true })).toBeVisible();
+  await expect(signingIn.page.getByText("Confirm your email address before signing in")).toBeVisible();
+  await signingIn.page.getByLabel("Confirmation link or code").fill(
+    "http://localhost:5173/auth/login?confirmation_token=pasted-token-2"
+  );
+  await signingIn.page.getByLabel("Confirmation link or code").press("Enter");
+  await waitForHome(signingIn.page);
+  assert.deepEqual(confirmations.at(-1), "pasted-token-2");
+  await finish(signingIn);
+
+  // An emailed link confirms on opening; one that expired says so, and its code leaves the address.
+  const expired = await openConfirmingApp();
+  await expired.page.goto("/auth/login?confirmation_token=expired-token&returnTo=/home");
+  await expect.poll(async () => (await reports(expired.page)).at(-1)?.message)
+    .toBe("This confirmation link is invalid or has expired. Register again to get a new one.");
+  assert.equal(new URL(expired.page.url()).search, "?returnTo=%2Fhome");
+  await finish(expired);
+  const emailed = await openConfirmingApp();
+  await emailed.page.goto("/auth/login?confirmation_token=emailed-token-3&returnTo=/home");
+  await waitForHome(emailed.page);
+  assert.deepEqual(confirmations.slice(-2), ["expired-token", "emailed-token-3"]);
+  await finish(emailed);
 });
 
 test("OAuth starts at the provider and a callback finishes on the requested page or reports why it failed", options, async () => {

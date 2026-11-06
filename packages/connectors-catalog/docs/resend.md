@@ -133,6 +133,12 @@ in the application; auth does not import Resend or connectors. The context must
 come from trusted backend composition, never from the public password-reset
 request. Do not log recovery content or provider request bodies.
 
+Local auth's `auth.local.confirmation-sender`, which emails the link that
+confirms a new account's address, is built the same way: it receives
+`{ email, confirmationUrl }` and sends, for example, the subject "Confirm your
+email" and the text `Open this link to confirm your email:\n\n${confirmationUrl}\n`,
+with an idempotency key prefixed `confirmation/` instead of `recovery/`.
+
 `test/resend.test.js` uses controlled HTTP to verify the read-only connection
 check, explicit POST/body/header, input rejection, application isolation and
 absence of automatic retries on uncertain delivery. No email is sent.

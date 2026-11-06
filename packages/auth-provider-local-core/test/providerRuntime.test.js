@@ -90,6 +90,7 @@ async function createStartedApp({
   profileProjector = null,
   passwordStrategy = null,
   recoverySender = null,
+  confirmationSender = null,
   invitationContextResolver = null,
   logger = null,
   configureExtensions = null
@@ -130,6 +131,8 @@ async function createStartedApp({
     AUTH_LOCAL_STORE_DIR: storeDir,
     AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",
     APP_PUBLIC_URL: "http://localhost:5173",
+    // Registration signs in at once here; the email confirmation tests turn confirmation on.
+    AUTH_LOCAL_EMAIL_CONFIRMATION: "false",
     NODE_ENV: "test",
     ...env
     },
@@ -139,6 +142,7 @@ async function createStartedApp({
     ...(profileProjector ? { "auth.profile.projector": profileProjector } : {}),
     ...(passwordStrategy ? { "auth.local.password-strategy": passwordStrategy } : {}),
     ...(recoverySender !== null ? { "auth.local.recovery-sender": recoverySender } : {}),
+    ...(confirmationSender !== null ? { "auth.local.confirmation-sender": confirmationSender } : {}),
   };
   const runtime = createCapabilityRuntime({
     inputs,
@@ -1308,4 +1312,70 @@ test("a failing recovery sender does not fall back to development output", async
   await app.authService.register({ email: "failure@example.com", password: "correct horse battery staple" });
   await assert.rejects(app.authService.requestPasswordReset({ email: "failure@example.com" }), failure);
   assert.equal(logs.some((args) => JSON.stringify(args).includes("recoveryUrl")), false);
+});
+
+test("in production, email confirmation needs an auth.local.confirmation-sender, or startup stops saying what to do", async () => {
+  const production = {
+    NODE_ENV: "production",
+    AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
+    AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+    AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
+    AUTH_LOCAL_EMAIL_CONFIRMATION: ""
+  };
+  await assert.rejects(
+    () => createStartedApp({ env: production }),
+    (error) => String(error.details?.cause?.message || error.message || "") ===
+      "Local auth confirms each new account's email address in production, and no auth.local.confirmation-sender " +
+        "is installed to email the confirmation links. Install one, or set AUTH_LOCAL_EMAIL_CONFIRMATION=false " +
+        "to let accounts register without confirming their email."
+  );
+  const optedOut = await createStartedApp({ env: { ...production, AUTH_LOCAL_EMAIL_CONFIRMATION: "false" } });
+  assert.equal(optedOut.authService.getCapabilities().features.emailConfirmation, false);
+});
+
+test("the confirmation sender emails the link, which is never returned or logged, and the register hook runs on confirming", async (t) => {
+  const messages = [];
+  const logs = [];
+  const hooked = [];
+  const app = await createStartedApp({
+    env: {
+      NODE_ENV: "production",
+      AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
+      AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+      AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
+      AUTH_LOCAL_EMAIL_CONFIRMATION: "",
+      APP_PUBLIC_URL: "https://app.example.test"
+    },
+    confirmationSender: async (message) => { messages.push(message); },
+    logger: { info: (...args) => logs.push(args), warn() {}, error() {}, debug() {} },
+    configureExtensions(extensions, runtimeLogger) {
+      extensions.registerServiceDecorator(createLocalAuthRegisterHookDecorator({
+        logger: runtimeLogger,
+        hook: { hookId: "welcome", blocking: true, async handle({ actor }) { hooked.push(actor.email); } }
+      }));
+    }
+  });
+  t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
+  const features = app.authService.getCapabilities().features;
+  assert.deepEqual([features.emailConfirmation, features.emailConfirmationCode], [true, true]);
+
+  const registered = await app.authService.register({ email: "mail@example.com", password: "correct horse battery staple" });
+  assert.equal(registered.requiresEmailConfirmation, true);
+  assert.equal(registered.session, null);
+  assert.equal(Object.hasOwn(registered, "confirmationUrl"), false);
+  assert.deepEqual(hooked, []);
+  assert.equal(messages.length, 1);
+  assert.equal(messages[0].email, "mail@example.com");
+  const link = new URL(messages[0].confirmationUrl);
+  assert.equal(`${link.origin}${link.pathname}`, "https://app.example.test/auth/login");
+  assert.equal(JSON.stringify(logs).includes(link.searchParams.get("confirmation_token")), false);
+
+  const confirmed = await app.actionExecutor.execute({
+    actionId: "auth.register.confirm",
+    input: { token: link.searchParams.get("confirmation_token") },
+    context: { channel: "internal" }
+  });
+  assert.equal(confirmed.actor.email, "mail@example.com");
+  assert.ok(confirmed.session.access_token);
+  assert.deepEqual(hooked, ["mail@example.com"]);
 });

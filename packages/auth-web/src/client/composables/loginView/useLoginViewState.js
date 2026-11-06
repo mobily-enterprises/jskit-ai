@@ -61,10 +61,15 @@ export function useLoginViewState({ placementContext }) {
   const loading = ref(false);
   const otpRequestPending = ref(false);
   const registerConfirmationResendPending = ref(false);
+  const registrationConfirmPending = ref(false);
   const errorMessage = ref("");
   const infoMessage = ref("");
   const pendingEmailConfirmationMessage = ref("");
   const pendingEmailConfirmationAddress = ref("");
+  // In development without an email sender, the confirmation link itself.
+  const confirmationUrl = ref("");
+  // A confirmation code or link the person types or pastes.
+  const confirmationCode = ref("");
   const invitationToken = ref(readWindowSearchParam("invitationToken") || readWindowSearchParam("inviteToken"));
 
   const isLogin = computed(() => mode.value === LOGIN_MODE);
@@ -80,6 +85,7 @@ export function useLoginViewState({ placementContext }) {
   const canUseOtp = computed(() => authCapabilities.value.features.otp.login === true);
   const canUseOAuth = computed(() => authCapabilities.value.features.oauthLogin.enabled === true);
   const canResendEmailConfirmation = computed(() => authCapabilities.value.features.emailConfirmation === true);
+  const canEnterConfirmationCode = computed(() => authCapabilities.value.features.emailConfirmationCode === true);
   const showRememberedAccount = computed(
     () => (isLogin.value || isOtp.value) && useRememberedAccount.value && Boolean(rememberedAccount.value)
   );
@@ -238,6 +244,8 @@ export function useLoginViewState({ placementContext }) {
     if (resolvedMode !== EMAIL_CONFIRMATION_MODE) {
       pendingEmailConfirmationAddress.value = "";
       pendingEmailConfirmationMessage.value = "";
+      confirmationUrl.value = "";
+      confirmationCode.value = "";
     }
     clearTransientMessages();
     resetTransientValidationState();
@@ -252,10 +260,11 @@ export function useLoginViewState({ placementContext }) {
     }
   }
 
-  function enterEmailConfirmationPendingState({ emailAddress = "", message = "" } = {}) {
+  function enterEmailConfirmationPendingState({ emailAddress = "", message = "", confirmationUrl: url = "" } = {}) {
     switchMode(EMAIL_CONFIRMATION_MODE);
     pendingEmailConfirmationAddress.value = normalizeEmailAddress(emailAddress);
     pendingEmailConfirmationMessage.value = String(message || "").trim();
+    confirmationUrl.value = String(url || "").trim();
   }
 
   function goToMainScreen() {
@@ -284,10 +293,13 @@ export function useLoginViewState({ placementContext }) {
     loading,
     otpRequestPending,
     registerConfirmationResendPending,
+    registrationConfirmPending,
     errorMessage,
     infoMessage,
     pendingEmailConfirmationMessage,
     pendingEmailConfirmationAddress,
+    confirmationUrl,
+    confirmationCode,
     invitationToken,
     isLogin,
     isRegister,
@@ -300,6 +312,7 @@ export function useLoginViewState({ placementContext }) {
     canUseOtp,
     canUseOAuth,
     canResendEmailConfirmation,
+    canEnterConfirmationCode,
     showRememberedAccount,
     rememberedAccountDisplayName,
     rememberedAccountMaskedEmail,

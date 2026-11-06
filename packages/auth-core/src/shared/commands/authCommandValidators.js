@@ -159,12 +159,38 @@ const okMessageOutputValidator = deepFreeze({
   mode: "replace"
 });
 
+// In development, when no email is sent, the confirmation link itself, so the
+// sign-in screen can show it.
+const confirmationUrlFieldDefinition = deepFreeze({ type: "string", required: false, minLength: 1, maxLength: 4096 });
+
 const registerOutputValidator = deepFreeze({
   schema: createSchema({
     ok: { type: "boolean", required: true },
     requiresEmailConfirmation: { type: "boolean", required: true },
     username: { type: "string", required: false, minLength: 1, maxLength: 120 },
     message: { type: "string", required: false, minLength: 1 },
+    confirmationUrl: confirmationUrlFieldDefinition,
+    ...messageCodeFieldDefinitions
+  }),
+  mode: "replace"
+});
+
+const registerConfirmationResendOutputValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    message: { type: "string", required: true, minLength: 1 },
+    confirmationUrl: confirmationUrlFieldDefinition,
+    ...messageCodeFieldDefinitions
+  }),
+  mode: "replace"
+});
+
+const registerConfirmOutputValidator = deepFreeze({
+  schema: createSchema({
+    ok: { type: "boolean", required: true },
+    email: { type: "string", required: true, minLength: 1, maxLength: AUTH_EMAIL_MAX_LENGTH },
+    username: { type: "string", required: false, minLength: 1, maxLength: 120 },
+    message: { type: "string", required: true, minLength: 1 },
     ...messageCodeFieldDefinitions
   }),
   mode: "replace"
@@ -319,6 +345,7 @@ const authCapabilitiesFeaturesOutputSchema = createSchema({
     schema: authOAuthLoginCapabilitiesOutputSchema
   },
   emailConfirmation: { type: "boolean", required: true },
+  emailConfirmationCode: { type: "boolean", required: true },
   profileUpdate: { type: "boolean", required: true },
   providerLinking: {
     type: "object",
@@ -445,7 +472,11 @@ const AUTH_FIELD_MESSAGES = deepFreeze({
     code: "auth.validation.recoveryTokenHashInvalid",
     message: "Recovery token hash is invalid."
   },
-  recoveryTypeUnsupported: { code: "auth.validation.recoveryTypeUnsupported", message: "Only recovery links are supported." }
+  recoveryTypeUnsupported: { code: "auth.validation.recoveryTypeUnsupported", message: "Only recovery links are supported." },
+  confirmationCodeRequired: {
+    code: "auth.validation.confirmationCodeRequired",
+    message: "Enter the confirmation code or link from the email."
+  }
 });
 
 function createCommandMessages({
@@ -488,6 +519,8 @@ export {
   okOutputValidator,
   okMessageOutputValidator,
   registerOutputValidator,
+  registerConfirmationResendOutputValidator,
+  registerConfirmOutputValidator,
   loginOutputValidator,
   otpVerifyOutputValidator,
   oauthCompleteOutputValidator,

@@ -72,8 +72,9 @@ Two limits slow down password guessing, and both are on by default.
 declares a `rateLimit`, which the kernel enforces for each client address. A
 request over it is refused with status 429, the code `kernel.http.rateLimited`
 (`params.count` is the seconds to wait) and a `Retry-After` header. The
-defaults, per minute: `login`, `register`, `loginOtpRequest` and
-`loginOtpVerify` 10; `registerConfirmationResend` and `passwordForgot` 5;
+defaults, per minute: `login`, `register`, `registerConfirm`,
+`loginOtpRequest` and `loginOtpVerify` 10; `registerConfirmationResend` and
+`passwordForgot` 5;
 `oauthStart`, `oauthComplete`, `passwordRecovery` and `passwordReset` 20;
 `devLoginAs` 30. Change one in the application's server configuration;
 `false` removes it:
@@ -126,6 +127,49 @@ sign-in factor, and at least 8 when it is used with another factor; set
 128 characters are accepted.
 
 The login page shows either refusal, translated, with the wait.
+
+## Email confirmation (local auth)
+
+Local auth confirms the email address of each account it registers by
+password, in every environment, unless `AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
+Registering keeps the registration waiting, with no account, profile or
+session, and answers `requiresEmailConfirmation: true`; the sign-in page then
+shows "Confirm your email", with a button to send a new link and a field for
+the link or its code. Opening the link (`/auth/login?confirmation_token=...`)
+creates the account and signs the person in. The `auth.local.user.registered`
+hook runs then, not on registering. Signing in with the right password while the registration waits
+is refused with status 403 and `auth.login.emailUnconfirmed`, and the sign-in
+page shows how to confirm; a wrong password is an ordinary failed sign-in.
+
+A link's code is random, kept only as a hash, works once and expires after a
+day. Registering the same email again, or asking for a new link, replaces it,
+so a waiting registration never keeps the email from its owner. Asking for a
+new link answers the same whether or not a registration waits.
+
+The link is emailed by the optional `auth.local.confirmation-sender`
+capability, an async function accepting `{ email, confirmationUrl }`, built
+like the recovery sender below; with it, `APP_PUBLIC_URL` is required and the
+link is never returned or logged. In development without one, the link is in
+the registration's answer (`confirmationUrl`) and the log, and the sign-in page
+shows it with a button that confirms it. In production (`NODE_ENV=production`)
+without one, the server refuses to start, naming both ways out: install a
+sender, or set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`. For direct library
+composition, pass the sender as `confirmationSender` to
+`createLocalAuthService()`, with `emailConfirmationSender: true` in
+`resolveLocalAuthConfig()`; without one, pass
+`createLoggedConfirmationSender(logger)`.
+
+| Env | Default | Meaning |
+| --- | --- | --- |
+| `AUTH_LOCAL_EMAIL_CONFIRMATION` | on | `false` registers and signs in at once, without confirming the email. |
+
+Accounts that exist already are confirmed: only registrations made after the
+upgrade wait. Waiting registrations are kept in the file store
+(`registrations.passwd`) or, with `@jskit-ai/auth-provider-local-db-core`, in
+the `auth_local_registrations` table (run `npm run db:migrate`). A custom
+`auth.local.backend` implements the `registrations` collection. Tests that
+register and expect a session either confirm with the answer's
+`confirmationUrl` or set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
 
 ## Application-owned recovery email
 

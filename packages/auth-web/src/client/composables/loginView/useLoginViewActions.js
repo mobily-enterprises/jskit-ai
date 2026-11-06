@@ -1,6 +1,7 @@
 import { mdiGoogle } from "@mdi/js";
 import { authRegisterCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
 import { authRegisterConfirmationResendCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterConfirmationResendCommand";
+import { authRegisterConfirmCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterConfirmCommand";
 import { authLoginPasswordCommand } from "@jskit-ai/auth-core/shared/commands/authLoginPasswordCommand";
 import { authLoginOtpRequestCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpRequestCommand";
 import { authLoginOtpVerifyCommand } from "@jskit-ai/auth-core/shared/commands/authLoginOtpVerifyCommand";
@@ -16,6 +17,7 @@ import { stripOAuthParamsFromLocation } from "./oauthCallbackUrl.js";
 import { completeOAuthPopupSignIn } from "../../runtime/popupOAuthLaunchClient.js";
 import { ensureCommandSectionValid } from "./validationHelpers.js";
 import { resolveRegisterCompletionState } from "./registerCompletion.js";
+import { confirmationTokenFromInput, takeConfirmationTokenFromLocation } from "./confirmationLink.js";
 import { inactiveSessionMessage } from "../../runtime/inactiveSessionMessage.js";
 import { replacePage } from "../../browser.js";
 import { useJskitText } from "../../i18n.js";
@@ -183,7 +185,8 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
     if (!registerCompletion.shouldCompleteLogin) {
       state.enterEmailConfirmationPendingState({
         emailAddress: normalizedEmail,
-        message: registerCompletion.message
+        message: registerCompletion.message,
+        confirmationUrl: registerResult?.confirmationUrl
       });
       return;
     }
@@ -239,10 +242,21 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
     };
     ensureCommandSectionValid(authLoginPasswordCommand, "body", loginPayload, t("jskit.auth.login.error.signInFailed"));
 
-    const loginResult = await request(AUTH_PATHS.LOGIN, {
-      method: "POST",
-      body: loginPayload
-    });
+    let loginResult;
+    try {
+      loginResult = await request(AUTH_PATHS.LOGIN, {
+        method: "POST",
+        body: loginPayload
+      });
+    } catch (error) {
+      // The right password for a registration still waiting for its email:
+      // show how to confirm it instead of a failed sign-in.
+      if (error?.code !== "auth.login.emailUnconfirmed") {
+        throw error;
+      }
+      state.enterEmailConfirmationPendingState({ emailAddress: normalizedEmail, message: serverMessage(error) });
+      return;
+    }
     state.applyRememberedAccountPreference({
       email: normalizedEmail,
       displayName: loginResult?.username || normalizedEmail,
@@ -303,6 +317,10 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
   }
 
   async function submitAuth() {
+    if (state.isEmailConfirmationPending.value) {
+      await confirmRegistrationCode();
+      return;
+    }
     state.submitAttempted.value = true;
     clearTransientMessages();
     if (!validation.canSubmit.value) {
@@ -389,12 +407,60 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
         body: resendPayload
       });
       const info = serverMessage(resendResult).trim() || t("jskit.auth.login.confirmEmail.resent");
+      if (resendResult?.confirmationUrl) {
+        state.confirmationUrl.value = resendResult.confirmationUrl;
+      }
       setInfoMessage(info, "auth-web.default-login-view:register-confirmation-resend");
     } catch (error) {
       setErrorMessage(serverMessage(error, t("jskit.auth.login.error.resendConfirmationFailed")));
     } finally {
       state.registerConfirmationResendPending.value = false;
     }
+  }
+
+  /**
+   * Confirms a registration from its link's code, or from the whole link,
+   * which signs the person in, and opens the requested page.
+   * @param {unknown} codeOrLink
+   */
+  async function confirmRegistration(codeOrLink) {
+    const confirmPayload = { token: confirmationTokenFromInput(codeOrLink) };
+    state.registrationConfirmPending.value = true;
+    clearTransientMessages();
+    try {
+      ensureCommandSectionValid(
+        authRegisterConfirmCommand,
+        "body",
+        confirmPayload,
+        t("jskit.auth.login.error.confirmRegistrationFailed")
+      );
+      const confirmResult = await request(AUTH_PATHS.REGISTER_CONFIRM, {
+        method: "POST",
+        body: confirmPayload
+      });
+      state.applyRememberedAccountPreference({
+        email: confirmResult?.email,
+        displayName: confirmResult?.username || confirmResult?.email,
+        shouldRemember: state.rememberAccountOnDevice.value !== false
+      });
+      setInfoMessage(
+        serverMessage(confirmResult).trim() || t("jskit.auth.register.confirmed"),
+        "auth-web.default-login-view:register-confirmed"
+      );
+      await completeLogin();
+    } catch (error) {
+      setErrorMessage(serverMessage(error, t("jskit.auth.login.error.confirmRegistrationFailed")));
+    } finally {
+      state.registrationConfirmPending.value = false;
+    }
+  }
+
+  function confirmRegistrationCode() {
+    return confirmRegistration(state.confirmationCode.value);
+  }
+
+  function confirmRegistrationFromLink() {
+    return confirmRegistration(state.confirmationUrl.value);
   }
 
   function oauthProviderButtonLabel(provider) {
@@ -461,9 +527,15 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
 
   async function initializeOnMounted() {
     state.applyRememberedAccountHint(readRememberedAccountHint());
+    // Opened from a registration's confirmation email.
+    const confirmationToken = takeConfirmationTokenFromLocation();
     state.loading.value = true;
     try {
       const session = await refreshSession();
+      if (confirmationToken) {
+        await confirmRegistration(confirmationToken);
+        return;
+      }
       const callbackHandled = await handleOAuthCallbackIfPresent();
       if (!callbackHandled && session?.authenticated) {
         replacePage(state.requestedReturnTo.value);
@@ -495,6 +567,8 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
     submitAuth,
     requestOtpCode,
     resendRegisterConfirmationEmail,
+    confirmRegistrationCode,
+    confirmRegistrationFromLink,
     oauthProviderButtonLabel,
     oauthProviderIcon,
     startOAuthSignIn,

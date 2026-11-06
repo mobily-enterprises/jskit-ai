@@ -43,6 +43,29 @@
  *   deleteBefore(lastFailedAt: string): Promise<number>
  * }} signInFailures One record per account email, existing or not; `save`
  *   replaces the email's record and `deleteBefore` removes those whose last failure is older.
+ * @property {{
+ *   save(record: AuthLocalRegistration): Promise<AuthLocalRegistration>,
+ *   findByEmail(email: string): Promise<AuthLocalRegistration | null>,
+ *   findByTokenHash(tokenHash: string): Promise<AuthLocalRegistration | null>,
+ *   delete(email: string): Promise<number>,
+ *   deleteExpired(now: string): Promise<number>
+ * }} registrations Registrations waiting for their email to be confirmed, one per
+ *   email; `save` replaces the email's registration. Used only while
+ *   AUTH_LOCAL_EMAIL_CONFIRMATION is on.
+ */
+
+/**
+ * A registration waiting for its email to be confirmed: the account it will
+ * create, the hash of its confirmation link's code, and when that link
+ * expires. Times are ISO strings.
+ * @typedef {object} AuthLocalRegistration
+ * @property {string} email
+ * @property {string} displayName
+ * @property {object} password The stored password record, as users keep it.
+ * @property {{ token: string, source: string } | null} invitation The invitation it registered with.
+ * @property {string} tokenHash
+ * @property {string} createdAt
+ * @property {string} expiresAt
  */
 
 /**
@@ -53,8 +76,8 @@
 
 /**
  * The `auth.local.backend` capability: where local auth keeps its users,
- * sessions, recovery tokens, linked identities, OAuth attempts and failed
- * sign-ins. Without
+ * sessions, recovery tokens, linked identities, OAuth attempts, failed
+ * sign-ins and unconfirmed registrations. Without
  * one, local auth keeps them in files under AUTH_LOCAL_STORE_DIR;
  * `@jskit-ai/auth-provider-local-db-core` provides one that keeps them in the
  * database. Each backend implements this contract.
@@ -77,6 +100,12 @@
  * The `auth.local.recovery-sender` capability: sends a password recovery link
  * to the person it belongs to.
  * @typedef {(delivery: { email: string, recoveryUrl: string }) => Promise<void>} AuthLocalRecoverySender
+ */
+
+/**
+ * The `auth.local.confirmation-sender` capability: sends a new registration's
+ * email confirmation link to the address it registered.
+ * @typedef {(delivery: { email: string, confirmationUrl: string }) => Promise<void>} AuthLocalConfirmationSender
  */
 
 /** @typedef {ReturnType<typeof import("./lib/config.js").resolveLocalAuthConfig>} AuthLocalConfig */

@@ -6,7 +6,8 @@
         "unavailable": "Authentication service temporarily unavailable. Please retry."
       },
       "login": {
-        "invalidCredentials": "Invalid email or password."
+        "invalidCredentials": "Invalid email or password.",
+        "emailUnconfirmed": "Confirm your email address before signing in: open the link we emailed you, or ask for a new one."
       },
       "policy": {
         "ownerUnresolved": "Route owner could not be resolved.",
@@ -50,7 +51,8 @@
         "otpTypeUnsupported": "Only email OTP verification is supported.",
         "recoveryCodeInvalid": "Recovery code is invalid.",
         "recoveryTokenHashInvalid": "Recovery token hash is invalid.",
-        "recoveryTypeUnsupported": "Only recovery links are supported."
+        "recoveryTypeUnsupported": "Only recovery links are supported.",
+        "confirmationCodeRequired": "Enter the confirmation code or link from the email."
       },
       "profile": {
         "displayNameRequired": "Display name is required."

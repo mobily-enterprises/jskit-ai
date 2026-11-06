@@ -54,6 +54,45 @@
                 </p>
               </div>
 
+              <div v-if="confirmationUrl" class="email-confirmation-dev-link mb-5" data-testid="auth-confirmation-dev-link">
+                <p class="text-medium-emphasis mb-2">{{ t("jskit.auth.login.confirmEmail.devLink") }}</p>
+                <p class="email-confirmation-url mb-3">{{ confirmationUrl }}</p>
+                <v-btn
+                  class="text-none"
+                  variant="flat"
+                  color="primary"
+                  data-testid="auth-confirmation-dev-confirm"
+                  :loading="registrationConfirmPending"
+                  @click="confirmRegistrationFromLink"
+                >
+                  {{ t("jskit.auth.login.confirmEmail.useDevLink") }}
+                </v-btn>
+              </div>
+
+              <div v-if="canEnterConfirmationCode" class="email-confirmation-code d-flex align-start ga-2 mb-5">
+                <v-text-field
+                  v-model="confirmationCode"
+                  data-testid="auth-confirmation-code"
+                  :label="t('jskit.auth.login.field.confirmationCode')"
+                  variant="outlined"
+                  density="comfortable"
+                  autocomplete="off"
+                  hide-details="auto"
+                />
+                <v-btn
+                  class="text-none mt-1"
+                  variant="tonal"
+                  color="primary"
+                  size="large"
+                  type="submit"
+                  data-testid="auth-confirmation-submit"
+                  :disabled="!confirmationCode.trim()"
+                  :loading="registrationConfirmPending"
+                >
+                  {{ t("jskit.auth.login.confirmEmail.confirm") }}
+                </v-btn>
+              </div>
+
               <div class="switch-row d-flex align-center justify-space-between ga-3">
                 <v-btn class="text-none" variant="tonal" color="primary" @click="goToMainScreen">
                   {{ t("jskit.auth.login.confirmEmail.goToMainScreen") }}
@@ -259,6 +298,11 @@ const {
   canUseOtp,
   canUseOAuth,
   canResendEmailConfirmation,
+  canEnterConfirmationCode,
+  confirmationUrl,
+  confirmationCode,
+  registrationConfirmPending,
+  confirmRegistrationFromLink,
   emailConfirmationMessage,
   showRememberedAccount,
   switchMode,
@@ -370,6 +414,18 @@ function toggleConfirmPasswordVisibility() {
 .email-confirmation-message {
   color: rgb(var(--v-theme-on-surface));
   line-height: 1.5;
+}
+
+.email-confirmation-dev-link {
+  border-radius: 12px;
+  border: 1px dashed rgba(var(--v-theme-on-surface), 0.34);
+  padding: 16px;
+}
+
+.email-confirmation-url {
+  font-family: monospace;
+  font-size: 0.85rem;
+  overflow-wrap: anywhere;
 }
 
 .remembered-account {

@@ -66,6 +66,13 @@ test("normalizeAuthCapabilities returns one provider-neutral feature shape", () 
   assert.equal(isAuthOperationSupported(capabilities, "startProviderLink"), true);
   assert.equal(isAuthOperationSupported(capabilities, "unlinkProvider"), false);
   assert.equal(isAuthOperationSupported(capabilities, "resetPassword"), true);
+  // Confirming a registration from its link's code is its own capability.
+  assert.equal(capabilities.features.emailConfirmationCode, false);
+  assert.equal(isAuthOperationSupported(capabilities, "confirmRegistration"), false);
+  assert.equal(
+    isAuthOperationSupported(normalizeAuthCapabilities({ features: { emailConfirmationCode: true } }), "confirmRegistration"),
+    true
+  );
   assert.equal(
     isAuthOperationSupported(
       {

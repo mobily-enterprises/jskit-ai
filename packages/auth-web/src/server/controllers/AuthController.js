@@ -26,7 +26,9 @@ class AuthController {
         requiresEmailConfirmation: true,
         message: "Check your email to confirm the account before logging in.",
         messageCode: "auth.register.confirmEmail",
-        messageParams: {}
+        messageParams: {},
+        // In development without an email sender, the link to open instead.
+        ...(result.confirmationUrl ? { confirmationUrl: result.confirmationUrl } : {})
       });
       return;
     }
@@ -42,6 +44,21 @@ class AuthController {
     const payload = request.body || {};
     const result = await this.service.resendRegisterConfirmation(request, payload);
     reply.code(200).send(result);
+  }
+
+  /** Creates the account a registration waited to create, and signs the person in. */
+  async confirmRegistration(request, reply) {
+    const payload = request.body || {};
+    const result = await this.service.confirmRegistration(request, payload);
+    this.service.writeSessionCookies(reply, result.session);
+    reply.code(200).send({
+      ok: true,
+      email: result.actor.email,
+      username: result.actor.displayName,
+      message: "Your email is confirmed.",
+      messageCode: "auth.register.confirmed",
+      messageParams: {}
+    });
   }
 
   async login(request, reply) {

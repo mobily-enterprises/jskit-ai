@@ -4,7 +4,7 @@ import {
   authEmailFieldDefinition,
   AUTH_FIELD_MESSAGES,
   createCommandMessages,
-  okMessageOutputValidator
+  registerConfirmationResendOutputValidator
 } from "./authCommandValidators.js";
 
 const AUTH_REGISTER_CONFIRMATION_RESEND_MESSAGES = createCommandMessages({
@@ -31,7 +31,7 @@ const authRegisterConfirmationResendCommand = deepFreeze({
   operation: {
     method: "POST",
     body: authRegisterConfirmationResendBodyValidator,
-    response: okMessageOutputValidator,
+    response: registerConfirmationResendOutputValidator,
     messages: AUTH_REGISTER_CONFIRMATION_RESEND_MESSAGES,
     idempotent: false,
     invalidates: []

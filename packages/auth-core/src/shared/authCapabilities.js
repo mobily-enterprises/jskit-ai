@@ -10,6 +10,7 @@ const AUTH_PASSWORD_RECOVERY_DELIVERIES = Object.freeze(["email", "dev-log", "de
 const AUTH_OPERATION_FEATURES = Object.freeze({
   register: "password.register",
   resendRegisterConfirmation: "emailConfirmation",
+  confirmRegistration: "emailConfirmationCode",
   login: "password.login",
   requestOtpLogin: "otp.login",
   verifyOtpLogin: "otp.login",
@@ -143,6 +144,7 @@ function normalizeAuthCapabilities(value = {}) {
           : null
       }),
       emailConfirmation: normalizeBoolean(featuresSource.emailConfirmation),
+      emailConfirmationCode: normalizeBoolean(featuresSource.emailConfirmationCode),
       profileUpdate: normalizeBoolean(featuresSource.profileUpdate),
       providerLinking: Object.freeze({
         start: normalizeBoolean(providerLinkingSource.start),

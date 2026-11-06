@@ -9,6 +9,8 @@ const AUTH_TEXTS = Object.freeze({
   sessionRequired: Object.freeze({ status: 401, code: "auth.session.required" }),
   sessionUnavailable: Object.freeze({ status: 503, code: "auth.session.unavailable" }),
   invalidCredentials: Object.freeze({ status: 401, code: "auth.login.invalidCredentials" }),
+  // The password is right, but the registration's email is not confirmed yet.
+  emailUnconfirmed: Object.freeze({ status: 403, code: "auth.login.emailUnconfirmed" }),
   emailRequired: Object.freeze({ status: 400, code: "auth.validation.emailRequired" }),
   devUserRequired: Object.freeze({ status: 400, code: "auth.dev.userRequired" }),
   devUserNotFound: Object.freeze({ status: 400, code: "auth.dev.userNotFound" }),

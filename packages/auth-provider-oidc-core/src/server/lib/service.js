@@ -410,6 +410,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     logoutEverywhere,
     register: unsupported("register"),
     resendRegisterConfirmation: unsupported("resendRegisterConfirmation"),
+    confirmRegistration: unsupported("confirmRegistration"),
     login: unsupported("login"),
     requestOtpLogin: unsupported("requestOtpLogin"),
     verifyOtpLogin: unsupported("verifyOtpLogin"),

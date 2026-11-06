@@ -53,7 +53,8 @@ function logNonBlockingHookFailure({ logger, hook, error }) {
 /**
  * @param {object} run
  * @param {{ hookId: string, blocking: boolean, handle: LocalAuthRegisterHook["handle"] }} run.hook
- * @param {object} run.result The answer of register, or of an oauthComplete that registered the user.
+ * @param {object} run.result The answer of a register or confirmRegistration that created the
+ *   account, or of an oauthComplete that registered the user.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} run.logger
  */
 async function runRegisterHook({ hook, result, logger }) {
@@ -75,7 +76,9 @@ async function runRegisterHook({ hook, result, logger }) {
 
 /**
  * An auth service decorator that runs an application's hook for each user
- * that registers, by password or by a first OAuth sign-in.
+ * that registers, by password or by a first OAuth sign-in. A registration
+ * that waits for its email to be confirmed has no account yet: the hook runs
+ * when confirmRegistration creates it.
  * @param {object} options
  * @param {string} [options.decoratorId]
  * @param {number} [options.order]
@@ -97,6 +100,16 @@ function createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.regist
           enumerable: true,
           value: async function register(input) {
             const result = await authService.register(input);
+            if (result.requiresEmailConfirmation !== true) {
+              await runRegisterHook({ hook: registerHook, result, logger });
+            }
+            return result;
+          }
+        },
+        confirmRegistration: {
+          enumerable: true,
+          value: async function confirmRegistration(input) {
+            const result = await authService.confirmRegistration(input);
             await runRegisterHook({ hook: registerHook, result, logger });
             return result;
           }

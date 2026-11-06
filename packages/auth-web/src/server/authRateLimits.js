@@ -8,6 +8,7 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 const DEFAULT_AUTH_RATE_LIMITS = Object.freeze({
   register: Object.freeze({ max: 10, timeWindow: "1 minute" }),
   registerConfirmationResend: Object.freeze({ max: 5, timeWindow: "1 minute" }),
+  registerConfirm: Object.freeze({ max: 10, timeWindow: "1 minute" }),
   login: Object.freeze({ max: 10, timeWindow: "1 minute" }),
   loginOtpRequest: Object.freeze({ max: 10, timeWindow: "1 minute" }),
   loginOtpVerify: Object.freeze({ max: 10, timeWindow: "1 minute" }),

@@ -504,7 +504,8 @@ test("package metadata declares portable local auth DB migrations without instal
       LOCAL_AUTH_DB_TABLES.recovery,
       LOCAL_AUTH_DB_TABLES.identities,
       LOCAL_AUTH_DB_TABLES.oauthAttempts,
-      LOCAL_AUTH_DB_TABLES.signInFailures
+      LOCAL_AUTH_DB_TABLES.signInFailures,
+      LOCAL_AUTH_DB_TABLES.registrations
     ]
   );
 });
@@ -527,6 +528,7 @@ test("installing the DB backend capability makes local auth database-backed", as
         AUTH_LOCAL_SESSION_SECRET: "test-secret",
         AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",
         APP_PUBLIC_URL: "http://localhost:5173",
+        AUTH_LOCAL_EMAIL_CONFIRMATION: "false",
         NODE_ENV: "test"
       },
       "runtime.logger": console,

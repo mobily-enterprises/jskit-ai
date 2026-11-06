@@ -45,15 +45,18 @@ function resolveSessionSecret(env, { storeDir, isProduction }) {
 }
 
 /**
- * APP_PUBLIC_URL, from which recovery links and OAuth redirect addresses are
- * built. Email recovery and OAuth sign-in require it.
+ * APP_PUBLIC_URL, from which recovery and confirmation links and OAuth
+ * redirect addresses are built. Emailed links and OAuth sign-in require it.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ emailRecovery: boolean, oauthEnabled: boolean }} options
+ * @param {{ emailRecovery: boolean, emailedConfirmation: boolean, oauthEnabled: boolean }} options
  */
-function resolveAppPublicUrl(env, { emailRecovery, oauthEnabled }) {
+function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled }) {
   const configured = String(env.APP_PUBLIC_URL || "").trim();
   if (!configured) {
     if (emailRecovery) throw new Error("APP_PUBLIC_URL is required when local auth email recovery is configured.");
+    if (emailedConfirmation) {
+      throw new Error("APP_PUBLIC_URL is required when local auth emails confirmation links.");
+    }
     if (oauthEnabled) throw new Error("APP_PUBLIC_URL is required when local auth OAuth sign-in is configured.");
     return "http://localhost:5173";
   }
@@ -87,6 +90,30 @@ function resolveRecoveryDelivery(env, { emailRecovery, isProduction }) {
 }
 
 /**
+ * Whether a registration waits for its email to be confirmed
+ * (AUTH_LOCAL_EMAIL_CONFIRMATION, on unless set to false), and how its link
+ * reaches the person: by email through the installed confirmation sender, or,
+ * in development without one, in the registration's response (the sign-in
+ * screen shows it) and the log. Production without a sender stops startup,
+ * because nobody could confirm.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
+ * @param {{ emailConfirmationSender: boolean, isProduction: boolean }} options
+ * @returns {"email" | "dev-response" | "off"}
+ */
+function resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction }) {
+  if (!parseBooleanFlag(env.AUTH_LOCAL_EMAIL_CONFIRMATION, true)) return "off";
+  if (emailConfirmationSender) return "email";
+  if (isProduction) {
+    throw new Error(
+      "Local auth confirms each new account's email address in production, and no auth.local.confirmation-sender " +
+        "is installed to email the confirmation links. Install one, or set AUTH_LOCAL_EMAIL_CONFIRMATION=false " +
+        "to let accounts register without confirming their email."
+    );
+  }
+  return "dev-response";
+}
+
+/**
  * The shortest password local auth accepts: AUTH_LOCAL_PASSWORD_MIN_LENGTH, or 8.
  * It can be raised, up to 64, but not lowered below 8.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
@@ -111,8 +138,9 @@ function resolvePasswordMinLength(env) {
  * @param {boolean} input.fileBackend True when local auth keeps its records in files, because no
  *   `auth.local.backend` is installed.
  * @param {boolean} input.emailRecovery True when an `auth.local.recovery-sender` is installed.
+ * @param {boolean} [input.emailConfirmationSender] True when an `auth.local.confirmation-sender` is installed.
  */
-function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery }) {
+function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false }) {
   const devAuth = resolveDevAuthPolicyFromEnv(env);
   const { isProduction } = devAuth;
   const storeDir = resolveStoreDir(env, appRoot);
@@ -124,15 +152,22 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery }) {
   const oauthProviders = resolveOAuthProviders(env);
   const oauthEnabled = oauthProviders.length > 0;
   const recoveryDelivery = resolveRecoveryDelivery(env, { emailRecovery, isProduction });
+  const confirmationDelivery = resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction });
   return Object.freeze({
     storeDir,
     isProduction,
-    appPublicUrl: resolveAppPublicUrl(env, { emailRecovery, oauthEnabled }),
+    appPublicUrl: resolveAppPublicUrl(env, {
+      emailRecovery,
+      emailedConfirmation: confirmationDelivery === "email",
+      oauthEnabled
+    }),
     oauthProviders,
     oauthEnabled,
     sessionSecret: resolveSessionSecret(env, { storeDir, isProduction }),
     recoveryDelivery,
     recoveryEnabled: recoveryDelivery !== "disabled",
+    confirmationDelivery,
+    emailConfirmation: confirmationDelivery !== "off",
     passwordMinLength: resolvePasswordMinLength(env),
     signInThrottle: resolveSignInThrottle(env),
     devAuth

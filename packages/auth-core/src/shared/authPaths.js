@@ -1,6 +1,7 @@
 const AUTH_PATHS = Object.freeze({
   REGISTER: "/api/register",
   REGISTER_CONFIRMATION_RESEND: "/api/register/confirmation/resend",
+  REGISTER_CONFIRM: "/api/register/confirm",
   LOGIN: "/api/login",
   LOGIN_OTP_REQUEST: "/api/login/otp/request",
   LOGIN_OTP_VERIFY: "/api/login/otp/verify",
