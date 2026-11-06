@@ -8,7 +8,7 @@
         <slot name="avatar-control" :size="avatarSize" :height="avatarHeight" />
         <v-btn
           icon="$accountCircle" size="small"
-          variant="text" :width="44" :min-width="44" :min-height="44"
+          variant="text" :width="44" :min-width="44"
           class="assistant-conversation__avatar-size"
           :aria-label="t('jskit.assistant.chat.showAvatar')" :title="t('jskit.assistant.chat.showAvatar')"
           :aria-expanded="avatarSize !== 'hidden'" @click="toggleAvatar"
@@ -26,7 +26,7 @@
           <slot name="avatar-tools" :size="avatarSize" :height="avatarHeight" />
           <v-btn
             icon="$minus" size="small" variant="text" color="primary"
-            :width="40" :min-width="40" :min-height="44" class="assistant-conversation__avatar-size"
+            :width="40" :min-width="40" class="assistant-conversation__avatar-size"
             :aria-label="t('jskit.assistant.chat.minimiseAvatar')" :title="t('jskit.assistant.chat.minimiseAvatar')" :aria-expanded="true"
             @click="toggleAvatar"
           >
@@ -369,7 +369,6 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 .assistant-conversation__avatar { position: absolute; top: var(--assistant-conversation-warning-bottom, 0px); right: 0; z-index: 3; max-width: 100%; min-width: 0; }
 .assistant-conversation__avatar-controls { position: absolute; top: 0; right: 100%; display: flex; align-items: center; justify-content: flex-end; min-height: 44px; }
 .assistant-conversation__avatar--hidden .assistant-conversation__avatar-controls { right: 0; }
-.assistant-conversation__avatar-size { min-width: 44px; min-height: 44px; }
 .assistant-conversation__avatar-size-disc { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; overflow: hidden; border-radius: 50%; background: rgba(var(--v-theme-on-surface), .08); }
 .assistant-conversation__avatar-size-disc--minimise { background: rgba(var(--v-theme-primary), .12); }
 .assistant-conversation__avatar-presentation { display: flex; flex-direction: column; align-items: center; min-width: 0; }

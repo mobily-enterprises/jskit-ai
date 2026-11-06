@@ -1124,7 +1124,9 @@ test("an optional avatar clamps in a short conversation without consuming its pr
         assert.ok((await input.boundingBox()).height >= 40);
         const avatarExpanded = await sizeControl.getAttribute("aria-expanded") === "true";
         assert.equal(avatarButton.width, avatarExpanded ? 40 : 44, "Expanded minimise is compact; collapsed Show retains its wider target");
-        assert.ok(avatarButton.height >= 44, "Avatar visibility retains its original target height");
+        assert.equal(Math.round(avatarButton.height), 40, "Avatar visibility is a 40dp icon button, with no fixed height");
+        const avatarTarget = await sizeControl.evaluate((element) => Number.parseFloat(window.getComputedStyle(element, "::before").height));
+        assert.ok(avatarTarget >= 48, "Avatar visibility keeps Material's 48dp touch target");
         assert.ok(toolBounds.width >= 48 && toolBounds.height >= 48, "Avatar tools retain a reachable touch target");
         await expect.poll(async () => (await body.boundingBox()).height, { message: "The short container retains readable history" }).toBeGreaterThanOrEqual(100);
         assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
@@ -1174,7 +1176,9 @@ test("an optional avatar clamps in a short conversation without consuming its pr
       await expect(sizeControl).toBeVisible();
       const showBounds = await sizeControl.boundingBox();
       assert.equal(showBounds.width, 44, "Collapsed Show retains its original wider target");
-      assert.ok(showBounds.height >= 44);
+      assert.equal(Math.round(showBounds.height), 40, "Collapsed Show keeps the small icon button's height");
+      assert.ok(await sizeControl.evaluate(element => Number.parseFloat(getComputedStyle(element, "::before").height)) >= 48,
+        "Collapsed Show keeps a 48dp touch target");
       const collapsedControls = await page.locator(".assistant-conversation__avatar-controls").boundingBox();
       assert.equal(collapsedControls.y, chatBounds.y, "The collapsed controls stay at the chat top");
       assert.equal(showBounds.y + showBounds.height / 2, collapsedControls.y + collapsedControls.height / 2,

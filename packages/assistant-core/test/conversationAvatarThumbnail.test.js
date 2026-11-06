@@ -60,3 +60,11 @@ test("the hidden avatar's Show button shows the avatar-thumbnail slot, or the ac
   assert.match(fallback, /<i data-icon="\$accountCircle"[^>]*><\/i>/u);
   assert.doesNotMatch(fallback, /fixture-thumbnail/u);
 });
+
+test("the avatar's Show and Minimise buttons set no fixed height, so material-web gives them the 48dp touch target", () => {
+  const source = readFileSync(new URL(elementUrl), "utf8");
+  const buttons = [...source.matchAll(/<v-btn\b[^>]*>/gu)].map(([tag]) => tag).filter((tag) => tag.includes("assistant-conversation__avatar-size"));
+  assert.equal(buttons.length, 2);
+  for (const tag of buttons) assert.doesNotMatch(tag, /(?:^|\s):?(?:min-)?height=/u);
+  assert.doesNotMatch(source, /\.assistant-conversation__avatar-size\s*\{[^}]*height/u);
+});
