@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-core",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "type": "module",
   "scripts": {
     "test": "node --test --test-concurrency=1"
@@ -67,7 +67,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.2.8",
-    "@jskit-ai/kernel": "0.2.8"
+    "@jskit-ai/auth-core": "0.2.9",
+    "@jskit-ai/kernel": "0.2.9"
   }
 }
