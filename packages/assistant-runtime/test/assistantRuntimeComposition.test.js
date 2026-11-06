@@ -51,7 +51,7 @@ test("assistant services compose with supplied repositories without database imp
     for (const [name, repository] of Object.entries(repositories)) {
       assert.equal(assistant.repositories[name], repository);
     }
-    const options = { context: { actor: { id: 23 } } };
+    const options = { context: { actor: { id: 23 }, permissions: ["assistant.settings.update"] } };
     assert.equal(await assistant.services.config.getSettings({ targetSurfaceId: "home" }, options), record);
     const updated = await assistant.services.config.updateSettings(
       { targetSurfaceId: "home" }, { systemPrompt: "Updated prompt" }, options

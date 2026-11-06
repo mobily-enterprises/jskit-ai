@@ -1,13 +1,20 @@
 import { AppError, requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeObject, normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { requireAssistantSurface } from "../support/assistantSurface.js";
+import { resolveAssistantServerConfig, resolveAssistantServerConfigMap } from "../support/assistantServerConfig.js";
 
 /** @typedef {import("../types.js").AssistantConfigRepository} AssistantConfigRepository */
 /** @typedef {import("../types.js").WorkspaceScopeSupport} WorkspaceScopeSupport */
 
+const WORKSPACE_SETTINGS_UPDATE_POLICY = Object.freeze({ require: "all", permissions: Object.freeze(["workspace.settings.update"]) });
+const ASSISTANT_SETTINGS_UPDATE_POLICY = Object.freeze({ require: "all", permissions: Object.freeze(["assistant.settings.update"]) });
+
 /**
  * An assistant surface's saved settings: who may read and change them, and the
- * system prompt they give the surface's conversations.
+ * system prompt they give the surface's conversations. Changing them needs the
+ * surface's `assistantServer.<surface>.settingsUpdatePermission`, by default
+ * `workspace.settings.update` on a workspace settings surface, the console owner
+ * on a console-owner surface, and `assistant.settings.update` everywhere else.
  * @param {object} dependencies
  * @param {AssistantConfigRepository} dependencies.assistantConfigRepository
  * @param {import("@jskit-ai/console-core/server/types").ConsoleService | null} dependencies.consoleService The console access service, when the console is installed.
@@ -20,28 +27,44 @@ function createService({
   appConfig,
   workspaceScopeSupport
 }) {
+  // Read once here, so a malformed settingsUpdatePermission stops the server from starting.
+  resolveAssistantServerConfigMap(appConfig);
+
+  /**
+   * The auth policy that changing a surface's settings needs, or null when its console-owner check is all.
+   * @param {ReturnType<typeof requireAssistantSurface>} assistantSurface
+   */
+  function resolveSettingsUpdatePolicy(assistantSurface) {
+    const configured = resolveAssistantServerConfig(appConfig, assistantSurface.targetSurfaceId).settingsUpdatePermission;
+    if (configured) {
+      return configured;
+    }
+    if (assistantSurface.settingsSurfaceRequiresWorkspace === true) {
+      return WORKSPACE_SETTINGS_UPDATE_POLICY;
+    }
+    return assistantSurface.settingsSurfaceRequiresConsoleOwner === true ? null : ASSISTANT_SETTINGS_UPDATE_POLICY;
+  }
+
   async function requireSettingsAccess(assistantSurface, context = {}, { mode = "read" } = {}) {
     requireAuth({ context }, {
       require: "authenticated"
     });
 
-    if (assistantSurface?.settingsSurfaceRequiresWorkspace === true) {
-      requireAuth(
-        { context },
-        mode === "write"
-          ? {
-              require: "all",
-              permissions: ["workspace.settings.update"]
-            }
-          : {
-              require: "any",
-              permissions: ["workspace.settings.view", "workspace.settings.update"]
-            }
-      );
-      return;
+    const updatePolicy = mode === "write" ? resolveSettingsUpdatePolicy(assistantSurface) : null;
+    if (updatePolicy) {
+      requireAuth({ context }, {
+        ...updatePolicy,
+        message: "You do not have permission to change the assistant's instructions.",
+        code: "assistant.runtime.settings.updateForbidden"
+      });
+    } else if (mode !== "write" && assistantSurface.settingsSurfaceRequiresWorkspace === true) {
+      requireAuth({ context }, {
+        require: "any",
+        permissions: ["workspace.settings.view", "workspace.settings.update"]
+      });
     }
 
-    if (assistantSurface?.settingsSurfaceRequiresConsoleOwner !== true) {
+    if (assistantSurface.settingsSurfaceRequiresWorkspace === true || assistantSurface.settingsSurfaceRequiresConsoleOwner !== true) {
       return;
     }
 

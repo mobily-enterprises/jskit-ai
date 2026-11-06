@@ -125,7 +125,8 @@
           "notConfigured": "Assistant settings are not configured for this surface.",
           "workspaceUnavailable": "Workspace support is not available for this assistant surface.",
           "selectWorkspace": "Select a workspace to configure assistant settings.",
-          "updateFailed": "Unable to update assistant settings."
+          "updateFailed": "Unable to update assistant settings.",
+          "updateForbidden": "You do not have permission to change the assistant's instructions."
         }
       }
     },

@@ -1,10 +1,40 @@
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { normalizeObject, normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeObject, normalizeText, normalizeUniqueTextList } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   DEFAULT_AI_TIMEOUT_MS,
   normalizeOptionalHttpUrl,
   normalizeTimeoutMs
 } from "@jskit-ai/assistant-core/server";
+
+const SETTINGS_UPDATE_REQUIRE_MODES = Object.freeze(["authenticated", "all", "any"]);
+
+/**
+ * Who may change a surface's assistant settings, as configured: a permission, an auth policy
+ * (`{ require, permissions }`), or null for the surface's default.
+ * @param {unknown} value
+ * @param {string} targetSurfaceId
+ */
+function normalizeSettingsUpdatePermission(value, targetSurfaceId) {
+  if (value === undefined) {
+    return null;
+  }
+  if (typeof value === "string" && normalizeText(value)) {
+    return Object.freeze({
+      require: "all",
+      permissions: Object.freeze([normalizeText(value)])
+    });
+  }
+  const permissions = isRecord(value) ? normalizeUniqueTextList(value.permissions) : [];
+  if (isRecord(value) && SETTINGS_UPDATE_REQUIRE_MODES.includes(value.require) && (value.require === "authenticated" || permissions.length > 0)) {
+    return Object.freeze({
+      require: value.require,
+      permissions: Object.freeze(permissions)
+    });
+  }
+  throw new TypeError(
+    `assistantServer.${targetSurfaceId}.settingsUpdatePermission must be a permission or { require: "authenticated" | "all" | "any", permissions }.`
+  );
+}
 
 function resolveAssistantServerConfigMap(appConfig) {
   const source = normalizeObject(appConfig?.assistantServer);
@@ -27,7 +57,8 @@ function resolveAssistantServerConfigMap(appConfig) {
       model: normalizeText(entry.model),
       timeoutMs: entry.timeoutMs,
       barredActionIds: Object.freeze(normalizeUniqueTextList(entry.barredActionIds, { acceptSingle: true })),
-      toolSkipActionPrefixes: Object.freeze(normalizeUniqueTextList(entry.toolSkipActionPrefixes, { acceptSingle: true }))
+      toolSkipActionPrefixes: Object.freeze(normalizeUniqueTextList(entry.toolSkipActionPrefixes, { acceptSingle: true })),
+      settingsUpdatePermission: normalizeSettingsUpdatePermission(entry.settingsUpdatePermission, targetSurfaceId)
     });
   }
 

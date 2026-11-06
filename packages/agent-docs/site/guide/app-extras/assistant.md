@@ -162,6 +162,41 @@ Workspace scope is valid only when both the runtime and its settings surface
 are workspace-aware. Requests must retain the selected workspace through the
 server action boundary.
 
+### Who may change the instructions
+
+The settings hold the instructions every conversation on the surface follows,
+so changing them needs more than reading them. Any signed-in user may read
+them (a workspace settings surface also needs `workspace.settings.view`, a
+console-owner surface the console owner). Changing them needs:
+
+| Settings surface | Permission that changes the instructions |
+| --- | --- |
+| requires a workspace | `workspace.settings.update` |
+| console-owner access | the console owner |
+| any other | `assistant.settings.update` |
+
+Grant `assistant.settings.update` to the application's administrators through
+the request context's permissions, or name another permission the application
+already grants in server config:
+
+```js
+// config/server.js
+export const config = {
+  assistantServer: {
+    home: {
+      aiIntegrationId: "assistant",
+      settingsUpdatePermission: "app.admin"
+      // or { require: "any", permissions: ["app.admin", "app.owner"] }
+    }
+  }
+};
+```
+
+`settingsUpdatePermission: { require: "authenticated" }` lets every signed-in
+user change the instructions; choose it only deliberately. A malformed value
+stops the server from starting. Anyone else is refused with
+`assistant.runtime.settings.updateForbidden` (403).
+
 ### Existing SQL conversations
 
 The optional database integration uses the common conversation runtime for

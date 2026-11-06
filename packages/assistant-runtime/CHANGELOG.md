@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Changing an assistant's instructions needs `assistant.settings.update` on a settings surface that requires neither a workspace nor the console owner (it needed only a signed-in user), still `workspace.settings.update` on a workspace surface and the console owner on a console-owner surface. `assistantServer.<surface>.settingsUpdatePermission` names another permission, or `{ require: "authenticated" }` to keep the old behaviour. A refusal is `assistant.runtime.settings.updateForbidden` (403).
+
+### New message keys (1)
+
+- `jskit.assistant.runtime.settings.updateForbidden`
+
+### Upgrading
+
+- Grant `assistant.settings.update` to the people who configure the assistant, or set `settingsUpdatePermission` to a permission they already hold.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

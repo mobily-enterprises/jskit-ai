@@ -41,7 +41,8 @@ test("assistant server config resolves per-surface AI config without app-level g
     model: "claude-config",
     timeoutMs: 45_000,
     barredActionIds: ["demo.admin.secret"],
-    toolSkipActionPrefixes: ["demo.hidden."]
+    toolSkipActionPrefixes: ["demo.hidden."],
+    settingsUpdatePermission: null
   });
   assert.deepEqual(resolveAssistantAiConfig({ appConfig, env }, "admin"), {
     aiConfigPrefix: "ADMIN_ASSISTANT",
