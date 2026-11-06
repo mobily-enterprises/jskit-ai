@@ -121,3 +121,9 @@ Run focused tests for a slice and the application's `npm run verify` for a
 whole changeset. Use the current-state owners in application operations and
 Playwright for affected UI. There is no current JSKIT Doctor command; ignore
 old CLI authoring-history diagnoses. Never expose environment values.
+
+Tests and requests take the time their work needs, no more: a list reads each
+table once, a row policy is bounded by the rows it reads, list and batch paths
+have a query budget tested at realistic row counts, and test databases restore
+a stored snapshot instead of replaying migrations. Find why a check is slow;
+never raise its time limit. Typed features' repository and Tests rules say how.

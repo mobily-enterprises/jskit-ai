@@ -271,7 +271,11 @@ test("the typed-features heuristic sends each keyword to a guide section", async
     "`optional operation:` on a method every implementer has",
     "`env = process.env`",
     "`idempotency:`",
-    "`Object.assign(new Error(…), { statusCode })`"
+    "`Object.assign(new Error(…), { statusCode })`",
+    "N+1 queries",
+    "a write that gets slower as history grows",
+    "a raised `{ timeout }`",
+    "`knex.migrate.latest()` in each test file"
   ]) {
     assert.ok(heuristic.includes(keyword), `The heuristic lacks ${keyword}.`);
   }

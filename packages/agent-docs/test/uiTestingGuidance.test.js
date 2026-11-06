@@ -130,6 +130,8 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(skill, /Review or deslop/u);
   assert.match(skill, /complete operational references\s+required by this skill/u);
   assert.match(skill, /Do not load\s+irrelevant references/u);
+  assert.match(skill, /a list reads each\s+table once/u);
+  assert.match(skill, /Find why a check is slow;\s+never raise its time limit/u);
   const crudReference = references.find(({ file }) => file === "crud-operations.md").source;
   const materialReference = references.find(({ file }) => file === "material-3.md").source;
   const uiReference = references.find(({ file }) => file === "ui-operations.md").source;
