@@ -23,6 +23,8 @@
     "generated:refs:check": "node ./scripts/check-generated-reference-paths.mjs",
     "generated:check": "node ./scripts/check-generated-files.mjs",
     "test:release-npm": "node --test --test-concurrency=1 ./tooling/jskit-release/test/release.test.mjs",
+    "test:material-baselines": "JSKIT_MATERIAL_BASELINES=1 node --test --test-concurrency=1 packages/shell-web/test/materialBaselines.browser.test.js packages/http-web/test/crudScreensMaterialBaselines.browser.test.js",
+    "material-baselines:accept": "JSKIT_UPDATE_VISUAL_BASELINES=1 npm run test:material-baselines",
     "security:audit": "npm audit --audit-level=low",
     "files:checklist": "./scripts/files-checklist.sh",
     "npm-publish": "jskit-release publish",

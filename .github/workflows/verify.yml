@@ -100,6 +100,11 @@ jobs:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
         run: node --test packages/shell-web/test/adaptiveShell.browser.test.js
 
+      - name: Verify the Material 3 baselines
+        env:
+          JSKIT_MATERIAL_BASELINES: "1"
+        run: node --test --test-concurrency=1 packages/shell-web/test/materialBaselines.browser.test.js packages/http-web/test/crudScreensMaterialBaselines.browser.test.js
+
       - name: Verify sign-in behavior
         env:
           JSKIT_AUTH_WEB_BROWSER_INTEGRATION: "1"
