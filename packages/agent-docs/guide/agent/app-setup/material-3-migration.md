@@ -52,8 +52,9 @@ export const theme = {
 - A colour the app really owns (a partner brand, a status of its own) goes in
   `colors` by camelCase name, such as `partner: "#0A7D3E"`. It becomes
   `partner`, `on-partner`, `partner-container` and `on-partner-container`,
-  harmonized to the seed, in both schemes. `success`, `warning` and `info` are
-  already there.
+  harmonized to the seed, in both schemes; `{ value: "#F5C518", blend: false }`
+  keeps a brand colour's own hue. `success`, `warning` and `info` are already
+  there.
 - Delete `defaultTheme: "light"`. The app now follows the device's light or
   dark setting.
 
@@ -114,6 +115,9 @@ arrow. The shell's Up arrow returns to the page the person came from, or else
 to the parent, so:
 
 - delete "Back to X" buttons, `router.back()` and `history.back()` calls;
+- rename a back button for a step or panel inside a page to what it does
+  ("Previous step") or where it goes ("Dashboard"), without the back arrow.
+  An embedded frame's own Back and Forward, such as a preview browser's, stay;
 - delete redirects from a settings or section landing page to its first child.
   A settings page is a list-detail page (`ShellListDetail`): on wide windows the
   list stays beside the open section, and on narrow ones the list is the
@@ -134,6 +138,32 @@ the content into the app bar:
 
 At most one action is `primary`; on compact windows the others show as icon
 buttons named by their label.
+
+A layout that draws its own top app bar instead of `ShellLayout` keeps it and
+builds the page's part from the shell's pieces, so Up, the title and the
+actions behave as in `ShellLayout`:
+
+```vue
+<script setup>
+import { ShellPageActionsTarget, ShellPageTitle, ShellUpButton, useShellAppBar } from "@jskit-ai/shell-web/client";
+
+useShellAppBar();
+</script>
+
+<template>
+  <v-app-bar>
+    <ShellUpButton />
+    <ShellPageTitle title="Workspace" />
+    <ShellPageActionsTarget />
+    <!-- the app's own controls -->
+  </v-app-bar>
+  <v-main><slot /></v-main>
+</template>
+```
+
+Delete the bar's own back button and the pages' own `h1`s: `ShellPageTitle` is
+the page's one `h1`, and `jskit check` now counts the layout as a shell layout,
+so its inner pages need parents.
 
 ## 7. CRUD screens
 

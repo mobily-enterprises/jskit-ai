@@ -112,7 +112,7 @@ Exactly this, and nothing more:
 | `nav/history` | `history.back()`, `history.go()`, `history.pushState()`/`replaceState()`, `router.back()`, `router.go()` |
 | `nav/window-location` | `window.location` assignments, `.href =`, `location.assign()`, `location.replace()` |
 | `nav/raw-link` | a hand-built in-app path in `to`, `href`, `router.push()`, `router.replace()` or a `to:`/`href:` object key outside a placement |
-| `nav/back-control` | any back control but the shell's Up: "Back to X", "← Suppliers", back arrows and navigating chevrons, breadcrumbs, a custom app-bar back button, a back component, a `goBack()`-style handler |
+| `nav/back-control` | any back control but the shell's Up navigating the app: "Back to X", "← Suppliers", back arrows and navigating chevrons, breadcrumbs, a custom app-bar back button, a back component, a `goBack()`-style handler |
 | `nav/missing-parent` | an inner page of a shell surface without a declared parent |
 | `nav/top-level-parent` | a main-navigation destination that declares a parent |
 | `nav/allow` | any `m3-check: allow nav/...` comment: nothing excuses a navigation rule |
@@ -145,6 +145,9 @@ Exactly this, and nothing more:
   `finish(recordUrl)`; the record shows, and Up goes where the record's Up went
   before. Wrong: `router.push(recordUrl)` after Save, so Up or Back reopens the
   form.
+- **Steps inside a page are named actions:** "Previous step" or the
+  destination's name, not "Back" or a back arrow. A frame's own Back
+  (`contentWindow.history`) is fine.
 
 ## Foundation
 
@@ -196,6 +199,9 @@ dialog, chip or FAB. A missing size is a JSKIT defect.
   standalone heading. A section inside a page uses a title role.
 - **Up** sits in the bar on every inner page (see Navigation and Up). On phones
   it replaces the menu icon.
+- **A layout with its own top app bar** calls `useShellAppBar()` and renders
+  `ShellUpButton`, `ShellPageTitle` and `ShellPageActionsTarget` in it;
+  `jskit check` treats it as a shell layout.
 - **Actions:** a screen's actions go in the bar inside `ShellPageActions`
   (`@jskit-ai/shell-web/client/components/ShellPageActions`), each a
   `ShellPageAction` with `icon`, `label` (also its accessible name and compact
@@ -322,7 +328,8 @@ Take the approved route first; none needs an exception:
 
 - **Brand or partner colours** are theme custom colours, used by name:
   `colors: { partner: "#0A7D3E" }` in `src/theme/index.js`, then
-  `<v-chip color="partner">`.
+  `<v-chip color="partner">`. `{ value: "#F5C518", blend: false }` keeps
+  its hue.
 - **Chart and data colours** come from the theme: `const theme = useTheme()`,
   then `["primary", "tertiary"].map((role) => theme.current.value.colors[role])`.
 - **A third-party widget** lives in one wrapper component, such as
