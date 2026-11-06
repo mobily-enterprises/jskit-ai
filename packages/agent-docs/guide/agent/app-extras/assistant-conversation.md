@@ -1106,6 +1106,11 @@ The always-visible `avatar-control` slot receives `{ size, height }` beside
 Show/Hide. An application can use it for a collapsed active-mic
 indicator or control without placing voice state in the conversation element.
 The element supplies no audio session or control actions.
+The optional `avatar-thumbnail` slot receives the same scope and replaces the
+collapsed **Show avatar** button's anonymous icon with application artwork, such
+as a still miniature of the avatar about 28 pixels across. The button's round
+32-pixel disc clips it to a circle; its label, title and 44-pixel target stay
+the same. Without the slot the button shows the anonymous icon.
 
 The effective artwork height uses the conversation container's actual remaining
 space after its composer, feedback, support and other controls, leaving a target

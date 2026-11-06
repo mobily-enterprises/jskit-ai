@@ -73,13 +73,16 @@ function notFollowing() {}
 
 /**
  * The avatar's blinking, idle gestures and expressions for a voice state, and the mouth pose to draw.
- * @param {{ state?: string, mouthPose?: string, mouthLevel: number }} props
+ * A `still` avatar, such as a thumbnail, holds its state's expression: it never blinks, gestures, cycles
+ * expressions or moves its mouth, and `reducedMotion` is true for it as when the person prefers reduced motion.
+ * @param {{ state?: string, mouthPose?: string, mouthLevel: number, still?: boolean }} props
  */
 export function useVoiceAvatar(props) {
   const blinking = ref(false);
   const activeExpression = ref("");
   const idleGesture = ref("");
-  const reducedMotion = ref(false);
+  const prefersReducedMotion = ref(false);
+  const reducedMotion = computed(() => props.still === true || prefersReducedMotion.value);
   let blinkTimer = 0;
   let activeExpressionTimer = 0;
   const activeExpressionIndexes = {
@@ -110,7 +113,7 @@ export function useVoiceAvatar(props) {
       return "closed";
     }
     const pose = String(props.mouthPose || "closed");
-    if (props.mouthLevel < 0.045 || !["open", "round", "small", "wide"].includes(pose)) {
+    if (props.still === true || props.mouthLevel < 0.045 || !["open", "round", "small", "wide"].includes(pose)) {
       return "closed";
     }
     return pose;
@@ -193,8 +196,7 @@ export function useVoiceAvatar(props) {
     }
   }
 
-  function updateReducedMotion(event) {
-    reducedMotion.value = Boolean(event.matches);
+  function restartMotion() {
     clearBlinkTimers();
     clearActiveExpression();
     clearIdleGesture();
@@ -208,6 +210,13 @@ export function useVoiceAvatar(props) {
     }
   }
 
+  function updateReducedMotion(event) {
+    prefersReducedMotion.value = Boolean(event.matches);
+    restartMotion();
+  }
+
+  watch(() => props.still === true, restartMotion);
+
   watch(expression, () => {
     clearActiveExpression();
     clearIdleGesture();
@@ -220,7 +229,7 @@ export function useVoiceAvatar(props) {
 
   onMounted(() => {
     const reducedMotionQuery = followMediaQuery("(prefers-reduced-motion: reduce)", updateReducedMotion);
-    reducedMotion.value = reducedMotionQuery.matches;
+    prefersReducedMotion.value = reducedMotionQuery.matches;
     stopFollowingReducedMotion = reducedMotionQuery.stop;
     if (!reducedMotion.value) {
       scheduleBlink(1_800 + (Math.random() * 1_800));

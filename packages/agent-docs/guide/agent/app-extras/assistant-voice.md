@@ -323,7 +323,11 @@ the `reopen` slot and use `controller.reveal()` from its own header indicator.
 
 The host's `avatar` slot receives `state`, `mouthLevel`, `mouthPose`, `avatar` and
 `binding`. `VoiceAvatar` and `useVoiceAvatar` supply generic presentation; an
-application may provide artwork without acquiring audio ownership.
+application may provide artwork without acquiring audio ownership. A `still`
+avatar (`VoiceAvatar`'s `still` prop, or `still: true` in the props given to
+`useVoiceAvatar`), such as a thumbnail, holds its state's expression: it never
+blinks, gestures, cycles expressions or moves its mouth, and `reducedMotion` is
+true for it, so the artwork can stop its own CSS motion too.
 
 ## Authorized speech connection
 

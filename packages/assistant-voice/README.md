@@ -77,6 +77,8 @@ modal's push-to-talk gesture uses `reviewBeforeSend`. `avatar` and `onVisual`/`o
 allow presentation in the surrounding app without adding another audio owner.
 The host's `avatar` slot receives state, mouthLevel, mouthPose, avatar and binding.
 `useVoiceAvatar` supplies shared animation cues; applications may supply artwork.
+A `still` avatar (`VoiceAvatar`'s `still` prop, or `still: true` given to `useVoiceAvatar`), such as a
+thumbnail, never blinks, gestures, cycles expressions or moves its mouth.
 
 ## Lifecycle
 

@@ -2,7 +2,7 @@
 import { computed } from "vue";
 import { useVoiceAvatar } from "./voiceAvatar.js";
 import { useJskitText } from "./i18n.js";
-const props = defineProps({ state: { type: String, default: "idle" }, mouthPose: { type: String, default: "closed" }, mouthLevel: { type: Number, default: 0 } });
+const props = defineProps({ state: { type: String, default: "idle" }, mouthPose: { type: String, default: "closed" }, mouthLevel: { type: Number, default: 0 }, still: { type: Boolean, default: false } });
 const { blinking, visibleMouthPose, reducedMotion } = useVoiceAvatar(props);
 const { t } = useJskitText();
 const mouthHeight = computed(() => reducedMotion.value || visibleMouthPose.value === "closed" ? 3 : Math.max(4, Math.min(18, props.mouthLevel * 28)));

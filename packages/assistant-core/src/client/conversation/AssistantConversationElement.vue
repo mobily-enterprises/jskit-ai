@@ -14,7 +14,7 @@
           :aria-expanded="avatarSize !== 'hidden'" @click="toggleAvatar"
         >
           <span class="assistant-conversation__avatar-size-disc">
-            <v-icon size="20" icon="$accountCircle" />
+            <slot name="avatar-thumbnail" :size="avatarSize" :height="avatarHeight"><v-icon size="20" icon="$accountCircle" /></slot>
           </span>
         </v-btn>
       </div>
@@ -370,7 +370,7 @@ defineExpose({ focus: () => input.value?.focus(), submit, stop });
 .assistant-conversation__avatar-controls { position: absolute; top: 0; right: 100%; display: flex; align-items: center; justify-content: flex-end; min-height: 44px; }
 .assistant-conversation__avatar--hidden .assistant-conversation__avatar-controls { right: 0; }
 .assistant-conversation__avatar-size { min-width: 44px; min-height: 44px; }
-.assistant-conversation__avatar-size-disc { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: rgba(var(--v-theme-on-surface), .08); }
+.assistant-conversation__avatar-size-disc { display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; overflow: hidden; border-radius: 50%; background: rgba(var(--v-theme-on-surface), .08); }
 .assistant-conversation__avatar-size-disc--minimise { background: rgba(var(--v-theme-primary), .12); }
 .assistant-conversation__avatar-presentation { display: flex; flex-direction: column; align-items: center; min-width: 0; }
 .assistant-conversation__avatar-tools { display: flex; align-items: center; gap: 0; }
