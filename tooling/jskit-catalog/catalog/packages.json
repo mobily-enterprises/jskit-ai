@@ -35,6 +35,7 @@
       "@jskit-ai/jskit-catalog": "0.2.26",
       "@jskit-ai/json-rest-api-core": "0.2.10",
       "@jskit-ai/kernel": "0.2.9",
+      "@jskit-ai/material-web": "0.1.0",
       "@jskit-ai/mobile-capacitor": "0.2.10",
       "@jskit-ai/oidc-issuer-core": "0.1.16",
       "@jskit-ai/payments-core": "0.2.1",
@@ -347,7 +348,6 @@
           "@jskit-ai/agent": "0.1.1",
           "@jskit-ai/resource-core": "0.1.200",
           "@jskit-ai/resource-crud-core": "0.1.200",
-          "@mdi/js": "^7.4.47",
           "@openrouter/ai-sdk-provider": "^3.0.0",
           "ai": "^7.0.152",
           "json-rest-schema": "^1.0.17",
@@ -358,7 +358,7 @@
           "@jskit-ai/http-runtime": "0.2.9",
           "@jskit-ai/kernel": "0.2.9",
           "vue": "^3.5.13",
-          "vuetify": "^4.0.0"
+          "vuetify": "^4.3.0"
         }
       }
     },
@@ -519,13 +519,12 @@
       "packageJson": {
         "dependencies": {
           "@jskit-ai/assistant-core": "0.2.21",
-          "@mdi/js": "^7.4.47",
           "ws": "^8.20.1"
         },
         "peerDependencies": {
           "@jskit-ai/kernel": "0.2.9",
           "vue": "^3.5.13",
-          "vuetify": "^4.0.0"
+          "vuetify": "^4.3.0"
         }
       }
     },
@@ -1225,9 +1224,6 @@
         }
       },
       "packageJson": {
-        "dependencies": {
-          "@mdi/js": "^7.4.47"
-        },
         "peerDependencies": {
           "@jskit-ai/auth-core": "0.2.9",
           "@jskit-ai/http-runtime": "0.2.9",
@@ -1237,7 +1233,7 @@
           "pinia": "^4.0.3",
           "vue": "^3.5.44",
           "vue-router": "^5.3.1",
-          "vuetify": "^4.0.0"
+          "vuetify": "^4.3.0"
         }
       }
     },
@@ -1577,7 +1573,7 @@
                   ],
                   "order": 100,
                   "when": "auth.authenticated === true",
-                  "source": "patterns/console-surface/example/src/pages/console/settings.vue"
+                  "source": "patterns/console-surface/example/src/placement.js"
                 }
               ]
             }
@@ -1920,8 +1916,7 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/resource-crud-core": "0.1.200",
-          "@mdi/js": "^7.4.47"
+          "@jskit-ai/resource-crud-core": "0.1.200"
         },
         "peerDependencies": {
           "@jskit-ai/http-runtime": "0.2.9",
@@ -1931,7 +1926,7 @@
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vue-router": "^5.0.4",
-          "vuetify": "^4.0.0"
+          "vuetify": "^4.3.0"
         }
       }
     },
@@ -1986,6 +1981,35 @@
         },
         "peerDependencies": {
           "@jskit-ai/kernel": "0.2.9"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/material-web",
+      "version": "0.1.0",
+      "description": "Exact Material 3 for JSKIT Vuetify apps: seed-generated light and dark schemes, Material Symbols Rounded icon aliases, Roboto Flex and Material 3 component defaults.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [],
+          "requires": []
+        },
+        "runtime": {
+          "server": {
+            "providers": []
+          },
+          "client": {
+            "providers": []
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@fontsource-variable/roboto-flex": "^5.3.0",
+          "@material/material-color-utilities": "0.3.0"
+        },
+        "peerDependencies": {
+          "vuetify": "^4.3.0"
         }
       }
     },
@@ -2654,7 +2678,11 @@
                 "@jskit-ai/shell-web/client/navigation/linkResolver",
                 "@jskit-ai/shell-web/client/navigation/usePaths",
                 "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext",
+                "@jskit-ai/shell-web/client/navigation/useShellNavigation",
+                "@jskit-ai/shell-web/client/navigation/documentNavigation",
                 "@jskit-ai/shell-web/client/composables/useShellLayoutState",
+                "@jskit-ai/shell-web/client/composables/useShellPageTitle",
+                "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass",
                 "@jskit-ai/shell-web/client/types"
               ],
               "exclude": [
@@ -2970,15 +2998,14 @@
       },
       "packageJson": {
         "dependencies": {
-          "@jskit-ai/architecture-inspector": "0.1.7",
-          "@mdi/js": "^7.4.47"
+          "@jskit-ai/architecture-inspector": "0.1.7"
         },
         "peerDependencies": {
           "@jskit-ai/kernel": "0.2.9",
           "pinia": "^4.0.3",
           "vue": "^3.5.44",
           "vue-router": "^5.3.1",
-          "vuetify": "^4.0.0"
+          "vuetify": "^4.3.0"
         }
       }
     },
@@ -4035,8 +4062,7 @@
       "packageJson": {
         "dependencies": {
           "@jskit-ai/users-core": "0.2.11",
-          "@jskit-ai/workspaces-core": "0.2.11",
-          "@mdi/js": "^7.4.47"
+          "@jskit-ai/workspaces-core": "0.2.11"
         },
         "peerDependencies": {
           "@jskit-ai/auth-web": "0.2.12",
@@ -4047,7 +4073,7 @@
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vue-router": "^5.0.4",
-          "vuetify": "^4.0.0"
+          "vuetify": "^4.3.0"
         }
       }
     }
@@ -4653,7 +4679,8 @@
         "src/pages/console/index.vue",
         "src/pages/console/settings/index.vue",
         "src/pages/console/settings.vue",
-        "src/pages/console.vue"
+        "src/pages/console.vue",
+        "src/placement.js"
       ]
     },
     {
@@ -4904,6 +4931,7 @@
         "expected-existing/src/App.vue",
         "expected-existing/src/pages/home/index.vue",
         "expected-existing/src/pages/home.vue",
+        "expected-existing/src/views/NotFound.vue",
         "src/App.vue",
         "src/components/menus/MenuLinkItem.vue",
         "src/components/menus/SurfaceAwareMenuLinkItem.vue",
@@ -4912,11 +4940,11 @@
         "src/error.js",
         "src/pages/home/index.vue",
         "src/pages/home/settings/general/index.vue",
-        "src/pages/home/settings/index.vue",
         "src/pages/home/settings.vue",
         "src/pages/home.vue",
         "src/placement.js",
         "src/placementTopology.js",
+        "src/views/NotFound.vue",
         "tests/e2e/adaptive-shell.spec.ts"
       ]
     },
