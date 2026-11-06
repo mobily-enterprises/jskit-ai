@@ -652,7 +652,6 @@
         "dependencies": {
           "@fastify/cookie": "^11.1.2",
           "@fastify/csrf-protection": "^8.0.1",
-          "@fastify/rate-limit": "^11.2.0",
           "json-rest-schema": "^1.0.17"
         },
         "peerDependencies": {
@@ -697,11 +696,11 @@
               },
               {
                 "subpath": "./server/lib/index",
-                "summary": "Exports the local auth service and its configuration (createLocalAuthService, resolveLocalAuthConfig), the file backend, the password strategy helpers (scryptPasswordStrategy, normalizePasswordStrategy, hashPassword, verifyPassword), the logged recovery sender (createLoggedRecoverySender), and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
+                "summary": "Exports the local auth service and its configuration (createLocalAuthService, resolveLocalAuthConfig), the file backend, the password strategy helpers (scryptPasswordStrategy, normalizePasswordStrategy, hashPassword, verifyPassword), the logged recovery and confirmation senders (createLoggedRecoverySender, createLoggedConfirmationSender), the first account's setup code (createFirstAccountSetup, SETUP_CODE_FILE, SETUP_CODE_ENV), and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
               },
               {
                 "subpath": "./server/types",
-                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy and auth.local.recovery-sender capabilities, and of the configuration, passwords and sessions local auth's modules share."
+                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender and auth.local.confirmation-sender capabilities, and of the configuration, passwords and sessions local auth's modules share."
               }
             ],
             "extensionCapabilities": [
@@ -709,7 +708,8 @@
               "auth.local.backend",
               "auth.local.password-strategy",
               "auth.profile.projector",
-              "auth.local.recovery-sender"
+              "auth.local.recovery-sender",
+              "auth.local.confirmation-sender"
             ]
           }
         }
@@ -769,6 +769,12 @@
                 },
                 {
                   "tableName": "auth_local_oauth_attempts"
+                },
+                {
+                  "tableName": "auth_local_sign_in_failures"
+                },
+                {
+                  "tableName": "auth_local_registrations"
                 }
               ]
             }
@@ -955,6 +961,7 @@
           "requires": [
             "auth.service",
             "runtime.actions",
+            "runtime.config",
             "runtime.env",
             "runtime.http"
           ]

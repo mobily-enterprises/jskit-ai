@@ -101,7 +101,6 @@ Exports
 - `ensureDevAuthRuntimeAvailable(policy = {}, request = null)`
 - `isDevAuthBootstrapEnabled(policy)`
 - `isLocalDevAuthRequest(request)`
-- `isProductionNodeEnv(nodeEnv)`
 - `resolveDevAuthPolicy({ enabled = false, nodeEnv = "development", secret = "" } = {})`
 - `resolveDevAuthPolicyFromEnv(env = {})`
 Local functions
@@ -164,7 +163,6 @@ Exports
 Local functions
 - `normalizeUnsafeMethods(methodsValue)`
 - `normalizeApiPrefix(value)`
-- `normalizeRateLimitPluginOptions(value)`
 - `resolveRouteConfig(request)`
 - `enforceCsrfProtection(fastify, request, reply)`
 - `resolveCsrfToken(request)`
@@ -367,6 +365,8 @@ Exports
 - `okOutputValidator`
 - `okMessageOutputValidator`
 - `registerOutputValidator`
+- `registerConfirmationResendOutputValidator`
+- `registerConfirmOutputValidator`
 - `loginOutputValidator`
 - `otpVerifyOutputValidator`
 - `oauthCompleteOutputValidator`
@@ -462,6 +462,12 @@ Exports
 - `AUTH_REGISTER_CONFIRMATION_RESEND_MESSAGES`
 - `authRegisterConfirmationResendCommand`
 
+### `src/shared/commands/authRegisterConfirmCommand.js`
+Exports
+- `authRegisterConfirmBodyValidator`
+- `AUTH_REGISTER_CONFIRM_MESSAGES`
+- `authRegisterConfirmCommand`
+
 ### `src/shared/commands/authSessionReadCommand.js`
 Exports
 - `sessionOutputValidator`
@@ -473,6 +479,7 @@ Exports
 Exports
 - `authRegisterCommand`
 - `authRegisterConfirmationResendCommand`
+- `authRegisterConfirmCommand`
 - `authLoginPasswordCommand`
 - `authLoginOtpRequestCommand`
 - `authLoginOtpVerifyCommand`

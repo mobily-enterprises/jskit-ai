@@ -66,6 +66,150 @@ Protected server operations declare an auth policy; they do not trust a hidden
 button or a page-local session check. Other packages extend auth through the
 public extension capability rather than replacing the auth service.
 
+## Sign-in protection
+
+Two limits slow down password guessing, and both are on by default.
+
+**Per client address.** Every auth route that can be abused by repetition
+declares a `rateLimit`, which the kernel enforces for each client address. A
+request over it is refused with status 429, the code `kernel.http.rateLimited`
+(`params.count` is the seconds to wait) and a `Retry-After` header. The
+defaults, per minute: `login`, `register`, `registerConfirm`,
+`loginOtpRequest` and `loginOtpVerify` 10; `registerConfirmationResend` and
+`passwordForgot` 5;
+`oauthStart`, `oauthComplete`, `passwordRecovery` and `passwordReset` 20;
+`devLoginAs` 30. Change one in the application's server configuration;
+`false` removes it:
+
+```js
+// config/server.js
+config.auth = {
+  ...config.auth,
+  rateLimits: {
+    login: { max: 5, timeWindow: "1 minute" },
+    oauthStart: false
+  }
+};
+```
+
+A route name auth does not have, or a value that is neither
+`{ max, timeWindow }` nor `false`, stops startup. `timeWindow` is milliseconds
+or text such as `"30 seconds"` or `"1 hour"`.
+
+The address is Fastify's `request.ip`. Behind a reverse proxy every request
+comes from the proxy, so all clients would share one count: create Fastify with
+`trustProxy` set to the proxy's address (for example
+`Fastify({ trustProxy: "127.0.0.1" })`), and never to `true` when clients can
+also reach the server directly.
+
+**Per account (local auth).** After 5 failed sign-ins in a row for one email,
+that email must wait 30 seconds before its next attempt; each further failure
+doubles the wait, up to an hour (NIST SP 800-63B's example). While it waits,
+sign-in is refused, even with the right password, with status 429, the code
+`auth.local.login.locked` (`params.count` minutes, `params.retryAfterSeconds`)
+and `Retry-After`. Emails without an account are counted the same way, so the
+wait says nothing about which accounts exist. A successful sign-in forgets the
+failures, and so does a day without one. Waits are temporary and password
+recovery is never blocked: completing a password reset ends the wait, so an
+attacker who keeps an account waiting cannot keep its owner out. The failures
+are kept in the file store (`sign-in-failures.passwd`) or, with
+`@jskit-ai/auth-provider-local-db-core`, in the `auth_local_sign_in_failures`
+table (run `npm run db:migrate`).
+
+| Env | Default | Meaning |
+| --- | --- | --- |
+| `AUTH_LOCAL_SIGN_IN_FAILURES_BEFORE_WAIT` | `5` | Failed sign-ins in a row before the account waits, 1 to 100. |
+| `AUTH_LOCAL_SIGN_IN_FIRST_WAIT_SECONDS` | `30` | The first wait. |
+| `AUTH_LOCAL_SIGN_IN_MAX_WAIT_SECONDS` | `3600` | The longest wait, at least the first. |
+| `AUTH_LOCAL_PASSWORD_MIN_LENGTH` | `8` | The shortest password local auth accepts, 8 to 64. |
+
+NIST SP 800-63B-4 asks for at least 15 characters when a password is the only
+sign-in factor, and at least 8 when it is used with another factor; set
+`AUTH_LOCAL_PASSWORD_MIN_LENGTH=15` for password-only sign-in. Passwords up to
+128 characters are accepted.
+
+The login page shows either refusal, translated, with the wait.
+
+## Email confirmation (local auth)
+
+Local auth confirms the email address of each account it registers by
+password, in every environment, unless `AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
+Registering keeps the registration waiting, with no account, profile or
+session, and answers `requiresEmailConfirmation: true`; the sign-in page then
+shows "Confirm your email", with a button to send a new link and a field for
+the link or its code. Opening the link (`/auth/login?confirmation_token=...`)
+creates the account and signs the person in. The `auth.local.user.registered`
+hook runs then, not on registering. Signing in with the right password while the registration waits
+is refused with status 403 and `auth.login.emailUnconfirmed`, and the sign-in
+page shows how to confirm; a wrong password is an ordinary failed sign-in.
+
+A link's code is random, kept only as a hash, works once and expires after a
+day. Registering the same email again, or asking for a new link, replaces it,
+so a waiting registration never keeps the email from its owner. Asking for a
+new link answers the same whether or not a registration waits.
+
+The link is emailed by the optional `auth.local.confirmation-sender`
+capability, an async function accepting `{ email, confirmationUrl }`, built
+like the recovery sender below; with it, `APP_PUBLIC_URL` is required and the
+link is never returned or logged. In development without one, the link is in
+the registration's answer (`confirmationUrl`) and the log, and the sign-in page
+shows it with a button that confirms it. In production (`NODE_ENV=production`)
+without one, the server refuses to start, naming both ways out: install a
+sender, or set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`. For direct library
+composition, pass the sender as `confirmationSender` to
+`createLocalAuthService()`, with `emailConfirmationSender: true` in
+`resolveLocalAuthConfig()`; without one, pass
+`createLoggedConfirmationSender(logger)`.
+
+| Env | Default | Meaning |
+| --- | --- | --- |
+| `AUTH_LOCAL_EMAIL_CONFIRMATION` | on | `false` registers and signs in at once, without confirming the email. |
+
+Accounts that exist already are confirmed: only registrations made after the
+upgrade wait. Waiting registrations are kept in the file store
+(`registrations.passwd`) or, with `@jskit-ai/auth-provider-local-db-core`, in
+the `auth_local_registrations` table (run `npm run db:migrate`). A custom
+`auth.local.backend` implements the `registrations` collection. Tests that
+register and expect a session either confirm with the answer's
+`confirmationUrl` or set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
+
+## The first account in production (local auth)
+
+The first account to register becomes the application's owner, so on a
+production server (`NODE_ENV=production`) whose local auth has no account yet,
+registering needs a one-time setup code that only the server's operator can
+read. Development needs no code.
+
+Each start of such a server makes a new code, such as
+`7KQ2M-X9D4F-0RWHN-3TBZC`, and keeps only its hash. It writes the code:
+
+- in the log, as one warning: `Local auth has no account yet: register the
+  first account with this setup code.`, with the fields
+  `firstAccountSetupCode` (the code) and `firstAccountSetupCodeFile`;
+- in the file `first-account-setup-code` in `AUTH_LOCAL_STORE_DIR` (default
+  `.jskit/auth`), mode 600, for a hosting tool to read. A store directory that
+  cannot be written leaves only the log line.
+
+While it waits, the sign-in page's registration form shows a "Setup code"
+field (capability `features.firstAccountSetupCode`), and the register body
+takes `setupCode`; letter case, spaces and dashes do not matter. A missing code
+is refused with 403 `auth.local.setup.codeRequired`, a wrong one with 403
+`auth.local.setup.codeInvalid`. An OAuth sign-in cannot create that first
+account. The registration then follows the ordinary rules, email confirmation
+included, and confirming it signs the owner in. The code admits registrations
+until an account exists; then it stops working and its file is deleted, and
+registration needs no code again. Restarting before then makes a new code and
+the old one stops working: the latest log line and the file always agree, and
+nothing but a hash is kept for checking it. Run one server while the first
+account is set up, since each server makes its own code.
+
+A hosting tool that shows the code to the operator itself supplies it in
+`AUTH_LOCAL_SETUP_CODE`, at least 20 letters and digits, for example a
+generated production secret. The server then asks for that code at every start
+and on every server, writes no `first-account-setup-code` file, and logs only
+that the code is in `AUTH_LOCAL_SETUP_CODE`, never the code itself. Outside
+production the variable is ignored.
+
 ## Application-owned recovery email
 
 Local auth owns recovery tokens, expiry and recovery-scoped sessions. The
@@ -127,6 +271,11 @@ configured, auth requires this value and does not return or log the recovery
 URL. Without a sender, production recovery is disabled; explicit development
 output remains available for local testing. A sender failure never falls back
 to development output. The generic recovery delivery capability is `email`.
+
+Production is `NODE_ENV=production`; anything else, unset included, is
+development, so the host that serves the application sets it. A production
+server with `AUTH_LOCAL_RECOVERY_DEV_OUTPUT` set refuses to start and names the
+setting to remove, rather than ignoring it.
 
 ### Pre-release migration
 

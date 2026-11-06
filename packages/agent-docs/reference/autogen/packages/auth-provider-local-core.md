@@ -17,11 +17,12 @@ Use this on demand; do not load the full index at startup.
 ### `src/server/lib/accounts.js`
 Exports
 - `NO_PASSWORD`
-- `createLocalAccounts({ appProfileProjection, backend, config, invitationContextResolver, passwords, profileProjector, sessions })`
+- `createLocalAccounts({ appProfileProjection, backend, config, emailConfirmation, firstAccountSetup, invitationContextResolver, passwords, profileProjector, sessions })`
 - `hasPassword(user)`
 - `normalizeDisplayName(value, email)`
+- `resolveRegistrationProfileOptions(invitationContextResolver, invitationInput, email)`
 - `validateEmailInput(email)`
-- `validatePasswordInput(password)`
+- `validatePasswordInput(password, minLength)`
 Local functions
 - `devLoginAsValidationError(fields = {})`
 - `devLoginAsUserNotFound({ email = "", userId = "" } = {})`
@@ -44,31 +45,30 @@ Local functions
 
 ### `src/server/lib/config.js`
 Exports
-- `resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery })`
+- `resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false })`
 Local functions
 - `resolveStoreDir(env, appRoot)`
 - `resolveSessionSecret(env, { storeDir, isProduction })`
-- `resolveAppPublicUrl(env, { emailRecovery, oauthEnabled })`
+- `resolveSetupCode(env, { isProduction })`
+- `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled })`
 - `resolveRecoveryDelivery(env, { emailRecovery, isProduction })`
+- `resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction })`
+- `resolvePasswordMinLength(env)`
+
+### `src/server/lib/emailConfirmation.js`
+Exports
+- `CONFIRMATION_TOKEN_TTL_SECONDS`
+- `createLocalEmailConfirmation({ backend, config, confirmationSender, firstAccountSetup, invitationContextResolver, profileProjector, sessions })`
+- `createLoggedConfirmationSender(logger)`
+Local functions
+- `emailTakenError()`
+- `confirmationInvalidError()`
 
 ### `src/server/lib/fileBackend.js`
 Exports
 - `createLocalFileBackend({ storeDir })`
 Local functions
 - `nowIso()`
-- `encodeField(value)`
-- `decodeField(value)`
-- `splitLine(line, expectedType)`
-- `parseUsers(content)`
-- `serializeUsers(users)`
-- `parseSessions(content)`
-- `serializeSessions(sessions)`
-- `parseRecovery(content)`
-- `serializeRecovery(records)`
-- `parseIdentities(content)`
-- `serializeIdentities(identities)`
-- `parseOAuthAttempts(content)`
-- `serializeOAuthAttempts(attempts)`
 - `readText(filePath)`
 - `writeAtomic(filePath, content)`
 - `encodeJournalContent(content)`
@@ -84,12 +84,50 @@ Local functions
 - `clone(value)`
 - `createTx(state, touched)`
 
+### `src/server/lib/fileRecords.js`
+Exports
+- `parseIdentities(content)`
+- `parseOAuthAttempts(content)`
+- `parseRecovery(content)`
+- `parseRegistrations(content)`
+- `parseSessions(content)`
+- `parseSignInFailures(content)`
+- `parseUsers(content)`
+- `serializeIdentities(identities)`
+- `serializeOAuthAttempts(attempts)`
+- `serializeRecovery(records)`
+- `serializeRegistrations(records)`
+- `serializeSessions(sessions)`
+- `serializeSignInFailures(records)`
+- `serializeUsers(users)`
+Local functions
+- `encodeField(value)`
+- `decodeField(value)`
+- `splitLine(line, expectedType)`
+
+### `src/server/lib/firstAccountSetup.js`
+Exports
+- `SETUP_CODE_ENV`
+- `SETUP_CODE_FILE`
+- `SETUP_CODE_MIN_CHARACTERS`
+- `createFirstAccountSetup({ backend, config, logger })`
+- `normalizedSetupCode(code)`
+Local functions
+- `newSetupCode()`
+- `setupCodeHash(code)`
+- `setupCodeRequired()`
+- `setupCodeInvalid()`
+
 ### `src/server/lib/index.js`
 Exports
 - `createLocalAuthService`
 - `resolveLocalAuthConfig`
+- `createLoggedConfirmationSender`
 - `createLoggedRecoverySender`
 - `createLocalFileBackend`
+- `SETUP_CODE_ENV`
+- `SETUP_CODE_FILE`
+- `createFirstAccountSetup`
 - `LOCAL_AUTH_USER_REGISTERED_EVENT`
 - `createLocalAuthRegisterHookDecorator`
 - `hashPassword`
@@ -108,7 +146,7 @@ Local functions
 
 ### `src/server/lib/oauthFlows.js`
 Exports
-- `createLocalOAuthFlows({ backend, config, logger, oauthProvidersById, profileProjector, securityStatus, sessions })`
+- `createLocalOAuthFlows({ backend, config, firstAccountSetup, logger, oauthProvidersById, profileProjector, securityStatus, sessions })`
 
 ### `src/server/lib/passwordFlows.js`
 Exports
@@ -142,7 +180,7 @@ Exports
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, invitationContextResolver, logger, passwordStrategy, profileProjector, recoverySender })`
+- `createLocalAuthService({ backend, config, confirmationSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passwordStrategy, profileProjector, recoverySender })`
 
 ### `src/server/lib/sessions.js`
 Exports
@@ -155,6 +193,17 @@ Local functions
 - `clearCookieOptions(isProduction)`
 - `buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS })`
 - `buildSessionPayload({ user, session, refreshToken, secret })`
+
+### `src/server/lib/signInThrottle.js`
+Exports
+- `DEFAULT_SIGN_IN_THROTTLE`
+- `forgottenFailuresBefore(now)`
+- `recordSignInFailure(throttle, record, email, now)`
+- `resolveSignInThrottle(env)`
+- `signInLockedError(waitMs)`
+- `signInWaitMs(record, now)`
+Local functions
+- `readSetting(env, name, fallback)`
 
 ### `src/server/lib/tokens.js`
 Exports
@@ -176,29 +225,44 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type AuthLocalBackendTransaction`
+- `type AuthLocalRegistration`
+- `type AuthLocalSignInFailures`
 - `type AuthLocalBackend`
 - `type AuthLocalPasswordStrategy`
 - `type AuthLocalRecoverySender`
+- `type AuthLocalConfirmationSender`
 - `type AuthLocalConfig`
 - `type AuthLocalOAuthProvider`
+- `type AuthLocalFirstAccountSetup`
 - `type AuthLocalPasswords`
 - `type AuthLocalSessions`
 
 ### test-support
 
+### `test-support/emailConfirmationScenario.js`
+Exports
+- `exerciseEmailConfirmation(t, service, storedRegistrations)`
+Local functions
+- `linkToken(result)`
+
 ### `test-support/localService.js`
 Exports
-- `localServiceOptions({ env = {}, emailRecovery = false } = {})`
+- `localServiceOptions({ env = {}, emailRecovery = false, emailConfirmationSender = false } = {})`
 
 ### `test-support/oauthHarness.js`
 Exports
 - `APP_URL`
 - `ATTEMPT_COOKIE`
 - `approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false } = {})`
-- `createService({ backend, oauthProviders, profileProjector })`
+- `createService({ backend, oauthProviders, profileProjector, firstAccountSetup })`
 - `oidcProviderEntry(issuer, { id = "google", label = "Google" } = {})`
 - `sessionCookies(session)`
 - `startFakeGitHub({ user = { id: 4242, login: "ada", name: "Ada Lovelace" }, emails } = {})`
 - `startOidcProvider({ account } = {})`
 Local functions
 - `readBody(req)`
+
+### `test-support/signInThrottleScenario.js`
+Exports
+- `exerciseSignInThrottle(t, service)`
+- `lockedFor(seconds)`

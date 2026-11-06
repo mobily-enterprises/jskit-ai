@@ -21,6 +21,12 @@ Exports
 - `pageWindow()`
 - `replacePage(path)`
 
+### `src/client/composables/loginView/confirmationLink.js`
+Exports
+- `CONFIRMATION_TOKEN_PARAM`
+- `confirmationTokenFromInput(input)`
+- `takeConfirmationTokenFromLocation()`
+
 ### `src/client/composables/loginView/constants.js`
 Exports
 - `LOGIN_MODE`
@@ -294,9 +300,14 @@ Exports
 Exports
 - None
 
+### `src/server/authRateLimits.js`
+Exports
+- `DEFAULT_AUTH_RATE_LIMITS`
+- `resolveAuthRateLimits(config)`
+
 ### `src/server/authWeb.js`
 Exports
-- `createAuthWeb({ authService, env })`
+- `createAuthWeb({ authService, env, config })`
 
 ### `src/server/AuthWebFeature.js`
 Exports
@@ -336,7 +347,7 @@ Local functions
 
 ### `src/server/routes/authRoutes.js`
 Exports
-- `buildRoutes(controller, { includeDevLoginAs = false } = {})`
+- `buildRoutes(controller, { includeDevLoginAs = false, rateLimits = DEFAULT_AUTH_RATE_LIMITS } = {})`
 
 ### `src/server/services/AuthWebService.js`
 Exports

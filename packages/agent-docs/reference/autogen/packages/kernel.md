@@ -802,8 +802,18 @@ Local functions
 - `normalizeMethod(method)`
 - `normalizePath(pathname)`
 - `normalizeRouteMiddleware(value, routeLabel)`
+- `normalizeRouteConfig(value, routeLabel)`
 - `normalizeRouteInternal(value, { method = "", path = "" } = {})`
 - `normalizeRouteInput(method, path, optionsOrHandler, maybeHandler)`
+
+### `server/http/lib/routeRateLimits.js`
+Exports
+- `normalizeRouteRateLimit(value, routeLabel)`
+- `rateLimitRouteConfig(rateLimit)`
+- `registerRouteRateLimiter(fastify, routes)`
+Local functions
+- `toTimeWindowMs(timeWindow)`
+- `buildRateLimitedError(_request, { ttl })`
 
 ### `server/http/lib/routeRegistration.js`
 Exports
@@ -993,6 +1003,11 @@ Exports
 - `safeRequestUrl(request)`
 - `safePathnameFromRequest(request)`
 - `resolveClientIpAddress(request)`
+
+### `server/runtime/runtimeMode.js`
+Exports
+- `assertDevelopmentOnlySettings(env, names)`
+- `isProductionEnv(env)`
 
 ### `server/runtime/serviceAuthorization.js`
 Exports
