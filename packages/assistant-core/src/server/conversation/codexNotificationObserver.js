@@ -1,4 +1,4 @@
-import { codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_AGENT_PROVIDER, CODEX_APP_SERVER_RUN_STATE } from "./codexTurnState.js";
+import { codexAppServerTurnStatusIsActive, codexAppServerTurnStatusIsSuccessfulComplete, codexAppServerTurnStatusIsProviderFailure, codexAppServerTurnKey, CODEX_APP_SERVER_AGENT_RUN_ID, CODEX_AGENT_PROVIDER, CODEX_APP_SERVER_RUN_STATE } from "./codexTurnState.js";
 import { codexAppServerProviderConnectionGeneration } from "./codexModelCatalog.js";
 import {
   codexAppServerAssistantItemText,
@@ -239,6 +239,8 @@ export function createCodexNotificationObserver({
         threadId: normalizedThreadId,
         turnId: codexAppServerNotificationTurnId(notification)
       };
+      // Anything Codex reports about a turn means it has started that turn.
+      journal.unstartedTurns.delete(codexAppServerTurnKey(normalizedThreadId, notificationContext.turnId));
       if (method === "thread/tokenUsage/updated") {
         notificationQueue.run(notificationContext, async () => {
           const store = await createStore(normalizedSessionId);

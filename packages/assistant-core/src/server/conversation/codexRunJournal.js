@@ -88,6 +88,8 @@ export function createCodexRunJournal({
   isClosing
 }) {
   const codexAppServerCompletedTurns = new Set();
+  // Turns Codex accepted with turn/start but has not yet reported: until it does, its thread still reads idle.
+  const codexAppServerUnstartedTurns = new Set();
   const codexAppServerProcessedTurns = new Set();
   const codexAppServerActiveTimers = new Map();
   const codexAppServerFinalizingTimers = new Map();
@@ -637,6 +639,7 @@ export function createCodexRunJournal({
 
   return Object.freeze({
     completedTurns: codexAppServerCompletedTurns,
+    unstartedTurns: codexAppServerUnstartedTurns,
     processedTurns: codexAppServerProcessedTurns,
     activeTimers: codexAppServerActiveTimers,
     finalizingTimers: codexAppServerFinalizingTimers,

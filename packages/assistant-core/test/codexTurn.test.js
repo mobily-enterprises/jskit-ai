@@ -1910,6 +1910,51 @@ test("original dispatch steering preserves deferred versus new-turn recovery and
   }
 });
 
+// Codex answers turn/start before it starts the turn. Until its turn/started notification, codex-cli 0.163.0 reads
+// the thread as idle and lists the new turn as interrupted, so neither read means the turn ended. On 2026-11-06 the
+// starting watchdog's status read landed in that gap: the turn was marked finished 0.46 s after delivery, and Codex's
+// answer 33 s later was dropped behind "Codex finished, but Vibe64 could not recover its final response".
+for (const read of ["starting watchdog", "status check"]) {
+  test(`a delivered turn Codex has not started stays active through a ${read} and keeps its answer`, async t => {
+    const notices = [];
+    const f = await receiptFixture({
+      finalizingGraceMs: 30,
+      outcomeNotice(_runtime, _sessionId, _threadId, _turnId, outcome) { notices.push(outcome); }
+    });
+    t.after(() => f.owner.clearSessionRecoveryTimers(f.sessionId));
+    const context = dispatchContext(f);
+    let codexStatus = "idle";
+    f.run = { ...f.run, state: "starting", providerTurnId: "", providerStatus: "", outerTurnId: context.messageId };
+    f.provider.sendTurn = async () => ({ id: f.turnId, status: "inProgress" });
+    f.provider.readThreadStatus = async () => ({ raw: { status: { type: codexStatus } } });
+    f.history = [turn(f.turnId, "interrupted")];
+    f.observe();
+    assert.equal((await f.owner.startTurn(f.sessionId, {}, context)).providerFailure, "");
+    assert.equal(f.run.state, "active");
+    if (read === "starting watchdog") {
+      await f.owner.recoverActiveTurn(f.sessionId, { provider: f.provider, retryOnError: false });
+    } else {
+      await f.owner.reconcileThreadStatus(f.sessionId, f.provider, f.threadId, {
+        observeLatestTurn: true, source: "wellbeing"
+      });
+    }
+    await f.drain();
+    assert.equal(f.run.state, "active", "An idle read before turn/started does not end the turn");
+    assert.equal(f.run.providerTurnId, f.turnId);
+    codexStatus = "active";
+    f.history = [turn(f.turnId, "inProgress")];
+    f.emit({ method: "turn/started", params: { threadId: f.threadId, turn: { id: f.turnId, status: "inProgress" } } });
+    await f.drain();
+    codexStatus = "idle";
+    f.history = [turn(f.turnId, "completed", "The complete reply.")];
+    f.emit({ method: "turn/completed", params: { threadId: f.threadId, turn: { id: f.turnId, status: "completed" } } });
+    await f.drain();
+    assert.equal(f.run.state, "completed");
+    assert.deepEqual((await f.replies()).map(row => row.assistant.text), ["The complete reply."]);
+    assert.deepEqual(notices, []);
+  });
+}
+
 function controlContext(f, overrides = {}) {
   return {
     runtime: f.runtime,
