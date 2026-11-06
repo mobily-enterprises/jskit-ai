@@ -131,6 +131,6 @@ id the host's declaration names, and is declared to the host as above.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/auth-web@0.2.12`
+- Owner: `@jskit-ai/auth-web@0.2.13`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/auth-web/patterns/auth-surface/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/auth-web/patterns/auth-surface/example)

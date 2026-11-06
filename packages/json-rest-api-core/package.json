@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/json-rest-api-core",
-  "version": "0.2.10",
+  "version": "0.2.11",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -14,8 +14,8 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.258",
-    "@jskit-ai/resource-crud-core": "0.1.200",
+    "@jskit-ai/database-runtime": "0.1.259",
+    "@jskit-ai/resource-crud-core": "0.1.201",
     "json-rest-api": "2.1.0"
   },
   "description": "Shared internal json-rest-api host runtime with autofilter, query-projection, and row-policy support.",
@@ -59,6 +59,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.9"
+    "@jskit-ai/kernel": "0.2.10"
   }
 }
