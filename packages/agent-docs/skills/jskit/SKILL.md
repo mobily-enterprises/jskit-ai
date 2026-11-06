@@ -1,6 +1,6 @@
 ---
 name: jskit
-description: Build, extend, troubleshoot, review, deslop, and verify JSKIT apps using its public framework APIs, package-owned source patterns, runtime capabilities, surfaces, placements, CRUDs, verification conventions, and Vue/Vuetify Material 3 UI contract. Use for every JSKIT UI creation, modification, review, or cleanup task.
+description: Build, extend, troubleshoot, review, deslop, and verify JSKIT apps using its public framework APIs, package-owned source patterns, runtime capabilities, surfaces, placements, CRUDs, verification conventions, and Vue/Vuetify Material 3 UI contract, including UI passes over a task's changes, a section, or the whole app. Use for every JSKIT UI creation, modification, review, cleanup, or UI pass task.
 ---
 
 # JSKIT
@@ -56,6 +56,8 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
      [UI operations](references/ui-operations.md).
    - For every Vue/Vuetify UI creation, modification, review, or deslop task,
      also read [Material 3](references/material-3.md) completely before acting.
+   - For a UI pass (the changes, a section, or the whole app), also read
+     [UI pass](references/ui-pass.md) completely.
 
 These are complete operational references required by this skill. Do not load
 irrelevant references or other docs.
@@ -90,9 +92,11 @@ only when required. Use only a fresh disposable development database for
 schema work—never valuable data. For UI, respect surface/placements, compact
 layout, all operational states, permissions/ownership, and browser
 verification.
-Check every page for meaningful Back navigation: previous page by default,
-with justified omissions or explicitly named fixed destinations. UI operations
-has navigation seams, placement and direct-entry fallback.
+Navigation is a MUST that plain `jskit check` enforces (Material 3,
+Navigation and Up): the shell owns the Up arrow and the trail; every inner page
+declares its parent as route meta `jskit.parent`; every inner link goes through
+JSKIT navigation; never write back logic, a "Back to X" control,
+`router.back()`, `history.back()` or `window.location` navigation.
 
 ## Caller-owned verification
 
@@ -107,8 +111,9 @@ For review-only work, report without editing. Check dead or duplicated code,
 accidental abstraction, incomplete states, missed high-level JSKIT seams,
 invalid ownership or migration choices, UI quality, and verification. Server
 code follows typed features, client code client features; `npm run lint` is
-clean. Run the Material 3 audit for affected UI, Back included; a hardcoded
-parent link is not previous-page navigation. Findings first by severity and file.
+clean. Run the Material 3 audit for affected UI, navigation first, plain
+`jskit check`, and `jskit check m3` on the affected files. Findings first by
+severity and file.
 
 ## Verify
 

@@ -21,37 +21,17 @@ only when defining or diagnosing topology. Resolve current dynamic parameters
 to an absolute URL or route object for sibling/child links—never bind a route
 template or relative string raw to Vue Router `to`.
 
-## Back navigation
+## Navigation and Up
 
-Check every page for a visible Back button that returns to the previous page.
-Omit it only when returning makes no product sense, such as the root
-landing page or a completed flow that must not reopen an expired step. State
-the reason in the implementation or review result; a drawer link is not Back.
-
-Plain **Back** normally follows the person's actual route history, retaining
-the originating page's query, filters, tab, and pagination. Reuse the existing
-JSKIT screen/navigation owner and its public seams. For history traversal use
-the app's Vue Router instance (`useRouter()` from `vue-router`, then
-[`router.back()`](https://router.vuejs.org/guide/essentials/navigation.html#traverse-history));
-`usePaths().page()` from `@jskit-ai/shell-web/client/navigation/usePaths`
-resolves a destination, not history. Do not invent a second navigation stack.
-
-For direct links, new tabs, or no usable in-app history, use a deliberate safe
-fallback resolved through the existing surface/workspace-aware path helpers.
-Do not infer a usable previous page from `window.history.length` alone or send
-people outside the app unexpectedly. Keep existing unsaved-change guards.
-
-A fixed parent/list destination is valid when the task calls for it; name it
-explicitly, for example **Back to appointments**. It must not silently replace
-ordinary Back. Shared CRUD `listLocation`/`listUrlTemplate` links are fixed
-destinations, not proof of previous-page behavior. Keep Back distinct from
-Cancel, Close, and a wizard's Previous step.
-
-Place Back consistently near the start of the page's existing action region,
-before forward/primary actions in reading and keyboard order. Reuse shell or
-shared-screen controls; avoid duplicates, drawer-only access, or adding a page
-heading just to house it. Keep its meaning and accessible name clear at every
-supported width.
+Follow [Navigation and Up](./material-3.md#navigation-and-up), a MUST that
+plain `jskit check` enforces: the shell owns the Up arrow (one, in the top app
+bar, on every inner page) and the per-tab trail. An app declares each inner
+page's parent as route meta `jskit.parent`, resolves every inner link through
+JSKIT navigation, finishes custom forms with `useShellNavigation().finish()`,
+and never writes back logic, `router.back()`, `history.back()`,
+`window.location` navigation or a "Back to X" control. Keep Up distinct from
+Cancel, Close, and a wizard's Previous step; keep existing unsaved-change
+guards.
 
 `createShellRouter()` owns scroll position (`shell/application-shell`
 pattern); never reset scroll in page components.
@@ -93,10 +73,13 @@ pattern, never its private CSS.
 Exercise user-facing changes with Playwright at compact, medium, and expanded
 widths. Check overflow, clipped text, duplicate navigation, route placement,
 actions, skeleton replacement, error feedback, and target sizes. Use relative
-URLs. With `PLAYWRIGHT_BASE_URL` set, start no duplicate server. For Back,
-enter the same page from two origins and verify each returns to its own origin
-with context intact. Also check direct entry, reload, browser back/forward,
-fixed-destination exceptions, and any unsaved-change guard.
+URLs. With `PLAYWRIGHT_BASE_URL` set, start no duplicate server. For Up
+(`shellBackButton(page)` and `pressShellBack(page)` from
+`@jskit-ai/shell-web/test/shellNavigation`), reach a page from two origins (one
+sideways) and verify each Up returns to its own origin and that chains unwind;
+open the page directly and verify Up reaches its declared parent; verify
+main-menu destinations show no arrow, a reload keeps the trail, and Save or
+Cancel never leaves the form in it.
 
 A managed host owns its browser and may provide
 `PLAYWRIGHT_STORAGE_STATE`; never print or commit that value, bypass it,

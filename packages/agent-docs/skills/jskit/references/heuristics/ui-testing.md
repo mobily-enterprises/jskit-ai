@@ -22,9 +22,11 @@ Rules:
 - Use relative paths such as `page.goto("/home")`. The shared config owns the browser base URL.
 - After clicking a client-side navigation control, wait for its destination
   with `await expect(page).toHaveURL(...)` before reloading. Awaiting the click
-  alone does not wait for Vue Router to complete. Contextual Back tests must
-  reach the form before reload, then assert the original list URL; direct entry
-  checks the configured fallback separately. Do not replace this wait with sleeps.
+  alone does not wait for Vue Router to complete. Up tests reach a page
+  through in-app links (one of them sideways), then press
+  `pressShellBack(page)` (`@jskit-ai/shell-web/test/shellNavigation`) and
+  assert that each Up returns to its origin in order; a direct `page.goto()`
+  asserts the declared parent. Do not replace this wait with sleeps.
 - A managed runner supplies `PLAYWRIGHT_BASE_URL`. When it is set, JSKIT does not start another app server.
 - Otherwise the config starts the app on `PLAYWRIGHT_PORT`, 4173 by default. A runner that shares a machine between runs sets a free port for each run; with one fixed port, a second run would wait for it or reuse another run's server.
 - A managed runner may supply an authenticated context through `PLAYWRIGHT_STORAGE_STATE`. Treat that file as a temporary secret: do not commit it, print it, or retain it after the run.

@@ -30,6 +30,8 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
   composable, component, client factory or client provider
 - [UI operations](/guide/framework/ui-operations)
 - [Material 3](/guide/framework/material-3)
+- [UI pass](/guide/framework/ui-pass): make a task's changes, a section or the
+  whole app exact Material 3
 - [Translating a JSKIT app](/guide/framework/translation)
 - [Complete source pattern library](/patterns/)
 

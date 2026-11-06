@@ -11,24 +11,35 @@ import {
   formatCheckReport,
   formatExportSummary
 } from "./i18n.mjs";
+import { checkMaterial3, formatMaterial3Report, formatNavigationReport } from "./material3.mjs";
 import { checkProject, updateProject } from "./project-packages.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
 const CATALOG_PATH = path.join(PACKAGE_ROOT, "catalog", "packages.json");
 const I18N_SUBCOMMANDS = new Set(["export", "check"]);
+// #241: plain `jskit check` fails on every nav/* rule. The JSKIT release that ships once every app has
+// been converted sets this to true, so plain `jskit check` (and every app's verify) fails on every m3/* finding too.
+const MATERIAL3_GATE = false;
 
 function usage() {
   return [
     "Usage:",
     "  jskit update [--root <path>] [--no-install] [--manifest <path> ...]",
     "  jskit check [--root <path>] [--manifest <path> ...]",
+    "  jskit check m3 [<path> ...] [--root <path>]",
     "  jskit i18n export <locale> [--root <path>]",
     "  jskit i18n check <locale> [--root <path>]",
     "",
     "Commands:",
     "  update       Align root and workspace @jskit-ai/* declarations to this published catalog, then run npm install.",
-    "  check        Fail when manifests or package-lock.json contain stale, mixed, or private singleton JSKIT stacks.",
+    "  check        Fail when manifests or package-lock.json contain stale, mixed, or private singleton JSKIT stacks,",
+    "               or when application source breaks a JSKIT navigation rule (nav/*): history or window.location",
+    "               navigation, a hand-built in-app path, a back control other than the shell's Up arrow, an inner",
+    "               page without a declared parent, or a main-navigation page that declares one.",
+    "  check m3     List application UI source that departs from the JSKIT Material 3 guide, each finding with its",
+    "               guide section: the whole app, or only the given files and directories (a section, or a task's",
+    "               changed files). Its visual rules (m3/*) are a report; its nav/* rules are plain jskit check's.",
     "  i18n export  Write the English messages of the installed JSKIT packages to src/locales/<locale>/jskit.json",
     "               for translators, keeping existing translations and extra keys.",
     "  i18n check   Compare src/locales/<locale>/jskit.json with the installed packages' English; fail on missing keys,",
@@ -57,7 +68,7 @@ function parseArgs(argv = []) {
       options.help = true;
       continue;
     }
-    if (command === "i18n" && argument && !argument.startsWith("-")) {
+    if ((command === "i18n" || command === "check") && argument && !argument.startsWith("-")) {
       positionals.push(argument);
       continue;
     }
@@ -91,6 +102,9 @@ function parseArgs(argv = []) {
   }
   if (command === "i18n") {
     return parseI18nArgs(options, positionals);
+  }
+  if (command === "check" && positionals.length > 0) {
+    return parseMaterial3Args(options, positionals);
   }
   if (command !== "update" && command !== "check") {
     throw new Error(usage());
@@ -127,6 +141,33 @@ function parseI18nArgs(options, positionals) {
   };
 }
 
+function parseMaterial3Args(options, positionals) {
+  const [check, ...paths] = positionals;
+  if (check !== "m3") {
+    throw new Error(`Unknown argument: ${check}`);
+  }
+  if (options.additionalManifests) {
+    throw new Error("--manifest is only valid with jskit update and jskit check.");
+  }
+  if (!options.install) {
+    throw new Error("--no-install is only valid with jskit update.");
+  }
+  return {
+    command: "check-m3",
+    paths,
+    projectRoot: options.projectRoot
+  };
+}
+
+async function runMaterial3({ projectRoot, paths }) {
+  const result = await checkMaterial3({ projectRoot, paths });
+  const report = formatMaterial3Report(result);
+  if (!result.ok) {
+    throw new Error(report);
+  }
+  process.stdout.write(`${report}\n`);
+}
+
 async function runI18n({ subcommand, locale, projectRoot }) {
   if (subcommand === "export") {
     const result = await exportTranslations({ projectRoot, locale });
@@ -153,6 +194,10 @@ async function main(argv = process.argv.slice(2)) {
   }
   if (options.command === "i18n") {
     await runI18n(options);
+    return;
+  }
+  if (options.command === "check-m3") {
+    await runMaterial3(options);
     return;
   }
 
@@ -184,13 +229,18 @@ async function main(argv = process.argv.slice(2)) {
     checkInstalled: true,
     catalog
   });
-  if (!result.ok) {
-    throw new Error(`JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`);
+  const ui = await checkMaterial3({ projectRoot: options.projectRoot, navigationOnly: !MATERIAL3_GATE });
+  const reports = [
+    result.ok
+      ? `JSKIT project graph is coordinated across ${result.manifests.length} manifest(s) and ` +
+        `${result.installations.length} resolved package installation(s).`
+      : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
+    MATERIAL3_GATE ? formatMaterial3Report(ui) : formatNavigationReport(ui)
+  ];
+  if (!result.ok || !ui.ok) {
+    throw new Error(reports.join("\n"));
   }
-  process.stdout.write(
-    `JSKIT project graph is coordinated across ${result.manifests.length} manifest(s) and ` +
-    `${result.installations.length} resolved package installation(s).\n`
-  );
+  process.stdout.write(`${reports.join("\n")}\n`);
 }
 
 function isCliEntrypoint(argvPath = process.argv[1]) {

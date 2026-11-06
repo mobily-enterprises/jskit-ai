@@ -67,8 +67,89 @@ Exports
 - `usage()`
 Local functions
 - `parseI18nArgs(options, positionals)`
+- `parseMaterial3Args(options, positionals)`
+- `runMaterial3({ projectRoot, paths })`
 - `runI18n({ subcommand, locale, projectRoot })`
 - `readCatalog()`
+
+### `scripts/material3-source.mjs`
+Exports
+- `HEX_COLOUR`
+- `blankCssComments(source)`
+- `blankHtmlComments(source)`
+- `blankJsComments(source)`
+- `kebab(name)`
+- `lineIndex(text)`
+- `readDeclarations(css, offset)`
+- `readExceptions(source)`
+- `readInlineDeclarations(text, offset)`
+- `readTags(template)`
+- `splitVue(source)`
+Local functions
+- `blank(text)`
+- `blankMatches(source, pattern)`
+- `findBlocks(source, tag)`
+- `readAttributes(text, offset)`
+
+### `scripts/material3.mjs`
+Exports
+- `MATERIAL3_RULES`
+- `checkMaterial3({ projectRoot = process.cwd(), paths = [], navigationOnly = false } = {})`
+- `formatMaterial3Report(result)`
+- `formatNavigationReport(result)`
+Local functions
+- `hexPattern()`
+- `quotedHex()`
+- `isNavigationRule(rule)`
+- `isSkippedDirectory(name)`
+- `isSourceFile(relativePath)`
+- `walk(projectRoot, directory, files)`
+- `collectFiles(projectRoot, paths)`
+- `createReporter(file, source, { navigationOnly = false } = {})`
+- `checkCode(code, offset, { report, themed })`
+- `checkScript(code, offset, context)`
+- `checkCss(css, offset, context)`
+- `checkDeclaration(declaration, context)`
+- `attribute(tag, name)`
+- `checkTemplate(template, context)`
+- `checkAttribute(tag, entry, context)`
+- `checkSurface(tag, report)`
+- `checkButtonSize(tag, report)`
+- `checkFile(file, source, context)`
+- `readProjectManifest(projectRoot)`
+- `usesShell(manifest)`
+- `checkDarkScheme(projectRoot, checkedFiles, wholeApp)`
+- `formatFindings(result)`
+
+### `scripts/navigation.mjs`
+Exports
+- `NAVIGATION_RULES`
+- `checkBackControl(tag, report)`
+- `checkLinkAttribute(tag, entry, report)`
+- `checkNavigationCode(code, offset, report)`
+- `checkPageParents({ root, appFiles, pageFiles, report })`
+- `checkScriptBackNames(code, offset, report)`
+- `isInAppPath(value)`
+- `isPageFile(file)`
+Local functions
+- `compact(text)`
+- `isPlacementLink(code, offset)`
+- `attribute(tag, name)`
+- `visibleText(inner)`
+- `isBackTag(tag)`
+- `looksLikeBack(tag)`
+- `balancedFrom(text, start, open = "{", close = "}")`
+- `enclosingObject(text, offset)`
+- `stringValue(text, key)`
+- `readMainNavigation(sources)`
+- `normalisePath(value)`
+- `routeOf(file)`
+- `routePattern(route)`
+- `readSurfaces(configSource, pageRoutes)`
+- `surfaceOf(route, surfaces)`
+- `routeDeclarations(source)`
+- `readPage(file, source)`
+- `pageKey(file)`
 
 ### `scripts/pattern-assets.mjs`
 Exports

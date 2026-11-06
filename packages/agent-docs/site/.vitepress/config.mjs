@@ -61,6 +61,7 @@ export default defineConfig({
             { text: "Client Features", link: "/guide/framework/client-features" },
             { text: "UI Operations", link: "/guide/framework/ui-operations" },
             { text: "Material 3", link: "/guide/framework/material-3" },
+            { text: "UI Pass", link: "/guide/framework/ui-pass" },
             { text: "Translating an App", link: "/guide/framework/translation" },
             { text: "Source Patterns", link: "/patterns/" }
           ]

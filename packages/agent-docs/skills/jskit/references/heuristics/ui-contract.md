@@ -13,11 +13,13 @@ and action UI.
   overflow.
 - Compact interactive targets are at least 48 CSS pixels.
 - Navigation uses semantic placements and explicit navigation roles.
-- Check every page for Back to the previous page unless returning makes no
-  product sense. Use the existing navigation owner; fixed destinations are
-  deliberate, explicitly labelled exceptions. Follow the
-  [Back navigation contract](../ui-operations.md#back-navigation)
-  for history, direct-entry fallback, retained context, and consistent placement.
+- MUST, enforced by plain `jskit check`: every inner page declares its parent
+  (route meta `jskit.parent`) and gets one Up arrow in the top app bar from the
+  shell; it returns to the in-app origin, or to the parent on direct entry.
+  Main-menu destinations show none. No "Back to X" controls, no back logic, no
+  `router.back()`/`history.back()`/`window.location`, no hand-built in-app
+  links. Follow
+  [Navigation and Up](../material-3.md#navigation-and-up).
 - Pages do not stack decorative cards inside structural cards.
 - Pages do not include a header, title block, welcome heading, or standalone
   heading copy unless the user explicitly requests one.
@@ -57,8 +59,9 @@ it as a closed sheet and wider layouts as a closed side panel.
 
 - test skeleton, empty, loaded, local error, retry, and mutation feedback states
 - navigate away and back with warm query cache, including browser back/forward
-- during review or Deslop, audit Back's presence or justified omission, leading
-  position, label, and actual destination; verify two origins and direct entry
+- during review, Deslop or a UI pass, audit Up: a sideways origin returns
+  there, chains unwind, direct entry reaches the declared parent, and main-menu
+  destinations show no arrow
 - exercise compact, medium, and expanded viewports
 - verify accessible names, keyboard operation, target size, and no overflow
 - assert that no spinner or layout-shifting transient error banner appears

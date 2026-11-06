@@ -77,6 +77,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "translation.md",
     "typed-features.md",
     "ui-operations.md",
+    "ui-pass.md",
   ]);
   assert.deepEqual(
     referenceEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort(),
@@ -138,7 +139,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(skill, /every Vue\/Vuetify UI creation, modification, review, or deslop task/u);
   assert.match(skill, /Material 3 audit/u);
   assert.match(materialReference, /Use the installed public APIs rather than adding `@material\/web`/u);
-  assert.match(materialReference, /central `createVuetify\(\.\.\.\)` configuration/u);
+  assert.match(materialReference, /`createVuetify\(createMaterialVuetifyOptions\(theme\)\)`/u);
   assert.match(materialReference, /Use elevation `0` through `5`/u);
   assert.match(materialReference, /at least\s+48 CSS-pixel interactive targets/u);
   assert.match(materialReference, /resource that cannot render uses a\s+stable in-page error and retry state/u);
@@ -149,6 +150,29 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(materialReference, /stable disabled\/pending label and shared feedback, not a spinner/u);
   assert.match(materialReference, /Playwright at compact, medium, and expanded widths/u);
   assert.match(materialReference, /Do not declare Material 3 compliance from visual resemblance alone/u);
+  // #241 section 9.4: navigation is a MUST near the top, with the model, the declarations, the forbidden list and a
+  // right and a wrong example per rule.
+  assert.match(materialReference, /^## Authority\n[\s\S]*?^## Navigation and Up\n/mu);
+  assert.match(materialReference, /Plain `jskit check` fails on every rule in\s+this section, and nothing excuses one\. Never improvise a Back\./u);
+  for (const heading of ["### The model", "### What an app declares", "### Forbidden in app code", "### Each rule, right and wrong"]) {
+    assert.match(materialReference, new RegExp(`^${heading}$`, "mu"));
+  }
+  for (const rule of ["history", "window-location", "raw-link", "back-control", "missing-parent", "top-level-parent"]) {
+    assert.match(materialReference, new RegExp(`^\\| \`nav/${rule}\` \\|`, "mu"));
+  }
+  assert.match(materialReference, /contact → \(link\) supplier → Up shows \*\*the\s+contact\*\*/u);
+  assert.match(materialReference, /a supplier opened from a pasted\s+link → Up = Suppliers list/u);
+  assert.equal(materialReference.match(/^- \*\*[^*]+\*\* Right: [\s\S]*?\sWrong:\s/gmu)?.length, 8);
+  assert.match(materialReference, /Each inner page declares its parent once,\*\* as route meta `jskit\.parent`/u);
+  assert.match(materialReference, /jskit check m3/u);
+  assert.doesNotMatch(operationalSource, /previous page by default|traverse-history/u);
+  const uiPassReference = references.find(({ file }) => file === "ui-pass.md").source;
+  for (const scope of ["## 1. The changes", "## 2. A section", "## 3. The whole app"]) {
+    assert.match(uiPassReference, new RegExp(scope.replace(".", "\\."), "u"));
+  }
+  assert.match(uiPassReference, /390, 768 and 1280 wide, in\s+light and dark/u);
+  assert.match(uiPassReference, /Navigation is must-fix at every scope/u);
+  assert.equal(uiPassReference.match(/^Example: /gmu)?.length, 3);
   assert.doesNotMatch(operationalSource, /@jskit-ai\/create-app|crud-server-generator|crud-ui-generator|ui-generator/u);
   assert.doesNotMatch(operationalSource, /\.jskit\/APP_BLUEPRINT|\.jskit\/WORKBOARD/u);
   assert.doesNotMatch(
@@ -156,8 +180,11 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     /(?:^|[\s`(])\.\.\//mu
   );
   assert.doesNotMatch(operationalSource, /(?:^|[\s`(])(?:patterns|guide\/agent|site\/guide)\//mu);
-  assert.ok(Buffer.byteLength(operationalSource) <= 40 * 1024);
-  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 24 * 1024);
+  // The Material 3 rules are exact (#241) and open with the navigation MUST, with a right and a wrong
+  // example for each rule, so they need more room than the old summary; the UI pass method stays out of this budget,
+  // in its own reference.
+  assert.ok(Buffer.byteLength(operationalSource) <= 54 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 32 * 1024);
 });
 
 test("the published JSKIT skill remains self-contained after relocation", async (t) => {

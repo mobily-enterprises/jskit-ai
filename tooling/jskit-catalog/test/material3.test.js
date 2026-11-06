@@ -1,0 +1,487 @@
+import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
+import test from "node:test";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
+import { checkMaterial3, formatMaterial3Report, formatNavigationReport, MATERIAL3_RULES } from "../scripts/material3.mjs";
+import { parseArgs, usage } from "../scripts/jskit.mjs";
+
+const execFileAsync = promisify(execFile);
+const CLI_PATH = fileURLToPath(new URL("../scripts/jskit.mjs", import.meta.url));
+const SHELL_MANIFEST = { name: "m3-fixture", private: true, dependencies: { "@jskit-ai/shell-web": "0.2.8" } };
+
+async function writeApp(files) {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-m3-"));
+  for (const [file, content] of Object.entries(files)) {
+    const target = path.join(root, file);
+    await mkdir(path.dirname(target), { recursive: true });
+    await writeFile(target, typeof content === "string" ? content : `${JSON.stringify(content, null, 2)}\n`, "utf8");
+  }
+  return root;
+}
+
+async function withApp(files, run) {
+  const root = await writeApp(files);
+  try {
+    await run(root);
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+}
+
+const findingLines = (result) => result.findings.map(({ file, line, rule }) => `${file}:${line} ${rule}`);
+
+// Every rule fails at least once in this page; each line is numbered in the comment beside the expectation below.
+const DRIFTING_PAGE = [
+  "<script setup>", // 1
+  "import { useRouter } from \"vue-router\";", // 2
+  "import { mdiHome } from \"@mdi/js\";", // 3
+  "import PageBackButton from \"@/components/PageBackButton.vue\";", // 4
+  "const router = useRouter();", // 5
+  "function leave() {", // 6
+  "  window.location.href = \"/home\";", // 7
+  "  router.push(\"/home/books\");", // 8
+  "}", // 9
+  "const accent = \"#ff8800\";", // 10
+  "const icon = \"mdi-account\";", // 11
+  "const links = [{ title: \"Shelves\", to: \"/home/shelves\" }];", // 12
+  "</script>", // 13
+  "", // 14
+  "<template>", // 15
+  "  <section>", // 16
+  "    <h1>Books</h1>", // 17
+  "    <v-btn to=\"/home/settings\">Settings</v-btn>", // 18
+  "    <v-sheet border class=\"panel\">", // 19
+  "      <v-card variant=\"outlined\" color=\"#123456\">", // 20
+  "        <v-btn height=\"48\">Save</v-btn>", // 21
+  "        <v-btn :to=\"listUrl\">Back to books</v-btn>", // 22
+  "        <v-btn prepend-icon=\"$arrowBack\" @click=\"router.back()\"><v-icon>mdi-home</v-icon></v-btn>", // 23
+  "        <v-btn icon=\"$chevronLeft\" :to=\"paths.page('/books')\" aria-label=\"Books\" />", // 24
+  "        <v-btn icon=\"$prev\" @click=\"previousMonth\" aria-label=\"Previous month\" />", // 25
+  "        <page-back-button />", // 26
+  "        <v-breadcrumbs :items=\"crumbs\" />", // 27
+  "      </v-card>", // 28
+  "    </v-sheet>", // 29
+  "    <!-- m3-check: allow m3/raw-hex - the partner's logo colour is contractual -->", // 30
+  "    <v-chip color=\"#0a7d3e\">Partner</v-chip>", // 31
+  "    <!-- m3-check: allow m3/raw-hex -->", // 32
+  "    <v-chip color=\"#0a7d3e\">Partner</v-chip>", // 33
+  "    <!-- m3-check: allow nav/raw-link - the documentation is a static page -->", // 34
+  "    <a href=\"/docs\">Docs</a>", // 35
+  "    <a href=\"/exports/books.csv\">Export</a>", // 36
+  "    <v-btn @click=\"goBack\">Done</v-btn>", // 37
+  "  </section>", // 38
+  "</template>", // 39
+  "", // 40
+  "<style scoped>", // 41
+  ".panel :deep(.v-btn) {", // 42
+  "  min-height: 48px;", // 43
+  "  color: #fff;", // 44
+  "}", // 45
+  "</style>", // 46
+  ""
+].join("\n");
+
+const DRIFTING_NAVIGATION = [
+  "src/pages/home/books.vue:4 nav/back-control",
+  "src/pages/home/books.vue:7 nav/window-location",
+  "src/pages/home/books.vue:8 nav/raw-link",
+  "src/pages/home/books.vue:12 nav/raw-link",
+  "src/pages/home/books.vue:18 nav/raw-link",
+  "src/pages/home/books.vue:22 nav/back-control",
+  "src/pages/home/books.vue:23 nav/back-control",
+  "src/pages/home/books.vue:23 nav/history",
+  "src/pages/home/books.vue:24 nav/back-control",
+  "src/pages/home/books.vue:26 nav/back-control",
+  "src/pages/home/books.vue:27 nav/back-control",
+  "src/pages/home/books.vue:34 nav/allow",
+  "src/pages/home/books.vue:35 nav/raw-link",
+  "src/pages/home/books.vue:37 nav/back-control"
+];
+
+const CONFORMING_PAGE = [
+  "<script setup>",
+  "import { usePaths } from \"@jskit-ai/shell-web/client/navigation/usePaths\";",
+  "const paths = usePaths();",
+  "const origin = window.location.origin;",
+  "</script>",
+  "",
+  "<template>",
+  "  <section class=\"d-flex flex-column ga-4\">",
+  "    <Teleport to=\"#jskit-shell-page-actions\">",
+  "      <v-btn color=\"primary\" prepend-icon=\"$add\" :to=\"paths.page('/books/new')\">New book</v-btn>",
+  "    </Teleport>",
+  "    <v-card color=\"surface-container-low\">",
+  "      <h2 class=\"text-title-large\">Shelves</h2>",
+  "      <a href=\"https://example.com/help\">Help</a>",
+  "      <a href=\"#shelves\">Shelves</a>",
+  "      <a href=\"/api/books.csv\" download>Export</a>",
+  "      <v-btn variant=\"text\" @click=\"paths.page('/books')\">Feedback</v-btn>",
+  "    </v-card>",
+  "  </section>",
+  "</template>",
+  "",
+  "<style scoped>",
+  ".shelf { color: rgb(var(--v-theme-on-surface)); }",
+  "</style>",
+  ""
+].join("\n");
+
+// JSKIT's defaults generate the light and dark schemes from the seed at startup.
+const CONFORMING_BOOTSTRAP = [
+  "import { createVuetify } from \"vuetify\";",
+  "import { createMaterialVuetifyOptions } from \"@jskit-ai/material-web/client\";",
+  "import { theme } from \"./theme/index.js\";",
+  "export const vuetify = createVuetify(createMaterialVuetifyOptions(theme));",
+  ""
+].join("\n");
+
+const APP_THEME = "export const theme = { seed: \"#6750A4\", icons: {} };\n";
+
+const DRIFTING_APP = {
+  "package.json": SHELL_MANIFEST,
+  "src/main.js": "import { createVuetify } from \"vuetify\";\nexport const vuetify = createVuetify({ theme: { defaultTheme: \"light\" } });\n",
+  "src/pages/home/books.vue": DRIFTING_PAGE,
+  "src/theme/palette.js": "export const seed = \"#e0a526\";\n",
+  "tests/e2e/books.spec.js": "await page.evaluate(() => history.back());\n",
+  "server/email.js": "export const brand = \"#e0a526\";\n"
+};
+
+test("jskit check m3 reports each drifting pattern once, with its line and rule", async () => {
+  await withApp(DRIFTING_APP, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root });
+    assert.equal(result.ok, false);
+    assert.equal(result.wholeApp, true);
+    assert.deepEqual(result.files, ["src/main.js", "src/pages/home/books.vue", "src/theme/palette.js"]);
+    assert.deepEqual(findingLines(result), [
+      "src/main.js:2 m3/dark-scheme",
+      "src/main.js:2 m3/dark-scheme",
+      "src/pages/home/books.vue:3 m3/mdi-icon",
+      "src/pages/home/books.vue:4 nav/back-control",
+      "src/pages/home/books.vue:7 nav/window-location",
+      "src/pages/home/books.vue:8 nav/raw-link",
+      "src/pages/home/books.vue:10 m3/raw-hex",
+      "src/pages/home/books.vue:11 m3/mdi-icon",
+      "src/pages/home/books.vue:12 nav/raw-link",
+      "src/pages/home/books.vue:17 m3/duplicate-h1",
+      "src/pages/home/books.vue:18 nav/raw-link",
+      "src/pages/home/books.vue:19 m3/outlined-card",
+      "src/pages/home/books.vue:20 m3/outlined-card",
+      "src/pages/home/books.vue:20 m3/raw-hex",
+      "src/pages/home/books.vue:21 m3/fixed-button-height",
+      "src/pages/home/books.vue:22 nav/back-control",
+      "src/pages/home/books.vue:23 nav/back-control",
+      "src/pages/home/books.vue:23 nav/history",
+      "src/pages/home/books.vue:23 m3/mdi-icon",
+      "src/pages/home/books.vue:24 nav/back-control",
+      "src/pages/home/books.vue:26 nav/back-control",
+      "src/pages/home/books.vue:27 nav/back-control",
+      "src/pages/home/books.vue:32 m3/allow-reason",
+      "src/pages/home/books.vue:33 m3/raw-hex",
+      "src/pages/home/books.vue:34 nav/allow",
+      "src/pages/home/books.vue:35 nav/raw-link",
+      "src/pages/home/books.vue:37 nav/back-control",
+      "src/pages/home/books.vue:43 m3/fixed-button-height",
+      "src/pages/home/books.vue:44 m3/raw-hex"
+    ]);
+    assert.equal(result.errors, DRIFTING_NAVIGATION.length);
+    const darkScheme = result.findings.filter(({ rule }) => rule === "m3/dark-scheme").map(({ message }) => message);
+    assert.match(darkScheme.join("\n"), /No dark colour scheme/u);
+    assert.match(darkScheme.join("\n"), /pinned to light/u);
+    for (const finding of result.findings) assert.ok(MATERIAL3_RULES[finding.rule], finding.rule);
+
+    const navigation = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.deepEqual(findingLines(navigation), DRIFTING_NAVIGATION);
+    assert.match(formatNavigationReport(navigation), /14 error\(s\) in 3 file\(s\) and 0 shell page\(s\)\. Fix each one; no comment excuses a navigation rule\.$/u);
+  });
+});
+
+// #241: one line's `m3-check: allow <m3 rule> - <reason>` is the only exception. Nothing excuses a navigation rule,
+// and an exception without a reason or naming an unknown rule excuses nothing and is itself a finding.
+const EXCEPTION_PAGE = [
+  "<template>", // 1
+  "  <!-- m3-check: allow m3/raw-hex - the partner's logo colour is contractual -->", // 2
+  "  <v-chip color=\"#0a7d3e\">Partner</v-chip>", // 3
+  "  <v-chip color=\"#0a7d3e\">Unexcused</v-chip>", // 4
+  "  <v-chip color=\"#0a7d3e\">Same line</v-chip> <!-- m3-check: allow m3/raw-hex - the partner's mark -->", // 5
+  "  <!-- m3-check: allow m3/raw-hex -->", // 6
+  "  <v-chip color=\"#0a7d3e\">No reason</v-chip>", // 7
+  "  <!-- m3-check: allow m3/raw-colour - a misspelt rule -->", // 8
+  "  <v-chip color=\"#0a7d3e\">Unknown rule</v-chip>", // 9
+  "  <!-- m3-check: allow nav/raw-link - the documentation is a static page -->", // 10
+  "  <a href=\"/docs\">Docs</a>", // 11
+  "  <!-- m3-check: allow nav/* - legacy screens -->", // 12
+  "  <!-- m3-check: allow m3/allow-reason - silence the reasonless one -->", // 13
+  "</template>", // 14
+  ""
+].join("\n");
+
+test("an exception excuses one m3/* rule on its line or the next, with a reason, and is listed", async () => {
+  await withApp({ "package.json": SHELL_MANIFEST, "src/pages/home/partners.vue": EXCEPTION_PAGE }, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root });
+    assert.deepEqual(findingLines(result), [
+      "src/pages/home/partners.vue:4 m3/raw-hex",
+      "src/pages/home/partners.vue:6 m3/allow-reason",
+      "src/pages/home/partners.vue:7 m3/raw-hex",
+      "src/pages/home/partners.vue:8 m3/allow-rule",
+      "src/pages/home/partners.vue:9 m3/raw-hex",
+      "src/pages/home/partners.vue:10 nav/allow",
+      "src/pages/home/partners.vue:11 nav/raw-link",
+      "src/pages/home/partners.vue:12 nav/allow",
+      "src/pages/home/partners.vue:13 m3/allow-rule"
+    ]);
+    assert.deepEqual(result.exceptions, [
+      { file: "src/pages/home/partners.vue", line: 2, rule: "m3/raw-hex", reason: "the partner's logo colour is contractual" },
+      { file: "src/pages/home/partners.vue", line: 5, rule: "m3/raw-hex", reason: "the partner's mark" }
+    ]);
+    const report = formatMaterial3Report(result);
+    assert.match(report, /^Exceptions \(2\):\nsrc\/pages\/home\/partners\.vue:2 {2}m3\/raw-hex {2}the partner's logo colour is contractual\nsrc\/pages\/home\/partners\.vue:5 {2}m3\/raw-hex {2}the partner's mark$/mu);
+    assert.match(report, / Exceptions: 2\.$/u);
+    assert.match(result.findings.find(({ line }) => line === 10).message, /Nothing excuses a navigation rule \(nav\/raw-link\)/u);
+    assert.match(result.findings.find(({ line }) => line === 8).message, /m3\/raw-colour is not a Material 3 rule/u);
+
+    // Plain jskit check's navigation part fails on the nav/* exceptions too, and lists no visual exception.
+    const navigation = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.deepEqual(findingLines(navigation), [
+      "src/pages/home/partners.vue:10 nav/allow",
+      "src/pages/home/partners.vue:11 nav/raw-link",
+      "src/pages/home/partners.vue:12 nav/allow"
+    ]);
+    assert.deepEqual(navigation.exceptions, []);
+  });
+});
+
+test("nothing turns the check off for an app, a folder or a file", async () => {
+  const page = "<template>\n  <v-card variant=\"outlined\" color=\"#123456\" />\n  <a href=\"/home/books\">Books</a>\n</template>\n";
+  await withApp({
+    "package.json": { ...SHELL_MANIFEST, jskit: { check: false, m3: { enabled: false, allow: ["m3/*", "nav/*"] } }, "m3-check": "off" },
+    ".m3-check.json": { disabled: true, allow: ["m3/raw-hex", "nav/raw-link"] },
+    "src/pages/home/.m3-check": "allow m3/raw-hex - the whole folder\n",
+    "src/pages/home/m3-check.config.js": "export default { disabled: true };\n",
+    "src/pages/home/off.vue": `<!-- m3-check: off -->\n${page}`,
+    "src/pages/home/disabled.vue": `<!-- m3-check: disable-file - legacy -->\n${page}`,
+    "src/pages/home/wildcard.vue": `<!-- m3-check: allow m3/* - legacy screens -->\n${page}`,
+    "src/pages/home/far.vue": `<!-- m3-check: allow m3/raw-hex - only reaches the next line -->\n\n${page}`
+  }, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root });
+    assert.deepEqual(findingLines(result), [
+      "src/pages/home/disabled.vue:1 m3/allow-rule",
+      "src/pages/home/disabled.vue:3 m3/outlined-card",
+      "src/pages/home/disabled.vue:3 m3/raw-hex",
+      "src/pages/home/disabled.vue:4 nav/raw-link",
+      "src/pages/home/far.vue:4 m3/outlined-card",
+      "src/pages/home/far.vue:4 m3/raw-hex",
+      "src/pages/home/far.vue:5 nav/raw-link",
+      "src/pages/home/off.vue:1 m3/allow-rule",
+      "src/pages/home/off.vue:3 m3/outlined-card",
+      "src/pages/home/off.vue:3 m3/raw-hex",
+      "src/pages/home/off.vue:4 nav/raw-link",
+      "src/pages/home/wildcard.vue:1 m3/allow-rule",
+      "src/pages/home/wildcard.vue:3 m3/outlined-card",
+      "src/pages/home/wildcard.vue:3 m3/raw-hex",
+      "src/pages/home/wildcard.vue:4 nav/raw-link"
+    ]);
+    assert.deepEqual(result.exceptions, [
+      { file: "src/pages/home/far.vue", line: 1, rule: "m3/raw-hex", reason: "only reaches the next line" }
+    ]);
+    const navigation = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.equal(navigation.findings.length, 4);
+    assert.equal(navigation.ok, false);
+  });
+});
+
+test("jskit check m3 passes conforming source, the generated scheme and non-UI code", async () => {
+  await withApp({
+    "package.json": SHELL_MANIFEST,
+    "src/main.js": CONFORMING_BOOTSTRAP,
+    "src/theme/index.js": APP_THEME,
+    "src/pages/home/books.vue": CONFORMING_PAGE,
+    "packages/shelves/src/server/report.js": "export const accent = \"#e0a526\";\n"
+  }, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root });
+    assert.deepEqual(findingLines(result), []);
+    assert.equal(result.ok, true);
+    assert.match(formatMaterial3Report(result), /^Material 3 check: no findings in 3 file\(s\) of the whole app\. Exceptions: 0\.$/u);
+  });
+});
+
+test("jskit check m3 narrows to given paths and checks the scheme only with the bootstrap or theme", async () => {
+  await withApp(DRIFTING_APP, async (root) => {
+    const section = await checkMaterial3({ projectRoot: root, paths: ["src/pages", "src/pages/home/gone.vue"] });
+    assert.equal(section.wholeApp, false);
+    assert.deepEqual(section.files, ["src/pages/home/books.vue"]);
+    assert.deepEqual(section.missing, ["src/pages/home/gone.vue"]);
+    assert.equal(section.findings.some(({ rule }) => rule === "m3/dark-scheme"), false);
+    assert.match(formatMaterial3Report(section), /Skipped src\/pages\/home\/gone\.vue: not found\./u);
+
+    const theme = await checkMaterial3({ projectRoot: root, paths: ["src/theme/palette.js", "tests/e2e/books.spec.js"] });
+    assert.deepEqual(theme.files, ["src/theme/palette.js"]);
+    assert.deepEqual(findingLines(theme), ["src/main.js:2 m3/dark-scheme", "src/main.js:2 m3/dark-scheme"]);
+
+    await assert.rejects(checkMaterial3({ projectRoot: root, paths: ["../elsewhere"] }), /inside the application only/u);
+  });
+});
+
+test("an in-page h1 is a finding only in an app that uses the JSKIT shell", async () => {
+  await withApp({
+    "package.json": { name: "landing", private: true },
+    "src/pages/index.vue": "<template>\n  <h1>Welcome</h1>\n  <h1>Again</h1>\n</template>\n"
+  }, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root })), ["src/pages/index.vue:3 m3/duplicate-h1"]);
+  });
+});
+
+const SHELL_LAYOUT = [
+  "<route lang=\"json\">",
+  "{ \"meta\": { \"jskit\": { \"surface\": \"home\" } } }",
+  "</route>",
+  "<script setup>",
+  "import ShellLayout from \"@/components/ShellLayout.vue\";",
+  "</script>",
+  "<template>",
+  "  <ShellLayout>",
+  "    <RouterView />",
+  "  </ShellLayout>",
+  "</template>",
+  ""
+].join("\n");
+const pageWith = (declaration) => `<script setup>\n${declaration}\n</script>\n<template>\n  <section />\n</template>\n`;
+
+// Two shell surfaces (home, and admin under a workspace), a surface without the shell (auth), main navigation in both
+// placement styles, and pages that declare their parent in definePage() or a route block.
+const PARENT_APP = {
+  "package.json": { name: "nav-fixture", private: true },
+  "package-lock.json": { name: "nav-fixture", lockfileVersion: 3, packages: { "": { name: "nav-fixture" } } },
+  "config/public.js": [
+    "const config = {};",
+    "config.surfaceDefinitions = {};",
+    "config.surfaceDefinitions.home = { id: \"home\", pagesRoot: \"home\" };",
+    "config.surfaceDefinitions.auth = { id: \"auth\", pagesRoot: \"auth\" };",
+    "config.surfaceDefinitions.admin = { id: \"admin\", pagesRoot: \"w/[workspaceSlug]/admin\" };",
+    "export { config };",
+    ""
+  ].join("\n"),
+  "src/placement.js": [
+    "addPlacement({",
+    "  id: \"app.suppliers\",",
+    "  target: \"shell.primary-nav\",",
+    "  kind: \"link\",",
+    "  surfaces: [\"home\"],",
+    "  props: { label: \"Suppliers\", surface: \"home\", scopedSuffix: \"/suppliers\", unscopedSuffix: \"/suppliers\" }",
+    "});",
+    "addPlacement({ id: \"app.jobs\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"admin\"], props: { scopedSuffix: \"/jobs\" } });",
+    "addPlacement({ id: \"app.reports\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"home\"], props: { scopedSuffix: \"/reports\" } });",
+    "// A placement's link props are JSKIT navigation input, so a global route such as sign-in may be named by path.",
+    "addPlacement({ id: \"auth.sign-in\", target: \"auth.profile-menu\", kind: \"link\", surfaces: [\"*\"], props: { label: \"Sign in\", to: \"/auth/login\" } });",
+    ""
+  ].join("\n"),
+  "src/placements/menu.js": [
+    "export const MENU = Object.freeze([",
+    "  {",
+    "    id: \"app.contacts\",",
+    "    target: \"shell.primary-nav\",",
+    "    kind: \"link\",",
+    "    surfaces: [\"home\"],",
+    "    props: { label: \"Contacts\", surface: \"home\", scopedSuffix: \"/contacts?view=all\", unscopedSuffix: \"/contacts\" }",
+    "  },",
+    "  { id: \"app.orders\", target: \"shell.secondary-nav\", kind: \"link\", surfaces: [\"home\"], props: { scopedSuffix: \"/orders\" } }",
+    "]);",
+    ""
+  ].join("\n"),
+  "src/pages/home.vue": SHELL_LAYOUT,
+  "src/pages/home/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/home/suppliers/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/home/suppliers/[supplierId]/index.vue": pageWith("definePage({ meta: { jskit: { parent: \"/suppliers\" } } });"),
+  "src/pages/home/suppliers/[supplierId]/edit.vue": pageWith("definePage({ meta: { jskit: { guard: { policy: \"authenticated\" } } } });"),
+  "src/pages/home/contacts/index.vue": pageWith("definePage({ meta: { jskit: { parent: \"/\" } } });"),
+  "src/pages/home/contacts/[contactId].vue": "<route lang=\"json\">\n{ \"meta\": { \"jskit\": { \"parent\": \"/contacts\" } } }\n</route>\n<template>\n  <section />\n</template>\n",
+  "src/pages/home/settings.vue": "<template>\n  <section>\n    <RouterView />\n  </section>\n</template>\n",
+  "src/pages/home/settings/index.vue": pageWith("definePage({ redirect: redirectToChild(\"general\") });"),
+  "src/pages/home/settings/general/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/auth/login.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/w/[workspaceSlug]/admin.vue": SHELL_LAYOUT,
+  "src/pages/w/[workspaceSlug]/admin/jobs/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/w/[workspaceSlug]/admin/jobs/[jobId]/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/home/contacts/_components/ContactForm.vue": "<template>\n  <v-form />\n</template>\n",
+  "src/pages/home/orders/index/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/home/orders/index/[orderId]/index.vue": pageWith("definePage({ meta: { jskit: { parent: \"/orders\" } } });"),
+  "src/pages/home/reports.vue": "<template>\n  <section>\n    <RouterView />\n  </section>\n</template>\n",
+  "src/pages/home/reports/overview.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/w/[workspaceSlug]/admin/workspace/settings.vue": pageWith("definePage({ meta: { jskit: { parent: \"/\" } } });").replace("<section />", "<RouterView />"),
+  "src/pages/w/[workspaceSlug]/admin/workspace/settings/members.vue": "<template>\n  <section />\n</template>\n"
+};
+
+test("every inner shell page declares a parent and no main-navigation page declares one", async () => {
+  await withApp(PARENT_APP, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.deepEqual(findingLines(result), [
+      "src/pages/home/contacts/index.vue:2 nav/top-level-parent",
+      "src/pages/home/settings/general/index.vue:1 nav/missing-parent",
+      "src/pages/home/suppliers/[supplierId]/edit.vue:2 nav/missing-parent",
+      "src/pages/w/[workspaceSlug]/admin/jobs/[jobId]/index.vue:1 nav/missing-parent"
+    ]);
+    assert.deepEqual(result.pages.map(({ route, surface, topLevel, parent }) => [surface, route, topLevel ? "top" : "", parent || ""].join(" ").trim()), [
+      "home /contacts/:contactId  own",
+      "home /contacts top own",
+      "home / top",
+      "home /orders/:orderId  own",
+      "home /orders top",
+      "home /reports/overview top",
+      "home /settings/general",
+      "home /suppliers/:supplierId/edit",
+      "home /suppliers/:supplierId  own",
+      "home /suppliers top",
+      "admin /jobs/:jobId",
+      "admin /jobs top",
+      "admin /workspace/settings/members  inherited"
+    ]);
+    assert.match(result.findings[3].message, /Inner page \/jobs\/:jobId of admin has no parent/u);
+
+    const section = await checkMaterial3({ projectRoot: root, paths: ["src/pages/home/suppliers"] });
+    assert.deepEqual(findingLines(section), ["src/pages/home/suppliers/[supplierId]/edit.vue:2 nav/missing-parent"]);
+  });
+});
+
+test("plain jskit check fails on navigation errors after the package graph and passes once they are fixed", async () => {
+  await withApp(PARENT_APP, async (root) => {
+    const failure = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]).then(() => null, (error) => error);
+    assert.equal(failure?.code, 1);
+    assert.match(failure.stderr, /^JSKIT project graph is coordinated across 1 manifest\(s\) and 0 resolved package installation\(s\)\.$/mu);
+    assert.match(failure.stderr, /edit\.vue:2:\d+ {2}nav\/missing-parent {2}Inner page \/suppliers\/:supplierId\/edit of home has no parent/u);
+    assert.match(failure.stderr, /material-3#what-an-app-declares/u);
+    assert.match(failure.stderr, /JSKIT navigation rules: 4 error\(s\) in 23 file\(s\) and 13 shell page\(s\)\./u);
+
+    const declare = (parent) => pageWith(`definePage({ meta: { jskit: { parent: "${parent}" } } });`);
+    await writeFile(path.join(root, "src/pages/home/contacts/index.vue"), "<template>\n  <section />\n</template>\n");
+    await writeFile(path.join(root, "src/pages/home/settings/general/index.vue"), declare("/"));
+    await writeFile(path.join(root, "src/pages/home/suppliers/[supplierId]/edit.vue"), declare("/suppliers/:supplierId"));
+    await writeFile(path.join(root, "src/pages/w/[workspaceSlug]/admin/jobs/[jobId]/index.vue"), declare("/jobs"));
+    const { stdout } = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]);
+    assert.match(stdout, /JSKIT navigation rules pass in 23 file\(s\) and 13 shell page\(s\)\./u);
+  });
+});
+
+test("jskit check m3 parses as its own command and fails the CLI with the report", async () => {
+  assert.deepEqual(parseArgs(["check", "m3", "src/pages/home", "--root", "/tmp/example"]), {
+    command: "check-m3",
+    paths: ["src/pages/home"],
+    projectRoot: "/tmp/example"
+  });
+  assert.deepEqual(parseArgs(["check", "m3"]).paths, []);
+  assert.throws(() => parseArgs(["check", "m3", "--manifest", "a/package.json"]), /only valid with jskit update and jskit check/u);
+  assert.throws(() => parseArgs(["check", "m4"]), /Unknown argument: m4/u);
+  assert.match(usage(), /jskit check m3 \[<path> \.\.\.\] \[--root <path>\]/u);
+
+  await withApp(DRIFTING_APP, async (root) => {
+    const failure = await execFileAsync(process.execPath, [CLI_PATH, "check", "m3", "src/pages", "--root", root])
+      .then(() => null, (error) => error);
+    assert.equal(failure?.code, 1);
+    assert.match(failure.stderr, /src\/pages\/home\/books\.vue:23:\d+ {2}nav\/history {2}router\.back\(/u);
+    assert.match(failure.stderr, /guide\/framework\/material-3#forbidden-in-app-code/u);
+    assert.match(failure.stderr, /^Exceptions \(1\):\nsrc\/pages\/home\/books\.vue:30 {2}m3\/raw-hex {2}the partner's logo colour is contractual$/mu);
+    assert.match(failure.stderr, /Material 3 check: 27 finding\(s\) in 1 of 1 file\(s\) of the given paths\. 14 of them nav\/\* rules, which plain jskit check fails on\. Exceptions: 1\.$/mu);
+  });
+});
