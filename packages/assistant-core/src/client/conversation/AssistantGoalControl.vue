@@ -63,6 +63,11 @@ async function setGoal() {
   const result = await props.state.set({ objective: objective.value.trim(), ...(props.state.tokenBudgetSupported === false || tokenBudget.value === "" ? {} : { tokenBudget: Number(tokenBudget.value) }) });
   if (result !== false && result?.ok !== false && !props.state.error) { objective.value = ""; tokenBudget.value = ""; open.value = false; }
 }
+// A successful Cancel closes the menu, as Start does; Pause and Resume keep it open.
+async function cancelGoal() {
+  const result = await props.state.cancel();
+  if (result !== false && result?.ok !== false && !props.state.error) open.value = false;
+}
 </script>
 
 <template>
@@ -78,7 +83,7 @@ async function setGoal() {
       <strong role="status">{{ label }}</strong>
       <v-btn v-if="(running || (state.pauseBlocked && goal?.status === 'blocked')) && state.pause" size="small" :disabled="state.stopPending" @click="state.pause()">{{ state.action === 'pause' ? t('jskit.assistant.goal.pausing') : t('jskit.assistant.goal.pause') }}</v-btn>
       <v-btn v-if="['paused', 'blocked', 'usageLimited'].includes(goal?.status) && state.resume" size="small" :disabled="state.pending" @click="state.resume()">{{ state.action === 'resume' ? t('jskit.assistant.goal.resuming') : t('jskit.assistant.goal.resume') }}</v-btn>
-      <v-btn v-if="goal && goal.status !== 'complete' && state.cancel" color="error" size="small" variant="text" :disabled="state.stopPending" @click="state.cancel()">{{ state.action === 'cancel' ? t('jskit.assistant.goal.cancelling') : t('jskit.assistant.goal.cancel') }}</v-btn>
+      <v-btn v-if="goal && goal.status !== 'complete' && state.cancel" color="error" size="small" variant="text" :disabled="state.stopPending" @click="cancelGoal">{{ state.action === 'cancel' ? t('jskit.assistant.goal.cancelling') : t('jskit.assistant.goal.cancel') }}</v-btn>
       <p v-if="goal" class="my-2">{{ goal.objective }}</p>
       <p v-if="goal?.reason" class="text-body-small my-2">{{ goal.reason }}</p>
       <p v-if="elapsed" class="text-body-small my-2">{{ elapsedText }}</p>

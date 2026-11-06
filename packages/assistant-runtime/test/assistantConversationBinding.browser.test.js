@@ -468,7 +468,9 @@ test("a Start accepted behind the running turn stays Starting… until its goal 
   // A Start the conversation finishes without says so and keeps its objective.
   await control("Goal running").click();
   await f.page.getByRole("button", { name: "Cancel goal", exact: true }).click();
-  await expect(control("Set goal")).toBeVisible();
+  // A successful Cancel closes the menu, as Start does; Set goal opens it again.
+  await expect(control("Set goal")).toHaveAttribute("aria-expanded", "false");
+  await control("Set goal").click();
   await objective.fill("Never takes effect");
   await start.click();
   await expect.poll(async () => (await starts()).length).toBe(2);

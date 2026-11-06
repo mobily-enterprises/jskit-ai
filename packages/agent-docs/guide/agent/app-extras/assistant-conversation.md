@@ -1262,7 +1262,8 @@ surface failures in `error`; return `false` on unsuccessful creation. The shared
 `AssistantGoalControl` owns the form and presentation, not a scheduler or goal
 storage. Supported statuses are `active`, `paused`, `blocked`, `usageLimited`,
 `budgetLimited`, and `complete`. The UI offers creation only without an unfinished
-goal and offers Pause/Resume only for their applicable statuses. `pending`
+goal and offers Pause/Resume only for their applicable statuses. Its menu closes
+after a successful Start or Cancel and stays open after Pause and Resume. `pending`
 disables Set and Resume; `stopPending` disables Pause and Cancel, which the
 supplied binding never blocks on message sending or unknown delivery.
 

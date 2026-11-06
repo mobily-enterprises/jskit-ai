@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The goal menu closes when Cancel succeeds, as it does after Start; Pause and Resume keep it open.
 - `AssistantConversationElement` has an `avatar-thumbnail` slot, with the `{ size, height }` scope of the other avatar slots: while the avatar is hidden, the **Show avatar** button draws its content instead of the anonymous account icon, such as a still miniature of the avatar, clipped to the button's round 32-pixel disc. The button keeps its label, title and 44-pixel target, and shows the icon as before without the slot.
 - A delivered Codex turn is held as not yet started only until Codex reports it: a `turn/started` that arrives before the `turn/start` answer counts, and a thread read listing exactly that turn as completed or failed settles a turn whose notifications were missed, so its answer is no longer kept waiting for a notification that never comes.
 - The API driver's state note, which carries the current time, follows the conversation as its last message instead of ending the system prompt, so the provider's prompt cache keeps the whole history from one turn to the next instead of charging it uncached on each turn's first model call (`@jskit-ai/agent` `runLoop`).

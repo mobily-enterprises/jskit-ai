@@ -75,6 +75,7 @@ Exports
 - None
 Local functions
 - `setGoal()`
+- `cancelGoal()`
 
 ### `src/client/conversation/AssistantMessageAttachments.vue`
 Exports
