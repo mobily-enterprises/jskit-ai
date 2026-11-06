@@ -126,5 +126,8 @@
     "@jskit-ai/database-runtime": {
       "optional": true
     }
+  },
+  "devDependencies": {
+    "@jskit-ai/material-web": "0.1.0"
   }
 }

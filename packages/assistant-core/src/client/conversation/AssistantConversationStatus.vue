@@ -1,5 +1,5 @@
 <template>
-  <div v-if="message.delivery" class="d-flex flex-wrap align-center ga-1 text-caption text-error" role="status">
+  <div v-if="message.delivery" class="d-flex flex-wrap align-center ga-1 text-body-small text-error" role="status">
     <span>{{ message.delivery.error || message.text }}</span>
     <v-btn
       variant="text"

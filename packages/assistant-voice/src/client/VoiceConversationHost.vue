@@ -1,5 +1,4 @@
 <script setup>
-import { mdiHeadset, mdiStop } from "@mdi/js";
 import ConversationDialog from "./ConversationDialog.vue";
 import VoiceConversation from "./VoiceConversation.vue";
 import VoiceConversationSettings from "./VoiceConversationSettings.vue";
@@ -71,7 +70,7 @@ async function openText() {
           </template>
           <template #work-control>
             <v-btn
-              v-if="state.binding.cancelWork && state.binding.state.status === 'working'" :disabled="state.busy" :icon="mdiStop" variant="text"
+              v-if="state.binding.cancelWork && state.binding.state.status === 'working'" :disabled="state.busy" icon="$stop" variant="text"
               :aria-label="t('jskit.assistant.voice.host.stopWork')" :title="t('jskit.assistant.voice.host.stopWork')" @click="invoke(state.binding.cancelWork)"
             />
           </template>
@@ -81,7 +80,7 @@ async function openText() {
   </ConversationDialog>
   <template v-if="presentation === 'dialog' && state.session && !state.visible">
     <slot v-if="$slots.reopen" name="reopen" :controller="controller" />
-    <v-btn v-else class="voice-host__reopen" color="primary" :prepend-icon="mdiHeadset" min-height="56" @click="controller.reveal()">
+    <v-btn v-else class="voice-host__reopen" color="primary" prepend-icon="$headsetMic" min-height="56" @click="controller.reveal()">
       {{ t("jskit.assistant.voice.host.reopen", { label: state.binding.label || t("jskit.assistant.voice.assistant") }) }}
     </v-btn>
   </template>

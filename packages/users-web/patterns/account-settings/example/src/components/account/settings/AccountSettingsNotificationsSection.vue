@@ -10,7 +10,7 @@ const notifications = props.runtime.notifications;
 </script>
 
 <template>
-  <v-sheet rounded="lg" border class="account-settings-section">
+  <div class="account-settings-section">
     <div class="account-settings-section__body">
       <v-form @submit.prevent="notifications.submit" novalidate>
         <v-switch
@@ -47,7 +47,7 @@ const notifications = props.runtime.notifications;
         </v-btn>
       </v-form>
     </div>
-  </v-sheet>
+  </div>
 </template>
 
 <style scoped>

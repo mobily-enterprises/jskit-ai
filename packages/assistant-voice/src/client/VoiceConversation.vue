@@ -3,7 +3,6 @@ import { computed, ref, watch } from "vue";
 import { AssistantConversationElement } from "@jskit-ai/assistant-core/client/conversation";
 import VoiceAvatar from "./VoiceAvatar.vue";
 import VoiceConversationControls from "./VoiceConversationControls.vue";
-import { mdiMicrophone, mdiVolumeHigh } from "@mdi/js";
 import { useJskitText } from "./i18n.js";
 
 const props = defineProps({
@@ -59,13 +58,13 @@ watch(voiceAnswer, () => followCaption(voiceAnswerTarget, followAnswer), { flush
             v-if="scope.size === 'hidden' && voice.listening.value && !microphoneMuted" role="img"
             :aria-label="t('jskit.assistant.voice.conversation.listening')" :title="t('jskit.assistant.voice.conversation.listening')"
           >
-            <v-icon :icon="mdiMicrophone" size="20" aria-hidden="true" />
+            <v-icon icon="$mic" size="20" aria-hidden="true" />
           </span>
           <span
             v-if="scope.size === 'hidden' && voice.speaking.value" role="img"
             :aria-label="t('jskit.assistant.voice.conversation.speaking')" :title="t('jskit.assistant.voice.conversation.speaking')"
           >
-            <v-icon :icon="mdiVolumeHigh" size="20" aria-hidden="true" />
+            <v-icon icon="$volumeHigh" size="20" aria-hidden="true" />
           </span>
         </slot>
       </template>

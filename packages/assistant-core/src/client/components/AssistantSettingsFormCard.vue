@@ -1,8 +1,8 @@
 <template>
   <section :class="props.rootClass">
-    <v-card rounded="lg" elevation="1" border>
+    <v-card>
       <v-card-item>
-        <v-card-title class="text-h6">{{ props.title }}</v-card-title>
+        <v-card-title class="text-title-large">{{ props.title }}</v-card-title>
         <v-card-subtitle>{{ props.subtitle }}</v-card-subtitle>
       </v-card-item>
       <v-divider />
@@ -11,11 +11,11 @@
           <v-skeleton-loader type="text@2, list-item-two-line@4, button" />
         </template>
 
-        <p v-else-if="props.addEdit.loadError" class="text-body-2 text-medium-emphasis mb-4">
+        <p v-else-if="props.addEdit.loadError" class="text-body-medium on-surface-variant mb-4">
           {{ props.addEdit.loadError }}
         </p>
 
-        <p v-else-if="!props.addEdit.canView" class="text-body-2 text-medium-emphasis mb-4">
+        <p v-else-if="!props.addEdit.canView" class="text-body-medium on-surface-variant mb-4">
           {{ props.noPermissionMessage }}
         </p>
 

@@ -9,7 +9,7 @@
       :data-testid="uiTestIds.card"
     >
       <div v-if="resolvedFeatures.header" class="profile-client-panel__header">
-        <h2 class="text-subtitle-1 mb-0">{{ copyText.title }}</h2>
+        <h2 class="text-title-medium mb-0">{{ copyText.title }}</h2>
       </div>
       <v-divider v-if="resolvedFeatures.header" />
       <div class="profile-client-panel__body">
@@ -20,9 +20,9 @@
             <v-col cols="12" md="4" class="d-flex flex-column align-center justify-center">
               <v-avatar :size="state.preferencesForm.avatarSize" color="surface-variant" rounded="circle" class="mb-3">
                 <v-img v-if="state.profileAvatar.effectiveUrl" :src="state.profileAvatar.effectiveUrl" cover />
-                <span v-else class="text-h6">{{ state.profileInitials }}</span>
+                <span v-else class="text-title-large">{{ state.profileInitials }}</span>
               </v-avatar>
-              <div class="text-caption text-medium-emphasis">
+              <div class="text-body-small on-surface-variant">
                 {{ copyText.previewSizePrefix }} {{ state.preferencesForm.avatarSize }} {{ copyText.previewSizeSuffix }}
               </div>
             </v-col>
@@ -43,7 +43,7 @@
                 </v-btn>
                 <slot name="avatar-actions-extra" :state="state" :actions="actions" />
               </div>
-              <div v-if="state.selectedAvatarFileName" class="text-caption text-medium-emphasis mb-2">
+              <div v-if="state.selectedAvatarFileName" class="text-body-small on-surface-variant mb-2">
                 {{ copyText.selectedFilePrefix }} {{ state.selectedAvatarFileName }}
               </div>
             </v-col>

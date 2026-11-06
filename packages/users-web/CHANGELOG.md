@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The account settings page and the account-settings pattern's sections sit directly on the page, without bordered sheets; the title is `text-headline-small` and the section list has no extra border or tint.
+- Account settings text uses Vuetify 4's Material 3 type classes (`text-body-medium`, `text-title-large`, ...) instead of Material 2 ones, which Vuetify 4 no longer styles, and the account settings page pattern declares its title and its parent (the home surface's root). Upgrading: see the guide's [Move an app to the Material 3 defaults](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/material-3-migration).
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

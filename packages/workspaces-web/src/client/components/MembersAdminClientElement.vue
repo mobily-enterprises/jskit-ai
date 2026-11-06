@@ -2,9 +2,9 @@
   <section class="members-admin-client-element">
     <v-row>
       <v-col cols="12" lg="5">
-        <v-card rounded="lg" elevation="1" border data-testid="members-admin-invite-card">
+        <v-card data-testid="members-admin-invite-card">
           <v-card-item>
-            <v-card-title class="text-subtitle-1">{{ t("jskit.workspaces.membersAdmin.inviteTitle") }}</v-card-title>
+            <v-card-title class="text-title-medium">{{ t("jskit.workspaces.membersAdmin.inviteTitle") }}</v-card-title>
             <v-card-subtitle>{{ t("jskit.workspaces.membersAdmin.inviteSubtitle") }}</v-card-subtitle>
           </v-card-item>
           <v-divider />
@@ -16,18 +16,18 @@
               <v-progress-linear v-if="showWorkspaceInviteRefreshingIndicator" indeterminate class="mb-3" />
               <p
                 v-if="workspaceInvitePolicyLoaded && !workspaceInvitesAvailable"
-                class="text-body-2 text-medium-emphasis mb-3"
+                class="text-body-medium on-surface-variant mb-3"
               >
                 {{ t("jskit.workspaces.membersAdmin.invitesUnavailable") }}
               </p>
               <p
                 v-else-if="workspaceInvitePolicyLoaded && !workspaceInvitesEnabled"
-                class="text-body-2 text-medium-emphasis mb-3"
+                class="text-body-medium on-surface-variant mb-3"
               >
                 {{ t("jskit.workspaces.membersAdmin.invitesOff") }}
               </p>
 
-              <p v-if="!canInviteMembers" class="text-body-2 text-medium-emphasis mb-3">
+              <p v-if="!canInviteMembers" class="text-body-medium on-surface-variant mb-3">
                 {{ t("jskit.workspaces.membersAdmin.noInvitePermission") }}
               </p>
 
@@ -66,7 +66,7 @@
 
                 <div v-if="hasCreatedInviteUrl" class="invite-link-panel mt-4">
                   <v-divider class="mb-4" />
-                  <p class="text-caption text-medium-emphasis mb-2">{{ inviteLinkStatusText }}</p>
+                  <p class="text-body-small on-surface-variant mb-2">{{ inviteLinkStatusText }}</p>
                   <div class="invite-link-row">
                     <v-text-field
                       :model-value="createdInviteUrl"
@@ -80,7 +80,7 @@
                     <v-btn
                       color="primary"
                       variant="tonal"
-                      :prepend-icon="mdiContentCopy"
+                      prepend-icon="$contentCopy"
                       :loading="isCopyingInviteLink"
                       @click="onCopyInviteLink"
                     >
@@ -95,9 +95,9 @@
       </v-col>
 
       <v-col cols="12" lg="7">
-        <v-card rounded="lg" elevation="1" border data-testid="members-admin-members-card">
+        <v-card data-testid="members-admin-members-card">
           <v-card-item>
-            <v-card-title class="text-subtitle-1">{{ t("jskit.workspaces.membersAdmin.teamTitle") }}</v-card-title>
+            <v-card-title class="text-title-medium">{{ t("jskit.workspaces.membersAdmin.teamTitle") }}</v-card-title>
             <v-card-subtitle>{{ t("jskit.workspaces.membersAdmin.teamSubtitle") }}</v-card-subtitle>
           </v-card-item>
           <v-divider />
@@ -109,12 +109,12 @@
             </template>
             <template v-else>
               <v-progress-linear v-if="showMembersRefreshingIndicator" indeterminate class="mb-3" />
-              <p v-if="!canViewMembers" class="text-body-2 text-medium-emphasis mb-0">
+              <p v-if="!canViewMembers" class="text-body-medium on-surface-variant mb-0">
                 {{ t("jskit.workspaces.membersAdmin.noViewPermission") }}
               </p>
 
               <template v-else>
-                <div class="text-caption text-medium-emphasis mb-2">{{ t("jskit.workspaces.membersAdmin.members") }}</div>
+                <div class="text-body-small on-surface-variant mb-2">{{ t("jskit.workspaces.membersAdmin.members") }}</div>
                 <v-list density="comfortable" class="pa-0 mb-3">
                   <v-list-item v-for="member in memberRows" :key="member.userId" class="px-0">
                     <template #title>
@@ -159,7 +159,7 @@
 
                 <v-divider class="mb-3" />
 
-                <div class="text-caption text-medium-emphasis mb-2">{{ t("jskit.workspaces.membersAdmin.pendingInvites") }}</div>
+                <div class="text-body-small on-surface-variant mb-2">{{ t("jskit.workspaces.membersAdmin.pendingInvites") }}</div>
                 <v-list density="comfortable" class="pa-0">
                   <v-list-item v-for="invite in inviteRows" :key="invite.id" class="px-0">
                     <template #title>
@@ -181,7 +181,7 @@
                       </v-btn>
                     </template>
                   </v-list-item>
-                  <p v-if="inviteRows.length < 1" class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.membersAdmin.noPendingInvites") }}</p>
+                  <p v-if="inviteRows.length < 1" class="text-body-medium on-surface-variant mb-0">{{ t("jskit.workspaces.membersAdmin.noPendingInvites") }}</p>
                 </v-list>
               </template>
             </template>
@@ -194,7 +194,6 @@
 
 <script setup>
 import { computed, toRefs } from "vue";
-import { mdiContentCopy } from "@mdi/js";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { useJskitText } from "../i18n.js";
 

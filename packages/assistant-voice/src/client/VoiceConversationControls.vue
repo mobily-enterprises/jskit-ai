@@ -1,6 +1,5 @@
 <script setup>
 import { computed, useId } from "vue";
-import { mdiMicrophone, mdiMicrophoneOff, mdiStop, mdiVolumeHigh, mdiVolumeOff } from "@mdi/js";
 import { useVoiceLauncher } from "./voiceLauncher.js";
 import { useJskitText, voiceErrorText } from "./i18n.js";
 
@@ -84,7 +83,7 @@ const gesture = useVoiceLauncher({
       <fieldset class="assistant-voice-controls__tools" :class="{ 'assistant-voice-controls__tools--compact': compact, 'assistant-voice-controls__tools--icons': iconOnly }" :disabled="disabled" :aria-label="t('jskit.assistant.voice.controls.label', { target: targetLabel })">
         <div v-if="compact || iconOnly || speechActive" class="assistant-voice-controls__stop">
           <v-btn
-            v-if="speechActive" :icon="mdiStop" variant="text" min-width="48" min-height="48"
+            v-if="speechActive" icon="$stop" variant="text" min-width="48" min-height="48"
             :aria-label="t('jskit.assistant.voice.controls.stopTargetSpeaking', { target: targetLabel })"
             :title="t('jskit.assistant.voice.controls.stopSpeaking')" @click="stopSpeech"
           />
@@ -93,8 +92,8 @@ const gesture = useVoiceLauncher({
         <div class="assistant-voice__talk-action">
           <v-btn
             class="assistant-voice__talk" color="primary" :variant="iconOnly ? 'text' : handsFreeListening ? 'tonal' : 'flat'" :min-height="iconOnly ? 44 : compact ? 48 : 64" rounded="xl"
-            :icon="iconOnly ? (voice.listening.value && !microphoneMuted ? mdiMicrophone : mdiMicrophoneOff) : undefined"
-            :prepend-icon="iconOnly ? undefined : (voice.listening.value && !microphoneMuted ? mdiMicrophone : mdiMicrophoneOff)"
+            :icon="iconOnly ? (voice.listening.value && !microphoneMuted ? '$mic' : '$micOff') : undefined"
+            :prepend-icon="iconOnly ? undefined : (voice.listening.value && !microphoneMuted ? '$mic' : '$micOff')"
             :aria-label="iconOnly ? talkLabel : undefined" :title="t('jskit.assistant.voice.controls.talkHint')"
             :aria-pressed="handsFreeListening || pushHolding" :aria-describedby="gestureHint"
             :disabled="!canTalk" :slim="compact || iconOnly"
@@ -103,11 +102,11 @@ const gesture = useVoiceLauncher({
             @keydown.space.prevent="gesture.keyDown" @keyup.space.prevent="gesture.keyUp"
             @keydown.enter.prevent="gesture.keyDown" @keyup.enter.prevent="gesture.keyUp" @blur="gesture.cancel" @contextmenu.prevent @click="gesture.click"
           >
-            <span v-if="iconOnly" class="assistant-voice-controls__icon-disc"><v-icon size="20" :icon="voice.listening.value && !microphoneMuted ? mdiMicrophone : mdiMicrophoneOff" /></span>
+            <span v-if="iconOnly" class="assistant-voice-controls__icon-disc"><v-icon size="20" :icon="voice.listening.value && !microphoneMuted ? '$mic' : '$micOff'" /></span>
             <template v-else>{{ talkLabel }}</template>
           </v-btn>
           <v-btn
-            :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" :aria-pressed="readAloud" :variant="iconOnly ? 'text' : 'tonal'" :color="iconOnly ? 'primary' : undefined" :min-height="iconOnly ? 44 : compact ? 48 : 64" :width="iconOnly ? 40 : undefined" :min-width="iconOnly ? 40 : compact ? 48 : 64" rounded="xl"
+            :icon="readAloud ? '$volumeHigh' : '$volumeOff'" :aria-pressed="readAloud" :variant="iconOnly ? 'text' : 'tonal'" :color="iconOnly ? 'primary' : undefined" :min-height="iconOnly ? 44 : compact ? 48 : 64" :width="iconOnly ? 40 : undefined" :min-width="iconOnly ? 40 : compact ? 48 : 64" rounded="xl"
             :aria-label="readAloud
               ? t('jskit.assistant.voice.controls.readAloudOff', { target: targetLabel })
               : t('jskit.assistant.voice.controls.readAloudOn', { target: targetLabel })"
@@ -115,11 +114,11 @@ const gesture = useVoiceLauncher({
             :disabled="speakerDisabled || session.readAloudChangePending.value" @click="toggleReadAloud"
           >
             <template v-if="iconOnly" #default>
-              <span class="assistant-voice-controls__icon-disc"><v-icon size="20" :icon="readAloud ? mdiVolumeHigh : mdiVolumeOff" /></span>
+              <span class="assistant-voice-controls__icon-disc"><v-icon size="20" :icon="readAloud ? '$volumeHigh' : '$volumeOff'" /></span>
             </template>
           </v-btn>
           <slot name="settings-control" />
-          <p :id="gestureHint" class="text-body-small text-medium-emphasis">
+          <p :id="gestureHint" class="text-body-small on-surface-variant">
             {{ handsFreeListening ? t("jskit.assistant.voice.controls.tapToPause") : t("jskit.assistant.voice.controls.tapForHandsFree") }}
           </p>
         </div>

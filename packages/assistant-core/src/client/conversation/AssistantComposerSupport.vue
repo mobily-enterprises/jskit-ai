@@ -29,7 +29,7 @@
       <v-icon
         aria-hidden="true"
         class="assistant-composer-support__marker"
-        :icon="mdiLightbulbOnOutline"
+        icon="$lightbulb"
         size="16"
       />
 
@@ -73,7 +73,6 @@
 
 <script setup>
 import { computed } from "vue";
-import { mdiLightbulbOnOutline } from "@mdi/js";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();

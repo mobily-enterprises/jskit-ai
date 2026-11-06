@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- The workspaces and invitations screens and the workspace-surfaces pattern's panels sit directly on the page, without bordered sheets; the invite landing and the members screen use elevated Material 3 cards; titles use Material 3 type classes instead of hand-sized ones. Buttons are Material 3's 40dp buttons inside material-web's 48dp touch target, no longer stretched to 48px; the workspace list's and invitations' buttons are default size instead of small.
+- Icons are Material Symbols `$aliases` (from `@jskit-ai/material-web`) instead of `@mdi/js` paths, and text uses Vuetify 4's Material 3 type classes (`text-body-large`, `text-title-medium`, ...) instead of Material 2 ones, which Vuetify 4 no longer styles. Upgrading: see the guide's [Move an app to the Material 3 defaults](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/material-3-migration).
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

@@ -2,10 +2,11 @@ import { createApp, h, reactive } from "vue";
 import { createRouter, createWebHistory, RouterView, useRoute } from "vue-router";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import "vuetify/styles";
+import "@jskit-ai/material-web/client/material.css";
+import { createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import { createVuetify } from "vuetify";
 import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
-import { aliases, mdi } from "vuetify/iconsets/mdi-svg";
 import AccountSettingsInvitesSection from "../../src/client/components/AccountSettingsInvitesSection.vue";
 import WorkspaceSelector from "../../src/client/components/WorkspaceSelector.vue";
 
@@ -85,6 +86,6 @@ app.provide("jskit.shell-web.runtime.web-placement.client", {
 app.provide("jskit.shell-web.runtime.web-error.client", errorRuntime);
 app.use(router);
 app.use(VueQueryPlugin, { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) });
-app.use(createVuetify({ components, directives, icons: { defaultSet: "mdi", aliases, sets: { mdi } } }));
+app.use(createVuetify({ components, directives, ...createMaterialVuetifyOptions() }));
 await router.isReady();
 app.mount("#app");

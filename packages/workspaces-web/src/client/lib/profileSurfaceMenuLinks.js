@@ -10,17 +10,11 @@ import {
   resolveWorkspaceSurfaceIdFromPlacementPathname,
   extractWorkspaceSlugFromSurfacePathname
 } from "./workspaceSurfacePaths.js";
-import {
-  mdiArrowRightCircleOutline,
-  mdiHomeVariantOutline,
-  mdiShieldCrownOutline,
-  mdiViewDashboardOutline
-} from "@mdi/js";
 
 const SURFACE_SWITCH_ICON_BY_ID = Object.freeze({
-  home: mdiHomeVariantOutline,
-  app: mdiViewDashboardOutline,
-  admin: mdiShieldCrownOutline
+  home: "$home",
+  app: "$dashboard",
+  admin: "$adminPanelSettings"
 });
 
 function resolveSurfaceSwitchIcon(surfaceId = "", explicitIcon = "") {
@@ -30,7 +24,7 @@ function resolveSurfaceSwitchIcon(surfaceId = "", explicitIcon = "") {
   }
 
   const normalizedSurfaceId = String(surfaceId || "").trim().toLowerCase();
-  return SURFACE_SWITCH_ICON_BY_ID[normalizedSurfaceId] || mdiArrowRightCircleOutline;
+  return SURFACE_SWITCH_ICON_BY_ID[normalizedSurfaceId] || "$arrowCircleRight";
 }
 
 function resolveCurrentWorkspaceSlug(contextValue, surfaceId) {

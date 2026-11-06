@@ -85,8 +85,12 @@ test("Your workspaces keeps its layout while responding and then opens the last 
         0,
         `${viewport.name}: no horizontal scroll`
       );
+      // Material 3 buttons are 40dp tall inside a 48dp touch target (material-web's ::before).
       const buttonHeights = await page.locator(".workspaces-view__body .v-btn").evaluateAll(
-        (buttons) => buttons.map((button) => button.getBoundingClientRect().height)
+        (buttons) => buttons.map((button) => Math.max(
+          button.getBoundingClientRect().height,
+          Number.parseFloat(getComputedStyle(button, "::before").height) || 0
+        ))
       );
       assert.ok(buttonHeights.every((height) => height >= 48), `${viewport.name}: 48px targets, got ${buttonHeights}`);
       const headingBox = await heading.boundingBox();

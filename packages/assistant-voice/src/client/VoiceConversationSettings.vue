@@ -1,5 +1,4 @@
 <script setup>
-import { mdiCog } from "@mdi/js";
 import { useSlots } from "vue";
 import VoiceSpeakingVoiceSelect from "./VoiceSpeakingVoiceSelect.vue";
 import { useJskitText } from "./i18n.js";
@@ -23,11 +22,11 @@ async function openSettings(open) {
   <v-menu :close-on-content-click="false" location="bottom end" @update:model-value="openSettings">
     <template #activator="{ props: settingsButton }">
       <v-btn
-        v-bind="settingsButton" :icon="mdiCog" variant="text" :color="compact ? 'primary' : undefined"
+        v-bind="settingsButton" icon="$settings" variant="text" :color="compact ? 'primary' : undefined"
         :width="compact ? 40 : undefined" :min-width="compact ? 40 : 48" :min-height="compact ? 44 : 48" :disabled="!voice && !$slots.default"
         :aria-label="t('jskit.assistant.voice.settings.title')" :title="t('jskit.assistant.voice.settings.title')"
       >
-        <template v-if="compact" #default><span class="voice-settings__disc"><v-icon size="20" :icon="mdiCog" /></span></template>
+        <template v-if="compact" #default><span class="voice-settings__disc"><v-icon size="20" icon="$settings" /></span></template>
       </v-btn>
     </template>
     <v-card class="voice-settings__menu" role="region" :aria-label="t('jskit.assistant.voice.settings.title')">

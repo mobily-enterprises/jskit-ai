@@ -10,7 +10,7 @@ const signInMethods = props.runtime.signInMethods;
 </script>
 
 <template>
-  <v-sheet rounded="lg" border class="account-settings-section">
+  <div class="account-settings-section">
     <v-list lines="two" class="py-0">
       <v-list-item
         v-for="method in signInMethods.methods.value"
@@ -43,11 +43,11 @@ const signInMethods = props.runtime.signInMethods;
     </v-list>
     <p
       v-if="signInMethods.methods.value.some((method) => method.linked && !method.canUnlink)"
-      class="account-settings-section__hint text-body-2 text-medium-emphasis mb-0"
+      class="account-settings-section__hint text-body-medium on-surface-variant mb-0"
     >
       Your only sign-in method can't be unlinked. Set a password or link another provider first.
     </p>
-  </v-sheet>
+  </div>
 </template>
 
 <style scoped>

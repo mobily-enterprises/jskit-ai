@@ -7,14 +7,14 @@
       <div v-show="avatarSize === 'hidden'" ref="avatarControls" class="assistant-conversation__avatar-controls">
         <slot name="avatar-control" :size="avatarSize" :height="avatarHeight" />
         <v-btn
-          :icon="mdiAccountCircleOutline" size="small"
+          icon="$accountCircle" size="small"
           variant="text" :width="44" :min-width="44" :min-height="44"
           class="assistant-conversation__avatar-size"
           :aria-label="t('jskit.assistant.chat.showAvatar')" :title="t('jskit.assistant.chat.showAvatar')"
           :aria-expanded="avatarSize !== 'hidden'" @click="toggleAvatar"
         >
           <span class="assistant-conversation__avatar-size-disc">
-            <v-icon size="20" :icon="mdiAccountCircleOutline" />
+            <v-icon size="20" icon="$accountCircle" />
           </span>
         </v-btn>
       </div>
@@ -25,13 +25,13 @@
         <div class="assistant-conversation__avatar-tools">
           <slot name="avatar-tools" :size="avatarSize" :height="avatarHeight" />
           <v-btn
-            :icon="mdiMinus" size="small" variant="text" color="primary"
+            icon="$minus" size="small" variant="text" color="primary"
             :width="40" :min-width="40" :min-height="44" class="assistant-conversation__avatar-size"
             :aria-label="t('jskit.assistant.chat.minimiseAvatar')" :title="t('jskit.assistant.chat.minimiseAvatar')" :aria-expanded="true"
             @click="toggleAvatar"
           >
             <span class="assistant-conversation__avatar-size-disc assistant-conversation__avatar-size-disc--minimise">
-              <v-icon size="20" :icon="mdiMinus" />
+              <v-icon size="20" icon="$minus" />
             </span>
           </v-btn>
         </div>
@@ -49,13 +49,13 @@
       <template #user-message-actions="scope">
         <div v-if="scope.turn.preview && scope.turn.previewMessage?.actions" class="assistant-conversation__preview-actions">
           <v-btn
-            v-if="scope.turn.previewMessage.actions.discard" :icon="mdiClose" size="small" variant="text"
+            v-if="scope.turn.previewMessage.actions.discard" icon="$close" size="small" variant="text"
             :aria-label="t('jskit.assistant.chat.discardUnsent')" :title="t('jskit.assistant.chat.discardUnsent')"
             :disabled="!scope.turn.previewMessage.actions.canDiscard"
             @click="scope.turn.previewMessage.actions.discard(scope.turn.turnId)"
           />
           <v-btn
-            v-if="scope.turn.previewMessage.actions.edit" :icon="mdiPencil" size="small" variant="text"
+            v-if="scope.turn.previewMessage.actions.edit" icon="$edit" size="small" variant="text"
             :aria-label="t('jskit.assistant.chat.editUnsent')" :title="t('jskit.assistant.chat.editUnsent')"
             :disabled="!scope.turn.previewMessage.actions.canEdit"
             @click="scope.turn.previewMessage.actions.edit(scope.turn.turnId)"
@@ -129,7 +129,7 @@
               @select-variant="adapter.models.selectVariant?.($event)" @apply="applyModel" @reload="adapter.models.reload?.()"
             />
             <v-btn
-              v-if="attachmentsEnabled" :aria-label="t('jskit.assistant.chat.attachFiles')" :title="t('jskit.assistant.chat.attachFiles')" size="small" variant="text" :icon="mdiPaperclip"
+              v-if="attachmentsEnabled" :aria-label="t('jskit.assistant.chat.attachFiles')" :title="t('jskit.assistant.chat.attachFiles')" size="small" variant="text" icon="$attachFile"
               :disabled="!adapter.attachments.canAddFiles" @click="fileInput?.click()"
             />
             <slot
@@ -158,7 +158,6 @@
 </template>
 <script setup>
 import { computed, onBeforeUnmount, onMounted, onUpdated, ref, useId, useSlots, watch } from "vue";
-import { mdiAccountCircleOutline, mdiClose, mdiMinus, mdiPaperclip, mdiPencil } from "@mdi/js";
 import AssistantTranscript from "./AssistantTranscript.vue";
 import AssistantPromptInput from "./AssistantPromptInput.vue";
 import AssistantComposerActions from "./AssistantComposerActions.vue";

@@ -7,7 +7,6 @@ import {
   resolveSurfaceNavigationTargetFromPlacementContext
 } from "@jskit-ai/shell-web/client/placement";
 import { TENANCY_MODE_NONE } from "@jskit-ai/workspaces-core/shared/tenancyProfile";
-import { mdiBriefcaseOutline } from "@mdi/js";
 import { findWorkspaceBySlug, normalizeWorkspaceEntry, normalizeWorkspaceList } from "../lib/bootstrap.js";
 import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { resolveSurfaceSwitchTargetsFromPlacementContext, surfaceRequiresWorkspaceFromPlacementContext } from "../lib/workspaceSurfaceContext.js";
@@ -183,7 +182,7 @@ const activeWorkspaceLabel = computed(() => {
         v-bind="activatorProps"
         variant="text"
         class="users-workspace-selector__activator text-none"
-        :prepend-icon="mdiBriefcaseOutline"
+        prepend-icon="$work"
       >
         {{ activeWorkspaceLabel }}
       </v-btn>
@@ -202,7 +201,7 @@ const activeWorkspaceLabel = computed(() => {
       >
         <template #prepend>
           <v-avatar size="24" color="primary" variant="tonal">
-            <span class="text-caption">{{ String(workspace.name || "W").slice(0, 1).toUpperCase() }}</span>
+            <span class="text-body-small">{{ String(workspace.name || "W").slice(0, 1).toUpperCase() }}</span>
           </v-avatar>
         </template>
         <template #append>
@@ -218,9 +217,3 @@ const activeWorkspaceLabel = computed(() => {
     </v-list>
   </v-menu>
 </template>
-
-<style scoped>
-.users-workspace-selector__activator {
-  min-height: 48px;
-}
-</style>

@@ -1,5 +1,4 @@
 <script setup>
-import { mdiCogOutline } from "@mdi/js";
 import WorkspacePermissionMenuItem from "./WorkspacePermissionMenuItem.vue";
 import { useJskitText } from "../i18n.js";
 
@@ -14,7 +13,7 @@ const props = defineProps({
   },
   icon: {
     type: String,
-    default: mdiCogOutline
+    default: "$settings"
   },
   surface: {
     type: String,

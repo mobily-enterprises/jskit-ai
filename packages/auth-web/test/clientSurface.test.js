@@ -70,12 +70,15 @@ test("auth-web client capability includes mobile callback completion", () => {
   assert.match(authClientSource, /completeOAuthCallbackFromUrl/);
 });
 
-test("auth profile activator preserves the generated tap-target contract", () => {
+test("auth profile activator keeps Material 3's 48dp touch target without a fixed height", () => {
   const widgetPath = fileURLToPath(new URL("../src/client/views/AuthProfileWidget.vue", import.meta.url));
   const widgetSource = readFileSync(widgetPath, "utf8");
 
   assert.match(widgetSource, /class="auth-profile-widget__activator text-none pl-1 pr-2"/);
-  assert.match(widgetSource, /\.auth-profile-widget__activator\s*\{[\s\S]*min-height:\s*48px;/);
+  // material-web gives every default-size button a 48dp touch target around its 40dp body; a fixed height would
+  // make the button itself taller than Material 3 draws it.
+  assert.doesNotMatch(widgetSource, /min-height/u);
+  assert.doesNotMatch(widgetSource, /<v-btn[^>]*auth-profile-widget__activator[^>]*\ssize=/u);
 });
 
 test("default login view owns the viewport and becomes a full-screen mobile screen", () => {
@@ -90,7 +93,8 @@ test("default login view owns the viewport and becomes a full-screen mobile scre
   assert.match(viewSource, /auth-card--mobile/);
   assert.match(viewSource, /auth-content--mobile/);
   assert.match(viewSource, /:elevation="isMobileViewport \? 0 : 1"/);
-  assert.match(viewSource, /:border="!isMobileViewport"/);
+  // An elevated Material 3 card on wide windows, the whole screen on phones; never an outlined one.
+  assert.doesNotMatch(viewSource, /:border=|\sborder(?=[\s>])/);
   assert.match(viewSource, /\.login-screen\s*\{[\s\S]*position:\s*fixed;/);
   // The full-viewport screen starts below shell banners shown on this bar-less surface.
   assert.match(viewSource, /\.login-screen\s*\{[\s\S]*inset:\s*var\(--shell-error-banners-inline-height, 0px\) 0 0;/);

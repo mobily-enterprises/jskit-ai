@@ -39,7 +39,7 @@
               variant="outlined"
               density="comfortable"
               autocomplete="new-password"
-              :append-inner-icon="showPassword ? mdiEyeOff : mdiEye"
+              :append-inner-icon="showPassword ? '$visibilityOff' : '$visibility'"
               :error-messages="passwordError"
               class="mb-3"
               @click:append-inner="showPassword = !showPassword"
@@ -51,7 +51,7 @@
               variant="outlined"
               density="comfortable"
               autocomplete="new-password"
-              :append-inner-icon="showConfirmPassword ? mdiEyeOff : mdiEye"
+              :append-inner-icon="showConfirmPassword ? '$visibilityOff' : '$visibility'"
               :error-messages="confirmPasswordError"
               class="mb-4"
               @click:append-inner="showConfirmPassword = !showConfirmPassword"
@@ -73,7 +73,6 @@
 </template>
 
 <script setup>
-import { mdiEye, mdiEyeOff } from "@mdi/js";
 import { useDisplay } from "vuetify";
 import { useDefaultResetPasswordView } from "../composables/useDefaultResetPasswordView.js";
 import { useJskitText } from "../i18n.js";

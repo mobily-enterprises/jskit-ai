@@ -146,10 +146,15 @@ test("optional goal controls follow declared command semantics and budgets witho
     await f.notify("chat:1");
     await f.primary.getByRole("button", { name: "Set goal", exact: true }).click();
     const objective = budgets ? "Finish with a bounded budget" : "Finish without a budget";
-    await f.page.getByRole("textbox", { name: "Goal objective" }).fill(objective);
+    const objectiveField = f.page.getByRole("textbox", { name: "Goal objective" });
     const budget = f.page.getByRole("spinbutton", { name: "Token budget (optional)" });
-    if (budgets) await budget.fill("1000");
+    // The second round's Set goal button is already there, so wait until the notified commands reach the form (its
+    // budget field follows them) before typing: a reread landing mid-typing remounts the form.
+    await expect(objectiveField).toBeVisible();
+    if (budgets) await expect(budget).toBeVisible();
     else await expect(budget).toHaveCount(0);
+    await objectiveField.fill(objective);
+    if (budgets) await budget.fill("1000");
     const start = f.page.getByRole("button", { name: "Start goal", exact: true });
     await expect(start).toBeEnabled();
     await start.click();
@@ -199,7 +204,11 @@ test("a paused goal stays cancellable while a message is sending or its delivery
     await f.primary.getByRole("button", { name: "Set goal", exact: true }).click();
     await f.page.getByRole("textbox", { name: "Goal objective" }).fill(objective);
     await f.page.getByRole("button", { name: "Start goal", exact: true }).click();
-    await f.primary.getByRole("button", { name: "Goal running", exact: true }).click();
+    // As in the commands test: the running goal can show before Start has closed its menu, so wait for it to close.
+    const running = f.primary.getByRole("button", { name: "Goal running", exact: true });
+    await expect(running).toBeVisible();
+    await expect(running).toHaveAttribute("aria-expanded", "false");
+    await running.click();
     await f.page.getByRole("button", { name: "Pause goal", exact: true }).click();
     await expect(f.primary.getByRole("button", { name: "Goal paused", exact: true })).toBeVisible();
     await f.page.keyboard.press("Escape");

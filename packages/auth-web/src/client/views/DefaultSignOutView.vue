@@ -1,15 +1,15 @@
 <template>
   <v-main class="signout-main">
     <v-container class="fill-height d-flex align-center justify-center py-8">
-      <v-card class="signout-card" rounded="lg" elevation="1" border>
+      <v-card class="signout-card">
         <v-card-text class="pa-7">
-          <h1 class="text-h5 mb-3">{{ t("jskit.auth.signOut.title") }}</h1>
+          <h1 class="text-headline-small mb-3">{{ t("jskit.auth.signOut.title") }}</h1>
 
-          <p v-if="status === 'pending'" class="text-medium-emphasis mb-4">
+          <p v-if="status === 'pending'" class="on-surface-variant mb-4">
             {{ t("jskit.auth.signOut.pending") }}
           </p>
 
-          <p v-if="status === 'error'" class="text-body-1 text-medium-emphasis mb-4">
+          <p v-if="status === 'error'" class="text-body-large on-surface-variant mb-4">
             {{ errorMessage || t("jskit.auth.signOut.failedTryAgain") }}
           </p>
 
@@ -50,8 +50,7 @@ const { status, errorMessage, retrySignOut, goToLogin } = useDefaultSignOutView(
 
 <style scoped>
 .signout-main {
-  background-color: rgb(var(--v-theme-background));
-  background-image: radial-gradient(circle at 15% 12%, rgba(var(--v-theme-primary), 0.14), transparent 32%);
+  background-color: rgb(var(--v-theme-surface-container));
 }
 
 .signout-card {

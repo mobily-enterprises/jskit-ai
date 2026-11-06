@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- The rewarded gate is a Material 3 basic dialog (Vuetify `v-dialog` and `v-card`, theme colour roles and type, text buttons) instead of hand-coloured HTML; it still waits for the person's choice.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

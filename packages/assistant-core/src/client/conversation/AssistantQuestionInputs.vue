@@ -1,5 +1,4 @@
 <script setup>
-import { mdiPencilOutline } from "@mdi/js";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
@@ -23,7 +22,7 @@ const emit = defineEmits(["dismiss"]);
         :aria-label="t('jskit.assistant.questions.answerNormally')"
         class="ml-auto"
         color="primary"
-        :prepend-icon="mdiPencilOutline"
+        prepend-icon="$edit"
         size="small"
         variant="tonal"
         @click="emit('dismiss')"

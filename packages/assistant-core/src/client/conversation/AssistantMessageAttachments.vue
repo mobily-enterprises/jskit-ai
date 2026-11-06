@@ -41,7 +41,6 @@
 </template>
 
 <script setup>
-import { mdiFileOutline, mdiImageOutline } from "@mdi/js";
 import { useJskitText } from "../i18n.js";
 import { attachmentSizeText } from "./attachmentSize.js";
 
@@ -53,7 +52,7 @@ defineProps({
 });
 const emit = defineEmits(["preview"]);
 function attachmentIcon(attachment) {
-  return /\.(?:avif|bmp|gif|heic|heif|jpe?g|png|svg|webp)$/iu.test(attachment.fileName) ? mdiImageOutline : mdiFileOutline;
+  return /\.(?:avif|bmp|gif|heic|heif|jpe?g|png|svg|webp)$/iu.test(attachment.fileName) ? "$image" : "$description";
 }
 function attachmentKey(attachment, index) {
   return attachment.attachmentId || `${index}:${attachment.fileName}:${attachment.size ?? ""}`;

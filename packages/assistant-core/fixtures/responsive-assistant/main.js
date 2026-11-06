@@ -1,24 +1,23 @@
 import { createApp } from "vue";
 import "vuetify/styles";
+import "@jskit-ai/material-web/client/material.css";
+import { createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import { createVuetify } from "vuetify";
 import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
-import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
 import App from "./App.vue";
 import ConversationFixture from "./ConversationFixture.vue";
 import ProgressFixture from "./ProgressFixture.vue";
 import DeliveryFixture from "./DeliveryFixture.vue";
 
 const query = new URLSearchParams(location.search);
+const material = createMaterialVuetifyOptions();
 const vuetify = createVuetify({
   components,
   directives,
-  icons: {
-    defaultSet: "mdi",
-    aliases: mdiAliases,
-    sets: { mdi }
-  },
+  ...material,
   theme: {
+    ...material.theme,
     defaultTheme: query.has("dark") ? "dark" : "light"
   }
 });

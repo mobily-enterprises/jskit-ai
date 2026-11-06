@@ -74,7 +74,7 @@
             :ref="(element) => setActionElement(item, 'cancel', element)"
             :aria-label="t('jskit.assistant.attachments.cancelItem', { name: itemName(item) })"
             class="assistant-attachment-queue__action"
-            :icon="mdiCloseCircleOutline"
+            icon="$cancel"
             size="small"
             :title="t('jskit.assistant.attachments.cancelItem', { name: itemName(item) })"
             type="button"
@@ -86,7 +86,7 @@
             :ref="(element) => setActionElement(item, 'retry', element)"
             :aria-label="t('jskit.assistant.attachments.retryItem', { name: itemName(item) })"
             class="assistant-attachment-queue__action"
-            :icon="mdiRefresh"
+            icon="$refresh"
             size="small"
             :title="t('jskit.assistant.attachments.retryItem', { name: itemName(item) })"
             type="button"
@@ -98,7 +98,7 @@
             :ref="(element) => setActionElement(item, 'remove', element)"
             :aria-label="t('jskit.assistant.attachments.removeItem', { name: itemName(item) })"
             class="assistant-attachment-queue__action"
-            :icon="mdiClose"
+            icon="$close"
             size="small"
             :title="t('jskit.assistant.attachments.removeItem', { name: itemName(item) })"
             type="button"
@@ -122,11 +122,6 @@
 
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from "vue";
-import {
-  mdiClose,
-  mdiCloseCircleOutline,
-  mdiRefresh
-} from "@mdi/js";
 
 import { hasWindowFunction } from "../browser.js";
 import { useJskitText } from "../i18n.js";

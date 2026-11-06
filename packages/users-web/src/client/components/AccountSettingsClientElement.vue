@@ -58,11 +58,11 @@ const activeTab = computed({
 
 <template>
   <section class="settings-view py-2 py-md-4">
-    <v-sheet class="settings-panel" rounded="lg" border>
+    <div class="settings-panel">
       <header class="settings-panel__header">
         <div>
-          <h1 class="settings-panel__title">{{ t("jskit.users.accountSettings.title") }}</h1>
-          <p class="text-body-2 text-medium-emphasis mb-0">
+          <h1 class="settings-panel__title text-headline-small">{{ t("jskit.users.accountSettings.title") }}</h1>
+          <p class="text-body-medium on-surface-variant mb-0">
             {{ t("jskit.users.accountSettings.subtitle") }}
           </p>
         </div>
@@ -82,8 +82,8 @@ const activeTab = computed({
           <v-skeleton-loader type="text@2, paragraph, button" />
         </template>
         <div v-else-if="runtime.settingsLoadError.value" class="settings-panel__state">
-          <h2 class="text-h6 mb-2">{{ t("jskit.users.accountSettings.loadFailedTitle") }}</h2>
-          <p class="text-body-2 text-medium-emphasis mb-4">{{ runtime.settingsLoadError.value }}</p>
+          <h2 class="text-title-large mb-2">{{ t("jskit.users.accountSettings.loadFailedTitle") }}</h2>
+          <p class="text-body-medium on-surface-variant mb-4">{{ runtime.settingsLoadError.value }}</p>
           <v-btn
             color="primary"
             variant="tonal"
@@ -94,19 +94,18 @@ const activeTab = computed({
           </v-btn>
         </div>
         <template v-else-if="sections.length < 1">
-          <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.users.accountSettings.noSections") }}</p>
+          <p class="text-body-medium on-surface-variant mb-0">{{ t("jskit.users.accountSettings.noSections") }}</p>
         </template>
         <template v-else>
           <v-progress-linear v-if="runtime.refreshingSettings.value" indeterminate class="mb-4" />
           <v-row class="settings-layout" no-gutters>
             <v-col cols="12" md="3" lg="2" class="pr-md-4 mb-4 mb-md-0">
-              <v-list nav density="comfortable" class="settings-section-list rounded-lg">
+              <v-list nav class="settings-section-list">
                 <v-list-item
                   v-for="section in sections"
                   :key="section.value"
                   :title="text(section.title)"
                   :active="activeTab === section.value"
-                  rounded="lg"
                   @click="activeTab = section.value"
                 />
               </v-list>
@@ -114,7 +113,13 @@ const activeTab = computed({
 
             <v-col cols="12" md="9" lg="10">
               <v-window v-model="activeTab" :touch="false" class="settings-sections-window">
-                <v-window-item v-for="section in sections" :key="section.value" :value="section.value">
+                <v-window-item
+                  v-for="section in sections"
+                  :key="section.value"
+                  :value="section.value"
+                  :transition="false"
+                  :reverse-transition="false"
+                >
                   <component
                     :is="section.component"
                     v-bind="section.usesSharedRuntime ? { runtime } : undefined"
@@ -125,13 +130,12 @@ const activeTab = computed({
           </v-row>
         </template>
       </div>
-    </v-sheet>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .settings-panel {
-  background-color: rgb(var(--v-theme-surface));
   overflow: hidden;
 }
 
@@ -144,10 +148,6 @@ const activeTab = computed({
 }
 
 .settings-panel__title {
-  font-size: clamp(1.35rem, 2vw, 1.85rem);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
   margin: 0 0 0.35rem;
 }
 
@@ -162,28 +162,9 @@ const activeTab = computed({
   text-align: center;
 }
 
-.settings-section-list {
-  border: 1px solid rgba(var(--v-theme-outline), 0.35);
-}
-
-:deep(.settings-section-list .v-list-item--active) {
-  background-color: rgba(var(--v-theme-primary), 0.14);
-}
-
-:deep(.settings-sections-window .v-window-x-transition-enter-active),
-:deep(.settings-sections-window .v-window-x-transition-leave-active),
-:deep(.settings-sections-window .v-window-x-reverse-transition-enter-active),
-:deep(.settings-sections-window .v-window-x-reverse-transition-leave-active) {
-  transition: none !important;
-}
-
 @media (max-width: 960px) {
   .settings-panel__header {
     flex-direction: column;
-  }
-
-  .settings-panel__header :deep(.v-btn) {
-    min-height: 48px;
   }
 }
 </style>

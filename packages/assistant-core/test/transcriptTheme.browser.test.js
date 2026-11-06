@@ -38,7 +38,7 @@ function readText(element) {
   return {
     color: [color.red, color.green, color.blue, color.alpha],
     onSurface: style.getPropertyValue("--v-theme-on-surface").split(",").map(Number),
-    mediumEmphasis: Number(style.getPropertyValue("--v-medium-emphasis-opacity")),
+    onSurfaceVariant: style.getPropertyValue("--v-theme-on-surface-variant").split(",").map(Number),
     contrast: (lighter + 0.05) / (darker + 0.05)
   };
 }
@@ -67,15 +67,17 @@ test("the task transcript's user bubble, header time and footer follow the light
         element.append(time);
       });
       const samples = {
-        "user bubble": [bubble.locator(".assistant-transcript__user-content"), 1],
-        "user footer": [bubble.locator(".assistant-transcript__message-footer time"), "medium"],
-        "assistant footer": [page.locator(".assistant-transcript__message-footer--assistant time").first(), "medium"],
-        "header time": [header.locator("time"), "medium"]
+        "user bubble": [bubble.locator(".assistant-transcript__user-content"), "on-surface"],
+        "user footer": [bubble.locator(".assistant-transcript__message-footer time"), "on-surface-variant"],
+        "assistant footer": [page.locator(".assistant-transcript__message-footer--assistant time").first(), "on-surface-variant"],
+        "header time": [header.locator("time"), "on-surface-variant"]
       };
-      for (const [name, [locator, alpha]] of Object.entries(samples)) {
+      // Material 3 secondary text is the solid on-surface-variant role, not on-surface at a lower opacity.
+      for (const [name, [locator, role]] of Object.entries(samples)) {
         const text = await locator.evaluate(readText);
-        assert.deepEqual(text.color.slice(0, 3), text.onSurface, `${theme} ${name}: the colour is the theme's on-surface`);
-        assert.equal(text.color[3], alpha === "medium" ? text.mediumEmphasis : alpha, `${theme} ${name}: the opacity`);
+        const expected = role === "on-surface" ? text.onSurface : text.onSurfaceVariant;
+        assert.deepEqual(text.color.slice(0, 3), expected, `${theme} ${name}: the colour is the theme's ${role}`);
+        assert.equal(text.color[3], 1, `${theme} ${name}: the opacity`);
         assert.ok(text.contrast >= 4.5, `${theme} ${name}: contrast ${text.contrast.toFixed(2)}:1 is under 4.5:1`);
       }
       await page.close();

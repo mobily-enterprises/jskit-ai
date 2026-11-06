@@ -12,15 +12,14 @@
       <v-card
         class="auth-card"
         :class="{ 'auth-card--mobile': isMobileViewport }"
-        :rounded="isMobileViewport ? false : 'lg'"
+        :rounded="isMobileViewport ? false : undefined"
         :elevation="isMobileViewport ? 0 : 1"
-        :border="!isMobileViewport"
       >
         <v-card-text class="auth-content" :class="{ 'auth-content--mobile': isMobileViewport }">
           <div v-if="authTitle || authSubtitle" class="auth-header mb-5">
             <div>
-              <h1 v-if="authTitle" class="auth-title">{{ authTitle }}</h1>
-              <p v-if="authSubtitle" class="text-medium-emphasis mb-0">{{ authSubtitle }}</p>
+              <h1 v-if="authTitle" class="auth-title text-headline-medium">{{ authTitle }}</h1>
+              <p v-if="authSubtitle" class="on-surface-variant mb-0">{{ authSubtitle }}</p>
             </div>
           </div>
 
@@ -29,7 +28,7 @@
               data-testid="auth-mode-sign-in"
               class="text-none"
               :variant="isLogin ? 'flat' : 'text'"
-              :color="isLogin ? 'primary' : undefined"
+              :color="isLogin ? 'secondary-container' : undefined"
               @click="switchMode('login')"
             >
               {{ t("jskit.auth.login.mode.signIn") }}
@@ -39,7 +38,7 @@
               data-testid="auth-mode-register"
               class="text-none"
               :variant="isRegister ? 'flat' : 'text'"
-              :color="isRegister ? 'primary' : undefined"
+              :color="isRegister ? 'secondary-container' : undefined"
               @click="switchMode('register')"
             >
               {{ t("jskit.auth.login.mode.register") }}
@@ -49,14 +48,14 @@
           <v-form @submit.prevent="submitAuth" novalidate>
             <template v-if="isEmailConfirmationPending">
               <div class="email-confirmation-state mb-5">
-                <p class="email-confirmation-message mb-0">
+                <p class="email-confirmation-message text-body-medium mb-0">
                   {{ emailConfirmationMessage }}
                 </p>
               </div>
 
               <div v-if="confirmationUrl" class="email-confirmation-dev-link mb-5" data-testid="auth-confirmation-dev-link">
-                <p class="text-medium-emphasis mb-2">{{ t("jskit.auth.login.confirmEmail.devLink") }}</p>
-                <p class="email-confirmation-url mb-3">{{ confirmationUrl }}</p>
+                <p class="text-body-medium on-surface-variant mb-2">{{ t("jskit.auth.login.confirmEmail.devLink") }}</p>
+                <p class="email-confirmation-url text-body-small mb-3">{{ confirmationUrl }}</p>
                 <v-btn
                   class="text-none"
                   variant="flat"
@@ -119,10 +118,10 @@
                 class="remembered-account d-flex align-center justify-space-between ga-3 mb-4"
               >
                 <div class="remembered-copy flex-grow-1">
-                  <p class="remembered-title">
+                  <p class="remembered-title text-title-small">
                     {{ t("jskit.auth.login.rememberedAccount.welcomeBack", { name: rememberedAccountDisplayName }) }}
                   </p>
-                  <p class="remembered-email">{{ rememberedAccountMaskedEmail }}</p>
+                  <p class="remembered-email text-body-small">{{ rememberedAccountMaskedEmail }}</p>
                 </div>
                 <v-btn variant="text" color="secondary" class="text-none" @click="switchAccount">
                   {{ rememberedAccountSwitchLabel }}
@@ -134,7 +133,7 @@
                 class="first-account-setup mb-4"
                 data-testid="auth-first-account-setup"
               >
-                <p class="text-medium-emphasis mb-3">{{ t("jskit.auth.login.firstAccount.explain") }}</p>
+                <p class="text-body-medium mb-3">{{ t("jskit.auth.login.firstAccount.explain") }}</p>
                 <v-text-field
                   v-model="setupCode"
                   :label="t('jskit.auth.login.field.setupCode')"
@@ -168,7 +167,7 @@
                 density="comfortable"
                 :autocomplete="isRegister ? 'new-password' : 'current-password'"
                 :error-messages="passwordErrorMessages"
-                :append-inner-icon="showPassword ? mdiEyeOff : mdiEye"
+                :append-inner-icon="showPassword ? '$visibilityOff' : '$visibility'"
                 @click:append-inner="togglePasswordVisibility"
                 @blur="passwordTouched = true"
                 class="mb-3"
@@ -183,7 +182,7 @@
                 density="comfortable"
                 autocomplete="new-password"
                 :error-messages="confirmPasswordErrorMessages"
-                :append-inner-icon="showConfirmPassword ? mdiEyeOff : mdiEye"
+                :append-inner-icon="showConfirmPassword ? '$visibilityOff' : '$visibility'"
                 @click:append-inner="toggleConfirmPasswordVisibility"
                 @blur="confirmPasswordTouched = true"
                 class="mb-3"
@@ -265,21 +264,21 @@
               </v-btn>
 
               <div v-if="isRegister" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
-                <span class="text-medium-emphasis">{{ t("jskit.auth.login.hasAccount") }}</span>
+                <span class="on-surface-variant">{{ t("jskit.auth.login.hasAccount") }}</span>
                 <v-btn variant="text" color="secondary" @click="switchMode('login')">
                   {{ t("jskit.auth.login.backToSignIn") }}
                 </v-btn>
               </div>
 
               <div v-else-if="isForgot" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
-                <span class="text-medium-emphasis">{{ t("jskit.auth.login.rememberedPassword") }}</span>
+                <span class="on-surface-variant">{{ t("jskit.auth.login.rememberedPassword") }}</span>
                 <v-btn variant="text" color="secondary" @click="switchMode('login')">
                   {{ t("jskit.auth.login.backToSignIn") }}
                 </v-btn>
               </div>
 
               <div v-else-if="isOtp" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
-                <span class="text-medium-emphasis">{{ t("jskit.auth.login.otherMethod") }}</span>
+                <span class="on-surface-variant">{{ t("jskit.auth.login.otherMethod") }}</span>
                 <v-btn variant="text" color="secondary" @click="switchMode('login')">
                   {{ t("jskit.auth.login.backToSignIn") }}
                 </v-btn>
@@ -293,7 +292,6 @@
 </template>
 
 <script setup>
-import { mdiEye, mdiEyeOff } from "@mdi/js";
 import { useDisplay } from "vuetify";
 import { useLoginView } from "../runtime/useLoginView.js";
 import { useJskitText } from "../i18n.js";
@@ -377,12 +375,11 @@ function toggleConfirmPasswordVisibility() {
   z-index: 1;
   overflow-y: auto;
   min-height: var(--auth-screen-height);
-  background-color: rgb(var(--v-theme-background));
-  background-image: radial-gradient(circle at 15% 12%, rgba(var(--v-theme-primary), 0.14), transparent 32%);
+  background-color: rgb(var(--v-theme-surface-container));
 }
 
 .login-screen--mobile {
-  background-image: none;
+  background-color: rgb(var(--v-theme-surface));
 }
 
 .login-shell {
@@ -413,52 +410,45 @@ function toggleConfirmPasswordVisibility() {
 
 .auth-title {
   margin: 0 0 8px;
-  font-size: clamp(28px, 3vw, 32px);
-  line-height: 1.2;
   color: rgb(var(--v-theme-on-surface));
 }
 
 .mode-switch {
+  border-radius: 9999px;
+  background-color: rgb(var(--v-theme-surface-container-highest));
+}
+
+.email-confirmation-state,
+.remembered-account {
   border-radius: 12px;
-  background-color: rgba(var(--v-theme-on-surface), 0.06);
+  background: rgb(var(--v-theme-secondary-container));
+  color: rgb(var(--v-theme-on-secondary-container));
 }
 
 .email-confirmation-state {
-  border-radius: 12px;
-  border: 1px solid rgba(var(--v-theme-primary), 0.34);
-  background: rgba(var(--v-theme-primary), 0.12);
   padding: 16px;
-}
-
-.email-confirmation-message {
-  color: rgb(var(--v-theme-on-surface));
-  line-height: 1.5;
 }
 
 .first-account-setup {
   border-radius: 12px;
-  border: 1px solid rgba(var(--v-theme-warning), 0.5);
-  background: rgba(var(--v-theme-warning), 0.08);
+  background: rgb(var(--v-theme-warning-container));
+  color: rgb(var(--v-theme-on-warning-container));
   padding: 16px;
 }
 
 .email-confirmation-dev-link {
   border-radius: 12px;
-  border: 1px dashed rgba(var(--v-theme-on-surface), 0.34);
+  background: rgb(var(--v-theme-surface-container-highest));
   padding: 16px;
 }
 
 .email-confirmation-url {
   font-family: monospace;
-  font-size: 0.85rem;
   overflow-wrap: anywhere;
 }
 
 .remembered-account {
-  border-radius: 12px;
-  border: 1px solid rgba(var(--v-theme-primary), 0.34);
-  background: rgba(var(--v-theme-primary), 0.12);
-  padding: 12px 14px;
+  padding: 12px 16px;
 }
 
 .remembered-copy {
@@ -467,24 +457,13 @@ function toggleConfirmPasswordVisibility() {
 
 .remembered-title {
   margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: rgb(var(--v-theme-on-surface));
 }
 
 .remembered-email {
   margin: 2px 0 0;
-  font-size: 12px;
-  color: rgba(var(--v-theme-on-surface), 0.72);
 }
 
 .oauth-provider-button {
   justify-content: center;
-}
-
-@media (max-width: 959px) {
-  .auth-title {
-    font-size: 26px;
-  }
 }
 </style>

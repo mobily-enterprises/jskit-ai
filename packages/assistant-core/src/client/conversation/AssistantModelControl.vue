@@ -11,7 +11,7 @@
         :aria-label="t('jskit.assistant.model.chooseAi')"
         class="assistant-model-control__button"
         density="comfortable"
-        :icon="mdiCogOutline"
+        icon="$settings"
         rounded="lg"
         size="small"
         :title="buttonTitle ?? t('jskit.assistant.model.chooseAi')"
@@ -29,7 +29,7 @@
     >
       <header class="assistant-model-control__header">
         <v-avatar color="primary" size="36" variant="tonal">
-          <v-icon :icon="mdiBrain" size="20" />
+          <v-icon icon="$psychology" size="20" />
         </v-avatar>
         <div>
           <strong class="text-title-small">{{ t("jskit.assistant.model.controls") }}</strong>
@@ -43,7 +43,7 @@
         rounded="lg"
         role="status"
       >
-        <v-icon :icon="mdiClockOutline" size="18" />
+        <v-icon icon="$schedule" size="18" />
         <span>{{ t("jskit.assistant.model.viewOnly") }}</span>
       </v-sheet>
 
@@ -96,7 +96,7 @@
               @click="selectProvider(provider.id)"
             >
               <span>{{ provider.label }}</span>
-              <v-icon v-if="modelProviderId === provider.id" :icon="mdiCheck" size="15" />
+              <v-icon v-if="modelProviderId === provider.id" icon="$check" size="15" />
             </v-btn>
           </div>
         </section>
@@ -135,7 +135,7 @@
               @click="selectModel(model.id)"
             >
               <span>{{ model.label }}</span>
-              <v-icon v-if="modelId === model.id" :icon="mdiCheck" size="15" />
+              <v-icon v-if="modelId === model.id" icon="$check" size="15" />
             </v-btn>
           </div>
           <span v-else class="assistant-model-control__empty">{{ t("jskit.assistant.model.noModels") }}</span>
@@ -165,7 +165,7 @@
               @click="selectVariant(variant.id)"
             >
               <span>{{ variant.label }}</span>
-              <v-icon v-if="variantId === variant.id" :icon="mdiCheck" size="15" />
+              <v-icon v-if="variantId === variant.id" icon="$check" size="15" />
             </v-btn>
           </div>
         </section>
@@ -189,7 +189,6 @@
 </template>
 
 <script setup>
-import { mdiBrain, mdiCheck, mdiClockOutline, mdiCogOutline } from "@mdi/js";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();

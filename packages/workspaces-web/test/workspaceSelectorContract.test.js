@@ -18,9 +18,12 @@ test("WorkspaceSelector passes workspaceSlug through generic page params", async
   assert.doesNotMatch(source, /workspaceSlug:\s*normalizedSlug,\s*mode:\s*"workspace"/s);
 });
 
-test("WorkspaceSelector activator preserves the generated tap-target contract", async () => {
+test("WorkspaceSelector activator keeps Material 3's 48dp touch target without a fixed height", async () => {
   const source = await readFile(COMPONENT_PATH, "utf8");
 
   assert.match(source, /class="users-workspace-selector__activator text-none"/);
-  assert.match(source, /\.users-workspace-selector__activator\s*\{[\s\S]*min-height:\s*48px;/);
+  // material-web gives every default-size button a 48dp touch target around its 40dp body; a fixed height would
+  // make the button itself taller than Material 3 draws it.
+  assert.doesNotMatch(source, /min-height/u);
+  assert.doesNotMatch(source, /<v-btn[^>]*users-workspace-selector__activator[^>]*\ssize=/u);
 });

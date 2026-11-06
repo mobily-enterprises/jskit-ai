@@ -11,7 +11,7 @@
       :aria-label="reloadLabel"
       class="assistant-transcript__reload"
       :disabled="reloading"
-      :icon="mdiRefresh"
+      icon="$refresh"
       size="x-small"
       :title="reloadLabel"
       type="button"
@@ -78,7 +78,7 @@
       >
         <div class="assistant-transcript__assistant-header">
           <span class="assistant-transcript__avatar assistant-transcript__avatar--assistant">
-            <v-icon :icon="mdiRobotOutline" size="16" />
+            <v-icon icon="$smartToy" size="16" />
           </span>
           <div class="assistant-transcript__message-header">
             <span>{{ assistantName }}</span>
@@ -120,7 +120,7 @@
         >
           <v-icon
             class="assistant-transcript__system-icon"
-            :icon="mdiInformationOutline"
+            icon="$info"
             size="15"
           />
           <div class="assistant-transcript__system-body">
@@ -225,7 +225,7 @@
             </div>
           </div>
           <span class="assistant-transcript__avatar assistant-transcript__avatar--user">
-            <v-icon :icon="mdiAccountOutline" size="15" />
+            <v-icon icon="$person" size="15" />
           </span>
         </div>
 
@@ -245,7 +245,7 @@
         >
           <div class="assistant-transcript__assistant-header">
             <span class="assistant-transcript__avatar assistant-transcript__avatar--assistant">
-              <v-icon :icon="mdiRobotOutline" size="16" />
+              <v-icon icon="$smartToy" size="16" />
             </span>
             <div class="assistant-transcript__message-header">
               <span :title="entry.message.assistantDetails || entry.turn.assistantDetails || undefined">
@@ -319,12 +319,6 @@
 import AssistantMessageAttachments from "./AssistantMessageAttachments.vue";
 import AssistantConversationStatus from "./AssistantConversationStatus.vue";
 import { computed, ref, watch } from "vue";
-import {
-  mdiAccountOutline,
-  mdiInformationOutline,
-  mdiRefresh,
-  mdiRobotOutline
-} from "@mdi/js";
 import LongTextInlineParts from "./LongTextInlineParts.vue";
 import LongTextPreviewBlocks from "./LongTextPreviewBlocks.vue";
 import AssistantProgress from "./AssistantProgress.vue";

@@ -12,11 +12,11 @@ const { workspaceUnavailable, workspaceUnavailableMessage } = useWorkspaceNotFou
     surface-label="App"
   />
   <section v-else class="workspace-home-screen d-flex flex-column ga-4">
-    <v-sheet rounded="lg" border class="workspace-home-screen__panel">
-      <p class="text-body-2 text-medium-emphasis mb-0">
+    <div class="workspace-home-screen__panel">
+      <p class="text-body-medium on-surface-variant mb-0">
         Activity from workspace workflows will appear here.
       </p>
-    </v-sheet>
+    </div>
   </section>
 </template>
 

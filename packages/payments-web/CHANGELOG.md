@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Plans show as filled Material 3 cards (`surface-container-highest`) instead of bordered boxes.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

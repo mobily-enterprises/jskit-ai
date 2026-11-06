@@ -1,7 +1,6 @@
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { mdiEmailAlertOutline } from "@mdi/js";
 import { appendQueryString } from "@jskit-ai/kernel/shared/support";
 import {
   useWebPlacementContext,
@@ -96,7 +95,7 @@ const resolvedNavigationTarget = computed(() =>
       :href="resolvedNavigationTarget.sameOrigin ? undefined : resolvedNavigationTarget.href"
       variant="tonal"
       color="warning"
-      :prepend-icon="mdiEmailAlertOutline"
+      prepend-icon="$markEmailUnread"
       size="small"
       class="text-none"
     >

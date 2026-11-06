@@ -41,12 +41,12 @@ function isRespondingToInvite(invite, decision) {
 </script>
 
 <template>
-  <section class="workspaces-view py-6">
+  <section class="workspaces-view py-3 py-sm-6">
     <v-container class="mx-auto" max-width="860">
-      <v-sheet rounded="lg" border class="workspaces-view__panel">
+      <div class="workspaces-view__panel">
         <header class="workspaces-view__header">
-          <h1 class="workspaces-view__title">{{ t("jskit.workspaces.workspacesView.title") }}</h1>
-          <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.workspacesView.subtitle") }}</p>
+          <h1 class="workspaces-view__title text-headline-small">{{ t("jskit.workspaces.workspacesView.title") }}</h1>
+          <p class="text-body-medium on-surface-variant mb-0">{{ t("jskit.workspaces.workspacesView.subtitle") }}</p>
         </header>
 
         <div class="workspaces-view__body">
@@ -56,8 +56,8 @@ function isRespondingToInvite(invite, decision) {
                 <v-skeleton-loader type="text, list-item-avatar-two-line@3" />
               </template>
               <div v-else-if="bootstrapLoadError" class="workspaces-view__state">
-                <h2 class="text-h6 mb-2">{{ t("jskit.workspaces.workspacesView.loadFailedTitle") }}</h2>
-                <p class="text-body-2 text-medium-emphasis mb-4">{{ bootstrapLoadError }}</p>
+                <h2 class="text-title-large mb-2">{{ t("jskit.workspaces.workspacesView.loadFailedTitle") }}</h2>
+                <p class="text-body-medium on-surface-variant mb-4">{{ bootstrapLoadError }}</p>
                 <v-btn
                   color="primary"
                   variant="tonal"
@@ -68,9 +68,9 @@ function isRespondingToInvite(invite, decision) {
                 </v-btn>
               </div>
               <template v-else>
-                <div class="text-subtitle-2 mb-2">{{ t("jskit.workspaces.common.workspaces") }}</div>
+                <div class="text-title-small mb-2">{{ t("jskit.workspaces.common.workspaces") }}</div>
                 <template v-if="workspaceItems.length === 0">
-                  <p class="text-body-1 mb-2">{{ t("jskit.workspaces.workspacesView.noWorkspace") }}</p>
+                  <p class="text-body-large mb-2">{{ t("jskit.workspaces.workspacesView.noWorkspace") }}</p>
                   <template v-if="canCreateWorkspace">
                     <v-text-field
                       v-model="createWorkspaceModel.name"
@@ -97,7 +97,7 @@ function isRespondingToInvite(invite, decision) {
                       {{ t(isCreatingWorkspace ? "jskit.workspaces.workspacesView.creating" : "jskit.workspaces.workspacesView.create") }}
                     </v-btn>
                   </template>
-                  <p v-else class="text-body-2 text-medium-emphasis mb-0">
+                  <p v-else class="text-body-medium on-surface-variant mb-0">
                     {{ t("jskit.workspaces.workspacesView.askAdministrator") }}
                   </p>
                 </template>
@@ -118,13 +118,12 @@ function isRespondingToInvite(invite, decision) {
                       <template #prepend>
                         <v-avatar color="primary" variant="tonal" size="28">
                           <v-img v-if="workspace.avatarUrl" :src="workspace.avatarUrl" cover />
-                          <span v-else class="text-caption">{{ workspaceInitials(workspace) }}</span>
+                          <span v-else class="text-body-small">{{ workspaceInitials(workspace) }}</span>
                         </v-avatar>
                       </template>
                       <template #append>
                         <v-btn
                           color="primary"
-                          size="small"
                           variant="tonal"
                           :disabled="!workspace.isAccessible || selectingWorkspaceSlug === workspace.slug"
                           @click="openWorkspace(workspace.slug)"
@@ -143,9 +142,9 @@ function isRespondingToInvite(invite, decision) {
                 <v-skeleton-loader type="text, list-item-two-line@3" />
               </template>
               <template v-else>
-                <div class="text-subtitle-2 mb-2">{{ t("jskit.workspaces.common.invitations") }}</div>
+                <div class="text-title-small mb-2">{{ t("jskit.workspaces.common.invitations") }}</div>
                 <template v-if="pendingInvites.length === 0">
-                  <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.common.noPendingInvitations") }}</p>
+                  <p class="text-body-medium on-surface-variant mb-0">{{ t("jskit.workspaces.common.noPendingInvitations") }}</p>
                 </template>
 
                 <template v-else>
@@ -159,13 +158,12 @@ function isRespondingToInvite(invite, decision) {
                     >
                       <template #prepend>
                         <v-avatar color="warning" size="28">
-                          <span class="text-caption font-weight-bold">{{ t("jskit.workspaces.common.pendingInviteMark") }}</span>
+                          <span class="text-body-small font-weight-bold">{{ t("jskit.workspaces.common.pendingInviteMark") }}</span>
                         </v-avatar>
                       </template>
                       <template #append>
                         <div class="d-flex ga-2">
                           <v-btn
-                            size="small"
                             variant="text"
                             color="error"
                             :disabled="isRespondingToInvite(invite, 'refuse')"
@@ -174,7 +172,6 @@ function isRespondingToInvite(invite, decision) {
                             {{ t(isRespondingToInvite(invite, "refuse") ? "jskit.workspaces.common.refusing" : "jskit.workspaces.common.refuse") }}
                           </v-btn>
                           <v-btn
-                            size="small"
                             variant="tonal"
                             color="primary"
                             :disabled="isRespondingToInvite(invite, 'accept')"
@@ -191,7 +188,7 @@ function isRespondingToInvite(invite, decision) {
             </v-col>
           </v-row>
         </div>
-      </v-sheet>
+      </div>
     </v-container>
   </section>
 </template>
@@ -206,10 +203,6 @@ function isRespondingToInvite(invite, decision) {
 }
 
 .workspaces-view__title {
-  font-size: clamp(1.35rem, 2vw, 1.85rem);
-  font-weight: 650;
-  letter-spacing: -0.02em;
-  line-height: 1.15;
   margin: 0 0 0.35rem;
 }
 
@@ -222,15 +215,5 @@ function isRespondingToInvite(invite, decision) {
   max-width: 30rem;
   padding: 2rem 1rem;
   text-align: center;
-}
-
-.workspaces-view__body :deep(.v-btn) {
-  min-height: 48px;
-}
-
-@media (max-width: 640px) {
-  .workspaces-view {
-    padding-block: 0.75rem !important;
-  }
 }
 </style>

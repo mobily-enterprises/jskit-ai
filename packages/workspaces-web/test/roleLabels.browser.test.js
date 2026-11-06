@@ -74,7 +74,8 @@ test("Members displays configured labels but sends and reloads role IDs", {
     const memberSelect = page.locator(".member-role-select");
     await memberSelect.getByText("Member", { exact: true }).waitFor();
     await expect(memberSelect.last()).toContainText("Workspace owner");
-    await expect(memberSelect.last().locator("input")).toBeDisabled();
+    // Vuetify 4.3's select also renders a hidden form input; the disabled control is its combobox input.
+    await expect(memberSelect.last().locator("input[role='combobox']")).toBeDisabled();
     await page.getByText(/Role: Operator/u).waitFor();
     assert.match(await inviteRole.locator("xpath=ancestor::*[contains(@class, 'v-select')][1]").textContent(), /Member/u);
     for (const [id, label] of [["worker", "Member"], ["safety_manager", "Operator"], ["administrator", "Controller"], ["training_assessor", "Training assessor"]]) {

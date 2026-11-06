@@ -82,7 +82,12 @@ async function checkWorkspaceSelector(page, viewport) {
   await page.goto("/w/acme");
   await page.getByText("Opened acme", { exact: true }).waitFor();
   await expect(selector).toHaveText("Acme");
-  assert.ok((await selector.boundingBox()).height >= 48, `${viewport.name}: the selector is a 48px target`);
+  // Material 3 buttons are 40dp tall inside a 48dp touch target (material-web's ::before).
+  const selectorTarget = await selector.evaluate((button) => Math.max(
+    button.getBoundingClientRect().height,
+    Number.parseFloat(getComputedStyle(button, "::before").height) || 0
+  ));
+  assert.ok(selectorTarget >= 48, `${viewport.name}: the selector is a 48px target`);
   await assertNoHorizontalScroll(page, `${viewport.name} selector`);
 
   await selector.click();
@@ -193,7 +198,10 @@ async function checkInvitesSection(page, viewport) {
   ]);
   await assertNoHorizontalScroll(page, `${viewport.name} invitations`);
   if (viewport.name === "phone") {
-    const heights = await section.locator(".v-btn").evaluateAll((buttons) => buttons.map((item) => item.getBoundingClientRect().height));
+    const heights = await section.locator(".v-btn").evaluateAll((buttons) => buttons.map((item) => Math.max(
+      item.getBoundingClientRect().height,
+      Number.parseFloat(getComputedStyle(item, "::before").height) || 0
+    )));
     assert.ok(heights.length === 4 && heights.every((height) => height >= 48), `${viewport.name}: 48px targets, got ${heights}`);
   }
 

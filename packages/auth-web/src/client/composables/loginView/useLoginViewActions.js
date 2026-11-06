@@ -1,4 +1,3 @@
-import { mdiGoogle } from "@mdi/js";
 import { authRegisterCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterCommand";
 import { authRegisterConfirmationResendCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterConfirmationResendCommand";
 import { authRegisterConfirmCommand } from "@jskit-ai/auth-core/shared/commands/authRegisterConfirmCommand";
@@ -483,7 +482,7 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
 
   function oauthProviderIcon(provider) {
     if (String(provider?.id || "").toLowerCase() === "google") {
-      return mdiGoogle;
+      return "$google";
     }
     return undefined;
   }

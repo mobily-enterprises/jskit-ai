@@ -1,5 +1,4 @@
 <script setup>
-import { mdiClose, mdiMessageTextOutline, mdiMicrophone, mdiMinus } from "@mdi/js";
 import { useDisplay } from "vuetify";
 import { VCard, VDialog } from "vuetify/components";
 import { computed } from "vue";
@@ -55,17 +54,17 @@ function updateOpen(value) {
         <span :title="displayTitle">{{ displayTitle }}</span>
         <slot name="header-actions" />
         <v-btn
-          v-if="minimizable" :icon="mdiMinus" variant="text" :aria-label="t('jskit.assistant.voice.dialog.minimize')"
+          v-if="minimizable" icon="$minus" variant="text" :aria-label="t('jskit.assistant.voice.dialog.minimize')"
           :title="t('jskit.assistant.voice.dialog.minimize')" @click="$emit('minimize', $event)"
         />
-        <v-btn :icon="mdiClose" variant="text" :aria-label="displayCloseLabel" :title="displayCloseLabel" @click="$emit('update:modelValue', false)" />
+        <v-btn icon="$close" variant="text" :aria-label="displayCloseLabel" :title="displayCloseLabel" @click="$emit('update:modelValue', false)" />
       </v-card-title>
       <v-tabs
         v-if="showModes" :model-value="mode" class="conversation-dialog__tabs" grow :aria-label="t('jskit.assistant.voice.dialog.modes')"
         @update:model-value="$emit('update:mode', $event)"
       >
-        <v-tab value="talk" :prepend-icon="mdiMicrophone">{{ t("jskit.assistant.voice.dialog.talk") }}</v-tab>
-        <v-tab value="text" :prepend-icon="mdiMessageTextOutline">{{ t("jskit.assistant.voice.dialog.text") }}</v-tab>
+        <v-tab value="talk" prepend-icon="$mic">{{ t("jskit.assistant.voice.dialog.talk") }}</v-tab>
+        <v-tab value="text" prepend-icon="$chat">{{ t("jskit.assistant.voice.dialog.text") }}</v-tab>
       </v-tabs>
       <div class="conversation-dialog__body"><slot /></div>
     </component>

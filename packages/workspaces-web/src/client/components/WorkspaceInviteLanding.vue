@@ -1,20 +1,20 @@
 <template>
   <main class="workspace-invite-landing">
     <v-container class="workspace-invite-landing__container">
-      <v-sheet class="workspace-invite-landing__panel" border rounded="lg">
+      <v-card class="workspace-invite-landing__panel">
         <div v-if="isLoading" class="workspace-invite-landing__state">
           <v-progress-circular color="primary" indeterminate />
         </div>
 
         <div v-else-if="loadError" class="workspace-invite-landing__state">
-          <h1 class="workspace-invite-landing__title">{{ t("jskit.workspaces.inviteLanding.unavailableTitle") }}</h1>
-          <p class="text-body-2 text-medium-emphasis mb-5">{{ loadError }}</p>
+          <h1 class="workspace-invite-landing__title text-headline-small">{{ t("jskit.workspaces.inviteLanding.unavailableTitle") }}</h1>
+          <p class="text-body-medium on-surface-variant mb-5">{{ loadError }}</p>
           <v-btn color="primary" variant="tonal" :loading="isRefreshing" @click="refreshInvite">{{ t("jskit.workspaces.common.retry") }}</v-btn>
         </div>
 
         <div v-else-if="isTerminal" class="workspace-invite-landing__state">
-          <h1 class="workspace-invite-landing__title">{{ terminalTitle }}</h1>
-          <p class="text-body-2 text-medium-emphasis mb-0">{{ terminalMessage }}</p>
+          <h1 class="workspace-invite-landing__title text-headline-small">{{ terminalTitle }}</h1>
+          <p class="text-body-medium on-surface-variant mb-0">{{ terminalMessage }}</p>
         </div>
 
         <div v-else class="workspace-invite-landing__content">
@@ -24,8 +24,8 @@
               {{ workspaceInitial }}
             </v-avatar>
             <div>
-              <h1 class="workspace-invite-landing__title">{{ workspaceName }}</h1>
-              <p class="text-body-2 text-medium-emphasis mb-0">
+              <h1 class="workspace-invite-landing__title text-headline-small">{{ workspaceName }}</h1>
+              <p class="text-body-medium on-surface-variant mb-0">
                 {{ t("jskit.workspaces.inviteLanding.invitationFor", { email: inviteEmailLabel }) }}
               </p>
             </div>
@@ -51,9 +51,9 @@
             </v-btn>
           </div>
 
-          <p v-if="redeemError" class="text-body-2 text-error mb-0">{{ redeemError }}</p>
+          <p v-if="redeemError" class="text-body-medium text-error mb-0">{{ redeemError }}</p>
         </div>
-      </v-sheet>
+      </v-card>
     </v-container>
   </main>
 </template>
@@ -201,8 +201,7 @@ onMounted(() => {
 }
 
 .workspace-invite-landing__panel {
-  padding: 28px;
-  border-radius: 8px;
+  padding: 24px;
 }
 
 .workspace-invite-landing__state {
@@ -225,9 +224,6 @@ onMounted(() => {
 }
 
 .workspace-invite-landing__title {
-  font-size: 1.35rem;
-  line-height: 1.25;
-  font-weight: 650;
   margin: 0 0 4px;
 }
 
@@ -247,10 +243,9 @@ onMounted(() => {
   }
 
   .workspace-invite-landing__panel {
-    min-height: 100vh;
     border-radius: 0;
-    border-inline: 0;
-    padding: 24px;
+    box-shadow: none;
+    min-height: 100vh;
   }
 
   .workspace-invite-landing__actions > * {

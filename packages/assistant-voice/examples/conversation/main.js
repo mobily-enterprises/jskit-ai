@@ -5,7 +5,6 @@ import { createRouter, createWebHistory } from "vue-router";
 import { createVuetify } from "vuetify";
 import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
-import { aliases, mdi } from "vuetify/iconsets/mdi-svg";
 import { bootClientModules } from "@jskit-ai/kernel/client/moduleBootstrap";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
@@ -14,6 +13,8 @@ import { RealtimeClientProvider } from "@jskit-ai/realtime/client";
 import { configureAssistantConversations } from "@jskit-ai/assistant-runtime/client";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
 import "vuetify/styles";
+import "@jskit-ai/material-web/client/material.css";
+import { createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import App from "./App.vue";
 import { appConfig } from "./config.js";
 
@@ -40,7 +41,7 @@ const pinia = createPinia();
 const queryClient = new QueryClient();
 const router = createRouter({ history: createWebHistory(), routes: [{ path: "/:pathMatch(.*)*", component: App }] });
 app.use(pinia).use(VueQueryPlugin, { queryClient }).use(router)
-  .use(createVuetify({ components, directives, icons: { defaultSet: "mdi", aliases, sets: { mdi } } }));
+  .use(createVuetify({ components, directives, ...createMaterialVuetifyOptions() }));
 const modules = await bootClientModules({
   app, pinia, queryClient, router, env: import.meta.env, surfaceMode: "home", logger: console,
   surfaceRuntime: createSurfaceRuntime({ defaultSurfaceId: "home", surfaces: appConfig.surfaceDefinitions }),

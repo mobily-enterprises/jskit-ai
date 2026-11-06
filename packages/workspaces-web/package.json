@@ -17,8 +17,7 @@
   },
   "dependencies": {
     "@jskit-ai/users-core": "0.2.11",
-    "@jskit-ai/workspaces-core": "0.2.11",
-    "@mdi/js": "^7.4.47"
+    "@jskit-ai/workspaces-core": "0.2.11"
   },
   "peerDependencies": {
     "@jskit-ai/auth-web": "0.2.12",
@@ -29,7 +28,7 @@
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",
-    "vuetify": "^4.0.0"
+    "vuetify": "^4.3.0"
   },
   "description": "Workspace web module: workspace selector, tools widget, workspace surfaces, members UI, and settings hosts.",
   "jskit": {
@@ -275,5 +274,8 @@
         "singleton": true
       }
     }
+  },
+  "devDependencies": {
+    "@jskit-ai/material-web": "0.1.0"
   }
 }

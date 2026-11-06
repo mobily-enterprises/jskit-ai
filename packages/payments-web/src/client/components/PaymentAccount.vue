@@ -127,13 +127,13 @@ function loadHistory(collection, after = null) {
 <style scoped>
 .payment-account { min-width: 0; overflow-wrap: anywhere; }
 .payment-account__summary { display: flex; flex-wrap: wrap; gap: 1rem 2rem; margin: 0 0 1rem; }
-.payment-account__summary dt { font-weight: 600; }
+.payment-account__summary dt { font-weight: 500; }
 .payment-account__summary dd { margin: .25rem 0 0; }
 .payment-account__subscriptions { list-style: none; padding: 0; }
 .payment-account__subscriptions li { display: flex; flex-wrap: wrap; gap: .5rem 1rem; padding-block: .5rem; }
 .payment-account__actions { display: flex; flex-wrap: wrap; gap: .5rem; }
 .payment-account__plans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr)); gap: 1rem; padding: 0; list-style: none; }
-.payment-account__plan { min-width: 0; padding: 1rem; border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity)); border-radius: 12px; }
+.payment-account__plan { min-width: 0; padding: 1rem; border-radius: 12px; background: rgb(var(--v-theme-surface-container-highest)); }
 .payment-account :deep(.v-list-item-title), .payment-account :deep(.v-list-item-subtitle) { white-space: normal; overflow-wrap: anywhere; }
 .payment-account :deep(.v-btn) { min-height: 48px; max-width: 100%; height: auto; white-space: normal; }
 .payment-account :deep(.v-btn__content) { white-space: normal; }

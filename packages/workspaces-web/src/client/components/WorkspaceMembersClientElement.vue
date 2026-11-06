@@ -1,7 +1,7 @@
 <template>
   <section class="workspace-members-page">
     <div v-if="loadError" class="workspace-members-page__state">
-      <p class="text-body-2 text-medium-emphasis mb-4">{{ loadError }}</p>
+      <p class="text-body-medium on-surface-variant mb-4">{{ loadError }}</p>
       <v-btn
         v-if="canRetryLoad"
         color="primary"
@@ -56,11 +56,5 @@ const {
   max-width: 30rem;
   padding: 2rem 1rem;
   text-align: center;
-}
-
-@media (max-width: 640px) {
-  .workspace-members-page__state :deep(.v-btn) {
-    min-height: 48px;
-  }
 }
 </style>

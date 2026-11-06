@@ -54,7 +54,6 @@
     "@jskit-ai/agent": "0.1.1",
     "@jskit-ai/resource-core": "0.1.200",
     "@jskit-ai/resource-crud-core": "0.1.200",
-    "@mdi/js": "^7.4.47",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.152",
     "json-rest-schema": "^1.0.17",
@@ -65,7 +64,7 @@
     "@jskit-ai/http-runtime": "0.2.9",
     "@jskit-ai/kernel": "0.2.9",
     "vue": "^3.5.13",
-    "vuetify": "^4.0.0"
+    "vuetify": "^4.3.0"
   },
   "description": "Reusable assistant client/server/shared primitives without surface-specific routes or settings ownership.",
   "jskit": {
@@ -219,5 +218,8 @@
         "capabilities": []
       }
     }
+  },
+  "devDependencies": {
+    "@jskit-ai/material-web": "0.1.0"
   }
 }

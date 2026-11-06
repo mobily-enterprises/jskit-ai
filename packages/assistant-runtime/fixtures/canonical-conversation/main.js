@@ -3,8 +3,9 @@ import { createRouter, createWebHistory } from "vue-router";
 import { createVuetify } from "vuetify";
 import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
-import { aliases, mdi } from "vuetify/iconsets/mdi-svg";
 import "vuetify/styles";
+import "@jskit-ai/material-web/client/material.css";
+import { createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import App from "./App.vue";
 import { createWebPlacementRuntime } from "../../../shell-web/src/client/placement/runtime.js";
 import { createFixtureSocket } from "./socket.js";
@@ -69,7 +70,6 @@ if (new URLSearchParams(window.location.search).has("applicationDefaults")) {
 app.provide("jskit.shell-web.runtime.web-placement.client", placement);
 app.provide("jskit.realtime.runtime.client.socket", socket);
 app.provide("fixture", { placement, socket });
-app.use(router).use(createVuetify({ theme: { defaultTheme: "light" }, components, directives,
-  icons: { defaultSet: "mdi", aliases, sets: { mdi } } }));
+app.use(router).use(createVuetify({ components, directives, ...createMaterialVuetifyOptions() }));
 await router.isReady();
 app.mount("#app");

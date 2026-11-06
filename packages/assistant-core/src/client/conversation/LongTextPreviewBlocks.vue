@@ -310,13 +310,13 @@ h5.studio-long-text-review__heading {
   word-break: normal;
 }
 
-.studio-long-text-review__table-cell--right {
+.studio-long-text-review__table .studio-long-text-review__table-cell--right {
   font-variant-numeric: tabular-nums;
-  text-align: right !important;
+  text-align: right;
 }
 
-.studio-long-text-review__table-cell--center {
-  text-align: center !important;
+.studio-long-text-review__table .studio-long-text-review__table-cell--center {
+  text-align: center;
 }
 
 .studio-long-text-review__details {

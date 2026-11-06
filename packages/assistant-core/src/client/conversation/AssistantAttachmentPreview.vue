@@ -13,7 +13,7 @@
         <p v-else>{{ t("jskit.assistant.attachments.previewUnavailable") }}</p>
       </v-card-text>
       <v-card-actions>
-        <v-btn :href="downloadUrl" :download="attachment.fileName" :prepend-icon="mdiDownload" variant="tonal">{{ t("jskit.assistant.attachments.download") }}</v-btn>
+        <v-btn :href="downloadUrl" :download="attachment.fileName" prepend-icon="$download" variant="tonal">{{ t("jskit.assistant.attachments.download") }}</v-btn>
         <v-spacer />
         <v-btn @click="emit('close')">{{ t("jskit.assistant.attachments.close") }}</v-btn>
       </v-card-actions>
@@ -23,7 +23,6 @@
 
 <script setup>
 import { ref, watch } from "vue";
-import { mdiDownload } from "@mdi/js";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();

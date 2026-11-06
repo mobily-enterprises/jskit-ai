@@ -325,13 +325,13 @@
 }
 
 .assistant-transcript__message-header time {
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: rgb(var(--v-theme-on-surface-variant));
   font-weight: 650;
 }
 
 .assistant-transcript__message-footer {
   align-items: center;
-  color: rgba(var(--v-theme-on-surface), var(--v-medium-emphasis-opacity));
+  color: rgb(var(--v-theme-on-surface-variant));
   display: flex;
   font-size: 0.88rem;
   font-weight: 500;

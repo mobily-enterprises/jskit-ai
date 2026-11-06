@@ -1,5 +1,4 @@
 // How the attachment queue shows each item: its key, name, phase, progress, status text, icon and colour.
-import { mdiAlertCircleOutline, mdiCheckCircleOutline, mdiFileOutline } from "@mdi/js";
 import { useJskitText } from "../i18n.js";
 import { attachmentSizeText } from "./attachmentSize.js";
 
@@ -86,12 +85,12 @@ function itemCancelable(item = {}) {
 
 function itemIcon(item = {}) {
   if (itemPhase(item) === "ready") {
-    return mdiCheckCircleOutline;
+    return "$checkCircle";
   }
   if (itemPhase(item) === "failed") {
-    return mdiAlertCircleOutline;
+    return "$error";
   }
-  return mdiFileOutline;
+  return "$description";
 }
 
 function itemColor(item = {}) {

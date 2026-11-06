@@ -68,9 +68,9 @@ const placementContext = computed(() => {
       <v-btn v-bind="props" variant="text" class="auth-profile-widget__activator text-none pl-1 pr-2">
         <v-avatar size="32" color="primary" variant="tonal">
           <v-img v-if="avatarUrl" :src="avatarUrl" cover />
-          <span v-else class="text-caption font-weight-medium">{{ initials }}</span>
+          <span v-else class="text-body-small font-weight-medium">{{ initials }}</span>
         </v-avatar>
-        <span class="ml-2 d-none d-sm-inline text-body-2">{{ displayName }}</span>
+        <span class="ml-2 d-none d-sm-inline text-body-medium">{{ displayName }}</span>
       </v-btn>
     </template>
 
@@ -82,9 +82,3 @@ const placementContext = computed(() => {
     </v-list>
   </v-menu>
 </template>
-
-<style scoped>
-.auth-profile-widget__activator {
-  min-height: 48px;
-}
-</style>

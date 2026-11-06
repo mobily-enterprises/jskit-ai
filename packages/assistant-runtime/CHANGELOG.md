@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The assistant surface pattern's icon is `$smartToy`, and the fixtures render with `@jskit-ai/material-web`.
 - Changing an assistant's instructions needs `assistant.settings.update` on a settings surface that requires neither a workspace nor the console owner (it needed only a signed-in user), still `workspace.settings.update` on a workspace surface and the console owner on a console-owner surface. `assistantServer.<surface>.settingsUpdatePermission` names another permission, or `{ require: "authenticated" }` to keep the old behaviour. A refusal is `assistant.runtime.settings.updateForbidden` (403).
 
 ### New message keys (1)

@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mdiShieldCrownOutline } from "@mdi/js";
 import {
   hasWorkspaceMembership,
   resolvePrimarySurfaceSwitchLink,
@@ -139,7 +138,7 @@ test("resolvePrimarySurfaceSwitchLink shows Go to admin only for member workspac
   assert.deepEqual(link, {
     id: "surface-switch.admin",
     label: "Go to admin",
-    icon: mdiShieldCrownOutline,
+    icon: "$adminPanelSettings",
     to: "/w/acme/admin"
   });
 });

@@ -8,10 +8,10 @@ const invites = useAccountSettingsInvitesSectionRuntime();
 </script>
 
 <template>
-  <v-sheet rounded="lg" border class="account-invites-section">
+  <div class="account-invites-section">
     <header class="account-invites-section__header">
-      <h2 class="account-invites-section__title">{{ t("jskit.workspaces.common.invitations") }}</h2>
-      <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.accountInvites.subtitle") }}</p>
+      <h2 class="account-invites-section__title text-title-medium">{{ t("jskit.workspaces.common.invitations") }}</h2>
+      <p class="text-body-medium on-surface-variant mb-0">{{ t("jskit.workspaces.accountInvites.subtitle") }}</p>
     </header>
 
     <div class="account-invites-section__body">
@@ -21,7 +21,7 @@ const invites = useAccountSettingsInvitesSectionRuntime();
 
       <template v-else-if="invites.items.value.length < 1">
         <v-progress-linear v-if="invites.isRefetching.value" indeterminate class="mb-4" />
-        <p class="text-body-2 text-medium-emphasis mb-0">{{ t("jskit.workspaces.common.noPendingInvitations") }}</p>
+        <p class="text-body-medium on-surface-variant mb-0">{{ t("jskit.workspaces.common.noPendingInvitations") }}</p>
       </template>
 
       <template v-else>
@@ -36,13 +36,12 @@ const invites = useAccountSettingsInvitesSectionRuntime();
           >
             <template #prepend>
               <v-avatar color="warning" size="28">
-                <span class="text-caption font-weight-bold">{{ t("jskit.workspaces.common.pendingInviteMark") }}</span>
+                <span class="text-body-small font-weight-bold">{{ t("jskit.workspaces.common.pendingInviteMark") }}</span>
               </v-avatar>
             </template>
             <template #append>
               <div class="d-flex ga-2">
                 <v-btn
-                  size="small"
                   variant="text"
                   color="error"
                   :loading="invites.action.value.token === invite.token && invites.action.value.decision === 'refuse'"
@@ -54,7 +53,6 @@ const invites = useAccountSettingsInvitesSectionRuntime();
                   {{ t("jskit.workspaces.common.refuse") }}
                 </v-btn>
                 <v-btn
-                  size="small"
                   variant="tonal"
                   color="primary"
                   :loading="invites.action.value.token === invite.token && invites.action.value.decision === 'accept'"
@@ -71,7 +69,7 @@ const invites = useAccountSettingsInvitesSectionRuntime();
         </v-list>
       </template>
     </div>
-  </v-sheet>
+  </div>
 </template>
 
 <style scoped>
@@ -84,19 +82,10 @@ const invites = useAccountSettingsInvitesSectionRuntime();
 }
 
 .account-invites-section__title {
-  font-size: 1rem;
-  font-weight: 650;
-  line-height: 1.2;
   margin: 0 0 0.25rem;
 }
 
 .account-invites-section__body {
   padding: 1rem;
-}
-
-@media (max-width: 640px) {
-  .account-invites-section__body :deep(.v-btn) {
-    min-height: 48px;
-  }
 }
 </style>

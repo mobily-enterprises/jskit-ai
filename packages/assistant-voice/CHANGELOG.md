@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Icons are Material Symbols `$aliases` (from `@jskit-ai/material-web`) instead of `@mdi/js` paths, and text uses Vuetify 4's Material 3 type classes (`text-body-large`, `text-title-medium`, ...) instead of Material 2 ones, which Vuetify 4 no longer styles. Upgrading: see the guide's [Move an app to the Material 3 defaults](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/material-3-migration).
 - The browser's missing microphone audio support names its sentence (`assistant.voice.errors.microphoneUnsupported`), so a translated app shows it in its language. The English message is unchanged.
 
 ### New message keys (1)
