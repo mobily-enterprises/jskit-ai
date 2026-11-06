@@ -158,3 +158,45 @@ test("a service composed without a started setup checks for an account on its fi
   assert.match(setupCode, SETUP_CODE_PATTERN);
   await service.register({ email: "owner@example.com", password: PASSWORD, setupCode });
 });
+
+test("a setup code supplied in AUTH_LOCAL_SETUP_CODE is asked for at every start, and is never logged or written", async (t) => {
+  const storeDir = await temporaryStoreDir(t);
+  const supplied = "Gq7v-K2pX_9mLr4TzWb8NcYd3HsJ5eFa";
+  await fs.writeFile(path.join(storeDir, SETUP_CODE_FILE), "LEFTOVER\n");
+  const first = await startServer(storeDir, { env: { AUTH_LOCAL_SETUP_CODE: supplied } });
+  assert.deepEqual(first.warnings, [{
+    fields: { firstAccountSetupCodeEnv: "AUTH_LOCAL_SETUP_CODE" },
+    message: "Local auth has no account yet: register the first account with the setup code in AUTH_LOCAL_SETUP_CODE."
+  }]);
+  assert.equal(JSON.stringify(first.warnings).includes(supplied), false);
+  assert.equal(await codeFile(storeDir), null);
+  assert.equal(waitingForFirstAccount(first.service), true);
+
+  // A restart, or a second server, asks for the same code.
+  const restarted = await startServer(storeDir, { env: { AUTH_LOCAL_SETUP_CODE: supplied } });
+  await assert.rejects(restarted.service.register({ email: "owner@example.com", password: PASSWORD }), codeRequired);
+  await assert.rejects(
+    restarted.service.register({ email: "owner@example.com", password: PASSWORD, setupCode: "AAAAA-AAAAA-AAAAA-AAAAA" }),
+    codeInvalid
+  );
+  const owner = await restarted.service.register({
+    email: "owner@example.com",
+    password: PASSWORD,
+    setupCode: supplied.toLowerCase()
+  });
+  assert.ok(owner.session.access_token);
+  assert.equal(waitingForFirstAccount(restarted.service), false);
+
+  // Once an account exists, the supplied code is not asked for and nothing is logged.
+  const later = await startServer(storeDir, { env: { AUTH_LOCAL_SETUP_CODE: supplied } });
+  assert.deepEqual(later.warnings, []);
+  assert.ok((await later.service.register({ email: "second@example.com", password: PASSWORD })).session.access_token);
+});
+
+test("a supplied setup code needs 20 letters and digits in production, and development ignores it", () => {
+  assert.throws(
+    () => localServiceOptions({ env: { NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "", AUTH_LOCAL_SETUP_CODE: "short-code-1234" } }),
+    /AUTH_LOCAL_SETUP_CODE must have at least 20 letters and digits\./u
+  );
+  assert.equal(localServiceOptions({ env: { NODE_ENV: "development", AUTH_LOCAL_SETUP_CODE: "short" } }).config.setupCode, "");
+});

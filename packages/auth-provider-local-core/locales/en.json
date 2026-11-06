@@ -16,8 +16,8 @@
           "confirmationResent": "If a registration is waiting for that email, a new confirmation link has been sent."
         },
         "setup": {
-          "codeRequired": "This app has no account yet. Its first account needs the setup code from the server's log.",
-          "codeInvalid": "That is not this server's setup code. Copy it again from the server's log."
+          "codeRequired": "This app has no account yet. Its first account needs the setup code from the server's log or its hosting service.",
+          "codeInvalid": "That is not this app's setup code. Copy it again from the server's log or its hosting service."
         },
         "login": {
           "locked": "Too many failed sign-ins for this account. Try again in {count} minute. | Too many failed sign-ins for this account. Try again in {count} minutes."

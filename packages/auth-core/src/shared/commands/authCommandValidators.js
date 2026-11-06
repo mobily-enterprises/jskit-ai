@@ -478,7 +478,7 @@ const AUTH_FIELD_MESSAGES = deepFreeze({
     code: "auth.validation.confirmationCodeRequired",
     message: "Enter the confirmation code or link from the email."
   },
-  setupCodeInvalid: { code: "auth.validation.setupCodeInvalid", message: "Enter the setup code from the server's log." }
+  setupCodeInvalid: { code: "auth.validation.setupCodeInvalid", message: "Enter the setup code from the server's log or its hosting service." }
 });
 
 function createCommandMessages({

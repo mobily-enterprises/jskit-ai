@@ -6,6 +6,7 @@ import path from "node:path";
 import { AUTH_PASSWORD_MIN_LENGTH } from "@jskit-ai/auth-core/shared/authConstraints";
 import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { assertDevelopmentOnlySettings } from "@jskit-ai/kernel/server/runtime/runtimeMode";
+import { SETUP_CODE_ENV, SETUP_CODE_MIN_CHARACTERS, normalizedSetupCode } from "./firstAccountSetup.js";
 import { resolveOAuthProviders } from "./oauth.js";
 import { resolveSignInThrottle } from "./signInThrottle.js";
 
@@ -42,6 +43,22 @@ function resolveSessionSecret(env, { storeDir, isProduction }) {
   const generated = randomBytes(32).toString("base64url");
   fs.writeFileSync(secretPath, `${generated}\n`, { mode: 0o600 });
   return generated;
+}
+
+/**
+ * AUTH_LOCAL_SETUP_CODE: the first account's setup code when a hosting tool
+ * supplies it, so that every start and every server asks for the same code.
+ * Only production asks for a setup code; elsewhere the variable is ignored.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
+ * @param {{ isProduction: boolean }} options
+ */
+function resolveSetupCode(env, { isProduction }) {
+  const code = String(env[SETUP_CODE_ENV] || "").trim();
+  if (!isProduction || !code) return "";
+  if (normalizedSetupCode(code).length < SETUP_CODE_MIN_CHARACTERS) {
+    throw new Error(`${SETUP_CODE_ENV} must have at least ${SETUP_CODE_MIN_CHARACTERS} letters and digits.`);
+  }
+  return code;
 }
 
 /**
@@ -164,6 +181,7 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
     oauthProviders,
     oauthEnabled,
     sessionSecret: resolveSessionSecret(env, { storeDir, isProduction }),
+    setupCode: resolveSetupCode(env, { isProduction }),
     recoveryDelivery,
     recoveryEnabled: recoveryDelivery !== "disabled",
     confirmationDelivery,

@@ -201,6 +201,13 @@ the old one stops working: the latest log line and the file always agree, and
 nothing but a hash is kept for checking it. Run one server while the first
 account is set up, since each server makes its own code.
 
+A hosting tool that shows the code to the operator itself supplies it in
+`AUTH_LOCAL_SETUP_CODE`, at least 20 letters and digits, for example a
+generated production secret. The server then asks for that code at every start
+and on every server, writes no `first-account-setup-code` file, and logs only
+that the code is in `AUTH_LOCAL_SETUP_CODE`, never the code itself. Outside
+production the variable is ignored.
+
 ## Application-owned recovery email
 
 Local auth owns recovery tokens, expiry and recovery-scoped sessions. The

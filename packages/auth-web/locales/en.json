@@ -48,7 +48,7 @@
           "useDevLink": "Confirm with this link"
         },
         "firstAccount": {
-          "explain": "This app has no account yet. Its first account becomes its owner, so it needs the setup code the server wrote in its log when it started."
+          "explain": "This app has no account yet. Its first account becomes its owner, so it needs the setup code the server wrote in its log when it started, or that its hosting service shows its owner."
         },
         "rememberedAccount": {
           "welcomeBack": "Welcome back, {name}",

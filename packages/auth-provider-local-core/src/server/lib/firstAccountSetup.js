@@ -6,6 +6,10 @@ import { sha256Base64url } from "./tokens.js";
 
 // The file in AUTH_LOCAL_STORE_DIR that holds the code while it is needed.
 const SETUP_CODE_FILE = "first-account-setup-code";
+// The variable in which a hosting tool may supply the code itself.
+const SETUP_CODE_ENV = "AUTH_LOCAL_SETUP_CODE";
+// A supplied code needs at least this many letters and digits, as many as a code made here.
+const SETUP_CODE_MIN_CHARACTERS = 20;
 // Crockford's base32: no I, L, O or U, so a code read aloud or retyped stays exact.
 const SETUP_CODE_ALPHABET = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
 const SETUP_CODE_LENGTH = 20;
@@ -15,19 +19,23 @@ function newSetupCode() {
   return characters.join("").match(/.{5}/gu).join("-");
 }
 
-// Letter case, spaces and dashes do not matter.
+// Letter case, spaces, dashes and other punctuation do not matter.
+function normalizedSetupCode(code) {
+  return String(code || "").toUpperCase().replace(/[^0-9A-Z]/gu, "");
+}
+
 function setupCodeHash(code) {
-  return sha256Base64url(String(code || "").toUpperCase().replace(/[^0-9A-Z]/gu, ""));
+  return sha256Base64url(normalizedSetupCode(code));
 }
 
 function setupCodeRequired() {
-  return new AppError(403, "This app has no account yet. Its first account needs the setup code from the server's log.", {
+  return new AppError(403, "This app has no account yet. Its first account needs the setup code from the server's log or its hosting service.", {
     code: "auth.local.setup.codeRequired"
   });
 }
 
 function setupCodeInvalid() {
-  return new AppError(403, "That is not this server's setup code. Copy it again from the server's log.", {
+  return new AppError(403, "That is not this app's setup code. Copy it again from the server's log or its hosting service.", {
     code: "auth.local.setup.codeInvalid"
   });
 }
@@ -37,8 +45,11 @@ function setupCodeInvalid() {
  * creating one needs a one-time setup code that only the server's operator can
  * read: each start of an ownerless production server makes a new code, writes
  * it in the log and in `first-account-setup-code` in AUTH_LOCAL_STORE_DIR, and
- * keeps only its hash. The code admits registrations until an account exists,
- * then stops working and its file is deleted. Development needs no code.
+ * keeps only its hash. A hosting tool that supplies the code in
+ * AUTH_LOCAL_SETUP_CODE shows it to the operator itself: the server then uses
+ * that code at every start, and neither logs nor writes it. The code admits
+ * registrations until an account exists, then stops working and its file is
+ * deleted. Development needs no code.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
@@ -63,8 +74,7 @@ function createFirstAccountSetup({ backend, config, logger }) {
     }
   }
 
-  function finish() {
-    codeHash = null;
+  function removeCodeFile() {
     try {
       fs.rmSync(codeFile, { force: true });
     } catch (error) {
@@ -72,9 +82,24 @@ function createFirstAccountSetup({ backend, config, logger }) {
     }
   }
 
+  function finish() {
+    codeHash = null;
+    removeCodeFile();
+  }
+
   async function prepare() {
     if (await backend.withTransaction((tx) => tx.users.hasAny())) {
       finish();
+      return;
+    }
+    if (config.setupCode) {
+      // The hosting tool shows its code, so a file left by an earlier start would only mislead.
+      codeHash = setupCodeHash(config.setupCode);
+      removeCodeFile();
+      logger.warn(
+        { firstAccountSetupCodeEnv: SETUP_CODE_ENV },
+        `Local auth has no account yet: register the first account with the setup code in ${SETUP_CODE_ENV}.`
+      );
       return;
     }
     const code = newSetupCode();
@@ -158,4 +183,4 @@ function createFirstAccountSetup({ backend, config, logger }) {
   });
 }
 
-export { SETUP_CODE_FILE, createFirstAccountSetup };
+export { SETUP_CODE_ENV, SETUP_CODE_FILE, SETUP_CODE_MIN_CHARACTERS, createFirstAccountSetup, normalizedSetupCode };
