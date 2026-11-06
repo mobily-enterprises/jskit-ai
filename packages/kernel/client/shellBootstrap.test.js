@@ -5,7 +5,8 @@ import {
   bootstrapClientShellApp,
   createClientBootstrapLogger,
   createSurfaceShellRouter,
-  shellScrollBehavior
+  shellScrollBehavior,
+  staysOnSamePage
 } from "./shellBootstrap.js";
 import { getClientAppConfig } from "./appConfig.js";
 import { silentLogger } from "../shared/support/silentLogger.js";
@@ -136,6 +137,43 @@ test("shellScrollBehavior opens new screens at the top and keeps in-page changes
     shellScrollBehavior(at("/home/contacts", [surface, contacts], { hash: "#recent" }), at("/home", [surface]), null),
     { el: "#recent", top: 0 }
   );
+});
+
+test("shellScrollBehavior opens a page Up returns to at the position its navigation state carries", (t) => {
+  const surface = { path: "/home", meta: { jskit: { surface: "home" } } };
+  const contacts = { path: "/home/contacts", meta: {} };
+  const contact = { path: "/home/contacts/:id", meta: {} };
+  const at = (path, matched) => ({ path, matched, hash: "" });
+  const previousWindow = globalThis.window;
+  t.after(() => {
+    globalThis.window = previousWindow;
+  });
+  globalThis.window = { history: { state: { restoreScroll: { left: 0, top: 420 } } } };
+  assert.deepEqual(
+    shellScrollBehavior(at("/home/contacts", [surface, contacts]), at("/home/contacts/1", [surface, contact]), null),
+    { left: 0, top: 420 }
+  );
+  // Back/Forward keep their own saved position, and an in-page change keeps the current one.
+  const saved = { left: 0, top: 10 };
+  assert.equal(shellScrollBehavior(at("/home/contacts", [surface, contacts]), at("/home/contacts/1", [surface, contact]), saved), saved);
+  assert.equal(shellScrollBehavior(at("/home/contacts", [surface, contacts]), at("/home/contacts", [surface, contacts]), null), false);
+  globalThis.window = { history: { state: {} } };
+  assert.deepEqual(
+    shellScrollBehavior(at("/home/contacts", [surface, contacts]), at("/home/contacts/1", [surface, contact]), null),
+    { top: 0 }
+  );
+});
+
+test("staysOnSamePage tells tabs of one page from different pages", () => {
+  const surface = { path: "/home", meta: { jskit: { surface: "home" } } };
+  const settings = { path: "/home/settings", meta: {} };
+  const general = { path: "/home/settings/general", meta: {} };
+  const profile = { path: "/home/settings/profile", meta: {} };
+  const contacts = { path: "/home/contacts", meta: {} };
+  const at = (path, matched) => ({ path, matched });
+  assert.equal(staysOnSamePage(at("/home/settings/profile", [surface, settings, profile]), at("/home/settings/general", [surface, settings, general])), true);
+  assert.equal(staysOnSamePage(at("/home/contacts", [surface, contacts]), at("/home/settings/general", [surface, settings, general])), false);
+  assert.equal(staysOnSamePage(at("/home/contacts", [surface, contacts]), at("/home/contacts", [surface, contacts])), true);
 });
 
 test("createClientBootstrapLogger enables debug from env flag", () => {

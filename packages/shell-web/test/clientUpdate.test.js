@@ -104,7 +104,12 @@ async function startClient(t, { inputs = {}, providers = [], probe = { shell: "c
           };
         }
       },
-      "client.router": { currentRoute: { value: { path: "/" } }, onError: () => () => {} },
+      "client.router": {
+        currentRoute: { value: { path: "/" } },
+        onError: () => () => {},
+        beforeEach: () => () => {},
+        afterEach: () => () => {}
+      },
       "client.surface": createSurfaceRuntime({
         allMode: "all",
         surfaces: { app: { id: "app", pagesRoot: "app", enabled: true } },

@@ -58,7 +58,9 @@ test("adaptive shell smoke follows rendered layout state and waits for drawer tr
   assert.match(source, /data-rail-width/u);
   assert.match(source, /expect\.poll/u);
   assert.match(source, /toBeFocused/u);
-  assert.match(source, /getByRole\("button", \{ name: "Close navigation menu" \}\)/u);
+  // The modal drawer opens over the app bar; the smoke closes it from the scrim beside it and with Escape.
+  assert.match(source, /toHaveAttribute\("aria-label", "Close navigation menu"\)/u);
+  assert.match(source, /page\.mouse\.click\(viewport\.width - 8/u);
   assert.doesNotMatch(source, /v-navigation-drawer__scrim/u);
   assert.match(source, /page\.keyboard\.press\("Escape"\)[\s\S]*data-presentation", "drawer"/u);
   assert.match(source, /centers\.push\(box\.x \+ box\.width \/ 2\)/u);

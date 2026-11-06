@@ -3,8 +3,7 @@ import { computed } from "vue";
 import { useWebPlacementContext } from "../placement/index.js";
 import { resolveMenuLinkIcon } from "../lib/menuIcons.js";
 import { resolveMenuLinkHref } from "../support/menuLinkTarget.js";
-import { activateShellNavigationLinkOnSpace } from "../support/navigationLinkKeyboard.js";
-import ShellNavigationTooltip from "./ShellNavigationTooltip.vue";
+import ShellNavigationItem from "./ShellNavigationItem.vue";
 import { useJskitText } from "../i18n.js";
 
 // The label may be a message key, { key, fallback } or plain text.
@@ -48,26 +47,13 @@ const resolvedIcon = computed(() =>
 </script>
 
 <template>
-  <ShellNavigationTooltip v-if="resolvedTarget.href" :label="resolvedLabel">
-    <template #default="{ activatorProps }">
-      <v-list-item
-        v-bind="activatorProps"
-        class="shell-menu-link-item"
-        :title="resolvedLabel"
-        :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"
-        :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"
-        :prepend-icon="resolvedIcon || undefined"
-        :disabled="props.disabled"
-        :exact="props.exact"
-        :aria-label="resolvedLabel"
-        @keydown.space="activateShellNavigationLinkOnSpace"
-      />
-    </template>
-  </ShellNavigationTooltip>
+  <ShellNavigationItem
+    v-if="resolvedTarget.href"
+    :label="resolvedLabel"
+    :href="resolvedTarget.href"
+    :same-origin="resolvedTarget.sameOrigin"
+    :icon="resolvedIcon"
+    :disabled="props.disabled"
+    :exact="props.exact"
+  />
 </template>
-
-<style scoped>
-.shell-menu-link-item {
-  min-height: 48px;
-}
-</style>

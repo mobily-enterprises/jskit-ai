@@ -57,6 +57,13 @@ function createRouter() {
     onError(handler) {
       errorHandlers.push(handler);
       return () => {};
+    },
+    // The shell's navigation trail hooks every navigation.
+    beforeEach() {
+      return () => {};
+    },
+    afterEach() {
+      return () => {};
     }
   };
 }
@@ -129,7 +136,7 @@ async function startShell({
   );
 }
 
-test("shell capability owns placement, bootstrap, refresh, errors, and recovery without a container", async () => {
+test("shell capability owns placement, navigation, bootstrap, refresh, errors, and recovery without a container", async () => {
   const fixture = await startShell({
     bootstrapPayload: {
       surfaceAccess: {
@@ -146,6 +153,7 @@ test("shell capability owns placement, bootstrap, refresh, errors, and recovery 
     "clientUpdate",
     "error",
     "errorPresentationStore",
+    "navigation",
     "placement",
     "refresh",
     "requestRecovery"

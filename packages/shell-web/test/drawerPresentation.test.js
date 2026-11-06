@@ -8,7 +8,7 @@ import {
 
 test("wide closed navigation defaults to a visible Material navigation rail", () => {
   assert.deepEqual(
-    resolveShellDrawerPresentation({ compact: false, open: false }),
+    resolveShellDrawerPresentation({ modal: false, open: false }),
     {
       visible: true,
       rail: true,
@@ -18,9 +18,9 @@ test("wide closed navigation defaults to a visible Material navigation rail", ()
   );
 });
 
-test("compact closed navigation dismisses instead of retaining a rail", () => {
+test("closed modal navigation dismisses instead of retaining a rail", () => {
   assert.deepEqual(
-    resolveShellDrawerPresentation({ compact: true, open: false }),
+    resolveShellDrawerPresentation({ modal: true, open: false }),
     {
       visible: false,
       rail: false,
@@ -34,7 +34,7 @@ test("desktopDrawerClosedMode hidden preserves an explicitly hidden wide drawer"
   assert.equal(normalizeDesktopDrawerClosedMode("hidden"), "hidden");
   assert.deepEqual(
     resolveShellDrawerPresentation({
-      compact: false,
+      modal: false,
       open: false,
       desktopClosedMode: "hidden"
     }),
@@ -49,7 +49,7 @@ test("desktopDrawerClosedMode hidden preserves an explicitly hidden wide drawer"
 
 test("open navigation renders as a full drawer and labels its toggle responsively", () => {
   assert.deepEqual(
-    resolveShellDrawerPresentation({ compact: false, open: true }),
+    resolveShellDrawerPresentation({ modal: false, open: true }),
     {
       visible: true,
       rail: false,
@@ -58,11 +58,11 @@ test("open navigation renders as a full drawer and labels its toggle responsivel
     }
   );
   assert.equal(
-    resolveShellDrawerToggleLabel({ compact: false, open: true }),
+    resolveShellDrawerToggleLabel({ modal: false, open: true }),
     "Collapse navigation drawer"
   );
   assert.equal(
-    resolveShellDrawerToggleLabel({ compact: true, open: false }),
+    resolveShellDrawerToggleLabel({ modal: true, open: false }),
     "Open navigation menu"
   );
 });

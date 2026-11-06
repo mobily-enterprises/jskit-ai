@@ -4,8 +4,9 @@ import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import { createRouter, createWebHistory } from "vue-router/auto";
 import { routes } from "vue-router/auto-routes";
 import "vuetify/styles";
+import "@jskit-ai/material-web/client/material.css";
 import { createVuetify } from "vuetify";
-import { aliases as mdiAliases, mdi } from "vuetify/iconsets/mdi-svg";
+import { createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import App from "./App.vue";
 import NotFoundView from "./views/NotFound.vue";
 import { bootInstalledClientModules } from "virtual:jskit-client-bootstrap";
@@ -39,16 +40,10 @@ const { router, fallbackRoute } = createShellRouter({
   }
 });
 
-const vuetify = createVuetify({
-  theme: {
-    defaultTheme: "light"
-  },
-  icons: {
-    defaultSet: "mdi",
-    aliases: mdiAliases,
-    sets: { mdi }
-  }
-});
+// Material 3: light and dark colour schemes generated from this one seed colour, following the device's setting,
+// with Material Symbols behind every icon alias. Change the seed to rebrand; add the app's own icons with
+// `icons: { name: "<24x24 SVG path>" }` and use them as `$name`.
+const vuetify = createVuetify(createMaterialVuetifyOptions({ seed: "#6750A4" }));
 const pinia = createPinia();
 const queryClient = new QueryClient({
   defaultOptions: {

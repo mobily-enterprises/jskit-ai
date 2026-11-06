@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `shellScrollBehavior` opens a page at the position a navigation carries in `state.restoreScroll`, as shell-web's Up does when it returns to a page, and the client exports `staysOnSamePage(to, from)`, the check it uses for tabs and sub-views of one page.
 - `createInstalledRuntime` adds security headers to every response its Fastify server sends: `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin` always, and in production (`NODE_ENV=production`) `Strict-Transport-Security: max-age=31536000`, `Content-Security-Policy: frame-ancestors 'self'` and a report-only content policy that JSKIT's client runs under. `config.securityHeaders` changes or switches each one off; a route's own header wins. `registerSecurityHeaders` (`@jskit-ai/kernel/server/http`) does the same for a server composed without `createInstalledRuntime`.
 - `createInstalledRuntime` returns `health`, whose `check()` runs the checks providers register through the optional `runtime.health` capability, each within two seconds, and reports `{ ok, checks }` without error details.
 - `@jskit-ai/kernel/server/runtime/runtimeMode` exports `isProductionEnv(env)`, the one check JSKIT packages make to decide production, the security headers included: `NODE_ENV` is `production`, in any letter case; anything else, unset included, is development, as before. It also exports `assertDevelopmentOnlySettings(env, names)`, which stops a production server's startup when any of the named development-only settings is set, saying which to remove.

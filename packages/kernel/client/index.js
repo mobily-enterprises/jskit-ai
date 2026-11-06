@@ -13,6 +13,7 @@ export {
   resolveClientBootstrapDebugEnabled,
   createSurfaceShellRouter as createShellRouter,
   shellScrollBehavior,
+  staysOnSamePage,
   bootstrapClientShellApp
 } from "./shellBootstrap.js";
 export { DEFAULT_GUARD_EVALUATOR_KEY } from "./shellRouting.js";

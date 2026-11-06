@@ -11,7 +11,7 @@ addPlacement({
   order: 120,
   props: {
     label: "Reports",
-    icon: "mdi-chart-box-outline",
+    icon: "$assignment",
     surface: "home",
     scopedSuffix: "/reports",
     unscopedSuffix: "/reports"

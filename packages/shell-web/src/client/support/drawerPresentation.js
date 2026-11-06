@@ -8,13 +8,18 @@ function normalizeDesktopDrawerClosedMode(value = "rail") {
   return DESKTOP_DRAWER_CLOSED_MODES.includes(normalized) ? normalized : "rail";
 }
 
+/**
+ * How the shell's navigation drawer presents: a modal drawer over the page (compact and medium windows), or on
+ * expanded windows a standard drawer that collapses to a navigation rail (or hides, with `desktopClosedMode: "hidden"`).
+ * @param {{ modal?: boolean, open?: boolean, desktopClosedMode?: string }} [options]
+ */
 function resolveShellDrawerPresentation({
-  compact = false,
+  modal = false,
   open = false,
   desktopClosedMode = "rail"
 } = {}) {
   const closedMode = normalizeDesktopDrawerClosedMode(desktopClosedMode);
-  if (compact) {
+  if (modal) {
     return Object.freeze({
       visible: Boolean(open),
       rail: false,
@@ -46,8 +51,8 @@ function resolveShellDrawerPresentation({
   });
 }
 
-function resolveShellDrawerToggleLabel({ compact = false, open = false } = {}) {
-  if (compact) {
+function resolveShellDrawerToggleLabel({ modal = false, open = false } = {}) {
+  if (modal) {
     return open ? t("jskit.shell.layout.closeNavigationMenu") : t("jskit.shell.layout.openNavigationMenu");
   }
   return open ? t("jskit.shell.layout.collapseNavigationDrawer") : t("jskit.shell.layout.expandNavigationDrawer");

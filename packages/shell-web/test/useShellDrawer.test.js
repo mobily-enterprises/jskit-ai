@@ -65,6 +65,7 @@ function mountDrawer(t, { compact = false, props = {} } = {}) {
   });
 
   const isCompactLayout = ref(compact);
+  const viewportWidth = ref(compact ? 390 : 1280);
   const drawerOpen = ref(true);
   const focused = [];
   const navigationToggle = ref({ $el: { focus: (options) => focused.push(options) } });
@@ -76,7 +77,8 @@ function mountDrawer(t, { compact = false, props = {} } = {}) {
       navigationItemSpacing: 12,
       ...props
     },
-    isCompactLayout,
+    modalLayout: isCompactLayout,
+    viewportWidth,
     navigationToggle,
     layoutState: {
       drawerDefaultOpen: ref(true),
@@ -87,7 +89,7 @@ function mountDrawer(t, { compact = false, props = {} } = {}) {
       }
     }
   }));
-  return { app, drawerOpen, focused, fontListeners, frames, isCompactLayout, observers, page, result };
+  return { app, drawerOpen, focused, fontListeners, frames, isCompactLayout, observers, page, result, viewportWidth };
 }
 
 async function runFrames(frames) {
@@ -161,8 +163,21 @@ test("Escape closes the compact drawer and returns focus to its toggle", async (
   app.unmount();
 });
 
-test("the drawer's width follows its measured labels", async (t) => {
-  const { app, frames, observers, result } = mountDrawer(t);
+test("the drawer is Material 3's 360dp wide and a modal one leaves 56dp of the page", async (t) => {
+  const { app, frames, isCompactLayout, result, viewportWidth } = mountDrawer(t);
+  assert.equal(result.fixedDrawerWidth.value, true);
+  assert.equal(result.resolvedDrawerWidth.value, 360);
+  await runFrames(frames);
+  assert.equal(result.resolvedDrawerWidth.value, 360);
+
+  isCompactLayout.value = true;
+  viewportWidth.value = 390;
+  assert.equal(result.resolvedDrawerWidth.value, 390 - 56);
+  app.unmount();
+});
+
+test("a content drawer's width follows its measured labels", async (t) => {
+  const { app, frames, observers, result } = mountDrawer(t, { props: { drawerWidth: "content" } });
   assert.equal(result.resolvedDrawerWidth.value, 248);
 
   await runFrames(frames);
@@ -198,7 +213,7 @@ test("a closed wide drawer only ignores a request to open it", (t) => {
 });
 
 test("unmounting detaches every listener and pending measurement", async (t) => {
-  const { app, fontListeners, frames, observers, page } = mountDrawer(t);
+  const { app, fontListeners, frames, observers, page } = mountDrawer(t, { props: { drawerWidth: "content" } });
   await nextTick();
   await nextTick();
   assert.equal(page.listeners.size, 2);

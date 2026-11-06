@@ -1,7 +1,7 @@
 import { buildSurfaceAwareRoutes, createFallbackNotFoundRoute, createShellBeforeEachGuard } from "./shellRouting.js";
 import { isRecord } from "../shared/support/normalize.js";
 import { setClientAppConfig } from "./appConfig.js";
-import { pagePathname } from "./browser.js";
+import { pagePathname, pageWindow } from "./browser.js";
 import { setJskitI18n } from "./i18n.js";
 import { createStructuredLogger, summarizeRouterRoutes } from "./logging.js";
 
@@ -75,8 +75,14 @@ function isSurfaceRootRecord(record) {
   return Boolean(record?.meta?.jskit?.surface);
 }
 
-// A page that hosts tabs or sub-views keeps its own record above the changing
-// child, so the two locations share a non-leaf record below the surface root.
+/**
+ * Whether two locations are the same page: the same path, or two children
+ * (tabs, sub-views) of one page record below the surface root. A page that hosts
+ * tabs or sub-views keeps its own record above the changing child, so the two
+ * locations share a non-leaf record below the surface root.
+ * @param {import("vue-router").RouteLocationNormalized} to
+ * @param {import("vue-router").RouteLocationNormalized} from
+ */
 function staysOnSamePage(to, from) {
   if (to.path === from.path) {
     return true;
@@ -88,7 +94,9 @@ function staysOnSamePage(to, from) {
 /**
  * JSKIT's default router scroll behaviour: Back/Forward restore the saved
  * position, a new screen opens at the top (or at its hash target), and tab,
- * query or hash changes within the same page keep the current position.
+ * query or hash changes within the same page keep the current position. A
+ * navigation that carries `state: { restoreScroll: { left, top } }`, as the
+ * shell's Up does when it returns to a page, opens at that position.
  */
 function shellScrollBehavior(to, from, savedPosition) {
   if (savedPosition) {
@@ -96,6 +104,13 @@ function shellScrollBehavior(to, from, savedPosition) {
   }
   if (staysOnSamePage(to, from)) {
     return false;
+  }
+  const restoreScroll = pageWindow()?.history?.state?.restoreScroll;
+  if (isRecord(restoreScroll)) {
+    return {
+      left: Number(restoreScroll.left) || 0,
+      top: Number(restoreScroll.top) || 0
+    };
   }
   if (to.hash) {
     return { el: to.hash, top: 0 };
@@ -295,6 +310,7 @@ async function bootstrapClientShellApp({
 
 export {
   shellScrollBehavior,
+  staysOnSamePage,
   resolveClientBootstrapDebugEnabled,
   createClientBootstrapLogger,
   createSurfaceShellRouter,

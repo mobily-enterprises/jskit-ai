@@ -52,7 +52,7 @@ test("shell texts stay English without an app vue-i18n instance", () => {
     requestRecoveryMessage(null),
     "The app could not reach the server or network. Check the connection and try again."
   );
-  assert.equal(resolveShellDrawerToggleLabel({ compact: true, open: false }), "Open navigation menu");
+  assert.equal(resolveShellDrawerToggleLabel({ modal: true, open: false }), "Open navigation menu");
 });
 
 test("shell texts follow the app's active language", () => {
@@ -65,7 +65,7 @@ test("shell texts follow the app's active language", () => {
       requestRecoveryMessage(null, { label: "jskit.shell.recovery.appDataLabel" }),
       "[xx] [xx] App data could not reach the server or network. Check the connection and try again."
     );
-    assert.equal(resolveShellDrawerToggleLabel({ compact: false, open: true }), "[xx] Collapse navigation drawer");
+    assert.equal(resolveShellDrawerToggleLabel({ modal: false, open: true }), "[xx] Collapse navigation drawer");
   });
 });
 

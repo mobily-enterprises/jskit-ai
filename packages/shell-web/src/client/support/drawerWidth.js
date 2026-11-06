@@ -1,4 +1,7 @@
 const DEFAULT_SHELL_DRAWER_WIDTH = 248;
+// Material 3's navigation drawer is 360dp wide; a modal one leaves at least 56dp of the page showing beside it.
+const MATERIAL_DRAWER_WIDTH = 360;
+const MATERIAL_MODAL_DRAWER_EDGE = 56;
 const DEFAULT_SHELL_RAIL_WIDTH = 80;
 const MINIMUM_SHELL_DRAWER_WIDTH = 120;
 const MAXIMUM_SHELL_DRAWER_WIDTH = 360;
@@ -49,6 +52,18 @@ function normalizeShellNavigationItemSpacing(
     MINIMUM_SHELL_NAVIGATION_ITEM_SPACING,
     MAXIMUM_SHELL_NAVIGATION_ITEM_SPACING
   );
+}
+
+/**
+ * The Material 3 drawer width: 360dp, narrowed on a small window so a modal drawer leaves 56dp of the page.
+ * @param {{ modal?: boolean, viewportWidth?: number }} [options]
+ */
+function resolveMaterialDrawerWidth({ modal = false, viewportWidth = Number.POSITIVE_INFINITY } = {}) {
+  const available = Number(viewportWidth) - MATERIAL_MODAL_DRAWER_EDGE;
+  if (!modal || !Number.isFinite(available)) {
+    return MATERIAL_DRAWER_WIDTH;
+  }
+  return clampNumber(Math.floor(available), MINIMUM_SHELL_DRAWER_WIDTH, MATERIAL_DRAWER_WIDTH);
 }
 
 function resolveContentAwareDrawerWidth(
@@ -120,11 +135,13 @@ export {
   DEFAULT_SHELL_DRAWER_WIDTH,
   DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
   DEFAULT_SHELL_RAIL_WIDTH,
+  MATERIAL_DRAWER_WIDTH,
   MAXIMUM_SHELL_DRAWER_WIDTH,
   MINIMUM_SHELL_DRAWER_WIDTH,
   measureDrawerContentWidth,
   normalizeShellDrawerWidth,
   normalizeShellNavigationItemSpacing,
   normalizeShellRailWidth,
-  resolveContentAwareDrawerWidth
+  resolveContentAwareDrawerWidth,
+  resolveMaterialDrawerWidth
 };

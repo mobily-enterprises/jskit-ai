@@ -74,7 +74,7 @@ const resolvedTargetId = computed(() => {
   return String(props.target || "").trim();
 });
 
-const resolvedLayoutClass = computed(() => resolveShellLayoutClass(display.name.value));
+const resolvedLayoutClass = computed(() => resolveShellLayoutClass(display.width.value));
 
 const placements = computed(() => {
   void revision.value;

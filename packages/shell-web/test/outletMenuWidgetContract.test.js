@@ -13,12 +13,11 @@ test("shell-web outlet menu widget exposes a configurable nested outlet", async 
     "utf8"
   );
 
-  assert.match(source, /import \{ mdiCogOutline \} from "@mdi\/js";/);
   assert.match(source, /:target="props\.target"/);
   assert.doesNotMatch(source, /defaultLinkComponentToken/);
   assert.doesNotMatch(source, /default-link-component-token/);
-  assert.match(source, /default: mdiCogOutline/);
-  assert.doesNotMatch(source, /mdi-[a-z0-9-]+/);
+  assert.match(source, /default: "\$settings"/u);
+  assert.doesNotMatch(source, /@mdi\/js|mdi-[a-z0-9-]+/u);
 });
 
 test("shell-web exports the outlet menu widget from both client index and package exports", async () => {

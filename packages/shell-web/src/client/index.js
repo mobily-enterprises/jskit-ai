@@ -10,7 +10,14 @@ export { default as ShellErrorHost } from "./components/ShellErrorHost.vue";
 export { default as ShellMenuLinkItem } from "./components/ShellMenuLinkItem.vue";
 export { default as ShellSurfaceAwareMenuLinkItem } from "./components/ShellSurfaceAwareMenuLinkItem.vue";
 export { default as ShellTabLinkItem } from "./components/ShellTabLinkItem.vue";
+export { default as ShellPageActions } from "./components/ShellPageActions.vue";
+export { default as ShellPageAction } from "./components/ShellPageAction.vue";
+export { default as ShellListDetail } from "./components/ShellListDetail.vue";
 export { useShellLayoutState } from "./composables/useShellLayoutState.js";
+export { useShellPageTitle } from "./composables/useShellPageTitle.js";
+export { useShellWindowSizeClass } from "./composables/useShellWindowSizeClass.js";
+export { useShellNavigation } from "./navigation/useShellNavigation.js";
+export { leaveApp, reloadAppPage } from "./navigation/documentNavigation.js";
 export { useShellLayoutStore } from "./stores/useShellLayoutStore.js";
 export { useShellErrorPresentationStore } from "./stores/useShellErrorPresentationStore.js";
 export {

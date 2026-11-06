@@ -1,5 +1,4 @@
 <script setup>
-import { mdiCogOutline } from "@mdi/js";
 import ShellOutlet from "./ShellOutlet.vue";
 import { useJskitText } from "../i18n.js";
 
@@ -12,7 +11,7 @@ const props = defineProps({
   },
   icon: {
     type: String,
-    default: mdiCogOutline
+    default: "$settings"
   },
   // Defaults to the translated "Tools"; a passed label may be a message key.
   ariaLabel: {
@@ -41,6 +40,7 @@ const props = defineProps({
         v-bind="activatorProps"
         icon
         variant="text"
+        color="on-surface-variant"
         :aria-label="props.ariaLabel === undefined ? t('jskit.shell.layout.tools') : text(props.ariaLabel)"
       >
         <v-icon :icon="props.icon" />

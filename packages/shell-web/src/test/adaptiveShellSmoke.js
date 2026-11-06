@@ -1,7 +1,7 @@
 const DEFAULT_SMOKE_PATH = String(process.env.JSKIT_PLAYWRIGHT_SMOKE_PATH || "/home");
 const DEFAULT_VIEWPORTS = Object.freeze([
   Object.freeze({ name: "compact", width: 390, height: 844 }),
-  Object.freeze({ name: "medium", width: 1024, height: 1024 }),
+  Object.freeze({ name: "medium", width: 768, height: 1024 }),
   Object.freeze({ name: "expanded", width: 1280, height: 900 })
 ]);
 
@@ -171,17 +171,30 @@ async function expectContentAwareDrawerFit(drawer, expect) {
   }
 }
 
-async function readNavigationIconCenters(drawer) {
+async function readNavigationIconCenters(drawer, expect) {
   const icons = drawer.locator("a.shell-menu-link-item[href] .v-icon");
   await icons.first().waitFor({ state: "visible" });
-  const centers = [];
-  const iconCount = await icons.count();
-  for (let index = 0; index < iconCount; index += 1) {
-    const box = await icons.nth(index).boundingBox();
-    if (!box) {
-      throw new Error("Shell navigation exposed an unmeasurable icon.");
+  // A modal drawer slides in: measure its icons once two reads, each a couple of frames later, agree.
+  const readCenters = () => icons.evaluateAll(async (elements) => {
+    await new Promise((resolve) => window.requestAnimationFrame(() => window.requestAnimationFrame(resolve)));
+    const centers = [];
+    for (const element of elements) {
+      const box = element.getBoundingClientRect();
+      if (!box.width) {
+        return null;
+      }
+      centers.push(box.x + box.width / 2);
     }
-    centers.push(box.x + box.width / 2);
+    return centers;
+  });
+  let centers = await readCenters();
+  await expect.poll(async () => {
+    const previous = centers;
+    centers = await readCenters();
+    return JSON.stringify(centers) === JSON.stringify(previous);
+  }, { message: "Shell navigation icons did not come to rest." }).toBe(true);
+  if (!centers) {
+    throw new Error("Shell navigation exposed an unmeasurable icon.");
   }
   return centers;
 }
@@ -211,7 +224,7 @@ async function expectCentredRailNavigation(page, drawer, expect, expandedIconCen
   expect(linkBox).not.toBeNull();
   expect(linkBox.width).toBeGreaterThanOrEqual(48);
   expect(linkBox.height).toBeGreaterThanOrEqual(48);
-  const railIconCenters = await readNavigationIconCenters(drawer);
+  const railIconCenters = await readNavigationIconCenters(drawer, expect);
   expect(railIconCenters.length).toBe(expandedIconCenters.length);
   for (let index = 0; index < railIconCenters.length; index += 1) {
     expect(Math.abs(
@@ -291,12 +304,10 @@ async function runAdaptiveShellSmokeCase({
     await expect(page.getByTestId("jskit-shell-bottom-nav")).toBeVisible();
     await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
 
+    // The modal drawer opens over the app bar, as Material 3 draws it; tapping the scrim beside it closes it.
     await openCompactDrawer(page, expect);
-    await toggle.click();
-    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
-
-    await openCompactDrawer(page, expect);
-    await page.getByRole("button", { name: "Close navigation menu" }).click();
+    await expect(toggle).toHaveAttribute("aria-label", "Close navigation menu");
+    await page.mouse.click(viewport.width - 8, Math.round(viewport.height / 2));
     await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
 
     await openCompactDrawer(page, expect);
@@ -314,6 +325,22 @@ async function runAdaptiveShellSmokeCase({
 
     await pullToRefresh(page, expect);
     await expect.poll(() => bootstrapRequests).toBeGreaterThan(bootstrapRequestsBeforePull);
+  } else if (layoutClass === "medium") {
+    // Medium windows keep a navigation rail and open the drawer over the page from the rail's menu control.
+    const rail = page.getByTestId("jskit-shell-rail");
+    await expect(rail).toBeVisible();
+    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
+    await expectDrawerWidth(rail, expect, await readConfiguredWidth(drawer, "data-rail-width"));
+    await toggle.click();
+    await expect(drawer).toHaveAttribute("data-presentation", "modal");
+    await expectElementVisibility(page, expect, "jskit-shell-drawer", true);
+    await expectDrawerWidth(drawer, expect, await readConfiguredWidth(drawer, "data-drawer-width"));
+    const drawerIconCenters = await readNavigationIconCenters(drawer, expect);
+    await page.keyboard.press("Escape");
+    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
+    await expect(toggle).toBeFocused();
+    await expectCentredRailNavigation(page, rail, expect, drawerIconCenters);
+    await expectNoHorizontalOverflow(page, expect);
   } else {
     await expect(drawer).toBeVisible();
     if (await drawer.getAttribute("data-presentation") === "rail") {
@@ -322,7 +349,7 @@ async function runAdaptiveShellSmokeCase({
     await expect(drawer).toHaveAttribute("data-presentation", "drawer");
     await expectDrawerWidth(drawer, expect, await readConfiguredWidth(drawer, "data-drawer-width"));
     await expectContentAwareDrawerFit(drawer, expect);
-    const expandedIconCenters = await readNavigationIconCenters(drawer);
+    const expandedIconCenters = await readNavigationIconCenters(drawer, expect);
     await page.keyboard.press("Escape");
     await expect(drawer).toHaveAttribute("data-presentation", "drawer");
 

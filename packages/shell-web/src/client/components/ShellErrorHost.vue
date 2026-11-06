@@ -44,12 +44,11 @@ const {
         <v-alert
           v-for="entry in bannerEntries"
           :key="entry.id"
-          :type="resolveSeverityColor(entry.severity)"
+          :color="`${resolveSeverityColor(entry.severity)}-container`"
           :icon="resolveSeverityIcon(entry.severity)"
-          variant="elevated"
+          variant="flat"
           density="comfortable"
-          rounded="lg"
-          border="start"
+          :rounded="12"
           class="shell-error-host__banner"
           closable
           :close-label="t('jskit.shell.actions.close')"
@@ -78,7 +77,6 @@ const {
       location="bottom end"
       :timeout="resolveTimeout(displayedSnackbarEntry)"
       :vertical="actionsFor(displayedSnackbarEntry).length > 1"
-      :color="displayedSnackbarEntry ? resolveSeverityColor(displayedSnackbarEntry.severity) : undefined"
       @update:model-value="onSnackbarModelValue"
       @after-leave="onSnackbarAfterLeave"
     >
@@ -89,19 +87,18 @@ const {
           v-for="(action, index) in actionsFor(displayedSnackbarEntry)"
           :key="index"
           variant="text"
-          min-height="48"
           @click="runAction(displayedSnackbarEntry, action)"
         >
           {{ text(action.label) }}
         </v-btn>
         <v-btn
           v-if="displayedSnackbarEntry"
+          icon="$close"
           variant="text"
-          size="small"
+          color="inverse-on-surface"
+          :aria-label="t('jskit.shell.actions.dismiss')"
           @click="dismiss(displayedSnackbarEntry)"
-        >
-          {{ t("jskit.shell.actions.dismiss") }}
-        </v-btn>
+        />
       </template>
     </v-snackbar>
 
@@ -112,7 +109,7 @@ const {
       @update:model-value="onDialogModelValue"
     >
       <v-card v-if="dialogEntry">
-        <v-card-title class="text-subtitle-1">{{ t("jskit.shell.error.attentionRequired") }}</v-card-title>
+        <v-card-title>{{ t("jskit.shell.error.attentionRequired") }}</v-card-title>
         <v-card-text>{{ serverMessage(dialogEntry) }}</v-card-text>
         <v-card-actions>
           <v-spacer />
@@ -125,8 +122,7 @@ const {
             {{ text(action.label) }}
           </v-btn>
           <v-btn
-            color="primary"
-            variant="tonal"
+            variant="text"
             @click="dismiss(dialogEntry)"
           >
             {{ t("jskit.shell.actions.close") }}
@@ -165,7 +161,9 @@ const {
 
 .shell-error-host__banner {
   pointer-events: auto;
-  box-shadow: var(--v-shadow-4);
+  box-shadow:
+    0 1px 3px 0 rgba(var(--v-theme-shadow), 0.3),
+    0 4px 8px 3px rgba(var(--v-theme-shadow), 0.15);
 }
 
 /*
@@ -174,7 +172,7 @@ const {
  * a low-contrast red-on-red mark, in light or dark themes.
  */
 .shell-error-host__banner :deep(.v-alert__close .v-btn) {
-  color: inherit !important;
+  color: inherit;
   opacity: 1;
   background-color: color-mix(in srgb, currentColor 18%, transparent);
 }

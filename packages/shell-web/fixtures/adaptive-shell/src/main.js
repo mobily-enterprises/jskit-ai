@@ -4,10 +4,15 @@ import { createRouter, createWebHistory } from "vue-router";
 import { createVuetify } from "vuetify";
 import * as vuetifyComponents from "vuetify/components";
 import * as vuetifyDirectives from "vuetify/directives";
-import { aliases, mdi } from "vuetify/iconsets/mdi-svg";
 import "vuetify/styles";
+import "@jskit-ai/material-web/client/material.css";
+import { materialThemes, createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
+import { shellScrollBehavior } from "@jskit-ai/kernel/client";
 import App from "./App.vue";
+import RecordListPage from "./RecordListPage.vue";
+import RecordPage from "./RecordPage.vue";
 import ScreenPage from "./ScreenPage.vue";
+import SettingsPage from "./SettingsPage.vue";
 import ShellMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellMenuLinkItem";
 import ShellSurfaceAwareMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellSurfaceAwareMenuLinkItem";
 import ShellTabLinkItem from "@jskit-ai/shell-web/client/components/ShellTabLinkItem";
@@ -16,6 +21,10 @@ import { createWebPlacementRuntime } from "../../../src/client/placement/runtime
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "../../../src/client/placement/inject.js";
 import { SHELL_WEB_ERROR_RUNTIME_KEY } from "../../../src/client/error/inject.js";
 import { SHELL_WEB_REFRESH_RUNTIME_KEY } from "../../../src/client/runtime/refreshRuntime.js";
+import {
+  SHELL_NAVIGATION_RUNTIME_KEY,
+  createShellNavigationRuntime
+} from "../../../src/client/navigation/shellNavigationRuntime.js";
 import { createErrorRuntime } from "../../../src/client/error/runtime.js";
 import { createDefaultMaterialErrorPresenters } from "../../../src/client/error/presenters.js";
 import { createErrorPresentationStore } from "../../../src/client/error/store.js";
@@ -52,8 +61,12 @@ function createSurfacePlacements(surface) {
       ? createSurfacePlacement(surface, 20, "Settings", "/settings")
       : createSurfacePlacement(surface, 20, "Assistant", "/assistant"),
     createSurfacePlacement(surface, 30, "Contacts", "/contacts"),
-    createSurfacePlacement(surface, 40, "Bookings", "/bookings"),
-    createSurfacePlacement(surface, 50, "Rostering", "/rostering")
+    surface === "home"
+      ? createSurfacePlacement(surface, 40, "Suppliers", "/suppliers")
+      : createSurfacePlacement(surface, 40, "Bookings", "/bookings"),
+    surface === "home"
+      ? createSurfacePlacement(surface, 50, "Bookings", "/bookings")
+      : createSurfacePlacement(surface, 50, "Rostering", "/rostering")
   ];
 }
 
@@ -113,72 +126,62 @@ placementRuntime.setContext({
   }
 });
 
+// A record a test has marked unavailable (deleted, or no longer the person's to see) redirects, as a guard does.
+function refuseBlockedRecord(to) {
+  return (window.__fixtureBlockedRecords || []).includes(String(to.params.id)) ? "/sign-in" : true;
+}
+
 const routes = [
   { path: "/", redirect: "/home" },
-  { path: "/home/settings", redirect: "/home/settings/general" },
-  { path: "/home/settings/general", component: ScreenPage, meta: { title: "General settings" } },
+  {
+    path: "/home/settings",
+    component: SettingsPage,
+    meta: { jskit: { title: "Settings" } },
+    children: [
+      { path: "", component: ScreenPage, meta: { title: "Settings", empty: true } },
+      {
+        path: "general",
+        component: ScreenPage,
+        meta: { title: "General settings", jskit: { title: "General settings", parent: "/settings" } }
+      }
+    ]
+  },
+  { path: "/home/contacts", component: RecordListPage, meta: { kind: "contacts", jskit: { title: "Contacts" } } },
+  {
+    path: "/home/contacts/:id",
+    component: RecordPage,
+    beforeEnter: refuseBlockedRecord,
+    meta: { kind: "contacts", jskit: { parent: "/contacts" } }
+  },
+  { path: "/home/suppliers", component: RecordListPage, meta: { kind: "suppliers", jskit: { title: "Suppliers" } } },
+  {
+    path: "/home/suppliers/:id",
+    component: RecordPage,
+    beforeEnter: refuseBlockedRecord,
+    meta: { kind: "suppliers", jskit: { parent: "/suppliers" } }
+  },
   { path: "/home/:section?", component: ScreenPage, meta: { title: "Home surface" } },
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
   { path: "/help", component: ScreenPage, meta: { title: "Help and support" } },
   { path: "/sign-in", component: ScreenPage, meta: { title: "Sign in", bare: true } }
 ];
-const router = createRouter({ history: createWebHistory(), routes });
+const router = createRouter({ history: createWebHistory(), routes, scrollBehavior: shellScrollBehavior });
+const navigationRuntime = createShellNavigationRuntime({ router });
+navigationRuntime.install();
 const pinia = createPinia();
+const material = createMaterialVuetifyOptions({ seed: "#006C51" });
+const adminThemes = materialThemes("#3F5F90");
 const vuetify = createVuetify({
+  ...material,
   components: vuetifyComponents,
   directives: vuetifyDirectives,
-  icons: {
-    defaultSet: "mdi",
-    aliases,
-    sets: { mdi }
-  },
   theme: {
     defaultTheme: "home-light",
     themes: {
-      "home-light": {
-        dark: false,
-        colors: {
-          background: "#F4F7F5",
-          surface: "#FFFFFF",
-          "on-surface": "#34413F",
-          "surface-variant": "#E2E8E5",
-          "on-surface-variant": "#52605F",
-          primary: "#006C51"
-        }
-      },
-      "admin-light": {
-        dark: false,
-        colors: {
-          background: "#F5F6F4",
-          surface: "#FFFFFF",
-          "on-surface": "#34413F",
-          "surface-variant": "#424242",
-          "on-surface-variant": "#52605F",
-          primary: "#006C51"
-        }
-      },
-      "home-dark": {
-        dark: true,
-        colors: {
-          background: "#101513",
-          surface: "#18201D",
-          "on-surface": "#E1E9E5",
-          "surface-variant": "#2B3632",
-          "on-surface-variant": "#BEC9C4",
-          primary: "#67DBB7"
-        }
-      },
-      "admin-dark": {
-        dark: true,
-        colors: {
-          background: "#111412",
-          surface: "#1A201D",
-          "on-surface": "#E2E8E4",
-          "surface-variant": "#333936",
-          "on-surface-variant": "#606864",
-          primary: "#67DBB7"
-        }
-      }
+      "home-light": material.theme.themes.light,
+      "home-dark": material.theme.themes.dark,
+      "admin-light": adminThemes.light,
+      "admin-dark": adminThemes.dark
     }
   }
 });
@@ -188,6 +191,7 @@ app.use(pinia);
 app.use(router);
 app.use(vuetify);
 app.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, placementRuntime);
+app.provide(SHELL_NAVIGATION_RUNTIME_KEY, navigationRuntime);
 const errorStore = createErrorPresentationStore();
 const errorRuntime = createErrorRuntime({
   presenters: createDefaultMaterialErrorPresenters({ store: errorStore }),

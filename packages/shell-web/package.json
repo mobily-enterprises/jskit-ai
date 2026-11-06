@@ -15,6 +15,8 @@
     "./client/navigation/linkResolver": "./src/client/navigation/linkResolver.js",
     "./client/navigation/usePaths": "./src/client/navigation/usePaths.js",
     "./client/navigation/useSurfaceRouteContext": "./src/client/navigation/useSurfaceRouteContext.js",
+    "./client/navigation/useShellNavigation": "./src/client/navigation/useShellNavigation.js",
+    "./client/navigation/documentNavigation": "./src/client/navigation/documentNavigation.js",
     "./client/components/ShellLayout": "./src/client/components/ShellLayout.vue",
     "./client/components/ShellOutlet": "./src/client/components/ShellOutlet.vue",
     "./client/components/ShellOutletMenuWidget": "./src/client/components/ShellOutletMenuWidget.vue",
@@ -23,18 +25,24 @@
     "./client/components/ShellMenuLinkItem": "./src/client/components/ShellMenuLinkItem.vue",
     "./client/components/ShellSurfaceAwareMenuLinkItem": "./src/client/components/ShellSurfaceAwareMenuLinkItem.vue",
     "./client/components/ShellTabLinkItem": "./src/client/components/ShellTabLinkItem.vue",
+    "./client/components/ShellPageActions": "./src/client/components/ShellPageActions.vue",
+    "./client/components/ShellPageAction": "./src/client/components/ShellPageAction.vue",
+    "./client/components/ShellListDetail": "./src/client/components/ShellListDetail.vue",
     "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
+    "./client/composables/useShellPageTitle": "./src/client/composables/useShellPageTitle.js",
+    "./client/composables/useShellWindowSizeClass": "./src/client/composables/useShellWindowSizeClass.js",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js",
     "./client/types": "./src/client/types.js",
     "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js",
+    "./test/shellNavigation": "./src/test/shellNavigation.js",
     "./architecture": "./src/architecture/inspectVueArchitecture.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/architecture-inspector": "0.1.7",
-    "@mdi/js": "^7.4.47"
+    "@jskit-ai/architecture-inspector": "0.1.7"
   },
   "devDependencies": {
+    "@jskit-ai/material-web": "0.1.0",
     "@vue/compiler-sfc": "3.5.44"
   },
   "peerDependencies": {
@@ -42,7 +50,7 @@
     "pinia": "^4.0.3",
     "vue": "^3.5.44",
     "vue-router": "^5.3.1",
-    "vuetify": "^4.0.0"
+    "vuetify": "^4.3.0"
   },
   "description": "Web shell layout runtime with outlet-based placement contributions.",
   "jskit": {
@@ -78,7 +86,11 @@
             "@jskit-ai/shell-web/client/navigation/linkResolver",
             "@jskit-ai/shell-web/client/navigation/usePaths",
             "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext",
+            "@jskit-ai/shell-web/client/navigation/useShellNavigation",
+            "@jskit-ai/shell-web/client/navigation/documentNavigation",
             "@jskit-ai/shell-web/client/composables/useShellLayoutState",
+            "@jskit-ai/shell-web/client/composables/useShellPageTitle",
+            "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass",
             "@jskit-ai/shell-web/client/types"
           ],
           "exclude": [

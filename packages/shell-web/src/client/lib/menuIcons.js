@@ -1,61 +1,17 @@
-import {
-  mdiAccountCircleOutline,
-  mdiAccountCogOutline,
-  mdiAccountGroupOutline,
-  mdiArrowRightCircleOutline,
-  mdiClipboardListOutline,
-  mdiCogOutline,
-  mdiConsoleNetworkOutline,
-  mdiFolderOutline,
-  mdiHomeVariantOutline,
-  mdiLogin,
-  mdiLogout,
-  mdiRobotOutline,
-  mdiShieldCrownOutline,
-  mdiViewDashboardOutline,
-  mdiViewListOutline
-} from "@mdi/js";
 import { isExternalLinkTarget, splitPathQueryHash } from "@jskit-ai/kernel/shared/support/linkPath";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizePathname as normalizeKernelPathname } from "@jskit-ai/kernel/shared/surface/paths";
 
+// Navigation icons are Vuetify icon aliases, which @jskit-ai/material-web maps to Material Symbols Rounded.
 const SURFACE_SWITCH_ICON_BY_ID = Object.freeze({
-  home: mdiHomeVariantOutline,
-  app: mdiViewDashboardOutline,
-  admin: mdiShieldCrownOutline,
-  console: mdiConsoleNetworkOutline
-});
-
-const SUPPORTED_EXPLICIT_MDI_ICON_BY_NAME = Object.freeze({
-  "mdi-account-circle-outline": mdiAccountCircleOutline,
-  "mdi-account-cog-outline": mdiAccountCogOutline,
-  "mdi-account-group-outline": mdiAccountGroupOutline,
-  "mdi-arrow-right-circle-outline": mdiArrowRightCircleOutline,
-  "mdi-clipboard-list-outline": mdiClipboardListOutline,
-  "mdi-cog-outline": mdiCogOutline,
-  "mdi-console-network-outline": mdiConsoleNetworkOutline,
-  "mdi-folder-outline": mdiFolderOutline,
-  "mdi-home-variant-outline": mdiHomeVariantOutline,
-  "mdi-login": mdiLogin,
-  "mdi-logout": mdiLogout,
-  "mdi-robot-outline": mdiRobotOutline,
-  "mdi-shield-crown-outline": mdiShieldCrownOutline,
-  "mdi-view-dashboard-outline": mdiViewDashboardOutline,
-  "mdi-view-list-outline": mdiViewListOutline
+  home: "$home",
+  app: "$dashboard",
+  admin: "$adminPanelSettings",
+  console: "$terminal"
 });
 
 function resolveExplicitIconValue(explicitIcon = "") {
-  const normalizedExplicitIcon = normalizeText(explicitIcon);
-  if (!normalizedExplicitIcon) {
-    return "";
-  }
-
-  if (!normalizedExplicitIcon.startsWith("mdi-")) {
-    return normalizedExplicitIcon;
-  }
-
-  const resolvedIcon = SUPPORTED_EXPLICIT_MDI_ICON_BY_NAME[normalizedExplicitIcon];
-  return typeof resolvedIcon === "string" && resolvedIcon ? resolvedIcon : normalizedExplicitIcon;
+  return normalizeText(explicitIcon);
 }
 
 function normalizePathname(value = "") {
@@ -108,7 +64,7 @@ function resolveSurfaceSwitchIcon(surfaceId = "", explicitIcon = "") {
   }
 
   const normalizedSurfaceId = normalizeText(surfaceId).toLowerCase();
-  return SURFACE_SWITCH_ICON_BY_ID[normalizedSurfaceId] || mdiArrowRightCircleOutline;
+  return SURFACE_SWITCH_ICON_BY_ID[normalizedSurfaceId] || "$arrowCircleRight";
 }
 
 function resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {}) {
@@ -132,14 +88,14 @@ function resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {}) {
     normalizedLabel.includes("sign in") ||
     normalizedPathname.includes("/auth/login")
   ) {
-    return mdiLogin;
+    return "$login";
   }
 
   if (
     normalizedLabel.includes("sign out") ||
     normalizedPathname.includes("/auth/signout")
   ) {
-    return mdiLogout;
+    return "$logout";
   }
 
   if (
@@ -151,9 +107,9 @@ function resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {}) {
       normalizedPathname.includes("/settings") ||
       normalizedPathname === "/account"
     ) {
-      return mdiAccountCogOutline;
+      return "$manageAccounts";
     }
-    return mdiAccountCircleOutline;
+    return "$accountCircle";
   }
 
   if (
@@ -161,36 +117,36 @@ function resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {}) {
     normalizedLabel.includes("team") ||
     normalizedPathname.includes("/members")
   ) {
-    return mdiAccountGroupOutline;
+    return "$group";
   }
 
   if (normalizedLabel.includes("assistant") || normalizedPathname.includes("/assistant")) {
-    return mdiRobotOutline;
+    return "$smartToy";
   }
 
   if (
     normalizedLabel.includes("console") ||
     normalizedPathname.startsWith("/console")
   ) {
-    return mdiConsoleNetworkOutline;
+    return "$terminal";
   }
 
   if (
     normalizedLabel.includes("admin") ||
     normalizedPathname.includes("/admin")
   ) {
-    return mdiShieldCrownOutline;
+    return "$adminPanelSettings";
   }
 
   if (normalizedLabel.includes("settings") || normalizedPathname.includes("/settings")) {
-    return mdiCogOutline;
+    return "$settings";
   }
 
   if (
     normalizedLabel.includes("home") ||
     normalizedPathname === "/"
   ) {
-    return mdiHomeVariantOutline;
+    return "$home";
   }
 
   if (
@@ -198,21 +154,21 @@ function resolveMenuLinkIcon({ icon = "", label = "", to = "" } = {}) {
     normalizedLabel.includes("dashboard") ||
     normalizedPathname.includes("/w/")
   ) {
-    return mdiViewDashboardOutline;
+    return "$dashboard";
   }
 
   if (normalizedPathname) {
     const segments = normalizedPathname.split("/").filter(Boolean);
     if (segments.length === 1) {
-      return mdiFolderOutline;
+      return "$folder";
     }
   }
 
   if (normalizedLabel.includes("list")) {
-    return mdiClipboardListOutline;
+    return "$assignment";
   }
 
-  return mdiViewListOutline;
+  return "$viewList";
 }
 
 export {

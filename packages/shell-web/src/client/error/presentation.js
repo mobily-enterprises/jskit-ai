@@ -1,5 +1,3 @@
-import { mdiAlertOutline, mdiCheckCircleOutline, mdiInformationOutline } from "@mdi/js";
-
 function resolveSeverityColor(severity = "error") {
   const normalized = String(severity || "error").trim().toLowerCase();
   if (normalized === "info") {
@@ -17,12 +15,12 @@ function resolveSeverityColor(severity = "error") {
 function resolveSeverityIcon(severity = "error") {
   const normalized = String(severity || "error").trim().toLowerCase();
   if (normalized === "info") {
-    return mdiInformationOutline;
+    return "$info";
   }
   if (normalized === "success") {
-    return mdiCheckCircleOutline;
+    return "$success";
   }
-  return mdiAlertOutline;
+  return "$warning";
 }
 
 function resolveTimeout(entry) {

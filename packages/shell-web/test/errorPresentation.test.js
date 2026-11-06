@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mdiAlertOutline, mdiCheckCircleOutline, mdiInformationOutline } from "@mdi/js";
 import {
   actionsFor,
   resolveBannerPlacement,
@@ -16,10 +15,10 @@ test("each severity has its color and icon, and anything else reads as an error"
   assert.equal(resolveSeverityColor("critical"), "error");
   assert.equal(resolveSeverityColor(""), "error");
 
-  assert.equal(resolveSeverityIcon("info"), mdiInformationOutline);
-  assert.equal(resolveSeverityIcon("success"), mdiCheckCircleOutline);
-  assert.equal(resolveSeverityIcon("warning"), mdiAlertOutline);
-  assert.equal(resolveSeverityIcon("error"), mdiAlertOutline);
+  assert.equal(resolveSeverityIcon("info"), "$info");
+  assert.equal(resolveSeverityIcon("success"), "$success");
+  assert.equal(resolveSeverityIcon("warning"), "$warning");
+  assert.equal(resolveSeverityIcon("error"), "$warning");
 });
 
 test("a snackbar times out unless it persists or shows nothing", () => {

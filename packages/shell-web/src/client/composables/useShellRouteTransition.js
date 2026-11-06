@@ -73,7 +73,7 @@ function useShellRouteTransition(props) {
     window.removeEventListener("pointercancel", handlePointerCancel, { capture: true });
   });
 
-  const resolvedLayoutClass = computed(() => resolveShellLayoutClass(display.name.value));
+  const resolvedLayoutClass = computed(() => resolveShellLayoutClass(display.width.value));
 
   const currentPathname = computed(() => normalizeComparablePathname(resolveRuntimePathname(route.path)));
 

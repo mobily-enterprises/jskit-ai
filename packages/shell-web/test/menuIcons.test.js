@@ -4,12 +4,6 @@ import test from "node:test";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import {
-  mdiAccountKeyOutline,
-  mdiCogOutline,
-  mdiConsoleNetworkOutline,
-  mdiViewListOutline
-} from "@mdi/js";
-import {
   resolveMenuLinkIcon,
   resolveSurfaceSwitchIcon
 } from "../src/client/lib/menuIcons.js";
@@ -17,26 +11,24 @@ import {
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
 
-test("shell-web resolves supported explicit mdi metadata icons from a finite map", () => {
-  assert.equal(resolveMenuLinkIcon({ icon: "mdi-view-list-outline" }), mdiViewListOutline);
-  assert.equal(resolveMenuLinkIcon({ icon: "mdi-cog-outline" }), mdiCogOutline);
-  assert.equal(
-    resolveSurfaceSwitchIcon("home", "mdi-console-network-outline"),
-    mdiConsoleNetworkOutline
-  );
+test("an explicit menu icon is used as given, an app alias or path alike", () => {
+  assert.equal(resolveMenuLinkIcon({ icon: "$receiptLong" }), "$receiptLong");
+  assert.equal(resolveMenuLinkIcon({ icon: "svg:M1 1h22v22H1z" }), "svg:M1 1h22v22H1z");
+  assert.equal(resolveSurfaceSwitchIcon("home", "$terminal"), "$terminal");
 });
 
-test("shell-web leaves unknown explicit mdi metadata icons unchanged", () => {
-  assert.equal(resolveMenuLinkIcon({ icon: "mdi-not-a-real-supported-icon" }), "mdi-not-a-real-supported-icon");
+test("menu links without an icon get a Material Symbols alias from their label or target", () => {
+  assert.equal(resolveMenuLinkIcon({ label: "Home", to: "/home" }), "$home");
+  assert.equal(resolveMenuLinkIcon({ label: "Settings", to: "/home/settings" }), "$settings");
+  assert.equal(resolveMenuLinkIcon({ label: "Sign in", to: "/auth/login" }), "$login");
+  assert.equal(resolveMenuLinkIcon({ label: "Members", to: "/w/acme/members" }), "$group");
+  assert.equal(resolveMenuLinkIcon({ label: "Go to admin" }), "$adminPanelSettings");
+  assert.equal(resolveSurfaceSwitchIcon("console"), "$terminal");
+  assert.equal(resolveSurfaceSwitchIcon("reports"), "$arrowCircleRight");
 });
 
-test("shell-web accepts imported @mdi/js path constants as explicit menu icons", () => {
-  assert.equal(resolveMenuLinkIcon({ icon: mdiAccountKeyOutline }), mdiAccountKeyOutline);
-});
-
-test("shell-web menu icon resolution does not import the full mdi namespace", async () => {
+test("shell-web menu icons are aliases, not Material Design Icons", async () => {
   const source = await readFile(path.join(PACKAGE_DIR, "src", "client", "lib", "menuIcons.js"), "utf8");
 
-  assert.doesNotMatch(source, /import\s+\*\s+as\s+mdiIcons\s+from\s+["']@mdi\/js["']/);
-  assert.doesNotMatch(source, /mdiIcons\[/);
+  assert.doesNotMatch(source, /@mdi\/js|mdi-/u);
 });

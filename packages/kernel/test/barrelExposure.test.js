@@ -122,6 +122,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "resolveClientBootstrapDebugEnabled",
       "setJskitI18n",
       "shellScrollBehavior",
+      "staysOnSamePage",
       "useJskitText"
     ])
   }),

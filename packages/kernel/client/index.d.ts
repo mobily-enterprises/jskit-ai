@@ -20,6 +20,8 @@ export function resolveClientBootstrapDebugEnabled(options?: {
 }): boolean;
 
 export function shellScrollBehavior(to: any, from: any, savedPosition: any): any;
+/** Whether two locations are the same page: the same path, or two children (tabs, sub-views) of one page record. */
+export function staysOnSamePage(to: any, from: any): boolean;
 
 export function createShellRouter(options: {
   createRouter: (options: { history?: any; routes: any[]; scrollBehavior?: (to: any, from: any, savedPosition: any) => any }) => any;

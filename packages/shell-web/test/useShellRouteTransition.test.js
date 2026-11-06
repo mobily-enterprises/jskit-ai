@@ -28,7 +28,7 @@ function createPlacementRuntime() {
   };
 }
 
-function mountTransition(t, { path = "/home/contacts", displayName = "xs", props = {} } = {}) {
+function mountTransition(t, { path = "/home/contacts", width = 390, props = {} } = {}) {
   const page = installPage(t);
   const route = reactive({ path, params: {} });
   const pushes = [];
@@ -50,7 +50,7 @@ function mountTransition(t, { path = "/home/contacts", displayName = "xs", props
       provide: [
         [routerKey, router],
         [routeLocationKey, route],
-        [Symbol.for("vuetify:display"), { name: ref(displayName), mobile: ref(false) }],
+        [Symbol.for("vuetify:display"), { width: ref(width), mobile: ref(false) }],
         [SHELL_WEB_PLACEMENT_RUNTIME_KEY, createPlacementRuntime()]
       ]
     }
@@ -93,7 +93,7 @@ test("a route change away from every destination has no motion", (t) => {
 });
 
 test("wide layouts keep the pane still and never start a swipe", (t) => {
-  const { app, page, pushes, result, route } = mountTransition(t, { displayName: "lg" });
+  const { app, page, pushes, result, route } = mountTransition(t, { width: 1280 });
   assert.equal(page.classes.has("shell-route-swipe-enabled"), false);
 
   page.dispatch("pointerdown", { ...touch, clientX: 300, clientY: 100 });

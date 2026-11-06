@@ -15,7 +15,8 @@ import {
   measureDrawerContentWidth,
   normalizeShellDrawerWidth,
   normalizeShellNavigationItemSpacing,
-  normalizeShellRailWidth
+  normalizeShellRailWidth,
+  resolveMaterialDrawerWidth
 } from "../support/drawerWidth.js";
 
 // VNavigationDrawer has no root element of its own to reach through a template ref.
@@ -24,14 +25,17 @@ function navigationDrawerElement() {
 }
 
 /**
- * The shell's navigation drawer: what opens it on each layout, how it presents, and the width its labels need.
+ * The shell's navigation drawer: what opens it on each layout, how it presents, and how wide it is. The drawer is
+ * modal on compact and medium windows and a standard drawer, collapsing to a rail, on expanded ones. It is Material 3's
+ * 360dp wide unless `drawerWidth` fixes a width or is "content", which fits the drawer to its labels.
  * @param {object} options
- * @param {{ desktopDrawerClosedMode: string, drawerWidth: number | null, railWidth: number, navigationItemSpacing: number }} options.props
- * @param {import("vue").Ref<boolean>} options.isCompactLayout
+ * @param {{ desktopDrawerClosedMode: string, drawerWidth: number | string | null, railWidth: number, navigationItemSpacing: number }} options.props
+ * @param {import("vue").Ref<boolean>} options.modalLayout
+ * @param {import("vue").Ref<number>} options.viewportWidth
  * @param {import("vue").Ref<{ $el: HTMLElement } | null>} options.navigationToggle
  * @param {ReturnType<typeof import("./useShellLayoutState.js").useShellLayoutState>} options.layoutState
  */
-function useShellDrawer({ props, isCompactLayout, navigationToggle, layoutState }) {
+function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, layoutState }) {
   const {
     drawerDefaultOpen,
     drawerOpen,
@@ -45,18 +49,24 @@ function useShellDrawer({ props, isCompactLayout, navigationToggle, layoutState 
   let shellMounted = false;
 
   const drawerPresentation = computed(() => resolveShellDrawerPresentation({
-    compact: isCompactLayout.value,
+    modal: modalLayout.value,
     open: drawerOpen.value,
     desktopClosedMode: props.desktopDrawerClosedMode
   }));
   const drawerToggleLabel = computed(() => resolveShellDrawerToggleLabel({
-    compact: isCompactLayout.value,
+    modal: modalLayout.value,
     open: drawerOpen.value
   }));
-  const fixedDrawerWidth = computed(() => props.drawerWidth !== null && props.drawerWidth !== undefined);
-  const resolvedDrawerWidth = computed(() =>
-    normalizeShellDrawerWidth(fixedDrawerWidth.value ? props.drawerWidth : measuredDrawerWidth.value)
-  );
+  const fixedDrawerWidth = computed(() => props.drawerWidth !== "content");
+  const resolvedDrawerWidth = computed(() => {
+    if (!fixedDrawerWidth.value) {
+      return normalizeShellDrawerWidth(measuredDrawerWidth.value);
+    }
+    if (props.drawerWidth === null || props.drawerWidth === undefined) {
+      return resolveMaterialDrawerWidth({ modal: modalLayout.value, viewportWidth: viewportWidth.value });
+    }
+    return normalizeShellDrawerWidth(props.drawerWidth);
+  });
   const resolvedRailWidth = computed(() => normalizeShellRailWidth(props.railWidth));
   const resolvedNavigationItemSpacing = computed(() =>
     normalizeShellNavigationItemSpacing(props.navigationItemSpacing)
@@ -67,7 +77,7 @@ function useShellDrawer({ props, isCompactLayout, navigationToggle, layoutState 
   );
 
   watch(
-    isCompactLayout,
+    modalLayout,
     handleLayoutClassChange,
     { immediate: true }
   );
@@ -103,20 +113,20 @@ function useShellDrawer({ props, isCompactLayout, navigationToggle, layoutState 
   }
 
   function handleDrawerOpenChange(open) {
-    if (!isCompactLayout.value) {
+    if (!modalLayout.value) {
       wideDrawerOpen.value = Boolean(open);
     }
   }
 
-  function handleLayoutClassChange(compact) {
-    setDrawerOpen(compact ? false : wideDrawerOpen.value);
+  function handleLayoutClassChange(modal) {
+    setDrawerOpen(modal ? false : wideDrawerOpen.value);
   }
 
   function handleShellKeydown(event) {
     if (
       event.defaultPrevented ||
       event.key !== "Escape" ||
-      !isCompactLayout.value ||
+      !modalLayout.value ||
       !drawerOpen.value
     ) {
       return;
@@ -128,7 +138,7 @@ function useShellDrawer({ props, isCompactLayout, navigationToggle, layoutState 
   }
 
   function focusNavigationToggle() {
-    navigationToggle.value.$el.focus({ preventScroll: true });
+    navigationToggle.value?.$el?.focus({ preventScroll: true });
   }
 
   function initializeDrawerMeasurement() {
@@ -175,7 +185,7 @@ function useShellDrawer({ props, isCompactLayout, navigationToggle, layoutState 
   }
 
   function handleDrawerVisibilityChange(open) {
-    if (isCompactLayout.value || drawerPresentation.value.closedMode === "hidden" || open === false) {
+    if (modalLayout.value || drawerPresentation.value.closedMode === "hidden" || open === false) {
       setDrawerOpen(open);
     }
   }

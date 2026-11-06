@@ -13,6 +13,7 @@ const surfaceLabel = computed(() => surface.value === "admin" ? "Admin" : "Home"
 const themeMode = computed(() => route.query.theme === "dark" ? "dark" : "light");
 const railWidth = computed(() => Number(route.query.railWidth) || undefined);
 const navigationItemSpacing = computed(() => Number(route.query.navigationItemSpacing) || undefined);
+const drawerWidth = computed(() => (route.query.drawerWidth === "content" ? "content" : undefined));
 
 watchEffect(function applyFixtureTheme() {
   const themeName = `${surface.value}-${themeMode.value}`;
@@ -31,6 +32,7 @@ watchEffect(function applyFixtureTheme() {
       :surface-label="surfaceLabel"
       :rail-width="railWidth"
       :navigation-item-spacing="navigationItemSpacing"
+      :drawer-width="drawerWidth"
     >
       <RouterView />
     </ShellLayout>

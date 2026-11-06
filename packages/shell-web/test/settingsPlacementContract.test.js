@@ -62,8 +62,8 @@ test("shell-web application pattern exposes surface-derived settings outlets", a
   );
 
   assert.match(source, /target="home-settings:primary-menu"/);
-  assert.match(source, /class="settings-shell d-flex flex-column ga-4"/);
-  assert.match(source, /--settings-shell-panel-padding/);
+  assert.match(source, /<ShellListDetail :detail-open="detailOpen">/u);
+  assert.doesNotMatch(source, /<style|border|v-sheet/u);
   assert.doesNotMatch(source, /generated-ui/u);
   assert.doesNotMatch(source, /default-link-component-token/);
   assert.match(source, /<RouterView \/>/);
@@ -78,14 +78,17 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /ShellRouteTransition/);
   assert.match(source, /<ShellRouteTransition>[\s\S]*<slot \/>[\s\S]*<\/ShellRouteTransition>/);
   assert.match(source, /data-testid="jskit-shell-app-bar"/);
-  assert.match(source, /:density="isCompactLayout \? 'compact' : 'comfortable'"/);
-  assert.match(source, /\.shell-layout__nav-toggle\s*\{[\s\S]*min-height:\s*48px;[\s\S]*min-width:\s*48px;/);
+  assert.match(source, /:height="64"/u);
+  assert.match(source, /:color="scrolled \? 'surface-container' : 'surface'"/u);
+  assert.match(source, /data-testid="jskit-shell-back"[\s\S]*:aria-label="t\('jskit\.shell\.actions\.back'\)"/u);
+  assert.match(source, /:id="PAGE_TITLE_ID"/u);
+  assert.match(source, /:id="SHELL_PAGE_ACTIONS_ID"/u);
   assert.match(source, /shell-layout__surface-label/);
   assert.doesNotMatch(source, /shell-layout__surface-chip/);
   assert.doesNotMatch(source, /<v-chip[^>]*resolvedSurfaceLabel/);
-  assert.match(source, /shell-layout__top-right[\s\S]*max-width:\s*min\(45vw, 18rem\)/);
   assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);
-  assert.match(source, /\.shell-layout__bottom-nav\s+:deep\(\.v-btn\)\s*\{[\s\S]*min-height:\s*48px;/);
+  assert.match(source, /bg-color="surface-container"[\s\S]*:height="80"/u);
+  assert.doesNotMatch(source, /!important|border-(?:top|bottom|right|left)?-?width:\s*thin/u);
   assert.match(source, /<v-bottom-sheet[\s\S]*target="shell-layout:supporting-bottom-sheet"/);
   assert.match(source, /target="shell-layout:supporting-side-panel"/);
   assert.match(source, /data-testid="jskit-shell-supporting-bottom-sheet"/);
@@ -129,7 +132,8 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /:model-value="drawerPresentation\.visible"/);
   assert.match(source, /data-testid="jskit-shell-nav-toggle"/);
   assert.match(source, /data-testid="jskit-shell-bottom-nav"/);
-  assert.match(source, /padding:\s*0\.75rem 1rem calc\(1rem \+ env\(safe-area-inset-bottom, 0px\)\)/);
+  assert.match(source, /padding:\s*8px 24px calc\(24px \+ env\(safe-area-inset-bottom, 0px\)\)/u);
+  assert.match(source, /\.shell-layout__content--compact\s*\{\s*padding-inline:\s*16px;/u);
 
   const template = await readFile(
     path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "components", "ShellLayout.vue"),
@@ -142,21 +146,11 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.doesNotMatch(template, /ShellOutlet|ShellRouteTransition|useShellLayoutState|pointerdown|v-navigation-drawer|v-bottom-navigation/);
 });
 
-test("shell navigation tooltips ignore incidental pointer traversal", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "src", "client", "components", "ShellNavigationTooltip.vue"),
-    "utf8"
-  );
-
-  assert.match(source, /:open-delay="400"/u);
-  assert.doesNotMatch(source, /opacity:\s*1\s*!important/u);
-});
-
 test("shell-web error host uses one explicit close affordance for banner errors", async () => {
   const source = await readClientSources("components/ShellErrorHost.vue", "error/presentation.js");
 
   assert.match(source, /function resolveSeverityIcon/);
-  assert.match(source, /mdiAlertOutline/);
+  assert.match(source, /"\$warning"/u);
   assert.match(source, /:icon="resolveSeverityIcon\(entry\.severity\)"/);
   assert.match(source, /closable[\s\S]*@click:close="dismiss\(entry\)"/);
   assert.doesNotMatch(source, /mdi-close/);
@@ -167,8 +161,9 @@ test("shell-web error host keeps snackbar color stable while closing", async () 
 
   assert.match(source, /displayedSnackbarEntry/);
   assert.match(source, /@after-leave="onSnackbarAfterLeave"/);
-  assert.match(source, /:color="displayedSnackbarEntry \? resolveSeverityColor\(displayedSnackbarEntry\.severity\) : undefined"/);
-  assert.doesNotMatch(source, /resolveSeverityColor\(snackbarEntry\?\.severity\)/);
+  // Material 3 snackbars are always inverse-surface, whatever the message's severity.
+  assert.doesNotMatch(source, /<v-snackbar[^>]*:color=/u);
+  assert.doesNotMatch(source, /!important/u);
 });
 
 test("shell-web application pattern uses intent-driven default error presentation", async () => {
@@ -203,7 +198,9 @@ test("shell-web application pattern includes adaptive shell Playwright coverage"
   assert.match(helperSource, /jskit-shell-drawer/);
   assert.match(helperSource, /scrollWidth/);
   assert.match(helperSource, /toBeGreaterThanOrEqual\(48\)/);
-  assert.match(helperSource, /getByRole\("button", \{ name: "Close navigation menu" \}\)/);
+  // The modal drawer opens over the app bar; the smoke closes it from the scrim beside it and with Escape.
+  assert.match(helperSource, /toHaveAttribute\("aria-label", "Close navigation menu"\)/);
+  assert.match(helperSource, /page\.mouse\.click\(viewport\.width - 8/);
   assert.doesNotMatch(helperSource, /\.v-navigation-drawer__scrim|generated-ui-screen/u);
 
   const packageJson = JSON.parse(await readFile(path.join(PACKAGE_DIR, "package.json"), "utf8"));
@@ -318,15 +315,13 @@ test("shell-web route transition key preserves no-motion surfaces and animated p
   );
 });
 
-test("shell-web pattern settings landing page redirects to its child page", async () => {
-  const source = await readFile(
-    path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "pages", "home", "settings", "index.vue"),
-    "utf8"
-  );
+test("shell-web pattern settings page is a list-detail page whose landing shows the list, not a redirect", async () => {
+  const settingsRoot = path.join(PACKAGE_DIR, "patterns", "application-shell", "example", "src", "pages", "home");
+  const source = await readFile(path.join(settingsRoot, "settings.vue"), "utf8");
 
-  assert.match(source, /@jskit-ai\/kernel\/client\/pageRedirects/);
-  assert.match(source, /definePage/);
-  assert.match(source, /redirectToChild\("general"\)/);
+  assert.match(source, /<ShellListDetail :detail-open="detailOpen">/);
+  assert.match(source, /title: "Settings"/);
+  await assert.rejects(readFile(path.join(settingsRoot, "settings", "index.vue"), "utf8"), { code: "ENOENT" });
 });
 
 test("shell-web pattern settings page exposes an adaptive drawer preference", async () => {
@@ -347,14 +342,15 @@ test("shell-web pattern settings page exposes an adaptive drawer preference", as
   );
 
   assert.match(source, /useShellLayoutState/);
-  assert.match(source, /class="settings-general-screen d-flex flex-column ga-4"/);
+  assert.match(source, /parent: "\/settings"/);
+  assert.match(source, /<v-card>\s*<v-list lines="three">/);
   assert.doesNotMatch(source, /generated-ui/u);
   assert.match(source, /drawerDefaultOpen/);
   assert.match(source, /setDrawerDefaultOpen/);
   assert.match(source, /collapsed navigation remains available as a rail/);
   assert.match(source, /Phone layouts close the drawer/);
   assert.match(source, /Start with expanded navigation on wider screens/);
-  assert.match(source, /min-height:\s*48px/);
+  assert.doesNotMatch(source, /<style|min-height/u);
   assert.doesNotMatch(source, /live in this browser only|tiny example|starter settings/);
 });
 
@@ -579,13 +575,12 @@ test("shell-web pattern home page relies on adaptive navigation instead of dead 
     "utf8"
   );
 
-  assert.match(source, /class="home-surface-screen d-flex flex-column ga-4"/);
-  assert.match(source, /--home-surface-panel-padding/);
+  assert.doesNotMatch(source, /<style|--home-surface/u);
   assert.doesNotMatch(source, /generated-ui/u);
   assert.match(source, /Service health/);
   assert.match(source, /<v-skeleton-loader/u);
   assert.doesNotMatch(source, /loading\.\.\.|v-progress-circular/u);
-  assert.match(source, /to="\/home\/settings\/general"/);
+  assert.match(source, /:to="paths\.page\('\/settings'\)"/);
   assert.doesNotMatch(source, /Use bottom navigation|Replace this content|Main public surface/);
   assert.doesNotMatch(source, /\/console/);
   assert.doesNotMatch(source, /\/auth\/signout/);

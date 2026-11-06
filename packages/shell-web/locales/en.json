@@ -2,6 +2,7 @@
   "jskit": {
     "shell": {
       "actions": {
+        "back": "Back",
         "close": "Close",
         "dismiss": "Dismiss",
         "reload": "Reload",

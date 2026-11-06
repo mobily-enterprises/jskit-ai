@@ -9,10 +9,12 @@ import {
   startViteFixture,
   stopProcess
 } from "../../../tooling/testUtils/browserFixture.mjs";
+import { materialSymbols } from "@jskit-ai/material-web/client/symbols";
 import {
   DEFAULT_VIEWPORTS,
   runAdaptiveShellSmokeCase
 } from "../src/test/adaptiveShellSmoke.js";
+import { pressShellBack, shellBackButton, shellPageTitle } from "../src/test/shellNavigation.js";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE_ROOT = path.resolve(TEST_DIRECTORY, "../fixtures/adaptive-shell");
@@ -48,81 +50,66 @@ function contrastRatio(foreground, background) {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-async function assertTooltipContrast(page, linkName, interaction) {
-  const link = page.getByRole("link", { name: linkName, exact: true });
-  if (interaction === "focus") {
-    await link.focus();
-  } else {
-    await link.hover();
-  }
-  const tooltip = page.locator(".shell-navigation-tooltip").filter({ hasText: linkName }).last();
-  await expect(tooltip).toBeVisible();
-  await expect(tooltip).toHaveCSS("opacity", "1");
-  const colors = await tooltip.evaluate((element) => {
-    const style = window.getComputedStyle(element);
-    return {
-      background: style.backgroundColor,
-      color: style.color,
-      opacity: Number(style.opacity)
-    };
-  });
-  const background = parseRgb(colors.background);
-  const foreground = parseRgb(colors.color);
-  assert.equal(colors.opacity, 1);
-  assert.equal(background.alpha, 1);
-  assert.ok(
-    contrastRatio(foreground, background) >= 4.5,
-    `${linkName} tooltip contrast was ${contrastRatio(foreground, background).toFixed(2)}:1.`
-  );
-  await page.keyboard.press("Escape");
+// The computed colour of a theme role, read from a probe painted with it.
+async function readRoleColor(page, role) {
+  return page.evaluate((name) => {
+    const probe = document.createElement("div");
+    probe.style.background = `rgb(var(--v-theme-${name}))`;
+    document.querySelector(".v-application").append(probe);
+    const color = window.getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return color;
+  }, role);
 }
 
-async function assertRapidTooltipTraversal(page) {
-  const result = await page.locator(".shell-menu-link-item").evaluateAll(async (links) => {
-    const pause = (duration) => new Promise((resolve) => window.setTimeout(resolve, duration));
-    const countVisibleTooltips = () => Array.from(
-      document.querySelectorAll(".shell-navigation-tooltip")
-    ).filter((element) => {
-      const style = window.getComputedStyle(element);
-      const rect = element.getBoundingClientRect();
-      return (
-        style.display !== "none" &&
-        style.visibility !== "hidden" &&
-        Number(style.opacity) > 0 &&
-        rect.width > 0 &&
-        rect.height > 0
-      );
-    }).length;
+function symbolPath(alias) {
+  return materialSymbols[alias].slice("svg:".length);
+}
 
-    const samples = [];
-    let activeLink = null;
-    for (const link of links) {
-      activeLink?.dispatchEvent(new MouseEvent("mouseleave"));
-      link.dispatchEvent(new MouseEvent("mouseenter"));
-      activeLink = link;
-      await pause(24);
-      samples.push(countVisibleTooltips());
-    }
-    activeLink?.dispatchEvent(new MouseEvent("mouseleave"));
-    await pause(100);
-
+// Material 3 chrome: a 64dp surface app bar and a surface drawer without dividers, the active destination on a
+// secondary-container pill with its icon filled, and inactive labels readable on the drawer.
+async function assertMaterialChrome(page, activeLabel, activeIcon) {
+  const drawer = page.getByTestId("jskit-shell-drawer");
+  await expect(drawer).toHaveAttribute("data-presentation", "drawer");
+  const surface = await readRoleColor(page, "surface");
+  const secondaryContainer = await readRoleColor(page, "secondary-container");
+  const chrome = await page.evaluate((label) => {
+    const style = (element) => window.getComputedStyle(element);
+    const appBar = document.querySelector("[data-testid='jskit-shell-app-bar']");
+    const drawerElement = document.querySelector("[data-testid='jskit-shell-drawer']");
+    const items = Array.from(drawerElement.querySelectorAll("a.shell-menu-link-item"));
+    const active = items.find((item) => item.textContent.trim() === label);
+    const inactive = items.find((item) => item !== active);
     return {
-      afterLeaving: countVisibleTooltips(),
-      maximumVisible: Math.max(0, ...samples)
+      appBarHeight: appBar.getBoundingClientRect().height,
+      appBarBackground: style(appBar).backgroundColor,
+      appBarBorders: [style(appBar).borderBottomWidth, style(appBar).borderTopWidth],
+      drawerBackground: style(drawerElement).backgroundColor,
+      drawerBorder: style(drawerElement).borderRightWidth,
+      activeBackground: style(active).backgroundColor,
+      activeHeight: active.getBoundingClientRect().height,
+      activeRadius: Number.parseFloat(style(active).borderTopLeftRadius),
+      activeIconPath: active.querySelector(".v-icon svg path")?.getAttribute("d") || "",
+      inactiveColor: style(inactive.querySelector(".v-list-item-title")).color
     };
-  });
-
-  assert.equal(
-    result.maximumVisible,
-    0,
-    "Briefly crossing navigation links must not leave tooltip overlays on screen."
-  );
-  assert.equal(result.afterLeaving, 0, "Navigation tooltips must remain hidden after traversal.");
+  }, activeLabel);
+  assert.equal(chrome.appBarHeight, 64);
+  assert.equal(chrome.appBarBackground, surface);
+  assert.deepEqual(chrome.appBarBorders, ["0px", "0px"]);
+  assert.equal(chrome.drawerBackground, surface);
+  assert.equal(chrome.drawerBorder, "0px");
+  assert.equal(chrome.activeBackground, secondaryContainer);
+  assert.equal(chrome.activeHeight, 56);
+  assert.ok(chrome.activeRadius >= 28, `The active destination's corner radius was ${chrome.activeRadius}px.`);
+  assert.equal(chrome.activeIconPath, symbolPath(activeIcon));
+  const ratio = contrastRatio(parseRgb(chrome.inactiveColor), parseRgb(chrome.drawerBackground));
+  assert.ok(ratio >= 4.5, `Inactive navigation labels had ${ratio.toFixed(2)}:1 contrast.`);
 }
 
 async function assertDrawerFit(page) {
   const drawer = page.getByTestId("jskit-shell-drawer");
   await expect(drawer).toHaveAttribute("data-presentation", "drawer");
+  await expect(drawer).toHaveAttribute("data-drawer-width-mode", "content");
   assert.equal(
     await drawer.locator(".v-list-subheader").count(),
     0,
@@ -193,10 +180,11 @@ async function assertRailKeyboardAndSelection(page) {
   }).toBeLessThanOrEqual(1);
 
   const activeLink = page.getByRole("link", { name: "Bookings", exact: true });
-  const activeBackground = await activeLink.locator(".v-list-item__overlay").evaluate(
+  const activeBackground = await activeLink.locator(".shell-menu-link-item__indicator").evaluate(
     (element) => window.getComputedStyle(element).backgroundColor
   );
-  assert.notEqual(activeBackground, "rgba(0, 0, 0, 0)");
+  assert.equal(activeBackground, await readRoleColor(page, "secondary-container"));
+  await expect(activeLink.locator(".shell-menu-link-item__rail-label")).toHaveText("Bookings");
 
   const contacts = page.getByRole("link", { name: "Contacts", exact: true });
   await contacts.focus();
@@ -231,49 +219,45 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
       const page = await context.newPage();
       await runAdaptiveShellSmokeCase({ page, expect, viewport });
       if (viewport.name !== "compact") {
-        await expect(page).toHaveURL(/\/home\/settings\/general$/u);
+        await expect(page).toHaveURL(/\/home\/settings$/u);
       }
       await page.close();
     }
 
-    for (const pathAndTheme of [
-      "/home?theme=light",
-      "/home?theme=dark",
-      "/w/acme/admin/bookings?theme=light",
-      "/w/acme/admin/bookings?theme=dark"
+    for (const [pathAndTheme, activeLabel, activeIcon] of [
+      ["/home?theme=light", "Home", "homeFilled"],
+      ["/home?theme=dark", "Home", "homeFilled"],
+      ["/w/acme/admin/bookings?theme=light", "Bookings", "adminPanelSettingsFilled"],
+      ["/w/acme/admin/bookings?theme=dark", "Bookings", "adminPanelSettingsFilled"]
     ]) {
       const page = await context.newPage();
       await page.setViewportSize({ width: 1280, height: 900 });
       await page.goto(pathAndTheme);
       await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
-      await assertDrawerFit(page);
-      await assertRapidTooltipTraversal(page);
-      await assertTooltipContrast(page, "Bookings", "focus");
-      await assertTooltipContrast(page, "Help and support", "hover");
+      await assertMaterialChrome(page, activeLabel, activeIcon);
       await page.close();
     }
 
-    const mediumTooltipPage = await context.newPage();
-    await mediumTooltipPage.setViewportSize({ width: 1024, height: 1024 });
-    await mediumTooltipPage.goto("/w/acme/admin/bookings?theme=light");
-    await expect(mediumTooltipPage.getByTestId("jskit-shell-drawer")).toHaveAttribute(
-      "data-layout",
-      "medium"
-    );
-    await assertRapidTooltipTraversal(mediumTooltipPage);
-    await mediumTooltipPage.close();
+    const mediumPage = await context.newPage();
+    await mediumPage.setViewportSize({ width: 768, height: 1024 });
+    await mediumPage.goto("/w/acme/admin/bookings?theme=light");
+    await expect(mediumPage.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-layout", "medium");
+    const railLabels = mediumPage.getByTestId("jskit-shell-rail").locator(".shell-menu-link-item__rail-label");
+    await expect(railLabels.first()).toBeVisible();
+    assert.ok(await railLabels.count() >= 5, "The navigation rail labels each destination.");
+    await mediumPage.close();
 
     const railPage = await context.newPage();
     await railPage.setViewportSize({ width: 1280, height: 900 });
     await railPage.goto("/w/acme/admin/bookings?theme=light");
-    await assertDrawerFit(railPage);
+    await expect(railPage.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-drawer-width", "360");
     await assertRailKeyboardAndSelection(railPage);
     await railPage.close();
 
     const configuredPage = await context.newPage();
     await configuredPage.setViewportSize({ width: 1280, height: 900 });
     await configuredPage.goto(
-      "/w/acme/admin/bookings?theme=light&railWidth=64&navigationItemSpacing=8"
+      "/w/acme/admin/bookings?theme=light&railWidth=64&navigationItemSpacing=8&drawerWidth=content"
     );
     const configuredDrawer = configuredPage.getByTestId("jskit-shell-drawer");
     await expect(configuredDrawer).toHaveAttribute("data-navigation-item-spacing", "8");
@@ -440,7 +424,7 @@ test("shell-web error banners never cover content and keep a readable close butt
   }
 });
 
-test("shell-web chrome borders and surfaces follow app-supplied tokens", {
+test("shell-web's app bar fills with surface-container once the page scrolls under it", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
 }, async () => {
@@ -448,29 +432,141 @@ test("shell-web chrome borders and surfaces follow app-supplied tokens", {
   let browser;
   try {
     browser = await chromium.launch(createChromiumLaunchOptions());
-    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
-    await page.goto("/home?theme=light");
-    await expect(page.getByTestId("jskit-shell-drawer")).toBeVisible();
-    const read = () => page.evaluate(() => {
-      const edges = (testId) => {
-        const style = window.getComputedStyle(document.querySelector(`[data-testid='${testId}']`));
-        return [style.borderTopWidth, style.borderRightWidth, style.borderBottomWidth, style.borderLeftWidth,
-          style.backgroundColor];
-      };
-      return { appBar: edges("jskit-shell-app-bar"), drawer: edges("jskit-shell-drawer") };
-    });
-    const defaults = await read();
-    // Only the separating edges carry a divider by default.
-    assert.deepEqual(defaults.appBar.slice(0, 4), ["0px", "0px", "1px", "0px"]);
-    assert.deepEqual(defaults.drawer.slice(0, 4), ["0px", "1px", "0px", "0px"]);
-
-    await page.addStyleTag({
-      content: ":root { --shell-chrome-border-width: 0; --shell-app-bar-background: rgb(1, 2, 3); --shell-navigation-background: rgb(4, 5, 6); }"
-    });
-    const restyled = await read();
-    assert.deepEqual(restyled.appBar, ["0px", "0px", "0px", "0px", "rgb(1, 2, 3)"]);
-    assert.deepEqual(restyled.drawer, ["0px", "0px", "0px", "0px", "rgb(4, 5, 6)"]);
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
+    await page.goto("/home/contacts?theme=light");
+    const appBar = page.getByTestId("jskit-shell-app-bar");
+    const background = () => appBar.evaluate((element) => window.getComputedStyle(element).backgroundColor);
+    await expect.poll(background).toBe(await readRoleColor(page, "surface"));
+    const bar = page.getByTestId("jskit-shell-bottom-nav");
+    assert.equal(
+      await bar.evaluate((element) => window.getComputedStyle(element).backgroundColor),
+      await readRoleColor(page, "surface-container")
+    );
+    assert.equal(Math.round((await bar.boundingBox()).height), 80);
+    await page.evaluate(() => window.scrollTo(0, 400));
+    await expect.poll(background).toBe(await readRoleColor(page, "surface-container"));
     await page.close();
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
+async function openMainDestination(page, label) {
+  await page.getByRole("link", { name: label, exact: true }).filter({ visible: true }).first().click();
+}
+
+test("shell-web Up follows the tab's trail, falls back to the parent and returns to where the person was", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 180_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    for (const viewport of DEFAULT_VIEWPORTS) {
+      const context = await browser.newContext({
+        baseURL: vite.baseURL,
+        viewport: { width: viewport.width, height: viewport.height }
+      });
+      const page = await context.newPage();
+      const at = `${viewport.width}px`;
+
+      // Main-menu pages have no arrow.
+      for (const path of ["/home", "/home/contacts", "/home/suppliers", "/home/bookings", "/home/settings"]) {
+        await page.goto(path);
+        await expect(shellPageTitle(page)).toBeVisible();
+        await expect(shellBackButton(page), `${at} ${path}`).toHaveCount(0);
+      }
+
+      // contact -> supplier -> Up = contact -> Up = the Contacts list.
+      await page.goto("/home/contacts");
+      await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
+      await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
+      await expect(shellPageTitle(page)).toHaveText("Ada Lovelace");
+      await expect(shellBackButton(page)).toHaveAccessibleName("Back");
+      await page.getByRole("link", { name: "Supplier", exact: true }).click();
+      await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
+      // A refresh keeps the trail.
+      await page.reload();
+      await expect(shellPageTitle(page)).toHaveText("Acme Supplies");
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
+      // The browser's Back and Forward move the trail with them.
+      await page.goBack();
+      await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
+      await page.goForward();
+      await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home\/contacts$/u);
+      await expect(shellBackButton(page)).toHaveCount(0);
+
+      // The trail is a stack of visits: contact -> supplier -> the same contact -> Up = supplier.
+      await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
+      await page.getByRole("link", { name: "Supplier", exact: true }).click();
+      await page.getByRole("link", { name: "Contact", exact: true }).click();
+      await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
+
+      // A main destination starts a fresh trail.
+      await openMainDestination(page, "Suppliers");
+      await expect(page).toHaveURL(/\/home\/suppliers$/u);
+      await page.getByRole("link", { name: "Acme Supplies", exact: true }).click();
+      await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home\/suppliers$/u);
+
+      // Up to a page that is no longer available goes to the current page's parent instead.
+      await page.goto("/home/contacts/ada");
+      await page.getByRole("link", { name: "Supplier", exact: true }).click();
+      await page.evaluate(() => {
+        window.__fixtureBlockedRecords = ["ada"];
+      });
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home\/suppliers$/u);
+      await page.evaluate(() => {
+        window.__fixtureBlockedRecords = [];
+      });
+
+      // Up returns to the list where it was scrolled, with focus on the record it opened.
+      await page.goto("/home/contacts");
+      const deepLink = page.getByRole("link", { name: "Contact 35", exact: true });
+      await deepLink.scrollIntoViewIfNeeded();
+      const scrollBefore = await page.evaluate(() => window.scrollY);
+      assert.ok(scrollBefore > 200, `${at}: the contacts list did not scroll.`);
+      await deepLink.click();
+      await expect(page).toHaveURL(/\/home\/contacts\/contact-35$/u);
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home\/contacts$/u);
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore - 3);
+      assert.ok(Math.abs(await page.evaluate(() => window.scrollY) - scrollBefore) <= 2, `${at}: scroll was not restored.`);
+      await expect(page.getByRole("link", { name: "Contact 35", exact: true })).toBeFocused();
+
+      // A pasted supplier link goes Up to the Suppliers list.
+      const pasted = await context.newPage();
+      await pasted.goto("/home/suppliers/acme");
+      await pressShellBack(pasted);
+      await expect(pasted).toHaveURL(/\/home\/suppliers$/u);
+      await expect(shellPageTitle(pasted)).toHaveText("Suppliers");
+      await pasted.close();
+
+      // List-detail: beside the visible list, General has no arrow; alone, it has one back to the list.
+      await page.goto("/home/settings");
+      await page.getByRole("link", { name: "General", exact: true }).click();
+      await expect(page).toHaveURL(/\/home\/settings\/general$/u);
+      if (viewport.name === "expanded") {
+        await expect(shellBackButton(page)).toHaveCount(0);
+        await expect(page.getByRole("link", { name: "General", exact: true })).toBeVisible();
+      } else {
+        await pressShellBack(page);
+        await expect(page).toHaveURL(/\/home\/settings$/u);
+      }
+
+      // No page carries a worded back control.
+      await expect(page.getByText(/Back to /u)).toHaveCount(0);
+      await context.close();
+    }
   } finally {
     await browser?.close();
     await stopProcess(vite);

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { isPrimaryTouchPointer, isShellGestureIgnoredTarget } from "../src/client/support/gestureTargets.js";
 import { resolveShellLayoutClass } from "../src/client/support/shellLayoutClass.js";
+import { resolveWindowSizeClass } from "../src/client/support/windowSizeClass.js";
 
 function createTarget(matchingSelectors = []) {
   return {
@@ -12,15 +13,26 @@ function createTarget(matchingSelectors = []) {
   };
 }
 
-test("shell layout class follows the display breakpoint, then the viewport width", () => {
-  assert.equal(resolveShellLayoutClass("xs", 1600), "compact");
-  assert.equal(resolveShellLayoutClass("SM"), "compact");
-  assert.equal(resolveShellLayoutClass("md", 300), "medium");
-  assert.equal(resolveShellLayoutClass("xxl", 300), "expanded");
-  assert.equal(resolveShellLayoutClass("", 599), "compact");
-  assert.equal(resolveShellLayoutClass(undefined, 600), "medium");
-  assert.equal(resolveShellLayoutClass("", 1280), "expanded");
-  assert.equal(resolveShellLayoutClass("", 0), "expanded");
+test("shell layout class is the Material 3 window size class, with large placed like expanded", () => {
+  assert.equal(resolveShellLayoutClass(390), "compact");
+  assert.equal(resolveShellLayoutClass(599), "compact");
+  assert.equal(resolveShellLayoutClass(600), "medium");
+  assert.equal(resolveShellLayoutClass(768), "medium");
+  assert.equal(resolveShellLayoutClass(839), "medium");
+  assert.equal(resolveShellLayoutClass(840), "expanded");
+  assert.equal(resolveShellLayoutClass(1199), "expanded");
+  assert.equal(resolveShellLayoutClass(1280), "expanded");
+  assert.equal(resolveShellLayoutClass(1920), "expanded");
+});
+
+test("window size classes follow the Material 3 breakpoints", () => {
+  assert.equal(resolveWindowSizeClass(0), "compact");
+  assert.equal(resolveWindowSizeClass(599), "compact");
+  assert.equal(resolveWindowSizeClass(600), "medium");
+  assert.equal(resolveWindowSizeClass(840), "expanded");
+  assert.equal(resolveWindowSizeClass(1199), "expanded");
+  assert.equal(resolveWindowSizeClass(1200), "large");
+  assert.equal(resolveWindowSizeClass(2400), "large");
 });
 
 test("shell gestures follow primary touch and pen pointers only", () => {

@@ -42,6 +42,10 @@ import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentat
 import { buildSurfaceConfigContext } from "../placement/surfaceContext.js";
 import { createShellBootstrapRuntime } from "../runtime/bootstrapRuntime.js";
 import {
+  SHELL_NAVIGATION_RUNTIME_KEY,
+  createShellNavigationRuntime
+} from "../navigation/shellNavigationRuntime.js";
+import {
   SHELL_WEB_REFRESH_RUNTIME_KEY,
   createShellRefreshRuntime
 } from "../runtime/refreshRuntime.js";
@@ -316,6 +320,7 @@ const ShellWebClientProvider = defineProvider({
       errorRuntime,
       logger
     });
+    const navigationRuntime = createShellNavigationRuntime({ router });
 
     return {
       shell: Object.freeze({
@@ -325,6 +330,7 @@ const ShellWebClientProvider = defineProvider({
         clientUpdate: clientUpdateRuntime,
         error: errorRuntime,
         errorPresentationStore,
+        navigation: navigationRuntime,
         placement: placementRuntime,
         refresh: refreshRuntime,
         requestRecovery: requestRecoveryRuntime
@@ -338,11 +344,14 @@ const ShellWebClientProvider = defineProvider({
       clientUpdate: clientUpdateRuntime,
       error: errorRuntime,
       errorPresentationStore,
+      navigation: navigationRuntime,
       placement: placementRuntime,
       refresh: refreshRuntime,
       requestRecovery: requestRecoveryRuntime
     } = outputs.shell;
     asyncModuleRecoveryRuntime.install();
+    // Before the router's first navigation, so the trail starts with the page the tab opened on.
+    navigationRuntime.install();
 
     const placementTopology = await loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime);
     placementRuntime.replacePlacementTopology(placementTopology, { source: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER });
@@ -377,11 +386,13 @@ const ShellWebClientProvider = defineProvider({
     vueApp.provide(SHELL_WEB_ERROR_RUNTIME_KEY, errorRuntime);
     vueApp.provide(SHELL_ASYNC_MODULE_RECOVERY_RUNTIME_KEY, asyncModuleRecoveryRuntime);
     vueApp.provide(SHELL_REQUEST_RECOVERY_RUNTIME_KEY, requestRecoveryRuntime);
+    vueApp.provide(SHELL_NAVIGATION_RUNTIME_KEY, navigationRuntime);
 
     installVueErrorBridge(vueApp, errorRuntime, logger);
     installRouterErrorBridge(router, errorRuntime, logger);
   },
   shutdown(_dependencies, { outputs }) {
+    outputs.shell.navigation.dispose();
     outputs.shell.clientUpdate.dispose();
     outputs.shell.requestRecovery.dispose();
     outputs.shell.asyncModuleRecovery.dispose();
