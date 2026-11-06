@@ -28,11 +28,13 @@ const view = computed(() => props.screen.view);
 const editLocation = computed(() => unref(props.screen.editLocation) || null);
 const recordTitle = computed(() => String(unref(props.screen.recordTitle) || ""));
 const isNotFound = computed(() => Boolean(unref(view.value.isNotFound)));
+// Gone (not found) or no longer the reader's to see (403).
+const isUnavailable = computed(() => isNotFound.value || Number(unref(view.value.errorStatus)) === 403);
 
-// A record that is gone when Up returns here sends the reader on to this page's parent instead.
+// A record that is unavailable when Up returns here sends the reader on to this page's parent instead.
 const { pageUnavailable } = useShellNavigation();
-watch(isNotFound, (notFound) => {
-  if (notFound) {
+watch(isUnavailable, (unavailable) => {
+  if (unavailable) {
     pageUnavailable();
   }
 }, { immediate: true });

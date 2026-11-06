@@ -156,6 +156,7 @@ function useView({
     isLoading,
     isFetching,
     isRefetching,
+    errorStatus: view.errorStatus,
     isNotFound: view.isNotFound,
     notFoundError: view.notFoundError,
     loadError,

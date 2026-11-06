@@ -38,10 +38,9 @@ function useViewCore({
   const isFetching = computed(() => Boolean(resource.isFetching.value));
   const error = computed(() => resource.query.error.value || null);
 
-  const isNotFound = computed(() => {
-    const status = Number(error.value?.status || 0);
-    return statusList.includes(status);
-  });
+  // The HTTP status of the failed load, or 0.
+  const errorStatus = computed(() => Number(error.value?.status || 0));
+  const isNotFound = computed(() => statusList.includes(errorStatus.value));
 
   const notFoundError = computed(() => {
     if (!isNotFound.value) {
@@ -75,6 +74,7 @@ function useViewCore({
     record,
     isLoading,
     isFetching,
+    errorStatus,
     isNotFound,
     notFoundError,
     loadError,

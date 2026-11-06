@@ -84,6 +84,54 @@ test("every CRUD list create action retains its configured label and destination
   }
 });
 
+test("a CRUD view whose record is not found or forbidden tells the shell, and no other failure does", async () => {
+  const componentUrl = new URL("../src/client/components/CrudViewScreen.vue", import.meta.url).href;
+  const navigationStub = "export function useShellNavigation() { return { pageUnavailable: () => globalThis.__crudViewUnavailable.push(true) }; }";
+  const hooks = registerHooks({
+    resolve(specifier, context, nextResolve) {
+      if (specifier === "@jskit-ai/shell-web/client/navigation/useShellNavigation" && context.parentURL === componentUrl) {
+        return { url: `data:text/javascript,${encodeURIComponent(navigationStub)}`, shortCircuit: true };
+      }
+      return nextResolve(specifier, context);
+    },
+    load(url, context, nextLoad) {
+      if (!url.endsWith(".vue")) return nextLoad(url, context);
+      if (url !== componentUrl) {
+        return { format: "module", shortCircuit: true, source: "export default { render: () => null };" };
+      }
+      const { descriptor } = parse(readFileSync(new URL(url), "utf8"));
+      return {
+        format: "module", shortCircuit: true,
+        source: compileScript(descriptor, { id: "crud-view-unavailable", inlineTemplate: true }).content
+      };
+    }
+  });
+  let CrudViewScreen;
+  try {
+    ({ default: CrudViewScreen } = await import(componentUrl));
+  } finally {
+    hooks.deregister();
+  }
+
+  const cases = [
+    { name: "not found", view: { isNotFound: true, errorStatus: 404, loadError: "" }, unavailable: 1 },
+    { name: "forbidden", view: { isNotFound: false, errorStatus: 403, loadError: "No access" }, unavailable: 1 },
+    { name: "server error", view: { isNotFound: false, errorStatus: 500, loadError: "Try again" }, unavailable: 0 },
+    { name: "loaded", view: { isNotFound: false, errorStatus: 0, loadError: "" }, unavailable: 0 }
+  ];
+  for (const { name, view, unavailable } of cases) {
+    globalThis.__crudViewUnavailable = [];
+    const screen = { view: { ...view, isLoading: false, isFetching: false, refresh() {} }, editLocation: null, recordTitle: "" };
+    const app = createSSRApp({ render: () => h(CrudViewScreen, { screen }) });
+    for (const component of ["VBtn", "VCard", "VIcon", "VList", "VSkeletonLoader"]) {
+      app.component(component, defineComponent({ setup: (_props, { slots }) => () => h("div", slots.default?.()) }));
+    }
+    await renderToString(app);
+    assert.equal(globalThis.__crudViewUnavailable.length, unavailable, name);
+  }
+  delete globalThis.__crudViewUnavailable;
+});
+
 test("CRUD screen components own list/view/form chrome centrally", async () => {
   const listSource = await readComponent("CrudListScreen.vue");
   const viewSource = await readComponent("CrudViewScreen.vue");
