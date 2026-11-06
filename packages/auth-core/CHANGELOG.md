@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The dev auth policy and the CSRF cookie's default decide production with the kernel's `isProductionEnv`, the check every JSKIT package now shares; what counts as production is unchanged. `./server/devAuth` no longer exports `isProductionNodeEnv(nodeEnv)`: call `isProductionEnv(env)` from `@jskit-ai/kernel/server/runtime/runtimeMode` instead.
 - The auth policy no longer registers `@fastify/rate-limit`, which it did after the routes existed, so no route limit applied; the kernel now registers it before the routes and enforces each route's `rateLimit`.
 
 - Every auth command's field messages (sign-in, registration, one-time codes, OAuth, password reset and recovery, dev sign-in) are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.

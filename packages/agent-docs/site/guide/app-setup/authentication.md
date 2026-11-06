@@ -189,6 +189,11 @@ URL. Without a sender, production recovery is disabled; explicit development
 output remains available for local testing. A sender failure never falls back
 to development output. The generic recovery delivery capability is `email`.
 
+Production is `NODE_ENV=production`; anything else, unset included, is
+development, so the host that serves the application sets it. A production
+server with `AUTH_LOCAL_RECOVERY_DEV_OUTPUT` set refuses to start and names the
+setting to remove, rather than ignoring it.
+
 ### Pre-release migration
 
 This is a V0 breaking change. There is one runtime path, with no old SMTP reader

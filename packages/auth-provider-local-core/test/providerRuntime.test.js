@@ -415,12 +415,29 @@ test("local auth provider rejects dev login-as enablement in production", async 
         ...devAuthEnv(),
         AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
         AUTH_LOCAL_SESSION_SECRET: "production-session-secret",
+        AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
         NODE_ENV: "production"
       }
     }),
     (error) => /must not be enabled in production/.test(
       String(error.details?.cause?.message || error.message || "")
     )
+  );
+});
+
+test("a production server with AUTH_LOCAL_RECOVERY_DEV_OUTPUT set refuses to start, saying what to remove", async () => {
+  await assert.rejects(
+    () => createStartedApp({
+      env: {
+        AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+        AUTH_LOCAL_SESSION_SECRET: "production-session-secret",
+        AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log",
+        NODE_ENV: "production"
+      }
+    }),
+    (error) => String(error.details?.cause?.message || error.message || "") ===
+      "AUTH_LOCAL_RECOVERY_DEV_OUTPUT is for development only and NODE_ENV is production. " +
+        "Remove it from the production environment."
   );
 });
 
@@ -1234,7 +1251,7 @@ test("local file backend replays a pending multi-file transaction journal before
 
 test("production sessions use host-only __Host- cookies and ignore the old names", async (t) => {
   const app = await createStartedApp({
-    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret" }
+    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
   });
   t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
   const registered = await app.authService.register({ email: "host@example.com", password: "correct horse battery staple" });
@@ -1258,7 +1275,7 @@ test("local recovery uses the application sender without returning or logging it
   const messages = [];
   const logs = [];
   const app = await createStartedApp({
-    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret" },
+    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" },
     recoverySender: async (message) => { messages.push(message); },
     logger: { info: (...args) => logs.push(args), warn() {}, error() {}, debug() {} }
   });

@@ -1,4 +1,5 @@
-import { isRecord, normalizeLowerText, normalizeObject } from "../../shared/support/normalize.js";
+import { isRecord, normalizeObject } from "../../shared/support/normalize.js";
+import { isProductionEnv } from "../runtime/runtimeMode.js";
 
 /** @typedef {import("../types.js").RuntimeConfig} RuntimeConfig */
 /** @typedef {import("../types.js").RuntimeEnv} RuntimeEnv */
@@ -156,7 +157,7 @@ function resolveSecurityHeaders({ config, env }) {
   if (referrerPolicy) {
     headers.push(["referrer-policy", referrerPolicy]);
   }
-  if (normalizeLowerText(env.NODE_ENV) === "production") {
+  if (isProductionEnv(env)) {
     const strictTransportSecurity = resolveHeaderText(
       settings.strictTransportSecurity,
       DEFAULT_STRICT_TRANSPORT_SECURITY,

@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { isProductionEnv } from "@jskit-ai/kernel/server/runtime/runtimeMode";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const MIN_SECRET_BYTES = 32;
@@ -142,7 +143,7 @@ function resolveHubDevAuth(env) {
  * naming the variable to fix.
  */
 function resolveHubConfig(env = {}, { appRoot = "" } = {}) {
-  const isProduction = text(env.NODE_ENV).toLowerCase() === "production";
+  const isProduction = isProductionEnv(env);
   const registrationToken = text(env.OIDC_HUB_REGISTRATION_TOKEN);
   if (!registrationToken) {
     throw new HubConfigError("Set OIDC_HUB_REGISTRATION_TOKEN: apps present it when they register with the hub.");

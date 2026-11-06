@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The hub decides production with the kernel's `isProductionEnv`, the check every JSKIT package now shares; what counts as production is unchanged.
 - Translation ready: the hub's refusals, emails and pages are message keys with their English in `locales/en.json` (exported as `./locales/en.json`). With no translations, every text, email and page is unchanged.
 - The hub's emails and its sign-out, signed-out and sign-in problem pages render in the person's language: the authorization request's `ui_locales`, then the browser's `Accept-Language`, then English. Translations come from the app's `src/locales/<code>/jskit.json`; pages carry `<html lang>`. See "Languages" in the README.
 - `createOidcIssuer` takes `catalogs`, extra English catalogs that reword the hub's texts.

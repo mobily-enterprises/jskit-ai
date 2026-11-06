@@ -1,3 +1,4 @@
+import { isProductionEnv } from "@jskit-ai/kernel/server/runtime/runtimeMode";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { timingSafeEqual } from "node:crypto";
 import { parseBooleanFlag } from "./booleanFlag.js";
@@ -53,15 +54,6 @@ function isLocalDevAuthRequest(request) {
   return isLoopbackIp(remoteAddress) && isLoopbackHostname(normalizeRequestHostname(request));
 }
 
-/**
- * True when NODE_ENV names production, in any letter case. Every auth package
- * decides "production" this one way.
- * @param {unknown} nodeEnv
- */
-function isProductionNodeEnv(nodeEnv) {
-  return String(nodeEnv || "").trim().toLowerCase() === "production";
-}
-
 function resolveDevAuthPolicy({
   enabled = false,
   nodeEnv = "development",
@@ -69,7 +61,7 @@ function resolveDevAuthPolicy({
 } = {}) {
   return Object.freeze({
     enabled: parseBooleanFlag(enabled, false),
-    isProduction: isProductionNodeEnv(nodeEnv),
+    isProduction: isProductionEnv({ NODE_ENV: nodeEnv }),
     secret: String(secret || "").trim()
   });
 }
@@ -140,7 +132,6 @@ export {
   ensureDevAuthRuntimeAvailable,
   isDevAuthBootstrapEnabled,
   isLocalDevAuthRequest,
-  isProductionNodeEnv,
   resolveDevAuthPolicy,
   resolveDevAuthPolicyFromEnv
 };

@@ -54,7 +54,7 @@ test("local auth errors carry codes whose English is the thrown message", async 
   await assert.rejects(() => service.updateDisplayName({ cookies: {} }, { displayName: "Ada" }),
     (error) => assertCoded(error, "auth.session.required"));
 
-  const disabled = await createService(t, { NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log" });
+  const disabled = await createService(t, { NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" });
   await assert.rejects(() => disabled.requestPasswordReset({ email: "ada@example.com" }),
     (error) => assertCoded(error, "auth.local.recovery.notConfigured"));
 });

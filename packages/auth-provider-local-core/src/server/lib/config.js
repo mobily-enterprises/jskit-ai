@@ -5,6 +5,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { AUTH_PASSWORD_MIN_LENGTH } from "@jskit-ai/auth-core/shared/authConstraints";
 import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
+import { assertDevelopmentOnlySettings } from "@jskit-ai/kernel/server/runtime/runtimeMode";
 import { resolveOAuthProviders } from "./oauth.js";
 import { resolveSignInThrottle } from "./signInThrottle.js";
 
@@ -72,7 +73,8 @@ function resolveAppPublicUrl(env, { emailRecovery, oauthEnabled }) {
  * How a password recovery link reaches the person: by email through the
  * installed recovery sender; otherwise, outside production, in the log or in
  * the response (AUTH_LOCAL_RECOVERY_DEV_OUTPUT=response). In production without
- * a sender, recovery is disabled.
+ * a sender, recovery is disabled, and AUTH_LOCAL_RECOVERY_DEV_OUTPUT stops
+ * startup (resolveLocalAuthConfig).
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
  * @param {{ emailRecovery: boolean, isProduction: boolean }} options
  * @returns {"email" | "disabled" | "dev-response" | "dev-log"}
@@ -118,6 +120,7 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery }) {
     throw new Error("AUTH_LOCAL_FILE_PRODUCTION_ACK is required to use the local file auth backend in production.");
   }
   assertDevAuthPolicy(devAuth);
+  assertDevelopmentOnlySettings(env, ["AUTH_LOCAL_RECOVERY_DEV_OUTPUT"]);
   const oauthProviders = resolveOAuthProviders(env);
   const oauthEnabled = oauthProviders.length > 0;
   const recoveryDelivery = resolveRecoveryDelivery(env, { emailRecovery, isProduction });
