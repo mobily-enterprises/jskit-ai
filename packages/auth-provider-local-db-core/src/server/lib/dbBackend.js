@@ -243,6 +243,9 @@ function createLocalDbBackend({ knex, transactionManager }) {
         async findByEmail(email) {
           return mapUser(await table(client, TABLES.users).where({ email: String(email || "") }).first());
         },
+        async hasAny() {
+          return Boolean(await table(client, TABLES.users).first("id"));
+        },
         async updatePassword(userId, passwordRecord) {
           const updatedAt = requiredDateTime();
           await table(client, TABLES.users)

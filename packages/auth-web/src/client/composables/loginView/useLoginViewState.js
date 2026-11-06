@@ -45,6 +45,8 @@ export function useLoginViewState({ placementContext }) {
   const password = ref("");
   const confirmPassword = ref("");
   const otpCode = ref("");
+  // The first account's setup code, asked for while a production server has no account.
+  const setupCode = ref("");
   const showPassword = ref(false);
   const showConfirmPassword = ref(false);
   const emailTouched = ref(false);
@@ -86,6 +88,7 @@ export function useLoginViewState({ placementContext }) {
   const canUseOAuth = computed(() => authCapabilities.value.features.oauthLogin.enabled === true);
   const canResendEmailConfirmation = computed(() => authCapabilities.value.features.emailConfirmation === true);
   const canEnterConfirmationCode = computed(() => authCapabilities.value.features.emailConfirmationCode === true);
+  const needsFirstAccountSetupCode = computed(() => authCapabilities.value.features.firstAccountSetupCode === true);
   const showRememberedAccount = computed(
     () => (isLogin.value || isOtp.value) && useRememberedAccount.value && Boolean(rememberedAccount.value)
   );
@@ -157,6 +160,7 @@ export function useLoginViewState({ placementContext }) {
     password.value = "";
     confirmPassword.value = "";
     otpCode.value = "";
+    setupCode.value = "";
     showPassword.value = false;
     showConfirmPassword.value = false;
   }
@@ -277,6 +281,7 @@ export function useLoginViewState({ placementContext }) {
     password,
     confirmPassword,
     otpCode,
+    setupCode,
     showPassword,
     showConfirmPassword,
     emailTouched,
@@ -313,6 +318,7 @@ export function useLoginViewState({ placementContext }) {
     canUseOAuth,
     canResendEmailConfirmation,
     canEnterConfirmationCode,
+    needsFirstAccountSetupCode,
     showRememberedAccount,
     rememberedAccountDisplayName,
     rememberedAccountMaskedEmail,

@@ -41,6 +41,8 @@ function useLoginView() {
     canUseOAuth: state.canUseOAuth,
     canResendEmailConfirmation: state.canResendEmailConfirmation,
     canEnterConfirmationCode: state.canEnterConfirmationCode,
+    needsFirstAccountSetupCode: state.needsFirstAccountSetupCode,
+    setupCode: state.setupCode,
     confirmationUrl: state.confirmationUrl,
     confirmationCode: state.confirmationCode,
     registrationConfirmPending: state.registrationConfirmPending,

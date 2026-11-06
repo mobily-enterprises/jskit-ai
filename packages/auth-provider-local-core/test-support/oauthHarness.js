@@ -124,14 +124,16 @@ function oidcProviderEntry(issuer, { id = "google", label = "Google" } = {}) {
  * @param {import("../src/server/types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../src/server/types.js").AuthLocalOAuthProvider[]} dependencies.oauthProviders
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
+ * @param {import("../src/server/types.js").AuthLocalFirstAccountSetup} [dependencies.firstAccountSetup]
  */
-function createService({ backend, oauthProviders, profileProjector }) {
+function createService({ backend, oauthProviders, profileProjector, firstAccountSetup }) {
   const options = localServiceOptions({ env: { APP_PUBLIC_URL: APP_URL } });
   return createLocalAuthService({
     ...options,
     backend,
     config: { ...options.config, oauthProviders, oauthEnabled: oauthProviders.length > 0 },
-    profileProjector
+    profileProjector,
+    firstAccountSetup
   });
 }
 

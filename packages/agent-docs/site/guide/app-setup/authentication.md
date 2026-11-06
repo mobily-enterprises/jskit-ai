@@ -171,6 +171,36 @@ the `auth_local_registrations` table (run `npm run db:migrate`). A custom
 register and expect a session either confirm with the answer's
 `confirmationUrl` or set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
 
+## The first account in production (local auth)
+
+The first account to register becomes the application's owner, so on a
+production server (`NODE_ENV=production`) whose local auth has no account yet,
+registering needs a one-time setup code that only the server's operator can
+read. Development needs no code.
+
+Each start of such a server makes a new code, such as
+`7KQ2M-X9D4F-0RWHN-3TBZC`, and keeps only its hash. It writes the code:
+
+- in the log, as one warning: `Local auth has no account yet: register the
+  first account with this setup code.`, with the fields
+  `firstAccountSetupCode` (the code) and `firstAccountSetupCodeFile`;
+- in the file `first-account-setup-code` in `AUTH_LOCAL_STORE_DIR` (default
+  `.jskit/auth`), mode 600, for a hosting tool to read. A store directory that
+  cannot be written leaves only the log line.
+
+While it waits, the sign-in page's registration form shows a "Setup code"
+field (capability `features.firstAccountSetupCode`), and the register body
+takes `setupCode`; letter case, spaces and dashes do not matter. A missing code
+is refused with 403 `auth.local.setup.codeRequired`, a wrong one with 403
+`auth.local.setup.codeInvalid`. An OAuth sign-in cannot create that first
+account. The registration then follows the ordinary rules, email confirmation
+included, and confirming it signs the owner in. The code admits registrations
+until an account exists; then it stops working and its file is deleted, and
+registration needs no code again. Restarting before then makes a new code and
+the old one stops working: the latest log line and the file always agree, and
+nothing but a hash is kept for checking it. Run one server while the first
+account is set up, since each server makes its own code.
+
 ## Application-owned recovery email
 
 Local auth owns recovery tokens, expiry and recovery-scoped sessions. The

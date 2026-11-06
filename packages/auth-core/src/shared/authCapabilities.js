@@ -145,6 +145,7 @@ function normalizeAuthCapabilities(value = {}) {
       }),
       emailConfirmation: normalizeBoolean(featuresSource.emailConfirmation),
       emailConfirmationCode: normalizeBoolean(featuresSource.emailConfirmationCode),
+      firstAccountSetupCode: normalizeBoolean(featuresSource.firstAccountSetupCode),
       profileUpdate: normalizeBoolean(featuresSource.profileUpdate),
       providerLinking: Object.freeze({
         start: normalizeBoolean(providerLinkingSource.start),

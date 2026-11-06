@@ -36,6 +36,7 @@ function confirmationInvalidError() {
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
+ * @param {import("../types.js").AuthLocalFirstAccountSetup} dependencies.firstAccountSetup
  * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
  *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender;
  *   in development without a sender, links also go in the response.
@@ -46,6 +47,7 @@ function createLocalEmailConfirmation({
   backend,
   config,
   confirmationSender,
+  firstAccountSetup,
   invitationContextResolver,
   profileProjector,
   sessions
@@ -133,6 +135,7 @@ function createLocalEmailConfirmation({
     if (outcome.taken) {
       throw emailTakenError();
     }
+    firstAccountSetup.accountCreated();
     return buildAuthPayload({ user: outcome.user, session: outcome.session, profileProjector, profileOptions });
   }
 

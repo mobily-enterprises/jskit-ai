@@ -112,6 +112,9 @@ export function useLoginViewValidation({ state }) {
     if (emailErrorMessages.value.length > 0) {
       return false;
     }
+    if (state.isRegister.value && state.needsFirstAccountSetupCode.value && !String(state.setupCode.value || "").trim()) {
+      return false;
+    }
     if (state.isRegister.value || state.isLogin.value) {
       return passwordErrorMessages.value.length < 1 && confirmPasswordErrorMessages.value.length < 1;
     }

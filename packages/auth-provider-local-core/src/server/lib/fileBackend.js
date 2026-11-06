@@ -217,6 +217,9 @@ function createTx(state, touched) {
       async findByEmail(email) {
         return clone(state.users.find((user) => user.email === email) || null);
       },
+      async hasAny() {
+        return state.users.length > 0;
+      },
       async updatePassword(userId, passwordRecord) {
         const user = state.users.find((entry) => entry.id === userId);
         if (!user) {

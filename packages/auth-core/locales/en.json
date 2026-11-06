@@ -52,7 +52,8 @@
         "recoveryCodeInvalid": "Recovery code is invalid.",
         "recoveryTokenHashInvalid": "Recovery token hash is invalid.",
         "recoveryTypeUnsupported": "Only recovery links are supported.",
-        "confirmationCodeRequired": "Enter the confirmation code or link from the email."
+        "confirmationCodeRequired": "Enter the confirmation code or link from the email.",
+        "setupCodeInvalid": "Enter the setup code from the server's log."
       },
       "profile": {
         "displayNameRequired": "Display name is required."

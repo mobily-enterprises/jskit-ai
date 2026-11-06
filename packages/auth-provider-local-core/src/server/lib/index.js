@@ -3,6 +3,7 @@ export { resolveLocalAuthConfig } from "./config.js";
 export { createLoggedConfirmationSender } from "./emailConfirmation.js";
 export { createLoggedRecoverySender } from "./passwordFlows.js";
 export { createLocalFileBackend } from "./fileBackend.js";
+export { SETUP_CODE_FILE, createFirstAccountSetup } from "./firstAccountSetup.js";
 export {
   LOCAL_AUTH_USER_REGISTERED_EVENT,
   createLocalAuthRegisterHookDecorator

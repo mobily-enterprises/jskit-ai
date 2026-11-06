@@ -346,6 +346,7 @@ const authCapabilitiesFeaturesOutputSchema = createSchema({
   },
   emailConfirmation: { type: "boolean", required: true },
   emailConfirmationCode: { type: "boolean", required: true },
+  firstAccountSetupCode: { type: "boolean", required: true },
   profileUpdate: { type: "boolean", required: true },
   providerLinking: {
     type: "object",
@@ -476,7 +477,8 @@ const AUTH_FIELD_MESSAGES = deepFreeze({
   confirmationCodeRequired: {
     code: "auth.validation.confirmationCodeRequired",
     message: "Enter the confirmation code or link from the email."
-  }
+  },
+  setupCodeInvalid: { code: "auth.validation.setupCodeInvalid", message: "Enter the setup code from the server's log." }
 });
 
 function createCommandMessages({

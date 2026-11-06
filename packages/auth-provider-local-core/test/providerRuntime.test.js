@@ -32,6 +32,11 @@ async function temporaryStoreDir(prefix) {
 
 test.after(() => Promise.all(temporaryStoreDirs.map((storeDir) => fs.rm(storeDir, { recursive: true, force: true }))));
 
+// The setup code a production server without accounts asks its first registration for.
+async function firstAccountSetupCode(storeDir) {
+  return (await fs.readFile(path.join(storeDir, "first-account-setup-code"), "utf8")).trim();
+}
+
 function createReplyFixture() {
   const cookies = {};
   const cookieOptions = {};
@@ -1253,12 +1258,34 @@ test("local file backend replays a pending multi-file transaction journal before
   await assert.rejects(() => fs.stat(path.join(storeDir, "transaction.journal")), { code: "ENOENT" });
 });
 
+test("a production server without accounts refuses a first registration without its setup code", async () => {
+  const app = await createStartedApp({
+    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
+  });
+  assert.equal(app.authService.getCapabilities().features.firstAccountSetupCode, true);
+  await assert.rejects(
+    () => app.authService.register({ email: "first@example.com", password: "correct horse battery staple" }),
+    { status: 403, code: "auth.local.setup.codeRequired" }
+  );
+  const owner = await app.authService.register({
+    email: "first@example.com",
+    password: "correct horse battery staple",
+    setupCode: await firstAccountSetupCode(app.storeDir)
+  });
+  assert.equal(owner.actor.email, "first@example.com");
+  assert.equal(app.authService.getCapabilities().features.firstAccountSetupCode, false);
+});
+
 test("production sessions use host-only __Host- cookies and ignore the old names", async (t) => {
   const app = await createStartedApp({
     env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
   });
   t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
-  const registered = await app.authService.register({ email: "host@example.com", password: "correct horse battery staple" });
+  const registered = await app.authService.register({
+    email: "host@example.com",
+    password: "correct horse battery staple",
+    setupCode: await firstAccountSetupCode(app.storeDir)
+  });
   const reply = createReplyFixture();
   app.authService.writeSessionCookies(reply, registered.session);
   assert.deepEqual(Object.keys(reply.cookies).sort(), ["__Host-jskit_local_access_token", "__Host-jskit_local_refresh_token"]);
@@ -1284,7 +1311,11 @@ test("local recovery uses the application sender without returning or logging it
     logger: { info: (...args) => logs.push(args), warn() {}, error() {}, debug() {} }
   });
   t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
-  await app.authService.register({ email: "sender@example.com", password: "correct horse battery staple" });
+  await app.authService.register({
+    email: "sender@example.com",
+    password: "correct horse battery staple",
+    setupCode: await firstAccountSetupCode(app.storeDir)
+  });
   assert.equal(app.authService.getCapabilities().features.passwordRecovery.delivery, "email");
   const result = await app.authService.requestPasswordReset({ email: "sender@example.com" });
   assert.equal(result.recoveryUrl, undefined);
@@ -1359,7 +1390,11 @@ test("the confirmation sender emails the link, which is never returned or logged
   const features = app.authService.getCapabilities().features;
   assert.deepEqual([features.emailConfirmation, features.emailConfirmationCode], [true, true]);
 
-  const registered = await app.authService.register({ email: "mail@example.com", password: "correct horse battery staple" });
+  const registered = await app.authService.register({
+    email: "mail@example.com",
+    password: "correct horse battery staple",
+    setupCode: await firstAccountSetupCode(app.storeDir)
+  });
   assert.equal(registered.requiresEmailConfirmation, true);
   assert.equal(registered.session, null);
   assert.equal(Object.hasOwn(registered, "confirmationUrl"), false);

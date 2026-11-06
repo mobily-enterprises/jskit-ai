@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { authRegisterCommand } from "../src/shared/commands/authRegisterCommand.js";
 import { authRegisterConfirmationResendCommand } from "../src/shared/commands/authRegisterConfirmationResendCommand.js";
+import { authRegisterConfirmCommand } from "../src/shared/commands/authRegisterConfirmCommand.js";
 import { authLoginPasswordCommand } from "../src/shared/commands/authLoginPasswordCommand.js";
 import { authLoginOtpRequestCommand } from "../src/shared/commands/authLoginOtpRequestCommand.js";
 import { authLoginOtpVerifyCommand } from "../src/shared/commands/authLoginOtpVerifyCommand.js";
@@ -22,6 +23,7 @@ test("auth commands expose canonical operation validator messages", () => {
   const commands = {
     authRegisterCommand,
     authRegisterConfirmationResendCommand,
+    authRegisterConfirmCommand,
     authLoginPasswordCommand,
     authLoginOtpRequestCommand,
     authLoginOtpVerifyCommand,
@@ -54,6 +56,7 @@ test("every auth command message is coded and its English renders from the catal
   const commands = [
     authRegisterCommand,
     authRegisterConfirmationResendCommand,
+    authRegisterConfirmCommand,
     authLoginPasswordCommand,
     authLoginOtpRequestCommand,
     authLoginOtpVerifyCommand,
@@ -124,6 +127,18 @@ test("auth command body validators lowercase email inputs", () => {
       assert.equal(result.validatedObject.email, "ada@example.com");
     }
   }
+});
+
+test("registration takes the first account's setup code and confirmation takes its link's code", () => {
+  const registered = authRegisterCommand.operation.body.schema.create({
+    email: "owner@example.com",
+    password: "correct horse battery staple",
+    setupCode: "ABCDE-FGHJK-MNPQR-STVWX"
+  });
+  assert.equal(registered.validatedObject.setupCode, "ABCDE-FGHJK-MNPQR-STVWX");
+  assert.deepEqual(Object.keys(authRegisterConfirmCommand.operation.body.schema.create({ token: "code" }).validatedObject), [
+    "token"
+  ]);
 });
 
 test("auth session and oauth start commands expose explicit nested response schemas", () => {

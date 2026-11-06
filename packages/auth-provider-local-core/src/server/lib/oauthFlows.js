@@ -17,13 +17,23 @@ const OAUTH_REDIRECT_PATH = "/auth/login";
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("../types.js").AuthLocalFirstAccountSetup} dependencies.firstAccountSetup
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {Map<string, import("../types.js").AuthLocalOAuthProvider>} dependencies.oauthProvidersById
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  * @param {ReturnType<typeof import("./securityStatus.js").createLocalSecurityStatus>} dependencies.securityStatus
  * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
-function createLocalOAuthFlows({ backend, config, logger, oauthProvidersById, profileProjector, securityStatus, sessions }) {
+function createLocalOAuthFlows({
+  backend,
+  config,
+  firstAccountSetup,
+  logger,
+  oauthProvidersById,
+  profileProjector,
+  securityStatus,
+  sessions
+}) {
   const { isProduction, oauthEnabled } = config;
   const OAUTH_ATTEMPT_COOKIE = hostOnlyCookieName(OAUTH_ATTEMPT_COOKIE_NAME, isProduction);
   const oauthRedirectUri = oauthEnabled ? `${config.appPublicUrl.replace(/\/$/u, "")}${OAUTH_REDIRECT_PATH}` : "";
@@ -89,11 +99,13 @@ function createLocalOAuthFlows({ backend, config, logger, oauthProvidersById, pr
    * new user created like register; profile sync then provisions it as usual.
    */
   async function signInWithOAuthIdentity(identity) {
+    await firstAccountSetup.start();
     const result = await backend.withTransaction(async (tx) => {
       const linked = await tx.identities.findByProviderSubject(identity.provider, identity.providerSubject);
       let user = linked ? await tx.users.findById(linked.userId) : await tx.users.findByEmail(identity.email);
       const registered = !linked && !user;
       if (registered) {
+        await firstAccountSetup.admitOAuthAccount(tx);
         user = await tx.users.create({
           id: createId("usr"),
           email: identity.email,
@@ -114,6 +126,9 @@ function createLocalOAuthFlows({ backend, config, logger, oauthProvidersById, pr
       }
       return { user, registered, session: await sessions.createSessionForUser(tx, user) };
     });
+    if (result.registered) {
+      firstAccountSetup.accountCreated();
+    }
     return {
       ...(await buildAuthPayload({ user: result.user, session: result.session, profileProjector })),
       registered: result.registered

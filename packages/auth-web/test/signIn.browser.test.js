@@ -355,6 +355,37 @@ test("email confirmation: the development link, a pasted link after an unconfirm
   await finish(emailed);
 });
 
+test("while the app has no account, registering asks for the setup code and sends it", options, async () => {
+  const api = await openApp({
+    session: {
+      ...SIGNED_OUT,
+      authCapabilities: { ...CAPABILITIES, features: { ...CAPABILITIES.features, firstAccountSetupCode: true } }
+    },
+    routes: {
+      "POST /api/register": () => {
+        api.session = SIGNED_IN;
+        return { status: 201, json: { ok: true, requiresEmailConfirmation: false, username: "Ada" } };
+      }
+    }
+  });
+  const { page } = api;
+  await page.goto("/auth/login?mode=register&returnTo=/home");
+  await expect(page.getByTestId("auth-first-account-setup")).toContainText("This app has no account yet.");
+  await page.getByLabel("Email").fill("ada@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("Correct-horse-1");
+  await page.getByLabel("Confirm password", { exact: true }).fill("Correct-horse-1");
+  await expect(page.getByTestId("auth-submit")).toBeDisabled();
+  await page.getByLabel("Setup code").fill("ABCDE-FGHJK-MNPQR-STVWX");
+  await page.getByTestId("auth-submit").click();
+  await waitForHome(page);
+  assert.deepEqual(api.requests.at(-1).body, {
+    email: "ada@example.com",
+    password: "Correct-horse-1",
+    setupCode: "ABCDE-FGHJK-MNPQR-STVWX"
+  });
+  await finish(api);
+});
+
 test("OAuth starts at the provider and a callback finishes on the requested page or reports why it failed", options, async () => {
   const start = await openApp({
     routes: { "GET /api/oauth/google/start": { contentType: "text/html", body: "<p>Provider</p>" } }

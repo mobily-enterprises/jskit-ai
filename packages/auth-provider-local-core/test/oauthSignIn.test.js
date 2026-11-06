@@ -7,7 +7,11 @@ import { decodeJwt, generateKeyPair, SignJWT } from "jose";
 import { createService as createProfileSyncService } from "../../users-core/src/server/common/services/authProfileSyncService.js";
 import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
-import { createLocalAuthRegisterHookDecorator, createLocalFileBackend } from "../src/server/lib/index.js";
+import {
+  createFirstAccountSetup,
+  createLocalAuthRegisterHookDecorator,
+  createLocalFileBackend
+} from "../src/server/lib/index.js";
 import { sha256Base64url } from "../src/server/lib/tokens.js";
 import { resolveLocalAuthConfig } from "../src/server/lib/config.js";
 import {
@@ -140,6 +144,35 @@ test("a first Google sign-in creates the user like register, provisions it, and 
   assert.equal(second.actor.providerUserId, result.actor.providerUserId);
   assert.deepEqual(usersSync.provisioned, [issuer.account.email]);
   assert.deepEqual(registered, [issuer.account.email]);
+});
+
+test("while a production server waits for its first account, a Google sign-in cannot create it", async (t) => {
+  const issuer = await startOidcProvider();
+  t.after(() => issuer.close());
+  const backend = await fileBackend(t);
+  const codes = [];
+  const firstAccountSetup = createFirstAccountSetup({
+    backend,
+    config: { isProduction: true, storeDir: backend.storeDir },
+    logger: { warn: (fields) => codes.push(fields.firstAccountSetupCode) }
+  });
+  await firstAccountSetup.start();
+  const service = createService({
+    backend,
+    profileProjector: noAppProfiles,
+    oauthProviders: [oidcProviderEntry(issuer)],
+    firstAccountSetup
+  });
+  const refused = await approveAtProvider(service);
+  await assert.rejects(service.oauthComplete(refused.input, refused.request), {
+    statusCode: 403,
+    code: "auth.local.setup.codeRequired"
+  });
+
+  // Once the first account has registered with the code, Google sign-in creates accounts again.
+  await service.register({ email: "owner@example.com", password: "correct horse battery staple", setupCode: codes[0] });
+  const again = await approveAtProvider(service);
+  assert.equal((await service.oauthComplete(again.input, again.request)).actor.email, issuer.account.email);
 });
 
 test("a verified email that matches an existing account signs it in and links Google; later sign-ins match the subject", async (t) => {

@@ -9,9 +9,10 @@
  *   create(input: object): Promise<object>,
  *   findById(userId: string): Promise<object | null>,
  *   findByEmail(email: string): Promise<object | null>,
+ *   hasAny(): Promise<boolean>,
  *   updatePassword(userId: string, passwordRecord: object): Promise<object | null>,
  *   updateProfile(userId: string, updates: object): Promise<object | null>
- * }} users
+ * }} users `hasAny` answers whether any account exists.
  * @property {{
  *   create(input: object): Promise<object>,
  *   findById(sessionId: string): Promise<object | null>,
@@ -110,6 +111,7 @@
 
 /** @typedef {ReturnType<typeof import("./lib/config.js").resolveLocalAuthConfig>} AuthLocalConfig */
 /** @typedef {AuthLocalConfig["oauthProviders"][number]} AuthLocalOAuthProvider */
+/** @typedef {ReturnType<typeof import("./lib/firstAccountSetup.js").createFirstAccountSetup>} AuthLocalFirstAccountSetup */
 /** @typedef {ReturnType<typeof import("./lib/passwords.js").normalizePasswordStrategy>} AuthLocalPasswords */
 /** @typedef {ReturnType<typeof import("./lib/sessions.js").createLocalSessions>} AuthLocalSessions */
 

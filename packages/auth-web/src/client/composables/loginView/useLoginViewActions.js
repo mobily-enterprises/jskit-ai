@@ -162,6 +162,10 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
       email: normalizedEmail,
       password: String(state.password.value || "")
     };
+    const setupCode = String(state.setupCode.value || "").trim();
+    if (setupCode) {
+      registerPayload.setupCode = setupCode;
+    }
     const invitationToken = String(state.invitationToken.value || "").trim();
     if (invitationToken) {
       registerPayload.invitation = {

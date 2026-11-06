@@ -128,6 +128,7 @@ async function resolveRegistrationProfileOptions(invitationContextResolver, invi
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
  * @param {ReturnType<typeof import("./emailConfirmation.js").createLocalEmailConfirmation>} dependencies.emailConfirmation
+ * @param {import("../types.js").AuthLocalFirstAccountSetup} dependencies.firstAccountSetup
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {import("../types.js").AuthLocalPasswords} dependencies.passwords
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
@@ -138,6 +139,7 @@ function createLocalAccounts({
   backend,
   config,
   emailConfirmation,
+  firstAccountSetup,
   invitationContextResolver,
   passwords,
   profileProjector,
@@ -149,6 +151,7 @@ function createLocalAccounts({
     const email = validateEmailInput(input.email);
     validatePasswordInput(input.password, config.passwordMinLength);
     const displayName = normalizeDisplayName(input.displayName, email);
+    await firstAccountSetup.admitRegistration(input.setupCode);
     // Checked now, so a registration with an invitation it cannot use is refused at once.
     const profileOptions = await resolveRegistrationProfileOptions(invitationContextResolver, input.invitation, email);
     const password = await passwords.hashPassword(input.password);
@@ -171,6 +174,7 @@ function createLocalAccounts({
         session: await sessions.createSessionForUser(tx, user)
       };
     });
+    firstAccountSetup.accountCreated();
     return {
       ...(await buildAuthPayload({
         user: result.user,

@@ -20,6 +20,9 @@ const AUTH_REGISTER_MESSAGES = createCommandMessages({
       required: AUTH_FIELD_MESSAGES.passwordRequired,
       minLength: AUTH_FIELD_MESSAGES.passwordMinLength,
       default: AUTH_FIELD_MESSAGES.passwordMinLength
+    },
+    setupCode: {
+      default: AUTH_FIELD_MESSAGES.setupCodeInvalid
     }
   }
 });
@@ -35,7 +38,10 @@ const authRegisterBodyValidator = deepFreeze({
         token: { type: "string", required: true, minLength: 1, maxLength: 2048 },
         source: { type: "string", required: false, minLength: 1, maxLength: 120 }
       })
-    }
+    },
+    // The first account's one-time setup code, which a production server
+    // without accounts asks for (capability features.firstAccountSetupCode).
+    setupCode: { type: "string", required: false, minLength: 1, maxLength: 64 }
   }),
   mode: "create",
   messages: AUTH_REGISTER_MESSAGES

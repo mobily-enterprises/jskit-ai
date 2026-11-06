@@ -35,7 +35,8 @@
           "password": "Password",
           "confirmPassword": "Confirm password",
           "otpCode": "One-time code",
-          "confirmationCode": "Confirmation link or code"
+          "confirmationCode": "Confirmation link or code",
+          "setupCode": "Setup code"
         },
         "confirmEmail": {
           "message": "Please confirm your email address. After confirmation, you can sign in.",
@@ -45,6 +46,9 @@
           "confirm": "Confirm",
           "devLink": "Development: no email is sent, so here is the confirmation link.",
           "useDevLink": "Confirm with this link"
+        },
+        "firstAccount": {
+          "explain": "This app has no account yet. Its first account becomes its owner, so it needs the setup code the server wrote in its log when it started."
         },
         "rememberedAccount": {
           "welcomeBack": "Welcome back, {name}",

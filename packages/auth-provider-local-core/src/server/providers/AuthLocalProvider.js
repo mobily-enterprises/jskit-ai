@@ -7,6 +7,7 @@ import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { resolveLocalAuthConfig } from "../lib/config.js";
 import { createLoggedConfirmationSender } from "../lib/emailConfirmation.js";
 import { createLocalFileBackend } from "../lib/fileBackend.js";
+import { createFirstAccountSetup } from "../lib/firstAccountSetup.js";
 import { createLoggedRecoverySender } from "../lib/passwordFlows.js";
 import { scryptPasswordStrategy } from "../lib/passwords.js";
 import { createLocalAuthService } from "../lib/service.js";
@@ -45,7 +46,7 @@ const AuthLocalProvider = defineProvider({
    * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector | null} dependencies.profileProjector The `auth.profile.projector`, when one is installed.
    * @param {import("../types.js").AuthLocalRecoverySender | null} dependencies.recoverySender The `auth.local.recovery-sender`, when one is installed.
    */
-  boot(
+  async boot(
     { appRoot, backend, confirmationSender, env, extensions, logger, passwordStrategy, profileProjector, recoverySender },
     { outputs }
   ) {
@@ -53,10 +54,15 @@ const AuthLocalProvider = defineProvider({
     const emailRecovery = recoverySender !== null;
     const emailConfirmationSender = confirmationSender !== null;
     const config = resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender });
+    const localBackend = fileBackend ? createLocalFileBackend({ storeDir: config.storeDir }) : backend;
+    // A production server without accounts logs its setup code as it starts.
+    const firstAccountSetup = createFirstAccountSetup({ backend: localBackend, config, logger });
+    await firstAccountSetup.start();
     const baseService = createLocalAuthService({
-      backend: fileBackend ? createLocalFileBackend({ storeDir: config.storeDir }) : backend,
+      backend: localBackend,
       config,
       confirmationSender: emailConfirmationSender ? confirmationSender : createLoggedConfirmationSender(logger),
+      firstAccountSetup,
       invitationContextResolver: extensions.resolveInvitationContextResolver(),
       logger,
       passwordStrategy: passwordStrategy ?? scryptPasswordStrategy,

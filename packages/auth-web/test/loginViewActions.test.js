@@ -40,6 +40,7 @@ function createMinimalLoginViewState(requestedReturnTo = "/") {
     registrationConfirmPending: { value: false },
     confirmationUrl: { value: "" },
     confirmationCode: { value: "" },
+    setupCode: { value: "" },
     invitationToken: { value: "" },
     rememberAccountOnDevice: { value: true },
     oauthProviders: { value: [] },

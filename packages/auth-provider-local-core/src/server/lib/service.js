@@ -5,6 +5,7 @@ import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupp
 import { createLocalAccounts } from "./accounts.js";
 import { PROVIDER_ID } from "./authPayloads.js";
 import { createLocalEmailConfirmation } from "./emailConfirmation.js";
+import { createFirstAccountSetup } from "./firstAccountSetup.js";
 import { createLocalOAuthFlows } from "./oauthFlows.js";
 import { createLocalPasswordFlows } from "./passwordFlows.js";
 import { normalizePasswordStrategy } from "./passwords.js";
@@ -19,6 +20,8 @@ import { createLocalSessions } from "./sessions.js";
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
  * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
  *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender.
+ * @param {import("../types.js").AuthLocalFirstAccountSetup} [dependencies.firstAccountSetup] The first
+ *   account's setup code, already started by the provider; by default, one that starts on first use.
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("../types.js").AuthLocalPasswordStrategy} dependencies.passwordStrategy The
@@ -32,6 +35,7 @@ function createLocalAuthService({
   backend,
   config,
   confirmationSender,
+  firstAccountSetup: givenFirstAccountSetup = null,
   invitationContextResolver,
   logger,
   passwordStrategy,
@@ -39,6 +43,7 @@ function createLocalAuthService({
   recoverySender
 }) {
   const passwords = normalizePasswordStrategy(passwordStrategy);
+  const firstAccountSetup = givenFirstAccountSetup ?? createFirstAccountSetup({ backend, config, logger });
   const oauthProvidersById = new Map(config.oauthProviders.map((provider) => [provider.id, provider]));
   const { oauthEnabled, recoveryEnabled } = config;
   const appProfileProjection = profileProjector !== noAppProfiles;
@@ -79,12 +84,18 @@ function createLocalAuthService({
       devLoginAs: isDevAuthBootstrapEnabled(config.devAuth)
     }
   });
+  // While a production server has no account, registering asks for the setup code.
+  const capabilitiesWaitingForFirstAccount = normalizeAuthCapabilities({
+    ...capabilities,
+    features: { ...capabilities.features, firstAccountSetupCode: true }
+  });
 
   const sessions = createLocalSessions({ appProfileProjection, backend, config, profileProjector });
   const emailConfirmation = createLocalEmailConfirmation({
     backend,
     config,
     confirmationSender,
+    firstAccountSetup,
     invitationContextResolver,
     profileProjector,
     sessions
@@ -94,6 +105,7 @@ function createLocalAuthService({
     backend,
     config,
     emailConfirmation,
+    firstAccountSetup,
     invitationContextResolver,
     passwords,
     profileProjector,
@@ -111,6 +123,7 @@ function createLocalAuthService({
   const oauthFlows = createLocalOAuthFlows({
     backend,
     config,
+    firstAccountSetup,
     logger,
     oauthProvidersById,
     profileProjector,
@@ -119,7 +132,7 @@ function createLocalAuthService({
   });
 
   function getCapabilities() {
-    return capabilities;
+    return firstAccountSetup.isWaiting() ? capabilitiesWaitingForFirstAccount : capabilities;
   }
 
   function resendRegisterConfirmation(input) {

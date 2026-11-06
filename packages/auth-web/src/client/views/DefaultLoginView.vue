@@ -129,6 +129,23 @@
                 </v-btn>
               </div>
 
+              <div
+                v-if="isRegister && needsFirstAccountSetupCode"
+                class="first-account-setup mb-4"
+                data-testid="auth-first-account-setup"
+              >
+                <p class="text-medium-emphasis mb-3">{{ t("jskit.auth.login.firstAccount.explain") }}</p>
+                <v-text-field
+                  v-model="setupCode"
+                  :label="t('jskit.auth.login.field.setupCode')"
+                  variant="outlined"
+                  density="comfortable"
+                  autocomplete="off"
+                  spellcheck="false"
+                  hide-details="auto"
+                />
+              </div>
+
               <v-text-field
                 v-if="!isLogin || canUsePasswordLogin"
                 v-model="email"
@@ -299,6 +316,8 @@ const {
   canUseOAuth,
   canResendEmailConfirmation,
   canEnterConfirmationCode,
+  needsFirstAccountSetupCode,
+  setupCode,
   confirmationUrl,
   confirmationCode,
   registrationConfirmPending,
@@ -414,6 +433,13 @@ function toggleConfirmPasswordVisibility() {
 .email-confirmation-message {
   color: rgb(var(--v-theme-on-surface));
   line-height: 1.5;
+}
+
+.first-account-setup {
+  border-radius: 12px;
+  border: 1px solid rgba(var(--v-theme-warning), 0.5);
+  background: rgba(var(--v-theme-warning), 0.08);
+  padding: 16px;
 }
 
 .email-confirmation-dev-link {
