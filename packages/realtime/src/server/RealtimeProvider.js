@@ -1,6 +1,7 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createProviderLogger } from "@jskit-ai/kernel/shared/support/providerLogger";
+import { actionsNeedingAudienceScope } from "./realtimeAudience.js";
 import { createRealtimeCapability } from "./realtimeCapability.js";
 import {
   createSocketIoServer,
@@ -31,6 +32,7 @@ const RealtimeProvider = defineProvider({
     logger: "runtime.logger"
   },
   optional: {
+    actions: "runtime.actions",
     appRoot: "runtime.app-root",
     audienceScope: "realtime.audience-scope",
     authService: "auth.service"
@@ -63,10 +65,22 @@ const RealtimeProvider = defineProvider({
     return { realtime };
   },
   /**
-   * @param {unknown} _capabilities
+   * Refuses to start when an action's events read their audience in the event's scope and no feature provides
+   * `realtime.audience-scope`: each delivery would read with no context and miss the users.
+   * @param {{ actions: import("@jskit-ai/kernel/server/types").ActionCatalogue | null,
+   *   audienceScope: import("./types.js").RealtimeAudienceScope | null }} capabilities
    * @param {{ outputs: { realtime: import("./types.js").RuntimeRealtime } }} lifecycle
    */
-  async boot(_capabilities, { outputs }) {
+  async boot({ actions, audienceScope }, { outputs }) {
+    const needing = audienceScope ? [] : actionsNeedingAudienceScope(actions);
+    if (needing.length > 0) {
+      throw new Error(
+        `Realtime events of ${needing.join(", ")} read their audience with audienceUsers in the event's scope, ` +
+          "which needs realtime.audience-scope: register RealtimeAudienceScopeFeature " +
+          "(@jskit-ai/realtime/server/RealtimeAudienceScopeFeature), or mark an audience that reads public tables only " +
+          "with publicTablesOnly: true."
+      );
+    }
     await outputs.realtime.start();
   },
   /**
