@@ -316,6 +316,12 @@ test("findOrCreate() answers the record with the id, creating it only when it is
   assert.deepEqual(await knex("counters").select("counter_key", "value"), [{ counter_key: "visits", value: 7 }]);
 });
 
+test("inTransaction() answers whether a call runs inside a transaction", async (t) => {
+  const { notes } = await createFixture(t);
+  assert.equal(notes.inTransaction({ context: WORKSPACE_A }), false);
+  assert.equal(await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => notes.inTransaction(txOptions)), true);
+});
+
 test("locks need a transaction and take only the caller's rows", async (t) => {
   const { notes } = await createFixture(t);
   const [a, b] = await notes.createMany([{ title: "a" }, { title: "b", status: "queued" }], { context: WORKSPACE_A, returning: "records" });
