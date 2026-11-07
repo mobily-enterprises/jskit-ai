@@ -125,8 +125,10 @@ function toDbJson(value) {
 
 /**
  * True when the error reports a transaction the database aborted, and rolled
- * back in full, as a deadlock victim. A wrapper that reports its transaction
- * committed (json-rest-api's transactionOutcome) never is one.
+ * back in full, as a deadlock victim, or a SQLite write that found the database
+ * locked by another connection (SQLITE_BUSY), after which json-rest-api rolls
+ * its transaction back. A wrapper that reports its transaction committed
+ * (json-rest-api's transactionOutcome) never is one.
  * @param {unknown} error
  */
 function isDeadlockError(error) {
@@ -137,7 +139,7 @@ function isDeadlockError(error) {
       return false;
     }
     const code = String(error.code || "").toUpperCase();
-    if (code === "ER_LOCK_DEADLOCK" || code === "40P01" || Number(error.errno) === 1213) {
+    if (code === "ER_LOCK_DEADLOCK" || code === "40P01" || code === "SQLITE_BUSY" || Number(error.errno) === 1213) {
       return true;
     }
     error = error.cause;

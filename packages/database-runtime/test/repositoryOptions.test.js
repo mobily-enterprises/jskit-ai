@@ -44,6 +44,7 @@ test("isDeadlockError recognizes deadlock victims through causes, never a commit
   assert.equal(isDeadlockError(deadlock()), true);
   assert.equal(isDeadlockError({ errno: 1213 }), true);
   assert.equal(isDeadlockError({ code: "40P01" }), true);
+  assert.equal(isDeadlockError({ code: "SQLITE_BUSY", transactionOutcome: "rolledBack" }), true);
   assert.equal(isDeadlockError(new Error("Write failed", { cause: deadlock() })), true);
   assert.equal(isDeadlockError({ code: "ER_LOCK_WAIT_TIMEOUT", errno: 1205 }), false);
   assert.equal(isDeadlockError({ code: "ER_DUP_ENTRY", errno: 1062 }), false);
