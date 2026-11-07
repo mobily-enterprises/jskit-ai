@@ -8,6 +8,9 @@
       "document": {
         "lockVersionConflict": "This record changed. Reload and try again."
       }
+    },
+    "resource": {
+      "rowLimit": "This request would read more than {rowLimit} rows. Ask for fewer and try again."
     }
   }
 }

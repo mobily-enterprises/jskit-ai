@@ -148,7 +148,10 @@ test("query() serves a numbered page in one statement, with no count, and refuse
 test("queryAll() stops at the request row limit, which background work does not have", async (t) => {
   const { notes, runtime } = await createFixture(t, { requestRowLimit: 3 });
   await notes.createMany(Array.from({ length: 5 }, (_, index) => ({ title: `n${index}` })), { context: WORKSPACE_A });
-  await assert.rejects(notes.queryAll({}, { context: WORKSPACE_A }), (error) => error instanceof RowLimitError && /background job/u.test(error.message));
+  // A request learns it asked for too much (a 400 with a code and a translatable sentence); the developer reads why.
+  await assert.rejects(notes.queryAll({}, { context: WORKSPACE_A }), (error) => error instanceof RowLimitError &&
+    error.status === 400 && error.code === "RESOURCE_ROW_LIMIT" && error.messageCode === "resource.rowLimit" &&
+    error.messageParams.rowLimit === 3 && /background job/u.test(error.message));
   const system = runtime.createSystemContext({ feature: "notes.feature", systemScope: "tests", reason: "nightly digest" });
   assert.equal((await notes.queryAll({}, { context: system })).length, 5);
   assert.equal((await notes.queryAll({}, { context: system.forWorkspace("1") })).length, 5);
