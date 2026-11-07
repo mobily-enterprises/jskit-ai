@@ -281,7 +281,7 @@ const logoutOtherSessionsOutputSchema = createSchema({
 });
 
 // The user_settings table, one row per user.
-const userSettingsResource = defineTableResource({
+const userSettingsTableResource = defineTableResource({
   name: "userSettings",
   tableName: "user_settings",
   ownership: "public",
@@ -403,7 +403,7 @@ const userSettingsResource = defineTableResource({
 // create, replace and patch, each with the account settings output and every
 // setting as its body. No JSKIT route serves it; an application that offers
 // these operations serves this contract.
-const userSettingsCrud = defineCrudContract(userSettingsResource, {
+const userSettingsCrud = defineCrudContract(userSettingsTableResource, {
   namespace: "userSettings",
   messages: OPERATION_MESSAGES,
   operations: ["view", "list", "create", "replace", "patch"],
@@ -468,5 +468,5 @@ export {
   userSettingsContract,
   userSettingsCrud,
   userSettingsOutputValidator,
-  userSettingsResource
+  userSettingsTableResource
 };

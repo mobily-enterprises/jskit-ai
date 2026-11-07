@@ -6,7 +6,7 @@ import en from "../locales/en.json" with { type: "json" };
 import { createService as createAccountProfileService } from "../src/server/accountProfile/accountProfileService.js";
 import { createService as createAccountSecurityService } from "../src/server/accountSecurity/accountSecurityService.js";
 import { createRepository as createUserSettingsRepository } from "../src/server/common/repositories/userSettingsRepository.js";
-import { userSettingsContract, userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
+import { userSettingsContract, userSettingsTableResource } from "../src/shared/resources/userSettingsResource.js";
 import { normalizeLocaleCode } from "../src/shared/settings.js";
 
 // A code's catalog English, rendered with its params, is exactly the English sent.
@@ -85,7 +85,7 @@ test("preference input keeps the locale's case and storage canonicalizes it", as
   });
   assert.equal(parsed.ok, true);
   assert.equal(parsed.value.locale, "en-US");
-  assert.equal(userSettingsResource.schema.locale.setter("it-it"), "it-IT");
+  assert.equal(userSettingsTableResource.schema.locale.setter("it-it"), "it-IT");
 });
 
 test("user settings reads canonicalize locales saved lowercased", async () => {

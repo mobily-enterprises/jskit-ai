@@ -1,11 +1,11 @@
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
-import { userProfileResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
+import { userProfileTableResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
 
 // The users list and view. The users table has one table resource, users-core's
-// userProfileResource; this contract chooses the operations and the fields they
+// userProfileTableResource; this contract chooses the operations and the fields they
 // return, and the list searches with the resource's q (display name, email and
 // username).
-const userCrud = defineCrudContract(userProfileResource, {
+const userCrud = defineCrudContract(userProfileTableResource, {
   namespace: "users",
   operations: ["list", "view"],
   fields: {

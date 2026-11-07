@@ -1,13 +1,13 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { userProfileResource } from "../shared/resources/userProfileResource.js";
-import { userSettingsResource } from "../shared/resources/userSettingsResource.js";
+import { userProfileTableResource } from "../shared/resources/userProfileResource.js";
+import { userSettingsTableResource } from "../shared/resources/userSettingsResource.js";
 import { createUsersIdentity } from "./usersIdentity.js";
 
 // The users and user_settings tables' one owner. Other features reach them
 // through the repositories it provides, never through the tables.
 const UsersIdentityProvider = defineFeature({
   id: "users.identity",
-  owns: [userProfileResource, userSettingsResource],
+  owns: [userProfileTableResource, userSettingsTableResource],
   requires: {
     extensions: "users.extensions"
   },

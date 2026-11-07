@@ -8,8 +8,8 @@ import usersUsername from "../../migrations/users_core_profile_username.cjs";
 import usersUpdatedAt from "../../migrations/users_core_profile_updated_at.cjs";
 import { createUsersExtensions } from "../../src/server/usersExtensions.js";
 import { createUsersIdentity } from "../../src/server/usersIdentity.js";
-import { userProfileResource } from "../../src/shared/resources/userProfileResource.js";
-import { userSettingsResource } from "../../src/shared/resources/userSettingsResource.js";
+import { userProfileTableResource } from "../../src/shared/resources/userProfileResource.js";
+import { userSettingsTableResource } from "../../src/shared/resources/userSettingsResource.js";
 
 // The migrated users tables in a MariaDB/MySQL database of the test file's own, named after TEST_DB_NAME with the
 // file's suffix, made on first use and dropped when the file ends. Each test keeps to its own users.
@@ -44,9 +44,11 @@ async function openDatabase(suffix, cleanups) {
   for (const migration of MIGRATIONS) await migration.up(knex);
   // The users tables, owned as UsersIdentityProvider owns them.
   const runtime = await createTestResourceRuntime({ knex, logger: silentLogger });
-  const resources = await runtime.own("users.identity", [userProfileResource, userSettingsResource]);
+  const resources = await runtime.own("users.identity", [userProfileTableResource, userSettingsTableResource]);
   const identity = createUsersIdentity({ resources, extensions: createUsersExtensions() });
-  return Object.freeze({ knex, resources, ...identity });
+  // Background work's context, as a feature declaring a systemScope receives it.
+  const systemContext = runtime.createSystemContext({ feature: "users.identity", systemScope: "import users", reason: "users test import" });
+  return Object.freeze({ knex, resources, systemContext, ...identity });
 }
 
 /**
