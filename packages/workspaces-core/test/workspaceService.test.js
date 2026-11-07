@@ -92,9 +92,6 @@ function createWorkspaceServiceFixture({
       roleCatalog: roleCatalog && typeof roleCatalog === "object" ? { ...roleCatalog } : roleCatalog
     }),
     workspacesRepository: {
-      inTransaction(options) {
-        return Boolean(options.trx);
-      },
       async findBySlug(slug) {
         calls.findBySlug += 1;
         const normalizedSlug = String(slug || "").trim().toLowerCase();
@@ -548,9 +545,6 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
       roleCatalog: createRoleCatalog()
     }),
     workspacesRepository: {
-      inTransaction(options) {
-        return Boolean(options.trx);
-      },
       async findBySlug(slug) {
         if (String(slug) !== "tony") {
           return null;
@@ -619,9 +613,6 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug can resolve an exist
       roleCatalog: createRoleCatalog()
     }),
     workspacesRepository: {
-      inTransaction(options) {
-        return Boolean(options.trx);
-      },
       async findBySlug() {
         return {
           id: "42",
@@ -742,8 +733,8 @@ test("one request's auth policy and action context share one workspace context r
   await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request });
   await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request, requireMembership: false });
   await service.resolveWorkspaceContextForUserBySlug({ ...user, id: "8" }, "team-alpha", { request });
-  await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request, trx: {} });
-  assert.equal(calls.findBySlug, 8, "Another membership requirement, user or a transaction resolves on its own");
+  await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request });
+  assert.equal(calls.findBySlug, 7, "Another membership requirement or user resolves on its own");
 });
 
 test("workspaceService.getWorkspaceForAuthenticatedUser resolves workspace from slug context", async () => {

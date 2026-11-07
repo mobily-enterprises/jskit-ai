@@ -195,7 +195,8 @@ export async function verifyInvitationTransactions(t, db) {
   await t.test("association rollback restores earlier invitation state and sends nothing", async () => {
     const f = await fixture();
     const previous = (await f.members.createInvite(f.workspace, f.owner, f.payload)).value;
-    await assert.rejects(f.prepareOnce({ fail: true }), (error) => error.transactionOutcome === "rolledBack");
+    // The transaction rolls back, and the work's own error reaches the caller.
+    await assert.rejects(f.prepareOnce({ fail: true }), /Controlled association failure/);
     const rows = await db("workspace_invites").where({ workspace_id: f.workspace.id });
     assert.equal(rows.length, 1);
     assert.equal(String(rows[0].id), previous.createdInviteId);
@@ -230,11 +231,7 @@ export async function verifyInvitationTransactions(t, db) {
       await f.applyAssociation(...args);
       throw new Error("Controlled audit failure");
     });
-    await assert.rejects(f.redeem(prepared), (error) => {
-      assert.equal(error.transactionOutcome, "rolledBack");
-      assert.match(error.cause.message, /Controlled audit failure/);
-      return true;
-    });
+    await assert.rejects(f.redeem(prepared), /Controlled audit failure/);
     await f.assertUnlinked(prepared);
   });
 
@@ -310,7 +307,7 @@ export async function verifyInvitationTransactions(t, db) {
       await db("test_invitation_drafts").where({ id: f.draftId }).update(patch);
       const before = await f.draft();
       f.participate(f.applyAssociation);
-      await assert.rejects(f.redeem(prepared), (error) => error.transactionOutcome === "rolledBack");
+      await assert.rejects(f.redeem(prepared), (error) => error.name === "AssertionError");
       assert.deepEqual(await f.draft(), before);
       assert.equal(await memberships.findByWorkspaceIdAndUserId(f.workspace.id, f.user.id), null);
       assert.equal((await f.invitation(prepared)).status, "pending");
@@ -353,15 +350,16 @@ export async function verifyInvitationTransactions(t, db) {
 
   await t.test("transaction misuse fails without invitation or membership writes", async () => {
     const f = await fixture();
-    await assert.rejects(f.members.prepareInvite(f.workspace, f.owner, f.payload), /requires a managed transaction/);
+    await assert.rejects(f.members.prepareInvite(f.workspace, f.owner, f.payload), /needs a transaction/);
     await assert.rejects(db.transaction((trx) => f.members.prepareInvite(f.workspace, f.owner, f.payload, { trx })));
     assert.equal((await db("workspace_invites").where({ workspace_id: f.workspace.id })).length, 0);
     const prepared = await f.prepareOnce();
     await invites.withTransaction({}, async (txOptions) => {
-      await assert.rejects(f.members.createInvite(f.workspace, f.owner, f.payload, txOptions), /prepareInvite/);
-      await assert.rejects(f.members.sendInvite(f.workspace, f.owner, prepared, txOptions), /after.*commits/);
+      const outermost = /cannot run inside the caller's transaction/;
+      await assert.rejects(f.members.createInvite(f.workspace, f.owner, f.payload, txOptions), outermost);
+      await assert.rejects(f.members.sendInvite(f.workspace, f.owner, prepared, txOptions), outermost);
       for (const method of ["acceptInviteByToken", "refuseInviteByToken"]) {
-        await assert.rejects(f.pending[method]({ user: f.user, token: prepared.inviteTokenPreview }, txOptions), /owns its transaction/);
+        await assert.rejects(f.pending[method]({ user: f.user, token: prepared.inviteTokenPreview }, txOptions), outermost);
       }
     });
     await f.assertUnlinked(prepared);

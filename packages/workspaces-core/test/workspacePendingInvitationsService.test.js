@@ -22,9 +22,6 @@ function createFixture({
       async withTransaction(options, work) {
         return work({ ...options, trx: {} });
       },
-      inTransaction(options) {
-        return Boolean(options.trx);
-      },
       async listPendingByEmail() {
         return Array.isArray(pendingInvitesByEmail) ? [...pendingInvitesByEmail] : [];
       },
@@ -348,9 +345,6 @@ for (const transactionOutcome of ["committed", "unknown", "rolledBack"]) {
         },
         async withTransaction() {
           throw failure;
-        },
-        inTransaction(options) {
-          return Boolean(options.trx);
         }
       },
       workspaceMembershipsRepository: {},
