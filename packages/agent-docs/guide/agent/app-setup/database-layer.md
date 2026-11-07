@@ -415,7 +415,8 @@ the application's `knexfile.js`:
   each table's `SHOW CREATE TABLE` and rows, in
   `node_modules/.cache/jskit-test-databases/`; on PostgreSQL it is the database
   `<TEST_DB_NAME>_snapshot`, which `CREATE DATABASE <name> TEMPLATE <snapshot>`
-  copies while nothing is connected to it (the user needs `CREATEDB`). Its key
+  copies while nothing is connected to it (the user needs `CREATEDB`), file by
+  file (`STRATEGY FILE_COPY`) from PostgreSQL 15. Its key
   is a digest of the dialect, of the name and contents of every migration file
   that the application's `migrations/` and its installed packages supply, and
   of `package-lock.json`, since an upgraded package can change a helper its

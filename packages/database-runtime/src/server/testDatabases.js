@@ -11,7 +11,7 @@
 // - MySQL and MariaDB: each table's SHOW CREATE TABLE and its rows, in a file under
 //   `node_modules/.cache/jskit-test-databases/` named after the key and the server's version;
 // - PostgreSQL: a prepared database, `<name>_snapshot`, that every copy is created from with
-//   CREATE DATABASE ... TEMPLATE.
+//   CREATE DATABASE ... TEMPLATE (STRATEGY FILE_COPY from PostgreSQL 15).
 //
 // The database the application connects to (DB_NAME, the one DATABASE_URL names, the Knex configuration's own) and
 // PROD_DB_NAME are never touched. Two runs at once need different database names, as before.
@@ -41,6 +41,9 @@ const POSTGRES_INSUFFICIENT_PRIVILEGE = "42501";
 const RUN_SETTINGS_FILE = "settings.json";
 // The database a PostgreSQL connection uses to create, drop and copy the test databases.
 const POSTGRES_MAINTENANCE_DATABASE = "postgres";
+// PostgreSQL 15 and later copy a template file by file (STRATEGY FILE_COPY) instead of through the write-ahead log, the
+// default there: about half the time per copy of a test schema, and less again with copies made at once.
+const POSTGRES_FILE_COPY_VERSION = 150000;
 // MySQL values read as text, so every captured row writes back as the SQL literal it came from.
 const MYSQL_SNAPSHOT_CONNECTION = Object.freeze({
   dateStrings: true,
@@ -324,7 +327,9 @@ const postgres = {
     return postgres.maintenance(knexConfig, async (knex) => {
       try {
         await knex.raw("DROP DATABASE IF EXISTS ??", [database]);
-        await knex.raw("CREATE DATABASE ?? TEMPLATE ??", [database, snapshot.database]);
+        const { rows: [{ server_version_num: version }] } = await knex.raw("SHOW server_version_num");
+        const strategy = Number(version) >= POSTGRES_FILE_COPY_VERSION ? " STRATEGY FILE_COPY" : "";
+        await knex.raw(`CREATE DATABASE ?? TEMPLATE ??${strategy}`, [database, snapshot.database]);
         return true;
       } catch (error) {
         if (error.code === POSTGRES_INSUFFICIENT_PRIVILEGE) return false;
