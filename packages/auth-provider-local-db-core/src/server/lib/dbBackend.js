@@ -240,14 +240,6 @@ async function findById(handle, id, options) {
 }
 
 /**
- * How many records a many-row write answering their ids changed.
- * @param {Promise<string[]>} written
- */
-async function countOf(written) {
-  return (await written).length;
-}
-
-/**
  * Deletes the record with this id and answers 1, or 0 when it is missing: one DELETE, so of two concurrent deletes
  * only one answers 1.
  * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
@@ -260,19 +252,19 @@ async function deleteById(handle, id, options) {
 }
 
 /**
- * Writes the record with this id: patches it when it exists, creates it otherwise. A natural key that is the
- * table's id (an email) cannot be an upsert's conflict key, so the existing row is read first, in the call's
- * transaction.
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
- * @param {string} id
+ * Writes an email's sign-in failure record: patches it when it exists, creates it otherwise. An upsert keyed on the
+ * email would keep the later of two first failures counted at once, so they would count once; this create instead
+ * fails the later one with a duplicate entry, and the backend runs that sign-in again on the row the first one made.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} failures
+ * @param {string} email
  * @param {Record<string, unknown>} attributes
  * @param {object} options
  */
-async function replace(handle, id, attributes, options) {
-  if (await handle.get(id, {}, { ...options, missing: "skip" })) {
-    await handle.patch(id, attributes, { ...options, returning: "none" });
+async function replaceFailures(failures, email, attributes, options) {
+  if (await failures.get(email, {}, { ...options, missing: "skip" })) {
+    await failures.patch(email, attributes, { ...options, returning: "none" });
   } else {
-    await handle.create({ id, ...attributes }, { ...options, returning: "none" });
+    await failures.create({ id: email, ...attributes }, { ...options, returning: "none" });
   }
 }
 
@@ -386,14 +378,14 @@ function sessionRecords(sessions, options) {
       }
       const exceptSessionId = text(revokeOptions.exceptSessionId);
       const revokedAt = requiredDateTime();
-      return countOf(sessions.patchWhere(
+      return sessions.patchWhere(
         exceptSessionId ? { userId: owner, exceptId: exceptSessionId } : { userId: owner },
         { revokedAt, updatedAt: revokedAt },
-        { ...options, onlyIf: { revokedAt: null }, returning: "ids" }
-      ));
+        { ...options, onlyIf: { revokedAt: null }, returning: "count" }
+      );
     },
     async deleteExpired(now) {
-      return countOf(sessions.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "ids" }));
+      return sessions.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "count" });
     }
   });
 }
@@ -433,11 +425,11 @@ function recoveryRecords(recovery, options) {
         return 0;
       }
       const usedAt = requiredDateTime();
-      return countOf(recovery.patchWhere({ userId: owner }, { usedAt, updatedAt: usedAt }, {
+      return recovery.patchWhere({ userId: owner }, { usedAt, updatedAt: usedAt }, {
         ...options,
         onlyIf: { usedAt: null },
-        returning: "ids"
-      }));
+        returning: "count"
+      });
     }
   });
 }
@@ -466,7 +458,7 @@ function oauthAttemptRecords(attempts, options) {
       return mapOAuthAttempt(record);
     },
     async deleteExpired(now) {
-      return countOf(attempts.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "ids" }));
+      return attempts.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "count" });
     }
   });
 }
@@ -490,14 +482,14 @@ function signInFailureRecords(failures, options) {
         lastFailedAt: requiredDateTime(input.lastFailedAt),
         lockedUntil: optionalDateTime(input.lockedUntil)
       };
-      await replace(failures, email, record, options);
+      await replaceFailures(failures, email, record, options);
       return mapSignInFailures({ id: email, ...record });
     },
     async clear(email) {
       return deleteById(failures, email, options);
     },
     async deleteBefore(lastFailedAt) {
-      return countOf(failures.deleteWhere({ lastFailedBefore: requiredDateTime(lastFailedAt) }, { ...options, returning: "ids" }));
+      return failures.deleteWhere({ lastFailedBefore: requiredDateTime(lastFailedAt) }, { ...options, returning: "count" });
     }
   });
 }
@@ -512,7 +504,9 @@ function registrationRecords(registrations, options) {
     async save(input) {
       const email = text(input.email);
       const record = registrationRecord(input);
-      await replace(registrations, email, record, options);
+      // One statement creates the registration or replaces its fields, so two first registrations at once both land
+      // and the later one stays: the registrations table has no owners, so the email, its id, keys the upsert.
+      await registrations.createMany([{ id: email, ...record }], { ...options, onConflict: { keys: ["id"], action: "merge" } });
       return mapRegistration({ id: email, ...record });
     },
     async findByEmail(email) {
@@ -525,7 +519,7 @@ function registrationRecords(registrations, options) {
       return deleteById(registrations, email, options);
     },
     async deleteExpired(now) {
-      return countOf(registrations.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "ids" }));
+      return registrations.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "count" });
     }
   });
 }
@@ -575,9 +569,9 @@ function createRecords(resources, identities, options) {
 function createLocalDbBackend({ resources, identities }) {
   const run = (callback) => resources.localAuthUsers.withTransaction({}, (txOptions) => callback(createRecords(resources, identities, txOptions)));
 
-  // Two first saves of one row at once (a sign-in failure or a registration for a new email) both find no row and
-  // both create it, and the loser fails with a duplicate entry. Its transaction rolled back whole, so the callback runs
-  // once more and then finds the winner's row to update.
+  // Two first failed sign-ins of one email at once both find no failure record and both create it, and the loser
+  // fails with a duplicate entry. Its transaction rolled back whole, so the sign-in runs once more and then counts
+  // its failure on the winner's row.
   async function withTransaction(callback) {
     try {
       return await run(callback);
