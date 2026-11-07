@@ -26,8 +26,7 @@
     "kind": "runtime",
     "capabilities": {
       "provides": [
-        "runtime.resources",
-        "runtime.json-rest-api"
+        "runtime.resources"
       ],
       "requires": [
         "runtime.database",
