@@ -34,7 +34,7 @@ function createConsoleSettingsActions({ consoleSettingsService }) {
       permission: {
         require: "authenticated"
       },
-      input: consoleSettingsContract.operations.replace.body,
+      input: consoleSettingsContract.operations.patch.body,
       output: null,
       extensions: {
         assistant: { exclude: "Application-owned console settings require an explicit assistant field allowlist; arbitrary configuration is not model-safe." },
