@@ -92,7 +92,9 @@ async function openTransaction(api, options, work) {
  * The record with `attributes.id`, created from `attributes` when it is
  * missing. Outside a transaction, of two concurrent creations one wins and
  * the other answers the winner's record; inside one, a lost race fails the
- * transaction as any failed write does.
+ * transaction as any failed write does. An id another scope's row holds
+ * answers a missing record, as get() of it does, never null or that row: the
+ * caller learns only that the id is not its to have.
  * @param {{ get: Function, create: Function }} handle
  * @param {{ id: unknown } & Record<string, unknown>} attributes
  * @param {{ context?: object | null, trx?: object | null }} options
@@ -109,7 +111,7 @@ async function findOrCreateRecord({ get, create }, attributes, options) {
     if (!isLostDuplicateInsertRace(error, options)) {
       throw error;
     }
-    return get(attributes.id, {}, lookup);
+    return get(attributes.id, {}, { ...options, missing: "throw" });
   }
 }
 

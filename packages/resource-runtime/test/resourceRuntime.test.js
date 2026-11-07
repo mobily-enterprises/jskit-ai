@@ -528,6 +528,17 @@ test("findOrCreate() answers the record with the id, creating it only when it is
   assert.deepEqual(await knex("counters").select("counter_key", "value"), [{ counter_key: "visits", value: 7 }]);
 });
 
+test("findOrCreate() of an id another workspace's row holds answers a missing record, never null or that row", async (t) => {
+  const { notes } = await createFixture(t);
+  const created = await notes.create({ title: "theirs" }, { context: WORKSPACE_B });
+  const missing = await notes.get(987654, {}, { context: WORKSPACE_A }).then(() => null, (error) => error);
+  const taken = await notes.findOrCreate({ id: created.id, title: "mine" }, { context: WORKSPACE_A }).then(() => null, (error) => error);
+  assert.equal(taken?.code, missing?.code);
+  assert.equal(taken?.subtype, missing?.subtype);
+  assert.doesNotMatch(String(taken?.message), /theirs/u);
+  assert.equal((await notes.get(created.id, {}, { context: WORKSPACE_B })).title, "theirs");
+});
+
 test("a handle offers one way to each write: no patchWhereIds, deleteMany, toRecords or inTransaction", async (t) => {
   const { notes } = await createFixture(t);
   for (const method of ["patchWhereIds", "deleteMany", "toRecords", "inTransaction"]) {

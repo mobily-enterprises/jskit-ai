@@ -99,7 +99,9 @@ the caller's transaction. Reads take `(params, options)` and writes
 as `{ ...options, missing: "skip" }`. A row keyed by an id the code
 computes (a fingerprint, a conversation id) is read or created once with
 `findOrCreate({ id, ...attributes }, options)`, outside the transaction that
-then locks it.
+then locks it. Compute such an id from the owner too (the workspace or user
+id in the fingerprint): an id another scope's row holds answers a missing
+record.
 
 You never write `where workspace_id = ?`, so you cannot forget it. The row
 policy and write hooks go in the `owns` entry on the server, never in the
