@@ -259,6 +259,10 @@ Exports
 Exports
 - None
 
+### `patterns/shell-foundation/example/src/components/menus/SectionTabLinkItem.vue`
+Exports
+- None
+
 ### `patterns/shell-foundation/example/src/components/menus/SurfaceAwareMenuLinkItem.vue`
 Exports
 - None

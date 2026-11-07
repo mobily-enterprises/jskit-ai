@@ -580,6 +580,9 @@ Exports
 Exports
 - `installedClientModules`
 - `bootInstalledClientModules(context = {})`
+- `VUETIFY_LAYER_ORDER`
+- `namedCascadeLayers(css)`
+- `checkVuetifyLayerOrder(stylesheets = [])`
 - `CLIENT_BOOTSTRAP_VIRTUAL_ID`
 - `CLIENT_BOOTSTRAP_RESOLVED_ID`
 - `createVirtualModuleSource(clientModules, localePackageIds)`
@@ -594,6 +597,7 @@ Exports
 - `resolveInstalledViteProxyEntries(installedPackages = [], { proxyTarget = "" } = {})`
 - `createJskitClientBootstrapPlugin({ proxyTarget = "" } = {})`
 Local functions
+- `builtPageStylesheets(bundle)`
 - `isLocalScopePackageId(value)`
 - `readJsonFile(filePath, fallback)`
 - `hasClientExport(packageJson)`

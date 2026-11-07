@@ -134,6 +134,10 @@ Exports
 Exports
 - None
 
+### `src/client/components/ShellSectionTabLinkItem.vue`
+Exports
+- None
+
 ### `src/client/components/ShellSurfaceAwareMenuLinkItem.vue`
 Exports
 - None
@@ -296,6 +300,7 @@ Exports
 - `ShellMenuLinkItem`
 - `ShellSurfaceAwareMenuLinkItem`
 - `ShellTabLinkItem`
+- `ShellSectionTabLinkItem`
 - `ShellPageActions`
 - `ShellPageAction`
 - `ShellListDetail`
@@ -552,6 +557,7 @@ Exports
 - `resolveShellDrawerPresentation({ modal = false, open = false, desktopClosedMode = "rail" } = {})`
 - `resolveShellDrawerToggleLabel({ modal = false, open = false } = {})`
 - `shellLayoutHasDrawer({ menuSlot = false, menuCount = 0, identityCount = 0, bottomNavigationCount = 0 } = {})`
+- `shellLayoutHasNavigationBar({ bottomNavigationCount = 0, menuCount = 0 } = {})`
 
 ### `src/client/support/drawerWidth.js`
 Exports
@@ -662,6 +668,12 @@ Exports
 Exports
 - None
 
+### `fixtures/adaptive-shell/src/FeedbackPage.vue`
+Exports
+- None
+Local functions
+- `press(name)`
+
 ### `fixtures/adaptive-shell/src/main.js`
 Exports
 - None
@@ -684,6 +696,10 @@ Exports
 Exports
 - `records`
 
+### `fixtures/adaptive-shell/src/ReportsPage.vue`
+Exports
+- None
+
 ### `fixtures/adaptive-shell/src/ScreenPage.vue`
 Exports
 - None
@@ -702,6 +718,18 @@ Exports
 - `adminTheme`
 
 ### `fixtures/adaptive-shell/vite.config.mjs`
+Exports
+- None
+
+### `fixtures/production-build/src/App.vue`
+Exports
+- None
+
+### `fixtures/production-build/src/main.js`
+Exports
+- None
+
+### `fixtures/production-build/vite.config.mjs`
 Exports
 - None
 
@@ -728,6 +756,10 @@ Exports
 - None
 
 ### `patterns/application-shell/example/src/components/menus/MenuLinkItem.vue`
+Exports
+- None
+
+### `patterns/application-shell/example/src/components/menus/SectionTabLinkItem.vue`
 Exports
 - None
 

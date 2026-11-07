@@ -103,6 +103,7 @@ Exports
 - `formatNavigationReport(result)`
 Local functions
 - `hexPattern()`
+- `channelColour()`
 - `quotedHex()`
 - `isNavigationRule(rule)`
 - `isSkippedDirectory(name)`

@@ -51,7 +51,7 @@ const profile = props.runtime.profile;
         </v-row>
 
         <v-row>
-          <v-col cols="12" md="6">
+          <v-col cols="12">
             <v-text-field
               v-model="profile.form.displayName"
               label="Display name"
@@ -63,7 +63,7 @@ const profile = props.runtime.profile;
             />
           </v-col>
 
-          <v-col cols="12" md="6">
+          <v-col cols="12">
             <v-text-field
               v-model="profile.form.email"
               label="Email"

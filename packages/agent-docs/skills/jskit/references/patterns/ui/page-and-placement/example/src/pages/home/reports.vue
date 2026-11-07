@@ -8,10 +8,9 @@ definePage({ meta: { jskit: { title: "Reports" } } });
 
 <template>
   <section class="reports-section d-flex flex-column ga-4">
-    <nav aria-label="Report sections">
-      <v-tabs>
-        <ShellOutlet target="reports:section-nav" />
-      </v-tabs>
+    <!-- Material 3 primary tabs: one row over a divider, scrolling sideways when the tabs don't fit. -->
+    <nav class="reports-section__tabs" aria-label="Report sections">
+      <ShellOutlet target="reports:section-nav" />
     </nav>
 
     <div class="reports-section__content">
@@ -24,5 +23,11 @@ definePage({ meta: { jskit: { title: "Reports" } } });
 .reports-section,
 .reports-section__content {
   min-width: 0;
+}
+
+.reports-section__tabs {
+  border-bottom: 1px solid rgb(var(--v-theme-outline-variant));
+  display: flex;
+  overflow-x: auto;
 }
 </style>

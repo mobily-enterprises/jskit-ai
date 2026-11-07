@@ -59,7 +59,9 @@ provider offers provider linking (`providerLinking` in its capabilities).
 - The route and placement owner agree.
 - The account surface renders in its own layout, `src/pages/account.vue`
   (`ShellLayout` around `<RouterView />`, `meta.jskit.surface: "account"`), so
-  the settings page's title, Up arrow and Done action are in the top app bar.
+  the settings page's title and Up arrow are in the top app bar. Up is the
+  page's only way out; `AccountSettingsClientElement` adds a Done action only
+  where Up can't go back (no parent, or a returnTo on another origin).
   With no navigation items, the surface shows no navigation bar, rail or drawer.
 
 ## Example files

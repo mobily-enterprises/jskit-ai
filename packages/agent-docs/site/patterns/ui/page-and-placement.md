@@ -34,6 +34,12 @@ a filename alone.
 - Child links share an explicit section owner.
 - Topology maps each semantic placement to concrete responsive outlets.
 - Placed components are registered by token through a client provider.
+- Section navigation is Material 3 primary tabs: the section's `page.section-nav`
+  topology names a section-tab renderer (`ShellSectionTabLinkItem`, registered as
+  `local.main.ui.section-tab-link-item`), and the page draws the tab row (one
+  row over a 1dp `outline-variant` divider that scrolls sideways). A navigation
+  bar destination (`ShellTabLinkItem`) belongs to the shell's navigation bar
+  only; placed in a page it draws a section tab.
 - Compact navigation controls remain accessible and at least 48 CSS pixels.
 - Application source has no generated-file marker, receipt, or overwrite state.
 

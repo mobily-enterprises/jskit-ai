@@ -4935,6 +4935,7 @@
         "expected-existing/src/views/NotFound.vue",
         "src/App.vue",
         "src/components/menus/MenuLinkItem.vue",
+        "src/components/menus/SectionTabLinkItem.vue",
         "src/components/menus/SurfaceAwareMenuLinkItem.vue",
         "src/components/menus/TabLinkItem.vue",
         "src/components/ShellLayout.vue",
