@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
+import { expectEveryTableOwned } from "@jskit-ai/resource-runtime/test";
+import { LOCAL_AUTH_INFRASTRUCTURE_TABLES } from "../src/server/lib/index.js";
 import { openLocalAuthDatabase } from "./support/mysqlLocalAuth.js";
 
 // Local sign-in's records on MariaDB, through the auth.local.backend transaction and the owner APIs
@@ -449,4 +451,10 @@ test("the owner APIs answer as the backend does and join a caller's transaction,
   assert.equal(await accounts.updatePassword("usr_missing", NEXT_PASSWORD), null);
   assert.equal(await accounts.updateProfile("usr_missing", { displayName: "X" }), null);
   assert.equal(await accounts.markEmailVerified("usr_missing"), null);
+});
+
+test("every local sign-in table is a table resource or one of LOCAL_AUTH_INFRASTRUCTURE_TABLES", async (context) => {
+  const { knex, resourceRuntime } = await openLocalAuthDatabase(context, "da_local_tables");
+  await expectEveryTableOwned({ knex, runtime: resourceRuntime, infrastructureTables: LOCAL_AUTH_INFRASTRUCTURE_TABLES, environment: process.env });
+  await assert.rejects(expectEveryTableOwned({ knex, runtime: resourceRuntime, environment: process.env }), /Tables no feature owns: auth_local_identities\./u);
 });

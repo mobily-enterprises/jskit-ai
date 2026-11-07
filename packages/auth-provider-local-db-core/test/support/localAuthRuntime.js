@@ -68,6 +68,8 @@ async function startLocalAuthRecords(knex) {
 
   return Object.freeze({
     ...capabilities,
+    // The resource runtime local sign-in and the test's own table own their tables through.
+    resourceRuntime: inputs["runtime.resources"],
     /**
      * Runs work in a caller's transaction, the one application code opens with its own handle's withTransaction,
      * handing it the options its owner API calls pass on. Failed work rejects with the work's own error.

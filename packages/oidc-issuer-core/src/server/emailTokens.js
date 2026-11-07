@@ -49,4 +49,4 @@ function createEmailTokenStore({ knex, now }) {
   });
 }
 
-export { createEmailTokenStore };
+export { EMAIL_TOKENS_TABLE, createEmailTokenStore };
