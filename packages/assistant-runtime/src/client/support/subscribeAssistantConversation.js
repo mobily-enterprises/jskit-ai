@@ -45,12 +45,14 @@ function ignoreSubscriptionError() {}
  *   read: (read: { current: () => boolean }) => Promise<any>,
  *   onState: (state: any, options: { initial: boolean, canonical: boolean }) => void,
  *   onEvent?: (event: any) => void,
- *   onError?: (failure: Error) => void
- * }} subscription
+ *   onError?: (failure: Error) => void,
+ *   noticeMs?: number
+ * }} subscription `noticeMs` is how long an unanswered subscription waits before the loading notice: ten seconds,
+ *   shorter only in tests.
  */
 function subscribeAssistantConversation({
   socket, conversationId, targetSurfaceId, hostSurfaceId, workspaceSlug,
-  read, onState, onEvent = ignoreConversationEvent, onError = ignoreSubscriptionError
+  read, onState, onEvent = ignoreConversationEvent, onError = ignoreSubscriptionError, noticeMs = SUBSCRIPTION_NOTICE_MS
 }) {
   // readable-check: allow method-probe - input validation: an application may hand the conversation binding its own socket
   if (typeof socket?.on !== "function" || typeof socket?.off !== "function" || typeof socket?.timeout !== "function") {
@@ -239,7 +241,7 @@ function subscribeAssistantConversation({
     reloadQueued = false;
     waitingTimer = setTimeout(() => onError(Object.assign(
       new Error("Chat is still loading. Waiting for the server; Reload chat to try now."),
-      { code: "assistant_subscription_waiting" })), SUBSCRIPTION_NOTICE_MS);
+      { code: "assistant_subscription_waiting" })), noticeMs);
     socket.timeout(SUBSCRIPTION_LOST_MS).emit(ASSISTANT_CONVERSATION_SUBSCRIBE, input, (error, response) => {
       if (disposed || attempt !== generation) return;
       clearTimers();

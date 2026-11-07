@@ -146,7 +146,7 @@ Local functions
 
 ### `src/client/support/subscribeAssistantConversation.js`
 Exports
-- `subscribeAssistantConversation({ socket, conversationId, targetSurfaceId, hostSurfaceId, workspaceSlug, read, onState, onEvent = ignoreConversationEvent, onError = ignoreSubscriptionError })`
+- `subscribeAssistantConversation({ socket, conversationId, targetSurfaceId, hostSurfaceId, workspaceSlug, read, onState, onEvent = ignoreConversationEvent, onError = ignoreSubscriptionError, noticeMs = SUBSCRIPTION_NOTICE_MS })`
 - `refreshedHistoryPages`
 - `patchLoadedHistoryPages(pages, patch)`
 Local functions

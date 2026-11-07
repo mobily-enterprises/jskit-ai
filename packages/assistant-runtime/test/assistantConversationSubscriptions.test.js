@@ -191,9 +191,9 @@ async function fixture(t, { diagnostics = false, onSetup } = {}) {
     });
     return socket;
   }
-  function view(socket, id) {
+  function view(socket, id, options = {}) {
     const states = [], received = [], errors = [];
-    const dispose = subscribeAssistantConversation({ socket, conversationId: id, targetSurfaceId: "home", hostSurfaceId: "home",
+    const dispose = subscribeAssistantConversation({ ...options, socket, conversationId: id, targetSurfaceId: "home", hostSurfaceId: "home",
       read() {
         return actions.execute({ actionId: actionIds.conversationRead,
           input: { targetSurfaceId: "home", conversationId: id },
@@ -332,7 +332,10 @@ test("slow successful subscriptions warn once with the blocked stage and no conv
   assert.equal(f.fetches.length, 0);
 });
 
-test("a real subscription slower than ten seconds keeps its observer, says it is still loading and delivers the late snapshot", { timeout: 25_000 }, async t => {
+// The client's ten-second notice is proven on a mocked clock below ("a connected subscription keeps waiting for a slow
+// server ..."); here a real socket and server run the same path with a shorter notice, and the server's clock is moved
+// past ten seconds, as in the test above.
+test("a real subscription slower than its notice keeps its observer, says it is still loading and delivers the late snapshot", async t => {
   const f = await fixture(t);
   const socket = await f.connect();
   const socketId = socket.id;
@@ -340,22 +343,23 @@ test("a real subscription slower than ten seconds keeps its observer, says it is
   await f.conversations.get(id).send({ messageId: "survives-wait", text: "Keep working through a slow snapshot" });
   await until(f.changes, () => f.fetches.length === 1);
   const barrier = f.holdNextRead(id);
-  const view = f.view(socket, id);
+  const noticeMs = 300;
+  const view = f.view(socket, id, { noticeMs });
   await until(f.changes, () => barrier.started);
-  const readStartedAt = performance.now();
   const subscriptionEpoch = f.subscriptionTimings.at(-1).subscriptionEpoch;
-  while (!view.errors.length) await once(f.changes, "change", { signal: AbortSignal.timeout(12_000) });
+  while (!view.errors.length) await once(f.changes, "change", { signal: AbortSignal.timeout(5_000) });
   assert.equal(view.errors[0].message, "Chat is still loading. Waiting for the server; Reload chat to try now.");
   assert.equal(view.errors[0].code, "assistant_subscription_waiting");
   assert.equal(f.active(), 1, "The slow observer stays attached while its snapshot is read");
   assert.equal(socket.id, socketId);
   assert.equal(socket.connected, true);
   assert.equal(view.states.length, 0);
-  // The client's ten-second wait starts before the server's clock does, so the
-  // read is held until the server has also waited ten seconds.
-  await new Promise(resolve => setTimeout(resolve, Math.max(0, 10_001 - (performance.now() - readStartedAt))));
-  barrier.resolve();
-  await until(f.changes, () => view.states.length === 1);
+  const now = performance.now.bind(performance);
+  const clock = t.mock.method(performance, "now", () => now() + 10_001);
+  try {
+    barrier.resolve();
+    await until(f.changes, () => view.states.length === 1);
+  } finally { clock.mock.restore(); }
   assert.equal(view.states[0].conversationLog[0].user.messageId, "survives-wait");
   const records = f.subscriptionTimings.filter(record => record.subscriptionEpoch === subscriptionEpoch);
   assert.equal(records.some(record => record.stage === "abandoned"), false, "Slow work is never abandoned");
