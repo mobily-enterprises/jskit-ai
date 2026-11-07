@@ -171,7 +171,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   /**
    * Runs work in the caller's transaction (`options.trx`), or in one it opens,
    * commits and, when the database aborts it as a deadlock victim, runs again
-   * whole (a lock timeout is not retried). `work` receives the frozen options
+   * whole, up to three more times (a lock wait timeout is not retried). `work` receives the frozen options
    * it must pass to every call inside. When work throws, the caller gets work's
    * own error; a failed write inside it, or a failed commit, arrives as
    * json-rest-api's RestApiWriteError with the transaction's outcome.

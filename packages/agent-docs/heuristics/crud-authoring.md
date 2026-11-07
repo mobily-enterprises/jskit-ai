@@ -1,6 +1,6 @@
 # CRUD authoring
 
-Use this file for normal persisted entities, resource contracts, migrations,
+Use this file for normal persisted entities, table resources and CRUD contracts, migrations,
 JSON API routes, and matching screens.
 
 ## Start from product decisions
@@ -80,7 +80,7 @@ or rewrite a historical baseline.
 
 A resource whose records carry a version number names it `lockVersionField`
 and patches with the handle's `patch(id, changes, { ...options, lockVersion })`;
-see the database layer guide's Optimistic locking.
+see the data access guide's Layer 4: locks.
 
 Keep database reads and writes in repositories. Services and lifecycle hooks
 orchestrate repositories; they do not issue raw database queries. Put external

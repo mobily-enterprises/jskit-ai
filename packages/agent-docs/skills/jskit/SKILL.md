@@ -43,15 +43,15 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
 4. Load only relevant references:
    - [port guide](references/existing-application-migration.md) for existing apps.
    - [heuristics index](references/heuristics/INDEX.md) for recurring traps.
+   - Before code that reads or writes a database table, read
+     [data access](references/data-access.md) completely; for connections,
+     migrations and test databases, [database layer](references/database-layer.md).
    - Before writing server code, read [typed features](references/typed-features.md) and its heuristic; client code, [client features](references/client-features.md). `npm run lint` checks both.
    - [multi-homing](references/multi-homing.md) for workspaces or invitations.
    - [translation](references/translation.md) for languages, translated texts
      or error codes.
    - For creation, foundation patterns, or package selection, read
      [application operations](references/app-operations.md).
-   - Before code that reads or writes a database table, read
-     [data access](references/data-access.md) completely; for connections,
-     migrations and test databases, [database layer](references/database-layer.md).
    - Before schema, CRUD or screen work on a table, also read
      [CRUD operations](references/crud-operations.md) completely; for custom
      form actions, also [form actions](references/crud-form-actions.md).

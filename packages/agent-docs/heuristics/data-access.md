@@ -7,7 +7,7 @@ Pick the layer ([Data access](../site/guide/framework/data-access.md)):
 
 - One record, or one page of records: the owner's handle (`get`, `query`, `create`, `patch`, `delete`).
 - Screens over HTTP: a CRUD contract on the same table resource.
-- Many rows from one action: `createMany`, `patchMany`, `patchWhere`, `deleteMany`; never a loop of single writes.
+- Many rows from one action: `createMany`, `patchMany`, `patchWhere`, `deleteWhere`; never a loop of single writes.
 - Two requests could change the same rows: `lockMany` inside `withTransaction`, rows in id order.
 - Counts, sums, buckets: `aggregate`; newest per group: a window include; anything else: one `scopedQuery()` method under `// Knex: <kind> - <reason>`.
 - Every workspace or user at once: a job with `systemScope`, looping over units, never rows.

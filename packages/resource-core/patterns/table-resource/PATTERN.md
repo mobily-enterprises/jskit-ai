@@ -24,8 +24,9 @@ this resource (`crud/crud-contract`), not a second resource.
 
 ## Product decisions
 
-- who owns a row: nobody (`public`), a workspace, a user, a user inside a
-  workspace, or a workspace with rows shared with every workspace
+- who owns a row, always stated: nobody (`public`), a workspace, a user, a
+  user inside a workspace, or a workspace with rows shared with every
+  workspace
 - the fields, which are required, searchable or hidden, and their defaults
 - whether people edit records from forms read earlier (a version number)
 - the default order of lists
@@ -41,7 +42,7 @@ this resource (`crud/crud-contract`), not a second resource.
 - A field's default value is `defaultTo`; `default` is refused, since
   json-rest-api never read it.
 - `lockVersionField` names an integer field over a non-null integer column
-  with a starting value; `patch(id, changes, { lockVersion })` then refuses
+  with a starting value; `patch(id, changes, { ...options, lockVersion })` then refuses
   stale edits with a 409.
 - The definition is shared with the client, so it holds no server-only keys:
   the row policy, hooks, server-only search entries and computed query fields

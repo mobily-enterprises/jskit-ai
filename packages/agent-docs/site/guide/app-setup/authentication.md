@@ -229,7 +229,7 @@ error.
 | Capability | Methods |
 | --- | --- |
 | `auth.local.accounts` | `create(account, options)`, `findByEmail(email, options)`, `updatePassword(userId, passwordRecord, options)`, `updateProfile(userId, { displayName }, options)`, `markEmailVerified(userId, options)` |
-| `auth.local.sessions` | `create(session, options)`, `revoke(sessionId, options)`, `revokeForUser(userId, { exceptSessionId, trx })`, `deleteExpired(now, options)` |
+| `auth.local.sessions` | `create(session, options)`, `revoke(sessionId, options)`, `revokeForUser(userId, { ...options, exceptSessionId })`, `deleteExpired(now, options)` |
 | `auth.local.recovery` | `create(token, options)`, `findByTokenHash(tokenHash, options)`, `consume(tokenId, options)`, `consumeForUser(userId, options)` |
 
 `markEmailVerified` records that the account proved it owns its email address,

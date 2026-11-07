@@ -49,7 +49,7 @@ not from a JSKIT questionnaire.
   in the CRUD contract's `fields`, or the default `defineCrudContract()` gives
   a field without one (see Field operations and lookups below).
 - Temporal database values use the declared storage serializer.
-- The source-controlled migration and resource contract agree.
+- The source-controlled migration and the table resource agree.
 - Server policy tests prove that one user cannot read or mutate another user's
   records.
 

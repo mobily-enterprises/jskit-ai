@@ -29,7 +29,7 @@ CRUD contract.
 
 Use `@jskit-ai/users-core` for profile persistence and policies,
 `defineCrudFeature()` from `@jskit-ai/crud-core` for standard mechanics,
-and the resource contracts from `@jskit-ai/resource-crud-core`.
+and `defineCrudContract()` from `@jskit-ai/resource-crud-core`.
 
 users-core is the `users` table's one owner, so an administration feature does
 not own it: `defineCrudFeature({ crud: userCrud, ownerRepository: "users.profiles", ... })`
