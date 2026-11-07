@@ -10,9 +10,11 @@ const fixtureRoot = fileURLToPath(new URL("../fixtures/conversation/", import.me
 test("ready-made assistant preserves streaming, drafts, scope and compact conversation access", {
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
   timeout: 180_000
-}, async () => {
+}, async (t) => {
   const vite = await startViteFixture({ fixtureRoot });
+  t.after(() => stopProcess(vite));
   const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -138,18 +140,17 @@ test("ready-made assistant preserves streaming, drafts, scope and compact conver
     assert.deepEqual(errors, []);
   } catch (error) {
     throw new Error(`${error.message}\nPage errors: ${JSON.stringify(errors)}\n${vite.readOutput()}`, { cause: error });
-  } finally {
-    await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("history restores preserve new typing and reject obsolete pages and failed automatic restores", {
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
   timeout: 60_000
-}, async () => {
+}, async (t) => {
   const vite = await startViteFixture({ fixtureRoot });
+  t.after(() => stopProcess(vite));
   const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
   const page = await browser.newPage();
   const input = page.getByRole("textbox", { name: "Message AI assistant" });
   const send = page.getByRole("button", { name: "Send message", exact: true });
@@ -220,92 +221,89 @@ test("history restores preserve new typing and reject obsolete pages and failed 
     assert.equal(failedRequests, 1, "A failed automatic restore must require explicit selection to retry");
   } finally {
     release?.();
-    await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("page assistant bounds long history in a document layout and preserves drafts when workspace metadata arrives", {
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
   timeout: 60_000
-}, async () => {
+}, async (t) => {
   const vite = await startViteFixture({ fixtureRoot });
+  t.after(() => stopProcess(vite));
   const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
   const page = await browser.newPage();
-  try {
-    await page.goto(`${vite.baseURL}/?page=1`);
-    await page.getByRole("button", { name: "Conversations", exact: true }).click();
-    await page.getByRole("dialog", { name: "Conversations", exact: true }).getByText("Saved conversation", { exact: true }).click();
-    await expect(page.getByText("Saved 1 message 70.", { exact: false })).toBeVisible();
-    const input = page.getByRole("textbox", { name: "Message AI assistant" });
-    for (const viewport of [{ width: 390, height: 844 }, { width: 800, height: 800 }, { width: 1280, height: 600 }]) {
-      await page.setViewportSize(viewport);
-      await expect.poll(async () => {
-        const bounds = await input.boundingBox();
-        return bounds.y + bounds.height;
-      }).toBeLessThanOrEqual(viewport.height);
-      assert.ok(await page.getByLabel("Conversation messages", { exact: true }).evaluate(element => element.scrollHeight > element.clientHeight));
-    }
-    await input.fill("Keep this draft while workspace details load.");
-    await input.evaluate(element => { element.focus(); element.setSelectionRange(5, 9); });
-    await page.getByRole("button", { name: "Load workspace metadata" }).evaluate(element => element.click());
-    await expect(input).toHaveValue("Keep this draft while workspace details load.");
-    await expect(input).toBeFocused();
-    assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [5, 9]);
-    await expect(page.getByText("Saved 1 message 70.", { exact: false })).toBeVisible();
-  } finally {
-    await browser.close();
-    await stopProcess(vite);
+  await page.goto(`${vite.baseURL}/?page=1`);
+  await page.getByRole("button", { name: "Conversations", exact: true }).click();
+  await page.getByRole("dialog", { name: "Conversations", exact: true }).getByText("Saved conversation", { exact: true }).click();
+  await expect(page.getByText("Saved 1 message 70.", { exact: false })).toBeVisible();
+  const input = page.getByRole("textbox", { name: "Message AI assistant" });
+  for (const viewport of [{ width: 390, height: 844 }, { width: 800, height: 800 }, { width: 1280, height: 600 }]) {
+    await page.setViewportSize(viewport);
+    await expect.poll(async () => {
+      const bounds = await input.boundingBox();
+      return bounds.y + bounds.height;
+    }).toBeLessThanOrEqual(viewport.height);
+    assert.ok(await page.getByLabel("Conversation messages", { exact: true }).evaluate(element => element.scrollHeight > element.clientHeight));
   }
+  await input.fill("Keep this draft while workspace details load.");
+  await input.evaluate(element => { element.focus(); element.setSelectionRange(5, 9); });
+  await page.getByRole("button", { name: "Load workspace metadata" }).evaluate(element => element.click());
+  await expect(input).toHaveValue("Keep this draft while workspace details load.");
+  await expect(input).toBeFocused();
+  assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [5, 9]);
+  await expect(page.getByText("Saved 1 message 70.", { exact: false })).toBeVisible();
 });
 
 
 test("the ready-made UI streams from the real chat service with selected AI connections and files", {
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1", timeout: 90_000
-}, async () => {
+}, async (t) => {
   const vite = await startViteFixture({ fixtureRoot });
+  t.after(() => stopProcess(vite));
   const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
-  try {
-    await page.request.get(`${vite.baseURL}/fixture/service`);
-    await page.goto(`${vite.baseURL}/?files=1`);
-    const input = page.getByRole("textbox", { name: "Message AI assistant" });
-    await expect(input).toBeEnabled();
-    await page.getByRole("button", { name: "Choose AI", exact: true }).click();
-    await page.getByRole("button", { name: "Deep model", exact: true }).click();
-    await page.getByRole("button", { name: "Apply", exact: true }).click();
-    await page.locator('input[type="file"]').setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("notes") });
-    await expect(page.getByText("notes.txt", { exact: true })).toBeVisible();
-    await input.fill("Read the notes");
-    await input.press("Enter");
-    await expect(page.getByText("Assistant is working…", { exact: true }).last()).toBeVisible();
-    await expect(page.getByLabel("Message attachments")).toHaveCount(0);
-    await expect(page.getByLabel("Attached files")).toBeVisible();
-    await input.fill("My next draft");
-    await input.evaluate(element => element.setSelectionRange(3, 7));
-    await page.request.get(`${vite.baseURL}/fixture/next`);
-    await expect(page.getByText("Partial answer", { exact: true })).toBeVisible();
-    await expect(input).toHaveValue("My next draft");
-    assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [3, 7]);
-    let state = await (await page.request.get(`${vite.baseURL}/fixture/state`)).json();
-    assert.equal(state.requests[0].integrationId, "deep");
-    assert.deepEqual(state.requests[0].attachmentIds, ["fixture-file"]);
-    assert.equal(state.transcript.filter(message => message.role === "assistant").length, 0);
-    await page.request.get(`${vite.baseURL}/fixture/next?finish=1`);
-    await expect(page.getByText("Partial answer completed.", { exact: true })).toHaveCount(1);
-    await expect(page.getByText("Assistant is working…", { exact: true })).toHaveCount(0);
-    state = await (await page.request.get(`${vite.baseURL}/fixture/state`)).json();
-    assert.deepEqual(state.transcript[0].metadata.attachments, [{ attachmentId: "fixture-file", fileName: "notes.txt", size: 5 }]);
-    assert.equal(state.transcript.filter(message => message.role === "assistant").length, 1);
-  } finally { await browser.close(); await stopProcess(vite); }
+  await page.request.get(`${vite.baseURL}/fixture/service`);
+  await page.goto(`${vite.baseURL}/?files=1`);
+  const input = page.getByRole("textbox", { name: "Message AI assistant" });
+  await expect(input).toBeEnabled();
+  await page.getByRole("button", { name: "Choose AI", exact: true }).click();
+  await page.getByRole("button", { name: "Deep model", exact: true }).click();
+  await page.getByRole("button", { name: "Apply", exact: true }).click();
+  await page.locator('input[type="file"]').setInputFiles({ name: "notes.txt", mimeType: "text/plain", buffer: Buffer.from("notes") });
+  await expect(page.getByText("notes.txt", { exact: true })).toBeVisible();
+  await input.fill("Read the notes");
+  await input.press("Enter");
+  await expect(page.getByText("Assistant is working…", { exact: true }).last()).toBeVisible();
+  await expect(page.getByLabel("Message attachments")).toHaveCount(0);
+  await expect(page.getByLabel("Attached files")).toBeVisible();
+  await input.fill("My next draft");
+  await input.evaluate(element => element.setSelectionRange(3, 7));
+  await page.request.get(`${vite.baseURL}/fixture/next`);
+  await expect(page.getByText("Partial answer", { exact: true })).toBeVisible();
+  await expect(input).toHaveValue("My next draft");
+  assert.deepEqual(await input.evaluate(element => [element.selectionStart, element.selectionEnd]), [3, 7]);
+  let state = await (await page.request.get(`${vite.baseURL}/fixture/state`)).json();
+  assert.equal(state.requests[0].integrationId, "deep");
+  assert.deepEqual(state.requests[0].attachmentIds, ["fixture-file"]);
+  assert.equal(state.transcript.filter(message => message.role === "assistant").length, 0);
+  await page.request.get(`${vite.baseURL}/fixture/next?finish=1`);
+  await expect(page.getByText("Partial answer completed.", { exact: true })).toHaveCount(1);
+  await expect(page.getByText("Assistant is working…", { exact: true })).toHaveCount(0);
+  state = await (await page.request.get(`${vite.baseURL}/fixture/state`)).json();
+  assert.deepEqual(state.transcript[0].metadata.attachments, [{ attachmentId: "fixture-file", fileName: "notes.txt", size: 5 }]);
+  assert.equal(state.transcript.filter(message => message.role === "assistant").length, 1);
 });
 
 test("pending delivery appears immediately and retries the original request without replacing a newer draft", {
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
   timeout: 60_000
-}, async () => {
+}, async (t) => {
   const vite = await startViteFixture({ fixtureRoot });
+  t.after(() => stopProcess(vite));
   const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const held = Promise.withResolvers();
   const requests = [];
@@ -345,7 +343,5 @@ test("pending delivery appears immediately and retries the original request with
     assert.deepEqual(errors, []);
   } finally {
     held.resolve();
-    await browser.close();
-    await stopProcess(vite);
   }
 });

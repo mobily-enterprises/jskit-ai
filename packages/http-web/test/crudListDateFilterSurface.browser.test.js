@@ -3,12 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium } from "@playwright/test";
-import {
-  createChromiumLaunchOptions,
-  startViteFixture,
-  stopProcess
-} from "../../../tooling/testUtils/browserFixture.mjs";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = path.resolve(TEST_DIRECTORY, "..");
@@ -75,17 +70,17 @@ async function selectPickerDayWithKeyboard(picker, day) {
   await dayButton.press("Space");
 }
 
+const openFixture = sharedBrowserFixture({ fixtureRoot: FIXTURE_ROOT });
+
 test("CRUD date filters render and operate without clipping across responsive layouts", {
   skip: RUN_BROWSER_TEST
     ? false
     : "set JSKIT_HTTP_WEB_DATE_FILTER_VISUAL_INTEGRATION=1 to run the browser visual regression",
   timeout: 180_000
-}, async () => {
-  const viteRuntime = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser = null;
+}, async (t) => {
+  const { vite: viteRuntime, browser } = await openFixture(t);
 
   try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
     const context = await browser.newContext({
       baseURL: viteRuntime.baseURL,
       locale: "en-US"
@@ -183,9 +178,6 @@ test("CRUD date filters render and operate without clipping across responsive la
     );
     await page.getByLabel("Arrival from", { exact: true }).waitFor({ state: "visible" });
   } finally {
-    if (browser) {
-      await browser.close();
-    }
-    await stopProcess(viteRuntime);
+    await browser.close();
   }
 });

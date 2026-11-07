@@ -1,16 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
+
+const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/payment-account/", import.meta.url)) });
 
 test("billing component supports responsive layout, keyboard actions and recoverable states", {
   skip: process.env.JSKIT_PAYMENTS_WEB_BROWSER_INTEGRATION !== "1", timeout: 120_000
-}, async () => {
-  const runtime = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/payment-account/", import.meta.url)) });
-  let browser;
+}, async (t) => {
+  const { vite: runtime, browser } = await openFixture(t);
   try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
     const page = await browser.newPage();
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -62,7 +62,6 @@ test("billing component supports responsive layout, keyboard actions and recover
     await expect(billing.getByRole("button")).toHaveCount(0);
     assert.deepEqual(errors, []);
   } finally {
-    await browser?.close();
-    await stopProcess(runtime);
+    await browser.close();
   }
 });

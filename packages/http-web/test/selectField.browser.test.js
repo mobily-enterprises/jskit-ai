@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const FIELDS = Object.freeze(["Service", "Retired service", "Extras"]);
 
@@ -22,16 +22,16 @@ async function assertNoStoredIdShown(page) {
   }
 }
 
+const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/select-field/", import.meta.url)) });
+
 test("SelectField never shows a stored id while options load and titles unmatched values afterwards", {
   skip: process.env.JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER === "1"
     ? false
     : "set JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER=1 to run the select field browser regression",
   timeout: 120_000
-}, async () => {
-  const runtime = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/select-field/", import.meta.url)) });
-  let browser = null;
+}, async (t) => {
+  const { vite: runtime, browser } = await openFixture(t);
   try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
     const page = await browser.newPage({ baseURL: runtime.baseURL });
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -57,7 +57,6 @@ test("SelectField never shows a stored id while options load and titles unmatche
     assert.deepEqual(await readModels(page), { service: 53, retired: 99, serviceIds: [53] });
     assert.deepEqual(errors, []);
   } finally {
-    await browser?.close();
-    await stopProcess(runtime);
+    await browser.close();
   }
 });

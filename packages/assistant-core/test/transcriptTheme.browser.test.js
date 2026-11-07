@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 // An element's text colour, the theme values it should come from, and its WCAG contrast over what is painted under
 // it: each translucent background is laid over the next one out, down to the first opaque one (white when none is).
@@ -43,11 +43,12 @@ function readText(element) {
   };
 }
 
+const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/responsive-assistant", import.meta.url)) });
+
 test("the task transcript's user bubble, header time and footer follow the light and dark themes", {
   skip: process.env.JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION !== "1", timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/responsive-assistant", import.meta.url)) });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const theme of ["light", "dark"]) {
       const page = await browser.newPage({ viewport: { width: 800, height: 900 } });
@@ -84,6 +85,5 @@ test("the task transcript's user bubble, header time and footer follow the light
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });

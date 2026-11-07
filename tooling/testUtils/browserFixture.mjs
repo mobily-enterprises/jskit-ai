@@ -4,6 +4,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { after } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const VITE_FIXTURE_SERVER = fileURLToPath(new URL("./viteFixtureServer.mjs", import.meta.url));
@@ -245,9 +246,63 @@ function createChromiumLaunchOptions({ env = process.env } = {}) {
   });
 }
 
+/**
+ * One Vite fixture server and one Chromium for all the tests of a file, instead of a new pair for every test. Call it
+ * at the top level of the test file; each test calls the function it returns with its own context, `open(t)`, which
+ * starts the pair on first use and returns `{ vite, browser }`. That browser opens pages and contexts on the shared
+ * Chromium (`newPage`, `newContext`); the test's own end closes them, and the file's end stops Chromium and the server.
+ * node:test runs those `t.after` and `after` hooks even when a test times out, so a stuck test can't leave a server or
+ * browser that keeps the file, and the whole run, alive.
+ * @param {Parameters<typeof startViteFixture>[0]} viteOptions
+ */
+function sharedBrowserFixture(viteOptions) {
+  let started = null;
+  after(async () => {
+    const shared = await started?.catch(() => null);
+    await shared?.browser.close();
+    await stopProcess(shared?.vite);
+  });
+
+  async function start() {
+    const { chromium } = await import("@playwright/test");
+    const vite = await startViteFixture(viteOptions);
+    try {
+      return { vite, browser: await chromium.launch(createChromiumLaunchOptions()) };
+    } catch (error) {
+      await stopProcess(vite);
+      throw error;
+    }
+  }
+
+  return async function open(t) {
+    started ??= start();
+    const { vite, browser } = await started;
+    const contexts = new Set();
+    const close = () => Promise.all([...contexts].map((context) => context.close()));
+    t.after(close);
+    const track = (context) => {
+      contexts.add(context);
+      return context;
+    };
+    return Object.freeze({
+      vite,
+      browser: Object.freeze({
+        newContext: async (options) => track(await browser.newContext(options)),
+        newPage: async (options) => {
+          const page = await browser.newPage(options);
+          track(page.context());
+          return page;
+        },
+        close
+      })
+    });
+  };
+}
+
 export {
   createChromiumLaunchOptions,
   reservePort,
+  sharedBrowserFixture,
   startCapturedProcess,
   startViteFixture,
   stopProcess

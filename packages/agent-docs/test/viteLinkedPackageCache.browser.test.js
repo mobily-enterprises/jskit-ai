@@ -164,59 +164,59 @@ test("two browser profiles receive changed exports from a linked application pac
     ? false
     : "set JSKIT_VITE_LINKED_PACKAGE_CACHE_INTEGRATION=1 to run the linked-package browser-cache regression",
   timeout: 180_000
-}, async () => {
+}, async (t) => {
   const fixture = await createLinkedPackageFixture();
   const port = await reservePort();
   // The restarted server reuses the first server's dependency cache, as an application's does.
   const cacheDir = path.join(fixture.fixtureRoot, "node_modules", ".vite");
   let viteRuntime = null;
   let browser = null;
-
-  try {
-    viteRuntime = await startViteFixture({
-      fixtureRoot: fixture.fixtureRoot,
-      port,
-      cacheDir
-    });
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    const profiles = await Promise.all([
-      browser.newContext(),
-      browser.newContext()
-    ]);
-    const pages = await Promise.all(profiles.map((profile) => profile.newPage()));
-
-    await Promise.all(pages.map((page) => assertInitialModule(page, viteRuntime.baseURL)));
-    await Promise.all(pages.map((page) => page.goto("about:blank")));
-    await stopProcess(viteRuntime);
-    viteRuntime = null;
-
-    await writeFile(
-      fixture.sourceModulePath,
-      'export const EXISTING_CATALOGUE = "current";\n' +
-        `export const ${NEW_EXPORT} = "current";\n`,
-      "utf8"
-    );
-    await writeFile(
-      fixture.mainModulePath,
-      'import * as plantAssets from "@local/plant-assets/shared";\n' +
-        `import { ${NEW_EXPORT} } from "@local/plant-assets/shared";\n` +
-        "globalThis.__PLANT_ASSET_MODULE__ = {\n" +
-        "  exports: Object.keys(plantAssets).sort(),\n" +
-        `  value: ${NEW_EXPORT}\n` +
-        "};\n",
-      "utf8"
-    );
-
-    viteRuntime = await startViteFixture({
-      fixtureRoot: fixture.fixtureRoot,
-      port,
-      cacheDir
-    });
-    await Promise.all(pages.map((page) => assertCurrentModule(page, viteRuntime.baseURL)));
-    await Promise.all(profiles.map((profile) => profile.close()));
-  } finally {
+  // node:test runs this even when the test times out, so neither server nor browser outlives it.
+  t.after(async () => {
     await browser?.close();
     await stopProcess(viteRuntime);
     await rm(fixture.fixtureRoot, { recursive: true, force: true });
-  }
+  });
+
+  viteRuntime = await startViteFixture({
+    fixtureRoot: fixture.fixtureRoot,
+    port,
+    cacheDir
+  });
+  browser = await chromium.launch(createChromiumLaunchOptions());
+  const profiles = await Promise.all([
+    browser.newContext(),
+    browser.newContext()
+  ]);
+  const pages = await Promise.all(profiles.map((profile) => profile.newPage()));
+
+  await Promise.all(pages.map((page) => assertInitialModule(page, viteRuntime.baseURL)));
+  await Promise.all(pages.map((page) => page.goto("about:blank")));
+  await stopProcess(viteRuntime);
+  viteRuntime = null;
+
+  await writeFile(
+    fixture.sourceModulePath,
+    'export const EXISTING_CATALOGUE = "current";\n' +
+      `export const ${NEW_EXPORT} = "current";\n`,
+    "utf8"
+  );
+  await writeFile(
+    fixture.mainModulePath,
+    'import * as plantAssets from "@local/plant-assets/shared";\n' +
+      `import { ${NEW_EXPORT} } from "@local/plant-assets/shared";\n` +
+      "globalThis.__PLANT_ASSET_MODULE__ = {\n" +
+      "  exports: Object.keys(plantAssets).sort(),\n" +
+      `  value: ${NEW_EXPORT}\n` +
+      "};\n",
+    "utf8"
+  );
+
+  viteRuntime = await startViteFixture({
+    fixtureRoot: fixture.fixtureRoot,
+    port,
+    cacheDir
+  });
+  await Promise.all(pages.map((page) => assertCurrentModule(page, viteRuntime.baseURL)));
+  await Promise.all(profiles.map((profile) => profile.close()));
 });

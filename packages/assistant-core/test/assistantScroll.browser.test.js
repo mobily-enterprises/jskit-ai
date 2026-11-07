@@ -3,16 +3,14 @@ import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import {
-  createChromiumLaunchOptions,
-  startViteFixture,
-  stopProcess
-} from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE_ROOT = path.resolve(TEST_DIRECTORY, "../fixtures/responsive-assistant");
 const RUN_BROWSER_TEST = process.env.JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION === "1";
+// Every test reads the same fixture app, so the file shares one server and one Chromium; each test gets its own pages.
+const openFixture = sharedBrowserFixture({ fixtureRoot: FIXTURE_ROOT });
 // Turns use content-visibility estimates. Moving the reader materializes rows
 // near the new position, and Chromium's scroll anchoring then shifts scrollTop
 // to keep the same content in view. Hold a reading position only once that
@@ -109,9 +107,8 @@ const VIEWPORTS = Object.freeze([
 
 test("progress previews omit expandable details without hiding the current update", {
   skip: !RUN_BROWSER_TEST, timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -137,15 +134,13 @@ test("progress previews omit expandable details without hiding the current updat
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("saved reply attribution remains when the current assistant changes", {
   skip: !RUN_BROWSER_TEST, timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     const page = await browser.newPage();
     await page.goto(`${vite.baseURL}/?conversation=1&attribution=1`);
@@ -157,15 +152,13 @@ test("saved reply attribution remains when the current assistant changes", {
     await expect(names).toHaveText(["First assistant", "Message assistant", "Next assistant"]);
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("streaming answers grow in one bubble, preserve drafts and settle once at every width", {
   skip: !RUN_BROWSER_TEST, timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -189,16 +182,14 @@ test("streaming answers grow in one bubble, preserve drafts and settle once at e
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("adjacent reasoning stays grouped across storage rows, history pages and execution changes", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -262,7 +253,6 @@ test("adjacent reasoning stays grouped across storage rows, history pages and ex
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
@@ -287,12 +277,10 @@ test("AssistantConversationElement keeps long conversations scrollable across re
     ? false
     : "set JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION=1 to run assistant-core browser integration",
   timeout: 180_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser = null;
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
 
   try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
     const context = await browser.newContext({
       baseURL: vite.baseURL,
       locale: "en-US"
@@ -315,16 +303,14 @@ test("AssistantConversationElement keeps long conversations scrollable across re
     );
   } finally {
     await browser?.close();
-    await stopProcess(vite);
   }
 });
 
 test("conversation scrolling preserves history anchors and resets expansion on selection", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     const page = await browser.newPage();
     await page.goto(`${vite.baseURL}/?controls=1`);
@@ -375,16 +361,14 @@ test("conversation scrolling preserves history anchors and resets expansion on s
     assert.equal(await page.evaluate(() => window.revealPlaceholders), 0, "reopening loaded text does not flash a loading placeholder");
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("a delayed final history page preserves the visible message at every width", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -410,16 +394,14 @@ test("a delayed final history page preserves the visible message at every width"
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("upward scrolling loads older history once and preserves retry and selection behavior", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const touch = width < 1000;
@@ -504,16 +486,14 @@ test("upward scrolling loads older history once and preserves retry and selectio
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("a reader's own upward scrolling leaves the latest message from its first frame", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 1365]) {
       const touch = width < 1000;
@@ -580,16 +560,14 @@ test("a reader's own upward scrolling leaves the latest message from its first f
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("a reader moved away from the end without a scroll direction stays there", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
     const errors = [];
@@ -618,16 +596,14 @@ test("a reader moved away from the end without a scroll direction stays there", 
     assert.deepEqual(errors, []);
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("retained hidden transcripts preserve readers and follow only at the latest message", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -683,16 +659,14 @@ test("retained hidden transcripts preserve readers and follow only at the latest
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("transient update errors keep the loaded transcript, reader, draft and focus in a compact banner", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -750,16 +724,14 @@ test("transient update errors keep the loaded transcript, reader, draft and focu
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("retained hidden history loads restore their original anchor and invalidate retired requests", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -818,16 +790,14 @@ test("retained hidden history loads restore their original anchor and invalidate
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("conversation composer preserves typing and reacts to external state and pane resizing", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
     await page.goto(`${vite.baseURL}/?conversation=1`);
@@ -872,16 +842,14 @@ test("conversation composer preserves typing and reacts to external state and pa
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("working state appears before output and suggestion agents and activity rendering are replaceable", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(`${vite.baseURL}/?conversation=1&support=1`);
@@ -910,7 +878,6 @@ test("working state appears before output and suggestion agents and activity ren
     await expect(input).toHaveValue("Keep typing while waiting");
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
@@ -918,9 +885,8 @@ test("working state appears before output and suggestion agents and activity ren
 test("long goal objectives keep Start reachable on short phone, tablet and desktop screens", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     const objective = "Complete the requested work and verify the result. ".repeat(80).slice(0, 3990);
     for (const width of [390, 800, 1280]) {
@@ -947,16 +913,14 @@ test("long goal objectives keep Start reachable on short phone, tablet and deskt
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("optional goals show running and paused lights, count only active time, and adapt to pane width", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     const page = await browser.newPage({ viewport: { width: 1365, height: 900 } });
     await page.clock.install();
@@ -1035,7 +999,6 @@ test("optional goals show running and paused lights, count only active time, and
     await expect(input).toHaveValue("Preserve this draft and caret");
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
@@ -1043,9 +1006,8 @@ test("optional goals show running and paused lights, count only active time, and
 test("shared model choices and file delivery preserve a responsive composer", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
     await page.goto(`${vite.baseURL}/?conversation=1&capabilities=1`);
@@ -1084,15 +1046,13 @@ test("shared model choices and file delivery preserve a responsive composer", {
     assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 test("an optional avatar clamps in a short conversation without consuming its preference or draft", {
   skip: !RUN_BROWSER_TEST, timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -1248,16 +1208,14 @@ test("an optional avatar clamps in a short conversation without consuming its pr
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 
 test("unsent preview edits stay in their bubble and disappear for the canonical message", {
   skip: !RUN_BROWSER_TEST, timeout: 60_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     const page = await browser.newPage({ viewport: { width: 320, height: 844 } });
     await page.goto(`${vite.baseURL}/?conversation=1&preview=1`);
@@ -1362,7 +1320,6 @@ test("unsent preview edits stay in their bubble and disappear for the canonical 
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
@@ -1370,9 +1327,8 @@ test("unsent preview edits stay in their bubble and disappear for the canonical 
 test("pending history keeps following the reader when a new reply changes transcript height", {
   skip: !RUN_BROWSER_TEST,
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -1413,16 +1369,14 @@ test("pending history keeps following the reader when a new reply changes transc
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 
 test("connection warnings keep avatar controls and Reload reachable without replacing history", {
   skip: !RUN_BROWSER_TEST, timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [320, 800]) {
       const page = await browser.newPage({ viewport: { width, height: 1000 } });
@@ -1497,16 +1451,14 @@ test("connection warnings keep avatar controls and Reload reachable without repl
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 
 test("short connection warnings preserve full text and recovery targets at phone widths", {
   skip: !RUN_BROWSER_TEST, timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [320, 390]) {
       const page = await browser.newPage({ viewport: { width, height: 768 } });
@@ -1579,6 +1531,5 @@ test("short connection warnings preserve full text and recovery targets at phone
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });

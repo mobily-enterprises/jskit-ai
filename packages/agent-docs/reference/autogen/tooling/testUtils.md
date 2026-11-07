@@ -18,6 +18,7 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `createChromiumLaunchOptions({ env = process.env } = {})`
 - `reservePort()`
+- `sharedBrowserFixture(viteOptions)`
 - `startCapturedProcess(command, args, { cwd, env = {} } = {})`
 - `startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {}, port: requestedPort, cacheDir: requestedCacheDir } = {})`
 - `stopProcess(runtime)`

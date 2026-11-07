@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const VIEWPORTS = [
   { name: "compact", width: 390, height: 844 },
@@ -18,15 +18,15 @@ function createDeferred() {
   return { promise, resolve };
 }
 
+const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/workspaces-landing/", import.meta.url)) });
+
 test("Your workspaces keeps its layout while responding and then opens the last workspace", {
   skip: process.env.JSKIT_WORKSPACES_LANDING_BROWSER !== "1",
   timeout: 180_000
-}, async () => {
-  const runtime = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/workspaces-landing/", import.meta.url)) });
-  let browser;
+}, async (t) => {
+  const { vite: runtime, browser } = await openFixture(t);
   let page;
   try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
     for (const viewport of VIEWPORTS) {
       page = await browser.newPage({ baseURL: runtime.baseURL, viewport });
       page.setDefaultTimeout(15_000);
@@ -112,7 +112,6 @@ test("Your workspaces keeps its layout while responding and then opens the last 
     console.error(await page?.locator("body").innerText());
     throw error;
   } finally {
-    if (browser) await browser.close();
-    await stopProcess(runtime);
+    await browser.close();
   }
 });

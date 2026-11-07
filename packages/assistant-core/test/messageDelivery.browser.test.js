@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
+
+const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/responsive-assistant", import.meta.url)) });
 
 test("the shared element renders delayed sends and supplies retry, edit and cancel without application handlers", {
   skip: process.env.JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION !== "1", timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/responsive-assistant", import.meta.url)) });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 800, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -102,16 +103,14 @@ test("the shared element renders delayed sends and supplies retry, edit and canc
     }
   } finally {
     await browser.close();
-    await stopProcess(vite);
   }
 });
 
 
 test("chronological messages and Cancel during a delivery check work on phone and desktop", {
   skip: process.env.JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION !== "1", timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/responsive-assistant", import.meta.url)) });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -148,14 +147,13 @@ test("chronological messages and Cancel during a delivery check work on phone an
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
       await page.close();
     }
-  } finally { await browser.close(); await stopProcess(vite); }
+  } finally { await browser.close(); }
 });
 
 test("accepted local messages precede later replies before their history page arrives", {
   skip: process.env.JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION !== "1", timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/responsive-assistant", import.meta.url)) });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
   try {
     for (const width of [390, 1365]) {
       const page = await browser.newPage({ viewport: { width, height: 900 } });
@@ -178,5 +176,5 @@ test("accepted local messages precede later replies before their history page ar
       assert.deepEqual(errors, []);
       await page.close();
     }
-  } finally { await browser.close(); await stopProcess(vite); }
+  } finally { await browser.close(); }
 });

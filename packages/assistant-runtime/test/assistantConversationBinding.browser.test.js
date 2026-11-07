@@ -1,21 +1,24 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { chromium, expect } from "@playwright/test";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const options = { skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1", timeout: 120_000 };
+// One server and one Chromium for the file: each test resets the server's controlled API and opens its own page.
+const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/canonical-conversation/", import.meta.url)) });
 
 async function fixture(t, width = 1280, { acceptedDraft = false, draftWhileLoading = false, unresolved = false, applicationDefaults = false } = {}) {
-  const vite = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/canonical-conversation/", import.meta.url)) });
-  const browser = await chromium.launch(createChromiumLaunchOptions());
+  const { vite, browser } = await openFixture(t);
+  const reset = await fetch(`${vite.baseURL}/fixture/reset`, { method: "POST" });
+  assert.deepEqual(await reset.json(), { ok: true });
   const page = await browser.newPage({ viewport: { width, height: 900 } });
   const errors = [];
   const diagnostics = [];
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") diagnostics.push(message.text()); });
   page.on("requestfailed", request => diagnostics.push(`${request.url()}: ${request.failure()?.errorText}`));
-  t.after(async () => { await browser.close(); await stopProcess(vite); assert.deepEqual(errors, []); });
+  t.after(async () => { await browser.close(); assert.deepEqual(errors, []); });
   const fixtureOptions = new URLSearchParams();
   if (acceptedDraft) fixtureOptions.set("acceptedDraft", "");
   if (draftWhileLoading) fixtureOptions.set("draftWhileLoading", "");

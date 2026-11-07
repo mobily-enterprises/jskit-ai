@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
+import { expect } from "@playwright/test";
 import { createWorkspaceRoleCatalog } from "../../workspaces-core/src/shared/roles.js";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
+
+const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/role-labels/", import.meta.url)) });
 
 test("Members displays configured labels but sends and reloads role IDs", {
   skip: process.env.JSKIT_WORKSPACE_ROLE_LABELS_BROWSER !== "1",
   timeout: 120_000
-}, async () => {
-  const runtime = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/role-labels/", import.meta.url)) });
-  let browser;
+}, async (t) => {
+  const { vite: runtime, browser } = await openFixture(t);
   let page;
   try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
     page = await browser.newPage({ baseURL: runtime.baseURL });
     page.setDefaultTimeout(15_000);
     page.setDefaultNavigationTimeout(60_000);
@@ -109,7 +109,6 @@ test("Members displays configured labels but sends and reloads role IDs", {
     console.error(await page?.locator("body").innerText());
     throw error;
   } finally {
-    if (browser) await browser.close();
-    await stopProcess(runtime);
+    await browser.close();
   }
 });

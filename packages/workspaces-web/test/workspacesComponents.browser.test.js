@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const VIEWPORTS = [
   { name: "phone", width: 390, height: 844 },
@@ -259,14 +259,14 @@ async function checkInvitesSection(page, viewport) {
   assert.deepEqual(unexpected, []);
 }
 
+const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/workspaces-components/", import.meta.url)) });
+
 test("The workspace selector and the account invitations work in a real browser", {
   skip: process.env.JSKIT_WORKSPACES_WEB_COMPONENTS_BROWSER !== "1",
   timeout: 240_000
 }, async (t) => {
-  const runtime = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/workspaces-components/", import.meta.url)) });
-  let browser;
+  const { vite: runtime, browser } = await openFixture(t);
   try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
     for (const [name, check] of [
       ["the selector lists the workspaces, marks the current one and opens the chosen one", checkWorkspaceSelector],
       ["the invitations load, list, refuse and join through the redeem endpoint", checkInvitesSection]
@@ -287,7 +287,6 @@ test("The workspace selector and the account invitations work in a real browser"
       }
     }
   } finally {
-    if (browser) await browser.close();
-    await stopProcess(runtime);
+    await browser.close();
   }
 });
