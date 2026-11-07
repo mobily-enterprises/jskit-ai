@@ -3,7 +3,6 @@ import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/suppor
 import {
   normalizeInputRecordId,
   parseJsonObject,
-  runInHandleTransaction,
   stringifyJsonObject,
   toIso,
   toWrittenDateTime
@@ -74,11 +73,11 @@ function createRepository({ conversations, systemContext }) {
   const conversationContext = systemContext("a conversation reached by id after its caller checked the actor scope, or created without a valid creator");
 
   function withTransaction(options, work) {
-    return runInHandleTransaction(conversations, options, work);
+    return conversations.withTransaction(options, work, { asThrown: true });
   }
 
   function transaction(work, { retries } = {}) {
-    return runInHandleTransaction(conversations, {}, work, { retry: retries !== 0 });
+    return conversations.withTransaction({}, work, { retry: retries !== 0, asThrown: true });
   }
 
   // The record as `context` sees it, under a row lock when asked.
