@@ -19,9 +19,8 @@ import { fileTools } from "./files.js";
  * @param {((messages: object[]) => Promise<unknown>) | null} [options.post]
  * @param {import("../types.js").AgentGoalOperations | null} [options.goals]
  */
-export function defaultTools(options) {
-  refusePlanningKnex("defaultTools", options);
-  const { root, commands = null, planning = null, conversationId, post = null, goals = null } = options;
+export function defaultTools({ root, commands = null, planning = null, conversationId, post = null, goals = null, ...removed }) {
+  refusePlanningKnex("defaultTools", removed);
   if (planning) {
     requirePlanning("defaultTools", planning);
   }

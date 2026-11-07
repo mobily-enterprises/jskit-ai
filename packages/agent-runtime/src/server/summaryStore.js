@@ -36,20 +36,20 @@ import { requireStoreDependencies } from "./arguments.js";
  * @param {(input: { previous: string, text: string }) => Promise<string>} [dependencies.summarize]
  * @param {typeof SUMMARY_LIMITS} [dependencies.limits]
  */
-export function createSummaries(dependencies) {
-  requireStoreDependencies("createSummaries", dependencies, ["agentSummaries", "agentSummaryQueue"]);
-  const {
-    resources,
-    systemContext,
-    model,
-    app = "the app",
-    history,
-    track = runSummaryUnmetered,
-    notices,
-    channel = "agent-summaries",
-    summarize = (input) => writeSummary({ model, app, ...input, limits }),
-    limits = SUMMARY_LIMITS
-  } = dependencies;
+export function createSummaries({
+  resources,
+  systemContext,
+  model,
+  app = "the app",
+  history,
+  track = runSummaryUnmetered,
+  notices,
+  channel = "agent-summaries",
+  summarize = (input) => writeSummary({ model, app, ...input, limits }),
+  limits = SUMMARY_LIMITS,
+  ...removed
+}) {
+  requireStoreDependencies("createSummaries", { resources, systemContext, ...removed }, ["agentSummaries", "agentSummaryQueue"]);
   assertCallbacks("createSummaries", { track, summarize });
   const channelNotices = notices ?? NO_NOTICES;
   const store = createSummariesRepository({

@@ -32,17 +32,17 @@ export const COMMAND_LIMITS = { foregroundSeconds: 120, maxSeconds: 1800, output
  * @param {typeof COMMAND_LIMITS} [dependencies.limits]
  * @param {string} [dependencies.server]
  */
-export function createCommands(dependencies) {
-  requireStoreDependencies("createCommands", dependencies, ["agentCommands"]);
-  const {
-    resources,
-    systemContext,
-    executor,
-    outputDir = path.join(os.tmpdir(), "agent-runs"),
-    onEnd = ignoreEnd,
-    limits = COMMAND_LIMITS,
-    server = `${os.hostname()}:${process.pid}`
-  } = dependencies;
+export function createCommands({
+  resources,
+  systemContext,
+  executor,
+  outputDir = path.join(os.tmpdir(), "agent-runs"),
+  onEnd = ignoreEnd,
+  limits = COMMAND_LIMITS,
+  server = `${os.hostname()}:${process.pid}`,
+  ...removed
+}) {
+  requireStoreDependencies("createCommands", { resources, systemContext, ...removed }, ["agentCommands"]);
   const live = new Map();
   const store = createCommandsRepository({
     commands: resources.agentCommands,
