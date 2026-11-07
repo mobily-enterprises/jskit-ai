@@ -42,7 +42,7 @@
         "runtime.bootstrap",
         "runtime.database",
         "runtime.http",
-        "runtime.json-rest-api",
+        "runtime.resources",
         "runtime.storage",
         "runtime.uploads"
       ]

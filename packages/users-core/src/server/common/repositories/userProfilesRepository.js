@@ -1,18 +1,10 @@
 import {
   findDuplicateEntryError,
   isLostDuplicateInsertRace,
-  joinOrOpenTransaction,
   normalizeDbRecordId,
-  resolveTransaction,
-  retryDeadlocks,
   toIsoString
 } from "@jskit-ai/database-runtime/shared";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  createJsonRestContext,
-  extractJsonRestCollectionRows,
-  queryAllJsonRestCollectionRows
-} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { normalizeIdentity } from "../support/identity.js";
 import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "../../../shared/resources/userProfileValues.js";
 
@@ -118,11 +110,14 @@ function buildDuplicateEmailConflictError(cause) {
 }
 
 /**
- * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} api
+ * The username a profile gets: the base, or the first of base-2 to base-1000
+ * no other profile holds.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} userProfiles
  * @param {string} baseUsername
- * @param {{ excludeUserId?: unknown, transaction?: object | null }} [options]
+ * @param {unknown} excludeUserId The profile whose own username stays available to it.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options
  */
-async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, transaction = null } = {}) {
+async function resolveUniqueUsername(userProfiles, baseUsername, excludeUserId, options) {
   const normalizedExcludeUserId = normalizeDbRecordId(excludeUserId, { fallback: null });
   const candidates = Array.from(
     { length: USERNAME_CANDIDATE_LIMIT },
@@ -130,18 +125,7 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
   );
 
   // One read of every profile holding a candidate, however many namesakes came before.
-  const existingRows = await queryAllJsonRestCollectionRows(
-    api.resources.userProfiles,
-    {
-      queryParams: {
-        filters: {
-          usernames: candidates
-        }
-      },
-      transaction,
-      format: "plain"
-    }
-  );
+  const existingRows = await userProfiles.queryAll({ filters: { usernames: candidates } }, options);
   const holderIdByUsername = new Map(
     existingRows.map((row) => [normalizeLowerText(row.username), normalizeDbRecordId(row.id, { fallback: null })])
   );
@@ -157,42 +141,24 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
 }
 
 /**
- * The `users.profiles` capability: the users table's records.
+ * The `users.profiles` capability: the users table's records. Every method
+ * takes the caller's options last and joins their transaction. Its reads
+ * `query`, `get` and `pageLimits` also serve a CRUD feature that names it as
+ * its `ownerRepository`.
  * @param {object} dependencies
- * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} dependencies.api
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.userProfiles The users table's handle.
  * @param {import("../../types.js").UserSettingsRepository} dependencies.userSettings The settings that
  *   createWithSettings writes beside a profile.
  */
-function createRepository({ api, userSettings }) {
-  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
-
+function createRepository({ userProfiles, userSettings }) {
   async function countProfiles(filters, options) {
-    const result = await api.resources.userProfiles.aggregate(
-      {
-        measures: { count: { count: "*" } },
-        queryParams: { filters },
-        transaction: resolveTransaction(options)
-      },
-      createJsonRestContext(options.context)
-    );
-    return Number(result?.data?.[0]?.count || 0);
+    const rows = await userProfiles.aggregate({ measures: { count: { count: "*" } }, filters }, options);
+    return Number(rows?.[0]?.count || 0);
   }
 
-  async function queryFirst(filters = {}, options = {}) {
-    const rows = extractJsonRestCollectionRows(
-      await api.resources.userProfiles.query(
-        {
-          queryParams: {
-            filters
-          },
-          transaction: resolveTransaction(options),
-          format: "plain"
-        },
-        createJsonRestContext(options.context)
-      )
-    );
-
-    return rows[0] || null;
+  async function queryFirst(filters, options) {
+    const { records } = await userProfiles.query({ filters, page: { size: 1 } }, options);
+    return records[0] || null;
   }
 
   async function findById(userId, options = {}) {
@@ -230,77 +196,38 @@ function createRepository({ api, userSettings }) {
     );
   }
 
-  async function updateDisplayNameById(userId, displayName, options = {}) {
+  // A profile's changed fields, stamped with the update time; null for a missing id.
+  async function patchProfile(userId, changes, options) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
       return null;
     }
 
-    const updated = await api.resources.userProfiles.patch(
-      {
-        id: normalizedUserId,
-        data: {
-          displayName,
-          updatedAt: new Date().toISOString()
-        },
-        format: "plain",
-        returning: "full",
-        transaction: resolveTransaction(options)
-      },
-      createJsonRestContext(options.context)
-    );
+    return normalizeProfileRecord(await userProfiles.patch(
+      normalizedUserId,
+      { ...changes, updatedAt: new Date().toISOString() },
+      options
+    ));
+  }
 
-    return normalizeProfileRecord(updated);
+  async function updateDisplayNameById(userId, displayName, options = {}) {
+    return patchProfile(userId, { displayName }, options);
   }
 
   async function updateAvatarById(userId, avatar = {}, options = {}) {
-    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
-    if (!normalizedUserId) {
-      return null;
-    }
-
-    const updated = await api.resources.userProfiles.patch(
-      {
-        id: normalizedUserId,
-        data: {
-          avatarStorageKey: avatar.avatarStorageKey ?? null,
-          avatarVersion: avatar.avatarVersion ?? null,
-          avatarUpdatedAt: toIsoString(avatar.avatarUpdatedAt ?? new Date()),
-          updatedAt: new Date().toISOString()
-        },
-        format: "plain",
-        returning: "full",
-        transaction: resolveTransaction(options)
-      },
-      createJsonRestContext(options.context)
-    );
-
-    return normalizeProfileRecord(updated);
+    return patchProfile(userId, {
+      avatarStorageKey: avatar.avatarStorageKey ?? null,
+      avatarVersion: avatar.avatarVersion ?? null,
+      avatarUpdatedAt: toIsoString(avatar.avatarUpdatedAt ?? new Date())
+    }, options);
   }
 
   async function clearAvatarById(userId, options = {}) {
-    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
-    if (!normalizedUserId) {
-      return null;
-    }
-
-    const updated = await api.resources.userProfiles.patch(
-      {
-        id: normalizedUserId,
-        data: {
-          avatarStorageKey: null,
-          avatarVersion: null,
-          avatarUpdatedAt: null,
-          updatedAt: new Date().toISOString()
-        },
-        format: "plain",
-        returning: "full",
-        transaction: resolveTransaction(options)
-      },
-      createJsonRestContext(options.context)
-    );
-
-    return normalizeProfileRecord(updated);
+    return patchProfile(userId, {
+      avatarStorageKey: null,
+      avatarVersion: null,
+      avatarUpdatedAt: null
+    }, options);
   }
 
   async function upsert(profileLike = {}, options = {}) {
@@ -320,69 +247,45 @@ function createRepository({ api, userSettings }) {
       throw new TypeError("upsert requires email and displayName.");
     }
 
-    const executeUpsert = async (trx) => {
-      const existing = await findByIdentity(identity, {
-        trx,
-        context: options.context
-      });
+    const executeUpsert = async (txOptions) => {
+      const existing = await findByIdentity(identity, txOptions);
 
       if (existing) {
         const existingUsername = normalizeUsername(existing.username);
         const username = existingUsername || (
           await resolveUniqueUsername(
-            api,
+            userProfiles,
             requestedUsername || usernameBaseFromEmail(email),
-            { excludeUserId: existing.id, transaction: trx }
+            existing.id,
+            txOptions
           )
         );
 
-        const updated = await api.resources.userProfiles.patch(
-          {
-            id: normalizeDbRecordId(existing.id, { fallback: null }),
-            data: {
-              email,
-              displayName,
-              username,
-              updatedAt: new Date().toISOString()
-            },
-            format: "plain",
-            returning: "full",
-            transaction: trx
-          },
-          createJsonRestContext(options.context)
-        );
-
-        return normalizeProfileRecord(updated);
+        return patchProfile(existing.id, { email, displayName, username }, txOptions);
       }
 
       const username = await resolveUniqueUsername(
-        api,
+        userProfiles,
         requestedUsername || usernameBaseFromEmail(email),
-        { transaction: trx }
+        null,
+        txOptions
       );
 
-      const created = await api.resources.userProfiles.post(
+      return normalizeProfileRecord(await userProfiles.create(
         {
-          data: {
-            authProvider: identity.provider,
-            authProviderUserSid: identity.providerUserId,
-            email,
-            displayName,
-            username,
-            createdAt: new Date().toISOString()
-          },
-          format: "plain",
-          returning: "full",
-          transaction: trx
+          authProvider: identity.provider,
+          authProviderUserSid: identity.providerUserId,
+          email,
+          displayName,
+          username,
+          createdAt: new Date().toISOString()
         },
-        createJsonRestContext(options.context)
-      );
-
-      return normalizeProfileRecord(created);
+        txOptions
+      ));
     };
 
     try {
-      return await joinOrOpenTransaction(options, withTransaction, executeUpsert);
+      return await userProfiles.withTransaction(options, executeUpsert);
     } catch (error) {
       if (["pending", "rolledBack"].includes(error?.transactionOutcome) && duplicateTargetsEmail(error)) {
         throw buildDuplicateEmailConflictError(error);
@@ -407,11 +310,10 @@ function createRepository({ api, userSettings }) {
    * gives it its settings, in one transaction: the caller's, or one it opens.
    * Settings start from the defaults; the given fields replace them.
    * @param {{ profile: object, settings?: object }} input
-   * @param {{ trx?: object | null, context?: object }} [options]
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
    */
   async function createWithSettings({ profile, settings = {} }, options = {}) {
-    return joinOrOpenTransaction(options, withTransaction, async (trx) => {
-      const txOptions = { ...options, trx };
+    return userProfiles.withTransaction(options, async (txOptions) => {
       const created = await upsert(profile, txOptions);
       return {
         profile: created,
@@ -424,18 +326,18 @@ function createRepository({ api, userSettings }) {
    * The number of users, leaving out `excludeIds` and, with `createdSince`,
    * those created before it.
    * @param {{ excludeIds?: readonly unknown[], createdSince?: Date | string | null }} [criteria]
-   * @param {{ trx?: object | null, context?: object }} [options]
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
    */
   async function countUsers({ excludeIds = [], createdSince = null } = {}, options = {}) {
     const filters = createdSince == null ? {} : { createdSince: toIsoString(createdSince) };
     const ids = [...new Set(excludeIds.map((id) => normalizeDbRecordId(id, { fallback: null })).filter(Boolean))];
     const total = await countProfiles(filters, options);
-    // json-rest-api 2.4 has no "not in" filter: the excluded users who match are subtracted.
+    // The ids filter has no "not in": the excluded users who match are subtracted.
     return ids.length < 1 ? total : total - await countProfiles({ ...filters, ids }, options);
   }
 
   return Object.freeze({
-    withTransaction,
+    withTransaction: userProfiles.withTransaction,
     findById,
     findByEmail,
     findByIdentity,
@@ -444,7 +346,11 @@ function createRepository({ api, userSettings }) {
     clearAvatarById,
     upsert,
     createWithSettings,
-    countUsers
+    countUsers,
+    // The CRUD surface's reads (a CRUD feature serving the users table names this repository as its ownerRepository).
+    query: userProfiles.query,
+    get: userProfiles.get,
+    pageLimits: userProfiles.pageLimits
   });
 }
 

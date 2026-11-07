@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import knexLib from "knex";
+import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { ActionProvider } from "@jskit-ai/kernel/server/actions";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
@@ -8,24 +10,12 @@ import { UsersExtensionsProvider } from "../src/server/UsersExtensionsProvider.j
 import { UsersFeature } from "../src/server/UsersFeature.js";
 import { UsersIdentityProvider } from "../src/server/UsersIdentityProvider.js";
 
-function createJsonRestApiFixture() {
-  const resources = {};
-  return {
-    resources,
-    async addResource(scopeName) {
-      resources[scopeName] = Object.freeze({
-        query: async () => ({ data: [] }),
-        post: async () => null,
-        patch: async () => null
-      });
-    }
-  };
-}
-
-test("UsersFeature assembles account behavior through explicit capabilities", async () => {
+test("UsersFeature assembles account behavior through explicit capabilities", async (t) => {
   const routes = [];
   const bootstrap = createBootstrapRuntime();
-  const jsonRestApi = createJsonRestApiFixture();
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  const resourceRuntime = await createTestResourceRuntime({ knex });
   let users = null;
   let profiles = null;
   let settings = null;
@@ -61,7 +51,7 @@ test("UsersFeature assembles account behavior through explicit capabilities", as
           }
         }
       },
-      "runtime.json-rest-api": jsonRestApi,
+      "runtime.resources": resourceRuntime,
       "runtime.storage": {
         async getItemRaw() { return null; },
         async setItemRaw() {},
@@ -74,10 +64,19 @@ test("UsersFeature assembles account behavior through explicit capabilities", as
 
   await runtime.start();
 
-  assert.deepEqual(Object.keys(jsonRestApi.resources).sort(), ["userProfiles", "userSettings"]);
+  assert.deepEqual(resourceRuntime.ownedTables(), [
+    { name: "userProfiles", tableName: "users", featureId: "users.identity" },
+    { name: "userSettings", tableName: "user_settings", featureId: "users.identity" }
+  ]);
   assert.equal(typeof profiles.findByIdentity, "function");
   assert.equal(typeof profiles.createWithSettings, "function");
   assert.equal(typeof profiles.countUsers, "function");
+  assert.deepEqual(
+    ["query", "get", "pageLimits"].map((method) => typeof profiles[method]),
+    ["function", "function", "function"],
+    "users.profiles serves a CRUD feature's reads"
+  );
+  assert.equal(Object.hasOwn(profiles, "create"), false, "and no handle writes");
   assert.equal(typeof settings.ensureForUserId, "function");
   assert.equal(Object.hasOwn(users, "repositories"), false);
   assert.equal(typeof users.services.accountProfile.updateProfile, "function");

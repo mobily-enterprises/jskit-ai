@@ -1,9 +1,5 @@
-import { isLostDuplicateInsertRace, resolveTransaction, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
+import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  createJsonRestContext,
-  extractJsonRestCollectionRows
-} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../../../shared/settings.js";
 
 const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
@@ -51,36 +47,23 @@ function buildDefaultUserSettingsCreatePayload(userId) {
   };
 }
 
-/** @param {{ api: import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi }} dependencies */
-function createRepository({ api }) {
-  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
-
-  async function queryFirst(filters = {}, options = {}) {
-    const rows = extractJsonRestCollectionRows(
-      await api.resources.userSettings.query(
-        {
-          queryParams: {
-            filters
-          },
-          transaction: resolveTransaction(options),
-          format: "plain"
-        },
-        createJsonRestContext(options.context)
-      )
-    );
-
-    const row = rows[0] || null;
-    // Rows saved before locales were canonical hold lowercased tags ("en-us").
-    return typeof row?.locale === "string" ? { ...row, locale: normalizeLocaleCode(row.locale) } : row;
-  }
-
+/**
+ * The `users.settings` capability: the user_settings table's records. Every
+ * method takes the caller's options last and joins their transaction.
+ * @param {{ userSettings: import("@jskit-ai/resource-runtime/server/types").ResourceHandle }} dependencies
+ *   The user_settings table's handle.
+ */
+function createRepository({ userSettings }) {
   async function findByUserId(userId, options = {}) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
       return null;
     }
 
-    return queryFirst({ id: normalizedUserId }, options);
+    const { records } = await userSettings.query({ filters: { id: normalizedUserId }, page: { size: 1 } }, options);
+    const row = records[0] || null;
+    // Rows saved before locales were canonical hold lowercased tags ("en-us").
+    return typeof row?.locale === "string" ? { ...row, locale: normalizeLocaleCode(row.locale) } : row;
   }
 
   async function ensureForUserId(userId, options = {}) {
@@ -95,16 +78,9 @@ function createRepository({ api }) {
     }
 
     try {
-      await api.resources.userSettings.post(
-        {
-          data: buildDefaultUserSettingsCreatePayload(normalizedUserId),
-          format: "plain",
-          returning: "full",
-          transaction: resolveTransaction(options)
-        },
-        createJsonRestContext(options.context)
-      );
+      await userSettings.create(buildDefaultUserSettingsCreatePayload(normalizedUserId), { ...options, returning: "none" });
     } catch (error) {
+      // A standalone insert that lost to another one reads the winner; inside the caller's transaction it fails it.
       if (!isLostDuplicateInsertRace(error, options)) {
         throw error;
       }
@@ -127,18 +103,13 @@ function createRepository({ api }) {
       return findByUserId(normalizedUserId, options);
     }
 
-    await api.resources.userSettings.patch(
+    await userSettings.patch(
+      normalizedUserId,
       {
-        id: normalizedUserId,
-        data: {
-          ...updatePayload,
-          updatedAt: new Date().toISOString()
-        },
-        format: "plain",
-        returning: "full",
-        transaction: resolveTransaction(options)
+        ...updatePayload,
+        updatedAt: new Date().toISOString()
       },
-      createJsonRestContext(options.context)
+      { ...options, returning: "none" }
     );
 
     return findByUserId(normalizedUserId, options);
@@ -170,7 +141,7 @@ function createRepository({ api }) {
   }
 
   return Object.freeze({
-    withTransaction,
+    withTransaction: userSettings.withTransaction,
     findByUserId,
     ensureForUserId,
     patchUserSettings,
