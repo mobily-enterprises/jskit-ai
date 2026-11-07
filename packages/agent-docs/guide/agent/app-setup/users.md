@@ -44,11 +44,12 @@ in-page banner that moves the form.
 
 Use `users/user-administration-server` only when the product needs global or
 workspace-scoped administration beyond self-service settings. It demonstrates
-an app-owned feature package built with `defineCrudJsonApiFeature()` while
-keeping profile persistence in `users-core`.
+an app-owned feature package built with `defineCrudJsonApiFeature()` on a CRUD
+contract over users-core's `userProfileResource`, while keeping profile
+persistence, and the `users` table's one table resource, in `users-core`.
 
-Do not expose password hashes, provider credentials, or session data through a
-user resource. Apply permission and workspace scope before repository access so
+Do not expose password hashes, provider credentials, or session data through
+the CRUD contract. Apply permission and workspace scope before repository access so
 record existence is not leaked.
 
 ## Verification
