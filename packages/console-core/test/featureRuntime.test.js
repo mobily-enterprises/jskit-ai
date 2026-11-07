@@ -33,7 +33,12 @@ test("ConsoleFeature assembles owner access, settings, routes, actions, and boot
       "runtime.logger": silentLogger,
       "auth.extensions": authExtensions,
       "runtime.bootstrap": bootstrap,
-      "runtime.database": { knex() {} },
+      // The console feature's handle is only kept by its repository, so a resource runtime that hands out stubs will do.
+      "runtime.resources": {
+        own(featureId, owns) {
+          return Object.fromEntries(owns.map((entry) => [(entry.resource ?? entry).name, {}]));
+        }
+      },
       "runtime.http": {
         router: {
           register(method, path) {
