@@ -345,6 +345,28 @@ test("registrations: save replaces the email's waiting registration, found by em
   });
 });
 
+test("two first saves of one email's sign-in failure at once both succeed: the loser runs once more and updates the row", async (context) => {
+  requireTestDatabase(process.env);
+  const { backend, knex } = await openLocalAuthDatabase(context, "da_local_first_save");
+  const bothRead = Promise.withResolvers();
+  let reads = 0;
+  let runs = 0;
+  // Each reads before either writes, so both create the row and one of them fails with a duplicate entry.
+  const save = (failures) => backend.withTransaction(async (tx) => {
+    runs += 1;
+    assert.equal(runs > 2 || await tx.signInFailures.find("race@example.com") === null, true);
+    reads += 1;
+    if (reads === 2) bothRead.resolve();
+    await bothRead.promise;
+    return tx.signInFailures.save({ email: "race@example.com", failures, lastFailedAt: CREATED });
+  });
+  const saved = await Promise.all([save(1), save(2)]);
+  assert.equal(runs, 3, "only the loser ran again, once");
+  const [row] = await knex("auth_local_sign_in_failures").where({ email: "race@example.com" });
+  assert.ok(saved.some(({ failures }) => failures === Number(row.failures)), "the row holds the last save");
+  assert.equal(Number((await knex("auth_local_sign_in_failures").count({ count: "*" }).first()).count), 1);
+});
+
 test("the owner APIs answer as the backend does and join a caller's transaction, whose rollback undoes their writes", async (context) => {
   requireTestDatabase(process.env);
   const { accounts, sessions, recovery, backend, inCallerTransaction } = await openLocalAuthDatabase(context, "da_local_owners");
