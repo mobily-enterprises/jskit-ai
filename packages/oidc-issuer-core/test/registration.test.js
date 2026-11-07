@@ -78,3 +78,39 @@ test("a registered app can read and update itself but cannot move to another add
   const row = await hub.knex("oidc_issuer_clients").where({ client_id: client.client_id }).first();
   assert.equal(row.client_name, "Invoices 2");
 });
+
+test("closing the hub waits for the client row write that follows a sent response", { timeout: 10_000 }, async () => {
+  const own = await startHub();
+  const { client: database } = own.knex;
+  const query = database.query;
+  const reached = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  // Holds the hub's own client row delete, which runs once the 204 has been sent, until the test releases it.
+  database.query = async function heldQuery(connection, statement) {
+    if (/^delete from [`"]?oidc_issuer_clients\b/iu.test(statement?.sql ?? statement)) {
+      reached.resolve();
+      await release.promise;
+    }
+    return query.call(this, connection, statement);
+  };
+  try {
+    const { body: client } = await registerApp(own.url, { origin: "http://localhost:4300", name: "Ledger" });
+    const deleted = await fetch(client.registration_client_uri, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${client.registration_access_token}` }
+    });
+    assert.equal(deleted.status, 204);
+    await reached.promise;
+    let closed = false;
+    const closing = own.issuer.close().then(() => { closed = true; });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(closed, false, "close() finished while the client row delete was still running");
+    release.resolve();
+    await closing;
+    assert.equal(await own.knex("oidc_issuer_clients").where({ client_id: client.client_id }).first(), undefined);
+  } finally {
+    release.resolve();
+    database.query = query;
+    await own.stop();
+  }
+});

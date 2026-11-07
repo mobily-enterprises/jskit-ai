@@ -174,7 +174,6 @@ Local functions
 - `isHubPath(url)`
 - `bearerToken(request)`
 - `sendRegistrationError(reply, error)`
-- `onProviderStatus(reply, matches, action)`
 - `parseJsonBody(buffer)`
 
 ### `src/server/mailer.js`

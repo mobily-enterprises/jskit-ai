@@ -30,13 +30,6 @@ function sendRegistrationError(reply, error) {
   });
 }
 
-/** Keeps the hub's own client rows in step once oidc-provider has answered with `status`. */
-function onProviderStatus(reply, matches, action) {
-  reply.raw.once("finish", () => {
-    if (matches(reply.raw.statusCode)) action().catch(() => {});
-  });
-}
-
 function parseJsonBody(buffer) {
   try {
     return JSON.parse(Buffer.isBuffer(buffer) ? buffer.toString("utf8") : String(buffer || ""));
@@ -85,6 +78,19 @@ async function createOidcIssuer({
   });
   const { clients } = hub;
   let timer = null;
+  // Client row writes that follow a sent response; close() waits for them, so they finish before the database closes.
+  const followUps = new Set();
+
+  /** Keeps the hub's own client rows in step once oidc-provider has answered with `status`. */
+  function onProviderStatus(reply, matches, action) {
+    reply.raw.once("finish", () => {
+      if (!matches(reply.raw.statusCode)) return;
+      const write = action()
+        .catch((error) => logger.warn({ err: error }, "The hub could not keep its client row in step with a registration change."))
+        .finally(() => followUps.delete(write));
+      followUps.add(write);
+    });
+  }
 
   function forwardToProvider(request, reply) {
     const issuer = new URL(config.issuer);
@@ -184,6 +190,7 @@ async function createOidcIssuer({
   async function close() {
     if (timer) clearInterval(timer);
     timer = null;
+    await Promise.all(followUps);
   }
 
   return Object.freeze({
