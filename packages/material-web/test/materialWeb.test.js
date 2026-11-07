@@ -138,15 +138,21 @@ test("the Vuetify options follow the system scheme on the md3 blueprint with Mat
   assert.equal(options.icons.defaultSet, "svg");
   assert.equal(options.icons.aliases.arrowBack, materialSymbols.arrowBack);
   assert.equal(options.icons.aliases.myLeaf, "svg:M1 1h22v22H1z");
-  assert.equal(options.defaults.VCard.rounded, 12);
-  // Vuetify's elevated variant draws the card's level 1; a default elevation would also lift flat and tonal cards.
+  // A card's 12dp corners are in material.css; a rounded default would be an inline style a dialog's 28dp couldn't beat.
+  assert.ok("rounded" in options.defaults.VCard);
+  assert.equal(options.defaults.VCard.rounded, undefined);
+  // Cards rest flat; variant="elevated" keeps Material 3's level 1, which a default elevation would add to every card.
+  assert.equal(options.defaults.VCard.variant, "flat");
   assert.equal("elevation" in options.defaults.VCard, false);
-  assert.equal("elevation" in options.defaults.VBottomSheet.VCard, false);
+  assert.deepEqual(options.defaults.VExpansionPanels, { flat: true });
+  assert.deepEqual(options.defaults.VBottomSheet, { contentClass: "jskit-material-bottom-sheet" });
   assert.equal(options.defaults.VChip.rounded, 8);
   assert.equal(options.defaults.VFab.rounded, 16);
   assert.equal(options.defaults.VChip.closeIcon, "$close");
   assert.equal(options.defaults.VSwitch.inset, "material");
   assert.equal(options.defaults.VSnackbar.color, "inverse-surface");
+  // A button with `to` is active only on exactly its route.
+  assert.equal(options.defaults.VBtn.exact, true);
   assert.throws(() => createMaterialVuetifyOptions({ icons: { "my-leaf": "M0 0" } }), /camelCase/u);
 });
 
@@ -177,7 +183,14 @@ test("material.css holds the exact-size rules without Sass or !important", async
   assert.match(css, /--v-btn-height: 40px/u);
   assert.match(css, /height: max\(100%, 48px\)/u);
   // Every button size gets the touch target, not only the default one, and a long label ends in an ellipsis.
-  assert.match(css, /\.v-btn:not\(\.v-btn--stacked\)::before \{[^}]*width: max\(100%, 48px\);/u);
+  assert.match(
+    css,
+    /\.v-btn:not\(\.v-btn--stacked\)::before \{[^}]*inset-block: min\(0px, calc\(50% - 24px\)\);[^}]*inset-inline: min\(0px, calc\(50% - 24px\)\);/u
+  );
+  // A button that follows another stops its target at its own edge on that side, and no icon button is under 32dp,
+  // so adjacent compact icon buttons each answer their own presses.
+  assert.match(css, /\.v-btn \+ \.v-btn:not\(\.v-btn--stacked\)::before \{\s*inset-inline-start: 0;\s*\}/u);
+  assert.match(css, /\.v-btn--icon:not\(\.v-fab \.v-btn\) \{\s*min-height: 32px;\s*min-width: 32px;\s*\}/u);
   assert.match(css, /\.v-btn:not\(\.v-btn--stacked\) \{[^}]*contain: layout;/u);
   // FABs keep their own sizes: the common and icon button sizes leave them out.
   assert.match(css, /\.v-btn--size-default:not\(\.v-btn--stacked, \.v-btn--icon, \.v-fab \.v-btn\) \{[^}]*--v-btn-height: 40px;/u);
@@ -193,4 +206,88 @@ test("material.css holds the exact-size rules without Sass or !important", async
   assert.match(css, /Roboto Flex/u);
   assert.match(css, /@layer vuetify-overrides \{/u);
   assert.match(css, /\.text-on-surface-variant \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);/u);
+});
+
+test("segmented buttons and filter chips select in secondary-container; a menu's own list is the menu's container", () => {
+  const { defaults } = createMaterialVuetifyOptions();
+  assert.deepEqual(defaults.VBtnToggle, {
+    border: true,
+    color: "secondary-container",
+    divided: true,
+    rounded: "pill",
+    variant: "flat"
+  });
+  assert.deepEqual(defaults.VChipGroup, { color: "secondary-container", filter: true, variant: "flat" });
+  // A menu's own list is drawn by material.css, not VMenu sub-component defaults, under which Vuetify 4.2.1 to 4.3.2
+  // lose a v-select's typeahead match when an ancestor re-renders (README, Upstream workarounds).
+  assert.equal(defaults.VMenu, undefined, "no VMenu sub-component defaults");
+  // VDialog is Vuetify's other root defaults provider: a dialog's card is drawn by material.css too.
+  assert.equal(defaults.VDialog, undefined, "no VDialog defaults");
+});
+
+test("material.css draws cards, a dialog's card and a bottom sheet's card", async () => {
+  const css = await readFile(path.join(PACKAGE_ROOT, "src/client/material.css"), "utf8");
+  assert.match(css, /\n {2}\.v-card \{\s*border-radius: 12px;\s*\}/u);
+  assert.match(
+    css,
+    /\.v-dialog:not\(\.v-bottom-sheet\) > \.v-overlay__content > form > \.v-card \{[^}]*box-shadow: 0px 1px 3px 0px[^}]*0px 4px 8px 3px/u
+  );
+  assert.match(
+    css,
+    /@layer vuetify-utilities \{[\s\S]*\.v-dialog:not\(\.v-bottom-sheet\) > \.v-overlay__content > form > \.v-card\.bg-surface-container-low \{[^}]*background-color: rgb\(var\(--v-theme-surface-container-high\)\);/u
+  );
+  assert.match(css, /\.v-bottom-sheet > \.v-overlay__content > form > \.v-card \{\s*border-radius: 0;/u);
+});
+
+test("material.css draws a menu's own list as its container and leaves other lists in a menu plain", async () => {
+  const css = await readFile(path.join(PACKAGE_ROOT, "src/client/material.css"), "utf8");
+  assert.match(
+    css,
+    /@layer vuetify-utilities \{\s*\/\*[^*]*\*\/\s*\.v-menu > \.v-overlay__content > \.v-list\.bg-transparent \{\s*background-color: rgb\(var\(--v-theme-surface-container\)\);/u
+  );
+  assert.match(css, /\.v-menu > \.v-overlay__content > \.v-list \{[^}]*box-shadow: 0px 1px 2px 0px[^}]*0px 2px 6px 2px/u);
+  assert.doesNotMatch(css, /\.v-menu > \.v-overlay__content > \.v-(?:card|sheet)/u);
+});
+
+test("material.css draws segmented buttons, filter chips, fixed tabs and dialog actions as Material 3 does", async () => {
+  const css = await readFile(path.join(PACKAGE_ROOT, "src/client/material.css"), "utf8");
+  const rule = (selector) => {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    return css.match(new RegExp(`(?:^|\\n)\\s*${escaped}[^{]*\\{([^}]*)\\}`, "u"))?.[1] || "";
+  };
+  // The check a selected segment or filter chip leads with is Material Symbols' own check glyph.
+  const check = materialSymbols.check.slice("svg:".length);
+  const mask = css.match(/mask: url\("data:image\/svg\+xml,[^"]*d='([^']+)'/u)?.[1];
+  assert.equal(mask, check);
+  assert.match(rule(".v-btn-toggle.v-btn-group--horizontal"), /grid-auto-columns: 1fr;/u);
+  assert.match(rule(".v-btn-toggle.v-btn-group--horizontal.v-btn-group--density-default"), /height: 40px;/u);
+  assert.match(rule(".v-btn-toggle"), /border-color: rgb\(var\(--v-theme-outline\)\);[\s\S]*overflow: visible;/u);
+  // Every button group's segments have 12dp sides, after the common button's 24dp (and 16dp beside an icon) rules.
+  assert.match(rule(".v-btn-group > .v-btn.v-btn--size-default"), /min-width: 48px;\s*padding-inline: 12px;/u);
+  assert.ok(css.indexOf(".v-btn-group > .v-btn.v-btn--size-default") > css.indexOf(":has(> .v-btn__append)"));
+  assert.match(css, /\.v-chip--filter,\s*\.v-chip\[aria-pressed\] \{[^}]*border: thin solid rgb\(var\(--v-theme-outline\)\);/u);
+  assert.match(css, /\.v-chip--filter\.v-chip--selected,\s*\.v-chip\[aria-pressed="true"\] \{[^}]*secondary-container/u);
+  assert.match(rule(".v-chip--variant-outlined:not"), /border-color: rgb\(var\(--v-theme-outline\)\);/u);
+  assert.match(rule(".v-tabs--grow .v-tab"), /flex: 1 1 0;[\s\S]*min-width: max-content;/u);
+  assert.match(css, /\.v-dialog > \.v-overlay__content > \.v-card > \.v-card-actions,[^{]*\{\s*gap: 8px;\s*padding: 0 24px 24px;/u);
+  // A pagination's current page has the activated layer, not the border opacity; a shown placeholder is
+  // on-surface-variant, and a labelled field still hides it until active.
+  assert.match(
+    rule(".v-pagination .v-pagination__item--is-active .v-btn__overlay"),
+    /opacity: calc\(var\(--v-activated-opacity\) \* var\(--v-theme-overlay-multiplier\)\);/u
+  );
+  assert.match(
+    css,
+    /\.v-field:is\(\.v-field--active, \.v-field--no-label\) :is\(input, textarea\)::placeholder \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
+  );
+  // A disabled container button is on-surface 12% and 38%, unlayered over its colour class.
+  assert.match(
+    css,
+    /^\.v-btn--disabled:is\(\.v-btn--variant-flat, \.v-btn--variant-elevated, \.v-btn--variant-tonal\) \{\s*background-color: rgba\(var\(--v-theme-on-surface\), 0\.12\);/mu
+  );
+  // The touch target unclips buttons, so their state layer, underlay and ripple keep the button's corners themselves.
+  assert.match(
+    css,
+    /\.v-btn > \.v-btn__overlay,\s*\.v-btn > \.v-btn__underlay,\s*\.v-btn > \.v-ripple__container,\s*\.v-chip > \.v-chip__overlay,\s*\.v-chip > \.v-chip__underlay,\s*\.v-chip > \.v-ripple__container \{\s*border-radius: inherit;/u
+  );
 });

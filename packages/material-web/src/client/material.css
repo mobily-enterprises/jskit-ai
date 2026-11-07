@@ -2,7 +2,8 @@
  * JSKIT's Material 3 rules for Vuetify: the sizes and shapes component props cannot set, Roboto Flex, emphasized
  * motion and reduced motion. Import it after "vuetify/styles". Component rules live in Vuetify's own
  * vuetify-overrides cascade layer, so they beat Vuetify's component styles while an app's utility classes
- * (rounded-0, bg-*, pa-*) and props still win without any rule forcing priority.
+ * (rounded-0, bg-*, pa-*) and props still win without any rule forcing priority. A few rules are unlayered, over
+ * the colour class a color prop gives: a disabled button's colours and a full-screen dialog's surface.
  */
 @layer vuetify-core, vuetify-components, vuetify-overrides, vuetify-utilities, vuetify-final;
 @import "@fontsource-variable/roboto-flex/index.css";
@@ -52,6 +53,13 @@
   /* Icon buttons: a 40dp state layer around a 24dp icon. */
   .v-btn--icon.v-btn--size-default:not(.v-fab .v-btn) {
     --v-btn-height: 28px;
+  }
+
+  /* No icon button is smaller than Material 3's 32dp extra-small one, so a comfortable or compact one (and a compact
+     small one) still holds its icon, where Vuetify's density would take it to 28dp or 20dp. */
+  .v-btn--icon:not(.v-fab .v-btn) {
+    min-height: 32px;
+    min-width: 32px;
   }
 
   .v-btn--icon.v-btn--size-default .v-icon {
@@ -107,21 +115,31 @@
     overflow: visible;
   }
 
-  /* Vuetify's state layers have no corners of their own: they were round only because the button clipped them. With
-     its overflow visible they take the button's corners, or every hover, focus and press would draw a square. */
-  .v-btn:not(.v-btn--stacked) > .v-btn__overlay,
-  .v-btn:not(.v-btn--stacked) > .v-btn__underlay {
-    border-radius: inherit;
-  }
-
   .v-btn:not(.v-btn--stacked)::before {
     content: "";
-    height: max(100%, 48px);
-    left: 50%;
+    inset-block: min(0px, calc(50% - 24px));
+    inset-inline: min(0px, calc(50% - 24px));
     position: absolute;
-    top: 50%;
-    transform: translate(-50%, -50%);
-    width: max(100%, 48px);
+  }
+
+  /* A touch target never covers the button beside it: a button that follows another one paints over it, so its
+     target stops at its own edge on that side, and a press on either button's visible box reaches that button. The
+     earlier button's target still reaches into the gap, under the later one. */
+  .v-btn + .v-btn:not(.v-btn--stacked)::before {
+    inset-inline-start: 0;
+  }
+
+  /* With buttons and pressable chips no longer clipping (their touch target reaches outside them), their state layer,
+     underlay and ripple take the control's corners themselves, as the focus ring already does: a tonal button or chip,
+     a disabled filled button (whose state layer shows at rest) and a hovered, focused, pressed or selected one stay
+     one pill, not a square tinted block. Vuetify squares a button's ripple container, relying on the button's clip. */
+  .v-btn > .v-btn__overlay,
+  .v-btn > .v-btn__underlay,
+  .v-btn > .v-ripple__container,
+  .v-chip > .v-chip__overlay,
+  .v-chip > .v-chip__underlay,
+  .v-chip > .v-ripple__container {
+    border-radius: inherit;
   }
 
   /* A label stays on one line, as Material 3 draws it; one longer than its button ends in an ellipsis. */
@@ -132,14 +150,14 @@
     text-overflow: ellipsis;
   }
 
-  /* Outlined buttons draw the outline role, chips outline-variant. */
+  /* Outlined buttons and outlined chips draw the outline role. */
   .v-btn--variant-outlined:not([class*=" text-"]) {
     border-color: rgb(var(--v-theme-outline));
     color: rgb(var(--v-theme-primary));
   }
 
   .v-chip--variant-outlined:not([class*=" text-"]) {
-    border-color: rgb(var(--v-theme-outline-variant));
+    border-color: rgb(var(--v-theme-outline));
     color: rgb(var(--v-theme-on-surface-variant));
   }
 
@@ -171,7 +189,15 @@
     z-index: -1;
   }
 
-  /* Dialogs: 28dp corners and a headline-small title; full-screen dialogs are square. */
+  /* Cards: 12dp corners. Here and not a `rounded` default, so a dialog's card can have its own, and an app's rounded
+     prop or rounded-* class still wins. */
+  .v-card {
+    border-radius: 12px;
+  }
+
+  /* Dialogs: 28dp corners and a headline-small title, and the card at level 3; full-screen dialogs are square. CSS,
+     not VDialog sub-component defaults, which cost a virtual-scroll list in a dialog its item heights (README,
+     Upstream workarounds). */
   .v-dialog > .v-overlay__content > .v-card,
   .v-dialog > .v-overlay__content > .v-sheet,
   .v-dialog > .v-overlay__content > form > .v-card,
@@ -195,6 +221,13 @@
     color: rgb(var(--v-theme-on-surface-variant));
   }
 
+  .v-dialog:not(.v-bottom-sheet) > .v-overlay__content > .v-card,
+  .v-dialog:not(.v-bottom-sheet) > .v-overlay__content > form > .v-card {
+    --v-elevation-overlay: color-mix(in srgb, var(--v-elevation-overlay-color) 6%, transparent);
+    box-shadow: 0px 1px 3px 0px rgba(var(--v-shadow-color), var(--v-shadow-key-opacity, 0.3)),
+      0px 4px 8px 3px rgba(var(--v-shadow-color), var(--v-shadow-ambient-opacity, 0.15));
+  }
+
   .v-dialog--fullscreen > .v-overlay__content > .v-card,
   .v-dialog--fullscreen > .v-overlay__content > .v-sheet,
   .v-dialog--fullscreen > .v-overlay__content > form > .v-card,
@@ -202,10 +235,15 @@
     border-radius: 0;
   }
 
-  /* Bottom sheets: 28dp top corners. */
+  /* Bottom sheets: 28dp top corners on the sheet, whose card (a card's surface-container-low) is square inside it. */
   .jskit-material-bottom-sheet {
     border-radius: 28px 28px 0 0;
     overflow: hidden;
+  }
+
+  .v-bottom-sheet > .v-overlay__content > .v-card,
+  .v-bottom-sheet > .v-overlay__content > form > .v-card {
+    border-radius: 0;
   }
 
   /* Plain tooltips: inverse surface, 4dp corners, body-small. */
@@ -218,6 +256,166 @@
     line-height: 1rem;
     min-height: 24px;
     padding: 4px 8px;
+  }
+
+  /* Segmented buttons (v-btn-toggle): a 40dp pill in the outline role whose segments share its width, each with a 48dp
+     touch target. An unselected segment has no container; the selected one is secondary-container and leads with a
+     check, which takes the place of its icon. */
+  .v-btn-toggle {
+    border-color: rgb(var(--v-theme-outline));
+    color: rgb(var(--v-theme-on-surface));
+    overflow: visible;
+  }
+
+  .v-btn-toggle.v-btn-group--horizontal {
+    display: inline-grid;
+    grid-auto-columns: 1fr;
+    grid-auto-flow: column;
+  }
+
+  .v-btn-toggle.v-btn-group--horizontal.v-btn-group--density-default:not(.v-btn-group--has-size) {
+    height: 40px;
+  }
+
+  .v-btn-toggle.v-btn-group--horizontal.v-btn-group--divided > .v-btn:not(:last-child) {
+    border-inline-end-color: rgb(var(--v-theme-outline));
+  }
+
+  .v-btn-toggle.v-btn-group--vertical.v-btn-group--divided > .v-btn:not(:last-child) {
+    border-block-end-color: rgb(var(--v-theme-outline));
+  }
+
+  .v-btn-toggle > .v-btn:not(.v-btn--active) {
+    background: transparent;
+    color: inherit;
+  }
+
+  /* A segment, in a segmented button or any button group, has Material 3's 12dp sides, not a common button's 24dp
+     (16dp beside an icon), so a group in a narrow column keeps whole labels instead of squeezing its segments. */
+  .v-btn-group > .v-btn.v-btn--size-default:not(.v-btn--icon, .v-btn--stacked) {
+    min-width: 48px;
+    padding-inline: 12px;
+  }
+
+  .v-btn-toggle > .v-btn > .v-btn__prepend {
+    margin-inline: 0 8px;
+  }
+
+  .v-btn-toggle > .v-btn > .v-btn__prepend > .v-icon {
+    font-size: 18px;
+  }
+
+  .v-btn-toggle > .v-btn--active:not(.v-btn--icon, :has(> .v-btn__prepend)) > .v-btn__content::before {
+    content: "";
+    display: inline-block;
+    flex: none;
+    height: 18px;
+    margin-inline-end: 8px;
+    vertical-align: -4px;
+    width: 18px;
+  }
+
+  /* Filter chips: chips in a v-chip-group (Vuetify's filter chips) and chips that toggle with aria-pressed. An
+     unselected one has no container inside an outline-role border; a selected one is secondary-container and leads
+     with a check, which takes the place of its icon. 16dp from the container's edge, 8dp beside the leading check or
+     icon, inside the 1dp border. */
+  .v-chip--filter,
+  .v-chip[aria-pressed] {
+    background: transparent;
+    border: thin solid rgb(var(--v-theme-outline));
+    color: rgb(var(--v-theme-on-surface-variant));
+  }
+
+  .v-chip--filter.v-chip--selected,
+  .v-chip[aria-pressed="true"] {
+    background: rgb(var(--v-theme-secondary-container));
+    border-color: transparent;
+    color: rgb(var(--v-theme-on-secondary-container));
+  }
+
+  .v-chip[aria-pressed] > .v-chip__underlay {
+    opacity: 0;
+  }
+
+  .v-chip--filter.v-chip--size-default,
+  .v-chip[aria-pressed].v-chip--size-default {
+    padding-inline: 15px;
+  }
+
+  .v-chip--filter.v-chip--size-default:is(.v-chip--selected, :has(> .v-chip__prepend)),
+  .v-chip[aria-pressed].v-chip--size-default:is([aria-pressed="true"], :has(> .v-chip__prepend)) {
+    padding-inline-start: 7px;
+  }
+
+  .v-chip.v-chip--size-default > .v-chip__filter,
+  .v-chip:is(.v-chip--filter, [aria-pressed]).v-chip--size-default > .v-chip__prepend > .v-icon--start {
+    margin-inline: 0 8px;
+  }
+
+  .v-chip .v-chip__filter .v-icon {
+    font-size: 18px;
+  }
+
+  .v-chip[aria-pressed="true"]:not(:has(> .v-chip__prepend))::before {
+    content: "";
+    flex: none;
+    height: 18px;
+    margin-inline-end: 8px;
+    width: 18px;
+  }
+
+  /* The check a selected segment or filter chip leads with: Material Symbols' check in the label's colour. */
+  .v-btn-toggle > .v-btn--active:not(.v-btn--icon, :has(> .v-btn__prepend)) > .v-btn__content::before,
+  .v-btn-toggle > .v-btn--active > .v-btn__prepend > .v-icon,
+  .v-chip[aria-pressed="true"]:not(:has(> .v-chip__prepend))::before,
+  .v-chip[aria-pressed="true"] > .v-chip__prepend > .v-icon {
+    background-color: currentColor;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='m9.55 15.15l8.475-8.475q.3-.3.7-.3t.7.3t.3.713t-.3.712l-9.175 9.2q-.3.3-.7.3t-.7-.3L4.55 13q-.3-.3-.288-.712t.313-.713t.713-.3t.712.3z'/%3E%3C/svg%3E") center / 18px 18px no-repeat;
+  }
+
+  .v-btn-toggle > .v-btn--active > .v-btn__prepend > .v-icon > svg,
+  .v-chip[aria-pressed="true"] > .v-chip__prepend > .v-icon > svg {
+    visibility: hidden;
+  }
+
+  /* Fixed tabs (grow) share the row's width equally, without Vuetify's 90dp minimum, so four fit a phone; when a label
+     still can't fit, the tabs scroll instead of cutting it. */
+  .v-tabs--grow .v-tab {
+    flex: 1 1 0;
+    min-width: max-content;
+  }
+
+  /* A menu's own list is its container, at level 2 with the menu's 4dp corners; a list inside a card or sheet in the
+     menu (a rich menu panel, a select's list) stays a plain list. CSS, not VMenu sub-component defaults: under those,
+     in Vuetify 4.2.1 to 4.3.2, an ancestor's re-render rebuilds VMenu's root defaults, its VVirtualScroll resets its
+     item height to 0 and a v-select's typeahead never scrolls to its match (upstream issue:
+     https://github.com/vuetifyjs/vuetify/issues/23366). Remove when a Vuetify past 4.3.2 fails connectors-web's
+     "Vuetify still loses a select's typeahead match…" browser test, which then goes too; see the README's Upstream
+     workarounds. */
+  .v-menu > .v-overlay__content > .v-list {
+    --v-elevation-overlay: color-mix(in srgb, var(--v-elevation-overlay-color) 4%, transparent);
+    box-shadow: 0px 1px 2px 0px rgba(var(--v-shadow-color), var(--v-shadow-key-opacity, 0.3)),
+      0px 2px 6px 2px rgba(var(--v-shadow-color), var(--v-shadow-ambient-opacity, 0.15));
+  }
+
+  /* Dialog actions: 24dp from the dialog's sides and bottom, 8dp between buttons. */
+  .v-dialog > .v-overlay__content > .v-card > .v-card-actions,
+  .v-dialog > .v-overlay__content > form > .v-card > .v-card-actions {
+    gap: 8px;
+    padding: 0 24px 24px;
+  }
+
+  /* A pagination's current page has the activated state layer, as a selected button does. Vuetify ties it to the
+     border opacity, which the outline roles keep at full strength, so the page was a solid square over its number. */
+  .v-pagination .v-pagination__item--is-active .v-btn__overlay {
+    opacity: calc(var(--v-activated-opacity) * var(--v-theme-overlay-multiplier));
+  }
+
+  /* A shown placeholder is on-surface-variant at full strength, as Material 3's text field and search bar draw it,
+     instead of Vuetify's faded on-surface (2.2:1). A labelled field still hides it until the field is active. */
+  .v-field:is(.v-field--active, .v-field--no-label) :is(input, textarea)::placeholder {
+    color: rgb(var(--v-theme-on-surface-variant));
+    opacity: 1;
   }
 
   /* Dividers and table rules use outline-variant at full strength (the theme's border colour). Vuetify draws a
@@ -267,6 +465,21 @@
  * icon or a text button would find no class. These text-on-* forms make it work.
  */
 @layer vuetify-utilities {
+  /* A menu's own list is surface-container. In this layer, outside its theme sublayers, so it outranks the
+     bg-transparent every list has by default; a list given its own bg-color keeps it. */
+  .v-menu > .v-overlay__content > .v-list.bg-transparent {
+    background-color: rgb(var(--v-theme-surface-container));
+  }
+
+  /* A dialog's card is surface-container-high. Here too, it recolours only the surface-container-low class every
+     card has by default, so a card given its own colour keeps it. */
+  .v-dialog:not(.v-bottom-sheet) > .v-overlay__content > .v-card.bg-surface-container-low,
+  .v-dialog:not(.v-bottom-sheet) > .v-overlay__content > form > .v-card.bg-surface-container-low {
+    --v-theme-overlay-multiplier: var(--v-theme-surface-container-high-overlay-multiplier);
+    background-color: rgb(var(--v-theme-surface-container-high));
+    color: rgb(var(--v-theme-on-surface-container-high));
+  }
+
   .text-on-background {
     color: rgb(var(--v-theme-on-background));
   }
@@ -338,7 +551,7 @@
 
 /*
  * A full-screen dialog's container is the surface, not the dialog's surface-container-high. Unlayered, so it
- * outranks the bg-* class the dialog's card default sets.
+ * outranks the bg-* class the card's default colour sets.
  */
 .v-dialog--fullscreen > .v-overlay__content > .v-card,
 .v-dialog--fullscreen > .v-overlay__content > form > .v-card {
@@ -357,4 +570,20 @@
     transition-delay: 0ms;
     transition-duration: 1ms;
   }
+}
+
+/*
+ * A disabled filled, elevated or tonal button is Material 3's: on-surface at 12% for the container and 38% for the
+ * label, with no state layer or shadow. Unlayered, so it outranks the bg-* class (a vuetify-utilities rule) that the
+ * button's color prop gives it, in whatever order an app's stylesheets load.
+ */
+.v-btn--disabled:is(.v-btn--variant-flat, .v-btn--variant-elevated, .v-btn--variant-tonal) {
+  background-color: rgba(var(--v-theme-on-surface), 0.12);
+  box-shadow: none;
+  color: rgba(var(--v-theme-on-surface), var(--v-disabled-opacity));
+  opacity: 1;
+}
+
+.v-btn--disabled:is(.v-btn--variant-flat, .v-btn--variant-elevated, .v-btn--variant-tonal) > :is(.v-btn__overlay, .v-btn__underlay) {
+  opacity: 0;
 }

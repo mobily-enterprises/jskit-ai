@@ -63,19 +63,59 @@ export const theme = {
   `text-headline-*`, `text-title-*`, `text-body-*` and `text-label-*` classes,
   which read them as `--v-font-heading` and `--v-font-body`.
 - **Components.** The md3 blueprint plus JSKIT's defaults: full-shape filled
-  buttons, elevated cards on `surface-container-low` with 12dp corners, outlined
-  fields, 8dp chips that close with `$close`, 4dp menus on `surface-container`,
-  the inverse-surface snackbar, the Material switch and the 16dp
-  `primary-container` FAB.
+  buttons (with `to`, active only on exactly their route), cards that rest
+  flat on `surface-container-low` (`variant="elevated"` for level 1), flat expansion panels, outlined fields, 8dp chips that close with
+  `$close`, the inverse-surface snackbar, the Material switch and the 16dp
+  `primary-container` FAB; `v-btn-toggle` as a segmented button and
+  `v-chip-group` as filter chips, selected in `secondary-container`.
 - **`material.css`.** What props cannot set: 40dp buttons and 40dp icon
-  buttons, a 48dp touch target on every button size (small and x-small keep
-  their look), one-line labels that end in an ellipsis, 28dp dialogs and
-  bottom sheets, square
-  full-screen dialogs on `surface`, a 48dp touch target on clickable chips,
-  inverse-surface tooltips, emphasized easing
-  and reduced motion. Its component rules sit in Vuetify's `vuetify-overrides`
-  cascade layer, so an app's own props and utility classes still win; nothing
-  uses `!important` or Sass.
+  buttons (none under 32dp, whatever its density), a 48dp touch target on
+  every button size (small and x-small keep their look, and their state
+  layers keep their corners) that stops at a neighbouring button, disabled container
+  buttons in on-surface at 12% and 38%, a pagination's current page in the
+  activated layer, placeholders in on-surface-variant, one-line labels that
+  end in an ellipsis, 12dp card corners, 28dp dialogs on
+  `surface-container-high` at level 3 and bottom sheets with a square card on
+  `surface-container-low`, square full-screen dialogs on `surface`, a 48dp touch target on clickable chips,
+  inverse-surface tooltips, 40dp outlined segmented buttons and outlined
+  filter chips that lead with a check when selected (chips with
+  `aria-pressed` too), fixed tabs that share the width or else scroll, dialog
+  actions 24dp from the edges, a menu's own list as its container
+  (`surface-container` at level 2, in the menu's 4dp corners) while a list in a
+  rich menu panel (a card or sheet in the menu) stays plain, emphasized easing
+  and reduced motion. Its
+  component rules sit in Vuetify's `vuetify-overrides` cascade layer, so an
+  app's own props and utility classes still win; only a disabled button's
+  colours and a full-screen dialog's surface are unlayered, over the colour
+  class a `color` prop gives. Nothing uses
+  `!important` or Sass.
+
+## Upstream workarounds
+
+Each one comes off when the upstream fix ships; its test says when.
+
+- **Vuetify 4.2.1 to 4.3.2 (measured): `VMenu` sub-component defaults and a
+  `v-select` typeahead.** With any sub-component default under `VMenu` in the
+  app's defaults, even `VMenu: { VSheet: {} }`, a re-render of an ancestor of
+  a `v-select` makes VMenu's `root` defaults provider build a new merged
+  object; the menu's `VVirtualScroll` then resets its item height to 0 and
+  `scrollToIndex` silently gives up. Letters typed during or after the menu's
+  opening change the selection, but the match further down ("o" then "s" for
+  Osaka, the last AWS region) is never scrolled to or focused. JSKIT sets no
+  `VMenu` defaults: `material.css` draws a menu's own list as its container
+  instead. Upstream issue:
+  [vuetifyjs/vuetify#23366](https://github.com/vuetifyjs/vuetify/issues/23366).
+  connectors-web's browser test "Vuetify still loses a select's typeahead match
+  under a VMenu sub-component default when the form re-renders" fails once a
+  Vuetify release past 4.3.2 fixes it; then delete that test, and the menu list may go back to
+  `VMenu` defaults. An app that adds its own `VMenu` sub-component defaults
+  brings the bug back. `VDialog`, Vuetify's other `root` defaults provider,
+  does the same to a virtual-scroll list in a dialog under any `VDialog`
+  default, so JSKIT sets none either: `material.css` draws a dialog's card
+  (and every card's 12dp corners, which a `rounded` default would make an
+  inline style). shell-web's browser test "a virtual-scroll list in a dialog
+  reaches its last item after the page around it re-renders" guards it; it
+  fails with `VDialog: { VCard: {} }` in the defaults.
 
 ## Maintaining the icon set
 
