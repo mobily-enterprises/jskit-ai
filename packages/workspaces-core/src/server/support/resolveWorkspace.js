@@ -4,7 +4,7 @@ import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 /**
  * The workspace an action runs in: the input's workspace, else the context's,
  * else the one the workspace context contributor resolved, else the request's.
- * This is json-rest-api-core's resolveWorkspaceScopeValue order.
+ * This is resource-runtime's resolveWorkspaceScopeValue order.
  * @param {object} context
  * @param {unknown} [input]
  */

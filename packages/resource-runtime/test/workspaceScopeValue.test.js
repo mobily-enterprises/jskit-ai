@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolveWorkspaceScopeValue } from "../src/server/jsonRestApiHost.js";
+import { resolveWorkspaceScopeValue } from "../src/server/resourceHost.js";
 
 test("resolveWorkspaceScopeValue reads one workspace id from any of its sources", () => {
   const all = {

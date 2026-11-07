@@ -2,7 +2,7 @@ import { isLostDuplicateInsertRace, resolveTransaction, retryDeadlocks } from "@
 import {
   createJsonRestContext,
   extractJsonRestCollectionRows
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { WORKSPACE_SETTINGS_FIELD_KEYS } from "../../shared/resources/workspaceSettingsResource.js";
@@ -27,7 +27,7 @@ function buildDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesE
 
 /**
  * @param {object} dependencies
- * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.api
+ * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} dependencies.api
  * @param {boolean} dependencies.defaultInvitesEnabled
  * @param {object} dependencies.defaultColorSettings The configured colors that replace the theme's.
  */

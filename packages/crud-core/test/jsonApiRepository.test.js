@@ -3,9 +3,9 @@ import test from "node:test";
 import knexLib from "knex";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import {
-  createJsonRestApiHost,
+  createResourceHost,
   createJsonRestResourceScopeOptions
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
@@ -100,7 +100,7 @@ async function createDatabaseRepository(t) {
     table.increments("id");
     table.string("message").notNullable();
   });
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
   const resource = defineTableResource({ name: "books", tableName: "books", schema: { title: { type: "string", required: true } } });
   await api.addResource("books", createJsonRestResourceScopeOptions(resource));
   const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "books" });
@@ -260,7 +260,7 @@ async function createLockedNotesRepository(t, { lockVersionField = "lockVersion"
       lockVersion: { type: "integer", min: 0, readOnly: true, column: "lock_version" }
     }
   });
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
   await api.addResource("notes", createJsonRestResourceScopeOptions(resource));
   const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "notes" });
   const stored = (id) => knex("notes").where({ id }).first("title", "lock_version");

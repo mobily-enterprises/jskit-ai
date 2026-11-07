@@ -11,7 +11,7 @@ import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/
 import {
   createJsonRestContext,
   queryAllJsonRestCollectionRows
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { lockWorkspace } from "./workspacesRepository.js";
 
 function normalizeInviteRecord(payload) {
@@ -78,7 +78,7 @@ function normalizeInviteWithWorkspace(payload = {}) {
   };
 }
 
-/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
+/** @param {{ api: import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi }} dependencies */
 function createRepository({ api }) {
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 

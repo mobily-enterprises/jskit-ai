@@ -12,7 +12,7 @@ import {
   createJsonRestContext,
   extractJsonRestCollectionRows,
   queryAllJsonRestCollectionRows
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { normalizeIdentity } from "../support/identity.js";
 import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "../../../shared/resources/userProfileValues.js";
 
@@ -118,7 +118,7 @@ function buildDuplicateEmailConflictError(cause) {
 }
 
 /**
- * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} api
+ * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} api
  * @param {string} baseUsername
  * @param {{ excludeUserId?: unknown, transaction?: object | null }} [options]
  */
@@ -159,7 +159,7 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
 /**
  * The `users.profiles` capability: the users table's records.
  * @param {object} dependencies
- * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.api
+ * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} dependencies.api
  * @param {import("../../types.js").UserSettingsRepository} dependencies.userSettings The settings that
  *   createWithSettings writes beside a profile.
  */

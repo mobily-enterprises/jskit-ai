@@ -1,34 +1,5 @@
+import { createJsonRestContext } from "./contexts.js";
 import { isPlainJsonRestObject } from "./jsonRestValues.js";
-
-/**
- * The context one json-rest-api call works in: a copy of the caller's, with its
- * visibility context and scope values copied too, since json-rest-api writes an
- * operation's working state into the context it is given.
- * @param {object | null | undefined} [context]
- */
-function createJsonRestContext(context = null) {
-  if (!context || typeof context !== "object" || Array.isArray(context)) {
-    return {};
-  }
-
-  const nextContext = {
-    ...context
-  };
-
-  if (context.visibilityContext && typeof context.visibilityContext === "object" && !Array.isArray(context.visibilityContext)) {
-    nextContext.visibilityContext = {
-      ...context.visibilityContext
-    };
-  }
-
-  if (context.scopeValues && typeof context.scopeValues === "object" && !Array.isArray(context.scopeValues)) {
-    nextContext.scopeValues = {
-      ...context.scopeValues
-    };
-  }
-
-  return nextContext;
-}
 
 function extractJsonRestCollectionRows(payload) {
   if (!isPlainJsonRestObject(payload) || !Array.isArray(payload.data)) {
@@ -126,7 +97,6 @@ async function queryAllJsonRestCollectionDocument(resource, params, context) {
 }
 
 export {
-  createJsonRestContext,
   extractJsonRestCollectionRows,
   queryAllJsonRestCollectionDocument,
   queryAllJsonRestCollectionRows

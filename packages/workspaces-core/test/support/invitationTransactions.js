@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
-import { createJsonRestApiHost } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
 import { createWorkspaceRoleCatalog } from "../../src/shared/roles.js";
@@ -41,7 +41,7 @@ export async function verifyInvitationTransactions(t, db) {
       table.integer("draft_id").unsigned().notNullable().unique().references("id").inTable("test_invitation_drafts");
     });
   }
-  const api = await createJsonRestApiHost({ knex: db, logger: { error() {}, warn() {}, info() {}, debug() {} } });
+  const api = await createResourceHost({ knex: db, logger: { error() {}, warn() {}, info() {}, debug() {} } });
   const { profiles } = await UsersIdentityProvider.setup({
     authExtensions: createAuthExtensions(), extensions: createUsersExtensions(), jsonRestApi: api
   });
