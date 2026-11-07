@@ -58,7 +58,7 @@ async function recordCrudController(inspection, { module, file, record }) {
     return;
   }
   const factory = module.imports.get(node.callee.name);
-  if (factory?.source !== SOURCES.crudJsonApiFeature || factory.imported !== "defineCrudJsonApiFeature") {
+  if (factory?.source !== SOURCES.crudFeature || factory.imported !== "defineCrudFeature") {
     return;
   }
   if (record.ancestors.some(isFunctionNode)) {
@@ -69,7 +69,7 @@ async function recordCrudController(inspection, { module, file, record }) {
     warn(inspection, "CRUD_CONTROLLER_UNRESOLVED", "A CRUD controller declaration is dynamic.", file);
     return;
   }
-  const resource = await resolveCrudResource(inspection, module, objectProperty(config, "resource"));
+  const resource = await resolveCrudResource(inspection, module, objectProperty(config, "crud"));
   const surface = staticValue(objectProperty(config, "surface"), module.bindings);
   const routes = objectProperty(config, "routes");
   if (routes && staticValue(routes, module.bindings) === false) {

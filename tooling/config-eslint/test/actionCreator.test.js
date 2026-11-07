@@ -13,7 +13,7 @@ new RuleTester().run("jskit/action-creator", actionCreator, {
     `function createInvoiceActions({ invoices }) { return Object.freeze([${definition}]); }`,
     `const createInvoiceActions = ({ invoices }) => Object.freeze([${definition}]);`,
     `function createInvoiceActions() { return Object.freeze([Object.freeze({ id: "invoices.ping", execute: () => pong() })]); }`,
-    "defineCrudJsonApiFeature({ actions: { archive: { id: \"crud.invoices.archive\", execute: ({ input, service }) => service.archive(input) } } });",
+    "defineCrudFeature({ actions: { archive: { id: \"crud.invoices.archive\", execute: ({ input, service }) => service.archive(input) } } });",
     "const route = { id: \"invoices.read\", method: \"GET\" };"
   ],
   invalid: [

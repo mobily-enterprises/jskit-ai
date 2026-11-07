@@ -337,7 +337,7 @@ function requireContractConfig(config) {
 /**
  * The CRUD surface of a table resource: the HTTP namespace, who may call it,
  * which of list, view, create, replace, patch and delete it offers, and the
- * fields each one takes and returns. defineCrudJsonApiFeature serves it.
+ * fields each one takes and returns. defineCrudFeature serves it.
  * A field's entry in `fields` says, for each operation it takes part in,
  * "required", "optional", true or the keys merged over its definition; a field
  * without one takes the default (see buildCrudOperationSchemaFields).

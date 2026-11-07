@@ -12,15 +12,31 @@ const MIGRATION_TABLES = Object.freeze(["knex_migrations", "knex_migrations_lock
 /**
  * A resource runtime on the test's own Knex, for a package test that owns
  * tables without booting a server: `runtime.own(featureId, owns)` answers handles.
+ * With `createTables`, own() also creates each owned table from its resource's
+ * schema, for a SQLite test whose shipped migrations are written for another database.
  * @param {object} options
  * @param {import("knex").Knex} options.knex
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} [options.logger]
  * @param {number} [options.requestRowLimit]
  * @param {number} [options.serverPageSize]
+ * @param {boolean} [options.createTables]
  */
-async function createTestResourceRuntime({ knex, logger = silentLogger, requestRowLimit, serverPageSize }) {
+async function createTestResourceRuntime({ knex, logger = silentLogger, requestRowLimit, serverPageSize, createTables = false }) {
   const api = await createResourceHost({ knex, logger });
-  return createResourceRuntime({ api, requestRowLimit, serverPageSize });
+  const runtime = createResourceRuntime({ api, requestRowLimit, serverPageSize });
+  if (!createTables) {
+    return runtime;
+  }
+  return Object.freeze({
+    ...runtime,
+    async own(featureId, owns) {
+      const handles = await runtime.own(featureId, owns);
+      for (const name of Object.keys(handles)) {
+        await api.resources[name].createKnexTable();
+      }
+      return handles;
+    }
+  });
 }
 
 /**

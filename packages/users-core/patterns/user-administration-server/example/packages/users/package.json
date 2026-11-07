@@ -22,9 +22,7 @@
       ],
       "requires": [
         "runtime.http",
-        "runtime.json-rest-api",
         "runtime.actions",
-        "runtime.database",
         "users.profiles"
       ]
     },

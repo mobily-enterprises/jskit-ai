@@ -85,12 +85,13 @@ That page shows the service and feature wiring pattern.
 ## Grant authorization
 
 The application must supply capability `rewarded.grant-policy` with an
-`authorizeGrant({ session, context, trx })` function. Missing policy fails at setup;
+`authorizeGrant({ session, context, options })` function. Missing policy fails at setup;
 only the literal result `true` permits a grant. False, absent or other results
 reject it before any watch-session update or receipt creation.
 
 The workflow loads the session through its owned repository, then passes that
-stored session, the server request context and the current transaction to policy.
+stored session, the server request context and the grant's call options (inside its
+transaction) to policy; pass `options` on to any read the decision makes.
 It never accepts a client approval flag or replacement gate identity. The policy
 runs for repeated grant requests too. Keep policy local and bounded within the
 transaction; use the application's trusted eligibility or verification records.

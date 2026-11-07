@@ -75,7 +75,7 @@ function normalizeCustomActionRoutes(actions, namespace) {
 }
 
 /**
- * Registers the routes of one CRUD feature, from the options defineCrudJsonApiFeature resolved.
+ * Registers the routes of one CRUD feature, from the options defineCrudFeature resolved.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
  * @param {object} options
  * @param {string} options.namespace
