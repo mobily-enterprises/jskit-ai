@@ -304,7 +304,7 @@ function createTx(state, touched) {
       async consume(tokenId) {
         const record = state.recovery.find((entry) => entry.id === tokenId);
         if (!record || record.usedAt) {
-          return clone(record || null);
+          return null;
         }
         record.usedAt = nowIso();
         mark("recovery");

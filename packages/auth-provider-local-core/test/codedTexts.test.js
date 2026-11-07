@@ -51,6 +51,9 @@ test("local auth errors carry codes whose English is the thrown message", async 
     (error) => assertCoded(error, "auth.recovery.tokenRequired"));
   await assert.rejects(() => service.completePasswordRecovery({ token: "unknown" }),
     (error) => assertCoded(error, "auth.local.recovery.tokenInvalid"));
+  // A stored token hash is not the token: it never completes a recovery.
+  await assert.rejects(() => service.completePasswordRecovery({ tokenHash: "stored-hash" }),
+    (error) => assertCoded(error, "auth.recovery.tokenRequired"));
   await assert.rejects(() => service.updateDisplayName({ cookies: {} }, { displayName: "Ada" }),
     (error) => assertCoded(error, "auth.session.required"));
 
