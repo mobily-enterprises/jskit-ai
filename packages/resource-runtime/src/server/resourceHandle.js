@@ -4,8 +4,20 @@ import { isLostDuplicateInsertRace, retryDeadlocks } from "@jskit-ai/database-ru
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
-import { requireDefinedFilters, requireOwners, valueOnly, whereSelection } from "./handleGuards.js";
-import { handleRecords, handleResult, idOf, inputData, readQueryParams, textList } from "./handleRecords.js";
+import { missingOf, requireDefinedFilters, requireOwners, requireReadParams, valueOnly, whereSelection } from "./handleGuards.js";
+import {
+  MANY_RETURNING,
+  SINGLE_RETURNING,
+  handleRecords,
+  handleResult,
+  idOf,
+  inputData,
+  manyResult,
+  matchesOnlyIf,
+  pickReturning,
+  readQueryParams,
+  textList
+} from "./handleRecords.js";
 import {
   returnBadRequestWhenJsonRestFieldsetInvalid,
   returnNullWhenJsonRestResourceMissing
@@ -16,25 +28,6 @@ import {
 // grow with the rows.
 const MANY_ROW_CHANNEL = "jskit:resources:many-row";
 const DEFAULT_CHUNK_SIZE = 500;
-
-// A single write's `returning`, as json-rest-api names it.
-const SINGLE_RETURNING = Object.freeze({ record: "full", id: "minimal", none: "none" });
-// A many-row write's `returning`, as json-rest-api names it.
-const MANY_RETURNING = Object.freeze({ none: "none", ids: "minimal", records: "full" });
-
-/**
- * @param {Record<string, string>} modes
- * @param {unknown} value
- * @param {string} fallback
- * @param {string} label
- */
-function pickReturning(modes, value, fallback, label) {
-  const key = value === undefined ? fallback : value;
-  if (typeof key !== "string" || !Object.hasOwn(modes, key)) {
-    throw new TypeError(`${label} returning must be one of ${Object.keys(modes).join(", ")}. Received: ${JSON.stringify(value)}`);
-  }
-  return key;
-}
 
 /**
  * Reports one many-row call while a flat-query test listens: its rows and chunk
@@ -57,9 +50,10 @@ function reportManyRow(resource, operation, rows, chunkSize) {
   }
 }
 
-// Opens a transaction for work. json-rest-api reports a failure of the work as a RestApiWriteError whose cause is
-// the work's error; with asThrown the work's own error reaches the caller as the work threw it.
-async function openTransaction(api, options, work, asThrown) {
+// Opens a transaction for work. When work throws, json-rest-api rolls the transaction back and the caller gets the
+// error work threw. A failed write inside work (an error that reports a transactionOutcome, which said "pending")
+// arrives as json-rest-api's RestApiWriteError, which reports the outcome after the rollback, as a failed commit does.
+async function openTransaction(api, options, work) {
   let own = null;
   try {
     return await api.transaction(async (trx) => {
@@ -71,17 +65,8 @@ async function openTransaction(api, options, work, asThrown) {
       }
     });
   } catch (error) {
-    throw asThrown && own && error?.cause === own.error ? own.error : error;
+    throw own && error?.cause === own.error && own.error?.transactionOutcome === undefined ? own.error : error;
   }
-}
-
-// The answer of a many-row write: nothing, the ids, or the records.
-function manyResult(resource, result, returning) {
-  if (returning === "none") {
-    return undefined;
-  }
-  const rows = result?.data || [];
-  return returning === "ids" ? rows.map((row) => String(row.id)) : handleRecords(resource, rows);
 }
 
 /**
@@ -91,10 +76,11 @@ function manyResult(resource, result, returning) {
  * transaction as any failed write does.
  * @param {{ get: Function, create: Function }} handle
  * @param {{ id: unknown } & Record<string, unknown>} attributes
- * @param {{ context?: object | null, trx?: object | null }} [options]
+ * @param {{ context?: object | null, trx?: object | null }} options
  */
 async function findOrCreateRecord({ get, create }, attributes, options) {
-  const existing = await get(attributes.id, {}, options);
+  const lookup = { ...options, missing: "skip" };
+  const existing = await get(attributes.id, {}, lookup);
   if (existing) {
     return existing;
   }
@@ -104,17 +90,11 @@ async function findOrCreateRecord({ get, create }, attributes, options) {
     if (!isLostDuplicateInsertRace(error, options)) {
       throw error;
     }
-    return get(attributes.id, {}, options);
+    return get(attributes.id, {}, lookup);
   }
 }
 
-/**
- * Whether the call runs inside a transaction (`options.trx` is set). It never
- * hands out the transaction. It is the one reader for protocol guards: work
- * that must run inside the caller's transaction, or must open its own.
- * @param {{ trx?: object | null }} options
- * @returns {boolean}
- */
+// Whether the call runs inside a transaction (`options.trx` is set): the handle's own reader, never handed out.
 function inTransaction(options) {
   return Boolean(options.trx);
 }
@@ -168,24 +148,32 @@ function createResourceHandle({ api, resource, hooks, settings }) {
 
   /**
    * Runs work in the caller's transaction (`options.trx`), or in one it opens,
-   * commits and, on a deadlock or lock timeout, runs again whole. `work`
-   * receives the frozen options it must pass to every call inside. `retry:
-   * false` runs work once, for work that cannot be repeated (it calls a
-   * provider). A failure of work in a transaction it opened reaches the caller
-   * as json-rest-api's RestApiWriteError, with the work's error as its cause and
-   * the transaction's outcome; `asThrown: true` rethrows the work's own error as
-   * it threw it, for callers that compare or classify it.
+   * commits and, when the database aborts it as a deadlock victim, runs again
+   * whole (a lock timeout is not retried). `work` receives the frozen options
+   * it must pass to every call inside. When work throws, the caller gets work's
+   * own error; a failed write inside it, or a failed commit, arrives as
+   * json-rest-api's RestApiWriteError with the transaction's outcome.
+   * Settings ride in options: `{ ...options, retry: false }` runs work once, for
+   * work that cannot be repeated (it calls a provider); `{ ...options,
+   * outermost: true }` refuses a call inside a transaction, for work that must
+   * commit before the caller goes on (mail sent after it, say).
    * @template T
-   * @param {{ trx?: object | null, context?: object | null }} options
+   * @param {{ trx?: object | null, context?: object | null, retry?: boolean, outermost?: boolean }} options
    * @param {(txOptions: Readonly<Record<string, any>>) => Promise<T> | T} work
-   * @param {{ retry?: boolean, asThrown?: boolean }} [settingsForCall]
    * @returns {Promise<T>}
    */
-  async function withTransaction(options, work, { retry = true, asThrown = false } = {}) {
-    if (inTransaction(options)) {
-      return work(options);
+  async function withTransaction(options, work, ...rest) {
+    if (rest.length > 0) {
+      throw new TypeError(`${name}.withTransaction() takes (options, work); settings ride in options: withTransaction({ ...options, retry: false }, work).`);
     }
-    const run = () => openTransaction(api, options, work, asThrown);
+    const { retry = true, outermost = false, ...callOptions } = options;
+    if (inTransaction(callOptions)) {
+      if (outermost) {
+        throw new TypeError(`${name}.withTransaction() outermost work commits before it answers, so it cannot run inside the caller's transaction.`);
+      }
+      return work(callOptions);
+    }
+    const run = () => openTransaction(api, callOptions, work);
     return retry ? retryDeadlocks(run) : run();
   }
 
@@ -282,14 +270,16 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   }
 
   /**
-   * One record, or null when it is missing or hidden from the caller.
+   * One record. A missing or hidden one throws json-rest-api's not-found error
+   * (404 at the HTTP edge), or answers null with `missing: "skip"`.
    * @param {unknown} id
    * @param {{ include?: string | string[], fields?: string[] | object }} [params]
-   * @param {{ context?: object | null, trx?: object | null, format?: "jsonapi" }} [options]
+   * @param {{ context?: object | null, trx?: object | null, format?: "jsonapi", missing?: "throw" | "skip" }} [options]
    */
   async function get(id, params = {}, options = {}) {
+    requireReadParams(name, params);
     const format = formatOf(options);
-    const result = await returnBadRequestWhenJsonRestFieldsetInvalid(() => returnNullWhenJsonRestResourceMissing(() => jsonRest().get(
+    const read = () => returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().get(
       {
         id,
         queryParams: readQueryParams(name, params, { page: false, caller: "get" }),
@@ -297,7 +287,8 @@ function createResourceHandle({ api, resource, hooks, settings }) {
         format
       },
       contextOf(options)
-    )));
+    ));
+    const result = missingOf(name, "get", options.missing) === "skip" ? await returnNullWhenJsonRestResourceMissing(read) : await read();
     return result === null ? null : handleResult(resource, result, format, params.include);
   }
 
@@ -360,16 +351,21 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     return findOrCreateRecord({ get, create }, attributes, options);
   }
 
-  // An empty patch reads the record instead, unless it moves the lock version on: a lockVersion patch always writes.
+  // What patch() answers for the row it wrote or read: the record (default), its id, or nothing.
+  function patchAnswer(id, record, returning) {
+    if (returning === "none") {
+      return undefined;
+    }
+    return returning === "id" ? id : record;
+  }
+
+  // One row's UPDATE, where a missing or hidden row throws. An empty patch reads the record instead, unless it moves
+  // the lock version on: a lockVersion patch always writes.
   async function patchRecord(id, attributes, options, returning, { advance = false } = {}) {
     if (Object.keys(attributes).length < 1 && !advance) {
-      const current = await get(id, {}, options);
-      if (!current || returning === "record") {
-        return current;
-      }
-      return returning === "id" ? id : undefined;
+      return patchAnswer(id, await get(id, {}, options), returning);
     }
-    const result = await returnNullWhenJsonRestResourceMissing(() => hooked("patch", options, (callOptions) => jsonRest().patch(
+    const result = await hooked("patch", options, (callOptions) => jsonRest().patch(
       {
         id,
         data: inputData(resource, attributes),
@@ -378,37 +374,56 @@ function createResourceHandle({ api, resource, hooks, settings }) {
         format: formatOf(callOptions)
       },
       contextOf(callOptions)
-    ), () => [String(id)]));
-    if (result === null) {
-      return null;
+    ), () => [String(id)]);
+    return patchAnswer(id, returning === "record" ? handleResult(resource, result, formatOf(options)) : undefined, returning);
+  }
+
+  // patch() with missing: "skip": one UPDATE that carries the scope (and onlyIf), so a missing, hidden or changed row
+  // is left alone, answers null and fails no transaction.
+  async function patchIfPresent(id, attributes, options, returning, onlyIf) {
+    if (formatOf(options) === "jsonapi") {
+      throw new TypeError(`${name}.patch() with missing: "skip" answers records, not JSON:API documents.`);
     }
-    if (returning === "none") {
-      return undefined;
+    if (Object.keys(attributes).length < 1) {
+      const current = await get(id, {}, { ...options, missing: "skip" });
+      return current && (onlyIf === undefined || matchesOnlyIf(current, onlyIf)) ? patchAnswer(id, current, returning) : null;
     }
-    return returning === "id" ? id : handleResult(resource, result, formatOf(options));
+    const full = returning === "record";
+    const result = await hooked("patch", options, (callOptions) => jsonRest().patchMany(
+      {
+        data: [{ id, ...inputData(resource, attributes) }],
+        missing: "skip",
+        ...(onlyIf === undefined ? {} : { onlyIf }),
+        returning: full ? "full" : "minimal",
+        transaction: callOptions.trx || undefined,
+        ...(full ? { format: "plain" } : {})
+      },
+      contextOf(callOptions)
+    ), (written) => manyResult(resource, written, "ids"));
+    const [row] = manyResult(resource, result, full ? "records" : "ids");
+    return row === undefined ? null : patchAnswer(id, row, returning);
   }
 
   /**
-   * Patches one record; null when it is missing or hidden (inside the caller's
-   * transaction a missing record throws instead, since the failed write fails
-   * that transaction). `lockVersion` patches
-   * only while the record's lockVersionField still holds it (StaleRecordError,
-   * 409, otherwise); `onlyIf: { field: value }` patches only while the stored
-   * values still equal these, and answers null otherwise. Both lock the row in
-   * the transaction first. The lock version advances on every update.
+   * Patches one record and answers it (`returning`: "record", "id" or "none").
+   * A missing or hidden record throws json-rest-api's not-found error (404 at
+   * the HTTP edge); with `missing: "skip"` it answers null, in one UPDATE that
+   * fails no transaction. `lockVersion` patches only while the record's
+   * lockVersionField still holds it (StaleRecordError, 409, otherwise), locking
+   * the row first; the lock version advances on every update. `onlyIf: { field:
+   * value }` patches only while the stored values still equal these, and
+   * answers null otherwise.
    * @param {unknown} id
    * @param {Record<string, unknown>} attributes
-   * @param {{ context?: object | null, trx?: object | null, returning?: "record" | "id" | "none", lockVersion?: number, onlyIf?: Record<string, unknown>, format?: "jsonapi" }} [options]
+   * @param {{ context?: object | null, trx?: object | null, returning?: "record" | "id" | "none", lockVersion?: number, onlyIf?: Record<string, unknown>, missing?: "throw" | "skip", format?: "jsonapi" }} [options]
    */
   async function patch(id, attributes, options = {}) {
     if (!isRecord(attributes)) {
       throw new TypeError(`${name}.patch() takes attributes as an object.`);
     }
-    const { lockVersion, onlyIf, ...callOptions } = options;
+    const { lockVersion, onlyIf, missing: missingOption, ...callOptions } = options;
+    const missing = missingOf(name, "patch", missingOption);
     const returning = pickReturning(SINGLE_RETURNING, callOptions.returning, "record", `${name}.patch()`);
-    if (lockVersion === undefined && onlyIf === undefined) {
-      return patchRecord(id, attributes, callOptions, returning);
-    }
     if (lockVersion !== undefined) {
       if (!lockVersionField) {
         throw new TypeError(`${name}.patch() lockVersion needs the resource to name its lockVersionField.`);
@@ -423,15 +438,22 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     if (onlyIf !== undefined && !isRecord(onlyIf)) {
       throw new TypeError(`${name}.patch() onlyIf must be an object of field values.`);
     }
+    if (lockVersion === undefined && missing === "skip") {
+      return patchIfPresent(id, attributes, callOptions, returning, onlyIf);
+    }
+    if (lockVersion === undefined && onlyIf === undefined) {
+      return patchRecord(id, attributes, callOptions, returning);
+    }
+    // A missing row throws, so telling it from a changed one (onlyIf) takes the row's lock first.
     return withTransaction(callOptions, async (txOptions) => {
-      const [current] = await lockMany([id], { ...txOptions, missing: "skip" });
+      const [current] = await lockMany([id], { ...txOptions, missing });
       if (!current) {
         return null;
       }
       if (lockVersion !== undefined && Number(current[lockVersionField]) !== lockVersion) {
         throw new StaleRecordError();
       }
-      if (onlyIf !== undefined && Object.entries(onlyIf).some(([field, value]) => (current[field] ?? null) !== value)) {
+      if (onlyIf !== undefined && !matchesOnlyIf(current, onlyIf)) {
         return null;
       }
       return patchRecord(id, attributes, txOptions, returning, { advance: lockVersion !== undefined });
@@ -439,24 +461,31 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   }
 
   /**
-   * Deletes one record. Answers null, also when it is missing or hidden (inside
-   * the caller's transaction a missing record throws, as for patch).
+   * Deletes one record and answers its id. A missing or hidden record throws
+   * json-rest-api's not-found error; with `missing: "skip"` it answers null, in
+   * one DELETE that fails no transaction.
    * @param {unknown} id
-   * @param {{ context?: object | null, trx?: object | null }} [options]
+   * @param {{ context?: object | null, trx?: object | null, missing?: "throw" | "skip" }} [options]
    */
   async function deleteRecord(id, options = {}) {
-    return returnNullWhenJsonRestResourceMissing(async () => {
-      await hooked("delete", options, (callOptions) => jsonRest().delete(
-        {
-          id,
-          returning: "none",
-          transaction: callOptions.trx || undefined,
-          format: formatOf(callOptions)
-        },
-        contextOf(callOptions)
-      ), () => [String(id)]);
-      return null;
-    });
+    const { missing: missingOption, ...callOptions } = options;
+    if (missingOf(name, "delete", missingOption) === "skip") {
+      const deleted = await hooked("delete", callOptions, (txOptions) => jsonRest().deleteMany(
+        { ids: [id], missing: "skip", returning: "minimal", transaction: txOptions.trx || undefined },
+        contextOf(txOptions)
+      ), (result) => manyResult(resource, result, "ids"));
+      return manyResult(resource, deleted, "ids").length > 0 ? id : null;
+    }
+    await hooked("delete", callOptions, (txOptions) => jsonRest().delete(
+      {
+        id,
+        returning: "none",
+        transaction: txOptions.trx || undefined,
+        format: formatOf(txOptions)
+      },
+      contextOf(txOptions)
+    ), () => [String(id)]);
+    return id;
   }
 
   function manyRowWrite(operation, rows, options, request) {
@@ -519,25 +548,6 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   }
 
   /**
-   * The same changes to every listed record, as patchMany.
-   * @param {unknown[]} ids
-   * @param {Record<string, unknown>} attributes
-   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records", onlyIf?: object, missing?: "throw" | "skip", chunkSize?: number }} [options]
-   */
-  async function patchWhereIds(ids, attributes, options = {}) {
-    return manyRowWrite("patchWhereIds", ids.length, options, (params, context) => jsonRest().patchWhereIds(
-      {
-        ...params,
-        ids,
-        data: inputData(resource, attributes),
-        ...(options.onlyIf ? { onlyIf: options.onlyIf } : {}),
-        ...(options.missing ? { missing: options.missing } : {})
-      },
-      context
-    ));
-  }
-
-  /**
    * The same changes to every record the filters select (the caller's own rows only).
    * Empty filters change every row the caller owns, so they need `all: true`.
    * @param {object} filters
@@ -548,21 +558,6 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     const selection = whereSelection(name, "patchWhere", filters, options);
     return manyRowWrite("patchWhere", 0, options, (params, context) => jsonRest().patchWhere(
       { ...params, ...selection, data: inputData(resource, attributes), ...(options.onlyIf ? { onlyIf: options.onlyIf } : {}) },
-      context
-    ));
-  }
-
-  /**
-   * Deletes the listed records, one DELETE per chunk. `returning`: "none" or "ids".
-   * @param {unknown[]} ids
-   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids", missing?: "throw" | "skip", chunkSize?: number }} [options]
-   */
-  async function deleteMany(ids, options = {}) {
-    if (options.returning === "records") {
-      throw new TypeError(`${name}.deleteMany() returning is "none" or "ids".`);
-    }
-    return manyRowWrite("deleteMany", ids.length, options, ({ format: _format, ...params }, context) => jsonRest().deleteMany(
-      { ...params, ids, ...(options.missing ? { missing: options.missing } : {}) },
       context
     ));
   }
@@ -586,13 +581,15 @@ function createResourceHandle({ api, resource, hooks, settings }) {
 
   /**
    * Locks the record's row until the transaction ends and answers it as the
-   * lock saw it. Needs options.trx; a hidden or missing id throws.
+   * lock saw it. Needs options.trx. A missing or hidden record throws
+   * json-rest-api's not-found error, or answers null with `missing: "skip"`.
    * @param {unknown} id
-   * @param {{ context?: object | null, trx: object }} options
+   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip" }} options
    */
   async function lock(id, options) {
+    missingOf(name, "lock", options.missing);
     const [record] = await lockMany([id], options);
-    return record;
+    return record ?? null;
   }
 
   /**
@@ -625,18 +622,20 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   }
 
   /**
-   * Takes up to `limit` (default 1) of the rows the filters select that no
+   * Takes up to `take` (default 1) of the rows the filters select that no
    * other transaction holds, in `sort` order, locked until the transaction ends.
-   * @param {object} filters
-   * @param {{ limit?: number, sort?: string[] }} take
+   * @param {{ filters: object, sort?: string | string[], take?: number }} params
    * @param {{ context?: object | null, trx: object }} options
    */
-  async function claim(filters, { limit, sort } = {}, options) {
+  async function claim({ filters, sort, take } = {}, options, ...rest) {
+    if (rest.length > 0) {
+      throw new TypeError(`${name}.claim() takes ({ filters, sort, take }, options).`);
+    }
     requireDefinedFilters(name, "claim", filters);
     const { data } = await jsonRest().claim(
       {
         filters,
-        ...(limit === undefined ? {} : { limit }),
+        ...(take === undefined ? {} : { limit: take }),
         ...(sort === undefined ? {} : { sort: textList(sort) }),
         transaction: options.trx,
         format: "plain"
@@ -687,26 +686,10 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     return valueOnly(name, api.knex.instance.raw(sql, bindings || []));
   }
 
-  /**
-   * Full storage rows (from a scoped query's select of every column) as records:
-   * each column renamed to its field.
-   * @param {Array<Record<string, unknown>>} rows
-   */
-  function toRecords(rows) {
-    const fieldByColumn = new Map([["id", "id"], [column("id", ""), "id"]]);
-    for (const field of Object.keys(resource.schema)) {
-      if (field !== "id") {
-        fieldByColumn.set(column(field, ""), field);
-      }
-    }
-    return rows.map((row) => Object.fromEntries(Object.entries(row).map(([key, value]) => [fieldByColumn.get(key) || key, value])));
-  }
-
   return Object.freeze({
     name,
     pageLimits,
     withTransaction,
-    inTransaction,
     query,
     queryAll,
     get,
@@ -717,9 +700,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     delete: deleteRecord,
     createMany,
     patchMany,
-    patchWhereIds,
     patchWhere,
-    deleteMany,
     deleteWhere,
     lock,
     lockMany,
@@ -727,8 +708,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     claim,
     scopedQuery,
     column,
-    raw,
-    toRecords
+    raw
   });
 }
 
