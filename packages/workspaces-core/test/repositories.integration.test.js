@@ -327,6 +327,13 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal((await knex("workspaces").where({ id: workspace.id }).first()).name, "Renamed");
     await memberships.upsertMembership(workspace.id, member.id, { status: "inactive" });
     assert.deepEqual(await workspaces.listForUserId(member.id), []);
+    // The member is gone from the active list and still in the list of every status, with theirs.
+    assert.deepEqual((await memberships.listActiveByWorkspaceId(workspace.id)).map(({ displayName }) => displayName), ["Ada"]);
+    assert.deepEqual((await memberships.listByWorkspaceId(workspace.id)).map(({ displayName, status }) => ({ displayName, status })), [
+      { displayName: "Ada", status: "active" },
+      { displayName: "Grace", status: "inactive" }
+    ]);
+    assert.deepEqual(await memberships.listByWorkspaceId(null), []);
   });
 
   const createMembers = () => createMembersService({
