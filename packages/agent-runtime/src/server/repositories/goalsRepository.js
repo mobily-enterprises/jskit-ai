@@ -14,7 +14,7 @@ export function createGoalsRepository({ goals, options }) {
   const now = () => goals.raw("now()");
   const inSeconds = (seconds) => goals.raw("now() + make_interval(secs => ?)", [seconds]);
   const change = async (id, changes, more = {}) => {
-    await goals.patchWhereIds([id], changes, { ...options, missing: "skip", ...more });
+    await goals.patch(id, changes, { ...options, missing: "skip", returning: "none", ...more });
   };
   const first = async (filters) => firstRow(AGENT_ROWS.goals, await goals.query({ filters, page: { size: 1 } }, options));
 
@@ -52,12 +52,11 @@ export function createGoalsRepository({ goals, options }) {
   /** The goal's row once it is leased to this server for a round, or null when no round is due. */
   function claimDue(leaseSeconds) {
     return goals.withTransaction(options, async (txOptions) => {
-      const [due] = await goals.claim({ status: "active", roundDue: true }, { sort: ["round_at"] }, txOptions);
+      const [due] = await goals.claim({ filters: { status: "active", roundDue: true }, sort: ["round_at"] }, txOptions);
       if (!due) {
         return null;
       }
-      const [leased] = await goals.patchWhereIds([due.id], { lease_until: inSeconds(leaseSeconds) }, { ...txOptions, returning: "records" });
-      return rowOf(AGENT_ROWS.goals, leased);
+      return rowOf(AGENT_ROWS.goals, await goals.patch(due.id, { lease_until: inSeconds(leaseSeconds) }, { ...txOptions, missing: "skip" }));
     });
   }
 
@@ -77,8 +76,8 @@ export function createGoalsRepository({ goals, options }) {
 
   /** The goal's row once its round has started (one more round, none queued), or undefined when it is gone. */
   async function startRound(id, rounds) {
-    const [current] = await goals.patchWhereIds([id], { rounds, round_at: null, updated_at: now() }, { ...options, missing: "skip", returning: "records" });
-    return rowOf(AGENT_ROWS.goals, current);
+    const current = await goals.patch(id, { rounds, round_at: null, updated_at: now() }, { ...options, missing: "skip" });
+    return rowOf(AGENT_ROWS.goals, current ?? undefined);
   }
 
   function finishRound(id) {
