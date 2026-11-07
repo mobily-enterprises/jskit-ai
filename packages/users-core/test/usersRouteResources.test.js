@@ -5,8 +5,8 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
-import { userProfileContract } from "../src/shared/resources/userProfileResource.js";
-import { userSettingsContract } from "../src/shared/resources/userSettingsResource.js";
+import { userProfileContract, userProfileCrud } from "../src/shared/resources/userProfileResource.js";
+import { userSettingsContract, userSettingsCrud } from "../src/shared/resources/userSettingsResource.js";
 
 function assertContractShape(contract, label) {
   assert.ok(contract, `${label} contract must exist.`);
@@ -63,6 +63,42 @@ test("account API contracts expose canonical validators for the operations they 
     "oauthUnlink",
     "logoutOtherSessions"
   ]);
+});
+
+test("account CRUD contracts keep their create, replace and patch bodies and their outputs", () => {
+  const contractsByLabel = {
+    userProfile: userProfileCrud,
+    userSettings: userSettingsCrud
+  };
+
+  for (const [label, contract] of Object.entries(contractsByLabel)) {
+    assertContractShape(contract, label);
+    assert.deepEqual(Object.keys(contract.operations), ["view", "list", "create", "replace", "patch"]);
+    assert.equal(contract.operations.view.method, "GET");
+    assert.equal(contract.operations.list.method, "GET");
+    assert.equal(contract.operations.create.method, "POST");
+    assert.equal(contract.operations.replace.method, "PUT");
+    assert.equal(contract.operations.patch.method, "PATCH");
+    assert.equal(contract.operations.create.body.mode, "create");
+    assert.equal(contract.operations.replace.body.mode, "replace");
+    assert.equal(contract.operations.patch.body.mode, "patch");
+    assert.deepEqual(contract.operations.list.realtime.events, [`${label.toLowerCase()}.record.changed`]);
+  }
+  assert.deepEqual(Object.keys(userProfileCrud.operations.patch.body.schema.getFieldDefinitions()), ["displayName"]);
+  assert.deepEqual(Object.keys(userSettingsCrud.operations.patch.body.schema.getFieldDefinitions()), [
+    "theme",
+    "locale",
+    "timeZone",
+    "dateFormat",
+    "numberFormat",
+    "currencyCode",
+    "avatarSize",
+    "productUpdates",
+    "accountActivity",
+    "securityAlerts"
+  ]);
+  assert.equal(userSettingsCrud.operations.view.output.schema, userSettingsContract.operations.view.output.schema);
+  assert.equal(userProfileCrud.operations.patch.body.schema, userProfileContract.operations.patch.body.schema);
 });
 
 test("specialized settings and invite operations expose canonical validators", () => {
