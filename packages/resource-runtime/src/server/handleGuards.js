@@ -89,6 +89,9 @@ function whereSelection(name, operation, filters, options) {
   if (!isRecord(filters)) {
     throw new TypeError(`${name}.${operation}() takes filters as an object.`);
   }
+  if (options.missing !== undefined) {
+    throw new TypeError(`${name}.${operation}() changes the rows the filters select when it runs, so it takes no missing.`);
+  }
   requireDefinedFilters(name, operation, filters);
   if (Object.keys(filters).length > 0) {
     if (options.all !== undefined) {
@@ -100,6 +103,25 @@ function whereSelection(name, operation, filters, options) {
     throw new TypeError(`${name}.${operation}() with empty filters changes every row the caller owns; pass all: true to mean it.`);
   }
   return { all: true };
+}
+
+/**
+ * An upsert matches rows by its conflict keys alone, so its rows carry no id, which could name another owner's
+ * record, unless the id is the one key: json-rest-api allows that only on a table with no owners and no row policy.
+ * @param {string} name
+ * @param {unknown[]} rows
+ * @param {{ keys?: unknown }} onConflict
+ * @param {string | undefined} idProperty
+ */
+function requireUpsertRows(name, rows, onConflict, idProperty) {
+  const keys = Array.isArray(onConflict.keys) ? onConflict.keys : [];
+  const byId = keys.length === 1 && (keys[0] === "id" || keys[0] === idProperty);
+  if (!byId && rows.some((row) => isRecord(row) && Object.hasOwn(row, "id"))) {
+    throw new TypeError(
+      `${name}.createMany() with onConflict takes rows without an id; the conflict keys find the existing rows. ` +
+        "Only onConflict: { keys: [\"id\"] }, on a table with no owners, matches rows by their id."
+    );
+  }
 }
 
 // The keys of a call's options, which get() takes third, after its params.
@@ -131,4 +153,4 @@ function requireReadParams(name, params) {
   }
 }
 
-export { missingOf, requireDefinedFilters, requireOwners, requireReadParams, valueOnly, whereSelection };
+export { missingOf, requireDefinedFilters, requireOwners, requireReadParams, requireUpsertRows, valueOnly, whereSelection };

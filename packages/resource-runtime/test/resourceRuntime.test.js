@@ -207,7 +207,7 @@ test("forWorkspaceUser() reaches one user's rows in one workspace, of a workspac
   assert.throws(() => system.forWorkspaceUser("1", null), /forWorkspaceUser needs the id of the user/u);
 });
 
-test("many-row writes run per chunk in the caller's workspace, and answer nothing, ids or records", async (t) => {
+test("many-row writes run per chunk in the caller's workspace, and answer nothing, ids, records or a count", async (t) => {
   const { notes, knex } = await createFixture(t);
   const ids = await notes.createMany([{ title: "a" }, { title: "b" }, { title: "c" }], { context: WORKSPACE_A, returning: "ids" });
   assert.equal(ids.length, 3);
@@ -234,8 +234,48 @@ test("many-row writes run per chunk in the caller's workspace, and answer nothin
   await notes.patchWhere({}, { status: "done" }, { context: WORKSPACE_A, all: true });
   assert.equal((await knex("notes").where({ id: other.id }).first()).status, "open");
   assert.deepEqual(await notes.deleteWhere({ id: ids[2] }, { context: WORKSPACE_A, returning: "ids" }), [String(ids[2])]);
-  await notes.deleteWhere({ status: "done" }, { context: WORKSPACE_A });
+  // A selection write changes the rows its filters select as it runs, so it takes no missing; a count reads nothing back.
+  await assert.rejects(notes.patchWhere({ status: "done" }, { title: "x" }, { context: WORKSPACE_A, missing: "skip" }), /takes no missing/u);
+  await assert.rejects(notes.deleteWhere({ status: "done" }, { context: WORKSPACE_A, missing: "throw" }), /takes no missing/u);
+  assert.equal(await notes.patchWhere({ status: "done" }, { title: "counted" }, { context: WORKSPACE_A, returning: "count" }), 2);
+  assert.equal(await notes.patchWhere({ status: "gone" }, { title: "none" }, { context: WORKSPACE_A, returning: "count" }), 0);
+  assert.equal(await notes.deleteWhere({ status: "done" }, { context: WORKSPACE_A, returning: "count" }), 2);
   assert.deepEqual(await knex("notes").pluck("title"), ["other"]);
+});
+
+test("an upsert on a table with no owners may key on the id alone; an owned table's may not", async (t) => {
+  const settings = defineTableResource({
+    name: "settings",
+    tableName: "settings",
+    ownership: "public",
+    schema: { id: { type: "string", primary: true }, value: { type: "string", nullable: true }, note: { type: "string", nullable: true } }
+  });
+  const { knex, resources, notes, systemContext } = await createFixture(t, {
+    owns: [noteResource(), { normalizeId: normalizeOpaqueId, resource: settings }]
+  });
+  await knex.schema.createTable("settings", (table) => {
+    table.string("id").primary();
+    table.string("value");
+    table.string("note");
+  });
+  const system = { context: systemContext };
+  await resources.settings.createMany([{ id: "theme", value: "dark", note: "kept" }], system);
+  // Merge replaces the fields each row gives and keeps the rest; a new id is created.
+  await resources.settings.createMany([{ id: "theme", value: "light" }, { id: "lang", value: "en" }], {
+    ...system,
+    onConflict: { keys: ["id"], action: "merge" }
+  });
+  assert.deepEqual(await knex("settings").orderBy("id").select("id", "value", "note"), [
+    { id: "lang", value: "en", note: null },
+    { id: "theme", value: "light", note: "kept" }
+  ]);
+  await assert.rejects(
+    resources.settings.createMany([{ id: "theme", value: "x" }], { ...system, onConflict: { keys: ["id", "value"], action: "merge" } }),
+    /onConflict takes rows without an id/u
+  );
+  // On a workspace table the conflict keys must hold the owner, so json-rest-api refuses the id alone.
+  await assert.rejects(notes.createMany([{ id: 1, title: "a" }], { context: WORKSPACE_A, onConflict: { keys: ["id"], action: "merge" } }));
+  assert.equal((await knex("notes").count({ count: "*" }).first()).count, 0);
 });
 
 test("an upsert finds rows by its conflict keys alone, never by an id, and stays in the caller's workspace", async (t) => {
