@@ -15,7 +15,9 @@ import {
   blankCssComments,
   blankHtmlComments,
   blankJsComments,
+  exclusiveBranches,
   lineIndex,
+  readConditionalBranches,
   readDeclarations,
   readExceptions,
   readInlineDeclarations,
@@ -215,7 +217,9 @@ function checkTemplate(template, context) {
   for (const match of template.text.matchAll(MDI_STRING)) {
     report("m3/mdi-icon", template.offset + match.index, `MDI icon "${match[0]}". Use a Material Symbols alias such as "$add" from the app's Vuetify icon aliases.`);
   }
-  let headings = 0;
+  // The branches each h1 renders under: h1s on different branches of one v-if chain never show together.
+  const branches = readConditionalBranches(template);
+  const headings = [];
   for (const tag of tags) {
     for (const entry of tag.attributes) {
       checkAttribute(tag, entry, context);
@@ -224,9 +228,10 @@ function checkTemplate(template, context) {
     if (tag.name === "v-btn") checkButtonSize(tag, report);
     checkBackControl(tag, report, context.script);
     if (tag.name === "h1") {
-      headings += 1;
-      if (headings > 1) report("m3/duplicate-h1", tag.offset, "A second h1 in one template. A page has one title, carried by the top app bar.");
+      const branch = branches.get(tag.offset) || [];
+      if (headings.some((other) => !exclusiveBranches(other, branch))) report("m3/duplicate-h1", tag.offset, "A second h1 in one template. A page has one title, carried by the top app bar.");
       else if (context.titled) report("m3/duplicate-h1", tag.offset, "An in-page h1 under the top app bar, which carries the page title; use a title role (text-title-large) for a section title.");
+      headings.push(branch);
     }
   }
 }

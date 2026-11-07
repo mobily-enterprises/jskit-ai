@@ -338,11 +338,21 @@ test("an in-page h1 is a finding only in an app that uses the JSKIT shell", asyn
 
 // Only a page under the shell's page title has its title there: a hero front page, an invite page and the components
 // only they render own their h1; a page a shell layout renders, a layout's own bar and the components they render
-// do not, and nor does a component whose page can't be read (one routed from JavaScript).
+// do not, and nor does a component whose page can't be read (one routed from JavaScript). The not-found component
+// main.js hands the shell renders outside every layout, like App.vue.
 test("an in-page h1 is a finding only under the shell's page title", async () => {
   const h1 = (title) => `<template>\n  <h1>${title}</h1>\n</template>\n`;
-  await withApp({
+  const app = {
     "package.json": SHELL_MANIFEST,
+    "src/main.js": [
+      "import { createShellRouter } from \"@jskit-ai/kernel/client\";",
+      "import NotFound from \"./views/NotFound.vue\";",
+      "import RoutedFromJs from \"./views/RoutedFromJs.vue\";",
+      "const extra = [{ path: \"/extra\", component: RoutedFromJs }];",
+      "createShellRouter({ routes: extra, notFoundComponent: NotFound });",
+      ""
+    ].join("\n"),
+    "src/views/NotFound.vue": h1("Page not found"),
     "src/App.vue": "<template>\n  <RouterView />\n</template>\n",
     "src/pages/index.vue": h1("Welcome"),
     "src/pages/invite/[token].vue": "<script setup>\nimport InviteHero from \"@/components/InviteHero.vue\";\n</script>\n<template>\n  <InviteHero />\n</template>\n",
@@ -353,7 +363,9 @@ test("an in-page h1 is a finding only under the shell's page title", async () =>
     "src/pages/studio.vue": "<template>\n  <v-app-bar><ShellPageTitle /></v-app-bar>\n  <RouterView />\n</template>\n",
     "src/pages/studio/index.vue": h1("Studio"),
     "src/views/RoutedFromJs.vue": h1("Routed")
-  }, async (root) => {
+  };
+  const h1Findings = async (root) => findingLines(await checkMaterial3({ projectRoot: root })).filter((line) => line.endsWith("m3/duplicate-h1"));
+  await withApp(app, async (root) => {
     const result = await checkMaterial3({ projectRoot: root });
     assert.deepEqual(findingLines(result).filter((line) => line.endsWith("m3/duplicate-h1")), [
       "src/pages/home/_components/BookHeader.vue:2 m3/duplicate-h1",
@@ -362,6 +374,92 @@ test("an in-page h1 is a finding only under the shell's page title", async () =>
       "src/views/RoutedFromJs.vue:2 m3/duplicate-h1"
     ]);
     assert.match(result.findings.find(({ rule }) => rule === "m3/duplicate-h1").message, /under the top app bar/u);
+  });
+  // Under an App.vue that shows the title, the not-found component is under it too.
+  const appShell = "<script setup>\nimport ShellLayout from \"@/components/ShellLayout.vue\";\n</script>\n<template>\n  <ShellLayout><RouterView /></ShellLayout>\n</template>\n";
+  await withApp({ ...app, "src/App.vue": appShell }, async (root) => {
+    assert.ok((await h1Findings(root)).includes("src/views/NotFound.vue:2 m3/duplicate-h1"));
+  });
+});
+
+// Only one branch of a v-if chain renders, so h1s on different branches are one title at a time: a sign-in view
+// with an h1 per step, or a page whose states each carry their own. Two h1s that can show together still are two.
+test("h1s on different branches of a v-if chain count as one title", async () => {
+  const steps = [
+    "<template>",
+    "  <DefaultLoginView v-if=\"passwordFlow\" />",
+    "  <div v-else class=\"screen\">",
+    "    <template v-if=\"handlingCallback\">",
+    "      <v-progress-circular indeterminate />",
+    "    </template>",
+    "    <template v-else-if=\"callbackError\">",
+    "      <div><h1>This link did not work</h1></div>",
+    "    </template>",
+    "    <template v-else-if=\"sent\">",
+    "      <div><h1>Check your email</h1></div>",
+    "    </template>",
+    "    <template v-else>",
+    "      <div><h1>Sign in</h1><br><img src=\"/logo.svg\" alt=\"\"></div>",
+    "    </template>",
+    "  </div>",
+    "</template>",
+    ""
+  ].join("\n");
+  const states = [
+    "<template>",
+    "  <section v-if=\"done\"><h1 v-if=\"pending\">We have your request</h1><h1 v-else>Booked</h1></section>",
+    "  <section v-else-if=\"!hasPets\"><h1>Add your dog</h1></section>",
+    "  <div v-else>",
+    "    <h1>What would you like to book?</h1>",
+    "    <h1 v-if=\"grouped\">Book for several dogs</h1>",
+    "  </div>",
+    "  <h1 v-if=\"promo\">Spring offer</h1>",
+    "</template>",
+    ""
+  ].join("\n");
+  await withApp({
+    "package.json": SHELL_MANIFEST,
+    "src/App.vue": "<template>\n  <RouterView />\n</template>\n",
+    "src/pages/sign-in.vue": steps,
+    "src/pages/book.vue": states
+  }, async (root) => {
+    // The grouped heading shows beside the booking one, and the promotion's beside any state's.
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root })).filter((line) => line.endsWith("m3/duplicate-h1")), [
+      "src/pages/book.vue:6 m3/duplicate-h1",
+      "src/pages/book.vue:8 m3/duplicate-h1"
+    ]);
+  });
+});
+
+// Which branch of a layout renders a page is decided at runtime, so a layout that renders its pages outside the
+// ShellLayout on one branch (a shop device's staff sign-in in a bare v-main) leaves their h1s unjudged; one that
+// always renders them under the title does not.
+test("an h1 is judged only under a layout that always renders its pages under the page title", async () => {
+  const signIn = "<template>\n  <h1>Who's working?</h1>\n</template>\n";
+  const shared = [
+    "<script setup>",
+    "import ShellLayout from \"@/components/ShellLayout.vue\";",
+    "</script>",
+    "<template>",
+    "  <v-main v-if=\"sharedDevice\"><RouterView /></v-main>",
+    "  <ShellLayout v-else><RouterView /></ShellLayout>",
+    "</template>",
+    ""
+  ].join("\n");
+  const app = {
+    "package.json": SHELL_MANIFEST,
+    "src/App.vue": "<template>\n  <RouterView />\n</template>\n",
+    "src/pages/admin.vue": shared,
+    "src/pages/admin/staff-sign-in.vue": signIn
+  };
+  await withApp(app, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root })).filter((line) => line.endsWith("m3/duplicate-h1")), []);
+  });
+  const always = "<script setup>\nimport ShellLayout from \"@/components/ShellLayout.vue\";\n</script>\n<template>\n  <ShellLayout><RouterView /></ShellLayout>\n</template>\n";
+  await withApp({ ...app, "src/pages/admin.vue": always }, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root })).filter((line) => line.endsWith("m3/duplicate-h1")), [
+      "src/pages/admin/staff-sign-in.vue:2 m3/duplicate-h1"
+    ]);
   });
 });
 
@@ -689,6 +787,93 @@ test("nav/back-control flags controls that navigate the app, not prose, variable
       "src/components/PreviewBrowser.vue:19 nav/back-control",
       "src/components/PreviewBrowser.vue:21 nav/back-control"
     ]);
+  });
+});
+
+// A back component navigates by itself, so its tag is a back control without a link or handler, in either case; its
+// import is one too. A back-to-top control and a back office are not.
+test("nav/back-control flags back components in PascalCase and kebab case, and their imports", async () => {
+  const page = [
+    "<script setup>",
+    "import ContextBackButton from \"@/components/navigation/ContextBackButton.vue\";",
+    "import BackToTop from \"@/components/BackToTop.vue\";",
+    "import BackOfficeCard from \"@/components/BackOfficeCard.vue\";",
+    "import { useBackNavigation } from \"@/composables/useBackNavigation.js\";",
+    "</script>",
+    "<template>",
+    "  <ContextBackButton />",
+    "  <context-back-button />",
+    "  <BackToTop />",
+    "  <BackOfficeCard />",
+    "</template>",
+    ""
+  ].join("\n");
+  await withApp({ "package.json": SHELL_MANIFEST, "src/components/InvoicePanel.vue": page }, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.deepEqual(findingLines(result), [
+      "src/components/InvoicePanel.vue:2 nav/back-control",
+      "src/components/InvoicePanel.vue:8 nav/back-control",
+      "src/components/InvoicePanel.vue:9 nav/back-control"
+    ]);
+    assert.match(result.findings[0].message, /^ContextBackButton is a back component\. Up belongs to the shell's top app bar/u);
+    assert.match(result.findings[1].message, /^<context-back-button> is a back control\./u);
+  });
+});
+
+// A layout that renders its pages without the shell on a shop device (a v-if beside the ShellLayout) leaves which
+// of them show Up unreadable, so none needs a parent; a page that declares one still has its bar.
+test("nav/missing-parent judges only pages that always render under the shell's top app bar", async () => {
+  const layout = (template) => `<route lang="json">\n{ "meta": { "jskit": { "surface": "admin" } } }\n</route>\n<script setup>\nimport ShellLayout from "@/components/ShellLayout.vue";\nconst sharedDevice = false;\n</script>\n<template>\n${template}\n</template>\n`;
+  const app = {
+    "package.json": SHELL_MANIFEST,
+    "config/public.js": "const config = {};\nconfig.surfaceDefinitions = {};\nconfig.surfaceDefinitions.admin = { id: \"admin\", pagesRoot: \"admin\" };\nexport { config };\n",
+    "src/components/ShellLayout.vue": "<script setup>\nimport ShellLayout from \"@jskit-ai/shell-web/client/components/ShellLayout\";\n</script>\n<template>\n  <ShellLayout><slot /></ShellLayout>\n</template>\n",
+    "src/pages/admin.vue": layout("  <v-main v-if=\"sharedDevice\">\n    <RouterView />\n  </v-main>\n  <ShellLayout v-else>\n    <RouterView />\n  </ShellLayout>"),
+    "src/pages/admin/index.vue": "<template>\n  <section />\n</template>\n",
+    "src/pages/admin/staff-sign-in.vue": "<template>\n  <section />\n</template>\n",
+    "src/pages/admin/invoices/[id].vue": pageWith("definePage({ meta: { jskit: { parent: \"/\" } } });")
+  };
+  await withApp(app, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+  });
+  // Under a layout whose every RouterView is inside the ShellLayout, the same inner page needs its parent.
+  await withApp({ ...app, "src/pages/admin.vue": layout("  <ShellLayout>\n    <RouterView />\n  </ShellLayout>") }, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), [
+      "src/pages/admin/staff-sign-in.vue:1 nav/missing-parent"
+    ]);
+  });
+});
+
+// The record that carries jskit.surface is where Up stops, so the shell never reads a parent declared beside it.
+test("nav/surface-parent flags a parent declared beside a surface, and the layout plus page form passes", async () => {
+  const route = (meta) => `<route lang="json">\n${JSON.stringify({ meta: { jskit: meta } })}\n</route>\n`;
+  const shellPage = (meta) => `${route(meta)}<script setup>\nimport ShellLayout from "@/components/ShellLayout.vue";\n</script>\n<template>\n  <ShellLayout>\n    <RouterView />\n  </ShellLayout>\n</template>\n`;
+  const app = {
+    "package.json": SHELL_MANIFEST,
+    "config/public.js": "const config = {};\nconfig.surfaceDefinitions = {};\nconfig.surfaceDefinitions.home = { id: \"home\", pagesRoot: \"home\" };\nconfig.surfaceDefinitions.account = { id: \"account\", pagesRoot: \"account\" };\nexport { config };\n",
+    "src/pages/home.vue": shellPage({ surface: "home" }),
+    "src/pages/home/index.vue": "<template>\n  <section />\n</template>\n",
+    "src/pages/account.vue": shellPage({ surface: "account", parent: { surface: "home", path: "/" } }),
+    "src/pages/account/index.vue": "<template>\n  <section />\n</template>\n",
+    // An inner page repeating its surface beside its parent is a surface root of its own, so it gets no Up either.
+    "src/pages/home/contacts.vue": `${route({ surface: "home", parent: "/" })}<template>\n  <section />\n</template>\n`
+  };
+  await withApp(app, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.deepEqual(findingLines(result), ["src/pages/account.vue:2 nav/surface-parent", "src/pages/home/contacts.vue:2 nav/surface-parent"]);
+    const message = (file) => result.findings.find((finding) => finding.file === file).message;
+    assert.match(message("src/pages/account.vue"), /never reads it[\s\S]*Declare the surface only on the surface's layout page[\s\S]*here, move jskit\.parent to the page this layout renders/u);
+    assert.match(message("src/pages/home/contacts.vue"), /here, remove jskit\.surface and keep jskit\.parent/u);
+  });
+  // The surface only on the layout and the parent on the page it renders: Up on the account page reaches home.
+  const fixed = {
+    ...app,
+    "src/pages/account.vue": shellPage({ surface: "account" }),
+    "src/pages/account/index.vue": `${route({ parent: { surface: "home", path: "/" } })}<template>\n  <section />\n</template>\n`,
+    "src/pages/home/contacts.vue": `${route({ parent: "/" })}<template>\n  <section />\n</template>\n`
+  };
+  await withApp(fixed, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
   });
 });
 

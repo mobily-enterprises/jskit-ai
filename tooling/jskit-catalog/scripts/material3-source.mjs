@@ -121,6 +121,10 @@ function splitVue(source) {
 
 const ATTRIBUTE = /([^\s"'<>/=]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/gu;
 const TAG = /<([A-Za-z][\w.-]*)((?:\s+[^\s"'<>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)*)\s*(\/?)>/gu;
+// An opening or closing tag in a template, with its attributes; HTML void elements never close.
+const TEMPLATE_TAG = /<(\/?)([A-Za-z][\w.-]*)((?:\s+[^\s"'<>/=]+(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?)*)\s*(\/?)>/gu;
+const VOID_TAGS = new Set(["area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"]);
+const CONDITIONAL = /(?:^|\s)v-(if|else-if|else)(?=[\s=]|$)/u;
 
 function kebab(name) {
   return name.replace(/([a-z0-9])([A-Z])/gu, "$1-$2").toLowerCase();
@@ -172,6 +176,39 @@ function readTags(template) {
   return tags;
 }
 
+// The v-if chains each element of a template (comments already blanked) renders under, by its offset: a list of
+// [chain, branch] pairs, outermost first. A v-if starts a chain among its siblings, each v-else-if or v-else right
+// after it is the chain's next branch, so two elements on different branches of one chain never render together.
+function readConditionalBranches(template) {
+  const branches = new Map();
+  const open = [{ name: "", path: [], chain: null }];
+  let chains = 0;
+  for (const match of template.text.matchAll(TEMPLATE_TAG)) {
+    const [, closing, rawName, attributes, selfClosing] = match;
+    const name = kebab(rawName);
+    if (closing) {
+      const index = open.findLastIndex((entry) => entry.name === name);
+      if (index > 0) open.length = index;
+      continue;
+    }
+    const parent = open.at(-1);
+    const directive = CONDITIONAL.exec(attributes)?.[1];
+    if (directive === "if") parent.chain = { id: (chains += 1), branch: 0 };
+    else if (directive && parent.chain) parent.chain.branch += 1;
+    else parent.chain = null;
+    const path = parent.chain ? [...parent.path, [parent.chain.id, parent.chain.branch]] : parent.path;
+    if (directive === "else") parent.chain = null;
+    branches.set(template.offset + match.index, path);
+    if (!selfClosing && !VOID_TAGS.has(name)) open.push({ name, path, chain: null });
+  }
+  return branches;
+}
+
+// Whether two elements sit on different branches of one v-if chain, so at most one of them renders.
+function exclusiveBranches(left, right) {
+  return left.some(([chain, branch]) => right.some(([other, otherBranch]) => other === chain && otherBranch !== branch));
+}
+
 // CSS declarations with the selectors that enclose them, for flat CSS, nested SCSS and at-rule blocks.
 function readDeclarations(css, offset) {
   const declarations = [];
@@ -208,12 +245,16 @@ function readInlineDeclarations(text, offset) {
 }
 
 export {
+  TEMPLATE_TAG,
+  VOID_TAGS,
   HEX_COLOUR,
   blankCssComments,
   blankHtmlComments,
   blankJsComments,
+  exclusiveBranches,
   kebab,
   lineIndex,
+  readConditionalBranches,
   readDeclarations,
   readExceptions,
   readInlineDeclarations,

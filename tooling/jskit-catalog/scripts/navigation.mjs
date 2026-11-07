@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { blankJsComments, lineIndex, splitVue } from "./material3-source.mjs";
+import { TEMPLATE_TAG, VOID_TAGS, blankHtmlComments, blankJsComments, kebab, lineIndex, splitVue } from "./material3-source.mjs";
 
 // The navigation rules of the JSKIT Material 3 guide (#241). The shell owns Up and the per-tab trail;
 // an app declares each inner page's parent and links through JSKIT navigation, nothing more. Plain `jskit check`
@@ -15,7 +15,8 @@ const RULES = Object.freeze({
   "nav/missing-parent": "what-an-app-declares",
   "nav/top-level-parent": "what-an-app-declares",
   "nav/placement-data": "what-an-app-declares",
-  "nav/missing-shell-layout": "what-an-app-declares"
+  "nav/missing-shell-layout": "what-an-app-declares",
+  "nav/surface-parent": "what-an-app-declares"
 });
 
 const HISTORY_CALL = /(?<![\w$.])(?:(?:window|globalThis)\s*\.\s*)?history\s*\.\s*(?:back|go|forward|pushState|replaceState)\s*\(/gu;
@@ -65,6 +66,7 @@ const SHELL_UP_TAG = /<\s*(?:ShellUpButton|shell-up-button)\b/u;
 const SHELL_TITLE_TAG = /<\s*(?:ShellPageTitle|shell-page-title)\b/u;
 const LOCAL_IMPORT = /\bfrom\s*["']((?:@\/|\.{1,2}\/)[^"']+)["']/gu;
 const ROUTER_VIEW_TAG = /<\s*(?:RouterView|router-view)\b/u;
+const DEFAULT_IMPORT = /\bimport\s+([A-Za-z_$][\w$]*)\s+from\s*["']([^"']+)["']/gu;
 
 function isInAppPath(value) {
   const target = String(value || "").trim();
@@ -104,11 +106,16 @@ function isPlacementLink(code, offset) {
   return Boolean(placement) && /\btarget\s*:\s*["'`][\w.-]+["'`]/u.test(placement.text) && /\bkind\s*:/u.test(placement.text);
 }
 
-// A back-named function that navigates the app; a variable, an import or an in-component step is not back logic.
+// A back-named function that navigates the app, and the import of a back component (ContextBackButton); a variable,
+// a composable's import or an in-component step is not back logic.
 function checkScriptBackNames(code, offset, report) {
   for (const match of code.matchAll(BACK_DEFINITION)) {
     if (!navigatesApp(definitionOf(code, match[1]), code)) continue;
     report("nav/back-control", offset + match.index, `${match[1]} navigates back in the app. ${UP_OWNER}; delete it and declare the page's parent.`);
+  }
+  for (const match of code.matchAll(DEFAULT_IMPORT)) {
+    if (!/^[A-Z]/u.test(match[1]) || !isBackComponentName(match[1])) continue;
+    report("nav/back-control", offset + match.index, `${match[1]} is a back component. ${UP_OWNER}; remove it and declare the page's parent.`);
   }
 }
 
@@ -174,9 +181,13 @@ function visibleText(inner) {
   return inner.replace(/<[^>]*>/gu, " ").replace(/\{\{[\s\S]*?\}\}/gu, " ").replace(/\s+/gu, " ").trim();
 }
 
-function isBackTag(tag) {
-  const segments = tag.name.split("-");
-  return segments.includes("back") && !tag.name.startsWith("v-");
+// A back component, in either case (tags are read in kebab case): ContextBackButton, <page-back-link>, GoBack,
+// BackToList. Not Vuetify's own tags, a back office, or a back-to-top control, which scrolls the page.
+const BACK_COMPONENT = /(?:^|-)back(?:$|-(?:action|arrow|btn|button|chevron|control|icon|link|nav|navigation)(?:-|$)|-to-(?!top(?:-|$)))/u;
+
+function isBackComponentName(name) {
+  const tag = kebab(name);
+  return !tag.startsWith("v-") && BACK_COMPONENT.test(tag);
 }
 
 function looksLikeBack(tag) {
@@ -200,11 +211,12 @@ function checkBackControl(tag, report, script = "") {
     report("nav/back-control", tag.offset, "Breadcrumbs navigate back up the hierarchy. The shell's Up arrow does that; the app bar title says where the person is.");
     return;
   }
-  if (!navigatesFromControl(tag, script)) return;
-  if (isBackTag(tag)) {
+  // A back component navigates by itself, so its tag needs no link or handler to be one.
+  if (isBackComponentName(tag.name)) {
     report("nav/back-control", tag.offset, `<${tag.name}> is a back control. ${UP_OWNER}; remove it and declare the page's parent.`);
     return;
   }
+  if (!navigatesFromControl(tag, script)) return;
   const handler = tag.attributes.find((entry) => entry.event && BACK_IDENTIFIER.test(entry.value));
   if (handler) {
     report("nav/back-control", handler.offset, `${handler.raw}="${handler.value.trim()}" is a back handler. ${UP_OWNER}; remove the control and declare the page's parent.`);
@@ -357,7 +369,7 @@ function readPage(file, source) {
     redirect: REDIRECT_KEY.test(meta),
     parent: declarations.find(({ text }) => PARENT_KEY.test(text)),
     surfaceRoot: SURFACE_KEY.test(meta.replace(PARENT_OBJECT, "")),
-    shell: false
+    shell: "none"
   };
 }
 
@@ -383,11 +395,66 @@ function createShellBarReader(appFiles, read, tag = SHELL_UP_TAG) {
   return drawsShellBar;
 }
 
+const SHELL_LAYOUT_SPECIFIER = /^(?:@\/components\/ShellLayout|@jskit-ai\/shell-web\/client\/components\/ShellLayout)(?:\.vue)?$/u;
+
+/**
+ * Where a layout renders its pages: "all" under the shell's top app bar (every <RouterView /> inside ShellLayout or
+ * an app component that draws the bar, or a bar drawn beside them: ShellUpButton, or such a component around no
+ * RouterView), "some" when a branch renders them without it (a shop device's sign-in in a v-if beside the
+ * ShellLayout), or "none".
+ * @param {string} file
+ * @param {string} source
+ * @param {(file: string) => Promise<boolean>} drawsShellBar
+ * @param {Set<string>} known The app's files.
+ * @param {RegExp} [barTag] The shell-web piece that marks a bar of the layout's own: Up, or, for the page title,
+ *   ShellPageTitle (with drawsShellBar then reading the title too).
+ */
+async function shellPlacement(file, source, drawsShellBar, known, barTag = SHELL_UP_TAG) {
+  const { template, scripts } = splitVue(source);
+  const text = blankHtmlComments(template?.text || "");
+  if (barTag.test(text)) return "all";
+  const shellTags = new Set();
+  for (const block of scripts) {
+    for (const [, name, specifier] of blankJsComments(block.text).matchAll(DEFAULT_IMPORT)) {
+      const imported = localComponent(file, specifier, known);
+      if (SHELL_LAYOUT_SPECIFIER.test(specifier) || (imported && await drawsShellBar(imported))) shellTags.add(kebab(name));
+    }
+  }
+  const open = [];
+  let inside = 0;
+  let outside = 0;
+  let barBeside = false;
+  for (const [, closing, rawName, , selfClosing] of text.matchAll(TEMPLATE_TAG)) {
+    const name = kebab(rawName);
+    if (closing) {
+      const index = open.findLastIndex((entry) => entry.name === name);
+      if (index < 0) continue;
+      barBeside ||= open.slice(index).some((entry) => entry.shell && !entry.view);
+      open.length = index;
+      continue;
+    }
+    const shell = shellTags.has(name);
+    if (name === "router-view") {
+      const around = open.filter((entry) => entry.shell);
+      for (const entry of around) entry.view = true;
+      if (around.length > 0) inside += 1;
+      else outside += 1;
+    }
+    if (selfClosing || VOID_TAGS.has(name)) barBeside ||= shell;
+    else open.push({ name, shell, view: false });
+  }
+  if (barBeside) return "all";
+  if (inside === 0) return "none";
+  return outside === 0 ? "all" : "some";
+}
+
 /**
  * The app's .vue files that render under the shell's page title, where an in-page h1 would be a second one: a file
- * that shows the title (ShellLayout's bar, or ShellPageTitle in a bar of its own), a page a layout showing it renders,
- * and a component such a file imports. A component no .vue file imports (routed or placed from JavaScript) counts
- * too, as where it renders can't be read; App.vue counts only when it shows the title itself.
+ * that shows the title (ShellLayout's bar, or ShellPageTitle in a bar of its own), a page a layout always renders
+ * under it, and a component such a file imports. A component no .vue file imports (routed or placed from JavaScript) counts
+ * too, as where it renders can't be read, unless JavaScript hands it to the shell to render outside every layout (the
+ * router's notFoundComponent or fallbackRoute, the app's rootComponent): that one counts only as App.vue does, which
+ * counts only when it shows the title itself.
  * @param {{ root: string, appFiles: string[] }} options
  */
 async function readTitledFiles({ root, appFiles }) {
@@ -406,6 +473,17 @@ async function readTitledFiles({ root, appFiles }) {
       if (imported) importers.set(imported, [...(importers.get(imported) || []), file]);
     }
   }
+  // Whether each component JavaScript imports is handed to the shell only to render outside every layout.
+  const outsideLayouts = new Map();
+  for (const file of appFiles.filter((entry) => /\.(?:[cm]?[jt]s)$/u.test(entry))) {
+    const code = blankJsComments(await read(file));
+    for (const [, name, specifier] of code.matchAll(DEFAULT_IMPORT)) {
+      const imported = localComponent(file, specifier, known);
+      if (!imported) continue;
+      const outside = rendersOutsideLayouts(code, name);
+      outsideLayouts.set(imported, (outsideLayouts.get(imported) ?? true) && outside);
+    }
+  }
   const verdicts = new Map();
   async function titled(file) {
     if (verdicts.has(file)) return verdicts.get(file);
@@ -416,13 +494,18 @@ async function readTitledFiles({ root, appFiles }) {
       const segments = pageKey(file).split("/");
       for (let length = segments.length - 1; length > 0 && !verdict; length -= 1) {
         const layout = `src/pages/${segments.slice(0, length).join("/")}.vue`;
+        // A layout that renders its pages without the title on one branch (a shop device's sign-in in a bare v-main
+        // beside the ShellLayout) leaves them unjudged, as which branch shows a page is decided at runtime.
         if (known.has(layout) && ROUTER_VIEW_TAG.test(splitVue(await read(layout)).template?.text || "")) {
-          verdict = await showsTitle(layout);
+          verdict = await shellPlacement(layout, await read(layout), showsTitle, known, SHELL_TITLE_TAG) === "all";
         }
       }
     } else if (!verdict && path.posix.basename(file) !== "App.vue") {
       const users = importers.get(file) || [];
       verdict = users.length === 0;
+      if (verdict && outsideLayouts.get(file) === true) {
+        verdict = known.has("src/App.vue") && await showsTitle("src/App.vue");
+      }
       for (const user of users) {
         if (verdict) break;
         verdict = await titled(user);
@@ -434,6 +517,19 @@ async function readTitledFiles({ root, appFiles }) {
   const result = new Set();
   for (const file of vueFiles) if (await titled(file)) result.add(file);
   return result;
+}
+
+// A component JavaScript gives the shell to render outside every layout: the router's notFoundComponent or
+// fallbackRoute component, or the app's rootComponent.
+function rendersOutsideLayouts(code, name) {
+  const escaped = name.replaceAll("$", "\\$");
+  const named = String.raw`(?<![\w$.])${escaped}(?![\w$])`;
+  const handed = new RegExp(String.raw`\b(?:notFoundComponent|rootComponent)\s*:\s*${named}|\bcreateFallbackNotFoundRoute\s*\(\s*${named}|\bfallbackRoute\s*:\s*\{[^{}]*\bcomponent\s*:\s*${named}`, "gu");
+  // Every use after the import (whose specifier may spell the name too) is a hand-over, or it may render anywhere.
+  const body = code.replace(new RegExp(String.raw`\bimport\s+${escaped}\s+from\s*["'][^"']+["']`, "gu"), "");
+  const uses = [...body.matchAll(new RegExp(named, "gu"))].length;
+  const handovers = [...body.matchAll(handed)].length;
+  return handovers > 0 && handovers === uses;
 }
 
 // The app's .vue file an import names: "@/components/Bar.vue" is src/components/Bar.vue; "./Bar" is beside the file.
@@ -461,8 +557,9 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
   const pages = new Map();
   for (const file of appFiles.filter(isPageFile)) pages.set(pageKey(file), readPage(file, await read(file)));
   const drawsShellBar = createShellBarReader(appFiles, read);
+  const known = new Set(appFiles);
   for (const page of pages.values()) {
-    if (page.layout) page.shell = await drawsShellBar(page.file);
+    if (page.layout) page.shell = await shellPlacement(page.file, page.source, drawsShellBar, known);
   }
   const surfaces = readSurfaces(configSource, [...pages.values()].map(({ file }) => routeOf(file)));
   const scripts = appFiles.filter((file) => /\.(?:[cm]?[jt]s|vue)$/u.test(file));
@@ -481,6 +578,12 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
     const page = pages.get(pageKey(file));
     const surface = surfaceOf(routeOf(file), surfaces);
     if (!surface || page.redirect) continue;
+    // The record that carries jskit.surface is the surface root, where Up stops, so a parent beside it is never read.
+    if (page.surfaceRoot && page.parent) {
+      const at = lineIndex(page.source)(page.parent.offset + PARENT_KEY.exec(page.parent.text).index);
+      const fix = page.layout ? "move jskit.parent to the page this layout renders" : "remove jskit.surface and keep jskit.parent";
+      report({ rule: "nav/surface-parent", file, ...at, message: `${path.posix.basename(file)} declares jskit.parent beside jskit.surface, so the shell never reads it and the page shows no Up: the record with the surface is the surface root, where Up stops. Declare the surface only on the surface's layout page (ShellLayout around <RouterView />) and the parent on the page it renders; here, ${fix}.` });
+    }
     // The layouts that render this page, nearest first: src/pages/home/settings.vue renders home/settings/*.
     const segments = pageKey(file).split("/");
     const layouts = segments.slice(1).map((_, index) => pages.get(segments.slice(0, segments.length - 1 - index).join("/")))
@@ -489,7 +592,7 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
     const position = lineIndex(page.source);
     // Up lives in the shell's top app bar, so only pages a shell layout renders have one. A page that declares a
     // parent expects that bar, with its title, Up and page actions; under no shell layout it shows none of them.
-    if (!layouts.some((entry) => entry.shell)) {
+    if (!layouts.some((entry) => entry.shell !== "none")) {
       if (page.parent && !appShell && !await drawsShellBar(file)) {
         const at = position(page.parent.offset + PARENT_KEY.exec(page.parent.text).index);
         const layout = surface.pagesRoot ? `, src/pages/${surface.pagesRoot}.vue` : "";
@@ -512,7 +615,10 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
     const inherited = chain.find((entry) => entry.parent);
     const topLevel = destination || relative === "/" || chain.some((entry) => isDestination(surfacePath(entry.file, surface), surface));
     judged.push({ file, route: relative, surface: surface.id, topLevel, parent: page.parent ? "own" : inherited ? "inherited" : null });
-    if (!topLevel && !page.parent && !inherited && navigation.unreadable.length === 0) {
+    // A layout that also renders its pages without the shell (a shop device's sign-in) leaves which of them show Up
+    // unreadable, so only a page that always renders under the bar needs a parent.
+    const alwaysInShell = layouts.some((entry) => entry.shell === "all");
+    if (!topLevel && !page.parent && !inherited && alwaysInShell && navigation.unreadable.length === 0) {
       const at = position(page.declarations[0]?.offset ?? 0);
       report({ rule: "nav/missing-parent", file, ...at, message: `Inner page ${relative} of ${surface.id} has no parent. Declare it once in the page's route meta (or its layout's, for tabs), so Up works after a direct entry.` });
     }
