@@ -10,6 +10,12 @@ import {
 } from "./jsonApiModule/actions.js";
 import { registerCrudJsonApiRoutes } from "./jsonApiModule/routes.js";
 import { createCrudService } from "./jsonApiModule/service.js";
+import {
+  LEGACY_REPOSITORY_METHODS,
+  LEGACY_SERVICE_METHODS,
+  rejectLegacyMethods,
+  withRemovedProperties
+} from "./removedApi.js";
 
 const RESERVED_REQUIREMENT_NAMES = Object.freeze([
   "context",
@@ -34,6 +40,118 @@ const CRUD_SERVICE_METHOD_BY_OPERATION = Object.freeze({
   delete: "delete"
 });
 const CRUD_SERVICE_METHODS = new Set(Object.values(CRUD_SERVICE_METHOD_BY_OPERATION));
+const CRUD_ACTION_OPERATIONS = Object.freeze(Object.keys(CRUD_SERVICE_METHOD_BY_OPERATION));
+// The options defineCrudFeature takes.
+const FEATURE_OPTIONS = new Set([
+  "crud",
+  "id",
+  "capability",
+  "surface",
+  "owns",
+  "ownerRepository",
+  "visibility",
+  "systemScope",
+  "relativePath",
+  "internal",
+  "routes",
+  "listFilterQueryValidator",
+  "permissions",
+  "scope",
+  "requires",
+  "decorateRepository",
+  "decorateService",
+  "operationLifecycle",
+  "operationInputs",
+  "actions",
+  "operations",
+  "realtimeAudience"
+]);
+// Options the earlier CRUD feature took, and where each now goes.
+const REPLACED_FEATURE_OPTIONS = Object.freeze({
+  resource: "crud, the CRUD contract",
+  ownershipFilter: "visibility",
+  searchSchema: "an owns entry: owns: [{ resource, searchSchema }]",
+  rowPolicy: "an owns entry: owns: [{ resource, rowPolicy }]",
+  queryFields: "an owns entry: owns: [{ resource, queryFields }]",
+  hooks: "an owns entry: owns: [{ resource, hooks }]"
+});
+// What decorateRepository, decorateService and the feature's capability no longer carry.
+const RESOURCE_RENAMED = "it is now crud, the CRUD contract.";
+const REMOVED_REPOSITORY_DEPENDENCIES = Object.freeze({
+  resource: RESOURCE_RENAMED,
+  database: "read and write through repository and resources (each owned table's handle), and open a transaction with repository.withTransaction(options, work).",
+  http: "defineCrudFeature registers the routes; name any other capability the repository needs in requires.",
+  jsonRestApi: "each owned table's handle is in resources, by its resource name."
+});
+const REMOVED_SERVICE_DEPENDENCIES = Object.freeze({ resource: RESOURCE_RENAMED });
+const REMOVED_RESOURCE_API = Object.freeze({ resource: RESOURCE_RENAMED });
+
+/**
+ * Refuses an option defineCrudFeature does not take, naming where an earlier
+ * option now goes, so a setting is never silently ignored.
+ * @param {Record<string, unknown>} options
+ */
+function assertKnownOptions(options) {
+  if (!options || typeof options !== "object" || Array.isArray(options)) {
+    throw new TypeError("defineCrudFeature takes an options object.");
+  }
+  for (const name of Object.keys(options)) {
+    if (FEATURE_OPTIONS.has(name)) {
+      continue;
+    }
+    if (Object.hasOwn(REPLACED_FEATURE_OPTIONS, name)) {
+      throw new TypeError(`defineCrudFeature no longer takes ${name}: use ${REPLACED_FEATURE_OPTIONS[name]}.`);
+    }
+    throw new TypeError(`defineCrudFeature does not take ${name}. Its options are ${[...FEATURE_OPTIONS].join(", ")}.`);
+  }
+}
+
+/**
+ * Refuses a permission for anything but an action the feature defines: one of
+ * its operations (list, view, create, update, delete) or a custom action.
+ * @param {object | null} permissions
+ * @param {object} actions
+ */
+function assertPermissionNames(permissions, actions) {
+  if (!permissions || typeof permissions !== "object" || Array.isArray(permissions)) {
+    return;
+  }
+  // An action's permission is read under its lower-case name.
+  const actionNames = new Set([...CRUD_ACTION_OPERATIONS, ...Object.keys(actions)].map((name) => normalizeText(name).toLowerCase()));
+  for (const name of Object.keys(permissions)) {
+    const actionName = normalizeText(name).toLowerCase();
+    if (!actionNames.has(actionName)) {
+      const hint = actionName === "patch" ? ' (a patch is the "update" action)' : "";
+      throw new TypeError(
+        `defineCrudFeature permissions.${name} names no action of the feature${hint}. ` +
+        `Its actions are ${[...actionNames].join(", ")}.`
+      );
+    }
+    if (actionName !== name) {
+      throw new TypeError(`defineCrudFeature reads the permission of action ${name} as permissions.${actionName}; name it so.`);
+    }
+  }
+}
+
+/**
+ * Refuses a service that lacks, as its own property, a method an enabled
+ * operation's route and action call, so the feature fails at boot rather than
+ * on a request.
+ * @param {object} service
+ * @param {readonly string[]} operations
+ */
+function assertServiceOperations(service, operations) {
+  for (const operation of operations) {
+    const method = CRUD_SERVICE_METHOD_BY_OPERATION[operation];
+    // readable-check: allow method-probe - input validation: decorateService returns the application's own service
+    if (typeof service?.[method] !== "function") {
+      throw new TypeError(
+        `defineCrudFeature decorateService must return a service with its own ${method}(), which the ${operation} operation calls; ` +
+        "spread the service it is given ({ ...service, ... }) to keep the standard one."
+      );
+    }
+  }
+}
 
 function normalizeAccess(crud = {}) {
   const access = normalizeText(crud.apiAccess).toLowerCase() || "authenticated";
@@ -216,30 +334,32 @@ function projectEnabledServiceOperations(service, operations) {
  * @param {string[]} [feature.operations] Defaults to every operation the CRUD contract offers.
  * @param {string} [feature.realtimeAudience] Defaults to "event_scope".
  */
-function defineCrudFeature({
-  crud,
-  id = "",
-  capability = "",
-  surface,
-  owns = [],
-  ownerRepository = "",
-  visibility = "",
-  systemScope = undefined,
-  relativePath = "",
-  internal = false,
-  routes = true,
-  listFilterQueryValidator = null,
-  permissions = null,
-  scope = {},
-  requires = {},
-  decorateRepository = null,
-  decorateService = null,
-  operationLifecycle = {},
-  operationInputs = {},
-  actions = {},
-  operations = undefined,
-  realtimeAudience = "event_scope"
-}) {
+function defineCrudFeature(feature) {
+  assertKnownOptions(feature);
+  const {
+    crud,
+    id = "",
+    capability = "",
+    surface,
+    owns = [],
+    ownerRepository = "",
+    visibility = "",
+    systemScope = undefined,
+    relativePath = "",
+    internal = false,
+    routes = true,
+    listFilterQueryValidator = null,
+    permissions = null,
+    scope = {},
+    requires = {},
+    decorateRepository = null,
+    decorateService = null,
+    operationLifecycle = {},
+    operationInputs = {},
+    actions = {},
+    operations = undefined,
+    realtimeAudience = "event_scope"
+  } = feature;
   if (!isCrudContract(crud)) {
     throw new TypeError("defineCrudFeature requires crud, a CRUD contract from defineCrudContract.");
   }
@@ -280,6 +400,7 @@ function defineCrudFeature({
   if (!actions || typeof actions !== "object" || Array.isArray(actions)) {
     throw new TypeError("defineCrudFeature actions must be an object.");
   }
+  assertPermissionNames(permissions, actions);
   assertWorkspaceScope(normalizedScope, ownershipFilter);
   const workspaceScoped = isWorkspaceRouteVisibility(ownershipFilter);
   const permissionOptions = permissions && typeof permissions === "object" && !Array.isArray(permissions)
@@ -302,24 +423,25 @@ function defineCrudFeature({
     async setup({ http, resources = {}, systemContext, ownerRepository: servedRepository, ...featureDependencies }) {
       const handle = servedRepository || resources[tableResource.name];
       const repository = decorateRepository
-        ? await decorateRepository(Object.freeze({
+        ? rejectLegacyMethods(await decorateRepository(Object.freeze(withRemovedProperties({
             repository: handle,
             resources,
             crud,
             ...(systemContext ? { systemContext } : {}),
             ...featureDependencies
-          }))
+          }, REMOVED_REPOSITORY_DEPENDENCIES, "decorateRepository's dependencies"))), LEGACY_REPOSITORY_METHODS, "The repository decorateRepository returned")
         : handle;
-      const defaultService = createCrudService({ repository, resourceName: tableResource.name });
+      const defaultService = createCrudService({ repository, resourceName: tableResource.name, schema: tableResource.schema });
       const decoratedService = decorateService
-        ? await decorateService(Object.freeze({
+        ? rejectLegacyMethods(await decorateService(Object.freeze(withRemovedProperties({
             service: defaultService,
             repository,
             crud,
             ...featureDependencies
-        }))
+          }, REMOVED_SERVICE_DEPENDENCIES, "decorateService's dependencies"))), LEGACY_SERVICE_METHODS, "The service decorateService returned")
         : defaultService;
       const service = projectEnabledServiceOperations(decoratedService, enabledOperations);
+      assertServiceOperations(service, enabledOperations);
       if (routes) {
         registerCrudJsonApiRoutes(http.router, {
           namespace,
@@ -339,7 +461,7 @@ function defineCrudFeature({
         });
       }
       return {
-        resourceApi: Object.freeze({ repository, crud, service })
+        resourceApi: Object.freeze(withRemovedProperties({ repository, crud, service }, REMOVED_RESOURCE_API, "A CRUD feature's capability"))
       };
     },
     actions({ resourceApi, ...required }) {

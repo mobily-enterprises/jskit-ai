@@ -257,3 +257,40 @@ test("createHooksToCollectChildren requires ctx.state during afterQuery", async 
     /requires ctx\.state object/
   );
 });
+
+test("createHooksToCollectChildren names the in-filter a child table must declare for its foreign key", async () => {
+  const refusal = Object.assign(new Error("Value could not be cast to the required type."), {
+    code: "REST_API_VALIDATION",
+    details: { fields: ["queryParams.filters.customerId"] }
+  });
+  const hooks = createHooksToCollectChildren({
+    childKey: "pets",
+    childForeignKey: "customerId",
+    childRepository: {
+      async queryAll() {
+        throw refusal;
+      }
+    }
+  });
+
+  const error = await hooks.afterQuery([{ id: 9 }], { state: {}, callOptions: {} }).then(
+    () => assert.fail("expected the read to fail"),
+    (failure) => failure
+  );
+  assert.match(error.message, /reads the children of a page with one customerId filter listing every owner id/u);
+  assert.match(error.message, /customerId: \{ \.\.\., search: \{ type: "array", filterOperator: "in" \} \}/u);
+  assert.equal(error.cause, refusal);
+
+  // Any other failure passes through untouched.
+  const other = new Error("connection lost");
+  const passing = createHooksToCollectChildren({
+    childKey: "pets",
+    childForeignKey: "customerId",
+    childRepository: {
+      async queryAll() {
+        throw other;
+      }
+    }
+  });
+  await assert.rejects(() => passing.afterQuery([{ id: 9 }], { state: {}, callOptions: {} }), (failure) => failure === other);
+});

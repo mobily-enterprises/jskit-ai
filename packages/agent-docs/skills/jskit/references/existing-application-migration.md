@@ -177,6 +177,15 @@ write goes through that table's handle
 | --- | --- |
 | `defineCrudResource()` | `defineTableResource()` plus `defineCrudContract()` |
 | `defineCrudJsonApiFeature()`, `createCrudResourceRuntime()` | `defineCrudFeature({ crud })` |
+| the CRUD runtime's `listByIds()`, `listByForeignIds()` | `queryAll({ filters: { [key]: ids } })` on a filter declared `{ type: "array", filterOperator: "in" }`; a page's children with `createHooksToCollectChildren()` |
+| the CRUD runtime's lookup hydration | `include` on the CRUD list or view |
+| the CRUD runtime's `virtualFields` | `queryFields` in the `owns` entry, or `decorateService` for a value SQL cannot compute |
+| the CRUD runtime's `createdAt`/`updatedAt` stamping | the CRUD service stamps them; a handle write sets them itself |
+| the CRUD runtime's output validation | the table resource's schema, whose types json-rest-api reads each field as |
+| `defineCrudFeature`'s `ownershipFilter`, `searchSchema` | `visibility`; an `owns` entry |
+| a lifecycle hook's `trx`; a decorator's or CRUD capability's `resource` | `options`; `crud` |
+| `decorateRepository`'s `database`, `http`, `jsonRestApi` | its `repository` and `resources`, each owned table's handle |
+| `@jskit-ai/crud-core/server/fieldAccess`, `/server/lookups` | removed (nothing called them); restrict fields in the CRUD contract and its `decorateService` |
 | `runtime.json-rest-api`, `addResourceIfMissing()`, `createJsonRestResourceScopeOptions()` | `defineFeature({ owns })`; a row policy, search schema or query fields go in the `owns` entry |
 | `queryDocuments()`, `getDocumentById()` | `query({ page: { size } })`, `get(id)` |
 | `queryAllJsonRestCollectionRows()`, `queryEveryDocument()` | `queryAll(params)` |

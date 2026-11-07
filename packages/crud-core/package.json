@@ -10,9 +10,7 @@
   },
   "exports": {
     "./server/createHooksToCollectChildren": "./src/server/createHooksToCollectChildren.js",
-    "./server/lookups": "./src/server/lookups.js",
     "./server/serviceEvents": "./src/server/serviceEvents.js",
-    "./server/fieldAccess": "./src/server/fieldAccess.js",
     "./server/defineCrudFeature": "./src/server/defineCrudFeature.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js",
     "./server/listFilters": "./src/server/listFilters.js",

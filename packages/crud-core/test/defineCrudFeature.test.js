@@ -536,7 +536,7 @@ test("defineCrudFeature owns its CRUD table, takes its extras from owns, and han
   assert.equal(ownedBy["crud.archived-books"][0].rowPolicy, rowPolicy);
   assert.deepEqual(Object.keys(received.resources), ["archivedBooks"]);
   assert.equal(received.systemContext("move them").reason, "move them");
-  assert.equal(Object.hasOwn(received, "http"), false);
+  assert.equal(Object.keys(received).includes("http"), false);
   await runtime.shutdown();
 });
 
@@ -633,6 +633,134 @@ test("defineCrudFeature rejects reserved requirements and invalid decorators", (
     /Unknown CRUD operation/u
   );
 });
+
+test("defineCrudFeature refuses an option it does not take, naming where an earlier one now goes", () => {
+  const base = { crud: createBookResource(), surface: "app" };
+  for (const [option, hint] of [
+    ["ownershipFilter", /no longer takes ownershipFilter: use visibility/u],
+    ["searchSchema", /no longer takes searchSchema: use an owns entry: owns: \[\{ resource, searchSchema \}\]/u],
+    ["rowPolicy", /no longer takes rowPolicy: use an owns entry/u],
+    ["resource", /no longer takes resource: use crud, the CRUD contract/u],
+    ["routePrefix", /does not take routePrefix\. Its options are crud, id, capability, surface/u]
+  ]) {
+    assert.throws(() => defineCrudFeature({ ...base, [option]: {} }), hint, option);
+  }
+});
+
+test("defineCrudFeature refuses a permission for an action it does not define", () => {
+  const base = { crud: createBookResource(), surface: "app" };
+  assert.throws(
+    () => defineCrudFeature({ ...base, permissions: { patch: { require: "authenticated" } } }),
+    /permissions\.patch names no action of the feature \(a patch is the "update" action\)\. Its actions are list, view, create, update, delete\./u
+  );
+  assert.throws(
+    () => defineCrudFeature({ ...base, permissions: { Update: { require: "authenticated" } } }),
+    /reads the permission of action Update as permissions\.update; name it so/u
+  );
+  defineCrudFeature({ ...base, permissions: { update: { require: "authenticated" } } });
+});
+
+/**
+ * Starts a CRUD feature on stand-in dependencies, answering how its start ended.
+ * @param {object} options defineCrudFeature's options.
+ */
+async function startFeature(options) {
+  const feature = defineCrudFeature({ crud: createBookResource(), surface: "app", ...options });
+  let resourceApi;
+  const observer = defineProvider({
+    id: "test.removed-api-observer",
+    requires: { books: "crud.books" },
+    setup({ books }) {
+      resourceApi = books;
+      return {};
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, ...createFeatureDependencies([]), feature, observer]
+  });
+  await runtime.start();
+  return { resourceApi, runtime };
+}
+
+test("a decorated repository or service still defining a method of the earlier API stops the feature", async () => {
+  await assert.rejects(
+    () => startFeature({
+      decorateRepository: ({ repository }) => ({ ...repository, async queryDocuments() {}, async applyForUpdate() {} })
+    }),
+    /The repository decorateRepository returned defines queryDocuments\(\), applyForUpdate\(\).*queryDocuments\(\) is now query\(\{ page: \{ size \} \}, options\); applyForUpdate\(\) is now lock\(id, txOptions\) inside withTransaction/su
+  );
+  await assert.rejects(
+    () => startFeature({
+      decorateService: ({ service }) => ({ ...service, async updateRecord() {} })
+    }),
+    /The service decorateService returned defines updateRecord\(\).*updateRecord\(\) is now patch\(recordId, payload, options\)/su
+  );
+});
+
+test("a decorated service without an enabled operation's method stops the feature", async () => {
+  await assert.rejects(
+    () => startFeature({
+      decorateService: ({ service }) => ({ list: service.list, view: service.view })
+    }),
+    /decorateService must return a service with its own create\(\), which the create operation calls; spread the service/u
+  );
+  const { runtime } = await startFeature({
+    operations: ["list", "view"],
+    decorateService: ({ service }) => ({ list: service.list, view: service.view })
+  });
+  await runtime.shutdown();
+});
+
+test("reading a dependency or capability property the redesign removed throws, naming its replacement", async () => {
+  const seen = {};
+  const { resourceApi, runtime } = await startFeature({
+    decorateRepository(dependencies) {
+      for (const name of ["database", "http", "jsonRestApi", "resource"]) {
+        seen[name] = captureMessage(() => dependencies[name]);
+      }
+      // Spreading the dependencies, as a decorator may, skips the removed names.
+      assert.deepEqual(Object.keys({ ...dependencies }).sort(), ["crud", "repository", "resources"]);
+      return dependencies.repository;
+    },
+    decorateService(dependencies) {
+      seen.serviceResource = captureMessage(() => dependencies.resource);
+      return dependencies.service;
+    }
+  });
+  try {
+    assert.match(captureMessage(() => resourceApi.resource), /A CRUD feature's capability no longer has resource: it is now crud, the CRUD contract\./u);
+    assert.equal(resourceApi.crud.namespace, "books");
+    assert.match(seen.database, /decorateRepository's dependencies no longer has database: read and write through repository and resources/u);
+    assert.match(seen.http, /no longer has http: defineCrudFeature registers the routes/u);
+    assert.match(seen.jsonRestApi, /no longer has jsonRestApi: each owned table's handle is in resources/u);
+    assert.match(seen.resource, /no longer has resource: it is now crud, the CRUD contract/u);
+    assert.match(seen.serviceResource, /decorateService's dependencies no longer has resource: it is now crud/u);
+  } finally {
+    await runtime.shutdown();
+  }
+});
+
+test("the CRUD service's view refuses forUpdate, naming lock()", async () => {
+  const { resourceApi, runtime } = await startFeature({});
+  try {
+    await assert.rejects(
+      () => resourceApi.service.view("1", {}, { context: {}, forUpdate: true }),
+      /view\(\) no longer takes forUpdate: lock the record with the repository's lock\(recordId, txOptions\) inside repository\.withTransaction/u
+    );
+  } finally {
+    await runtime.shutdown();
+  }
+});
+
+function captureMessage(read) {
+  try {
+    read();
+  } catch (error) {
+    return error.message;
+  }
+  return assert.fail("expected the read to throw");
+}
 
 test("defineCrudFeature exposes only deliberately selected operations", async () => {
   const routes = [];
@@ -786,6 +914,38 @@ test("CRUD operation lifecycle wraps a mutation transaction and runs afterCommit
     ["afterCommit", "42", { context }]
   ]);
   assert.equal(calls[1][4].context, context);
+});
+
+test("a CRUD lifecycle hook reading trx fails, naming options", async () => {
+  const actions = createCrudJsonApiActions(crudJsonApiActionOptions({
+    namespace: "books",
+    resource: createBookResource(),
+    repository: {
+      async withTransaction(options, work) {
+        return work(Object.freeze({ ...options, trx: { id: "transaction" } }));
+      }
+    },
+    service: {
+      patch(recordId, patch) {
+        return { data: { id: recordId, attributes: patch } };
+      }
+    },
+    surface: "app",
+    operations: ["update"],
+    permissionForOperation: () => ({ require: "authenticated" }),
+    operationLifecycle: {
+      update: {
+        before({ trx }) {
+          return trx;
+        }
+      }
+    }
+  }));
+
+  await assert.rejects(
+    () => actions[0].execute({ recordId: "42", title: "Kindred" }, { actor: "tester" }),
+    /A CRUD lifecycle hook's argument no longer has trx: pass options, which carries the operation's transaction/u
+  );
 });
 
 test("CRUD operation lifecycle does not run after or afterCommit when the transaction fails", async () => {

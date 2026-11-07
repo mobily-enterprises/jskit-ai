@@ -14,6 +14,7 @@ import {
 import { buildCrudRecordChangedEvent, resolveCrudJsonApiEntityIdFromResult } from "../serviceEvents.js";
 import { createCrudAssistantExtension } from "./assistantExtension.js";
 import { buildCrudCustomActionId } from "./customActionId.js";
+import { withRemovedProperties } from "../removedApi.js";
 
 const CRUD_OPERATION_NAMES = Object.freeze(["list", "view", "create", "update", "delete"]);
 const CRUD_MUTATION_NAMES = new Set(["create", "update", "delete"]);
@@ -96,9 +97,14 @@ function normalizeCrudOperationLifecycle(value) {
   return Object.freeze(lifecycle);
 }
 
+// What a lifecycle hook's argument no longer carries.
+const REMOVED_LIFECYCLE_PROPERTIES = Object.freeze({
+  trx: "pass options, which carries the operation's transaction, to each repository call."
+});
+
 function buildLifecycleContext(value) {
   const { operation, input, context, options, resource, repository, service, result, standard } = value;
-  return Object.freeze({
+  return Object.freeze(withRemovedProperties({
     operation,
     input,
     context,
@@ -108,7 +114,7 @@ function buildLifecycleContext(value) {
     service,
     ...(Object.hasOwn(value, "result") ? { result } : {}),
     ...(standard ? { standard } : {})
-  });
+  }, REMOVED_LIFECYCLE_PROPERTIES, "A CRUD lifecycle hook's argument"));
 }
 
 function normalizeAdditionalActions(definitions, { namespace, surface, permissionForAction, scopeInputValidator, servedOverHttp }) {
