@@ -798,6 +798,12 @@ Local functions
 - `emptyInput()`
 - `handlerAsGiven(handler)`
 
+### `server/http/lib/deepFrozen.js`
+Exports
+- `isDeepFrozen(value)`
+Local functions
+- `isFrozenThroughout(node, checked)`
+
 ### `server/http/lib/errors.js`
 Exports
 - `HttpKernelError`
@@ -832,6 +838,9 @@ Exports
 - `type RuntimeFastify`
 Local functions
 - `sharedValidationSchema(schema)`
+- `namesEveryType(value)`
+- `isSharedResponseSchema(entry)`
+- `copyRouteSchema(schema)`
 - `toFastifyRouteOptions(route)`
 - `shouldStripFastifyBodySchema(route, schema)`
 - `normalizeHeaderValue(value)`
@@ -861,6 +870,7 @@ Exports
 - `resolveRouteValidatorOptions({ method = "", path = "", options = {} } = {})`
 Local functions
 - `stripJsonRestTransportExtensions(value)`
+- `stripSchemaCopy(value)`
 - `normalizeRouteSchemaSection(value, { context = "route section", defaultMode = "patch" } = {})`
 - `normalizeResponseDefinition(value, { context = "route responses" } = {})`
 - `normalizeAdvancedFastifySchema(value, { context = "route validator" } = {})`

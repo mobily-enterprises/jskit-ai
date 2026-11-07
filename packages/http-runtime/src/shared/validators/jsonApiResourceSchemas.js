@@ -1,3 +1,4 @@
+import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { isRecord, normalizeArray, normalizeLowerText, normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { resolveJsonApiTransportTypes } from "./jsonApiTransport.js";
@@ -99,7 +100,9 @@ const JSON_API_ERROR_OBJECT_SCHEMA = Object.freeze({
   }
 });
 
-const JSON_API_ERROR_DOCUMENT_SCHEMA = Object.freeze({
+// Frozen all the way down: every route's error responses share this one schema, so the kernel strips, copies and keys
+// it once instead of once per route.
+const JSON_API_ERROR_DOCUMENT_SCHEMA = deepFreeze({
   type: "object",
   additionalProperties: false,
   required: ["errors"],

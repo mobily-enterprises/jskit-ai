@@ -1,9 +1,11 @@
+import { deepFreeze } from "../../../shared/support/deepFreeze.js";
 import { normalizeObject, normalizeText, isRecord } from "../../../shared/support/normalize.js";
 import {
   normalizeSingleSchemaDefinition,
   resolveSchemaTransportSchemaDefinition,
   validateSchemaPayload
 } from "../../../shared/validators/index.js";
+import { isDeepFrozen } from "./deepFrozen.js";
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteLabel } from "./routeSupport.js";
 
@@ -25,13 +27,28 @@ const UNSUPPORTED_ROUTE_VALIDATOR_KEYS = Object.freeze([
   "validator"
 ]);
 
-function stripJsonRestTransportExtensions(value) {
-  if (Array.isArray(value)) {
-    return value.map((entry) => stripJsonRestTransportExtensions(entry));
-  }
+// A schema frozen all the way down (a shared constant, such as each standard error response) is stripped once, and
+// every route gets the same frozen result, so routes keep sharing it.
+const strippedFrozenSchemas = new WeakMap();
 
+function stripJsonRestTransportExtensions(value) {
   if (!value || typeof value !== "object") {
     return value;
+  }
+
+  if (isDeepFrozen(value)) {
+    if (!strippedFrozenSchemas.has(value)) {
+      strippedFrozenSchemas.set(value, deepFreeze(stripSchemaCopy(value)));
+    }
+    return strippedFrozenSchemas.get(value);
+  }
+
+  return stripSchemaCopy(value);
+}
+
+function stripSchemaCopy(value) {
+  if (Array.isArray(value)) {
+    return value.map((entry) => stripJsonRestTransportExtensions(entry));
   }
 
   const sanitized = {};

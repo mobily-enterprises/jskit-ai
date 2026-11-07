@@ -3,7 +3,8 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import Fastify from "fastify";
 import SerializerSelector from "@fastify/fast-json-stringify-compiler";
-import { createCachedResponseSerializerFactory } from "./responseSerializerFactory.js";
+import { deepFreeze } from "../../shared/support/deepFreeze.js";
+import { createCachedResponseSerializerFactory, schemaCacheKey } from "./responseSerializerFactory.js";
 
 const linkSchema = {
   anyOf: [{ type: "string", minLength: 1 }, { type: "object", additionalProperties: true }]
@@ -111,6 +112,30 @@ test("reuses exact JSON schemas, compiles each on first use and preserves native
   }
   assert.equal(calls(), 7);
   assert.throws(() => createCachedResponseSerializerFactory(null), /serializer builder/);
+});
+
+test("a schema frozen all the way down is checked once however many routes compile it, a changeable one every time", (t) => {
+  const native = trackNativeFactory();
+  const compile = createCachedResponseSerializerFactory(native.build)({}, {});
+  const frozen = deepFreeze(structuredClone(errorSchema));
+  const changeable = structuredClone(errorSchema);
+  const ownKeys = t.mock.method(Reflect, "ownKeys");
+
+  const first = compile({ schema: frozen, url: "/route-0", httpStatus: "404" });
+  const checked = ownKeys.mock.callCount();
+  assert.ok(checked > 0);
+  for (let route = 1; route <= 50; route++) {
+    assert.equal(compile({ schema: frozen, url: `/route-${route}`, httpStatus: "404" }), first);
+  }
+  assert.equal(ownKeys.mock.callCount(), checked);
+
+  assert.equal(compile({ schema: changeable }), first);
+  const afterFirstChangeable = ownKeys.mock.callCount();
+  assert.equal(compile({ schema: changeable }), first);
+  assert.ok(ownKeys.mock.callCount() > afterFirstChangeable);
+  assert.equal(first({ errors: [{ status: "404", extra: 1 }] }), '{"errors":[{"status":"404"}]}');
+  // A schema that is not an object has nothing to remember it by and is keyed as before.
+  assert.equal(schemaCacheKey(true), "true");
 });
 
 test("a serializer whose first build fails builds again at its next use", () => {

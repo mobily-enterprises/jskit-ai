@@ -11,6 +11,13 @@ import {
   buildTransportResponseSchema,
   withStandardErrorResponses
 } from "../src/shared/validators/errorResponses.js";
+import { JSON_API_ERROR_DOCUMENT_SCHEMA, withJsonApiErrorResponses } from "../src/shared/validators/jsonApiResourceSchemas.js";
+
+function frozenThroughout(value, seen = new Set()) {
+  if (value === null || typeof value !== "object" || seen.has(value)) return true;
+  seen.add(value);
+  return Object.isFrozen(value) && Object.values(value).every((entry) => frozenThroughout(entry, seen));
+}
 
 test("withStandardErrorResponses includes standard statuses", () => {
   const success = {
@@ -66,6 +73,23 @@ test("withStandardErrorResponses uses validation union for 400 when enabled", ()
   assert.equal(responses[400].transportSchema.anyOf[2].type, fastifyDefaultErrorTransportSchema.type);
   assert.equal(responses[400].transportSchema.definitions.ApiValidationErrorOutput.type, "object");
   assert.equal(responses[400].transportSchema.definitions.ApiErrorOutput.type, "object");
+});
+
+test("every route's error responses share one schema per kind, frozen all the way down", () => {
+  const first = withStandardErrorResponses({}, { includeValidation400: true });
+  const second = withStandardErrorResponses({}, { includeValidation400: true });
+  const withoutValidation = withStandardErrorResponses({});
+  for (const statusCode of STANDARD_ERROR_STATUS_CODES) {
+    assert.equal(second[statusCode].transportSchema, first[statusCode].transportSchema);
+    assert.ok(frozenThroughout(first[statusCode].transportSchema), `status ${statusCode}`);
+  }
+  assert.notEqual(first[400].transportSchema, first[404].transportSchema);
+  assert.equal(withoutValidation[400].transportSchema, first[404].transportSchema);
+
+  const jsonApi = withJsonApiErrorResponses({}, { includeValidation400: true });
+  assert.equal(jsonApi[404].transportSchema, JSON_API_ERROR_DOCUMENT_SCHEMA);
+  assert.equal(withJsonApiErrorResponses({})[409].transportSchema, JSON_API_ERROR_DOCUMENT_SCHEMA);
+  assert.ok(frozenThroughout(JSON_API_ERROR_DOCUMENT_SCHEMA));
 });
 
 test("withStandardErrorResponses does not override existing error schemas", () => {

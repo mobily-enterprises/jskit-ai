@@ -1,4 +1,5 @@
 import { createRequire } from "node:module";
+import { isDeepFrozen } from "./lib/deepFrozen.js";
 
 const require = createRequire(import.meta.url);
 let responseSchemaTools = null;
@@ -38,9 +39,18 @@ function isJsonValue(value, ancestors = new Set()) {
   return json;
 }
 
+// A deep-frozen schema can never change, so its key is computed once per object: a schema many routes share, such as
+// each standard error response, is checked once however many routes use it.
+const frozenSchemaKeys = new WeakMap();
+
 function schemaCacheKey(schema) {
+  if (frozenSchemaKeys.has(schema)) return frozenSchemaKeys.get(schema);
   try {
-    return isJsonValue(schema) ? JSON.stringify(schema) : undefined;
+    const key = isJsonValue(schema) ? JSON.stringify(schema) : undefined;
+    if (key !== undefined && schema !== null && typeof schema === "object" && isDeepFrozen(schema)) {
+      frozenSchemaKeys.set(schema, key);
+    }
+    return key;
   } catch {
     return undefined;
   }

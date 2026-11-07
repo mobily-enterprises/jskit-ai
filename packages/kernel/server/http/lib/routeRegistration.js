@@ -10,6 +10,7 @@ import { resolveRouteLabel } from "./routeSupport.js";
 import { JSON_API_CONTENT_TYPE } from "./routeTransport.js";
 import { rateLimitRouteConfig } from "./routeRateLimits.js";
 import { schemaCacheKey } from "../responseSerializerFactory.js";
+import { isDeepFrozen } from "./deepFrozen.js";
 
 /** @typedef {import("../../types.js").ActionCatalogue} ActionCatalogue */
 /** @typedef {import("../../types.js").RuntimeFastify} RuntimeFastify */
@@ -34,8 +35,49 @@ function sharedValidationSchema(schema) {
   return validationSchemas.get(key);
 }
 
+// Fastify's own serializer writes a `type` into a schema node that names keywords of one type but no type itself, and a
+// frozen node refuses that write, so a schema with such a node is copied for each route like any other.
+const TYPE_KEYWORDS = new Set([
+  "properties", "required", "additionalProperties", "patternProperties", "maxProperties", "minProperties",
+  "dependencies", "items", "additionalItems", "maxItems", "minItems", "uniqueItems", "contains", "maxLength",
+  "minLength", "pattern", "multipleOf", "maximum", "exclusiveMaximum", "minimum", "exclusiveMinimum"
+]);
+const sharedResponseSchemas = new WeakMap();
+
+function namesEveryType(value) {
+  if (value === null || typeof value !== "object") return true;
+  if (!Array.isArray(value) && value.type === undefined && Object.keys(value).some((key) => TYPE_KEYWORDS.has(key))) {
+    return false;
+  }
+  return Object.values(value).every(namesEveryType);
+}
+
+// A response schema that is plain JSON, frozen all the way down and names every node's type (the standard error
+// responses every route carries) can never change, so routes share it and its serializer is keyed once, not per route.
+function isSharedResponseSchema(entry) {
+  if (entry === null || typeof entry !== "object") return false;
+  if (!sharedResponseSchemas.has(entry)) {
+    sharedResponseSchemas.set(entry, isDeepFrozen(entry) && schemaCacheKey(entry) !== undefined && namesEveryType(entry));
+  }
+  return sharedResponseSchemas.get(entry);
+}
+
+// Each route gets its own copy of its schema, which Fastify changes, except for the response schemas routes share.
+function copyRouteSchema(schema) {
+  if (!isRecord(schema?.response)) {
+    return cloneRouteSchema(schema);
+  }
+  const { response, ...parts } = schema;
+  const copy = cloneRouteSchema(parts);
+  copy.response = Object.fromEntries(Object.entries(response).map(([statusCode, entry]) => [
+    statusCode,
+    isSharedResponseSchema(entry) ? entry : cloneRouteSchema(entry)
+  ]));
+  return copy;
+}
+
 function toFastifyRouteOptions(route) {
-  const schema = cloneRouteSchema(route.schema);
+  const schema = copyRouteSchema(route.schema);
   if (shouldStripFastifyBodySchema(route, schema)) {
     delete schema.body;
   }

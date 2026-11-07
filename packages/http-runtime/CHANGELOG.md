@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `withStandardErrorResponses` and `withJsonApiErrorResponses` give every route the same error response schemas, frozen all the way down, instead of building new ones for each route, so the kernel strips, copies and keys each of them once per server. `JSON_API_ERROR_DOCUMENT_SCHEMA` is frozen all the way down.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

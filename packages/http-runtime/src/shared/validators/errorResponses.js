@@ -124,6 +124,26 @@ const sharedErrorTransportDefinitions = {
   ...embeddedApiErrorTransportSchema.definitions
 };
 
+// Every route carries the same standard error responses. Each kind is one schema, frozen all the way down and shared
+// by every route, so the kernel strips, copies and keys it once instead of once per route. They are frozen copies, so
+// the exported parts they are made of stay as they were.
+const standardErrorTransportSchema = deepFreeze(structuredClone({
+  anyOf: [
+    embeddedApiErrorTransportSchema.schema,
+    fastifyDefaultErrorTransportSchema
+  ],
+  definitions: embeddedApiErrorTransportSchema.definitions
+}));
+
+const validationErrorTransportSchema = deepFreeze(structuredClone({
+  anyOf: [
+    embeddedApiValidationErrorTransportSchema.schema,
+    embeddedApiErrorTransportSchema.schema,
+    fastifyDefaultErrorTransportSchema
+  ],
+  definitions: sharedErrorTransportDefinitions
+}));
+
 function withStandardErrorResponses(successResponses, { includeValidation400 = false } = {}) {
   const responses = {
     ...successResponses
@@ -134,25 +154,9 @@ function withStandardErrorResponses(successResponses, { includeValidation400 = f
       continue;
     }
 
-    if (statusCode === 400 && includeValidation400) {
-      responses[statusCode] = buildTransportResponseSchema({
-        anyOf: [
-          embeddedApiValidationErrorTransportSchema.schema,
-          embeddedApiErrorTransportSchema.schema,
-          fastifyDefaultErrorTransportSchema
-        ],
-        definitions: sharedErrorTransportDefinitions
-      });
-      continue;
-    }
-
-    responses[statusCode] = buildTransportResponseSchema({
-      anyOf: [
-        embeddedApiErrorTransportSchema.schema,
-        fastifyDefaultErrorTransportSchema
-      ],
-      definitions: embeddedApiErrorTransportSchema.definitions
-    });
+    responses[statusCode] = buildTransportResponseSchema(
+      statusCode === 400 && includeValidation400 ? validationErrorTransportSchema : standardErrorTransportSchema
+    );
   }
 
   return responses;
