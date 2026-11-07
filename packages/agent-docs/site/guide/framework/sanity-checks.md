@@ -1,10 +1,10 @@
 # Sanity checks
 
 Before calling a list, a save, a test, a refactor, a screen or a deployment
-done, measure what it actually costs and does, judge whether that is sane, and
-fix the cause when it is not. This page is the JSKIT part of that: the
-pitfalls JSKIT's own packages cause, then which JSKIT call, helper or setting
-applies each check, with one line on what the check catches and why.
+done, measure what it costs and does, judge whether that is sane, and fix the
+cause when it is not. This page holds JSKIT's part: the pitfalls JSKIT's own
+packages cause, then the JSKIT call, helper or setting that applies each
+check, with one line on what it catches and why.
 
 ## JSKIT's own pitfalls
 
@@ -68,7 +68,7 @@ expects the relationship id or an unselected field never gets it.
   `page.size`, because json-rest-api would otherwise cut the list without an
   error. A read its callers treat as complete uses `queryAll()`, because the
   missing rows otherwise vanish from every picker and delivery built on it
-  ([Every row](/guide/framework/typed-features#every-row)).
+  ([Reads](/guide/framework/data-access#reads-shaped-for-the-screen)).
 - A lookup by a unique key matches at most one row: `get(id)`, or a `query()`
   of page size 1.
 
@@ -78,22 +78,19 @@ expects the relationship id or an unselected field never gets it.
   `@jskit-ai/resource-runtime/test`, or `countQueries()` from
   `@jskit-ai/database-runtime/server/testDatabases`, at a few rows and at a
   realistic number; the count should follow tables and pages, not rows
-  ([Query counts at realistic
-  sizes](/guide/framework/typed-features#query-counts-at-realistic-sizes)).
+  ([Tests](/guide/framework/data-access#tests)).
 - A JSON:API read adds a few lookup and visibility queries per page and per
   relationship field. That follows pages, so it is expected.
 - A handle's `get()` or `query()`, or a service `get`, inside a loop is the
   usual per-row read; batch it with an id-list filter through `queryAll()` or
-  `include`, grouped with `Map.groupBy()` ([Lists read related rows in
-  batches](/guide/framework/typed-features#lists-read-related-rows-in-batches)).
+  `include`, grouped with `Map.groupBy()`
+  ([Reads](/guide/framework/data-access#reads-shaped-for-the-screen)).
 - A `rowPolicy` adds one correlated predicate to the query it is given, so
   its cost follows the rows read, not the subject's history. It runs on every
   single-record read, including a write's default `returning: "record"` read
   back, so a write that discards its result passes `returning: "id"` or
   `"none"`, and a batch uses the many-row writes (`createMany()`,
-  `patchMany()`), in the owner's transaction
-  ([Bounded access
-  checks](/guide/framework/typed-features#bounded-access-checks)).
+  `patchMany()`) ([Layer 1](/guide/framework/data-access#layer-1-the-table-resource)).
 
 ### Tests
 

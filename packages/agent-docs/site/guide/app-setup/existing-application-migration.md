@@ -190,7 +190,7 @@ write goes through that table's handle
 | the CRUD runtime's `listByIds()`, `listByForeignIds()` | `queryAll({ filters: { [key]: ids } })` on a filter declared `{ type: "array", filterOperator: "in" }`; a page's children with `createHooksToCollectChildren()` |
 | the CRUD runtime's lookup hydration | `include` on the CRUD list or view |
 | the CRUD runtime's `virtualFields` | `queryFields` in the `owns` entry, or `decorateService` for a value SQL cannot compute |
-| the CRUD runtime's `createdAt`/`updatedAt` stamping | the CRUD service stamps them; a handle write sets them itself |
+| the CRUD runtime's `createdAt`/`updatedAt` stamping | every handle write stamps them; only a system context sets its own |
 | the CRUD runtime's output validation | the table resource's schema, whose types json-rest-api reads each field as |
 | `defineCrudFeature`'s `ownershipFilter`, `searchSchema` | `visibility`; an `owns` entry |
 | a lifecycle hook's `trx`; a decorator's or CRUD capability's `resource` | `options`; `crud` |
@@ -200,13 +200,14 @@ write goes through that table's handle
 | `queryDocuments()`, `getDocumentById()` | `query({ page: { size } })`, `get(id)` |
 | `queryAllJsonRestCollectionRows()`, `queryEveryDocument()` | `queryAll(params)` |
 | `createDocument()`, `createDocuments()` | `create()`, `createMany()` |
-| `patchDocumentById()`, `patchDocumentIfLockVersion()` | `patch(id, changes)`, `patch(id, changes, { lockVersion })` |
+| `patchDocumentById()`, `patchDocumentIfLockVersion()` | `patch(id, changes, options)`, `patch(id, changes, { ...options, lockVersion })` |
 | `deleteDocumentById()` | `delete(id)` |
 | `getDocumentById(…, { forUpdate: true })`, `applyForUpdate()`, `lockScopedRecordId()` | `lock(id)` inside `withTransaction` |
 | `runInTransaction()`, `createWithTransaction()`, `joinOrOpenTransaction()`, `resolveTransaction()`, `resolveQueryOptions()`, `resolveRepoClient()` | `withTransaction(options, (txOptions) => …)` |
 | `returning: "full" \| "minimal"` | `returning: "record" \| "id"` (`"none"` is unchanged) |
 | a hand-built `visibilityContext` or scope values, `applyVisibility()`, `applyVisibilityOwners()` | the caller's context, or `systemContext(reason).forWorkspace(id)` |
 | a field's `default:` | `defaultTo:` (`default` is refused, since json-rest-api never read it) |
+| a `createdAt` or `updatedAt` default of now | nothing: drop it, since every handle write stamps them |
 
 Handles answer records, `{ id, ...fields }`, with a belongs-to field as the
 related id; the CRUD service alone answers JSON:API documents. Every call takes
@@ -217,7 +218,7 @@ that is not public.
 json-rest-api 3 changes what a failed write means: any failed write inside a
 managed transaction fails the whole transaction. "Insert, catch the duplicate,
 then read" inside a transaction no longer works; use
-`createMany(rows, { onConflict: { keys, action: "ignore" } })` and then read,
+`createMany(rows, { ...options, onConflict: { keys, action: "ignore" } })` and then read,
 or read first. A `patch` or `delete` of a missing record answers `null` on its
 own, and throws inside a transaction the caller opened. Upsert rows carry no
 `id`, never repeat their conflict keys, and name the ownership field among
@@ -259,8 +260,8 @@ one table at a time:
    changes a second owner's rows; `expectFlatQueries` proves its statements do
    not grow with its rows. Both come from `@jskit-ai/resource-runtime/test`.
 
-Keep each move behaviour-preserving: pin what a path answers with a test
-first, then move it, then run the same test.
+Keep each move behaviour-preserving
+([refactors](/guide/framework/sanity-checks#refactors)).
 
 ### Workspace invitation transaction compatibility (workspaces-core 0.1.198)
 

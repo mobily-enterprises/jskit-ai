@@ -205,8 +205,16 @@ test("the typed-features guide gives each rule what, why and good and bad code",
   ]);
   const rules = sections.filter((section) => !["The rule", "Checks", "A whole feature"].includes(section.title)).flatMap((section) => section.rules);
   assert.ok(rules.length >= 30, "The guide lost rules.");
+  const dataAccess = await readFile(path.join(packageRoot, "site/guide/framework/data-access.md"), "utf8");
+  const dataAccessAnchors = new Set([...dataAccess.matchAll(/^#{2,3} (.+)$/gmu)].map((match) => headingAnchor(match[1])));
   for (const rule of rules) {
     assert.match(rule.body, /^\*\*[^*]/mu, `"${rule.title}" does not state what to do in bold.`);
+    // A data rule keeps its bold rule here and its why and examples once, in the data-access section it links.
+    const dataAccessSection = rule.body.includes("```") ? null : rule.body.match(/\]\(\/guide\/framework\/data-access#([^)]+)\)/u)?.[1];
+    if (dataAccessSection) {
+      assert.ok(dataAccessAnchors.has(dataAccessSection), `"${rule.title}" links data-access#${dataAccessSection}, which no heading has.`);
+      continue;
+    }
     assert.match(rule.body, /^Why: \S/mu, `"${rule.title}" has no one-line why.`);
     assert.match(rule.body, /^(?:\/\/ )?good\b[\s\S]+^(?:\/\/ )?bad\b/mu, `"${rule.title}" has no good and bad example.`);
   }
@@ -320,7 +328,8 @@ test("the sanity checks hold JSKIT's own pitfalls and the JSKIT mechanics for ea
   assert.doesNotMatch(typedFeatures, /^### (?:One read per table|Budgets at realistic counts|Time limits are not fixes)$/mu);
   assert.doesNotMatch(typedFeatures, /fixed query\s+budget|queries <= \d+|asserts the same query count/u);
   const bundled = await readFile(path.join(packageRoot, "skills/jskit/references/sanity-checks.md"), "utf8");
-  assert.ok(bundled.includes("](typed-features.md#query-counts-at-realistic-sizes)"), "The bundled sanity checks do not link typed features.");
+  assert.ok(bundled.includes("](data-access.md#tests)"), "The bundled sanity checks do not link data access.");
+  assert.ok(bundled.includes("](typed-features.md#test-files-run-in-parallel)"), "The bundled sanity checks do not link typed features.");
   const heuristicsIndex = await readFile(path.join(packageRoot, "heuristics/INDEX.md"), "utf8");
   assert.match(heuristicsIndex, /\(\.\.\/site\/guide\/framework\/sanity-checks\.md\)/u);
 });
