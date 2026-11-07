@@ -564,13 +564,14 @@ function createRecords(resources, identities, options) {
  * The `auth.local.backend` that keeps local auth's records in the database: each withTransaction opens one
  * transaction on the records' handles, runs it again whole on a deadlock, and hands the callback the records in it.
  * A failed callback rejects with the callback's own error (an AppError stays one); a failed commit rejects with
- * json-rest-api's RestApiWriteError.
+ * json-rest-api's RestApiWriteError. Every call runs in the feature's system context.
  * @param {object} dependencies
  * @param {LocalAuthHandles} dependencies.resources
  * @param {import("./identityStore.js").IdentityStore} dependencies.identities
+ * @param {object} dependencies.context The feature's system context.
  */
-function createLocalDbBackend({ resources, identities }) {
-  const run = (callback) => resources.localAuthUsers.withTransaction({}, (txOptions) => callback(createRecords(resources, identities, txOptions)));
+function createLocalDbBackend({ resources, identities, context }) {
+  const run = (callback) => resources.localAuthUsers.withTransaction({ context }, (txOptions) => callback(createRecords(resources, identities, txOptions)));
 
   // Two first failed sign-ins of one email at once both find no failure record and both create it, and the loser
   // fails with a duplicate entry. Its transaction rolled back whole, so the sign-in runs once more and then counts
@@ -597,13 +598,15 @@ function createLocalDbBackend({ resources, identities }) {
  * application code that works with them beside local auth: the
  * `auth.local.accounts`, `auth.local.sessions` and `auth.local.recovery`
  * capabilities. Each call takes the call's options last and runs in their
- * transaction (one a handle's withTransaction opened), or on its own.
+ * transaction (one a handle's withTransaction opened), or on its own, always
+ * in the feature's system context: local sign-in writes its own records.
  * @param {object} dependencies
  * @param {LocalAuthHandles} dependencies.resources
  * @param {import("./identityStore.js").IdentityStore} dependencies.identities
+ * @param {object} dependencies.context The feature's system context.
  */
-function createLocalDbOwners({ resources, identities }) {
-  const records = (options) => createRecords(resources, identities, options);
+function createLocalDbOwners({ resources, identities, context }) {
+  const records = (options) => createRecords(resources, identities, { ...options, context });
 
   // An email is kept and found as local sign-in keeps it: trimmed and in lower case.
   const accounts = Object.freeze({
