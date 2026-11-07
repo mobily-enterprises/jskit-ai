@@ -1,9 +1,5 @@
 import { createHash } from "node:crypto";
 
-// One transaction per work, run once, since work may exchange tokens with the provider; the work's own failure reaches
-// the caller as the work threw it.
-const RUN_ONCE = Object.freeze({ retry: false, asThrown: true });
-
 const hash = (value) => createHash("sha256").update(value).digest("hex");
 
 /**
@@ -30,6 +26,8 @@ function createConnectionStore({ resources, systemContext, protection }) {
   requireProtection(protection);
   const { connectorConnections: connections, connectorAuthorizationAttempts: attempts } = resources;
   const connectionOptions = Object.freeze({ context: systemContext("a connection and its attempts are read and changed by their owner and integration key") });
+  // One transaction per work, run once, since work may exchange tokens with the provider.
+  const runOnce = Object.freeze({ ...connectionOptions, retry: false });
   const pruneOptions = Object.freeze({ context: systemContext("maintenance prunes every connection's expired authorization attempts") });
 
   async function withConnection({ owner, integrationId }, work) {
@@ -37,7 +35,7 @@ function createConnectionStore({ resources, systemContext, protection }) {
     const connectionBinding = `connection:${connectionKey}`;
     // Retain this row on disconnect so other processes continue to lock the same identity.
     await connections.findOrCreate({ id: connectionKey, payload: null }, connectionOptions);
-    return connections.withTransaction(connectionOptions, async (txOptions) => {
+    return connections.withTransaction(runOnce, async (txOptions) => {
       const row = await connections.lock(connectionKey, txOptions);
       const writeOptions = { ...txOptions, returning: "none" };
       return work({
@@ -72,11 +70,11 @@ function createConnectionStore({ resources, systemContext, protection }) {
           // A locking read sees an attempt another transaction consumed while this one waited for the connection.
           const [attempt] = await attempts.lockMany([attemptKey], { ...txOptions, missing: "skip" });
           if (attempt?.connectionKey !== connectionKey) return null;
-          await attempts.deleteMany([attemptKey], { ...txOptions, missing: "skip" });
+          await attempts.delete(attemptKey, { ...txOptions, missing: "skip" });
           return protection.open(attempt.payload, `attempt:${connectionKey}:${attemptKey}`);
         }
       });
-    }, RUN_ONCE);
+    });
   }
 
   async function pruneExpiredAttempts({ before = Date.now() } = {}) {
