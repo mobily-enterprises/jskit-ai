@@ -69,7 +69,8 @@ expects the relationship id or an unselected field never gets it.
   or the repository's `queryEveryDocument()`, because the missing rows
   otherwise vanish from every picker and delivery built on it
   ([Every row](/guide/framework/typed-features#every-row)).
-- A lookup by a unique key may read `rows[0]` of a plain query.
+- A lookup by a unique key matches at most one row, so it may read `rows[0]`
+  of a plain query.
 
 ### Query counts and batches
 
