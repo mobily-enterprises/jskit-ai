@@ -367,6 +367,28 @@ test("two first saves of one email's sign-in failure at once both succeed: the l
   assert.equal(Number((await knex("auth_local_sign_in_failures").count({ count: "*" }).first()).count), 1);
 });
 
+test("two first registrations of one email at once both succeed, and the row holds one of them", async (context) => {
+  requireTestDatabase(process.env);
+  const { backend, knex } = await openLocalAuthDatabase(context, "da_local_first_registration");
+  const bothRead = Promise.withResolvers();
+  let reads = 0;
+  // Each finds no registration before either writes; one upsert, keyed on the email, creates or replaces the row. A
+  // deadlock victim runs again whole, and then finds the other's registration.
+  const register = (tokenHash) => backend.withTransaction(async (tx) => {
+    assert.equal(reads >= 2 || await tx.registrations.findByEmail("race@example.com") === null, true);
+    reads += 1;
+    if (reads === 2) bothRead.resolve();
+    await bothRead.promise;
+    return tx.registrations.save({
+      email: "race@example.com", displayName: "Ada", password: PASSWORD, tokenHash, createdAt: CREATED, expiresAt: "2026-11-09T00:00:00.000Z"
+    });
+  });
+  const saved = await Promise.all([register("token-one"), register("token-two")]);
+  const rows = await knex("auth_local_registrations").where({ email: "race@example.com" });
+  assert.equal(rows.length, 1);
+  assert.ok(saved.some(({ tokenHash }) => tokenHash === rows[0].token_hash), "the row holds one of the two registrations");
+});
+
 test("concurrent failed sign-ins for one email each count: find holds the email's record until the transaction ends", async (context) => {
   requireTestDatabase(process.env);
   const { backend } = await openLocalAuthDatabase(context, "da_local_throttle");
