@@ -226,24 +226,24 @@ Exports
 
 ### patterns
 
-### `patterns/json-api-resource-package/example/migrations/20260815000000_books.cjs`
+### `patterns/crud-feature-package/example/migrations/20260815000000_books.cjs`
 Exports
 - None
 
-### `patterns/json-api-resource-package/example/packages/books/src/server/BooksFeature.js`
+### `patterns/crud-feature-package/example/packages/books/src/server/BooksFeature.js`
 Exports
 - `BooksFeature`
 
-### `patterns/json-api-resource-package/example/packages/books/src/server/types.js`
+### `patterns/crud-feature-package/example/packages/books/src/server/types.js`
 Exports
 - `type AppBooks`
 
-### `patterns/json-api-resource-package/example/packages/books/src/shared/bookResource.js`
+### `patterns/crud-feature-package/example/packages/books/src/shared/bookResource.js`
 Exports
 - `bookCrud`
 - `bookResource`
 
-### `patterns/json-api-resource-package/example/packages/books/src/shared/index.js`
+### `patterns/crud-feature-package/example/packages/books/src/shared/index.js`
 Exports
 - `bookCrud`
 - `bookResource`

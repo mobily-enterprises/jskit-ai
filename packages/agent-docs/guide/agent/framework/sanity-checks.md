@@ -66,15 +66,13 @@ expects the relationship id or an unselected field never gets it.
 
 ### Every row
 
-- An unpaged JSON:API query returns the first 20 rows, and a page above the
-  resource's `queryMaxLimit` (100 unless it sets one) is cut to that size,
-  both without an error; CRUD `queryDocuments()` refuses such a `limit`. A
-  read its callers treat as complete uses `queryAllJsonRestCollectionRows()`
-  or the repository's `queryEveryDocument()`, because the missing rows
-  otherwise vanish from every picker and delivery built on it
+- A handle's `query()` answers one page and refuses a missing or oversized
+  `page.size`, because json-rest-api would otherwise cut the list without an
+  error. A read its callers treat as complete uses `queryAll()`, because the
+  missing rows otherwise vanish from every picker and delivery built on it
   ([Every row](/guide/framework/typed-features#every-row)).
-- A lookup by a unique key matches at most one row, so it may read `rows[0]`
-  of a plain query.
+- A lookup by a unique key matches at most one row: `get(id)`, or a `query()`
+  of page size 1.
 
 ### Query counts and batches
 
@@ -86,15 +84,16 @@ expects the relationship id or an unselected field never gets it.
   sizes](/guide/framework/typed-features#query-counts-at-realistic-sizes)).
 - A JSON:API read adds a few lookup and visibility queries per page and per
   relationship field. That follows pages, so it is expected.
-- `getDocumentById()`, `queryDocuments()` or a service `get` inside a loop is
-  the usual per-row read; batch it with an id-list `searchSchema` filter or
+- A handle's `get()` or `query()`, or a service `get`, inside a loop is the
+  usual per-row read; batch it with an id-list filter through `queryAll()` or
   `include`, grouped with `Map.groupBy()` ([Lists read related rows in
   batches](/guide/framework/typed-features#lists-read-related-rows-in-batches)).
 - A `rowPolicy` adds one correlated predicate to the query it is given, so
   its cost follows the rows read, not the subject's history. It runs on every
-  single-record read, including a write's default `returning: "full"` read
-  back, so a write that discards its result passes `returning: "minimal"` and
-  a batch of creates uses `createDocuments()`, in the owner's transaction
+  single-record read, including a write's default `returning: "record"` read
+  back, so a write that discards its result passes `returning: "id"` or
+  `"none"`, and a batch uses the many-row writes (`createMany()`,
+  `patchMany()`), in the owner's transaction
   ([Bounded access
   checks](/guide/framework/typed-features#bounded-access-checks)).
 
