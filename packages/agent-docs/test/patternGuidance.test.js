@@ -67,8 +67,8 @@ test("JSKIT documentation publishes complete pattern pages and self-contained in
   }
   assert.match(patternIndex, /\.\.\/\.\.\/skills\/jskit\/references\/patterns\/crud\/resource-contract\/PATTERN\.md/u);
   assert.match(skillPatternIndex, /patterns\/crud\/resource-contract\/PATTERN\.md/u);
-  assert.match(publicPatternIndex, /\[Owner-scoped CRUD resource contract\]\(\/patterns\/crud\/resource-contract\)/u);
-  assert.match(publicCrudPattern, /# Owner-scoped CRUD resource contract/u);
+  assert.match(publicPatternIndex, /\[Owner-scoped table resource and CRUD contract\]\(\/patterns\/crud\/resource-contract\)/u);
+  assert.match(publicCrudPattern, /# Owner-scoped table resource and CRUD contract/u);
   assert.match(publicCrudPattern, /Browse the complete example tree/u);
   assert.doesNotMatch(
     referenceIndex,
@@ -219,10 +219,11 @@ test("the typed-features guide gives each rule what, why and good and bad code",
 
 test("every jskit lint rule links a guide section and is listed in its checks", async () => {
   const { jskitPlugin } = await import("@jskit-ai/config-eslint/server");
-  // Server rules link the typed-features guide; the client-only rules link the client-features guide. The rule that
-  // keeps a Playwright config's managed login unchanged links the authentication guide, whose section names it.
+  // Server rules link the typed-features guide; the client-only rules link the client-features guide; the data-access
+  // rules link the data-access guide. The rule that keeps a Playwright config's managed login unchanged links the
+  // authentication guide, whose section names it.
   const pages = {};
-  for (const page of ["framework/typed-features", "framework/client-features", "app-setup/authentication"]) {
+  for (const page of ["framework/typed-features", "framework/client-features", "framework/data-access", "app-setup/authentication"]) {
     const guide = await readFile(path.join(packageRoot, `site/guide/${page}.md`), "utf8");
     pages[page] = {
       anchors: new Set([...guide.matchAll(/^#{2,3} (.+)$/gmu)].map((match) => headingAnchor(match[1]))),
@@ -232,7 +233,7 @@ test("every jskit lint rule links a guide section and is listed in its checks", 
   }
   for (const [name, rule] of Object.entries(jskitPlugin.rules)) {
     const url = rule.meta.docs.url;
-    const [, page] = url.match(/^https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/(framework\/(?:typed-features|client-features)|app-setup\/authentication)#/u) || [];
+    const [, page] = url.match(/^https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/(framework\/(?:typed-features|client-features|data-access)|app-setup\/authentication)#/u) || [];
     assert.ok(page, `jskit/${name} links ${url}, which is none of the guides.`);
     const { anchors, lintTable, sections } = pages[page];
     const anchor = url.split("#")[1];

@@ -78,7 +78,7 @@ expects the relationship id or an unselected field never gets it.
 
 ### Query counts and batches
 
-- Count a path's queries with `countQueries()` from
+- Count a path's queries with `expectFlatQueries()` or `countQueries()` from
   `@jskit-ai/database-runtime/server/testDatabases` at a few rows and at a
   realistic number; the count should follow tables and pages, not rows
   ([Query counts at realistic
@@ -113,7 +113,7 @@ expects the relationship id or an unselected field never gets it.
   duration, so slow preparation shows ([Test databases are prepared
   once](typed-features.md#test-databases-are-prepared-once),
   [integration test
-  databases](/guide/app-setup/database-layer#integration-test-databases)).
+  databases](database-layer.md#integration-test-databases)).
 
 ### Inputs and access
 
