@@ -146,6 +146,7 @@ Exports
 Local functions
 - `isMysqlDuplicateEntryError(error)`
 - `isPostgresDuplicateEntryError(error)`
+- `isSqliteDuplicateEntryError(error)`
 
 ### `src/shared/index.js`
 Exports
