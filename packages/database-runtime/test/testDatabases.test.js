@@ -168,6 +168,21 @@ test("a data test without a test database fails instead of skipping", () => {
   assert.equal(requireTestDatabase({ TEST_DB_NAME: " catalogue_test " }), "catalogue_test");
 });
 
+test("tableNames() reads PostgreSQL's tables under each name Knex gives its client", async () => {
+  for (const client of ["pg", "postgres", "postgresql"]) {
+    const statements = [];
+    const knex = {
+      client: { config: { client } },
+      async raw(sql) {
+        statements.push(sql);
+        return { rows: [{ name: "shelves" }, { name: "books" }] };
+      }
+    };
+    assert.deepEqual(await tableNames(knex), ["books", "shelves"], client);
+    assert.match(statements[0], /information_schema\.tables WHERE table_schema = current_schema\(\)/u, client);
+  }
+});
+
 test("tableNames() lists a database's own tables, sorted, without SQLite's internal ones", async () => {
   const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
   try {
