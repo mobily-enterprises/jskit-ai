@@ -6,8 +6,11 @@ import test from "node:test";
 import knexFactory from "knex";
 import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
 import {
+  TestDatabaseMissingError,
   countQueries,
+  expectFlatQueries,
   requireDisposableDatabase,
+  requireTestDatabase,
   testDatabaseNames,
   testDatabaseRun,
   testDatabaseSnapshotKey
@@ -152,6 +155,62 @@ test("countQueries() records each statement a piece of work sends, so a read per
       throw new Error("stopped");
     }), /stopped/u);
     assert.equal(knex.listenerCount("query"), listeners);
+  } finally {
+    await knex.destroy();
+  }
+});
+
+test("a data test without a test database fails instead of skipping", () => {
+  for (const environment of [{}, { TEST_DB_NAME: "  " }]) {
+    assert.throws(() => requireTestDatabase(environment), (error) =>
+      error instanceof TestDatabaseMissingError && error.message === "TEST_DB_NAME is not set; data tests never skip.");
+  }
+  assert.equal(requireTestDatabase({ TEST_DB_NAME: " catalogue_test " }), "catalogue_test");
+});
+
+test("expectFlatQueries() passes a path that reads its rows at once and fails one that reads them row by row", async () => {
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  const environment = { TEST_DB_NAME: "catalogue_test" };
+  try {
+    await knex.schema.createTable("books", (table) => { table.increments("id"); table.integer("shelf"); table.string("title"); });
+    let shelf = 0;
+    // Each size gets a shelf of its own, so the sizes stay apart.
+    const seed = async (size) => {
+      shelf += 1;
+      await knex("books").insert(Array.from({ length: size }, (_, index) => ({ shelf, title: `Book ${index + 1}` })));
+      return shelf;
+    };
+    const atOnce = (seeded) => knex("books").where({ shelf: seeded }).orderBy("id").pluck("title");
+    assert.deepEqual(
+      await expectFlatQueries({ knex, environment, sizes: [3, 30], seed, run: atOnce }),
+      [{ size: 3, count: 1 }, { size: 30, count: 1 }]
+    );
+
+    const rowByRow = async (seeded) => {
+      const ids = await knex("books").where({ shelf: seeded }).pluck("id");
+      for (const id of ids) await knex("books").where({ id }).first("title");
+    };
+    await assert.rejects(expectFlatQueries({ knex, environment, sizes: [3, 30], seed, run: rowByRow }), (error) => {
+      assert.equal(error.name, "AssertionError");
+      assert.equal(error.message, [
+        "The statements grow with the rows: 4 at 3 rows, 31 at 30 rows.",
+        "Repeated most at 30 rows:",
+        "  30 x select `title` from `books` where `id` = ? limit ?",
+        "  1 x select `id` from `books` where `shelf` = ?"
+      ].join("\n"));
+      return true;
+    });
+
+    let seeded = false;
+    await assert.rejects(
+      expectFlatQueries({ knex, environment: {}, seed: () => { seeded = true; }, run: atOnce }),
+      TestDatabaseMissingError
+    );
+    assert.equal(seeded, false);
+    for (const sizes of [[10], [200, 10], [10, 10], [0, 10], [10, 20.5]]) {
+      await assert.rejects(expectFlatQueries({ knex, environment, sizes, seed, run: atOnce }), /at least two growing whole numbers/u);
+    }
+    await assert.rejects(expectFlatQueries({ knex, environment, seed }), /requires seed\(size\) and run\(seeded, size\)/u);
   } finally {
     await knex.destroy();
   }
