@@ -235,7 +235,7 @@ async function findOne(handle, field, value, options) {
  */
 async function findById(handle, id, options) {
   const wanted = text(id);
-  return wanted ? handle.get(wanted, {}, options) : null;
+  return wanted ? handle.get(wanted, {}, { ...options, missing: "skip" }) : null;
 }
 
 /**
@@ -247,20 +247,15 @@ async function countOf(written) {
 }
 
 /**
- * Deletes the record with this id and answers 1, or 0 when it is missing. The row is locked first, in the backend's
- * transaction, so of two concurrent deletes only one answers 1.
+ * Deletes the record with this id and answers 1, or 0 when it is missing: one DELETE, so of two concurrent deletes
+ * only one answers 1.
  * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
  * @param {unknown} id
  * @param {object} options
  */
 async function deleteById(handle, id, options) {
   const wanted = text(id);
-  const [record] = wanted ? await handle.lockMany([wanted], { ...options, missing: "skip" }) : [];
-  if (!record) {
-    return 0;
-  }
-  await handle.delete(record.id, options);
-  return 1;
+  return wanted && (await handle.delete(wanted, { ...options, missing: "skip" })) !== null ? 1 : 0;
 }
 
 /**
@@ -273,7 +268,7 @@ async function deleteById(handle, id, options) {
  * @param {object} options
  */
 async function replace(handle, id, attributes, options) {
-  if (await handle.get(id, {}, options)) {
+  if (await handle.get(id, {}, { ...options, missing: "skip" })) {
     await handle.patch(id, attributes, { ...options, returning: "none" });
   } else {
     await handle.create({ id, ...attributes }, { ...options, returning: "none" });
@@ -281,16 +276,15 @@ async function replace(handle, id, attributes, options) {
 }
 
 /**
- * Patches an existing record and answers it after the change; null when it is missing. Reading it first keeps a
- * missing record from failing the caller's transaction.
+ * Patches an existing record and answers it after the change; null when it is missing, which fails no transaction.
  * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
  * @param {unknown} id
  * @param {Record<string, unknown>} changes
  * @param {object} options
  */
 async function patchExisting(handle, id, changes, options) {
-  const existing = await findById(handle, id, options);
-  return existing ? handle.patch(existing.id, changes, options) : null;
+  const wanted = text(id);
+  return wanted ? handle.patch(wanted, changes, { ...options, missing: "skip" }) : null;
 }
 
 /**
@@ -337,8 +331,8 @@ function userRecords(users, options) {
       if (!id) {
         return null;
       }
-      await users.patch(id, { emailVerifiedAt: requiredDateTime() }, { ...options, onlyIf: { emailVerifiedAt: null }, returning: "none" });
-      return mapUser(await users.get(id, {}, options));
+      await users.patch(id, { emailVerifiedAt: requiredDateTime() }, { ...options, onlyIf: { emailVerifiedAt: null }, missing: "skip", returning: "none" });
+      return mapUser(await users.get(id, {}, { ...options, missing: "skip" }));
     }
   });
 }
@@ -367,7 +361,7 @@ function sessionRecords(sessions, options) {
         return mapSession(existing);
       }
       const revokedAt = requiredDateTime();
-      return mapSession(await sessions.patch(existing.id, { revokedAt, updatedAt: revokedAt }, options));
+      return mapSession(await sessions.patch(existing.id, { revokedAt, updatedAt: revokedAt }, { ...options, missing: "skip" }));
     },
     // revokeOptions.exceptSessionId keeps that session.
     async revokeForUser(userId, revokeOptions = {}) {
@@ -410,7 +404,7 @@ function recoveryRecords(recovery, options) {
         return mapRecovery(existing);
       }
       const usedAt = requiredDateTime();
-      return mapRecovery(await recovery.patch(existing.id, { usedAt, updatedAt: usedAt }, options));
+      return mapRecovery(await recovery.patch(existing.id, { usedAt, updatedAt: usedAt }, { ...options, missing: "skip" }));
     },
     async consumeForUser(userId) {
       const owner = text(userId);
@@ -557,11 +551,7 @@ function createRecords(resources, identities, options) {
  */
 function createLocalDbBackend({ resources, identities }) {
   function withTransaction(callback) {
-    return resources.localAuthUsers.withTransaction(
-      {},
-      (txOptions) => callback(createRecords(resources, identities, txOptions)),
-      { asThrown: true }
-    );
+    return resources.localAuthUsers.withTransaction({}, (txOptions) => callback(createRecords(resources, identities, txOptions)));
   }
 
   return Object.freeze({
