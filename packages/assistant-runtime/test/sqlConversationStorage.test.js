@@ -490,12 +490,14 @@ test("a long conversation's rows are read once, then each write appends its rows
   const write = await measure(() => appendTurn("after-300"));
   assert.equal(write.result, "000301");
   assert.deepEqual(write.queries.filter(readsWholeConversation), []);
-  assert.ok(write.queries.length <= 12, `A write issues a constant number of queries, not one per stored row (${write.queries.length})`);
+  // BEGIN, the conversation's lock, its last seq, the message's insert and read-back, one update of the conversation, COMMIT;
+  // SQLite takes the lock with a no-op write and then reads the row.
+  assert.ok(write.queries.length <= 8, `A write issues a constant number of queries, not one per stored row (${write.queries.length})`);
   const read = await measure(() => cold.storage.read(conversation.id, transaction => transaction.readTurn("000301")));
   assert.equal(read.result.user.text, "One more");
   assert.deepEqual(read.result.metadata, { runtime: { status: "running" } });
   assert.deepEqual(read.queries.filter(readsWholeConversation), []);
-  assert.ok(read.queries.length <= 5, `A read issues a constant number of queries (${read.queries.length})`);
+  assert.ok(read.queries.length <= 4, `A read issues a constant number of queries (${read.queries.length})`);
 
   await writeTurns(cold.storage, conversation.id, 50, "later");
   const longer = await measure(() => appendTurn("after-350"));

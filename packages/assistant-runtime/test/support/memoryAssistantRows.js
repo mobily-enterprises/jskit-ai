@@ -18,9 +18,16 @@ export function createMemoryAssistantRows({ id = "conversation_1", surfaceId = "
       Object.assign(target.conversation, structuredClone(patch));
       return structuredClone(target.conversation);
     },
-    async readTranscriptState(value, options) { return value === id ? structuredClone(read(options).transcript) : null; },
-    async writeTranscriptState(value, transcript, options) {
-      if (value === id) read(options).transcript = structuredClone(transcript);
+    async findWithTranscriptState(value, options) {
+      if (value !== id) return null;
+      const { conversation, transcript } = read(options);
+      return structuredClone({ conversation, ...transcript });
+    },
+    async writeTranscriptState(value, { changes = {}, ...transcript }, options) {
+      if (value !== id) return;
+      const target = read(options);
+      target.transcript = structuredClone(transcript);
+      Object.assign(target.conversation, structuredClone(changes));
     },
     transaction(operation) {
       const next = pending.then(async () => {
