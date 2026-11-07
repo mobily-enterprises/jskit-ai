@@ -286,6 +286,9 @@ Exports
 Local functions
 - `findTestFiles(patterns, cwd)`
 - `readAloneFiles(files, cwd)`
+- `aloneDestination(destination)`
+- `aloneRunOptions(options)`
+- `aloneShard(files, options)`
 - `runNode(args, env)`
 
 ### `scripts/test-databases.mjs`

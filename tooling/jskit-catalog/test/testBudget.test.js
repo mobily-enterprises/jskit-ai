@@ -81,6 +81,25 @@ test("a file that states why it must run alone runs after the others, and a malf
     assert.deepEqual(planTestRuns(["test/shared.test.js"], { cwd: root, concurrency: 4 }).runs, [
       ["--test", "--test-concurrency=1", "test/shared.test.js"]
     ]);
+
+    // The alone run writes a reporter's file beside the parallel run's instead of over it, and a shard runs only its
+    // own alone files, picked as node --test picks the shard's other files.
+    const reporters = ["--test-reporter=spec", "--test-reporter-destination=out/spec.log", "--test-reporter", "junit",
+      "--test-reporter-destination", "out/junit.xml", "--test-reporter=dot", "--test-reporter-destination=stdout"];
+    const sharded = (shard) => planTestRuns([...reporters, "--test-shard", shard], { cwd: root, concurrency: 4 }).runs;
+    assert.deepEqual(sharded("1/2"), [
+      ["--test", "--test-concurrency=4", ...reporters, "--test-shard", "1/2", "test/a.test.js", "test/b.test.js"],
+      ["--test", "--test-concurrency=1", "--test-reporter=spec", "--test-reporter-destination=out/spec.alone.log",
+        "--test-reporter", "junit", "--test-reporter-destination", "out/junit.alone.xml", "--test-reporter=dot",
+        "--test-reporter-destination=stdout", "scripts/tool.test.mjs"]
+    ]);
+    assert.deepEqual(sharded("2/2")[1].slice(-2), ["--test-reporter-destination=stdout", "test/shared.test.js"]);
+    // Option values given apart (`--test-reporter junit`) name no files, so the run is still node's default files.
+    assert.deepEqual(planTestRuns(["--test-reporter", "junit"], { cwd: root, concurrency: 4 }).runs[1].slice(-2),
+      ["scripts/tool.test.mjs", "test/shared.test.js"]);
+    assert.deepEqual(planTestRuns(["--test-shard=3/3"], { cwd: root, concurrency: 4 }).runs, [
+      ["--test", "--test-concurrency=4", "--test-shard=3/3", "test/a.test.js", "test/b.test.js"]
+    ]);
   });
   await withProject({ "test/a.test.js": "// jskit-test: alone\n", "test/b.test.js": `import "node:test";\n${ALONE_LINE}\n` }, async (root) => {
     assert.throws(() => planTestRuns([], { cwd: root }), (error) => {
