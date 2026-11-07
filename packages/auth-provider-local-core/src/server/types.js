@@ -42,8 +42,9 @@
  *   save(record: AuthLocalSignInFailures): Promise<AuthLocalSignInFailures>,
  *   clear(email: string): Promise<number>,
  *   deleteBefore(lastFailedAt: string): Promise<number>
- * }} signInFailures One record per account email, existing or not; `save`
- *   replaces the email's record and `deleteBefore` removes those whose last failure is older.
+ * }} signInFailures One record per account email, existing or not; `find` holds the email's record until the
+ *   transaction ends, so concurrent failures count one after another, `save` replaces the email's record and
+ *   `deleteBefore` removes those whose last failure is older.
  * @property {{
  *   save(record: AuthLocalRegistration): Promise<AuthLocalRegistration>,
  *   findByEmail(email: string): Promise<AuthLocalRegistration | null>,
