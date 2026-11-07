@@ -10,7 +10,7 @@ import {
   defineApiContract,
   normalizeSchemaDefinitionLike
 } from "@jskit-ai/resource-core/shared/apiContract";
-import { isTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { isTableResource, storedTimestamps } from "@jskit-ai/resource-core/shared/tableResource";
 import { resolveCrudRecordChangedEvent } from "./crudNamespaceSupport.js";
 
 const DEFAULT_CRUD_OPERATION_NAMES = Object.freeze([
@@ -247,6 +247,20 @@ function createCrudRecordOutputDefinitionResolver(source) {
   };
 }
 
+/**
+ * Refuses a request body that takes a stored timestamp: the handle stamps createdAt and updatedAt itself, and only a
+ * system context may set them.
+ * @param {string} resourceName
+ * @param {string} where The contract entry, for the message.
+ * @param {string} field
+ */
+function refuseStampedField(resourceName, where, field) {
+  throw new TypeError(
+    `defineCrudContract(${resourceName}) ${where} takes ${field}, which the handle stamps on every write: ` +
+      "a request never sets it, so the contract offers it as output only. An import sets its own through a system context."
+  );
+}
+
 function resolveCrudBodyDefinition(spec, source) {
   const explicitBody = resolveExplicitCrudSchemaDefinition(
     source.config,
@@ -257,6 +271,11 @@ function resolveCrudBodyDefinition(spec, source) {
     }
   );
   if (explicitBody) {
+    const takes = Object.keys(explicitBody.schema.getFieldDefinitions());
+    const stamped = storedTimestamps(source.resource.schema).find((field) => takes.includes(field));
+    if (stamped) {
+      refuseStampedField(source.resource.name, `${spec.bodyOperation} body`, stamped);
+    }
     return explicitBody;
   }
 
@@ -313,7 +332,11 @@ function normalizeContractFields(resource, fields) {
     if (!Object.hasOwn(resource.schema, fieldKey)) {
       throw new TypeError(`defineCrudContract fields.${fieldKey} is not a field of the ${resource.name} resource.`);
     }
-    return [fieldKey, normalizeCrudFieldOperations(fieldKey, entry)];
+    const operations = normalizeCrudFieldOperations(fieldKey, entry);
+    if (storedTimestamps(resource.schema).includes(fieldKey) && Object.keys(operations).some((name) => name !== "output")) {
+      refuseStampedField(resource.name, `fields.${fieldKey}`, fieldKey);
+    }
+    return [fieldKey, operations];
   }));
 }
 

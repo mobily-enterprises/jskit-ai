@@ -187,6 +187,23 @@ function defineTableResource(definition) {
   return resource;
 }
 
+// The record timestamps a table keeps when its schema stores them as date-times. The handle stamps them, createdAt
+// when a record is created and updatedAt on every write, replacing what a request sends (only a system context, or
+// server code without a context, sets its own); a CRUD contract offers them as output only.
+const RECORD_TIMESTAMPS = Object.freeze(["createdAt", "updatedAt"]);
+
+/**
+ * Which of `names` a table schema stores as date-times (not computed in the query).
+ * @param {Record<string, any>} schema
+ * @param {readonly string[]} [names]
+ */
+function storedTimestamps(schema, names = RECORD_TIMESTAMPS) {
+  return names.filter((name) => {
+    const field = schema[name];
+    return field?.type === "dateTime" && field.virtual !== true && field.storage?.virtual !== true && !field.storage?.queryProjection;
+  });
+}
+
 /**
  * Whether a value is a table resource defineTableResource returned.
  * @param {unknown} value
@@ -198,6 +215,8 @@ function isTableResource(value) {
 export {
   OWNERSHIP_KINDS,
   defineTableResource,
+  RECORD_TIMESTAMPS,
   isTableResource,
-  resourceNameFromNamespace
+  resourceNameFromNamespace,
+  storedTimestamps
 };

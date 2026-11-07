@@ -334,7 +334,7 @@ test("lockOrCreate() runs work on the locked record, creating it first when miss
   await assert.rejects(resources.counters.lockOrCreate({ value: 0 }, options, bump), /takes \(row, options, work\)/u);
 });
 
-test("a table that stores createdAt and updatedAt has every write stamp them, unless the write sets them", async (t) => {
+test("a table that stores createdAt and updatedAt has every write stamp them; a request never sets its own", async (t) => {
   const stamped = defineTableResource({
     name: "stamped",
     tableName: "stamped",
@@ -376,11 +376,27 @@ test("a table that stores createdAt and updatedAt has every write stamp them, un
   await resources.stamped.createMany([{ id: "a", title: "a3" }, { id: "d", title: "d" }], { ...options, onConflict: { keys: ["id"], action: "merge" } });
   assert.deepEqual(await stamps("a"), { created_at: "2026-11-08 01:00:00.000", updated_at: "2026-11-08 04:00:00.000" });
   assert.deepEqual(await stamps("d"), { created_at: "2026-11-08 04:00:00.000", updated_at: "2026-11-08 04:00:00.000" });
-  // A write that sets a timestamp keeps it, and a patch that changes nothing stamps nothing.
+  // A system context's write keeps the timestamps it sets, and a patch that changes nothing stamps nothing.
   await resources.stamped.patch("a", { updatedAt: "2020-01-01T00:00:00.000Z" }, options);
+  await resources.stamped.create({ id: "e", title: "e", createdAt: "2020-01-01T00:00:00.000Z" }, options);
   at("2026-11-08T05:00:00.000Z");
   await resources.stamped.patch("a", {}, options);
   assert.equal((await stamps("a")).updated_at, "2020-01-01 00:00:00.000");
+  assert.deepEqual(await stamps("e"), { created_at: "2020-01-01 00:00:00.000", updated_at: "2026-11-08 04:00:00.000" });
+  // So does server code calling a public table without a context.
+  await resources.stamped.create({ id: "g", title: "g", createdAt: "2020-01-01T00:00:00.000Z" }, {});
+  assert.equal((await stamps("g")).created_at, "2020-01-01 00:00:00.000");
+  // A request's timestamps are replaced by the handle's: a patch that sends updatedAt gets the server's time and
+  // leaves createdAt as stored, a create that sends createdAt gets the server's, and an upsert merge keeps createdAt.
+  const request = { context: {} };
+  await resources.stamped.patch("a", { title: "a4", createdAt: "2019-01-01T00:00:00.000Z", updatedAt: "2019-01-01T00:00:00.000Z" }, request);
+  assert.deepEqual(await stamps("a"), { created_at: "2026-11-08 01:00:00.000", updated_at: "2026-11-08 05:00:00.000" });
+  await resources.stamped.create({ id: "f", title: "f", createdAt: "2019-01-01T00:00:00.000Z" }, request);
+  assert.deepEqual(await stamps("f"), { created_at: "2026-11-08 05:00:00.000", updated_at: "2026-11-08 05:00:00.000" });
+  await resources.stamped.createMany([{ id: "a", title: "a5", createdAt: "2019-01-01T00:00:00.000Z" }], {
+    ...request, onConflict: { keys: ["id"], action: "merge", merge: ["title", "createdAt"] }
+  });
+  assert.equal((await stamps("a")).created_at, "2026-11-08 01:00:00.000");
 });
 
 test("patch() with lockVersion patches the version it read and refuses a stale one; onlyIf patches only matching rows", async (t) => {

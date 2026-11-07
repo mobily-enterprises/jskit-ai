@@ -350,7 +350,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     const askFor = hooks.afterWrite && returning === "none" ? "id" : returning;
     const result = await hooked("create", options, (callOptions) => jsonRest().post(
       {
-        data: inputData(resource, attributes, "create"),
+        data: inputData(resource, attributes, "create", options.context),
         returning: SINGLE_RETURNING[askFor],
         transaction: callOptions.trx || undefined,
         format
@@ -381,7 +381,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     const result = await hooked("patch", options, (callOptions) => jsonRest().patch(
       {
         id,
-        data: inputData(resource, attributes, "update"),
+        data: inputData(resource, attributes, "update", options.context),
         returning: SINGLE_RETURNING[returning],
         transaction: callOptions.trx || undefined,
         format: formatOf(callOptions)
@@ -404,7 +404,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     const full = returning === "record";
     const result = await hooked("patch", options, (callOptions) => jsonRest().patchMany(
       {
-        data: [{ id, ...inputData(resource, attributes, "update") }],
+        data: [{ id, ...inputData(resource, attributes, "update", options.context) }],
         missing: "skip",
         ...(onlyIf === undefined ? {} : { onlyIf }),
         returning: full ? "full" : "minimal",
@@ -533,8 +533,8 @@ function createResourceHandle({ api, resource, hooks, settings }) {
       requireUpsertRows(name, rows, options.onConflict, resource.idProperty);
     }
     return manyRowWrite("createMany", rows.length, options, (params, context) => jsonRest().postMany(
-      { ...params, data: rows.map((row) => inputData(resource, row, "create")),
-        ...(options.onConflict ? { onConflict: upsertConflict(resource, rows, options.onConflict) } : {}) },
+      { ...params, data: rows.map((row) => inputData(resource, row, "create", options.context)),
+        ...(options.onConflict ? { onConflict: upsertConflict(resource, rows, options.onConflict, options.context) } : {}) },
       context
     ));
   }
@@ -553,7 +553,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     return manyRowWrite("patchMany", rows.length, options, (params, context) => jsonRest().patchMany(
       {
         ...params,
-        data: rows.map(({ id, ...changes }) => ({ id, ...inputData(resource, changes, "update") })),
+        data: rows.map(({ id, ...changes }) => ({ id, ...inputData(resource, changes, "update", options.context) })),
         ...(options.onlyIf ? { onlyIf: options.onlyIf } : {}),
         ...(options.missing ? { missing: options.missing } : {})
       },
@@ -572,7 +572,8 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   async function patchWhere(filters, attributes, options = {}) {
     const selection = whereSelection(name, "patchWhere", filters, options);
     return manyRowWrite("patchWhere", 0, options, (params, context) => jsonRest().patchWhere(
-      { ...params, ...selection, data: inputData(resource, attributes, "update"), ...(options.onlyIf ? { onlyIf: options.onlyIf } : {}) },
+      { ...params, ...selection, data: inputData(resource, attributes, "update", options.context),
+        ...(options.onlyIf ? { onlyIf: options.onlyIf } : {}) },
       context
     ));
   }

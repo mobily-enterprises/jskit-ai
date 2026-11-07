@@ -56,10 +56,6 @@ const bookResource = defineTableResource({
 const bookCrud = defineCrudContract(bookResource, {
   namespace: "books",
   apiAccess: "authenticated",
-  fields: {
-    createdAt: { output: "required" },
-    updatedAt: { output: "required" }
-  },
   messages: {
     validation: "Fix invalid values and try again.",
     saveSuccess: "Book saved.",

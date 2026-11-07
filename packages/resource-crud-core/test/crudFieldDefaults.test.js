@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { createSchema } from "@jskit-ai/kernel/shared/validators";
 import { defineCrudContract } from "../src/shared/crudContract.js";
 
 // A built contract's operations as JSON: each schema as its field definitions, each function as its source.
@@ -68,6 +69,27 @@ test("primary-key and hidden fields take no operation and read-only fields take 
   assert.equal(contract.operations.view.output.schema.getFieldDefinitions().id.type, "string");
   assert.deepEqual(fieldsOf(contract.operations.create.body), ["title"]);
   assert.deepEqual(fieldsOf(contract.operations.patch.body), ["title"]);
+});
+
+test("stored createdAt and updatedAt take output only, and a contract that would let a request write them is refused", () => {
+  const schema = {
+    title: { type: "string", required: true },
+    createdAt: { type: "dateTime", storage: { column: "created_at", writeSerializer: "datetime-utc" } },
+    updatedAt: { type: "dateTime", storage: { column: "updated_at", writeSerializer: "datetime-utc" } }
+  };
+  const contract = defineNotes(schema);
+  const fieldsOf = (operation) => Object.keys(operation.schema.getFieldDefinitions());
+  assert.deepEqual(fieldsOf(contract.operations.view.output), ["id", "title", "createdAt", "updatedAt"]);
+  assert.deepEqual(fieldsOf(contract.operations.create.body), ["title"]);
+  assert.deepEqual(fieldsOf(contract.operations.patch.body), ["title"]);
+  assert.throws(() => defineNotes(schema, { updatedAt: { output: "required", patch: "optional" } }),
+    /defineCrudContract\(notes\) fields\.updatedAt takes updatedAt, which the handle stamps on every write/u);
+  assert.throws(() => defineNotes(schema, { createdAt: { create: "optional" } }), /fields\.createdAt takes createdAt/u);
+  const resource = defineTableResource({ name: "notes", tableName: "notes", ownership: "public", schema });
+  assert.throws(() => defineCrudContract(resource, {
+    namespace: "notes",
+    patchBody: createSchema({ title: { type: "string" }, updatedAt: { type: "dateTime" } })
+  }), /defineCrudContract\(notes\) patch body takes updatedAt/u);
 });
 
 test("a field's entry wins over the default", () => {

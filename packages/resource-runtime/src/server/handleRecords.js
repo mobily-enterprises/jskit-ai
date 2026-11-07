@@ -1,4 +1,6 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { RECORD_TIMESTAMPS, storedTimestamps } from "@jskit-ai/resource-core/shared/tableResource";
+import { isJobContext } from "./contexts.js";
 import { requireDefinedFilters } from "./handleGuards.js";
 
 // What a handle takes and answers, in json-rest-api's terms: read parameters,
@@ -66,74 +68,82 @@ function idOf(result, format) {
   return isRecord(resource) ? resource.id : undefined;
 }
 
-// The record timestamps a table resource keeps when its schema stores them as date-times: a create stamps both, a
-// change of a record updatedAt.
-const STAMPS = Object.freeze({ create: Object.freeze(["createdAt", "updatedAt"]), update: Object.freeze(["updatedAt"]) });
-
 /**
- * The fields among `names` the table stores as date-times (not computed in the query).
- * @param {Record<string, any>} schema
- * @param {readonly string[]} names
+ * Whether a write may set its own timestamps: in a system context, or one it derived (an import, a migration, a
+ * seed), and in a call without a context, which only server code makes, on a public table such as a sign-in store.
+ * A request always carries its context, so its timestamps are always the handle's.
+ * @param {unknown} context
  */
-function storedTimestamps(schema, names) {
-  return names.filter((name) => {
-    const field = schema[name];
-    return field?.type === "dateTime" && field.virtual !== true && field.storage?.virtual !== true && !field.storage?.queryProjection;
-  });
+function setsOwnTimestamps(context) {
+  return !context || isJobContext(context);
 }
 
 /**
- * The timestamps a write stamps that its attributes do not set themselves: none for a change that changes nothing.
+ * A write's attributes with the table's timestamps (see storedTimestamps). The handle's stamps replace any the
+ * caller sends, unless it may set its own (setsOwnTimestamps), so a request never sets them. A create stamps
+ * createdAt and updatedAt, a change of a record updatedAt, and an empty change nothing.
  * @param {{ schema: Record<string, any> }} resource
- * @param {"create" | "update" | undefined} stamp
  * @param {Record<string, unknown>} attributes
+ * @param {"create" | "update"} stamp
+ * @param {unknown} context The call's context.
  */
-function timestampsFor(resource, stamp, attributes) {
-  if (!stamp || (stamp === "update" && Object.keys(attributes).length < 1)) {
-    return {};
+function stampedAttributes(resource, attributes, stamp, context) {
+  const kept = storedTimestamps(resource.schema);
+  if (kept.length < 1 || (stamp === "update" && Object.keys(attributes).length < 1)) {
+    return { ...attributes };
   }
+  const callerSets = setsOwnTimestamps(context);
+  const data = Object.fromEntries(Object.entries(attributes).filter(([field]) => callerSets || !kept.includes(field)));
   const now = new Date().toISOString();
-  return Object.fromEntries(storedTimestamps(resource.schema, STAMPS[stamp]).map((field) => [field, now]));
+  for (const field of storedTimestamps(resource.schema, stamp === "create" ? RECORD_TIMESTAMPS : ["updatedAt"])) {
+    if (!Object.hasOwn(data, field)) {
+      data[field] = now;
+    }
+  }
+  return data;
 }
 
 /**
  * An upsert's onConflict with the timestamps its merge changes: updatedAt moves on, and a createdAt the handle stamped
- * on a row is the new record's only, so a merge then names its fields (those the rows give, by their field names).
+ * is the new record's only, so a merge then names its fields (those the rows give, by their field names).
  * @param {{ schema: Record<string, any> }} resource
  * @param {Array<Record<string, unknown>>} rows The caller's rows, before stamping.
  * @param {{ action?: string, merge?: string[] }} onConflict
+ * @param {unknown} context The call's context: only a caller that sets its own timestamps merges its createdAt.
  */
-function upsertConflict(resource, rows, onConflict) {
+function upsertConflict(resource, rows, onConflict, context) {
   if (onConflict.action !== "merge") {
     return onConflict;
   }
-  const updated = storedTimestamps(resource.schema, STAMPS.update);
+  const updated = storedTimestamps(resource.schema, ["updatedAt"]);
+  const callerSets = setsOwnTimestamps(context);
+  const mergeOf = (fields, mergesCreated) => [...new Set([...fields, ...updated])]
+    .filter((field) => field !== "id" && (mergesCreated || field !== "createdAt"));
   if (onConflict.merge !== undefined) {
-    return { ...onConflict, merge: [...new Set([...onConflict.merge, ...updated])] };
+    return { ...onConflict, merge: mergeOf(onConflict.merge, callerSets) };
   }
   const stampsCreated = storedTimestamps(resource.schema, ["createdAt"]).length > 0 &&
-    rows.some((row) => isRecord(row) && !Object.hasOwn(row, "createdAt"));
+    (!callerSets || rows.some((row) => isRecord(row) && !Object.hasOwn(row, "createdAt")));
   if (!stampsCreated) {
     return onConflict;
   }
   const fieldOf = Object.fromEntries(Object.entries(resource.schema).map(([field, definition]) => [definition?.as || field, field]));
-  const given = rows.flatMap((row) => Object.keys(row)).map((key) => fieldOf[key] || key);
-  return { ...onConflict, merge: [...new Set([...given, ...updated])].filter((field) => field !== "id" && field !== "createdAt") };
+  return { ...onConflict, merge: mergeOf(rows.flatMap((row) => Object.keys(row)).map((key) => fieldOf[key] || key), false) };
 }
 
 /**
- * Record attributes as json-rest-api's input: a belongs-to field written under
- * its key goes to its relationship. `stamp` sets the timestamps the table
- * stores and the attributes leave out: "create" both, "update" updatedAt.
+ * Record attributes as json-rest-api's input, stamped (see stampedAttributes): a belongs-to field written under its
+ * key goes to its relationship.
  * @param {{ name: string, schema: Record<string, any> }} resource
  * @param {unknown} attributes
- * @param {"create" | "update"} [stamp]
+ * @param {"create" | "update"} stamp
+ * @param {unknown} context The call's context.
  */
-function inputData(resource, attributes, stamp) {
+function inputData(resource, attributes, stamp, context) {
   if (!isRecord(attributes)) {
     throw new TypeError(`${resource.name} writes take attributes as an object.`);
   }
-  const data = { ...timestampsFor(resource, stamp, attributes), ...attributes };
+  const data = stampedAttributes(resource, attributes, stamp, context);
   for (const [fieldName, definition] of Object.entries(resource.schema)) {
     if (!definition?.belongsTo || !Object.hasOwn(data, fieldName)) {
       continue;

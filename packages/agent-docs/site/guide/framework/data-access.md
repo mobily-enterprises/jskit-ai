@@ -50,10 +50,12 @@ for every matching row, `get`, `create`, `patch` and `delete` for one record,
 and `aggregate` for totals. On every statement the handle adds the ownership
 predicate and the row policy, validates what you write and stamps the workspace
 or user on new rows. A table whose schema stores `createdAt` and `updatedAt`
-as `dateTime` fields gets them stamped by every write that leaves them out:
-both on a create (`createMany` too), `updatedAt` on every change (`patch`,
-`patchMany`, `patchWhere`, an upsert merge, which keeps the stored
-`createdAt`). Pass the call's `options` (its context and transaction)
+as `dateTime` fields gets them stamped by every write: both on a create
+(`createMany` too), `updatedAt` on every change (`patch`, `patchMany`,
+`patchWhere`, an upsert merge, which keeps the stored `createdAt`). The stamps
+replace what a request sends, and a CRUD contract offers them as output only;
+only a system context (an import, a migration, a seed), or server code calling
+a public table without a context, sets its own. Pass the call's `options` (its context and transaction)
 to every handle call; a call without a context throws instead of guessing.
 
 ```js
