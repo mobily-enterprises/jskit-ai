@@ -51,7 +51,7 @@ const AssistantFeature = defineFeature({
     conversationRuntime: "assistant.conversations",
     conversationAccess: "assistant.conversation.access",
     assistantConfigService: "assistant.settings",
-    database: "runtime.database",
+    repositories: "assistant.repositories",
     realtime: "runtime.realtime",
     aiConnections: "integrations.ai",
     attachments: "assistant.attachments",
@@ -77,14 +77,11 @@ const AssistantFeature = defineFeature({
       // composes assistant.personContext into them itself, with createPersonContextPrompt.
       assistant = createHostedAssistant({ conversationRuntime, assistantConfigService: assistantConfigService || null });
     } else {
-      if (!dependencies.database?.knex) {
-        throw new Error("AssistantFeature requires assistant.conversations, or runtime.database for database integration.");
+      // The database-backed assistant keeps its rows through AssistantStoreFeature's repositories.
+      if (!dependencies.repositories) {
+        throw new Error("AssistantFeature requires assistant.conversations, or assistant.repositories (AssistantStoreFeature) for database integration.");
       }
       const { createAssistantRuntime } = await import("./createAssistantRuntime.js");
-      const { createRepository: createAssistantConfigRepository } = await import("./repositories/assistantConfigRepository.js");
-      const { createRepository: createConversationsRepository } = await import("./repositories/conversationsRepository.js");
-      const { createRepository: createMessagesRepository } = await import("./repositories/messagesRepository.js");
-      const { createRepository: createTurnRequestsRepository } = await import("./repositories/turnRequestsRepository.js");
       assistant = createAssistantRuntime({
         actionCatalogue,
         config: dependencies.config,
@@ -95,12 +92,7 @@ const AssistantFeature = defineFeature({
         personContext: dependencies.personContext ?? NO_PERSON_CONTEXT,
         logger: dependencies.logger,
         workspaces: dependencies.workspaces || null,
-        repositories: {
-          config: createAssistantConfigRepository(dependencies.database.knex),
-          conversations: createConversationsRepository(dependencies.database.knex),
-          messages: createMessagesRepository(dependencies.database.knex),
-          turnRequests: createTurnRequestsRepository(dependencies.database.knex)
-        }
+        repositories: dependencies.repositories
       });
     }
     registerRoutes(dependencies.http.router, {

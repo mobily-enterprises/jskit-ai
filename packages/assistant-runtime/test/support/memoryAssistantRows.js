@@ -25,7 +25,7 @@ export function createMemoryAssistantRows({ id = "conversation_1", surfaceId = "
     transaction(operation) {
       const next = pending.then(async () => {
         const trx = structuredClone(state);
-        const value = await operation(trx);
+        const value = await operation({ trx });
         state = trx;
         messages.splice(0, messages.length, ...structuredClone(state.messages));
         return value;

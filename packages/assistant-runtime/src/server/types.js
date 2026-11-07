@@ -16,6 +16,7 @@
 /** @typedef {ReturnType<typeof import("./repositories/conversationsRepository.js").createRepository>} ConversationsRepository */
 /** @typedef {ReturnType<typeof import("./repositories/messagesRepository.js").createRepository>} MessagesRepository */
 /** @typedef {ReturnType<typeof import("./repositories/turnRequestsRepository.js").createRepository>} TurnRequestsRepository */
+/** @typedef {{ config: AssistantConfigRepository, conversations: ConversationsRepository, messages: MessagesRepository, turnRequests: TurnRequestsRepository }} AssistantRepositories The `assistant.repositories` capability: the database-backed assistant's repositories, which AssistantStoreFeature provides. */
 
 /** @typedef {import("@jskit-ai/workspaces-core/server/types").WorkspacesCore["scope"]} WorkspaceScopeSupport The workspace route support of `workspaces.core`: its route params, the action input they build and the workspace an action runs in. */
 

@@ -4,29 +4,29 @@ import { createRepository as createAssistantConfigRepository } from "../src/serv
 import { createRepository as createConversationsRepository } from "../src/server/repositories/conversationsRepository.js";
 import { createRepository as createMessagesRepository } from "../src/server/repositories/messagesRepository.js";
 
-function createKnexStub() {
-  const knex = Object.assign(() => {
-    throw new Error("query execution not expected");
-  }, {
-    async transaction(work) {
-      return work({ trxId: "trx-1" });
+// A handle that runs no query and opens a stub transaction.
+function createHandleStub() {
+  return {
+    async withTransaction(options, work) {
+      return work({ ...options, trxId: "trx-1" });
     }
-  });
+  };
+}
 
-  return knex;
+function systemContext() {
+  return { forUser: () => ({}), forWorkspace: () => ({}) };
 }
 
 test("assistant-runtime repositories expose withTransaction", async () => {
-  const knex = createKnexStub();
   const repositories = [
-    createAssistantConfigRepository(knex),
-    createConversationsRepository(knex),
-    createMessagesRepository(knex)
+    createAssistantConfigRepository({ assistantConfig: createHandleStub(), systemContext }),
+    createConversationsRepository({ conversations: createHandleStub(), systemContext }),
+    createMessagesRepository({ messages: createHandleStub(), systemContext })
   ];
 
   for (const repository of repositories) {
     assert.equal(typeof repository.withTransaction, "function");
-    const result = await repository.withTransaction(async (trx) => ({ id: trx.trxId }));
+    const result = await repository.withTransaction({}, async (txOptions) => ({ id: txOptions.trxId }));
     assert.deepEqual(result, { id: "trx-1" });
   }
 });

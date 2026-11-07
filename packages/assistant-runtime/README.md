@@ -12,14 +12,17 @@ Two hosting modes share that runtime:
   `assistant.conversations` capability. No database is required.
 - **Built-in database-backed surface.** The optional SQL integration adds
   database conversations, per-surface settings and the request-streaming chat
-  route. It needs `npm run db:migrate` and is composed by the
-  `assistant/assistant-surface` pattern.
+  route. The application registers `AssistantStoreFeature` in its server
+  feature list and installs `@jskit-ai/resource-runtime`: the feature owns the
+  assistant's four tables as table resources and provides their repositories as
+  `assistant.repositories`, which `AssistantFeature` uses. It needs
+  `npm run db:migrate` and is composed by the `assistant/assistant-surface` pattern.
 
 Main exports by subpath:
 
 | Subpath | Provides |
 | --- | --- |
-| `@jskit-ai/assistant-runtime/server` | `AssistantFeature`, `createAssistantActions`, `registerAssistantRoutes`, `registerConversationSubscriptions`, `registerFastifyConversations`, `createSurfaceAwareToolCatalog` |
+| `@jskit-ai/assistant-runtime/server` | `AssistantFeature`, `AssistantStoreFeature`, `createAssistantActions`, `registerAssistantRoutes`, `registerConversationSubscriptions`, `registerFastifyConversations`, `createSurfaceAwareToolCatalog` |
 | `@jskit-ai/assistant-runtime/server/actionIds` | Assistant action identifiers |
 | `@jskit-ai/assistant-runtime/client` | `AssistantConversationClientElement`, `AssistantSurfaceClientElement`, `AssistantSettingsClientElement`, `useAssistantConversation`, `configureAssistantConversations` |
 | `@jskit-ai/assistant-runtime/shared` | Assistant surface configuration helpers |

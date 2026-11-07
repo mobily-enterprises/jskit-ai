@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@jskit-ai/assistant-core": "0.2.27",
+    "@jskit-ai/resource-core": "0.1.204",
     "json-rest-schema": "^1.0.17"
   },
   "peerDependencies": {
@@ -27,7 +28,8 @@
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0",
-    "@jskit-ai/database-runtime": "0.1.262"
+    "@jskit-ai/database-runtime": "0.1.262",
+    "@jskit-ai/resource-runtime": "0.2.12"
   },
   "description": "Capability-based assistant runtime with per-surface chat, transcripts, settings, and action tools.",
   "jskit": {
@@ -103,7 +105,7 @@
           },
           {
             "subpath": "./server",
-            "summary": "Provides conversation routes, authorized shared realtime subscriptions, explicit Fastify hosting shorthand, optional database integration, the per-surface assistant tool catalogue and the person-context prompt a host composes into its conversations' instructions."
+            "summary": "Provides conversation routes, authorized shared realtime subscriptions, explicit Fastify hosting shorthand, optional database integration (AssistantStoreFeature owns its tables through runtime.resources and provides assistant.repositories), the per-surface assistant tool catalogue and the person-context prompt a host composes into its conversations' instructions."
           },
           {
             "subpath": "./server/types",
@@ -130,9 +132,13 @@
     },
     "@jskit-ai/database-runtime": {
       "optional": true
+    },
+    "@jskit-ai/resource-runtime": {
+      "optional": true
     }
   },
   "devDependencies": {
-    "@jskit-ai/material-web": "0.1.3"
+    "@jskit-ai/material-web": "0.1.3",
+    "@jskit-ai/resource-runtime": "0.2.12"
   }
 }

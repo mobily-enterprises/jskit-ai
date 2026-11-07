@@ -9,10 +9,10 @@ import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared
 import configMigration from "../migrations/assistant_config_initial.cjs";
 import transcriptsMigration from "../migrations/assistant_transcripts_initial.cjs";
 import summaryMigration from "../migrations/assistant_transcripts_summary.cjs";
+import { ResourceRuntimeProvider } from "@jskit-ai/resource-runtime/server";
 import { AssistantFeature } from "../src/server/AssistantProvider.js";
-import { createRepository as createConfigRepository } from "../src/server/repositories/assistantConfigRepository.js";
-import { createRepository as createConversationsRepository } from "../src/server/repositories/conversationsRepository.js";
-import { createRepository as createMessagesRepository } from "../src/server/repositories/messagesRepository.js";
+import { AssistantStoreFeature } from "../src/server/AssistantStoreFeature.js";
+import { createTestAssistantStore } from "./support/assistantStore.js";
 
 // What the assistant's database repositories, and the feature that builds them on
 // runtime.database, answer and keep today on MySQL, pinned before their tables move onto
@@ -21,6 +21,7 @@ import { createRepository as createMessagesRepository } from "../src/server/repo
 // the options database-runtime gives mysql2 (big numbers as strings, UTC).
 let knex = null;
 let admin = null;
+let store = null;
 let databaseName = "";
 
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/u;
@@ -40,9 +41,11 @@ before(async () => {
   await configMigration.up(knex);
   await transcriptsMigration.up(knex);
   await summaryMigration.up(knex);
+  store = await createTestAssistantStore(knex);
 });
 
 after(async () => {
+  await store?.close();
   await knex?.destroy();
   if (admin) {
     await admin.raw("DROP DATABASE IF EXISTS ??", [databaseName]);
@@ -52,7 +55,7 @@ after(async () => {
 
 test("the config repository keeps one record per surface and scope", async () => {
   requireTestDatabase(process.env);
-  const repository = createConfigRepository(knex);
+  const repository = store.config;
   assert.deepEqual(Object.keys(repository).sort(), ["createDefaultRecord", "findByScope", "upsertByScope", "withTransaction"]);
   assert.deepEqual(repository.createDefaultRecord({ targetSurfaceId: " Home " }),
     { targetSurfaceId: "home", scopeKey: "home:global", workspaceId: null, settings: { systemPrompt: "" } });
@@ -87,21 +90,21 @@ test("the config repository keeps one record per surface and scope", async () =>
 
 test("the config repository joins a caller's transaction and rolls back with it", async () => {
   requireTestDatabase(process.env);
-  const repository = createConfigRepository(knex);
-  await assert.rejects(repository.withTransaction(async (trx) => {
-    await repository.upsertByScope({ targetSurfaceId: "home", workspaceId: 9, patch: { systemPrompt: "Uncommitted" } }, { trx });
-    assert.equal((await repository.findByScope({ targetSurfaceId: "home", workspaceId: 9 }, { trx })).settings.systemPrompt, "Uncommitted",
+  const repository = store.config;
+  await assert.rejects(repository.withTransaction({}, async (txOptions) => {
+    await repository.upsertByScope({ targetSurfaceId: "home", workspaceId: 9, patch: { systemPrompt: "Uncommitted" } }, txOptions);
+    assert.equal((await repository.findByScope({ targetSurfaceId: "home", workspaceId: 9 }, txOptions)).settings.systemPrompt, "Uncommitted",
       "visible inside the transaction");
     assert.equal(await repository.findByScope({ targetSurfaceId: "home", workspaceId: 9 }), null, "not outside it");
     throw new Error("roll back");
   }), /roll back/u);
   assert.equal(await repository.findByScope({ targetSurfaceId: "home", workspaceId: 9 }), null);
-  assert.equal(await repository.withTransaction(async () => "answer"), "answer", "withTransaction answers the work's result");
+  assert.equal(await repository.withTransaction({}, async () => "answer"), "answer", "withTransaction answers the work's result");
 });
 
 test("a conversation record has a fixed shape, defaults and normalizations", async () => {
   requireTestDatabase(process.env);
-  const conversations = createConversationsRepository(knex);
+  const conversations = store.conversations;
   assert.deepEqual(Object.keys(conversations).sort(), ["create", "findById", "findByIdForActorScope", "listForActorScope",
     "readTranscriptState", "transaction", "updateById", "withTransaction", "writeTranscriptState"]);
   await assert.rejects(conversations.create({ createdByUserId: 5 }), { name: "TypeError", message: "conversationsRepository requires surfaceId." });
@@ -142,7 +145,7 @@ test("a conversation record has a fixed shape, defaults and normalizations", asy
 
 test("conversations are found by id, and by actor scope only in their own surface, workspace and creator", async () => {
   requireTestDatabase(process.env);
-  const conversations = createConversationsRepository(knex);
+  const conversations = store.conversations;
   const global = await conversations.create({ surfaceId: "home", createdByUserId: 21 });
   const inWorkspace = await conversations.create({ surfaceId: "home", createdByUserId: 21, workspaceId: 4 });
   assert.equal(await conversations.findById("abc"), null);
@@ -151,7 +154,7 @@ test("conversations are found by id, and by actor scope only in their own surfac
   assert.deepEqual(await conversations.findById(Number(global.id)), global, "a number id finds it too");
   await assert.rejects(conversations.findById(global.id, { forUpdate: true }),
     { name: "TypeError", message: "Locking a conversation requires its database transaction." });
-  assert.deepEqual(await conversations.transaction((trx) => conversations.findById(global.id, { trx, forUpdate: true })), global,
+  assert.deepEqual(await conversations.transaction((txOptions) => conversations.findById(global.id, { ...txOptions, forUpdate: true })), global,
     "locking inside a transaction answers the same record and changes nothing");
 
   const scope = { actorUserId: 21, surfaceId: "home" };
@@ -164,12 +167,12 @@ test("conversations are found by id, and by actor scope only in their own surfac
   assert.equal(await conversations.findByIdForActorScope(inWorkspace.id, { ...scope, workspaceId: 5 }), null, "another workspace");
   assert.equal(await conversations.findByIdForActorScope(global.id, { surfaceId: "home" }), null, "no actor: null");
   assert.equal(await conversations.findByIdForActorScope(global.id, { actorUserId: 21 }), null, "no surface: null");
-  assert.deepEqual(await conversations.transaction((trx) => conversations.findByIdForActorScope(global.id, scope, { trx, forUpdate: true })), global);
+  assert.deepEqual(await conversations.transaction((txOptions) => conversations.findByIdForActorScope(global.id, scope, { ...txOptions, forUpdate: true })), global);
 });
 
 test("updateById changes only the fields a patch names, and never the conversation's owner or workspace", async () => {
   requireTestDatabase(process.env);
-  const conversations = createConversationsRepository(knex);
+  const conversations = store.conversations;
   const made = await conversations.create({ surfaceId: "home", createdByUserId: 31, workspaceId: 6, title: "Start", metadata: { a: 1 } });
   await knex("assistant_conversations").where({ id: made.id }).update({ updated_at: new Date(Date.UTC(2026, 0, 1)) });
   const untouched = await conversations.updateById(made.id, {});
@@ -203,7 +206,7 @@ test("updateById changes only the fields a patch names, and never the conversati
 
 test("listForActorScope pages newest first by id, within one actor, surface and workspace", async () => {
   requireTestDatabase(process.env);
-  const conversations = createConversationsRepository(knex);
+  const conversations = store.conversations;
   const mine = [];
   for (let index = 0; index < 3; index += 1) mine.push(await conversations.create({ surfaceId: "home", createdByUserId: 41, title: `Mine ${index}` }));
   const archived = await conversations.create({ surfaceId: "home", createdByUserId: 41, status: "archived" });
@@ -243,7 +246,7 @@ test("listForActorScope pages newest first by id, within one actor, surface and 
 
 test("a conversation's transcript state is kept apart from its record", async () => {
   requireTestDatabase(process.env);
-  const conversations = createConversationsRepository(knex);
+  const conversations = store.conversations;
   const made = await conversations.create({ surfaceId: "home", createdByUserId: 51 });
   assert.equal(await conversations.readTranscriptState("nope"), null);
   assert.equal(await conversations.readTranscriptState("999999999"), null);
@@ -262,8 +265,8 @@ test("a conversation's transcript state is kept apart from its record", async ()
 
 test("a message record has a fixed shape, and seq counts up per conversation", async () => {
   requireTestDatabase(process.env);
-  const conversations = createConversationsRepository(knex);
-  const messages = createMessagesRepository(knex);
+  const conversations = store.conversations;
+  const messages = store.messages;
   assert.deepEqual(Object.keys(messages).sort(), ["countByConversationScope", "create", "findById", "lastSequence",
     "listByConversationScope", "transaction", "updateById", "withTransaction"]);
   const first = await conversations.create({ surfaceId: "home", createdByUserId: 61 });
@@ -305,8 +308,8 @@ test("a message record has a fixed shape, and seq counts up per conversation", a
 
 test("messages are listed and counted in seq order within a conversation and workspace scope", async () => {
   requireTestDatabase(process.env);
-  const conversations = createConversationsRepository(knex);
-  const messages = createMessagesRepository(knex);
+  const conversations = store.conversations;
+  const messages = store.messages;
   const conversation = await conversations.create({ surfaceId: "home", createdByUserId: 71 });
   const other = await conversations.create({ surfaceId: "home", createdByUserId: 71 });
   for (const seq of [3, 1, 2]) await messages.create({ conversationId: conversation.id, role: "user", seq, contentText: `seq ${seq}` });
@@ -335,8 +338,8 @@ test("messages are listed and counted in seq order within a conversation and wor
 
 test("updateById changes a message's text and metadata only", async () => {
   requireTestDatabase(process.env);
-  const conversations = createConversationsRepository(knex);
-  const messages = createMessagesRepository(knex);
+  const conversations = store.conversations;
+  const messages = store.messages;
   const conversation = await conversations.create({ surfaceId: "home", createdByUserId: 81 });
   const message = await messages.create({ conversationId: conversation.id, role: "assistant", contentText: "Draft", metadata: { a: 1 } });
   assert.deepEqual(await messages.updateById(message.id, {}), message, "an empty patch changes nothing");
@@ -349,22 +352,22 @@ test("updateById changes a message's text and metadata only", async () => {
 
 test("conversations and messages written in one transaction roll back together", async () => {
   requireTestDatabase(process.env);
-  const conversations = createConversationsRepository(knex);
-  const messages = createMessagesRepository(knex);
+  const conversations = store.conversations;
+  const messages = store.messages;
   let made = null;
-  await assert.rejects(conversations.transaction(async (trx) => {
-    made = await conversations.create({ surfaceId: "home", createdByUserId: 91 }, { trx });
-    await messages.create({ conversationId: made.id, role: "user", contentText: "Hello" }, { trx });
-    assert.equal(await messages.countByConversationScope(made.id, {}, { trx }), 1);
-    assert.equal(await messages.lastSequence(made.id, { trx }), 1);
+  await assert.rejects(conversations.transaction(async (txOptions) => {
+    made = await conversations.create({ surfaceId: "home", createdByUserId: 91 }, txOptions);
+    await messages.create({ conversationId: made.id, role: "user", contentText: "Hello" }, txOptions);
+    assert.equal(await messages.countByConversationScope(made.id, {}, txOptions), 1);
+    assert.equal(await messages.lastSequence(made.id, txOptions), 1);
     throw new Error("roll back");
   }), /roll back/u);
   assert.equal(await conversations.findById(made.id), null);
   assert.equal(await messages.countByConversationScope(made.id), 0);
 
-  const kept = await messages.transaction(async (trx) => {
-    const conversation = await conversations.create({ surfaceId: "home", createdByUserId: 91 }, { trx });
-    await messages.create({ conversationId: conversation.id, role: "user" }, { trx });
+  const kept = await messages.transaction(async (txOptions) => {
+    const conversation = await conversations.create({ surfaceId: "home", createdByUserId: 91 }, txOptions);
+    await messages.create({ conversationId: conversation.id, role: "user" }, txOptions);
     return conversation;
   });
   assert.equal(await messages.countByConversationScope(kept.id), 1, "a transaction that ends well commits, and answers the work's result");
@@ -383,6 +386,8 @@ test("AssistantFeature on runtime.database keeps its settings in the database's 
         assistantServer: { desk: { aiConfigPrefix: "DESK" } }
       } }) }),
       defineProvider({ id: "test.database", provides: { value: "runtime.database" }, setup: () => ({ value: { knex } }) }),
+      ResourceRuntimeProvider,
+      AssistantStoreFeature,
       defineProvider({ id: "test.env", provides: { value: "runtime.env" }, setup: () => ({ value: {} }) }),
       defineProvider({ id: "test.http", provides: { value: "runtime.http" }, setup: () => ({ value: { router: { register() {} } } }) }),
       AssistantFeature,
@@ -403,11 +408,11 @@ test("AssistantFeature on runtime.database keeps its settings in the database's 
       { targetSurfaceId: "desk", scopeKey: "desk:global", workspaceId: null, settings: { systemPrompt: "" } }, "the default before any save");
     const saved = await assistant.services.config.updateSettings({ targetSurfaceId: "desk" }, { systemPrompt: "Be brief." }, { context });
     assert.deepEqual(saved, { targetSurfaceId: "desk", scopeKey: "desk:global", workspaceId: null, settings: { systemPrompt: "Be brief." } });
-    assert.deepEqual(await createConfigRepository(knex).findByScope({ targetSurfaceId: "desk" }), saved, "written to runtime.database");
+    assert.deepEqual(await store.config.findByScope({ targetSurfaceId: "desk" }), saved, "written to runtime.database");
     assert.equal(await assistant.services.config.resolveSystemPrompt({ targetSurfaceId: "desk" }), "Be brief.");
     await assert.rejects(assistant.services.config.updateSettings({ targetSurfaceId: "desk" }, { systemPrompt: "No." }, { context: { actor: { id: "2" }, permissions: [] } }),
       { code: "assistant.runtime.settings.updateForbidden" });
-    assert.equal((await createConfigRepository(knex).findByScope({ targetSurfaceId: "desk" })).settings.systemPrompt, "Be brief.");
+    assert.equal((await store.config.findByScope({ targetSurfaceId: "desk" })).settings.systemPrompt, "Be brief.");
   } finally {
     await runtime.shutdown();
   }
