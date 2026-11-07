@@ -1,4 +1,5 @@
 export { AssistantFeature } from "./AssistantProvider.js";
+export { AssistantStoreFeature } from "./AssistantStoreFeature.js";
 export { createAssistantActions } from "./actions.js";
 export { assistantConversationGoalBodyValidator } from "./inputSchemas.js";
 export { registerRoutes as registerAssistantRoutes } from "./registerRoutes.js";

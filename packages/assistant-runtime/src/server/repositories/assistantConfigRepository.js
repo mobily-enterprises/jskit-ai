@@ -1,8 +1,6 @@
-import { createWithTransaction } from "@jskit-ai/database-runtime/shared";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeDbWorkspaceId, normalizeInputRecordId, resolveInsertedId } from "./repositoryPersistenceUtils.js";
-import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
+import { normalizeInputRecordId, runInHandleTransaction, toWrittenDateTime } from "./repositoryPersistenceUtils.js";
 
 function normalizeTargetSurfaceId(value = "") {
   return normalizeSurfaceId(value);
@@ -21,13 +19,13 @@ function buildScopeKey(targetSurfaceId, workspaceId = null) {
   return `${normalizedTargetSurfaceId}:global`;
 }
 
-function mapConfigRow(row = {}) {
+function mapConfigRecord(record = {}) {
   return {
-    targetSurfaceId: normalizeTargetSurfaceId(row.target_surface_id),
-    scopeKey: normalizeText(row.scope_key),
-    workspaceId: normalizeDbWorkspaceId(row.workspace_id),
+    targetSurfaceId: normalizeTargetSurfaceId(record.targetSurfaceId),
+    scopeKey: normalizeText(record.scopeKey),
+    workspaceId: normalizeInputRecordId(record.workspaceId),
     settings: {
-      systemPrompt: String(row.system_prompt || "")
+      systemPrompt: String(record.systemPrompt || "")
     }
   };
 }
@@ -49,51 +47,56 @@ function createDefaultRecord({ targetSurfaceId = "", workspaceId = null } = {}) 
   };
 }
 
-/** @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} knex */
-function createRepository(knex) {
-  const withTransaction = createWithTransaction(knex);
+/**
+ * The saved settings of each assistant surface and scope, on the assistantConfig table.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.assistantConfig
+ * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext
+ */
+function createRepository({ assistantConfig, systemContext }) {
+  const settingsContext = systemContext("global assistant settings are shared by every workspace, so they are read and written outside one");
+
+  // A workspace's settings are read and written in that workspace; global settings in the system context.
+  function scoped(workspaceId, options) {
+    return { ...options, context: workspaceId ? settingsContext.forWorkspace(workspaceId) : settingsContext };
+  }
+
+  function withTransaction(options, work) {
+    return runInHandleTransaction(assistantConfig, options, work);
+  }
+
+  async function findRecord(defaultRecord, options) {
+    const { records } = await assistantConfig.query({
+      filters: {
+        targetSurfaceId: defaultRecord.targetSurfaceId,
+        scopeKey: defaultRecord.scopeKey
+      },
+      page: { size: 1 }
+    }, scoped(defaultRecord.workspaceId, options));
+    return records[0] || null;
+  }
 
   async function findByScope({ targetSurfaceId = "", workspaceId = null } = {}, options = {}) {
-    const client = options.trx || knex;
-    const defaultRecord = createDefaultRecord({
-      targetSurfaceId,
-      workspaceId
-    });
-    const row = await client(assistantRuntimeConfig.configTable)
-      .where({
-        target_surface_id: defaultRecord.targetSurfaceId,
-        scope_key: defaultRecord.scopeKey
-      })
-      .first();
-
-    return row ? mapConfigRow(row) : null;
+    const record = await findRecord(createDefaultRecord({ targetSurfaceId, workspaceId }), options);
+    return record ? mapConfigRecord(record) : null;
   }
 
   async function upsertByScope({ targetSurfaceId = "", workspaceId = null, patch = {} } = {}, options = {}) {
-    const client = options.trx || knex;
     const defaultRecord = createDefaultRecord({
       targetSurfaceId,
       workspaceId
     });
-    const existing = await findByScope(defaultRecord, {
-      trx: client
-    });
+    const existing = await findRecord(defaultRecord, options);
     const nextSystemPrompt = Object.hasOwn(patch, "systemPrompt")
       ? String(patch.systemPrompt || "")
-      : String(existing?.settings?.systemPrompt || defaultRecord.settings.systemPrompt);
-    const now = new Date();
+      : String(existing?.systemPrompt || defaultRecord.settings.systemPrompt);
+    const now = toWrittenDateTime();
 
     if (existing) {
-      await client(assistantRuntimeConfig.configTable)
-        .where({
-          target_surface_id: defaultRecord.targetSurfaceId,
-          scope_key: defaultRecord.scopeKey
-        })
-        .update({
-          workspace_id: defaultRecord.workspaceId,
-          system_prompt: nextSystemPrompt,
-          updated_at: now
-        });
+      await assistantConfig.patchWhereIds([existing.id], {
+        systemPrompt: nextSystemPrompt,
+        updatedAt: now
+      }, { ...scoped(defaultRecord.workspaceId, options), missing: "skip" });
 
       return {
         ...defaultRecord,
@@ -103,34 +106,16 @@ function createRepository(knex) {
       };
     }
 
-    const insertResult = await client(assistantRuntimeConfig.configTable).insert({
-      target_surface_id: defaultRecord.targetSurfaceId,
-      scope_key: defaultRecord.scopeKey,
-      workspace_id: defaultRecord.workspaceId,
-      system_prompt: nextSystemPrompt,
-      created_at: now,
-      updated_at: now
-    });
-    const insertedId = resolveInsertedId(insertResult);
-    if (!insertedId) {
-      return {
-        ...defaultRecord,
-        settings: {
-          systemPrompt: nextSystemPrompt
-        }
-      };
-    }
+    const created = await assistantConfig.create({
+      targetSurfaceId: defaultRecord.targetSurfaceId,
+      scopeKey: defaultRecord.scopeKey,
+      workspaceId: defaultRecord.workspaceId,
+      systemPrompt: nextSystemPrompt,
+      createdAt: now,
+      updatedAt: now
+    }, scoped(defaultRecord.workspaceId, options));
 
-    const insertedRow = await client(assistantRuntimeConfig.configTable)
-      .where({ id: insertedId })
-      .first();
-
-    return insertedRow ? mapConfigRow(insertedRow) : {
-      ...defaultRecord,
-      settings: {
-        systemPrompt: nextSystemPrompt
-      }
-    };
+    return mapConfigRecord(created);
   }
 
   return Object.freeze({

@@ -1,29 +1,26 @@
-import { createWithTransaction, normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
-  applyWorkspaceScope,
-  normalizeDbWorkspaceId,
   normalizeInputRecordId,
   parseJsonObject,
-  resolveInsertedId,
+  runInHandleTransaction,
   stringifyJsonObject,
-  toIso
+  toIso,
+  toWrittenDateTime
 } from "./repositoryPersistenceUtils.js";
-import { assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
 
-function mapMessageRow(row = {}) {
+function mapMessageRecord(record = {}) {
   return {
-    id: normalizeDbRecordId(row.id, { fallback: "" }),
-    conversationId: normalizeDbRecordId(row.conversation_id, { fallback: "" }),
-    workspaceId: normalizeDbWorkspaceId(row.workspace_id),
-    seq: Number(row.seq),
-    role: String(row.role || ""),
-    kind: String(row.kind || "chat"),
-    clientMessageSid: String(row.client_message_sid || ""),
-    actorUserId: row.actor_user_id == null ? null : normalizeDbRecordId(row.actor_user_id, { fallback: null }),
-    contentText: row.content_text == null ? null : String(row.content_text),
-    metadata: parseJsonObject(row.metadata_json),
-    createdAt: toIso(row.created_at)
+    id: normalizeRecordId(record.id, { fallback: "" }),
+    conversationId: normalizeRecordId(record.conversationId, { fallback: "" }),
+    workspaceId: normalizeInputRecordId(record.workspaceId),
+    seq: Number(record.seq),
+    role: String(record.role || ""),
+    kind: String(record.kind || "chat"),
+    clientMessageSid: String(record.clientMessageSid || ""),
+    actorUserId: record.actorUserId == null ? null : normalizeInputRecordId(record.actorUserId),
+    contentText: record.contentText == null ? null : String(record.contentText),
+    metadata: parseJsonObject(record.metadataJson),
+    createdAt: toIso(record.createdAt)
   };
 }
 
@@ -41,22 +38,31 @@ function normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize
   };
 }
 
-async function resolveNextSequence(client, conversationId) {
-  const row = await client(assistantRuntimeConfig.messagesTable)
-    .where({ conversation_id: conversationId })
-    .max({ maxSeq: "seq" })
-    .first();
-  const maxSeq = Number(row?.maxSeq || 0);
-  if (!Number.isInteger(maxSeq) || maxSeq < 0) {
-    return 1;
+/**
+ * A conversation's messages, on the assistantMessages table. Callers reach
+ * them by conversation id after checking that conversation's actor scope; a
+ * workspace's messages are read in that workspace, the rest in the system context.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.messages
+ * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext
+ */
+function createRepository({ messages, systemContext }) {
+  const messageContext = systemContext("messages reached by conversation id after the caller checked the conversation's actor scope");
+
+  // A workspace's messages in that workspace; messages without one in the system context, filtered to none.
+  function scoped(workspaceId, options) {
+    return workspaceId
+      ? { filters: {}, options: { ...options, context: messageContext.forWorkspace(workspaceId) } }
+      : { filters: { workspaceId: null }, options: { ...options, context: messageContext } };
   }
 
-  return maxSeq + 1;
-}
+  function withTransaction(options, work) {
+    return runInHandleTransaction(messages, options, work);
+  }
 
-/** @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} knex */
-function createRepository(knex) {
-  const withTransaction = createWithTransaction(knex);
+  function transaction(work) {
+    return runInHandleTransaction(messages, {}, work);
+  }
 
   async function findById(messageId, options = {}) {
     const normalizedMessageId = normalizeInputRecordId(messageId);
@@ -64,43 +70,43 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options.trx || knex;
-    const row = await client(assistantRuntimeConfig.messagesTable)
-      .where({ id: normalizedMessageId })
-      .first();
+    const record = await messages.get(normalizedMessageId, {}, { ...options, context: messageContext });
+    return record ? mapMessageRecord(record) : null;
+  }
 
-    return row ? mapMessageRow(row) : null;
+  // The conversation's highest seq, across its workspaces, or 0.
+  async function highestSequence(conversationId, options) {
+    const [row] = await messages.aggregate({
+      measures: { maxSeq: { max: "seq" } },
+      filters: { conversationId }
+    }, { ...options, context: messageContext });
+    const maxSeq = Number(row?.maxSeq || 0);
+    return Number.isInteger(maxSeq) && maxSeq > 0 ? maxSeq : 0;
   }
 
   async function create(payload = {}, options = {}) {
-    const client = options.trx || knex;
     const conversationId = normalizeInputRecordId(payload.conversationId);
     if (!conversationId) {
       throw new TypeError("messagesRepository.create requires conversationId.");
     }
 
     const providedSeq = Number(payload.seq);
-    const seq = Number.isInteger(providedSeq) && providedSeq > 0 ? providedSeq : (await resolveNextSequence(client, conversationId));
-    const insertResult = await client(assistantRuntimeConfig.messagesTable).insert({
-      conversation_id: conversationId,
-      workspace_id: normalizeInputRecordId(payload.workspaceId),
+    const seq = Number.isInteger(providedSeq) && providedSeq > 0 ? providedSeq : (await highestSequence(conversationId, options)) + 1;
+    const workspaceId = normalizeInputRecordId(payload.workspaceId);
+    const created = await messages.create({
+      conversationId,
+      workspaceId,
       seq,
       role: normalizeText(payload.role).toLowerCase(),
       kind: normalizeText(payload.kind).toLowerCase() || "chat",
-      client_message_sid: normalizeText(payload.clientMessageSid),
-      actor_user_id: normalizeInputRecordId(payload.actorUserId),
-      content_text: payload.contentText == null ? null : String(payload.contentText),
-      metadata_json: stringifyJsonObject(payload.metadata),
-      created_at: payload.createdAt ? new Date(payload.createdAt) : new Date()
-    });
-    const id = resolveInsertedId(insertResult);
-    if (!id) {
-      throw new Error("messagesRepository.create could not resolve inserted id.");
-    }
+      clientMessageSid: normalizeText(payload.clientMessageSid),
+      actorUserId: normalizeInputRecordId(payload.actorUserId),
+      contentText: payload.contentText == null ? null : String(payload.contentText),
+      metadataJson: stringifyJsonObject(payload.metadata),
+      createdAt: toWrittenDateTime(payload.createdAt)
+    }, scoped(workspaceId, options).options);
 
-    return findById(id, {
-      trx: client
-    });
+    return mapMessageRecord(created);
   }
 
   async function countByConversationScope(conversationId, { workspaceId = null } = {}, options = {}) {
@@ -109,12 +115,11 @@ function createRepository(knex) {
       return 0;
     }
 
-    const client = options.trx || knex;
-    const query = client(assistantRuntimeConfig.messagesTable).where({
-      conversation_id: normalizedConversationId
-    });
-    applyWorkspaceScope(query, "workspace_id", workspaceId);
-    const row = await query.count({ total: "*" }).first();
+    const scope = scoped(normalizeInputRecordId(workspaceId), options);
+    const [row] = await messages.aggregate({
+      measures: { total: { count: "*" } },
+      filters: { ...scope.filters, conversationId: normalizedConversationId }
+    }, scope.options);
 
     const total = Number(row?.total || 0);
     return Number.isFinite(total) && total > 0 ? total : 0;
@@ -123,45 +128,46 @@ function createRepository(knex) {
   async function updateById(messageId, patch = {}, options = {}) {
     const id = normalizeInputRecordId(messageId);
     if (!id) return null;
-    const client = options.trx || knex;
-    const update = {};
-    if (Object.hasOwn(patch, "contentText")) update.content_text = patch.contentText == null ? null : String(patch.contentText);
-    if (Object.hasOwn(patch, "metadata")) update.metadata_json = stringifyJsonObject(patch.metadata);
-    if (Object.keys(update).length) await client(assistantRuntimeConfig.messagesTable).where({ id }).update(update);
-    return findById(id, { trx: client });
+    const changes = {};
+    if (Object.hasOwn(patch, "contentText")) changes.contentText = patch.contentText == null ? null : String(patch.contentText);
+    if (Object.hasOwn(patch, "metadata")) changes.metadataJson = stringifyJsonObject(patch.metadata);
+    if (Object.keys(changes).length) {
+      await messages.patchWhereIds([id], changes, { ...options, context: messageContext, missing: "skip" });
+    }
+    return findById(id, options);
   }
 
+  // One page of the conversation's messages in seq order. A handle pages by
+  // cursor, so the pages before the requested one are read to reach it.
   async function listByConversationScope(conversationId, { workspaceId = null } = {}, pagination = {}, options = {}) {
     const normalizedConversationId = normalizeInputRecordId(conversationId);
     if (!normalizedConversationId) {
       return [];
     }
 
-    const client = options.trx || knex;
     const { page, pageSize } = normalizePagination(pagination);
-    const offset = (page - 1) * pageSize;
-
-    const query = client(assistantRuntimeConfig.messagesTable).where({
-      conversation_id: normalizedConversationId
-    });
-    applyWorkspaceScope(query, "workspace_id", workspaceId);
-    const rows = await query
-      .orderBy("seq", "asc")
-      .orderBy("id", "asc")
-      .limit(pageSize)
-      .offset(offset);
-
-    return rows.map(mapMessageRow);
+    const scope = scoped(normalizeInputRecordId(workspaceId), options);
+    let after = null;
+    for (let current = 1; ; current += 1) {
+      const result = await messages.query({
+        filters: { ...scope.filters, conversationId: normalizedConversationId },
+        sort: ["seq", "id"],
+        page: after ? { size: pageSize, after } : { size: pageSize }
+      }, scope.options);
+      if (current === page) {
+        return result.records.map(mapMessageRecord);
+      }
+      if (!result.page.hasMore) {
+        return [];
+      }
+      after = result.page.next;
+    }
   }
 
   async function lastSequence(conversationId, options = {}) {
     const normalizedConversationId = normalizeInputRecordId(conversationId);
     if (!normalizedConversationId) return 0;
-    return (await resolveNextSequence(options.trx || knex, normalizedConversationId)) - 1;
-  }
-
-  async function transaction(callback) {
-    return runInTransaction(knex, callback);
+    return highestSequence(normalizedConversationId, options);
   }
 
   return Object.freeze({

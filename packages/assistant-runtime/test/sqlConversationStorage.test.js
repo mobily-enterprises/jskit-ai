@@ -11,15 +11,13 @@ import { verifyConversationStorageContract } from "@jskit-ai/assistant-core/test
 import transcriptsMigration from "../migrations/assistant_transcripts_initial.cjs";
 import summaryMigration from "../migrations/assistant_transcripts_summary.cjs";
 import claimsMigration from "../migrations/assistant_turn_requests.cjs";
-import { createRepository as createConversationsRepository } from "../src/server/repositories/conversationsRepository.js";
-import { createRepository as createMessagesRepository } from "../src/server/repositories/messagesRepository.js";
-import { createRepository as createTurnRequestsRepository } from "../src/server/repositories/turnRequestsRepository.js";
 import { createSqlConversationStorage } from "../src/server/sqlConversationStorage.js";
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
 import { createTranscriptService } from "../src/server/services/transcriptService.js";
 import { createChatService } from "../src/server/services/chatService.js";
 import { NO_PERSON_CONTEXT, createPersonContextPrompt } from "../src/server/support/personContext.js";
 import { createScriptedModel } from "./support/scriptedModel.js";
+import { createTestAssistantStore } from "./support/assistantStore.js";
 
 // The chat service of an application that supplies no facts about the person.
 const NO_FACTS = createPersonContextPrompt({ personContext: NO_PERSON_CONTEXT, logger: silentLogger });
@@ -27,18 +25,25 @@ const NO_FACTS = createPersonContextPrompt({ personContext: NO_PERSON_CONTEXT, l
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), "assistant-sql-runtime-"));
   const clients = [];
-  function connect() {
+  const stores = [];
+  async function connect() {
     const db = knex({ client: "better-sqlite3", connection: { filename: path.join(directory, "assistant.sqlite") },
       useNullAsDefault: true, pool: { min: 1, max: 1, afterCreate(connection, done) {
         connection.pragma("busy_timeout = 0");
         done(null, connection);
       } } });
     clients.push(db);
-    const repositories = { conversationsRepository: createConversationsRepository(db), messagesRepository: createMessagesRepository(db) };
-    return { db, ...repositories, storage: createSqlConversationStorage(repositories) };
+    const store = await createTestAssistantStore(db);
+    stores.push(store);
+    const repositories = { conversationsRepository: store.conversations, messagesRepository: store.messages };
+    return { db, turnRequests: store.turnRequests, ...repositories, storage: createSqlConversationStorage(repositories) };
   }
-  t.after(async () => { for (const client of clients) await client.destroy(); await rm(directory, { recursive: true, force: true }); });
-  const first = connect();
+  t.after(async () => {
+    for (const store of stores) await store.close();
+    for (const client of clients) await client.destroy();
+    await rm(directory, { recursive: true, force: true });
+  });
+  const first = await connect();
   await first.db.schema.createTable("users", table => table.bigInteger("id").primary());
   await first.db("users").insert([{ id: 1 }, { id: 2 }]);
   await transcriptsMigration.up(first.db);
@@ -100,7 +105,7 @@ test("the existing runtime storage contract uses the original SQL rows and rolls
 test("independent SQL connections serialize authored receipt and sequence allocation", async t => {
   const f = await fixture(t);
   const conversation = await f.conversation();
-  const second = f.connect();
+  const second = await f.connect();
   const transcripts = [f.storage, second.storage].map(storage => createConversationTranscript({ storage }));
   const input = { messageId: "invoice/42:follow-up", text: "Only once" };
   const results = await Promise.all(transcripts.map(transcript => transcript.writeConversationUserMessage(conversation.id, input)));
@@ -181,7 +186,7 @@ test("the SQL facade uses common inference and durable tool rows, and the model'
   const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
   t.after(() => runtime.close());
   const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
-    transcriptService: createTranscriptService(f), turnRequests: createTurnRequestsRepository(f.db),
+    transcriptService: createTranscriptService(f), turnRequests: f.turnRequests,
     assistantConfigService: { resolveSystemPrompt: async () => "Retained SQL instructions" },
     personContextPrompt: NO_FACTS,
     appConfig: { surfaceDefinitions: { assistant: { enabled: true, requiresWorkspace: false } },
@@ -236,7 +241,7 @@ test("the SQL facade replays historical inspection failures with their exact pub
     executeToolCall() { effects++; assert.fail("Historical inspection cannot invoke application effects"); } };
   const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
   t.after(() => runtime.close());
-  const turnRequests = createTurnRequestsRepository(f.db);
+  const turnRequests = f.turnRequests;
   const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
     transcriptService: createTranscriptService(f), turnRequests,
     assistantConfigService: { resolveSystemPrompt: async () => "Read the supplied context" },
@@ -260,7 +265,7 @@ test("the SQL facade replays historical inspection failures with their exact pub
   await assert.rejects(createChatService(dependencies).streamChat(input, options), requireInspection);
   const receipt = await f.db("assistant_turn_requests").first();
   assert.equal(receipt.status, "failed");
-  const restarted = createChatService({ ...dependencies, turnRequests: createTurnRequestsRepository(f.db) });
+  const restarted = createChatService({ ...dependencies, turnRequests: f.turnRequests });
   await assert.rejects(restarted.streamChat(input, options), requireInspection);
   assert.deepEqual(JSON.parse(receipt.response_json).failure, {
     message: "This conversation has ambiguous historical SQL rows. Inspect the reported rows offline before using the common runtime; no history was changed.",
@@ -347,7 +352,7 @@ for (const shape of ["orphan-output", "orphan-tool-result", "unconfirmed-tool"])
       executeToolCall() { effects++; assert.fail("Retained history cannot repeat an application effect"); } };
     const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
     t.after(() => runtime.close());
-    const turnRequests = createTurnRequestsRepository(f.db);
+    const turnRequests = f.turnRequests;
     const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
       transcriptService: createTranscriptService(f), turnRequests,
       assistantConfigService: { resolveSystemPrompt: async () => "Read only the admitted request" },
@@ -376,7 +381,7 @@ for (const shape of ["orphan-output", "orphan-tool-result", "unconfirmed-tool"])
       return true;
     });
     const receipt = await f.db("assistant_turn_requests").first();
-    const restarted = createChatService({ ...dependencies, turnRequests: createTurnRequestsRepository(f.db) });
+    const restarted = createChatService({ ...dependencies, turnRequests: f.turnRequests });
     await assert.rejects(restarted.streamChat(input, options), error => {
       assert.equal(error.status, 409);
       assert.equal(error.code, "assistant_history_inspection_required");
@@ -464,7 +469,7 @@ test("a long conversation's rows are read once, then each write appends its rows
   const f = await fixture(t);
   const conversation = await f.conversation();
   await writeTurns(f.storage, conversation.id, 300);
-  const cold = f.connect();
+  const cold = await f.connect();
   let recorded = recordQueries(cold.db);
   assert.equal((await cold.storage.read(conversation.id, transaction => transaction.listTurnIds())).length, 300);
   recorded.stop();
@@ -500,7 +505,7 @@ test("a long conversation's rows are read once, then each write appends its rows
     transaction.replaceAssistant("000301", { role: "assistant", messageId: "after-300:reply-1", text: "Answered", at: "2026-02-01T00:00:01.000Z" })));
   assert.deepEqual(answer.queries.filter(readsWholeConversation), []);
 
-  const fresh = f.connect();
+  const fresh = await f.connect();
   const expected = await fresh.storage.read(conversation.id, async transaction =>
     Promise.all((await transaction.listTurnIds()).map(id => transaction.readTurn(id))));
   const cached = await cold.storage.read(conversation.id, async transaction =>
@@ -512,7 +517,7 @@ test("a long conversation's rows are read once, then each write appends its rows
 test("a server sees another server's saves, direct row inserts and conversation updates at once", async t => {
   const f = await fixture(t);
   const conversation = await f.conversation();
-  const other = f.connect();
+  const other = await f.connect();
   await writeTurns(f.storage, conversation.id, 2);
   assert.deepEqual(await f.storage.read(conversation.id, transaction => transaction.listTurnIds()), ["000001", "000002"]);
   await writeTurns(other.storage, conversation.id, 1, "other");
@@ -569,7 +574,7 @@ test("the summary and the last turn it covers are saved on the conversation row,
   assert.equal(Object.hasOwn(await f.conversationsRepository.findById(conversation.id), "summary"), false,
     "Conversation records sent to the browser do not carry the summary");
 
-  const restarted = f.connect();
+  const restarted = await f.connect();
   const later = await restarted.storage.read(conversation.id, async transaction => {
     const summary = await transaction.readSummary();
     return { summary, turns: await transaction.readTurnsAfter(summary.throughTurnId) };
