@@ -36,8 +36,14 @@ user ids; realtime adds each one's user room. It asks the owners' APIs (for
 example `activeMemberIds(workspaceId, options)` of `workspaces.memberships`, or
 the record owner's repository) and never the database directly. It runs once
 for the event, however many sockets receive it, and `options.context` is the
-event's own scope (its workspace or user), so the owners answer for that scope
-and not for a request's:
+event's own scope (its workspace, user, or user in a workspace), so the owners
+answer for that scope and not for a request's. Realtime needs no database, so
+those contexts come from `RealtimeAudienceScopeFeature`
+(`@jskit-ai/realtime/server/RealtimeAudienceScopeFeature`): an application whose
+audiences read owned tables registers it beside its other features. Without it,
+audiences read with no context, which answers for public tables (users,
+workspaces, memberships, invitations) and throws `MissingScopeError` for an
+owned one:
 
 ```js
 realtime: {
