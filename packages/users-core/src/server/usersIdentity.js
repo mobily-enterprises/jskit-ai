@@ -7,12 +7,12 @@ import { createService as createAuthProfileSyncService } from "./common/services
  * and the projector that keeps a profile in step with the identity that signs
  * in (`auth.profile.projector`).
  * @param {object} dependencies
- * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
+ * @param {import("./types.js").UsersResources} dependencies.resources The handles of the users and user_settings tables.
  * @param {import("./types.js").UsersExtensions} dependencies.extensions
  */
-function createUsersIdentity({ jsonRestApi, extensions }) {
-  const settings = createUserSettingsRepository({ api: jsonRestApi });
-  const profiles = createUserProfilesRepository({ api: jsonRestApi, userSettings: settings });
+function createUsersIdentity({ resources, extensions }) {
+  const settings = createUserSettingsRepository({ userSettings: resources.userSettings });
+  const profiles = createUserProfilesRepository({ userProfiles: resources.userProfiles, userSettings: settings });
   const profileProjector = createAuthProfileSyncService({
     userProfilesRepository: profiles,
     userSettingsRepository: settings,

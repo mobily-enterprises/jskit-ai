@@ -1,18 +1,15 @@
-import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
-import {
-  addResourceIfMissing,
-  createJsonRestResourceScopeOptions
-} from "@jskit-ai/resource-runtime/server/resourceHost";
-import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { userProfileResource } from "../shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../shared/resources/userSettingsResource.js";
 import { createUsersIdentity } from "./usersIdentity.js";
 
-const UsersIdentityProvider = defineProvider({
+// The users and user_settings tables' one owner. Other features reach them
+// through the repositories it provides, never through the tables.
+const UsersIdentityProvider = defineFeature({
   id: "users.identity",
+  owns: [userProfileResource, userSettingsResource],
   requires: {
-    extensions: "users.extensions",
-    jsonRestApi: "runtime.json-rest-api"
+    extensions: "users.extensions"
   },
   provides: {
     profiles: "users.profiles",
@@ -22,16 +19,10 @@ const UsersIdentityProvider = defineProvider({
   /**
    * @param {object} capabilities
    * @param {import("./types.js").UsersExtensions} capabilities.extensions
-   * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
+   * @param {import("./types.js").UsersResources} capabilities.resources
    */
-  async setup({ extensions, jsonRestApi }) {
-    const scopeOptions = {
-      writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc }
-    };
-    for (const resource of [userProfileResource, userSettingsResource]) {
-      await addResourceIfMissing(jsonRestApi, resource.name, createJsonRestResourceScopeOptions(resource, scopeOptions));
-    }
-    return createUsersIdentity({ jsonRestApi, extensions });
+  setup({ extensions, resources }) {
+    return createUsersIdentity({ resources, extensions });
   }
 });
 

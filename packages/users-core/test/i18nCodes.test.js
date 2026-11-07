@@ -90,13 +90,9 @@ test("preference input keeps the locale's case and storage canonicalizes it", as
 
 test("user settings reads canonicalize locales saved lowercased", async () => {
   const repository = createUserSettingsRepository({
-    api: {
-      resources: {
-        userSettings: {
-          async query() {
-            return { data: [{ id: "7", locale: "en-us", theme: "dark" }] };
-          }
-        }
+    userSettings: {
+      async query() {
+        return { records: [{ id: "7", locale: "en-us", theme: "dark" }], page: { size: 1, hasMore: false, next: null } };
       }
     }
   });

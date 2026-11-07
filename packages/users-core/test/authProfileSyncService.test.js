@@ -22,9 +22,9 @@ test("authProfileSyncService.syncIdentityProfile uses shared transaction for pro
           displayName: payload.displayName
         };
       },
-      async withTransaction(work) {
+      async withTransaction(options, work) {
         calls.push({ step: "withTransaction", trx: transaction });
-        return work(transaction);
+        return work({ ...options, trx: transaction });
       }
     },
     userSettingsRepository: {
@@ -82,8 +82,8 @@ test("authProfileSyncService.syncIdentityProfile skips write path when profile i
         upsertCalls += 1;
         return null;
       },
-      async withTransaction(work) {
-        return work({ trxId: "tx-2" });
+      async withTransaction(options, work) {
+        return work({ ...options, trx: { trxId: "tx-2" } });
       }
     },
     userSettingsRepository: {
@@ -126,8 +126,8 @@ test("authProfileSyncService.findByIdentity normalizes provider identity input",
       async upsert() {
         return null;
       },
-      async withTransaction(work) {
-        return work({ trxId: "tx-3" });
+      async withTransaction(options, work) {
+        return work({ ...options, trx: { trxId: "tx-3" } });
       }
     },
     userSettingsRepository: {
@@ -160,7 +160,11 @@ test("auth profile sync joins the supplied managed transaction and propagates co
     userProfilesRepository: {
       async findByIdentity(_identity, options) { calls.push(options.trx); return null; },
       async upsert(_data, options) { calls.push(options.trx); return profile; },
-      async withTransaction() { throw new Error("Must join the caller's owner"); }
+      // The repository joins the caller's transaction instead of opening one.
+      async withTransaction(options, work) {
+        if (!options.trx) throw new Error("Must join the caller's owner");
+        return work(options);
+      }
     },
     userSettingsRepository: {
       async ensureForUserId(_id, options) { calls.push(options.trx); }
@@ -191,9 +195,9 @@ test("an ordinary request's profile check (onlyWhenChanged) reads a matching pro
         row = { id: row?.id || "8", ...payload };
         return row;
       },
-      async withTransaction(work) {
+      async withTransaction(options, work) {
         calls.push("transaction");
-        return work({ trxId: "tx" });
+        return work({ ...options, trx: { trxId: "tx" } });
       }
     },
     userSettingsRepository: {
