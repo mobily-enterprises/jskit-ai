@@ -1,44 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import createKnex from "knex";
-import initialMigration from "../migrations/auth_local_db_initial.cjs";
 import emailVerifiedMigration from "../migrations/auth_local_db_users_email_verified.cjs";
-import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { hashPassword } from "@jskit-ai/auth-provider-local-core/server/lib/index";
 import { LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
-import { AuthLocalDatabaseBackendProvider } from "../src/server/providers/AuthLocalDatabaseBackendProvider.js";
+import { openSqliteLocalAuth } from "./support/localAuthRuntime.js";
 
 // The owner APIs as an application feature requires them, over a migrated database.
 async function ownerApis(t) {
-  const knex = createKnex({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
-  await knex.raw("PRAGMA foreign_keys = ON");
-  await initialMigration.up(knex);
-  await emailVerifiedMigration.up(knex);
-  await emailVerifiedMigration.up(knex);
-  let owners = null;
-  const probe = defineProvider({
-    id: "test.auth.local-db.owners",
-    requires: { accounts: "auth.local.accounts", sessions: "auth.local.sessions", recovery: "auth.local.recovery" },
-    setup(capabilities) {
-      owners = capabilities;
-      return {};
-    }
-  });
-  const runtime = createCapabilityRuntime({
-    inputs: {
-      "runtime.database": { knex, transactionManager: { inTransaction: (work) => knex.transaction(work) } }
-    },
-    providers: [AuthLocalDatabaseBackendProvider, probe]
-  });
-  await runtime.start();
-  return { knex, ...owners };
+  const records = await openSqliteLocalAuth(t);
+  // The email proof's migration runs again on a database that has its column, as a rerun deploy does.
+  await emailVerifiedMigration.up(records.knex);
+  return records;
 }
 
 const at = (iso) => new Date(iso).toISOString();
 
 test("markEmailVerified keeps the first proof, in the caller's transaction or on its own", async (t) => {
-  const { knex, accounts } = await ownerApis(t);
+  const { knex, accounts, inCallerTransaction } = await ownerApis(t);
   const account = await accounts.create({
     id: "usr_owner", email: "owner@example.com", displayName: "Owner", password: await hashPassword("owner password value")
   });
@@ -46,8 +24,8 @@ test("markEmailVerified keeps the first proof, in the caller's transaction or on
   assert.equal((await accounts.findByEmail("owner@example.com")).id, "usr_owner");
 
   t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-08T09:00:00.000Z") });
-  await assert.rejects(knex.transaction(async (trx) => {
-    assert.equal((await accounts.markEmailVerified("usr_owner", { trx })).emailVerifiedAt, at("2026-11-08T09:00:00.000Z"));
+  await assert.rejects(inCallerTransaction(async (options) => {
+    assert.equal((await accounts.markEmailVerified("usr_owner", options)).emailVerifiedAt, at("2026-11-08T09:00:00.000Z"));
     throw new Error("Abort the sign-in");
   }), /Abort the sign-in/u);
   assert.equal((await accounts.findByEmail("owner@example.com")).emailVerifiedAt, "", "The rolled-back proof is gone");
@@ -61,7 +39,7 @@ test("markEmailVerified keeps the first proof, in the caller's transaction or on
 });
 
 test("sessions.deleteExpired deletes the sessions expired by then and keeps the rest", async (t) => {
-  const { knex, accounts, sessions, recovery } = await ownerApis(t);
+  const { knex, accounts, sessions, recovery, inCallerTransaction } = await ownerApis(t);
   await accounts.create({
     id: "usr_sessions", email: "sessions@example.com", displayName: "Sessions", password: await hashPassword("sessions password")
   });
@@ -72,8 +50,8 @@ test("sessions.deleteExpired deletes the sessions expired by then and keeps the 
   await session("ses_edge", "2026-11-08T00:00:00.000Z");
   await session("ses_live", "2026-12-01T00:00:00.000Z");
 
-  await knex.transaction(async (trx) => {
-    assert.equal(await sessions.deleteExpired("2026-11-08T00:00:00.000Z", { trx }), 2);
+  await inCallerTransaction(async (options) => {
+    assert.equal(await sessions.deleteExpired("2026-11-08T00:00:00.000Z", options), 2);
   });
   assert.deepEqual((await knex(LOCAL_AUTH_DB_TABLES.sessions).select("id")).map(({ id }) => id), ["ses_live"]);
   assert.equal(await sessions.deleteExpired(new Date("2026-11-08T00:00:00.000Z")), 0);

@@ -1,15 +1,18 @@
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
-import { resolveRepoClient } from "@jskit-ai/database-runtime/shared";
+import { IDENTITIES_TABLE } from "./identityStore.js";
 
 const TABLES = Object.freeze({
   users: "auth_local_users",
   sessions: "auth_local_sessions",
   recovery: "auth_local_recovery",
-  identities: "auth_local_identities",
+  identities: IDENTITIES_TABLE,
   oauthAttempts: "auth_local_oauth_attempts",
   signInFailures: "auth_local_sign_in_failures",
   registrations: "auth_local_registrations"
 });
+
+// One page of one record: a lookup by a unique field.
+const FIRST = Object.freeze({ size: 1 });
 
 function nowIso() {
   return new Date().toISOString();
@@ -23,12 +26,13 @@ function toDate(value) {
   return date;
 }
 
+// The ISO text written for a required timestamp: the value, or the fallback (now) when it has none.
 function requiredDateTime(value, fallback = nowIso()) {
-  return toDate(value || fallback);
+  return toDate(value || fallback).toISOString();
 }
 
 function optionalDateTime(value) {
-  return value ? toDate(value) : null;
+  return value ? toDate(value).toISOString() : null;
 }
 
 function readDateTime(value, fallback = "") {
@@ -38,452 +42,546 @@ function readDateTime(value, fallback = "") {
   return toDate(value).toISOString();
 }
 
-function readPassword(row) {
+function text(value) {
+  return String(value || "");
+}
+
+function readPassword(record) {
   return {
-    algorithm: String(row.password_algorithm || ""),
-    version: String(row.password_version || ""),
-    salt: String(row.password_salt || ""),
-    hash: String(row.password_hash || "")
+    algorithm: text(record.passwordAlgorithm),
+    version: text(record.passwordVersion),
+    salt: text(record.passwordSalt),
+    hash: text(record.passwordHash)
   };
 }
 
 function writePassword(password = {}) {
   return {
-    password_algorithm: String(password.algorithm || ""),
-    password_version: String(password.version || ""),
-    password_salt: String(password.salt || ""),
-    password_hash: String(password.hash || "")
+    passwordAlgorithm: text(password.algorithm),
+    passwordVersion: text(password.version),
+    passwordSalt: text(password.salt),
+    passwordHash: text(password.hash)
   };
 }
 
-function mapUser(row) {
-  if (!row) {
+function mapUser(record) {
+  if (!record) {
     return null;
   }
   return {
-    id: String(row.id || ""),
-    email: String(row.email || ""),
-    displayName: String(row.display_name || ""),
-    password: readPassword(row),
-    createdAt: readDateTime(row.created_at),
-    updatedAt: readDateTime(row.updated_at),
-    emailVerifiedAt: readDateTime(row.email_verified_at),
-    disabled: row.disabled === true || row.disabled === 1 || row.disabled === "1"
+    id: text(record.id),
+    email: text(record.email),
+    displayName: text(record.displayName),
+    password: readPassword(record),
+    createdAt: readDateTime(record.createdAt),
+    updatedAt: readDateTime(record.updatedAt),
+    emailVerifiedAt: readDateTime(record.emailVerifiedAt),
+    disabled: record.disabled === true || record.disabled === 1 || record.disabled === "1"
   };
 }
 
-function mapSession(row) {
-  if (!row) {
+function mapSession(record) {
+  if (!record) {
     return null;
   }
   return {
-    id: String(row.id || ""),
-    userId: String(row.user_id || ""),
-    tokenHash: String(row.token_hash || ""),
-    purpose: String(row.purpose || "normal"),
-    createdAt: readDateTime(row.created_at),
-    expiresAt: readDateTime(row.expires_at),
-    revokedAt: readDateTime(row.revoked_at)
+    id: text(record.id),
+    userId: text(record.userId),
+    tokenHash: text(record.tokenHash),
+    purpose: String(record.purpose || "normal"),
+    createdAt: readDateTime(record.createdAt),
+    expiresAt: readDateTime(record.expiresAt),
+    revokedAt: readDateTime(record.revokedAt)
   };
 }
 
-function mapRecovery(row) {
-  if (!row) {
+function mapRecovery(record) {
+  if (!record) {
     return null;
   }
   return {
-    id: String(row.id || ""),
-    userId: String(row.user_id || ""),
-    tokenHash: String(row.token_hash || ""),
-    createdAt: readDateTime(row.created_at),
-    expiresAt: readDateTime(row.expires_at),
-    usedAt: readDateTime(row.used_at)
+    id: text(record.id),
+    userId: text(record.userId),
+    tokenHash: text(record.tokenHash),
+    createdAt: readDateTime(record.createdAt),
+    expiresAt: readDateTime(record.expiresAt),
+    usedAt: readDateTime(record.usedAt)
   };
 }
 
-function mapIdentity(row) {
-  if (!row) {
+function mapOAuthAttempt(record) {
+  if (!record) {
     return null;
   }
   return {
-    userId: String(row.user_id || ""),
-    provider: String(row.provider || ""),
-    providerSubject: String(row.provider_subject || ""),
-    email: String(row.email || ""),
-    createdAt: readDateTime(row.created_at)
+    browserKeyHash: text(record.id),
+    provider: text(record.provider),
+    intent: text(record.intent),
+    userId: text(record.userId),
+    state: text(record.state),
+    nonce: text(record.nonce),
+    codeVerifier: text(record.codeVerifier),
+    returnTo: text(record.returnTo),
+    createdAt: readDateTime(record.createdAt),
+    expiresAt: readDateTime(record.expiresAt)
   };
 }
 
-function mapOAuthAttempt(row) {
-  if (!row) {
+function mapSignInFailures(record) {
+  if (!record) {
     return null;
   }
   return {
-    browserKeyHash: String(row.browser_key_hash || ""),
-    provider: String(row.provider || ""),
-    intent: String(row.intent || ""),
-    userId: String(row.user_id || ""),
-    state: String(row.state || ""),
-    nonce: String(row.nonce || ""),
-    codeVerifier: String(row.code_verifier || ""),
-    returnTo: String(row.return_to || ""),
-    createdAt: readDateTime(row.created_at),
-    expiresAt: readDateTime(row.expires_at)
+    email: text(record.id),
+    failures: Number(record.failures || 0),
+    lastFailedAt: readDateTime(record.lastFailedAt),
+    lockedUntil: readDateTime(record.lockedUntil)
   };
 }
 
-function mapSignInFailures(row) {
-  if (!row) {
+function mapRegistration(record) {
+  if (!record) {
     return null;
   }
+  const invitationToken = text(record.invitationToken);
   return {
-    email: String(row.email || ""),
-    failures: Number(row.failures || 0),
-    lastFailedAt: readDateTime(row.last_failed_at),
-    lockedUntil: readDateTime(row.locked_until)
+    email: text(record.id),
+    displayName: text(record.displayName),
+    password: readPassword(record),
+    invitation: invitationToken ? { token: invitationToken, source: text(record.invitationSource) } : null,
+    tokenHash: text(record.tokenHash),
+    createdAt: readDateTime(record.createdAt),
+    expiresAt: readDateTime(record.expiresAt)
   };
 }
 
-function mapRegistration(row) {
-  if (!row) {
-    return null;
-  }
-  const invitationToken = String(row.invitation_token || "");
+function registrationRecord(input = {}) {
   return {
-    email: String(row.email || ""),
-    displayName: String(row.display_name || ""),
-    password: readPassword(row),
-    invitation: invitationToken ? { token: invitationToken, source: String(row.invitation_source || "") } : null,
-    tokenHash: String(row.token_hash || ""),
-    createdAt: readDateTime(row.created_at),
-    expiresAt: readDateTime(row.expires_at)
+    displayName: text(input.displayName),
+    ...writePassword(input.password),
+    invitationToken: input.invitation?.token ? String(input.invitation.token) : null,
+    invitationSource: input.invitation?.token ? text(input.invitation.source) : null,
+    tokenHash: text(input.tokenHash),
+    createdAt: requiredDateTime(input.createdAt),
+    expiresAt: requiredDateTime(input.expiresAt)
   };
 }
 
-function registrationRow(record = {}) {
-  return {
-    email: String(record.email || ""),
-    display_name: String(record.displayName || ""),
-    ...writePassword(record.password),
-    invitation_token: record.invitation?.token ? String(record.invitation.token) : null,
-    invitation_source: record.invitation?.token ? String(record.invitation.source || "") : null,
-    token_hash: String(record.tokenHash || ""),
-    created_at: requiredDateTime(record.createdAt),
-    expires_at: requiredDateTime(record.expiresAt)
-  };
-}
-
-function userInsert(input = {}) {
+function userRecord(input = {}) {
   const createdAt = requiredDateTime(input.createdAt);
   return {
-    id: String(input.id || ""),
-    email: String(input.email || ""),
-    display_name: String(input.displayName || ""),
+    id: text(input.id),
+    email: text(input.email),
+    displayName: text(input.displayName),
     ...writePassword(input.password),
     disabled: input.disabled === true,
-    created_at: createdAt,
-    updated_at: requiredDateTime(input.updatedAt, createdAt)
+    createdAt,
+    updatedAt: requiredDateTime(input.updatedAt, createdAt)
   };
 }
 
-function sessionInsert(input = {}) {
+function sessionRecord(input = {}) {
   const createdAt = requiredDateTime(input.createdAt);
   return {
-    id: String(input.id || ""),
-    user_id: String(input.userId || ""),
-    token_hash: String(input.tokenHash || ""),
+    id: text(input.id),
+    userId: text(input.userId),
+    tokenHash: text(input.tokenHash),
     purpose: String(input.purpose || "normal"),
-    expires_at: requiredDateTime(input.expiresAt),
-    revoked_at: optionalDateTime(input.revokedAt),
-    created_at: createdAt,
-    updated_at: requiredDateTime(input.updatedAt, createdAt)
+    expiresAt: requiredDateTime(input.expiresAt),
+    revokedAt: optionalDateTime(input.revokedAt),
+    createdAt,
+    updatedAt: requiredDateTime(input.updatedAt, createdAt)
   };
 }
 
-function recoveryInsert(input = {}) {
+function recoveryRecord(input = {}) {
   const createdAt = requiredDateTime(input.createdAt);
   return {
-    id: String(input.id || ""),
-    user_id: String(input.userId || ""),
-    token_hash: String(input.tokenHash || ""),
-    expires_at: requiredDateTime(input.expiresAt),
-    used_at: optionalDateTime(input.usedAt),
-    created_at: createdAt,
-    updated_at: requiredDateTime(input.updatedAt, createdAt)
+    id: text(input.id),
+    userId: text(input.userId),
+    tokenHash: text(input.tokenHash),
+    expiresAt: requiredDateTime(input.expiresAt),
+    usedAt: optionalDateTime(input.usedAt),
+    createdAt,
+    updatedAt: requiredDateTime(input.updatedAt, createdAt)
   };
 }
 
-function table(client, tableName) {
-  return client(tableName);
+function oauthAttemptRecord(input = {}) {
+  return {
+    id: text(input.browserKeyHash),
+    provider: text(input.provider),
+    intent: text(input.intent),
+    userId: input.userId ? String(input.userId) : null,
+    state: text(input.state),
+    nonce: text(input.nonce),
+    codeVerifier: text(input.codeVerifier),
+    returnTo: text(input.returnTo),
+    expiresAt: requiredDateTime(input.expiresAt),
+    createdAt: requiredDateTime(input.createdAt)
+  };
 }
 
 /**
- * Local auth's records read and written through one database client: the
- * Knex instance or a transaction.
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex | import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction} client
- * @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies
+ * The record a unique field's value finds, or null; an empty value finds none.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
+ * @param {string} field
+ * @param {unknown} value
+ * @param {object} options
  */
-function createTx(client, { knex }) {
+async function findOne(handle, field, value, options) {
+  const wanted = text(value);
+  if (!wanted) {
+    return null;
+  }
+  const { records } = await handle.query({ filters: { [field]: wanted }, page: FIRST }, options);
+  return records[0] || null;
+}
+
+/**
+ * The record with this id, or null; an empty id finds none.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
+ * @param {unknown} id
+ * @param {object} options
+ */
+async function findById(handle, id, options) {
+  const wanted = text(id);
+  return wanted ? handle.get(wanted, {}, options) : null;
+}
+
+/**
+ * How many records a many-row write answering their ids changed.
+ * @param {Promise<string[]>} written
+ */
+async function countOf(written) {
+  return (await written).length;
+}
+
+/**
+ * Deletes the record with this id and answers 1, or 0 when it is missing. The row is locked first, in the backend's
+ * transaction, so of two concurrent deletes only one answers 1.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
+ * @param {unknown} id
+ * @param {object} options
+ */
+async function deleteById(handle, id, options) {
+  const wanted = text(id);
+  const [record] = wanted ? await handle.lockMany([wanted], { ...options, missing: "skip" }) : [];
+  if (!record) {
+    return 0;
+  }
+  await handle.delete(record.id, options);
+  return 1;
+}
+
+/**
+ * Writes the record with this id: patches it when it exists, creates it otherwise. A natural key that is the
+ * table's id (an email) cannot be an upsert's conflict key, so the existing row is read first, in the call's
+ * transaction.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
+ * @param {string} id
+ * @param {Record<string, unknown>} attributes
+ * @param {object} options
+ */
+async function replace(handle, id, attributes, options) {
+  if (await handle.get(id, {}, options)) {
+    await handle.patch(id, attributes, { ...options, returning: "none" });
+  } else {
+    await handle.create({ id, ...attributes }, { ...options, returning: "none" });
+  }
+}
+
+/**
+ * Patches an existing record and answers it after the change; null when it is missing. Reading it first keeps a
+ * missing record from failing the caller's transaction.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
+ * @param {unknown} id
+ * @param {Record<string, unknown>} changes
+ * @param {object} options
+ */
+async function patchExisting(handle, id, changes, options) {
+  const existing = await findById(handle, id, options);
+  return existing ? handle.patch(existing.id, changes, options) : null;
+}
+
+/**
+ * Local auth's accounts.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} users
+ * @param {object} options
+ */
+function userRecords(users, options) {
   return Object.freeze({
-    users: Object.freeze({
-      async create(input) {
-        const row = userInsert(input);
-        try {
-          await table(client, TABLES.users).insert(row);
-        } catch (error) {
-          if (isDuplicateEntryError(error, { client: knex })) {
-            throw new Error("Local auth user already exists.");
-          }
-          throw error;
+    async create(input) {
+      const record = userRecord(input);
+      try {
+        await users.create(record, { ...options, returning: "none" });
+      } catch (error) {
+        if (isDuplicateEntryError(error)) {
+          throw new Error("Local auth user already exists.");
         }
-        return mapUser(row);
-      },
-      async findById(userId) {
-        return mapUser(await table(client, TABLES.users).where({ id: String(userId || "") }).first());
-      },
-      async findByEmail(email) {
-        return mapUser(await table(client, TABLES.users).where({ email: String(email || "") }).first());
-      },
-      async hasAny() {
-        return Boolean(await table(client, TABLES.users).first("id"));
-      },
-      async updatePassword(userId, passwordRecord) {
-        const updatedAt = requiredDateTime();
-        await table(client, TABLES.users)
-          .where({ id: String(userId || "") })
-          .update({
-            ...writePassword(passwordRecord),
-            updated_at: updatedAt
-          });
-        return mapUser(await table(client, TABLES.users).where({ id: String(userId || "") }).first());
-      },
-      async updateProfile(userId, updates = {}) {
-        const patch = {
-          updated_at: requiredDateTime()
-        };
-        if (typeof updates.displayName === "string") {
-          patch.display_name = updates.displayName;
-        }
-        await table(client, TABLES.users).where({ id: String(userId || "") }).update(patch);
-        return mapUser(await table(client, TABLES.users).where({ id: String(userId || "") }).first());
-      },
-      // Using an emailed link proves the account owns its email address; the first proof is kept.
-      async markEmailVerified(userId) {
-        const id = String(userId || "");
-        await table(client, TABLES.users).where({ id }).whereNull("email_verified_at").update({
-          email_verified_at: requiredDateTime()
-        });
-        return mapUser(await table(client, TABLES.users).where({ id }).first());
+        throw error;
       }
-    }),
-    sessions: Object.freeze({
-      async create(input) {
-        const row = sessionInsert(input);
-        await table(client, TABLES.sessions).insert(row);
-        return mapSession(row);
-      },
-      async findById(sessionId) {
-        return mapSession(await table(client, TABLES.sessions).where({ id: String(sessionId || "") }).first());
-      },
-      async findByTokenHash(tokenHash) {
-        return mapSession(await table(client, TABLES.sessions).where({ token_hash: String(tokenHash || "") }).first());
-      },
-      async revoke(sessionId) {
-        const existing = await table(client, TABLES.sessions).where({ id: String(sessionId || "") }).first();
-        if (!existing || existing.revoked_at) {
-          return mapSession(existing);
-        }
-        const updatedAt = requiredDateTime();
-        await table(client, TABLES.sessions)
-          .where({ id: String(sessionId || "") })
-          .update({
-            revoked_at: updatedAt,
-            updated_at: updatedAt
-          });
-        return mapSession(await table(client, TABLES.sessions).where({ id: String(sessionId || "") }).first());
-      },
-      async revokeForUser(userId, options = {}) {
-        const query = table(client, TABLES.sessions)
-          .where({ user_id: String(userId || "") })
-          .whereNull("revoked_at");
-        const exceptSessionId = String(options.exceptSessionId || "");
-        if (exceptSessionId) {
-          query.whereNot("id", exceptSessionId);
-        }
-        const updatedAt = requiredDateTime();
-        const count = await query.update({
-          revoked_at: updatedAt,
-          updated_at: updatedAt
-        });
-        return Number(count || 0);
-      },
-      async deleteExpired(now) {
-        const count = await table(client, TABLES.sessions)
-          .where("expires_at", "<=", requiredDateTime(now))
-          .delete();
-        return Number(count || 0);
+      return mapUser(record);
+    },
+    async findById(userId) {
+      return mapUser(await findById(users, userId, options));
+    },
+    async findByEmail(email) {
+      return mapUser(await findOne(users, "email", email, options));
+    },
+    async hasAny() {
+      return (await users.query({ page: FIRST }, options)).records.length > 0;
+    },
+    async updatePassword(userId, passwordRecord) {
+      return mapUser(await patchExisting(users, userId, { ...writePassword(passwordRecord), updatedAt: requiredDateTime() }, options));
+    },
+    async updateProfile(userId, updates = {}) {
+      const changes = { updatedAt: requiredDateTime() };
+      if (typeof updates.displayName === "string") {
+        changes.displayName = updates.displayName;
       }
-    }),
-    recovery: Object.freeze({
-      async create(input) {
-        const row = recoveryInsert(input);
-        await table(client, TABLES.recovery).insert(row);
-        return mapRecovery(row);
-      },
-      async findByTokenHash(tokenHash) {
-        return mapRecovery(await table(client, TABLES.recovery).where({ token_hash: String(tokenHash || "") }).first());
-      },
-      async consume(tokenId) {
-        const existing = await table(client, TABLES.recovery).where({ id: String(tokenId || "") }).first();
-        if (!existing || existing.used_at) {
-          return mapRecovery(existing);
-        }
-        const updatedAt = requiredDateTime();
-        await table(client, TABLES.recovery)
-          .where({ id: String(tokenId || "") })
-          .update({
-            used_at: updatedAt,
-            updated_at: updatedAt
-          });
-        return mapRecovery(await table(client, TABLES.recovery).where({ id: String(tokenId || "") }).first());
-      },
-      async consumeForUser(userId) {
-        const updatedAt = requiredDateTime();
-        const count = await table(client, TABLES.recovery)
-          .where({ user_id: String(userId || "") })
-          .whereNull("used_at")
-          .update({
-            used_at: updatedAt,
-            updated_at: updatedAt
-          });
-        return Number(count || 0);
+      return mapUser(await patchExisting(users, userId, changes, options));
+    },
+    // Using an emailed link proves the account owns its email address; the first proof is kept.
+    async markEmailVerified(userId) {
+      const id = text(userId);
+      if (!id) {
+        return null;
       }
-    }),
-    identities: Object.freeze({
-      async create(input) {
-        const row = {
-          user_id: String(input.userId || ""),
-          provider: String(input.provider || ""),
-          provider_subject: String(input.providerSubject || ""),
-          email: String(input.email || ""),
-          created_at: requiredDateTime(input.createdAt)
-        };
-        await table(client, TABLES.identities).insert(row);
-        return mapIdentity(row);
-      },
-      async findByProviderSubject(provider, providerSubject) {
-        return mapIdentity(await table(client, TABLES.identities)
-          .where({ provider: String(provider || ""), provider_subject: String(providerSubject || "") })
-          .first());
-      },
-      async listForUser(userId) {
-        const rows = await table(client, TABLES.identities).where({ user_id: String(userId || "") });
-        return rows.map(mapIdentity);
-      },
-      async deleteForUser(userId, provider) {
-        const count = await table(client, TABLES.identities)
-          .where({ user_id: String(userId || ""), provider: String(provider || "") })
-          .delete();
-        return Number(count || 0);
-      }
-    }),
-    oauthAttempts: Object.freeze({
-      async create(input) {
-        const row = {
-          browser_key_hash: String(input.browserKeyHash || ""),
-          provider: String(input.provider || ""),
-          intent: String(input.intent || ""),
-          user_id: input.userId ? String(input.userId) : null,
-          state: String(input.state || ""),
-          nonce: String(input.nonce || ""),
-          code_verifier: String(input.codeVerifier || ""),
-          return_to: String(input.returnTo || ""),
-          expires_at: requiredDateTime(input.expiresAt),
-          created_at: requiredDateTime(input.createdAt)
-        };
-        await table(client, TABLES.oauthAttempts).insert(row);
-        return mapOAuthAttempt(row);
-      },
-      // Only the request whose delete removes the row gets the attempt, so
-      // concurrent callbacks on several servers cannot both use it.
-      async take(browserKeyHash) {
-        const where = { browser_key_hash: String(browserKeyHash || "") };
-        const row = await table(client, TABLES.oauthAttempts).where(where).first();
-        if (!row) {
-          return null;
-        }
-        const count = await table(client, TABLES.oauthAttempts).where(where).delete();
-        return Number(count || 0) === 1 ? mapOAuthAttempt(row) : null;
-      },
-      async deleteExpired(now) {
-        const count = await table(client, TABLES.oauthAttempts)
-          .where("expires_at", "<=", requiredDateTime(now))
-          .delete();
-        return Number(count || 0);
-      }
-    }),
-    signInFailures: Object.freeze({
-      async find(email) {
-        return mapSignInFailures(await table(client, TABLES.signInFailures).where({ email: String(email || "") }).first());
-      },
-      async save(record) {
-        const row = {
-          email: String(record.email || ""),
-          failures: Number(record.failures || 0),
-          last_failed_at: requiredDateTime(record.lastFailedAt),
-          locked_until: optionalDateTime(record.lockedUntil)
-        };
-        await table(client, TABLES.signInFailures).insert(row).onConflict("email").merge();
-        return mapSignInFailures(row);
-      },
-      async clear(email) {
-        const count = await table(client, TABLES.signInFailures).where({ email: String(email || "") }).delete();
-        return Number(count || 0);
-      },
-      async deleteBefore(lastFailedAt) {
-        const count = await table(client, TABLES.signInFailures)
-          .where("last_failed_at", "<", requiredDateTime(lastFailedAt))
-          .delete();
-        return Number(count || 0);
-      }
-    }),
-    registrations: Object.freeze({
-      async save(record) {
-        const row = registrationRow(record);
-        await table(client, TABLES.registrations).insert(row).onConflict("email").merge();
-        return mapRegistration(row);
-      },
-      async findByEmail(email) {
-        return mapRegistration(await table(client, TABLES.registrations).where({ email: String(email || "") }).first());
-      },
-      async findByTokenHash(tokenHash) {
-        return mapRegistration(await table(client, TABLES.registrations)
-          .where({ token_hash: String(tokenHash || "") })
-          .first());
-      },
-      async delete(email) {
-        const count = await table(client, TABLES.registrations).where({ email: String(email || "") }).delete();
-        return Number(count || 0);
-      },
-      async deleteExpired(now) {
-        const count = await table(client, TABLES.registrations)
-          .where("expires_at", "<=", requiredDateTime(now))
-          .delete();
-        return Number(count || 0);
-      }
-    })
+      await users.patch(id, { emailVerifiedAt: requiredDateTime() }, { ...options, onlyIf: { emailVerifiedAt: null }, returning: "none" });
+      return mapUser(await users.get(id, {}, options));
+    }
   });
 }
 
 /**
- * The `auth.local.backend` that keeps local auth's records in the database.
- * @param {object} dependencies
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeTransactionManager} dependencies.transactionManager
+ * Local auth's sessions.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} sessions
+ * @param {object} options
  */
-function createLocalDbBackend({ knex, transactionManager }) {
+function sessionRecords(sessions, options) {
+  return Object.freeze({
+    async create(input) {
+      const record = sessionRecord(input);
+      await sessions.create(record, { ...options, returning: "none" });
+      return mapSession(record);
+    },
+    async findById(sessionId) {
+      return mapSession(await findById(sessions, sessionId, options));
+    },
+    async findByTokenHash(tokenHash) {
+      return mapSession(await findOne(sessions, "tokenHash", tokenHash, options));
+    },
+    async revoke(sessionId) {
+      const existing = await findById(sessions, sessionId, options);
+      if (!existing || existing.revokedAt) {
+        return mapSession(existing);
+      }
+      const revokedAt = requiredDateTime();
+      return mapSession(await sessions.patch(existing.id, { revokedAt, updatedAt: revokedAt }, options));
+    },
+    // revokeOptions.exceptSessionId keeps that session.
+    async revokeForUser(userId, revokeOptions = {}) {
+      const owner = text(userId);
+      if (!owner) {
+        return 0;
+      }
+      const exceptSessionId = text(revokeOptions.exceptSessionId);
+      const revokedAt = requiredDateTime();
+      return countOf(sessions.patchWhere(
+        exceptSessionId ? { userId: owner, exceptId: exceptSessionId } : { userId: owner },
+        { revokedAt, updatedAt: revokedAt },
+        { ...options, onlyIf: { revokedAt: null }, returning: "ids" }
+      ));
+    },
+    async deleteExpired(now) {
+      return countOf(sessions.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "ids" }));
+    }
+  });
+}
+
+/**
+ * Local auth's password recovery tokens.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} recovery
+ * @param {object} options
+ */
+function recoveryRecords(recovery, options) {
+  return Object.freeze({
+    async create(input) {
+      const record = recoveryRecord(input);
+      await recovery.create(record, { ...options, returning: "none" });
+      return mapRecovery(record);
+    },
+    async findByTokenHash(tokenHash) {
+      return mapRecovery(await findOne(recovery, "tokenHash", tokenHash, options));
+    },
+    async consume(tokenId) {
+      const existing = await findById(recovery, tokenId, options);
+      if (!existing || existing.usedAt) {
+        return mapRecovery(existing);
+      }
+      const usedAt = requiredDateTime();
+      return mapRecovery(await recovery.patch(existing.id, { usedAt, updatedAt: usedAt }, options));
+    },
+    async consumeForUser(userId) {
+      const owner = text(userId);
+      if (!owner) {
+        return 0;
+      }
+      const usedAt = requiredDateTime();
+      return countOf(recovery.patchWhere({ userId: owner }, { usedAt, updatedAt: usedAt }, {
+        ...options,
+        onlyIf: { usedAt: null },
+        returning: "ids"
+      }));
+    }
+  });
+}
+
+/**
+ * Local auth's pending provider sign-ins and links.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} attempts
+ * @param {object} options
+ */
+function oauthAttemptRecords(attempts, options) {
+  return Object.freeze({
+    async create(input) {
+      const record = oauthAttemptRecord(input);
+      await attempts.create(record, { ...options, returning: "none" });
+      return mapOAuthAttempt(record);
+    },
+    // Only the request that locks the row and deletes it gets the attempt, so concurrent callbacks on several servers
+    // cannot both use it: the others wait for the lock and then find no row. It runs in the backend's transaction.
+    async take(browserKeyHash) {
+      const id = text(browserKeyHash);
+      const [record] = id ? await attempts.lockMany([id], { ...options, missing: "skip" }) : [];
+      if (!record) {
+        return null;
+      }
+      await attempts.delete(record.id, options);
+      return mapOAuthAttempt(record);
+    },
+    async deleteExpired(now) {
+      return countOf(attempts.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "ids" }));
+    }
+  });
+}
+
+/**
+ * Local auth's failed sign-ins per account email.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} failures
+ * @param {object} options
+ */
+function signInFailureRecords(failures, options) {
+  return Object.freeze({
+    async find(email) {
+      return mapSignInFailures(await findById(failures, email, options));
+    },
+    async save(input) {
+      const email = text(input.email);
+      const record = {
+        failures: Number(input.failures || 0),
+        lastFailedAt: requiredDateTime(input.lastFailedAt),
+        lockedUntil: optionalDateTime(input.lockedUntil)
+      };
+      await replace(failures, email, record, options);
+      return mapSignInFailures({ id: email, ...record });
+    },
+    async clear(email) {
+      return deleteById(failures, email, options);
+    },
+    async deleteBefore(lastFailedAt) {
+      return countOf(failures.deleteWhere({ lastFailedBefore: requiredDateTime(lastFailedAt) }, { ...options, returning: "ids" }));
+    }
+  });
+}
+
+/**
+ * Local auth's registrations waiting for their email to be confirmed.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} registrations
+ * @param {object} options
+ */
+function registrationRecords(registrations, options) {
+  return Object.freeze({
+    async save(input) {
+      const email = text(input.email);
+      const record = registrationRecord(input);
+      await replace(registrations, email, record, options);
+      return mapRegistration({ id: email, ...record });
+    },
+    async findByEmail(email) {
+      return mapRegistration(await findById(registrations, email, options));
+    },
+    async findByTokenHash(tokenHash) {
+      return mapRegistration(await findOne(registrations, "tokenHash", tokenHash, options));
+    },
+    async delete(email) {
+      return deleteById(registrations, email, options);
+    },
+    async deleteExpired(now) {
+      return countOf(registrations.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "ids" }));
+    }
+  });
+}
+
+/**
+ * @typedef {object} LocalAuthHandles The handles of the tables the database backend feature owns, by resource name.
+ * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthUsers
+ * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthSessions
+ * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthRecovery
+ * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthOAuthAttempts
+ * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthSignInFailures
+ * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthRegistrations
+ */
+
+/**
+ * Local auth's records, every call in the given options' transaction.
+ * @param {LocalAuthHandles} resources
+ * @param {import("./identityStore.js").IdentityStore} identities
+ * @param {object} options
+ */
+function createRecords(resources, identities, options) {
+  return Object.freeze({
+    users: userRecords(resources.localAuthUsers, options),
+    sessions: sessionRecords(resources.localAuthSessions, options),
+    recovery: recoveryRecords(resources.localAuthRecovery, options),
+    identities: Object.freeze({
+      create: (input) => identities.create(input, options),
+      findByProviderSubject: (provider, providerSubject) => identities.findByProviderSubject(provider, providerSubject, options),
+      listForUser: (userId) => identities.listForUser(userId, options),
+      deleteForUser: (userId, provider) => identities.deleteForUser(userId, provider, options)
+    }),
+    oauthAttempts: oauthAttemptRecords(resources.localAuthOAuthAttempts, options),
+    signInFailures: signInFailureRecords(resources.localAuthSignInFailures, options),
+    registrations: registrationRecords(resources.localAuthRegistrations, options)
+  });
+}
+
+/**
+ * The `auth.local.backend` that keeps local auth's records in the database: each withTransaction opens one
+ * transaction on the records' handles, runs it again whole on a deadlock, and hands the callback the records in it.
+ * A failed callback rejects with the callback's own error (an AppError stays one), which json-rest-api's transaction
+ * reports inside a RestApiWriteError; a failed commit rejects with that error.
+ * @param {object} dependencies
+ * @param {LocalAuthHandles} dependencies.resources
+ * @param {import("./identityStore.js").IdentityStore} dependencies.identities
+ */
+function createLocalDbBackend({ resources, identities }) {
   async function withTransaction(callback) {
-    return transactionManager.inTransaction(async (trx) => callback(createTx(trx, { knex })));
+    let callbackFailure = null;
+    try {
+      return await resources.localAuthUsers.withTransaction({}, async (txOptions) => {
+        callbackFailure = null;
+        try {
+          return await callback(createRecords(resources, identities, txOptions));
+        } catch (error) {
+          callbackFailure = { error };
+          throw error;
+        }
+      });
+    } catch (error) {
+      throw callbackFailure ? callbackFailure.error : error;
+    }
   }
 
   return Object.freeze({
@@ -496,12 +594,14 @@ function createLocalDbBackend({ knex, transactionManager }) {
  * The owner APIs of local auth's accounts, sessions and recovery tokens, for
  * application code that works with them beside local auth: the
  * `auth.local.accounts`, `auth.local.sessions` and `auth.local.recovery`
- * capabilities. Each call runs in the caller's `options.trx`, or on its own.
+ * capabilities. Each call takes the call's options last and runs in their
+ * transaction (one a handle's withTransaction opened), or on its own.
  * @param {object} dependencies
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {LocalAuthHandles} dependencies.resources
+ * @param {import("./identityStore.js").IdentityStore} dependencies.identities
  */
-function createLocalDbOwners({ knex }) {
-  const records = (options) => createTx(resolveRepoClient(knex, options), { knex });
+function createLocalDbOwners({ resources, identities }) {
+  const records = (options) => createRecords(resources, identities, options);
 
   const accounts = Object.freeze({
     create: (input, options = {}) => records(options).users.create(input),
@@ -514,7 +614,7 @@ function createLocalDbOwners({ knex }) {
     create: (input, options = {}) => records(options).sessions.create(input),
     revoke: (sessionId, options = {}) => records(options).sessions.revoke(sessionId),
     // options.exceptSessionId keeps that session.
-    revokeForUser: (userId, options = {}) => records(options).sessions.revokeForUser(userId, options),
+    revokeForUser: (userId, { exceptSessionId, ...options } = {}) => records(options).sessions.revokeForUser(userId, { exceptSessionId }),
     deleteExpired: (now, options = {}) => records(options).sessions.deleteExpired(now)
   });
   const recovery = Object.freeze({

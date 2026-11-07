@@ -12,7 +12,9 @@
   },
   "dependencies": {
     "@jskit-ai/auth-provider-local-core": "0.2.14",
-    "@jskit-ai/database-runtime": "0.1.260"
+    "@jskit-ai/database-runtime": "0.1.260",
+    "@jskit-ai/resource-core": "0.1.202",
+    "@jskit-ai/resource-runtime": "0.2.12"
   },
   "peerDependencies": {
     "@jskit-ai/kernel": "0.2.11"
@@ -28,7 +30,9 @@
         "auth.local.recovery"
       ],
       "requires": [
-        "runtime.database"
+        "runtime.actions",
+        "runtime.database",
+        "runtime.resources"
       ]
     },
     "runtime": {
