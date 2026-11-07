@@ -4,7 +4,7 @@
   "description": "Portable integration configuration and server-side account connection runtime.",
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   },
   "exports": {
     "./shared/configuration": "./src/shared/configuration.js",

@@ -152,6 +152,24 @@ test("foundation browser configurations reuse the development launcher or the ma
   }
 });
 
+test("application foundations run every test runner within the machine's test budget", async () => {
+  for (const patternName of FOUNDATION_NAMES) {
+    const exampleRoot = path.join(PATTERNS_ROOT, patternName, "example");
+    const packageJson = await readExamplePackageJson(patternName);
+    assert.equal(packageJson.scripts?.test, "jskit test");
+
+    const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
+      const { default: config } = await import(${JSON.stringify(path.join(exampleRoot, "playwright.config.mjs"))});
+      console.log(JSON.stringify(config.workers));
+    `], { env: { ...process.env, V64_TEST_CONCURRENCY: "3" } });
+    assert.equal(JSON.parse(stdout), 3);
+
+    const viteConfigSource = await readFile(path.join(exampleRoot, "vite.config.mjs"), "utf8");
+    assert.match(viteConfigSource, /^import \{ testConcurrency \} from "@jskit-ai\/jskit-catalog\/test-budget";$/mu);
+    assert.match(viteConfigSource, /^ {4}maxWorkers: testConcurrency\(\)$/mu);
+  }
+});
+
 test("application foundations keep linked packages on mutable Vite source paths", async () => {
   for (const patternName of FOUNDATION_NAMES) {
     const viteConfigSource = await readFile(
@@ -239,6 +257,8 @@ test("foundation agent instructions point to public framework docs without requi
   assert.match(minimalAgents, /Do not install an unrelated runtime package only to read documentation/u);
   assert.match(minimalAgents, /Keep `BROWSER_TEST_DB_NAME` distinct from disposable `TEST_DB_NAME`/u);
   assert.match(minimalAgents, /Keep verification output small/u);
+  assert.match(minimalAgents, /through `jskit test` \(`npm test`\)/u);
+  assert.match(minimalAgents, /typed-features#test-files-run-in-parallel/u);
   assert.match(minimalAgents, /Do not add generator\s+provenance, receipts/u);
   assert.doesNotMatch(minimalAgents, /node_modules\/@jskit-ai\/agent-docs|patterns\/ui-testing\.md|in\s+this package/u);
   assert.doesNotMatch(minimalAgents, /local app scaffold|crud-scaffolding\.md|workflow\/app-state\.md/u);

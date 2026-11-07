@@ -3,7 +3,7 @@
   "version": "0.1.2",
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   },
   "exports": {
     "./server": "./src/server/index.js",

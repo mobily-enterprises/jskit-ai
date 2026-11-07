@@ -13,6 +13,8 @@ import {
 } from "./i18n.mjs";
 import { checkMaterial3, formatMaterial3Report, formatNavigationReport } from "./material3.mjs";
 import { checkProject, updateProject } from "./project-packages.mjs";
+import { runTests } from "./test-command.mjs";
+import { checkTestRuns, formatTestRunsReport } from "./test-runs.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
@@ -30,13 +32,17 @@ function usage() {
     "  jskit check m3 [<path> ...] [--root <path>]",
     "  jskit i18n export <locale> [--root <path>]",
     "  jskit i18n check <locale> [--root <path>]",
+    "  jskit test [node options] [files or globs]",
     "",
     "Commands:",
     "  update       Align root and workspace @jskit-ai/* declarations to this published catalog, then run npm install.",
     "  check        Fail when manifests or package-lock.json contain stale, mixed, or private singleton JSKIT stacks,",
     "               or when application source breaks a JSKIT navigation rule (nav/*): history or window.location",
     "               navigation, a hand-built in-app path, a back control other than the shell's Up arrow, an inner",
-    "               page without a declared parent, or a main-navigation page that declares one.",
+    "               page without a declared parent, or a main-navigation page that declares one. It also fails when",
+    "               a package script runs tests outside the machine's test budget (test/*): node --test instead of",
+    "               jskit test, a fixed test concurrency or worker count, or a Playwright or Vitest config whose",
+    "               workers do not come from testConcurrency() of @jskit-ai/jskit-catalog/test-budget.",
     "  check m3     List application UI source that departs from the JSKIT Material 3 guide, each finding with its",
     "               guide section: the whole app, or only the given files and directories (a section, or a task's",
     "               changed files). Its visual rules (m3/*) are a report; its nav/* rules are plain jskit check's.",
@@ -44,6 +50,10 @@ function usage() {
     "               for translators, keeping existing translations and extra keys.",
     "  i18n check   Compare src/locales/<locale>/jskit.json with the installed packages' English; fail on missing keys,",
     "               invalid messages or placeholder mismatches, and list extra keys and untranslated messages.",
+    "  test         Run node --test with these arguments, test files in parallel within the machine's test budget:",
+    "               V64_TEST_CONCURRENCY when it is a positive whole number, otherwise half of the machine's CPUs",
+    "               (at least 1). A file whose first line is `// jskit-test: alone - <reason>` runs after the others,",
+    "               on its own.",
     "",
     "<locale> is a BCP 47 language tag, such as fr or pt-BR."
   ].join("\n");
@@ -55,6 +65,9 @@ function parseArgs(argv = []) {
   const command = commandArgument === "--help" || commandArgument === "-h"
     ? "help"
     : commandArgument;
+  if (command === "test") {
+    return { command, args };
+  }
   const options = {
     command,
     projectRoot: process.cwd(),
@@ -200,6 +213,10 @@ async function main(argv = process.argv.slice(2)) {
     await runMaterial3(options);
     return;
   }
+  if (options.command === "test") {
+    process.exitCode = await runTests(options.args);
+    return;
+  }
 
   const catalog = await readCatalog();
   if (options.command === "update") {
@@ -230,14 +247,16 @@ async function main(argv = process.argv.slice(2)) {
     catalog
   });
   const ui = await checkMaterial3({ projectRoot: options.projectRoot, navigationOnly: !MATERIAL3_GATE });
+  const tests = await checkTestRuns({ projectRoot: options.projectRoot, manifests: result.manifests });
   const reports = [
     result.ok
       ? `JSKIT project graph is coordinated across ${result.manifests.length} manifest(s) and ` +
         `${result.installations.length} resolved package installation(s).`
       : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
-    MATERIAL3_GATE ? formatMaterial3Report(ui) : formatNavigationReport(ui)
+    MATERIAL3_GATE ? formatMaterial3Report(ui) : formatNavigationReport(ui),
+    formatTestRunsReport(tests)
   ];
-  if (!result.ok || !ui.ok) {
+  if (!result.ok || !ui.ok || !tests.ok) {
     throw new Error(reports.join("\n"));
   }
   process.stdout.write(`${reports.join("\n")}\n`);

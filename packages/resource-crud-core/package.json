@@ -3,7 +3,7 @@
   "version": "0.1.201",
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   },
   "exports": {
     "./shared/crudFieldContract": "./src/shared/crudFieldContract.js",

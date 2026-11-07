@@ -3,7 +3,7 @@
   "version": "0.2.16",
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   },
   "exports": {
     "./server/RealtimeProvider": "./src/server/RealtimeProvider.js",

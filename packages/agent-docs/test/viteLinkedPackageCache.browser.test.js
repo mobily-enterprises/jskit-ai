@@ -167,13 +167,16 @@ test("two browser profiles receive changed exports from a linked application pac
 }, async () => {
   const fixture = await createLinkedPackageFixture();
   const port = await reservePort();
+  // The restarted server reuses the first server's dependency cache, as an application's does.
+  const cacheDir = path.join(fixture.fixtureRoot, "node_modules", ".vite");
   let viteRuntime = null;
   let browser = null;
 
   try {
     viteRuntime = await startViteFixture({
       fixtureRoot: fixture.fixtureRoot,
-      port
+      port,
+      cacheDir
     });
     browser = await chromium.launch(createChromiumLaunchOptions());
     const profiles = await Promise.all([
@@ -206,7 +209,8 @@ test("two browser profiles receive changed exports from a linked application pac
 
     viteRuntime = await startViteFixture({
       fixtureRoot: fixture.fixtureRoot,
-      port
+      port,
+      cacheDir
     });
     await Promise.all(pages.map((page) => assertCurrentModule(page, viteRuntime.baseURL)));
     await Promise.all(profiles.map((profile) => profile.close()));

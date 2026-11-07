@@ -225,6 +225,34 @@ Local functions
 - `alignLockManifestRecord(lockRecord, manifest, localPackageNames)`
 - `preparePackageLockForInstall(projectRoot, manifests, packageLockPath)`
 
+### `scripts/test-budget.mjs`
+Exports
+- `BUDGET_VARIABLE`
+- `testConcurrency({ env = process.env, parallelism = os.availableParallelism() } = {})`
+
+### `scripts/test-command.mjs`
+Exports
+- `planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency() } = {})`
+- `runTests(args)`
+Local functions
+- `findTestFiles(patterns, cwd)`
+- `readAloneFiles(files, cwd)`
+- `runNode(args)`
+
+### `scripts/test-runs.mjs`
+Exports
+- `checkTestRuns({ projectRoot, manifests })`
+- `formatTestRunsReport(result)`
+Local functions
+- `commandsOf(script)`
+- `isProgram(token, name)`
+- `runsNodeTest(tokens)`
+- `runnerArguments(tokens, runner)`
+- `configOption(args)`
+- `lineOf(contents, needle, after = "")`
+- `findConfig(directory, explicit, names)`
+- `checkRunnerConfig({ root, configPath, directory, runner, report })`
+
 ### `scripts/verify-packages.mjs`
 Exports
 - `main()`
@@ -241,3 +269,4 @@ Local functions
 - `validateMigrationsAfter(packageJson)`
 - `validateMigrationDirectory(packageName, absoluteDirectory, relativeDirectory, migrationOwners)`
 - `validatePackage(packageRecord, localVersions, migrationOwners)`
+- `verifyTestRuns()`

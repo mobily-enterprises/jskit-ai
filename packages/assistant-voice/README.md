@@ -201,7 +201,7 @@ Text and voice retain the same conversation; an optional headless task uses the
 same runtime directly. Its README covers packed-package setup, launch and the
 local origin policy. No Genesis or database runtime is required.
 
-Focused package checks run one file at a time, for example:
+A focused package check names its files, for example:
 `npm test --workspace packages/assistant-voice -- test/voiceController.test.js`.
 Native speech and physical microphone/speaker testing are separate. Browser echo
 cancellation plus local text filters cannot guarantee acoustic isolation on every

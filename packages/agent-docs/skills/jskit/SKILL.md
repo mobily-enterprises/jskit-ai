@@ -127,3 +127,11 @@ table once, a row policy is bounded by the rows it reads, list and batch paths
 have a query budget tested at realistic row counts, and test databases restore
 a stored snapshot instead of replaying migrations. Find why a check is slow;
 never raise its time limit. Typed features' repository and Tests rules say how.
+
+Test files run in parallel by default, bounded by the machine: a script runs
+`jskit test`, never `node --test` or a fixed `--test-concurrency`, and
+Playwright's `workers` and Vitest's `maxWorkers` are `testConcurrency()` from
+`@jskit-ai/jskit-catalog/test-budget`; plain `jskit check` fails anything else.
+Files that collide when run together get isolated (their own port, temporary
+directory and database), never serialised. A file that truly must run alone
+says why on its first line, `// jskit-test: alone - <reason>`.

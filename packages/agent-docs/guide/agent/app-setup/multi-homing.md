@@ -452,9 +452,9 @@ Use only a verified empty disposable database named
 reports its engine version, applies package migrations and drops fixture tables.
 
 ```sh
-node --test packages/workspaces-core/test/*.test.js
+npx jskit test packages/workspaces-core/test/*.test.js
 # Set JSKIT_REPOSITORY_TEST_DATABASE_URL to the verified empty disposable target.
-node --test packages/workspaces-core/test/repositories.integration.test.js
+npx jskit test packages/workspaces-core/test/repositories.integration.test.js
 npm run verify
 ```
 

@@ -19,8 +19,12 @@ Exports
 - `createChromiumLaunchOptions({ env = process.env } = {})`
 - `reservePort()`
 - `startCapturedProcess(command, args, { cwd, env = {} } = {})`
-- `startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {}, port: requestedPort } = {})`
+- `startViteFixture({ fixtureRoot, configFile = "vite.config.mjs", env = {}, port: requestedPort, cacheDir: requestedCacheDir } = {})`
 - `stopProcess(runtime)`
+Local functions
+- `stopChild(child)`
+- `takeCacheDir(configPath)`
+- `returnCacheDir(configPath, cacheDir)`
 
 ### `fakeFastify.mjs`
 Exports
@@ -34,3 +38,7 @@ Exports
 - `readMaterialStyles(page, probes)`
 Local functions
 - `comparePixels(page, actual, expected)`
+
+### `viteFixtureServer.mjs`
+Exports
+- None

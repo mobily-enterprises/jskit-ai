@@ -10,7 +10,7 @@
     "skills"
   ],
   "scripts": {
-    "test": "node --test --test-concurrency=1 test/*.test.js"
+    "test": "jskit test test/*.test.js"
   },
   "engines": {
     "node": "^22.13.0 || ^24.0.0 || ^26.0.0"

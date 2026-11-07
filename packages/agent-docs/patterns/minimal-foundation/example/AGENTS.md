@@ -35,6 +35,16 @@ and prove that disposable cleanup preserves browser migrations. Require
 repeat-start regression proof; do not rebuild the database or production
 frontend for each focused browser check.
 
+Tests run in parallel within the machine's test budget: run node's test
+runner through `jskit test` (`npm test`), and take Playwright's `workers` and
+Vitest's `maxWorkers` from `testConcurrency()` of
+`@jskit-ai/jskit-catalog/test-budget`; never one file at a time or a fixed
+count. Isolate files that collide (their own port, temporary directory and
+database) instead of serialising them; a file that truly must run alone says
+why on its first line, `// jskit-test: alone - <reason>`. Plain `jskit check`
+fails anything else
+(`https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features#test-files-run-in-parallel`).
+
 Keep verification output small. Run the relevant cases together, save complete
 stdout/stderr to local artifacts, and preserve the exit status. Report counts,
 duration, failed case names and artifact paths; read only actionable failure

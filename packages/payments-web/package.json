@@ -28,6 +28,6 @@
     }
   },
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   }
 }

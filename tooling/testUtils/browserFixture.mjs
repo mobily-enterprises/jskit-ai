@@ -1,11 +1,12 @@
 import { spawn } from "node:child_process";
+import { mkdtempSync, rmSync } from "node:fs";
 import net from "node:net";
+import os from "node:os";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-const REPOSITORY_ROOT = fileURLToPath(new URL("../../", import.meta.url));
-const VITE_CLI = path.join(REPOSITORY_ROOT, "node_modules", "vite", "bin", "vite.js");
+const VITE_FIXTURE_SERVER = fileURLToPath(new URL("./viteFixtureServer.mjs", import.meta.url));
 
 function startCapturedProcess(command, args, { cwd, env = {} } = {}) {
   const child = spawn(command, args, {
@@ -102,10 +103,13 @@ function startCapturedProcess(command, args, { cwd, env = {} } = {}) {
 
 async function stopProcess(runtime) {
   const child = runtime?.child;
-  if (!child || child.exitCode !== null || child.signalCode !== null) {
-    return;
+  if (child && child.exitCode === null && child.signalCode === null) {
+    await stopChild(child);
   }
+  await runtime?.cleanup?.();
+}
 
+async function stopChild(child) {
   await new Promise((resolve) => {
     let settled = false;
     let forceTimer = null;
@@ -154,11 +158,42 @@ async function reservePort() {
   return port;
 }
 
+// Vite replaces a shared dependency cache directory under servers still reading it,
+// so no two running servers share one. A fixture's server reuses a directory that a
+// stopped server of the same fixture left in this test process, which keeps later
+// starts warm; the directories are removed when the process exits.
+const idleCacheDirs = new Map();
+const processCacheDirs = [];
+
+function takeCacheDir(configPath) {
+  const idle = idleCacheDirs.get(configPath);
+  if (idle?.length) {
+    return idle.pop();
+  }
+  if (processCacheDirs.length === 0) {
+    process.once("exit", () => {
+      for (const cacheDir of processCacheDirs) {
+        rmSync(cacheDir, { recursive: true, force: true });
+      }
+    });
+  }
+  const cacheDir = mkdtempSync(path.join(os.tmpdir(), "jskit-vite-fixture-"));
+  processCacheDirs.push(cacheDir);
+  return cacheDir;
+}
+
+function returnCacheDir(configPath, cacheDir) {
+  const idle = idleCacheDirs.get(configPath) ?? [];
+  idle.push(cacheDir);
+  idleCacheDirs.set(configPath, idle);
+}
+
 async function startViteFixture({
   fixtureRoot,
   configFile = "vite.config.mjs",
   env = {},
-  port: requestedPort
+  port: requestedPort,
+  cacheDir: requestedCacheDir
 } = {}) {
   const resolvedFixtureRoot = String(fixtureRoot || "").trim();
   if (!resolvedFixtureRoot) {
@@ -170,17 +205,26 @@ async function startViteFixture({
     throw new TypeError("startViteFixture port must be a positive integer.");
   }
   const port = requestedPort == null ? await reservePort() : normalizedRequestedPort;
-  const runtime = startCapturedProcess(process.execPath, [
-    VITE_CLI,
-    "--config",
-    path.join(resolvedFixtureRoot, configFile),
-    "--port",
-    String(port),
-    "--clearScreen",
-    "false"
-  ], {
-    cwd: resolvedFixtureRoot,
-    env
+  const configPath = path.join(resolvedFixtureRoot, configFile);
+  let ownCacheDir = requestedCacheDir ? null : takeCacheDir(configPath);
+  const runtime = Object.freeze({
+    ...startCapturedProcess(process.execPath, [
+      VITE_FIXTURE_SERVER,
+      configPath,
+      String(port),
+      requestedCacheDir || ownCacheDir
+    ], {
+      cwd: resolvedFixtureRoot,
+      env
+    }),
+    cleanup: () => {
+      if (ownCacheDir) {
+        returnCacheDir(configPath, ownCacheDir);
+        ownCacheDir = null;
+      }
+    },
+    port,
+    baseURL: `http://127.0.0.1:${port}`
   });
 
   try {
@@ -190,11 +234,7 @@ async function startViteFixture({
     throw error;
   }
 
-  return Object.freeze({
-    ...runtime,
-    port,
-    baseURL: `http://127.0.0.1:${port}`
-  });
+  return runtime;
 }
 
 function createChromiumLaunchOptions({ env = process.env } = {}) {

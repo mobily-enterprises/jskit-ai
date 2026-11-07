@@ -162,11 +162,32 @@ The check fails when:
 - a JSKIT override tries to force a private graph;
 - a root/workspace declaration has no lockfile installation, or the lockfile is missing;
 - installed package versions or root/workspace declarations disagree with the lockfile.
+- a package script runs tests outside the machine's test budget (`test/*`, see
+  [Test files run in parallel](/guide/framework/typed-features#test-files-run-in-parallel)).
 
 Shared client owners such as the kernel, HTTP runtime, shell, auth web runtime,
 realtime runtime, and assistant runtime use exact peer dependencies where they
 must share application state. A partial upgrade can therefore fail during npm
 installation instead of silently nesting a second client stack.
+
+## Run tests within the test budget
+
+Plain `jskit check` fails a test run that ignores the machine's test budget
+([Test files run in parallel](/guide/framework/typed-features#test-files-run-in-parallel)).
+An application adopts it once, at the upgrade that brings `jskit test`:
+
+1. Its test scripts run `jskit test` with their own files or globs, for
+   example `"test": "jskit test"`, never `node --test` or
+   `--test-concurrency`.
+2. `playwright.config.*` sets `workers: testConcurrency()` and the Vitest
+   config sets `maxWorkers: testConcurrency()`, with
+   `import { testConcurrency } from "@jskit-ai/jskit-catalog/test-budget";`,
+   and no script passes `--workers`, `-j` or `--maxWorkers`.
+3. Files that collide when run together get their own port, temporary
+   directory, database or schema, and Vite `cacheDir`; a file that truly
+   must run alone says why on its first line, `// jskit-test: alone - <reason>`.
+4. The whole suite passes with the budget, and its time before and after is
+   recorded.
 
 ## Application migration
 

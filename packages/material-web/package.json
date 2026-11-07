@@ -34,7 +34,7 @@
     }
   },
   "scripts": {
-    "test": "node --test --test-concurrency=1",
+    "test": "jskit test",
     "symbols:generate": "node ./scripts/generate-symbols.mjs"
   }
 }

@@ -4,7 +4,7 @@
   "type": "module",
   "description": "Duplex voice conversations with application-owned targets, authorization and speech services.",
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   },
   "exports": {
     "./client": "./src/client/index.js",

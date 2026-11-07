@@ -4,7 +4,7 @@
   "description": "Google Calendar account configuration and event operations for JSKIT connectors.",
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   },
   "exports": {
     "./shared": "./src/shared/english-definition.js",

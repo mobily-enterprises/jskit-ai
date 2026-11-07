@@ -2,7 +2,7 @@
   "name": "s3-native-format-example",
   "private": true,
   "type": "module",
-  "scripts": { "test": "node --test --test-concurrency=1 verify-formats.mjs" },
+  "scripts": { "test": "node verify-formats.mjs" },
   "dependencies": {
     "csv-parse": "7.0.2",
     "csv-stringify": "6.8.3",

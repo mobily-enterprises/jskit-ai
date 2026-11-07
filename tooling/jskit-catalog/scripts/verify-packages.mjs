@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { globSync } from "node:fs";
 import { readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -8,6 +9,8 @@ import {
   discoverPackagePatterns
 } from "./pattern-assets.mjs";
 import { collectSingletonPackageIds, discoverFrameworkPackages } from "./framework-packages.mjs";
+import { discoverProjectManifests, readJsonRecord } from "./project-manifests.mjs";
+import { checkTestRuns, formatTestRunsReport } from "./test-runs.mjs";
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const REPO_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "../../..");
@@ -352,6 +355,23 @@ function validateSingletonPeerDependencies(packages) {
   }
 }
 
+// JSKIT's own package scripts and every pattern example an application copies run tests within the test budget.
+async function verifyTestRuns() {
+  const examples = globSync("packages/*/patterns/*/example/**/package.json", {
+    cwd: REPO_ROOT,
+    exclude: (name) => path.basename(name) === "node_modules"
+  });
+  const manifests = [
+    ...await discoverProjectManifests(REPO_ROOT),
+    ...await Promise.all(examples.sort().map((file) => readJsonRecord(path.join(REPO_ROOT, file))))
+  ];
+  const result = await checkTestRuns({ projectRoot: REPO_ROOT, manifests });
+  if (!result.ok) {
+    throw new Error(formatTestRunsReport(result));
+  }
+  return result.manifests;
+}
+
 async function main() {
   const packages = await discoverFrameworkPackages(PACKAGES_ROOT);
   const localVersions = new Map(packages.map(({ packageJson }) => [packageJson.name, packageJson.version]));
@@ -366,9 +386,11 @@ async function main() {
     serverProviderCount += packageResult.serverProviderCount;
   }
   assertUniquePatternIds(patterns);
+  const testManifests = await verifyTestRuns();
   process.stdout.write(
     `Verified ${packages.length} JSKIT runtime packages, ${serverProviderCount} loadable server providers, ` +
-    `${patterns.length} patterns, and ${migrationOwners.size} loadable package migrations.\n`
+    `${patterns.length} patterns, ${migrationOwners.size} loadable package migrations, and the test runs of ` +
+    `${testManifests} manifests.\n`
   );
 }
 

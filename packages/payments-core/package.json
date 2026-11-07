@@ -20,7 +20,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   },
   "dependencies": {
     "@paddle/paddle-node-sdk": "3.10.0",

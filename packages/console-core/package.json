@@ -3,7 +3,7 @@
   "version": "0.2.12",
   "type": "module",
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   },
   "exports": {
     "./server/ConsoleFeature": "./src/server/ConsoleFeature.js",

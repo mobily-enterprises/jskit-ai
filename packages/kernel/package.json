@@ -7,7 +7,7 @@
     "json-rest-schema": "^1.0.17"
   },
   "scripts": {
-    "test": "node --test --test-concurrency=1"
+    "test": "jskit test"
   },
   "exports": {
     "./_testable": "./_testable/index.js",

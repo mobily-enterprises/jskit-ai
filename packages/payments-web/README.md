@@ -144,7 +144,7 @@ loading behavior. A separate browser fixture uses real Vuetify and controlled
 component inputs, without a generated application or provider connection:
 
 ```sh
-JSKIT_PAYMENTS_WEB_BROWSER_INTEGRATION=1 node --test --test-concurrency=1 packages/payments-web/test/paymentAccount.browser.test.js
+JSKIT_PAYMENTS_WEB_BROWSER_INTEGRATION=1 npx jskit test packages/payments-web/test/paymentAccount.browser.test.js
 ```
 
 Run that command from the JSKIT repository root with its prepared browser tools.

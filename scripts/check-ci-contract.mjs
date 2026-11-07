@@ -35,10 +35,15 @@ function collectNpmScriptReferences(workflowSource = "") {
     .map((match) => match[1]);
 }
 
-function collectNodeTestReferences(workflowSource = "") {
-  return [...String(workflowSource).matchAll(/\bnode\s+--test\s+([^\s|>&]+)/gu)]
-    .map((match) => match[1].replace(/^['"]|['"]$/gu, ""))
-    .filter((target) => target && !target.startsWith("-"));
+// Each test-runner command of a workflow (`jskit test` or a direct `node --test`) with the files it names.
+function collectTestRuns(workflowSource = "") {
+  return [...String(workflowSource).matchAll(/\b(node\s+--test|jskit\s+test)(?=\s|$)([^\n|>&;]*)/gu)]
+    .map((match) => ({
+      direct: match[1].startsWith("node"),
+      targets: match[2].trim().split(/\s+/u)
+        .map((target) => target.replace(/^['"]|['"]$/gu, ""))
+        .filter((target) => target && !target.startsWith("-"))
+    }));
 }
 
 async function collectCiContractIssues({
@@ -65,10 +70,15 @@ async function collectCiContractIssues({
         issues.push(`${workflowName} runs missing root package script "${scriptName}".`);
       }
     }
-    for (const relativeTarget of collectNodeTestReferences(workflowSource)) {
-      const targetPath = path.resolve(repoRoot, relativeTarget);
-      if (!(await pathExists(targetPath))) {
-        issues.push(`${workflowName} runs missing test target "${relativeTarget}".`);
+    for (const { direct, targets } of collectTestRuns(workflowSource)) {
+      if (direct) {
+        issues.push(`${workflowName} runs node --test directly; run \`npx jskit test\`, which keeps test files within the machine's test budget.`);
+      }
+      for (const relativeTarget of targets) {
+        const targetPath = path.resolve(repoRoot, relativeTarget);
+        if (!(await pathExists(targetPath))) {
+          issues.push(`${workflowName} runs missing test target "${relativeTarget}".`);
+        }
       }
     }
   }
@@ -119,7 +129,7 @@ export {
   collectCiContractIssues,
   collectEngineMajors,
   collectMatrixMajors,
-  collectNodeTestReferences,
+  collectTestRuns,
   collectNpmScriptReferences,
   main
 };

@@ -18,7 +18,7 @@ jobs:
           - 26
     steps:
       - run: npm run verify
-      - run: node --test packages/example/test/example.test.js
+      - run: npx jskit test packages/example/test/example.test.js packages/example/test/other.test.js
 `;
 
 test("CI runtime parsing keeps the workflow matrix aligned with package engines", () => {
@@ -33,7 +33,7 @@ test("CI contract verification accepts current scripts, test targets, and runtim
       scripts: { verify: "node verify.mjs" }
     },
     workflows: { "verify.yml": VALID_VERIFY_WORKFLOW },
-    pathExists: async (targetPath) => targetPath.endsWith("packages/example/test/example.test.js")
+    pathExists: async (targetPath) => /packages\/example\/test\/(?:example|other)\.test\.js$/u.test(targetPath)
   });
 
   assert.deepEqual(issues, []);
@@ -47,13 +47,16 @@ test("CI contract verification reports stale scripts, files, and runtime matrice
     },
     workflows: {
       "verify.yml": VALID_VERIFY_WORKFLOW.replace("          - 24\n", "")
+        .replace("npx jskit test", "node --test --test-concurrency=1")
     },
     pathExists: async () => false
   });
 
   assert.deepEqual(issues, [
     "verify.yml runs missing root package script \"verify\".",
+    "verify.yml runs node --test directly; run `npx jskit test`, which keeps test files within the machine's test budget.",
     "verify.yml runs missing test target \"packages/example/test/example.test.js\".",
+    "verify.yml runs missing test target \"packages/example/test/other.test.js\".",
     "verify workflow Node matrix (26) must match engines.node (24, 26)."
   ]);
 });

@@ -39,52 +39,52 @@ jobs:
       - name: Verify foundation loading before JavaScript
         env:
           JSKIT_FOUNDATION_STARTUP_INTEGRATION: "1"
-        run: node --test --test-concurrency=1 packages/agent-docs/test/foundationStartup.browser.test.js
+        run: npx jskit test packages/agent-docs/test/foundationStartup.browser.test.js
 
       - name: Verify linked application package caching
         env:
           JSKIT_VITE_LINKED_PACKAGE_CACHE_INTEGRATION: "1"
-        run: node --test packages/agent-docs/test/viteLinkedPackageCache.browser.test.js
+        run: npx jskit test packages/agent-docs/test/viteLinkedPackageCache.browser.test.js
 
       - name: Verify responsive CRUD date filters
         env:
           JSKIT_HTTP_WEB_DATE_FILTER_VISUAL_INTEGRATION: "1"
-        run: node --test packages/http-web/test/crudListDateFilterSurface.browser.test.js
+        run: npx jskit test packages/http-web/test/crudListDateFilterSurface.browser.test.js
 
       - name: Verify select fields never show stored ids
         env:
           JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER: "1"
-        run: node --test packages/http-web/test/selectField.browser.test.js
+        run: npx jskit test packages/http-web/test/selectField.browser.test.js
 
       - name: Verify shared assistant conversation UI
         env:
           JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION: "1"
-        run: node --test --test-concurrency=1 packages/assistant-core/test/assistantScroll.browser.test.js
+        run: npx jskit test packages/assistant-core/test/assistantScroll.browser.test.js
 
       - name: Verify ready-made assistant lifecycle
         env:
           JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1"
-        run: node --test --test-concurrency=1 packages/assistant-runtime/test/conversation.browser.test.js
+        run: npx jskit test packages/assistant-runtime/test/conversation.browser.test.js
 
       - name: Verify adaptive shell behavior
         env:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
-        run: node --test packages/shell-web/test/adaptiveShell.browser.test.js
+        run: npx jskit test packages/shell-web/test/adaptiveShell.browser.test.js
 
       - name: Verify the Material 3 baselines
         env:
           JSKIT_MATERIAL_BASELINES: "1"
-        run: node --test --test-concurrency=1 packages/shell-web/test/materialBaselines.browser.test.js packages/http-web/test/crudScreensMaterialBaselines.browser.test.js
+        run: npx jskit test packages/shell-web/test/materialBaselines.browser.test.js packages/http-web/test/crudScreensMaterialBaselines.browser.test.js
 
       - name: Verify sign-in behavior
         env:
           JSKIT_AUTH_WEB_BROWSER_INTEGRATION: "1"
-        run: node --test --test-concurrency=1 packages/auth-web/test/signIn.browser.test.js
+        run: npx jskit test packages/auth-web/test/signIn.browser.test.js
 
       - name: Verify account settings behavior
         env:
           JSKIT_USERS_WEB_BROWSER_INTEGRATION: "1"
-        run: node --test --test-concurrency=1 packages/users-web/test/accountSettings.browser.test.js
+        run: npx jskit test packages/users-web/test/accountSettings.browser.test.js
 
   publish:
     needs: browser-contracts

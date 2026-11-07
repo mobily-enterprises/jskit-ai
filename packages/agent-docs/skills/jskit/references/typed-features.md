@@ -1082,6 +1082,52 @@ test("delivers a batch of notices", { timeout: 600_000 }, async () => {
 });
 ```
 
+### Test files run in parallel
+
+**A test suite runs its files in parallel, as many at a time as the machine's
+test budget allows: never one file at a time, and never more than the machine
+can take. Node's test runner runs through `jskit test`; Playwright's `workers`
+and Vitest's `maxWorkers` come from `testConcurrency()`.**
+
+- The budget is `V64_TEST_CONCURRENCY` when it is a positive whole number (a
+  test runner that hands out slots exports it for each run), otherwise half of
+  the machine's CPUs, rounded down and at least 1: a 2-vCPU VPS runs one file
+  at a time, an 8-thread machine four.
+- `jskit test` (from `@jskit-ai/jskit-catalog`) passes its arguments to
+  `node --test` and sets `--test-concurrency` to the budget.
+  `testConcurrency()` from `@jskit-ai/jskit-catalog/test-budget` returns the
+  same number for a config.
+- No script passes a fixed concurrency or worker count. `jskit check` fails a
+  package script that runs `node --test` directly or passes one, and a
+  Playwright or Vitest config those scripts use whose workers do not come from
+  `testConcurrency()` ([test-run rules](#test-run-rules)).
+- Each file isolates what it shares: a port the system picks (`listen(0)`), a
+  directory from `mkdtemp`, its own database or schema with a name no other
+  file uses, its own Vite `cacheDir` for each dev server it starts (Vite
+  replaces a shared dependency cache under servers still reading it), and no
+  writes into the source tree. Files that collide are isolated, never
+  serialised. A Playwright spec works on its own records, so
+  specs can share one server.
+- A file that truly cannot run beside others, because it holds a resource of
+  the whole machine, says why on its first line,
+  `// jskit-test: alone - <reason>`. `jskit test` runs it after the others,
+  one such file at a time, and fails on a marker without a reason or below the
+  first line.
+
+Why: one file at a time leaves most of the machine idle and turns a
+ten-minute suite into forty, and an unbounded runner starves the machine and
+every other run on it.
+
+```js
+// good: package.json "test": "jskit test", and playwright.config.mjs
+import { testConcurrency } from "@jskit-ai/jskit-catalog/test-budget";
+
+export default defineConfig({ workers: testConcurrency() });
+
+// bad: "test": "node --test --test-concurrency=1", and
+export default defineConfig({ workers: 1 });
+```
+
 ### Test databases are prepared once
 
 **A test run prepares each database once, from a stored snapshot of its
@@ -1219,8 +1265,9 @@ Why: a comment that narrates history is wrong the day after it is written.
 ### Running the checks
 
 `npm run lint` runs ESLint with `@jskit-ai/config-eslint`, and `npm run
-verify` runs `jskit check` (the package graph), lint, the tests and the
-build. The foundations' `eslint.config.mjs` already holds a new
+verify` runs `jskit check` (the package graph, navigation and [test
+runs](#test-run-rules)), lint, the tests and the build. The foundations'
+`eslint.config.mjs` already holds a new
 application's code to every check:
 
 ```js
@@ -1291,6 +1338,19 @@ Every finding ends with a link to the section of this page that explains it.
 | `jskit/jsdoc-description-inside` | a `//` description directly above a `/** */` block | [Comments](#comments) |
 | `jskit/allow-comment-form` | a `readable-check: allow` reason without a prefix from the table below, or one that cites tests or the state of a project | [Exceptions](#exceptions) |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 | [Size limits](#size-limits) |
+
+### Test-run rules
+
+`jskit check` reports these in every package script, and in the Playwright
+and Vitest configs those scripts use. No comment excuses them; a test file
+that must run alone says so on its own first line instead.
+
+| Rule | Reports | Section |
+| --- | --- | --- |
+| `test/node-test` | a script that runs `node --test` directly instead of `jskit test` | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/fixed-concurrency` | `--test-concurrency` in a script | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/playwright-workers` | `--workers` or `-j` passed to `playwright test`, or its config without `workers: testConcurrency()` | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/vitest-workers` | `--maxWorkers`, `--minWorkers` or `--no-file-parallelism` passed to Vitest, or its config without `maxWorkers: testConcurrency()` or with `fileParallelism: false` | [Test files run in parallel](#test-files-run-in-parallel) |
 
 The rules see shapes, not intent. Feature files, owned state beyond
 registries, shutdown, loggers, shared action fields, strict inputs, the action
