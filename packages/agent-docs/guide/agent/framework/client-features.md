@@ -265,6 +265,19 @@ uses `export *`, brings all of `./client` to every page.
   "./client": "./src/client/index.js",
   "./client/providers/ConversationClientProvider": "./src/client/providers/ConversationClientProvider.js"
 }
+
+// bad: package.json, no subpath for the provider, so every page loads all of ./client
+"exports": {
+  "./client": "./src/client/index.js"
+}
+```
+
+```js
+// good: the provider's file imports the widget every page shows
+import ConversationStatusWidget from "../components/ConversationStatusWidget.vue";
+
+// bad: the provider's file imports a screen that only its route shows
+import ConversationSettingsScreen from "../components/ConversationSettingsScreen.vue";
 ```
 
 ### Injected values
