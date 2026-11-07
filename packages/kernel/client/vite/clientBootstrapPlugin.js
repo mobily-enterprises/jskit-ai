@@ -213,7 +213,64 @@ function resolveCanonicalLocalPackageId(resolvedId, localPackage) {
     : "";
 }
 
-function resolveClientModulesFromInstalledPackages(installedPackages = []) {
+// The one file a package export names whatever the conditions besides types, or "" when conditions choose between
+// files.
+function exportFile(target) {
+  if (typeof target === "string") {
+    return path.posix.normalize(target);
+  }
+  if (!isRecord(target)) {
+    return "";
+  }
+  const files = new Set(Object.entries(target)
+    .filter(([condition]) => condition !== "types")
+    .map(([, value]) => exportFile(value)));
+  return files.size === 1 ? [...files][0] : "";
+}
+
+// The bootstrap loads on every page, so it imports from a package only what it uses: each client provider through
+// the subpath export that names the provider's own file. The package's ./client barrel, and every screen it
+// re-exports (users-web's account settings with its image editor, say), then loads only with the pages that import
+// it. The bootstrap still imports the whole barrel when it reads more of it, as before: routeComponents for the
+// package's ui routes, a clientRoutes export, or a provider no subpath exports; and when it cannot tell, for a
+// barrel it cannot read, one with export *, or one whose export conditions choose between files. Returns
+// { barrel: true } or the providers.
+async function resolveClientBootImports(installedPackage, { packageMetadataUiRoutes, packageMetadataClientProviders }) {
+  const barrel = Object.freeze({ barrel: true });
+  const exportsMap = normalizeObject(installedPackage.packageJson?.exports);
+  const barrelFile = exportFile(exportsMap["./client"]);
+  if (packageMetadataUiRoutes.length > 0 || !barrelFile) {
+    return barrel;
+  }
+  let barrelSource = "";
+  try {
+    barrelSource = await readFile(path.resolve(installedPackage.packageRoot, barrelFile), "utf8");
+  } catch {
+    return barrel;
+  }
+  // A module's exports are named in its own text, except through export *.
+  if (/\b(?:routeComponents|clientRoutes)\b|\bexport\s*\*/u.test(barrelSource)) {
+    return barrel;
+  }
+  const providers = [];
+  for (const { export: exportName, entrypoint } of packageMetadataClientProviders) {
+    const subpath = Object.keys(exportsMap).find((key) =>
+      !key.includes("*") && exportFile(exportsMap[key]) === path.posix.normalize(`./${entrypoint}`));
+    if (!subpath || !/^[A-Za-z_$][\w$]*$/u.test(exportName)) {
+      return barrel;
+    }
+    providers.push(Object.freeze({
+      export: exportName,
+      specifier: `${installedPackage.packageId}${subpath.slice(1)}`
+    }));
+  }
+  return Object.freeze({
+    barrel: false,
+    providers: Object.freeze(providers)
+  });
+}
+
+async function resolveClientModulesFromInstalledPackages(installedPackages = []) {
   const modules = [];
   for (const installedPackage of installedPackages) {
     if (!hasClientExport(installedPackage.packageJson)) {
@@ -228,7 +285,8 @@ function resolveClientModulesFromInstalledPackages(installedPackages = []) {
         packageMetadataUiRoutes: packageMetadataSections.packageMetadataUiRoutes,
         packageMetadataClientProviders: packageMetadataSections.packageMetadataClientProviders,
         packageMetadataClientOptimizeIncludeSpecifiers: packageMetadataSections.packageMetadataClientOptimizeIncludeSpecifiers,
-        packageMetadataClientOptimizeExcludeSpecifiers: packageMetadataSections.packageMetadataClientOptimizeExcludeSpecifiers
+        packageMetadataClientOptimizeExcludeSpecifiers: packageMetadataSections.packageMetadataClientOptimizeExcludeSpecifiers,
+        bootImports: await resolveClientBootImports(installedPackage, packageMetadataSections)
       })
     );
   }
@@ -347,7 +405,8 @@ function normalizeClientModulePackageMetadataEntries(value) {
       ),
       packageMetadataClientOptimizeExcludeSpecifiers: normalizePackageMetadataClientOptimizeSpecifiers(
         record.packageMetadataClientOptimizeExcludeSpecifiers
-      )
+      ),
+      bootProviders: normalizeBootProviders(record.bootImports)
     });
   }
 
@@ -356,11 +415,44 @@ function normalizeClientModulePackageMetadataEntries(value) {
   );
 }
 
+// The providers the bootstrap imports by their own subpaths, or null when it imports the package's ./client barrel.
+function normalizeBootProviders(bootImports) {
+  const record = normalizeObject(bootImports);
+  if (record.barrel !== false || !Array.isArray(record.providers)) {
+    return null;
+  }
+  return record.providers.map((provider) => ({
+    export: String(provider?.export || ""),
+    specifier: String(provider?.specifier || "")
+  }));
+}
+
+// What the bootstrap imports from a package, for the development server to prepare: its ./client barrel, which the
+// app's pages may import, and the provider subpaths the bootstrap imports instead of it.
+function clientBootSpecifiers(entry) {
+  return [`${entry.packageId}/client`, ...(entry.bootProviders || []).map(({ specifier }) => specifier)];
+}
+
 function createVirtualModuleSource(clientModules, localePackageIds) {
   const modulePackageMetadataEntries = normalizeClientModulePackageMetadataEntries(clientModules);
-  const importLines = modulePackageMetadataEntries.map(
-    (entry, index) => `import * as clientModule${index} from ${JSON.stringify(`${entry.packageId}/client`)};`
-  );
+  const importLines = [];
+  const moduleSources = modulePackageMetadataEntries.map((entry, index) => {
+    if (!entry.bootProviders) {
+      importLines.push(`import * as clientModule${index} from ${JSON.stringify(`${entry.packageId}/client`)};`);
+      return `clientModule${index}`;
+    }
+    // A namespace read by name keeps the rest of the provider's module out, and a missing export reaches the
+    // bootstrap's own message as undefined.
+    const namespaces = new Map();
+    const members = entry.bootProviders.map(({ export: exportName, specifier }) => {
+      if (!namespaces.has(specifier)) {
+        namespaces.set(specifier, `clientProviders${index}_${namespaces.size}`);
+        importLines.push(`import * as ${namespaces.get(specifier)} from ${JSON.stringify(specifier)};`);
+      }
+      return `${exportName}: ${namespaces.get(specifier)}.${exportName}`;
+    });
+    return `Object.freeze({${members.length > 0 ? ` ${members.join(", ")} ` : ""}})`;
+  });
   if (localePackageIds.length > 0) {
     importLines.push(
       ...localePackageIds.map((packageId, index) =>
@@ -372,7 +464,7 @@ function createVirtualModuleSource(clientModules, localePackageIds) {
   }
   const moduleEntries = modulePackageMetadataEntries.map(
     (entry, index) =>
-      `  { packageId: ${JSON.stringify(entry.packageId)}, module: clientModule${index}, packageMetadataUiRoutes: ${JSON.stringify(entry.packageMetadataUiRoutes)}, packageMetadataClientProviders: ${JSON.stringify(entry.packageMetadataClientProviders)} }`
+      `  { packageId: ${JSON.stringify(entry.packageId)}, module: ${moduleSources[index]}, packageMetadataUiRoutes: ${JSON.stringify(entry.packageMetadataUiRoutes)}, packageMetadataClientProviders: ${JSON.stringify(entry.packageMetadataClientProviders)} }`
   );
 
   const entriesSource = moduleEntries.length > 0 ? moduleEntries.join(",\n") : "";
@@ -409,7 +501,7 @@ function resolveClientOptimizeIncludeSpecifiers(clientModules = [], excludeSpeci
     [
       ...modulePackageMetadataEntries
       .filter((entry) => !LOCAL_PACKAGE_SOURCE_TYPES.has(entry.sourceType))
-      .map((entry) => `${entry.packageId}/client`),
+      .flatMap(clientBootSpecifiers),
       ...modulePackageMetadataEntries.flatMap((entry) => entry.packageMetadataClientOptimizeIncludeSpecifiers || [])
     ].filter((specifier) => !excluded.has(specifier))
   );
@@ -431,7 +523,7 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
   async function config(userConfig = {}) {
     appRoot = process.cwd();
     const installedPackages = await discoverInstalledPackages({ appRoot });
-    const clientModules = resolveClientModulesFromInstalledPackages(installedPackages);
+    const clientModules = await resolveClientModulesFromInstalledPackages(installedPackages);
     const installedProxyEntries = resolveInstalledViteProxyEntries(installedPackages, {
       proxyTarget
     });
@@ -451,9 +543,17 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
     const userOptimizeDeps = normalizeObject(userConfig.optimizeDeps);
     const userExclude = sortStrings(userOptimizeDeps.exclude);
     const userInclude = sortStrings(userOptimizeDeps.include);
-    const exclude = sortStrings([
+    const declaredExclude = sortStrings([
       ...userExclude,
       ...clientExcludeSpecifiers
+    ]);
+    // A provider the bootstrap imports by its own subpath stays source when its package's client entry does
+    // (shell-web's provider loads the app's /src modules), or Vite would prebundle a second copy of it.
+    const exclude = sortStrings([
+      ...declaredExclude,
+      ...normalizeClientModulePackageMetadataEntries(clientModules)
+        .filter((entry) => declaredExclude.includes(`${entry.packageId}/client`))
+        .flatMap(clientBootSpecifiers)
     ]);
     const clientIncludeSpecifiers = resolveClientOptimizeIncludeSpecifiers(clientModules, exclude);
     const include = sortStrings([
@@ -463,8 +563,8 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
     ].filter((specifier) => !exclude.includes(specifier)));
     // Vite cannot crawl the virtual bootstrap. Local and explicitly excluded clients
     // still need scanning so their npm imports are ready before the first page loads.
-    clientScanSpecifiers = clientModules
-      .map((entry) => `${entry.packageId}/client`)
+    clientScanSpecifiers = normalizeClientModulePackageMetadataEntries(clientModules)
+      .flatMap(clientBootSpecifiers)
       .filter((specifier) => !include.includes(specifier));
     const dedupe = resolveClientRuntimeDedupeSpecifiers(userResolve);
     const userServer = normalizeObject(userConfig.server);
@@ -557,7 +657,7 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
 
     const installedPackages = await discoverInstalledPackages({ appRoot });
     return createVirtualModuleSource(
-      resolveClientModulesFromInstalledPackages(installedPackages),
+      await resolveClientModulesFromInstalledPackages(installedPackages),
       resolveLocalePackageIds(installedPackages)
     );
   }

@@ -164,6 +164,115 @@ test("createVirtualModuleSource renders deterministic client module imports", ()
   assert.match(source, /installedClientModules/);
 });
 
+test("createVirtualModuleSource imports a provider by its own subpath when the bootstrap needs no more of the package", () => {
+  const source = createVirtualModuleSource([
+    {
+      packageId: "@a/screens",
+      packageMetadataClientProviders: [{ export: "ScreensProvider", entrypoint: "src/client/providers/ScreensProvider.js" }],
+      bootImports: { barrel: false, providers: [{ export: "ScreensProvider", specifier: "@a/screens/client/providers/ScreensProvider" }] }
+    },
+    { packageId: "@b/library", bootImports: { barrel: false, providers: [] } },
+    { packageId: "@c/routes", bootImports: { barrel: true } }
+  ], []);
+
+  assert.match(source, /import \* as clientProviders0_0 from "@a\/screens\/client\/providers\/ScreensProvider";/);
+  assert.match(source, /module: Object\.freeze\(\{ ScreensProvider: clientProviders0_0\.ScreensProvider \}\)/);
+  assert.match(source, /packageId: "@b\/library", module: Object\.freeze\(\{\}\)/);
+  assert.match(source, /import \* as clientModule2 from "@c\/routes\/client";/);
+  assert.doesNotMatch(source, /"@a\/screens\/client"|"@b\/library\/client"/);
+});
+
+test("resolveInstalledClientModules imports a package's ./client barrel only when the bootstrap reads more than its providers", async (t) => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-boot-imports-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const provider = { entrypoint: "src/client/providers/Provider.js", export: "ExampleProvider" };
+  const packages = {
+    "@example/screens": {
+      exports: {
+        "./client": { types: "./src/client/index.d.ts", default: "./src/client/index.js" },
+        "./client/providers/Provider": { types: "./src/client/providers/Provider.d.ts", default: "./src/client/providers/Provider.js" }
+      },
+      barrel: 'export { ExampleProvider } from "./providers/Provider.js";\nexport { default as SettingsScreen } from "./SettingsScreen.js";\n',
+      providers: [provider]
+    },
+    "@example/library": {
+      exports: { "./client": "./src/client/index.js" },
+      barrel: 'export { formatThing } from "./format.js";\n'
+    },
+    "@example/routes": {
+      exports: { "./client": "./src/client/index.js", "./client/providers/Provider": "./src/client/providers/Provider.js" },
+      barrel: "export const routeComponents = {};\n",
+      providers: [provider],
+      routes: [{ id: "example.route", path: "/example", scope: "global", componentKey: "example" }]
+    },
+    "@example/client-routes": {
+      exports: { "./client": "./src/client/index.js" },
+      barrel: "export const clientRoutes = [];\n"
+    },
+    "@example/star": {
+      exports: { "./client": "./src/client/index.js" },
+      barrel: 'export * from "./everything.js";\n'
+    },
+    "@example/unexported-provider": {
+      exports: { "./client": "./src/client/index.js" },
+      barrel: 'export { ExampleProvider } from "./providers/Provider.js";\n',
+      providers: [provider]
+    },
+    "@example/conditional": {
+      exports: { "./client": { browser: "./src/client/index.js", default: "./src/server/index.js" } },
+      barrel: 'export { formatThing } from "./format.js";\n'
+    }
+  };
+  await declareInstalledPackages(tempRoot, Object.fromEntries(
+    Object.entries(packages).map(([packageId, { exports }]) => [packageId, { exports }])
+  ));
+  for (const [packageId, { barrel, providers = [], routes = [] }] of Object.entries(packages)) {
+    const packageRoot = path.join(tempRoot, "node_modules", ...packageId.split("/"));
+    await writePackageMetadata(packageRoot, {
+      packageId,
+      version: "1.0.0",
+      runtime: { client: { providers } },
+      metadata: { ui: { routes } }
+    });
+    await mkdir(path.join(packageRoot, "src", "client"), { recursive: true });
+    await writeFile(path.join(packageRoot, "src", "client", "index.js"), barrel, "utf8");
+  }
+
+  const bootImports = Object.fromEntries(
+    (await resolveInstalledClientModules({ appRoot: tempRoot })).map((entry) => [entry.packageId, entry.bootImports])
+  );
+
+  assert.deepEqual(bootImports, {
+    "@example/client-routes": { barrel: true },
+    "@example/conditional": { barrel: true },
+    "@example/library": { barrel: false, providers: [] },
+    "@example/routes": { barrel: true },
+    "@example/screens": {
+      barrel: false,
+      providers: [{ export: "ExampleProvider", specifier: "@example/screens/client/providers/Provider" }]
+    },
+    "@example/star": { barrel: true },
+    "@example/unexported-provider": { barrel: true }
+  });
+});
+
+test("resolveClientOptimizeIncludeSpecifiers prepares the provider subpaths the bootstrap imports", () => {
+  const include = resolveClientOptimizeIncludeSpecifiers([
+    {
+      packageId: "@a/screens",
+      sourceType: "npm-package",
+      bootImports: { barrel: false, providers: [{ export: "ScreensProvider", specifier: "@a/screens/client/providers/ScreensProvider" }] }
+    },
+    {
+      packageId: "@b/local",
+      sourceType: "local-package",
+      bootImports: { barrel: false, providers: [{ export: "LocalProvider", specifier: "@b/local/client/providers/LocalProvider" }] }
+    }
+  ]);
+
+  assert.deepEqual(include, ["@a/screens/client", "@a/screens/client/providers/ScreensProvider"]);
+});
+
 test("resolveClientOptimizeExcludeSpecifiers lets Vite scan local source imports", () => {
   const exclude = resolveClientOptimizeExcludeSpecifiers([
     {
@@ -813,6 +922,40 @@ test("createJskitClientBootstrapPlugin config lets packageMetadata excludes over
       "@jskit-ai/kernel/client/moduleBootstrap",
       "safe-helper",
       "user-helper"
+    ]);
+  } finally {
+    process.chdir(previousCwd);
+  }
+});
+
+test("createJskitClientBootstrapPlugin config prebundles a provider subpath only with its package's client entry", async (t) => {
+  const tempRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-client-bootstrap-config-provider-subpaths-"));
+  t.after(() => rm(tempRoot, { recursive: true, force: true }));
+  const previousCwd = process.cwd();
+  const exports = { "./client": "./src/client/index.js", "./client/providers/Provider": "./src/client/providers/Provider.js" };
+
+  try {
+    await declareInstalledPackages(tempRoot, { "@example/bundled": { exports }, "@example/source": { exports } });
+    for (const [packageId, optimizeDeps] of [["@example/bundled", {}], ["@example/source", { exclude: ["@example/source/client"] }]]) {
+      const packageRoot = path.join(tempRoot, "node_modules", ...packageId.split("/"));
+      await writePackageMetadata(packageRoot, {
+        packageId,
+        version: "1.0.0",
+        runtime: { client: { providers: [{ entrypoint: "src/client/providers/Provider.js", export: "ExampleProvider" }] } },
+        metadata: { client: { optimizeDeps } }
+      });
+      await mkdir(path.join(packageRoot, "src", "client"), { recursive: true });
+      await writeFile(path.join(packageRoot, "src", "client", "index.js"), 'export { ExampleProvider } from "./providers/Provider.js";\n', "utf8");
+    }
+
+    process.chdir(tempRoot);
+    const result = await createJskitClientBootstrapPlugin().config({});
+
+    assert.deepEqual(result.optimizeDeps.exclude, ["@example/source/client", "@example/source/client/providers/Provider"]);
+    assert.deepEqual(result.optimizeDeps.include, [
+      "@example/bundled/client",
+      "@example/bundled/client/providers/Provider",
+      "@jskit-ai/kernel/client/moduleBootstrap"
     ]);
   } finally {
     process.chdir(previousCwd);

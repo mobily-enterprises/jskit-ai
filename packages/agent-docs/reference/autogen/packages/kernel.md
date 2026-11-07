@@ -604,8 +604,12 @@ Local functions
 - `hasClientExport(packageJson)`
 - `isPathInsideRoot(rootPath, candidatePath)`
 - `splitSpecifierSuffix(source)`
+- `exportFile(target)`
+- `resolveClientBootImports(installedPackage, { packageMetadataUiRoutes, packageMetadataClientProviders })`
 - `resolveClientModulesFromInstalledPackages(installedPackages = [])`
 - `normalizeClientModulePackageMetadataEntries(value)`
+- `normalizeBootProviders(bootImports)`
+- `clientBootSpecifiers(entry)`
 - `resolveClientRuntimeDedupeSpecifiers(userResolveConfig = {})`
 
 ### `client/vite/index.js`

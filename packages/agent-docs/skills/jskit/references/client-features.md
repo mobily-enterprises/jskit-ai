@@ -232,13 +232,34 @@ const ConversationClientProvider = defineProvider({
   },
   /** @param {{ components: import("@jskit-ai/kernel/client/types").ClientComponents }} capabilities */
   setup({ components }) {
-    components.register("conversation.web.settings.element", ConversationSettingsElement);
+    components.register("conversation.web.status.widget", ConversationStatusWidget);
   }
 });
 
 // bad
 const components = new Map();
 export function registerComponent(id, component) { components.set(id, component); }
+```
+
+### Provider subpaths
+
+**Export each client provider by a subpath of its own. The provider's file
+imports only what every page needs, such as a widget the shell always shows; a
+screen that only some routes show is imported by those routes.**
+
+Why: every page of every app loads the client providers, and what they import,
+before it shows anything. The client bootstrap imports a provider through the
+subpath export that names its file, so the screens `./client` re-exports, and
+their libraries, load only with the routes that show them. A provider without a
+subpath, or a `./client` that declares `routeComponents` or `clientRoutes` or
+uses `export *`, brings all of `./client` to every page.
+
+```json
+// good: package.json
+"exports": {
+  "./client": "./src/client/index.js",
+  "./client/providers/ConversationClientProvider": "./src/client/providers/ConversationClientProvider.js"
+}
 ```
 
 ### Injected values

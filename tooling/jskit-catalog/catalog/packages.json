@@ -426,6 +426,10 @@
                 "summary": "Exports assistant runtime client elements and composables."
               },
               {
+                "subpath": "./client/providers/AssistantClientProvider",
+                "summary": "Exports the assistant client provider, which the client bootstrap loads without the elements."
+              },
+              {
                 "subpath": "./shared",
                 "summary": "Exports assistant runtime shared config helpers."
               },
