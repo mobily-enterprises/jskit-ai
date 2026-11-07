@@ -30,7 +30,7 @@ function createWorkspaceAuthPolicyContextResolver({ workspaceService, workspaceM
     const { workspace, membership, permissions } = await workspaceService.resolveWorkspaceContextForUserBySlug(
       actor,
       workspaceSlug,
-      { requireMembership }
+      { requireMembership, request }
     );
 
     return { workspace, membership, permissions };

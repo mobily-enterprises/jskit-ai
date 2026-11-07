@@ -75,7 +75,8 @@ test("workspace auth policy context resolver resolves workspace context from use
       actor,
       workspaceSlug: "acme",
       options: {
-        requireMembership: true
+        requireMembership: true,
+        request
       }
     }
   ]);

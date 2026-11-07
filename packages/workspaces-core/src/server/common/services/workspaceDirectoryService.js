@@ -212,7 +212,40 @@ function createService({
     return returnJsonApiData(await workspacesRepository.updateById(workspaceContext.workspace.id, patch, options));
   }
 
-  async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
+  // The checks that run before a request's handler (its auth policy and its action context)
+  // each need the request's workspace context. They pass the request and share one resolution
+  // for the same user, slug and membership requirement, instead of reading the workspace, the
+  // membership and the settings again for each check. A call in a transaction, or without a
+  // request, resolves on its own.
+  const requestWorkspaceContexts = new WeakMap();
+
+  /**
+   * @param {{ id?: unknown } | null} user
+   * @param {string} workspaceSlug
+   * @param {{ request?: object, requireMembership?: boolean, trx?: unknown }} [options]
+   */
+  function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
+    const request = options.request;
+    if (!request || typeof request !== "object" || options.trx) {
+      return readWorkspaceContextForUserBySlug(user, workspaceSlug, options);
+    }
+    const key = [
+      normalizeRecordId(user?.id, { fallback: "" }),
+      normalizeLowerText(workspaceSlug),
+      options.requireMembership !== false
+    ].join("\0");
+    let resolutions = requestWorkspaceContexts.get(request);
+    if (!resolutions) {
+      resolutions = new Map();
+      requestWorkspaceContexts.set(request, resolutions);
+    }
+    if (!resolutions.has(key)) {
+      resolutions.set(key, readWorkspaceContextForUserBySlug(user, workspaceSlug, options));
+    }
+    return resolutions.get(key);
+  }
+
+  async function readWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
     const requireMembership = options.requireMembership !== false;
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {

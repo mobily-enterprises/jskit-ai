@@ -1,5 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { createWorkspaceActionContextContributor } from "../src/server/common/contributors/workspaceActionContextContributor.js";
+import { createWorkspaceAuthPolicyContextResolver } from "../src/server/common/contributors/workspaceAuthPolicyContextResolver.js";
 import { buildWorkspaceName, createService } from "../src/server/common/services/workspaceDirectoryService.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
@@ -49,6 +51,7 @@ function createWorkspaceServiceFixture({
   }
 } = {}) {
   const calls = {
+    findBySlug: 0,
     listSlugsIn: 0,
     findPersonalByOwnerUserId: 0,
     listForUserId: 0,
@@ -90,6 +93,7 @@ function createWorkspaceServiceFixture({
     }),
     workspacesRepository: {
       async findBySlug(slug) {
+        calls.findBySlug += 1;
         const normalizedSlug = String(slug || "").trim().toLowerCase();
         const workspace = workspaceBySlug.get(normalizedSlug);
         if (!workspace) {
@@ -689,6 +693,48 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug resolves permissions
   );
 
   assert.deepEqual(context.permissions, ["workspace.settings.update"]);
+});
+
+test("one request's auth policy and action context share one workspace context resolution", async () => {
+  const { service, calls } = createWorkspaceServiceFixture({
+    additionalWorkspaces: [{ id: "42", slug: "team-alpha", name: "Team Alpha", ownerUserId: "99", isPersonal: false, avatarUrl: "" }]
+  });
+  const resolvePolicy = createWorkspaceAuthPolicyContextResolver({ workspaceService: service, workspaceMembershipOptionalSurfaceIds: [] });
+  const contributor = createWorkspaceActionContextContributor({
+    workspaceService: service,
+    workspaceMembershipOptionalSurfaceIds: [],
+    workspaceSurfaceIds: ["admin"]
+  });
+  const user = { id: "7", email: "chiara@example.com", displayName: "Chiara" };
+  const handle = async () => {
+    const request = { user, params: { workspaceSlug: "team-alpha" } };
+    const policy = await resolvePolicy({ request, actor: user, meta: { permission: "workspace.settings.update" } });
+    const action = await contributor.contribute({
+      definition: { id: "workspace.settings.update", surfaces: ["admin"] },
+      input: { workspaceSlug: "Team-Alpha" },
+      context: { requestMeta: { request } }
+    });
+    return { policy, action };
+  };
+
+  const { policy, action } = await handle();
+  assert.equal(calls.findBySlug, 1, "The action context reuses the auth policy's resolution");
+  assert.equal(calls.ensureWorkspaceSettings, 1);
+  assert.equal(action.requestMeta.resolvedWorkspaceContext.workspace, policy.workspace);
+  assert.deepEqual(action.requestMeta.resolvedWorkspaceContext.workspaceSettings, { invitesEnabled: true });
+  assert.deepEqual(action.permissions, policy.permissions);
+
+  await handle();
+  assert.equal(calls.findBySlug, 2, "The next request resolves again");
+  await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha");
+  await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha");
+  assert.equal(calls.findBySlug, 4, "A call without a request resolves each time");
+  const request = {};
+  await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request });
+  await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request, requireMembership: false });
+  await service.resolveWorkspaceContextForUserBySlug({ ...user, id: "8" }, "team-alpha", { request });
+  await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request, trx: {} });
+  assert.equal(calls.findBySlug, 8, "Another membership requirement, user or a transaction resolves on its own");
 });
 
 test("workspaceService.getWorkspaceForAuthenticatedUser resolves workspace from slug context", async () => {
