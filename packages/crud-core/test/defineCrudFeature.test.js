@@ -28,7 +28,11 @@ function bookTable(ownership) {
 }
 
 function createBookResource({ apiAccess = "authenticated", ownership = "user" } = {}) {
-  return defineCrudContract(bookTable(ownership), { namespace: "books", apiAccess });
+  return defineCrudContract(bookTable(ownership), {
+    namespace: "books",
+    apiAccess,
+    fields: { title: { output: "required", create: "required", patch: "optional" } }
+  });
 }
 
 function createReadOnlyBookResource() {
@@ -502,7 +506,7 @@ test("defineCrudFeature owns its CRUD table, takes its extras from owns, and han
     tableName: "archived_books",
     ownership: "public",
     schema: { title: { type: "string", required: true } }
-  }), { namespace: "archivedBooks" });
+  }), { namespace: "archivedBooks", fields: { title: { output: "required", create: "required", patch: "optional" } } });
   const rowPolicy = () => true;
   const owned = [];
   let received = null;
@@ -549,7 +553,7 @@ test("defineCrudFeature serves a table another feature owns through the owner's 
     tableName: "users",
     ownership: "public",
     schema: { displayName: { type: "string" } }
-  }), { namespace: "users", operations: ["list", "view"] });
+  }), { namespace: "users", operations: ["list", "view"], fields: { displayName: { output: "optional" } } });
   let actions;
   let resourceApi;
   const runtime = createCapabilityRuntime({

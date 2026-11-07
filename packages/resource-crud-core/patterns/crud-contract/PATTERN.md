@@ -45,9 +45,9 @@ not from a JSKIT questionnaire.
 - The resource's hidden `userId` field maps to that ownership column.
 - `ownership: "user"` is used only for genuine current-user ownership.
 - The table has exactly one table resource; the CRUD contract is built on it.
-- Each product field's output, create, and patch participation is its entry
-  in the CRUD contract's `fields`, or the default `defineCrudContract()` gives
-  a field without one (see Field operations and lookups below).
+- Each field the API shows or accepts has an entry in the CRUD contract's
+  `fields` stating its output, create and patch participation; a field without
+  one is neither shown nor accepted (see Field operations and lookups below).
 - Temporal database values use the declared storage serializer.
 - The source-controlled migration and the table resource agree.
 - Server policy tests prove that one user cannot read or mutate another user's
@@ -71,22 +71,15 @@ serialize requests independently.
 The CRUD contract's `fields` name, for each field, the operations it takes part
 in: `output` (the record in every response), and `create` and `patch` (the
 request bodies; an enabled `replace` uses the `create` fields unless a field
-names `replace`). Each takes `"required"`, `"optional"` or an object. A field
-that has no entry takes the default:
+names `replace`). Each takes `"required"`, `"optional"` or an object, for
+example `title: { output: "required", create: "required", patch: "optional" }`.
 
-| Field | Default operations |
-| --- | --- |
-| `primary: true` | `{}`: no operation; every record output already carries its `id` |
-| `hidden: true` | `{}`: no operation |
-| `readOnly: true` | `{ output: { required: true } }` |
-| `createdAt` or `updatedAt` stored as a `dateTime` | `{ output: { required: true } }`: the handle stamps them |
-| any other field | `{ output: { required: true }, create: { required: <the field's required> }, patch: { required: false } }` |
-
-So a `required: true` field is required on create, and any other field is
-optional there. An entry you write always wins, for example
-`notes: { output: "optional", create: "optional", patch: "optional" }` for a
-field that is optional everywhere. Write an entry only where it differs from
-the default.
+A contract shows and accepts only the fields it names: a field without an entry
+is not in any output, a body that sends it is refused, and the CRUD service
+leaves it out of the records it answers. So a column added to the table later
+stays out of every API until a contract names it. Every record output carries
+its `id` without an entry, and a stored `createdAt` or `updatedAt` is output
+without one.
 
 A stored `createdAt` or `updatedAt` is output only, and a contract that lets a
 request write one (a `create`, `patch` or `replace` entry, or an explicit body

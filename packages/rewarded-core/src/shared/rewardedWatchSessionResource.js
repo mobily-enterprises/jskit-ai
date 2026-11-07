@@ -80,6 +80,13 @@ const rewardedWatchSessionTableResource = defineTableResource({
 const rewardedWatchSessionCrud = defineCrudContract(rewardedWatchSessionTableResource, {
   namespace: "rewarded_watch_sessions",
   fields: {
+    gateKey: { output: "required", create: "required", patch: "optional" },
+    providerConfigId: { output: "required", create: "optional", patch: "optional" },
+    status: { output: "required", create: "optional", patch: "optional" },
+    startedAt: { output: "required", create: "optional", patch: "optional" },
+    rewardedAt: { output: "required", create: "optional", patch: "optional" },
+    completedAt: { output: "required", create: "optional", patch: "optional" },
+    closedAt: { output: "required", create: "optional", patch: "optional" },
     createdAt: { output: "required" },
     updatedAt: { output: "required" }
   },

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The rewarded CRUD contracts name every field they show and accept, since a contract now shows only the fields it names; what each one shows and accepts is unchanged.
 - **Breaking (data-access redesign).** Each rewarded table is one table resource with a CRUD contract on it: `rewardedRuleTableResource`/`rewardedRuleCrud`, `rewardedProviderConfigTableResource`/`rewardedProviderConfigCrud`, `rewardedWatchSessionTableResource`/`rewardedWatchSessionCrud` and `rewardedUnlockReceiptTableResource`/`rewardedUnlockReceiptCrud`, exported from `./shared`. The HTTP routes, namespaces and fields are unchanged.
 - The rewarded resources' save, delete and validation feedback names catalog keys under `jskit.rewarded.feedback.*` instead of plain English; JSKIT's forms render them with `text()`, so the English shown is unchanged.
 

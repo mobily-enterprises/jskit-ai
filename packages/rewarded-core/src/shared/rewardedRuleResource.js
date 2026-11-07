@@ -74,6 +74,14 @@ const rewardedRuleTableResource = defineTableResource({
 const rewardedRuleCrud = defineCrudContract(rewardedRuleTableResource, {
   namespace: "rewarded_rules",
   fields: {
+    gateKey: { output: "required", create: "required", patch: "optional" },
+    surface: { output: "required", create: "required", patch: "optional" },
+    enabled: { output: "required", create: "optional", patch: "optional" },
+    unlockMinutes: { output: "required", create: "optional", patch: "optional" },
+    cooldownMinutes: { output: "required", create: "optional", patch: "optional" },
+    dailyLimit: { output: "required", create: "optional", patch: "optional" },
+    title: { output: "required", create: "optional", patch: "optional" },
+    description: { output: "required", create: "optional", patch: "optional" },
     createdAt: { output: "required" },
     updatedAt: { output: "required" }
   },

@@ -34,9 +34,9 @@ Read these package-owned source patterns:
 The migration and resource are both authored contracts. A live schema is useful
 for understanding an imported system, but it is never the sole source of truth.
 
-Write a field's `operations` only where it differs from the default (output,
-create required as the field is, patch; none for `primary: true` or
-`hidden: true`; output only for `readOnly: true`), and write a lookup field as `lookup: "<namespace>"`.
+A CRUD contract shows and accepts only the fields its `fields` names, so give
+every field the API shows or accepts its operations (a stored `createdAt` and
+`updatedAt` are shown without an entry), and write a lookup field as `lookup: "<namespace>"`.
 The `crud/crud-contract` and `database/table-resource` patterns list what each expands to.
 
 ## Ownership and access

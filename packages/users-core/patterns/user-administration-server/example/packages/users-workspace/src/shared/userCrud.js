@@ -4,7 +4,8 @@ import { userProfileTableResource } from "@jskit-ai/users-core/shared/resources/
 // The users list and view. The users table has one table resource, users-core's
 // userProfileTableResource; this contract chooses the operations and the fields they
 // return, and the list searches with the resource's q (display name, email and
-// username).
+// username). It shows only the fields it names, so the sign-in identity and the
+// avatar's storage stay out of administration.
 const userCrud = defineCrudContract(userProfileTableResource, {
   namespace: "users",
   operations: ["list", "view"],
@@ -13,13 +14,7 @@ const userCrud = defineCrudContract(userProfileTableResource, {
     email: { output: "optional" },
     username: { output: "optional" },
     createdAt: { output: "required" },
-    updatedAt: { output: "required" },
-    // The sign-in identity and the avatar's storage stay out of administration.
-    authProvider: {},
-    authProviderUserSid: {},
-    avatarStorageKey: {},
-    avatarVersion: {},
-    avatarUpdatedAt: {}
+    updatedAt: { output: "required" }
   }
 });
 

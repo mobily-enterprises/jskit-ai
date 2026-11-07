@@ -48,7 +48,7 @@ administration package never defines a second one; `jskit check` fails a table
 with two. It builds its CRUD contract on that resource,
 `defineCrudContract(userProfileTableResource, { namespace, operations, fields })`,
 which chooses the operations, their namespace and the fields each returns; a
-field the contract keeps out of every operation gets an empty entry (`{}`). The
+field it does not name, such as the sign-in identity, is never shown. The
 list searches with the resource's `q` filter: every word in the display name,
 email or username.
 

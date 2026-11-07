@@ -3,6 +3,8 @@ import test from "node:test";
 import { createSchema, validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { catalogMessage, formatMessage, messageKeyForCode, mergeCatalogs } from "@jskit-ai/kernel/shared/i18n";
 import kernelEnglish from "@jskit-ai/kernel/locales/en.json" with { type: "json" };
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 
 import crudEnglish from "../locales/en.json" with { type: "json" };
 import {
@@ -40,7 +42,9 @@ test("crud-core errors carry codes and params rendering their English", async ()
       return null;
     }
   };
-  const service = createCrudService({ repository: missingRepository, resourceName: "contacts" });
+  const contacts = defineTableResource({ name: "contacts", tableName: "contacts", ownership: "public", schema: { name: { type: "string" } } });
+  const crud = defineCrudContract(contacts, { namespace: "contacts", fields: { name: { output: "optional", create: "optional", patch: "optional" } } });
+  const service = createCrudService({ repository: missingRepository, crud });
   const errors = [
     await rejection(() => service.view(7, {}, {})),
     await rejection(() => service.patch(7, { name: "Ada" }, {}))

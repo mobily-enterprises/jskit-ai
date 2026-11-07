@@ -213,10 +213,14 @@ const receivalCrud = defineCrudContract(receivalResource, {
   namespace: "receivals",
   apiAccess: "authenticated",
   operations: ["list", "view", "create", "patch"],
-  fields: { arrivedAt: { output: "optional" } }
+  fields: {
+    status: { output: "required", create: "required", patch: "optional" },
+    arrivedAt: { output: "optional" }
+  }
 });
 ```
 
+A contract shows and accepts only the fields it names.
 A second surface on the same table (a customer's view beside the staff's) is
 a second CRUD contract on the same resource, never a second resource. A field
 fragment several resources spread into their schemas carries only the field:

@@ -46,7 +46,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
   const crud = defineCrudContract(resource, { namespace: "books", operations: ["list"], fields: { name: { output: "required" } } });
   const runtime = await createTestResourceRuntime({ knex });
   const { books: repository } = await runtime.own("test.books", [resource]);
-  const service = createCrudService({ repository, resourceName: "books" });
+  const service = createCrudService({ repository, crud });
   const actions = createActionCatalogue();
   actions.register({
     contributorId: "test.books",

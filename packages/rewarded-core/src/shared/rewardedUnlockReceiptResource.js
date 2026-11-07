@@ -70,6 +70,11 @@ const rewardedUnlockReceiptTableResource = defineTableResource({
 const rewardedUnlockReceiptCrud = defineCrudContract(rewardedUnlockReceiptTableResource, {
   namespace: "rewarded_unlock_receipts",
   fields: {
+    gateKey: { output: "required", create: "required", patch: "optional" },
+    providerConfigId: { output: "required", create: "optional", patch: "optional" },
+    watchSessionId: { output: "required", create: "optional", patch: "optional" },
+    grantedAt: { output: "required", create: "optional", patch: "optional" },
+    unlockedUntil: { output: "required", create: "required", patch: "optional" },
     createdAt: { output: "required" }
   },
   messages: {

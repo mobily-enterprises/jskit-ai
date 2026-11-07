@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import knexLib from "knex";
+import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
@@ -18,20 +19,27 @@ async function createFixture(t) {
     table.increments("id");
     table.integer("workspace_id").notNullable();
     table.string("title").notNullable();
+    table.string("internal_note");
   });
   await knex.schema.createTable("note_audits", (table) => {
     table.increments("id");
     table.integer("workspace_id").notNullable();
     table.string("message").notNullable();
   });
-  await knex.batchInsert("notes", Array.from({ length: 250 }, (_, index) => ({ workspace_id: 1, title: `Note ${index + 1}` })), 100);
+  await knex.batchInsert("notes", Array.from({ length: 250 }, (_, index) => ({
+    workspace_id: 1,
+    title: `Note ${index + 1}`,
+    internal_note: "staff only"
+  })), 100);
   const notes = defineTableResource({
     name: "notes",
     tableName: "notes",
     ownership: "workspace",
     schema: {
       workspaceId: { type: "id", storage: { column: "workspace_id" } },
-      title: { type: "string", required: true, search: true }
+      title: { type: "string", required: true, search: true },
+      // A column the contract below does not name.
+      internalNote: { type: "string", nullable: true, storage: { column: "internal_note" } }
     }
   });
   const audits = defineTableResource({
@@ -46,10 +54,14 @@ async function createFixture(t) {
   const runtime = await createTestResourceRuntime({ knex });
   const resources = await runtime.own("test.notes", [notes, audits]);
   const repository = resources.notes;
-  const service = createCrudService({ repository, resourceName: "notes" });
+  const crud = defineCrudContract(notes, {
+    namespace: "notes",
+    fields: { title: { output: "required", create: "required", patch: "optional" } }
+  });
+  const service = createCrudService({ repository, crud });
   const actionsFor = (options) => createCrudJsonApiActions(crudJsonApiActionOptions({
     namespace: "notes",
-    resource: defineCrudContract(notes, { namespace: "notes" }),
+    resource: crud,
     repository,
     service,
     surface: "admin",
@@ -76,6 +88,24 @@ test("the list action keeps answering a larger limit with one capped page", asyn
   // A cursor alone pages on at json-rest-api's default page size.
   const next = await list.execute({ cursor: first.value.meta.pagination.cursor.next }, WORKSPACE_ONE);
   assert.equal(next.value.data[0].attributes.title, "Note 21");
+});
+
+test("a column the contract does not name is neither returned nor accepted", async (t) => {
+  const { knex, actionsFor } = await createFixture(t);
+  const [list, view, create, update] = actionsFor({ operations: ["list", "view", "create", "update"] });
+  const page = await list.execute({ limit: 5 }, WORKSPACE_ONE);
+  assert.deepEqual(page.value.data.map(({ attributes }) => Object.keys(attributes)), Array(5).fill(["title"]));
+  assert.deepEqual(Object.keys((await view.execute({ recordId: "1" }, WORKSPACE_ONE)).value.data.attributes), ["title"]);
+  const created = await create.execute({ title: "New" }, WORKSPACE_ONE);
+  assert.deepEqual(Object.keys(created.value.data.attributes), ["title"]);
+  const updated = await update.execute({ recordId: "1", title: "Renamed" }, WORKSPACE_ONE);
+  assert.deepEqual(Object.keys(updated.value.data.attributes), ["title"]);
+  // The action runtime validates each input against the action's input before execute runs.
+  for (const [action, input] of [[create, { title: "New" }], [update, { recordId: "1" }]]) {
+    assert.throws(() => validateSchemaPayload(action.input, { ...input, internalNote: "set by a request" }, { phase: "input" }),
+      (error) => Object.hasOwn(error.fieldErrors || {}, "internalNote"), action.operation);
+  }
+  assert.equal((await knex("notes").where({ id: 1 }).first()).internal_note, "staff only");
 });
 
 test("the CRUD service answers documents, and 404 for a record that is missing or out of scope", async (t) => {
@@ -152,7 +182,10 @@ test("the CRUD service's writes are stamped with createdAt and updatedAt when th
   });
   const runtime = await createTestResourceRuntime({ knex });
   const { memos: repository } = await runtime.own("test.memos", [memos]);
-  const service = createCrudService({ repository, resourceName: "memos" });
+  const service = createCrudService({
+    repository,
+    crud: defineCrudContract(memos, { namespace: "memos", fields: { title: { output: "required", create: "required", patch: "optional" } } })
+  });
   t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-08T01:02:03.000Z") });
 
   const created = await service.create({ title: "First" }, {});

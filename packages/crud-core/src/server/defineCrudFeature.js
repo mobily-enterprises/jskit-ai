@@ -431,7 +431,7 @@ function defineCrudFeature(feature) {
             ...featureDependencies
           }, REMOVED_REPOSITORY_DEPENDENCIES, "decorateRepository's dependencies"))), LEGACY_REPOSITORY_METHODS, "The repository decorateRepository returned")
         : handle;
-      const defaultService = createCrudService({ repository, resourceName: tableResource.name });
+      const defaultService = createCrudService({ repository, crud });
       const decoratedService = decorateService
         ? rejectLegacyMethods(await decorateService(Object.freeze(withRemovedProperties({
             service: defaultService,

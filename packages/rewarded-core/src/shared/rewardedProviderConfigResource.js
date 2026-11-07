@@ -53,6 +53,10 @@ const rewardedProviderConfigTableResource = defineTableResource({
 const rewardedProviderConfigCrud = defineCrudContract(rewardedProviderConfigTableResource, {
   namespace: "rewarded_provider_configs",
   fields: {
+    surface: { output: "required", create: "required", patch: "optional" },
+    enabled: { output: "required", create: "optional", patch: "optional" },
+    placement: { output: "required", create: "required", patch: "optional" },
+    provider: { output: "required", create: "required", patch: "optional" },
     createdAt: { output: "required" },
     updatedAt: { output: "required" }
   },

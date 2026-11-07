@@ -37,7 +37,10 @@ Match visibility to real ownership and test allowed plus cross-owner cases.
 
 The table resource is canonical for fields, columns, ownership and search; the
 CRUD contract for operations, validation, transport, messages and route
-parameters. Do not duplicate their schema or serializers.
+parameters. A contract shows and accepts only the fields its `fields` names
+(a stored `createdAt` and `updatedAt` are shown without an entry), so a column
+added later stays out of every API until a contract names it. Do not duplicate
+their schema or serializers.
 Prefer `useCrudListScreen()`, `useCrudViewScreen()`, and
 `useCrudAddEditScreen()`; use `useCommand()` or `useEndpointResource()` for
 non-standard operations.
@@ -97,7 +100,8 @@ const bookResource = defineTableResource({
 const bookCrud = defineCrudContract(bookResource, {
   namespace: "books",
   apiAccess: "public",
-  operations: ["list", "view", "create"]
+  operations: ["list", "view", "create"],
+  fields: { title: { output: "required", create: "required" } }
 });
 ```
 

@@ -19,6 +19,7 @@ function contactsCrud(overrides = {}) {
     namespace: "contacts",
     contract: { lookup: { containerKey: "lookups" } },
     messages: { validation: "Fix invalid values." },
+    fields: { name: { output: "required", create: "required", patch: "optional" } },
     ...overrides
   });
 }

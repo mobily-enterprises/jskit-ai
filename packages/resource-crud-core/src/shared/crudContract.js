@@ -113,7 +113,8 @@ function buildDerivedCrudRecordOutputDefinition(source) {
   const outputFields = buildCrudOperationSchemaFields(source.resource.schema, "output", source.fields);
   if (Object.keys(outputFields).length < 1) {
     throw new Error(
-      "defineCrudContract derived output requires an explicit output or at least one field with an output operation."
+      "defineCrudContract derived output requires an explicit output or at least one field with an output operation: " +
+        "a contract shows only the fields its fields name, such as fields: { title: { output: \"required\" } }."
     );
   }
 
@@ -147,7 +148,8 @@ function buildDerivedCrudBodyDefinition(source, operationName = "patch", bodyMod
       ? "a replace or create operation"
       : `a ${operationName} operation`;
     throw new Error(
-      `defineCrudContract derived ${operationName} body requires an explicit ${operationName}Body or at least one field with ${fieldHint}.`
+      `defineCrudContract derived ${operationName} body requires an explicit ${operationName}Body or at least one field with ${fieldHint}: ` +
+        `a contract accepts only the fields its fields name, such as fields: { title: { ${operationName}: "required" } }.`
     );
   }
 
@@ -362,8 +364,9 @@ function requireContractConfig(config) {
  * which of list, view, create, replace, patch and delete it offers, and the
  * fields each one takes and returns. defineCrudFeature serves it.
  * A field's entry in `fields` says, for each operation it takes part in,
- * "required", "optional", true or the keys merged over its definition; a field
- * without one takes the default (see buildCrudOperationSchemaFields).
+ * "required", "optional", true or the keys merged over its definition. The
+ * contract shows and accepts only the fields it names; a stored createdAt or
+ * updatedAt is output without an entry (see buildCrudOperationSchemaFields).
  * Operations that are not CRUD belong to an API contract (defineApiContract).
  * @param {Record<string, any>} resource A table resource from defineTableResource.
  * @param {Record<string, any>} config
