@@ -4,7 +4,7 @@ import {
   createJsonRestContext,
   extractJsonRestCollectionRows,
   queryAllJsonRestCollectionRows
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { workspaceResource } from "../../../shared/resources/workspaceResource.js";
 
 function normalizeWorkspaceRecord(payload = null) {
@@ -49,7 +49,7 @@ async function lockWorkspace(workspaceId, options) {
 
 /**
  * The `workspaces` capability: the workspaces table's records.
- * @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies
+ * @param {{ api: import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi }} dependencies
  */
 function createRepository({ api }) {
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));

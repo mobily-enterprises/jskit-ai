@@ -3,9 +3,9 @@ import test from "node:test";
 import knexLib from "knex";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import {
-  createJsonRestApiHost,
+  createResourceHost,
   createJsonRestResourceScopeOptions
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
 import { createCrudJsonApiService } from "../src/server/jsonApiModule/service.js";
@@ -32,7 +32,7 @@ async function createRepository(knex) {
     table.integer("hits").notNullable();
   });
   await knex("counters").insert({ name: "Drier", hits: 0 });
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
   await api.addResource("counters", createJsonRestResourceScopeOptions(counters));
   return createCrudJsonApiRepository({ api, resource: counters, resourceScopeName: "counters" });
 }

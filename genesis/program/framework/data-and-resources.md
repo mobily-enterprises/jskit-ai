@@ -9,7 +9,7 @@ their owning package or application.
 - Main: `packages/database-runtime/src/server/databaseSetup.js`
 - `packages/database-runtime/src/shared/repositoryOptions.js`
 - `packages/crud-core/src/server/defineCrudJsonApiFeature.js`
-- `packages/json-rest-api-core/src/server/jsonRestApiHost.js`
+- `packages/resource-runtime/src/server/resourceHost.js`
 - `packages/uploads-runtime/src/server/providers/UploadsProvider.js`
 - `packages/payments-core/src/server/service.js`
 - `packages/rewarded-core/src/server/actions.js`

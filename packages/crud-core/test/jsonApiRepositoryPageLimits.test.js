@@ -3,9 +3,9 @@ import test from "node:test";
 import knexLib from "knex";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import {
-  createJsonRestApiHost,
+  createResourceHost,
   createJsonRestResourceScopeOptions
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
@@ -47,7 +47,7 @@ async function createFixture(t) {
       title: { type: "string", required: true }
     }
   });
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
   await api.addResource("authors", createJsonRestResourceScopeOptions(authors));
   await api.addResource("notes", createJsonRestResourceScopeOptions(notes));
   return {

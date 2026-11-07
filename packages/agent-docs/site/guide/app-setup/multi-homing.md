@@ -130,7 +130,7 @@ WORKSPACE_CRUD_SCOPE` (from `@jskit-ai/workspaces-core/server/support/workspaceC
 on a workspace surface. JSKIT then filters `workspaceId` by the workspace in the
 route. A repository method you add reads the workspace id with
 `resolveWorkspaceScopeValue(options.context)`
-(`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`), which throws when the
+(`@jskit-ai/resource-runtime/server/resourceHost`), which throws when the
 context names two workspaces.
 `workspace_user` also filters by the signed-in user. See the CRUD operations
 guide.

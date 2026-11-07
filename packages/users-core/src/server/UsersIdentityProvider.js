@@ -2,7 +2,7 @@ import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
 import {
   addResourceIfMissing,
   createJsonRestResourceScopeOptions
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { userProfileResource } from "../shared/resources/userProfileResource.js";
 import { userSettingsResource } from "../shared/resources/userSettingsResource.js";
@@ -22,7 +22,7 @@ const UsersIdentityProvider = defineProvider({
   /**
    * @param {object} capabilities
    * @param {import("./types.js").UsersExtensions} capabilities.extensions
-   * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
+   * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
    */
   async setup({ extensions, jsonRestApi }) {
     const scopeOptions = {

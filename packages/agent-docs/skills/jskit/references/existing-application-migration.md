@@ -171,7 +171,7 @@ change an existing application's startup source.
 
 ### JSON REST v2 integration
 
-Applications using `@jskit-ai/json-rest-api-core` require Node.js 24 or newer.
+Applications using `@jskit-ai/resource-runtime` require Node.js 24 or newer.
 JSKIT's repository and application default is Node.js 26. Upgrade dependencies,
 custom resource calls, and hooks together; rebuild native database dependencies
 after changing Node.

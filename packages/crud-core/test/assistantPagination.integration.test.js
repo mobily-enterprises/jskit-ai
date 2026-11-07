@@ -6,10 +6,10 @@ import { createServiceToolCatalog } from "@jskit-ai/assistant-core/server";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import {
   addResourceIfMissing,
-  createJsonRestApiHost,
+  createResourceHost,
   createJsonRestContext,
   createJsonRestResourceScopeOptions
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
@@ -51,7 +51,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
     }
   });
   const crud = defineCrudContract(resource, { operations: ["list"], fields: { name: { output: "required" } } });
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
   await addResourceIfMissing(api, "books", createJsonRestResourceScopeOptions(resource));
   const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "books" });
   const service = createCrudJsonApiService({ repository });

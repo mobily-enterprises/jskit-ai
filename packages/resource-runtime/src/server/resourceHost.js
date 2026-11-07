@@ -22,8 +22,8 @@ import {
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER } from "@jskit-ai/kernel/shared/support/visibility";
+import { createJsonRestContext } from "./contexts.js";
 import {
-  createJsonRestContext,
   extractJsonRestCollectionRows,
   queryAllJsonRestCollectionDocument,
   queryAllJsonRestCollectionRows
@@ -52,6 +52,14 @@ const JSON_REST_AUTOFILTER_PRESETS = Object.freeze({
     Object.freeze({
       field: "userId",
       resolver: "user"
+    })
+  ]),
+  // A workspace's own rows, and the rows whose workspaceId is null, which every workspace reads.
+  workspace_or_shared: Object.freeze([
+    Object.freeze({
+      field: "workspaceId",
+      resolver: "workspace",
+      shared: true
     })
   ])
 });
@@ -109,7 +117,7 @@ function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
 /**
  * @param {import("./types.js").RuntimeJsonRestApi} api
  * @param {string} scopeName
- * @param {object} resourceConfig
+ * @param {Record<string, any>} resourceConfig
  */
 async function addResourceIfMissing(api, scopeName, resourceConfig) {
   if (api.resources[scopeName]) {
@@ -442,11 +450,13 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
  * json-rest-api's options for a table resource: its own keys, with `ownership`
  * as json-rest-api's autofilter preset (none for a public table),
  * `defaultExclude` as normally hidden fields, symbolic write serializers
- * resolved and collection relations derived.
+ * resolved and collection relations derived. The owner's server-only extras
+ * (row policy, id normalizer, query fields) are added here, never in the
+ * shared definition.
  * @param {Record<string, any>} resource A table resource from defineTableResource.
- * @param {Record<string, any>} [options]
+ * @param {{ writeSerializers?: Record<string, Function>, normalizeId?: Function, rowPolicy?: Function, searchSchema?: Record<string, any>, queryFields?: Record<string, any> }} [extras]
  */
-function createJsonRestResourceScopeOptions(
+function resourceScopeOptions(
   resource,
   {
     writeSerializers = {},
@@ -457,12 +467,7 @@ function createJsonRestResourceScopeOptions(
   } = {}
 ) {
   if (!isTableResource(resource)) {
-    throw new TypeError("createJsonRestResourceScopeOptions requires a table resource from defineTableResource.");
-  }
-  if (resource.ownership === "workspace_or_shared") {
-    throw new TypeError(
-      `${resource.name} has ownership "workspace_or_shared", which the resource runtime serves from json-rest-api 3.0.0.`
-    );
+    throw new TypeError("A resource the runtime registers must be a table resource from defineTableResource.");
   }
   const {
     name: _name,
@@ -621,18 +626,21 @@ async function returnBadRequestWhenJsonRestFieldsetInvalid(run) {
 }
 
 /**
+ * The json-rest-api instance behind the resource runtime: its REST, query
+ * projection, Knex, row policy and autofilter plugins, with JSKIT's ownership
+ * presets and the resolvers that read a context's workspace and user.
  * @param {object} dependencies
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger Receives json-rest-api's log calls.
  */
-async function createJsonRestApiHost({ knex, logger }) {
+async function createResourceHost({ knex, logger }) {
   // readable-check: allow method-probe - input validation: the application passes its own Knex instance
   if (typeof knex !== "function" || typeof knex.transaction !== "function") {
-    throw new TypeError("createJsonRestApiHost requires the application's Knex instance.");
+    throw new TypeError("createResourceHost requires the application's Knex instance.");
   }
   // readable-check: allow method-probe - input validation: the caller passes the application's logger
   if (!logger || ["debug", "info", "warn", "error"].some((level) => typeof logger[level] !== "function")) {
-    throw new TypeError("createJsonRestApiHost requires a logger with debug, info, warn and error.");
+    throw new TypeError("createResourceHost requires a logger with debug, info, warn and error.");
   }
 
   /** @type {import("json-rest-api").JsonRestApi<Record<string, import("./types.js").JsonRestResource>>} */
@@ -661,17 +669,23 @@ async function createJsonRestApiHost({ knex, logger }) {
   return api;
 }
 
+// Until crud-core, users-core and workspaces-core own their tables through runtime.resources, they register
+// and read them on the host directly with these.
+const createJsonRestResourceScopeOptions = resourceScopeOptions;
+
 export {
+  JSON_REST_AUTOFILTER_PRESETS,
   addResourceIfMissing,
   buildJsonRestQueryParams,
-  createJsonRestResourceScopeOptions,
   createJsonRestContext,
+  createJsonRestResourceScopeOptions,
+  createResourceHost,
   extractJsonRestCollectionRows,
   queryAllJsonRestCollectionDocument,
   queryAllJsonRestCollectionRows,
+  resourceScopeOptions,
   returnNullWhenJsonRestResourceMissing,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,
-  resolveUserScopeValue,
-  createJsonRestApiHost
+  resolveUserScopeValue
 };

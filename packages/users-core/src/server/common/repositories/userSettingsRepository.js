@@ -3,7 +3,7 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
   extractJsonRestCollectionRows
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../../../shared/settings.js";
 
 const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
@@ -51,7 +51,7 @@ function buildDefaultUserSettingsCreatePayload(userId) {
   };
 }
 
-/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
+/** @param {{ api: import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi }} dependencies */
 function createRepository({ api }) {
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
