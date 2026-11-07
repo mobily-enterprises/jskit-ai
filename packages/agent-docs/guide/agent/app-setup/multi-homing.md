@@ -174,6 +174,12 @@ capability provides:
 | `workspaces.repositories.workspaces`, `.workspaceMemberships`, `.workspaceSettings`, `.workspaceInvites` | Repository access inside the application's own transactions |
 | `workspaces.tenancyProfile` | The resolved tenancy mode and workspace policy |
 
+To check one person's membership, for example a notification recipient, call
+`workspaces.services.members.getMember(workspace, userId, options)`. It answers
+that member's `listMembers` entry, or `null` for a removed or unknown member,
+and reads only that membership. Do not list every member to find one: the list
+grows with the workspace, and a lookup per row multiplies it.
+
 ### Invitation email
 
 To send invitation email, provide the optional `workspaces.invite-mailer`

@@ -19,16 +19,16 @@ Exports
 - `addResourceIfMissing(api, scopeName, resourceConfig)`
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
 - `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId, rowPolicy, searchSchema, queryFields } = {})`
-- `createJsonRestContext(context = null)`
-- `extractJsonRestCollectionRows(payload)`
-- `queryAllJsonRestCollectionRows(resource, { queryParams, ...params }, context)`
+- `createJsonRestContext`
+- `extractJsonRestCollectionRows`
+- `queryAllJsonRestCollectionDocument`
+- `queryAllJsonRestCollectionRows`
 - `returnNullWhenJsonRestResourceMissing(run)`
 - `returnBadRequestWhenJsonRestFieldsetInvalid(run)`
 - `resolveWorkspaceScopeValue(context = null)`
 - `resolveUserScopeValue(context = null)`
 - `createJsonRestApiHost({ knex, logger })`
 Local functions
-- `isPlainJsonRestObject(value)`
 - `cloneJsonRestResourceValue(value, { writeSerializers = {} } = {})`
 - `normalizeScopeValue(value)`
 - `normalizeJsonRestFilterValue(value)`
@@ -46,6 +46,19 @@ Local functions
 ### `src/server/JsonRestApiProvider.js`
 Exports
 - `JsonRestApiProvider`
+
+### `src/server/jsonRestCollectionReads.js`
+Exports
+- `createJsonRestContext(context = null)`
+- `extractJsonRestCollectionRows(payload)`
+- `queryAllJsonRestCollectionDocument(resource, params, context)`
+- `queryAllJsonRestCollectionRows(resource, params, context)`
+Local functions
+- `readEveryJsonRestCollectionPage(resource, { queryParams, ...params }, context, { caller, onPage })`
+
+### `src/server/jsonRestValues.js`
+Exports
+- `isPlainJsonRestObject(value)`
 
 ### `src/server/types.js`
 Exports

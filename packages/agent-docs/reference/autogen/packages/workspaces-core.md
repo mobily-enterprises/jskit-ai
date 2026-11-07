@@ -47,6 +47,8 @@ Exports
 - `createRepository({ api })`
 - `normalizeMembershipRecord(payload)`
 - `normalizeMemberSummaryRow(row)`
+Local functions
+- `memberSummaryFromMembership(row)`
 
 ### `src/server/common/repositories/workspacesRepository.js`
 Exports

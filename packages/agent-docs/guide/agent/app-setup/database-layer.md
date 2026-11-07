@@ -279,6 +279,21 @@ A separate Feature is warranted when an operation belongs to another domain,
 not merely because a useful resource has behavior beyond list and save. Write
 it as a [typed feature](/guide/framework/typed-features).
 
+## Writes that return less
+
+A CRUD repository's `createDocument(payload, options)` and
+`patchDocumentById(id, patch, options)` return the full document by default:
+the write is followed by a get through the resource's row policy and its
+lookups, about four queries and a policy run per linked type. Server code that
+does not use the result passes `returning: "minimal"`, which answers
+`{ data: { type, id } }`, or `"none"`, which answers `undefined`; a missing or
+out-of-scope record still patches to `null`. `createDocuments(payloads,
+{ trx, context, returning })` creates several records in order in one
+transaction, the caller's `trx` or one it owns, so they are all created or
+none; its `returning` is `"minimal"` unless the caller asks for `"full"`, and
+its results follow the payloads. Each record is still validated and inserted
+by itself: a batch saves the read-backs and the transactions, not the inserts.
+
 ## Optimistic locking
 
 A CRUD resource whose records carry a version number names it with
@@ -310,6 +325,20 @@ again."), and nothing is written. The patch leaves the lock field out; an app
 that wants its own wording for the conflict catches that code. A resource
 without `lockVersionField` cannot call it, and `defineCrudResource()` rejects
 a `lockVersionField` that names no integer schema field.
+
+## Row locks
+
+A check-then-write that must not race another request (is the drier empty?
+then load it) reads the record with
+`getDocumentById(recordId, query, { trx, context, forUpdate: true })` inside
+`withTransaction`. It locks the record's row in that transaction before
+reading it, so another `forUpdate` read or a write of the record waits until
+the transaction ends, and the read sees the latest version on PostgreSQL; on
+MySQL and MariaDB it does when the lock is the transaction's first read of
+that row. Without a transaction `forUpdate` throws, and a value other than
+`true` or `false` throws too. SQLite runs one transaction at a time on its
+single connection, so there is no row lock to take. The CRUD service's
+`getDocumentById` passes `forUpdate` through.
 
 ## Deadlock retries
 

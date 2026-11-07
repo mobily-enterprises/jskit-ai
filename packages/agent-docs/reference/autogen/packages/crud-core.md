@@ -92,6 +92,9 @@ Exports
 ### `src/server/jsonApiModule/repository.js`
 Exports
 - `createCrudJsonApiRepository({ api, resource, resourceScopeName })`
+- `type WriteReturning`
+Local functions
+- `writeReturning(options, fallback = "full")`
 
 ### `src/server/jsonApiModule/routes.js`
 Exports

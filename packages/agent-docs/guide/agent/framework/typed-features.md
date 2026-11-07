@@ -693,11 +693,17 @@ page means "the first 20 rows".**
 - json-rest-api answers a query that names no page with the resource's
   default page, 20 rows, and says nothing about the rest. The CRUD
   repository's `queryDocuments(query)` without a `limit` is the same first
-  page.
-- The helper reads cursor pages of the resource's maximum size
-  (`queryMaxLimit`, 100 unless the resource sets it) in id order until none
-  follows, keeping the call's transaction and context, so no row is skipped
-  or repeated. It sets the page and sort itself; sort the rows it returns.
+  page, and one with a `limit` above its `queryMaxLimit()` (100) throws,
+  because json-rest-api would answer only 100. A CRUD read of every record
+  uses the repository's `queryEveryDocument(query, options)`, which answers
+  one JSON:API document `{ data, included }` with no `limit`, `cursor` or
+  `sort`.
+- The helper reads cursor pages of 1,000 rows (json-rest-api's server-only
+  `pageSizeLimit`; a resource whose `queryMaxLimit` is larger uses that) in id
+  order until none follows, keeping the call's transaction and context, so no
+  row is skipped or repeated. Each page pays the row policy and linkage
+  queries once, so 480 rows cost 3 statements, not 15. It sets the page and
+  sort itself; sort the rows it returns.
 - A lookup by a unique key (an id, a slug, a token hash, a unique pair such
   as workspace and user) matches at most one row and may read `rows[0]` of a
   plain query. A read of the newest or first few rows names its own `sort`
