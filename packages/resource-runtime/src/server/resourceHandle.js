@@ -398,7 +398,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     if (options.all !== true) {
       throw new TypeError(`${name}.${operation}() with empty filters changes every row the caller owns; pass all: true to mean it.`);
     }
-    return { filters, all: true };
+    return { all: true };
   }
 
   function manyRowWrite(operation, rows, options, request) {

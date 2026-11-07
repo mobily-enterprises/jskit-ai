@@ -2,7 +2,7 @@ import knexLib from "knex";
 import { after } from "node:test";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
-import { createJsonRestApiHost } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
@@ -63,7 +63,7 @@ async function openDatabase(suffix, cleanups) {
   await admin.raw("DROP DATABASE IF EXISTS ??", [name]);
   await admin.raw("CREATE DATABASE ??", [name]);
   for (const migration of MIGRATIONS) await migration.up(knex);
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
   const usersExtensions = createUsersExtensions();
   const { profiles, settings: userSettings, profileProjector } = await UsersIdentityProvider.setup({
     authExtensions: createAuthExtensions(),

@@ -44,7 +44,6 @@ const rewardedUnlockReceiptResource = defineTableResource({
     },
     grantedAt: {
       type: "dateTime",
-      default: "now()",
       search: true,
       storage: { writeSerializer: "datetime-utc" }
     },
@@ -56,7 +55,6 @@ const rewardedUnlockReceiptResource = defineTableResource({
     },
     createdAt: {
       type: "dateTime",
-      default: "now()",
       storage: { writeSerializer: "datetime-utc" }
     }
   },

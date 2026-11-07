@@ -30,8 +30,6 @@ const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
   "packages/console-core/src/server/consoleSettings/consoleSettingsRepository.js",
   "packages/crud-core/src/server/createHooksToCollectChildren.js",
   "packages/crud-core/src/server/jsonApiModule/actions.js",
-  "packages/crud-core/src/server/jsonApiModule/repository.js",
-  "packages/crud-core/src/server/resourceRuntime/listControls.js",
   "packages/oidc-issuer-core/src/server/providers/OidcIssuerProvider.js",
   "packages/oidc-issuer-core/src/server/rateLimits.js",
   "packages/payments-core/src/server/knexStore.js",
