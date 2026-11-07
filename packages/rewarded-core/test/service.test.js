@@ -3,56 +3,34 @@ import test from "node:test";
 
 import { createService } from "../src/server/service.js";
 
-function createRecordDocument(type, id, attributes = {}) {
-  return {
-    data: {
-      type,
-      id: String(id),
-      attributes: {
-        ...attributes
-      }
-    }
-  };
-}
-
-function createCollectionDocument(type, rows = []) {
-  return {
-    data: rows.map((entry, index) => ({
-      type,
-      id: String(entry?.id ?? index + 1),
-      attributes: {
-        ...entry
-      }
-    }))
-  };
+// A page of records, as a handle's query() answers it.
+function page(records = []) {
+  return { records, page: { size: records.length, hasMore: false, next: null } };
 }
 
 function createRuleRepository(rows = []) {
   return {
-    async queryDocuments() {
-      return createCollectionDocument("rewardedRules", rows);
+    async query() {
+      return page(rows);
     }
   };
 }
 
 function createProviderConfigRepository(rows = []) {
   return {
-    async queryDocuments() {
-      return createCollectionDocument("rewardedProviderConfigs", rows);
+    async query() {
+      return page(rows);
     }
   };
 }
 
 function createUnlockReceiptRepository(rows = [], createdRecord = null) {
   return {
-    async queryDocuments() {
-      return createCollectionDocument("rewardedUnlockReceipts", rows);
+    async query() {
+      return page(rows);
     },
-    async createDocument(payload) {
-      return createRecordDocument("rewardedUnlockReceipts", createdRecord?.id || "301", {
-        ...(createdRecord || {}),
-        ...payload
-      });
+    async create(attributes) {
+      return { ...(createdRecord || {}), ...attributes, id: createdRecord?.id || "301" };
     }
   };
 }
@@ -67,24 +45,21 @@ function createWatchSessionRepository({
 
   return {
     calls,
-    async queryDocuments() {
-      return createCollectionDocument("rewardedWatchSessions", []);
+    async query() {
+      return page([]);
     },
-    async getDocumentById() {
-      return session ? createRecordDocument("rewardedWatchSessions", session.id, session) : null;
+    async get() {
+      return session ? { ...session } : null;
     },
-    async patchDocumentById(recordId, patch) {
+    async patch(recordId, attributes) {
       calls.patches.push({
         recordId,
-        patch
+        patch: attributes
       });
-      return createRecordDocument("rewardedWatchSessions", patchedSession?.id || recordId, {
-        ...(patchedSession || session || {}),
-        ...patch
-      });
+      return { ...(patchedSession || session || {}), ...attributes, id: patchedSession?.id || recordId };
     },
-    withTransaction(work) {
-      return work("trx-1");
+    withTransaction(options, work) {
+      return work(Object.freeze({ ...options, trx: "trx-1" }));
     }
   };
 }
@@ -205,9 +180,9 @@ test("getCurrentState ignores caller surface overrides and evaluates the app-sur
   const service = createService({
     grantPolicy: { authorizeGrant: async () => true },
     rewardedRulesRepository: {
-      async queryDocuments(query) {
-        recordedRuleQueries.push(query);
-        return createCollectionDocument("rewardedRules", [
+      async query(params) {
+        recordedRuleQueries.push(params);
+        return page([
           {
             id: "11",
             gateKey: "progress-logging",
@@ -223,9 +198,9 @@ test("getCurrentState ignores caller surface overrides and evaluates the app-sur
       }
     },
     rewardedProviderConfigsRepository: {
-      async queryDocuments(query) {
-        recordedConfigQueries.push(query);
-        return createCollectionDocument("rewardedProviderConfigs", [
+      async query(params) {
+        recordedConfigQueries.push(params);
+        return page([
           {
             id: "21",
             surface: "app",
@@ -251,8 +226,8 @@ test("getCurrentState ignores caller surface overrides and evaluates the app-sur
     }
   );
 
-  assert.equal(recordedRuleQueries[0]?.surface, "app");
-  assert.equal(recordedConfigQueries[0]?.surface, "app");
+  assert.equal(recordedRuleQueries[0]?.filters.surface, "app");
+  assert.equal(recordedConfigQueries[0]?.filters.surface, "app");
   assert.equal(response.surface, "app");
   assert.equal(response.reason, "reward-required");
 });
@@ -269,12 +244,12 @@ test("grantReward patches the watch session and creates an unlock receipt", asyn
   });
   const createdReceiptPayloads = [];
   const unlockReceiptsRepository = {
-    async queryDocuments() {
-      return createCollectionDocument("rewardedUnlockReceipts", []);
+    async query() {
+      return page([]);
     },
-    async createDocument(payload) {
-      createdReceiptPayloads.push(payload);
-      return createRecordDocument("rewardedUnlockReceipts", "51", payload);
+    async create(attributes) {
+      createdReceiptPayloads.push(attributes);
+      return { ...attributes, id: "51" };
     }
   };
 
@@ -336,16 +311,17 @@ test("grant policy sees stored session and server context and rejects before wri
     rewardedProviderConfigsRepository: createProviderConfigRepository([]),
     rewardedWatchSessionsRepository: watch,
     rewardedUnlockReceiptsRepository: {
-      async createDocument() { throw new Error("Must not write a receipt"); }
+      async create() { throw new Error("Must not write a receipt"); }
     }
   };
   for (const decision of [false, undefined, "true"]) {
-    const service = createService({ ...dependencies, grantPolicy: { authorizeGrant: async ({ session, context, trx }) => {
+    const service = createService({ ...dependencies, grantPolicy: { authorizeGrant: async ({ session, context, options }) => {
       calls += 1;
       assert.equal(session.id, "41");
       assert.equal(session.gateKey, "bonus");
       assert.equal(context, REQUEST_CONTEXT);
-      assert.ok(trx);
+      assert.equal(options.context, REQUEST_CONTEXT);
+      assert.ok(options.trx, "the policy reads inside the grant's transaction");
       return decision;
     } } });
     await assert.rejects(service.grantReward({ workspaceSlug: "alpha", sessionId: "41",

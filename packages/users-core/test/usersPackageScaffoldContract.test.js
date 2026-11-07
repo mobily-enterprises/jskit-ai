@@ -14,7 +14,8 @@ test("users-core publishes agent-readable administration patterns and package-ow
   assert.deepEqual(packageJson.jskit?.migrations, { directories: ["migrations"] });
 
   const pattern = await readFile(path.join(patternRoot, "PATTERN.md"), "utf8");
-  assert.match(pattern, /defineCrudJsonApiFeature\(\)/);
+  assert.match(pattern, /defineCrudFeature\(\)/);
+  assert.match(pattern, /ownerRepository: "users\.profiles"/);
   assert.match(pattern, /Workspace operations are scoped before repository access/);
   assert.match(pattern, /null\/cleared fields/);
   assert.match(pattern, /defineCrudContract\(userProfileResource,/);
@@ -34,9 +35,9 @@ test("global user administration example is one declarative CRUD feature", async
   assert.equal(packageManifest.name, "@app/users");
   assert.equal(packageManifest.jskit?.mutations, undefined);
   assert.deepEqual(packageManifest.jskit?.capabilities?.provides, ["app.users"]);
-  assert.match(feature, /defineCrudJsonApiFeature/);
+  assert.match(feature, /defineCrudFeature/);
   assert.match(feature, /surface: "home"/);
-  assert.match(feature, /ownershipFilter: "public"/);
+  assert.match(feature, /ownerRepository: "users\.profiles"/);
   assert.doesNotMatch(feature, /\.make\(|\.singleton\(|containerToken|repositoryToken|serviceToken/);
 });
 
@@ -61,7 +62,8 @@ test("workspace user administration example takes workspaces-core's workspace CR
   assert.equal(packageManifest.name, "@app/users-workspace");
   assert.equal(packageManifest.jskit?.mutations, undefined);
   assert.deepEqual(packageManifest.jskit?.capabilities?.provides, ["app.users-workspace"]);
-  assert.match(feature, /ownershipFilter: "workspace"/);
+  assert.match(feature, /ownerRepository: "users\.profiles"/);
+  assert.match(feature, /visibility: "workspace"/);
   assert.match(feature, /import \{ WORKSPACE_CRUD_SCOPE \} from "@jskit-ai\/workspaces-core\/server\/support\/workspaceCrud";/);
   assert.match(feature, /scope: WORKSPACE_CRUD_SCOPE/);
   assert.doesNotMatch(feature, /\.make\(|\.singleton\(|containerToken|repositoryToken|serviceToken/);

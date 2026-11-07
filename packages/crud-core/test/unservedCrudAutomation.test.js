@@ -8,7 +8,7 @@ import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
-import { defineCrudJsonApiFeature } from "../src/server/defineCrudJsonApiFeature.js";
+import { defineCrudFeature } from "../src/server/defineCrudFeature.js";
 
 function createResource(namespace) {
   const resource = defineTableResource({
@@ -32,12 +32,14 @@ function valueProvider(id, capability, value) {
   });
 }
 
-/** Starts the CRUD features with stand-in database, HTTP and JSON:API capabilities, and returns runtime.actions. */
+/** Starts the CRUD features with stand-in resources and HTTP capabilities, and returns runtime.actions. */
 async function startFeatures(context, features) {
-  const jsonRestApi = {
-    resources: {},
-    async addResource(name, config) {
-      this.resources[name] = { config };
+  const resources = {
+    own(_featureId, owns) {
+      return Object.freeze(Object.fromEntries(owns.map((entry) => [(entry.resource || entry).name, Object.freeze({})])));
+    },
+    createSystemContext(declaration) {
+      return Object.freeze({ ...declaration });
     }
   };
   let actions;
@@ -46,9 +48,8 @@ async function startFeatures(context, features) {
     providers: [
       EventProvider,
       ActionProvider,
-      valueProvider("test.database", "runtime.database", { knex: Object.assign(() => {}, { transaction: (callback) => callback({}) }) }),
+      valueProvider("test.resources", "runtime.resources", resources),
       valueProvider("test.http", "runtime.http", { router: { register() {} } }),
-      valueProvider("test.json-rest-api", "runtime.json-rest-api", jsonRestApi),
       ...features,
       defineProvider({
         id: "test.observer",
@@ -73,11 +74,11 @@ function toolActionIds(actions, permissions) {
 
 test("the assistant reaches a CRUD action without HTTP routes only when a permission guards it", async (context) => {
   const actions = await startFeatures(context, [
-    defineCrudJsonApiFeature({ resource: createResource("books"), surface: "home" }),
-    defineCrudJsonApiFeature({ resource: createResource("blocks"), surface: "home", internal: true, routes: false }),
-    defineCrudJsonApiFeature({ resource: createResource("drafts"), surface: "home", internal: true }),
-    defineCrudJsonApiFeature({
-      resource: createResource("audits"),
+    defineCrudFeature({ crud: createResource("books"), surface: "home" }),
+    defineCrudFeature({ crud: createResource("blocks"), surface: "home", internal: true, routes: false }),
+    defineCrudFeature({ crud: createResource("drafts"), surface: "home", internal: true }),
+    defineCrudFeature({
+      crud: createResource("audits"),
       surface: "home",
       routes: false,
       permissions: { list: "app.admin" },

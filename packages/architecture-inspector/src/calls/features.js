@@ -37,7 +37,7 @@ function bindFeatures({ calls, symbols, evaluator }) {
   const crudDeclarations = [];
   for (const call of calls) {
     const callee = unwrapExpression(call.expression);
-    if (ts.isIdentifier(callee) && symbols.isImportOf(callee, CRUD_PACKAGE, ["defineCrudJsonApiFeature"])) {
+    if (ts.isIdentifier(callee) && symbols.isImportOf(callee, CRUD_PACKAGE, ["defineCrudFeature"])) {
       const config = objectLiteral(call.arguments[0], symbols);
       if (config) {
         crudDeclarations.push(config);
@@ -254,7 +254,7 @@ function factoryCall(expression, packageName, name, symbols) {
 // The literal namespace of a CRUD declaration's `defineCrudContract` contract:
 // its own `namespace`, else the `name` of the table resource it is built on.
 function crudNamespace(config, { symbols, evaluator }) {
-  const contract = factoryCall(memberValue(memberNamed(config, "resource")), CRUD_CONTRACT_PACKAGE, "defineCrudContract", symbols);
+  const contract = factoryCall(memberValue(memberNamed(config, "crud")), CRUD_CONTRACT_PACKAGE, "defineCrudContract", symbols);
   if (!contract) {
     return null;
   }

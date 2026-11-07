@@ -11,7 +11,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { returnJsonApiData, returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
-import { defineCrudJsonApiFeature } from "../src/server/defineCrudJsonApiFeature.js";
+import { defineCrudFeature } from "../src/server/defineCrudFeature.js";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { crudJsonApiActionOptions, crudJsonApiRouteOptions } from "./support/crudJsonApiActionOptions.js";
 import { registerCrudJsonApiRoutes } from "../src/server/jsonApiModule/routes.js";
@@ -52,16 +52,43 @@ function valueProvider(id, capability, value) {
   });
 }
 
-function createFeatureDependencies(routes) {
-  const knex = Object.assign(() => {}, {
-    async transaction(callback) {
-      return callback({});
+// A stand-in for one owned table's handle: the CRUD service's calls, answered as a JSON:API document.
+function fakeHandle(resource) {
+  return Object.freeze({
+    name: resource.name,
+    pageLimits: () => Object.freeze({ request: 100, server: 1000 }),
+    async withTransaction(options, work) {
+      return work(Object.freeze({ ...options, trx: "managed" }));
+    },
+    async query() {
+      return { data: [] };
+    },
+    async get() {
+      return null;
+    },
+    async create(attributes) {
+      return { data: { type: resource.name, id: "1", attributes } };
+    },
+    async patch() {
+      return null;
+    },
+    async delete() {
+      return null;
     }
   });
-  const jsonRestApi = {
-    resources: {},
-    async addResource(name, config) {
-      this.resources[name] = { config };
+}
+
+function createFeatureDependencies(routes, owned = []) {
+  const resources = {
+    own(featureId, owns) {
+      owned.push({ featureId, owns });
+      return Object.freeze(Object.fromEntries(owns.map((entry) => {
+        const resource = entry.resource || entry;
+        return [resource.name, fakeHandle(resource)];
+      })));
+    },
+    createSystemContext(declaration) {
+      return Object.freeze({ system: true, ...declaration });
     }
   };
   const http = {
@@ -72,16 +99,15 @@ function createFeatureDependencies(routes) {
     }
   };
   return [
-    valueProvider("test.database", "runtime.database", { knex }),
-    valueProvider("test.http", "runtime.http", http),
-    valueProvider("test.json-rest-api", "runtime.json-rest-api", jsonRestApi)
+    valueProvider("test.resources", "runtime.resources", resources),
+    valueProvider("test.http", "runtime.http", http)
   ];
 }
 
-test("defineCrudJsonApiFeature composes one resource without ceremonial token layers", async () => {
+test("defineCrudFeature composes one resource without ceremonial token layers", async () => {
   const routes = [];
-  const feature = defineCrudJsonApiFeature({
-    resource: createBookResource(),
+  const feature = defineCrudFeature({
+    crud: createBookResource(),
     surface: "app",
     relativePath: "/books"
   });
@@ -113,8 +139,8 @@ test("defineCrudJsonApiFeature composes one resource without ceremonial token la
 
   assert.equal(feature.id, "crud.books");
   assert.deepEqual(feature.provides, { resourceApi: "crud.books" });
-  assert.equal(resourceApi.resource.namespace, "books");
-  assert.equal(typeof resourceApi.service.queryDocuments, "function");
+  assert.equal(resourceApi.crud.namespace, "books");
+  assert.equal(typeof resourceApi.service.list, "function");
   assert.equal(typeof resourceApi.repository.withTransaction, "function");
   assert.deepEqual(
     actions.listDefinitions().map((entry) => entry.id),
@@ -142,7 +168,7 @@ test("defineCrudJsonApiFeature composes one resource without ceremonial token la
   await runtime.shutdown();
 });
 
-test("defineCrudJsonApiFeature sends record.changed to its realtime audience", async () => {
+test("defineCrudFeature sends record.changed to its realtime audience", async () => {
   const execution = { input: { recordId: "5" }, result: returnJsonApiDocument({ data: { id: "5" } }), context: {} };
   for (const [options, audience] of [[{}, "event_scope"], [{ realtimeAudience: "all_users" }, "all_users"]]) {
     let actions;
@@ -159,8 +185,8 @@ test("defineCrudJsonApiFeature sends record.changed to its realtime audience", a
       providers: [
         EventProvider, ActionProvider,
         ...createFeatureDependencies([]),
-        defineCrudJsonApiFeature({
-          resource: createBookResource({ apiAccess: "public", ownership: "public" }),
+        defineCrudFeature({
+          crud: createBookResource({ apiAccess: "public", ownership: "public" }),
           surface: "home",
           ...options
         }),
@@ -182,10 +208,10 @@ test("defineCrudJsonApiFeature sends record.changed to its realtime audience", a
   }
 });
 
-test("defineCrudJsonApiFeature makes workspace scope and permissions explicit", async () => {
+test("defineCrudFeature makes workspace scope and permissions explicit", async () => {
   const routes = [];
-  const feature = defineCrudJsonApiFeature({
-    resource: createBookResource({ ownership: "workspace" }),
+  const feature = defineCrudFeature({
+    crud: createBookResource({ ownership: "workspace" }),
     surface: "app",
     scope: {
       routeBase: "/w/:workspaceSlug",
@@ -225,8 +251,8 @@ test("defineCrudJsonApiFeature makes workspace scope and permissions explicit", 
 
 test("a scoped CRUD custom action's input keeps its own mode, and one without a mode is create", async () => {
   const routes = [];
-  const feature = defineCrudJsonApiFeature({
-    resource: createBookResource({ ownership: "workspace" }),
+  const feature = defineCrudFeature({
+    crud: createBookResource({ ownership: "workspace" }),
     surface: "app",
     scope: {
       routeBase: "/w/:workspaceSlug",
@@ -270,8 +296,8 @@ test("a scoped CRUD custom action's input keeps its own mode, and one without a 
 });
 
 test("a CRUD custom action that declares idempotency stops the feature from starting", async () => {
-  const feature = defineCrudJsonApiFeature({
-    resource: createBookResource(),
+  const feature = defineCrudFeature({
+    crud: createBookResource(),
     surface: "app",
     actions: {
       archive: {
@@ -305,22 +331,22 @@ test("generated CRUD actions expose truthful assistant contracts without changin
     namespace: "books",
     resource,
     service: {
-      async queryDocuments() {
+      async list() {
         return returnJsonApiDocument({
           data: [document("1", "Kindred").data],
           meta: { pagination: { cursor: { next: "cursor-2" } } }
         });
       },
-      async getDocumentById() {
+      async view() {
         return returnJsonApiDocument(document("1", "Kindred"));
       },
-      async createDocument() {
+      async create() {
         return returnJsonApiDocument(document("2", "Parable of the Sower"));
       },
-      async patchDocumentById() {
+      async patch() {
         return returnJsonApiDocument(document("1", "Kindred (updated)"));
       },
-      async deleteDocumentById() {
+      async delete() {
         return null;
       }
     },
@@ -377,7 +403,7 @@ test("generated CRUD actions expose truthful assistant contracts without changin
     returnJsonApiDocument(document("1", "Kindred")));
 });
 
-test("defineCrudJsonApiFeature lets product services name exact capability dependencies", async () => {
+test("defineCrudFeature lets product services name exact capability dependencies", async () => {
   const routes = [];
   const access = {
     calls: [],
@@ -385,16 +411,16 @@ test("defineCrudJsonApiFeature lets product services name exact capability depen
       this.calls.push(context);
     }
   };
-  const feature = defineCrudJsonApiFeature({
-    resource: createBookResource(),
+  const feature = defineCrudFeature({
+    crud: createBookResource(),
     surface: "console",
     requires: { access: "console.access" },
-    decorateService({ service, repository, resource, access: consoleAccess }) {
-      assert.equal(resource.namespace, "books");
-      assert.equal(typeof repository.createDocument, "function");
+    decorateService({ service, repository, crud, access: consoleAccess }) {
+      assert.equal(crud.namespace, "books");
+      assert.equal(typeof repository.create, "function");
       return {
         ...service,
-        async createDocument(payload, options) {
+        async create(payload, options) {
           await consoleAccess.requireOwner(options.context);
           return { data: { type: "books", attributes: payload } };
         }
@@ -424,21 +450,21 @@ test("defineCrudJsonApiFeature lets product services name exact capability depen
   await runtime.start();
   const context = { auth: { userId: "1" } };
   assert.deepEqual(
-    await resourceApi.service.createDocument({ title: "Parable of the Sower" }, { context }),
+    await resourceApi.service.create({ title: "Parable of the Sower" }, { context }),
     { data: { type: "books", attributes: { title: "Parable of the Sower" } } }
   );
   assert.deepEqual(access.calls, [context]);
   await runtime.shutdown();
 });
 
-test("defineCrudJsonApiFeature lets product repositories add only unique persistence operations", async () => {
+test("defineCrudFeature lets product repositories add only unique persistence operations", async () => {
   const routes = [];
-  const feature = defineCrudJsonApiFeature({
-    resource: createBookResource(),
+  const feature = defineCrudFeature({
+    crud: createBookResource(),
     surface: "app",
-    decorateRepository({ repository, database, resource }) {
-      assert.equal(resource.namespace, "books");
-      assert.equal(typeof database.knex.transaction, "function");
+    decorateRepository({ repository, resources, crud }) {
+      assert.equal(crud.namespace, "books");
+      assert.equal(resources.books, repository);
       return Object.freeze({
         ...repository,
         async countBooks() {
@@ -463,38 +489,143 @@ test("defineCrudJsonApiFeature lets product repositories add only unique persist
 
   await runtime.start();
   assert.equal(await resourceApi.repository.countBooks(), 12);
-  assert.equal(typeof resourceApi.repository.queryDocuments, "function");
+  assert.equal(typeof resourceApi.repository.query, "function");
   await runtime.shutdown();
 });
 
-test("defineCrudJsonApiFeature rejects reserved requirements and invalid decorators", () => {
+test("defineCrudFeature owns its CRUD table, takes its extras from owns, and hands a system context to decorateRepository", async () => {
+  const crud = createBookResource({ ownership: "public" });
+  const notes = defineTableResource({ name: "bookNotes", tableName: "book_notes", ownership: "public", schema: { body: { type: "string" } } });
+  const archived = defineCrudContract(defineTableResource({
+    name: "archivedBooks",
+    tableName: "archived_books",
+    ownership: "public",
+    schema: { title: { type: "string", required: true } }
+  }));
+  const rowPolicy = () => true;
+  const owned = [];
+  let received = null;
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [
+      EventProvider, ActionProvider,
+      ...createFeatureDependencies([], owned),
+      defineCrudFeature({ crud, surface: "home", owns: [notes] }),
+      defineCrudFeature({
+        crud: archived,
+        id: "crud.archived-books",
+        surface: "home",
+        relativePath: "/archived-books",
+        owns: [{ resource: archived.resource, rowPolicy }],
+        systemScope: "archive old books in every workspace",
+        decorateRepository(dependencies) {
+          received = dependencies;
+          return dependencies.repository;
+        }
+      })
+    ]
+  });
+
+  await runtime.start();
+  const ownedBy = Object.fromEntries(owned.map(({ featureId, owns }) => [featureId, owns]));
+  assert.deepEqual(Object.fromEntries(Object.entries(ownedBy).map(([featureId, owns]) => [featureId, owns.map((entry) => entry.resource?.name || entry.name)])), {
+    "crud.books": ["books", "bookNotes"],
+    "crud.archived-books": ["archivedBooks"]
+  });
+  assert.equal(ownedBy["crud.archived-books"][0].rowPolicy, rowPolicy);
+  assert.deepEqual(Object.keys(received.resources), ["archivedBooks"]);
+  assert.equal(received.systemContext("move them").reason, "move them");
+  assert.equal(Object.hasOwn(received, "http"), false);
+  await runtime.shutdown();
+});
+
+test("defineCrudFeature serves a table another feature owns through the owner's repository, at the visibility it names", async () => {
+  const routes = [];
+  const owned = [];
+  const usersRepository = Object.freeze({ name: "users", pageLimits: () => Object.freeze({ request: 100, server: 1000 }) });
+  const users = defineCrudContract(defineTableResource({
+    name: "users",
+    tableName: "users",
+    ownership: "public",
+    schema: { displayName: { type: "string" } }
+  }), { operations: ["list", "view"] });
+  let actions;
+  let resourceApi;
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [
+      EventProvider, ActionProvider,
+      ...createFeatureDependencies(routes, owned),
+      valueProvider("test.users-owner", "users.profiles", usersRepository),
+      defineCrudFeature({
+        crud: users,
+        id: "app.users-workspace",
+        surface: "admin",
+        ownerRepository: "users.profiles",
+        visibility: "workspace",
+        scope: {
+          routeBase: "/w/:workspaceSlug",
+          actionInputValidator: schemaDefinition({ workspaceSlug: { type: "string", required: true } }),
+          routeParamsValidator: schemaDefinition({ workspaceSlug: { type: "string", required: true } }),
+          inputKeys: ["workspaceSlug"],
+          input: (request) => ({ workspaceSlug: request.input.params.workspaceSlug })
+        }
+      }),
+      defineProvider({
+        id: "test.users-observer",
+        requires: { actions: "runtime.actions", users: "app.users-workspace" },
+        setup(dependencies) {
+          actions = dependencies.actions;
+          resourceApi = dependencies.users;
+          return {};
+        }
+      })
+    ]
+  });
+
+  await runtime.start();
+  assert.deepEqual(owned, []);
+  assert.equal(resourceApi.repository, usersRepository);
+  assert.deepEqual(routes.map((entry) => [entry.path, entry.contract.visibility]), [
+    ["/api/w/:workspaceSlug/users", "workspace"],
+    ["/api/w/:workspaceSlug/users/:recordId", "workspace"]
+  ]);
+  assert.deepEqual(actions.listDefinitions().map((entry) => entry.permission.permissions), [["crud.users.list"], ["crud.users.view"]]);
+  await runtime.shutdown();
   assert.throws(
-    () => defineCrudJsonApiFeature({
-      resource: createBookResource(),
+    () => defineCrudFeature({ crud: users, surface: "admin", ownerRepository: "users.profiles", owns: [users.resource] }),
+    /serves "users" through users\.profiles, so it cannot own it too/u
+  );
+});
+
+test("defineCrudFeature rejects reserved requirements and invalid decorators", () => {
+  assert.throws(
+    () => defineCrudFeature({
+      crud: createBookResource(),
       surface: "app",
       decorateRepository: {}
     }),
     /decorateRepository must be a function/u
   );
   assert.throws(
-    () => defineCrudJsonApiFeature({
-      resource: createBookResource(),
+    () => defineCrudFeature({
+      crud: createBookResource(),
       surface: "app",
-      requires: { database: "something.else" }
+      requires: { repository: "something.else" }
     }),
-    /reserves the local name database/u
+    /reserves the local name repository/u
   );
   assert.throws(
-    () => defineCrudJsonApiFeature({
-      resource: createBookResource(),
+    () => defineCrudFeature({
+      crud: createBookResource(),
       surface: "app",
       decorateService: {}
     }),
     /decorateService must be a function/u
   );
   assert.throws(
-    () => defineCrudJsonApiFeature({
-      resource: createBookResource(),
+    () => defineCrudFeature({
+      crud: createBookResource(),
       surface: "app",
       operations: ["publish"]
     }),
@@ -502,10 +633,10 @@ test("defineCrudJsonApiFeature rejects reserved requirements and invalid decorat
   );
 });
 
-test("defineCrudJsonApiFeature exposes only deliberately selected operations", async () => {
+test("defineCrudFeature exposes only deliberately selected operations", async () => {
   const routes = [];
-  const feature = defineCrudJsonApiFeature({
-    resource: createBookResource(),
+  const feature = defineCrudFeature({
+    crud: createBookResource(),
     surface: "app",
     relativePath: "/books",
     operations: ["list", "view"]
@@ -535,18 +666,18 @@ test("defineCrudJsonApiFeature exposes only deliberately selected operations", a
     "GET /api/books",
     "GET /api/books/:recordId"
   ]);
-  assert.equal(typeof resourceApi.service.queryDocuments, "function");
-  assert.equal(typeof resourceApi.service.getDocumentById, "function");
-  assert.equal(resourceApi.service.createDocument, undefined);
-  assert.equal(resourceApi.service.patchDocumentById, undefined);
-  assert.equal(resourceApi.service.deleteDocumentById, undefined);
+  assert.equal(typeof resourceApi.service.list, "function");
+  assert.equal(typeof resourceApi.service.view, "function");
+  assert.equal(resourceApi.service.create, undefined);
+  assert.equal(resourceApi.service.patch, undefined);
+  assert.equal(resourceApi.service.delete, undefined);
   await runtime.shutdown();
 });
 
-test("defineCrudJsonApiFeature supports resources that define only selected operations", async () => {
+test("defineCrudFeature supports resources that define only selected operations", async () => {
   const routes = [];
-  const feature = defineCrudJsonApiFeature({
-    resource: createReadOnlyBookResource(),
+  const feature = defineCrudFeature({
+    crud: createReadOnlyBookResource(),
     surface: "app"
   });
   const runtime = createCapabilityRuntime({
@@ -562,10 +693,10 @@ test("defineCrudJsonApiFeature supports resources that define only selected oper
   await runtime.shutdown();
 });
 
-test("defineCrudJsonApiFeature can expose actions and capability without HTTP routes", async () => {
+test("defineCrudFeature can expose actions and capability without HTTP routes", async () => {
   const routes = [];
-  const feature = defineCrudJsonApiFeature({
-    resource: createBookResource(),
+  const feature = defineCrudFeature({
+    crud: createBookResource(),
     surface: "app",
     operations: ["list", "view"],
     routes: false
@@ -595,17 +726,18 @@ test("defineCrudJsonApiFeature can expose actions and capability without HTTP ro
 
 test("CRUD operation lifecycle wraps a mutation transaction and runs afterCommit last", async () => {
   const calls = [];
+  let txOptions = null;
   const service = {
-    patchDocumentById(recordId, patch, options) {
-      calls.push(["service", recordId, patch, options.trx]);
+    patch(recordId, patch, options) {
+      calls.push(["service", recordId, patch, options]);
       return { data: { id: recordId, attributes: patch } };
     }
   };
-  const trx = { id: "transaction" };
   const repository = {
-    async withTransaction(work) {
+    async withTransaction(options, work) {
       calls.push("transaction:begin");
-      const result = await work(trx);
+      txOptions = Object.freeze({ ...options, trx: { id: "transaction" } });
+      const result = await work(txOptions);
       calls.push("transaction:commit");
       return result;
     }
@@ -621,18 +753,18 @@ test("CRUD operation lifecycle wraps a mutation transaction and runs afterCommit
     permissionForOperation: () => ({ require: "authenticated" }),
     operationLifecycle: {
       update: {
-        before({ operation, input, context, trx: currentTrx }) {
-          calls.push(["before", operation, input.recordId, context.actor, currentTrx]);
+        before({ operation, input, context, options }) {
+          calls.push(["before", operation, input.recordId, context.actor, options]);
         },
         execute({ input, standard }) {
           calls.push("execute");
           return standard({ ...input, title: input.title.trim() });
         },
-        after({ result, trx: currentTrx }) {
-          calls.push(["after", result.data.id, currentTrx]);
+        after({ result, options }) {
+          calls.push(["after", result.data.id, options]);
         },
-        afterCommit({ result, trx: currentTrx }) {
-          calls.push(["afterCommit", result.data.id, currentTrx]);
+        afterCommit({ result, options }) {
+          calls.push(["afterCommit", result.data.id, options]);
         }
       }
     }
@@ -642,15 +774,17 @@ test("CRUD operation lifecycle wraps a mutation transaction and runs afterCommit
 
   await actions[0].execute(input, context);
 
+  // The hooks and the standard operation share the transaction's options; afterCommit gets the context alone.
   assert.deepEqual(calls, [
     "transaction:begin",
-    ["before", "update", "42", "tester", trx],
+    ["before", "update", "42", "tester", txOptions],
     "execute",
-    ["service", "42", { title: "Kindred" }, trx],
-    ["after", "42", trx],
+    ["service", "42", { title: "Kindred" }, txOptions],
+    ["after", "42", txOptions],
     "transaction:commit",
-    ["afterCommit", "42", null]
+    ["afterCommit", "42", { context }]
   ]);
+  assert.equal(calls[1][4].context, context);
 });
 
 test("CRUD operation lifecycle does not run after or afterCommit when the transaction fails", async () => {
@@ -660,13 +794,13 @@ test("CRUD operation lifecycle does not run after or afterCommit when the transa
     namespace: "books",
     resource: createBookResource(),
     repository: {
-      async withTransaction(work) {
+      async withTransaction(options, work) {
         calls.push("transaction:begin");
-        return work({ id: "transaction" });
+        return work({ ...options, trx: "transaction" });
       }
     },
     service: {
-      async patchDocumentById() {
+      async patch() {
         calls.push("service");
         throw error;
       }
@@ -705,15 +839,15 @@ test("a CRUD create that returns no tagged JSON:API result with the record id fa
       namespace: "books",
       resource: createBookResource(),
       repository: {
-        async withTransaction(work) {
+        async withTransaction(options, work) {
           calls.push("transaction:begin");
-          const result = await work({ id: "transaction" });
+          const result = await work({ ...options, trx: "transaction" });
           calls.push("transaction:commit");
           return result;
         }
       },
       service: {
-        async createDocument() {
+        async create() {
           return returnJsonApiDocument(createdDocument);
         }
       },
@@ -741,7 +875,7 @@ test("a CRUD create that returns no tagged JSON:API result with the record id fa
     resource: createBookResource(),
     repository: {},
     service: {
-      async createDocument() {
+      async create() {
         return createdDocument;
       }
     },
@@ -760,7 +894,7 @@ test("a CRUD create that returns no tagged JSON:API result with the record id fa
       resource: createBookResource(),
       repository: {},
       service: {
-        async createDocument() {
+        async create() {
           return returned;
         }
       },
@@ -781,14 +915,14 @@ test("CRUD afterCommit failures preserve the original cause and acknowledged com
       namespace: "books",
       resource: createBookResource(),
       repository: {
-        async withTransaction(work) {
-          const result = await work({ id: "transaction" });
+        async withTransaction(options, work) {
+          const result = await work({ ...options, trx: "transaction" });
           committed = true;
           return result;
         }
       },
       service: {
-        patchDocumentById(id, attributes) { return { data: { id, attributes } }; }
+        patch(id, attributes) { return { data: { id, attributes } }; }
       },
       surface: "app",
       operations: ["update"],
@@ -818,15 +952,15 @@ test("CRUD failures before acknowledged commit are not marked committed", async 
       namespace: "books",
       resource: createBookResource(),
       repository: {
-        async withTransaction(work) {
-          const result = await work({ id: "transaction" });
+        async withTransaction(options, work) {
+          const result = await work({ ...options, trx: "transaction" });
           if (phase === "commit") throw failure;
           committed = true;
           return result;
         }
       },
       service: {
-        patchDocumentById(id, attributes) { return { data: { id, attributes } }; }
+        patch(id, attributes) { return { data: { id, attributes } }; }
       },
       surface: "app",
       operations: ["update"],
@@ -848,15 +982,15 @@ test("CRUD failures before acknowledged commit are not marked committed", async 
   }
 });
 
-test("defineCrudJsonApiFeature exposes custom service methods as actions and optional routes", async () => {
+test("defineCrudFeature exposes custom service methods as actions and optional routes", async () => {
   const routes = [];
   const calls = [];
   const confirmInput = schemaDefinition({
     recordId: { type: "string", required: true },
     note: { type: "string", required: false }
   });
-  const feature = defineCrudJsonApiFeature({
-    resource: createBookResource(),
+  const feature = defineCrudFeature({
+    crud: createBookResource(),
     surface: "app",
     relativePath: "/books",
     decorateService({ service }) {
@@ -953,40 +1087,40 @@ test("defineCrudJsonApiFeature exposes custom service methods as actions and opt
   await runtime.shutdown();
 });
 
-test("defineCrudJsonApiFeature rejects implicit workspace scope and public private ownership", () => {
+test("defineCrudFeature rejects implicit workspace scope and public private ownership", () => {
   assert.throws(
-    () => defineCrudJsonApiFeature({
-      resource: createBookResource(),
+    () => defineCrudFeature({
+      crud: createBookResource(),
       surface: "app",
       routes: "sometimes"
     }),
     /routes must be a boolean/u
   );
   assert.throws(
-    () => defineCrudJsonApiFeature({
-      resource: createBookResource({ ownership: "workspace" }),
+    () => defineCrudFeature({
+      crud: createBookResource({ ownership: "workspace" }),
       surface: "app"
     }),
     /requires explicit scope routeBase, actionInputValidator, routeParamsValidator, inputKeys, input/u
   );
   assert.throws(
-    () => defineCrudJsonApiFeature({
-      resource: createBookResource({ apiAccess: "public", ownership: "user" }),
+    () => defineCrudFeature({
+      crud: createBookResource({ apiAccess: "public", ownership: "user" }),
       surface: "public"
     }),
-    /public CRUD feature requires ownershipFilter "public"/u
+    /public CRUD feature serves a table resource whose ownership \(or visibility\) is "public"/u
   );
   assert.throws(
-    () => defineCrudJsonApiFeature({
-      resource: createBookResource(),
+    () => defineCrudFeature({
+      crud: createBookResource(),
       surface: "app",
       operationLifecycle: { list: { afterCommit() {} } }
     }),
     /afterCommit is only valid for mutations/u
   );
   assert.throws(
-    () => defineCrudJsonApiFeature({
-      resource: createBookResource(),
+    () => defineCrudFeature({
+      crud: createBookResource(),
       surface: "app",
       operationLifecycle: { update: { eventually() {} } }
     }),

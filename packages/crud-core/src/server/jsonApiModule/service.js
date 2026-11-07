@@ -1,6 +1,6 @@
 import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
-import { resolveTransaction } from "@jskit-ai/database-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { buildJsonRestQueryParams } from "@jskit-ai/resource-runtime/server/resourceHost";
 
 function requireDocument(document) {
   if (!document) {
@@ -10,52 +10,73 @@ function requireDocument(document) {
 }
 
 /**
- * What a service call hands its repository: the call's transaction and action
- * context, each null when the call has none.
- * @param {{ trx?: import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction | null, context?: object | null }} [options]
+ * The CRUD service: the HTTP edge of a CRUD feature. It takes an operation's
+ * HTTP query and body, calls the feature's repository (its table's handle, as
+ * decorated) with the call's options and `format: "jsonapi"`, and answers
+ * JSON:API documents. Server code calls the repository instead.
+ * @param {object} dependencies
+ * @param {import("../types.js").CrudRepository} dependencies.repository
+ * @param {string} dependencies.resourceName The CRUD contract's table resource name, the type of its documents.
  */
-function repositoryCallOptions(options = {}) {
-  return { trx: resolveTransaction(options), context: options.context || null };
-}
-
-/** @param {{ repository: import("../types.js").CrudRepository }} dependencies */
-function createCrudJsonApiService({ repository }) {
-  async function queryDocuments(query, options) {
-    return returnJsonApiDocument(await repository.queryDocuments(query, repositoryCallOptions(options)));
+function createCrudService({ repository, resourceName }) {
+  /** @param {{ context?: object | null, trx?: object | null }} options */
+  function documentOptions(options) {
+    return { ...options, format: "jsonapi" };
   }
 
-  async function queryEveryDocument(query, options) {
-    return returnJsonApiDocument(await repository.queryEveryDocument(query, repositoryCallOptions(options)));
+  /**
+   * One page of the records the HTTP query matches: its filters, `include`,
+   * `fields`, `sort`, `limit` and `cursor`.
+   * @param {Record<string, unknown>} query
+   * @param {{ context?: object | null, trx?: object | null }} options
+   */
+  async function list(query, options) {
+    return returnJsonApiDocument(await repository.query(buildJsonRestQueryParams(resourceName, query), documentOptions(options)));
   }
 
-  // forUpdate locks the record in the call's transaction; see the repository's getDocumentById.
-  async function getDocumentById(recordId, query, options = {}) {
-    return returnJsonApiDocument(requireDocument(await repository.getDocumentById(recordId, query, {
-      ...repositoryCallOptions(options),
-      forUpdate: options.forUpdate
-    })));
+  /**
+   * @param {unknown} recordId
+   * @param {Record<string, unknown>} query `include` and `fields`.
+   * @param {{ context?: object | null, trx?: object | null }} options
+   */
+  async function view(recordId, query, options) {
+    return returnJsonApiDocument(requireDocument(
+      await repository.get(recordId, buildJsonRestQueryParams(resourceName, query), documentOptions(options))
+    ));
   }
 
-  async function createDocument(payload, options) {
-    return returnJsonApiDocument(await repository.createDocument(payload, repositoryCallOptions(options)));
+  /**
+   * @param {Record<string, unknown>} payload
+   * @param {{ context?: object | null, trx?: object | null }} options
+   */
+  async function create(payload, options) {
+    return returnJsonApiDocument(await repository.create(payload, documentOptions(options)));
   }
 
-  async function patchDocumentById(recordId, payload, options) {
-    return returnJsonApiDocument(requireDocument(await repository.patchDocumentById(recordId, payload, repositoryCallOptions(options))));
+  /**
+   * @param {unknown} recordId
+   * @param {Record<string, unknown>} payload
+   * @param {{ context?: object | null, trx?: object | null }} options
+   */
+  async function patch(recordId, payload, options) {
+    return returnJsonApiDocument(requireDocument(await repository.patch(recordId, payload, documentOptions(options))));
   }
 
-  async function deleteDocumentById(recordId, options) {
-    return repository.deleteDocumentById(recordId, repositoryCallOptions(options));
+  /**
+   * @param {unknown} recordId
+   * @param {{ context?: object | null, trx?: object | null }} options
+   */
+  async function deleteRecord(recordId, options) {
+    return repository.delete(recordId, options);
   }
 
   return Object.freeze({
-    queryDocuments,
-    queryEveryDocument,
-    getDocumentById,
-    createDocument,
-    patchDocumentById,
-    deleteDocumentById
+    list,
+    view,
+    create,
+    patch,
+    delete: deleteRecord
   });
 }
 
-export { createCrudJsonApiService, repositoryCallOptions };
+export { createCrudService };

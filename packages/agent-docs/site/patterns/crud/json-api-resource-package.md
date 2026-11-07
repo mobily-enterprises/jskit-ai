@@ -59,10 +59,13 @@ from a generator questionnaire or treat a live table as the sole contract.
 
 Use `defineTableResource()` from `@jskit-ai/resource-core`,
 `defineCrudContract()` from `@jskit-ai/resource-crud-core` and
-`defineCrudJsonApiFeature()` from `@jskit-ai/crud-core`. The feature takes the
-CRUD contract as `resource` and composes the JSON REST resource, repository,
-service, standard CRUD actions with their record-changed events, route
-contracts, access policy, and HTTP routes.
+`defineCrudFeature()` from `@jskit-ai/crud-core`. The feature takes the CRUD
+contract as `crud` and owns its table resource: its repository is the table's
+handle, and it composes the CRUD service, standard CRUD actions with their
+record-changed events, route contracts, access policy, and HTTP routes. The
+routes' visibility and the rows each call reaches follow the table resource's
+`ownership`. More tables the feature owns go in `owns`, and so do the CRUD
+table's server-only extras (`{ resource: bookResource, rowPolicy, hooks }`).
 
 ## Example files
 
@@ -108,15 +111,14 @@ an unfiltered collection can satisfy a matching-row-only assertion.
 
 ## Variation points
 
-Change the package name, resource fields, table, surface, ownership filter,
+Change the package name, resource fields, table, ownership, surface,
 relative route, messages, and migration. Supply explicit permissions when the
 surface uses named policy. For workspace ownership, pass `scope:
 WORKSPACE_CRUD_SCOPE` (`@jskit-ai/workspaces-core/server/support/workspaceCrud`):
 the `/w/:workspaceSlug` route base, the workspace route and action validators
-and the slug input. A repository method of such a feature reads the workspace
-id with `resolveWorkspaceScopeValue(options.context)`
-(`@jskit-ai/resource-runtime/server/resourceHost`), and a
-hand-written workspace route's path is
+and the slug input. A repository method of such a feature passes the call's
+`options` on to its handle, which scopes every read and write to the caller's
+workspace, and a hand-written workspace route's path is
 `resolveWorkspaceRoutePath("relative-path")`
 (`@jskit-ai/workspaces-core/server/support/workspaceRoutePaths`). The feature exposes the
 operations declared by the CRUD contract. Use `operations` only to narrow that
@@ -144,24 +146,29 @@ function of the action execution.
 
 When otherwise-standard CRUD earns product behavior, name the exact
 capabilities in `requires` and provide `decorateService({ service, repository,
-resource, ...dependencies })`. Retain the standard methods, override only the
-methods whose CRUD behavior changes, and add resource-related domain methods
-such as `confirmBooking()` or `sendReminder()` directly to that service. Those
-additional methods remain available through the resource capability. An
-overridden `createDocument()` returns the created record, with its id, as a
+crud, ...dependencies })`. Retain the standard methods (`list`, `view`,
+`create`, `patch`, `delete`), override only the methods whose CRUD behavior
+changes, and add resource-related domain methods such as `confirmBooking()` or
+`sendReminder()` directly to that service. Those additional methods remain
+available through the resource capability. An overridden `create()` returns
+the created record, with its id, as a
 tagged JSON:API result: a document result (`returnJsonApiDocument`), as the
 standard one does, or a data result (`returnJsonApiData(record)`). The create
 action's created and `record.changed` events read the record's id from it, and
 a create whose service returns an untagged document or record, or a result
 without the record's id, fails in every channel. When the
 product needs only a few additional queries or locking operations, provide
-`decorateRepository({ repository, database, http, jsonRestApi, resource,
-...dependencies })`; return the standard methods plus only those unique
-persistence operations instead of copying the CRUD repository.
+`decorateRepository({ repository, resources, crud, ...dependencies })`, where
+`repository` is the CRUD table's handle and `resources` holds the handle of
+every table the feature owns; return the handle's methods plus only those
+unique persistence operations, each taking the call's `options` last and
+passing them on untouched.
 
 Use `operationLifecycle` for behavior surrounding a standard operation. Its
 per-operation `before`, `execute`, and `after` phases share one repository
-transaction for create, update, and delete. An `execute` hook receives
+transaction for create, update, and delete: each receives `options`, the call
+options carrying the action context and that transaction, to pass on to every
+repository or service call it makes. An `execute` hook receives
 `standard(nextInput)` so it can retain the framework write while adjusting its
 input or coordinating other repository work, and returns what `standard()`
 returns: the operation's tagged JSON:API result (null for delete). A create's
@@ -193,7 +200,9 @@ the resource is no longer principally CRUD.
 
 If a product-specific list filter needs additional transport validation and
 JSON API search mapping, pass its validator as `listFilterQueryValidator` and
-its storage mapping as `searchSchema`; keep that contract next to the feature.
+put its storage mapping in the table resource's `searchSchema` (or, when it is
+server-only, in the CRUD table's `owns` entry); keep that contract next to the
+feature.
 Use `operationInputs.create` or `operationInputs.update` when a standard CRUD
 operation intentionally accepts a small virtual product field that is handled
 by the service decorator rather than stored on the resource row.
@@ -238,15 +247,15 @@ function decorateBookingsService({ service, repository }) {
 ```
 
 ```js
-const BookingsFeature = defineCrudJsonApiFeature({
-  resource: bookingResource,
+const BookingsFeature = defineCrudFeature({
+  crud: bookingCrud,
   surface: "app",
   decorateRepository: decorateBookingsRepository,
   decorateService: decorateBookingsService,
   operationLifecycle: {
     update: {
-      async before({ input, service, trx, context }) {
-        await service.assertUpdateAllowed(input.recordId, { trx, context });
+      async before({ input, service, options }) {
+        await service.assertUpdateAllowed(input.recordId, options);
       },
       async afterCommit({ result, service, context }) {
         await service.recordUpdateCompleted(result.value.data.id, { context });

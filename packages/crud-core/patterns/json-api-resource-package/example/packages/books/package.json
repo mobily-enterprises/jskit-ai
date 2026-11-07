@@ -21,9 +21,8 @@
       ],
       "requires": [
         "runtime.http",
-        "runtime.json-rest-api",
         "runtime.actions",
-        "runtime.database"
+        "runtime.resources"
       ]
     },
     "runtime": {

@@ -97,15 +97,15 @@ function normalizeCrudOperationLifecycle(value) {
 }
 
 function buildLifecycleContext(value) {
-  const { operation, input, context, resource, repository, service, trx, result, standard } = value;
+  const { operation, input, context, options, resource, repository, service, result, standard } = value;
   return Object.freeze({
     operation,
     input,
     context,
+    options,
     resource,
     repository,
     service,
-    trx,
     ...(Object.hasOwn(value, "result") ? { result } : {}),
     ...(standard ? { standard } : {})
   });
@@ -157,7 +157,7 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
 
 /**
  * The standard and custom actions of one CRUD feature, from the options
- * defineCrudJsonApiFeature resolved.
+ * defineCrudFeature resolved.
  * @param {object} dependencies
  * @param {string} dependencies.namespace
  * @param {import("../types.js").CrudContract} dependencies.resource
@@ -208,38 +208,39 @@ function createCrudJsonApiActions({
     servedOverHttp
   });
 
-  // HTTP and automation callers keep json-rest-api's page cap: a larger limit answers
-  // queryMaxLimit records, and the response's pagination reports the page size, hasMore
+  // HTTP and automation callers keep the resource's page cap: a larger limit answers
+  // pageLimits().request records, and the response's pagination reports the page size, hasMore
   // and the next cursor, as it always has. Server code asking for more gets an error instead.
-  function listDocuments(input, context) {
+  function listDocuments(input, options) {
     const query = omitInputKeys(input, scopeInputKeys);
-    if (query.limit != null && Number(query.limit) > repository.queryMaxLimit()) {
-      query.limit = repository.queryMaxLimit();
+    const pageLimit = repository.pageLimits().request;
+    if (query.limit != null && Number(query.limit) > pageLimit) {
+      query.limit = pageLimit;
     }
-    return service.queryDocuments(query, { context });
+    return service.list(query, options);
   }
 
-  function viewDocument(input, context) {
-    return service.getDocumentById(input.recordId, omitInputKeys(input, [...scopeInputKeys, "recordId"]), { context });
+  function viewDocument(input, options) {
+    return service.view(input.recordId, omitInputKeys(input, [...scopeInputKeys, "recordId"]), options);
   }
 
-  function createDocument(input, context, trx) {
-    return service.createDocument(omitInputKeys(input, scopeInputKeys), { context, trx });
+  function createDocument(input, options) {
+    return service.create(omitInputKeys(input, scopeInputKeys), options);
   }
 
-  function updateDocument(input, context, trx) {
-    return service.patchDocumentById(input.recordId, omitInputKeys(input, [...scopeInputKeys, "recordId"]), { context, trx });
+  function updateDocument(input, options) {
+    return service.patch(input.recordId, omitInputKeys(input, [...scopeInputKeys, "recordId"]), options);
   }
 
-  function deleteDocument(input, context, trx) {
-    return service.deleteDocumentById(input.recordId, { context, trx });
+  function deleteDocument(input, options) {
+    return service.delete(input.recordId, options);
   }
 
   /**
    * An operation's result, checked where its events depend on it: a create
    * returns the created record, with its id, as a tagged JSON:API result of a
    * kind the HTTP transport encodes (returnJsonApiDocument, as the service's
-   * createDocument and a lifecycle's standard() do, or returnJsonApiData), since
+   * create and a lifecycle's standard() do, or returnJsonApiData), since
    * its created and record-changed events read the record's id from it.
    * @param {string} operation
    * @param {unknown} result
@@ -248,7 +249,7 @@ function createCrudJsonApiActions({
     if (operation === "create" && !resolveCrudJsonApiEntityIdFromResult({ result })) {
       throw new TypeError(
         `CRUD ${namespace} create must return the created record, with its id, as a tagged JSON:API result ` +
-          "(returnJsonApiDocument, as createDocument() and a lifecycle's standard() do, or returnJsonApiData)."
+          "(returnJsonApiDocument, as the CRUD service's create() and a lifecycle's standard() do, or returnJsonApiData)."
       );
     }
     return result;
@@ -259,20 +260,22 @@ function createCrudJsonApiActions({
    * @param {string} operation
    * @param {object} input
    * @param {object} context
-   * @param {(input: object, context: object, trx: object | null) => Promise<any>} runStandard
+   * @param {(input: object, options: { context: object, trx?: object }) => Promise<any>} runStandard
    */
   async function executeOperation(operation, input, context, runStandard) {
     const hooks = operationLifecycle[operation];
+    const callOptions = Object.freeze({ context });
     if (!hooks) {
-      return requireOperationResult(operation, await runStandard(input, context, null));
+      return requireOperationResult(operation, await runStandard(input, callOptions));
     }
 
-    async function run(trx = null) {
-      const base = { operation, input, context, resource, repository, service, trx };
+    // A mutation's hooks and its standard operation share one transaction: the options they receive carry it.
+    async function run(options) {
+      const base = { operation, input, context, options, resource, repository, service };
       if (hooks.before) {
         await hooks.before(buildLifecycleContext(base));
       }
-      const standard = (nextInput = input) => runStandard(nextInput, context, trx);
+      const standard = (nextInput = input) => runStandard(nextInput, options);
       const result = requireOperationResult(operation, hooks.execute
         ? await hooks.execute(buildLifecycleContext({ ...base, standard }))
         : await standard());
@@ -282,17 +285,19 @@ function createCrudJsonApiActions({
       return result;
     }
 
-    const result = CRUD_MUTATION_NAMES.has(operation) ? await repository.withTransaction(run) : await run();
+    const result = CRUD_MUTATION_NAMES.has(operation)
+      ? await repository.withTransaction(callOptions, run)
+      : await run(callOptions);
     if (hooks.afterCommit) {
       try {
         await hooks.afterCommit(buildLifecycleContext({
           operation,
           input,
           context,
+          options: callOptions,
           resource,
           repository,
           service,
-          trx: null,
           result
         }));
       } catch (error) {

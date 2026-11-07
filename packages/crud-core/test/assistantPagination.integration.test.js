@@ -1,21 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import knexLib from "knex";
-import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createServiceToolCatalog } from "@jskit-ai/assistant-core/server";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
-import {
-  addResourceIfMissing,
-  createResourceHost,
-  createJsonRestContext,
-  createJsonRestResourceScopeOptions
-} from "@jskit-ai/resource-runtime/server/resourceHost";
+import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
-import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
-import { createCrudJsonApiService } from "../src/server/jsonApiModule/service.js";
+import { createCrudService } from "../src/server/jsonApiModule/service.js";
 
 test("assistant list traverses real SQL pages with sparse fields and capped limits", async (t) => {
   const knex = knexLib({
@@ -51,10 +44,9 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
     }
   });
   const crud = defineCrudContract(resource, { operations: ["list"], fields: { name: { output: "required" } } });
-  const api = await createResourceHost({ knex, logger: silentLogger });
-  await addResourceIfMissing(api, "books", createJsonRestResourceScopeOptions(resource));
-  const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "books" });
-  const service = createCrudJsonApiService({ repository });
+  const runtime = await createTestResourceRuntime({ knex });
+  const { books: repository } = await runtime.own("test.books", [resource]);
+  const service = createCrudService({ repository, resourceName: "books" });
   const actions = createActionCatalogue();
   actions.register({
     contributorId: "test.books",
@@ -140,31 +132,31 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
     });
   }
 
-  await t.test("plain writes and JSON:API repository writes preserve full records", async () => {
-    const created = await api.resources.books.post({
-      data: { id: "501", workspaceId: "1", name: "Plain record", createdAt: "2026-09-09T00:00:00.000Z" },
-      format: "plain",
-      returning: "full"
-    }, createJsonRestContext(context));
+  await t.test("record writes and the CRUD service's documents preserve full records", async () => {
+    const created = await repository.create(
+      { id: "501", workspaceId: "1", name: "Plain record", createdAt: "2026-09-09T00:00:00.000Z" },
+      { context }
+    );
     assert.equal(created.id, "501");
     assert.equal(created.name, "Plain record");
-    const patched = await repository.patchDocumentById("501", { name: "JSON:API update" }, { context });
-    assert.equal(patched.data.id, "501");
-    assert.equal(patched.data.attributes.name, "JSON:API update");
-    const document = await repository.createDocument({
+    const patched = await service.patch("501", { name: "JSON:API update" }, { context });
+    assert.equal(patched.value.data.id, "501");
+    assert.equal(patched.value.data.attributes.name, "JSON:API update");
+    const document = await service.create({
       id: "502", workspaceId: "1", name: "JSON:API record", createdAt: "2026-09-09T00:00:00.000Z"
     }, { context });
-    assert.equal(document.data.id, "502");
-    assert.equal(document.data.attributes.name, "JSON:API record");
-    assert.equal((await api.resources.books.get({ id: "502", format: "plain" }, createJsonRestContext(context))).name, "JSON:API record");
-    await assert.rejects(api.transaction(async (trx) => {
-      await repository.patchDocumentById("502", { name: "Rolled back" }, { trx, context });
+    assert.equal(document.value.data.id, "502");
+    assert.equal(document.value.data.attributes.name, "JSON:API record");
+    assert.equal((await repository.get("502", {}, { context })).name, "JSON:API record");
+    await assert.rejects(repository.withTransaction({ context }, async (txOptions) => {
+      await service.patch("502", { name: "Rolled back" }, txOptions);
       throw new Error("Rollback proof");
     }), /Rollback proof/);
-    assert.equal((await repository.getDocumentById("502", {}, { context })).data.attributes.name, "JSON:API record");
-    await repository.deleteDocumentById("501", { context });
-    await repository.deleteDocumentById("502", { context });
-    assert.equal(await repository.getDocumentById("501", {}, { context }), null);
+    assert.equal((await service.view("502", {}, { context })).value.data.attributes.name, "JSON:API record");
+    await service.delete("501", { context });
+    await repository.delete("502", { context });
+    assert.equal(await repository.get("501", {}, { context }), null);
+    await assert.rejects(service.view("501", {}, { context }), { status: 404, code: "crud.document.notFound" });
     assert.equal(await knex("books").whereIn("id", [501, 502]).first(), undefined);
   });
 });

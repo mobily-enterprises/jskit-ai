@@ -127,13 +127,11 @@ before an operation discloses records or record existence.
 
 For a standard CRUD resource owned by a workspace, give its table the
 `workspace_id` column, set its table resource's `ownership: "workspace"`, and bind
-`defineCrudJsonApiFeature()` with `ownershipFilter: "workspace"` and `scope:
-WORKSPACE_CRUD_SCOPE` (from `@jskit-ai/workspaces-core/server/support/workspaceCrud`)
-on a workspace surface. JSKIT then filters `workspaceId` by the workspace in the
-route. A repository method you add reads the workspace id with
-`resolveWorkspaceScopeValue(options.context)`
-(`@jskit-ai/resource-runtime/server/resourceHost`), which throws when the
-context names two workspaces.
+`defineCrudFeature()` with `scope: WORKSPACE_CRUD_SCOPE` (from
+`@jskit-ai/workspaces-core/server/support/workspaceCrud`) on a workspace
+surface. JSKIT then filters `workspaceId` by the workspace in the route. A
+repository method you add passes the call's `options` on to the table's handle,
+which scopes every read and write to the context's workspace.
 `workspace_user` also filters by the signed-in user. See the CRUD operations
 guide.
 

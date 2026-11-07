@@ -256,8 +256,8 @@ database allocation, credentials, lifetime, and environment injection.
 ## Resource services and custom operations
 
 Conventional persisted resources use `defineTableResource()`,
-`defineCrudContract()` and `defineCrudJsonApiFeature()` so the framework owns
-repeated repository, service, action, permission, JSON API, and route
+`defineCrudContract()` and `defineCrudFeature()` so the framework owns
+repeated table ownership, service, action, permission, JSON API, and route
 mechanics. This does not make product CRUD behavior fixed.
 
 - `decorateRepository` adds resource-specific queries, locks, or writes.

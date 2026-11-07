@@ -29,7 +29,7 @@ The `event_scope` audience, the default for action entity-change and CRUD
 example one written from a public route or by a job, reaches nobody and logs a
 warning; `event_scope` never widens to all users. Broadcast to every signed-in
 user only through the explicit `all_users` audience; a CRUD feature selects it
-with `defineCrudJsonApiFeature({ realtimeAudience: "all_users" })`.
+with `defineCrudFeature({ realtimeAudience: "all_users" })`.
 
 An audience entry may also reach users that only a record's owner knows, such
 as the person an invitation was sent to. It provides

@@ -33,6 +33,18 @@ Exports
 - `StaleRecordError`
 - `UnpagedQueryError`
 
+### `src/server/handleRecords.js`
+Exports
+- `handleRecords(resource, records, include)`
+- `handleResult(resource, result, format, include)`
+- `idOf(result, format)`
+- `inputData(resource, attributes)`
+- `readQueryParams(name, params, { page, caller })`
+- `textList(value)`
+Local functions
+- `includedRelationships(include)`
+- `handleRecord(resource, record, included)`
+
 ### `src/server/index.js`
 Exports
 - `ResourceRuntimeProvider`
@@ -65,10 +77,6 @@ Exports
 - `createResourceHandle({ api, resource, hooks, settings })`
 Local functions
 - `pickReturning(modes, value, fallback, label)`
-- `textList(value)`
-- `readQueryParams(name, params, { page, caller })`
-- `idOf(result, format)`
-- `inputData(resource, attributes)`
 - `reportManyRow(resource, operation, rows, chunkSize)`
 
 ### `src/server/resourceHost.js`

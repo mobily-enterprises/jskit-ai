@@ -20,7 +20,8 @@ Read these package-owned source patterns:
 1. Author a source-controlled migration in the package that owns the entity.
 2. Define the table resource with `defineTableResource()` and its HTTP surface
    with `defineCrudContract()`.
-3. Bind standard server behavior with `defineCrudJsonApiFeature()`.
+3. Bind standard server behavior with `defineCrudFeature()`, which owns the
+   table and serves its CRUD contract.
 4. Add only product-specific service methods, lifecycle, actions, validation,
    policy, queries, messages, and orchestration.
 5. Declare the package provider and framework capabilities in `package.json`.
@@ -61,21 +62,24 @@ or rewrite a historical baseline.
 
 ## Customize without copying CRUD
 
-`defineCrudJsonApiFeature()` deliberately keeps application extension points:
+`defineCrudFeature()` deliberately keeps application extension points:
 
+- `owns` lists the feature's other tables, and the CRUD table's server-only
+  extras (`{ resource, rowPolicy, hooks }`).
 - `decorateRepository` adds the few persistence operations unique to the
-  resource.
+  resource, on the table's handle.
 - `decorateService` overrides standard methods or adds domain methods such as
   `confirm`, `publish`, `cancel`, or `sendReminder`.
 - `operationLifecycle` wraps a standard operation with `before`, `execute`,
   `after`, and mutation-only `afterCommit` phases. Mutation phases before commit
-  receive the same transaction and `execute` receives `standard(nextInput)`.
+  receive the same `options` (context and transaction) to pass on, and
+  `execute` receives `standard(nextInput)`.
 - `actions` exposes non-CRUD service methods through normal validated,
   permissioned, audited JSKIT actions and optional explicit HTTP routes.
 
 A resource whose records carry a version number names it `lockVersionField`
-and patches through the repository's `patchDocumentIfLockVersion`; see the
-database layer guide's Optimistic locking.
+and patches with the handle's `patch(id, changes, { ...options, lockVersion })`;
+see the database layer guide's Optimistic locking.
 
 Keep database reads and writes in repositories. Services and lifecycle hooks
 orchestrate repositories; they do not issue raw database queries. Put external
