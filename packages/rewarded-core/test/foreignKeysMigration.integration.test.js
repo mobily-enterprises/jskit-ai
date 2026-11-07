@@ -1,34 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import knexLib from "knex";
 import providerConfigsMigration from "../migrations/rewarded_provider_configs_initial.cjs";
 import rulesMigration from "../migrations/rewarded_rules_initial.cjs";
 import unlockReceiptsMigration from "../migrations/rewarded_unlock_receipts_initial.cjs";
 import watchSessionsMigration from "../migrations/rewarded_watch_sessions_initial.cjs";
 import foreignKeysMigration from "../migrations/constraints/rewarded_foreign_keys.cjs";
+import { openOwnDatabase } from "./mysqlDatabase.js";
 
 // Knex's filename order within rewarded-core's migrations/ directory.
 const TABLE_MIGRATIONS = [providerConfigsMigration, rulesMigration, unlockReceiptsMigration, watchSessionsMigration];
 const TABLES = ["rewarded_provider_configs", "rewarded_rules", "rewarded_unlock_receipts", "rewarded_watch_sessions"];
 const databaseUrl = process.env.REWARDED_TEST_DATABASE_URL;
-
-function databaseOptions() {
-  const url = new URL(databaseUrl);
-  assert.equal(url.protocol, "mysql:", "Rewarded shipped migrations require MySQL.");
-  assert.match(url.pathname, /^\/jskit_rewarded_test_[a-z0-9_]+$/u, "Use an owned disposable rewarded test database.");
-  return {
-    client: "mysql2",
-    connection: {
-      host: url.hostname,
-      port: Number(url.port) || 3306,
-      user: decodeURIComponent(url.username),
-      password: decodeURIComponent(url.password),
-      database: url.pathname.slice(1),
-      ...(url.searchParams.has("socketPath") ? { socketPath: url.searchParams.get("socketPath") } : {})
-    },
-    pool: { min: 1, max: 1 }
-  };
-}
 
 async function foreignKeys(knex) {
   return knex("information_schema.REFERENTIAL_CONSTRAINTS")
@@ -57,7 +39,7 @@ const ALL_KEYS = [
 test("a fresh MySQL database migrates rewarded-core before users and workspaces exist, then adds its keys", {
   skip: databaseUrl ? false : "REWARDED_TEST_DATABASE_URL (MySQL) is required: the shipped migrations use MySQL defaults."
 }, async (t) => {
-  const knex = knexLib(databaseOptions());
+  const { knex, dropDatabase } = await openOwnDatabase(databaseUrl, "keys");
   let ownsTables = false;
   t.after(async () => {
     try {
@@ -69,6 +51,7 @@ test("a fresh MySQL database migrates rewarded-core before users and workspaces 
       }
     } finally {
       await knex.destroy();
+      await dropDatabase();
     }
   });
   for (const table of [...TABLES, "users", "workspaces"]) {

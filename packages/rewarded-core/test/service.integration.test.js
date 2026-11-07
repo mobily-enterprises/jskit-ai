@@ -18,6 +18,7 @@ import { resource as rulesResource } from "../src/shared/rewardedRuleResource.js
 import { resource as watchSessionsResource } from "../src/shared/rewardedWatchSessionResource.js";
 import { resource as unlockReceiptsResource } from "../src/shared/rewardedUnlockReceiptResource.js";
 import { createService } from "../src/server/service.js";
+import { openOwnDatabase } from "./mysqlDatabase.js";
 
 const RESOURCES = [
   ["rewardedProviderConfigs", providerConfigsResource, providerConfigsMigration],
@@ -27,32 +28,15 @@ const RESOURCES = [
 ];
 const databaseUrl = process.env.REWARDED_TEST_DATABASE_URL;
 
-function databaseOptions() {
-  if (!databaseUrl) {
-    return {
-      client: "better-sqlite3",
-      connection: { filename: ":memory:" },
-      useNullAsDefault: true,
-      pool: { min: 1, max: 1 }
-    };
-  }
-
-  const url = new URL(databaseUrl);
-  assert.equal(url.protocol, "mysql:", "Rewarded shipped migrations require MySQL.");
-  assert.match(url.pathname, /^\/jskit_rewarded_test_[a-z0-9_]+$/u, "Use an owned disposable rewarded test database.");
-  return {
-    client: "mysql2",
-    connection: {
-      host: url.hostname,
-      port: Number(url.port) || 3306,
-      user: decodeURIComponent(url.username),
-      password: decodeURIComponent(url.password),
-      database: url.pathname.slice(1),
-      ...(url.searchParams.has("socketPath") ? { socketPath: url.searchParams.get("socketPath") } : {}),
-      timezone: "Z"
-    },
+async function openDatabase() {
+  if (databaseUrl) return openOwnDatabase(databaseUrl, "service", { timezone: "Z" });
+  const knex = knexLib({
+    client: "better-sqlite3",
+    connection: { filename: ":memory:" },
+    useNullAsDefault: true,
     pool: { min: 1, max: 1 }
-  };
+  });
+  return { knex, dropDatabase: async () => {} };
 }
 
 function actorContext(workspaceId = "1", userId = "7", testCase = "") {
@@ -64,7 +48,7 @@ function actorContext(workspaceId = "1", userId = "7", testCase = "") {
 }
 
 test(`rewarded grants use real resources and atomic transactions (${databaseUrl ? "MySQL shipped migrations" : "SQLite resource schema"})`, async (t) => {
-  const knex = knexLib(databaseOptions());
+  const { knex, dropDatabase } = await openDatabase();
   let ownsTables = false;
   t.after(async () => {
     try {
@@ -77,6 +61,7 @@ test(`rewarded grants use real resources and atomic transactions (${databaseUrl 
       }
     } finally {
       await knex.destroy();
+      await dropDatabase();
     }
   });
   const tables = [...RESOURCES.map(([, resource]) => resource.tableName), "users", "workspaces"];
