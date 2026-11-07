@@ -75,6 +75,69 @@ test("API runtime persists one admission for concurrent identical sends and stre
   assert.equal(f.requests.length, 1);
 });
 
+// A reply streamed as `deltas` chunks to one subscriber, each written once the one before it
+// was heard, with Date frozen from the send on (a streamed delta reuses a subscriber's
+// authorization while it is under a second old). `during` runs before the reply finishes.
+async function streamedReply(t, deltas, { subscriberAllowed = () => true, during } = {}) {
+  const source = new TransformStream();
+  const writer = source.writable.getWriter();
+  const write = text => writer.write(new TextEncoder().encode(text));
+  let subscribeChecks = 0;
+  const f = await fixture(t, {
+    authorize: ({ operation }) => operation !== "subscribe" || (subscribeChecks += 1, subscriberAllowed()),
+    fetch: () => new Response(source.readable, { headers: { "content-type": "text/event-stream" } })
+  });
+  const heard = [];
+  let deltaHeard = Promise.withResolvers();
+  await f.conversation.subscribe(event => {
+    heard.push(event);
+    if (event.type === "message" && event.status === "inProgress") deltaHeard.resolve();
+  });
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() });
+  await f.conversation.send(input);
+  for (let index = 0; index < deltas; index += 1) {
+    deltaHeard = Promise.withResolvers();
+    await write(event(`w${index} `));
+    await deltaHeard.promise;
+  }
+  await during?.({ heard, delta: text => write(event(text)) });
+  await write(event("", true));
+  await writer.close();
+  const result = await f.conversation.wait();
+  t.mock.timers.reset();
+  return { result, heard, subscribeChecks };
+}
+
+const words = count => Array.from({ length: count }, (_, index) => `w${index}`).join(" ");
+
+test("a streamed reply authorizes its subscriber as often for 200 deltas as for 10", async t => {
+  const short = await streamedReply(t, 10);
+  const long = await streamedReply(t, 200);
+  assert.equal(short.result.conversationLog[0].assistant.text.trim(), words(10));
+  assert.equal(long.result.conversationLog[0].assistant.text.trim(), words(200));
+  assert.equal(long.heard.filter(event => event.type === "message" && event.status === "inProgress").length, 200,
+    "The subscriber hears every delta");
+  assert.equal(long.heard.at(-1).type, "settled");
+  assert.equal(long.subscribeChecks, short.subscribeChecks, "Streamed deltas reuse the subscriber's authorization for a second");
+});
+
+test("a subscriber whose access is revoked stops hearing a streamed reply within a second", async t => {
+  let allowed = true;
+  let heardAtRevocation = 0;
+  const { result, heard } = await streamedReply(t, 3, {
+    subscriberAllowed: () => allowed,
+    during: async ({ heard: heardSoFar, delta }) => {
+      allowed = false;
+      heardAtRevocation = heardSoFar.length;
+      t.mock.timers.tick(1000);
+      await delta("after revocation");
+    }
+  });
+  assert.equal(result.conversationLog[0].assistant.text, "w0 w1 w2 after revocation", "The turn itself continues");
+  assert.ok(heardAtRevocation > 3);
+  assert.deepEqual(heard.slice(heardAtRevocation), [], "Nothing reaches the subscriber once its authorization is a second old");
+});
+
 test("saved history and current instructions use the existing authorized model connection", async t => {
   const f = await fixture(t);
   await f.conversation.send(input);

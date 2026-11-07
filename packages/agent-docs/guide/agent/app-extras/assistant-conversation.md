@@ -196,7 +196,11 @@ storage or infer authorization from browser fields. Authentication may be async;
 return a context object or throw an application error. A missing context is denied.
 Apply the application's normal session, Origin/CSRF and socket-handshake rules
 there. The returned trusted fields extend the action context; the runtime's own
-`authorize` still controls each conversation operation and subscription.
+`authorize` still controls each conversation operation and subscription. A
+subscriber is authorized again for every event it hears, except a streamed delta
+(an in-progress message), which reuses an authorization under a second old: a
+reply's hundreds of deltas cost about one check a second, and a revoked subscriber
+stops hearing the turn within a second.
 
 The helper assembles `AssistantFeature`, the HTTP/action/bootstrap/event providers
 and one realtime provider. It closes that hosting on Fastify `preClose`. The

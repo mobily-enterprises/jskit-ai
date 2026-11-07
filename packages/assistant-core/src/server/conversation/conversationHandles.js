@@ -212,7 +212,7 @@ function createConversationHandles({ entries, storage, defaultHost, events, read
         await events.access(context, id, "subscribe", entry);
         if (entry.conversation?.native?.scoped) throw failure("This scoped conversation retains its original event delivery.", "conversation_event_delivery_retained", 409, { messageCode: "assistant.conversation.eventDeliveryRetained" });
         if (typeof listener !== "function") throw new TypeError("A conversation listener is required.");
-        const subscription = { context, listener };
+        const subscription = { context, listener, authorizedAt: Date.now() };
         entry.listeners.add(subscription);
         return () => entry.listeners.delete(subscription);
       },

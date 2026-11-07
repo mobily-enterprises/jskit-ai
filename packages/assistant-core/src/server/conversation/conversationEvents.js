@@ -4,6 +4,9 @@ import { submittedMessage } from "./conversationReads.js";
 
 /** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
 
+// How long a subscriber's authorization covers the streamed deltas that follow it.
+const STREAMED_DELTA_AUTHORIZATION_MS = 1000;
+
 /**
  * Runs one conversation entry's operations in order: each waits for the one before it.
  * @param {ConversationEntry} entry
@@ -36,14 +39,38 @@ function createConversationEvents({ authorize, isClosed, storage, streams, compl
    * @param {Set<string>} [grant] The operations this call already authorized.
    */
   async function access(context, id, operation, entry, grant) {
-    if (isClosed() || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_handle_closed", 409, { messageCode: "assistant.conversation.handleClosed" });
+    assertOpen(entry);
     if (!grant?.has(operation)) {
       if (!await authorize({ context, conversationId: id, operation })) {
         throw failure("This conversation is not available to this identity.", "conversation_forbidden", 403);
       }
       grant?.add(operation);
     }
+    assertOpen(entry);
+  }
+
+  /** @param {ConversationEntry} [entry] */
+  function assertOpen(entry) {
     if (isClosed() || entry?.disposed) throw failure("This conversation handle is closed.", "conversation_handle_closed", 409, { messageCode: "assistant.conversation.handleClosed" });
+  }
+
+  /**
+   * A subscriber hears an event once it is authorized again. A streamed delta (an in-progress
+   * message) uses the subscriber's last authorization while it is under a second old: a reply
+   * streams hundreds of deltas, each authorization is a read the stream waits for, and a
+   * revoked subscriber still stops hearing the turn within a second. Every other event (an
+   * admission, a phase, a saved message, a settlement) authorizes again.
+   * @param {ConversationEntry} entry
+   * @param {{ context: object, authorizedAt?: number }} subscription
+   * @param {boolean} streamed
+   */
+  async function admitSubscriber(entry, subscription, streamed) {
+    if (streamed && Date.now() - subscription.authorizedAt < STREAMED_DELTA_AUTHORIZATION_MS) {
+      assertOpen(entry);
+      return;
+    }
+    await access(subscription.context, entry.id, "subscribe", entry);
+    subscription.authorizedAt = Date.now();
   }
 
   /**
@@ -80,8 +107,9 @@ function createConversationEvents({ authorize, isClosed, storage, streams, compl
           .some(message => message.messageId === payload.messageId && message.completedEnvelope === true && message.origin === "application");
       if (marked) payload.completedEnvelope = true;
     }
+    const streamed = payload.type === "message" && payload.status === "inProgress";
     await Promise.all([...entry.listeners].map(async subscription => {
-      try { await access(subscription.context, entry.id, "subscribe", entry); }
+      try { await admitSubscriber(entry, subscription, streamed); }
       catch { entry.listeners.delete(subscription); return; }
       if (isCurrent && !isCurrent()) return;
       // Presentation failures cannot interrupt persistence or provider work.

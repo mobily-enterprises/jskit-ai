@@ -833,10 +833,14 @@ test("subscription identity and surface checks reject forged bodies and honor co
   await until(f.changes, () => view.received.some(event => event.type === "message"));
   assert.equal(otherEvents.length, 0);
   f.revoked.add(f.ids[0]);
+  // A streamed delta may reuse the subscriber's authorization while it is under a second
+  // old; once a second has passed, the next delta authorizes again and is refused.
+  t.mock.timers.enable({ apis: ["Date"], now: Date.now() + 1000 });
   const before = view.received.length;
   f.fetches[0].text(" Secret output after access was revoked.");
   f.fetches[0].finish();
   await f.conversations.get(f.ids[0]).wait();
+  t.mock.timers.reset();
   assert.equal(view.received.length, before);
   assert.equal(f.published.some(event => event.realtime?.payload?.event?.text?.includes("Secret output")), false);
   const second = f.view(owner, f.ids[1]);
