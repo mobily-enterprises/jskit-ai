@@ -91,7 +91,7 @@ failure. A provider may accept a message before failing; the application owns
 receipts and retries. Keep tokens/URLs out of logs and use controlled mailers in tests.
 
 `createInvite`, acceptance and refusal own their managed transactions and
-refuse a call made inside one (`inTransaction(options)`). Use preparation followed by delivery after commit for
+refuse a call made inside one (`withTransaction({ ...options, outermost: true }, work)`). Use preparation followed by delivery after commit for
 transactional creation; put related acceptance writes in the participant. Revocation may join
 a managed transaction. Raw Knex/savepoint transactions cannot own resource
 writes. Invitation mutations lock workspace then invitation rows, revalidate
