@@ -1,12 +1,12 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeVisibilityContext } from "@jskit-ai/kernel/shared/support/visibility";
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeLogger} RuntimeLogger */
 /** @typedef {import("./types.js").ActorRoomsResolver} ActorRoomsResolver */
 /** @typedef {import("./types.js").ActorsRoomsResolver} ActorsRoomsResolver */
 /** @typedef {import("./types.js").AudienceContributors} AudienceContributors */
+/** @typedef {import("./types.js").RealtimeAudienceScope} RealtimeAudienceScope */
 
 const ALL_CLIENTS_ROOM = "clients";
 const ALL_USERS_ROOM = "users";
@@ -210,31 +210,25 @@ function addAudienceRooms(selection, state) {
 }
 
 /**
- * The options an audience's audienceUsers reads with: the event's own scope as
- * the context, so owner APIs answer for the event's workspace or user and never
- * for a request's. An event without such a scope reads with no context.
+ * The options an audience's audienceUsers reads with: a context scoped to the
+ * event's own workspace, workspace user or user, so owner APIs answer for the
+ * event's scope and never for a request's. An event without such a scope, or
+ * an application without `realtime.audience-scope`, reads with no context.
  * @param {object | null | undefined} scope
+ * @param {RealtimeAudienceScope | null | undefined} audienceScope
  */
-function audienceReadOptions(scope) {
+function audienceReadOptions(scope, audienceScope) {
+  if (!audienceScope) return Object.freeze({});
   const kind = normalizeText(scope?.kind).toLowerCase();
   const workspaceId = resolveScopeWorkspaceId(scope);
   const userId = resolveScopeUserId(scope);
   if (workspaceId && kind !== "user") {
-    return Object.freeze({ context: Object.freeze({ visibilityContext: normalizeVisibilityContext({
-      visibility: userId ? "workspace_user" : "workspace",
-      scopeKind: "workspace",
-      scopeOwnerId: workspaceId,
-      requiresActorScope: userId != null,
-      userId
-    }) }) });
+    return Object.freeze({
+      context: userId ? audienceScope.forWorkspaceUser(workspaceId, userId) : audienceScope.forWorkspace(workspaceId)
+    });
   }
   if (kind === "user" && userId) {
-    return Object.freeze({ context: Object.freeze({ visibilityContext: normalizeVisibilityContext({
-      visibility: "user",
-      scopeKind: "user",
-      scopeOwnerId: userId,
-      userId
-    }) }) });
+    return Object.freeze({ context: audienceScope.forUser(userId) });
   }
   return Object.freeze({});
 }
@@ -247,8 +241,10 @@ function audienceReadOptions(scope) {
  * @param {object} event
  * @param {object} dependencies
  * @param {RuntimeLogger} dependencies.logger
+ * @param {RealtimeAudienceScope | null} [dependencies.audienceScope] The contexts audienceUsers reads in;
+ *   absent when the application does not register RealtimeAudienceScopeFeature.
  */
-async function resolveAudienceTargets(audience, event, { logger }) {
+async function resolveAudienceTargets(audience, event, { logger, audienceScope }) {
   const rooms = new Set();
   const flags = { broadcastAllClients: false };
   const state = { event, rooms, flags, logger };
@@ -262,7 +258,7 @@ async function resolveAudienceTargets(audience, event, { logger }) {
     addAudienceRooms(entry, state);
     // readable-check: allow method-probe - data: an event's audience entry may name audienceUsers()
     if (typeof entry.audienceUsers === "function") {
-      const userIds = await entry.audienceUsers({ event, options: audienceReadOptions(event?.scope) });
+      const userIds = await entry.audienceUsers({ event, options: audienceReadOptions(event?.scope, audienceScope) });
       for (const rawUserId of flattenEntries(userIds)) {
         const userId = normalizeRecordId(rawUserId, { fallback: null });
         if (userId) rooms.add(roomForUser(userId));
