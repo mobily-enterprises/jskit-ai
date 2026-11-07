@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- `connectors.core` without a `store` and without `createConnectionStoreFeature({ protection })` fails at startup naming that feature and where to register it, where the runtime only said a capability was missing; `createConnectionService` given no store names the same fix.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
