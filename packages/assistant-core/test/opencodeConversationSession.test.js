@@ -77,6 +77,7 @@ async function fixture(t, options = {}) {
   const directory = await mkdtemp(path.join(tmpdir(), "jskit-opencode-conversation-"));
   const command = path.join(directory, "opencode.mjs");
   const trace = path.join(directory, "trace.jsonl");
+  const partialSeen = path.join(directory, "partial-seen");
   await writeFile(command, `#!${process.execPath}
     import { createServer } from "node:http";
     import { appendFileSync, readFileSync, writeFileSync, existsSync } from "node:fs";
@@ -90,6 +91,7 @@ async function fixture(t, options = {}) {
     const streams = new Set();
     const assistantResponses = ${JSON.stringify(options.assistantResponses || [])};
     const busy = new Set();
+    const heldAnswers = new Map();
     let sequence = [...sessions.values()].reduce((sum, session) => sum + session.messages.length, 0);
     const row = (role, id, parts, extra = {}) => ({ info: { role, id, time: { created: ++sequence }, ...extra }, parts });
     const server = createServer(async (req, res) => {
@@ -132,6 +134,12 @@ async function fixture(t, options = {}) {
       }
       if (req.url.includes("/message")) {
         if (${Boolean(options.historyUnavailable)}) return reply({ message: "Native history unavailable" }, 503);
+        // A held answer completes at the first read after the test saw its partial streamed, or after 10 s, so a
+        // partial that never streams fails the test instead of hanging it.
+        const held = heldAnswers.get(session.id);
+        if (held && (existsSync(${JSON.stringify(partialSeen)}) || Date.now() - held.since > 10_000)) {
+          heldAnswers.delete(session.id); held.complete();
+        }
         return reply(session.messages);
       }
       if (req.url.endsWith("/prompt_async")) {
@@ -217,11 +225,13 @@ async function fixture(t, options = {}) {
         log({ system: output.system, sessionId: session.id });
         const answer = row("assistant", randomUUID(), [{ type: "reasoning", text: "Reasoning summary" }, { type: "text", text: "Answer: " }]);
         session.messages.push(answer); save();
-        setTimeout(() => {
+        const complete = () => {
           answer.parts[1].text = answerText;
           answer.info.finish = "stop"; answer.info.time.completed = Date.now(); save();
           busy.delete(session.id);
-        }, 100);
+        };
+        if (${Boolean(options.holdPartialAnswer)}) heldAnswers.set(session.id, { complete, since: Date.now() });
+        else setTimeout(complete, 100);
         return;
       }
       reply({ message: "Unexpected route" }, 404);
@@ -259,6 +269,7 @@ async function fixture(t, options = {}) {
       limits: { admissionTimeoutMs: 250, ...options.limits }
     },
     binding: () => storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding),
+    releasePartialAnswer: () => writeFile(partialSeen, ""),
     async trace() { return (await readFile(trace, "utf8")).trim().split("\n").map(line => JSON.parse(line)); } };
 }
 
@@ -321,9 +332,14 @@ test("OpenCode structured output counts its schema framing before native dispatc
 });
 
 test("OpenCode admits once, streams and saves native reasoning through the common runtime", async t => {
-  const f = await fixture(t);
+  // OpenCode text streams only through the runtime's history reads, so the native answer stays partial until this
+  // subscriber has seen it streamed, instead of for a fixed 100 ms that a read under load could miss.
+  const f = await fixture(t, { holdPartialAnswer: true });
   const events = [];
-  await f.conversation.subscribe(event => events.push(event));
+  await f.conversation.subscribe(event => {
+    events.push(event);
+    if (event.type === "message" && event.text === "Answer: ") void f.releasePartialAnswer();
+  });
   assert.equal((await f.conversation.send(input)).status, "accepted");
   const state = await f.conversation.wait();
   assert.equal(state.conversationLog[0].metadata.runtime.status, "complete");
