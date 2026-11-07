@@ -175,10 +175,12 @@ async function acquireLock(storeDir, timeoutMs = 2000) {
       if (!error || error.code !== "EEXIST") {
         throw new Error(`Could not acquire local auth store lock at ${lockPath}.`);
       }
+      // A lock older than LOCK_STALE_MS whose process has ended was left by a crash: take it over at once instead of
+      // after waiting out the timeout. A lock whose process is alive, or a recent one, is never removed.
+      if (await removeStaleLock(lockPath)) {
+        continue;
+      }
       if (Date.now() - startedAt > timeoutMs) {
-        if (await removeStaleLock(lockPath)) {
-          continue;
-        }
         throw new Error(`Could not acquire local auth store lock at ${lockPath}.`);
       }
       await new Promise((resolve) => setTimeout(resolve, 25));

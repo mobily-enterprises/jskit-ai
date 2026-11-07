@@ -1177,7 +1177,14 @@ test("local auth provider requires an explicit public URL for email recovery", a
   );
 });
 
-test("local file backend recovers stale transaction locks", async () => {
+// The file backend waits 25 ms between attempts at a held lock.
+function lockWaits(t) {
+  const setTimeoutSpy = t.mock.method(globalThis, "setTimeout");
+  return () => setTimeoutSpy.mock.calls.filter((call) => call.arguments[1] === 25).length;
+}
+
+test("local file backend recovers stale transaction locks", async (t) => {
+  const waits = lockWaits(t);
   const storeDir = await temporaryStoreDir("jskit-auth-local-");
   await fs.mkdir(storeDir, { recursive: true });
   const lockPath = path.join(storeDir, "store.lock");
@@ -1202,6 +1209,31 @@ test("local file backend recovers stale transaction locks", async () => {
 
   const user = await backend.withTransaction((tx) => tx.users.findByEmail("stale-lock@example.com"));
   assert.equal(user.id, "usr_stale_lock");
+  assert.equal(waits(), 0, "A crashed holder's lock is taken over without waiting");
+});
+
+// The bound only turns a regression (the second transaction neither waiting nor running) into a failure, not a hang.
+test("local file backend never takes over a lock whose process is alive, however old", { timeout: 10_000 }, async (t) => {
+  const waits = lockWaits(t);
+  const storeDir = await temporaryStoreDir("jskit-auth-local-live-");
+  const lockPath = path.join(storeDir, "store.lock");
+  const backend = createLocalFileBackend({ storeDir });
+  const order = [];
+  let second;
+  await backend.withTransaction(async () => {
+    // This process holds the lock; make it look as old as a crashed one.
+    const old = new Date(Date.now() - 60_000);
+    await fs.utimes(lockPath, old, old);
+    second = backend.withTransaction(async () => {
+      order.push("second");
+    });
+    while (waits() === 0 && order.length === 0) {
+      await new Promise((resolve) => setImmediate(resolve));
+    }
+    order.push("first");
+  });
+  await second;
+  assert.deepEqual(order, ["first", "second"]);
 });
 
 test("local file backend replays a pending multi-file transaction journal before reads", async () => {
