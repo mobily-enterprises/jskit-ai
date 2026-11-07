@@ -89,11 +89,12 @@ test("a second table resource for a table, a repeated name and an unreadable one
       "packages/reports/src/shared/reportResource.js:1 data/one-resource-per-table"
     ]);
     const report = formatDataAccessReport(result);
-    assert.match(report, /^packages\/legacy\/src\/shared\/legacyReceivalResource\.js:1 {2}data\/one-resource-per-table {2}table "receivals" has another table resource at packages\/receivals\/src\/shared\/receivalResource\.js:3; a table has exactly one table resource, owned by one feature\.$/mu);
-    assert.match(report, /^packages\/receivals\/src\/shared\/receivalResource\.js:3 {2}data\/one-resource-per-table {2}table "receivals" has another table resource at packages\/legacy\/src\/shared\/legacyReceivalResource\.js:1;/mu);
-    assert.match(report, /^node_modules\/@jskit-ai\/users-core\/src\/shared\/userResource\.js:1 {2}data\/one-resource-per-table {2}resource name "users" is also the name of the table resource at packages\/accounts\/src\/shared\/accountUserResource\.js:1; every table resource has its own name\.$/mu);
-    assert.match(report, /reportResource\.js:1 {2}data\/one-resource-per-table {2}defineTableResource\(\) does not write its name and tableName as string literals/u);
-    assert.match(report, /^ {2}https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access#layer-1-the-table-resource$/mu);
+    assert.match(report, /^ {2}packages\/legacy\/src\/shared\/legacyReceivalResource\.js:1 {2}table "receivals" has another table resource at packages\/receivals\/src\/shared\/receivalResource\.js:3; a table has exactly one table resource, owned by one feature\.$/mu);
+    assert.match(report, /^ {2}packages\/receivals\/src\/shared\/receivalResource\.js:3 {2}table "receivals" has another table resource at packages\/legacy\/src\/shared\/legacyReceivalResource\.js:1;/mu);
+    assert.match(report, /^ {2}node_modules\/@jskit-ai\/users-core\/src\/shared\/userResource\.js:1 {2}resource name "users" is also the name of the table resource at packages\/accounts\/src\/shared\/accountUserResource\.js:1; every table resource has its own name\.$/mu);
+    assert.match(report, /reportResource\.js:1 {2}defineTableResource\(\) does not write its name and tableName as string literals/u);
+    assert.match(report, /^data\/one-resource-per-table \(5\): every table has exactly one table resource, under a name no other resource has\. https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access#layer-1-the-table-resource$/mu);
+    assert.equal(report.match(/every table has exactly one table resource/gu).length, 1);
     assert.match(report, /^JSKIT data access: 5 error\(s\)\./mu);
   });
 });
@@ -260,11 +261,16 @@ test("a new exception or system scope fails until the baseline lists it, as do r
       "server/lib/health.js:1 data/baseline"
     ]);
     const messages = result.findings.map(({ message }) => message);
-    assert.ok(messages.includes("this infrastructure exception from no-direct-knex is not in jskit-data-access.json. Review that the whole module's job is data access, then add {\"file\":\"server/lib/health.js\",\"rule\":\"no-direct-knex\"} to its \"infrastructure\" list."));
-    assert.ok(messages.some((message) => message.startsWith("the system scope of feature \"jobs.cleanup\" is not in jskit-data-access.json.")));
-    assert.ok(messages.some((message) => message.startsWith("this module takes runtime.resources, which reaches tables past the features that own them.")));
-    assert.ok(messages.includes("eslint-disable turns off jskit/no-direct-knex, which takes no eslint-disable. Change the code, or declare a whole data-access module with the infrastructure exception."));
-    assert.ok(messages.includes("eslint-disable names no rule, so it turns off the data-access rules too. Name the rules it turns off."));
+    assert.ok(messages.includes("the infrastructure exception from no-direct-knex: once the whole module's job is data access, add {\"file\":\"server/lib/health.js\",\"rule\":\"no-direct-knex\"} to \"infrastructure\"."));
+    assert.ok(messages.some((message) => message.startsWith("the system scope of feature \"jobs.cleanup\": once it must work across every workspace and user, add")));
+    assert.deepEqual(messages.filter((message) => message.startsWith("requires ")), ["requires runtime.database", "requires runtime.resources"]);
+    assert.ok(messages.includes("eslint-disable turns off jskit/no-direct-knex"));
+    assert.ok(messages.includes("eslint-disable names no rule"));
+    // Each rule's explanation is said once, above its findings.
+    const report = formatDataAccessReport(result);
+    assert.match(report, /^data\/runtime-capability \(2\): a module that requires runtime\.database or runtime\.resources reaches tables past the features that own them\./mu);
+    assert.match(report, /^ {2}packages\/jobs\/src\/server\/RawProvider\.js:3 {2}requires runtime\.database$/mu);
+    assert.equal(report.match(/reaches tables past the features that own them/gu).length, 1);
   });
   await withProject({ "jskit-data-access.json": "{ not json" }, async (root) => {
     assert.deepEqual(findingLines(await checkDataAccess({ projectRoot: root })), ["jskit-data-access.json:1 data/baseline"]);
@@ -287,6 +293,6 @@ test("plain jskit check reports the data rules and fails on a second table resou
   }, async (root) => {
     const failure = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]).then(() => null, (error) => error);
     assert.equal(failure?.code, 1);
-    assert.match(failure.stderr, /^packages\/archive\/src\/shared\/archivedReceivalResource\.js:1 {2}data\/one-resource-per-table {2}table "receivals" has another table resource at packages\/receivals\/src\/shared\/receivalResource\.js:1;/mu);
+    assert.match(failure.stderr, /^ {2}packages\/archive\/src\/shared\/archivedReceivalResource\.js:1 {2}table "receivals" has another table resource at packages\/receivals\/src\/shared\/receivalResource\.js:1;/mu);
   });
 });

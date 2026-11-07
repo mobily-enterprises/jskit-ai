@@ -22,6 +22,18 @@ const SECTIONS = Object.freeze({
   "data/runtime-capability": "the-resource-is-the-only-door",
   "data/lint-disabled": "hard-rules"
 });
+// What each rule asks, said once above its findings in the report.
+const RULE_EXPLANATIONS = Object.freeze({
+  "data/one-resource-per-table": "every table has exactly one table resource, under a name no other resource has.",
+  "data/system-scope": "every system scope and systemContext() call gives its reason as a string literal.",
+  "data/baseline": "each infrastructure exception and feature system scope of the app is reviewed, then listed in the checked-in " +
+    "jskit-data-access.json; review each one below, then add the entry it shows.",
+  "data/runtime-capability": "a module that requires runtime.database or runtime.resources reaches tables past the features that " +
+    "own them. A feature owns its tables with owns and gets their handles; only a module whose job is data access itself, " +
+    "declared with the infrastructure exception, takes them.",
+  "data/lint-disabled": "eslint-disable cannot turn off a data-access rule, and one that names no rule turns them all off. Change the " +
+    "code, or name the rules the directive turns off."
+});
 // The reviewed list of the app's infrastructure exceptions and feature system scopes, at the app's root.
 const BASELINE_FILE = "jskit-data-access.json";
 const DATA_ACCESS_RULES = Object.freeze(["no-direct-knex", "no-transaction-reader", "sql-literal", "no-hand-scope", "no-hand-context", "knex-reason"]);
@@ -252,13 +264,13 @@ function checkBaseline(baseline, excuses, scopes, report) {
   const listed = (list, entry) => list.some((item) => Object.entries(entry).every(([key, value]) => item?.[key] === value));
   for (const { file, line, rule } of excuses) {
     if (!listed(baseline.infrastructure, { file, rule })) {
-      report({ file, line }, "data/baseline", `this infrastructure exception from ${rule} is not in ${BASELINE_FILE}. Review that the whole module's job is data access, then add ${JSON.stringify({ file, rule })} to its "infrastructure" list.`);
+      report({ file, line }, "data/baseline", `the infrastructure exception from ${rule}: once the whole module's job is data access, add ${JSON.stringify({ file, rule })} to "infrastructure".`);
     }
   }
   for (const { file, line, kind, id, reason, framework } of scopes) {
     if (framework || kind !== "feature" || reason === null || !reason.trim()) continue;
     if (!listed(baseline.systemScopes, { feature: id, systemScope: reason })) {
-      report({ file, line }, "data/baseline", `the system scope of feature "${id}" is not in ${BASELINE_FILE}. Review that it works across every workspace and user, then add ${JSON.stringify({ feature: id, systemScope: reason })} to its "systemScopes" list.`);
+      report({ file, line }, "data/baseline", `the system scope of feature "${id}": once it must work across every workspace and user, add ${JSON.stringify({ feature: id, systemScope: reason })} to "systemScopes".`);
     }
   }
 }
@@ -377,15 +389,14 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
     excuses.push(...fileExcuses);
     if (fileExcuses.length < 1) {
       for (const use of readRuntimeCapabilities(name, read)) {
-        report(use, "data/runtime-capability", `this module takes ${use.capability}, which reaches tables past the features that own them. ` +
-          "A feature owns its tables with owns and gets their handles; only a module whose job is data access itself, declared with the infrastructure exception, takes it.");
+        report(use, "data/runtime-capability", `requires ${use.capability}`);
       }
     }
     if (CLIENT_FILE.test(name)) continue;
     for (const disable of readLintDisables(name, source, read.position)) {
       report(disable, "data/lint-disabled", disable.rules.length > 0
-        ? `eslint-disable turns off ${disable.rules.join(", ")}, which takes no eslint-disable. Change the code, or declare a whole data-access module with the infrastructure exception.`
-        : "eslint-disable names no rule, so it turns off the data-access rules too. Name the rules it turns off.");
+        ? `eslint-disable turns off ${disable.rules.join(", ")}`
+        : "eslint-disable names no rule");
     }
   }
   checkTables(resources, report);
@@ -403,7 +414,12 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
 }
 
 function formatDataAccessReport(result) {
-  const lines = result.findings.flatMap(({ file, line, rule, message }) => [`${file}:${line}  ${rule}  ${message}`, `  ${GUIDE}#${SECTIONS[rule]}`]);
+  const lines = [];
+  // Each rule's explanation and guide section once, then its findings.
+  for (const [rule, findings] of Map.groupBy(result.findings, ({ rule }) => rule)) {
+    lines.push(`${rule} (${findings.length}): ${RULE_EXPLANATIONS[rule]} ${GUIDE}#${SECTIONS[rule]}`);
+    for (const { file, line, message } of findings) lines.push(`  ${file}:${line}  ${message}`);
+  }
   if (result.systemScopes.length > 0) {
     lines.push(`System scopes (${result.systemScopes.length}), each reading past ownership for its reason (data/system-scope; ${GUIDE}#${SECTIONS["data/system-scope"]}):`);
     for (const { file, line, kind, id, reason } of result.systemScopes) {

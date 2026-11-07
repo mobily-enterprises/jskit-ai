@@ -259,14 +259,15 @@ async function main(argv = process.argv.slice(2)) {
   const ui = await checkMaterial3({ projectRoot: options.projectRoot, navigationOnly: !MATERIAL3_GATE });
   const tests = await checkTestRuns({ projectRoot: options.projectRoot, manifests: result.manifests });
   const data = await checkDataAccess({ projectRoot: options.projectRoot });
+  // The data rules first: a graph that fails on many pin versions would otherwise bury them.
   const reports = [
+    formatDataAccessReport(data),
     result.ok
       ? `JSKIT project graph is coordinated across ${result.manifests.length} manifest(s) and ` +
         `${result.installations.length} resolved package installation(s).`
       : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
     MATERIAL3_GATE ? formatMaterial3Report(ui) : formatNavigationReport(ui),
-    formatTestRunsReport(tests),
-    formatDataAccessReport(data)
+    formatTestRunsReport(tests)
   ];
   if (!result.ok || !ui.ok || !tests.ok || !data.ok) {
     throw new Error(reports.join("\n"));
