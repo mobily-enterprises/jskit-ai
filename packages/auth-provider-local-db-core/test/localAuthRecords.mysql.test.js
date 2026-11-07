@@ -214,8 +214,12 @@ test("recovery: create, find by token hash, consume once, and consume a user's o
   const used = await backend.withTransaction((tx) => tx.recovery.consume("rec_one"));
   assert.deepEqual({ ...used, usedAt: "" }, created);
   assertStoredSince(used.usedAt, before, "consume stamps usedAt");
-  assert.deepEqual(await backend.withTransaction((tx) => tx.recovery.consume("rec_one")), used, "a used token stays as it was");
+  assert.equal(await backend.withTransaction((tx) => tx.recovery.consume("rec_one")), null, "a used token is not consumed again");
+  assert.deepEqual(await backend.withTransaction((tx) => tx.recovery.findByTokenHash("hash-rec_one")), used, "and stays as it was");
   assert.equal(await backend.withTransaction((tx) => tx.recovery.consume("rec_missing")), null);
+  await backend.withTransaction((tx) => tx.recovery.create(token("rec_race")));
+  const racers = await Promise.all([1, 2].map(() => backend.withTransaction((tx) => tx.recovery.consume("rec_race"))));
+  assert.equal(racers.filter(Boolean).length, 1, "of two consumers at once, exactly one consumes the token");
 
   await backend.withTransaction(async (tx) => {
     await tx.recovery.create(token("rec_two"));

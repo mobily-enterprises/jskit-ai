@@ -398,13 +398,19 @@ function recoveryRecords(recovery, options) {
     async findByTokenHash(tokenHash) {
       return mapRecovery(await findOne(recovery, "tokenHash", tokenHash, options));
     },
+    // The consumed token, or null when it is missing or already used: of two consumers at once, the one whose
+    // conditional write lands first wins.
     async consume(tokenId) {
-      const existing = await findById(recovery, tokenId, options);
-      if (!existing || existing.usedAt) {
-        return mapRecovery(existing);
+      const id = text(tokenId);
+      if (!id) {
+        return null;
       }
       const usedAt = requiredDateTime();
-      return mapRecovery(await recovery.patch(existing.id, { usedAt, updatedAt: usedAt }, { ...options, missing: "skip" }));
+      return mapRecovery(await recovery.patch(id, { usedAt, updatedAt: usedAt }, {
+        ...options,
+        onlyIf: { usedAt: null },
+        missing: "skip"
+      }));
     },
     async consumeForUser(userId) {
       const owner = text(userId);
