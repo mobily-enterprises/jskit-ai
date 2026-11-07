@@ -143,6 +143,7 @@ const router = createRouter({
     { path: "/home", component: HomePage },
     { path: "/errors", component: ErrorsPage },
     { path: "/account", component: AccountSettingsClientElement },
+    { path: "/account/:section", component: AccountSettingsClientElement },
     { path: "/auth/login", component: DefaultLoginView },
     { path: "/auth/reset-password", component: DefaultResetPasswordView },
     { path: "/auth/signout", component: DefaultSignOutView }

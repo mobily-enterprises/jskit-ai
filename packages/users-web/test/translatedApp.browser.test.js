@@ -400,8 +400,8 @@ test("account settings, their feedback and a refused field show only the pseudo-
   });
   assert.ok(saveGap >= 15.5, `Save sat ${saveGap}px below the last field.`);
 
-  await page.getByRole("listitem").filter({ hasText: shown("app.settings.preferences") }).click();
-  await page.waitForURL("**section=preferences**");
+  await page.getByRole("link", { name: shown("app.settings.preferences") }).click();
+  await page.waitForURL((url) => url.pathname === "/account/preferences");
   await page.getByTestId("theme-select").click();
   await expect(page.getByRole("option", { name: shown("jskit.users.accountSettings.preferences.theme.light") })).toBeVisible();
   await assertTranslated(page, "the theme choices");

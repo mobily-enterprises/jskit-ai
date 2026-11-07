@@ -1,4 +1,5 @@
 import { createApp, h, reactive, ref, shallowReactive } from "vue";
+import { createPinia } from "pinia";
 import { createRouter, createWebHistory, RouterView } from "vue-router";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import "vuetify/styles";
@@ -7,8 +8,15 @@ import { createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import { createVuetify } from "vuetify";
 import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
+import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
+import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 import { SHELL_WEB_ERROR_RUNTIME_KEY } from "@jskit-ai/shell-web/client/error";
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
+import { createWebPlacementRuntime } from "../../../shell-web/src/client/placement/runtime.js";
+import {
+  SHELL_NAVIGATION_RUNTIME_KEY,
+  createShellNavigationRuntime
+} from "../../../shell-web/src/client/navigation/shellNavigationRuntime.js";
 import AccountSettingsClientElement from "../../src/client/components/AccountSettingsClientElement.vue";
 import ProfileClientElement from "../../src/client/components/ProfileClientElement.vue";
 import { useAccountLocale } from "../../src/client/lib/accountLocale.js";
@@ -17,12 +25,27 @@ import PreferencesSection from "../../patterns/account-settings/example/src/comp
 import ProfileSection from "../../patterns/account-settings/example/src/components/account/settings/AccountSettingsProfileSection.vue";
 import SignInMethodsSection from "../../patterns/account-settings/example/src/components/account/settings/AccountSettingsSignInMethodsSection.vue";
 
+// The real shell (its layout, placements and navigation) around the real account settings code; the error runtime is
+// a double that records reports. The account surface is laid out as the account-settings pattern lays it out: /account
+// lists the sections and /account/<section> opens one, whose parent is the list.
+const sectionComponents = new Map();
 function section(value, title, component, order) {
-  return { order, component, props: { value, title, usesSharedRuntime: true } };
+  sectionComponents.set(`fixture.section.${value}`, component);
+  return {
+    id: `fixture.section.${value}`,
+    // The section outlet itself, as the app's topology resolves users-web's sections to it.
+    target: "account-settings:sections",
+    internal: true,
+    kind: "component",
+    surfaces: ["account"],
+    order,
+    componentToken: `fixture.section.${value}`,
+    props: { value, title, usesSharedRuntime: true }
+  };
 }
 
-// The shell's two runtimes as doubles; everything below them is the real account settings code.
-const context = {
+const placement = createWebPlacementRuntime({ components: sectionComponents, logger: silentLogger });
+placement.setContext({
   surfaceConfig: {
     tenancyMode: "none",
     defaultSurfaceId: "home",
@@ -32,9 +55,7 @@ const context = {
       account: { id: "account", enabled: true, pagesRoot: "account", routeBase: "/account", requiresWorkspace: false }
     }
   }
-};
-const listeners = new Set();
-let revision = 1;
+});
 let placements = new URLSearchParams(window.location.search).has("empty")
   ? []
   : [
@@ -43,16 +64,7 @@ let placements = new URLSearchParams(window.location.search).has("empty")
       section("notifications", "Notifications", NotificationsSection, 300),
       section("sign-in-methods", "Sign-in methods", SignInMethodsSection, 400)
     ];
-const placement = {
-  getContext: () => context,
-  setContext: () => context,
-  getPlacements: () => placements,
-  getRevision: () => revision,
-  subscribe(listener) {
-    listeners.add(listener);
-    return () => listeners.delete(listener);
-  }
-};
+placement.replacePlacements(placements);
 const errorRuntime = {
   report(event) {
     window.accountFixture.reports.push(event);
@@ -93,8 +105,7 @@ window.accountFixture = {
   profileState,
   placeSection() {
     placements = [...placements, section("extra", "Extra", { render: () => h("p", "Extra section") }, 150)];
-    revision += 1;
-    listeners.forEach((listener) => listener({ revision }));
+    placement.replacePlacements(placements);
   }
 };
 
@@ -126,16 +137,32 @@ const ProfileElementPage = {
 const router = createRouter({
   history: createWebHistory(),
   routes: [
-    { path: "/home", component: { render: () => h("p", { "data-testid": "home" }, "Home") } },
-    { path: "/account", component: AccountPage },
-    // Account settings as an inner page, with the shell's Up arrow back to its parent.
-    { path: "/inner-account", component: AccountPage, meta: { jskit: { parent: "/home" } } },
+    { path: "/home", component: { render: () => h("p", { "data-testid": "home" }, "Home") }, meta: { jskit: { surface: "home" } } },
+    {
+      path: "/account",
+      component: RouterView,
+      meta: { jskit: { surface: "account" } },
+      children: [
+        // src/pages/account/index.vue: the section list, an inner page of home.
+        { path: "", component: AccountPage, meta: { jskit: { parent: { surface: "home", path: "/" } } } },
+        // src/pages/account/[section].vue: one section, whose parent is the list.
+        { path: ":section", component: AccountPage, meta: { jskit: { parent: "/" } } }
+      ]
+    },
     { path: "/profile-element", component: ProfileElementPage }
   ]
 });
-const app = createApp({ render: () => h(components.VApp, null, { default: () => h(components.VMain, null, { default: () => h(RouterView) }) }) });
+const navigation = createShellNavigationRuntime({ router });
+navigation.install();
+const app = createApp({
+  render: () => h(components.VApp, null, {
+    default: () => h(ShellLayout, { surfaceLabel: "Fixture" }, { default: () => h(RouterView) })
+  })
+});
 app.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, placement);
+app.provide(SHELL_NAVIGATION_RUNTIME_KEY, navigation);
 app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, errorRuntime);
+app.use(createPinia());
 app.use(router);
 app.use(VueQueryPlugin, { queryClient: new QueryClient({ defaultOptions: { queries: { retry: false } } }) });
 app.use(createVuetify({ components, directives, ...createMaterialVuetifyOptions() }));

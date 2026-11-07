@@ -57,16 +57,16 @@ const isVisible = computed(() => {
 
 const resolvedTo = computed(() => {
   const hasAccountSurface = Boolean(resolveSurfaceDefinitionFromPlacementContext(placementContext.value, "account"));
+  // The invitations section of account settings, /account/invites.
   const accountSettingsPath = hasAccountSurface
-    ? resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/")
-    : "/account";
+    ? resolveSurfacePathFromPlacementContext(placementContext.value, "account", "/invites")
+    : "/account/invites";
   const accountSettingsNavigation = resolveSurfaceNavigationTargetFromPlacementContext(placementContext.value, {
     path: accountSettingsPath,
     surfaceId: "account"
   });
 
   const query = new URLSearchParams({
-    section: "invites",
     returnTo: accountSettingsNavigation.sameOrigin ? resolveReturnTo() : resolveReturnToHref()
   });
   return appendQueryString(accountSettingsPath, query.toString());

@@ -38,6 +38,18 @@ app's language; the app does, for example
 `watch(useAccountLocale(), (code) => { if (code) i18n.global.locale.value = code; }, { immediate: true })`.
 Section titles may be plain text, a message key or `{ key, fallback }`.
 
+Sections are pages of the account surface, in Material 3's list-detail layout
+(shell-web's `ShellListDetail`): `/account` is the section list
+(`src/pages/account/index.vue`) and `/account/<section>` one section
+(`src/pages/account/[section].vue`, its `value`, such as
+`/account/preferences`), both rendering `AccountSettingsClientElement`, which
+reads the section from the route's `section` param. The section page's parent
+is the list, the surface's `"/"`. A phone or medium window shows the list or one
+section, and Up returns from the section to the list; an expanded or large
+window shows the list beside the open section, or beside the first section on
+the list's own page. A link to a section is its path, `/account/invites`, with
+`returnTo` in the query for Done.
+
 `runtime.signInMethods.methods` lists the auth provider's OAuth sign-in
 methods as `{ provider, label, linked, canLink, canUnlink }`, read from the
 settings security status. `link(provider)` leaves for the provider through
@@ -61,12 +73,17 @@ provider offers provider linking (`providerLinking` in its capabilities).
   (`ShellLayout` around `<RouterView />`, `meta.jskit.surface: "account"`), so
   the settings page's title and Up arrow are in the top app bar. Up is the
   page's only way out; `AccountSettingsClientElement` adds a Done action only
-  where Up can't go back (no parent, or a returnTo on another origin).
+  where Up can't go back (no parent, a section beside the list on a wide
+  window, or a returnTo on another origin).
   With no navigation items, the surface shows no navigation bar, rail or drawer.
+- Each section has its own address, `/account/<section>`, served by
+  `src/pages/account/[section].vue` with parent `"/"`; nothing selects a
+  section through the query.
 
 ## Example files
 
-`example/` contains the account surface's layout, an account route and four
+`example/` contains the account surface's layout, the section list's route
+(`account/index.vue`), a section's route (`account/[section].vue`) and four
 concrete settings sections.
 Adapt their fields and copy while retaining the shared account runtime.
 
@@ -79,7 +96,9 @@ notification vocabulary while keeping server-owned validation authoritative.
 
 Navigate away and back with warm cache, exercise browser back/forward, save and
 clear fields, verify toast errors, inspect skeleton geometry, and test keyboard
-operation at compact and expanded widths.
+operation at compact and expanded widths. At 390 px check that the list and a
+section show one at a time and Up returns from the section to the list; at
+1280 px that the list shows beside the open section, with no Up.
 
 ## Avoid
 

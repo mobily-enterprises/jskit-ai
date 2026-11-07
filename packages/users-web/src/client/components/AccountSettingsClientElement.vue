@@ -1,10 +1,12 @@
 <script setup>
 import { computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
-import { normalizeOneOf } from "@jskit-ai/kernel/shared/support/normalize";
+import { useRoute } from "vue-router";
+import ShellListDetail from "@jskit-ai/shell-web/client/components/ShellListDetail";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
 import { useShellPageTitle } from "@jskit-ai/shell-web/client/composables/useShellPageTitle";
+import { useShellWindowSizeClass } from "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass";
+import { usePaths } from "@jskit-ai/shell-web/client/navigation/usePaths";
 import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
 import { useAccountSettingsRuntime } from "../composables/useAccountSettingsRuntime.js";
 import { useAccountSettingsSections } from "../account-settings/sections.js";
@@ -13,11 +15,12 @@ import { useJskitText } from "../i18n.js";
 const { t, text } = useJskitText();
 const runtime = useAccountSettingsRuntime();
 const route = useRoute();
-const router = useRouter();
+const paths = usePaths();
 const sections = useAccountSettingsSections();
 // The app bar carries the page's title. Its Up arrow, on a page that declares a parent, is the way out; a Done action
 // beside it would be a second back control. Done shows only where Up can't take the person back: a page without a
-// parent, or a returnTo on another of the app's origins.
+// parent, an open section beside the list on a wide window (the list is the parent, already in view), or a returnTo
+// on another of the app's origins.
 useShellPageTitle(() => t("jskit.users.accountSettings.title"));
 const { canGoUp } = useShellNavigation();
 const doneTarget = computed(() => runtime.backNavigationTarget.value);
@@ -31,40 +34,26 @@ const defaultSection = computed(() => {
   return sectionValues.value[0] || "";
 });
 
-function normalizeSection(value) {
-  const source = Array.isArray(value) ? value[0] : value;
-  return normalizeOneOf(source, sectionValues.value, defaultSection.value);
-}
-
-function readRouteSection() {
-  return normalizeSection(route?.query?.section);
-}
-
-const activeTab = computed({
-  get() {
-    return readRouteSection();
-  },
-  set(nextValue) {
-    const normalizedSection = normalizeSection(nextValue);
-    const currentSection = readRouteSection();
-    if (!normalizedSection || normalizedSection === currentSection) {
-      return;
-    }
-
-    const nextQuery = {
-      ...route.query
-    };
-    if (normalizedSection === defaultSection.value) {
-      delete nextQuery.section;
-    } else {
-      nextQuery.section = normalizedSection;
-    }
-
-    void router.replace({
-      query: nextQuery
-    });
-  }
+// Sections are pages: the surface's "/" is the list (/account) and "/<section>" one section (/account/preferences),
+// the app's src/pages/account/[section].vue, whose parent is the list. Compact and medium windows show one pane at a
+// time, so the list leads to a section and Up returns to it; wide windows show the list beside the open section, or
+// beside the first section on the list's own page.
+const openSection = computed(() => {
+  const value = route.params?.section;
+  const section = String(Array.isArray(value) ? value[0] : value || "").trim().toLowerCase();
+  return sectionValues.value.includes(section) ? section : "";
 });
+const { isExpanded, isLarge } = useShellWindowSizeClass();
+const shownSection = computed(() => {
+  const value = openSection.value || (isExpanded.value || isLarge.value ? defaultSection.value : "");
+  return sections.value.find((section) => section.value === value) || null;
+});
+
+// A section's page keeps the address's returnTo, where Done leads.
+function sectionTarget(value) {
+  const returnTo = route.query?.returnTo;
+  return { path: paths.page(`/${value}`), query: returnTo ? { returnTo } : {} };
+}
 </script>
 
 <template>
@@ -103,37 +92,28 @@ const activeTab = computed({
         </template>
         <template v-else>
           <v-progress-linear v-if="runtime.refreshingSettings.value" indeterminate class="mb-4" />
-          <v-row class="settings-layout" no-gutters>
-            <v-col cols="12" md="3" lg="2" class="pr-md-4 mb-4 mb-md-0">
+          <ShellListDetail :detail-open="Boolean(openSection)">
+            <template #list>
               <v-list nav class="settings-section-list">
                 <v-list-item
                   v-for="section in sections"
                   :key="section.value"
                   class="settings-section-list__item"
                   :title="text(section.title)"
-                  :active="activeTab === section.value"
-                  @click="activeTab = section.value"
+                  :to="sectionTarget(section.value)"
+                  :active="shownSection?.value === section.value"
                 />
               </v-list>
-            </v-col>
-
-            <v-col cols="12" md="9" lg="10">
-              <v-window v-model="activeTab" :touch="false" class="settings-sections-window">
-                <v-window-item
-                  v-for="section in sections"
-                  :key="section.value"
-                  :value="section.value"
-                  :transition="false"
-                  :reverse-transition="false"
-                >
-                  <component
-                    :is="section.component"
-                    v-bind="section.usesSharedRuntime ? { runtime } : undefined"
-                  />
-                </v-window-item>
-              </v-window>
-            </v-col>
-          </v-row>
+            </template>
+            <template #detail>
+              <div v-if="shownSection" :key="shownSection.value" class="settings-section-detail">
+                <component
+                  :is="shownSection.component"
+                  v-bind="shownSection.usesSharedRuntime ? { runtime } : undefined"
+                />
+              </div>
+            </template>
+          </ShellListDetail>
         </template>
       </div>
     </div>

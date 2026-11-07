@@ -55,8 +55,8 @@ function document(attributes, type = "user-settings") {
 }
 
 /** One page with the settings API behind it; `routes` answers "METHOD /path", anything else is a test failure. */
-async function openApp({ routes = {} } = {}) {
-  const page = await browser.newPage({ baseURL: runtime.baseURL, viewport: { width: 1280, height: 900 } });
+async function openApp({ routes = {}, viewport = { width: 1280, height: 900 } } = {}) {
+  const page = await browser.newPage({ baseURL: runtime.baseURL, viewport, reducedMotion: "reduce" });
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(60_000);
   const api = { requests: [], unexpected: [], errors: [], page };
@@ -123,13 +123,15 @@ test("the profile section loads, saves, shows a refused field and removes the av
     }
   });
   const { page } = api;
-  await page.goto("/account?returnTo=/home");
+  // A section open beside the list: the list, its parent, is in view, so there is no Up, and Done returns to returnTo.
+  await page.goto("/account/profile?returnTo=/home");
   const name = page.getByLabel("Display name");
   await expect(name).toHaveValue("Ada");
   await expect(page.getByLabel("Email", { exact: true })).toHaveValue("ada@example.com");
-  // The page's Done action (in the shell's app bar, or in place without one) returns to returnTo; there is no in-page h1.
   await expect(page.getByRole("link", { name: "Done" })).toHaveAttribute("href", "/home");
-  await expect(page.getByRole("heading", { level: 1 })).toHaveCount(0);
+  await expect(page.getByTestId("jskit-shell-back")).toHaveCount(0);
+  // The app bar's title is the page's one h1.
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Account settings");
 
   await name.fill("  Ada Lovelace ");
   await page.getByRole("button", { name: "Save profile" }).click();
@@ -152,11 +154,57 @@ test("the profile section loads, saves, shows a refused field and removes the av
   await page.getByRole("link", { name: "Done" }).click();
   await expect(page.getByTestId("home")).toBeVisible();
 
-  // As an inner page, Up is the only way out: no Done beside it.
-  await page.goto("/inner-account?returnTo=/home");
+  // The list's own page is an inner page of home: Up is its only way out, with no Done beside it.
+  await page.goto("/account?returnTo=/home");
   await expect(page.getByLabel("Display name")).toHaveValue("Ada");
+  await expect(page.getByTestId("jskit-shell-back")).toBeVisible();
   await expect(page.getByRole("link", { name: "Done" })).toHaveCount(0);
   await finish(api);
+});
+
+// Material 3's list-detail layout: a phone shows the section list or one section, and Up returns from the section to
+// the list and from the list to home; a wide window shows the list beside the open section, with no Up to the list.
+test("a phone shows the section list and one section at a time, and Up returns to the list", options, async () => {
+  const api = await openApp({ viewport: { width: 390, height: 844 } });
+  const { page } = api;
+  const up = page.getByTestId("jskit-shell-back");
+  const sectionLinks = page.getByRole("link", { name: /^(Profile|Preferences|Notifications|Sign-in methods)$/u });
+  await page.goto("/account");
+  await expect(sectionLinks).toHaveCount(4);
+  await expect(page.getByLabel("Display name")).toHaveCount(0);
+  await expect(page.locator(".settings-section-list__item.v-list-item--active")).toHaveCount(0);
+
+  await page.getByRole("link", { name: "Preferences" }).click();
+  await page.waitForURL("**/account/preferences");
+  await expect(page.getByRole("button", { name: /Save preferences/u })).toBeVisible();
+  await expect(sectionLinks.first()).toBeHidden();
+  await expect(page.getByRole("link", { name: "Done" })).toHaveCount(0);
+
+  await up.click();
+  await page.waitForURL((url) => url.pathname === "/account");
+  await expect(sectionLinks.first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /Save preferences/u })).toHaveCount(0);
+
+  // A section opened from a pasted link has the list as its parent too.
+  await page.goto("/account/notifications");
+  await expect(page.getByRole("button", { name: /Save notification settings/u })).toBeVisible();
+  await up.click();
+  await page.waitForURL((url) => url.pathname === "/account");
+  await up.click();
+  await expect(page.getByTestId("home")).toBeVisible();
+  await finish(api);
+
+  const wide = await openApp();
+  await wide.page.goto("/account");
+  await expect(wide.page.getByRole("link", { name: "Preferences" })).toBeVisible();
+  await expect(wide.page.getByLabel("Display name")).toBeVisible();
+  await expect(wide.page.locator(".settings-section-list__item.v-list-item--active")).toHaveText("Profile");
+  await wide.page.getByRole("link", { name: "Preferences" }).click();
+  await wide.page.waitForURL("**/account/preferences");
+  await expect(wide.page.getByRole("link", { name: "Profile" })).toBeVisible();
+  await expect(wide.page.getByRole("button", { name: /Save preferences/u })).toBeVisible();
+  await expect(wide.page.getByTestId("jskit-shell-back")).toHaveCount(0);
+  await finish(wide);
 });
 
 test("saved preferences follow into the theme, the stored preference and the account locale", options, async () => {
@@ -173,8 +221,8 @@ test("saved preferences follow into the theme, the stored preference and the acc
   await expect(page.getByTestId("account-locale")).toHaveText("it-IT");
   assert.equal(await page.evaluate(() => localStorage.getItem("jskit.themePreference")), "dark");
 
-  await page.getByRole("listitem").filter({ hasText: "Preferences" }).click();
-  await page.waitForURL("**/account?section=preferences");
+  await page.getByRole("link", { name: "Preferences" }).click();
+  await page.waitForURL("**/account/preferences");
   await page.getByRole("button", { name: /Save preferences/u }).click();
   await expect.poll(() => lastReport(page)).toBe("Preferences updated.");
   const saved = api.requests.find((request) => request.key === "PATCH /api/settings/preferences");
@@ -196,7 +244,7 @@ test("a refused preference shows its message", options, async () => {
     }
   });
   const { page } = api;
-  await page.goto("/account?section=preferences");
+  await page.goto("/account/preferences");
   await page.getByRole("button", { name: /Save preferences/u }).click();
   await expect(page.getByText("Theme is not allowed.")).toBeVisible();
   // The old error array looped here for seconds before Vue gave up, so the page must also stay idle.
@@ -216,19 +264,19 @@ test("notifications save, and sign-in methods link through the provider and unli
     }
   });
   const { page } = api;
-  await page.goto("/account?section=notifications");
+  await page.goto("/account/notifications");
   await page.getByRole("button", { name: /Save notification settings/u }).click();
   await expect.poll(() => lastReport(page)).toBe("Notification settings updated.");
   const saved = api.requests.find((request) => request.key === "PATCH /api/settings/notifications");
   assert.deepEqual(saved.body.data.attributes, { productUpdates: true, accountActivity: false, securityAlerts: true });
 
-  await page.getByRole("listitem").filter({ hasText: "Sign-in methods" }).click();
+  await page.getByRole("link", { name: "Sign-in methods" }).click();
   await page.getByRole("button", { name: "Unlink" }).click();
   await expect.poll(() => lastReport(page)).toBe("Sign-in method removed.");
   await expect(page.getByRole("button", { name: "Unlink" })).toHaveCount(0);
   await page.getByRole("button", { name: "Link" }).click();
   await page.getByText("Provider").waitFor();
-  assert.equal(api.requests.at(-1).search, "?returnTo=%2Faccount%3Fsection%3Dsign-in-methods");
+  assert.equal(api.requests.at(-1).search, "?returnTo=%2Faccount%2Fsign-in-methods");
   await finish(api);
 });
 
@@ -249,7 +297,7 @@ test("account settings use Material 3 label type, trailing switches and full-wid
   assert.deepEqual(await type(page.locator(".settings-section-list__item .v-list-item-title").first()), ["14px", "500"]);
   assert.deepEqual(await type(page.getByRole("button", { name: "Save profile" })), ["14px", "500"]);
   const fields = await page.evaluate(() => {
-    const form = document.querySelector(".settings-sections-window .v-window-item--active form");
+    const form = document.querySelector(".settings-section-detail form");
     const width = (element) => Math.round(element.getBoundingClientRect().width);
     return [...form.querySelectorAll(".v-text-field")].map((field) => {
       const input = field.querySelector("input");
@@ -262,7 +310,7 @@ test("account settings use Material 3 label type, trailing switches and full-wid
     assert.equal(field.whole, true, `a field shows its value whole: ${JSON.stringify(field)}`);
   }
 
-  await page.goto("/account?section=notifications");
+  await page.goto("/account/notifications");
   const switches = await page.locator(".v-switch").evaluateAll((elements) => elements.map((element) => {
     const label = element.querySelector(".v-label").getBoundingClientRect();
     const control = element.querySelector(".v-selection-control__wrapper").getBoundingClientRect();
@@ -312,7 +360,7 @@ test("each section stays busy until its save or removal answers", options, async
   await expect(removeAvatar).not.toHaveClass(loading);
   await expect(saveProfile).toBeEnabled();
 
-  await page.getByRole("listitem").filter({ hasText: "Preferences" }).click();
+  await page.getByRole("link", { name: "Preferences" }).click();
   const savePreferences = page.getByRole("button", { name: /Save preferences/u });
   const disabledFields = page.locator(".v-input--disabled");
   await savePreferences.click();
@@ -322,7 +370,7 @@ test("each section stays busy until its save or removal answers", options, async
   await expect(savePreferences).not.toHaveClass(loading);
   await expect(disabledFields).toHaveCount(0);
 
-  await page.getByRole("listitem").filter({ hasText: "Notifications" }).click();
+  await page.getByRole("link", { name: "Notifications" }).click();
   const saveNotifications = page.getByRole("button", { name: /Save notification settings/u });
   const productUpdates = page.getByLabel("Product updates");
   await saveNotifications.click();
@@ -337,16 +385,17 @@ test("each section stays busy until its save or removal answers", options, async
 test("the section list follows the address and the placements, and says when there is nothing to show", options, async () => {
   const api = await openApp();
   const { page } = api;
-  await page.goto("/account?section=unknown");
+  // A section no placement names opens none: the list, with the first section beside it on a wide window.
+  await page.goto("/account/unknown");
   await expect(page.getByLabel("Display name")).toBeVisible();
 
   await page.evaluate(() => window.accountFixture.placeSection());
-  await page.getByRole("listitem").filter({ hasText: "Extra" }).click();
+  await page.getByRole("link", { name: "Extra" }).click();
   await page.getByText("Extra section").waitFor();
-  await page.waitForURL("**/account?section=extra");
-  await page.getByRole("listitem").filter({ hasText: "Profile" }).click();
+  await page.waitForURL("**/account/extra");
+  await page.getByRole("link", { name: "Profile" }).click();
   await expect(page.getByLabel("Display name")).toBeVisible();
-  await page.waitForURL((url) => url.search === "");
+  await page.waitForURL("**/account/profile");
   await finish(api);
 
   const empty = await openApp();

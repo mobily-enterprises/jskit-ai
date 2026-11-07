@@ -23,6 +23,13 @@ Use the `users/account-settings` pattern for profile, preference, and
 notification sections. Decide which fields are editable and which operations
 require reauthentication.
 
+The sections are pages in Material 3's list-detail layout: `/account` lists
+them (`src/pages/account/index.vue`) and `/account/<section>` opens one
+(`src/pages/account/[section].vue`, whose parent is the list, `"/"`). A phone
+shows the list or one section, with Up from the section back to the list; a wide
+window shows the list beside the open section. Link to a section by its path,
+such as `/account/preferences`.
+
 Use the framework account settings elements and command composables rather than
 new page-local request clients. Cached query data must hydrate editable fields
 immediately; clearing a value must send the clear operation rather than omit the
@@ -45,7 +52,8 @@ record existence is not leaked.
 ## Verification
 
 Test profile creation from an authenticated identity, read/update/clear flows,
-warm-cache navigation, uploads when enabled, forbidden administration, missing
+warm-cache navigation, the section list and a section one at a time at 390 px
+(Up returns to the list) and side by side at 1280 px, uploads when enabled, forbidden administration, missing
 records, pagination, and workspace isolation where relevant.
 
 Do not copy users-core tables or services into the application. Do not add
