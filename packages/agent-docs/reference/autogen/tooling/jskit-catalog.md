@@ -62,6 +62,29 @@ Local functions
 - `buildCatalog({ repoRoot, packagesRoot, outputPath })`
 - `main()`
 
+### `scripts/data-access.mjs`
+Exports
+- `checkDataAccess({ projectRoot = process.cwd() } = {})`
+- `formatDataAccessReport(result)`
+Local functions
+- `blank(text)`
+- `maskStrings(code)`
+- `closingOffset(masked, start)`
+- `nextCodeOffset(text, offset)`
+- `constantValue(code, name)`
+- `readValue(code, masked, offset)`
+- `topLevelKeys(masked, start, end, names)`
+- `objectArgument(masked, callOffset, matchLength)`
+- `keyValue(code, masked, keys, key)`
+- `readSourceFile(source)`
+- `readTableResources(file, { code, masked, position })`
+- `readSystemScopes(file, { code, masked, position })`
+- `readInfrastructureExcuses(file, source)`
+- `walk(root, directory, files)`
+- `frameworkPackages(root)`
+- `checkTables(resources, report)`
+- `checkSystemScopes(scopes, report)`
+
 ### `scripts/files.mjs`
 Exports
 - `fileExists(absolutePath)`
