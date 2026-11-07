@@ -207,6 +207,15 @@ Add a protected administration surface, settings shell, and semantic navigation 
 - Owner: `@jskit-ai/console-web@0.1.238`
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
 
+## [CRUD feature package](/patterns/crud/crud-feature-package)
+
+Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.
+
+- Id: `crud/crud-feature-package`
+- Keywords: `actions`, `crud`, `database`, `defineCrudFeature`, `json-api`, `migration`, `owns`, `permissions`, `repository`, `routes`, `service`, `table resource`
+- Owner: `@jskit-ai/crud-core@0.2.12`
+- Requires: `@jskit-ai/crud-core`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
+
 ## [CRUD list, view, create, and edit screens](/patterns/crud/crud-screen-set)
 
 Build a routed CRUD user interface as thin application pages over JSKIT's shared screen components and composables.
@@ -215,15 +224,6 @@ Build a routed CRUD user interface as thin application pages over JSKIT's shared
 - Keywords: `actions`, `add`, `crud`, `delete`, `edit`, `filters`, `list`, `material`, `routes`, `view`, `vue`
 - Owner: `@jskit-ai/http-web@0.2.19`
 - Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
-
-## [JSON API CRUD resource package](/patterns/crud/json-api-resource-package)
-
-Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.
-
-- Id: `crud/json-api-resource-package`
-- Keywords: `actions`, `crud`, `database`, `json-api`, `migration`, `permissions`, `provider`, `repository`, `routes`, `service`
-- Owner: `@jskit-ai/crud-core@0.2.12`
-- Requires: `@jskit-ai/crud-core`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
 ## [Owner-scoped table resource and CRUD contract](/patterns/crud/resource-contract)
 
@@ -284,7 +284,7 @@ Compose application-owned Google Publisher Tag delivery with the generic rewarde
 Define a server feature through explicit capabilities and first-class actions, adding services or repositories only when its domain earns them.
 
 - Id: `server/feature-package`
-- Keywords: `actions`, `feature`, `json-rest`, `knex`, `orchestration`, `package`, `provider`, `repository`, `routes`, `server`
+- Keywords: `actions`, `aggregate`, `feature`, `handle`, `orchestration`, `owns`, `package`, `provider`, `repository`, `routes`, `server`, `table resource`
 - Owner: `@jskit-ai/agent-docs@0.1.280`
 - Requires: `@jskit-ai/kernel`
 

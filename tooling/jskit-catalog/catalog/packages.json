@@ -4724,6 +4724,42 @@
       ]
     },
     {
+      "id": "crud/crud-feature-package",
+      "title": "CRUD feature package",
+      "summary": "Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.",
+      "keywords": [
+        "actions",
+        "crud",
+        "database",
+        "defineCrudFeature",
+        "json-api",
+        "migration",
+        "owns",
+        "permissions",
+        "repository",
+        "routes",
+        "service",
+        "table resource"
+      ],
+      "requires": [
+        "@jskit-ai/crud-core",
+        "@jskit-ai/resource-core",
+        "@jskit-ai/resource-crud-core"
+      ],
+      "packageId": "@jskit-ai/crud-core",
+      "packageVersion": "0.2.12",
+      "documentPath": "patterns/crud-feature-package/PATTERN.md",
+      "examplePath": "patterns/crud-feature-package/example",
+      "files": [
+        "migrations/20260815000000_books.cjs",
+        "packages/books/package.json",
+        "packages/books/src/server/BooksFeature.js",
+        "packages/books/src/server/types.js",
+        "packages/books/src/shared/bookResource.js",
+        "packages/books/src/shared/index.js"
+      ]
+    },
+    {
       "id": "crud/crud-screen-set",
       "title": "CRUD list, view, create, and edit screens",
       "summary": "Build a routed CRUD user interface as thin application pages over JSKIT's shared screen components and composables.",
@@ -4757,40 +4793,6 @@
         "books/BookViewPage.vue",
         "books/formFields.js",
         "books/listExtensions.js"
-      ]
-    },
-    {
-      "id": "crud/json-api-resource-package",
-      "title": "JSON API CRUD resource package",
-      "summary": "Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.",
-      "keywords": [
-        "actions",
-        "crud",
-        "database",
-        "json-api",
-        "migration",
-        "permissions",
-        "provider",
-        "repository",
-        "routes",
-        "service"
-      ],
-      "requires": [
-        "@jskit-ai/crud-core",
-        "@jskit-ai/resource-core",
-        "@jskit-ai/resource-crud-core"
-      ],
-      "packageId": "@jskit-ai/crud-core",
-      "packageVersion": "0.2.12",
-      "documentPath": "patterns/json-api-resource-package/PATTERN.md",
-      "examplePath": "patterns/json-api-resource-package/example",
-      "files": [
-        "migrations/20260815000000_books.cjs",
-        "packages/books/package.json",
-        "packages/books/src/server/BooksFeature.js",
-        "packages/books/src/server/types.js",
-        "packages/books/src/shared/bookResource.js",
-        "packages/books/src/shared/index.js"
       ]
     },
     {

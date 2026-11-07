@@ -84,6 +84,13 @@ function createReceivalsRepository({ receivals }) {
 }
 ```
 
+`create` and `patch` answer the written record by default, read back through
+the row policy. Server code that does not use it passes `returning: "id"` or
+`"none"`, which skips that read. `patch` and `delete` answer `null` for a
+record that is missing or outside the caller's scope; inside a transaction the
+caller opened, that failed write fails the transaction instead, so check first
+or use `patchMany(rows, { missing: "skip" })`.
+
 You never write `where workspace_id = ?`, so you cannot forget it. The row
 policy and write hooks go in the `owns` entry on the server, never in the
 shared definition, which ships to the browser. A row policy reads the owner's
@@ -136,6 +143,23 @@ in id order, so nobody locks another workspace's rows. A worker taking the
 next job uses `claim`, which skips rows another worker holds. Take locks in
 the same order everywhere, parents before children, or two transactions can
 wait on each other.
+
+A check-then-write that must not race (is the drier empty? then load it)
+locks the record first: `lock(id, txOptions)` reads it and locks its row, so
+another lock or write of it waits until the transaction ends. Every lock needs
+a transaction; SQLite runs one transaction at a time, so there is no row lock
+to take.
+
+A record that a person edits from a form it read earlier carries a version
+number: the table resource names it with `lockVersionField`, an integer field
+over a non-null integer column with `defaultTo: 0`.
+`patch(id, changes, { lockVersion })` then locks the row, applies `changes`
+only while it still holds that version, and advances it. A record whose
+version moved on rejects with a 409 coded `crud.document.lockVersionConflict`
+("This record changed. Reload and try again.") and nothing is written; a
+missing or hidden record answers `null`. The changes leave the version field
+out. `patch(id, changes, { onlyIf: { status: "open" } })` is the same check on
+stored values, answering `null` when they differ.
 
 ## Layer 5: reports the resource cannot express
 
@@ -208,8 +232,18 @@ hour.
 Open a transaction with the repository's `withTransaction(options, work)` and
 pass the `txOptions` it gives `work` to every call inside. Never read the
 transaction out of `options` by hand. Inside an open transaction it joins it;
-otherwise it opens one, retries the whole work on a deadlock, and runs events
-and other after-effects after commit.
+otherwise it opens one and runs events and other after-effects after commit.
+Any failed write inside it fails the whole transaction.
+
+When the database aborts the transaction as a deadlock victim (MySQL and
+MariaDB errno 1213, PostgreSQL `40P01`), the transaction that opened it runs
+the whole work again, up to three more times with a short random pause, so the
+person sees one successful request instead of a 500. A single write given no
+transaction does the same. A call inside someone else's transaction fails at
+once and leaves the retry to its owner; a lock wait timeout is not retried.
+The work must therefore be safe to run again: HTTP calls, email and uploads go
+before or after the transaction, or into an outbox. Work that cannot be
+repeated passes `withTransaction(options, work, { retry: false })`.
 
 ```js
 const allocate = (input, options) => repository.withTransaction(options, async (txOptions) => {

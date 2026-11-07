@@ -39,10 +39,12 @@ test("server feature pattern preserves the three useful package boundaries witho
 
   assert.match(document, /feature declaration, named capability inputs and outputs, and first-class\s+actions/u);
   assert.match(document, /repository-free lane/u);
-  assert.match(document, /explicit custom Knex\s+repository/u);
+  assert.match(document, /repository over a table the feature owns/u);
   assert.match(combinedSource, /defineFeature/u);
   assert.match(combinedSource, /const AvailabilityEngineFeature/u);
-  assert.match(combinedSource, /createWithTransaction/u);
+  assert.match(combinedSource, /owns: \[invoiceResource\]/u);
+  assert.match(combinedSource, /invoices\.aggregate\(/u);
+  assert.doesNotMatch(combinedSource, /createWithTransaction|database\.knex|runtime\.database/u);
   assert.doesNotMatch(combinedSource, /__JSKIT_|\$\{option:/u);
   assert.doesNotMatch(combinedSource, /scaffoldShape|scaffoldMode|provenance|receipt/u);
 

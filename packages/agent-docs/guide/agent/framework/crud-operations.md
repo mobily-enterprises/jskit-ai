@@ -15,7 +15,7 @@ translate the work into generator options.
 
 Read the narrow package-owned pattern in the [source pattern
 library](/patterns/): `crud/resource-contract` for the resource,
-`crud/json-api-resource-package` for the server, and `crud/crud-screen-set`
+`crud/crud-feature-package` for the server, and `crud/crud-screen-set`
 for routed UI. Child-resource and row-policy patterns own those variations.
 
 Normal CRUD tables use one non-null integer primary key. Foreign keys are
@@ -111,7 +111,7 @@ such as `list`, `view` and `create`; do not invent output-operation aliases.
 Bind `defineCrudFeature()` with `crud: bookCrud`, `relativePath: "/books"`
 and the application's configured public surface; the table's `"public"`
 ownership makes its routes public. Keep the existing package/provider and migration registration from
-`crud/json-api-resource-package`.
+`crud/crud-feature-package`.
 
 For the list, keep `BookListPage.vue` thin: use `resourceNamespace: "books"`
 in `useCrudListScreen()` on the configured public surface, remove unsupported
