@@ -66,17 +66,74 @@ function idOf(result, format) {
   return isRecord(resource) ? resource.id : undefined;
 }
 
+// The record timestamps a table resource keeps when its schema stores them as date-times: a create stamps both, a
+// change of a record updatedAt.
+const STAMPS = Object.freeze({ create: Object.freeze(["createdAt", "updatedAt"]), update: Object.freeze(["updatedAt"]) });
+
+/**
+ * The fields among `names` the table stores as date-times (not computed in the query).
+ * @param {Record<string, any>} schema
+ * @param {readonly string[]} names
+ */
+function storedTimestamps(schema, names) {
+  return names.filter((name) => {
+    const field = schema[name];
+    return field?.type === "dateTime" && field.virtual !== true && field.storage?.virtual !== true && !field.storage?.queryProjection;
+  });
+}
+
+/**
+ * The timestamps a write stamps that its attributes do not set themselves: none for a change that changes nothing.
+ * @param {{ schema: Record<string, any> }} resource
+ * @param {"create" | "update" | undefined} stamp
+ * @param {Record<string, unknown>} attributes
+ */
+function timestampsFor(resource, stamp, attributes) {
+  if (!stamp || (stamp === "update" && Object.keys(attributes).length < 1)) {
+    return {};
+  }
+  const now = new Date().toISOString();
+  return Object.fromEntries(storedTimestamps(resource.schema, STAMPS[stamp]).map((field) => [field, now]));
+}
+
+/**
+ * An upsert's onConflict with the timestamps its merge changes: updatedAt moves on, and a createdAt the handle stamped
+ * on a row is the new record's only, so a merge then names its fields (those the rows give, by their field names).
+ * @param {{ schema: Record<string, any> }} resource
+ * @param {Array<Record<string, unknown>>} rows The caller's rows, before stamping.
+ * @param {{ action?: string, merge?: string[] }} onConflict
+ */
+function upsertConflict(resource, rows, onConflict) {
+  if (onConflict.action !== "merge") {
+    return onConflict;
+  }
+  const updated = storedTimestamps(resource.schema, STAMPS.update);
+  if (onConflict.merge !== undefined) {
+    return { ...onConflict, merge: [...new Set([...onConflict.merge, ...updated])] };
+  }
+  const stampsCreated = storedTimestamps(resource.schema, ["createdAt"]).length > 0 &&
+    rows.some((row) => isRecord(row) && !Object.hasOwn(row, "createdAt"));
+  if (!stampsCreated) {
+    return onConflict;
+  }
+  const fieldOf = Object.fromEntries(Object.entries(resource.schema).map(([field, definition]) => [definition?.as || field, field]));
+  const given = rows.flatMap((row) => Object.keys(row)).map((key) => fieldOf[key] || key);
+  return { ...onConflict, merge: [...new Set([...given, ...updated])].filter((field) => field !== "id" && field !== "createdAt") };
+}
+
 /**
  * Record attributes as json-rest-api's input: a belongs-to field written under
- * its key goes to its relationship.
+ * its key goes to its relationship. `stamp` sets the timestamps the table
+ * stores and the attributes leave out: "create" both, "update" updatedAt.
  * @param {{ name: string, schema: Record<string, any> }} resource
  * @param {unknown} attributes
+ * @param {"create" | "update"} [stamp]
  */
-function inputData(resource, attributes) {
+function inputData(resource, attributes, stamp) {
   if (!isRecord(attributes)) {
     throw new TypeError(`${resource.name} writes take attributes as an object.`);
   }
-  const data = { ...attributes };
+  const data = { ...timestampsFor(resource, stamp, attributes), ...attributes };
   for (const [fieldName, definition] of Object.entries(resource.schema)) {
     if (!definition?.belongsTo || !Object.hasOwn(data, fieldName)) {
       continue;
@@ -214,6 +271,7 @@ export {
   manyResult,
   matchesOnlyIf,
   patchAnswer,
+  upsertConflict,
   pickReturning,
   readQueryParams,
   textList
