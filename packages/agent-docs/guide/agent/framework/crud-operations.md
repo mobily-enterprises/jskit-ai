@@ -28,7 +28,8 @@ Match visibility to real ownership and test allowed plus cross-owner cases.
 
 1. Write an immutable app-owned migration.
 2. Define the table resource with `defineTableResource()` and its HTTP surface
-   with `defineCrudContract()`.
+   with `defineCrudContract()`, which names its `namespace`: the routes',
+   messages' and events' public name, never taken from the resource.
 3. Use `defineCrudFeature()` for standard table ownership, service, action,
    permission, and route mechanics.
 4. Customize through `decorateRepository`, `decorateService`,
@@ -96,6 +97,7 @@ const bookResource = defineTableResource({
 });
 
 const bookCrud = defineCrudContract(bookResource, {
+  namespace: "books",
   apiAccess: "public",
   operations: ["list", "view", "create"]
 });
