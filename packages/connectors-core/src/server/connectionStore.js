@@ -78,8 +78,7 @@ function createConnectionStore({ resources, systemContext, protection }) {
   }
 
   async function pruneExpiredAttempts({ before = Date.now() } = {}) {
-    const pruned = await attempts.deleteWhere({ expiredBy: before }, { ...pruneOptions, returning: "ids" });
-    return pruned.length;
+    return attempts.deleteWhere({ expiredBy: before }, { ...pruneOptions, returning: "count" });
   }
 
   return Object.freeze({
