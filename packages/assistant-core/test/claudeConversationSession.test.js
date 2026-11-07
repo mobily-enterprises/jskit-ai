@@ -759,7 +759,9 @@ test("Claude cancellation waits for an application effect after closing the nati
 });
 
 test("the common request deadline stops an unfinished native turn and retains its admitted history", async t => {
-  const f = await fixture(t, { limits: { timeoutMs: 2000 } });
+  // The deadline also covers starting the native process and admitting the turn, which took up to 8.4 s (median 1.3 to
+  // 2.5 s) with 4 to 8 copies of this test running on an 8-thread host, so it allows 10 s.
+  const f = await fixture(t, { limits: { timeoutMs: 10_000 } });
   await f.conversation.send({ messageId: "waiting", text: "wait" });
   const snapshot = await f.conversation.wait();
   assert.equal(snapshot.conversationLog[0].metadata.runtime.status, "failed");
