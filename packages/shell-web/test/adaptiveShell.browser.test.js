@@ -286,6 +286,28 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
   }
 });
 
+test("the shared smoke case passes a phone shell whose destinations are all in the navigation bar", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    const page = await browser.newPage({ baseURL: vite.baseURL });
+    // The standard topology: admin's main navigation goes to shell-layout:primary-bottom-nav on a phone and it has no
+    // other destinations, so the shell draws no drawer or menu control there.
+    const compact = DEFAULT_VIEWPORTS.find(({ name }) => name === "compact");
+    await runAdaptiveShellSmokeCase({ page, expect, smokePath: "/w/acme/admin/bookings", viewport: compact });
+    await expect(page.getByTestId("jskit-shell-drawer")).toHaveCount(0);
+    await expect(page.getByTestId("jskit-shell-nav-toggle")).toHaveCount(0);
+    await page.close();
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
 test("shell-web preserves the active form across responsive changes", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000

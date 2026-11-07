@@ -69,7 +69,16 @@ async function expectElementVisibility(page, expect, testId, visible) {
   ).toBe(visible);
 }
 
-async function readShellLayoutClass(drawer) {
+// The layout class comes from the drawer, which carries it; a phone shell whose destinations are all in the
+// navigation bar draws no drawer (or menu control), and its navigation bar says it is compact.
+async function readShellLayoutClass(drawer, bottomNavigation, expect) {
+  await expect(
+    drawer.or(bottomNavigation).first(),
+    "The shell drew neither a drawer nor a navigation bar."
+  ).toBeAttached();
+  if (await drawer.count() === 0) {
+    return "compact";
+  }
   const layoutClass = String(await drawer.getAttribute("data-layout") || "");
   if (!["compact", "medium", "expanded"].includes(layoutClass)) {
     throw new Error(`Shell drawer exposed an invalid data-layout value: ${layoutClass || "(empty)"}.`);
@@ -290,8 +299,9 @@ async function runAdaptiveShellSmokeCase({
   await expect(page.getByRole("main").first()).toBeVisible();
   await expectNoHorizontalOverflow(page, expect);
   const drawer = page.getByTestId("jskit-shell-drawer");
+  const bottomNavigation = page.getByTestId("jskit-shell-bottom-nav");
   const toggle = page.getByTestId("jskit-shell-nav-toggle");
-  const layoutClass = await readShellLayoutClass(drawer);
+  const layoutClass = await readShellLayoutClass(drawer, bottomNavigation, expect);
 
   if (layoutClass === "compact") {
     let bootstrapRequests = 0;
@@ -301,21 +311,26 @@ async function runAdaptiveShellSmokeCase({
     });
     const bootstrapRequestsBeforePull = bootstrapRequests;
 
-    await expect(page.getByTestId("jskit-shell-bottom-nav")).toBeVisible();
-    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
+    await expect(bottomNavigation).toBeVisible();
+    if (await drawer.count() === 0) {
+      // Every destination is in the navigation bar, so there is no drawer to open and no menu control.
+      await expect(toggle).toHaveCount(0);
+    } else {
+      await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
 
-    // The modal drawer opens over the app bar, as Material 3 draws it; tapping the scrim beside it closes it.
-    await openCompactDrawer(page, expect);
-    await expect(toggle).toHaveAttribute("aria-label", "Close navigation menu");
-    await page.mouse.click(viewport.width - 8, Math.round(viewport.height / 2));
-    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
+      // The modal drawer opens over the app bar, as Material 3 draws it; tapping the scrim beside it closes it.
+      await openCompactDrawer(page, expect);
+      await expect(toggle).toHaveAttribute("aria-label", "Close navigation menu");
+      await page.mouse.click(viewport.width - 8, Math.round(viewport.height / 2));
+      await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
 
-    await openCompactDrawer(page, expect);
-    await page.keyboard.press("Escape");
-    await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
-    await expect(toggle).toBeFocused();
+      await openCompactDrawer(page, expect);
+      await page.keyboard.press("Escape");
+      await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
+      await expect(toggle).toBeFocused();
+    }
 
-    const navButtonHeights = await page.getByTestId("jskit-shell-bottom-nav").locator(".v-btn").evaluateAll((buttons) =>
+    const navButtonHeights = await bottomNavigation.locator(".v-btn").evaluateAll((buttons) =>
       buttons.map((button) => button.getBoundingClientRect().height)
     );
     expect(navButtonHeights.length).toBeGreaterThan(0);

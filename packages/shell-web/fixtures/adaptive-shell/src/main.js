@@ -127,7 +127,8 @@ const placements = [
     target: "shell.secondary-nav",
     kind: "link",
     componentToken: "fixture.menu-link",
-    surfaces: ["home", "admin"],
+    // Only home has a secondary destination, so on a phone admin's are all in the navigation bar and it has no drawer.
+    surfaces: ["home"],
     order: 100,
     props: {
       label: "Help and support",
