@@ -36,13 +36,17 @@ test("a table resource holds the table's facts, frozen, and is recognised as one
   assert.equal(isTableResource(null), false);
 });
 
-test("ownership is public when absent and must be one of the ownership kinds", () => {
+test("ownership is required and must be one of the ownership kinds", () => {
   assert.deepEqual(OWNERSHIP_KINDS, ["public", "workspace", "user", "workspace_user", "workspace_or_shared"]);
-  assert.equal(defineTableResource(receivals({ ownership: undefined })).ownership, "public");
   for (const ownership of OWNERSHIP_KINDS) {
     assert.equal(defineTableResource(receivals({ ownership })).ownership, ownership);
   }
-  assert.throws(() => defineTableResource(receivals({ ownership: "tenant" })), /ownership must be one of: public, workspace/u);
+  for (const ownership of [undefined, "", "tenant"]) {
+    assert.throws(
+      () => defineTableResource(receivals({ ownership })),
+      /requires ownership, one of: public, workspace, user, workspace_user, workspace_or_shared/u
+    );
+  }
 });
 
 test("a table resource needs a name, a table and fields", () => {

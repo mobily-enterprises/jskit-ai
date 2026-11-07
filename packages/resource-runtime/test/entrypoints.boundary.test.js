@@ -182,6 +182,7 @@ test("createResourceHost installs row policies before resources are added", asyn
   const scopeOptions = resourceScopeOptions(defineTableResource({
     name: "privateContacts",
     tableName: "private_contacts",
+    ownership: "public",
     schema: {
       id: { type: "id", primary: true }
     }
@@ -363,6 +364,7 @@ test("resourceScopeOptions maps server query projections into json-rest-api quer
   const resource = defineTableResource({
     name: "receivals",
     tableName: "receivals",
+    ownership: "public",
     schema: {
       id: { type: "id", primary: true },
       remainingProcessableWeight: {
@@ -411,6 +413,7 @@ test("resourceScopeOptions applies resource-owned default response exclusions", 
   const source = defineTableResource({
     name: "contacts",
     tableName: "contacts",
+    ownership: "public",
     defaultExclude: [
       "privateNotes",
       "searchRank"
@@ -453,6 +456,7 @@ test("resourceScopeOptions rejects invalid default response exclusions", () => {
   const createResource = (defaultExclude) => defineTableResource({
     name: "contacts",
     tableName: "contacts",
+    ownership: "public",
     defaultExclude,
     schema: {
       id: {
@@ -484,6 +488,7 @@ test("resourceScopeOptions rejects query field names for column-backed schema fi
     () => resourceScopeOptions(defineTableResource({
       name: "receivals",
       tableName: "receivals",
+      ownership: "public",
       schema: {
         id: { type: "id", primary: true },
         status: { type: "string" }
@@ -554,6 +559,7 @@ async function createTemporalFixture() {
     await api.addResource("holidays", resourceScopeOptions(defineTableResource({
       name: "holidays",
       tableName: "holidays",
+      ownership: "public",
       schema: {
         id: { type: "id", primary: true },
         observedOn: { type: "date" }
@@ -562,6 +568,7 @@ async function createTemporalFixture() {
     await api.addResource("books", resourceScopeOptions(defineTableResource({
       name: "books",
       tableName: "books",
+      ownership: "public",
       schema: {
         id: { type: "id", primary: true },
         publishedOn: { type: "date" },

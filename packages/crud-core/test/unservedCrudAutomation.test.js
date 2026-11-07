@@ -14,6 +14,7 @@ function createResource(namespace) {
   const resource = defineTableResource({
     name: namespace,
     tableName: namespace,
+    ownership: "public",
     schema: {
       reason: { type: "string", required: true }
     }

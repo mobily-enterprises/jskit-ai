@@ -14,7 +14,7 @@ function builtJson(operations) {
 }
 
 function defineNotes(schema, fields = undefined) {
-  const resource = defineTableResource({ name: "notes", tableName: "notes", schema });
+  const resource = defineTableResource({ name: "notes", tableName: "notes", ownership: "public", schema });
   return defineCrudContract(resource, fields === undefined ? {} : { fields });
 }
 

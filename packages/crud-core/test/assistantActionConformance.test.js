@@ -54,6 +54,7 @@ function createBookingsResource() {
   const bookings = defineTableResource({
     name: "bookings",
     tableName: "bookings",
+    ownership: "public",
     schema: {
       serviceId: lookupField("services", "service"),
       productId: lookupField("products", "product"),
