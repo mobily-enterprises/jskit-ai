@@ -5,14 +5,15 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
+import { registerConsoleSettingsRoutes } from "../src/server/consoleSettings/consoleSettingsRoutes.js";
 import { consoleSettingsContract } from "../src/shared/resources/consoleSettingsResource.js";
 
-test("the console settings API contract serves view and a whole replace, with messages and validators", () => {
+test("the console settings API contract serves view and patch, with the methods of the routes that serve them", () => {
   const contract = consoleSettingsContract;
   assert.equal(contract.namespace, "consoleSettings");
-  assert.deepEqual(Object.keys(contract.operations), ["view", "replace"]);
+  assert.deepEqual(Object.keys(contract.operations), ["view", "patch"]);
   assert.equal(contract.operations.view.method, "GET");
-  assert.equal(contract.operations.replace.method, "PUT");
+  assert.equal(contract.operations.patch.method, "PATCH");
   for (const [operationName, operation] of Object.entries(contract.operations)) {
     assert.equal(typeof operation.messages, "object", `${operationName}.messages must exist.`);
     assert.equal(typeof resolveSchemaTransportSchemaDefinition(operation.output, {
@@ -20,12 +21,21 @@ test("the console settings API contract serves view and a whole replace, with me
       defaultMode: "replace"
     }), "object", `${operationName}.output.schema must exist.`);
   }
-  assert.equal(typeof resolveSchemaTransportSchemaDefinition(contract.operations.replace.body, {
-    context: "replace.body",
-    defaultMode: "replace"
-  }), "object", "replace.body.schema must exist.");
-  assert.equal(contract.operations.replace.body.mode, "replace");
-  assert.deepEqual(deriveResourceRequiredMetadata(contract).replace, []);
+  assert.equal(typeof resolveSchemaTransportSchemaDefinition(contract.operations.patch.body, {
+    context: "patch.body",
+    defaultMode: "patch"
+  }), "object", "patch.body.schema must exist.");
+  assert.equal(contract.operations.patch.body.mode, "patch");
+  assert.deepEqual(deriveResourceRequiredMetadata(contract).patch, []);
+});
+
+test("each console settings route uses its contract operation's method", () => {
+  const registered = [];
+  registerConsoleSettingsRoutes({ register: (method, url, options) => registered.push({ method, url, options }) });
+  assert.deepEqual(registered.map(({ method, url }) => `${method} ${url}`), [
+    `${consoleSettingsContract.operations.view.method} /api/console/settings`,
+    `${consoleSettingsContract.operations.patch.method} /api/console/settings`
+  ]);
 });
 
 test("console-core does not use workspaceRoutes.js helper path", () => {

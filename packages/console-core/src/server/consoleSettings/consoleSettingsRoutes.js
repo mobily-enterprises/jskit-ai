@@ -46,7 +46,7 @@ function registerConsoleSettingsRoutes(router) {
       ...createJsonApiResourceRouteContract({
         requestType: "console-settings",
         responseType: "console-settings",
-        body: consoleSettingsContract.operations.replace.body,
+        body: consoleSettingsContract.operations.patch.body,
         output: consoleSettingsContract.operations.view.output,
         outputKind: "record",
         getRecordId: resolveConsoleSettingsRecordId,
