@@ -1705,7 +1705,7 @@
               },
               {
                 "subpath": "./shared",
-                "summary": "Exports shared repository helpers (transactions, record ids, JSON columns, visibility, duplicate-entry detection and date/time serialization)."
+                "summary": "Exports shared database helpers (deadlock retries, record ids, JSON columns, duplicate-entry detection and date/time serialization)."
               },
               {
                 "subpath": "./server/types",

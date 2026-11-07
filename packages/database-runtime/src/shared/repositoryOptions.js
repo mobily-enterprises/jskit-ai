@@ -1,44 +1,5 @@
 import { normalizeCanonicalRecordIdText } from "@jskit-ai/kernel/shared/support/normalize";
 
-/**
- * The transaction a repository or service call runs in: its options' `trx`,
- * or null for a call outside one (a call may pass no options).
- * @param {{ trx?: import("../server/types.js").RuntimeKnexTransaction | null } | null} [options]
- * @returns {import("../server/types.js").RuntimeKnexTransaction | null}
- */
-function resolveTransaction(options) {
-  if (!options || typeof options !== "object") {
-    return null;
-  }
-  return options.trx || null;
-}
-
-/**
- * A query's transaction (see resolveTransaction) and whether it locks the rows it reads.
- * @param {{ trx?: import("../server/types.js").RuntimeKnexTransaction | null, forUpdate?: boolean } | null} [options]
- */
-function resolveQueryOptions(options) {
-  return {
-    trx: resolveTransaction(options),
-    forUpdate: options?.forUpdate === true
-  };
-}
-
-function resolveRepoClient(dbClient, options = {}) {
-  const { trx } = resolveQueryOptions(options);
-  return trx || dbClient;
-}
-
-function applyForUpdate(query, options = {}) {
-  const { forUpdate } = resolveQueryOptions(options);
-  // readable-check: allow method-probe - platform object: a Knex query builder that cannot lock rows is used as is
-  if (forUpdate && typeof query?.forUpdate === "function") {
-    return query.forUpdate();
-  }
-
-  return query;
-}
-
 function parseJsonObject(value, fallback = {}) {
   const source = String(value || "").trim();
   if (!source) {
@@ -205,88 +166,7 @@ async function retryDeadlocks(run, { retries = 3 } = {}) {
   }
 }
 
-async function runInTransaction(knex, callback, options = {}) {
-  if (typeof callback !== "function") {
-    throw new TypeError("runInTransaction requires callback.");
-  }
-  if (!knex || typeof knex !== "function") {
-    throw new TypeError("runInTransaction requires knex client.");
-  }
-
-  // readable-check: allow method-probe - platform object: a Knex client without transaction() runs the callback on itself
-  if (typeof knex.transaction !== "function") {
-    return callback(knex);
-  }
-  // Inside a transaction this opens a savepoint; a deadlock aborts the
-  // outermost transaction, and only that one retries.
-  if (knex.isTransaction) {
-    return knex.transaction(callback);
-  }
-  return retryDeadlocks(() => knex.transaction(callback), options);
-}
-
-function createWithTransaction(knex) {
-  return function withTransaction(work) {
-    return runInTransaction(knex, work);
-  };
-}
-
-/**
- * Joins the caller's transaction or opens one: runs work in the call's
- * `options.trx` when the caller holds a transaction, else in the one that
- * withTransaction opens.
- * @template T
- * @param {{ trx?: import("../server/types.js").RuntimeKnexTransaction | null }} options The call's options.
- * @param {(work: (trx: import("../server/types.js").RuntimeKnexTransaction) => Promise<T>) => Promise<T>} withTransaction
- *   The repository's withTransaction: opens a transaction and runs work in it.
- * @param {(trx: import("../server/types.js").RuntimeKnexTransaction) => Promise<T>} work
- * @returns {Promise<T>}
- */
-function joinOrOpenTransaction(options, withTransaction, work) {
-  return options.trx ? work(options.trx) : withTransaction(work);
-}
-
-function requireSqlIdentifier(value, label) {
-  const identifier = String(value || "").trim();
-  if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(identifier)) {
-    throw new TypeError(`${label} must be a safe SQL identifier.`);
-  }
-  return identifier;
-}
-
-async function lockScopedRecordId({
-  trx,
-  tableName,
-  recordId,
-  scopeId,
-  idColumn = "id",
-  scopeColumn = "workspace_id"
-} = {}) {
-  if (typeof trx !== "function") {
-    throw new TypeError("lockScopedRecordId requires a transaction.");
-  }
-  const table = requireSqlIdentifier(tableName, "lockScopedRecordId tableName");
-  const recordKey = requireSqlIdentifier(idColumn, "lockScopedRecordId idColumn");
-  const scopeKey = requireSqlIdentifier(scopeColumn, "lockScopedRecordId scopeColumn");
-  const normalizedRecordId = normalizeDbRecordId(recordId);
-  const normalizedScopeId = normalizeDbRecordId(scopeId);
-  if (!normalizedRecordId || !normalizedScopeId) {
-    return null;
-  }
-  const row = await trx(table)
-    .select(recordKey)
-    .where(recordKey, normalizedRecordId)
-    .andWhere(scopeKey, normalizedScopeId)
-    .forUpdate()
-    .first();
-  return normalizeDbRecordId(row?.[recordKey]);
-}
-
 export {
-  resolveTransaction,
-  resolveQueryOptions,
-  resolveRepoClient,
-  applyForUpdate,
   parseJsonObject,
   stringifyJsonObject,
   normalizeNullableString,
@@ -295,9 +175,5 @@ export {
   parseJsonValue,
   toDbJson,
   isDeadlockError,
-  retryDeadlocks,
-  runInTransaction,
-  createWithTransaction,
-  joinOrOpenTransaction,
-  lockScopedRecordId
+  retryDeadlocks
 };
