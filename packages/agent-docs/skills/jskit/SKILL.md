@@ -59,8 +59,8 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
    - For a UI pass (the changes, a section, or the whole app), also read
      [UI pass](references/ui-pass.md) completely.
    - Before writing a list, save, batch or test, before a refactor, and before
-     calling work done, read [sanity checks](references/sanity-checks.md): its
-     checks, and the short list of what is wrong in any context.
+     calling work done, read [sanity checks](references/sanity-checks.md): JSKIT's
+     own pitfalls, and the JSKIT calls that apply each check.
 
 These are complete operational references required by this skill. Do not load
 irrelevant references or other docs.

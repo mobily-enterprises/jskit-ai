@@ -274,7 +274,6 @@ test("the typed-features heuristic sends each keyword to a guide section", async
     "`Object.assign(new Error(…), { statusCode })`",
     "N+1 queries",
     "a write that gets slower as history grows",
-    "a raised `{ timeout }`",
     "`knex.migrate.latest()` in each test file"
   ]) {
     assert.ok(heuristic.includes(keyword), `The heuristic lacks ${keyword}.`);
@@ -282,32 +281,41 @@ test("the typed-features heuristic sends each keyword to a guide section", async
   assert.doesNotMatch(heuristic, /^\| Reason prefix/mu, "The heuristic copies the guide's exceptions table.");
 });
 
-test("the sanity checks give each check what good is, what to look at, an example and an outer limit", async () => {
+test("the sanity checks hold JSKIT's own pitfalls and the JSKIT mechanics for each check", async () => {
   const guide = await readFile(path.join(packageRoot, "site/guide/framework/sanity-checks.md"), "utf8");
   const sections = guideSections(guide);
-  assert.deepEqual(sections.map((section) => section.title), [
-    "Never do these",
-    "Data access",
-    "Refactors keep behaviour",
-    "Failing tests are bugs",
-    "Tests",
-    "Inputs and access",
-    "Changes others depend on",
-    "Screens in use",
-    "Production settings"
+  assert.deepEqual(sections.map((section) => section.title), ["JSKIT's own pitfalls", "Applying each check"]);
+  // The pitfalls JSKIT's own packages cause each give a check and a real example.
+  assert.deepEqual(sections[0].rules.map((rule) => rule.title), [
+    "Theme and component defaults",
+    "Navigation metadata",
+    "Generated action and tool contracts"
   ]);
-  // The don'ts are the few things wrong whatever the context, one line each; everything else is a check the reader judges.
-  assert.equal(sections[0].body.match(/^- \*\*Never /gmu)?.length, 10);
-  const checks = sections.slice(1).flatMap((section) => (section.rules.length > 0 ? section.rules : [section]));
-  assert.ok(checks.length >= 11, "The sanity checks lost checks.");
-  for (const check of checks) {
-    for (const part of [/^\*\*Good:\*\* \S/mu, /^\*\*Check:\*\*/mu, /^\*\*Examples?:\*\*/mu, /^\*\*Outer limit:\*\* \S/mu]) {
-      assert.match(check.body, part, `"${check.title}" lacks ${part.source}.`);
+  for (const pitfall of sections[0].rules) {
+    for (const part of [/^\*\*Check:\*\* \S/mu, /^\*\*Examples?:\*\*/mu]) {
+      assert.match(pitfall.body, part, `"${pitfall.title}" lacks ${part.source}.`);
     }
   }
-  // Checks are judged, not tuned to a number: the typed-features rules count and compare instead of capping.
+  assert.deepEqual(sections[1].rules.map((rule) => rule.title), [
+    "Every row",
+    "Query counts and batches",
+    "Tests",
+    "Inputs and access",
+    "Refactors",
+    "Changes others depend on",
+    "Screens",
+    "Production settings"
+  ]);
+  // The general method, its outer limits and its examples live outside JSKIT; this page stays a mechanics page.
+  assert.ok(Buffer.byteLength(guide) <= 9_500, `The sanity checks grew to ${Buffer.byteLength(guide)} bytes.`);
+  assert.doesNotMatch(guide, /^## Never do these$|^\*\*(?:Good|Outer limit):\*\*/mu);
+  assert.doesNotMatch(guide, /genesis/iu);
+  for (const mechanic of ["queryAllJsonRestCollectionRows()", "`query` event", "`rowPolicy`", "`jskit test`", "`TEST_DB_NAME`", "`mode: \"patch\"`", "`rateLimit`", "`NODE_ENV=production`", "`config.securityHeaders`"]) {
+    assert.ok(guide.includes(mechanic), `The sanity checks lack ${mechanic}.`);
+  }
+  // The typed-features rules count and compare instead of capping, and keep only JSKIT's mechanics.
   const typedFeatures = await readFile(path.join(packageRoot, "site/guide/framework/typed-features.md"), "utf8");
-  assert.doesNotMatch(typedFeatures, /^### (?:One read per table|Budgets at realistic counts)$/mu);
+  assert.doesNotMatch(typedFeatures, /^### (?:One read per table|Budgets at realistic counts|Time limits are not fixes)$/mu);
   assert.doesNotMatch(typedFeatures, /fixed query\s+budget|queries <= \d+|asserts the same query count/u);
   const bundled = await readFile(path.join(packageRoot, "skills/jskit/references/sanity-checks.md"), "utf8");
   assert.ok(bundled.includes("](typed-features.md#query-counts-at-realistic-sizes)"), "The bundled sanity checks do not link typed features.");
