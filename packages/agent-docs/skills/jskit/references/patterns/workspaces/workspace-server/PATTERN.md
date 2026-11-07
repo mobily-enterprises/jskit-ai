@@ -78,8 +78,8 @@ Use `members.prepareInvite(workspace, actor,
 payload, { trx, context })` in `repositories.workspaceInvites.withTransaction`
 or the same JSON REST API's managed `transaction`. It returns
 `{ createdInviteId, inviteTokenPreview }` without delivery. Lock the workspace
-with `repositories.workspaceInvites.lockWorkspaceForInvitations(workspace.id,
-{ trx })` before application draft/receipt rows, and save the exact invitation
+with `lock(workspace.id, { trx })` of the `workspaces` capability before
+application draft/receipt rows, and save the exact invitation
 association and retry receipt before commit. Failure restores the previous
 pending invitation. Keep access drafts separate: preparation creates a real token.
 

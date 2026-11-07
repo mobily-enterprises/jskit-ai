@@ -42,7 +42,7 @@ export async function verifyInvitationTransactions(t, db) {
     });
   }
   const api = await createJsonRestApiHost({ knex: db, logger: { error() {}, warn() {}, info() {}, debug() {} } });
-  const { identity } = await UsersIdentityProvider.setup({
+  const { profiles } = await UsersIdentityProvider.setup({
     authExtensions: createAuthExtensions(), extensions: createUsersExtensions(), jsonRestApi: api
   });
   await installWorkspaceResources(api);
@@ -67,7 +67,7 @@ export async function verifyInvitationTransactions(t, db) {
     workspace: { defaultInviteRole: "member" },
     roles: { owner: { assignable: false, permissions: ["*"] }, member: { assignable: true, permissions: [] } }
   } });
-  const profile = (name) => identity.repositories.userProfiles.upsert({
+  const profile = (name) => profiles.upsert({
     authProvider: "local", authProviderUserSid: name, email: `${name}@example.test`, displayName: name
   });
   let sequence = 0;
@@ -118,7 +118,7 @@ export async function verifyInvitationTransactions(t, db) {
     // Match acceptance's lock order: workspace, then application receipt.
     async function prepareOnce({ fail = false } = {}) {
       return invites.withTransaction(async (trx) => {
-        await invites.lockWorkspaceForInvitations(workspace.id, { trx });
+        assert.deepEqual(await workspaces.lock(workspace.id, { trx }), { id: workspace.id });
         const draft = await trx("test_invitation_drafts").where({ id: draftId, workspace_id: workspace.id }).forUpdate().first();
         if (draft.invite_id) return { createdInviteId: String(draft.invite_id) };
         const prepared = await members.prepareInvite(workspace, owner, payload, { ...options, trx });

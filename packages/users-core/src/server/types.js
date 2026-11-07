@@ -2,7 +2,8 @@
 
 /** @typedef {ReturnType<typeof import("./usersRuntime.js").createUsersRuntime>} UsersCore */
 /** @typedef {ReturnType<typeof import("./usersExtensions.js").createUsersExtensions>} UsersExtensions */
-/** @typedef {ReturnType<typeof import("./usersIdentity.js").createUsersIdentity>} UsersIdentity */
+/** @typedef {ReturnType<typeof import("./common/repositories/userProfilesRepository.js").createRepository>} UsersProfiles The users table's records: `users.profiles`. */
+/** @typedef {ReturnType<typeof import("./common/repositories/userSettingsRepository.js").createRepository>} UsersSettings The users' settings records: `users.settings`. */
 
 /**
  * The users' profile repository, as the account services receive it.

@@ -60,7 +60,10 @@ function memberSummaryFromMembership(row) {
   });
 }
 
-/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
+/**
+ * The `workspaces.memberships` capability: the workspace memberships table's records.
+ * @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies
+ */
 function createRepository({ api }) {
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
@@ -218,6 +221,34 @@ function createRepository({ api }) {
     return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
   }
 
+  /**
+   * Makes the user an active member of the workspace with the role (`member`
+   * when none is given), adding the membership or reactivating it.
+   * @param {{ workspaceId: unknown, userId: unknown, roleSid?: string }} member
+   * @param {object} [options]
+   */
+  async function addMember({ workspaceId, userId, roleSid = "member" }, options = {}) {
+    return upsertMembership(workspaceId, userId, { roleSid, status: "active" }, options);
+  }
+
+  /**
+   * The ids of the workspace's active members, in one read without their profiles.
+   * @param {unknown} workspaceId
+   * @param {object} [options]
+   * @returns {Promise<string[]>}
+   */
+  async function activeMemberIds(workspaceId, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      return [];
+    }
+
+    const rows = await queryMemberships({ workspace: normalizedWorkspaceId, status: "active" }, options);
+    return rows
+      .map((row) => normalizeDbRecordId(row?.user?.id || row?.userId, { fallback: null }))
+      .filter(Boolean);
+  }
+
   async function listActiveByWorkspaceId(workspaceId, options = {}) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
@@ -319,6 +350,8 @@ function createRepository({ api }) {
     findByWorkspaceIdAndUserId,
     ensureOwnerMembership,
     upsertMembership,
+    addMember,
+    activeMemberIds,
     listActiveByWorkspaceId,
     findActiveByWorkspaceIdAndUserId,
     listActiveWorkspaceIdsByUserId,

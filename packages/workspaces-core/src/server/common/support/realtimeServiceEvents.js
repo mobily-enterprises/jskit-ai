@@ -1,8 +1,6 @@
-import { normalizeDbRecordId } from "@jskit-ai/database-runtime/shared";
 import { jsonApiResultValue } from "@jskit-ai/http-runtime/shared";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspace } from "../../support/resolveWorkspace.js";
 
 function actorId({ context }) {
@@ -21,20 +19,22 @@ function workspaceSlugPayload(execution = {}) {
   };
 }
 
-const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
-  preset: "event_scope",
-  /** @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex, event: { entityId?: unknown } }} input */
-  async userQuery({ knex, event }) {
-    const inviteId = normalizeRecordId(event?.entityId, { fallback: null });
-    if (!inviteId) return [];
-    const row = await knex("workspace_invites as wi")
-      .join("users as up", "up.email", "wi.email")
-      .where("wi.id", inviteId)
-      .first("up.id as user_id");
-    const userId = normalizeDbRecordId(row?.user_id, { fallback: null });
-    return userId ? [{ userId }] : [];
+/**
+ * The audience of an invite's bootstrap change: the event's scope and the
+ * user the invite's email belongs to, when one has signed up.
+ * @param {Pick<import("../../types.js").WorkspaceMembersService, "inviteRecipientUserIds">} dependencies
+ */
+function createInviteRecipientBootstrapAudience({ inviteRecipientUserIds }) {
+  /** @param {{ event: { entityId?: unknown }, options: { context?: object } }} input */
+  function audienceUsers({ event, options }) {
+    return inviteRecipientUserIds(event.entityId, options);
   }
-});
+
+  return Object.freeze({
+    preset: "event_scope",
+    audienceUsers
+  });
+}
 
 /**
  * @param {object} event
@@ -42,7 +42,7 @@ const INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE = Object.freeze({
  * @param {string} event.workspaceOperation
  * @param {string} event.workspaceRealtimeEvent
  * @param {typeof workspaceId} [event.bootstrapEntityId]
- * @param {string} [event.bootstrapAudience]
+ * @param {string | object} [event.bootstrapAudience]
  */
 function createWorkspaceEntityAndBootstrapEvents({
   workspaceEntity,
@@ -134,7 +134,7 @@ function createInviteDecisionEvents() {
 }
 
 export {
-  INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE,
+  createInviteRecipientBootstrapAudience,
   createInviteDecisionEvents,
   createWorkspaceEntityAndBootstrapEvents
 };

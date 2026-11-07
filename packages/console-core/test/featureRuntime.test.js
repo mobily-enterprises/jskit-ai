@@ -13,15 +13,18 @@ test("ConsoleFeature assembles owner access, settings, routes, actions, and boot
   const bootstrap = createBootstrapRuntime();
   let actions = null;
   let console = null;
+  let consoleSettings = null;
   const probe = defineProvider({
     id: "test.console.probe",
     requires: {
       actionCatalogue: "runtime.actions",
-      consoleCapability: "console.core"
+      consoleCapability: "console.core",
+      settingsCapability: "console.settings"
     },
-    setup({ actionCatalogue, consoleCapability }) {
+    setup({ actionCatalogue, consoleCapability, settingsCapability }) {
       actions = actionCatalogue;
       console = consoleCapability;
+      consoleSettings = settingsCapability;
       return {};
     }
   });
@@ -46,6 +49,8 @@ test("ConsoleFeature assembles owner access, settings, routes, actions, and boot
 
   assert.equal(typeof console.services.access.requireConsoleOwner, "function");
   assert.equal(typeof console.services.settings.updateSettings, "function");
+  assert.equal(typeof consoleSettings.getSingleton, "function");
+  assert.equal(Object.hasOwn(console, "repositories"), false);
   assert.deepEqual(routes, [
     "GET /api/console/settings",
     "PATCH /api/console/settings"

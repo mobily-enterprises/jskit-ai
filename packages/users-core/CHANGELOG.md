@@ -9,6 +9,14 @@
 - The settings, security and avatar field messages are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.
 - The resources' validation feedback names the catalog key `jskit.users.feedback.validationFailed` instead of plain English; JSKIT's forms render it with `text()`, so the English shown is unchanged.
 - `USER_PROFILE_EMAIL_CONFLICT` has its English in the catalog, so it translates.
+- **Breaking (data-access redesign).** The users' records are their owners' capabilities: `users.profiles` (the `users` table: `findById`, `findByEmail`, `findByIdentity`, `upsert`, the display name and avatar updates, `createWithSettings` and `countUsers`) and `users.settings` (the `user_settings` table: `findByUserId`, `ensureForUserId` and the settings updates). `UsersIdentityProvider` provides them, with `auth.profile.projector`, instead of `users.identity`, and `users.core` no longer has `repositories`; its types are `UsersProfiles` and `UsersSettings`.
+- New `createWithSettings({ profile, settings }, options)` on `users.profiles` creates a profile (or, for an identity that has one, updates it, as `upsert` does) and gives it its settings in one transaction, the caller's `options.trx` or its own: the settings start from the defaults and the given fields replace them, and the call answers `{ profile, settings }`.
+- New `countUsers({ excludeIds, createdSince }, options)` on `users.profiles` counts the users with one aggregate read, or two when `excludeIds` is given (json-rest-api 2.4 has no "not in" filter, so the excluded users who match are counted and subtracted). The profile resource gains the filters it uses: `ids` (`id in [...]`) and `createdSince` (`created_at >=`).
+
+### Upgrading
+
+- A feature that required `identity: "users.identity"` requires `users.profiles`, `users.settings` and, for the projector, `auth.profile.projector`: `identity.repositories.userProfiles` becomes the `users.profiles` capability and `identity.repositories.userSettings` becomes `users.settings`. Code that read `repositories.userProfiles` or `repositories.userSettings` of `users.core` requires them the same way. The `UsersIdentity` type is gone; use `UsersProfiles` and `UsersSettings`.
+- Tests that run `UsersIdentityProvider.setup()` read `{ profiles, settings, profileProjector }` from its result.
 
 ### New codes (17)
 

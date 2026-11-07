@@ -12,7 +12,7 @@ import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWor
 import { noInviteAcceptanceParticipant } from "./workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { buildWorkspaceName } from "./common/services/workspaceDirectoryService.js";
 import { createWorkspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
-import { createWorkspacesRuntime, installWorkspaceResources } from "./workspacesRuntime.js";
+import { createWorkspaceRecords, createWorkspacesRuntime, installWorkspaceResources } from "./workspacesRuntime.js";
 
 const WorkspacesFeature = defineFeature({
   id: "workspaces.core",
@@ -24,7 +24,8 @@ const WorkspacesFeature = defineFeature({
     env: "runtime.env",
     http: "runtime.http",
     jsonRestApi: "runtime.json-rest-api",
-    users: "users.core"
+    userProfiles: "users.profiles",
+    userSettings: "users.settings"
   },
   optional: {
     inviteAcceptanceParticipant: "workspaces.invite-acceptance-participant",
@@ -33,7 +34,9 @@ const WorkspacesFeature = defineFeature({
     personalWorkspaceName: "workspaces.personal-workspace-name"
   },
   provides: {
-    workspaces: "workspaces.core"
+    workspaces: "workspaces.core",
+    workspaceRecords: "workspaces",
+    workspaceMemberships: "workspaces.memberships"
   },
   /**
    * @param {object} capabilities
@@ -47,7 +50,8 @@ const WorkspacesFeature = defineFeature({
    * @param {import("./types.js").WorkspaceInviteMailer | null} capabilities.inviteMailer
    * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
    * @param {import("./types.js").PersonalWorkspaceName | null} capabilities.personalWorkspaceName
-   * @param {import("@jskit-ai/users-core/server/types").UsersCore} capabilities.users
+   * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} capabilities.userProfiles
+   * @param {import("@jskit-ai/users-core/server/types").UsersSettings} capabilities.userSettings
    */
   async setup({
     appRoot,
@@ -60,9 +64,11 @@ const WorkspacesFeature = defineFeature({
     inviteMailer,
     jsonRestApi,
     personalWorkspaceName,
-    users
+    userProfiles,
+    userSettings
   }) {
     await installWorkspaceResources(jsonRestApi);
+    const records = createWorkspaceRecords(jsonRestApi);
     const workspaces = createWorkspacesRuntime({
       appRoot,
       config,
@@ -72,7 +78,10 @@ const WorkspacesFeature = defineFeature({
       inviteMailer: inviteMailer ?? unconfiguredWorkspaceInviteMailer,
       jsonRestApi,
       personalWorkspaceName: personalWorkspaceName ?? buildWorkspaceName,
-      users
+      userProfiles,
+      userSettings,
+      workspaces: records.workspaces,
+      workspaceMemberships: records.memberships
     });
 
     bootstrap.register({
@@ -80,7 +89,7 @@ const WorkspacesFeature = defineFeature({
       order: 200,
       contribute: createWorkspaceBootstrapContributor({
         tenancyProfile: workspaces.tenancyProfile,
-        userProfilesRepository: users.repositories.userProfiles,
+        userProfilesRepository: userProfiles,
         workspaceInvitationsEnabled: workspaces.invitationsEnabled,
         workspacePendingInvitationsService: workspaces.services.pendingInvitations,
         workspaceService: workspaces.services.directory
@@ -102,7 +111,11 @@ const WorkspacesFeature = defineFeature({
       }
     }
 
-    return { workspaces };
+    return {
+      workspaces,
+      workspaceRecords: records.workspaces,
+      workspaceMemberships: records.memberships
+    };
   },
   actions({ workspaces }) {
     if (!workspaces.enabled) return Object.freeze([]);
@@ -124,6 +137,7 @@ const WorkspacesFeature = defineFeature({
 export {
   WorkspacesFeature,
   buildWorkspaceName,
+  createWorkspaceRecords,
   createWorkspacesRuntime,
   installWorkspaceResources,
   noInviteAcceptanceParticipant,

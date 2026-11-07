@@ -4,6 +4,11 @@
 
 - **Breaking (data-access redesign).** The console settings operations are an API contract, `consoleSettingsContract`, with the two its routes serve: view (GET) and replace (PUT).
 - The console resources' validation feedback names the catalog key `jskit.console.feedback.validationFailed` instead of plain English; JSKIT's forms render it with `text()`, so the English shown is unchanged. `apiValidation` is sent in the coded form with `validation_failed`.
+- **Breaking (data-access redesign).** The console's settings record is its owner's capability, `console.settings` (the console settings repository: `getSingleton(options)` reads `{ id, ownerUserId, settings, createdAt, updatedAt }`), provided by `ConsoleFeature`; `console.core` no longer has `repositories`. Its type is `ConsoleSettings`.
+
+### Upgrading
+
+- Code that read `repositories.settings` of `console.core` requires `console.settings`.
 
 ### New message keys (1)
 
