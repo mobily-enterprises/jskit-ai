@@ -43,8 +43,9 @@ function ownedEntry(entry, featureId) {
 }
 
 /**
- * Applies one contributed policy inside its own parenthesised group, so whatever
- * it writes (an orWhere among it) only narrows the rows the owner's policy left.
+ * Applies one row policy, the owner's or a contribution, inside its own
+ * parenthesised group, so whatever it writes (an orWhere among it) only narrows
+ * the rows ownership and the other policies left.
  * The policy writes to a recorder; its calls replay inside `query.where(...)`.
  * @param {Function} policy
  * @param {Record<string, any>} args
@@ -109,14 +110,14 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
     };
   }
 
-  // The owner's policy, then every contribution ANDed with it: a contribution only narrows.
+  // The owner's policy, then every contribution, each in its own group ANDed with ownership: a policy only narrows.
   function composedRowPolicy(featureId, entry, contributions) {
     if (!entry.rowPolicy && !entry.acceptsContributions) {
       return undefined;
     }
     return async function ownedRowPolicy(args) {
       if (entry.rowPolicy) {
-        const result = await entry.rowPolicy({ ...args, ownTable: ownTableReader(featureId, args.db) });
+        const result = await applyGrouped(entry.rowPolicy, { ...args, ownTable: ownTableReader(featureId, args.db) });
         if (result !== true) {
           return result;
         }
