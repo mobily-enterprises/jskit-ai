@@ -209,7 +209,12 @@ Application code that works with local auth's records beside local auth, such
 as an emailed sign-in link or a job that removes old sessions, requires their
 owners' capabilities from `@jskit-ai/auth-provider-local-db-core` and never
 reads or writes the `auth_local_*` tables. Every method takes the call's
-`options` last and runs in `options.trx` when there is one.
+`options` last and runs in `options.trx` when there is one. That transaction
+must be a managed one: open it with one of the application's own table
+resource handles, `handle.withTransaction(options, (txOptions) => …)`, and pass
+`txOptions` on. Their writes refuse a transaction from `knex.transaction()`, and
+a failed write fails the whole transaction even when the work catches its
+error.
 
 | Capability | Methods |
 | --- | --- |
