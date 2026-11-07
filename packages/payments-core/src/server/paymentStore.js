@@ -1,5 +1,8 @@
-import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { PaymentError, fingerprint } from "./errors.js";
+
+// One transaction per work, run once, since work may call the payment provider; the work's own failure reaches the
+// caller as the work threw it.
+const RUN_ONCE = Object.freeze({ retry: false, asThrown: true });
 
 const empty = () => ({ lots: [], subscriptions: {} });
 const emptyCatalogue = () => ({ plans: {}, history: [] });
@@ -19,54 +22,6 @@ function identifier(value) {
 const accountKey = (scope) => fingerprint([...merchant(scope), identifier(scope.subjectId)]);
 const customerKey = (scope, customerId) => fingerprint([...merchant(scope), identifier(customerId)]);
 const entryKey = (account, reference) => fingerprint([account, identifier(reference)]);
-
-/**
- * The record with this id, created from `attributes` when it is missing. The create runs outside any transaction, so
- * of two concurrent creations one wins and the other reads the winner's record.
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
- * @param {{ id: string } & Record<string, unknown>} attributes
- * @param {{ context: object }} options
- */
-async function findOrCreate(handle, attributes, options) {
-  const existing = await handle.get(attributes.id, {}, options);
-  if (existing) {
-    return existing;
-  }
-  try {
-    return await handle.create(attributes, options);
-  } catch (error) {
-    if (!isLostDuplicateInsertRace(error, options)) {
-      throw error;
-    }
-    return handle.get(attributes.id, {}, options);
-  }
-}
-
-/**
- * Runs work in one transaction and answers what it returns. A failure of the work reaches the caller as the work
- * threw it, not inside json-rest-api's write error. A deadlock fails the work instead of running it again, since work
- * may call the payment provider.
- * @template T
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
- * @param {{ context: object }} options
- * @param {(txOptions: Readonly<Record<string, any>>) => Promise<T>} work
- * @returns {Promise<T>}
- */
-async function inTransaction(handle, options, work) {
-  let failure = null;
-  try {
-    return await handle.withTransaction(options, async (txOptions) => {
-      try {
-        return await work(txOptions);
-      } catch (error) {
-        failure = { error };
-        throw error;
-      }
-    }, { retry: false });
-  } catch (error) {
-    throw failure && error?.cause === failure.error ? failure.error : error;
-  }
-}
 
 /**
  * The payment store on its table resources' handles: each account and each catalogue is one locked row holding its
@@ -91,8 +46,8 @@ function createPaymentStore({ resources, systemContext }) {
   async function withAccount(scope, work) {
     const key = accountKey(scope);
     // The retained account row serializes grants, usage, refunds and event handling.
-    await findOrCreate(accounts, { id: key, payload: JSON.stringify(empty()) }, accountOptions);
-    return inTransaction(accounts, accountOptions, async (txOptions) => {
+    await accounts.findOrCreate({ id: key, payload: JSON.stringify(empty()) }, accountOptions);
+    return accounts.withTransaction(accountOptions, async (txOptions) => {
       const state = JSON.parse((await accounts.lock(key, txOptions)).payload);
       const result = await work({
         state,
@@ -106,13 +61,13 @@ function createPaymentStore({ resources, systemContext }) {
       });
       await accounts.patch(key, { payload: JSON.stringify(state) }, { ...txOptions, returning: "none" });
       return result;
-    });
+    }, RUN_ONCE);
   }
 
   async function bindCustomer(scope, customerId, subjectId) {
     const id = customerKey(scope, customerId);
     identifier(subjectId);
-    const bound = await findOrCreate(customers, { id, subjectId }, customerOptions);
+    const bound = await customers.findOrCreate({ id, subjectId }, customerOptions);
     if (bound.subjectId !== subjectId) throw new PaymentError("payment_customer_conflict", "This provider customer is already bound to a different billable subject.", 409);
   }
 
@@ -128,13 +83,13 @@ function createPaymentStore({ resources, systemContext }) {
 
   async function withCatalogue(scope, work) {
     const key = fingerprint(merchant(scope));
-    await findOrCreate(catalogues, { id: key, payload: JSON.stringify(emptyCatalogue()) }, catalogueOptions);
-    return inTransaction(catalogues, catalogueOptions, async (txOptions) => {
+    await catalogues.findOrCreate({ id: key, payload: JSON.stringify(emptyCatalogue()) }, catalogueOptions);
+    return catalogues.withTransaction(catalogueOptions, async (txOptions) => {
       const state = JSON.parse((await catalogues.lock(key, txOptions)).payload);
       const result = await work(state);
       await catalogues.patch(key, { payload: JSON.stringify(state) }, { ...txOptions, returning: "none" });
       return result;
-    });
+    }, RUN_ONCE);
   }
 
   return Object.freeze({
