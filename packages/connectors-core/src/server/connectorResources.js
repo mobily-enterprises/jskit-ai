@@ -13,6 +13,7 @@ const ciphertext = Object.freeze({ type: "string", noTrim: true });
 const connectorConnectionResource = defineTableResource({
   name: "connectorConnections",
   tableName: "connector_connections",
+  ownership: "public",
   idProperty: "connection_key",
   schema: {
     id: key("connection_key"),
@@ -24,6 +25,7 @@ const connectorConnectionResource = defineTableResource({
 const connectorAuthorizationAttemptResource = defineTableResource({
   name: "connectorAuthorizationAttempts",
   tableName: "connector_authorization_attempts",
+  ownership: "public",
   idProperty: "attempt_key",
   sortableFields: ["expiresAt"],
   schema: {

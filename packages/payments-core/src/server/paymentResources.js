@@ -13,6 +13,7 @@ const text = Object.freeze({ type: "string", required: true, noTrim: true });
 const paymentAccountResource = defineTableResource({
   name: "paymentAccounts",
   tableName: "payment_accounts",
+  ownership: "public",
   idProperty: "account_key",
   schema: {
     id: key("account_key"),
@@ -24,6 +25,7 @@ const paymentAccountResource = defineTableResource({
 const paymentEntryResource = defineTableResource({
   name: "paymentEntries",
   tableName: "payment_entries",
+  ownership: "public",
   idProperty: "entry_key",
   schema: {
     id: key("entry_key"),
@@ -36,6 +38,7 @@ const paymentEntryResource = defineTableResource({
 const paymentCustomerResource = defineTableResource({
   name: "paymentCustomers",
   tableName: "payment_customers",
+  ownership: "public",
   idProperty: "customer_key",
   schema: {
     id: key("customer_key"),
@@ -47,6 +50,7 @@ const paymentCustomerResource = defineTableResource({
 const paymentCatalogueResource = defineTableResource({
   name: "paymentCatalogues",
   tableName: "payment_catalogues",
+  ownership: "public",
   idProperty: "catalogue_key",
   schema: {
     id: key("catalogue_key"),
