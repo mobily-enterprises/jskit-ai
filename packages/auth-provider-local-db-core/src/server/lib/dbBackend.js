@@ -1,4 +1,5 @@
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
+import { nowIso, toDate } from "./dateTimes.js";
 import { IDENTITIES_TABLE } from "./identityStore.js";
 
 const TABLES = Object.freeze({
@@ -13,18 +14,6 @@ const TABLES = Object.freeze({
 
 // One page of one record: a lookup by a unique field.
 const FIRST = Object.freeze({ size: 1 });
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-function toDate(value) {
-  const date = value instanceof Date ? value : new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    throw new TypeError("Invalid local auth DB timestamp.");
-  }
-  return date;
-}
 
 // The ISO text written for a required timestamp: the value, or the fallback (now) when it has none.
 function requiredDateTime(value, fallback = nowIso()) {

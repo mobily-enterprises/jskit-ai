@@ -1,23 +1,9 @@
 // readable-check: allow no-direct-knex - infrastructure: the auth_local_identities links are keyed by provider and provider subject together, a composite key no table resource can name, so this module keeps them with Knex
 // readable-check: allow no-transaction-reader - infrastructure: identity links are written in the transaction the local sign-in records' handles opened, which a call passes in its options
 
+import { nowIso, toDate } from "./dateTimes.js";
+
 const IDENTITIES_TABLE = "auth_local_identities";
-
-function nowIso() {
-  return new Date().toISOString();
-}
-
-/**
- * @param {unknown} value
- * @returns {Date}
- */
-function toDate(value) {
-  const date = value instanceof Date ? value : new Date(/** @type {string | number} */ (value));
-  if (Number.isNaN(date.getTime())) {
-    throw new TypeError("Invalid local auth DB timestamp.");
-  }
-  return date;
-}
 
 function mapIdentity(row) {
   if (!row) {
