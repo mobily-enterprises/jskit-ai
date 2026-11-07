@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { commandTools, createCommands, gvisorExecutor, localExecutor } from "../src/server/index.js";
-import { DATABASE, testDatabase } from "./database.js";
+import { DATABASE, agentOwner, testDatabase } from "./database.js";
 
 const gvisor = gvisorExecutor();
 const executors = [["local", localExecutor(), false], ["gVisor", gvisor, gvisor.available() ? false : "gVisor's runsc isn't installed (AGENT_RUNSC)"]];
@@ -12,11 +12,12 @@ const executors = [["local", localExecutor(), false], ["gVisor", gvisor, gvisor.
 for (const [name, executor, unavailable] of executors) {
   test(`commands run in the workspace (${name}): output cut and read whole, background, the server's environment kept out`, { skip: DATABASE || unavailable }, async (context) => {
     const knex = await testDatabase(context);
+    const agent = await agentOwner(knex);
     const root = await mkdtemp(path.join(os.tmpdir(), "agent-commands-"));
     const outputDir = await mkdtemp(path.join(os.tmpdir(), "agent-outputs-"));
     context.after(() => Promise.all([root, outputDir].map((dir) => rm(dir, { recursive: true, force: true }))));
     const ended = [];
-    const commands = createCommands({ knex, executor, outputDir, onEnd: (row) => ended.push(row.id), limits: { ...createCommands({ knex, executor }).limits, foregroundSeconds: 3, outputHead: 100, outputTail: 100 } });
+    const commands = createCommands({ ...agent, executor, outputDir, onEnd: (row) => ended.push(row.id), limits: { ...createCommands({ ...agent, executor }).limits, foregroundSeconds: 3, outputHead: 100, outputTail: 100 } });
     const tools = commandTools({ commands, conversationId: 1, root });
 
     process.env.AGENT_TEST_SECRET = "hidden";
@@ -60,7 +61,7 @@ for (const [name, executor, unavailable] of executors) {
 
 test("a running command whose server stopped is reported stopped", { skip: DATABASE }, async (context) => {
   const knex = await testDatabase(context);
-  const commands = createCommands({ knex, executor: localExecutor() });
+  const commands = createCommands({ ...(await agentOwner(knex)), executor: localExecutor() });
   const [row] = await knex("agent_commands").insert({ conversation_id: 1, script: "sleep 100", status: "running", server: "gone:1", heartbeat_at: knex.raw("now() - interval '5 minutes'") }).returning("id");
   const checked = await commands.check(1, String(row.id));
   assert.equal(checked.status, "stopped");
