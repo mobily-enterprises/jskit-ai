@@ -3,11 +3,14 @@ import test from "node:test";
 import knexLib from "knex";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import migration from "../migrations/payments_core_initial.cjs";
+import { createPaymentService } from "../src/server/service.js";
+import { validatePaymentConfiguration } from "../src/shared/configuration.js";
 import { createTestPaymentStore } from "./support/paymentStore.js";
 
 // The payment store's behaviour on MariaDB, through its public functions, as PaymentStoreFeature provides it: what an
 // account, its entries, a provider customer and a merchant's catalogue answer and keep; which scope sees which rows;
-// that work on one account or catalogue runs one at a time and rolls back as a whole; and the errors it gives.
+// that work on one account or catalogue runs one at a time and rolls back as a whole, its row's creation included; and
+// the errors it gives.
 
 // The runtime's own MySQL connection settings (database-runtime's resolveKnexConnectionFromEnvironment).
 const RUNTIME_MYSQL = Object.freeze({ supportBigNumbers: true, bigNumberStrings: true, dateStrings: ["DATE"], timezone: "Z" });
@@ -34,6 +37,12 @@ const subject = (subjectId, changes = {}) => ({ ...merchant, ...changes, subject
 const EMPTY_ACCOUNT = Object.freeze({ lots: [], subscriptions: {} });
 const EMPTY_CATALOGUE = Object.freeze({ plans: {}, history: [] });
 const IDENTITY_REQUIRED = { name: "TypeError", message: "Payment identity is required (maximum 200 characters)." };
+
+/** The rows in one of the payment tables (COUNT is a big number, which the runtime reads as a string). */
+async function rowCount(knex, table) {
+  const [{ rows }] = await knex(table).count({ rows: "*" });
+  return Number(rows);
+}
 
 /** A promise the test resolves itself, to hold one piece of work while others run. */
 function gate() {
@@ -154,7 +163,8 @@ test("entries are recorded once per reference, read back by find, and belong to 
 
 test("work that fails rolls back its state and entries, and its error reaches the caller unchanged", async (context) => {
   requireTestDatabase(process.env);
-  const store = await createTestPaymentStore(await ownDatabase(context, "da_pay_rollback"));
+  const knex = await ownDatabase(context, "da_pay_rollback");
+  const store = await createTestPaymentStore(knex);
   const scope = subject("tenant-a");
   await store.withAccount(scope, async ({ state, record }) => {
     state.lots.push({ credits: 1 });
@@ -171,12 +181,80 @@ test("work that fails rolls back its state and entries, and its error reaches th
   assert.deepEqual(await store.inspect(scope), { lots: [{ credits: 1 }], subscriptions: {} });
   assert.deepEqual(await store.withAccount(scope, async ({ find }) => [await find("debit:first"), await find("debit:second")]), [{ quantity: 1 }, null]);
 
-  // A new account whose first work fails stays empty.
+  // A new account or catalogue whose first work fails leaves no row: its creation rolls back with the work.
   await assert.rejects(store.withAccount(subject("tenant-new"), async ({ state }) => {
     state.lots.push({ credits: 3 });
     throw failure;
   }), (error) => error === failure);
   assert.deepEqual(await store.inspect(subject("tenant-new")), EMPTY_ACCOUNT);
+  await assert.rejects(store.withCatalogue(merchant, async (state) => {
+    state.history.push("never kept");
+    throw failure;
+  }), (error) => error === failure);
+  assert.equal(await rowCount(knex, "payment_accounts"), 1, "tenant-a's account alone");
+  assert.equal(await rowCount(knex, "payment_catalogues"), 0);
+});
+
+test("a reference granted again answers duplicate: true, also when two first grants on a new account race", { timeout: 20_000 }, async (context) => {
+  requireTestDatabase(process.env);
+  const knex = await ownDatabase(context, "da_pay_duplicate");
+  const store = await createTestPaymentStore(knex);
+  const configuration = validatePaymentConfiguration({
+    integrations: { billing: { provider: "stripe", accountMode: "shared", authentication: { method: "api-key", secretRef: "env:STRIPE_KEY" } } },
+    extensions: { payments: {
+      version: 1,
+      environments: { sandbox: { integrationId: "billing", providerAccountId: "acct_test", webhookSecretRef: "env:STRIPE_WEBHOOK_SECRET", returnUrlRef: "env:APP_URL" } },
+      plans: { pro: { name: "Pro", amount: 1200, currency: "USD", interval: "month", features: [], renewalCredits: 100 } }
+    } }
+  });
+  const payments = createPaymentService({ store, configuration, clock: () => 1000 });
+  const grant = { reference: "welcome", units: 5, expiresAt: null };
+
+  assert.deepEqual(await payments.grantCredits(subject("tenant-a"), grant), { granted: 5, expiresAt: null, duplicate: false });
+  assert.deepEqual(await payments.grantCredits(subject("tenant-a"), grant), { granted: 5, expiresAt: null, duplicate: true });
+  assert.equal((await payments.inspect(subject("tenant-a"))).balance, 5);
+
+  // Two first grants on accounts that do not exist yet, each pair with one reference: each account is created once,
+  // one grant of each pair applies and the other answers the first one's result as a duplicate.
+  const tenants = ["tenant-b", "tenant-c", "tenant-d"];
+  const outcomes = await Promise.all(tenants.flatMap((tenant) => [payments.grantCredits(subject(tenant), grant), payments.grantCredits(subject(tenant), grant)]));
+  for (const [index, tenant] of tenants.entries()) {
+    assert.deepEqual(outcomes.slice(index * 2, index * 2 + 2).map((outcome) => outcome.duplicate).sort(), [false, true], tenant);
+    assert.equal((await payments.inspect(subject(tenant))).balance, 5, tenant);
+  }
+  assert.equal(await rowCount(knex, "payment_accounts"), 4);
+  assert.equal(await rowCount(knex, "payment_entries"), 4);
+});
+
+test("the hot path: inspect is one read, and work on an existing account locks it once and writes only a changed state", async (context) => {
+  requireTestDatabase(process.env);
+  const knex = await ownDatabase(context, "da_pay_statements");
+  const store = await createTestPaymentStore(knex);
+  const scope = subject("tenant-a");
+  await store.withAccount(scope, async ({ state, record }) => {
+    state.lots.push({ credits: 1 });
+    await record("grant:first", { credits: 1 });
+  });
+  const statementsOf = async (operation) => {
+    const statements = [];
+    const listener = (query) => statements.push(query.sql);
+    knex.on("query", listener);
+    try {
+      await operation();
+    } finally {
+      knex.off("query", listener);
+    }
+    return statements.map((sql) => sql.split(" ")[0].toLowerCase());
+  };
+
+  assert.deepEqual(await statementsOf(() => store.inspect(scope)), ["select"]);
+  assert.deepEqual(await statementsOf(() => store.withAccount(scope, ({ find }) => find("grant:first"))), ["begin;", "select", "select", "commit;"],
+    "the account's lock and the entry's read; an unchanged state is not written");
+  // A changed state is one UPDATE, which json-rest-api's patch precedes with two reads of the row the work holds locked.
+  assert.deepEqual(await statementsOf(() => store.withAccount(scope, async ({ state }) => {
+    state.lots[0].credits = 2;
+  })), ["begin;", "select", "select", "select", "update", "commit;"]);
+  assert.deepEqual((await store.inspect(scope)).lots, [{ credits: 2 }]);
 });
 
 test("work on one account runs one at a time, while other accounts, the catalogue and plain reads go on", { timeout: 20_000 }, async (context) => {
