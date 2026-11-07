@@ -201,6 +201,47 @@ test("jskit check m3 reports each drifting pattern once, with its line and rule"
   });
 });
 
+// A colour written as channels is a raw colour too, as a hand-made shadow is; a theme role with an alpha is not.
+const CHANNEL_COLOUR_PAGE = [
+  "<script setup>", // 1
+  "const lifted = \"0 4px 8px rgba(0,0,0,.3)\";", // 2
+  "const themed = \"0 4px 8px rgba(var(--v-theme-shadow), 0.3)\";", // 3
+  "</script>", // 4
+  "", // 5
+  "<template>", // 6
+  "  <v-sheet style=\"box-shadow: 0 1px 2px rgb(0 0 0 / 20%)\">", // 7
+  "    <v-chip color=\"rgba(0, 0, 0, 0.5)\">Muted</v-chip>", // 8
+  "    <v-chip :style=\"{ boxShadow: `0 2px 4px hsla(0, 0%, 0%, 0.2)` }\">Bound</v-chip>", // 9
+  "  </v-sheet>", // 10
+  "</template>", // 11
+  "", // 12
+  "<style scoped>", // 13
+  ".card {", // 14
+  "  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(var(--v-theme-shadow), 0.3);", // 15
+  "  color: rgb(var(--v-theme-on-surface));", // 16
+  "}", // 17
+  "</style>", // 18
+  ""
+].join("\n");
+
+test("m3/raw-hex finds colours written as channels, as in hand-made shadows, and leaves theme roles alone", async () => {
+  await withApp({
+    "package.json": SHELL_MANIFEST,
+    "src/pages/home/cards.vue": CHANNEL_COLOUR_PAGE,
+    "src/theme/index.js": "export const shadow = \"rgba(0, 0, 0, 0.2)\";\n"
+  }, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root });
+    assert.deepEqual(findingLines(result).filter((line) => line.endsWith("m3/raw-hex")), [
+      "src/pages/home/cards.vue:2 m3/raw-hex",
+      "src/pages/home/cards.vue:7 m3/raw-hex",
+      "src/pages/home/cards.vue:8 m3/raw-hex",
+      "src/pages/home/cards.vue:9 m3/raw-hex",
+      "src/pages/home/cards.vue:15 m3/raw-hex"
+    ]);
+    assert.match(result.findings.find(({ line }) => line === 15).message, /^Raw colour rgba\(0, 0, 0, 0\.15\)\. Use rgb\(var\(--v-theme-<role>\)\), with an alpha for a shadow or scrim/u);
+  });
+});
+
 // #241: one line's `m3-check: allow <m3 rule> - <reason>` is the only exception. Nothing excuses a navigation rule,
 // and an exception without a reason or naming an unknown rule excuses nothing and is itself a finding.
 const EXCEPTION_PAGE = [

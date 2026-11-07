@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `m3/raw-hex` finds colours written as channels too: `rgba(0, 0, 0, 0.15)`, `rgb(0 0 0 / 20%)` and `hsla(...)` in CSS, inline and bound styles, scripts and colour attributes, as in a hand-made `box-shadow`, which passed before. One that reads a theme role with an alpha, `rgba(var(--v-theme-shadow), 0.2)`, passes; `src/theme/` stays exempt.
 - `m3/duplicate-h1` counts h1s on different branches of one `v-if`/`v-else-if`/`v-else` chain (a sign-in view's h1 per step, a page's h1 per state) as one title, since only one renders; two h1s that can show together are still a second one.
 - `m3/duplicate-h1` judges a page's h1 only under a layout that always renders its pages under the page title. A layout that renders them outside its `ShellLayout` on one branch (a shop device's staff sign-in in a bare `v-main`) leaves them unjudged, as `nav/missing-parent` does: which branch shows a page is decided at runtime.
 - `nav/surface-parent` (new): a page or layout whose route meta declares `jskit.parent` beside `jskit.surface` is an error, since the shell reads a page's parent only up to its surface root and so never sees that one (the page shows no Up arrow). It catches a layout and an inner page alike (an inner page repeating its surface is a surface root of its own), and the message says to declare the surface only on the surface's layout page and the parent on the page it renders.

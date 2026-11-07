@@ -63,6 +63,12 @@ const WHOLE_APP_ROOTS = Object.freeze(["src", "packages"]);
 
 const hexPattern = () => new RegExp(HEX_COLOUR, "gu");
 const exactHex = new RegExp(`^${HEX_COLOUR}$`, "u");
+// A colour written as channels, as a hand-made shadow is: rgba(0, 0, 0, 0.15), rgb(0 0 0 / 20%), hsl(...). One that
+// reads a theme role, rgba(var(--v-theme-shadow), 0.2), is not.
+const CHANNEL_COLOUR = String.raw`\b(?:rgba?|hsla?)\(\s*[\d.][^()]*\)`;
+const channelColour = () => new RegExp(CHANNEL_COLOUR, "giu");
+const exactChannelColour = new RegExp(`^${CHANNEL_COLOUR}$`, "iu");
+const CHANNEL_FIX = "Use rgb(var(--v-theme-<role>)), with an alpha for a shadow or scrim: rgba(var(--v-theme-shadow), 0.2).";
 const quotedHex = () => new RegExp(`(["'\`])(${HEX_COLOUR})\\1`, "gu");
 const MDI_STRING = /\bmdi-[a-z][a-z0-9-]*/gu;
 const MDI_IMPORT = /(?:from\s*|import\s*|require\(\s*)["'](@mdi\/(?:js|font)[^"']*)["']/gu;
@@ -166,6 +172,9 @@ function checkCode(code, offset, { report, themed }) {
     for (const match of code.matchAll(quotedHex())) {
       report("m3/raw-hex", offset + match.index, `Raw colour ${match[2]}. Use a theme colour role. ${CONTENT_COLOUR}`);
     }
+    for (const match of code.matchAll(channelColour())) {
+      report("m3/raw-hex", offset + match.index, `Raw colour ${match[0]}. ${CHANNEL_FIX} ${CONTENT_COLOUR}`);
+    }
   }
   checkNavigationCode(code, offset, report);
 }
@@ -199,6 +208,9 @@ function checkDeclaration(declaration, context) {
   if (!themed) {
     for (const match of declaration.value.matchAll(hexPattern())) {
       report("m3/raw-hex", declaration.valueOffset + match.index, `Raw colour ${match[0]}. Use rgb(var(--v-theme-<role>)). ${CONTENT_COLOUR}`);
+    }
+    for (const match of declaration.value.matchAll(channelColour())) {
+      report("m3/raw-hex", declaration.valueOffset + match.index, `Raw colour ${match[0]}. ${CHANNEL_FIX} ${CONTENT_COLOUR}`);
     }
   }
   const buttonRule = declaration.selectors.some((selector) => /\.v-btn\b/u.test(selector));
@@ -244,7 +256,7 @@ function checkAttribute(tag, entry, context) {
     for (const declaration of readInlineDeclarations(entry.value, entry.valueOffset)) {
       checkDeclaration({ ...declaration, selectors: tag.name === "v-btn" ? [".v-btn"] : [] }, context);
     }
-  } else if (!themed && exactHex.test(entry.value.trim())) {
+  } else if (!themed && (exactHex.test(entry.value.trim()) || exactChannelColour.test(entry.value.trim()))) {
     report("m3/raw-hex", entry.valueOffset, `Raw colour ${entry.value.trim()}. Use a theme colour role such as color="primary". ${CONTENT_COLOUR}`);
   }
   checkLinkAttribute(tag, entry, context.report);
