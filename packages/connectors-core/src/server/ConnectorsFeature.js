@@ -65,14 +65,20 @@ function createConnectorsActions({ connections }) {
   ]);
 }
 
-/** @param {import("./types.js").ConnectionServiceOptions} options */
+/**
+ * The `connectors.core` feature. Given no `store`, it keeps connections in the `connectors.store` capability, which
+ * createConnectionStoreFeature() provides on the connector tables.
+ * @param {Omit<import("./types.js").ConnectionServiceOptions, "store"> & { store?: import("./types.js").ConnectionStore }} options
+ */
 function createConnectorsFeature(options) {
   return defineFeature({
     id: "connectors.core",
     domain: "connectors",
+    requires: options.store ? {} : { store: "connectors.store" },
     provides: { connections: "connectors.core" },
-    setup() {
-      return { connections: createConnectionService(options) };
+    /** @param {{ store?: import("./types.js").ConnectionStore }} dependencies */
+    setup({ store = options.store }) {
+      return { connections: createConnectionService({ ...options, store }) };
     },
     actions({ connections }) {
       return createConnectorsActions({ connections });
