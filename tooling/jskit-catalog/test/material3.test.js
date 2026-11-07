@@ -351,6 +351,30 @@ test("jskit check m3 passes conforming source, the generated scheme and non-UI c
   });
 });
 
+// JSKIT's own repository: the framework's packages implement the navigation the rules send apps to, so a whole-app run
+// reads only their patterns and templates; a path given to jskit check m3 is read as asked, and an app's own package
+// keeps every rule.
+test("a whole-app check reads a JSKIT package's patterns and templates, not its implementation", async () => {
+  const leaving = "export function leave(url) {\n  window.location.assign(url);\n}\n";
+  await withApp({
+    "package.json": SHELL_MANIFEST,
+    "packages/shell-web/package.json": JSON.stringify({ name: "@jskit-ai/shell-web" }),
+    "packages/shell-web/src/client/leave.js": leaving,
+    "packages/shell-web/templates/src/leave.js": leaving,
+    "packages/shelves/package.json": JSON.stringify({ name: "@local/shelves" }),
+    "packages/shelves/src/client/leave.js": leaving
+  }, async (root) => {
+    const whole = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.deepEqual(whole.files, ["packages/shell-web/templates/src/leave.js", "packages/shelves/src/client/leave.js"]);
+    assert.deepEqual(whole.findings.map(({ file, rule }) => `${file} ${rule}`), [
+      "packages/shell-web/templates/src/leave.js nav/window-location",
+      "packages/shelves/src/client/leave.js nav/window-location"
+    ]);
+    const asked = await checkMaterial3({ projectRoot: root, paths: ["packages/shell-web"], navigationOnly: true });
+    assert.ok(asked.files.includes("packages/shell-web/src/client/leave.js"));
+  });
+});
+
 test("jskit check m3 narrows to given paths and checks the scheme only with the bootstrap or theme", async () => {
   await withApp(DRIFTING_APP, async (root) => {
     const section = await checkMaterial3({ projectRoot: root, paths: ["src/pages", "src/pages/home/gone.vue"] });

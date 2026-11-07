@@ -53,6 +53,11 @@ const SKIPPED_DIRECTORIES = new Set([
   "fixtures", "server", "migrations"
 ]);
 const SKIPPED_FILE = /\.(?:test|spec)\.[cm]?[jt]s$|\.d\.ts$/u;
+// In JSKIT's own repository, packages/ holds the framework, which implements the navigation, Up and reloads the rules
+// send an app to (ShellUpButton, reloadAppPage(), leaveApp(), the system Back button). A whole-app run reads only the
+// app code a JSKIT package carries, its patterns and templates; an app's own packages are read in full.
+const FRAMEWORK_SCOPE = "@jskit-ai/";
+const FRAMEWORK_APP_CODE = new Set(["patterns", "templates"]);
 // The generated colour scheme is the one home of hex values.
 const THEME_DIRECTORY = "theme";
 // Colours that are content, not UI, keep one value in both schemes, so they are not theme colours (which are toned per
@@ -91,7 +96,18 @@ function isSourceFile(relativePath) {
   return !relativePath.split("/").slice(0, -1).some(isSkippedDirectory);
 }
 
-async function walk(projectRoot, directory, files) {
+async function isFrameworkPackage(projectRoot, directory) {
+  if (!/^packages\/[^/]+$/u.test(directory)) return false;
+  try {
+    const manifest = JSON.parse(await readFile(path.join(projectRoot, directory, "package.json"), "utf8"));
+    return String(manifest?.name || "").startsWith(FRAMEWORK_SCOPE);
+  } catch (error) {
+    if (error?.code === "ENOENT") return false;
+    throw error;
+  }
+}
+
+async function walk(projectRoot, directory, files, wholeApp = false) {
   let entries;
   try {
     entries = await readdir(path.join(projectRoot, directory), { withFileTypes: true });
@@ -99,10 +115,12 @@ async function walk(projectRoot, directory, files) {
     if (error?.code === "ENOENT") return;
     throw error;
   }
+  const framework = wholeApp && await isFrameworkPackage(projectRoot, directory);
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     const relative = directory ? `${directory}/${entry.name}` : entry.name;
+    if (framework && !(entry.isDirectory() && FRAMEWORK_APP_CODE.has(entry.name))) continue;
     if (entry.isDirectory()) {
-      if (!isSkippedDirectory(entry.name)) await walk(projectRoot, relative, files);
+      if (!isSkippedDirectory(entry.name)) await walk(projectRoot, relative, files, wholeApp);
     } else if (entry.isFile() && isSourceFile(relative)) {
       files.add(relative);
     }
@@ -128,7 +146,7 @@ async function collectFiles(projectRoot, paths) {
       if (paths.length > 0) missing.push(target);
       continue;
     }
-    if (info.isDirectory()) await walk(projectRoot, relative === "" ? "" : relative, files);
+    if (info.isDirectory()) await walk(projectRoot, relative === "" ? "" : relative, files, paths.length === 0);
     else if (isSourceFile(relative)) files.add(relative);
   }
   return { files: [...files].sort(), missing };
