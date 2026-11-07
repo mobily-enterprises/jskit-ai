@@ -4,7 +4,8 @@ import {
   parseDatabaseUrl,
   resolveDatabaseClientFromEnvironment,
   resolveDatabaseConnectionFromEnvironment,
-  resolveKnexConnectionFromEnvironment
+  resolveKnexConnectionFromEnvironment,
+  resolveKnexPool
 } from "../src/shared/databaseConnection.js";
 
 test("parseDatabaseUrl parses mysql url fields", () => {
@@ -102,4 +103,28 @@ test("resolveKnexConnectionFromEnvironment keeps only MySQL DATE columns as stri
 
   assert.equal(postgresConnection.dateStrings, undefined);
   assert.equal(postgresConnection.timezone, undefined);
+});
+
+test("resolveKnexPool sets each PostgreSQL session to UTC before the pool hands the connection out", async () => {
+  assert.equal(resolveKnexPool("mysql2"), undefined);
+  const pool = resolveKnexPool("pg");
+  const statements = [];
+  const connection = {
+    query(sql, callback) {
+      statements.push(sql);
+      callback(null);
+    }
+  };
+  const handedOut = await new Promise((resolve, reject) => {
+    pool.afterCreate(connection, (error, created) => (error ? reject(error) : resolve(created)));
+  });
+  assert.equal(handedOut, connection);
+  assert.deepEqual(statements, ["SET TIME ZONE 'UTC'"]);
+
+  // A connection that cannot set its time zone is not handed out.
+  const refusal = new Error("permission denied");
+  const failed = await new Promise((resolve) => {
+    pool.afterCreate({ query: (_sql, callback) => callback(refusal) }, (error) => resolve(error));
+  });
+  assert.equal(failed, refusal);
 });

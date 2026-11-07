@@ -26,6 +26,7 @@ test("createKnexMigrationConfig fixes MySQL without requiring DB_CLIENT", () => 
 
   assert.equal(config.client, "mysql2");
   assert.equal(config.connection.port, 3306);
+  assert.equal(config.pool, undefined);
   assert.deepEqual(config.migrations.directory, [
     "/srv/catalogue/migrations",
     "/srv/catalogue/migrations/constraints"
@@ -41,6 +42,8 @@ test("createKnexMigrationConfig fixes PostgreSQL without requiring DB_CLIENT", (
 
   assert.equal(config.client, "pg");
   assert.equal(config.connection.port, 5432);
+  // Migrations write in a UTC session too.
+  assert.equal(typeof config.pool.afterCreate, "function");
 });
 
 test("createKnexMigrationConfig requires the application's environment instead of reading DB_* from nothing", () => {
