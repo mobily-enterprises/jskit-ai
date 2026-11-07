@@ -1,0 +1,5 @@
+@layer vuetify-components {
+  .production-build-fixture {
+    min-height: 100dvh;
+  }
+}

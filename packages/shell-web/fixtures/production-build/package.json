@@ -1,0 +1,5 @@
+{
+  "name": "shell-web-production-build-fixture",
+  "private": true,
+  "type": "module"
+}

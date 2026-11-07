@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JSKIT production build contract</title>
+    <!-- Stands for the shared component chunks' stylesheets a production build links before the entry's: each opens
+         with @layer vuetify-components, so it names that layer before vuetify/styles names vuetify-core. -->
+    <link rel="stylesheet" href="/src/componentChunk.css">
+  </head>
+  <body>
+    <div id="app"></div>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

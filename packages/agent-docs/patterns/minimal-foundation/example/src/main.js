@@ -1,10 +1,11 @@
+// Vuetify's styles first, so its stylesheet comes before any component chunk's.
+import "vuetify/styles";
+import "@jskit-ai/material-web/client/material.css";
 import { createApp } from "vue";
 import { createPinia } from "pinia";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import { createRouter, createWebHistory } from "vue-router/auto";
 import { routes } from "vue-router/auto-routes";
-import "vuetify/styles";
-import "@jskit-ai/material-web/client/material.css";
 import { createVuetify } from "vuetify";
 import { createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import App from "./App.vue";

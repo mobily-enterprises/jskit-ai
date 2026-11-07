@@ -4,7 +4,12 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { build } from "vite";
-import { createJskitClientBootstrapPlugin } from "./clientBootstrapPlugin.js";
+import {
+  VUETIFY_LAYER_ORDER,
+  checkVuetifyLayerOrder,
+  createJskitClientBootstrapPlugin,
+  namedCascadeLayers
+} from "./clientBootstrapPlugin.js";
 import { clientBuildIdFromHtml, pageClientBuildId } from "../../shared/support/clientBuild.js";
 import { readServedClientBuildId } from "../../server/support/clientBuild.js";
 
@@ -63,10 +68,64 @@ test("every built page names its build, which changes exactly when the built cod
   assert.notEqual(clientBuildIdFromHtml(await buildFixture(root)), lazyStyle, "the page's own styles change the build");
 });
 
+// A build links the stylesheets of shared component chunks, each opening with @layer vuetify-components, before the
+// entry's vuetify/styles; the page names Vuetify's layer order before all of them.
+test("a built page declares Vuetify's layer order before any stylesheet", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-client-layer-order-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFixture(root, {
+    "package.json": JSON.stringify({ name: "client-layer-order-fixture", private: true, type: "module" }),
+    "index.html": '<!doctype html><html><head><meta charset="UTF-8"><title>Fixture</title>' +
+      '<link rel="stylesheet" href="/src/chunk.css"></head><body><script type="module" src="/src/main.js"></script></body></html>',
+    "src/chunk.css": "@layer vuetify-components { .v-btn { font-weight: 500; } }",
+    "src/main.js": 'import "./main.css";',
+    "src/main.css": "@layer vuetify-core { @layer reset { button { font: inherit; } } }"
+  });
+  const head = /<head>([\s\S]*?)<\/head>/u.exec(await buildFixture(root))[1];
+  const declared = head.indexOf(`<style>${VUETIFY_LAYER_ORDER}</style>`);
+  assert.ok(declared >= 0, "the page declares the layer order");
+  const stylesheets = [...head.matchAll(/<link\b[^>]*\brel="stylesheet"|<style\b/gu)].map(({ index }) => index);
+  assert.ok(stylesheets.length > 1, "the build links its stylesheets");
+  assert.equal(Math.min(...stylesheets), declared, "nothing styles the page before the layer order");
+});
+
+// The order is Vuetify's own: its layers.css, every sublayer in place.
+test("the declared layer order is the installed Vuetify's", async () => {
+  const source = await readFile(new URL("../../../../node_modules/vuetify/lib/styles/layers.css", import.meta.url), "utf8");
+  assert.deepEqual([...new Set(namedCascadeLayers(VUETIFY_LAYER_ORDER))], [...new Set(namedCascadeLayers(source))]);
+});
+
+// The build checks its own output: what a page's stylesheets, in page order, make of Vuetify's layers.
+test("the layer order check reads stylesheets as the browser does", () => {
+  assert.deepEqual(namedCascadeLayers("@media (min-width: 1px) { @layer vuetify-core { @layer reset, base; .a { b: c; } } }" +
+    " @layer vuetify-final.trumps { .d { e: f; } }"), [
+    "vuetify-core", "vuetify-core.reset", "vuetify-core.base", "vuetify-final", "vuetify-final.trumps"
+  ]);
+  assert.equal(checkVuetifyLayerOrder([VUETIFY_LAYER_ORDER, "@layer vuetify-components{.v-btn{font-weight:500}}"]), "");
+  // A component chunk linked before vuetify/styles, with nothing naming the order first.
+  assert.match(checkVuetifyLayerOrder(["@layer vuetify-components{.v-btn{font-weight:500}}",
+    "@layer vuetify-core{@layer reset,base;}"]), /order vuetify-components, vuetify-core,/u);
+  // A layer a newer Vuetify adds lands after all the declared ones.
+  assert.match(checkVuetifyLayerOrder([VUETIFY_LAYER_ORDER, "@layer vuetify-labs{.x{y:z}}"]), /vuetify-final\.trumps, vuetify-labs;/u);
+});
+
+test("a build whose page would put Vuetify's layers out of order fails", async (t) => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "jskit-client-layer-check-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  await writeFixture(root, {
+    "package.json": JSON.stringify({ name: "client-layer-check-fixture", private: true, type: "module" }),
+    "index.html": '<!doctype html><html><head><title>Fixture</title></head>' +
+      '<body><script type="module" src="/src/main.js"></script></body></html>',
+    "src/main.js": 'import "./main.css";',
+    "src/main.css": "@layer vuetify-labs { .x { color: red; } }"
+  });
+  await assert.rejects(buildFixture(root), /index\.html: The built page puts Vuetify's cascade layers in the order/u);
+});
+
 test("development pages and missing builds have no build id", async (t) => {
   const plugin = createJskitClientBootstrapPlugin();
   const html = "<html><head></head><body></body></html>";
-  assert.equal(plugin.transformIndexHtml.handler(html, { server: {} }), undefined);
+  assert.deepEqual(plugin.transformIndexHtml.handler(html, { server: {} }).map(({ tag }) => tag), ["style"], "only the layer order");
 
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-client-build-id-"));
   t.after(() => rm(root, { recursive: true, force: true }));

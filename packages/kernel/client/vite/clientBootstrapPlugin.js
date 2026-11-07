@@ -28,6 +28,75 @@ const CLIENT_RUNTIME_DEDUPE_SPECIFIERS = Object.freeze([
   "vuetify"
 ]);
 const LOCAL_PACKAGE_SOURCE_TYPES = new Set(["local-package", "app-local-package"]);
+// Vuetify's cascade layers in its own order (vuetify/lib/styles/layers.css). A layer's place is fixed where it is
+// first named, and a production build links the CSS of shared component chunks, each opening with
+// @layer vuetify-components, before the entry's vuetify/styles: vuetify-components would come first, and Vuetify's
+// reset (button, input, select, textarea { font: inherit }) would beat its component styles. Named at the top of the
+// page, before any stylesheet, the order holds however the build links them.
+const VUETIFY_LAYER_ORDER = "@layer vuetify-core.reset, vuetify-core.base, vuetify-components, vuetify-overrides, " +
+  "vuetify-utilities.theme-base, vuetify-utilities.typography, vuetify-utilities.helpers, " +
+  "vuetify-utilities.theme-background, vuetify-utilities.theme-foreground, vuetify-final.transitions, vuetify-final.trumps;";
+
+// Every cascade layer a stylesheet names, in the order it names them, as dotted paths with their parents first
+// ("vuetify-core", "vuetify-core.reset").
+function namedCascadeLayers(css) {
+  const names = [];
+  const blocks = [];
+  const add = (name) => {
+    const parts = [...blocks.filter(Boolean), ...name.trim().split(".")];
+    parts.forEach((part, index) => names.push(parts.slice(0, index + 1).join(".")));
+  };
+  for (const [token, list, opener] of String(css).replace(/\/\*[\s\S]*?\*\//gu, "").matchAll(/@layer\s+([^;{}]+?)\s*([;{])|[{}]/gu)) {
+    if (token === "}") {
+      blocks.pop();
+    } else if (token === "{") {
+      blocks.push(null);
+    } else if (opener === "{") {
+      add(list);
+      blocks.push(list.trim());
+    } else {
+      list.split(",").forEach(add);
+    }
+  }
+  // A layer's first mention places it; later ones add nothing.
+  return [...new Set(names)];
+}
+
+// Where a built page's stylesheets put Vuetify's layers: its <style> and stylesheet <link> contents in page order,
+// then the stylesheets it loads later. Returns a message when that is not Vuetify's order, or "".
+function checkVuetifyLayerOrder(stylesheets = []) {
+  const expected = namedCascadeLayers(VUETIFY_LAYER_ORDER);
+  const built = [...new Set(stylesheets.flatMap(namedCascadeLayers).filter((name) => name.startsWith("vuetify")))];
+  if (built.join() === expected.join()) {
+    return "";
+  }
+  return `The built page puts Vuetify's cascade layers in the order ${built.join(", ")}; ` +
+    `Vuetify's own is ${expected.join(", ")}. Every button and field then loses its Material 3 type.`;
+}
+
+// The built pages' stylesheets, each page's in its own order, then the CSS the pages load later.
+function builtPageStylesheets(bundle) {
+  const assets = Object.values(bundle).filter(({ type }) => type === "asset");
+  const pages = assets.filter(({ fileName }) => fileName.endsWith(".html"));
+  const css = assets.filter(({ fileName }) => fileName.endsWith(".css"));
+  return pages.map((page) => {
+    const linked = [];
+    const inPage = [];
+    for (const [tag, inline] of String(page.source).matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>|<link\b[^>]*>/gu)) {
+      if (tag.startsWith("<style")) {
+        inPage.push(inline);
+        continue;
+      }
+      const href = /\brel=["']?stylesheet\b/u.test(tag) ? /\bhref=["']?([^"' >]+)/u.exec(tag)?.[1] : "";
+      const asset = href ? css.find(({ fileName }) => href === fileName || href.endsWith(`/${fileName}`)) : null;
+      if (asset) {
+        linked.push(asset);
+        inPage.push(String(asset.source));
+      }
+    }
+    return { page: page.fileName, stylesheets: [...inPage, ...css.filter((asset) => !linked.includes(asset)).map(({ source }) => String(source))] };
+  });
+}
 
 function isLocalScopePackageId(value) {
   return String(value || "").trim().startsWith("@local/");
@@ -501,23 +570,41 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
     configResolved,
     resolveId,
     load,
+    generateBundle: {
+      // After Vite emits the pages. A build whose pages would put Vuetify's layers out of order fails here, instead
+      // of shipping buttons and fields that lost their type.
+      order: "post",
+      handler(outputOptions, bundle) {
+        for (const { page, stylesheets } of builtPageStylesheets(bundle)) {
+          const problem = checkVuetifyLayerOrder(stylesheets);
+          if (problem) {
+            this.error(`${page}: ${problem}`);
+          }
+        }
+      }
+    },
     transformIndexHtml: {
       // After Vite adds the page's script and style tags. Their content-hashed
       // names change whenever any built code or style does, so the page's
-      // build id is a digest of the page itself.
+      // build id is a digest of the page itself. The layer order goes first in
+      // every page, built or served in development.
       order: "post",
       handler(html, { bundle } = {}) {
+        const layerOrder = { tag: "style", children: VUETIFY_LAYER_ORDER, injectTo: "head-prepend" };
         if (!bundle) {
-          return undefined;
+          return [layerOrder];
         }
         const buildId = createHash("sha256").update(html).digest("hex").slice(0, 16);
-        return [{ tag: "meta", attrs: { name: CLIENT_BUILD_META_NAME, content: buildId }, injectTo: "head-prepend" }];
+        return [layerOrder, { tag: "meta", attrs: { name: CLIENT_BUILD_META_NAME, content: buildId }, injectTo: "head-prepend" }];
       }
     }
   });
 }
 
 export {
+  VUETIFY_LAYER_ORDER,
+  namedCascadeLayers,
+  checkVuetifyLayerOrder,
   CLIENT_BOOTSTRAP_VIRTUAL_ID,
   CLIENT_BOOTSTRAP_RESOLVED_ID,
   createVirtualModuleSource,
