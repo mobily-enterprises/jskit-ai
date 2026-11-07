@@ -226,9 +226,11 @@ function createResourceHandle({ api, resource, hooks, settings }) {
 
   /**
    * One page of the records the filters match: `{ records, page: { size, hasMore, next } }`.
-   * `page.size` is required and at most pageLimits().request; `page.after` is the
-   * previous page's `next`.
-   * @param {{ filters?: object, sort?: string | string[], include?: string | string[], fields?: string[] | object, page?: { size: number, after?: string } }} [params]
+   * `page.size` is required and at most pageLimits().request. A scrolling list
+   * passes the previous page's `next` as `page.after`; a numbered page passes
+   * `page.number` (from 1), answered as `page: { size, number, hasMore, next }`
+   * with `next` the following number. Either costs one statement, with no count.
+   * @param {{ filters?: object, sort?: string | string[], include?: string | string[], fields?: string[] | object, page?: { size: number, after?: string, number?: number } }} [params]
    * @param {{ context?: object | null, trx?: object | null, format?: "jsonapi" }} [options]
    */
   async function query(params = {}, options = {}) {
@@ -254,9 +256,12 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     }
     const pagination = payload.meta?.pagination;
     const hasMore = pagination?.hasMore === true;
+    const number = params.page?.number;
     return Object.freeze({
       records: handleRecords(resource, payload.data, params.include),
-      page: Object.freeze({ size: Number(size), hasMore, next: hasMore ? pagination.cursor?.next ?? null : null })
+      page: Object.freeze(number === undefined
+        ? { size: Number(size), hasMore, next: hasMore ? pagination.cursor?.next ?? null : null }
+        : { size: Number(size), number, hasMore, next: hasMore ? number + 1 : null })
     });
   }
 
