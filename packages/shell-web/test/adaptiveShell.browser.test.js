@@ -253,6 +253,18 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
     const railLabels = mediumPage.getByTestId("jskit-shell-rail").locator(".shell-menu-link-item__rail-label");
     await expect(railLabels.first()).toBeVisible();
     assert.ok(await railLabels.count() >= 5, "The navigation rail labels each destination.");
+    // A label wider than the rail wraps to a second line instead of ending in an ellipsis.
+    const wrapped = await railLabels.nth(1).evaluate((element) => {
+      element.textContent = "Race Engineer";
+      const box = element.getBoundingClientRect();
+      const rail = element.closest("[data-testid=jskit-shell-rail]").getBoundingClientRect();
+      return {
+        lines: Math.round(box.height / Number.parseFloat(window.getComputedStyle(element).lineHeight)),
+        clipped: element.scrollWidth > element.clientWidth || element.scrollHeight > element.clientHeight,
+        inside: box.left >= rail.left && box.right <= rail.right
+      };
+    });
+    assert.deepEqual(wrapped, { lines: 2, clipped: false, inside: true });
     await mediumPage.close();
 
     const railPage = await context.newPage();
@@ -768,6 +780,47 @@ async function openMainDestination(page, label) {
   await page.getByRole("link", { name: label, exact: true }).filter({ visible: true }).first().click();
 }
 
+test("adjacent icon buttons are at least 32dp and each answers a press on its own box, by mouse and by touch", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    for (const width of [390, 1280]) {
+      for (const touch of [false, true]) {
+        const how = `${width}px ${touch ? "touch" : "mouse"}`;
+        const context = await browser.newContext({ baseURL: vite.baseURL, viewport: { width, height: 900 }, hasTouch: touch });
+        try {
+          const page = await context.newPage();
+          await page.goto("/home/buttons");
+          for (const name of ["history", "edit", "more", "info", "archive"]) {
+            const button = page.getByTestId(`fixture-adjacent-${name}`);
+            await button.scrollIntoViewIfNeeded();
+            const box = await button.boundingBox();
+            assert.ok(Math.round(box.width) >= 32 && Math.round(box.height) >= 32, `${how} ${name} is ${box.width}x${box.height}`);
+            // Its centre and the points just inside its sides are its own, not under its neighbour's touch target.
+            const y = box.y + box.height / 2;
+            for (const x of [box.x + 1, box.x + box.width / 2, box.x + box.width - 1]) {
+              const hit = await page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.closest(".v-btn")?.dataset.testid, [x, y]);
+              assert.equal(hit, `fixture-adjacent-${name}`, `${how} ${name} at x=${Math.round(x - box.x)}`);
+            }
+            const centre = [box.x + box.width / 2, y];
+            await (touch ? page.touchscreen.tap(...centre) : page.mouse.click(...centre));
+            await expect(page.getByTestId("fixture-adjacent-pressed"), how).toHaveText(name);
+          }
+        } finally {
+          await context.close();
+        }
+      }
+    }
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
 test("shell-web Up follows the tab's trail, falls back to the parent and returns to where the person was", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 180_000
@@ -880,5 +933,505 @@ test("shell-web Up follows the tab's trail, falls back to the parent and returns
     // No page carries a worded back control.
     await expect(page.getByText(/Back to /u)).toHaveCount(0);
     await context.close();
+  }
+});
+
+// What an element in the bar is: its tag, whether it is the action's own button and the attributes it carries.
+async function describeElement(locator) {
+  return locator.evaluate((element) => ({
+    tag: element.tagName.toLowerCase(),
+    button: element.classList.contains("v-btn") || element.classList.contains("v-list-item"),
+    href: element.getAttribute("href"),
+    target: element.getAttribute("target"),
+    download: element.getAttribute("download"),
+    color: window.getComputedStyle(element).color
+  }));
+}
+
+test("page actions carry their attributes in every form, collapse into the overflow menu and keep the primary action adaptive", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 150_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    for (const viewport of DEFAULT_VIEWPORTS) {
+      const page = await browser.newPage({
+        baseURL: vite.baseURL,
+        viewport: { width: viewport.width, height: viewport.height }
+      });
+      const at = `${viewport.width}px`;
+      const compact = viewport.name === "compact";
+      await page.goto("/home/actions");
+      const bar = page.getByTestId("jskit-shell-app-bar");
+      const error = await readRoleColor(page, "error");
+      const overflow = bar.getByTestId("jskit-shell-page-actions-overflow");
+
+      // Compact: the bar keeps its one trailing place for the primary action or the avatar, so every action is in the
+      // overflow menu; wider: every action but the overflow one is in the bar.
+      const inBar = compact
+        ? []
+        : ["fixture-action-edit", "fixture-action-export", "fixture-action-site", "fixture-action-delete"];
+      const inMenu = compact
+        ? [
+            "fixture-action-edit",
+            "fixture-action-export",
+            "fixture-action-site",
+            "fixture-action-delete",
+            "fixture-action-duplicate"
+          ]
+        : ["fixture-action-duplicate"];
+      for (const id of inBar) {
+        const element = await describeElement(bar.getByTestId(id));
+        assert.equal(element.button, true, `${at} ${id}: the attribute is on the action's own button`);
+      }
+      await expect(overflow, at).toHaveAccessibleName("More actions");
+      await expect(bar.locator("[data-testid=fixture-action-duplicate]"), at).toHaveCount(0);
+
+      // The bar's own forms keep a download, a new tab and the error colour.
+      if (!compact) {
+        const exportAction = await describeElement(bar.getByTestId("fixture-action-export"));
+        assert.deepEqual(
+          [exportAction.tag, exportAction.href, exportAction.download],
+          ["a", "/records.csv", "records.csv"],
+          at
+        );
+        const site = await describeElement(bar.getByTestId("fixture-action-site"));
+        assert.deepEqual([site.tag, site.href, site.target], ["a", "https://example.com/", "_blank"], at);
+        assert.equal((await describeElement(bar.getByTestId("fixture-action-delete"))).color, error, `${at} Delete is error`);
+      }
+
+      // The menu holds the rest in bar order, with their attributes, and runs their handlers.
+      await overflow.click();
+      const menu = page.getByRole("menu");
+      await expect(menu, at).toBeVisible();
+      assert.deepEqual(
+        await menu.getByRole("menuitem").evaluateAll((items) => items.map((item) => item.dataset.testid)),
+        inMenu,
+        at
+      );
+      if (compact) {
+        const exportItem = await describeElement(menu.getByTestId("fixture-action-export"));
+        assert.deepEqual([exportItem.tag, exportItem.href, exportItem.download], ["a", "/records.csv", "records.csv"], at);
+        const site = await describeElement(menu.getByTestId("fixture-action-site"));
+        assert.deepEqual([site.tag, site.href, site.target], ["a", "https://example.com/", "_blank"], at);
+        assert.equal((await describeElement(menu.getByTestId("fixture-action-delete"))).color, error, `${at} Delete is error`);
+      }
+      await menu.getByRole("menuitem", { name: "Duplicate" }).click();
+      await expect(page.getByTestId("fixture-action-log"), at).toHaveText("duplicate");
+      await expect(menu, at).toBeHidden();
+      if (compact) {
+        await overflow.click();
+        await expect(page.getByRole("menu"), at).toBeVisible();
+        await page.getByRole("menu").getByRole("menuitem", { name: "Delete" }).click();
+        await expect(page.getByTestId("fixture-action-log"), at).toHaveText("duplicate,delete");
+      }
+
+      // The primary action: an extended FAB on compact and medium windows, the bar's filled button on wider ones; its
+      // click handler opens a dialog.
+      const primary = page.getByTestId("fixture-primary");
+      if (viewport.name === "expanded") {
+        await expect(bar.getByTestId("fixture-primary"), at).toHaveText("New record");
+        assert.equal((await describeElement(primary)).button, true, at);
+        await expect(page.locator(".v-fab"), at).toHaveCount(0);
+      } else {
+        await expect(primary, at).toHaveClass(/v-fab--extended/u);
+        await expect(primary.getByRole("button", { name: "New record" }), at).toBeVisible();
+        await expect(bar.getByText("New record"), at).toHaveCount(0);
+      }
+      await (viewport.name === "expanded" ? primary : primary.locator(".v-btn")).click();
+      await expect(page.getByTestId("fixture-new-dialog"), at).toBeVisible();
+      await page.getByRole("button", { name: "Cancel" }).click();
+      await expect(page.getByTestId("fixture-new-dialog"), at).toBeHidden();
+      await page.close();
+    }
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
+test("a nested component's title gives the page's own title back, and Save returns to the list with its query", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
+    await page.goto("/home/actions?view=table");
+    await expect(shellPageTitle(page)).toHaveText("Page actions");
+    await page.getByTestId("fixture-toggle-panel").click();
+    await expect(shellPageTitle(page)).toHaveText("Panel title");
+    await page.getByTestId("fixture-toggle-panel").click();
+    await expect(page.getByTestId("fixture-title-claim")).toHaveCount(0);
+    await expect(shellPageTitle(page)).toHaveText("Page actions");
+
+    // Save finishes to the list it was opened from, which comes back with its query; so does the close, the form's
+    // Cancel, which takes the Up arrow's place instead of sitting beside it.
+    await page.getByRole("link", { name: "New entry", exact: true }).click();
+    await expect(page).toHaveURL(/\/home\/actions\/new$/u);
+    await shellPageActionButton(page, "Save").click();
+    await expect(page).toHaveURL(/\/home\/actions\?view=table$/u);
+    await page.getByRole("link", { name: "New entry", exact: true }).click();
+    const close = page.getByTestId("jskit-shell-back");
+    await expect(close).toHaveAttribute("data-action", "close");
+    await expect(close).toHaveAccessibleName("Cancel");
+    // The close and Save, with no Cancel beside them.
+    await expect(page.getByTestId("jskit-shell-app-bar").getByRole("button")).toHaveCount(2);
+    await close.click();
+    await expect(page).toHaveURL(/\/home\/actions\?view=table$/u);
+    await expect(page.getByTestId("jskit-shell-back")).toHaveCount(0);
+    // The close replaced the form's entry, so Back doesn't reopen it.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/home\/actions\?view=table$/u);
+    await page.close();
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
+test("on a phone, the bar keeps one trailing item and moves the page actions and its other items into one menu", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
+    // Tools, status and the account avatar: the list keeps the avatar, nearest the corner, and the overflow menu holds
+    // every page action, then the tools and the status.
+    await page.goto("/home/actions?topRight=3");
+    const bar = page.getByTestId("jskit-shell-app-bar");
+    const overflow = bar.getByTestId("jskit-shell-page-actions-overflow");
+    const barItems = () =>
+      bar.locator(".shell-layout__top-right [data-testid=fixture-status]").evaluateAll((items) =>
+        items.map((item) => item.getAttribute("aria-label"))
+      );
+    assert.deepEqual(await barItems(), ["Account"]);
+    await expect(bar.locator(".shell-page-action")).toHaveCount(0);
+    await overflow.click();
+    await expect(page.getByRole("menu")).toBeVisible();
+    await expect(page.getByRole("menuitem")).toHaveText(["Edit", "Export", "Open site", "Delete", "Duplicate"]);
+    const items = page.getByTestId("jskit-shell-page-actions-overflow-items");
+    await expect(items.getByTestId("fixture-status")).toHaveCount(2);
+    await expect(items.getByRole("button", { name: "Tools", exact: true })).toBeVisible();
+    await expect(items.getByRole("button", { name: "Status", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("menu")).toBeHidden();
+    const room = () =>
+      page.evaluate(() => {
+        const title = document.querySelector("[data-testid=jskit-shell-page-title]");
+        const trailing = Array.from(document.querySelectorAll("[data-testid=jskit-shell-app-bar] .v-btn")).at(-1);
+        return {
+          title: Math.round(title.getBoundingClientRect().width),
+          clipped: title.scrollWidth > title.clientWidth + 1,
+          right: Math.round(trailing.getBoundingClientRect().right)
+        };
+      });
+    const list = await room();
+    assert.ok(list.title >= 96 && !list.clipped, `the list's title keeps its room (${list.title}px)`);
+    assert.ok(list.right <= 390, `the avatar is in the window (${list.right}px)`);
+
+    // A form's Save is its one trailing item, so the avatar joins the tools and the status in the menu.
+    await page.getByRole("link", { name: "New entry", exact: true }).click();
+    await expect(bar.getByRole("button", { name: "Save", exact: true })).toBeVisible();
+    await expect(page.getByTestId("jskit-shell-back")).toHaveAttribute("data-action", "close");
+    assert.deepEqual(await barItems(), []);
+    await overflow.click();
+    await expect(items.getByTestId("fixture-status")).toHaveCount(3);
+    await expect(page.getByRole("menuitem")).toHaveCount(0);
+    await expect(items.getByRole("button", { name: "Account", exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(items).toBeHidden();
+    const form = await room();
+    assert.ok(form.title >= 96 && !form.clipped, `the form's title keeps its room (${form.title}px)`);
+    assert.ok(form.right <= 390, `Save is in the window (${form.right}px)`);
+
+    // Wider windows keep every item in the bar.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await expect(bar.getByTestId("fixture-status")).toHaveCount(3);
+    await page.close();
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
+function shellPageActionButton(page, name) {
+  return page.getByTestId("jskit-shell-app-bar").getByRole("button", { name, exact: true });
+}
+
+test("a segmented button and a button group in a filter row's narrow column keep 12dp segments and whole labels", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+      const page = await browser.newPage({ baseURL: vite.baseURL, viewport });
+      await page.goto("/home/components");
+      for (const testId of ["fixture-segmented-two", "fixture-button-group"]) {
+        const at = `${testId} at ${viewport.width}px`;
+        const group = await page.getByTestId(testId).evaluate((element) => ({
+          scrolls: element.scrollWidth > element.clientWidth + 1,
+          widths: `group ${element.clientWidth}/${element.scrollWidth}px in a ${element.parentElement.clientWidth}px row: ${window.getComputedStyle(element.parentElement).gridTemplateColumns}`,
+          segments: Array.from(element.querySelectorAll(":scope > .v-btn")).map((segment) => {
+            const style = window.getComputedStyle(segment);
+            const content = segment.querySelector(".v-btn__content");
+            return {
+              padding: [style.paddingInlineStart, style.paddingInlineEnd],
+              cut: content.scrollWidth > content.clientWidth,
+              room: segment.getBoundingClientRect().width - content.scrollWidth
+            };
+          })
+        }));
+        assert.equal(group.scrolls, false, `${at}: no segment scrolls inside the group (${group.widths})`);
+        for (const segment of group.segments) {
+          assert.deepEqual(segment.padding, ["12px", "12px"], `${at}: Material 3's 12dp segment sides`);
+          assert.equal(segment.cut, false, `${at}: the whole label shows`);
+          assert.ok(segment.room >= 23, `${at}: the label keeps its 12dp each side (${segment.room}px)`);
+        }
+      }
+      await page.close();
+    }
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
+// A dialog is, with a menu, one of Vuetify's root defaults providers: under any VDialog default, an expansion panel
+// around the dialog re-rendering rebuilds the dialog's defaults, its virtual-scroll list, given its items anew, loses
+// their heights, and scrollToIndex gives up (material-web's README, Upstream workarounds). JSKIT sets no VDialog
+// defaults; this fails with `VDialog: { VCard: {} }` in them.
+test("a virtual-scroll list in a dialog reaches its last item after the page around it re-renders", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 60_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
+    await page.goto("/home/components");
+    await page.getByRole("button", { name: "Open bookings" }).click();
+    const list = page.getByTestId("fixture-bookings-scroll");
+    await expect(list.getByText("Booking 1", { exact: true })).toBeVisible();
+    for (const renders of ["1", "2"]) {
+      await list.evaluate((element) => { element.scrollTop = 0; });
+      await page.getByRole("button", { name: /^Last booking/u }).click();
+      await expect(page.getByTestId("fixture-page-renders")).toHaveText(renders);
+      await expect(list.getByText("Booking 40", { exact: true }), `jump ${renders}`).toBeVisible();
+    }
+    await page.close();
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});
+
+test("segmented buttons, filter chips, fixed tabs, menus and dialog actions take Material 3's shapes and colours", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
+    await page.goto("/home/components");
+    const roles = {};
+    for (const role of ["outline", "secondary-container", "on-secondary-container", "surface-container"]) {
+      roles[role] = await readRoleColor(page, role);
+    }
+    const transparent = "rgba(0, 0, 0, 0)";
+
+    // The segmented button: a 40dp pill in the outline role, equal segments with 48dp touch targets, the selected one
+    // in secondary-container leading with a check, which replaces a segment's own icon.
+    const segmented = page.getByTestId("fixture-segmented");
+    const group = await segmented.evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      const segments = Array.from(element.querySelectorAll(":scope > .v-btn")).map((segment) => {
+        const segmentStyle = window.getComputedStyle(segment);
+        const check = window.getComputedStyle(segment.querySelector(".v-btn__content"), "::before");
+        return {
+          width: segment.getBoundingClientRect().width,
+          height: segment.getBoundingClientRect().height,
+          background: segmentStyle.backgroundColor,
+          color: segmentStyle.color,
+          check: check.content !== "none" && check.maskImage.includes("svg"),
+          target: Number.parseFloat(window.getComputedStyle(segment, "::before").height)
+        };
+      });
+      return {
+        height: element.getBoundingClientRect().height,
+        radius: Number.parseFloat(style.borderTopLeftRadius),
+        border: [style.borderTopWidth, style.borderTopColor],
+        segments
+      };
+    });
+    assert.equal(Math.round(group.height), 40);
+    assert.ok(group.radius >= 20, `the segmented button is a pill (${group.radius}px)`);
+    assert.deepEqual(group.border, ["1px", roles.outline]);
+    const widths = group.segments.map((segment) => segment.width);
+    assert.ok(Math.max(...widths) - Math.min(...widths) <= 1, `equal segments: ${widths.join(", ")}`);
+    // The pill's 1dp outline is inside its 40dp.
+    assert.deepEqual(group.segments.map((segment) => Math.round(segment.height)), [38, 38, 38]);
+    assert.deepEqual(group.segments.map((segment) => segment.target), [48, 48, 48]);
+    assert.deepEqual(group.segments[0], { ...group.segments[0], background: roles["secondary-container"], color: roles["on-secondary-container"], check: true });
+    assert.deepEqual([group.segments[1].background, group.segments[1].check], [transparent, false]);
+    await segmented.getByRole("button", { name: "Month" }).click();
+    // The selected container fades in.
+    await expect.poll(() => segmented.getByRole("button", { name: "Month" }).evaluate((element) =>
+      window.getComputedStyle(element).backgroundColor)).toBe(roles["secondary-container"]);
+    const month = await segmented.getByRole("button", { name: "Month" }).evaluate((element) => ({
+      background: window.getComputedStyle(element).backgroundColor,
+      iconMask: window.getComputedStyle(element.querySelector(".v-btn__prepend .v-icon")).maskImage,
+      glyph: window.getComputedStyle(element.querySelector(".v-btn__prepend svg")).visibility,
+      contentCheck: window.getComputedStyle(element.querySelector(".v-btn__content"), "::before").content
+    }));
+    assert.equal(month.background, roles["secondary-container"]);
+    assert.match(month.iconMask, /svg/u);
+    assert.equal(month.glyph, "hidden");
+    assert.equal(month.contentCheck, "none");
+
+    // Filter chips: 32dp, 8dp corners, an outline-role border unselected, secondary-container with a check selected,
+    // and a 48dp touch target; in a chip group and toggled with aria-pressed alike.
+    const chip = (id) => page.getByTestId(id).evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      const check = window.getComputedStyle(element, "::before");
+      return {
+        height: Math.round(element.getBoundingClientRect().height),
+        radius: style.borderTopLeftRadius,
+        background: style.backgroundColor,
+        border: [style.borderTopWidth, style.borderTopColor],
+        check: Boolean(element.querySelector(".v-chip__filter .v-icon")?.checkVisibility()) ||
+          (check.content !== "none" && check.maskImage.includes("svg")),
+        target: Math.round(Number.parseFloat(window.getComputedStyle(element, "::after").height))
+      };
+    });
+    const selected = { height: 32, radius: "8px", background: roles["secondary-container"], check: true, target: 48 };
+    const unselected = { height: 32, radius: "8px", background: transparent, border: ["1px", roles.outline], check: false, target: 48 };
+    const open = await chip("fixture-chip-open");
+    assert.deepEqual({ ...open, border: undefined }, { ...selected, border: undefined });
+    assert.deepEqual(await chip("fixture-chip-closed"), unselected);
+    const starred = await chip("fixture-pressed-chip");
+    assert.deepEqual({ ...starred, border: undefined }, { ...selected, border: undefined });
+    await page.getByTestId("fixture-pressed-chip").click();
+    await expect(page.getByTestId("fixture-pressed-chip")).toHaveAttribute("aria-pressed", "false");
+    assert.deepEqual(await chip("fixture-pressed-chip"), unselected);
+    const assist = await page.getByTestId("fixture-outlined-chip").evaluate((element) => window.getComputedStyle(element).borderTopColor);
+    assert.equal(assist, roles.outline);
+
+    // Five fixed tabs share a phone's width without a 90dp minimum; tabs whose labels can't fit scroll, uncut.
+    const tabs = (id) => page.getByTestId(id).evaluate((element) => {
+      const container = element.querySelector(".v-slide-group__container");
+      return {
+        overflowing: container.scrollWidth > container.clientWidth + 1,
+        widths: Array.from(element.querySelectorAll(".v-tab")).map((tab) => tab.getBoundingClientRect().width),
+        cut: Array.from(element.querySelectorAll(".v-tab .v-btn__content")).some((label) => label.scrollWidth > label.clientWidth + 1)
+      };
+    });
+    const grow = await tabs("fixture-grow-tabs");
+    assert.equal(grow.overflowing, false, JSON.stringify(grow));
+    assert.ok(Math.max(...grow.widths) - Math.min(...grow.widths) <= 1, `equal tabs: ${grow.widths.join(", ")}`);
+    assert.ok(Math.min(...grow.widths) < 90, `tabs narrower than Vuetify's 90px minimum: ${grow.widths.join(", ")}`);
+    const long = await tabs("fixture-long-tabs");
+    assert.deepEqual([long.overflowing, long.cut], [true, false], JSON.stringify(long));
+
+    // A menu's own list is surface-container at level 2; a list in a rich menu panel is a plain list.
+    const list = (id) => page.getByTestId(id).evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      return { background: style.backgroundColor, shadow: style.boxShadow !== "none" && /[1-9]px/u.test(style.boxShadow) };
+    });
+    await page.getByRole("button", { name: "Plain menu" }).click();
+    assert.deepEqual(await list("fixture-menu-list"), { background: roles["surface-container"], shadow: true });
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Rich menu" }).click();
+    assert.deepEqual(await list("fixture-panel-list"), { background: transparent, shadow: false });
+    await page.keyboard.press("Escape");
+
+    // A disabled filled button is one pill: its state layer, shown at rest, takes the button's corners instead of
+    // reaching out square past them.
+    const disabled = await page.getByTestId("fixture-disabled-button").evaluate((element) => ({
+      radius: window.getComputedStyle(element).borderTopLeftRadius,
+      layers: Array.from(element.querySelectorAll(":scope > .v-btn__overlay, :scope > .v-btn__underlay"))
+        .map((layer) => window.getComputedStyle(layer).borderTopLeftRadius)
+    }));
+    assert.ok(Number.parseFloat(disabled.radius) >= 20, `the disabled button is a pill (${disabled.radius})`);
+    assert.deepEqual(disabled.layers, disabled.layers.map(() => disabled.radius));
+    assert.ok(disabled.layers.length > 0);
+    // Its container is on-surface at 12% and its label at 38%, over the primary its colour gives it.
+    const onSurface = (await readRoleColor(page, "on-surface")).replace(/^rgb\((.*)\)$/u, "$1");
+    assert.deepEqual(
+      await page.getByTestId("fixture-disabled-button").evaluate((element) => [
+        window.getComputedStyle(element).backgroundColor,
+        window.getComputedStyle(element).color
+      ]),
+      [`rgba(${onSurface}, 0.12)`, `rgba(${onSurface}, 0.38)`]
+    );
+
+    // A button to the page above this one isn't active (selected) here.
+    await expect(page.getByTestId("fixture-home-button")).not.toHaveClass(/v-btn--active/u);
+
+    // A pagination's current page is a light activated layer inside its shape, so its number shows.
+    const current = await page.getByTestId("fixture-pagination").locator(".v-pagination__item--is-active .v-btn").evaluate((element) => {
+      const overlay = window.getComputedStyle(element.querySelector(":scope > .v-btn__overlay"));
+      return {
+        opacity: Number.parseFloat(overlay.opacity),
+        radius: overlay.borderTopLeftRadius === window.getComputedStyle(element).borderTopLeftRadius
+      };
+    });
+    assert.ok(current.opacity > 0 && current.opacity <= 0.2, `the current page's layer (${current.opacity})`);
+    assert.equal(current.radius, true);
+
+    // A shown placeholder is on-surface-variant at full strength; a labelled field hides it until active.
+    const placeholder = (id) => page.getByTestId(id).locator("input").evaluate((element) => {
+      const style = window.getComputedStyle(element, "::placeholder");
+      return [style.color, style.opacity];
+    });
+    assert.deepEqual(await placeholder("fixture-placeholder"), [await readRoleColor(page, "on-surface-variant"), "1"]);
+    assert.equal((await placeholder("fixture-labelled"))[1], "0");
+
+    // Cards and expansion panels rest flat; a dialog keeps its level 3.
+    const drawsShadow = (shadow) => shadow !== "none" &&
+      shadow.replace(/rgba?\([^)]*\)/gu, "").split(/[\s,]+/u).some((length) => Number.parseFloat(length) > 0);
+    const shadowOf = (locator) => locator.evaluate((element) => window.getComputedStyle(element).boxShadow);
+    const card = await shadowOf(page.getByTestId("fixture-card"));
+    assert.equal(drawsShadow(card), false, card);
+    const panels = await page.getByTestId("fixture-expansion-panels").evaluate((element) =>
+      Array.from(element.querySelectorAll(".v-expansion-panel, .v-expansion-panel__shadow"))
+        .map((part) => window.getComputedStyle(part).display === "none" ? "none" : window.getComputedStyle(part).boxShadow));
+    assert.deepEqual(panels.map(drawsShadow), panels.map(() => false), JSON.stringify(panels));
+
+    // Dialog actions sit 24dp from the dialog's sides and bottom, 8dp apart, once the dialog has scaled in.
+    await page.getByRole("button", { name: "Open dialog" }).click();
+    const dialog = page.getByTestId("fixture-dialog");
+    await expect(dialog).toBeVisible();
+    const dialogActions = () => dialog.locator(".v-card-actions").evaluate((element) => {
+      const style = window.getComputedStyle(element);
+      const card = element.closest(".v-card").getBoundingClientRect();
+      const buttons = Array.from(element.querySelectorAll(".v-btn")).map((button) => button.getBoundingClientRect());
+      return {
+        padding: [style.paddingTop, style.paddingRight, style.paddingBottom, style.paddingLeft],
+        gap: Math.round(buttons[1].left - buttons[0].right),
+        right: Math.round(card.right - buttons[1].right),
+        bottom: Math.round(card.bottom - buttons[1].bottom)
+      };
+    });
+    await expect.poll(dialogActions).toEqual({ padding: ["0px", "24px", "24px", "24px"], gap: 8, right: 24, bottom: 24 });
+    const dialogShadow = await shadowOf(dialog);
+    assert.equal(drawsShadow(dialogShadow), true, dialogShadow);
+    await page.close();
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
   }
 });

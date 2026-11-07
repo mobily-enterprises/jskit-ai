@@ -9,7 +9,11 @@ import "@jskit-ai/material-web/client/material.css";
 import { materialThemes, createMaterialVuetifyOptions } from "@jskit-ai/material-web/client";
 import { shellScrollBehavior } from "@jskit-ai/kernel/client";
 import App from "./App.vue";
+import ActionsFormPage from "./ActionsFormPage.vue";
+import ActionsPage from "./ActionsPage.vue";
+import ButtonStatesPage from "./ButtonStatesPage.vue";
 import ButtonsPage from "./ButtonsPage.vue";
+import ComponentsPage from "./ComponentsPage.vue";
 import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
@@ -18,6 +22,7 @@ import ReportsPage from "./ReportsPage.vue";
 import ScreenPage from "./ScreenPage.vue";
 import StudioPage from "./StudioPage.vue";
 import SettingsPage from "./SettingsPage.vue";
+import StatusButton from "./StatusButton.vue";
 import ShellMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellMenuLinkItem";
 import ShellSurfaceAwareMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellSurfaceAwareMenuLinkItem";
 import ShellTabLinkItem from "@jskit-ai/shell-web/client/components/ShellTabLinkItem";
@@ -41,7 +46,8 @@ const COMPONENTS = new Map([
   ["fixture.menu-link", ShellMenuLinkItem],
   ["fixture.surface-menu-link", ShellSurfaceAwareMenuLinkItem],
   ["fixture.tab-link", ShellTabLinkItem],
-  ["fixture.section-tab-link", ShellSectionTabLinkItem]
+  ["fixture.section-tab-link", ShellSectionTabLinkItem],
+  ["fixture.status-button", StatusButton]
 ]);
 
 // Main navigation as literal data, one placement per destination, as jskit check reads it.
@@ -202,6 +208,21 @@ const placements = [
   }
 ];
 
+// `?topRight=3` gives the top app bar three items of its own, as an app's tools, status and avatar.
+const statusPlacements = [
+  ["$settings", "Tools"],
+  ["$notifications", "Status"],
+  ["$accountCircle", "Account"]
+].slice(0, Number(new URLSearchParams(window.location.search).get("topRight")) || 0).map(([icon, label], index) => ({
+  id: `fixture.status.${index}`,
+  target: "shell.status",
+  kind: "component",
+  componentToken: "fixture.status-button",
+  surfaces: ["home", "admin"],
+  order: 10 + index,
+  props: { icon, label }
+}));
+
 const menuRenderers = Object.freeze({ link: "fixture.surface-menu-link" });
 const tabRenderers = Object.freeze({ link: "fixture.tab-link" });
 const sectionTabRenderers = Object.freeze({ link: "fixture.section-tab-link" });
@@ -244,11 +265,20 @@ const placementTopology = [
       medium: { outlet: "reports-views:section-nav", renderers: tabRenderers },
       expanded: { outlet: "reports-views:section-nav", renderers: tabRenderers }
     }
+  },
+  {
+    id: "shell.status",
+    surfaces: ["*"],
+    variants: {
+      compact: { outlet: "shell-layout:top-right" },
+      medium: { outlet: "shell-layout:top-right" },
+      expanded: { outlet: "shell-layout:top-right" }
+    }
   }
 ];
 
 const placementRuntime = createWebPlacementRuntime({ components: COMPONENTS, logger: silentLogger });
-placementRuntime.replacePlacements(placements);
+placementRuntime.replacePlacements([...placements, ...statusPlacements]);
 placementRuntime.replacePlacementTopology(placementTopology);
 placementRuntime.setContext({
   surfaceConfig: {
@@ -305,6 +335,10 @@ const routes = [
     meta: { kind: "suppliers", jskit: { parent: "/suppliers" } }
   },
   { path: "/home/buttons", component: ButtonsPage, meta: { jskit: { title: "Buttons" } } },
+  { path: "/home/button-states", component: ButtonStatesPage, meta: { jskit: { title: "Button states" } } },
+  { path: "/home/components", component: ComponentsPage, meta: { jskit: { title: "Components" } } },
+  { path: "/home/actions", component: ActionsPage, meta: { jskit: { title: "Actions" } } },
+  { path: "/home/actions/new", component: ActionsFormPage, meta: { jskit: { title: "New entry", parent: "/actions" } } },
   // A layout that draws its own top app bar from the shell's pieces.
   { path: "/home/studio", component: StudioPage, meta: { ownBar: true, jskit: { title: "Studio" } } },
   { path: "/home/studio/:id", component: StudioPage, meta: { ownBar: true, jskit: { parent: "/studio" } } },

@@ -1,4 +1,5 @@
 <script setup>
+import { computed } from "vue";
 import { useShellOutletPlacements } from "../composables/useShellOutletPlacements.js";
 import { useJskitText } from "../i18n.js";
 
@@ -14,6 +15,15 @@ const props = defineProps({
   context: {
     type: Object,
     default: () => ({})
+  },
+  // Renders only the outlet's placements from `start` up to (not including) `end`, as Array.prototype.slice takes them.
+  start: {
+    type: Number,
+    default: 0
+  },
+  end: {
+    type: Number,
+    default: undefined
   }
 });
 
@@ -36,7 +46,8 @@ function placementProps(entry) {
   return translated;
 }
 
-const placements = useShellOutletPlacements(() => props.target, () => props.context);
+const outletPlacements = useShellOutletPlacements(() => props.target, () => props.context);
+const placements = computed(() => outletPlacements.value.slice(props.start, props.end));
 </script>
 
 <template>

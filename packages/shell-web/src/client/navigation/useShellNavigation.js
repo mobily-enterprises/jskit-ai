@@ -17,11 +17,13 @@ function releaseNothing() {}
 const NO_SHELL_NAVIGATION_RUNTIME = Object.freeze({
   trail: Object.freeze({ value: Object.freeze([]) }),
   pageTitleSource: Object.freeze({ value: null }),
+  pageClose: Object.freeze({ value: null }),
   visibleParentPanes: Object.freeze({ value: 0 }),
   up: resolvedNothing,
   finish: resolvedNothing,
   pageUnavailable: () => false,
   setPageTitle: () => releaseNothing,
+  setPageClose: () => releaseNothing,
   showParentPane: () => releaseNothing,
   attachShell: () => releaseNothing
 });

@@ -157,16 +157,21 @@ const rail = computed(() => presentation.value === "rail");
   color: rgb(var(--v-theme-on-secondary-container));
 }
 
+/* A rail label is shown in full: one wider than the rail wraps to a second line, as Material 3's rail labels do,
+   and only a label that needs a third line ends the second in an ellipsis. */
 .shell-menu-link-item__rail-label {
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  display: -webkit-box;
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.03125rem;
   line-height: 1rem;
-  max-width: 72px;
+  max-width: calc(var(--shell-navigation-rail-width, 80px) - 8px);
   overflow: hidden;
+  overflow-wrap: break-word;
   text-align: center;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .shell-menu-link-item--rail.v-list-item--active .shell-menu-link-item__rail-label {

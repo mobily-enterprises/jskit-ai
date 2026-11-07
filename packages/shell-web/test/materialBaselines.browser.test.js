@@ -103,3 +103,107 @@ test("shell-web keeps its Material 3 baselines in light and dark at every window
     }
   }
 });
+
+// Buttons and pressable chips with their state layers, which Material 3 draws inside the control's shape: by variant
+// at rest, selected and disabled, with a pagination's selected page; then a tonal button hovered, focused and
+// pressed, at rest and selected, a selected tonal icon toggle hovered, a tonal chip hovered, and a profile menu's
+// avatar trigger pressed and open, with its name and as an icon button.
+const STATE_PROBES = Object.freeze([
+  { name: "tonal", selector: "[data-testid=state-tonal-rest]" },
+  { name: "tonalUnderlay", selector: "[data-testid=state-tonal-rest] > .v-btn__underlay" },
+  { name: "tonalOverlay", selector: "[data-testid=state-tonal-rest] > .v-btn__overlay" },
+  // Only while it is pressed: its ripple keeps the pill's corners.
+  { name: "tonalRipple", selector: "[data-testid=state-tonal-rest] > .v-ripple__container" },
+  { name: "selectedOverlay", selector: "[data-testid=state-tonal-active] > .v-btn__overlay" },
+  { name: "disabled", selector: "[data-testid=state-flat-disabled]" },
+  { name: "disabledOverlay", selector: "[data-testid=state-flat-disabled] > .v-btn__overlay" },
+  { name: "iconUnderlay", selector: "[data-testid=state-icon-rest] > .v-btn__underlay" },
+  { name: "iconSelectedOverlay", selector: "[data-testid=state-icon-active] > .v-btn__overlay" },
+  {
+    name: "paginationSelectedOverlay",
+    selector: "[data-testid=state-pagination] .v-pagination__item--is-active > .v-btn > .v-btn__overlay"
+  },
+  { name: "chipUnderlay", selector: "[data-testid=state-chip-tonal] > .v-chip__underlay" },
+  { name: "chipOverlay", selector: "[data-testid=state-chip-tonal] > .v-chip__overlay" },
+  { name: "blockDisabledOverlay", selector: "[data-testid=state-block-disabled] > .v-btn__overlay" },
+  { name: "profileOverlay", selector: "[data-testid=state-profile] > .v-btn__overlay" },
+  { name: "profileIconOverlay", selector: "[data-testid=state-profile-icon] > .v-btn__overlay" }
+]);
+
+const STATE_TARGETS = Object.freeze([
+  { name: "tonal", testId: "state-tonal-rest", states: ["hover", "focus", "pressed"] },
+  { name: "selected", testId: "state-tonal-active", states: ["hover", "focus", "pressed"] },
+  { name: "icon-selected", testId: "state-icon-active", states: ["hover"] },
+  { name: "chip", testId: "state-chip-tonal", states: ["hover"] },
+  { name: "profile", testId: "state-profile", states: ["pressed", "open"] },
+  { name: "profile-icon", testId: "state-profile-icon", states: ["pressed", "open"] }
+]);
+
+test("buttons and chips keep every state layer inside their shape, in light and dark", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_MATERIAL_BASELINES=1 to check the Material 3 baselines",
+  timeout: 180_000
+}, async () => {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  let browser = null;
+  try {
+    browser = await chromium.launch(createChromiumLaunchOptions());
+    for (const theme of ["light", "dark"]) {
+      const context = await browser.newContext({
+        baseURL: vite.baseURL,
+        colorScheme: theme,
+        locale: "en-US",
+        reducedMotion: "reduce",
+        viewport: { width: 390, height: 844 }
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(`/home/button-states?theme=${theme}`);
+        await expect(page.getByTestId("jskit-shell-page-title")).toHaveText("Button states");
+        const baseline = (name) => expectMaterialBaseline(page, {
+          directory: BASELINE_DIRECTORY,
+          name: `buttons-${name}-${theme}`,
+          probes: STATE_PROBES
+        });
+        await baseline("rest");
+        for (const target of STATE_TARGETS) {
+          const control = page.getByTestId(target.testId);
+          for (const state of target.states) {
+            if (state === "hover") {
+              await control.hover();
+            } else if (state === "focus") {
+              // A key press first, so the focus shows as keyboard focus.
+              await page.keyboard.press("Shift");
+              await control.focus();
+            } else if (state === "open") {
+              await control.click();
+              await expect(control).toHaveAttribute("aria-expanded", "true");
+            } else {
+              await control.hover();
+              await page.mouse.down();
+            }
+            await baseline(`${target.name}-${state}`);
+            if (state === "pressed") {
+              await page.mouse.up();
+            }
+            // Releasing a menu's trigger opens its menu; neither stays open for the next state. Escape closes the top
+            // overlay, which can be the trigger's tooltip, so it is pressed until the menu has closed too.
+            if (await control.getAttribute("aria-expanded") === "true") {
+              await page.mouse.move(1, 300);
+              await expect(async () => {
+                await page.keyboard.press("Escape");
+                await expect(control).toHaveAttribute("aria-expanded", "false", { timeout: 1000 });
+              }).toPass({ timeout: 10_000 });
+            }
+            await control.blur();
+            await page.mouse.move(1, 300);
+          }
+        }
+      } finally {
+        await context.close();
+      }
+    }
+  } finally {
+    await browser?.close();
+    await stopProcess(vite);
+  }
+});

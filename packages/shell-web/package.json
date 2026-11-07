@@ -28,6 +28,7 @@
     "./client/components/ShellSectionTabLinkItem": "./src/client/components/ShellSectionTabLinkItem.vue",
     "./client/components/ShellPageActions": "./src/client/components/ShellPageActions.vue",
     "./client/components/ShellPageAction": "./src/client/components/ShellPageAction.vue",
+    "./client/components/ShellPrimaryAction": "./src/client/components/ShellPrimaryAction.vue",
     "./client/components/ShellListDetail": "./src/client/components/ShellListDetail.vue",
     "./client/components/ShellUpButton": "./src/client/components/ShellUpButton.vue",
     "./client/components/ShellPageTitle": "./src/client/components/ShellPageTitle.vue",
@@ -35,6 +36,7 @@
     "./client/composables/useShellAppBar": "./src/client/composables/useShellAppBar.js",
     "./client/composables/useShellLayoutState": "./src/client/composables/useShellLayoutState.js",
     "./client/composables/useShellPageTitle": "./src/client/composables/useShellPageTitle.js",
+    "./client/composables/useShellPageClose": "./src/client/composables/useShellPageClose.js",
     "./client/composables/useShellWindowSizeClass": "./src/client/composables/useShellWindowSizeClass.js",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js",
     "./client/types": "./src/client/types.js",
@@ -95,6 +97,7 @@
             "@jskit-ai/shell-web/client/navigation/documentNavigation",
             "@jskit-ai/shell-web/client/composables/useShellAppBar",
             "@jskit-ai/shell-web/client/composables/useShellLayoutState",
+            "@jskit-ai/shell-web/client/composables/useShellPageClose",
             "@jskit-ai/shell-web/client/composables/useShellPageTitle",
             "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass",
             "@jskit-ai/shell-web/client/types"

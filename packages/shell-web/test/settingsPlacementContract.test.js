@@ -80,10 +80,14 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   );
 
   // ShellLayout's bar is made of the pieces a layout with its own top app bar uses: one owner, no copy.
-  assert.match(layoutSource, /useShellAppBar\(\);/u);
+  assert.match(layoutSource, /const \{ pageActions \} = useShellAppBar\(\);/u);
   assert.match(layoutSource, /<ShellUpButton v-if="canGoUp" class="shell-layout__leading" \/>/u);
   assert.match(layoutSource, /<ShellPageTitle :title="fallbackTitle" \/>/u);
-  assert.match(layoutSource, /<ShellPageActionsTarget \/>/u);
+  assert.match(
+    layoutSource,
+    /<ShellPageActionsTarget>\s*<template v-if="topRightInMenu > 0" #menu>\s*<ShellOutlet target="shell-layout:top-right" :end="topRightInMenu" \/>/u
+  );
+  assert.match(layoutSource, /<ShellOutlet target="shell-layout:top-right" :start="topRightInMenu" \/>/u);
   assert.doesNotMatch(layoutSource, /\$arrowBack|PAGE_TITLE_ID|SHELL_PAGE_ACTIONS_ID|attachShell/u);
 
   assert.doesNotMatch(source, /<v-layout\b/);
@@ -94,7 +98,8 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(source, /data-testid="jskit-shell-app-bar"/);
   assert.match(source, /:height="64"/u);
   assert.match(source, /:color="scrolled \? 'surface-container' : 'surface'"/u);
-  assert.match(barPieces, /data-testid="jskit-shell-back"[\s\S]*:aria-label="t\('jskit\.shell\.actions\.back'\)"/u);
+  assert.match(barPieces, /data-testid="jskit-shell-back"[\s\S]*:aria-label="label"/u);
+  assert.match(barPieces, /: t\("jskit\.shell\.actions\.back"\)\)\);/u);
   assert.match(barPieces, /:id="PAGE_TITLE_ID"/u);
   assert.match(barPieces, /:id="SHELL_PAGE_ACTIONS_ID"/u);
   assert.match(barPieces, /provide\(SHELL_PAGE_ACTIONS_TARGET_KEY, `#\$\{SHELL_PAGE_ACTIONS_ID\}`\)/u);

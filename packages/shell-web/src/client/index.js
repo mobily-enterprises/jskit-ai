@@ -13,6 +13,7 @@ export { default as ShellTabLinkItem } from "./components/ShellTabLinkItem.vue";
 export { default as ShellSectionTabLinkItem } from "./components/ShellSectionTabLinkItem.vue";
 export { default as ShellPageActions } from "./components/ShellPageActions.vue";
 export { default as ShellPageAction } from "./components/ShellPageAction.vue";
+export { default as ShellPrimaryAction } from "./components/ShellPrimaryAction.vue";
 export { default as ShellListDetail } from "./components/ShellListDetail.vue";
 export { default as ShellUpButton } from "./components/ShellUpButton.vue";
 export { default as ShellPageTitle } from "./components/ShellPageTitle.vue";
@@ -20,6 +21,7 @@ export { default as ShellPageActionsTarget } from "./components/ShellPageActions
 export { useShellAppBar } from "./composables/useShellAppBar.js";
 export { useShellLayoutState } from "./composables/useShellLayoutState.js";
 export { useShellPageTitle } from "./composables/useShellPageTitle.js";
+export { useShellPageClose } from "./composables/useShellPageClose.js";
 export { useShellWindowSizeClass } from "./composables/useShellWindowSizeClass.js";
 export { useShellNavigation } from "./navigation/useShellNavigation.js";
 export { leaveApp, reloadAppPage } from "./navigation/documentNavigation.js";

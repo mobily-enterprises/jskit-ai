@@ -1,4 +1,4 @@
-import { shallowRef } from "vue";
+import { computed, shallowRef } from "vue";
 import { NavigationFailureType, isNavigationFailure } from "vue-router";
 import { staysOnSamePage } from "@jskit-ai/kernel/client";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
@@ -79,6 +79,32 @@ function cssAttributeValue(value) {
 }
 
 /**
+ * @typedef {object} ShellPageClose
+ * @property {() => string} label The close's label, a message key or plain text.
+ * @property {() => unknown} close What choosing it does, such as a form's Cancel.
+ */
+
+/**
+ * Claims of one kind, the latest on top: `top` is the latest claim's value, and releasing a claim shows the one below
+ * it again.
+ * @template T
+ * @returns {{ top: import("vue").ComputedRef<T | null>, claim: (value: T) => () => void }}
+ */
+function createClaimStack() {
+  const claims = shallowRef([]);
+  return {
+    top: computed(() => claims.value.at(-1)?.value ?? null),
+    claim(value) {
+      const entry = { value };
+      claims.value = [...claims.value, entry];
+      return () => {
+        claims.value = claims.value.filter((candidate) => candidate !== entry);
+      };
+    }
+  };
+}
+
+/**
  * The shell's Up navigation (Material's Up and Back model): one trail per browser tab, kept in history state.
  * In-app navigation to another inner page pushes the page left; same-page changes, replacements and top-level
  * destinations do not, and a top-level destination resets it. Up returns to the trail's last page when it still
@@ -89,7 +115,10 @@ function cssAttributeValue(value) {
  */
 function createShellNavigationRuntime({ router }) {
   const trail = shallowRef([]);
-  const pageTitleSource = shallowRef(null);
+  const titleClaims = createClaimStack();
+  const pageTitleSource = titleClaims.top;
+  const closeClaims = createClaimStack();
+  const pageClose = closeClaims.top;
   const visibleParentPanes = shallowRef(0);
   const removeHooks = [];
   let current = {
@@ -370,7 +399,9 @@ function createShellNavigationRuntime({ router }) {
 
   /**
    * Leaves a finished page (Save or Cancel on a new or edit page) by replacing its entry, so neither Up nor Back
-   * reopens it: to `target` when given, otherwise back to where it was opened from, or else its declared parent.
+   * reopens it: to `target` when given, otherwise back to where it was opened from, or else its declared parent. A
+   * target that is the page the form was opened from, given without a query or hash of its own, returns to that entry
+   * as it was: its list query (filters, search, sort, page) and scroll.
    * @param {import("vue-router").RouteLocationRaw} target
    * @param {string} parentTarget
    */
@@ -382,8 +413,9 @@ function createShellNavigationRuntime({ router }) {
     }
     const resolved = router.resolve(destination);
     const returning = Boolean(top && router.resolve(top.path).path === resolved.path);
+    const bare = Object.keys(resolved.query).length === 0 && !resolved.hash;
     return navigate({
-      target: resolved.fullPath,
+      target: returning && bare ? top.path : resolved.fullPath,
       trail: replacedTrail(current.trail, resolved),
       scroll: returning ? top.scroll : null,
       focusPath: returning ? router.currentRoute.value.fullPath : "",
@@ -419,16 +451,21 @@ function createShellNavigationRuntime({ router }) {
   }
 
   /**
-   * Shows a title in the app bar while the caller lives; returns its release.
+   * Shows a title in the app bar while the caller lives, over earlier claims; returns its release, which shows the
+   * previous claim's title again (the route's title once none is left).
    * @param {() => string} source
    */
   function setPageTitle(source) {
-    pageTitleSource.value = source;
-    return () => {
-      if (pageTitleSource.value === source) {
-        pageTitleSource.value = null;
-      }
-    };
+    return titleClaims.claim(source);
+  }
+
+  /**
+   * Turns the app bar's Up arrow into a close (X) that runs `close.close`, labelled `close.label()`, while the caller
+   * lives, over earlier claims; returns its release, which gives the arrow back once none is left.
+   * @param {ShellPageClose} close
+   */
+  function setPageClose(close) {
+    return closeClaims.claim(close);
   }
 
   /** Marks a parent pane as visible beside the page (list-detail), so the page shows no Up arrow; returns its release. */
@@ -458,6 +495,7 @@ function createShellNavigationRuntime({ router }) {
   return {
     trail,
     pageTitleSource,
+    pageClose,
     visibleParentPanes,
     install,
     dispose,
@@ -465,6 +503,7 @@ function createShellNavigationRuntime({ router }) {
     finish,
     pageUnavailable,
     setPageTitle,
+    setPageClose,
     showParentPane,
     attachShell
   };

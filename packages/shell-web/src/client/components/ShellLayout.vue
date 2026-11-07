@@ -145,7 +145,17 @@ const navigationStyle = computed(() => ({
   "--shell-navigation-rail-width": `${resolvedRailWidth.value}px`
 }));
 
-useShellAppBar();
+// A compact bar keeps one trailing item so the title keeps its room: the page's primary action when it has one (a
+// form's Save), otherwise the top-right item nearest the corner (the account menu). The other top-right items follow
+// the page actions in the overflow menu. A layout's own top-right slot stays as it is.
+const { pageActions } = useShellAppBar();
+const topRight = useShellOutletPlacements("shell-layout:top-right");
+const topRightInMenu = computed(() => {
+  if (!isCompactLayout.value || slots["top-right"]) {
+    return 0;
+  }
+  return Math.max(topRight.value.length - (pageActions.hasPrimary.value ? 0 : 1), 0);
+});
 
 function updateScrolled() {
   scrolled.value = window.scrollY > 0;
@@ -192,11 +202,15 @@ onBeforeUnmount(() => {
         <p v-if="props.subtitle" class="shell-layout__page-subtitle">{{ text(props.subtitle) }}</p>
       </div>
 
-      <ShellPageActionsTarget />
+      <ShellPageActionsTarget>
+        <template v-if="topRightInMenu > 0" #menu>
+          <ShellOutlet target="shell-layout:top-right" :end="topRightInMenu" />
+        </template>
+      </ShellPageActionsTarget>
 
       <slot name="top-right" :surface="resolvedSurface">
         <div class="shell-layout__top-right">
-          <ShellOutlet target="shell-layout:top-right" />
+          <ShellOutlet target="shell-layout:top-right" :start="topRightInMenu" />
         </div>
       </slot>
     </div>

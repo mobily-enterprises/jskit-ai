@@ -1,15 +1,45 @@
 <script setup>
+import { ref } from "vue";
+
 // Every button size with its 48dp touch target, a label longer than its button, a small button in the corner of a
-// scroll container, the FAB sizes and cards by variant.
+// scroll container, rows of adjacent icon buttons, the FAB sizes and cards by variant.
 const sizes = ["x-small", "small", "default", "large"];
+const pressed = ref("");
 </script>
 
 <template>
   <section class="d-flex flex-column align-start ga-8 pa-6">
     <template v-for="size in sizes" :key="size">
-      <v-btn :size="size" variant="tonal" :data-testid="`fixture-button-${size}`">Size {{ size }}</v-btn>
-      <v-btn :size="size" icon="$close" :aria-label="`Close ${size}`" :data-testid="`fixture-icon-button-${size}`" />
+      <div><v-btn :size="size" variant="tonal" :data-testid="`fixture-button-${size}`">Size {{ size }}</v-btn></div>
+      <div><v-btn :size="size" icon="$close" :aria-label="`Close ${size}`" :data-testid="`fixture-icon-button-${size}`" /></div>
     </template>
+    <!-- A table row's compact actions, touching, and a selected tab's comfortable pair, 2px apart. -->
+    <div class="d-flex" data-testid="fixture-adjacent-compact">
+      <v-btn
+        v-for="name in ['history', 'edit', 'more']"
+        :key="name"
+        density="compact"
+        variant="text"
+        :icon="name === 'more' ? '$moreVert' : `$${name}`"
+        :aria-label="name"
+        :data-testid="`fixture-adjacent-${name}`"
+        @click="pressed = name"
+      />
+    </div>
+    <div class="d-flex ga-0" :style="{ columnGap: '2px' }" data-testid="fixture-adjacent-comfortable">
+      <v-btn
+        v-for="name in ['info', 'archive']"
+        :key="name"
+        density="comfortable"
+        size="small"
+        variant="text"
+        :icon="name === 'info' ? '$info' : '$inbox'"
+        :aria-label="name"
+        :data-testid="`fixture-adjacent-${name}`"
+        @click="pressed = name"
+      />
+    </div>
+    <output data-testid="fixture-adjacent-pressed">{{ pressed }}</output>
     <div :style="{ width: '160px' }">
       <v-btn variant="tonal" data-testid="fixture-long-label">A label far longer than the room it has</v-btn>
     </div>

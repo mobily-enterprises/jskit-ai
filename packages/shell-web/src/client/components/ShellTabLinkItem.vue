@@ -18,6 +18,7 @@ import ShellSectionTabLinkItem from "./ShellSectionTabLinkItem.vue";
 // A Material 3 navigation bar destination: the icon in a 64x32 indicator with its label below; the active one's
 // indicator is filled and so is its icon. It is one only in ShellLayout's navigation bar; placed anywhere else (a
 // page's section tabs), it is a section tab, ShellSectionTabLinkItem, which a page.section-nav names itself.
+// In the bar it is a text button in on-surface-variant of its own, so no app's filled-button defaults fill it.
 const props = defineProps(shellNavigationLinkProps);
 /** @type {{ value: string }} */
 const presentation = inject(SHELL_NAVIGATION_PRESENTATION_KEY, NO_SHELL_NAVIGATION_PRESENTATION);
@@ -47,6 +48,8 @@ const displayIcon = computed(() =>
     :disabled="props.disabled"
     :exact="props.exact"
     :ripple="false"
+    variant="text"
+    color="on-surface-variant"
     min-width="0"
     stacked
   >
