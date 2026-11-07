@@ -734,7 +734,10 @@
         "kind": "runtime",
         "capabilities": {
           "provides": [
-            "auth.local.backend"
+            "auth.local.backend",
+            "auth.local.accounts",
+            "auth.local.sessions",
+            "auth.local.recovery"
           ],
           "requires": [
             "runtime.database"
@@ -785,14 +788,23 @@
             "surfaces": [
               {
                 "subpath": "./server/providers/AuthLocalDatabaseBackendProvider",
-                "summary": "Provides the database-backed local authentication repository contract."
+                "summary": "Provides the database-backed local authentication repository contract (auth.local.backend) and the owner APIs of its accounts, sessions and recovery tokens (auth.local.accounts, auth.local.sessions, auth.local.recovery)."
               },
               {
                 "subpath": "./server/lib/index",
-                "summary": "Exports the DB local auth backend factory."
+                "summary": "Exports the DB local auth backend and owner API factories."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Types of the auth.local.accounts, auth.local.sessions and auth.local.recovery capabilities, for features that require them."
               }
             ],
-            "capability": "auth.local.backend"
+            "capabilities": [
+              "auth.local.backend",
+              "auth.local.accounts",
+              "auth.local.sessions",
+              "auth.local.recovery"
+            ]
           }
         },
         "migrations": {
@@ -1390,7 +1402,8 @@
         "kind": "runtime",
         "capabilities": {
           "provides": [
-            "console.core"
+            "console.core",
+            "console.settings"
           ],
           "requires": [
             "auth.extensions",
@@ -1427,7 +1440,7 @@
             "surfaces": [
               {
                 "subpath": "./server/ConsoleFeature",
-                "summary": "Exports ConsoleFeature, which provides console.core: owner access, the console settings actions and routes, and the console bootstrap."
+                "summary": "Exports ConsoleFeature, which provides console.core (owner access, the console settings actions and routes, and the console bootstrap) and console.settings (the console's settings record, read with getSingleton)."
               },
               {
                 "subpath": "./shared/resources/consoleSettingsResource",
@@ -1435,11 +1448,12 @@
               },
               {
                 "subpath": "./server/types",
-                "summary": "Type of the console.core capability, for features that require it."
+                "summary": "Types of the console.core and console.settings capabilities, for features that require them."
               }
             ],
             "capabilities": [
-              "console.core"
+              "console.core",
+              "console.settings"
             ]
           },
           "server": {
@@ -3232,7 +3246,8 @@
         "capabilities": {
           "provides": [
             "users.core",
-            "users.identity",
+            "users.profiles",
+            "users.settings",
             "users.extensions",
             "auth.profile.projector"
           ],
@@ -3286,7 +3301,7 @@
               },
               {
                 "subpath": "./server/UsersIdentityProvider",
-                "summary": "Exports UsersIdentityProvider, which provides users.identity (the user profile and settings repositories) and auth.profile.projector."
+                "summary": "Exports UsersIdentityProvider, which provides users.profiles (the users table's records, with createWithSettings and countUsers), users.settings (the users' settings records) and auth.profile.projector."
               },
               {
                 "subpath": "./server/usersExtensions",
@@ -3310,12 +3325,13 @@
               },
               {
                 "subpath": "./server/types",
-                "summary": "Types of the users.core, users.identity and users.extensions capabilities, for features that require them."
+                "summary": "Types of the users.core, users.profiles, users.settings and users.extensions capabilities, for features that require them."
               }
             ],
             "capabilities": [
               "users.core",
-              "users.identity",
+              "users.profiles",
+              "users.settings",
               "users.extensions",
               "auth.profile.projector"
             ]
@@ -3638,7 +3654,9 @@
         "kind": "runtime",
         "capabilities": {
           "provides": [
-            "workspaces.core"
+            "workspaces.core",
+            "workspaces",
+            "workspaces.memberships"
           ],
           "requires": [
             "auth.extensions",
@@ -3650,8 +3668,9 @@
             "runtime.env",
             "runtime.http",
             "runtime.json-rest-api",
-            "users.core",
-            "users.extensions"
+            "users.extensions",
+            "users.profiles",
+            "users.settings"
           ]
         },
         "runtime": {
@@ -3694,7 +3713,7 @@
             "surfaces": [
               {
                 "subpath": "./server/WorkspacesFeature",
-                "summary": "Exports WorkspacesFeature, which provides workspaces.core (directory, members, pending invitations and settings services, their actions and routes), and the optional tokens' defaults."
+                "summary": "Exports WorkspacesFeature, which provides workspaces.core (directory, members, pending invitations and settings services, their actions and routes), workspaces (the workspaces' records, with findBySlug and lock) and workspaces.memberships (the memberships' records, with addMember and activeMemberIds), and the optional tokens' defaults."
               },
               {
                 "subpath": "./server/WorkspacesIntegrationsProvider",
@@ -3718,11 +3737,13 @@
               },
               {
                 "subpath": "./server/types",
-                "summary": "Type of the workspaces.core capability, for features that require it."
+                "summary": "Types of the workspaces.core, workspaces and workspaces.memberships capabilities, for features that require them."
               }
             ],
             "capabilities": [
-              "workspaces.core"
+              "workspaces.core",
+              "workspaces",
+              "workspaces.memberships"
             ]
           },
           "server": {

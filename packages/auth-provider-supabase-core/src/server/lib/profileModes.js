@@ -66,14 +66,17 @@ const PROVIDER_MODE_PROFILES = Object.freeze({
 /**
  * config.auth.profileMode "users": users-core keeps an app user for each
  * Supabase user, with its password sign-in settings.
- * @param {import("@jskit-ai/users-core/server/types").UsersIdentity} identity
+ * @param {object} users
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} users.profileProjector
+ * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} users.userProfiles
+ * @param {import("@jskit-ai/users-core/server/types").UsersSettings} users.userSettings
  * @returns {import("../types.js").SupabaseProfiles}
  */
-function createUsersModeProfiles(identity) {
+function createUsersModeProfiles({ profileProjector, userProfiles, userSettings }) {
   return Object.freeze({
-    projector: identity.profileProjector,
-    userProfilesRepository: identity.repositories.userProfiles,
-    userSettingsRepository: identity.repositories.userSettings
+    projector: profileProjector,
+    userProfilesRepository: userProfiles,
+    userSettingsRepository: userSettings
   });
 }
 

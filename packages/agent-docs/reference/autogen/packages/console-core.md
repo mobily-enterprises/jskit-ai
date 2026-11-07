@@ -30,7 +30,7 @@ Exports
 
 ### `src/server/consoleRuntime.js`
 Exports
-- `createConsoleRuntime({ database })`
+- `createConsoleRuntime({ consoleSettingsRepository })`
 
 ### `src/server/consoleSettings/consoleService.js`
 Exports
@@ -62,6 +62,7 @@ Local functions
 ### `src/server/types.js`
 Exports
 - `type ConsoleCore`
+- `type ConsoleSettings`
 - `type ConsoleService`
 - `type ConsoleSettingsRepository`
 - `type ConsoleSettingsService`

@@ -3,6 +3,7 @@ import { createConsoleAuthServiceDecorator } from "./consoleAuthServiceDecorator
 import { createConsoleBootstrapContributor } from "./consoleBootstrapContributor.js";
 import { registerConsoleSettingsRoutes } from "./consoleSettings/consoleSettingsRoutes.js";
 import { createConsoleSettingsActions } from "./consoleSettings/consoleSettingsActions.js";
+import { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 import { createConsoleRuntime } from "./consoleRuntime.js";
 
 const ConsoleFeature = defineFeature({
@@ -15,7 +16,8 @@ const ConsoleFeature = defineFeature({
     http: "runtime.http"
   },
   provides: {
-    consoleCore: "console.core"
+    consoleCore: "console.core",
+    consoleSettings: "console.settings"
   },
   /**
    * @param {object} capabilities
@@ -25,7 +27,8 @@ const ConsoleFeature = defineFeature({
    * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
    */
   setup({ authExtensions, bootstrap, database, http }) {
-    const consoleCore = createConsoleRuntime({ database });
+    const consoleSettings = createConsoleSettingsRepository({ knex: database.knex });
+    const consoleCore = createConsoleRuntime({ consoleSettingsRepository: consoleSettings });
 
     authExtensions.registerServiceDecorator(
       createConsoleAuthServiceDecorator({ consoleService: consoleCore.services.access })
@@ -39,7 +42,7 @@ const ConsoleFeature = defineFeature({
     });
     registerConsoleSettingsRoutes(http.router);
 
-    return { consoleCore };
+    return { consoleCore, consoleSettings };
   },
   actions({ consoleCore }) {
     return createConsoleSettingsActions({

@@ -5,6 +5,7 @@ import {
   extractJsonRestCollectionRows,
   queryAllJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { workspaceResource } from "../../../shared/resources/workspaceResource.js";
 
 function normalizeWorkspaceRecord(payload = null) {
   if (!payload || typeof payload !== "object") {
@@ -24,7 +25,32 @@ function normalizeWorkspaceRecord(payload = null) {
   };
 }
 
-/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
+/**
+ * Locks a workspace's row until the caller's transaction ends, so work that
+ * must not interleave for one workspace takes turns. It needs an active
+ * transaction.
+ * @param {unknown} workspaceId
+ * @param {{ trx?: import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction | null }} options
+ * @returns {Promise<{ id: string } | null>} The locked workspace, or null when there is no such workspace.
+ */
+async function lockWorkspace(workspaceId, options) {
+  const trx = resolveTransaction(options);
+  if (!trx || trx.isCompleted()) {
+    throw new TypeError("Locking a workspace requires an active transaction.");
+  }
+  const id = normalizeRecordId(workspaceId, { fallback: null });
+  if (!id) {
+    throw new TypeError("Locking a workspace requires workspaceId.");
+  }
+  // json-rest-api 2.4 has no locking read, so this repository takes the row lock itself.
+  const row = await trx(workspaceResource.tableName).where({ id }).forUpdate().first("id");
+  return row ? { id: normalizeRecordId(row.id, { fallback: null }) } : null;
+}
+
+/**
+ * The `workspaces` capability: the workspaces table's records.
+ * @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies
+ */
 function createRepository({ api }) {
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
 
@@ -54,13 +80,14 @@ function createRepository({ api }) {
     return queryFirst({ id: normalizedWorkspaceId }, options);
   }
 
+  // A deleted workspace keeps its slug, so the slug stays taken, but it is not found by it.
   async function findBySlug(slug, options = {}) {
     const normalizedSlug = typeof slug === "string" ? slug.trim().toLowerCase() : "";
     if (!normalizedSlug) {
       return null;
     }
 
-    return queryFirst({ slug: normalizedSlug }, options);
+    return queryFirst({ slug: normalizedSlug, deletedAt: null }, options);
   }
 
   /**
@@ -265,8 +292,9 @@ function createRepository({ api }) {
     findPersonalByOwnerUserId,
     insert,
     updateById,
-    listForUserId
+    listForUserId,
+    lock: lockWorkspace
   });
 }
 
-export { createRepository };
+export { createRepository, lockWorkspace };

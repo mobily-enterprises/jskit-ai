@@ -27,6 +27,8 @@ test("UsersFeature assembles account behavior through explicit capabilities", as
   const bootstrap = createBootstrapRuntime();
   const jsonRestApi = createJsonRestApiFixture();
   let users = null;
+  let profiles = null;
+  let settings = null;
   let actionCatalogue = null;
   let profileProjector = null;
   const probe = defineProvider({
@@ -34,11 +36,15 @@ test("UsersFeature assembles account behavior through explicit capabilities", as
     requires: {
       actions: "runtime.actions",
       projector: "auth.profile.projector",
+      profilesCapability: "users.profiles",
+      settingsCapability: "users.settings",
       usersCapability: "users.core"
     },
-    setup({ actions, projector, usersCapability }) {
+    setup({ actions, projector, profilesCapability, settingsCapability, usersCapability }) {
       actionCatalogue = actions;
       profileProjector = projector;
+      profiles = profilesCapability;
+      settings = settingsCapability;
       users = usersCapability;
       return {};
     }
@@ -69,7 +75,11 @@ test("UsersFeature assembles account behavior through explicit capabilities", as
   await runtime.start();
 
   assert.deepEqual(Object.keys(jsonRestApi.resources).sort(), ["userProfiles", "userSettings"]);
-  assert.equal(typeof users.repositories.userProfiles.findByIdentity, "function");
+  assert.equal(typeof profiles.findByIdentity, "function");
+  assert.equal(typeof profiles.createWithSettings, "function");
+  assert.equal(typeof profiles.countUsers, "function");
+  assert.equal(typeof settings.ensureForUserId, "function");
+  assert.equal(Object.hasOwn(users, "repositories"), false);
   assert.equal(typeof users.services.accountProfile.updateProfile, "function");
   assert.equal(routes.includes("GET /api/settings"), true);
   assert.equal(routes.includes("POST /api/settings/security/change-password"), true);

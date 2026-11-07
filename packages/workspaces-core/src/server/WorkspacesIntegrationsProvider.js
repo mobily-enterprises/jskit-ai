@@ -10,7 +10,7 @@ import {
 /**
  * Every active membership puts the actor in the workspace audience and in its
  * own workspace-user audience. All the actors' memberships are one bulk read.
- * @param {import("./types.js").WorkspaceMembershipsRepository} workspaceMemberships
+ * @param {import("./types.js").WorkspacesMemberships} workspaceMemberships
  * @param {string[]} actorIds
  */
 async function resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds) {
@@ -33,6 +33,7 @@ const WorkspacesIntegrationsProvider = defineProvider({
     config: "runtime.config",
     http: "runtime.http",
     usersExtensions: "users.extensions",
+    workspaceMemberships: "workspaces.memberships",
     workspaces: "workspaces.core"
   },
   optional: {
@@ -46,9 +47,10 @@ const WorkspacesIntegrationsProvider = defineProvider({
    * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
    * @param {import("@jskit-ai/realtime/server/types").RuntimeRealtime | null} capabilities.realtime The installed realtime runtime, when there is one.
    * @param {import("@jskit-ai/users-core/server/types").UsersExtensions} capabilities.usersExtensions
+   * @param {import("./types.js").WorkspacesMemberships} capabilities.workspaceMemberships
    * @param {import("./types.js").WorkspacesCore} capabilities.workspaces
    */
-  setup({ actions, authExtensions, config, http, realtime, usersExtensions, workspaces }) {
+  setup({ actions, authExtensions, config, http, realtime, usersExtensions, workspaceMemberships, workspaces }) {
     const workspaceService = workspaces.services.directory;
     const membershipOptionalSurfaceIds = resolveWorkspaceMembershipOptionalSurfaceIdsFromAppConfig(config);
     const workspaceSurfaceIds = resolveWorkspaceSurfaceIdsFromAppConfig(config);
@@ -92,10 +94,7 @@ const WorkspacesIntegrationsProvider = defineProvider({
     if (realtime) {
       realtime.registerAudienceContributor({
         id: "workspaces.memberships",
-        resolveActorsScopes: (actorIds) => resolveWorkspaceRealtimeScopes(
-          workspaces.repositories.workspaceMemberships,
-          actorIds
-        )
+        resolveActorsScopes: (actorIds) => resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds)
       });
     }
 

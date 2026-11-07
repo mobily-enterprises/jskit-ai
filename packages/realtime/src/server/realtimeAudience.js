@@ -1,8 +1,8 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeVisibilityContext } from "@jskit-ai/kernel/shared/support/visibility";
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
-/** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} RuntimeDatabase */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeLogger} RuntimeLogger */
 /** @typedef {import("./types.js").ActorRoomsResolver} ActorRoomsResolver */
 /** @typedef {import("./types.js").ActorsRoomsResolver} ActorsRoomsResolver */
@@ -209,24 +209,46 @@ function addAudienceRooms(selection, state) {
   }
 }
 
-function collectUserIds(rows) {
-  const ids = new Set();
-  for (const row of flattenEntries(rows)) {
-    const rawId = typeof row === "number" ? row : row?.userId || row?.user_id || row?.id;
-    const id = normalizeRecordId(rawId, { fallback: null });
-    if (id) ids.add(id);
+/**
+ * The options an audience's audienceUsers reads with: the event's own scope as
+ * the context, so owner APIs answer for the event's workspace or user and never
+ * for a request's. An event without such a scope reads with no context.
+ * @param {object | null | undefined} scope
+ */
+function audienceReadOptions(scope) {
+  const kind = normalizeText(scope?.kind).toLowerCase();
+  const workspaceId = resolveScopeWorkspaceId(scope);
+  const userId = resolveScopeUserId(scope);
+  if (workspaceId && kind !== "user") {
+    return Object.freeze({ context: Object.freeze({ visibilityContext: normalizeVisibilityContext({
+      visibility: userId ? "workspace_user" : "workspace",
+      scopeKind: "workspace",
+      scopeOwnerId: workspaceId,
+      requiresActorScope: userId != null,
+      userId
+    }) }) });
   }
-  return [...ids];
+  if (kind === "user" && userId) {
+    return Object.freeze({ context: Object.freeze({ visibilityContext: normalizeVisibilityContext({
+      visibility: "user",
+      scopeKind: "user",
+      scopeOwnerId: userId,
+      userId
+    }) }) });
+  }
+  return Object.freeze({});
 }
 
 /**
+ * The rooms and flags an event's audience reaches. An audience entry's
+ * `audienceUsers({ event, options })` answers user ids through the owners'
+ * APIs, once for the event however many sockets receive it.
  * @param {unknown} audience
  * @param {object} event
  * @param {object} dependencies
- * @param {RuntimeDatabase | null} dependencies.database Absent when no runtime.database is installed.
  * @param {RuntimeLogger} dependencies.logger
  */
-async function resolveAudienceTargets(audience, event, { database, logger }) {
+async function resolveAudienceTargets(audience, event, { logger }) {
   const rooms = new Set();
   const flags = { broadcastAllClients: false };
   const state = { event, rooms, flags, logger };
@@ -238,14 +260,13 @@ async function resolveAudienceTargets(audience, event, { database, logger }) {
     }
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
     addAudienceRooms(entry, state);
-    // readable-check: allow method-probe - data: an event's audience entry may name a userQuery()
-    if (typeof entry.userQuery === "function") {
-      if (!database) {
-        logger.warn("Realtime audience userQuery requires runtime.database.");
-        continue;
+    // readable-check: allow method-probe - data: an event's audience entry may name audienceUsers()
+    if (typeof entry.audienceUsers === "function") {
+      const userIds = await entry.audienceUsers({ event, options: audienceReadOptions(event?.scope) });
+      for (const rawUserId of flattenEntries(userIds)) {
+        const userId = normalizeRecordId(rawUserId, { fallback: null });
+        if (userId) rooms.add(roomForUser(userId));
       }
-      const rows = await entry.userQuery({ knex: database.knex, event });
-      for (const userId of collectUserIds(rows)) rooms.add(roomForUser(userId));
     }
   }
 
