@@ -11,6 +11,7 @@ import knex from "knex";
 import { createKnexMigrationConfig } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
 import {
   RUN_SETTINGS_FILE,
+  countQueries,
   matchesSnapshot,
   prepareTestDatabases,
   restoreTestDatabase,
@@ -208,4 +209,30 @@ test("jskit test --databases gives each test file running at once its own restor
   // A focused run of one file prepares one database, from the stored snapshot.
   const focused = await execFileAsync(process.execPath, [JSKIT_CLI, "test", "--databases", "test/a.test.js"], { cwd: appRoot, env });
   assert.match(focused.stderr, /jskit test: 1 test database\(s\) from .+_cli ready in \d+ms: stored snapshot/u);
+});
+
+test("countQueries() counts a MySQL or MariaDB path's statements, its transactions' included", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const database = `${process.env.TEST_DB_NAME}_queries`;
+  const environment = { ...process.env, DB_NAME: database, DATABASE_URL: "" };
+  const { connection } = createKnexMigrationConfig({ client: "mysql2", environment, appRoot: os.tmpdir() });
+  const server = knex({ client: "mysql2", connection: { ...connection, database: undefined } });
+  await server.raw("CREATE DATABASE IF NOT EXISTS ??", [database]);
+  const db = knex({ client: "mysql2", connection });
+  context.after(async () => {
+    await db.destroy();
+    await server.raw("DROP DATABASE IF EXISTS ??", [database]);
+    await server.destroy();
+  });
+  await db.schema.createTable("books", (table) => { table.increments("id"); table.string("title"); });
+  await db("books").insert(Array.from({ length: 30 }, (_, index) => ({ title: `Book ${index + 1}` })));
+  const ids = await db("books").orderBy("id").pluck("id");
+
+  const perBook = await countQueries(db, () => Promise.all(ids.map((id) => db("books").where({ id }).first("title"))));
+  assert.deepEqual([perBook.count, perBook.queries[29]], [30, "select `title` from `books` where `id` = ? limit ?"]);
+  const together = await countQueries(db, () => db("books").whereIn("id", ids).pluck("title"));
+  assert.deepEqual([together.count, together.result.length], [1, 30]);
+  const transaction = await countQueries(db, () => db.transaction((trx) => trx("books").count({ books: "*" })));
+  assert.deepEqual(transaction.queries, ["BEGIN;", "select count(*) as `books` from `books`", "COMMIT;"]);
 });

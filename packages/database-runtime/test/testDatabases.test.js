@@ -3,8 +3,10 @@ import { mkdtemp, mkdir, rename, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import knexFactory from "knex";
 import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
 import {
+  countQueries,
   requireDisposableDatabase,
   testDatabaseNames,
   testDatabaseRun,
@@ -101,4 +103,47 @@ test("a test database copy named like a protected database fails the run instead
   const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment: connectionEnvironment, appRoot: "/srv/catalogue" });
   const environment = { ...connectionEnvironment, TEST_DB_NAME: "catalogue_test", PROD_DB_NAME: "catalogue_test_1" };
   await assert.rejects(testDatabaseRun({ knexConfig, environment, count: 4 }), /PROD_DB_NAME \(catalogue_test_1\)/u);
+});
+
+test("countQueries() records each statement a piece of work sends, so a read per row stands out from a batched read", async () => {
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  try {
+    await knex.schema.createTable("books", (table) => { table.increments("id"); table.string("title"); });
+    await knex("books").insert(Array.from({ length: 30 }, (_, index) => ({ title: `Book ${index + 1}` })));
+    const ids = await knex("books").orderBy("id").pluck("id");
+    const titleEach = (some) => countQueries(knex, async () => {
+      const titles = [];
+      for (const id of some) titles.push((await knex("books").where({ id }).first("title")).title);
+      return titles;
+    });
+    const titlesAtOnce = (some) => countQueries(knex, () => knex("books").whereIn("id", some).orderBy("id").pluck("title"));
+
+    const few = await titleEach(ids.slice(0, 3));
+    assert.deepEqual(few, {
+      result: ["Book 1", "Book 2", "Book 3"],
+      count: 3,
+      queries: Array(3).fill("select `title` from `books` where `id` = ? limit ?")
+    });
+    assert.equal((await titleEach(ids)).count, 30);
+    assert.deepEqual([(await titlesAtOnce(ids.slice(0, 3))).count, (await titlesAtOnce(ids)).count], [1, 1]);
+
+    // A transaction's statements reach the Knex instance it was opened from; counting on the transaction works too.
+    const inTransaction = await countQueries(knex, () => knex.transaction(async (trx) => {
+      const own = await countQueries(trx, () => trx("books").where({ id: ids[0] }).first("title"));
+      assert.equal(own.count, 1);
+      return own.result;
+    }));
+    assert.deepEqual(inTransaction.result, { title: "Book 1" });
+    assert.deepEqual(inTransaction.queries, ["BEGIN;", "select `title` from `books` where `id` = ? limit ?", "COMMIT;"]);
+
+    // Counting ends with the work, failed work included.
+    const listeners = knex.listenerCount("query");
+    await assert.rejects(countQueries(knex, async () => {
+      await knex("books").count({ books: "*" });
+      throw new Error("stopped");
+    }), /stopped/u);
+    assert.equal(knex.listenerCount("query"), listeners);
+  } finally {
+    await knex.destroy();
+  }
 });

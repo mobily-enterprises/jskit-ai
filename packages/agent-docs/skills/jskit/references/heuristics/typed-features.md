@@ -85,7 +85,7 @@ ends with the same link.
   - [Tests are not callers](../typed-features.md#tests-are-not-callers)
 - `…ForTests`, `__reset…`, `testOnly…` exports (`jskit/no-test-only-export`)
   - [No test-only exports](../typed-features.md#no-test-only-exports)
-- a list, batch or write test with one to three rows, no query count, a fixed query ceiling tuned to pass, a slow endpoint first seen with real data
+- a list, batch or write test with one to three rows, no query count, a fixed query ceiling tuned to pass, a slow endpoint first seen with real data, a hand-written `knex.on("query")` counter, `countQueries`
   - [Query counts at realistic sizes](../typed-features.md#query-counts-at-realistic-sizes)
 - `node --test --test-concurrency=1`, `workers: 1`, `fileParallelism: false`, a suite that runs one file at a time, test files that collide when run together, a Playwright webServer running `npm run develop` or `vite`, a browser suite that takes hours, `test/*` findings of `jskit check`
   - [Test files run in parallel](../typed-features.md#test-files-run-in-parallel)

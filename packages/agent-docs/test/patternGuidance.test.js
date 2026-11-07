@@ -310,7 +310,7 @@ test("the sanity checks hold JSKIT's own pitfalls and the JSKIT mechanics for ea
   assert.ok(Buffer.byteLength(guide) <= 9_500, `The sanity checks grew to ${Buffer.byteLength(guide)} bytes.`);
   assert.doesNotMatch(guide, /^## Never do these$|^\*\*(?:Good|Outer limit):\*\*/mu);
   assert.doesNotMatch(guide, /genesis/iu);
-  for (const mechanic of ["queryAllJsonRestCollectionRows()", "`query` event", "`rowPolicy`", "`jskit test`", "`TEST_DB_NAME`", "`mode: \"patch\"`", "`rateLimit`", "`NODE_ENV=production`", "`config.securityHeaders`"]) {
+  for (const mechanic of ["queryAllJsonRestCollectionRows()", "`countQueries()`", "`rowPolicy`", "`jskit test`", "`TEST_DB_NAME`", "`mode: \"patch\"`", "`rateLimit`", "`NODE_ENV=production`", "`config.securityHeaders`"]) {
     assert.ok(guide.includes(mechanic), `The sanity checks lack ${mechanic}.`);
   }
   // The typed-features rules count and compare instead of capping, and keep only JSKIT's mechanics.

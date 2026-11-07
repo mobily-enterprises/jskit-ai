@@ -68,7 +68,7 @@
           },
           {
             "subpath": "./server/testDatabases",
-            "summary": "Gives each test file or browser worker running at once its own disposable copy of TEST_DB_NAME or BROWSER_TEST_DB_NAME, restored from a schema snapshot keyed by the migrations' names and contents (MySQL, MariaDB and PostgreSQL)."
+            "summary": "Gives each test file or browser worker running at once its own disposable copy of TEST_DB_NAME or BROWSER_TEST_DB_NAME, restored from a schema snapshot keyed by the migrations' names and contents (MySQL, MariaDB and PostgreSQL), and counts the statements a piece of work sends, for query-count guards."
           },
           {
             "subpath": "./shared",

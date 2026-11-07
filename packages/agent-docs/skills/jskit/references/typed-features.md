@@ -1025,12 +1025,22 @@ export function resetInvoiceCacheForTests() {
 
 ### Query counts at realistic sizes
 
-**A list, batch or write path's database test counts its queries with the
-test Knex instance's `query` event at a few rows and at a realistic number,
-and fails when the count grows with the rows instead of the pages.**
+**A list, batch or write path's database test counts its queries with
+`countQueries()` at a few rows and at a realistic number, and fails when the
+count grows with the rows instead of the pages.**
 
+- `countQueries(knex, work)`, from
+  `@jskit-ai/database-runtime/server/testDatabases`, runs `work` and returns
+  its `result`, the `count` of statements the Knex instance or transaction
+  sent meanwhile (a transaction's `BEGIN` and `COMMIT` included) and their
+  SQL in `queries`. Pass the Knex the path runs on: the one the test built its
+  repository or service with.
 - Pages add a few queries; rows should add none. A path that pages nothing
   (one read, one write) compares a short and a long history.
+- When the counts differ more than the pages explain, read `queries`: the
+  statement that repeats once per row is the one to batch. Judge the
+  comparison by what the path has to read; never tune a fixed ceiling until
+  it passes.
 - When it fails, fix the reads ([Lists read related rows in
   batches](#lists-read-related-rows-in-batches), [Bounded access
   checks](#bounded-access-checks)).
@@ -1041,17 +1051,7 @@ cannot.
 
 ```js
 // good
-async function countQueries(knex, work) {
-  let queries = 0;
-  const count = () => { queries += 1; };
-  knex.on("query", count);
-  try {
-    await work();
-  } finally {
-    knex.off("query", count);
-  }
-  return queries;
-}
+import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 
 test("the invoice list's queries follow its pages, not its invoices", async () => {
   const listAt = async (count) => {
@@ -1062,7 +1062,8 @@ test("the invoice list's queries follow its pages, not its invoices", async () =
   const few = await listAt(10);
   const many = await listAt(300);
   // Thirty times the invoices may add pages; a read per invoice would add about 290 queries.
-  assert.ok(many <= few * 2, `${few} queries for 10 invoices, ${many} for 300`);
+  assert.ok(many.count <= few.count * 2,
+    `${few.count} queries for 10 invoices, ${many.count} for 300:\n${many.queries.join("\n")}`);
 });
 
 // bad: three invoices, nothing counted, so a read per invoice passes

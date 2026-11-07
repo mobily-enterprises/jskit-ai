@@ -78,9 +78,10 @@ expects the relationship id or an unselected field never gets it.
 
 ### Query counts and batches
 
-- Count a path's queries with the test Knex instance's `query` event at a few
-  rows and at a realistic number; the count should follow tables and pages,
-  not rows ([Query counts at realistic
+- Count a path's queries with `countQueries()` from
+  `@jskit-ai/database-runtime/server/testDatabases` at a few rows and at a
+  realistic number; the count should follow tables and pages, not rows
+  ([Query counts at realistic
   sizes](typed-features.md#query-counts-at-realistic-sizes)).
 - A JSON:API read adds a few lookup and visibility queries per page and per
   relationship field. That follows pages, so it is expected.

@@ -65,6 +65,7 @@ Local functions
 ### `src/server/testDatabases.js`
 Exports
 - `RUN_SETTINGS_FILE`
+- `countQueries(knex, work)`
 - `matchesSnapshot(knexConfig, database, snapshot)`
 - `prepareTestDatabases({ knexConfig, environment, variable = "TEST_DB_NAME", count = 1, seed, appRoot = process.cwd() })`
 - `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`

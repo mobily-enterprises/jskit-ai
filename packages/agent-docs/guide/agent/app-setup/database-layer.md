@@ -443,7 +443,8 @@ the application's `knexfile.js`:
   fixed, never absorbed by a longer time limit.
 
 Endpoints and batch operations get their own database tests at realistic row
-counts that compare their query counts; see the typed features guide's
+counts that compare their query counts, counted with `countQueries()` from
+`@jskit-ai/database-runtime/server/testDatabases`; see the typed features guide's
 [query counts at realistic sizes](/guide/framework/typed-features#query-counts-at-realistic-sizes).
 
 ## Browser test preparation

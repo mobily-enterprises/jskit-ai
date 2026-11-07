@@ -15,6 +15,8 @@
 //
 // The database the application connects to (DB_NAME, the one DATABASE_URL names, the Knex configuration's own) and
 // PROD_DB_NAME are never touched. Two runs at once need different database names, as before.
+//
+// A database test that guards a path's cost counts the statements the path sends with countQueries().
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
@@ -484,8 +486,33 @@ async function testDatabaseRun({ knexConfig, environment, count, appRoot = proce
   };
 }
 
+/**
+ * Runs `work` and records the SQL of every statement `knex` sends meanwhile, its transactions' included (their BEGIN
+ * and COMMIT among them), for a test that compares a path's statements at a few rows and at many. Pass the Knex
+ * instance or transaction the work runs on; statements anything else sends through it meanwhile count too.
+ * @template T
+ * @param {import("knex").Knex | import("knex").Knex.Transaction} knex
+ * @param {() => Promise<T> | T} work
+ * @returns {Promise<{ result: T, count: number, queries: string[] }>} `work`'s result, how many statements it sent and
+ *   their SQL, in order.
+ */
+async function countQueries(knex, work) {
+  const queries = [];
+  const record = (query) => {
+    queries.push(String(query.sql));
+  };
+  knex.on("query", record);
+  try {
+    const result = await work();
+    return { result, count: queries.length, queries };
+  } finally {
+    knex.off("query", record);
+  }
+}
+
 export {
   RUN_SETTINGS_FILE,
+  countQueries,
   matchesSnapshot,
   prepareTestDatabases,
   requireDisposableDatabase,

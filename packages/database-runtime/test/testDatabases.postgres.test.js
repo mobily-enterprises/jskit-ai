@@ -5,7 +5,7 @@ import path from "node:path";
 import test from "node:test";
 import knexFactory from "knex";
 import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
-import { matchesSnapshot, prepareTestDatabases, restoreTestDatabase } from "../src/server/testDatabases.js";
+import { countQueries, matchesSnapshot, prepareTestDatabases, restoreTestDatabase } from "../src/server/testDatabases.js";
 
 // Runs beside the PostgreSQL test database: run with DB_NAME set to TEST_DB_NAME (and the usual DB_HOST, DB_PORT,
 // DB_USER and DB_PASSWORD), DB_CLIENT unset or pg, and a database user that may create databases (CREATEDB).
@@ -74,4 +74,26 @@ test("each PostgreSQL test database is a copy of the snapshot database, rebuilt 
   const changed = await prepareTestDatabases({ knexConfig, environment, count: 1, appRoot });
   assert.match(changed.summary, /2 migrations replayed once for a new snapshot/u);
   assert.deepEqual(changed.snapshot.tables, ["books", "knex_migrations", "knex_migrations_lock", "shelves"]);
+});
+
+test("countQueries() counts a PostgreSQL path's statements, its transactions' included", { skip: SKIP }, async (context) => {
+  const { connection } = createKnexMigrationConfig({ client: "pg", environment: { ...process.env, DB_CLIENT: "pg" }, appRoot: os.tmpdir() });
+  const db = knexFactory({ client: "pg", connection });
+  const table = "query_count_books";
+  context.after(async () => {
+    await db.schema.dropTableIfExists(table);
+    await db.destroy();
+  });
+  await db.schema.dropTableIfExists(table);
+  await db.schema.createTable(table, (columns) => { columns.increments("id"); columns.string("title"); });
+  const ids = (await db(table).insert(Array.from({ length: 30 }, (_, index) => ({ title: `Book ${index + 1}` })), ["id"])).map((row) => row.id);
+
+  const each = await countQueries(db, async () => {
+    for (const id of ids) await db(table).where({ id }).first("title");
+  });
+  assert.equal(each.count, 30);
+  assert.equal(each.queries[0], `select "title" from "${table}" where "id" = $1 limit $2`);
+  assert.equal((await countQueries(db, () => db(table).whereIn("id", ids).pluck("title"))).count, 1);
+  const inTransaction = await countQueries(db, () => db.transaction((trx) => trx(table).count({ books: "*" })));
+  assert.deepEqual(inTransaction.queries, ["BEGIN;", `select count(*) as "books" from "${table}"`, "COMMIT;"]);
 });
