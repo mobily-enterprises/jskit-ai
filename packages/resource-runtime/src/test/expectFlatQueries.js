@@ -8,11 +8,13 @@ import {
 import { MANY_ROW_CHANNEL } from "../server/resourceHandle.js";
 
 const REPEATED_STATEMENTS_SHOWN = 5;
+// A quoted SQL string, written as a string so that source scanners that skip quoted text keep their place.
+const SQL_STRING_LITERAL = new RegExp("'(?:[^']|'')*'", "gu");
 
 /** A statement with its values taken out, so the same statement for another row reads the same. */
 function normalizedStatement(sql) {
   return sql
-    .replace(/'(?:[^']|'')*'/gu, "?")
+    .replace(SQL_STRING_LITERAL, "?")
     .replace(/\$\d+/gu, "?")
     .replace(/\b\d+(?:\.\d+)?\b/gu, "?")
     .replace(/\(\s*\?(?:\s*,\s*\?)+\s*\)/gu, "(?, ...)");
