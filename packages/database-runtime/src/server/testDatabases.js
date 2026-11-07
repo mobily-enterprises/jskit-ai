@@ -29,6 +29,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseDatabaseUrl } from "../shared/databaseConnection.js";
+import { detectDialectFromClient } from "../shared/dialect.js";
 import { RUNTIME_QUERY_CHANNEL } from "./database.js";
 import { loadKnexFactory } from "./knexFactory.js";
 
@@ -181,7 +182,7 @@ async function testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), sc
 async function ledgerNames(knex, ledger, tables) {
   if (!tables.includes(ledger)) return [];
   const result = await knex.raw("SELECT name FROM ?? ORDER BY id", [ledger]);
-  return (knex.client.config.client === "pg" ? result.rows : result[0]).map(({ name }) => name);
+  return (detectDialectFromClient(knex) === "postgres" ? result.rows : result[0]).map(({ name }) => name);
 }
 
 const mysql = {
@@ -608,7 +609,8 @@ async function tableNames(knex) {
     const rows = await knex.raw("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'");
     return rows.map(({ name }) => name).sort();
   }
-  if (client === "pg" || client === "postgresql") {
+  // Knex names PostgreSQL "pg", "postgres" or "postgresql".
+  if (detectDialectFromClient(knex) === "postgres") {
     return postgres.tables(knex);
   }
   const [[{ name: database }]] = await knex.raw("SELECT DATABASE() AS name");
