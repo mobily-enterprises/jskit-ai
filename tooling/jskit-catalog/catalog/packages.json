@@ -5094,12 +5094,12 @@
         "packages/users/src/server/types.js",
         "packages/users/src/server/UsersFeature.js",
         "packages/users/src/shared/index.js",
-        "packages/users/src/shared/userResource.js",
+        "packages/users/src/shared/userCrud.js",
         "packages/users-workspace/package.json",
         "packages/users-workspace/src/server/types.js",
         "packages/users-workspace/src/server/UsersWorkspaceFeature.js",
         "packages/users-workspace/src/shared/index.js",
-        "packages/users-workspace/src/shared/userResource.js"
+        "packages/users-workspace/src/shared/userCrud.js"
       ]
     },
     {
