@@ -166,7 +166,7 @@ test(`rewarded grants use real resources and atomic transactions (${databaseUrl 
       const scopedContext = actorContext(workspaceId, userId, `denied-${workspaceId}-${userId}`);
       await assert.rejects(service.grantReward({ ...gate, sessionId: successfulSession }, {
         context: scopedContext
-      }), { statusCode: 404, transactionOutcome: "rolledBack" });
+      }), { statusCode: 404, code: "rewarded.session.notFound" });
       assert.equal(transactions.has(scopedContext.testCase), false, "Ownership denial must precede grant authorization.");
       assert.equal((await repositories.rewardedUnlockReceipts.query({ page: { size: 10 } }, { context: scopedContext })).records.length, 0);
     }
@@ -180,17 +180,15 @@ test(`rewarded grants use real resources and atomic transactions (${databaseUrl 
     }, { context });
     const grant = { ...gate, sessionId: session.id };
     authorize = false;
+    // The transaction rolls back, and the work's own refusal reaches the caller.
     await assert.rejects(service.grantReward(grant, { context: actorContext("1", "7", "unauthorized") }), {
-      statusCode: 403, transactionOutcome: "rolledBack"
+      statusCode: 403, code: "rewarded.session.grantNotAuthorized"
     });
     assert.equal((await knex("rewarded_watch_sessions").where({ id: session.id }).first()).status, "started");
     authorize = true;
     failReceipt = true;
-    await assert.rejects(service.grantReward(grant, { context: actorContext("1", "7", "rollback") }), (error) => {
-      assert.equal(error.transactionOutcome, "rolledBack");
-      assert.match(error.message, /Receipt storage hook failed/u);
-      return true;
-    });
+    // The rows below prove the rollback; the hook's own failure reaches the caller.
+    await assert.rejects(service.grantReward(grant, { context: actorContext("1", "7", "rollback") }), /Receipt storage hook failed/u);
     const stored = await knex("rewarded_watch_sessions").where({ id: session.id }).first();
     assert.equal(stored.status, "started");
     assert.equal(stored.rewarded_at, null);
