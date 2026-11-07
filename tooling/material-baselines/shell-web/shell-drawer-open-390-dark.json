@@ -175,5 +175,10 @@
     "paddingInlineStart": "16px"
   },
   "listItem": null,
-  "listPane": null
+  "listPane": null,
+  "sectionTabs": null,
+  "sectionTab": null,
+  "sectionTabActive": null,
+  "sectionTabIndicator": null,
+  "barItemInPage": null
 }

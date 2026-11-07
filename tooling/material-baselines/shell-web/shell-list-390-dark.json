@@ -160,5 +160,10 @@
     "lineHeight": "24px",
     "paddingInlineStart": "16px"
   },
-  "listPane": null
+  "listPane": null,
+  "sectionTabs": null,
+  "sectionTab": null,
+  "sectionTabActive": null,
+  "sectionTabIndicator": null,
+  "barItemInPage": null
 }
