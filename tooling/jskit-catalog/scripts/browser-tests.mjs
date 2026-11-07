@@ -7,8 +7,10 @@ import { testConcurrency } from "./test-budget.mjs";
 // An application's Playwright configuration: `defineConfig(browserTestConfig({ ... }))`. A local run builds the
 // production frontend once (cached by its sources) and starts one app server per Playwright worker, each on its own port
 // and, through the app's `prepare` module, its own database, so workers run in parallel without sharing data
-// (browser-test-servers.mjs). With PLAYWRIGHT_BASE_URL set, the tests use that managed target instead, as its host
-// serves it, one worker at a time unless the runner sets PLAYWRIGHT_WORKERS.
+// (browser-test-servers.mjs). With the app's `signIn` module, each worker's server is signed in once and every test of
+// that worker starts from its signed-in state. With PLAYWRIGHT_BASE_URL set, the tests use that managed target instead,
+// as its host serves it and with the login state its host supplies, one worker at a time unless the runner sets
+// PLAYWRIGHT_WORKERS.
 
 const SERVERS = fileURLToPath(new URL("./browser-test-servers.mjs", import.meta.url));
 const SLOWEST_TESTS = fileURLToPath(new URL("./browser-test-times.mjs", import.meta.url));
@@ -79,6 +81,12 @@ function preparedWorkerEnvironment(file, index) {
  * @param {string} [options.prepare] An app module, run once before the servers start, whose default export
  *   `({ workers, baseUrls })` returns each worker's server environment, such as its own DB_NAME. The worker's own
  *   process gets it too, so a test that opens the database itself reaches its own server's copy.
+ * @param {string} [options.signIn] An app module whose default export `({ request, baseURL, workerIndex, env })` signs
+ *   `request`, a Playwright APIRequestContext on one worker's server (`env` is that server's environment), in once,
+ *   such as with `loginRequestAsExistingUser()` from @jskit-ai/auth-web/test/playwright. Each of that worker's tests
+ *   starts from the signed-in state, which its process also finds in PLAYWRIGHT_STORAGE_STATE, as on a managed target.
+ *   A test that must start signed out uses `test.use({ storageState: { cookies: [], origins: [] } })`; one that signs
+ *   out or ends sessions signs in on its own first, so the worker's shared session lives on.
  * @param {Record<string, string>} [options.env] Environment every server gets, such as its test-only drivers.
  * @param {string} [options.health] The path that answers 200 once a server is ready.
  * @param {number} [options.globalTimeout] The whole run's bound in milliseconds (20 minutes); never 0.
@@ -92,6 +100,7 @@ function browserTestConfig({
   server = "node ./bin/server.js",
   build = "npm run build",
   prepare = "",
+  signIn = "",
   env = {},
   health = "/api/health",
   globalTimeout = GLOBAL_TIMEOUT_MS,
@@ -108,11 +117,19 @@ function browserTestConfig({
   // process takes the environment prepare gave that server, such as its DB_NAME, before any test file loads.
   const workerIndex = managed ? 0 : Number.parseInt(String(environment.TEST_PARALLEL_INDEX || "0"), 10) || 0;
   const workerEnvironments = path.resolve(cwd, WORKER_ENVIRONMENTS, `workers-${basePort}.json`);
+  // A login state the host supplies is used as it is; the servers sign in only when there is none.
+  const signedInStates = signIn && !managed && !String(environment.PLAYWRIGHT_STORAGE_STATE || "").trim()
+    ? path.resolve(cwd, WORKER_ENVIRONMENTS, `signed-in-${basePort}`)
+    : "";
   if (!managed && environment.TEST_PARALLEL_INDEX !== undefined) {
     Object.assign(environment, preparedWorkerEnvironment(workerEnvironments, workerIndex));
+    if (signedInStates) environment.PLAYWRIGHT_STORAGE_STATE = `${signedInStates}-${workerIndex}.json`;
   }
   const storageState = String(environment.PLAYWRIGHT_STORAGE_STATE || "").trim();
-  const settings = { workers, host: HOST, basePort, server, build, prepare, env, health, workerEnvironments };
+  const settings = {
+    workers, host: HOST, basePort, server, build, prepare, env, health, workerEnvironments,
+    ...(signedInStates ? { signIn, signedInStates } : {})
+  };
 
   return {
     testDir,

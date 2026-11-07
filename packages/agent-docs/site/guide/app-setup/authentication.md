@@ -435,7 +435,9 @@ For direct localhost Playwright tests, enable the development auth bypass only
 in the server process and use `loginAsExistingUser()` from
 `@jskit-ai/auth-web/test/playwright`. The Node-side helper sends the private
 `x-jskit-dev-auth-secret`; never pass that secret through browser code, URLs, or
-client environment.
+client environment. Under `browserTestConfig()`, a `signIn` module signs each
+worker in once with `loginRequestAsExistingUser()` instead of each test
+signing in ([Upgrading JSKIT](/guide/app-setup/upgrading-jskit#sign-each-browser-worker-in-once)).
 
 A managed host instead supplies authenticated state through
 `PLAYWRIGHT_STORAGE_STATE` and the app-owned Playwright config. Treat the

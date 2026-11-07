@@ -37,21 +37,21 @@ async function responseBody(response) {
 }
 
 /**
- * Signs `page`'s context in as an existing user through the local app's dev-auth route. Without `baseURL`, it signs in
- * on the test's own baseURL, its context's: under browserTestConfig() each worker's own server. The private secret is
- * only ever sent to a local app URL; a managed target (PLAYWRIGHT_BASE_URL) is refused before any request.
- * @param {import("@playwright/test").Page} page
+ * Signs `request`, a Playwright APIRequestContext, in as an existing user through the local app's dev-auth route: a
+ * page context's `request`, or the one a browserTestConfig() `signIn` module is given to sign a worker in once. Without
+ * `baseURL`, it signs in on the context's own baseURL: under browserTestConfig() each worker's own server. The private
+ * secret is only ever sent to a local app URL; a managed target (PLAYWRIGHT_BASE_URL) is refused before any request.
+ * @param {import("@playwright/test").APIRequestContext} request
  * @param {{ email?: string, userId?: string, secret?: string, baseURL?: string }} [options]
  */
-async function loginAsExistingUser(page, {
+async function loginRequestAsExistingUser(request, {
   email = "",
   userId = "",
   secret = process.env.AUTH_DEV_BYPASS_SECRET,
   baseURL = ""
 } = {}) {
-  const context = page?.context?.();
-  if (!context?.request) {
-    throw new Error("loginAsExistingUser requires a Playwright page.");
+  if (typeof request?.get !== "function") {
+    throw new Error("loginRequestAsExistingUser requires a Playwright APIRequestContext.");
   }
 
   const normalizedSecret = String(secret || "").trim();
@@ -65,7 +65,7 @@ async function loginAsExistingUser(page, {
   }
   const identity = resolveIdentity({ email, userId });
   // A path alone resolves against the context's own baseURL.
-  const sessionResponse = await context.request.get(`${givenBaseUrl}${AUTH_PATHS.SESSION}`);
+  const sessionResponse = await request.get(`${givenBaseUrl}${AUTH_PATHS.SESSION}`);
   if (!sessionResponse.ok()) {
     throw new Error(`Session bootstrap failed: ${sessionResponse.status()}${await responseBody(sessionResponse)}`);
   }
@@ -78,7 +78,7 @@ async function loginAsExistingUser(page, {
     throw new Error("Session bootstrap did not return csrfToken.");
   }
 
-  const loginResponse = await context.request.post(`${localBaseUrl}${AUTH_PATHS.DEV_LOGIN_AS}`, {
+  const loginResponse = await request.post(`${localBaseUrl}${AUTH_PATHS.DEV_LOGIN_AS}`, {
     data: identity,
     headers: {
       "csrf-token": csrfToken,
@@ -92,4 +92,17 @@ async function loginAsExistingUser(page, {
   return loginResponse.json();
 }
 
-export { loginAsExistingUser };
+/**
+ * Signs `page`'s context in as an existing user, as `loginRequestAsExistingUser()` signs its `request` in.
+ * @param {import("@playwright/test").Page} page
+ * @param {{ email?: string, userId?: string, secret?: string, baseURL?: string }} [options]
+ */
+async function loginAsExistingUser(page, options = {}) {
+  const context = page?.context?.();
+  if (!context?.request) {
+    throw new Error("loginAsExistingUser requires a Playwright page.");
+  }
+  return loginRequestAsExistingUser(context.request, options);
+}
+
+export { loginAsExistingUser, loginRequestAsExistingUser };

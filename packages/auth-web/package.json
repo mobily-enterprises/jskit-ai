@@ -86,7 +86,7 @@
           },
           {
             "subpath": "./test/playwright",
-            "summary": "Exports the localhost-only Playwright helper for creating a dev-auth session in the tested browser context."
+            "summary": "Exports the localhost-only Playwright helpers that create a dev-auth session in the tested browser context or in an API request context, such as a browser test worker's sign-in."
           },
           {
             "subpath": "./server/managedPreviewIdentity",

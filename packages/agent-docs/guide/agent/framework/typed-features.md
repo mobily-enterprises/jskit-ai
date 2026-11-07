@@ -1132,7 +1132,9 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
   spec file's tests run in order in one worker. With `PLAYWRIGHT_BASE_URL`, the
   tests use that managed target as its host serves it. Every run is bounded by
   a `globalTimeout` (20 minutes, or the suite's own measured bound) and ends
-  with its 10 slowest tests. `jskit check` fails a webServer that runs the development server
+  with its 10 slowest tests. With a `signIn` module, each worker's server is
+  signed in once and every test of that worker starts signed in, instead of
+  each test signing in. `jskit check` fails a webServer that runs the development server
   (`npm run develop`, `vite`), one webServer shared by every worker, and a
   config without a `globalTimeout`.
 - A file that truly cannot run beside others, because it holds a resource of

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
-import { mkdir, mkdtemp, readFile, rm, stat, utimes, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import { createRequire } from "node:module";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -61,6 +62,16 @@ test("each local worker reaches its own server's port, and the run is bounded an
   assert.equal(config.use.storageState, undefined);
   assert.equal(browserTestConfig({ environment: { ...environment, PLAYWRIGHT_STORAGE_STATE: "/tmp/state.json" } }).use.storageState,
     "/tmp/state.json");
+  // With a signIn module, each worker starts from its own server's signed-in state, and a host's login still wins.
+  const signIn = "tests/e2e/sign-in.mjs";
+  const signedInStates = path.resolve("node_modules", ".cache", "jskit-browser-tests", "signed-in-4173");
+  assert.deepEqual(JSON.parse(browserTestConfig({ signIn, environment }).webServer.env[SETTINGS_VARIABLE]).signedInStates, signedInStates);
+  const signedInWorker = { ...environment, TEST_PARALLEL_INDEX: "1" };
+  assert.equal(browserTestConfig({ signIn, environment: signedInWorker }).use.storageState, `${signedInStates}-1.json`);
+  assert.equal(signedInWorker.PLAYWRIGHT_STORAGE_STATE, `${signedInStates}-1.json`);
+  const hosted = browserTestConfig({ signIn, environment: { ...environment, PLAYWRIGHT_STORAGE_STATE: "/tmp/state.json" } });
+  assert.equal(hosted.use.storageState, "/tmp/state.json");
+  assert.equal(JSON.parse(hosted.webServer.env[SETTINGS_VARIABLE]).signIn, undefined);
   // A failed test keeps a trace without a screencast; a suite measured to need longer sets its own bound, never none.
   assert.deepEqual(config.use.trace, { mode: "retain-on-failure", screenshots: false, snapshots: true, sources: true });
   assert.equal(browserTestConfig({ globalTimeout: 45 * 60_000, environment }).globalTimeout, 45 * 60_000);
@@ -156,12 +167,21 @@ test("every file at the app's root is a build input except other dotfiles and no
 const APP_SERVER = `import http from "node:http";
 http.createServer((request, response) => {
   response.setHeader("content-type", "application/json");
+  const signedInAs = new URL(request.url, "http://app").searchParams.get("database");
+  if (request.method === "POST") response.setHeader("set-cookie", \`session=\${process.env.PORT}.\${signedInAs}; Path=/; HttpOnly\`);
   response.end(JSON.stringify({ port: process.env.PORT, database: process.env.DB_NAME, index: process.env.TEST_PARALLEL_INDEX,
     publicUrl: process.env.PUBLIC_APP_URL, driver: process.env.EMAIL_DRIVER }));
 }).listen(Number(process.env.PORT), process.env.HOST);
 `;
 const PREPARE = "export default async ({ workers, baseUrls }) => Array.from({ length: workers }, (_, index) => " +
   "({ DB_NAME: `app_browser_${index}`, PUBLIC_APP_URL: baseUrls[index] }));\n";
+// Signs the worker's server in through its own request context, with that server's environment.
+const SIGN_IN = "export default async ({ request, workerIndex, env }) => {\n" +
+  "  if (env.TEST_PARALLEL_INDEX !== String(workerIndex)) throw new Error(\"another worker's environment\");\n" +
+  "  const response = await request.post(`/api/sign-in?database=${env.DB_NAME}`);\n" +
+  "  if (!response.ok()) throw new Error(`sign-in: ${response.status()}`);\n" +
+  "};\n";
+const PLAYWRIGHT = path.dirname(createRequire(import.meta.url).resolve("@playwright/test/package.json"));
 const BUILD = "import { mkdirSync, writeFileSync } from \"node:fs\";\nmkdirSync(\"dist\", { recursive: true });\nwriteFileSync(\"dist/index.html\", \"built\");\n";
 
 function waitForReady(child) {
@@ -177,19 +197,25 @@ function waitForReady(child) {
   });
 }
 
-test("a local run starts one server per worker, each on its own port and with its own database", async () => {
+test("a local run starts one server per worker, each on its own port and with its own database, and signs each in once", async () => {
   await withProject({
     "package.json": { name: "app", type: "module" },
     "server.mjs": APP_SERVER,
     "build.mjs": BUILD,
-    "tests/e2e/databases.mjs": PREPARE
+    "tests/e2e/databases.mjs": PREPARE,
+    "tests/e2e/sign-in.mjs": SIGN_IN
   }, async (root) => {
+    // The app's own Playwright.
+    await mkdir(path.join(root, "node_modules", "@playwright"), { recursive: true });
+    await symlink(PLAYWRIGHT, path.join(root, "node_modules", "@playwright", "test"));
     // Ports a busy machine is unlikely to be using.
     const basePort = 40_000 + (process.pid % 10_000);
+    const cache = path.join(root, "node_modules", ".cache", "jskit-browser-tests");
     const settings = {
       workers: 3, host: "127.0.0.1", basePort, server: "node ./server.mjs", build: "node ./build.mjs",
       prepare: "tests/e2e/databases.mjs", env: { EMAIL_DRIVER: "simulate" }, health: "/api/health",
-      workerEnvironments: path.join(root, "node_modules", ".cache", "jskit-browser-tests", `workers-${basePort}.json`)
+      workerEnvironments: path.join(cache, `workers-${basePort}.json`),
+      signIn: "tests/e2e/sign-in.mjs", signedInStates: path.join(cache, `signed-in-${basePort}`)
     };
     const child = spawn(process.execPath, [SERVERS], {
       cwd: root,
@@ -219,6 +245,19 @@ test("a local run starts one server per worker, each on its own port and with it
       const runner = { PLAYWRIGHT_PORT: String(basePort), DB_NAME: "app_development" };
       browserTestConfig({ environment: runner, cwd: root });
       assert.equal(runner.DB_NAME, "app_development");
+
+      // Each worker's state holds its own server's session, signed in with that server's database; only this user
+      // may read it, and a worker's contexts start from it.
+      assert.match(output, /3 worker\(s\) signed in in/u);
+      for (const index of [0, 1, 2]) {
+        const state = `${settings.signedInStates}-${index}.json`;
+        const { cookies } = JSON.parse(await readFile(state, "utf8"));
+        assert.deepEqual(cookies.map(({ name, value }) => `${name}=${value}`), [`session=${basePort + index}.app_browser_${index}`]);
+        assert.equal((await stat(state)).mode & 0o777, 0o600);
+      }
+      const signedInWorker = { PLAYWRIGHT_PORT: String(basePort), TEST_PARALLEL_INDEX: "2" };
+      assert.equal(browserTestConfig({ signIn: settings.signIn, environment: signedInWorker, cwd: root }).use.storageState,
+        `${settings.signedInStates}-2.json`);
     } finally {
       child.kill("SIGTERM");
     }

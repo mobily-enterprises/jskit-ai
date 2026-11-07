@@ -2,10 +2,12 @@
 // (browser-test-build.mjs), runs the app's `prepare` module once for every worker's environment (its own database), then
 // starts one app server per Playwright worker, each on its own port, and prints the ready line Playwright waits for.
 // Each worker's server environment is also left, readable only by this user, where the worker's own process takes it
-// (browser-tests.mjs). Each server's output goes to test-results/browser-test-servers/worker-<n>.log; a server that
-// stops ends the run.
+// (browser-tests.mjs). With the app's `signIn` module, each server is then signed in once, and its storage state left
+// for its worker. Each server's output goes to test-results/browser-test-servers/worker-<n>.log; a server that stops
+// ends the run.
 import { spawn } from "node:child_process";
 import { createWriteStream, mkdirSync, writeFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
@@ -28,6 +30,25 @@ async function prepareWorkers(appRoot, prepare, workers, baseUrls) {
       "let the database user create the copies, or set PLAYWRIGHT_WORKERS lower.");
   }
   return environments;
+}
+
+/** Signs each worker's server in once through the app's signIn module, and leaves its storage state for that worker. */
+async function signInWorkers(appRoot, signIn, baseUrls, environments, signedInStates) {
+  const started = performance.now();
+  const { default: signInWorker } = await import(pathToFileURL(path.resolve(appRoot, signIn)).href);
+  // The app's own Playwright, which its tests run on.
+  const { request } = createRequire(path.join(appRoot, "package.json"))("@playwright/test");
+  await Promise.all(baseUrls.map(async (baseURL, index) => {
+    const context = await request.newContext({ baseURL });
+    try {
+      await signInWorker({ request: context, baseURL, workerIndex: index, env: environments[index] });
+      // It holds a session's cookies: only this user may read it.
+      writeFileSync(`${signedInStates}-${index}.json`, JSON.stringify(await context.storageState()), { mode: 0o600 });
+    } finally {
+      await context.dispose();
+    }
+  }));
+  console.log(`[browser-tests] ${baseUrls.length} worker(s) signed in in ${seconds(started)}.`);
 }
 
 async function waitUntilReady(url, server, name) {
@@ -61,8 +82,10 @@ process.once("exit", stopServers);
 
 const started = performance.now();
 const appRoot = process.cwd();
-const { workers, host, basePort, server, build, prepare, env, health, workerEnvironments: workerEnvironmentsFile } =
-  JSON.parse(process.env[SETTINGS_VARIABLE] || "{}");
+const {
+  workers, host, basePort, server, build, prepare, env, health, workerEnvironments: workerEnvironmentsFile, signIn,
+  signedInStates
+} = JSON.parse(process.env[SETTINGS_VARIABLE] || "{}");
 const baseEnvironment = { ...process.env };
 delete baseEnvironment[SETTINGS_VARIABLE];
 const baseUrls = Array.from({ length: workers }, (_, index) => `http://${host}:${basePort + index}`);
@@ -75,23 +98,19 @@ try {
   mkdirSync(path.dirname(workerEnvironmentsFile), { recursive: true });
   writeFileSync(workerEnvironmentsFile, JSON.stringify(workerEnvironments.slice(0, workers)), { mode: 0o600 });
   const [program, ...args] = words(server);
-  await Promise.all(workerEnvironments.slice(0, workers).map((workerEnvironment, index) => {
-    const port = basePort + index;
+  const serverEnvironments = workerEnvironments.slice(0, workers).map((workerEnvironment, index) => ({
+    ...baseEnvironment,
+    ...env,
+    ...workerEnvironment,
+    HOST: host,
+    PORT: String(basePort + index),
+    TEST_PARALLEL_INDEX: String(index)
+  }));
+  await Promise.all(serverEnvironments.map((serverEnvironment, index) => {
     const baseUrl = baseUrls[index];
     const name = `The browser test server of worker ${index} (${baseUrl})`;
     const log = path.join(LOG_DIRECTORY, `worker-${index}.log`);
-    const child = spawn(program, args, {
-      cwd: appRoot,
-      env: {
-        ...baseEnvironment,
-        ...env,
-        ...workerEnvironment,
-        HOST: host,
-        PORT: String(port),
-        TEST_PARALLEL_INDEX: String(index)
-      },
-      stdio: ["ignore", "pipe", "pipe"]
-    });
+    const child = spawn(program, args, { cwd: appRoot, env: serverEnvironment, stdio: ["ignore", "pipe", "pipe"] });
     const output = createWriteStream(path.join(appRoot, log));
     child.stdout.pipe(output);
     child.stderr.pipe(output);
@@ -104,6 +123,7 @@ try {
     servers.push(child);
     return waitUntilReady(new URL(health, baseUrl), child, name);
   }));
+  if (signIn) await signInWorkers(appRoot, signIn, baseUrls, serverEnvironments, signedInStates);
   console.log(`jskit browser tests: ${workers} server(s) ready in ${seconds(started)}; logs in ${LOG_DIRECTORY}.`);
 } catch (error) {
   console.error(`[browser-tests] ${error.message}`);

@@ -243,6 +243,29 @@ page itself is revalidated" from `example/tests/e2e/startup.spec.ts`. A spec
 that mocks requests with `page.route()` turns Playwright's HTTP cache off, so
 it still fetches every asset on each navigation.
 
+## Sign each browser worker in once
+
+A suite whose tests sign in one by one, such as a helper that calls
+`loginAsExistingUser()` at the start of each test, signs each worker's server
+in once instead, with `browserTestConfig({ signIn: "tests/e2e/sign-in.js" })`:
+
+```js
+// tests/e2e/sign-in.js: `env` is the worker server's environment.
+import { loginRequestAsExistingUser } from "@jskit-ai/auth-web/test/playwright";
+
+export default ({ request, env }) =>
+  loginRequestAsExistingUser(request, { email: "owner@example.com", secret: env.AUTH_DEV_BYPASS_SECRET });
+```
+
+The servers' launcher runs it once per server, after the servers start. Each
+test of that worker then starts from the signed-in storage state, which the
+worker's process also finds in `PLAYWRIGHT_STORAGE_STATE`, as on a managed
+target, so a helper that skips signing in under `PLAYWRIGHT_STORAGE_STATE`
+skips it locally too. A test that must start signed out uses
+`test.use({ storageState: { cookies: [], origins: [] } })`; a test that signs
+out or ends other sessions signs in on its own first, so the worker's shared
+session lives on. A login state the host supplies is used as it is.
+
 ## Application migration
 
 The updater changes package manifests and the lockfile only. It does not

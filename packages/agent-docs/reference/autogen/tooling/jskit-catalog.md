@@ -34,6 +34,7 @@ Local functions
 - `seconds(since)`
 - `words(command)`
 - `prepareWorkers(appRoot, prepare, workers, baseUrls)`
+- `signInWorkers(appRoot, signIn, baseUrls, environments, signedInStates)`
 - `waitUntilReady(url, server, name)`
 - `stopServers()`
 
@@ -44,7 +45,7 @@ Exports
 ### `scripts/browser-tests.mjs`
 Exports
 - `SETTINGS_VARIABLE`
-- `browserTestConfig({ testDir = "./tests/e2e", port = DEFAULT_PORT, server = "node ./bin/server.js", build = "npm run build", prepare = "", env = {}, health = "/api/health", globalTimeout = GLOBAL_TIMEOUT_MS, environment = process.env, cwd = process.cwd() } = {})`
+- `browserTestConfig({ testDir = "./tests/e2e", port = DEFAULT_PORT, server = "node ./bin/server.js", build = "npm run build", prepare = "", signIn = "", env = {}, health = "/api/health", globalTimeout = GLOBAL_TIMEOUT_MS, environment = process.env, cwd = process.cwd() } = {})`
 - `browserTestWorkers({ env = process.env, argv = process.argv } = {})`
 Local functions
 - `positiveInteger(value)`

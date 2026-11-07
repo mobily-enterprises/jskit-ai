@@ -3,7 +3,7 @@ import { createServer } from "node:http";
 import test from "node:test";
 import { request as playwrightRequest } from "@playwright/test";
 import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
-import { loginAsExistingUser } from "../src/test/playwright.js";
+import { loginAsExistingUser, loginRequestAsExistingUser } from "../src/test/playwright.js";
 
 function createResponse({ status = 200, body = {}, url = "" } = {}) {
   return {
@@ -94,6 +94,7 @@ async function workerServer(name) {
   const server = createServer((request, response) => {
     requests.push(`${request.method} ${request.url}${request.headers[DEV_AUTH_SECRET_HEADER] ? " with the secret" : ""}`);
     response.setHeader("content-type", "application/json");
+    if (request.method === "POST") response.setHeader("set-cookie", `session=${name.replace(" ", "-")}; Path=/; HttpOnly; SameSite=Lax`);
     response.end(JSON.stringify(request.method === "GET" ? { csrfToken: `csrf-${name}` } : { ok: true, server: name }));
   });
   await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
@@ -116,6 +117,25 @@ test("each worker signs in on its own server, its context's baseURL, whatever PL
   assert.deepEqual(result, { ok: true, server: "worker 1" });
   assert.deepEqual(second.requests, ["GET /api/session", "POST /api/dev-auth/login-as with the secret"]);
   assert.deepEqual(first.requests, []);
+});
+
+test("a browser test worker's request context signs in once and keeps the session in its storage state", async (context) => {
+  setPlaywrightEnv(context, {});
+  const server = await workerServer("worker 0");
+  const request = await playwrightRequest.newContext({ baseURL: `http://127.0.0.1:${server.port}` });
+  context.after(async () => {
+    await request.dispose();
+    await server.close();
+  });
+
+  const result = await loginRequestAsExistingUser(request, { email: "ada@example.com", secret: "private-test-secret" });
+
+  assert.deepEqual(result, { ok: true, server: "worker 0" });
+  assert.deepEqual(server.requests, ["GET /api/session", "POST /api/dev-auth/login-as with the secret"]);
+  // What browserTestConfig() leaves for the worker's tests: the signed-in session's cookie.
+  assert.deepEqual((await request.storageState()).cookies.map(({ name, value }) => `${name}=${value}`), ["session=worker-0"]);
+  await assert.rejects(loginRequestAsExistingUser({}, { email: "ada@example.com", secret: "private-test-secret" }),
+    /requires a Playwright APIRequestContext/u);
 });
 
 test("local Playwright login refuses a managed target before any request when no base URL is given", async (context) => {
