@@ -18,9 +18,8 @@ import { refusePlanningKnex, requirePlanning } from "./arguments.js";
  * @param {number | string} options.conversationId
  * @param {((messages: object[]) => Promise<unknown>) | null} [options.post]
  */
-export function planningTools(options) {
-  refusePlanningKnex("planningTools", options);
-  const { planning, conversationId, post } = options;
+export function planningTools({ planning, conversationId, post, ...removed }) {
+  refusePlanningKnex("planningTools", removed);
   requirePlanning("planningTools", planning);
   async function keepNotes({ notes }) {
     await planning.setJobNotes(conversationId, notes);

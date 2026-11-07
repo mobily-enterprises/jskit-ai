@@ -54,7 +54,7 @@ export function requirePlanning(caller, planning) {
 /**
  * Refuses defaultTools' and planningTools' earlier `knex` and `tables` options.
  * @param {string} caller
- * @param {Record<string, unknown>} options
+ * @param {Record<string, unknown>} options The options the caller does not take.
  */
 export function refusePlanningKnex(caller, options) {
   for (const name of ["knex", "tables"]) {
