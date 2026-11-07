@@ -38,6 +38,39 @@ test("markEmailVerified keeps the first proof, in the caller's transaction or on
   assert.equal((await knex(LOCAL_AUTH_DB_TABLES.users).count({ count: "*" }).first()).count, 1);
 });
 
+test("accounts keep and find an email as local sign-in does, and are found by id", async (t) => {
+  const { knex, accounts } = await ownerApis(t);
+  const created = await accounts.create({
+    id: "usr_mixed", email: "  Mixed.Case@Example.COM ", displayName: "Mixed", password: await hashPassword("mixed password value")
+  });
+  assert.equal(created.email, "mixed.case@example.com");
+  assert.equal((await knex(LOCAL_AUTH_DB_TABLES.users).where({ id: "usr_mixed" }).first()).email, "mixed.case@example.com");
+  assert.deepEqual(await accounts.findByEmail(" MIXED.case@example.com"), await accounts.findById("usr_mixed"));
+  await assert.rejects(accounts.create({
+    id: "usr_again", email: "mixed.case@example.com ", displayName: "Again", password: await hashPassword("again password value")
+  }), { message: "Local auth user already exists." });
+  assert.equal(await accounts.findById("usr_missing"), null);
+});
+
+test("sessions.update changes a session's purpose and expiry only, in the caller's transaction or on its own", async (t) => {
+  const { accounts, sessions, inCallerTransaction } = await ownerApis(t);
+  await accounts.create({
+    id: "usr_link", email: "link@example.com", displayName: "Link", password: await hashPassword("link password value")
+  });
+  const created = await sessions.create({
+    id: "ses_link", userId: "usr_link", tokenHash: "hash-link", purpose: "magic-link", expiresAt: "2026-11-08T10:00:00.000Z"
+  });
+  await assert.rejects(inCallerTransaction(async (options) => {
+    assert.equal((await sessions.update("ses_link", { purpose: "normal" }, options)).purpose, "normal");
+    throw new Error("Abort the promotion");
+  }), /Abort the promotion/u);
+  const promoted = await sessions.update("ses_link", { purpose: "normal", expiresAt: "2026-12-08T10:00:00.000Z" });
+  assert.deepEqual(promoted, { ...created, purpose: "normal", expiresAt: "2026-12-08T10:00:00.000Z" });
+  assert.equal(await sessions.update("ses_missing", { purpose: "normal" }), null);
+  await assert.rejects(sessions.update("ses_link", { revokedAt: null }),
+    { name: "TypeError", message: "auth.local.sessions.update() changes a session's purpose and expiresAt only." });
+});
+
 test("sessions.deleteExpired deletes the sessions expired by then and keeps the rest", async (t) => {
   const { knex, accounts, sessions, recovery, inCallerTransaction } = await ownerApis(t);
   await accounts.create({

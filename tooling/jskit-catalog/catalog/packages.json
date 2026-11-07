@@ -832,6 +832,7 @@
           "@jskit-ai/resource-runtime": "0.2.12"
         },
         "peerDependencies": {
+          "@jskit-ai/auth-core": "0.2.11",
           "@jskit-ai/kernel": "0.2.11"
         }
       }
