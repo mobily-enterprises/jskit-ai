@@ -94,8 +94,8 @@ function usersProfileSync() {
         profiles.push(profile);
         return profile;
       },
-      async withTransaction(work) {
-        return work({});
+      async withTransaction(options, work) {
+        return work(options);
       }
     },
     userSettingsRepository: {
