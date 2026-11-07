@@ -1,6 +1,46 @@
 import { createHash } from "node:crypto";
+import { isDeadlockError, isDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
+
+// First uses of one key at once can collide on its insert before any work runs (on MySQL and MariaDB, first uses of
+// neighbouring keys too, through their gap locks): each collision runs the loser again after a short random wait.
+const CREATE_RACE_ATTEMPTS = 4;
+const CREATE_IF_MISSING = Object.freeze({ keys: ["id"], action: "ignore" });
+
+/**
+ * Runs work once on the connection row with `attributes.id`, locked in one transaction with the work, creating the row
+ * there when it is missing, so work that fails leaves no row behind. Two first uses of one key can collide on that
+ * insert before either work runs (a deadlock on MySQL's and MariaDB's gap locks, a duplicate key elsewhere): the loser
+ * runs again, up to four runs in all, and finds the winner's row. Work that has started never runs again.
+ * @template T
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
+ * @param {object} options The transaction's options: its context, and `retry: false`.
+ * @param {{ id: string } & Record<string, unknown>} attributes
+ * @param {(row: Record<string, any>, txOptions: object) => Promise<T>} work
+ * @returns {Promise<T>}
+ */
+async function withLockedRow(handle, options, attributes, work) {
+  for (let attempt = 1; ; attempt += 1) {
+    let started = false;
+    try {
+      return await handle.withTransaction(options, async (txOptions) => {
+        let row = await handle.lock(attributes.id, { ...txOptions, missing: "skip" });
+        if (!row) {
+          await handle.createMany([attributes], { ...txOptions, onConflict: CREATE_IF_MISSING, returning: "none" });
+          row = await handle.lock(attributes.id, txOptions);
+        }
+        started = true;
+        return work(row, txOptions);
+      });
+    } catch (error) {
+      if (started || attempt >= CREATE_RACE_ATTEMPTS || !(isDeadlockError(error) || isDuplicateEntryError(error))) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 20 * 2 ** attempt));
+    }
+  }
+}
 
 /**
  * The application's credential protection, checked before it is used.
@@ -34,9 +74,7 @@ function createConnectionStore({ resources, systemContext, protection }) {
     const connectionKey = hash(JSON.stringify([owner.applicationId, owner.subjectId, integrationId]));
     const connectionBinding = `connection:${connectionKey}`;
     // Retain this row on disconnect so other processes continue to lock the same identity.
-    await connections.findOrCreate({ id: connectionKey, payload: null }, connectionOptions);
-    return connections.withTransaction(runOnce, async (txOptions) => {
-      const row = await connections.lock(connectionKey, txOptions);
+    return withLockedRow(connections, runOnce, { id: connectionKey, payload: null }, async (row, txOptions) => {
       const writeOptions = { ...txOptions, returning: "none" };
       return work({
         connection: row.payload ? await protection.open(row.payload, connectionBinding) : null,
