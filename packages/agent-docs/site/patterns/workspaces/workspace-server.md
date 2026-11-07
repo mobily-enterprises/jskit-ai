@@ -65,19 +65,19 @@ catalogue entries. Updating labels requires no database migration.
 Provide one function as the optional `workspaces.invite-acceptance-participant`
 capability, from a small application feature that requires only what its writes
 need (it cannot require `workspaces.core`, which receives it). The built-in
-`workspace.invite.redeem` action invokes `fn({ invite, user }, { trx, context })`
+`workspace.invite.redeem` action invokes `fn({ invite, user }, txOptions)`
 after validating the recipient, state and expiry and activating membership in the
-uncommitted transaction. Forward `trx` to every application owner and propagate
-failures. JSKIT marks accepted and commits after the function succeeds. Keep
+uncommitted transaction. Pass `txOptions` to every application owner's calls and
+propagate failures. JSKIT marks accepted and commits after the function succeeds. Keep
 external effects out of it. Without the capability, acceptance activates the
 membership only. Allow ordinary invitations; reject stale, revoked, conflicting
 or unexpectedly missing application associations.
 
-Use `members.prepareInvite(workspace, actor,
-payload, { trx, context })` in `repositories.workspaceInvites.withTransaction`
-or the same JSON REST API's managed `transaction`. It returns
+Call `members.prepareInvite(workspace, actor, payload, txOptions)` inside
+`repositories.workspaceInvites.withTransaction(options, async (txOptions) => …)`
+or another resource handle's `withTransaction`. It returns
 `{ createdInviteId, inviteTokenPreview }` without delivery. Lock the workspace
-with `lock(workspace.id, { trx })` of the `workspaces` capability before
+with `lock(workspace.id, txOptions)` of the `workspaces` capability before
 application draft/receipt rows, and save the exact invitation
 association and retry receipt before commit. Failure restores the previous
 pending invitation. Keep access drafts separate: preparation creates a real token.
@@ -91,7 +91,7 @@ failure. A provider may accept a message before failing; the application owns
 receipts and retries. Keep tokens/URLs out of logs and use controlled mailers in tests.
 
 `createInvite`, acceptance and refusal own their managed transactions and
-reject a borrowed `options.trx`. Use preparation followed by delivery after commit for
+refuse a call made inside one (`inTransaction(options)`). Use preparation followed by delivery after commit for
 transactional creation; put related acceptance writes in the participant. Revocation may join
 a managed transaction. Raw Knex/savepoint transactions cannot own resource
 writes. Invitation mutations lock workspace then invitation rows, revalidate

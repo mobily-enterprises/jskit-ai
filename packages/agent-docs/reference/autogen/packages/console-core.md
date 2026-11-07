@@ -42,10 +42,9 @@ Exports
 
 ### `src/server/consoleSettings/consoleSettingsRepository.js`
 Exports
-- `createRepository({ knex })`
+- `createRepository({ consoleSettings })`
 Local functions
-- `nowDb()`
-- `mapSingletonRow(row)`
+- `mapSingletonRecord(record)`
 
 ### `src/server/consoleSettings/consoleSettingsRoutes.js`
 Exports
@@ -74,6 +73,10 @@ Exports
 ### `src/shared/resources/consoleSettingsResource.js`
 Exports
 - `consoleSettingsContract`
+
+### `src/shared/resources/consoleSettingsTableResource.js`
+Exports
+- `consoleSettingsTableResource`
 
 ### migrations
 

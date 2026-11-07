@@ -33,17 +33,40 @@ Exports
 ### `src/server/knexStore.js`
 Exports
 - `createKnexPaymentStore({ knex })`
-Local functions
-- `empty()`
-- `merchant(scope)`
-- `identifier(value)`
-- `accountKey(scope)`
 
 ### `src/server/paddle.js`
 Exports
 - `createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceBindings, taxCategory, historicalPriceBindings = {}, client = new Paddle(apiKey, { environment: environment === "live" ? Environment.production : Environment.sandbox }) })`
 Local functions
 - `invalid()`
+
+### `src/server/paymentResources.js`
+Exports
+- `PAYMENT_TABLES`
+- `paymentAccountResource`
+- `paymentCatalogueResource`
+- `paymentCustomerResource`
+- `paymentEntryResource`
+Local functions
+- `key(column)`
+
+### `src/server/paymentStore.js`
+Exports
+- `createPaymentStore({ resources, systemContext })`
+Local functions
+- `empty()`
+- `emptyCatalogue()`
+- `merchant(scope)`
+- `identifier(value)`
+- `accountKey(scope)`
+- `customerKey(scope, customerId)`
+- `entryKey(account, reference)`
+
+### `src/server/PaymentStoreFeature.js`
+Exports
+- `PAYMENT_STORE_FEATURE`
+- `PAYMENT_STORE_SYSTEM_SCOPE`
+- `PaymentStoreFeature`
 
 ### `src/server/priceBindings.js`
 Exports
@@ -68,6 +91,11 @@ Local functions
 - `available(lots, now)`
 - `once(tx, key, input, work)`
 - `grant(tx, { reference: id, units: quantity, expiresAt }, now)`
+
+### `src/server/storage.js`
+Exports
+- `createKnexPaymentStore`
+- `PaymentStoreFeature`
 
 ### `src/server/stripe.js`
 Exports

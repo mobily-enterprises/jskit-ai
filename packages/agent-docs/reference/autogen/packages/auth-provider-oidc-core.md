@@ -80,7 +80,8 @@ Local functions
 ### `src/server/lib/store.js`
 Exports
 - `TABLES`
-- `createOidcStore({ knex, now = Date.now })`
+- `createOidcStore({ database, profiles, now = Date.now })`
+- `type OidcKnownUsers`
 Local functions
 - `toDate(value)`
 - `isExpired(value, now)`
@@ -141,6 +142,7 @@ Exports
 Local functions
 - `createDatabase()`
 - `createProfileProjector(knex)`
+- `createUsersProfiles(knex)`
 
 ### `test-support/mockIssuer.js`
 Exports

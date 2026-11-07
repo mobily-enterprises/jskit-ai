@@ -22,7 +22,7 @@ Exports
 - `isSystemContext`
 Local functions
 - `jobContext(reason, scopeValues)`
-- `requireScopeId(value, label)`
+- `requireScopeId(value, label, subject)`
 
 ### `src/server/errors.js`
 Exports
@@ -59,14 +59,6 @@ Exports
 - `StaleRecordError`
 - `UnpagedQueryError`
 
-### `src/server/jsonRestCollectionReads.js`
-Exports
-- `extractJsonRestCollectionRows(payload)`
-- `queryAllJsonRestCollectionDocument(resource, params, context)`
-- `queryAllJsonRestCollectionRows(resource, params, context)`
-Local functions
-- `readEveryJsonRestCollectionPage(resource, { queryParams, ...params }, context, { caller, onPage })`
-
 ### `src/server/jsonRestValues.js`
 Exports
 - `isPlainJsonRestObject(value)`
@@ -78,18 +70,19 @@ Exports
 Local functions
 - `pickReturning(modes, value, fallback, label)`
 - `reportManyRow(resource, operation, rows, chunkSize)`
+- `openTransaction(api, options, work, asThrown)`
+- `manyResult(resource, result, returning)`
+- `whereSelection(name, operation, filters, options)`
+- `findOrCreateRecord({ get, create }, attributes, options)`
+- `inTransaction(options)`
+- `write(options, run)`
 
 ### `src/server/resourceHost.js`
 Exports
 - `JSON_REST_AUTOFILTER_PRESETS`
-- `addResourceIfMissing(api, scopeName, resourceConfig)`
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
 - `createJsonRestContext`
-- `createJsonRestResourceScopeOptions`
 - `createResourceHost({ knex, logger })`
-- `extractJsonRestCollectionRows`
-- `queryAllJsonRestCollectionDocument`
-- `queryAllJsonRestCollectionRows`
 - `resourceScopeOptions(resource, { writeSerializers = {}, normalizeId, rowPolicy, searchSchema, queryFields } = {})`
 - `returnNullWhenJsonRestResourceMissing(run)`
 - `returnBadRequestWhenJsonRestFieldsetInvalid(run)`
