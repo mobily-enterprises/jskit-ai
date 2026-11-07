@@ -18,12 +18,7 @@ const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
   "packages/assistant-runtime/src/server/repositories/assistantConfigRepository.js",
   "packages/assistant-runtime/src/server/repositories/conversationsRepository.js",
   "packages/assistant-runtime/src/server/repositories/messagesRepository.js",
-  "packages/realtime/src/server/realtimeAudience.js",
-  "packages/workspaces-core/src/server/common/repositories/workspaceInvitesRepository.js",
-  "packages/workspaces-core/src/server/common/services/workspaceDirectoryService.js",
-  "packages/workspaces-core/src/server/common/support/realtimeServiceEvents.js",
-  "packages/workspaces-core/src/server/workspaceMembers/workspaceMembersService.js",
-  "packages/workspaces-core/src/server/workspacePendingInvitations/workspacePendingInvitationsService.js"
+  "packages/realtime/src/server/realtimeAudience.js"
 ]);
 
 export default [

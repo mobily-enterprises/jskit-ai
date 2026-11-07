@@ -143,8 +143,8 @@ test("revokeInvite revokes a pending invite of its workspace once and answers th
   await assert.rejects(service.revokeInvite(workspace, "999999999"), notFound);
   await assert.rejects(service.revokeInvite(workspace, ""), validationFailed("inviteId", "workspaces.invite.idRequired"));
 
-  await assert.rejects(db.invites.withTransaction(async (trx) => {
-    const inside = await service.revokeInvite(workspace, second, { trx });
+  await assert.rejects(db.invites.withTransaction({}, async (txOptions) => {
+    const inside = await service.revokeInvite(workspace, second, txOptions);
     assert.deepEqual(inside.value.invites, [], "the answer reads inside the caller's transaction");
     throw new Error("Abort the caller's transaction");
   }), /Abort the caller's transaction/u);
@@ -195,10 +195,10 @@ test("updateMemberRole and removeMember change an active member of their workspa
   await assert.rejects(service.removeMember(workspace, { memberUserId: "" }),
     validationFailed("memberUserId", "workspaces.member.userIdRequired"));
 
-  await assert.rejects(db.invites.withTransaction(async (trx) => {
-    const inside = await service.updateMemberRole(workspace, { memberUserId: members.ann.id, roleSid: "member" }, { trx });
+  await assert.rejects(db.invites.withTransaction({}, async (txOptions) => {
+    const inside = await service.updateMemberRole(workspace, { memberUserId: members.ann.id, roleSid: "member" }, txOptions);
     assert.equal(inside.value.members[0].roleSid, "member", "the answer reads inside the caller's transaction");
-    await service.removeMember(workspace, { memberUserId: members.ann.id }, { trx });
+    await service.removeMember(workspace, { memberUserId: members.ann.id }, txOptions);
     throw new Error("Abort the caller's transaction");
   }), /Abort the caller's transaction/u);
   const kept = await db.memberships.findByWorkspaceIdAndUserId(workspace.id, members.ann.id);

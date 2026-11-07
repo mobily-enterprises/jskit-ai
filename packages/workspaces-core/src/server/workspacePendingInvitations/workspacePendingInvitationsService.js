@@ -19,20 +19,19 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
   }
 
   async function withInviteTransaction(user, token, options, work) {
-    // readable-check: allow required-collaborators - platform object: a Knex transaction, which acceptance and refusal open themselves
-    if (options.trx) {
+    if (workspaceInvitesRepository.inTransaction(options)) {
       throw new TypeError("Invitation acceptance/refusal owns its transaction; use the acceptance participant for related writes.");
     }
     // Locate outside the transaction to avoid a stale MySQL repeatable-read
     // snapshot. The callback validates again under the workspace/invite locks.
     const initial = await requirePendingInviteForUserByToken(user, token, options);
-    const result = await workspaceInvitesRepository.withTransaction((trx) => work({
-      ...options,
-      trx,
+    // work receives the locking options its repository reads take, and the transaction's own options.
+    const result = await workspaceInvitesRepository.withTransaction(options, (txOptions) => work({
+      ...txOptions,
       lock: true,
       workspaceId: initial.invite.workspaceId,
       inviteId: initial.invite.id
-    }));
+    }, txOptions));
     // Commit expiry revocation before reporting the rejection.
     if (result.expired) {
       throw Object.assign(new AppError(409, "Invitation has expired.", { code: "workspaces.invite.expired" }), { transactionOutcome: "committed" });
@@ -242,7 +241,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
   }
 
   async function acceptInviteByToken({ user, token }, options = {}) {
-    return withInviteTransaction(user, token, options, async (transactionOptions) => {
+    return withInviteTransaction(user, token, options, async (transactionOptions, txOptions) => {
       const resolved = await resolveInviteActionInput(
         user,
         token,
@@ -259,11 +258,11 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
         { roleSid: resolvedInvite.invite.roleSid, status: "active" },
         transactionOptions
       );
-      // Repository locking options stay internal to this service.
+      // Repository locking options stay internal to this service: the participant gets the transaction's own options.
       await acceptanceParticipant({
         invite: Object.freeze({ ...resolvedInvite.invite }),
         user: Object.freeze({ ...resolvedInvite.user })
-      }, Object.freeze({ ...options, trx: transactionOptions.trx }));
+      }, txOptions);
       await workspaceInvitesRepository.markAcceptedById(resolvedInvite.invite.id, transactionOptions);
       return { decision: "accepted", workspaceId };
     });
