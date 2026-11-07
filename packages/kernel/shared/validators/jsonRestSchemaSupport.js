@@ -10,6 +10,8 @@ const JSON_REST_SCHEMA_ERRORS = Object.freeze({
   NOT_NULLABLE: { messageKey: "default", code: "kernel.validation.field.notNullable" },
   MIN_LENGTH: { messageKey: "minLength", code: "kernel.validation.field.minLength" },
   MAX_LENGTH: { messageKey: "maxLength", code: "kernel.validation.field.maxLength" },
+  MIN_ITEMS: { messageKey: "minItems", code: "kernel.validation.field.minItems" },
+  MAX_ITEMS: { messageKey: "maxItems", code: "kernel.validation.field.maxItems" },
   MIN_VALUE: { messageKey: "min", code: "kernel.validation.field.minValue" },
   MAX_VALUE: { messageKey: "max", code: "kernel.validation.field.maxValue" },
   PATTERN: { messageKey: "pattern", code: "kernel.validation.field.pattern" },

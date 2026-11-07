@@ -60,6 +60,8 @@
           "notNullable": "Field cannot be null",
           "minLength": "Length must be at least {min} characters.",
           "maxLength": "Length must be no more than {max} characters.",
+          "minItems": "Must have at least {min} items.",
+          "maxItems": "Must have no more than {max} items.",
           "minValue": "Value must be at least {min}.",
           "maxValue": "Value must be no more than {max}.",
           "pattern": "Value does not match the required pattern.",
