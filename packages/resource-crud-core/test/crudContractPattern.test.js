@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bookCrud, bookResource } from "../patterns/resource-contract/example/bookResource.js";
+import { bookCrud, bookResource } from "../patterns/crud-contract/example/bookResource.js";
 
-test("owner-scoped table resource and CRUD contract pattern is executable framework source", () => {
+test("owner-scoped CRUD contract pattern is executable framework source", () => {
   assert.equal(bookResource.name, "books");
   assert.equal(bookResource.tableName, "books");
   assert.equal(bookResource.ownership, "user");
