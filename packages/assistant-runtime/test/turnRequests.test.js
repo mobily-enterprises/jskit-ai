@@ -17,8 +17,20 @@ async function database(t) {
   const dir = await mkdtemp(path.join(tmpdir(), "assistant-requests-"));
   const connections = [];
   const stores = [];
+  // Two connections in one process: a connection that waited for SQLite's lock would block the event loop the lock's
+  // holder needs to commit, so each finds the database busy at once, and its write's transaction runs again.
   const connect = () => {
-    const db = knex({ client: "better-sqlite3", connection: { filename: path.join(dir, "requests.db") }, useNullAsDefault: true });
+    const db = knex({
+      client: "better-sqlite3",
+      connection: { filename: path.join(dir, "requests.db") },
+      useNullAsDefault: true,
+      pool: {
+        afterCreate(connection, done) {
+          connection.pragma("busy_timeout = 0");
+          done(null, connection);
+        }
+      }
+    });
     connections.push(db);
     return db;
   };
