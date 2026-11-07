@@ -10,7 +10,8 @@ import {
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
-  extractJsonRestCollectionRows
+  extractJsonRestCollectionRows,
+  queryAllJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { normalizeIdentity } from "../support/identity.js";
 import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "../../../shared/resources/userProfileValues.js";
@@ -74,6 +75,9 @@ function usernameBaseFromEmail(email) {
   return username || "user";
 }
 
+// The base, then base-2 to base-1000.
+const USERNAME_CANDIDATE_LIMIT = 1000;
+
 function buildUsernameCandidate(baseUsername, suffix) {
   const normalizedBase = normalizeUsername(baseUsername) || "user";
   if (suffix < 1) {
@@ -120,25 +124,33 @@ function buildDuplicateEmailConflictError(cause) {
  */
 async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, transaction = null } = {}) {
   const normalizedExcludeUserId = normalizeDbRecordId(excludeUserId, { fallback: null });
+  const candidates = Array.from(
+    { length: USERNAME_CANDIDATE_LIMIT },
+    (_, suffix) => buildUsernameCandidate(baseUsername, suffix)
+  );
 
-  for (let suffix = 0; suffix < 1000; suffix += 1) {
-    const candidate = buildUsernameCandidate(baseUsername, suffix);
-    const existingRows = extractJsonRestCollectionRows(
-      await api.resources.userProfiles.query({
-        queryParams: {
-          filters: {
-            username: candidate
-          }
-        },
-        transaction,
-        format: "plain"
-      })
-    );
-    const existing = existingRows[0] || null;
-    const existingId = normalizeDbRecordId(existing?.id, { fallback: null });
-    if (!existing || existingId === normalizedExcludeUserId) {
-      return candidate;
+  // One read of every profile holding a candidate, however many namesakes came before.
+  const existingRows = await queryAllJsonRestCollectionRows(
+    api.resources.userProfiles,
+    {
+      queryParams: {
+        filters: {
+          usernames: candidates
+        }
+      },
+      transaction,
+      format: "plain"
     }
+  );
+  const holderIdByUsername = new Map(
+    existingRows.map((row) => [normalizeLowerText(row.username), normalizeDbRecordId(row.id, { fallback: null })])
+  );
+
+  const candidate = candidates.find((username) => (
+    !holderIdByUsername.has(username) || holderIdByUsername.get(username) === normalizedExcludeUserId
+  ));
+  if (candidate) {
+    return candidate;
   }
 
   throw new Error("Unable to generate unique username.");

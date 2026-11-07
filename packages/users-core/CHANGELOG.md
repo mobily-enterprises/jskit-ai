@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A new profile's username (the email's local part, or the requested name, then `name-2` to `name-1000`) is chosen with one read of every taken candidate through the profile resource's new `usernames` filter (`in`), instead of one read per taken candidate, so a common name costs the same statements after 10 namesakes as after 200. The chosen name, the trimming of long names, the profile's own name counting as free and the error when all 1,000 are taken are unchanged.
 - The account security routes' declared rate limits apply, now that the kernel enforces route limits.
 - The settings, security and avatar field messages are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.
 - The resources' validation feedback names the catalog key `jskit.users.feedback.validationFailed` instead of plain English; JSKIT's forms render it with `text()`, so the English shown is unchanged.

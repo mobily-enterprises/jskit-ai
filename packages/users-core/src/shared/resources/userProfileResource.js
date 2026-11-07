@@ -65,7 +65,8 @@ const userProfileResource = defineCrudResource({
   namespace: "userProfile",
   tableName: "users",
   searchSchema: {
-    id: { type: "id", actualField: "id" }
+    id: { type: "id", actualField: "id" },
+    usernames: { type: "array", actualField: "username", filterOperator: "in", items: { type: "string" } }
   },
   schema: {
     authProvider: {

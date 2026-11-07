@@ -117,13 +117,14 @@ test("userProfilesRepository.upsert sends plain data with transaction outside th
     api: {
       resources: {
         userProfiles: {
+          vars: {},
           async query({ queryParams, format }) {
             assert.equal(format, "plain");
             const filters = queryParams?.filters || {};
             if (Object.hasOwn(filters, "authProvider") || Object.hasOwn(filters, "authProviderUserSid")) {
               return asCollectionDocument([]);
             }
-            if (Object.hasOwn(filters, "username")) {
+            if (Object.hasOwn(filters, "usernames")) {
               return asCollectionDocument([]);
             }
             return asCollectionDocument([]);
@@ -425,6 +426,7 @@ test("profile upsert performs duplicate recovery after its API transaction has f
     },
     resources: {
       userProfiles: {
+        vars: {},
         async query({ transaction, queryParams, format }) {
           assert.equal(format, "plain");
           if (active) {
@@ -460,6 +462,7 @@ test("profile upsert never recovers inside a caller-owned failed transaction", a
     async transaction() { throw new Error("Must join the caller's owner"); },
     resources: {
       userProfiles: {
+        vars: {},
         async query({ transaction }) {
           assert.equal(transaction, trx);
           reads += 1;
@@ -488,6 +491,7 @@ for (const outcome of ["pending", "committed", "unknown"]) {
     const api = {
       resources: {
         userProfiles: {
+          vars: {},
           async query() { reads += 1; return asCollectionDocument([]); },
           async post() { throw failure; }
         }
@@ -510,3 +514,83 @@ for (const outcome of ["pending", "committed", "unknown"]) {
     assert.equal(reads, 2);
   });
 }
+
+// The username upsert chooses for `email` while `holders` (username to profile id) are taken,
+// and the username reads it made. `existing` is the identity's profile, when it has one.
+async function chooseUsername(email, holders, { existing = null } = {}) {
+  const trx = { trxId: "caller-managed" };
+  const usernameReads = [];
+  let written = null;
+  const repository = createUserProfilesRepository({
+    api: {
+      resources: {
+        userProfiles: {
+          vars: {},
+          async query({ queryParams, transaction }) {
+            assert.equal(transaction, trx);
+            const filters = queryParams?.filters || {};
+            if (Object.hasOwn(filters, "usernames")) {
+              usernameReads.push(filters.usernames);
+              return asCollectionDocument(filters.usernames
+                .filter((username) => holders.has(username))
+                .map((username) => ({ id: holders.get(username), username })));
+            }
+            return asCollectionDocument(existing ? [existing] : []);
+          },
+          async post({ data }) {
+            written = data.username;
+            return { id: "11", ...data };
+          },
+          async patch({ id, data }) {
+            written = data.username;
+            return { ...existing, id, ...data };
+          }
+        }
+      }
+    }
+  });
+  await repository.upsert({
+    authProvider: "local", authProviderUserSid: "local-7", email, displayName: "Ada"
+  }, { trx });
+  return { username: written, usernameReads };
+}
+
+const takenBy = (usernames, id = "8") => new Map(usernames.map((username) => [username, id]));
+
+test("profile upsert chooses the first free username of base, base-2 to base-1000 in one read", async () => {
+  const fresh = await chooseUsername("ada@example.com", new Map());
+  assert.equal(fresh.username, "ada");
+  assert.equal(fresh.usernameReads.length, 1);
+  assert.equal(fresh.usernameReads[0].length, 1000);
+  assert.deepEqual(fresh.usernameReads[0].slice(0, 3), ["ada", "ada-2", "ada-3"]);
+  assert.equal(fresh.usernameReads[0][999], "ada-1000");
+
+  assert.equal((await chooseUsername("ada@example.com", takenBy(["ada"]))).username, "ada-2");
+  const gap = await chooseUsername("ada@example.com", takenBy(["ada", "ada-2", "ada-4", "ada-5"]));
+  assert.equal(gap.username, "ada-3");
+  assert.equal(gap.usernameReads.length, 1);
+});
+
+test("profile upsert trims a long username base so the suffixed name fits", async () => {
+  const longBase = "a".repeat(120);
+  const longEmail = `${"a".repeat(130)}@example.com`;
+  assert.equal((await chooseUsername(longEmail, new Map())).username, longBase);
+  assert.equal((await chooseUsername(longEmail, takenBy([longBase]))).username, `${"a".repeat(118)}-2`);
+  const taken = [longBase, ...Array.from({ length: 8 }, (_, index) => `${"a".repeat(118)}-${index + 2}`)];
+  assert.equal((await chooseUsername(longEmail, takenBy(taken))).username, `${"a".repeat(117)}-10`);
+});
+
+test("profile upsert keeps a username the profile itself holds", async () => {
+  const existing = {
+    id: "7", authProvider: "local", authProviderUserSid: "local-7",
+    email: "ada@example.com", username: "", displayName: "Ada"
+  };
+  assert.equal((await chooseUsername("ada@example.com", takenBy(["ada"], "7"), { existing })).username, "ada");
+  assert.equal((await chooseUsername("ada@example.com", takenBy(["ada"], "8"), { existing })).username, "ada-2");
+});
+
+test("profile upsert fails the same way when base to base-1000 are all taken", async () => {
+  const taken = ["ada", ...Array.from({ length: 999 }, (_, index) => `ada-${index + 2}`)];
+  await assert.rejects(chooseUsername("ada@example.com", takenBy(taken)), /Unable to generate unique username\./);
+  assert.equal((await chooseUsername("ada@example.com", takenBy(taken.slice(0, -1)))).username, "ada-1000");
+});
