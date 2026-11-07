@@ -287,3 +287,43 @@ test("workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId returns norm
     }
   ]);
 });
+
+test("workspaceMembershipsRepository.listActiveWorkspaceIdsByUserIds reads 1,000 users per query without including workspaces", async () => {
+  const queryCalls = [];
+  const api = {
+    resources: {
+      workspaceMemberships: {
+        vars: { queryMaxLimit: 100 },
+        async query({ queryParams, format }) {
+          assert.equal(format, "plain");
+          queryCalls.push(queryParams);
+          // Every asked user is active in workspace 7, and user 1 in workspace 8 too.
+          const rows = queryParams.filters.users.flatMap((userId) => [
+            { id: `m${userId}`, workspace: { id: "7" }, user: { id: userId }, status: "active" },
+            ...(userId === "1" ? [{ id: "m1-8", workspace: { id: "8" }, user: { id: "1" }, status: "active" }] : [])
+          ]);
+          return asCollectionDocument(rows);
+        }
+      }
+    }
+  };
+  const repository = createRepository({ api });
+  const userIds = Array.from({ length: 1001 }, (_, index) => String(index + 1));
+
+  const workspaceIds = await repository.listActiveWorkspaceIdsByUserIds([...userIds, "1", "", null]);
+
+  assert.equal(workspaceIds.size, 1001);
+  assert.deepEqual(workspaceIds.get("1"), ["7", "8"]);
+  assert.deepEqual(workspaceIds.get("1001"), ["7"]);
+  assert.deepEqual(queryCalls.map(({ filters }) => filters.users.length), [1000, 1]);
+  assert.deepEqual(queryCalls[1], {
+    filters: {
+      users: ["1001"],
+      status: "active"
+    },
+    sort: ["id"],
+    page: { size: 1000 }
+  });
+  assert.deepEqual(await repository.listActiveWorkspaceIdsByUserIds([]), new Map());
+  assert.equal(queryCalls.length, 2, "No users need no query");
+});

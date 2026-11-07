@@ -1,4 +1,5 @@
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
+import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
 
 const workspaceMembershipsResource = defineCrudResource({
@@ -8,6 +9,12 @@ const workspaceMembershipsResource = defineCrudResource({
     id: { type: "id", actualField: "id" },
     workspace: { type: "id", actualField: "workspace_id", filterOperator: "=" },
     user: { type: "id", actualField: "user_id", filterOperator: "=" },
+    users: {
+      type: "array",
+      actualField: "user_id",
+      filterOperator: "in",
+      items: { type: "string", pattern: RECORD_ID_PATTERN }
+    },
     status: { type: "string", actualField: "status", filterOperator: "=" }
   },
   schema: {

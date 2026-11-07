@@ -12,6 +12,9 @@ import {
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
 
+// A bulk read's users per query, so its "in" list stays well inside every database's limits.
+const USER_IDS_PER_QUERY = 1000;
+
 function normalizeMembershipRecord(payload) {
   if (!payload) {
     return null;
@@ -278,6 +281,39 @@ function createRepository({ api }) {
       .filter(Boolean);
   }
 
+  /**
+   * Each user's active workspace ids, as listActiveWorkspaceIdsByUserId lists them, in one
+   * query per 1,000 users: its cost does not grow with the users asked about. It reads the
+   * memberships' workspace_id column instead of including each workspace.
+   * @param {Iterable<string | number>} userIds
+   * @param {object} [options]
+   * @returns {Promise<Map<string, string[]>>} Every asked user, with no workspaces when they have none.
+   */
+  async function listActiveWorkspaceIdsByUserIds(userIds, options = {}) {
+    const workspaceIdsByUserId = new Map();
+    for (const userId of userIds) {
+      const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+      if (normalizedUserId) workspaceIdsByUserId.set(normalizedUserId, []);
+    }
+
+    const normalizedUserIds = [...workspaceIdsByUserId.keys()];
+    for (let start = 0; start < normalizedUserIds.length; start += USER_IDS_PER_QUERY) {
+      const rows = await queryMemberships(
+        {
+          users: normalizedUserIds.slice(start, start + USER_IDS_PER_QUERY),
+          status: "active"
+        },
+        options
+      );
+      for (const row of rows) {
+        const userId = normalizeDbRecordId(row?.user?.id || row?.userId, { fallback: null });
+        const workspaceId = normalizeDbRecordId(row?.workspace?.id || row?.workspaceId, { fallback: null });
+        if (workspaceId) workspaceIdsByUserId.get(userId)?.push(workspaceId);
+      }
+    }
+    return workspaceIdsByUserId;
+  }
+
   return Object.freeze({
     withTransaction,
     findByWorkspaceIdAndUserId,
@@ -285,7 +321,8 @@ function createRepository({ api }) {
     upsertMembership,
     listActiveByWorkspaceId,
     findActiveByWorkspaceIdAndUserId,
-    listActiveWorkspaceIdsByUserId
+    listActiveWorkspaceIdsByUserId,
+    listActiveWorkspaceIdsByUserIds
   });
 }
 

@@ -281,6 +281,19 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     return (await knex("workspaces").orderBy("id").select("id")).map((row) => String(row.id));
   }
 
+  // The run's result and the SQL statements it issued.
+  async function statementsOf(run) {
+    let statements = 0;
+    const onQuery = () => { statements += 1; };
+    knex.on("query", onQuery);
+    try {
+      const result = await run();
+      return { result, statements };
+    } finally {
+      knex.removeListener("query", onQuery);
+    }
+  }
+
   test("a workspace's 1,050 active members are all listed, sorted by name, inside a transaction too", async () => {
     // Inserted in an order unrelated to their names, so the pages' id order is not the name order.
     const numbers = Array.from({ length: 1050 }, (_, index) => String((index * 7919) % 1050).padStart(4, "0"));
@@ -336,17 +349,6 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       ...usernames.slice(10, 210).map((username) => membership(large.id, username, username === "person-209" ? "revoked" : "active"))
     ]);
     const membersService = createMembers();
-    async function statementsOf(run) {
-      let statements = 0;
-      const onQuery = () => { statements += 1; };
-      knex.on("query", onQuery);
-      try {
-        const result = await run();
-        return { result, statements };
-      } finally {
-        knex.removeListener("query", onQuery);
-      }
-    }
 
     for (const [workspace, memberName, removedName] of [
       [small, "person-004", "person-009"],
@@ -391,6 +393,43 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     const ids = await memberships.listActiveWorkspaceIdsByUserId(users.get("roaming"));
     assert.deepEqual([...ids].sort(), [...activeIds].sort());
     assert.deepEqual((await workspaces.listForUserId(users.get("roaming"))).map(({ id }) => id), activeIds);
+  });
+
+  test("the bulk read lists each user's active workspaces at the same cost for 10 and 200 users", async () => {
+    const usernames = Array.from({ length: 202 }, (_, index) => `person-${String(index).padStart(3, "0")}`);
+    const users = await insertUsers(usernames);
+    const [first, second, third] = await insertWorkspaces(3, users.get("person-000"));
+    // Each person is active in the first workspace; even persons are active in the second
+    // too, odd ones were invited to it, and every tenth was removed from the third.
+    await insertRows("workspace_memberships", usernames.flatMap((username, index) => [
+      { workspace_id: first, user_id: users.get(username), role_sid: "member", status: "active" },
+      {
+        workspace_id: second,
+        user_id: users.get(username),
+        role_sid: "member",
+        status: index % 2 === 0 ? "active" : "invited"
+      },
+      ...(index % 10 === 0
+        ? [{ workspace_id: third, user_id: users.get(username), role_sid: "member", status: "removed" }]
+        : [])
+    ]));
+    const expectedFor = (index) => (index % 2 === 0 ? [first, second] : [first]);
+    const idsOf = (names) => names.map((username) => users.get(username));
+
+    const small = await statementsOf(() => memberships.listActiveWorkspaceIdsByUserIds(idsOf(usernames.slice(0, 10))));
+    const large = await statementsOf(() => memberships.listActiveWorkspaceIdsByUserIds(idsOf(usernames.slice(0, 200))));
+    for (const [read, names] of [[small, usernames.slice(0, 10)], [large, usernames.slice(0, 200)]]) {
+      assert.deepEqual([...read.result.keys()].sort(), idsOf(names).sort());
+      names.forEach((username, index) => {
+        assert.deepEqual([...read.result.get(users.get(username))].sort(), expectedFor(index).sort());
+      });
+    }
+    assert.equal(large.statements, small.statements);
+
+    // A user with no active membership is still answered, with no workspaces.
+    const outsider = (await insertUsers(["outsider"])).get("outsider");
+    assert.deepEqual(await memberships.listActiveWorkspaceIdsByUserIds([outsider]), new Map([[outsider, []]]));
+    assert.deepEqual(await memberships.listActiveWorkspaceIdsByUserIds([]), new Map());
   });
 
   test("a workspace's 120 pending invitations and an email's 110 are all listed", async () => {
