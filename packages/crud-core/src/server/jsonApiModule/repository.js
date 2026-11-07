@@ -140,7 +140,46 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
     );
   }
 
+  // Locks the record's row until trx ends, so another forUpdate read or a write
+  // of it waits. SQLite runs one transaction at a time on knex's single
+  // connection, so it has no row lock to take.
+  async function lockRecord(recordId, trx) {
+    if (/sqlite/.test(String(trx.client.config.client))) {
+      return;
+    }
+    const storage = api.knex.helpers.getStorageAdapter(scopeName);
+    await storage.buildBaseQuery({ transaction: trx })
+      .where(storage.getIdColumn(), storage.translateFilterValue("id", recordId))
+      .forUpdate()
+      .first(storage.getIdColumn());
+  }
+
+  /**
+   * One record as a JSON:API document, or null when it is missing or hidden.
+   * `options.forUpdate: true` first locks its row in `options.trx` (required)
+   * until that transaction ends, so a concurrent forUpdate read or write of it
+   * waits: read, check and write inside one transaction without a lost update.
+   * The lock comes before the read, so on PostgreSQL (READ COMMITTED) the read
+   * sees the latest version; on MySQL's REPEATABLE READ it does when the lock
+   * is the transaction's first read.
+   * @param {unknown} recordId
+   * @param {Record<string, unknown>} [query]
+   * @param {{ trx?: any, context?: object | null, forUpdate?: boolean }} [options]
+   */
   async function getDocumentById(recordId, query = {}, options = {}) {
+    if (options.forUpdate != null && typeof options.forUpdate !== "boolean") {
+      throw new TypeError(`${scopeName} getDocumentById forUpdate must be true or false. Received: ${options.forUpdate}`);
+    }
+    if (options.forUpdate) {
+      const trx = resolveTransaction(options);
+      if (!trx) {
+        throw new TypeError(
+          `${scopeName} getDocumentById forUpdate locks the record until its transaction ends, so it needs options.trx ` +
+            "(run it inside withTransaction)."
+        );
+      }
+      await lockRecord(recordId, trx);
+    }
     return returnBadRequestWhenJsonRestFieldsetInvalid(() =>
       returnNullWhenJsonRestResourceMissing(() =>
         requireApiResource().get(

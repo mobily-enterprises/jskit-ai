@@ -324,6 +324,20 @@ that wants its own wording for the conflict catches that code. A resource
 without `lockVersionField` cannot call it, and `defineCrudResource()` rejects
 a `lockVersionField` that names no integer schema field.
 
+## Row locks
+
+A check-then-write that must not race another request (is the drier empty?
+then load it) reads the record with
+`getDocumentById(recordId, query, { trx, context, forUpdate: true })` inside
+`withTransaction`. It locks the record's row in that transaction before
+reading it, so another `forUpdate` read or a write of the record waits until
+the transaction ends, and the read sees the latest version on PostgreSQL; on
+MySQL and MariaDB it does when the lock is the transaction's first read of
+that row. Without a transaction `forUpdate` throws, and a value other than
+`true` or `false` throws too. SQLite runs one transaction at a time on its
+single connection, so there is no row lock to take. The CRUD service's
+`getDocumentById` passes `forUpdate` through.
+
 ## Deadlock retries
 
 When the database aborts a transaction as a deadlock victim (MySQL and MariaDB

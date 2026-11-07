@@ -24,8 +24,16 @@ function createCrudJsonApiService({ repository }) {
     return returnJsonApiDocument(await repository.queryDocuments(query, repositoryCallOptions(options)));
   }
 
-  async function getDocumentById(recordId, query, options) {
-    return returnJsonApiDocument(requireDocument(await repository.getDocumentById(recordId, query, repositoryCallOptions(options))));
+  async function queryEveryDocument(query, options) {
+    return returnJsonApiDocument(await repository.queryEveryDocument(query, repositoryCallOptions(options)));
+  }
+
+  // forUpdate locks the record in the call's transaction; see the repository's getDocumentById.
+  async function getDocumentById(recordId, query, options = {}) {
+    return returnJsonApiDocument(requireDocument(await repository.getDocumentById(recordId, query, {
+      ...repositoryCallOptions(options),
+      forUpdate: options.forUpdate
+    })));
   }
 
   async function createDocument(payload, options) {
@@ -42,6 +50,7 @@ function createCrudJsonApiService({ repository }) {
 
   return Object.freeze({
     queryDocuments,
+    queryEveryDocument,
     getDocumentById,
     createDocument,
     patchDocumentById,
