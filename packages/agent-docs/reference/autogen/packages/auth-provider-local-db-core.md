@@ -22,6 +22,7 @@ Exports
 ### `src/server/lib/dbBackend.js`
 Exports
 - `LOCAL_AUTH_DB_TABLES`
+- `LOCAL_AUTH_INFRASTRUCTURE_TABLES`
 - `createLocalDbBackend({ resources, identities })`
 - `createLocalDbOwners({ resources, identities })`
 - `type LocalAuthHandles`
@@ -69,6 +70,7 @@ Exports
 - `createLocalDbBackend`
 - `createLocalDbOwners`
 - `LOCAL_AUTH_DB_TABLES`
+- `LOCAL_AUTH_INFRASTRUCTURE_TABLES`
 
 ### `src/server/lib/localAuthResources.js`
 Exports

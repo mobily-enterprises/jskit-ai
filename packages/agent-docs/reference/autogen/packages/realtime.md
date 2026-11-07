@@ -65,6 +65,7 @@ Exports
 
 ### `src/server/realtimeAudience.js`
 Exports
+- `actionsNeedingAudienceScope(actions)`
 - `authenticationRequiredError()`
 - `createAudienceContributors()`
 - `createSocketRequest(socket)`
@@ -89,6 +90,7 @@ Local functions
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`
 - `addAudienceRooms(selection, state)`
 - `audienceReadOptions(scope, audienceScope)`
+- `readsInScope(entry)`
 - `parseCookieHeader(value = "")`
 - `authenticateWithoutRefresh(authService)`
 - `resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket), authenticateRequest = authenticateWithoutRefresh(authService))`

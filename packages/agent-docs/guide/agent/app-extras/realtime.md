@@ -42,10 +42,13 @@ event's own scope (its workspace, user, or user in a workspace), so the owners
 answer for that scope and not for a request's. Realtime needs no database, so
 those contexts come from `RealtimeAudienceScopeFeature`
 (`@jskit-ai/realtime/server/RealtimeAudienceScopeFeature`): an application whose
-audiences read owned tables registers it beside its other features. Without it,
-audiences read with no context, which answers for public tables (users,
-workspaces, memberships, invitations) and throws `MissingScopeError` for an
-owned one:
+action events declare such an audience registers it beside its other features,
+or realtime refuses to boot and names the actions. An audience that reads only
+public tables (users, workspaces, memberships, invitations) says so with
+`publicTablesOnly: true` and reads with no context; an owned table would throw
+`MissingScopeError` there. An audience given as a function of the execution is
+not checked at boot. An `audienceUsers` that fails is logged as an error and
+skipped, and the event still reaches the audience's other rooms:
 
 ```js
 realtime: {

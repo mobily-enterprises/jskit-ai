@@ -17,11 +17,12 @@ Use this on demand; do not load the full index at startup.
 ### `shared/capabilities/defineProvider.js`
 Exports
 - `ARCHITECTURE_ID_PATTERN`
-- `defineProvider({ id, requires = {}, optional = {}, provides = {}, setup, boot = null, shutdown = null } = {})`
+- `defineProvider({ id, requires = {}, optional = {}, provides = {}, hints = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
 - `type ProviderDefinition`
 Local functions
 - `normalizeCapabilityMap(value, label)`
+- `normalizeHints(value, requires, providerId)`
 - `assertDistinctLocalNames(maps)`
 - `normalizeLifecycleMethod(value, label)`
 
@@ -738,7 +739,7 @@ Exports
 
 ### `server/features/defineFeature.js`
 Exports
-- `defineFeature({ id, domain = id, requires = {}, optional = {}, provides = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null, owns = undefined, systemScope = undefined } = {})`
+- `defineFeature({ id, domain = id, requires = {}, optional = {}, provides = {}, hints = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null, owns = undefined, systemScope = undefined } = {})`
 - `type FeatureDefinition`
 Local functions
 - `normalizeActionFactory(value, featureId)`

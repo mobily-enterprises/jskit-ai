@@ -43,10 +43,11 @@ listener registration helpers from `@jskit-ai/realtime`. Use the normal shell
 placement registry for the optional status component.
 
 An audience's `audienceUsers({ event, options })` reads in a context scoped to
-the event's workspace, user or workspace user. An application whose audiences
-read owned tables registers `RealtimeAudienceScopeFeature` from
+the event's workspace, user or workspace user. An application whose action
+events declare such an audience registers `RealtimeAudienceScopeFeature` from
 `@jskit-ai/realtime/server/RealtimeAudienceScopeFeature`, which provides those
-contexts; without it, audiences read with no context.
+contexts, or realtime refuses to boot. An audience that reads only public
+tables marks itself `publicTablesOnly: true` and reads with no context.
 
 ## Example files
 

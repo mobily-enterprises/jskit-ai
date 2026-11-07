@@ -50,13 +50,17 @@ Exports
 - `handleRecords(resource, records, include)`
 - `handleResult(resource, result, format, include)`
 - `idOf(result, format)`
-- `inputData(resource, attributes)`
+- `inputData(resource, attributes, stamp)`
 - `manyResult(resource, result, returning)`
 - `matchesOnlyIf(record, onlyIf)`
+- `patchAnswer(id, record, returning)`
+- `upsertConflict(resource, rows, onConflict)`
 - `pickReturning(modes, value, fallback, label)`
 - `readQueryParams(name, params, { page, caller })`
 - `textList(value)`
 Local functions
+- `storedTimestamps(schema, names)`
+- `timestampsFor(resource, stamp, attributes)`
 - `includedRelationships(include)`
 - `handleRecord(resource, record, included)`
 
@@ -77,6 +81,10 @@ Exports
 ### `src/server/jsonRestValues.js`
 Exports
 - `isPlainJsonRestObject(value)`
+
+### `src/server/lockOrCreate.js`
+Exports
+- `lockOrCreate(handle, row, options, work)`
 
 ### `src/server/resourceHandle.js`
 Exports

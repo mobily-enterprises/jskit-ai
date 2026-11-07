@@ -373,11 +373,12 @@ Exports
 ### `capabilities/defineProvider.js`
 Exports
 - `ARCHITECTURE_ID_PATTERN`
-- `defineProvider({ id, requires = {}, optional = {}, provides = {}, setup, boot = null, shutdown = null } = {})`
+- `defineProvider({ id, requires = {}, optional = {}, provides = {}, hints = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
 - `type ProviderDefinition`
 Local functions
 - `normalizeCapabilityMap(value, label)`
+- `normalizeHints(value, requires, providerId)`
 - `assertDistinctLocalNames(maps)`
 - `normalizeLifecycleMethod(value, label)`
 

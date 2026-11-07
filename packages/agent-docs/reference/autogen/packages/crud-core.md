@@ -86,10 +86,8 @@ Local functions
 
 ### `src/server/jsonApiModule/service.js`
 Exports
-- `createCrudService({ repository, resourceName, schema = {} })`
+- `createCrudService({ repository, resourceName })`
 Local functions
-- `storedDateTimeFields(schema, names)`
-- `stamps(fields)`
 - `documentNotFound()`
 - `requireDocument(document)`
 - `isNotFound(error)`

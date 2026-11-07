@@ -46,7 +46,11 @@ Every read and write goes through the handle: `query` for one page, `queryAll`
 for every matching row, `get`, `create`, `patch` and `delete` for one record,
 and `aggregate` for totals. On every statement the handle adds the ownership
 predicate and the row policy, validates what you write and stamps the workspace
-or user on new rows. Pass the call's `options` (its context and transaction)
+or user on new rows. A table whose schema stores `createdAt` and `updatedAt`
+as `dateTime` fields gets them stamped by every write that leaves them out:
+both on a create (`createMany` too), `updatedAt` on every change (`patch`,
+`patchMany`, `patchWhere`, an upsert merge, which keeps the stored
+`createdAt`). Pass the call's `options` (its context and transaction)
 to every handle call; a call without a context throws instead of guessing.
 
 ```js
@@ -165,7 +169,14 @@ wait on each other.
 
 A check-then-write that must not race (is the drier empty? then load it)
 locks the record first: `lock(id, txOptions)` reads it and locks its row, so
-another lock or write of it waits until the transaction ends. Every lock needs
+another lock or write of it waits until the transaction ends. A record that
+serializes work on a key and may not exist yet (an account's balance, a
+connection to a provider), on a table with no owners, takes
+`lockOrCreate({ id, ...initial }, options, work)`: it locks the record, creating
+it from the row first when it is missing, and runs `work(record, txOptions)` in
+the same transaction, so failed work leaves no record behind. On its own it
+runs work once, so work may call a provider: two first uses of one id at once
+can collide on the insert, and the loser runs again before its work starts. Every lock needs
 a transaction; SQLite runs one transaction at a time, so there is no row lock
 to take.
 
@@ -177,7 +188,11 @@ only while it still holds that version, and advances it. A record whose
 version moved on rejects with a 409 coded `crud.document.lockVersionConflict`
 ("This record changed. Reload and try again.") and nothing is written; a
 missing or hidden record follows the missing-row rule. The changes leave the
-version field out. `patch(id, changes, { ...options, onlyIf: { status: "open" } })`
+version field out. Every update advances the version, a plain `patch`,
+`patchMany`, `patchWhere` or upsert merge too, so a form that read version 3
+and saves after a background job's plain patch of the same record (now
+version 4) gets the 409 and reloads, even though the job changed other
+fields. `patch(id, changes, { ...options, onlyIf: { status: "open" } })`
 is the same check on stored values, answering `null` when they differ.
 
 ## Layer 5: reports the resource cannot express
@@ -329,6 +344,16 @@ write reports are allowed. `expectScoped` seeds a second owner, runs the path as
 the first, and fails when the result holds the second owner's rows or the path
 changed them. A data test never skips: without `TEST_DB_NAME` it fails
 (`requireTestDatabase(process.env)`).
+
+One more test proves every table has an owner. `createTestResourceRuntime({ knex })`
+gives a test the resource runtime its features own their tables through, and
+`expectEveryTableOwned({ knex, runtime, infrastructureTables, environment })`
+fails, naming them, when the migrated test database holds a table no feature
+owns and no package keeps as infrastructure. JSKIT's packages export their
+infrastructure tables for it: `LOCAL_AUTH_INFRASTRUCTURE_TABLES`
+(`@jskit-ai/auth-provider-local-db-core/server/lib/index`),
+`OIDC_CLIENT_INFRASTRUCTURE_TABLES` (`@jskit-ai/auth-provider-oidc-core/server/lib/index`)
+and `OIDC_ISSUER_INFRASTRUCTURE_TABLES` (`@jskit-ai/oidc-issuer-core/server`).
 
 ## Hard rules
 

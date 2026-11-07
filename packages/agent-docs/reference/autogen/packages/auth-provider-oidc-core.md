@@ -39,6 +39,7 @@ Exports
 - `adoptOidcAccounts`
 - `exportLocalAccounts`
 - `createOidcAuthService`
+- `OIDC_CLIENT_INFRASTRUCTURE_TABLES`
 - `createOidcStore`
 
 ### `src/server/lib/issuer.js`
@@ -79,6 +80,7 @@ Local functions
 
 ### `src/server/lib/store.js`
 Exports
+- `OIDC_CLIENT_INFRASTRUCTURE_TABLES`
 - `TABLES`
 - `createOidcStore({ database, profiles, now = Date.now })`
 - `type OidcKnownUsers`
