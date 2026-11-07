@@ -3,8 +3,8 @@ import { computed, unref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
+import ShellPrimaryAction from "@jskit-ai/shell-web/client/components/ShellPrimaryAction";
 import CrudListBulkActionSurface from "./CrudListBulkActionSurface.vue";
-import CrudListCreateAction from "./CrudListCreateAction.vue";
 import CrudListFilterSurface from "./CrudListFilterSurface.vue";
 import CrudListRecordActionMenu from "./CrudListRecordActionMenu.vue";
 import { useJskitText } from "../i18n.js";
@@ -132,7 +132,7 @@ function setSelectableRowsSelected(selected = true) {
         @click="records.reload"
       />
     </ShellPageActions>
-    <CrudListCreateAction v-if="listPrimaryAction" :label="resolvedCreateLabel" :to="listPrimaryAction" />
+    <ShellPrimaryAction v-if="listPrimaryAction" :label="resolvedCreateLabel" :to="listPrimaryAction" />
 
     <div class="crud-list-toolbar">
       <v-text-field

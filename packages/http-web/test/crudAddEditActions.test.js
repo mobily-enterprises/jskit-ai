@@ -34,7 +34,15 @@ const hooks = registerHooks({
 const { default: CrudAddEditScreen } = await import(componentUrl);
 hooks.deregister();
 
-async function fixture(t, { actions, onSaveSuccess, request, screenResource = null, ...options } = {}) {
+async function fixture(t, {
+  actions,
+  onSaveSuccess,
+  request,
+  screenResource = null,
+  parent = "",
+  navigationRuntime = null,
+  ...options
+} = {}) {
   const node = (type, text = "") => ({ type, text, props: {}, children: [], parent: null });
   const renderer = createRenderer({
     createElement: node,
@@ -57,7 +65,7 @@ async function fixture(t, { actions, onSaveSuccess, request, screenResource = nu
   });
   const router = createRouter({
     history: createMemoryHistory(),
-    routes: [{ path: "/books/:bookId?", component: { render: () => h("div") } }]
+    routes: [{ path: "/books/:bookId?", component: { render: () => h("div") }, meta: parent ? { jskit: { parent } } : {} }]
   });
   await router.push("/books/new?source=list");
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -132,6 +140,9 @@ async function fixture(t, { actions, onSaveSuccess, request, screenResource = nu
     },
     getRevision: () => 0
   });
+  if (navigationRuntime) {
+    app.provide("jskit.shell-web.runtime.navigation.client", navigationRuntime);
+  }
   app.provide("jskit.shell-web.runtime.web-error.client", {
     report(value) { reports.push(value); },
     dismiss() {}
@@ -186,6 +197,36 @@ test("default form actions retain Cancel, Save, validation feedback, and keyboar
   assert.equal(calls[0].method, "POST");
   assert.deepEqual(calls[0].body, { title: "A book", author: "An author" });
   assert.equal(reports.at(-1).severity, "success");
+});
+
+test("on a page with an Up arrow, the arrow is the form's close, which cancels, and the bar has no Cancel beside it", async (t) => {
+  const closes = [];
+  const finished = [];
+  const navigationRuntime = {
+    trail: ref([{ path: "/books?view=table" }]),
+    visibleParentPanes: ref(0),
+    pageTitleSource: ref(null),
+    pageClose: ref(null),
+    setPageTitle: () => () => {},
+    setPageClose(close) {
+      closes.push(close);
+      return () => closes.splice(closes.indexOf(close), 1);
+    },
+    finish(target, parentTarget) {
+      finished.push({ target, parentTarget });
+      return Promise.resolve();
+    },
+    up: () => Promise.resolve(),
+    pageUnavailable: () => false
+  };
+  const { button } = await fixture(t, { parent: "/books", navigationRuntime });
+  assert.equal(button("Cancel"), undefined);
+  assert.ok(button("Save book"));
+  assert.equal(closes.length, 1);
+  assert.equal(closes[0].label(), "Cancel");
+  await closes[0].close();
+  assert.equal(finished.length, 1);
+  assert.equal(finished[0].target, "", "Cancel goes back to where the form was opened from");
 });
 
 test("actions slot supports local guidance and save-and-add-another through onSaveSuccess", async (t) => {

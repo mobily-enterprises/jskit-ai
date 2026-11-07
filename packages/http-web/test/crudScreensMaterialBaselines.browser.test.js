@@ -55,7 +55,7 @@ const CRUD_PROBES = Object.freeze([
   { name: "rail", selector: "[data-testid=jskit-shell-rail]", width: true },
   { name: "drawer", selector: "[data-testid=jskit-shell-drawer].v-navigation-drawer--active", width: true },
   { name: "content", selector: ".shell-layout__content", width: true },
-  { name: "fab", selector: ".crud-list-fab .v-btn" },
+  { name: "fab", selector: ".shell-primary-action .v-btn" },
   { name: "search", selector: ".crud-list-search .v-field", width: true },
   { name: "card", selector: ".crud-list-card", width: true },
   { name: "cardTitle", selector: ".crud-list-card__title" },
@@ -150,7 +150,12 @@ test("the CRUD screens keep their Material 3 baselines in light and dark at ever
           await page.goto(screen.path);
           await expect(page.locator(screen.ready).filter({ visible: true }).first()).toBeVisible();
           if (screen.openDelete) {
-            await page.getByRole("button", { name: /^Delete/u }).first().click();
+            // A phone's bar keeps only a primary action, so the record's Delete is in its "More actions" menu.
+            const compact = viewport.width < 600;
+            if (compact) {
+              await page.getByRole("button", { name: "More actions" }).click();
+            }
+            await page.getByRole(compact ? "menuitem" : "button", { name: /^Delete/u }).first().click();
             await expect(page.locator(".v-overlay--active .crud-delete-action__headline")).toBeVisible();
           }
           await expectMaterialBaseline(page, {

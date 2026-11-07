@@ -25,8 +25,8 @@ const resolvedTitle = computed(() =>
 );
 
 // Material 3 filters: one row of chips. The Filters chip opens every control, in a bottom sheet on compact windows and a
-// dialog on wider ones; on/off filters are toggle chips in the row itself, and each other active filter is a chip
-// that clears it.
+// dialog on wider ones; on/off filters are filter chips in the row itself (aria-pressed, which material-web draws as
+// Material 3's filter chip, selected with its check), and each other active filter is a chip that clears it.
 const { isCompact } = useShellWindowSizeClass();
 
 const sheetOpen = ref(false);
@@ -76,9 +76,6 @@ function clearChip(chip) {
         :key="filter.key"
         tag="button"
         type="button"
-        :variant="runtimeValues[filter.key] ? 'flat' : 'outlined'"
-        :color="runtimeValues[filter.key] ? 'secondary-container' : undefined"
-        :prepend-icon="runtimeValues[filter.key] ? '$check' : undefined"
         :aria-pressed="runtimeValues[filter.key] ? 'true' : 'false'"
         @click="toggleFlag(filter)"
       >

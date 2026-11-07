@@ -2,11 +2,13 @@
 import { computed, unref } from "vue";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
+import { useShellPageClose } from "@jskit-ai/shell-web/client/composables/useShellPageClose";
 import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
 import { useJskitText } from "../i18n.js";
 
-// A new or edit page as Material 3 lays it out: Cancel and Save in the top app bar, Save its one primary action, and
-// the form's fields below on the page.
+// A new or edit page as Material 3 lays out a full-screen form: the top app bar's leading close (X) cancels, Save is
+// its one primary action, and the form's fields are below on the page. Where the bar has no Up arrow to turn into the
+// close (a form opened directly, or beside its list), Cancel is a bar action before Save.
 
 const props = defineProps({
   screen: {
@@ -57,10 +59,13 @@ function resolveCancelTo(target = cancelTo.value) {
 // history entry so neither Up nor Back reopens it.
 const navigation = useShellNavigation();
 const canCancel = computed(() => Boolean(cancelTo.value || navigation.upTarget.value));
+const cancelInBar = computed(() => canCancel.value && !navigation.canGoUp.value);
 
 function cancel() {
   return navigation.upTarget.value ? navigation.finish() : navigation.finish(resolveCancelTo(cancelTo.value));
 }
+
+useShellPageClose({ label: () => t("jskit.http.actions.cancel"), close: cancel });
 </script>
 
 <template>
@@ -78,7 +83,7 @@ function cancel() {
         :submit="addEdit.submit"
       >
         <ShellPageAction
-          v-if="canCancel"
+          v-if="cancelInBar"
           icon="$close"
           :label="t('jskit.http.actions.cancel')"
           @click="cancel"

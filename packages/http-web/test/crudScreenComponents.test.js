@@ -23,7 +23,7 @@ async function readClientFile(...parts) {
 
 test("every CRUD list create action retains its configured label and destination", async () => {
   const componentUrl = new URL("../src/client/components/CrudListScreen.vue", import.meta.url).href;
-  const createActionUrl = new URL("../src/client/components/CrudListCreateAction.vue", import.meta.url).href;
+  const createActionUrl = import.meta.resolve("@jskit-ai/shell-web/client/components/ShellPrimaryAction");
   const hooks = registerHooks({
     load(url, context, nextLoad) {
       if (!url.endsWith(".vue")) return nextLoad(url, context);
@@ -140,12 +140,11 @@ test("CRUD screen components own list/view/form chrome centrally", async () => {
   const bulkActionSource = await readComponent("CrudListBulkActionSurface.vue");
   const rowActionSource = await readComponent("CrudListRecordActionMenu.vue");
 
-  const createActionSource = await readComponent("CrudListCreateAction.vue");
-
   assert.match(listSource, /CrudListBulkActionSurface/);
   assert.match(listSource, /CrudListFilterSurface/);
   assert.match(listSource, /CrudListRecordActionMenu/);
-  assert.match(listSource, /<CrudListCreateAction v-if="listPrimaryAction"/);
+  // shell-web's adaptive primary action: an extended FAB on compact and medium windows, the bar's primary on wider.
+  assert.match(listSource, /<ShellPrimaryAction v-if="listPrimaryAction" :label="resolvedCreateLabel" :to="listPrimaryAction" \/>/);
   assert.match(listSource, /<ShellPageActions>[\s\S]*icon="\$refresh"[\s\S]*<\/ShellPageActions>/);
   assert.match(listSource, /class="crud-list-cards"/);
   assert.match(listSource, /class="crud-list-table"/);
@@ -165,8 +164,6 @@ test("CRUD screen components own list/view/form chrome centrally", async () => {
   assert.match(listSource, /variant="solo-filled"[\s\S]*rounded="pill"[\s\S]*prepend-inner-icon="\$search"/);
   assert.doesNotMatch(listSource, /@media|<v-sheet|\sborder(?=[\s>])|\bborder\s*:|min-height:\s*48px/u);
   assert.match(listSource, /selectableRows/);
-  assert.match(createActionSource, /<v-fab[\s\S]*v-if="isCompact \|\| isMedium"[\s\S]*\bapp\b[\s\S]*\bextended\b/);
-  assert.match(createActionSource, /<ShellPageAction primary icon="\$add"/);
   assert.match(rowActionSource, /icon="\$moreVert"/);
   assert.match(listSource, /<slot[\s\S]*name="card-fields"/);
   assert.match(listSource, /<slot name="table-header"/);
@@ -205,8 +202,7 @@ test("CRUD screen components own list/view/form chrome centrally", async () => {
     addEditSource,
     deleteActionSource,
     bulkActionSource,
-    rowActionSource,
-    createActionSource
+    rowActionSource
   ].join("\n");
   assert.doesNotMatch(sharedSources, /:loading=|v-progress-(?:circular|linear)/u);
   assert.doesNotMatch(sharedSources, /ui-generator|generated-ui/u);

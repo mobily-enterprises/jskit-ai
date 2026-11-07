@@ -38,6 +38,9 @@ test("CrudListFilterSurface is one Material 3 chip row over a filter sheet, with
   assert.match(surfaceSource, /useShellWindowSizeClass/);
   assert.match(surfaceSource, /prepend-icon="\$tune"/);
   assert.match(surfaceSource, /v-for="filter in flagFilters"[\s\S]*:aria-pressed=/);
+  // material-web draws an aria-pressed chip as a filter chip, so the flag chips set no look of their own.
+  const flagChip = surfaceSource.match(/<v-chip\s+v-for="filter in flagFilters"[^>]*>/u)?.[0] || "";
+  assert.doesNotMatch(flagChip, /:variant=|:color=|prepend-icon/u);
   assert.match(surfaceSource, /v-for="chip in valueChips"[\s\S]*closable/);
 
   assert.match(source, /defineProps/);

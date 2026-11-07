@@ -9,6 +9,8 @@
 - The crud-screen-set pattern's pages declare their titles and parents in `definePage()`.
 - Upgrading: see the guide's [Move an app to the Material 3 defaults](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/material-3-migration).
 - CRUD list filters show the presence choices and the default filter chips through the app's translator, from resource-crud-core's new catalog (registered with http-web's own). The English is unchanged.
+- The CRUD list's create action is shell-web's `ShellPrimaryAction`, which looks and behaves as before; the list's on/off filter chips are plain `aria-pressed` chips that material-web draws as Material 3 filter chips, with no variant, colour or check icon of their own.
+- New and edit pages lay out as Material 3's full-screen forms: the top app bar's Up arrow is the form's close (X), which cancels, so Cancel no longer sits beside it; where the bar has no Up arrow (a form opened directly, or beside its list) Cancel stays a bar action before Save.
 
 ## 0.2.0 - 2026-10-29
 
