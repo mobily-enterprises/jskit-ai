@@ -44,6 +44,8 @@
  * @property {Record<string, string>} [requires]
  * @property {Record<string, string>} [optional]
  * @property {Record<string, string>} [provides]
+ * @property {Record<string, string>} [hints] What to register when a required capability is missing, keyed by its id;
+ *   the startup error adds it.
  * @property {(dependencies: any, context: ProviderSetupContext) => any} setup Returns the provided capabilities, by local name.
  * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [boot]
  * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [shutdown]
@@ -66,6 +68,7 @@
  * @property {Record<string, string>} [requires]
  * @property {Record<string, string>} [optional]
  * @property {Record<string, string>} [provides]
+ * @property {Record<string, string>} [hints] What to register when a required capability is missing, keyed by its id.
  * @property {(dependencies: any, context: FeatureSetupContext) => any} [setup] Returns the provided capabilities, by local name.
  * @property {ReadonlyArray<object> | ((dependencies: any, context: FeatureSetupContext) => ReadonlyArray<object> | Promise<ReadonlyArray<object>>)} [actions]
  * @property {Record<string, any>} [actionDefaults]

@@ -108,9 +108,9 @@ test("connections without a store fail at startup, naming the feature to registe
     configuration: databaseConfiguration({ method: "none" }), providers: [clickhouseProvider],
     authorize: async (context) => context, resolveReference: async () => ""
   };
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options)] });
-  await assert.rejects(runtime.start(), {
-    message: "connectors.core keeps connections in connectors.store, which no feature provides: register createConnectionStoreFeature({ protection }) " +
+  // The kernel's startup error names the missing capability and adds the feature's hint.
+  assert.throws(() => createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options)] }), {
+    message: 'Provider "connectors.core" requires missing capability "connectors.store". Register createConnectionStoreFeature({ protection }) ' +
       "from @jskit-ai/connectors-core/server/storage in your server providers, or pass createConnectorsFeature({ store })."
   });
   assert.throws(() => createConnectionService({ ...options, store: {} }), {

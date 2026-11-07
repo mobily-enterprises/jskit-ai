@@ -52,7 +52,8 @@ function buildProviderOrder(providers, inputCapabilities) {
   for (const provider of normalizedProviders) {
     for (const capabilityId of providerCapabilityIds(provider, "requires")) {
       if (!inputCapabilities.has(capabilityId) && !providerByCapability.has(capabilityId)) {
-        throw new Error(`Provider "${provider.id}" requires missing capability "${capabilityId}".`);
+        const hint = provider.hints?.[capabilityId];
+        throw new Error(`Provider "${provider.id}" requires missing capability "${capabilityId}".${hint ? ` ${hint}` : ""}`);
       }
       if (providerByCapability.get(capabilityId)?.id === provider.id) {
         throw new Error(`Provider "${provider.id}" cannot require capability "${capabilityId}" that it provides.`);

@@ -86,6 +86,22 @@ test("capability runtime rejects missing, duplicate, cyclic, and undeclared capa
     }),
     /requires missing capability "runtime\.database"/u
   );
+  // A provider's hint for a required capability is added to the error that says it is missing.
+  assert.throws(
+    () => createCapabilityRuntime({
+      providers: [defineProvider({
+        id: "feature.hinted",
+        requires: { database: "runtime.database" },
+        hints: { "runtime.database": "Install the database runtime." },
+        setup() {}
+      })]
+    }),
+    { message: 'Provider "feature.hinted" requires missing capability "runtime.database". Install the database runtime.' }
+  );
+  assert.throws(() => defineProvider({ id: "feature.hinted", hints: { "runtime.database": "Install it." }, setup() {} }),
+    /feature\.hinted\.hints names "runtime\.database", which the provider does not require\./u);
+  assert.throws(() => defineProvider({ id: "feature.hinted", requires: { database: "runtime.database" }, hints: { "runtime.database": " " }, setup() {} }),
+    /must be the text that says what to register/u);
 
   const first = defineProvider({
     id: "feature.first",
