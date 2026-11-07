@@ -40,7 +40,8 @@
 
 /**
  * A context for work across every workspace and user, from `systemContext(reason)`.
- * `forWorkspace(id)` and `forUser(id)` derive the context of one workspace or user.
+ * `forWorkspace(id)`, `forUser(id)` and `forWorkspaceUser(workspaceId, userId)` derive the
+ * context of one workspace, one user, or one user in one workspace.
  * @typedef {ReturnType<typeof import("./contexts.js").createSystemContext>} SystemContext
  */
 
