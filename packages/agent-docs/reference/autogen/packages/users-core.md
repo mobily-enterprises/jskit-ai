@@ -213,6 +213,7 @@ Exports
 ### `src/shared/resources/userProfileResource.js`
 Exports
 - `userProfileContract`
+- `userProfileCrud`
 - `userProfileResource`
 
 ### `src/shared/resources/userProfileValues.js`
@@ -230,6 +231,7 @@ Exports
 - `USER_SETTINGS_PREFERENCE_KEYS`
 - `userSettingsOutputSchema`
 - `userSettingsContract`
+- `userSettingsCrud`
 - `userSettingsOutputValidator`
 - `userSettingsResource`
 Local functions
