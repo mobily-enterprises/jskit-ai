@@ -296,6 +296,20 @@ test("one AssistantFeature composes host access and declared data while settings
   assert.equal((await conversation.read()).id, "persisted-local");
 });
 
+test("AssistantFeature without conversations or AssistantStoreFeature fails at startup, naming the feature to register", async () => {
+  let registrations = 0;
+  const host = createCapabilityRuntime({ providers: [EventProvider, ActionProvider, AssistantFeature], inputs: {
+    "runtime.logger": silentLogger,
+    "runtime.config": {}, "runtime.env": {},
+    "runtime.http": { router: { register() { registrations++; } } }
+  } });
+  await assert.rejects(host.start(), {
+    message: "AssistantFeature keeps conversations in assistant.repositories, which no feature provides: register AssistantStoreFeature " +
+      "from @jskit-ai/assistant-runtime/server in your server providers, or provide assistant.conversations (createConversationRuntime())."
+  });
+  assert.equal(registrations, 0);
+});
+
 test("AssistantFeature rejects incomplete host access before registering routes or actions", async () => {
   const validAccess = { router: { register() {} }, wrapAction: definition => definition,
     subscribeActionId: "test.host.conversation.subscribe", requestPolicy: "host" };

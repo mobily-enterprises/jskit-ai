@@ -79,7 +79,10 @@ const AssistantFeature = defineFeature({
     } else {
       // The database-backed assistant keeps its rows through AssistantStoreFeature's repositories.
       if (!dependencies.repositories) {
-        throw new Error("AssistantFeature requires assistant.conversations, or assistant.repositories (AssistantStoreFeature) for database integration.");
+        throw new Error(
+          "AssistantFeature keeps conversations in assistant.repositories, which no feature provides: register AssistantStoreFeature " +
+          "from @jskit-ai/assistant-runtime/server in your server providers, or provide assistant.conversations (createConversationRuntime())."
+        );
       }
       const { createAssistantRuntime } = await import("./createAssistantRuntime.js");
       assistant = createAssistantRuntime({
