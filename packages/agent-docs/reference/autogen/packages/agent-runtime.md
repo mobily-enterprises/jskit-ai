@@ -85,6 +85,7 @@ Exports
 ### `src/server/repositories/rows.js`
 Exports
 - `rowOf(resource, record)`
+- `conversationKey(conversationId)`
 - `firstRow(resource, page)`
 
 ### `src/server/repositories/runsRepository.js`
