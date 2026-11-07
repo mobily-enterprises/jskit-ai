@@ -90,6 +90,22 @@ test("createSurfaceShellRouter lets an app replace or disable the scroll behavio
   assert.equal(Object.hasOwn(seen[1], "scrollBehavior"), false);
 });
 
+test("createSurfaceShellRouter refuses a createRouter that replaces the scroll behaviour it is given", () => {
+  const surfaceRuntime = createSurfaceRuntimeFixture();
+  const own = () => ({ top: 7 });
+  const build = (createRouter, scrollBehavior) =>
+    createSurfaceShellRouter({ createRouter, routes: [], surfaceRuntime, surfaceMode: "app", notFoundComponent: {}, scrollBehavior });
+  // A wrapper that sets its own scrollBehavior, as vue-router keeps it in router.options.
+  const wrapper = (options) => ({ options: { ...options, scrollBehavior: own } });
+  assert.throws(() => build(wrapper), /replaced the scroll behaviour it was given[\s\S]*createShellRouter's scrollBehavior option/u);
+  assert.throws(() => build((options) => ({ options: { routes: options.routes } })), /replaced the scroll behaviour/u);
+  // The router keeps what it was given: the shell's, the app's own passed as the option, or none for false.
+  const keeps = (options) => ({ options });
+  assert.equal(build(keeps).router.options.scrollBehavior, shellScrollBehavior);
+  assert.equal(build(keeps, own).router.options.scrollBehavior, own);
+  assert.equal(build(wrapper, false).router.options.scrollBehavior, own);
+});
+
 test("createSurfaceShellRouter installs an application's own guard function as it is given", () => {
   const ownGuard = () => true;
   const guards = [];
@@ -137,6 +153,27 @@ test("shellScrollBehavior opens new screens at the top and keeps in-page changes
     shellScrollBehavior(at("/home/contacts", [surface, contacts], { hash: "#recent" }), at("/home", [surface]), null),
     { el: "#recent", top: 0 }
   );
+});
+
+test("shellScrollBehavior opens a hash target below its scroll-margin-top", (t) => {
+  const surface = { path: "/home", meta: { jskit: { surface: "home" } } };
+  const contacts = { path: "/home/contacts", meta: {} };
+  const at = (path, matched, hash = "") => ({ path, matched, hash });
+  const previousWindow = globalThis.window;
+  t.after(() => {
+    globalThis.window = previousWindow;
+  });
+  const targets = { recent: { scrollMarginTop: "72px" }, plain: { scrollMarginTop: "0px" } };
+  globalThis.window = {
+    history: { state: {} },
+    document: { getElementById: (id) => (targets[id] ? { id } : null) },
+    getComputedStyle: (element) => targets[element.id]
+  };
+  const open = (hash) => shellScrollBehavior(at("/home/contacts", [surface, contacts], hash), at("/home", [surface]), null);
+  assert.deepEqual(open("#recent"), { el: "#recent", top: 72 });
+  assert.deepEqual(open("#plain"), { el: "#plain", top: 0 });
+  // A target not rendered yet is left to the router, as before.
+  assert.deepEqual(open("#missing"), { el: "#missing", top: 0 });
 });
 
 test("shellScrollBehavior opens a page Up returns to at the position its navigation state carries", (t) => {

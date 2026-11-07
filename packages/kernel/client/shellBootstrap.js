@@ -91,12 +91,21 @@ function staysOnSamePage(to, from) {
   return (to.matched || []).slice(0, -1).some((record) => fromParents.has(record) && !isSurfaceRootRecord(record));
 }
 
+// The hash target's scroll-margin-top, which the router's own scroll to an element leaves out (the browser's
+// scrollIntoView honours it), so a target with a margin for a sticky bar stays clear of it.
+function hashScrollMargin(hash) {
+  const browserWindow = pageWindow();
+  const target = browserWindow ? browserWindow.document.getElementById(hash.slice(1)) : null;
+  return target ? Number.parseFloat(browserWindow.getComputedStyle(target).scrollMarginTop) || 0 : 0;
+}
+
 /**
  * JSKIT's default router scroll behaviour: Back/Forward restore the saved
- * position, a new screen opens at the top (or at its hash target), and tab,
- * query or hash changes within the same page keep the current position. A
- * navigation that carries `state: { restoreScroll: { left, top } }`, as the
- * shell's Up does when it returns to a page, opens at that position.
+ * position, a new screen opens at the top (or at its hash target, below the
+ * target's scroll-margin-top), and tab, query or hash changes within the same
+ * page keep the current position. A navigation that carries
+ * `state: { restoreScroll: { left, top } }`, as the shell's Up does when it
+ * returns to a page, opens at that position.
  */
 function shellScrollBehavior(to, from, savedPosition) {
   if (savedPosition) {
@@ -113,7 +122,7 @@ function shellScrollBehavior(to, from, savedPosition) {
     };
   }
   if (to.hash) {
-    return { el: to.hash, top: 0 };
+    return { el: to.hash, top: hashScrollMargin(to.hash) };
   }
   return { top: 0 };
 }
@@ -131,6 +140,7 @@ function shellScrollBehavior(to, from, savedPosition) {
  * @param {import("vue-router").RouteComponent} [options.notFoundComponent]
  * @param {false | import("vue-router").NavigationGuard | import("./types.js").ShellGuardOptions} [options.guard]
  * @param {false | import("vue-router").RouterScrollBehavior} [options.scrollBehavior] false leaves scrolling to the browser.
+ * An app's own behaviour goes here, never into createRouter: a createRouter that replaces the one it is given throws.
  */
 function createSurfaceShellRouter({
   createRouter,
@@ -155,6 +165,16 @@ function createSurfaceShellRouter({
     routes: activeRoutes,
     ...(scrollBehavior === false ? {} : { scrollBehavior })
   });
+  // A createRouter wrapper with a scrollBehavior of its own would silently drop the shell's, and with it the position
+  // Up returns to, so it is refused rather than composed: the app's behaviour belongs in this function's option.
+  if (scrollBehavior !== false && isRecord(router?.options) && router.options.scrollBehavior !== scrollBehavior) {
+    throw new Error(
+      "createShellRouter's createRouter replaced the scroll behaviour it was given, which would lose the position the " +
+        "shell's Up returns to. Let createRouter keep options.scrollBehavior, and pass an app's own as createShellRouter's " +
+        "scrollBehavior option (calling shellScrollBehavior for the cases it leaves to the shell), or false to leave " +
+        "scrolling to the browser."
+    );
+  }
 
   if (guard !== false) {
     router.beforeEach(isRecord(guard) ? createShellBeforeEachGuard({ surfaceRuntime, ...guard }) : guard);
