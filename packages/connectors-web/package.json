@@ -3,6 +3,9 @@
   "version": "0.2.11",
   "description": "Shared Vue fields for portable application integration configuration.",
   "type": "module",
+  "scripts": {
+    "test": "jskit test test/*.test.js"
+  },
   "files": [
     "src",
     "locales"
