@@ -1,18 +1,9 @@
-import {
-  isLostDuplicateInsertRace,
-  joinOrOpenTransaction,
-  normalizeDbRecordId,
-  resolveTransaction,
-  retryDeadlocks,
-  toIsoString
-} from "@jskit-ai/database-runtime/shared";
+import { isLostDuplicateInsertRace, normalizeDbRecordId, toIsoString } from "@jskit-ai/database-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  createJsonRestContext,
-  queryAllJsonRestCollectionRows
-} from "@jskit-ai/resource-runtime/server/resourceHost";
-import { lockWorkspace } from "./workspacesRepository.js";
+
+// The filters a locking read takes: the invite, its workspace, email, status and token.
+const LOCKING_FILTERS = Object.freeze(["id", "workspace", "email", "status", "tokenHash"]);
 
 function normalizeInviteRecord(payload) {
   if (!payload) {
@@ -78,66 +69,37 @@ function normalizeInviteWithWorkspace(payload = {}) {
   };
 }
 
-/** @param {{ api: import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi }} dependencies */
-function createRepository({ api }) {
-  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
-
-  async function queryInvites(filters = {}, options = {}, { includeWorkspace = false } = {}) {
+/**
+ * The workspace invites' records, `repositories.workspaceInvites` of
+ * `workspaces.core`. Every method takes the caller's options last and joins
+ * their transaction; `lock: true` reads lock the invites, and their workspace
+ * first, in it.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.workspaceInvites
+ *   The workspace_invites table's handle.
+ * @param {import("../../types.js").Workspaces} dependencies.workspaces The workspaces, whose lock an invite's work takes first.
+ */
+function createRepository({ workspaceInvites, workspaces }) {
+  async function queryInvites(filters, options, { includeWorkspace = false } = {}) {
     if (options.lock === true) {
-      // readable-check: allow method-probe - platform object: a Knex transaction, which a locking read needs and options may omit
-      if (typeof options.trx !== "function" || includeWorkspace) {
+      if (!workspaceInvites.inTransaction(options) || includeWorkspace) {
         throw new TypeError("Locking invites requires a transaction and no relationship includes.");
       }
-      // Locking reads must see changes committed while waiting for the lock.
-      const fields = {
-        id: "id",
-        workspace: "workspace_id",
-        email: "email",
-        status: "status",
-        tokenHash: "token_hash"
-      };
-      const where = Object.fromEntries(Object.entries(filters).map(([key, value]) => {
-        if (!fields[key]) {
-          throw new TypeError("Unsupported locking invitation filter.");
-        }
-        return [fields[key], value];
-      }));
-      // Read PostgreSQL's UTC timestamps as text to avoid the driver's local-time conversion.
-      // readable-check: allow method-probe - platform object: a Knex transaction, whose client config names its dialect
-      const dateColumn = (name) => options.trx.client?.config?.client === "pg"
-        ? options.trx.raw("CAST(?? AS TEXT)", [name])
-        : name;
-      return options.trx("workspace_invites").where(where).select({
-        id: "id",
-        workspaceId: "workspace_id",
-        email: "email",
-        roleSid: "role_sid",
-        status: "status",
-        tokenHash: "token_hash",
-        invitedByUserId: "invited_by_user_id",
-        expiresAt: dateColumn("expires_at"),
-        acceptedAt: dateColumn("accepted_at"),
-        revokedAt: dateColumn("revoked_at"),
-        createdAt: dateColumn("created_at"),
-        updatedAt: dateColumn("updated_at")
-      }).forUpdate();
+      if (Object.keys(filters).some((key) => !LOCKING_FILTERS.includes(key))) {
+        throw new TypeError("Unsupported locking invitation filter.");
+      }
+      // The locking read answers the rows as committed when the lock is granted.
+      return workspaceInvites.lockWhere(filters, options);
     }
-    return queryAllJsonRestCollectionRows(
-      api.resources.workspaceInvites,
-      {
-        queryParams: {
-          filters,
-          ...(includeWorkspace ? { include: ["workspace"] } : {})
-        },
-        transaction: resolveTransaction(options),
-        format: "plain"
-      },
-      options.context
-    );
+    return workspaceInvites.queryAll({ filters, ...(includeWorkspace ? { include: ["workspace"] } : {}) }, options);
+  }
+
+  async function patchInvite(id, changes, options) {
+    await workspaceInvites.patch(id, changes, { ...options, returning: "none" });
   }
 
   async function lockWorkspaceForInvitations(workspaceId, options = {}) {
-    if (!await lockWorkspace(workspaceId, options)) {
+    if (!await workspaces.lock(workspaceId, options)) {
       throw new AppError(404, "Invitation workspace no longer exists.", { code: "workspaces.invite.workspaceMissing" });
     }
   }
@@ -247,26 +209,21 @@ function createRepository({ api }) {
 
     try {
       const createdAt = new Date().toISOString();
-      const created = await api.resources.workspaceInvites.post(
+      const created = await workspaceInvites.create(
         {
-          data: {
-            email: createPayload.email,
-            roleSid: createPayload.roleSid,
-            status: createPayload.status,
-            tokenHash: createPayload.tokenHash,
-            expiresAt: createPayload.expiresAt == null ? null : toIsoString(createPayload.expiresAt),
-            acceptedAt: null,
-            revokedAt: null,
-            createdAt,
-            updatedAt: createdAt,
-            workspace: createPayload.workspaceId,
-            invitedByUser: createPayload.invitedByUserId ?? null
-          },
-          format: "plain",
-          returning: "full",
-          transaction: resolveTransaction(options)
+          email: createPayload.email,
+          roleSid: createPayload.roleSid,
+          status: createPayload.status,
+          tokenHash: createPayload.tokenHash,
+          expiresAt: createPayload.expiresAt == null ? null : toIsoString(createPayload.expiresAt),
+          acceptedAt: null,
+          revokedAt: null,
+          createdAt,
+          updatedAt: createdAt,
+          workspaceId: createPayload.workspaceId,
+          invitedByUserId: createPayload.invitedByUserId ?? null
         },
-        createJsonRestContext(options.context)
+        options
       );
 
       return normalizeInviteRecord(created);
@@ -295,9 +252,8 @@ function createRepository({ api }) {
       return;
     }
 
-    await joinOrOpenTransaction(options, withTransaction, async (trx) => {
-      const transactionOptions = { ...options, trx };
-      await lockWorkspaceForInvitations(normalizedWorkspaceId, transactionOptions);
+    await workspaceInvites.withTransaction(options, async (txOptions) => {
+      await lockWorkspaceForInvitations(normalizedWorkspaceId, txOptions);
       const patch = normalizeInvitePatchPayload({ status: "expired" });
       const rows = await queryInvites(
         {
@@ -305,26 +261,14 @@ function createRepository({ api }) {
           email: normalizeLowerText(email),
           status: "pending"
         },
-        { ...transactionOptions, lock: true }
+        { ...txOptions, lock: true }
       );
 
       for (const row of rows) {
         if (!row?.id) {
           continue;
         }
-        await api.resources.workspaceInvites.patch(
-          {
-            id: row.id,
-            data: {
-              status: patch.status,
-              updatedAt: new Date().toISOString()
-            },
-            format: "plain",
-            returning: "full",
-            transaction: trx
-          },
-          createJsonRestContext(options.context)
-        );
+        await patchInvite(row.id, { status: patch.status, updatedAt: new Date().toISOString() }, txOptions);
       }
     });
   }
@@ -344,27 +288,22 @@ function createRepository({ api }) {
       }
       workspaceId = normalizeInviteRecord(candidate[0]).workspaceId;
     }
-    await joinOrOpenTransaction(options, withTransaction, async (trx) => {
-      const invite = await findPendingByIdForWorkspace(id, workspaceId, { ...options, trx, workspaceId, lock: true });
+    await workspaceInvites.withTransaction(options, async (txOptions) => {
+      const invite = await findPendingByIdForWorkspace(id, workspaceId, { ...txOptions, workspaceId, lock: true });
       if (!invite) {
         throw new AppError(404, "Invitation not found or already handled.", {
           code: "workspaces.invite.invitationNotFoundOrHandled"
         });
       }
       const updatedAt = new Date().toISOString();
-      await api.resources.workspaceInvites.patch(
+      await patchInvite(
+        id,
         {
-          id,
-          data: {
-            status,
-            [status === "accepted" ? "acceptedAt" : "revokedAt"]: updatedAt,
-            updatedAt
-          },
-          format: "plain",
-          returning: "full",
-          transaction: trx
+          status,
+          [status === "accepted" ? "acceptedAt" : "revokedAt"]: updatedAt,
+          updatedAt
         },
-        createJsonRestContext(options.context)
+        txOptions
       );
     });
   }
@@ -403,7 +342,8 @@ function createRepository({ api }) {
   }
 
   return Object.freeze({
-    withTransaction,
+    withTransaction: workspaceInvites.withTransaction,
+    inTransaction: workspaceInvites.inTransaction,
     lockWorkspaceForInvitations,
     findById,
     findPendingByTokenHash,

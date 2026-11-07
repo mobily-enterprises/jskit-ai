@@ -1,11 +1,5 @@
-import { isLostDuplicateInsertRace, resolveTransaction, retryDeadlocks, toIsoString } from "@jskit-ai/database-runtime/shared";
+import { isLostDuplicateInsertRace, toIsoString } from "@jskit-ai/database-runtime/shared";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  createJsonRestContext,
-  extractJsonRestCollectionRows,
-  queryAllJsonRestCollectionRows
-} from "@jskit-ai/resource-runtime/server/resourceHost";
-import { workspaceResource } from "../../../shared/resources/workspaceResource.js";
 
 function normalizeWorkspaceRecord(payload = null) {
   if (!payload || typeof payload !== "object") {
@@ -25,50 +19,28 @@ function normalizeWorkspaceRecord(payload = null) {
   };
 }
 
-/**
- * Locks a workspace's row until the caller's transaction ends, so work that
- * must not interleave for one workspace takes turns. It needs an active
- * transaction.
- * @param {unknown} workspaceId
- * @param {{ trx?: import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction | null }} options
- * @returns {Promise<{ id: string } | null>} The locked workspace, or null when there is no such workspace.
- */
-async function lockWorkspace(workspaceId, options) {
-  const trx = resolveTransaction(options);
-  if (!trx || trx.isCompleted()) {
-    throw new TypeError("Locking a workspace requires an active transaction.");
+// Lower ids first; ids that are not numbers in text order.
+function byId(left, right) {
+  const leftId = Number(left?.id);
+  const rightId = Number(right?.id);
+  if (Number.isFinite(leftId) && Number.isFinite(rightId)) {
+    return leftId - rightId;
   }
-  const id = normalizeRecordId(workspaceId, { fallback: null });
-  if (!id) {
-    throw new TypeError("Locking a workspace requires workspaceId.");
-  }
-  // json-rest-api 2.4 has no locking read, so this repository takes the row lock itself.
-  const row = await trx(workspaceResource.tableName).where({ id }).forUpdate().first("id");
-  return row ? { id: normalizeRecordId(row.id, { fallback: null }) } : null;
+  return String(left?.id || "").localeCompare(String(right?.id || ""));
 }
 
 /**
- * The `workspaces` capability: the workspaces table's records.
- * @param {{ api: import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi }} dependencies
+ * The `workspaces` capability: the workspaces table's records. Every method
+ * takes the caller's options last and joins their transaction.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.workspaces The workspaces table's handle.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.workspaceMemberships
+ *   The workspace_memberships table's handle, for a user's workspaces.
  */
-function createRepository({ api }) {
-  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
-
-  async function queryFirst(filters = {}, options = {}) {
-    const rows = extractJsonRestCollectionRows(
-      await api.resources.workspaces.query(
-        {
-          queryParams: {
-            filters
-          },
-          transaction: resolveTransaction(options),
-          format: "plain"
-        },
-        createJsonRestContext(options.context)
-      )
-    );
-
-    return normalizeWorkspaceRecord(rows[0] || null);
+function createRepository({ workspaces, workspaceMemberships }) {
+  async function queryFirst(filters, options) {
+    const { records } = await workspaces.query({ filters, page: { size: 1 } }, options);
+    return normalizeWorkspaceRecord(records[0] || null);
   }
 
   async function findById(workspaceId, options = {}) {
@@ -104,19 +76,7 @@ function createRepository({ api }) {
       return new Set();
     }
 
-    const rows = await queryAllJsonRestCollectionRows(
-      api.resources.workspaces,
-      {
-        queryParams: {
-          filters: {
-            slugs: normalizedSlugs
-          }
-        },
-        transaction: resolveTransaction(options),
-        format: "plain"
-      },
-      options.context
-    );
+    const rows = await workspaces.queryAll({ filters: { slugs: normalizedSlugs } }, options);
     return new Set(rows.map((row) => normalizeLowerText(row.slug)));
   }
 
@@ -126,31 +86,9 @@ function createRepository({ api }) {
       return null;
     }
 
-    const rows = extractJsonRestCollectionRows(
-      await api.resources.workspaces.query(
-        {
-          queryParams: {
-            filters: {
-              owner: normalizedUserId,
-              isPersonal: true
-            }
-          },
-          transaction: resolveTransaction(options),
-          format: "plain"
-        },
-        createJsonRestContext(options.context)
-      )
-    );
-
+    const rows = await workspaces.queryAll({ filters: { owner: normalizedUserId, isPersonal: true } }, options);
     const normalizedRows = rows.map((row) => normalizeWorkspaceRecord(row)).filter(Boolean);
-    normalizedRows.sort((left, right) => {
-      const leftId = Number(left?.id);
-      const rightId = Number(right?.id);
-      if (Number.isFinite(leftId) && Number.isFinite(rightId)) {
-        return leftId - rightId;
-      }
-      return String(left?.id || "").localeCompare(String(right?.id || ""));
-    });
+    normalizedRows.sort(byId);
     return normalizedRows[0] || null;
   }
 
@@ -170,19 +108,14 @@ function createRepository({ api }) {
 
     try {
       const createdAt = new Date().toISOString();
-      const created = await api.resources.workspaces.post(
+      const created = await workspaces.create(
         {
-          data: {
-            ...createPayload,
-            createdAt,
-            updatedAt: createdAt,
-            owner: ownerUserId
-          },
-          format: "plain",
-          returning: "full",
-          transaction: resolveTransaction(options)
+          ...createPayload,
+          createdAt,
+          updatedAt: createdAt,
+          ownerUserId
         },
-        createJsonRestContext(options.context)
+        options
       );
 
       return normalizeWorkspaceRecord(created);
@@ -213,23 +146,11 @@ function createRepository({ api }) {
       ...sourcePatch,
       updatedAt: new Date().toISOString()
     };
-    delete workspacePatch.ownerUserId;
     if (Object.hasOwn(sourcePatch, "ownerUserId")) {
-      workspacePatch.owner = normalizeRecordId(sourcePatch.ownerUserId, { fallback: null });
+      workspacePatch.ownerUserId = normalizeRecordId(sourcePatch.ownerUserId, { fallback: null });
     }
 
-    const updated = await api.resources.workspaces.patch(
-      {
-        id: normalizedWorkspaceId,
-        data: workspacePatch,
-        format: "plain",
-        returning: "full",
-        transaction: resolveTransaction(options)
-      },
-      createJsonRestContext(options.context)
-    );
-
-    return normalizeWorkspaceRecord(updated);
+    return normalizeWorkspaceRecord(await workspaces.patch(normalizedWorkspaceId, workspacePatch, options));
   }
 
   async function listForUserId(userId, options = {}) {
@@ -238,23 +159,12 @@ function createRepository({ api }) {
       return [];
     }
 
-    const rows = await queryAllJsonRestCollectionRows(
-      api.resources.workspaceMemberships,
-      {
-        queryParams: {
-          filters: {
-            user: normalizedUserId,
-            status: "active"
-          },
-          include: ["workspace"]
-        },
-        transaction: resolveTransaction(options),
-        format: "plain"
-      },
-      options.context
+    const rows = await workspaceMemberships.queryAll(
+      { filters: { user: normalizedUserId, status: "active" }, include: ["workspace"] },
+      options
     );
 
-    const workspaces = rows
+    const userWorkspaces = rows
       .map((row) => {
         const workspace = normalizeWorkspaceRecord(row?.workspace);
         if (!workspace || workspace.deletedAt != null) {
@@ -269,23 +179,39 @@ function createRepository({ api }) {
       })
       .filter(Boolean);
 
-    workspaces.sort((left, right) => {
+    userWorkspaces.sort((left, right) => {
       if (left.isPersonal !== right.isPersonal) {
         return left.isPersonal ? -1 : 1;
       }
-      const leftId = Number(left?.id);
-      const rightId = Number(right?.id);
-      if (Number.isFinite(leftId) && Number.isFinite(rightId)) {
-        return leftId - rightId;
-      }
-      return String(left?.id || "").localeCompare(String(right?.id || ""));
+      return byId(left, right);
     });
 
-    return workspaces;
+    return userWorkspaces;
+  }
+
+  /**
+   * Locks a workspace's row until the caller's transaction ends, so work that
+   * must not interleave for one workspace takes turns. It needs an active
+   * transaction: pass the txOptions of withTransaction.
+   * @param {unknown} workspaceId
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options
+   * @returns {Promise<{ id: string } | null>} The locked workspace, or null when there is no such workspace.
+   */
+  async function lock(workspaceId, options = {}) {
+    if (!workspaces.inTransaction(options)) {
+      throw new TypeError("Locking a workspace requires an active transaction.");
+    }
+    const id = normalizeRecordId(workspaceId, { fallback: null });
+    if (!id) {
+      throw new TypeError("Locking a workspace requires workspaceId.");
+    }
+    const [row] = await workspaces.lockMany([id], { ...options, missing: "skip" });
+    return row ? { id: normalizeRecordId(row.id, { fallback: null }) } : null;
   }
 
   return Object.freeze({
-    withTransaction,
+    withTransaction: workspaces.withTransaction,
+    inTransaction: workspaces.inTransaction,
     findById,
     findBySlug,
     listSlugsIn,
@@ -293,8 +219,8 @@ function createRepository({ api }) {
     insert,
     updateById,
     listForUserId,
-    lock: lockWorkspace
+    lock
   });
 }
 
-export { createRepository, lockWorkspace };
+export { createRepository };

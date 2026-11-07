@@ -1,27 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import knexLib from "knex";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { ActionProvider } from "@jskit-ai/kernel/server/actions";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createBootstrapRuntime, EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
 import { WorkspacesFeature, createWorkspacesRuntime } from "../src/server/WorkspacesFeature.js";
 import { WorkspacesIntegrationsProvider } from "../src/server/WorkspacesIntegrationsProvider.js";
-
-function createJsonRestApiFixture() {
-  const resources = {};
-  return {
-    resources,
-    async addResource(scopeName) {
-      resources[scopeName] = Object.freeze({
-        query: async () => ({ data: [] }),
-        post: async () => null,
-        patch: async () => null
-      });
-    }
-  };
-}
 
 function runtimeConfig() {
   return {
@@ -48,14 +36,16 @@ function runtimeConfig() {
   };
 }
 
-test("WorkspacesFeature assembles workspace behavior and explicit integrations", async () => {
+test("WorkspacesFeature assembles workspace behavior and explicit integrations", async (t) => {
   const routes = [];
   const visibilityResolvers = [];
   const audienceContributors = [];
   const bootstrap = createBootstrapRuntime();
   const authExtensions = createAuthExtensions();
   const usersExtensions = createUsersExtensions();
-  const jsonRestApi = createJsonRestApiFixture();
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  const resourceRuntime = await createTestResourceRuntime({ knex });
   let workspaces = null;
   let workspaceRecords = null;
   let memberships = null;
@@ -94,7 +84,7 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
           visibilityResolvers.push(resolver);
         }
       },
-      "runtime.json-rest-api": jsonRestApi,
+      "runtime.resources": resourceRuntime,
       "runtime.realtime": {
         registerAudienceContributor(contributor) {
           audienceContributors.push(contributor);
@@ -109,11 +99,11 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
 
   await runtime.start();
 
-  assert.deepEqual(Object.keys(jsonRestApi.resources).sort(), [
-    "workspaceInvites",
-    "workspaceMemberships",
-    "workspaceSettings",
-    "workspaces"
+  assert.deepEqual(resourceRuntime.ownedTables(), [
+    { name: "workspaces", tableName: "workspaces", featureId: "workspaces.core" },
+    { name: "workspaceMemberships", tableName: "workspace_memberships", featureId: "workspaces.core" },
+    { name: "workspaceInvites", tableName: "workspace_invites", featureId: "workspaces.core" },
+    { name: "workspaceSettings", tableName: "workspace_settings", featureId: "workspaces.core" }
   ]);
   assert.equal(typeof workspaces.services.directory.resolveWorkspaceContextForUserBySlug, "function");
   assert.deepEqual(Object.keys(workspaces.repositories).sort(), ["workspaceInvites", "workspaceSettings"]);
@@ -170,11 +160,8 @@ test("workspace realtime audiences are the actor's active memberships", async ()
 test("workspace settings color defaults must be hex colors", () => {
   const config = runtimeConfig();
   config.workspaceSettings.defaults.lightPrimaryColor = "charcoal";
-  const jsonRestApi = createJsonRestApiFixture();
-  jsonRestApi.resources.workspaceSettings = {};
-
   assert.throws(
-    () => createWorkspacesRuntime({ config, env: {}, jsonRestApi }),
+    () => createWorkspacesRuntime({ config, env: {}, resources: { workspaceSettings: {}, workspaceInvites: {} } }),
     /runtime\.config\.workspaceSettings\.defaults\.lightPrimaryColor must be a hex color/
   );
 });

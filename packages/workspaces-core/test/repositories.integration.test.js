@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import { before, beforeEach, after, describe, test } from "node:test";
 import knexLib from "knex";
-import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
-import { normalizeVisibilityContext } from "@jskit-ai/kernel/shared/support/visibility";
-import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
 import usersInitial from "../../users-core/migrations/users_core_generic_initial.cjs";
@@ -13,9 +12,7 @@ import usersUpdatedAt from "../../users-core/migrations/users_core_profile_updat
 import workspacesInitial from "../migrations/workspaces_core_initial.cjs";
 import workspaceSettingsMigration from "../migrations/workspaces_core_workspace_settings_single_name_source.cjs";
 import workspaceColorMigration from "../migrations/workspaces_core_workspaces_drop_color.cjs";
-import { installWorkspaceResources } from "../src/server/WorkspacesFeature.js";
-import { createRepository as createWorkspacesRepository } from "../src/server/common/repositories/workspacesRepository.js";
-import { createRepository as createMembershipsRepository } from "../src/server/common/repositories/workspaceMembershipsRepository.js";
+import { createWorkspaceRecords } from "../src/server/WorkspacesFeature.js";
 import { createRepository as createInvitesRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createSettingsRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 import { renderDefaultWorkspaceInviteEmail } from "../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
@@ -26,6 +23,10 @@ import { buildWorkspaceName, createService as createDirectoryService } from "../
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 import { createWorkspacesServerI18n } from "../src/server/i18n.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
+import { workspaceInvitesResource } from "../src/shared/resources/workspaceInvitesResource.js";
+import { workspaceMembershipsResource } from "../src/shared/resources/workspaceMembershipsResource.js";
+import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
+import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 import { verifyInvitationTransactions } from "./support/invitationTransactions.js";
 
 const TABLES = [
@@ -80,7 +81,7 @@ const databaseLabel = { pg: "PostgreSQL", mysql2: "MySQL", "better-sqlite3": "SQ
 
 describe(`users and workspaces repositories on migrated ${databaseLabel}`, () => {
   let knex;
-  let api;
+  let runtime;
   let profiles;
   let userSettings;
   let workspaces;
@@ -113,18 +114,22 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     ]) {
       await migration.up(knex);
     }
-    api = await createResourceHost({ knex, logger: { error() {}, warn() {}, info() {}, debug() {} } });
+    // The tables owned as UsersIdentityProvider and WorkspacesFeature own them.
+    runtime = await createTestResourceRuntime({ knex, logger: silentLogger });
     usersExtensions = createUsersExtensions();
     ({ profiles, settings: userSettings, profileProjector } = await UsersIdentityProvider.setup({
-      authExtensions: createAuthExtensions(),
       extensions: usersExtensions,
-      jsonRestApi: api
-    }));
-    await installWorkspaceResources(api);
-    workspaces = createWorkspacesRepository({ api });
-    memberships = createMembershipsRepository({ api });
-    invites = createInvitesRepository({ api });
-    settings = createSettingsRepository({ api, defaultInvitesEnabled: false, defaultColorSettings: {} });
+      actionCatalogue: { register() {} },
+      resourceRuntime: runtime
+    }, {}));
+    const resources = await runtime.own("workspaces.core", [
+      workspaceResource, workspaceMembershipsResource, workspaceInvitesResource, workspaceSettingsResource
+    ]);
+    ({ workspaces, memberships } = createWorkspaceRecords(resources));
+    invites = createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
+    settings = createSettingsRepository({
+      workspaceSettings: resources.workspaceSettings, defaultInvitesEnabled: false, defaultColorSettings: {}
+    });
   });
 
   beforeEach(async () => {
@@ -219,19 +224,17 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal(staffSettings.passwordSignInEnabled, false);
     assert.equal(staffSettings.locale, "en-AU");
     assert.equal(staffSettings.productUpdates, true);
-    await assert.rejects(profiles.withTransaction(async (trx) => {
+    await assert.rejects(profiles.withTransaction({}, async (txOptions) => {
       await profiles.createWithSettings({
         profile: { authProvider: "local", authProviderUserSid: "identity-gone", email: "gone@example.com", displayName: "Gone" }
-      }, { trx });
+      }, txOptions);
       throw new Error("Abort sign-up");
     }), /Abort sign-up/u);
     assert.equal(await profiles.findByEmail("gone@example.com"), null);
     assert.equal(Number((await knex("user_settings").count({ count: "*" }).first()).count), 1);
 
     const old = await createProfile("Old");
-    await api.resources.userProfiles.patch({
-      id: old.id, data: { createdAt: "2001-01-01T00:00:00.000Z" }, format: "plain", returning: "full"
-    });
+    await knex("users").where({ id: old.id }).update({ created_at: "2001-01-01 00:00:00" });
     const ann = await createProfile("Ann");
     await createProfile("Ben");
     const dayAgo = new Date(Date.now() - 86400000);
@@ -240,9 +243,9 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal(await profiles.countUsers({ excludeIds: [ann.id, old.id] }), 2);
     // Only the excluded users created since then are subtracted.
     assert.equal(await profiles.countUsers({ excludeIds: [ann.id, old.id, "999999"], createdSince: dayAgo.toISOString() }), 2);
-    await profiles.withTransaction(async (trx) => {
-      await createProfile("Cat", { trx });
-      assert.equal(await profiles.countUsers({}, { trx }), 5);
+    await profiles.withTransaction({}, async (txOptions) => {
+      await createProfile("Cat", txOptions);
+      assert.equal(await profiles.countUsers({}, txOptions), 5);
     });
   });
 
@@ -281,9 +284,9 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.deepEqual(await memberships.activeMemberIds("999999"), []);
 
     await assert.rejects(workspaces.lock(workspace.id), /requires an active transaction/u);
-    await workspaces.withTransaction(async (trx) => {
-      assert.deepEqual(await workspaces.lock(workspace.id, { trx }), { id: workspace.id });
-      assert.equal(await workspaces.lock("999999", { trx }), null);
+    await workspaces.withTransaction({}, async (txOptions) => {
+      assert.deepEqual(await workspaces.lock(workspace.id, txOptions), { id: workspace.id });
+      assert.equal(await workspaces.lock("999999", txOptions), null);
     });
   });
 
@@ -408,10 +411,10 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.deepEqual(members.map(({ userId }) => userId), listed.map(({ userId }) => userId));
     assert.deepEqual(members.filter(({ isOwner }) => isOwner).map(({ userId }) => userId), [ownerId]);
 
-    await profiles.withTransaction(async (trx) => {
-      const joiner = await createProfile("Zara", { trx });
-      await memberships.upsertMembership(workspace.id, joiner.id, { roleSid: "member", status: "active" }, { trx });
-      const withJoiner = await memberships.listActiveByWorkspaceId(workspace.id, { trx });
+    await profiles.withTransaction({}, async (txOptions) => {
+      const joiner = await createProfile("Zara", txOptions);
+      await memberships.upsertMembership(workspace.id, joiner.id, { roleSid: "member", status: "active" }, txOptions);
+      const withJoiner = await memberships.listActiveByWorkspaceId(workspace.id, txOptions);
       assert.equal(withJoiner.length, 1051);
       assert.equal(withJoiner.at(-1).displayName, "Zara");
     });
@@ -460,8 +463,8 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal(largeRead.result.displayName, "Person 150");
     assert.equal(largeRead.statements, smallRead.statements);
     assert.ok(smallRead.statements <= 4, `one member read costs ${smallRead.statements} statements`);
-    await profiles.withTransaction(async (trx) => {
-      const member = await membersService.getMember(large, users.get("person-150"), { trx });
+    await profiles.withTransaction({}, async (txOptions) => {
+      const member = await membersService.getMember(large, users.get("person-150"), txOptions);
       assert.equal(member.userId, users.get("person-150"));
     });
   });
@@ -676,9 +679,9 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     const grace = await createProfile("Grace");
     assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id), [grace.id]);
     // Realtime reads with the event's own scope: the workspace the invite belongs to.
-    const eventScope = { context: { visibilityContext: normalizeVisibilityContext({
-      visibility: "workspace", scopeKind: "workspace", scopeOwnerId: workspace.id
-    }) } };
+    const eventScope = { context: runtime.createSystemContext({
+      feature: "realtime.audience-scope", systemScope: "read an event's audience", reason: "read an invite's recipients"
+    }).forWorkspace(workspace.id) };
     assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id, eventScope), [grace.id]);
     await invites.revokeById(invite.id);
     assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id), [grace.id]);
@@ -686,8 +689,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   });
 
   test("one managed transaction rolls back onboarding across all six repositories", async () => {
-    await assert.rejects(profiles.withTransaction(async (trx) => {
-      const options = { trx };
+    await assert.rejects(profiles.withTransaction({}, async (options) => {
       const owner = await createProfile("Rollback", options);
       await userSettings.ensureForUserId(owner.id, options);
       const workspace = await workspaces.insert({ slug: "rollback", name: "Rollback", ownerUserId: owner.id }, options);
@@ -717,10 +719,10 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     const owner = await createProfile("Ada");
     await workspaces.insert({ slug: "duplicate", name: "Original", ownerUserId: owner.id });
     let participantFailure;
-    await assert.rejects(userSettings.withTransaction(async (trx) => {
-      await profiles.updateDisplayNameById(owner.id, "Must roll back", { trx });
+    await assert.rejects(userSettings.withTransaction({}, async (txOptions) => {
+      await profiles.updateDisplayNameById(owner.id, "Must roll back", txOptions);
       try {
-        await workspaces.insert({ slug: "duplicate", name: "Replacement", ownerUserId: owner.id }, { trx });
+        await workspaces.insert({ slug: "duplicate", name: "Replacement", ownerUserId: owner.id }, txOptions);
       } catch (error) {
         participantFailure = error;
       }

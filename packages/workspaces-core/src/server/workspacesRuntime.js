@@ -1,12 +1,3 @@
-import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
-import {
-  addResourceIfMissing,
-  createJsonRestResourceScopeOptions
-} from "@jskit-ai/resource-runtime/server/resourceHost";
-import { workspaceInvitesResource } from "../shared/resources/workspaceInvitesResource.js";
-import { workspaceMembershipsResource } from "../shared/resources/workspaceMembershipsResource.js";
-import { workspaceResource } from "../shared/resources/workspaceResource.js";
-import { workspaceSettingsResource } from "../shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog } from "../shared/roles.js";
 import { WORKSPACE_SETTINGS_COLOR_FIELDS, normalizeWorkspaceHexColor } from "../shared/settings.js";
 import { resolveTenancyProfile } from "../shared/tenancyProfile.js";
@@ -55,23 +46,18 @@ function requireWorkspaceColorDefaults(defaults) {
   return colors;
 }
 
-/** @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} jsonRestApi */
-async function installWorkspaceResources(jsonRestApi) {
-  const scopeOptions = { writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc } };
-  for (const resource of [workspaceResource, workspaceMembershipsResource, workspaceInvitesResource, workspaceSettingsResource]) {
-    await addResourceIfMissing(jsonRestApi, resource.name, createJsonRestResourceScopeOptions(resource, scopeOptions));
-  }
-}
-
 /**
  * The workspaces and their memberships, the `workspaces` and
  * `workspaces.memberships` capabilities. The workspace services are built on them.
- * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} jsonRestApi
+ * @param {import("./types.js").WorkspacesResources} resources The handles of the tables `workspaces.core` owns.
  */
-function createWorkspaceRecords(jsonRestApi) {
+function createWorkspaceRecords(resources) {
   return Object.freeze({
-    workspaces: createWorkspacesRepository({ api: jsonRestApi }),
-    memberships: createWorkspaceMembershipsRepository({ api: jsonRestApi })
+    workspaces: createWorkspacesRepository({
+      workspaces: resources.workspaces,
+      workspaceMemberships: resources.workspaceMemberships
+    }),
+    memberships: createWorkspaceMembershipsRepository({ workspaceMemberships: resources.workspaceMemberships })
   });
 }
 
@@ -86,7 +72,7 @@ function createWorkspaceRecords(jsonRestApi) {
  * @param {import("./types.js").WorkspaceInviteEmailTemplate} dependencies.inviteEmailTemplate
  * @param {import("./types.js").WorkspaceInviteAcceptanceParticipant} dependencies.inviteAcceptanceParticipant
  * @param {import("./types.js").PersonalWorkspaceName} dependencies.personalWorkspaceName
- * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
+ * @param {import("./types.js").WorkspacesResources} dependencies.resources The handles of the tables `workspaces.core` owns.
  * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} dependencies.userProfiles
  * @param {import("@jskit-ai/users-core/server/types").UsersSettings} dependencies.userSettings
  * @param {import("./types.js").Workspaces} dependencies.workspaces
@@ -100,7 +86,7 @@ function createWorkspacesRuntime({
   inviteEmailTemplate,
   inviteAcceptanceParticipant,
   personalWorkspaceName,
-  jsonRestApi,
+  resources,
   userProfiles,
   userSettings,
   workspaces: workspacesRepository,
@@ -111,14 +97,17 @@ function createWorkspacesRuntime({
   const invitationsEnabled = invitationsPolicy.enabled === true;
   const roleCatalog = createWorkspaceRoleCatalog(config);
   const workspaceSettingsRepository = createWorkspaceSettingsRepository({
-    api: jsonRestApi,
+    workspaceSettings: resources.workspaceSettings,
     defaultInvitesEnabled: requireBoolean(
       config?.workspaceSettings?.defaults?.invitesEnabled,
       "runtime.config.workspaceSettings.defaults.invitesEnabled"
     ),
     defaultColorSettings: requireWorkspaceColorDefaults(config?.workspaceSettings?.defaults)
   });
-  const workspaceInvitesRepository = createWorkspaceInvitesRepository({ api: jsonRestApi });
+  const workspaceInvitesRepository = createWorkspaceInvitesRepository({
+    workspaceInvites: resources.workspaceInvites,
+    workspaces: workspacesRepository
+  });
   const workspaceService = createWorkspaceService({
     tenancyProfile,
     roleCatalog,
@@ -179,4 +168,4 @@ function createWorkspacesRuntime({
   });
 }
 
-export { createWorkspaceRecords, createWorkspacesRuntime, installWorkspaceResources };
+export { createWorkspaceRecords, createWorkspacesRuntime };
