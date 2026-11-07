@@ -4,9 +4,6 @@
       "document": {
         "notFound": "Document not found."
       },
-      "fieldAccess": {
-        "writeDenied": "Write access denied for fields: {fields}."
-      },
       "query": {
         "includeInvalid": "include expects a comma-separated string such as \"{example}\".",
         "fieldsInvalid": "fields expects an object such as {example}.",

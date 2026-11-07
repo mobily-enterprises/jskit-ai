@@ -130,3 +130,41 @@ test("a failing CRUD afterCommit hook reports committed and leaves the actual wr
   );
   assert.equal((await knex("notes").where({ id: 1 }).first()).title, "Kindred");
 });
+
+test("the CRUD service stamps createdAt and updatedAt when the table stores them", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("memos", (table) => {
+    table.increments("id");
+    table.string("title").notNullable();
+    table.string("created_at").notNullable();
+    table.string("updated_at").notNullable();
+  });
+  const memos = defineTableResource({
+    name: "memos",
+    tableName: "memos",
+    ownership: "public",
+    schema: {
+      title: { type: "string", required: true },
+      createdAt: { type: "dateTime", storage: { column: "created_at", writeSerializer: "datetime-utc" } },
+      updatedAt: { type: "dateTime", storage: { column: "updated_at", writeSerializer: "datetime-utc" } }
+    }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const { memos: repository } = await runtime.own("test.memos", [memos]);
+  const service = createCrudService({ repository, resourceName: "memos", schema: memos.schema });
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-08T01:02:03.000Z") });
+
+  const created = await service.create({ title: "First" }, {});
+  const id = created.value.data.id;
+  const stored = async () => knex("memos").where({ id }).first("created_at", "updated_at");
+  assert.deepEqual(await stored(), { created_at: "2026-11-08 01:02:03.000", updated_at: "2026-11-08 01:02:03.000" });
+
+  t.mock.timers.setTime(Date.parse("2026-11-08T05:06:07.000Z"));
+  await service.patch(id, { title: "Second" }, {});
+  assert.deepEqual(await stored(), { created_at: "2026-11-08 01:02:03.000", updated_at: "2026-11-08 05:06:07.000" });
+
+  // A create that sets its own createdAt keeps it.
+  const imported = await service.create({ title: "Imported", createdAt: "2020-01-02T03:04:05.000Z" }, {});
+  assert.equal((await knex("memos").where({ id: imported.value.data.id }).first("created_at")).created_at, "2020-01-02 03:04:05.000");
+});

@@ -2,6 +2,28 @@ import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { buildJsonRestQueryParams } from "@jskit-ai/resource-runtime/server/resourceHost";
 
+// The record timestamps a CRUD write stamps, as the earlier CRUD runtime did, when the table stores them.
+const CREATE_STAMPS = Object.freeze(["createdAt", "updatedAt"]);
+const PATCH_STAMPS = Object.freeze(["updatedAt"]);
+
+/**
+ * The fields among `names` the table stores as date-times (not computed in the query).
+ * @param {Record<string, any>} schema The table resource's schema.
+ * @param {readonly string[]} names
+ */
+function storedDateTimeFields(schema, names) {
+  return names.filter((name) => {
+    const field = schema[name];
+    return field?.type === "dateTime" && field.virtual !== true && field.storage?.virtual !== true && !field.storage?.queryProjection;
+  });
+}
+
+/** @param {readonly string[]} fields */
+function stamps(fields) {
+  const now = new Date().toISOString();
+  return Object.fromEntries(fields.map((field) => [field, now]));
+}
+
 // A record that is missing or out of the caller's scope.
 function documentNotFound() {
   return new AppError(404, "Document not found.", { code: "crud.document.notFound" });
@@ -24,11 +46,18 @@ function isNotFound(error) {
  * HTTP query and body, calls the feature's repository (its table's handle, as
  * decorated) with the call's options and `format: "jsonapi"`, and answers
  * JSON:API documents. Server code calls the repository instead.
+ * A create stamps the table's createdAt and updatedAt, unless the payload
+ * sets them, and a patch stamps its updatedAt, when the table stores them as
+ * date-times.
  * @param {object} dependencies
  * @param {import("../types.js").CrudRepository} dependencies.repository
  * @param {string} dependencies.resourceName The CRUD contract's table resource name, the type of its documents.
+ * @param {Record<string, any>} [dependencies.schema] The table resource's schema, which says what to stamp.
  */
-function createCrudService({ repository, resourceName }) {
+function createCrudService({ repository, resourceName, schema = {} }) {
+  const createStamps = storedDateTimeFields(schema, CREATE_STAMPS);
+  const patchStamps = storedDateTimeFields(schema, PATCH_STAMPS);
+
   /** @param {{ context?: object | null, trx?: object | null }} options */
   function documentOptions(options) {
     return { ...options, format: "jsonapi" };
@@ -50,6 +79,12 @@ function createCrudService({ repository, resourceName }) {
    * @param {{ context?: object | null, trx?: object | null }} options
    */
   async function view(recordId, query, options) {
+    if (options && Object.hasOwn(options, "forUpdate")) {
+      throw new TypeError(
+        "The CRUD service's view() no longer takes forUpdate: lock the record with the repository's " +
+        "lock(recordId, txOptions) inside repository.withTransaction(options, (txOptions) => ...)."
+      );
+    }
     return returnJsonApiDocument(requireDocument(
       await repository.get(recordId, buildJsonRestQueryParams(resourceName, query), { ...documentOptions(options), missing: "skip" })
     ));
@@ -60,7 +95,7 @@ function createCrudService({ repository, resourceName }) {
    * @param {{ context?: object | null, trx?: object | null }} options
    */
   async function create(payload, options) {
-    return returnJsonApiDocument(await repository.create(payload, documentOptions(options)));
+    return returnJsonApiDocument(await repository.create({ ...stamps(createStamps), ...payload }, documentOptions(options)));
   }
 
   /**
@@ -70,7 +105,9 @@ function createCrudService({ repository, resourceName }) {
    */
   async function patch(recordId, payload, options) {
     try {
-      return returnJsonApiDocument(requireDocument(await repository.patch(recordId, payload, documentOptions(options))));
+      return returnJsonApiDocument(requireDocument(
+        await repository.patch(recordId, { ...payload, ...stamps(patchStamps) }, documentOptions(options))
+      ));
     } catch (error) {
       throw isNotFound(error) ? documentNotFound() : error;
     }
