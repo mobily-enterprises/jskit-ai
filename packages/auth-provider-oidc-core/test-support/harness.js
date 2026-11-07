@@ -53,6 +53,21 @@ function createProfileProjector(knex) {
   };
 }
 
+// Stands in for users-core's users.profiles: the users rows as its profile records.
+function createUsersProfiles(knex) {
+  const toProfile = (row) => row
+    ? { authProvider: row.auth_provider, authProviderUserSid: row.auth_provider_user_sid, email: row.email, displayName: row.display_name }
+    : null;
+  return {
+    async findByIdentity({ provider, providerUserId }) {
+      return toProfile(await knex("users").where({ auth_provider: provider, auth_provider_user_sid: providerUserId }).first());
+    },
+    async findByEmail(email) {
+      return toProfile(await knex("users").where({ email }).first());
+    }
+  };
+}
+
 /**
  * A relying party over an in-memory database, signing in at the given issuer.
  * @param {object} options
@@ -73,7 +88,7 @@ async function createRelyingParty({ issuer, env = {}, fetchImpl = globalThis.fet
       ...env
     }
   });
-  const store = createOidcStore({ knex, now });
+  const store = createOidcStore({ database: { knex }, profiles: createUsersProfiles(knex), now });
   const logger = { info() {}, warn() {} };
   const issuerClient = createIssuerClient({ config, store, logger, fetchImpl, now });
   const service = createOidcAuthService({

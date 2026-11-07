@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: the accounts hub's fixed-window rate-limit counters (oidc_issuer_rate_limits), each hit counted under its row's lock in a transaction of its own
+
 const RATE_LIMITS_TABLE = "oidc_issuer_rate_limits";
 
 const LIMITS = Object.freeze({
