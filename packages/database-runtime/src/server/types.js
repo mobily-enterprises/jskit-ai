@@ -2,8 +2,7 @@
 
 /** @typedef {ReturnType<typeof import("./database.js").createDatabase>} RuntimeDatabase */
 /** @typedef {import("knex").Knex} RuntimeKnex A Knex client: the one `runtime.database` shares, or one an application passes in. */
-/** @typedef {RuntimeDatabase["transactionManager"]} RuntimeTransactionManager The transaction manager `runtime.database` shares. */
-/** @typedef {import("knex").Knex.Transaction} RuntimeKnexTransaction A Knex transaction: the `trx` a repository or service call runs in, as the transaction manager hands it to its work. */
+/** @typedef {import("knex").Knex.Transaction} RuntimeKnexTransaction A Knex transaction: the `trx` a repository or service call runs in. */
 /** @typedef {import("knex").Knex.QueryBuilder} RuntimeKnexQueryBuilder A Knex query that a hook or helper narrows. */
 
 /**

@@ -1,7 +1,6 @@
 import diagnosticsChannel from "node:diagnostics_channel";
 import { normalizeDatabaseClient, toKnexClientId } from "../shared/databaseClient.js";
 import { resolveKnexConnectionFromEnvironment, resolveKnexPool } from "../shared/databaseConnection.js";
-import { createTransactionManager } from "../shared/transactionManager.js";
 import { loadKnexFactory } from "./knexFactory.js";
 
 // The diagnostics channel that carries each statement the shared Knex sends (Knex's `query` event: its `sql`,
@@ -18,7 +17,8 @@ function resolveDriverDialectId(driver) {
 }
 
 /**
- * The database connection every feature shares: the installed driver, its Knex client and a transaction manager.
+ * The database connection every feature shares: the installed driver and its Knex client. Table work opens its
+ * transactions through its handle's withTransaction.
  * @param {object} dependencies
  * @param {import("./types.js").RuntimeDatabaseDriver} dependencies.driver
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
@@ -43,12 +43,10 @@ function createDatabase({ driver, env }) {
   });
   const statements = diagnosticsChannel.channel(RUNTIME_QUERY_CHANNEL);
   knex.on("query", (query) => statements.publish(query));
-  const transactionManager = createTransactionManager({ knex });
 
   return Object.freeze({
     driver,
-    knex,
-    transactionManager
+    knex
   });
 }
 

@@ -95,7 +95,6 @@ Local functions
 Exports
 - `type RuntimeDatabase`
 - `type RuntimeKnex`
-- `type RuntimeTransactionManager`
 - `type RuntimeKnexTransaction`
 - `type RuntimeKnexQueryBuilder`
 - `type RuntimeDatabaseDriver`
@@ -187,7 +186,3 @@ Exports
 - `toDbJson(value)`
 - `isDeadlockError(error)`
 - `retryDeadlocks(run, { retries = 3 } = {})`
-
-### `src/shared/transactionManager.js`
-Exports
-- `createTransactionManager({ knex })`
