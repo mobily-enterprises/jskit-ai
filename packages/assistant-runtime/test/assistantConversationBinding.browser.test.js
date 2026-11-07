@@ -4,7 +4,8 @@ import test from "node:test";
 import { expect } from "../../../tooling/testUtils/browserExpect.mjs";
 import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
-const options = { skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1", timeout: 120_000 };
+// A test takes at most 14 s on a heavily loaded test host (most under 8 s); 60 s stops a hung one long before the file.
+const options = { skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1", timeout: 60_000 };
 // One server and one Chromium for the file: each test resets the server's controlled API and opens its own page.
 const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/canonical-conversation/", import.meta.url)) });
 

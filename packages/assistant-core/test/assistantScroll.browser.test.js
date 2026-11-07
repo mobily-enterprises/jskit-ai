@@ -276,7 +276,7 @@ test("AssistantConversationElement keeps long conversations scrollable across re
   skip: RUN_BROWSER_TEST
     ? false
     : "set JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION=1 to run assistant-core browser integration",
-  timeout: 180_000
+  timeout: 90_000
 }, async (t) => {
   const { vite, browser } = await openFixture(t);
 
