@@ -1,6 +1,4 @@
 import { Server as SocketIoServer } from "socket.io";
-import { createAdapter as createSocketIoRedisAdapter } from "@socket.io/redis-adapter";
-import { createClient as createRedisClient } from "redis";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { toRequestPathname } from "@jskit-ai/kernel/shared/surface/paths";
 
@@ -111,8 +109,8 @@ function buildSocketIoRedisAdapterKey(redisNamespace = "") {
  * @param {string} [options.redisUrl]
  * @param {string} [options.redisNamespace]
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} options.logger Warned when a Redis connection fails.
- * @param {typeof createSocketIoRedisAdapter} [options.createRedisAdapter]
- * @param {typeof createRedisClient} [options.createRedisConnection]
+ * @param {typeof import("@socket.io/redis-adapter").createAdapter} [options.createRedisAdapter]
+ * @param {typeof import("redis").createClient} [options.createRedisConnection]
  */
 async function configureSocketIoRedisAdapter(
   io,
@@ -120,8 +118,8 @@ async function configureSocketIoRedisAdapter(
     redisUrl = "",
     redisNamespace = "",
     logger,
-    createRedisAdapter = createSocketIoRedisAdapter,
-    createRedisConnection = createRedisClient
+    createRedisAdapter,
+    createRedisConnection
   }
 ) {
   const normalizedRedisUrl = normalizeText(redisUrl);
@@ -136,7 +134,10 @@ async function configureSocketIoRedisAdapter(
       subClient: null
     });
   }
-  const pubClient = createRedisConnection({
+  // Redis and its Socket.IO adapter, about 500 modules, load only for a server that uses them.
+  const connectRedis = createRedisConnection || (await import("redis")).createClient;
+  const adaptToRedis = createRedisAdapter || (await import("@socket.io/redis-adapter")).createAdapter;
+  const pubClient = connectRedis({
     url: normalizedRedisUrl
   });
   const subClient = pubClient.duplicate();
@@ -158,7 +159,7 @@ async function configureSocketIoRedisAdapter(
     await pubClient.connect();
     await subClient.connect();
     const adapterOptions = adapterKey ? { key: adapterKey } : undefined;
-    io.adapter(createRedisAdapter(pubClient, subClient, adapterOptions));
+    io.adapter(adaptToRedis(pubClient, subClient, adapterOptions));
   } catch (error) {
     await closeSocketIoRedisConnections({
       pubClient,

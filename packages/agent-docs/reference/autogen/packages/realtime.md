@@ -135,7 +135,7 @@ Exports
 - `REDIS_NAMESPACE_ENV_KEY`
 - `resolveRealtimeRedisUrl(env)`
 - `resolveRealtimeRedisNamespace(env)`
-- `configureSocketIoRedisAdapter(io, { redisUrl = "", redisNamespace = "", logger, createRedisAdapter = createSocketIoRedisAdapter, createRedisConnection = createRedisClient })`
+- `configureSocketIoRedisAdapter(io, { redisUrl = "", redisNamespace = "", logger, createRedisAdapter, createRedisConnection })`
 - `closeSocketIoRedisConnections({ pubClient, subClient })`
 - `countConnectedClients(io)`
 Local functions
