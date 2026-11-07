@@ -96,7 +96,7 @@ Local functions
 
 ### `src/server/common/repositories/userProfilesRepository.js`
 Exports
-- `createRepository({ api })`
+- `createRepository({ api, userSettings })`
 Local functions
 - `normalizeProfileRecord(payload = null)`
 - `normalizeCreatePayload(payload = {})`
@@ -150,7 +150,8 @@ Exports
 Exports
 - `type UsersCore`
 - `type UsersExtensions`
-- `type UsersIdentity`
+- `type UsersProfiles`
+- `type UsersSettings`
 - `type UserProfilesRepository`
 - `type UserSettingsRepository`
 - `type ResolveProfileSyncLifecycleContributors`
@@ -192,7 +193,7 @@ Exports
 
 ### `src/server/usersRuntime.js`
 Exports
-- `createUsersRuntime({ authService, identity, storage })`
+- `createUsersRuntime({ authService, profileProjector, profiles: userProfilesRepository, settings: userSettingsRepository, storage })`
 
 ### `src/shared/index.js`
 Exports

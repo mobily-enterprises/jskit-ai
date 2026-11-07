@@ -10,6 +10,18 @@
 - The workspace, settings, member and invitation field messages are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.
 - The resources' save, delete and validation feedback names catalog keys under `jskit.workspaces.feedback.*` instead of plain English; JSKIT's forms render them with `text()`, so the English shown is unchanged.
 - The invitation email writes its expiry date with `Intl` in the recipient's locale and saved time zone (UTC without one), for example "November 2, 2026 at 12:00 AM UTC", instead of the raw ISO timestamp. An app's own `workspaces.invite-email-template` also receives the recipient's `timeZone` next to `locale`.
+- **Breaking (data-access redesign).** The workspaces and their memberships are their owners' capabilities, provided by `WorkspacesFeature`: `workspaces` (`findById`, `findBySlug`, `listSlugsIn`, `findPersonalByOwnerUserId`, `listForUserId`, `insert`, `updateById`, `lock`) and `workspaces.memberships` (`findByWorkspaceIdAndUserId`, `ensureOwnerMembership`, `upsertMembership`, `addMember`, `activeMemberIds`, `listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listActiveWorkspaceIdsByUserId(s)`). `workspaces.core`'s `repositories` keep `workspaceInvites` and `workspaceSettings`. The types are `Workspaces` and `WorkspacesMemberships`. The feature requires `users.profiles` and `users.settings` instead of `users.core`.
+- `findBySlug` no longer finds a deleted workspace; its slug stays taken. A workspace request to a deleted workspace's slug now answers 404 `workspaces.workspace.notFound` instead of resolving that workspace.
+- New `lock(workspaceId, options)` on `workspaces` takes the workspace's row lock until the caller's transaction ends; it needs an active `options.trx` and answers `{ id }`, or `null` when there is no such workspace. The invitations' lock (`lockWorkspaceForInvitations`) is built on it and keeps its 404 `workspaces.invite.workspaceMissing`.
+- New `addMember({ workspaceId, userId, roleSid }, options)` on `workspaces.memberships` makes the user an active member with the role (`member` when none is given), adding the membership or reactivating it, and `activeMemberIds(workspaceId, options)` answers the active members' user ids at the same cost however many members there are (one page per 1,000 memberships), without including their profiles.
+- The bootstrap change of a created or revoked invitation reaches its recipient through realtime's `audienceUsers`: the members service's new `inviteRecipientUserIds(inviteId, options)` reads the invitation (the invites repository's new `findById`, in any status) and the profile with its email through `users.profiles`, instead of a hand-written join of the two tables.
+- `createWorkspacesRuntime` takes `userProfiles`, `userSettings`, `workspaces` and `workspaceMemberships` instead of `users`; the new `createWorkspaceRecords(jsonRestApi)`, exported beside it, builds the last two.
+
+### Upgrading
+
+- Replace `workspaces.repositories.workspaces` with the `workspaces` capability and `workspaces.repositories.workspaceMemberships` with `workspaces.memberships`. Application composition that locked a workspace with `workspaces.repositories.workspaceInvites.lockWorkspaceForInvitations(workspaceId, { trx })` uses `lock(workspaceId, { trx })` of `workspaces`, which answers `null` instead of throwing when the workspace is missing.
+- Code that found a deleted workspace by slug reads it by id.
+- Tests that call `createWorkspacesRuntime({ ..., users })` pass `userProfiles`, `userSettings` and the `workspaces` and `memberships` of `createWorkspaceRecords(jsonRestApi)`.
 
 ### New codes (21)
 

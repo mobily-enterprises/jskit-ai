@@ -15,7 +15,8 @@ const UsersIdentityProvider = defineProvider({
     jsonRestApi: "runtime.json-rest-api"
   },
   provides: {
-    identity: "users.identity",
+    profiles: "users.profiles",
+    settings: "users.settings",
     profileProjector: "auth.profile.projector"
   },
   /**
@@ -30,8 +31,7 @@ const UsersIdentityProvider = defineProvider({
     for (const resource of [userProfileResource, userSettingsResource]) {
       await addResourceIfMissing(jsonRestApi, resource.name, createJsonRestResourceScopeOptions(resource, scopeOptions));
     }
-    const identity = createUsersIdentity({ jsonRestApi, extensions });
-    return { identity, profileProjector: identity.profileProjector };
+    return createUsersIdentity({ jsonRestApi, extensions });
   }
 });
 

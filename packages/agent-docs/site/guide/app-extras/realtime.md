@@ -29,6 +29,26 @@ warning; `event_scope` never widens to all users. Broadcast to every signed-in
 user only through the explicit `all_users` audience; a CRUD feature selects it
 with `defineCrudJsonApiFeature({ realtimeAudience: "all_users" })`.
 
+An audience entry may also reach users that only a record's owner knows, such
+as the person an invitation was sent to. It provides
+`audienceUsers({ event, options })`, which answers, or resolves to, a list of
+user ids; realtime adds each one's user room. It asks the owners' APIs (for
+example `activeMemberIds(workspaceId, options)` of `workspaces.memberships`, or
+the record owner's repository) and never the database directly. It runs once
+for the event, however many sockets receive it, and `options.context` is the
+event's own scope (its workspace or user), so the owners answer for that scope
+and not for a request's:
+
+```js
+realtime: {
+  event: "users.bootstrap.changed",
+  audience: {
+    preset: "event_scope",
+    audienceUsers: ({ event, options }) => invitations.recipientUserIds(event.entityId, options)
+  }
+}
+```
+
 Client features register listeners through `@jskit-ai/realtime`. Keep query
 invalidation close to the resource that owns the query keys.
 

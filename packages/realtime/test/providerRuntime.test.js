@@ -340,37 +340,49 @@ test("realtime delivery warns and continues when an event's scope is null", asyn
   assert.deepEqual(io.emitted.map((entry) => entry.room), [["users"]]);
 });
 
-test("realtime delivery resolves an explicit database-backed audience without exposing query controls", async () => {
+test("realtime delivery reaches an audience's users, read once per event in the event's own scope", async () => {
   const io = createIoDouble();
-  const delivery = createRealtimeDelivery({
-    io,
-    logger,
-    audiences: createAudienceContributors(),
-    database: {
-      knex() {}
+  const delivery = createRealtimeDelivery({ io, logger, audiences: createAudienceContributors() });
+  const reads = [];
+  const audience = {
+    preset: "none",
+    async audienceUsers({ event, options }) {
+      reads.push({ entityId: event.entityId, options });
+      return ["55", 56, null, "55"];
     }
-  });
+  };
   await delivery.handle({
     type: "entity.changed",
     source: "workspace",
     entity: "invite",
     operation: "created",
     entityId: "91",
-    realtime: {
-      event: "users.bootstrap.changed",
-      audience: {
-        preset: "none",
-        async userQuery({ knex, event }) {
-          assert.equal(typeof knex, "function");
-          assert.equal(event.entityId, "91");
-          return [{ user_id: 55 }];
-        }
-      }
-    }
+    scope: { kind: "workspace", id: "11" },
+    realtime: { event: "users.bootstrap.changed", audience }
   });
   assert.equal(io.emitted.length, 1);
-  assert.deepEqual(io.emitted[0].room, ["user:55"]);
+  assert.deepEqual(io.emitted[0].room, ["user:55", "user:56"]);
   assert.equal(Object.hasOwn(io.emitted[0].payload, "realtime"), false);
+  assert.equal(reads.length, 1);
+  assert.equal(reads[0].entityId, "91");
+  assert.deepEqual(reads[0].options.context.visibilityContext, {
+    visibility: "workspace", scopeKind: "workspace", requiresActorScope: false, scopeOwnerId: "11", userId: null
+  });
+
+  const scopes = [
+    [{ kind: "workspace_user", workspaceId: "11", userId: "7" }, {
+      visibility: "workspace_user", scopeKind: "workspace", requiresActorScope: true, scopeOwnerId: "11", userId: "7"
+    }],
+    [{ kind: "user", id: "7" }, {
+      visibility: "user", scopeKind: "user", requiresActorScope: false, scopeOwnerId: "7", userId: "7"
+    }]
+  ];
+  for (const [scope, visibilityContext] of scopes) {
+    await delivery.handle({ type: "entity.changed", entityId: "91", scope, realtime: { event: "users.bootstrap.changed", audience } });
+    assert.deepEqual(reads.at(-1).options.context.visibilityContext, visibilityContext);
+  }
+  await delivery.handle({ type: "entity.changed", entityId: "91", realtime: { event: "users.bootstrap.changed", audience } });
+  assert.deepEqual(reads.at(-1).options, {}, "An event without a scope reads with no context");
 });
 
 test("socket audience bootstrap authenticates explicitly and joins contributed scope rooms", async () => {

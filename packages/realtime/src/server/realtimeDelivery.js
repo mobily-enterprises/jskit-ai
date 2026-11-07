@@ -89,13 +89,12 @@ function rememberedActorId(socket) {
 /**
  * @param {object} dependencies
  * @param {import("socket.io").Server} dependencies.io
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase | null} dependencies.database Absent when no runtime.database is installed.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {AuthService | null} dependencies.authService Absent when no auth.service is installed.
  * @param {AudienceContributors} dependencies.audiences The rooms revalidation may make a socket join.
  *   With no contributors registered, a socket stays in the rooms it already has.
  */
-function createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorsRooms } }) {
+function createRealtimeDelivery({ io, logger, authService, audiences: { mayContribute, resolveActorsRooms } }) {
   // With an auth.service, each socket is revalidated before it receives an event;
   // without one, events go straight to their rooms.
   const guarded = Boolean(authService);
@@ -219,7 +218,7 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
   async function handle(event) {
     try {
       const eventName = normalizeText(event.realtime.event);
-      const targets = await resolveAudienceTargets(event.realtime.audience, event, { database, logger });
+      const targets = await resolveAudienceTargets(event.realtime.audience, event, { logger });
       const payload = publicRealtimePayload(event);
       if (guarded) {
         const envelope = { eventName, payload, targets };

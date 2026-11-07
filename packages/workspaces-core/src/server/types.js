@@ -1,6 +1,8 @@
-// The type of the `workspaces.core` capability, for features that require it.
+// The types of the workspaces capabilities, for features that require them.
 
 /** @typedef {ReturnType<typeof import("./workspacesRuntime.js").createWorkspacesRuntime>} WorkspacesCore */
+/** @typedef {ReturnType<typeof import("./common/repositories/workspacesRepository.js").createRepository>} Workspaces The workspaces table's records: `workspaces`. */
+/** @typedef {ReturnType<typeof import("./common/repositories/workspaceMembershipsRepository.js").createRepository>} WorkspacesMemberships The workspace memberships table's records: `workspaces.memberships`. */
 
 /** @typedef {ReturnType<typeof import("./common/services/workspaceDirectoryService.js").createService>} WorkspaceDirectoryService The workspace directory service: `services.directory` of `workspaces.core`. */
 /** @typedef {ReturnType<typeof import("./workspaceMembers/workspaceMembersService.js").createService>} WorkspaceMembersService The workspace members service: `services.members` of `workspaces.core`. */

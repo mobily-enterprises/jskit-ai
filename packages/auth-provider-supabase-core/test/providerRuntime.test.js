@@ -24,7 +24,7 @@ function env(overrides = {}) {
   };
 }
 
-async function startRuntime({ profileMode = "provider", envOverrides = {}, identity = null, decorate = null, oauth = {} } = {}) {
+async function startRuntime({ profileMode = "provider", envOverrides = {}, users = null, decorate = null, oauth = {} } = {}) {
   const extensions = createAuthExtensions();
   if (decorate) {
     extensions.registerServiceDecorator({
@@ -45,7 +45,11 @@ async function startRuntime({ profileMode = "provider", envOverrides = {}, ident
     "auth.extensions": extensions,
     "runtime.config": { ...config(profileMode), auth: { profileMode, oauth } },
     "runtime.env": env(envOverrides),
-    ...(identity ? { "users.identity": identity } : {})
+    ...(users ? {
+      "auth.profile.projector": users.profileProjector,
+      "users.profiles": users.profiles,
+      "users.settings": users.settings
+    } : {})
   };
   const runtime = createCapabilityRuntime({ inputs, providers: [AuthSupabaseProvider, probe] });
   await runtime.start();
@@ -62,21 +66,19 @@ test("AuthSupabaseProvider exposes a configured provider-owned auth service", as
 });
 
 test("AuthSupabaseProvider composes user identity persistence explicitly", async () => {
-  const identity = {
+  const users = {
     profileProjector: {
       async findByIdentity() { return null; },
       async syncIdentityProfile(profile) { return { id: 1, ...profile }; }
     },
-    repositories: {
-      userProfiles: { async findById() { return null; }, async findByEmail() { return null; } },
-      userSettings: {
-        async ensureForUserId() { return {}; },
-        async updatePasswordSignInEnabled() { return {}; },
-        async updatePasswordSetupRequired() {}
-      }
+    profiles: { async findById() { return null; }, async findByEmail() { return null; } },
+    settings: {
+      async ensureForUserId() { return {}; },
+      async updatePasswordSignInEnabled() { return {}; },
+      async updatePasswordSetupRequired() {}
     }
   };
-  const { authService, runtime } = await startRuntime({ profileMode: "users", identity });
+  const { authService, runtime } = await startRuntime({ profileMode: "users", users });
   assert.equal(authService.getCapabilities().features.appProfileProjection, true);
   assert.equal(authService.getCapabilities().features.password.methodToggle, true);
   await runtime.shutdown();
@@ -103,10 +105,10 @@ test("AuthSupabaseProvider rejects removed profile aliases and mismatched provid
   );
 });
 
-test("AuthSupabaseProvider requires users.identity only when users profile projection is selected", async () => {
+test("AuthSupabaseProvider requires the users' records only when users profile projection is selected", async () => {
   await assert.rejects(
     () => startRuntime({ profileMode: "users" }),
-    /requires the users\.identity capability/
+    /requires the users\.profiles, users\.settings and auth\.profile\.projector capabilities/
   );
 });
 

@@ -108,8 +108,9 @@ The package migrations create and own these tables:
 | `workspace_invites` | `workspace_id`, `email`, `role_sid`, `status`, `token_hash`, `invited_by_user_id`, `expires_at`, `accepted_at`, `revoked_at` |
 
 Application records that belong to a workspace use a non-null `workspace_id`
-foreign key to `workspaces.id`. Read and change these tables through the
-`workspaces.core` repositories and services, not directly.
+foreign key to `workspaces.id`. Read and change these tables through their
+owners' capabilities (`workspaces`, `workspaces.memberships` and
+`workspaces.core`, below), not directly.
 
 ## Server composition
 
@@ -173,8 +174,25 @@ capability provides:
 | `workspaces.services.members` | Members, roles and invitations |
 | `workspaces.services.pendingInvitations` | Invitation resolution, redemption and acceptance participants |
 | `workspaces.services.settings` | Workspace settings |
-| `workspaces.repositories.workspaces`, `.workspaceMemberships`, `.workspaceSettings`, `.workspaceInvites` | Repository access inside the application's own transactions |
+| `workspaces.repositories.workspaceSettings`, `.workspaceInvites` | Settings and invitation records inside the application's own transactions |
 | `workspaces.tenancyProfile` | The resolved tenancy mode and workspace policy |
+
+The workspaces and their memberships are their own capabilities, for code that
+reads or changes them inside its own transactions. Every method takes the
+call's `options` last and joins `options.trx` when there is one.
+
+| Capability | Methods |
+| --- | --- |
+| `workspaces` | `findById(id, options)`, `findBySlug(slug, options)` (a deleted workspace is not found, though its slug stays taken), `listSlugsIn`, `findPersonalByOwnerUserId`, `listForUserId(userId, options)`, `insert`, `updateById`, `lock(workspaceId, options)` |
+| `workspaces.memberships` | `findByWorkspaceIdAndUserId`, `ensureOwnerMembership`, `upsertMembership(workspaceId, userId, patch, options)`, `addMember({ workspaceId, userId, roleSid }, options)`, `activeMemberIds(workspaceId, options)`, `listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listActiveWorkspaceIdsByUserId`, `listActiveWorkspaceIdsByUserIds` |
+
+`addMember` makes the user an active member with the role (`member` when none
+is given), adding the membership or reactivating it. `activeMemberIds` answers
+the active members' user ids at the same cost however many members there
+are, without including their profiles. `lock` takes
+the workspace's row lock until the caller's transaction ends, so work that must
+not interleave for one workspace takes turns; it needs an active `options.trx`,
+and answers `{ id }`, or `null` when there is no such workspace.
 
 To check one person's membership, for example a notification recipient, call
 `workspaces.services.members.getMember(workspace, userId, options)`. It answers
@@ -300,7 +318,7 @@ authorization and role checks. Do not pass arbitrary HTTP input as options.
 | Capability method | Contract |
 | --- | --- |
 | `workspaces.repositories.workspaceInvites.withTransaction(work)` | Delegates to the same JSON REST API's managed `transaction(work)`; awaits commit and completion hooks before resolving. Runs `work` again when the database aborts it as a deadlock victim (see [Database layer](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#deadlock-retries)). |
-| `workspaces.repositories.workspaceInvites.lockWorkspaceForInvitations(workspaceId, { trx })` | Locks the workspace before application receipt/draft rows when composing preparation. Requires an active transaction. |
+| `workspaces.lock(workspaceId, { trx })` (capability `workspaces`) | Locks the workspace before application receipt/draft rows when composing preparation. Requires an active transaction. |
 | `workspaces.services.members.prepareInvite(workspace, actor, payload, options)` | Requires a managed `options.trx`. Validates the invitation role, replaces pending invitations for that workspace/email, and returns `{ createdInviteId, inviteTokenPreview }`. Never sends. |
 | `workspaces.services.members.sendInvite(workspace, actor, prepared, options)` | Requires no `options.trx`. Reloads the committed pending invitation and workspace display data, validates expiry and token correspondence, and sends that invitation without replacement. |
 | `workspaces.services.members.createInvite(workspace, actor, payload, options)` | Owns preparation and commit, then calls `sendInvite`, and answers with `sendInvite`'s result as JSON:API data (`returnJsonApiData`, read it from `.value`), as the invite action sends it. Rejects `options.trx`. |
@@ -342,13 +360,13 @@ setup: ({ reviewedPeople, people, scopes, audit }) => ({
 })
 
 // Inside an authorized application command, in a feature that requires
-// workspaces: "workspaces.core":
+// workspaces: "workspaces.core" and workspaceRecords: "workspaces":
 const { members } = workspaces.services;
 const invites = workspaces.repositories.workspaceInvites;
 const prepared = await invites.withTransaction(async (trx) => {
   const options = { trx, context };
   // Match acceptance's order: workspace, then application draft/receipt rows.
-  await invites.lockWorkspaceForInvitations(workspace.id, options);
+  await workspaceRecords.lock(workspace.id, options);
   const reviewed = await reviewedPeople.lockAuthorizedDraft(draftId, workspace.id, actor, options);
   const receipt = await reviewedPeople.findMatchingReceipt(reviewed, requestId, options);
   if (receipt) return { createdInviteId: receipt.inviteId };

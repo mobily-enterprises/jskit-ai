@@ -53,6 +53,7 @@ Local functions
 ### `src/server/common/repositories/workspacesRepository.js`
 Exports
 - `createRepository({ api })`
+- `lockWorkspace(workspaceId, options)`
 Local functions
 - `normalizeWorkspaceRecord(payload = null)`
 
@@ -66,7 +67,7 @@ Local functions
 
 ### `src/server/common/support/realtimeServiceEvents.js`
 Exports
-- `INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE`
+- `createInviteRecipientBootstrapAudience({ inviteRecipientUserIds })`
 - `createInviteDecisionEvents()`
 - `createWorkspaceEntityAndBootstrapEvents({ workspaceEntity, workspaceOperation, workspaceRealtimeEvent, bootstrapEntityId = workspaceId, bootstrapAudience = "event_scope" })`
 Local functions
@@ -129,6 +130,8 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type WorkspacesCore`
+- `type Workspaces`
+- `type WorkspacesMemberships`
 - `type WorkspaceDirectoryService`
 - `type WorkspaceMembersService`
 - `type WorkspacePendingInvitationsService`
@@ -242,6 +245,7 @@ Exports
 Exports
 - `WorkspacesFeature`
 - `buildWorkspaceName`
+- `createWorkspaceRecords`
 - `createWorkspacesRuntime`
 - `installWorkspaceResources`
 - `noInviteAcceptanceParticipant`
@@ -256,7 +260,8 @@ Local functions
 
 ### `src/server/workspacesRuntime.js`
 Exports
-- `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, personalWorkspaceName, jsonRestApi, users })`
+- `createWorkspaceRecords(jsonRestApi)`
+- `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, personalWorkspaceName, jsonRestApi, userProfiles, userSettings, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
 - `installWorkspaceResources(jsonRestApi)`
 Local functions
 - `requirePositiveInteger(value, label)`
