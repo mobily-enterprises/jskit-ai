@@ -23,11 +23,6 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER } from "@jskit-ai/kernel/shared/support/visibility";
 import { createJsonRestContext } from "./contexts.js";
-import {
-  extractJsonRestCollectionRows,
-  queryAllJsonRestCollectionDocument,
-  queryAllJsonRestCollectionRows
-} from "./jsonRestCollectionReads.js";
 import { isPlainJsonRestObject } from "./jsonRestValues.js";
 
 const JSON_REST_AUTOFILTER_PRESETS = Object.freeze({
@@ -112,20 +107,6 @@ function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
   }
 
   return next;
-}
-
-/**
- * @param {import("./types.js").RuntimeJsonRestApi} api
- * @param {string} scopeName
- * @param {Record<string, any>} resourceConfig
- */
-async function addResourceIfMissing(api, scopeName, resourceConfig) {
-  if (api.resources[scopeName]) {
-    return api.resources[scopeName];
-  }
-
-  await api.addResource(scopeName, resourceConfig);
-  return api.resources[scopeName];
 }
 
 function normalizeScopeValue(value) {
@@ -669,20 +650,11 @@ async function createResourceHost({ knex, logger }) {
   return api;
 }
 
-// Until crud-core, users-core and workspaces-core own their tables through runtime.resources, they register
-// and read them on the host directly with these.
-const createJsonRestResourceScopeOptions = resourceScopeOptions;
-
 export {
   JSON_REST_AUTOFILTER_PRESETS,
-  addResourceIfMissing,
   buildJsonRestQueryParams,
   createJsonRestContext,
-  createJsonRestResourceScopeOptions,
   createResourceHost,
-  extractJsonRestCollectionRows,
-  queryAllJsonRestCollectionDocument,
-  queryAllJsonRestCollectionRows,
   resourceScopeOptions,
   returnNullWhenJsonRestResourceMissing,
   returnBadRequestWhenJsonRestFieldsetInvalid,
