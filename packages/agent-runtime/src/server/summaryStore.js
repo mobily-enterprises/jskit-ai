@@ -1,6 +1,7 @@
 import { SUMMARY_LIMITS, assertCallbacks, cutPoint, estimateTokens, transcriptText, writeSummary } from "@jskit-ai/agent/server";
 import { NO_NOTICES } from "./notices.js";
 import { createSummariesRepository } from "./repositories/summariesRepository.js";
+import { requireStoreDependencies } from "./arguments.js";
 
 /**
  * Summaries between turns, in the background. A reply reads the conversation's newest summary and
@@ -35,18 +36,20 @@ import { createSummariesRepository } from "./repositories/summariesRepository.js
  * @param {(input: { previous: string, text: string }) => Promise<string>} [dependencies.summarize]
  * @param {typeof SUMMARY_LIMITS} [dependencies.limits]
  */
-export function createSummaries({
-  resources,
-  systemContext,
-  model,
-  app = "the app",
-  history,
-  track = runSummaryUnmetered,
-  notices,
-  channel = "agent-summaries",
-  summarize = (input) => writeSummary({ model, app, ...input, limits }),
-  limits = SUMMARY_LIMITS
-}) {
+export function createSummaries(dependencies) {
+  requireStoreDependencies("createSummaries", dependencies, ["agentSummaries", "agentSummaryQueue"]);
+  const {
+    resources,
+    systemContext,
+    model,
+    app = "the app",
+    history,
+    track = runSummaryUnmetered,
+    notices,
+    channel = "agent-summaries",
+    summarize = (input) => writeSummary({ model, app, ...input, limits }),
+    limits = SUMMARY_LIMITS
+  } = dependencies;
   assertCallbacks("createSummaries", { track, summarize });
   const channelNotices = notices ?? NO_NOTICES;
   const store = createSummariesRepository({

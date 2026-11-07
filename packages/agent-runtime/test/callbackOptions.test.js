@@ -3,10 +3,14 @@ import test from "node:test";
 import { createGoals, createSummaries } from "../src/server/index.js";
 
 // Construction touches neither the database nor the hooks, so these stand-ins are never called: the
-// owner's handles are only named, and its system context is only made.
-const resources = Object.freeze({});
+// owner's handles are only checked and named, and its system context is only made.
+const handle = Object.freeze({ withTransaction: unusedHandle });
+const resources = Object.freeze({ agentGoals: handle, agentSummaries: handle, agentSummaryQueue: handle });
 const systemContext = () => Object.freeze({});
 const unused = async () => assert.fail("a required hook is not called at construction");
+async function unusedHandle() {
+  assert.fail("a handle is not called at construction");
+}
 const goalHooks = { resources, systemContext, runs: {}, find: unused, respond: unused, claim: unused, record: unused };
 
 test("a goal or summary hook given as null fails at construction with a TypeError naming it", () => {
