@@ -12,7 +12,7 @@ itself, and why it works as it does, is in `@jskit-ai/agent`'s README.
 | Each finished step saved while a reply runs; one a stopped server left is taken over by another | `createRuns`, `startResumer` | `agent_runs` |
 | Goals: a long job carries on by itself in rounds until it's complete, blocked or at a limit | `createGoals`, `goalTools`, `roundPrompt` | `agent_goals` |
 | Summaries between turns, in the background, claimed by one server | `createSummaries` | `agent_summaries`, `agent_summary_queue` |
-| A to-do card in the chat and private job notes, both in the state note at every turn | `planningTools`, `planningNotes`, `currentTodos` | the app's messages and conversations (`PLANNING_TABLES`) |
+| A to-do card in the chat and private job notes, both in the state note at every turn | `planningTools`, `planningNotes` | the app's messages and conversations, through its `planning` store |
 | Commands in the workspace; one still running carries on in the background, its whole output a file | `createCommands`, `commandTools` | `agent_commands` |
 | Where commands run: gVisor (`runsc`), or a local process for development | `gvisorExecutor`, `localExecutor` | — |
 | Files: list, find, search, read in parts, write and edit, never outside the workspace | `fileTools`, `inWorkspace` | — |
@@ -46,9 +46,22 @@ where `subscribe` returns a function that stops listening (PostgreSQL LISTEN/NOT
 With it, a new goal round or a queued summary wakes every server at once; without it, each server
 finds due work on its own timer. `goals.start()` and `summaries.start()` run those loops.
 
-For a turn, `defaultTools({ root, commands, knex, conversationId, post, goals:
+For a turn, `defaultTools({ root, commands, planning, conversationId, post, goals:
 goals.operationsFor(row) })` gives the agent its tools; `post(messages)` adds cards to the chat and
-tells open pages.
+tells open pages. `planningNotes(planning, conversationId)` gives the state note's to-do list and
+notes.
+
+The to-do card and the job notes live in the app's own tables, so the app hands in `planning`
+(`AgentPlanning` in `src/server/types.js`), its store for them on the messages and conversations it
+owns:
+
+- `currentTodos(conversationId)`: the conversation's newest message of kind `"todos"` whose
+  `body.list` is the conversation's id as a string, `{ id, body }`, or undefined;
+- `mergeTodos(cardId, body)`: merges `body` into that card's body (PostgreSQL `body || ?::jsonb`);
+- `jobNotes(conversationId)`: the conversation's job notes (an array of strings), or null;
+- `setJobNotes(conversationId, notes)`: keeps the whole list, an empty one as `[]`.
+
+A new card is a message the tools hand to `post`.
 
 Settings: `AGENT_JOB_COST_USD` (what one job may spend; 5 dollars by default, 0 for none),
 `AGENT_RUNSC` (the gVisor binary) and `AGENT_RIPGREP` (ripgrep, with `grep` when it's missing).
