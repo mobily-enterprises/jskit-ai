@@ -1,4 +1,5 @@
 import { createRunsRepository } from "./repositories/runsRepository.js";
+import { requireStoreDependencies } from "./arguments.js";
 
 // Replies in progress, one per conversation at a time, kept in the database so any server can see
 // them (one claimed per conversation, with a heartbeat). Each finished step is saved as it happens,
@@ -17,11 +18,13 @@ export const RUN_LIMITS = { staleSeconds: 60, heartbeatMs: 15000 };
  * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext The owner's system context factory.
  * @param {typeof RUN_LIMITS} [dependencies.limits]
  */
-export function createRuns({
-  resources,
-  systemContext,
-  limits = RUN_LIMITS
-}) {
+export function createRuns(dependencies) {
+  requireStoreDependencies("createRuns", dependencies, ["agentRuns"]);
+  const {
+    resources,
+    systemContext,
+    limits = RUN_LIMITS
+  } = dependencies;
   const repository = createRunsRepository({
     runs: resources.agentRuns,
     options: Object.freeze({ context: systemContext("a reply runs in any conversation, and one a stopped server left is carried on by another server") })

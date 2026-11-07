@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { createTool } from "@jskit-ai/agent/server";
+import { refusePlanningKnex, requirePlanning } from "./arguments.js";
 
 // Keeping a long job in mind: a to-do list the person sees, as one card in the chat updated in
 // place, and private notes. Both are shown to the model at every turn (planningNotes), so they
@@ -17,7 +18,10 @@ import { createTool } from "@jskit-ai/agent/server";
  * @param {number | string} options.conversationId
  * @param {((messages: object[]) => Promise<unknown>) | null} [options.post]
  */
-export function planningTools({ planning, conversationId, post }) {
+export function planningTools(options) {
+  refusePlanningKnex("planningTools", options);
+  const { planning, conversationId, post } = options;
+  requirePlanning("planningTools", planning);
   async function keepNotes({ notes }) {
     await planning.setJobNotes(conversationId, notes);
     return { status: notes.length ? "saved" : "cleared" };
@@ -68,6 +72,7 @@ export function planningTools({ planning, conversationId, post }) {
  * @param {number | string} conversationId
  */
 export async function planningNotes(planning, conversationId) {
+  requirePlanning("planningNotes", planning);
   const card = await planning.currentTodos(conversationId);
   const notes = (await planning.jobNotes(conversationId)) || [];
   const mark = { todo: "[ ]", doing: "[doing]", done: "[x]" };
