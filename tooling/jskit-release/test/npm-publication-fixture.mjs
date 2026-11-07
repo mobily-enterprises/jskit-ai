@@ -151,6 +151,13 @@ if(args[0]==='view'){
 `, { mode: 0o755 });
   const fixtureEnv = { ...process.env, PATH: tools + path.delimiter + process.env.PATH, NPM_TOKEN: "fixture-token",
     RELEASE_TEST_LOG: log, RELEASE_TEST_REGISTRY: registryFile };
+  async function register(record, version, file, integrity) {
+    const spec = `${record.name}@${version}`;
+    registry[spec] = { name: record.name, version, file, tarball: `https://registry.fixture.invalid/${encodeURIComponent(spec)}.tgz`,
+      integrity: integrity || `sha512-${createHash("sha512").update(await readFile(file)).digest("base64")}` };
+    await writeFile(registryFile, JSON.stringify(registry));
+    return registry[spec].integrity;
+  }
   return {
     repo, directory, git, packages, regenerate, syncLockfile, env: fixtureEnv,
     run(args, env = {}, cwd = repo) {
@@ -185,11 +192,19 @@ if(args[0]==='view'){
         else await copyFile(path.join(directory, packed.filename), file);
         await rm(path.join(directory, packed.filename));
       } finally { await writeFile(source, original); await writeFile(manifestPath, originalManifest); }
-      const spec = `${record.name}@${manifest.version}`;
-      registry[spec] = { name: record.name, version: manifest.version, file, tarball: `https://registry.fixture.invalid/${encodeURIComponent(spec)}.tgz`,
-        integrity: integrity || `sha512-${createHash("sha512").update(await readFile(file)).digest("base64")}` };
-      await writeFile(registryFile, JSON.stringify(registry));
-      return registry[spec].integrity;
+      return register(record, manifest.version, file, integrity);
+    },
+    // Publishes every package's current files as its current version, all packed by one npm process.
+    async publishedAll() {
+      const packed = JSON.parse(execFileSync(realNpm, ["pack", "--json", "--pack-destination", directory, "--workspaces=false",
+        ...packages.map(record => record.dir)], { cwd: packages[0].dir, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }));
+      for (const [index, record] of packages.entries()) {
+        const { version } = JSON.parse(await readFile(path.join(record.dir, "package.json"), "utf8"));
+        const file = path.join(directory, `published-${index}-${version}.tgz`);
+        await copyFile(path.join(directory, packed[index].filename), file);
+        await rm(path.join(directory, packed[index].filename));
+        await register(record, version, file);
+      }
     },
     async calls() {
       if (!existsSync(log)) return [];

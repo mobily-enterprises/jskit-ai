@@ -187,7 +187,12 @@ function createPublicationInspection({ directory, registry, configPath = "", env
   async function pack(record) {
     const snapshot = await snapshotFiles(record.dir);
     const previous = candidates.get(record.dir);
-    if (previous && sameSnapshot(previous.snapshot, snapshot)) { stats.packReused++; return previous.tarball; }
+    if (previous && sameSnapshot(previous.snapshot, snapshot)) {
+      // A tarball packAll() just made is this package's first use of it, not a reuse.
+      if (previous.batched) previous.batched = false;
+      else stats.packReused++;
+      return previous.tarball;
+    }
     const destination = await mkdtemp(path.join(directory, "candidate-"));
     const started = performance.now();
     let tarball;
@@ -204,6 +209,33 @@ function createPublicationInspection({ directory, registry, configPath = "", env
     stats.packed++;
     candidates.set(record.dir, { snapshot: await snapshotFiles(record.dir), tarball });
     return tarball;
+  }
+
+  // Packs, in one npm process, each of `records` whose files changed since its last pack, so a release starts npm
+  // once per pass instead of once per package, and pack() then returns those tarballs. npm packs a named directory
+  // as it packs its working directory. A package with its own pack command keeps it, in pack().
+  async function packAll(records) {
+    const pending = [];
+    for (const record of records) {
+      if (record.packageJson.jskitRelease?.pack) continue;
+      const previous = candidates.get(record.dir);
+      if (!previous || !sameSnapshot(previous.snapshot, await snapshotFiles(record.dir))) pending.push(record);
+    }
+    if (pending.length < 2) return;
+    const destination = await mkdtemp(path.join(directory, "candidate-"));
+    const started = performance.now();
+    const packed = await npmJson(["pack", "--json", "--pack-destination", destination, ...registryArgs,
+      ...pending.map(record => record.dir)], { cwd: pending[0].dir, env });
+    if (!Array.isArray(packed) || packed.length !== pending.length) {
+      throw new Error(`npm pack returned ${Array.isArray(packed) ? packed.length : "no"} packages for ${pending.length}.`);
+    }
+    stats.packMs += performance.now() - started;
+    for (const [index, record] of pending.entries()) {
+      stats.packed++;
+      candidates.set(record.dir, {
+        snapshot: await snapshotFiles(record.dir), tarball: packedRecord([packed[index]], record, destination), batched: true
+      });
+    }
   }
 
   async function compare(record, tarball) {
@@ -234,12 +266,13 @@ function createPublicationInspection({ directory, registry, configPath = "", env
     return { state: difference ? "conflict" : "skip", difference };
   }
 
-  return { version, versions, pack, compare, stats };
+  return { version, versions, pack, packAll, compare, stats };
 }
 
 async function planPublication(records, options) {
   const inspection = options.inspection || createPublicationInspection(options);
   const plan = [];
+  await inspection.packAll(records);
   for (const record of records) {
     const tarball = await inspection.pack(record);
     const { state, difference } = await inspection.compare(record, tarball);

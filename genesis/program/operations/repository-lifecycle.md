@@ -40,7 +40,9 @@ retried through preparation without another version bump. Matching source and
 lockfile are a no-op, and repeated preparation does not bump already unpublished
 versions. Installed development dependencies and registry
 access are required. Metadata, verified published contents and unchanged packs
-are reused only within that invocation. All packing is sequential.
+are reused only within that invocation. Packing is sequential: each pass packs
+every package it needs a fresh tarball of in one npm process, and a package with
+its own pack command packs alone.
 
 `npm run npm-publish` (`jskit-release publish`) accepts
 only a clean, current `main` checkout, prepares it, commits the prepared files,

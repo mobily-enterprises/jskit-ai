@@ -386,7 +386,7 @@ test("empty registry metadata stops publication instead of implying absence", as
 async function publishFixtureBaseline(f) {
   f.regenerate();
   await f.syncLockfile();
-  for (let index = 0; index < f.packages.length; index++) await f.published(index);
+  await f.publishedAll();
 }
 
 async function fixtureVersions(f) {
@@ -611,8 +611,10 @@ test("preparation ignores archive metadata differences and reuses package compar
   assert.equal(result.status, 0, result.stderr);
   assert.match(result.stdout, /0\/2 packages need publication/u);
   assert.deepEqual(await snapshotFiles(f.repo), before);
+  // Each package is packed once, both by one npm process, and each published tarball is downloaded once.
+  assert.match(result.stdout, /; 2 packs, \d+ registry lookups, 2 downloads; 2 packs, \d+ lookups, 2 downloads reused\./u);
   const calls = await f.calls();
-  assert.equal(calls.filter(call => call.args[0] === "pack" && call.args[1].startsWith("--")).length, 2);
+  assert.equal(calls.filter(call => call.args[0] === "pack" && call.args[1].startsWith("--")).length, 1);
   assert.equal(calls.filter(call => call.args[0] === "pack" && !call.args[1].startsWith("--")).length, 2);
 });
 
@@ -704,7 +706,7 @@ test("a root package and its file: dependency release together in dependency ord
   await writeFile(pluginManifest, '{"name":"tool","version":"1.0.0"}\n');
   compiler.packageJson.jskitRelease = { versionFiles: ["plugins/tool/plugin.json"] };
   await writeFile(path.join(compiler.dir, "package.json"), JSON.stringify(compiler.packageJson) + "\n");
-  for (let index = 0; index < f.packages.length; index++) await f.published(index);
+  await f.publishedAll();
   f.git("add", "."); f.git("commit", "-m", "Declare plugin version file"); f.git("push", "origin", "main");
 
   const unchanged = f.run(["publish", "--dry-run"], { NPM_TOKEN: "" });
@@ -732,7 +734,7 @@ test("a version file that disagrees with its package stops publication", async t
   await writeFile(path.join(f.repo, "plugin.json"), '{"version":"0.9.0"}\n');
   compiler.packageJson.jskitRelease = { versionFiles: ["plugin.json"] };
   await writeFile(path.join(compiler.dir, "package.json"), JSON.stringify(compiler.packageJson) + "\n");
-  for (let index = 0; index < f.packages.length; index++) await f.published(index);
+  await f.publishedAll();
   await writeFile(path.join(f.repo, "plugin.json"), '{"version":"0.9.0"}\n');
   const directory = await mkdtemp(path.join(f.directory, "validate-"));
   t.after(() => rm(directory, { recursive: true, force: true }));

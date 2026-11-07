@@ -226,6 +226,11 @@ async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false 
 
     async function selectChanged(dependencyChanges, generatedChanges) {
       let bumped = 0;
+      const published = [];
+      for (const record of staged) {
+        if (!selected.has(record.name) && await inspection.version(record) !== null) published.push(record);
+      }
+      await inspection.packAll(published);
       for (const record of staged) {
         if (selected.has(record.name)) continue;
         if (await inspection.version(record) === null) {
