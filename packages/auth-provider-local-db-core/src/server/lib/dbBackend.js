@@ -556,8 +556,20 @@ function createRecords(resources, identities, options) {
  * @param {import("./identityStore.js").IdentityStore} dependencies.identities
  */
 function createLocalDbBackend({ resources, identities }) {
-  function withTransaction(callback) {
-    return resources.localAuthUsers.withTransaction({}, (txOptions) => callback(createRecords(resources, identities, txOptions)));
+  const run = (callback) => resources.localAuthUsers.withTransaction({}, (txOptions) => callback(createRecords(resources, identities, txOptions)));
+
+  // Two first saves of one row at once (a sign-in failure or a registration for a new email) both find no row and
+  // both create it, and the loser fails with a duplicate entry. Its transaction rolled back whole, so the callback runs
+  // once more and then finds the winner's row to update.
+  async function withTransaction(callback) {
+    try {
+      return await run(callback);
+    } catch (error) {
+      if (error?.transactionOutcome !== "rolledBack" || !isDuplicateEntryError(error)) {
+        throw error;
+      }
+      return run(callback);
+    }
   }
 
   return Object.freeze({
