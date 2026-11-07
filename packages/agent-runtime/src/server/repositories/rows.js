@@ -28,6 +28,20 @@ export function rowOf(resource, record) {
 }
 
 /**
+ * The conversation's id, refused when it is missing: a filter on a missing id would select every
+ * conversation's rows, and a write on it would change them all.
+ * @template T
+ * @param {T} conversationId
+ * @returns {T}
+ */
+export function conversationKey(conversationId) {
+  if (conversationId === null || conversationId === undefined || conversationId === "") {
+    throw new TypeError("An agent store call needs the conversation's id.");
+  }
+  return conversationId;
+}
+
+/**
  * The first record of a page as its row, or undefined when the page is empty.
  * @param {{ schema: Record<string, { type?: string }>, idProperty?: string }} resource
  * @param {{ records: ReadonlyArray<Record<string, unknown>> }} page
