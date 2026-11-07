@@ -9,7 +9,6 @@ import {
 } from "./repositoryPersistenceUtils.js";
 import { DEFAULT_CONVERSATION_TITLE } from "../../shared/assistantRuntimeConfig.js";
 
-const TRANSCRIPT_FIELDS = Object.freeze(["summaryText", "summaryThroughTurnId", "transcriptRevision"]);
 
 function normalizeRequiredSurfaceId(value) {
   const normalizedSurfaceId = normalizeSurfaceId(value);
@@ -58,6 +57,40 @@ function rethrowLockError(error) {
     throw new TypeError("Locking a conversation requires its database transaction.");
   }
   throw error;
+}
+
+// A record patch as stored fields, with updatedAt stamped when anything changes.
+function conversationChanges(patch) {
+  const changes = {};
+
+  if (Object.hasOwn(patch, "title")) {
+    changes.title = normalizeText(patch.title) || DEFAULT_CONVERSATION_TITLE;
+  }
+  if (Object.hasOwn(patch, "status")) {
+    changes.status = normalizeText(patch.status).toLowerCase() || "active";
+  }
+  if (Object.hasOwn(patch, "provider")) {
+    changes.provider = normalizeText(patch.provider);
+  }
+  if (Object.hasOwn(patch, "model")) {
+    changes.model = normalizeText(patch.model);
+  }
+  if (Object.hasOwn(patch, "surfaceId")) {
+    changes.surfaceId = normalizeRequiredSurfaceId(patch.surfaceId);
+  }
+  if (Object.hasOwn(patch, "messageCount")) {
+    changes.messageCount = Math.max(0, Number(patch.messageCount || 0));
+  }
+  if (Object.hasOwn(patch, "endedAt")) {
+    changes.endedAt = patch.endedAt ? toWrittenDateTime(patch.endedAt) : null;
+  }
+  if (Object.hasOwn(patch, "metadata")) {
+    changes.metadataJson = stringifyJsonObject(patch.metadata);
+  }
+  if (Object.keys(changes).length > 0) {
+    changes.updatedAt = toWrittenDateTime();
+  }
+  return changes;
 }
 
 /**
@@ -153,35 +186,8 @@ function createRepository({ conversations, systemContext }) {
       return null;
     }
 
-    const changes = {};
-
-    if (Object.hasOwn(patch, "title")) {
-      changes.title = normalizeText(patch.title) || DEFAULT_CONVERSATION_TITLE;
-    }
-    if (Object.hasOwn(patch, "status")) {
-      changes.status = normalizeText(patch.status).toLowerCase() || "active";
-    }
-    if (Object.hasOwn(patch, "provider")) {
-      changes.provider = normalizeText(patch.provider);
-    }
-    if (Object.hasOwn(patch, "model")) {
-      changes.model = normalizeText(patch.model);
-    }
-    if (Object.hasOwn(patch, "surfaceId")) {
-      changes.surfaceId = normalizeRequiredSurfaceId(patch.surfaceId);
-    }
-    if (Object.hasOwn(patch, "messageCount")) {
-      changes.messageCount = Math.max(0, Number(patch.messageCount || 0));
-    }
-    if (Object.hasOwn(patch, "endedAt")) {
-      changes.endedAt = patch.endedAt ? toWrittenDateTime(patch.endedAt) : null;
-    }
-    if (Object.hasOwn(patch, "metadata")) {
-      changes.metadataJson = stringifyJsonObject(patch.metadata);
-    }
-
+    const changes = conversationChanges(patch);
     if (Object.keys(changes).length > 0) {
-      changes.updatedAt = toWrittenDateTime();
       await conversations.patch(normalizedConversationId, changes, {
         ...options,
         context: conversationContext,
@@ -193,23 +199,37 @@ function createRepository({ conversations, systemContext }) {
     return findById(normalizedConversationId, { ...options, forUpdate: false });
   }
 
-  // The transcript's own state stays out of conversation records, which reach the browser.
-  async function readTranscriptState(conversationId, options = {}) {
+  /**
+   * The conversation and its transcript's own state, its revision and summary, from one read (under a row lock with
+   * `forUpdate`), or null. The transcript state stays out of the record, which reaches the browser.
+   * @param {unknown} conversationId
+   * @param {{ forUpdate?: boolean, context?: object | null, trx?: object | null }} [options]
+   */
+  async function findWithTranscriptState(conversationId, options = {}) {
     const id = normalizeInputRecordId(conversationId);
     if (!id) return null;
-    const record = await conversations.get(id, { fields: [...TRANSCRIPT_FIELDS] }, { ...options, context: conversationContext, missing: "skip" });
+    const record = await readRecord(id, options, conversationContext);
     if (!record) return null;
     return {
+      conversation: mapConversationRecord(record),
       revision: record.transcriptRevision || "",
       summary: record.summaryText == null ? null
         : { text: String(record.summaryText), throughTurnId: String(record.summaryThroughTurnId || "") }
     };
   }
 
-  async function writeTranscriptState(conversationId, { revision, summary }, options = {}) {
+  /**
+   * Writes the transcript's revision and summary and, in the same statement, the record changes of `changes` (as
+   * updateById takes them), so a save that appends messages updates its conversation once. An unknown id writes nothing.
+   * @param {unknown} conversationId
+   * @param {{ revision: string, summary: { text: string, throughTurnId: string } | null, changes?: Record<string, unknown> }} state
+   * @param {{ context?: object | null, trx?: object | null }} [options]
+   */
+  async function writeTranscriptState(conversationId, { revision, summary, changes = {} }, options = {}) {
     const id = normalizeInputRecordId(conversationId);
     if (!id) throw new TypeError("writeTranscriptState requires conversationId.");
     await conversations.patch(id, {
+      ...conversationChanges(changes),
       transcriptRevision: revision,
       summaryText: summary ? summary.text : null,
       summaryThroughTurnId: summary ? summary.throughTurnId : null
@@ -258,7 +278,7 @@ function createRepository({ conversations, systemContext }) {
     create,
     updateById,
     listForActorScope,
-    readTranscriptState,
+    findWithTranscriptState,
     writeTranscriptState,
     transaction
   });

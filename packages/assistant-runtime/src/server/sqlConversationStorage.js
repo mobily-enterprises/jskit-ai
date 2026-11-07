@@ -137,9 +137,9 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
   }
 
   async function load(id, txOptions, write = false) {
-    const conversation = await conversationsRepository.findById(id, { ...txOptions, forUpdate: write });
-    if (!conversation) throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
-    const { revision, summary } = await conversationsRepository.readTranscriptState(id, txOptions);
+    const found = await conversationsRepository.findWithTranscriptState(id, { ...txOptions, forUpdate: write });
+    if (!found) throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
+    const { conversation, revision, summary } = found;
     const lastSeq = await messagesRepository.lastSequence(id, txOptions);
     let saved = cache.get(id);
     if (saved && revision && saved.revision === revision && saved.lastSeq === lastSeq) remember(id, saved);
@@ -153,6 +153,7 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
     return { conversation, summary, lastSeq, rows: saved.rows, projection: { ...projection, record }, next: null };
   }
 
+  // Writes under the conversation's row lock, so each new message takes the next seq after the loaded last one.
   async function save(id, loaded, record, txOptions) {
     const { conversation, projection } = loaded;
     let added = 0;
@@ -166,7 +167,7 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
         }
       } else {
         inserted.push(await messagesRepository.create({ conversationId: id, workspaceId: conversation.workspaceId,
-          actorUserId: conversation.createdByUserId, ...fields }, txOptions));
+          actorUserId: conversation.createdByUserId, seq: loaded.lastSeq + added + 1, ...fields }, txOptions));
         added += 1;
       }
     };
@@ -203,11 +204,14 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
     const patch = { ...(added ? { messageCount: conversation.messageCount + added } : {}),
       ...(title !== conversation.title ? { title } : {}),
       ...(!isDeepStrictEqual(record.metadata, conversation.metadata) ? { metadata: record.metadata } : {}) };
-    if (Object.keys(patch).length) await conversationsRepository.updateById(id, patch, txOptions);
     const summary = record.summary ? { text: record.summary.text, throughTurnId: record.summary.throughTurnId } : null;
-    if (!updated.size && !inserted.length && isDeepStrictEqual(summary, loaded.summary)) return;
+    if (!updated.size && !inserted.length && isDeepStrictEqual(summary, loaded.summary)) {
+      if (Object.keys(patch).length) await conversationsRepository.updateById(id, patch, txOptions);
+      return;
+    }
     const revision = randomUUID();
-    await conversationsRepository.writeTranscriptState(id, { revision, summary }, txOptions);
+    // One statement writes the transcript state and the record's changes.
+    await conversationsRepository.writeTranscriptState(id, { revision, summary, changes: patch }, txOptions);
     const rows = loaded.rows.map(row => updated.get(row.id) || row).concat(inserted);
     loaded.next = { revision, lastSeq: Math.max(loaded.lastSeq, ...inserted.map(row => row.seq)), rows,
       projection: inspectSqlConversationRows(conversation, rows) };

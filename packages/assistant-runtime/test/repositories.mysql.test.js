@@ -105,8 +105,8 @@ test("the config repository joins a caller's transaction and rolls back with it"
 test("a conversation record has a fixed shape, defaults and normalizations", async () => {
   requireTestDatabase(process.env);
   const conversations = store.conversations;
-  assert.deepEqual(Object.keys(conversations).sort(), ["create", "findById", "findByIdForActorScope", "listForActorScope",
-    "readTranscriptState", "transaction", "updateById", "withTransaction", "writeTranscriptState"]);
+  assert.deepEqual(Object.keys(conversations).sort(), ["create", "findById", "findByIdForActorScope", "findWithTranscriptState",
+    "listForActorScope", "transaction", "updateById", "withTransaction", "writeTranscriptState"]);
   await assert.rejects(conversations.create({ createdByUserId: 5 }), { name: "TypeError", message: "conversationsRepository requires surfaceId." });
 
   const plain = await conversations.create({ surfaceId: " Home ", createdByUserId: 5 });
@@ -244,20 +244,40 @@ test("listForActorScope pages newest first by id, within one actor, surface and 
   assert.match(capped.nextCursor, ID);
 });
 
-test("a conversation's transcript state is kept apart from its record", async () => {
+test("a conversation's transcript state is kept apart from its record, and written with the record's changes in one statement", async () => {
   requireTestDatabase(process.env);
   const conversations = store.conversations;
   const made = await conversations.create({ surfaceId: "home", createdByUserId: 51 });
-  assert.equal(await conversations.readTranscriptState("nope"), null);
-  assert.equal(await conversations.readTranscriptState("999999999"), null);
-  assert.deepEqual(await conversations.readTranscriptState(made.id), { revision: "", summary: null });
+  const transcriptOf = async (id, options) => {
+    const found = await conversations.findWithTranscriptState(id, options);
+    return found && { revision: found.revision, summary: found.summary };
+  };
+  assert.equal(await conversations.findWithTranscriptState("nope"), null);
+  assert.equal(await conversations.findWithTranscriptState("999999999"), null);
+  assert.deepEqual(await conversations.findWithTranscriptState(made.id), { conversation: made, revision: "", summary: null });
   await conversations.writeTranscriptState(made.id, { revision: "r1", summary: { text: "The summary.", throughTurnId: "000003" } });
-  assert.deepEqual(await conversations.readTranscriptState(made.id), { revision: "r1", summary: { text: "The summary.", throughTurnId: "000003" } });
+  assert.deepEqual(await transcriptOf(made.id), { revision: "r1", summary: { text: "The summary.", throughTurnId: "000003" } });
   assert.deepEqual(await conversations.findById(made.id), made, "the record does not show it");
   await conversations.writeTranscriptState(made.id, { revision: "r2", summary: null });
-  assert.deepEqual(await conversations.readTranscriptState(made.id), { revision: "r2", summary: null });
+  assert.deepEqual(await transcriptOf(made.id), { revision: "r2", summary: null });
   await conversations.writeTranscriptState(made.id, { revision: "r3", summary: { text: "", throughTurnId: "" } });
-  assert.deepEqual(await conversations.readTranscriptState(made.id), { revision: "r3", summary: { text: "", throughTurnId: "" } }, "an empty summary is still a summary");
+  assert.deepEqual(await transcriptOf(made.id), { revision: "r3", summary: { text: "", throughTurnId: "" } }, "an empty summary is still a summary");
+
+  const statements = [];
+  const listener = (query) => statements.push(query.sql);
+  knex.on("query", listener);
+  try {
+    await conversations.writeTranscriptState(made.id, { revision: "r4", summary: null, changes: { messageCount: 2, title: " Renamed " } });
+  } finally {
+    knex.off("query", listener);
+  }
+  // One UPDATE writes both (on MySQL, json-rest-api's patch first locks the row it selects, inside its own transaction).
+  assert.equal(statements.filter((sql) => /^update /u.test(sql)).length, 1);
+  const locked = await conversations.withTransaction({}, (txOptions) => conversations.findWithTranscriptState(made.id, { ...txOptions, forUpdate: true }));
+  assert.deepEqual({ ...locked, conversation: { ...locked.conversation, updatedAt: "" } }, {
+    conversation: { ...made, title: "Renamed", messageCount: 2, updatedAt: "" }, revision: "r4", summary: null
+  });
+  assert.notEqual(locked.conversation.updatedAt, "", "the record's changes stamp updatedAt");
   await assert.rejects(conversations.writeTranscriptState("nope", { revision: "r", summary: null }),
     { name: "TypeError", message: "writeTranscriptState requires conversationId." });
   assert.equal(await conversations.writeTranscriptState("999999999", { revision: "r", summary: null }), undefined, "an unknown id is written silently");
