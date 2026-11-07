@@ -88,8 +88,8 @@ function createFeatureDependencies(routes, owned = []) {
         return [resource.name, fakeHandle(resource)];
       })));
     },
-    createSystemContext(declaration) {
-      return Object.freeze({ system: true, ...declaration });
+    declareSystemScope(feature, systemScope) {
+      return (reason) => Object.freeze({ system: true, feature, systemScope, reason });
     }
   };
   const http = {

@@ -25,7 +25,7 @@ async function planningStore(knex) {
     }),
     defineTableResource({ name: "chatConversations", tableName: PLANNING_TABLES.conversations, ownership: "public", schema: { job_notes: { type: "array", nullable: true } } })
   ]);
-  const options = { context: runtime.createSystemContext({ feature: "chat.test", systemScope: "the planning tools, under test", reason: "the planning tools read and write any conversation under test" }) };
+  const options = { context: runtime.declareSystemScope("chat.test", "the planning tools, under test")("the planning tools read and write any conversation under test") };
   return {
     async currentTodos(conversationId) {
       const { records } = await chatMessages.query({ filters: { todosOf: String(conversationId) }, sort: ["-id"], page: { size: 1 } }, options);

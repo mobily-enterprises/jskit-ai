@@ -79,7 +79,7 @@ async function createShelfFixture(t) {
   });
   const runtime = await createTestResourceRuntime({ knex });
   const { books: handle } = await runtime.own("books.feature", [books]);
-  const systemContext = runtime.createSystemContext({ feature: "books.feature", systemScope: "tests", reason: "check scope" });
+  const systemContext = runtime.declareSystemScope("books.feature", "tests")("check scope");
   return { knex, runtime, books: handle, systemContext };
 }
 

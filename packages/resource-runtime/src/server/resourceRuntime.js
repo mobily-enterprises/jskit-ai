@@ -76,7 +76,8 @@ async function applyGrouped(policy, args) {
 
 /**
  * The resource runtime behind `runtime.resources`: features own their tables
- * through it (`own`), and background work asks it for system contexts.
+ * through it (`own`), and a feature that declares a system scope gets its
+ * system context factory from it (`declareSystemScope`).
  * @param {object} dependencies
  * @param {import("./types.js").RuntimeJsonRestApi} dependencies.api The host from createResourceHost.
  * @param {number} [dependencies.requestRowLimit] Rows queryAll() may read in a request context.
@@ -88,6 +89,8 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
   const ownedByName = new Map();
   /** @type {Map<string, string>} */
   const ownerByTable = new Map();
+  /** @type {Map<string, string>} The system scope each feature declared. */
+  const scopeByFeature = new Map();
 
   function claim(featureId, resource) {
     const tableOwner = ownerByTable.get(resource.tableName);
@@ -195,10 +198,40 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
     return [...ownedByName].map(([name, { featureId, resource }]) => Object.freeze({ name, tableName: resource.tableName, featureId }));
   }
 
+  /**
+   * Records that the feature works across every workspace and user, and answers its system context factory, the only
+   * way to a system context: each call names its reason, so every place that skips the ownership scope says why. A
+   * feature declares one scope; declaring it again answers another factory for it.
+   * @param {string} featureId
+   * @param {string} systemScope Why the feature works across every workspace and user.
+   */
+  function declareSystemScope(featureId, systemScope) {
+    const scope = typeof systemScope === "string" ? systemScope.trim() : "";
+    if (!scope) {
+      throw new TypeError(`Feature "${featureId}" systemScope must say why it works across every workspace and user.`);
+    }
+    if (scopeByFeature.has(featureId) && scopeByFeature.get(featureId) !== scope) {
+      throw new TypeError(`Feature "${featureId}" declares one system scope, and it already declared "${scopeByFeature.get(featureId)}".`);
+    }
+    scopeByFeature.set(featureId, scope);
+    return function systemContext(reason) {
+      if (typeof reason !== "string" || !reason.trim()) {
+        throw new TypeError(`Feature "${featureId}" systemContext(reason) needs the reason this work reads or writes every workspace's rows.`);
+      }
+      return createSystemContext({ feature: featureId, systemScope: scope, reason: reason.trim() });
+    };
+  }
+
+  /** Every feature that declared a system scope, with the scope. */
+  function systemScopes() {
+    return [...scopeByFeature].map(([featureId, systemScope]) => Object.freeze({ featureId, systemScope }));
+  }
+
   return Object.freeze({
     own,
-    createSystemContext,
-    ownedTables
+    ownedTables,
+    declareSystemScope,
+    systemScopes
   });
 }
 

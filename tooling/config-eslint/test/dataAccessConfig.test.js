@@ -5,7 +5,7 @@ import { baseConfig } from "../base.js";
 import { dataAccessConfig, dataAccessRules } from "../dataAccess.js";
 import { jskitPlugin } from "../plugin/index.js";
 
-const DATA_ACCESS_RULES = Object.freeze(["no-direct-knex", "no-transaction-reader", "sql-literal", "no-hand-scope", "knex-reason"]);
+const DATA_ACCESS_RULES = Object.freeze(["no-direct-knex", "no-transaction-reader", "sql-literal", "no-hand-scope", "no-hand-context", "knex-reason"]);
 const PROBE = [
   "export function listOpen(knex, options) {",
   "  return knex(\"receivals\").where(\"workspace_id\", options.context.workspaceId).whereRaw(\"status = \" + options.status);",

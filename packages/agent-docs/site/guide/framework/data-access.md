@@ -268,6 +268,10 @@ const SettlementFeature = defineFeature({
   behind a console permission, with bounded output.
 - `jskit check` lists every system scope and every `systemContext` call with
   its reason.
+- A system context comes only from `systemScope`, and a context's scope only
+  from the request or from `forWorkspace`, `forUser` and `forWorkspaceUser`:
+  lint refuses `createSystemContext` and hand-written `scopeValues`, and a
+  context naming two workspaces or two users throws.
 
 Bad: a job read every record of every workspace inside a request path, every
 hour.
@@ -373,6 +377,7 @@ code. Tests, migrations and seeds are outside them.
 | `jskit/no-transaction-reader` | `options.trx`, `trx \|\| knex`, a `trx = knex` default, `trx` destructured from options | [Transactions](#transactions) |
 | `jskit/no-hand-scope` | a hand-written `where` on `workspace_id` or `workspaceId` | [Layer 1: the table resource](#layer-1-the-table-resource) |
 | `jskit/sql-literal` | raw SQL built from strings or templates instead of one literal with bindings | [Layer 5: reports the resource cannot express](#layer-5-reports-the-resource-cannot-express) |
+| `jskit/no-hand-context` | a system context made with `createSystemContext`, a context's `scopeValues` written by hand | [Background work](#background-work) |
 | `jskit/knex-reason` | a `scopedQuery()` report outside a named repository method under `// Knex: <kind> - <reason>` | [Layer 5: reports the resource cannot express](#layer-5-reports-the-resource-cannot-express) |
 
 ### Exceptions
@@ -386,6 +391,6 @@ line per rule before its first line of code:
 // readable-check: allow no-direct-knex - infrastructure: the test databases' snapshot and restore
 ```
 
-`jskit check` lists every such file for review. The other three rules take no
+`jskit check` lists every such file for review. The other four rules take no
 exception. `jskit check` also fails a table with two table resources, and a
 system scope or `systemContext` call without a reason.

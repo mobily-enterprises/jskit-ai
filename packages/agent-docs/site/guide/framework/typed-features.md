@@ -688,7 +688,7 @@ helper, never by hand.**
 | a created record's id | `resolveCrudJsonApiEntityIdFromResult(result)` (`@jskit-ai/crud-core/server/serviceEvents`) |
 | a CRUD record change's event | `buildCrudRecordChangedEvent({ namespace, operation, entityId, audience })` (`@jskit-ai/crud-core/server/serviceEvents`) |
 | the workspace a request asks for, before any action context | `requestedWorkspaceScope(request)` (`@jskit-ai/workspaces-core/server/support/workspaceRouteInput`) |
-| a context's workspace id | `resolveWorkspaceScopeValue(context)` (`@jskit-ai/resource-runtime/server/resourceHost`) |
+| a context's workspace id | `resolveWorkspaceScopeValue(context)` (`@jskit-ai/resource-runtime/server`) |
 
 A call's transaction is not a fact to read: pass `options` on, and inside a
 transaction the `txOptions` that `withTransaction` hands its work

@@ -107,7 +107,7 @@ shared modules too (`packages/billing/src/shared/**`). Test files and `test`,
 
 ## Data access
 
-The resource is the only door to a table. `baseConfig` makes five rules
+The resource is the only door to a table. `baseConfig` makes six rules
 errors in `**/src/server/**`, `**/src/shared/**`, `server/**` and `server.js`;
 tests, migrations and seeds are not checked. Each finding links its section of
 the [data-access guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access).
@@ -122,6 +122,9 @@ the [data-access guide](https://mobily-enterprises.github.io/jskit-ai/guide/fram
   not one literal, and a literal with `?` placeholders but no bindings.
 - `jskit/no-hand-scope`: `workspace_id` (or `<table>.workspace_id`) given to a
   `where` filter, as a column or an object key.
+- `jskit/no-hand-context`: a system context made by hand (`createSystemContext`
+  imported, read or destructured) and a context's `scopeValues` written by
+  hand; a system context comes only from a feature's `systemScope`.
 - `jskit/knex-reason`: a `scopedQuery()` report outside a repository module, or
   without `// Knex: <kind> - <reason>` directly above its named method. The
   kinds are `totals`, `report`, `newest-per-group`, `subquery`, `hot-path`
@@ -139,7 +142,7 @@ import { readFile } from "node:fs/promises";
 ```
 
 `jskit/allow-comment-form` checks its reason like any other, and an excuse it
-refuses excuses nothing. No comment excuses the other three rules.
+refuses excuses nothing. No comment excuses the other four rules.
 
 ## Playwright login
 

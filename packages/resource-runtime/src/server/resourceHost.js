@@ -554,12 +554,14 @@ function resolveWorkspaceScopeValue(context = null) {
 }
 
 function resolveUserScopeValue(context = null) {
-  const explicitScopeValue = normalizeScopeValue(context?.scopeValues?.userId);
-  if (explicitScopeValue) {
-    return explicitScopeValue;
+  const scopedUserId = normalizeScopeValue(context?.scopeValues?.userId);
+  const visibleUserId = normalizeScopeValue(context?.visibilityContext?.userId);
+  if (scopedUserId && visibleUserId && scopedUserId !== visibleUserId) {
+    throw new Error(
+      `safety invariant: a context names two users (${scopedUserId}, ${visibleUserId}); one execution acts for one user.`
+    );
   }
-
-  return normalizeScopeValue(context?.visibilityContext?.userId);
+  return scopedUserId || visibleUserId;
 }
 
 function isJsonRestResourceMissingError(error = null) {

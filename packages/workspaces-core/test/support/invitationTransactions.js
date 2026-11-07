@@ -1,10 +1,8 @@
 import assert from "node:assert/strict";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
-import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
-import { createResourceRuntime } from "@jskit-ai/resource-runtime/server";
-import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
+import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
 import { createWorkspaceRoleCatalog } from "../../src/shared/roles.js";
@@ -46,8 +44,12 @@ export async function verifyInvitationTransactions(t, db) {
     });
   }
   // The resource runtime on a json-rest-api host of the test's own, whose afterCommit hook can fail on request.
-  const api = await createResourceHost({ knex: db, logger: silentLogger });
-  const runtime = createResourceRuntime({ api });
+  let failCompletionForMethod = null;
+  const runtime = await createTestResourceRuntime({ knex: db, hostHooks: { afterCommit: ({ context }) => {
+    if (context.scopeName === "workspaceInvites" && context.method === failCompletionForMethod) {
+      throw new Error("Controlled completion failure");
+    }
+  } } });
   const { profiles } = await UsersIdentityProvider.setup({
     extensions: createUsersExtensions(), actionCatalogue: { register() {} }, resourceRuntime: runtime
   }, {});
@@ -64,12 +66,6 @@ export async function verifyInvitationTransactions(t, db) {
       trainingUserId: { type: "id", nullable: true, storage: { column: "training_user_id" } }
     }
   })]);
-  let failCompletionForMethod = null;
-  await api.customize({ hooks: { afterCommit: ({ context }) => {
-    if (context.scopeName === "workspaceInvites" && context.method === failCompletionForMethod) {
-      throw new Error("Controlled completion failure");
-    }
-  } } });
   const { workspaces, memberships } = createWorkspaceRecords(resources);
   const invites = invitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
   const roleCatalog = createWorkspaceRoleCatalog({ roleCatalog: {

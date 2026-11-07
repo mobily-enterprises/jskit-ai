@@ -39,9 +39,9 @@ const PARAMETER_RULES = new Set(["dependency-default", "required-collaborators"]
 const FUNCTION_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 // The data-access rules. A module whose job is data access itself (a migration runner, test databases, protocol state)
 // is excused from the first two as a whole, by an `infrastructure:` comment in its first lines, before any code. No
-// other rule takes that prefix, and the other three data-access rules take no excuse at all.
+// other rule takes that prefix, and the other four data-access rules take no excuse at all.
 const INFRASTRUCTURE_RULES = new Set(["no-direct-knex", "no-transaction-reader"]);
-const UNEXCUSABLE_RULES = new Set(["sql-literal", "no-hand-scope", "knex-reason"]);
+const UNEXCUSABLE_RULES = new Set(["sql-literal", "no-hand-scope", "no-hand-context", "knex-reason"]);
 const INFRASTRUCTURE_PREFIX = /^infrastructure:/u;
 
 /**
@@ -143,7 +143,7 @@ function allowLines(comment, opening = 2) {
   });
 }
 
-// What is wrong with a data-access rule's exception, or "": the three rules no comment excuses, and the infrastructure
+// What is wrong with a data-access rule's exception, or "": the four rules no comment excuses, and the infrastructure
 // excuse anywhere but a whole data-access file's first lines.
 function dataAccessProblem(rule, reason, inHeader) {
   const name = rule.replace(/^jskit\//u, "");

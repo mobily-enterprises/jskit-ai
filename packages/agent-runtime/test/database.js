@@ -35,7 +35,7 @@ export async function testDatabase(context) {
 export async function agentOwner(knex, { columns } = {}) {
   const runtime = await createTestResourceRuntime({ knex });
   const resources = await runtime.own("agent.test", Object.values(agentResources({ columns })));
-  const systemContext = (reason) => runtime.createSystemContext({ feature: "agent.test", systemScope: "the agent's stores, under test", reason });
+  const systemContext = runtime.declareSystemScope("agent.test", "the agent's stores, under test");
   return { resources, systemContext };
 }
 

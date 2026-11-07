@@ -83,7 +83,7 @@
  * `owns` and `systemScope`. The kernel knows nothing else about resources.
  * @typedef {object} ResourceRuntime
  * @property {(featureId: string, owns: ReadonlyArray<object>) => Record<string, object> | Promise<Record<string, object>>} own Registers the feature as the one owner of each resource and returns their handles, by resource name. Throws when another feature owns one of their tables.
- * @property {(request: { feature: string, systemScope: string, reason: string }) => object} createSystemContext A context that reads and writes every workspace's and user's rows, for the reason given.
+ * @property {(featureId: string, systemScope: string) => (reason: string) => object} declareSystemScope Records the feature's system scope and returns its system context factory: each call, given its reason, answers a context that reads and writes every workspace's and user's rows.
  */
 
 /**

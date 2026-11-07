@@ -74,31 +74,17 @@ function normalizeSystemScope(systemScope, featureId) {
 }
 
 /**
- * The system context factory a feature's setup receives. Each call names its
- * reason, so every place that skips the ownership scope says why.
- * @param {import("../types.js").ResourceRuntime} resourceRuntime
- * @param {string} featureId
- * @param {string} systemScope
- */
-function createSystemContextFactory(resourceRuntime, featureId, systemScope) {
-  return function systemContext(reason) {
-    if (typeof reason !== "string" || !reason.trim()) {
-      throw new TypeError(`Feature "${featureId}" systemContext(reason) needs the reason this work reads or writes every workspace's rows.`);
-    }
-    return resourceRuntime.createSystemContext({ feature: featureId, systemScope, reason: reason.trim() });
-  };
-}
-
-/**
  * What setup receives besides its own dependencies: the handles of the
- * resources the feature owns, and its system context factory.
+ * resources the feature owns, and the system context factory the resource
+ * runtime answers for its declared system scope, whose every call names its
+ * reason.
  * @param {Record<string, any>} dependencies
  * @param {{ featureId: string, owns: ReadonlyArray<object> | null, systemScope: string | null }} featureResources
  */
 async function resourceDependencies({ resourceRuntime }, { featureId, owns, systemScope }) {
   return {
     ...(owns ? { resources: await resourceRuntime.own(featureId, owns) } : {}),
-    ...(systemScope ? { systemContext: createSystemContextFactory(resourceRuntime, featureId, systemScope) } : {})
+    ...(systemScope ? { systemContext: resourceRuntime.declareSystemScope(featureId, systemScope) } : {})
   };
 }
 
