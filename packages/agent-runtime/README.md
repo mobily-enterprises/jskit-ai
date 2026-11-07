@@ -19,18 +19,26 @@ itself, and why it works as it does, is in `@jskit-ai/agent`'s README.
 | Asking the person: a card with answers to pick from, or in the reply where the chat shows no cards | `askTools`, `askInReplyTools` | — |
 | All of these tools for one turn, each left out when what it needs isn't given | `defaultTools` | — |
 
-`migrations/agent_initial.cjs` creates the tables. Each factory takes the names it uses, so an app
-can rename them or add its own columns (`owner(row)` for goals, extra columns on a claimed run).
+`migrations/agent_initial.cjs` creates the tables. `agentResources()` describes each one as a table
+resource (`agentRuns`, `agentGoals`, `agentSummaries`, `agentSummaryQueue`, `agentCommands`) with
+public ownership: the rows belong to conversations the app guards, and only these stores reach them.
+An app adds its own columns with `agentResources({ columns: { goals: { bot_id: { type: "id",
+nullable: true } } } })`, then fills them through `owner(row)` for goals or the owner columns of a
+claimed run.
 
 ## Wiring
 
-The factories take their collaborators by name, once, at startup:
+One feature of the app owns the agent's tables: it lists `Object.values(agentResources({ columns }))`
+in its `owns` and declares a `systemScope`. Its setup hands its handles and its system context
+factory to the stores, which reach every conversation from any server, each in a system context
+with its own reason. The factories take their collaborators by name, once, at startup:
 
 ```js
-const runs = createRuns({ knex });
-const goals = createGoals({ knex, runs, notices, find, respond, claim: (row) => runs.claim(row.id), record });
-const summaries = createSummaries({ knex, model, app: "the app", history, notices });
-const commands = createCommands({ knex, executor: gvisorExecutor() });
+const agent = { resources, systemContext }; // the owning feature's handles and system context factory
+const runs = createRuns(agent);
+const goals = createGoals({ ...agent, runs, notices, find, respond, claim: (row) => runs.claim(row.id), record });
+const summaries = createSummaries({ ...agent, model, app: "the app", history, notices });
+const commands = createCommands({ ...agent, executor: gvisorExecutor() });
 ```
 
 `notices` is optional: `{ publish(channel, key, payload), subscribe(channel, key, listener) }`,

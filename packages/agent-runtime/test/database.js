@@ -1,6 +1,8 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import knexLib from "knex";
+import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
+import { agentResources } from "../src/server/index.js";
 
 // A disposable PostgreSQL schema with only this package's tables, in the test database: run with
 // DB_NAME set to TEST_DB_NAME (and the usual DB_HOST, DB_PORT, DB_USER and DB_PASSWORD).
@@ -21,3 +23,16 @@ export async function testDatabase(context) {
   });
   return knex;
 }
+
+// What the stores take from the feature that owns the agent's tables, on the test's schema: its
+// handles and its system context factory. `columns` adds the app's own columns, as agentResources
+// takes them; add them to the table before.
+export async function agentOwner(knex, { columns } = {}) {
+  const runtime = await createTestResourceRuntime({ knex });
+  const resources = await runtime.own("agent.test", Object.values(agentResources({ columns })));
+  const systemContext = (reason) => runtime.createSystemContext({ feature: "agent.test", systemScope: "the agent's stores, under test", reason });
+  return { resources, systemContext };
+}
+
+// The app's own column the tests add to a table.
+export const BOT_COLUMN = Object.freeze({ bot_id: Object.freeze({ type: "id", nullable: true }) });

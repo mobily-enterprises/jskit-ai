@@ -1,5 +1,6 @@
 // @jskit-ai/agent-runtime: the agent's own tables and its coding extras, for an app that adds them
 // on purpose. See README.md.
+export { agentResources } from "./resources.js";
 export { createRuns, startResumer, RUN_LIMITS } from "./runs.js";
 export { createGoals, goalTools, roundPrompt, GOAL_LIMITS } from "./goals.js";
 export { createSummaries } from "./summaryStore.js";

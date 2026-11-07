@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SUMMARY_LIMITS } from "@jskit-ai/agent/server";
 import { createSummaries } from "../src/server/index.js";
-import { DATABASE, testDatabase } from "./database.js";
+import { DATABASE, agentOwner, testDatabase } from "./database.js";
 
 // Summarising conversations in the background: past a size, a conversation is queued; one server
 // summarises all but its latest turns, folding in the previous summary; replies read the summary
@@ -12,6 +12,7 @@ const limits = { ...SUMMARY_LIMITS, compactAt: 500, keepTurns: 2, keepTokens: 40
 
 async function conversations(context) {
   const knex = await testDatabase(context);
+  const agent = await agentOwner(knex);
   await knex.schema.createTable("chat_messages", (table) => {
     table.bigIncrements("id").primary();
     table.bigInteger("conversation_id").notNullable();
@@ -29,18 +30,18 @@ async function conversations(context) {
     toModel: async (messages) => messages.map((message) => ({ role: message.role === "user" ? "user" : "assistant", content: message.body.text })),
     named: false
   });
-  return { knex, say, history, inherited };
+  return { knex, agent, say, history, inherited };
 }
 
 test("long conversations are summarised in the background, once, and replies read the summary", { skip: DATABASE }, async (context) => {
-  const { knex, say, history } = await conversations(context);
+  const { knex, agent, say, history } = await conversations(context);
   const summaries = [];
   let summarizer = async ({ previous, text }) => {
     summaries.push({ previous, text });
     return `SUMMARY ${summaries.length}`;
   };
   const tracked = [];
-  const store = createSummaries({ knex, history, limits, summarize: (input) => summarizer(input), track: (conversationId, work) => (tracked.push(conversationId), work()) });
+  const store = createSummaries({ ...agent, history, limits, summarize: (input) => summarizer(input), track: (conversationId, work) => (tracked.push(conversationId), work()) });
   const queued = () => knex("agent_summary_queue").where({ conversation_id: 1 }).first();
   const exchange = async (n, size) => {
     await say(1, "user", `${n === 1 ? "My name is Ada and my budget is 4,200 euros. " : `Message ${n}. `}${"More detail. ".repeat(size)}`);
@@ -114,9 +115,9 @@ test("long conversations are summarised in the background, once, and replies rea
 });
 
 test("a first summary takes in what the conversation inherited", { skip: DATABASE }, async (context) => {
-  const { knex, say, history, inherited } = await conversations(context);
+  const { knex, agent, say, history, inherited } = await conversations(context);
   const captured = [];
-  const store = createSummaries({ knex, history, limits: { ...limits, minTokens: 1 }, summarize: async ({ text }) => (captured.push(text), "ROOM SUMMARY") });
+  const store = createSummaries({ ...agent, history, limits: { ...limits, minTokens: 1 }, summarize: async ({ text }) => (captured.push(text), "ROOM SUMMARY") });
   inherited.set(2, [{ id: "0", role: "user", kind: "text", body: { text: "Inherited: the launch is on 3 March." } }]);
   for (let n = 0; n < 4; n += 1) {
     await say(2, "user", `Room message ${n}`);
@@ -128,15 +129,15 @@ test("a first summary takes in what the conversation inherited", { skip: DATABAS
   assert.match(captured[0], /^Person: Room message 0$/mu);
   assert.match(captured[0], /^Bot: Room answer 0$/mu);
   assert.equal((await knex("agent_summaries").where({ conversation_id: 2 }).first()).summary, "ROOM SUMMARY");
-  assert.deepEqual(await createSummaries({ knex, history, limits }).compact(3), { skipped: "nothing to summarise yet" });
+  assert.deepEqual(await createSummaries({ ...agent, history, limits }).compact(3), { skipped: "nothing to summarise yet" });
   await say(4, "user", "a");
   await say(4, "bot", "b");
   await say(4, "user", "c");
-  assert.deepEqual(await createSummaries({ knex, history, limits: { ...limits, keepTurns: 1 } }).compact(4), { skipped: "too little to summarise" });
+  assert.deepEqual(await createSummaries({ ...agent, history, limits: { ...limits, keepTurns: 1 } }).compact(4), { skipped: "too little to summarise" });
 });
 
 test("a reply summarises first, rather than dropping messages unseen, when summarising fell behind", { skip: DATABASE }, async (context) => {
-  const { knex, say, history } = await conversations(context);
+  const { agent, say, history } = await conversations(context);
   const filler = "We talked about the garden, the weather and the week ahead. ".repeat(14);
   for (let n = 0; n < 12; n += 1) {
     await say(5, "user", `${n === 0 ? "My sister Lucia's birthday is 14 March. " : ""}${filler}`);
@@ -144,7 +145,7 @@ test("a reply summarises first, rather than dropping messages unseen, when summa
   }
   const summaries = [];
   const store = createSummaries({
-    knex,
+    ...agent,
     history,
     limits: { ...SUMMARY_LIMITS, compactAt: 1000000, summariseNowAt: 1500, keepTurns: 2, keepTokens: 400, minTokens: 50 },
     summarize: async ({ text }) => {
@@ -160,7 +161,7 @@ test("a reply summarises first, rather than dropping messages unseen, when summa
 });
 
 test("a notice wakes every server's loop, which summarises what's queued", { skip: DATABASE }, async (context) => {
-  const { knex, say, history } = await conversations(context);
+  const { knex, agent, say, history } = await conversations(context);
   const listeners = [];
   const published = [];
   const notices = {
@@ -173,7 +174,7 @@ test("a notice wakes every server's loop, which summarises what's queued", { ski
       return () => listeners.splice(listeners.indexOf(listener), 1);
     }
   };
-  const store = createSummaries({ knex, history, notices, limits, summarize: async () => "WOKEN SUMMARY" });
+  const store = createSummaries({ ...agent, history, notices, limits, summarize: async () => "WOKEN SUMMARY" });
   const loop = store.start({ everyMs: 60000 });
   for (let n = 0; n < 6; n += 1) {
     await say(6, "user", `Message ${n}. ${"Detail. ".repeat(60)}`);
