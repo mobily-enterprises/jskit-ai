@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -9,7 +9,8 @@ import { promisify } from "node:util";
 import { parseArgs, usage } from "../scripts/jskit.mjs";
 import { discoverProjectManifests } from "../scripts/project-manifests.mjs";
 import { testConcurrency } from "../scripts/test-budget.mjs";
-import { planTestRuns } from "../scripts/test-command.mjs";
+import { planTestRuns, withTimeReporter } from "../scripts/test-command.mjs";
+import { checkTestTimes, FILE_TIMES } from "../scripts/test-time-report.mjs";
 import { checkTestRuns, formatTestRunsReport } from "../scripts/test-runs.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -149,6 +150,69 @@ test("jskit test runs test files in parallel within V64_TEST_CONCURRENCY, then t
     const failure = await execFileAsync(process.execPath, [CLI_PATH, "test", "test/failing.test.js"], { cwd: root, env })
       .then(() => null, (error) => error);
     assert.equal(failure?.code, 1);
+  });
+});
+
+test("every run reports its times beside its own reporters, which node pairs with their destinations by position", () => {
+  const reporter = new URL("../scripts/test-time-report.mjs", import.meta.url).href;
+  const run = (...options) => withTimeReporter(["--test", "--test-concurrency=2", ...options, "test/a.test.js"], "times.json");
+  const added = [`--test-reporter=${reporter}`, "--test-reporter-destination=times.json"];
+  // No reporter: node's own spec on stdout stays.
+  assert.deepEqual(run(), ["--test", "--test-concurrency=2", "--test-reporter=spec", "--test-reporter-destination=stdout",
+    ...added, "test/a.test.js"]);
+  // A lone reporter without a destination keeps stdout.
+  assert.deepEqual(run("--test-reporter", "dot"), ["--test", "--test-concurrency=2", ...added,
+    "--test-reporter-destination=stdout", "--test-reporter", "dot", "test/a.test.js"]);
+  assert.deepEqual(run("--test-reporter=junit", "--test-reporter-destination=out/junit.xml"), ["--test", "--test-concurrency=2",
+    ...added, "--test-reporter=junit", "--test-reporter-destination=out/junit.xml", "test/a.test.js"]);
+});
+
+test("the time report lists the slowest files and tests and names each coarse bound a file or the run went past", () => {
+  const bounds = { runMs: 45 * 60_000, fileMs: 10 * 60_000, files: { "test/import.test.js": 20 * 60_000 } };
+  const files = Object.fromEntries(Array.from({ length: 12 }, (_, index) => [`test/f${index}.test.js`, (index + 1) * 1000]));
+  const tests = [{ file: "test/f0.test.js", name: "quick", ms: 5 }, { file: "test/f11.test.js", name: "slow", ms: 11_000 }];
+  const quiet = checkTestTimes({ bounds, files, tests, wallMs: 30_000 });
+  assert.deepEqual(quiet.overruns, []);
+  const lines = quiet.report.trimEnd().split("\n");
+  assert.equal(lines[0], "jskit test: 12 test file(s) in 30.0 s (bound 45.0 min); the slowest, time / bound:");
+  assert.equal(lines[1], "  12.0 s / 10.0 min  test/f11.test.js");
+  assert.equal(lines[10], "  3.0 s / 10.0 min  test/f2.test.js");
+  assert.deepEqual(lines.slice(11), ["jskit test: the slowest tests:", "  11.0 s  test/f11.test.js: slow", "  0.0 s  test/f0.test.js: quick"]);
+
+  const broken = checkTestTimes({
+    bounds,
+    files: { "test/hang.test.js": 11 * 60_000, "test/import.test.js": 19 * 60_000 },
+    tests: [],
+    wallMs: 50 * 60_000
+  });
+  assert.deepEqual(broken.overruns, [
+    "test/hang.test.js took 11.0 min, past its 10.0 min bound.",
+    "The run took 50.0 min, past its 45.0 min bound."
+  ]);
+  assert.match(broken.report, /past a time bound, so something is clearly broken/u);
+});
+
+test("jskit test records each file's time and fails a run whose file went past the app's own bound", async () => {
+  await withProject({
+    "test/one.test.js": "import test from \"node:test\";\ntest(\"one\", () => {});\n",
+    "test/two.test.js": "import test from \"node:test\";\ntest(\"two\", () => {});\n"
+  }, async (root) => {
+    const env = { ...process.env, V64_TEST_CONCURRENCY: "2" };
+    delete env.NODE_TEST_CONTEXT;
+    const { stdout, stderr } = await execFileAsync(process.execPath, [CLI_PATH, "test", "--test-reporter", "dot"], { cwd: root, env });
+    assert.doesNotMatch(stdout, /jskit test:/u);
+    assert.match(stderr, /^jskit test: 2 test file\(s\) in [\d.]+ s \(bound 45\.0 min\); the slowest, time \/ bound:$/mu);
+    assert.match(stderr, /^ {2}[\d.]+ s {2}test\/one\.test\.js: one$/mu);
+    const recorded = JSON.parse(await readFile(path.join(root, FILE_TIMES), "utf8"));
+    assert.deepEqual(Object.keys(recorded).sort(), ["test/one.test.js", "test/two.test.js"]);
+
+    // A bound of 1 ms: no file runs that fast, so the run fails though every test passed.
+    await writeFile(path.join(root, "test-time-bounds.json"), JSON.stringify({ files: { "test/two.test.js": 1 } }));
+    const failure = await execFileAsync(process.execPath, [CLI_PATH, "test"], { cwd: root, env }).then(() => null, (error) => error);
+    assert.equal(failure?.code, 1);
+    assert.match(failure.stdout, /pass 2\b/u);
+    assert.match(failure.stderr, /^ {2}test\/two\.test\.js took [\d.]+ s, past its 0\.0 s bound\.$/mu);
+    assert.doesNotMatch(failure.stderr, /test\/one\.test\.js took/u);
   });
 });
 

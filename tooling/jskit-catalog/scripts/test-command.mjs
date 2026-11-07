@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { globSync, readFileSync } from "node:fs";
+import { globSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
@@ -7,19 +7,23 @@ import { pathToFileURL } from "node:url";
 import { toPosixPath } from "./files.mjs";
 import { BUDGET_VARIABLE, testConcurrency } from "./test-budget.mjs";
 import { DATABASES_OPTION, testDatabaseRunFor } from "./test-databases.mjs";
+import { reportTestTimes } from "./test-time-report.mjs";
 
 // `jskit test [node options] [files or globs]`: node --test, running test files in parallel within the machine's test
 // budget (test-budget.mjs). Its arguments go to node --test unchanged. A file that truly must run alone says why on its
 // first line, `// jskit-test: alone - <reason>`, and runs after the others, one such file at a time. That second run
 // writes a reporter's file destination beside the first run's (`<name>.alone<ext>`) instead of over it, and with
 // --test-shard=<index>/<total> it runs only its shard's alone files, picked the way node --test picks a shard's files.
+// Every run also reports to test-time-report.mjs, which times the command's files against coarse bounds.
 
 // node --test's own default (Node 26) when it is given no files.
 const DEFAULT_PATTERN = "**/{test,test/**/*,test-*,*[._-]test}.{js,mjs,cjs,ts,mts,cts}";
 const MARKER = /^\s*\/\/\s*jskit-test:(.*)$/u;
 const ALONE = /^\s*alone\s+-\s+(\S.*)$/u;
 const SHARD = "--test-shard";
+const REPORTER = "--test-reporter";
 const DESTINATION = "--test-reporter-destination";
+const TIME_REPORTER = new URL("./test-time-report.mjs", import.meta.url).href;
 const STREAM_DESTINATIONS = new Set(["stdout", "stderr"]);
 
 function findTestFiles(patterns, cwd) {
@@ -123,6 +127,26 @@ function planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency
   };
 }
 
+/**
+ * The run with the time reporter added before its own options (node takes the arguments after a file as files), writing
+ * to `destination`. Node pairs reporters and destinations by position, and gives a run with no reporter `spec` on
+ * stdout, and a lone reporter with no destination stdout; the run keeps those.
+ * @param {string[]} run ["--test", "--test-concurrency=<n>", ...its options and files]
+ */
+function withTimeReporter(run, destination) {
+  const count = (option) => run.filter((argument) => argument === option || argument.startsWith(`${option}=`)).length;
+  const reporters = count(REPORTER);
+  const destinations = count(DESTINATION);
+  return [
+    ...run.slice(0, 2),
+    ...(reporters === 0 && destinations === 0 ? [`${REPORTER}=spec`, `${DESTINATION}=stdout`] : []),
+    `${REPORTER}=${TIME_REPORTER}`,
+    `${DESTINATION}=${destination}`,
+    ...(reporters === 1 && destinations === 0 ? [`${DESTINATION}=stdout`] : []),
+    ...run.slice(2)
+  ];
+}
+
 function runNode(args, env) {
   return new Promise((resolve, reject) => {
     const child = spawn(process.execPath, args, { stdio: "inherit", env: { ...process.env, ...env } });
@@ -158,18 +182,27 @@ async function runTests(args) {
   process.stderr.write(`jskit test: ${plan.concurrency} test file(s) at a time (${databases ? "test databases" : source}).\n`);
   for (const { file, reason } of plan.alone) process.stderr.write(`jskit test: ${file} runs alone: ${reason}\n`);
   const preload = databases?.preload ? ["--import", pathToFileURL(databases.preload).href] : [];
+  const timesDirectory = mkdtempSync(path.join(os.tmpdir(), "jskit-test-times-"));
+  const collected = plan.runs.map((_run, index) => path.join(timesDirectory, `run-${index}.json`));
+  const started = performance.now();
   let exitCode = 0;
+  let interrupted = false;
   try {
-    for (const run of plan.runs) {
-      const { code, signal } = await runNode([...preload, ...run], databases?.env);
+    for (const [index, run] of plan.runs.entries()) {
+      const { code, signal } = await runNode([...preload, ...withTimeReporter(run, collected[index])], databases?.env);
       if (exitCode === 0) exitCode = code;
       // An interrupted run ends the whole command.
-      if (signal) break;
+      interrupted = Boolean(signal);
+      if (interrupted) break;
     }
+    const times = interrupted ? null : reportTestTimes({ cwd: process.cwd(), collected, wallMs: performance.now() - started });
+    if (times) process.stderr.write(times.report);
+    if (times?.overruns.length > 0 && exitCode === 0) exitCode = 1;
   } finally {
     databases?.cleanup();
+    rmSync(timesDirectory, { recursive: true, force: true });
   }
   return exitCode;
 }
 
-export { planTestRuns, runTests };
+export { planTestRuns, runTests, withTimeReporter };

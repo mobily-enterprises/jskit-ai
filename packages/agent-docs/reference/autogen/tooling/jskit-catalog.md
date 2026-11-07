@@ -283,6 +283,7 @@ Exports
 Exports
 - `planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency() } = {})`
 - `runTests(args)`
+- `withTimeReporter(run, destination)`
 Local functions
 - `findTestFiles(patterns, cwd)`
 - `readAloneFiles(files, cwd)`
@@ -314,6 +315,16 @@ Local functions
 - `developmentServerCommand(source)`
 - `checkPlaywrightIsolation({ file, source, report })`
 - `checkRunnerConfig({ root, configPath, directory, runner, report })`
+
+### `scripts/test-time-report.mjs`
+Exports
+- `BOUNDS_FILE`
+- `FILE_TIMES`
+- `checkTestTimes({ bounds, files, tests, wallMs })`
+- `reportTestTimes({ cwd, collected, wallMs })`
+Local functions
+- `seconds(ms)`
+- `readTestTimeBounds(cwd)`
 
 ### `scripts/verify-packages.mjs`
 Exports

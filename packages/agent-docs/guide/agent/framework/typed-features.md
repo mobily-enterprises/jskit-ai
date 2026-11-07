@@ -1140,6 +1140,13 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
   `// jskit-test: alone - <reason>`. `jskit test` runs it after the others,
   one such file at a time, and fails on a marker without a reason or below the
   first line.
+- `jskit test` ends with its 10 slowest test files and tests, records each
+  file's time in `node_modules/.cache/jskit-test/file-times.json`, and fails
+  when a file takes more than 10 minutes or the whole command more than 45:
+  bounds only a clearly broken suite reaches, such as a file waiting out its
+  timeouts. A suite whose measured work needs more sets `runMs`, `fileMs` or a
+  file's own bound in `test-time-bounds.json`, with the measurement in the
+  commit that raises it; a file that got slow is fixed instead.
 
 Why: `jskit test` and `testConcurrency()` read one budget, so every runner
 uses the machine without starving the other runs on it.
