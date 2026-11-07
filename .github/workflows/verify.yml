@@ -85,6 +85,11 @@ jobs:
           JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER: "1"
         run: npx jskit test packages/http-web/test/selectField.browser.test.js
 
+      - name: Verify select typeahead while a menu opens
+        env:
+          JSKIT_CONNECTORS_WEB_BROWSER: "1"
+        run: npx jskit test packages/connectors-web/test/selectTypeahead.browser.test.js
+
       - name: Verify shared assistant conversation UI
         env:
           JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION: "1"
