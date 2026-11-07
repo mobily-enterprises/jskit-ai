@@ -69,13 +69,12 @@ function idOf(result, format) {
 }
 
 /**
- * Whether a write may set its own timestamps: in a system context, or one it derived (an import, a migration, a
- * seed), and in a call without a context, which only server code makes, on a public table such as a sign-in store.
- * A request always carries its context, so its timestamps are always the handle's.
+ * Whether a write may set its own timestamps: only in a system context, or one it derived (an import, a migration, a
+ * seed). Every other call is a request's, a call without a context too, so its timestamps are the handle's.
  * @param {unknown} context
  */
 function setsOwnTimestamps(context) {
-  return !context || isJobContext(context);
+  return isJobContext(context);
 }
 
 /**

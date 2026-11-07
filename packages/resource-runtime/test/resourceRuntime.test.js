@@ -399,9 +399,9 @@ test("a table that stores createdAt and updatedAt has every write stamp them; a 
   await resources.stamped.patch("a", {}, options);
   assert.equal((await stamps("a")).updated_at, "2020-01-01 00:00:00.000");
   assert.deepEqual(await stamps("e"), { created_at: "2020-01-01 00:00:00.000", updated_at: "2026-11-08 04:00:00.000" });
-  // So does server code calling a public table without a context.
+  // A call without a context is a request's, even on a public table: server code cannot pass a forged body through.
   await resources.stamped.create({ id: "g", title: "g", createdAt: "2020-01-01T00:00:00.000Z" }, {});
-  assert.equal((await stamps("g")).created_at, "2020-01-01 00:00:00.000");
+  assert.equal((await stamps("g")).created_at, "2026-11-08 05:00:00.000");
   // A request's timestamps are replaced by the handle's: a patch that sends updatedAt gets the server's time and
   // leaves createdAt as stored, a create that sends createdAt gets the server's, and an upsert merge keeps createdAt.
   const request = { context: {} };

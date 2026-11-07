@@ -12,6 +12,8 @@ function textRecordId(value) {
 const AuthLocalDatabaseBackendProvider = defineFeature({
   id: "auth.local.database-backend",
   owns: LOCAL_AUTH_RESOURCES.map((resource) => ({ resource, normalizeId: textRecordId })),
+  // Local sign-in writes its own records, timestamps included, before anyone is signed in.
+  systemScope: "local sign-in keeps its own accounts, sessions and tokens, which no user owns",
   requires: {
     // Only the identity links, whose composite key no table resource names, use the database itself.
     database: "runtime.database"
@@ -26,12 +28,14 @@ const AuthLocalDatabaseBackendProvider = defineFeature({
    * @param {object} dependencies
    * @param {import("../lib/dbBackend.js").LocalAuthHandles} dependencies.resources
    * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} dependencies.database
+   * @param {(reason: string) => object} dependencies.systemContext
    */
-  setup({ resources, database }) {
+  setup({ resources, database, systemContext }) {
     const identities = createIdentityStore({ database });
-    const owners = createLocalDbOwners({ resources, identities });
+    const context = systemContext("local sign-in reads and writes its own records, timestamps included");
+    const owners = createLocalDbOwners({ resources, identities, context });
     return {
-      backend: createLocalDbBackend({ resources, identities }),
+      backend: createLocalDbBackend({ resources, identities, context }),
       accounts: owners.accounts,
       sessions: owners.sessions,
       recovery: owners.recovery

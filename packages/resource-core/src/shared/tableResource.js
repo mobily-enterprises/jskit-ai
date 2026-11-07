@@ -188,8 +188,8 @@ function defineTableResource(definition) {
 }
 
 // The record timestamps a table keeps when its schema stores them as date-times. The handle stamps them, createdAt
-// when a record is created and updatedAt on every write, replacing what a request sends (only a system context, or
-// server code without a context, sets its own); a CRUD contract offers them as output only.
+// when a record is created and updatedAt on every write, replacing what any other caller sends: only a system
+// context sets its own. A CRUD contract offers them as output only.
 const RECORD_TIMESTAMPS = Object.freeze(["createdAt", "updatedAt"]);
 
 /**

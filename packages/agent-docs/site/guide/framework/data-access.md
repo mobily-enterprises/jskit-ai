@@ -53,10 +53,10 @@ or user on new rows. A table whose schema stores `createdAt` and `updatedAt`
 as `dateTime` fields gets them stamped by every write: both on a create
 (`createMany` too), `updatedAt` on every change (`patch`, `patchMany`,
 `patchWhere`, an upsert merge, which keeps the stored `createdAt`). The stamps
-replace what a request sends, and a CRUD contract offers them as output only;
-only a system context (an import, a migration, a seed), or server code calling
-a public table without a context, sets its own. Pass the call's `options` (its context and transaction)
-to every handle call; a call without a context throws instead of guessing.
+replace what any other caller sends, and a CRUD contract offers them as output
+only; only a system context (an import, a migration, a seed) sets its own.
+Pass the call's `options` (its context and transaction) to every handle call;
+a call without a context throws instead of guessing.
 
 ```js
 // shared/receivalResource.js: the table's facts, shared with the client
