@@ -127,6 +127,146 @@ function chooseFile(dashboard, file) {
   return dashboard.locator(".uppy-Dashboard-input[type=\"file\"]").first().setInputFiles(file);
 }
 
+// The roles and typeface Vuetify's theme sets on :root, for each scheme; the fixture has no Vuetify of its own.
+const SCHEMES = Object.freeze({
+  light: {
+    surface: "236, 230, 240",
+    onSurface: "29, 27, 32",
+    onSurfaceVariant: "73, 69, 79",
+    outlineVariant: "202, 196, 208",
+    primary: "103, 80, 164",
+    font: "\"Fixture Sans\", sans-serif"
+  },
+  dark: {
+    surface: "43, 41, 48",
+    onSurface: "230, 225, 229",
+    onSurfaceVariant: "202, 196, 208",
+    outlineVariant: "73, 69, 79",
+    primary: "208, 188, 255",
+    font: "\"Fixture Sans\", sans-serif"
+  }
+});
+
+function schemeCss({ surface, onSurface, onSurfaceVariant, outlineVariant, primary, font }) {
+  return `:root { --v-theme-surface-container-high: ${surface}; --v-theme-on-surface: ${onSurface}; ` +
+    `--v-theme-primary: ${primary}; --v-theme-on-primary: 255, 255, 255; --v-theme-outline-variant: ${outlineVariant}; ` +
+    `--v-theme-on-surface-variant: ${onSurfaceVariant}; --v-theme-scrim: 0, 0, 0; --v-font-body: ${font}; }`;
+}
+
+// Waits for the dialog's open animation and colour transitions to finish.
+function settle(page) {
+  // Only animations that end: an endless one (a spinner) would never settle.
+  return page.evaluate(() => Promise.all(document.getAnimations()
+    .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity))
+    .map((animation) => animation.finished.catch(() => null))));
+}
+
+function contrastRatio(foreground, background) {
+  const luminance = (rgb) => {
+    const [r, g, b] = rgb.match(/\d+(\.\d+)?/gu).slice(0, 3).map((channel) => {
+      const value = Number(channel) / 255;
+      return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const [lighter, darker] = [luminance(foreground), luminance(background)].sort((a, b) => b - a);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
+// Where the dialog sits at one viewport: its box, its close button's, what the scrim leaves on top of the app bar.
+function readPlacement(dashboard) {
+  return dashboard.evaluate((inner) => {
+    const box = (node) => {
+      const { top, right, bottom, left } = node.getBoundingClientRect();
+      return { top: Math.round(top), right: Math.round(right), bottom: Math.round(bottom), left: Math.round(left) };
+    };
+    const close = inner.querySelector(".uppy-Dashboard-close");
+    const onAppBar = document.elementFromPoint(window.innerWidth - 2, 32);
+    return {
+      viewport: { width: window.innerWidth, height: window.innerHeight },
+      inner: box(inner),
+      radius: window.getComputedStyle(inner).borderTopLeftRadius,
+      close: box(close),
+      appBarCovered: !onAppBar.closest("[data-testid=fixture-app-bar]")
+    };
+  });
+}
+
+function assertPlacement(placement, { fullScreen }) {
+  const { viewport, inner, close } = placement;
+  assert.equal(placement.appBarCovered, true, `the scrim covers the app bar at ${viewport.width}px`);
+  assert.ok(inner.top >= 0 && inner.left >= 0 && inner.right <= viewport.width && inner.bottom <= viewport.height,
+    `the dialog fits the viewport at ${viewport.width}px: ${JSON.stringify(placement)}`);
+  assert.ok(close.top >= inner.top && close.left >= inner.left && close.right <= inner.right && close.bottom <= inner.bottom,
+    `the close button lies inside the dialog at ${viewport.width}px: ${JSON.stringify(placement)}`);
+  if (fullScreen) {
+    assert.deepEqual({ inner, radius: placement.radius },
+      { inner: { top: 0, right: viewport.width, bottom: viewport.height, left: 0 }, radius: "0px" });
+  } else {
+    assert.equal(placement.radius, "28px");
+  }
+}
+
+// The dialog takes the app's Material 3 roles and typeface in both schemes, instead of Uppy's light grey panel, blue
+// underlined link, low-contrast hint and system font. It is modal over the whole app: the scrim covers a top app bar,
+// the close button lies inside the dialog, and at compact width it is a full-screen dialog.
+async function checkMaterialRoles(page) {
+  await page.route("**/api/**", (route) => route.fulfill({ json: { csrfToken: "fixture-csrf" } }));
+  await page.goto("/avatar");
+  const scheme = await page.addStyleTag({ content: schemeCss(SCHEMES.light) });
+  // Where Vuetify draws its app bar: fixed at the top, z-index 1004, with the page's content below it as v-main puts it.
+  await page.evaluate(() => {
+    const bar = document.createElement("header");
+    bar.dataset.testid = "fixture-app-bar";
+    bar.style.cssText = "position: fixed; top: 0; right: 0; left: 0; height: 64px; z-index: 1004; background: #888;";
+    document.body.style.paddingTop = "64px";
+    document.body.append(bar);
+  });
+  await page.getByRole("button", { name: "Change avatar", exact: true }).click();
+  const dashboard = dashboardOf(page);
+  await expect(dashboard).toBeVisible();
+  const read = () => dashboard.evaluate((inner) => {
+    const root = inner.closest(".uppy-Root");
+    const browse = root.querySelector(".uppy-Dashboard-browse");
+    const note = root.querySelector(".uppy-Dashboard-note");
+    const style = (node) => window.getComputedStyle(node);
+    return {
+      panel: style(inner).backgroundColor,
+      text: style(root).color,
+      font: style(browse).fontFamily,
+      link: style(browse).color,
+      underline: [style(browse).borderBottomStyle, style(browse).textDecorationLine],
+      note: style(note).color
+    };
+  });
+  await page.mouse.move(0, 0);
+  for (const name of ["light", "dark"]) {
+    const { surface, onSurface, onSurfaceVariant, primary, font } = SCHEMES[name];
+    await scheme.evaluate((element, css) => { element.textContent = css; }, schemeCss(SCHEMES[name]));
+    await settle(page);
+    const roles = await read();
+    assert.deepEqual({ scheme: name, ...roles }, {
+      scheme: name,
+      panel: `rgb(${surface})`,
+      text: `rgb(${onSurface})`,
+      font,
+      link: `rgb(${primary})`,
+      underline: ["none", "none"],
+      note: `rgb(${onSurfaceVariant})`
+    });
+    const noteContrast = contrastRatio(roles.note, roles.panel);
+    assert.ok(noteContrast >= 4.5, `the ${name} hint text has ${noteContrast.toFixed(2)}:1 contrast`);
+  }
+
+  for (const [width, height, fullScreen] of [[1280, 900, false], [768, 1024, false], [390, 844, true]]) {
+    await page.setViewportSize({ width, height });
+    await settle(page);
+    assertPlacement(await readPlacement(dashboard), { fullScreen });
+  }
+  await dashboard.getByRole("button", { name: "Close Modal", exact: true }).click();
+  await expect(dashboard).toHaveCount(0);
+}
+
 async function checkManagedAvatar(page) {
   const uploads = [];
   const deletes = [];
@@ -286,29 +426,27 @@ test("Image uploads run on real Uppy in a real browser", {
   skip: process.env.JSKIT_UPLOADS_IMAGE_WEB_BROWSER !== "1",
   timeout: 240_000
 }, async (t) => {
+  // Stopped in after hooks, which run when a check fails or times out too (a body's `finally` doesn't after a timeout).
   const runtime = await startViteFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/image-upload/", import.meta.url)) });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    for (const [name, check] of [
-      ["the managed avatar runtime refuses, edits, uploads, reports a server error and deletes", checkManagedAvatar],
-      ["the upload runtime given only its four required callbacks refuses, uploads compressed and reports a server error", checkUploadRuntime]
-    ]) {
-      await t.test(name, async () => {
-        const { page, errors } = await openPage(browser, runtime.baseURL);
-        try {
-          await check(page);
-          assert.deepEqual(errors, []);
-        } catch (error) {
-          console.error(await page.locator("body").innerText().catch(() => ""));
-          throw error;
-        } finally {
-          await page.close();
-        }
-      });
-    }
-  } finally {
-    if (browser) await browser.close();
-    await stopProcess(runtime);
+  t.after(() => stopProcess(runtime));
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
+  for (const [name, check] of [
+    ["the managed avatar runtime refuses, edits, uploads, reports a server error and deletes", checkManagedAvatar],
+    ["the dialog takes the app's Material 3 roles and typeface in light and dark", checkMaterialRoles],
+    ["the upload runtime given only its four required callbacks refuses, uploads compressed and reports a server error", checkUploadRuntime]
+  ]) {
+    await t.test(name, async () => {
+      const { page, errors } = await openPage(browser, runtime.baseURL);
+      try {
+        await check(page);
+        assert.deepEqual(errors, []);
+      } catch (error) {
+        console.error(await page.locator("body").innerText().catch(() => ""));
+        throw error;
+      } finally {
+        await page.close();
+      }
+    });
   }
 });

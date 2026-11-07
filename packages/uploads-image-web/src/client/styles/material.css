@@ -1,0 +1,155 @@
+/*
+ * Uppy's dashboard and image editor in Material 3 roles. They read the app's Vuetify theme (its --v-theme-* roles and
+ * --v-font-body typeface, which Vuetify sets for the current theme on :root, where Uppy's modal lives), so the dialog
+ * follows the light and dark schemes: Uppy's grey panel, blue link and system font give way. Loaded after Uppy's
+ * stylesheets; the .uppy-Root prefix outranks Uppy's [data-uppy-theme] rules.
+ */
+.uppy-Root {
+  color: rgb(var(--v-theme-on-surface));
+  font-family: var(--v-font-body);
+}
+
+.uppy-Root .uppy-Dashboard-inner,
+.uppy-Root .uppy-DashboardContent-panel,
+.uppy-Root .uppy-Dashboard-FileCard,
+.uppy-Root .uppy-StatusBar {
+  background-color: rgb(var(--v-theme-surface-container-high));
+  color: rgb(var(--v-theme-on-surface));
+}
+
+/* The dialog: Material 3's 28dp corners, without an outline over its surface. */
+.uppy-Root .uppy-Dashboard-inner {
+  border: 0;
+  border-radius: 28px;
+}
+
+/*
+ * A modal dialog sits above the whole app: its scrim covers the top app bar, navigation and Vuetify's own overlays
+ * (from z-index 2000), which Uppy's 1001 sits under. The close button lives inside the dialog, in a 56dp header row
+ * above Uppy's content, instead of above or beside the container.
+ */
+.uppy-Root .uppy-Dashboard--modal .uppy-Dashboard-overlay {
+  z-index: 2400;
+  background-color: rgba(var(--v-theme-scrim, 0, 0, 0), 0.32);
+}
+
+.uppy-Root .uppy-Dashboard--modal .uppy-Dashboard-inner {
+  z-index: 2401;
+  padding-top: 56px;
+}
+
+.uppy-Root .uppy-Dashboard--modal .uppy-Dashboard-close {
+  top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-size: 28px;
+  line-height: 1;
+  inset-inline-end: 4px;
+}
+
+.uppy-Root .uppy-Dashboard--modal .uppy-Dashboard-close:hover {
+  background-color: rgba(var(--v-theme-on-surface-variant), 0.08);
+}
+
+.uppy-Root .uppy-Dashboard--modal .uppy-Dashboard-close:focus-visible {
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: -2px;
+}
+
+/* Compact width: a full-screen dialog, its close button at the leading edge. */
+@media (max-width: 599.98px) {
+  .uppy-Root .uppy-Dashboard--modal .uppy-Dashboard-inner {
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    border-radius: 0;
+  }
+
+  .uppy-Root .uppy-Dashboard--modal .uppy-Dashboard-close {
+    inset-inline-start: 4px;
+    inset-inline-end: auto;
+  }
+}
+
+/* Medium width, below Uppy's own centred layout from 820px: the dialog keeps a 24dp margin on every side. */
+@media (min-width: 600px) and (max-width: 819.98px) {
+  .uppy-Root .uppy-Dashboard--modal .uppy-Dashboard-inner {
+    top: 24px;
+    right: 24px;
+    bottom: 24px;
+    left: 24px;
+  }
+}
+
+.uppy-Root .uppy-DashboardContent-bar {
+  background-color: transparent;
+  border-bottom: 1px solid rgb(var(--v-theme-outline-variant));
+}
+
+.uppy-Root .uppy-DashboardContent-title,
+.uppy-Root .uppy-Dashboard-AddFiles-title,
+.uppy-Root .uppy-Dashboard-Item-name {
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.uppy-Root .uppy-Dashboard-AddFiles {
+  border-color: rgb(var(--v-theme-outline-variant));
+  border-radius: 12px;
+}
+
+.uppy-Root .uppy-Dashboard-note,
+.uppy-Root .uppy-Dashboard-Item-status,
+.uppy-Root .uppy-StatusBar-statusSecondary {
+  color: rgb(var(--v-theme-on-surface-variant));
+}
+
+/* "browse files" is a link in the primary role, underlined only under the pointer. */
+.uppy-Root .uppy-Dashboard-browse,
+.uppy-Root .uppy-DashboardContent-back,
+.uppy-Root .uppy-DashboardContent-addMore,
+.uppy-Root .uppy-DashboardContent-save,
+.uppy-Root .uppy-c-btn-link {
+  color: rgb(var(--v-theme-primary));
+  font-weight: 500;
+}
+
+.uppy-Root .uppy-Dashboard-browse:hover,
+.uppy-Root .uppy-Dashboard-browse:focus {
+  border-bottom: 0;
+}
+
+.uppy-Root .uppy-Dashboard-browse:hover {
+  text-decoration: underline;
+}
+
+.uppy-Root .uppy-Dashboard-browse:focus-visible {
+  border-radius: 4px;
+  outline: 2px solid rgb(var(--v-theme-primary));
+  outline-offset: 2px;
+}
+
+/* Filled buttons (Upload, Save) are Material 3's: primary, full shape, the app's typeface. */
+.uppy-Root .uppy-c-btn-primary,
+.uppy-Root .uppy-StatusBar-actionBtn--upload,
+.uppy-Root .uppy-StatusBar:not(.is-waiting) .uppy-StatusBar-actionBtn--upload {
+  background-color: rgb(var(--v-theme-primary));
+  border-radius: 9999px;
+  color: rgb(var(--v-theme-on-primary));
+  font-family: inherit;
+}
+
+.uppy-Root .uppy-c-btn-primary:not(:disabled):hover,
+.uppy-Root .uppy-StatusBar:not(.is-waiting) .uppy-StatusBar-actionBtn--upload:hover {
+  background-color: rgb(var(--v-theme-primary));
+  background-image: linear-gradient(rgba(var(--v-theme-on-primary), 0.08), rgba(var(--v-theme-on-primary), 0.08));
+}
+
+.uppy-Root .uppy-StatusBar-progress {
+  background-color: rgb(var(--v-theme-primary));
+}
