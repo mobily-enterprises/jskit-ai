@@ -1,6 +1,19 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { TEMPLATE_TAG, VOID_TAGS, blankHtmlComments, blankJsComments, kebab, lineIndex, splitVue } from "./material3-source.mjs";
+import {
+  DEFAULT_IMPORT,
+  TEMPLATE_TAG,
+  VOID_TAGS,
+  balancedFrom,
+  blankHtmlComments,
+  blankJsComments,
+  enclosingObject,
+  kebab,
+  lineIndex,
+  localComponent,
+  splitVue
+} from "./material3-source.mjs";
+import { readPackageRoutes } from "./package-routes.mjs";
 
 // The navigation rules of the JSKIT Material 3 guide (#241). The shell owns Up and the per-tab trail;
 // an app declares each inner page's parent and links through JSKIT navigation, nothing more. Plain `jskit check`
@@ -66,7 +79,6 @@ const SHELL_UP_TAG = /<\s*(?:ShellUpButton|shell-up-button)\b/u;
 const SHELL_TITLE_TAG = /<\s*(?:ShellPageTitle|shell-page-title)\b/u;
 const LOCAL_IMPORT = /\bfrom\s*["']((?:@\/|\.{1,2}\/)[^"']+)["']/gu;
 const ROUTER_VIEW_TAG = /<\s*(?:RouterView|router-view)\b/u;
-const DEFAULT_IMPORT = /\bimport\s+([A-Za-z_$][\w$]*)\s+from\s*["']([^"']+)["']/gu;
 
 function isInAppPath(value) {
   const target = String(value || "").trim();
@@ -235,37 +247,13 @@ function checkLinkAttribute(tag, entry, report) {
   }
 }
 
-// The value of the first balanced { ... } or [ ... ] starting at or after `start`.
-function balancedFrom(text, start, open = "{", close = "}") {
-  const first = text.indexOf(open, start);
-  if (first < 0) return null;
-  let depth = 0;
-  for (let index = first; index < text.length; index += 1) {
-    if (text[index] === open) depth += 1;
-    else if (text[index] === close && --depth === 0) return { start: first, end: index + 1, text: text.slice(first, index + 1) };
-  }
-  return null;
-}
-
-// The object literal that encloses `offset`, as { start, end, text }, or null.
-function enclosingObject(text, offset) {
-  let depth = 0;
-  for (let index = offset; index >= 0; index -= 1) {
-    if (text[index] === "}") depth += 1;
-    else if (text[index] === "{") {
-      if (depth === 0) return balancedFrom(text, index);
-      depth -= 1;
-    }
-  }
-  return null;
-}
-
 const stringValue = (text, key) => new RegExp(`\\b${key}\\s*:\\s*(["'\\u0060])([^"'\\u0060]*)\\1`, "u").exec(text)?.[2];
 
-// Main-navigation destinations, by surface: every main-navigation placement's suffixes. A link that names its
-// surface (props.surface) leads to that surface's page wherever it shows, so it is a destination of that surface only;
-// one that names none leads to the page on each surface it shows on. A placement is literal data; one whose suffixes or
-// surface are computed (built by a helper, spread or interpolated) can't be read, and is returned as unreadable.
+// Main-navigation destinations, by surface: every main-navigation placement's suffixes, and its address when it has
+// one (`to`). A link that names its surface (props.surface) leads to that surface's page wherever it shows, so it is a
+// destination of that surface only; one that names none leads to the page on each surface it shows on. A placement is
+// literal data; one whose suffixes, address or surface are computed (built by a helper, spread or interpolated) can't
+// be read, and is returned as unreadable.
 function readMainNavigation(sources) {
   const destinations = [];
   const unreadable = [];
@@ -284,6 +272,9 @@ function readMainNavigation(sources) {
         const suffix = stringValue(placement, key);
         if (suffix !== undefined) destinations.push({ suffix: normalisePath(suffix.split(/[?#]/u)[0]), surfaces });
       }
+      // A link with an address of its own (`to: "/account"`, a package's global route) leads to that path.
+      const to = stringValue(placement, "to");
+      if (to?.startsWith("/")) destinations.push({ to: normalisePath(to.split(/[?#]/u)[0]), surfaces });
     }
   }
   return { destinations, unreadable };
@@ -453,8 +444,8 @@ async function shellPlacement(file, source, drawsShellBar, known, barTag = SHELL
  * that shows the title (ShellLayout's bar, or ShellPageTitle in a bar of its own), a page a layout always renders
  * under it, and a component such a file imports. A component no .vue file imports (routed or placed from JavaScript) counts
  * too, as where it renders can't be read, unless JavaScript hands it to the shell to render outside every layout (the
- * router's notFoundComponent or fallbackRoute, the app's rootComponent): that one counts only as App.vue does, which
- * counts only when it shows the title itself.
+ * router's notFoundComponent or fallbackRoute, the app's rootComponent) or it is a package route's page, which the
+ * kernel adds at the top level: that one counts only as App.vue does, which counts only when it shows the title itself.
  * @param {{ root: string, appFiles: string[] }} options
  */
 async function readTitledFiles({ root, appFiles }) {
@@ -484,6 +475,7 @@ async function readTitledFiles({ root, appFiles }) {
       outsideLayouts.set(imported, (outsideLayouts.get(imported) ?? true) && outside);
     }
   }
+  const packagePages = new Set((await readPackageRoutes(root, known)).map((route) => route.file));
   const verdicts = new Map();
   async function titled(file) {
     if (verdicts.has(file)) return verdicts.get(file);
@@ -503,7 +495,7 @@ async function readTitledFiles({ root, appFiles }) {
     } else if (!verdict && path.posix.basename(file) !== "App.vue") {
       const users = importers.get(file) || [];
       verdict = users.length === 0;
-      if (verdict && outsideLayouts.get(file) === true) {
+      if (verdict && (outsideLayouts.get(file) === true || packagePages.has(file))) {
         verdict = known.has("src/App.vue") && await showsTitle("src/App.vue");
       }
       for (const user of users) {
@@ -530,14 +522,6 @@ function rendersOutsideLayouts(code, name) {
   const uses = [...body.matchAll(new RegExp(named, "gu"))].length;
   const handovers = [...body.matchAll(handed)].length;
   return handovers > 0 && handovers === uses;
-}
-
-// The app's .vue file an import names: "@/components/Bar.vue" is src/components/Bar.vue; "./Bar" is beside the file.
-function localComponent(file, specifier, known) {
-  const base = specifier.startsWith("@/")
-    ? path.posix.join("src", specifier.slice(2))
-    : path.posix.join(path.posix.dirname(file), specifier);
-  return [base, `${base}.vue`].find((candidate) => candidate.endsWith(".vue") && known.has(candidate)) || null;
 }
 
 /**
@@ -569,8 +553,14 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
     report({ rule: "nav/placement-data", file, ...lineIndex(source)(offset), message: `A main-navigation placement that isn't literal data: ${computed}. Declare each placement literally, with plain string suffixes and surface, so its destination can be read; until then no page is judged for nav/missing-parent.` });
   }
   const surfacePath = (file, surface) => normalisePath(routePattern(routeOf(file).slice(surface.pagesRoot.length)));
-  const isDestination = (relative, surface) => navigation.destinations.some(({ suffix, surfaces: owners }) =>
-    suffix === relative && (owners.length === 0 || owners.includes(surface.id) || owners.includes("*")));
+  const addressOf = (relative, surface) => normalisePath(routePattern(`${surface.pagesRoot}${relative}`));
+  const shownOn = (owners, surface) => owners.length === 0 || owners.includes(surface.id) || owners.includes("*");
+  // A destination by its suffix on the surface, or by its address (`to`).
+  const isDestination = (relative, surface) => navigation.destinations.some(({ suffix, to, surfaces: owners }) =>
+    to === undefined ? suffix === relative && shownOn(owners, surface) : to === addressOf(relative, surface));
+  // A global route's address is a destination when a link's `to` names it, or a suffix leads there on a surface.
+  const isAddress = (address) => navigation.destinations.some(({ suffix, to, surfaces: owners }) =>
+    to === undefined ? surfaces.some((surface) => shownOn(owners, surface) && addressOf(suffix, surface) === address) : to === address);
   // An App.vue that wraps every page in the shell's bar leaves no page outside it.
   const appShell = appFiles.includes("src/App.vue") && await drawsShellBar("src/App.vue");
   const judged = [];
@@ -623,7 +613,53 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
       report({ rule: "nav/missing-parent", file, ...at, message: `Inner page ${relative} of ${surface.id} has no parent. Declare it once in the page's route meta (or its layout's, for tabs), so Up works after a direct entry.` });
     }
   }
+  for (const route of await readPackageRoutes(root, known)) {
+    if (!pageFiles.includes(route.file) && !pageFiles.includes(route.manifest)) continue;
+    const verdict = await judgePackageRoute(route, { surfaces, appShell, drawsShellBar, isDestination, isAddress, readable: navigation.unreadable.length === 0, report });
+    if (verdict) judged.push(verdict);
+  }
   return judged;
+}
+
+/**
+ * The page rules for a package's route, which the kernel adds at the top level: under the shell's bar only when its
+ * component (or App.vue) draws it, with the parent its package.json declares in meta.jskit.parent. Findings point at
+ * the route's entry in package.json.
+ */
+async function judgePackageRoute(route, { surfaces, appShell, drawsShellBar, isDestination, isAddress, readable, report }) {
+  const position = lineIndex(route.source);
+  const at = (offset) => ({ file: route.manifest, ...position(offset) });
+  const address = normalisePath(route.path);
+  const name = `${address} (route "${route.id}" of ${route.manifest})`;
+  // A surface route's path starts at its surface's base: /app/manage/:view is /manage/:view of app.
+  let surface = { id: "", pagesRoot: "" };
+  let relative = address;
+  if (route.scope === "surface") {
+    surface = surfaces.find(({ id }) => id === route.surface);
+    if (!surface) return null;
+    const base = normalisePath(routePattern(surface.pagesRoot));
+    if (base !== "/" && address !== base && !address.startsWith(`${base}/`)) return null;
+    relative = normalisePath(address.slice(base === "/" ? 0 : base.length));
+  }
+  const where = surface.id ? ` of ${surface.id}` : "";
+  if (route.surfaceRoot && route.parent) {
+    report({ rule: "nav/surface-parent", ...at(route.parentOffset), message: `${name} declares jskit.parent beside jskit.surface, so the shell never reads it and the page shows no Up: the record with the surface is the surface root, where Up stops. Remove meta.jskit.surface; the route's own "surface" chooses where it is served.` });
+  }
+  if (!appShell && !await drawsShellBar(route.file)) {
+    if (route.parent) {
+      report({ rule: "nav/missing-shell-layout", ...at(route.parentOffset), message: `${name} declares a parent, but its component, ${route.file}, doesn't draw the shell's top app bar, so its title, Up and page actions never show. A package's route renders at the top level, under no layout: render ShellLayout around the page.` });
+    }
+    return null;
+  }
+  const destination = route.scope === "surface" ? isDestination(relative, surface) : isAddress(address);
+  if (destination && route.parent) {
+    report({ rule: "nav/top-level-parent", ...at(route.parentOffset), message: `${name} is a main-navigation destination${where}, so it declares no parent: choosing it starts a fresh trail.` });
+  }
+  const topLevel = destination || relative === "/";
+  if (!topLevel && !route.parent && readable) {
+    report({ rule: "nav/missing-parent", ...at(route.offset), message: `Inner page ${name}${where} has no parent. Declare it in the route's meta, "meta": { "jskit": { "parent": ... } }, so Up works after a direct entry.` });
+  }
+  return { file: route.file, route: relative, surface: surface.id || "global", topLevel, parent: route.parent ? "own" : null };
 }
 
 // src/pages/home/suppliers.vue is home/suppliers and src/pages/home/suppliers/index.vue is home/suppliers/index.

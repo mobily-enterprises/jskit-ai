@@ -112,6 +112,40 @@ test("bootClientModules filters surface routes by mode", async () => {
   assert.equal(router.routes[0].path, "/admin/dashboard");
 });
 
+// A package's route is one record at the top level: its declared surface chooses whether it registers, and stays out
+// of meta.jskit, where `surface` marks a surface root (where the shell's Up stops), so its declared parent is read.
+test("bootClientModules keeps a package route's surface out of its meta, beside its declared parent", async () => {
+  const router = createRouterStub();
+  const page = {};
+  await bootClientModules({
+    clientModules: [
+      {
+        packageId: "@example/manage",
+        packageMetadataUiRoutes: [
+          { id: "manage.view", path: "/admin/manage/:view", scope: "surface", surface: "admin", componentKey: "view", meta: { jskit: { parent: "/manage" } } },
+          { id: "manage.app", path: "/app/manage", scope: "surface", surface: "app", componentKey: "view" }
+        ],
+        module: { routeComponents: { view: page } }
+      }
+    ],
+    router,
+    surfaceRuntime: createSurfaceRuntimeFixture(),
+    surfaceMode: "admin",
+    logger: silentLogger
+  });
+
+  assert.deepEqual(router.routes.map((route) => route.path), ["/admin/manage/:view"]);
+  assert.equal(router.routes[0].component, page);
+  assert.deepEqual(router.routes[0].meta.jskit, {
+    parent: "/manage",
+    packageId: "@example/manage",
+    routeId: "manage.view",
+    scope: "surface",
+    componentKey: "view",
+    source: "packageMetadata.ui.routes"
+  });
+});
+
 test("bootClientModules registers packageMetadata and clientRoutes with providers only", async () => {
   const router = createRouterStub();
   const surfaceRuntime = createSurfaceRuntimeFixture();

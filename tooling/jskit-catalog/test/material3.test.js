@@ -708,6 +708,103 @@ test("a page that declares a parent under no shell layout is a finding: its titl
   });
 });
 
+// A package's pages (package.json jskit.metadata.ui.routes, with its client entry's routeComponents) are shell pages
+// too: the kernel adds each at the top level, so it shows the shell's bar only when its component draws it, and its Up
+// is the parent its package.json declares. Findings point at the route's entry in package.json.
+const PACKAGE_ROUTES = [
+  { id: "manage", path: "/home/manage", scope: "surface", surface: "home", componentKey: "shell" },
+  { id: "manage.view", path: "/home/manage/:view", scope: "surface", surface: "home", componentKey: "shell" },
+  { id: "manage.audit", path: "/home/manage/audit", scope: "surface", surface: "home", componentKey: "shell", meta: { jskit: { parent: "/manage" } } },
+  { id: "manage.rooted", path: "/home/manage/rooted", scope: "surface", surface: "home", componentKey: "shell", meta: { jskit: { surface: "home", parent: "/manage" } } },
+  { id: "manage.bare", path: "/home/manage/bare", scope: "surface", surface: "home", componentKey: "bare", meta: { jskit: { parent: "/manage" } } },
+  { id: "manage.hidden", path: "/home/manage/hidden", scope: "surface", surface: "home", componentKey: "shell", autoRegister: false },
+  { id: "account", path: "/account", scope: "global", componentKey: "account", meta: { jskit: { parent: { surface: "home", path: "/" } } } },
+  { id: "help", path: "/help", scope: "global", componentKey: "shell", meta: { jskit: { parent: "/" } } },
+  { id: "jobs.job", path: "/w/:workspaceSlug/admin/jobs/:jobId", scope: "surface", surface: "admin", componentKey: "shell" }
+];
+const PACKAGE_MANIFEST = { name: "@local/manage", version: "0.1.0", exports: { "./client": "./src/client/index.js" }, jskit: { metadata: { ui: { routes: PACKAGE_ROUTES } } } };
+const packageRouteApp = (extra = {}) => ({
+  "package.json": SHELL_MANIFEST,
+  "config/public.js": "const config = {};\nconfig.surfaceDefinitions = {};\nconfig.surfaceDefinitions.home = { id: \"home\", pagesRoot: \"home\" };\nconfig.surfaceDefinitions.admin = { id: \"admin\", pagesRoot: \"w/[workspaceSlug]/admin\" };\nexport { config };\n",
+  "src/placement.js": [
+    "addPlacement({ id: \"app.manage\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"home\"], props: { surface: \"home\", scopedSuffix: \"/manage\", unscopedSuffix: \"/manage\" } });",
+    "addPlacement({ id: \"app.help\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"*\"], props: { label: \"Help\", to: \"/help\" } });",
+    ""
+  ].join("\n"),
+  "src/pages/home.vue": SHELL_LAYOUT,
+  "src/pages/home/index.vue": "<template>\n  <section />\n</template>\n",
+  "packages/manage/package.json": PACKAGE_MANIFEST,
+  "packages/manage/src/client/index.js": [
+    "import AccountPage from \"./AccountPage.vue\";",
+    "",
+    "// The pages this package's package.json routes name.",
+    "const routeComponents = Object.freeze({",
+    "  shell: () => import(\"./ManagePage.vue\"),",
+    "  \"bare\": () => import(\"./BarePage.vue\"),",
+    "  account: AccountPage",
+    "});",
+    "",
+    "export { routeComponents };",
+    ""
+  ].join("\n"),
+  "packages/manage/src/client/ManagePage.vue": "<script setup>\nimport ShellLayout from \"@jskit-ai/shell-web/client/components/ShellLayout\";\n</script>\n<template>\n  <ShellLayout><section /></ShellLayout>\n</template>\n",
+  "packages/manage/src/client/AccountPage.vue": "<script setup>\nimport ShellLayout from \"@jskit-ai/shell-web/client/components/ShellLayout\";\n</script>\n<template>\n  <ShellLayout>\n    <h1>Account</h1>\n  </ShellLayout>\n</template>\n",
+  "packages/manage/src/client/BarePage.vue": "<template>\n  <main>\n    <h1>Bare</h1>\n  </main>\n</template>\n",
+  ...extra
+});
+const manifestLine = (pattern) => JSON.stringify(PACKAGE_MANIFEST, null, 2).split("\n").findIndex((line) => pattern.test(line)) + 1;
+const routeLine = (id) => manifestLine(new RegExp(`"id": "${id.replace(".", "\\.")}"`, "u"));
+// The "parent" key that follows the route's "id".
+const parentLine = (id) => {
+  const lines = JSON.stringify(PACKAGE_MANIFEST, null, 2).split("\n");
+  const start = routeLine(id) - 1;
+  return start + lines.slice(start).findIndex((line) => line.includes("\"parent\"")) + 1;
+};
+
+test("a package's routes are shell pages: inner ones declare a parent in package.json, top-level ones none", async () => {
+  await withApp(packageRouteApp(), async (root) => {
+    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const manifest = "packages/manage/package.json";
+    assert.deepEqual(findingLines(result), [
+      `${manifest}:${routeLine("manage.view")} nav/missing-parent`,
+      `${manifest}:${parentLine("manage.rooted")} nav/surface-parent`,
+      `${manifest}:${parentLine("manage.bare")} nav/missing-shell-layout`,
+      `${manifest}:${parentLine("help")} nav/top-level-parent`,
+      `${manifest}:${routeLine("jobs.job")} nav/missing-parent`
+    ].sort((left, right) => Number(left.split(":")[1].split(" ")[0]) - Number(right.split(":")[1].split(" ")[0])));
+    const message = (rule) => result.findings.find((finding) => finding.rule === rule).message;
+    assert.match(message("nav/missing-parent"), /Inner page \/home\/manage\/:view \(route "manage\.view" of packages\/manage\/package\.json\) of home has no parent\. Declare it in the route's meta/u);
+    assert.match(message("nav/missing-shell-layout"), /its component, packages\/manage\/src\/client\/BarePage\.vue, doesn't draw the shell's top app bar/u);
+    assert.match(message("nav/surface-parent"), /Remove meta\.jskit\.surface; the route's own "surface" chooses where it is served/u);
+    assert.deepEqual(result.pages.filter(({ file }) => file.startsWith("packages/")).map(({ route, surface, topLevel, parent }) => [surface, route, topLevel ? "top" : "", parent || ""].join(" ").trim()), [
+      "home /manage top",
+      "home /manage/:view",
+      "home /manage/audit  own",
+      "home /manage/rooted  own",
+      "global /account  own",
+      "global /help top own",
+      "admin /jobs/:jobId"
+    ]);
+
+    // A run over the package's files judges its routes too.
+    const section = await checkMaterial3({ projectRoot: root, paths: ["packages/manage"], navigationOnly: true });
+    assert.equal(section.findings.filter(({ rule }) => rule.startsWith("nav/")).length, 5);
+  });
+  // An App.vue that draws the bar around every page puts the bare page under it too.
+  const appShell = { "src/App.vue": "<script setup>\nimport ShellLayout from \"@/components/ShellLayout.vue\";\n</script>\n<template>\n  <ShellLayout><RouterView /></ShellLayout>\n</template>\n" };
+  await withApp(packageRouteApp(appShell), async (root) => {
+    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    assert.equal(result.findings.some(({ rule }) => rule === "nav/missing-shell-layout"), false);
+  });
+});
+
+test("a package route's page has the bar's title only when it draws the bar, as the kernel adds it at the top level", async () => {
+  await withApp(packageRouteApp(), async (root) => {
+    const result = await checkMaterial3({ projectRoot: root, paths: ["packages/manage/src"] });
+    assert.deepEqual(result.findings.filter(({ rule }) => rule === "m3/duplicate-h1").map(({ file }) => file), ["packages/manage/src/client/AccountPage.vue"]);
+  });
+});
+
 // Main navigation is literal data: a placement whose destination is computed can't be read, so it is a finding, and
 // no page is judged for a missing parent while one is unreadable.
 const placementApp = (placement) => ({

@@ -2,6 +2,8 @@
 // so these read Vue, JavaScript and CSS just far enough for the Material 3 rules: blocks, tags with attributes,
 // declarations, and comments blanked to spaces so every offset still maps to its original line and column.
 
+import path from "node:path";
+
 const HEX_DIGITS = "[0-9a-fA-F]";
 // #rgb, #rgba, #rrggbb and #rrggbbaa, not followed by another word character.
 const HEX_COLOUR = `#(?:${HEX_DIGITS}{8}|${HEX_DIGITS}{6}|${HEX_DIGITS}{3,4})(?![\\w-])`;
@@ -244,16 +246,56 @@ function readInlineDeclarations(text, offset) {
   return readDeclarations(`x{${text}}`, offset - 2);
 }
 
+// A default import: `import Name from "specifier"`, its name and specifier.
+const DEFAULT_IMPORT = /\bimport\s+([A-Za-z_$][\w$]*)\s+from\s*["']([^"']+)["']/gu;
+
+// The value of the first balanced { ... } or [ ... ] starting at or after `start`.
+function balancedFrom(text, start, open = "{", close = "}") {
+  const first = text.indexOf(open, start);
+  if (first < 0) return null;
+  let depth = 0;
+  for (let index = first; index < text.length; index += 1) {
+    if (text[index] === open) depth += 1;
+    else if (text[index] === close && --depth === 0) return { start: first, end: index + 1, text: text.slice(first, index + 1) };
+  }
+  return null;
+}
+
+// The object literal that encloses `offset`, as { start, end, text }, or null.
+function enclosingObject(text, offset) {
+  let depth = 0;
+  for (let index = offset; index >= 0; index -= 1) {
+    if (text[index] === "}") depth += 1;
+    else if (text[index] === "{") {
+      if (depth === 0) return balancedFrom(text, index);
+      depth -= 1;
+    }
+  }
+  return null;
+}
+
+// The app's .vue file an import names: "@/components/Bar.vue" is src/components/Bar.vue; "./Bar" is beside the file.
+function localComponent(file, specifier, known) {
+  const base = specifier.startsWith("@/")
+    ? path.posix.join("src", specifier.slice(2))
+    : path.posix.join(path.posix.dirname(file), specifier);
+  return [base, `${base}.vue`].find((candidate) => candidate.endsWith(".vue") && known.has(candidate)) || null;
+}
+
 export {
+  DEFAULT_IMPORT,
   TEMPLATE_TAG,
   VOID_TAGS,
   HEX_COLOUR,
+  balancedFrom,
   blankCssComments,
   blankHtmlComments,
   blankJsComments,
+  enclosingObject,
   exclusiveBranches,
   kebab,
   lineIndex,
+  localComponent,
   readConditionalBranches,
   readDeclarations,
   readExceptions,

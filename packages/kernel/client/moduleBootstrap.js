@@ -61,6 +61,9 @@ function normalizeRoute(route, { packageId, index }) {
   const baseMeta = isRecord(route.meta) ? route.meta : {};
   const baseMetaJskit = isRecord(baseMeta.jskit) ? baseMeta.jskit : {};
 
+  // The route's surface selects whether it is registered (filterRoutesBySurface reads `surface`); it stays out of
+  // meta.jskit, where `surface` marks a surface's root record, at which the shell's Up stops before reading a parent.
+  // A package's page is one record at the top level, so its declared meta.jskit.parent is its Up.
   return Object.freeze({
     ...route,
     id,
@@ -73,8 +76,7 @@ function normalizeRoute(route, { packageId, index }) {
         ...baseMetaJskit,
         packageId,
         routeId: id,
-        scope,
-        ...(surface ? { surface } : {})
+        scope
       }
     }
   });
@@ -404,8 +406,7 @@ function resolvePackageMetadataClientRoutes({
             routeId,
             scope,
             componentKey,
-            source: "packageMetadata.ui.routes",
-            ...(surface ? { surface } : {})
+            source: "packageMetadata.ui.routes"
           }
         }
       })
