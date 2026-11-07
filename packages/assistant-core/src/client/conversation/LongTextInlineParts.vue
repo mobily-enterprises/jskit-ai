@@ -44,10 +44,9 @@ function handleLinkClick(event, part = {}) {
 
 <style scoped>
 code {
-  background: rgba(var(--v-theme-primary), 0.07);
-  border: 1px solid rgba(var(--v-theme-primary), 0.14);
+  background: rgb(var(--v-theme-surface-container-highest));
   border-radius: 3px;
-  color: rgba(var(--v-theme-on-surface), 0.9);
+  color: rgb(var(--v-theme-on-surface));
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.9em;
   overflow-wrap: anywhere;

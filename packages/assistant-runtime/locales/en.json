@@ -117,7 +117,7 @@
         "settings": {
           "title": "Assistant settings",
           "noPermission": "You do not have permission to view assistant settings.",
-          "save": "Save assistant settings",
+          "save": "Save",
           "systemPrompt": "System prompt",
           "subtitle": "Configure assistant settings.",
           "subtitleWorkspace": "Configure the prompt used on the {surface} surface for this workspace.",

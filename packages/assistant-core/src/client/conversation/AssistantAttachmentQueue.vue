@@ -307,10 +307,9 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
+/* A Material 3 tonal container above the composer: a surface-container-high fill, no outline. */
 .assistant-attachment-queue {
-  background: rgba(var(--v-theme-on-surface), 0.035);
-  border: 1px solid rgba(var(--v-theme-outline), 0.2);
-  border-bottom: 0;
+  background: rgb(var(--v-theme-surface-container-high));
   border-radius: 14px 14px 0 0;
   color: rgb(var(--v-theme-on-surface));
   display: grid;
@@ -332,7 +331,6 @@ onBeforeUnmount(() => {
 }
 
 .assistant-attachment-queue--standalone {
-  border-bottom: 1px solid rgba(var(--v-theme-outline), 0.2);
   border-radius: 10px;
 }
 

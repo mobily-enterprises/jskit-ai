@@ -7,7 +7,20 @@
     :save-label="t('jskit.assistant.runtime.settings.save')"
     :add-edit="addEdit"
     :show-form-skeleton="showFormSkeleton"
+    :form-id="SETTINGS_FORM_ID"
   >
+    <!-- A settings pane: the app bar carries the page's title and its Save, which submits the card's form
+         (the actions teleport to the bar, so the card stays this element's one root). -->
+    <ShellPageActions v-if="showsBarSave">
+      <ShellPageAction
+        primary
+        type="submit"
+        :form="SETTINGS_FORM_ID"
+        :label="t('jskit.assistant.runtime.settings.save')"
+        :loading="addEdit.isSaving"
+        :disabled="addEdit.isInitialLoading || addEdit.isRefetching"
+      />
+    </ShellPageActions>
     <v-textarea
       v-model="form.systemPrompt"
       :label="t('jskit.assistant.runtime.settings.systemPrompt')"
@@ -29,6 +42,9 @@ import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/ker
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { assistantHttpClient, createAssistantApi, AssistantSettingsFormCard } from "@jskit-ai/assistant-core/client";
 import { assistantConfigResource, assistantSettingsQueryKey, buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
+import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
+import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
+import { useShellPageTitle } from "@jskit-ai/shell-web/client/composables/useShellPageTitle";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useSurfaceRouteContext } from "@jskit-ai/shell-web/client/navigation/useSurfaceRouteContext";
 import { resolveAssistantSurfaceConfig } from "../../shared/assistantSurfaces.js";
@@ -50,7 +66,10 @@ const fieldErrors = reactive({
   systemPrompt: ""
 });
 
+const SETTINGS_FORM_ID = "assistant-settings-form";
+
 const { fieldErrorMessages, serverMessage, t } = useJskitText();
+useShellPageTitle(() => t("jskit.assistant.runtime.settings.title"));
 const errorRuntime = useShellWebErrorRuntime();
 const queryClient = useQueryClient();
 const appConfig = getClientAppConfig();
@@ -211,4 +230,8 @@ const addEdit = computed(() => ({
 }));
 
 const showFormSkeleton = computed(() => Boolean(settingsQuery.isLoading.value));
+// Save shows in the bar once the form does and the person may save.
+const showsBarSave = computed(() =>
+  addEdit.value.canView && addEdit.value.canSave && !addEdit.value.loadError && !showFormSkeleton.value
+);
 </script>

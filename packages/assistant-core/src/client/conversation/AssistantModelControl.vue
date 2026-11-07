@@ -20,11 +20,12 @@
       />
     </template>
 
+    <!-- A Material 3 menu surface: surface-container at elevation level 2, no outline. -->
     <v-sheet
       :aria-label="t('jskit.assistant.model.selector')"
-      border
       class="assistant-model-control"
-      :elevation="3"
+      color="surface-container"
+      :elevation="2"
       rounded="xl"
     >
       <header class="assistant-model-control__header">
@@ -235,7 +236,7 @@ function selectVariant(value) { if (!props.changesDisabled && !props.saving) emi
 
 .assistant-model-control__header {
   align-items: center;
-  border-bottom: 1px solid rgba(var(--v-theme-outline), 0.12);
+  border-bottom: 1px solid rgb(var(--v-theme-outline-variant));
   display: flex;
   gap: 0.65rem;
   padding: 0.1rem 0.1rem 0.7rem;
@@ -311,7 +312,7 @@ function selectVariant(value) { if (!props.changesDisabled && !props.saving) emi
 
 .assistant-model-control__actions {
   align-items: center;
-  border-top: 1px solid rgba(var(--v-theme-outline), 0.12);
+  border-top: 1px solid rgb(var(--v-theme-outline-variant));
   display: grid;
   gap: 0.4rem;
   grid-template-columns: auto 1fr auto;

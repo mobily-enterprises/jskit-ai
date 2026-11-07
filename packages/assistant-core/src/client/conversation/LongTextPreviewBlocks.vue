@@ -240,9 +240,10 @@ h5.studio-long-text-review__heading {
   font-size: 0.8rem;
 }
 
+/* Code, tables and details are Material 3 tonal containers (surface-container tones), not outlined boxes; a
+   table keeps outline-variant dividers between its rows. */
 .studio-long-text-review__code {
-  background: rgba(var(--v-theme-surface-variant), 0.58);
-  border: 1px solid rgba(var(--v-border-color), 0.26);
+  background: rgb(var(--v-theme-surface-container-highest));
   border-radius: 8px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
   font-size: 0.82rem;
@@ -256,7 +257,7 @@ h5.studio-long-text-review__heading {
 }
 
 .studio-long-text-review__table-wrap {
-  border: 1px solid rgba(var(--v-border-color), 0.28);
+  background: rgb(var(--v-theme-surface-container-low));
   border-radius: 8px;
   inline-size: fit-content;
   margin-block: 0.35rem;
@@ -282,7 +283,7 @@ h5.studio-long-text-review__heading {
 
 .studio-long-text-review__table th,
 .studio-long-text-review__table td {
-  border-bottom: 1px solid rgba(var(--v-border-color), 0.22);
+  border-bottom: 1px solid rgb(var(--v-theme-outline-variant));
   max-inline-size: 28rem;
   padding: 0.55rem 0.75rem;
   text-align: left;
@@ -290,7 +291,7 @@ h5.studio-long-text-review__heading {
 }
 
 .studio-long-text-review__table th {
-  background: rgba(var(--v-theme-surface-variant), 0.48);
+  background: rgb(var(--v-theme-surface-container-high));
   color: rgb(var(--v-theme-on-surface));
   font-weight: 760;
   position: sticky;
@@ -320,7 +321,7 @@ h5.studio-long-text-review__heading {
 }
 
 .studio-long-text-review__details {
-  border: 1px solid rgba(var(--v-border-color), 0.34);
+  background: rgb(var(--v-theme-surface-container-low));
   border-radius: 8px;
   display: block;
   min-width: 0;

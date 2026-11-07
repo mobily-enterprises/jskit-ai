@@ -18,10 +18,12 @@
         </p>
 
         <template v-else>
-          <v-form @submit.prevent="props.addEdit.submit" novalidate>
+          <!-- With a formId, the page's app bar carries Save (a submit button for this form), as a settings pane does;
+               the card then shows only the read-only note. -->
+          <v-form :id="props.formId || undefined" @submit.prevent="props.addEdit.submit" novalidate>
             <v-progress-linear v-if="props.addEdit.isRefetching" indeterminate class="mb-4" />
             <slot />
-            <div class="d-flex align-center justify-end ga-3 mt-2">
+            <div v-if="!props.formId || !props.addEdit.canSave" class="d-flex align-center justify-end ga-3 mt-2">
               <v-btn
                 v-if="props.addEdit.canSave"
                 type="submit"
@@ -72,6 +74,11 @@ const props = defineProps({
   showFormSkeleton: {
     type: Boolean,
     default: false
+  },
+  // The form's id, when the page's app bar carries its Save button (type="submit" form="<formId>").
+  formId: {
+    type: String,
+    default: ""
   }
 });
 </script>

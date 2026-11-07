@@ -70,10 +70,10 @@ function attachmentKey(attachment, index) {
   width: min(19rem, 100%);
 }
 
+/* Each attachment is a Material 3 tonal container: a surface-container-high fill, no outline. */
 .assistant-conversation-attachments__item {
   align-items: center;
-  background: rgba(var(--v-theme-surface), 0.82);
-  border: 1px solid rgba(var(--v-theme-outline), 0.2);
+  background: rgb(var(--v-theme-surface-container-high));
   border-radius: 10px;
   color: rgb(var(--v-theme-on-surface));
   min-height: 2.8rem;
