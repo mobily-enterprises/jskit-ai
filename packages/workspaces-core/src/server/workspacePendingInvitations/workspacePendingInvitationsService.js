@@ -18,15 +18,13 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     return label ? { roleLabel: label } : {};
   }
 
+  // Acceptance and refusal own their transaction (outermost): related writes belong in the acceptance participant.
   async function withInviteTransaction(user, token, options, work) {
-    if (workspaceInvitesRepository.inTransaction(options)) {
-      throw new TypeError("Invitation acceptance/refusal owns its transaction; use the acceptance participant for related writes.");
-    }
     // Locate outside the transaction to avoid a stale MySQL repeatable-read
     // snapshot. The callback validates again under the workspace/invite locks.
     const initial = await requirePendingInviteForUserByToken(user, token, options);
     // work receives the locking options its repository reads take, and the transaction's own options.
-    const result = await workspaceInvitesRepository.withTransaction(options, (txOptions) => work({
+    const result = await workspaceInvitesRepository.withTransaction({ ...options, outermost: true }, (txOptions) => work({
       ...txOptions,
       lock: true,
       workspaceId: initial.invite.workspaceId,

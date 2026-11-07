@@ -192,26 +192,24 @@ function createRepository({ workspaces, workspaceMemberships }) {
   /**
    * Locks a workspace's row until the caller's transaction ends, so work that
    * must not interleave for one workspace takes turns. It needs an active
-   * transaction: pass the txOptions of withTransaction.
+   * transaction: pass the txOptions of withTransaction. A missing workspace
+   * throws json-rest-api's not-found error, or answers null with
+   * `missing: "skip"`.
    * @param {unknown} workspaceId
-   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options
-   * @returns {Promise<{ id: string } | null>} The locked workspace, or null when there is no such workspace.
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions & { missing?: "throw" | "skip" }} options
+   * @returns {Promise<{ id: string } | null>} The locked workspace.
    */
   async function lock(workspaceId, options = {}) {
-    if (!workspaces.inTransaction(options)) {
-      throw new TypeError("Locking a workspace requires an active transaction.");
-    }
     const id = normalizeRecordId(workspaceId, { fallback: null });
     if (!id) {
       throw new TypeError("Locking a workspace requires workspaceId.");
     }
-    const [row] = await workspaces.lockMany([id], { ...options, missing: "skip" });
+    const row = await workspaces.lock(id, options);
     return row ? { id: normalizeRecordId(row.id, { fallback: null }) } : null;
   }
 
   return Object.freeze({
     withTransaction: workspaces.withTransaction,
-    inTransaction: workspaces.inTransaction,
     findById,
     findBySlug,
     listSlugsIn,

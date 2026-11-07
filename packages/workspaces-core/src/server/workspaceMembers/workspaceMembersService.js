@@ -292,9 +292,6 @@ function createService({
 
   async function prepareInvite(workspace, user, payload, options = {}) {
     ensureWorkspaceInvitationsEnabled();
-    if (!workspaceInvitesRepository.inTransaction(options)) {
-      throw new TypeError("prepareInvite requires a managed transaction.");
-    }
     const email = normalizeLowerText(payload.email);
     const roleSid = normalizeLowerText(payload.roleSid || "member") || "member";
     if (!assignableRoleIds.includes(roleSid)) {
@@ -304,6 +301,7 @@ function createService({
     const token = buildInviteToken();
     const tokenHash = hashInviteToken(token);
     const expiresAt = new Date(Date.now() + inviteExpiresInMs).toISOString();
+    // The caller's managed transaction: the lock refuses a call outside one.
     await workspaceInvitesRepository.lockWorkspaceForInvitations(workspace.id, options);
     await workspaceInvitesRepository.expirePendingByWorkspaceIdAndEmail(workspace.id, email, options);
     const createdInvite = await workspaceInvitesRepository.insert(
@@ -326,16 +324,20 @@ function createService({
     return { createdInviteId, inviteTokenPreview: token };
   }
 
+  // The committed pending invitation, read in a transaction of its own: one inside the caller's is refused, since
+  // delivery runs after the invitation's transaction commits.
+  function readInviteToDeliver(workspace, prepared, options) {
+    return workspaceInvitesRepository.withTransaction({ ...options, outermost: true }, (txOptions) =>
+      workspaceInvitesRepository.findPendingByIdForWorkspace(
+        prepared.createdInviteId,
+        workspace.id,
+        { ...txOptions, includeWorkspace: true, lock: false }
+      ));
+  }
+
   async function sendInvite(workspace, user, prepared, options = {}) {
     ensureWorkspaceInvitationsEnabled();
-    if (workspaceInvitesRepository.inTransaction(options)) {
-      throw new TypeError("sendInvite must run after the invitation transaction commits.");
-    }
-    const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
-      prepared.createdInviteId,
-      workspace.id,
-      { ...options, includeWorkspace: true, lock: false }
-    );
+    const invite = await readInviteToDeliver(workspace, prepared, options);
     if (!invite) {
       throw new AppError(404, "Invite not found or already handled.", { code: "workspaces.invite.notFoundOrHandled" });
     }
@@ -371,10 +373,9 @@ function createService({
 
   async function createInvite(workspace, user, payload, options = {}) {
     ensureWorkspaceInvitationsEnabled();
-    if (workspaceInvitesRepository.inTransaction(options)) {
-      throw new TypeError("Use prepareInvite inside a transaction, then sendInvite after commit.");
-    }
-    const prepared = await workspaceInvitesRepository.withTransaction(options, (txOptions) =>
+    // Preparation commits before delivery, so a call inside the caller's transaction is refused: use prepareInvite
+    // inside it, then sendInvite after its commit.
+    const prepared = await workspaceInvitesRepository.withTransaction({ ...options, outermost: true }, (txOptions) =>
       prepareInvite(workspace, user, payload, txOptions)
     );
     return returnJsonApiData(await sendInvite(workspace, user, prepared, options));
