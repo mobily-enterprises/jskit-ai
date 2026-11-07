@@ -142,3 +142,37 @@ test("queryAllJsonRestCollectionRows refuses a page or sort, which it sets itsel
     );
   }
 });
+
+// json-rest-api 2.4.0 honours pageSizeLimit; an earlier one pages at queryMaxLimit (100).
+test("queryAllJsonRestCollectionRows reads 480 and 960 matches in one 1,000-row page at equal cost", async (t) => {
+  const { api, knex } = await createContactsFixture(t);
+  async function addTeamA(count, prefix) {
+    const rows = Array.from({ length: count }, (_, index) => ({ team: "a", name: `${prefix} ${String(index).padStart(3, "0")}` }));
+    for (let start = 0; start < rows.length; start += 100) {
+      await knex("contacts").insert(rows.slice(start, start + 100));
+    }
+  }
+  async function readTeamA() {
+    let statements = 0;
+    const count = () => {
+      statements++;
+    };
+    const { pages, resource } = recordPages(api.resources.contacts);
+    knex.on("query", count);
+    try {
+      const rows = await queryAllJsonRestCollectionRows(resource, teamA(), null);
+      return { rows: rows.length, pages: pages.length, statements };
+    } finally {
+      knex.removeListener("query", count);
+    }
+  }
+
+  await addTeamA(280, "Small");
+  const small = await readTeamA();
+  await addTeamA(480, "Large");
+  const large = await readTeamA();
+
+  assert.deepEqual(small, { rows: 480, pages: 1, statements: large.statements });
+  assert.deepEqual(large, { rows: 960, pages: 1, statements: small.statements });
+  assert.ok(large.statements <= 2, `${large.statements} statements for 960 rows`);
+});

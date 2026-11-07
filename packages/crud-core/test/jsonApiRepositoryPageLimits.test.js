@@ -138,3 +138,21 @@ test("the list action keeps answering a larger limit with one capped page", asyn
   }
   assert.equal((await list.execute({ limit: 20 }, {})).value.data.length, 20);
 });
+
+// json-rest-api 2.4.0 honours pageSizeLimit, so 250 records are one page; an earlier one reads three.
+test("queryEveryDocument reads 250 records and their authors in one page", async (t) => {
+  const { knex, repository } = await createFixture(t);
+  let statements = 0;
+  const count = () => {
+    statements++;
+  };
+  knex.on("query", count);
+  try {
+    const document = await repository.queryEveryDocument({ include: ["author"] });
+    assert.equal(document.data.length, 250);
+    assert.equal(document.included.length, 30);
+  } finally {
+    knex.removeListener("query", count);
+  }
+  assert.ok(statements <= 3, `${statements} statements for 250 records with their authors`);
+});
