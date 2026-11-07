@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: the accounts hub's own sign-in accounts (oidc_issuer_accounts), the identity backend of its OpenID provider
+
 import { readFileSync } from "node:fs";
 import { createAccountId, hashPassword, verifyPassword } from "./crypto.js";
 import { hubEnglish } from "./hubTexts.js";

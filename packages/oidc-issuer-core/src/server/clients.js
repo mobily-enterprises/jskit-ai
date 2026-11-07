@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: the OpenID provider's registered relying-party clients (oidc_issuer_clients) and the protocol models they own, the provider's protocol state
+
 import { isLoopbackHostname } from "./config.js";
 import { MODELS_TABLE } from "./adapter.js";
 

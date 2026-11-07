@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: the OpenID provider's encrypted ID token signing keys (oidc_issuer_signing_keys), rotated and published in its JWKS
+
 import { exportJWK, generateKeyPair } from "jose";
 import { HubConfigError } from "./config.js";
 import { decrypt, deriveKey, encrypt, randomToken } from "./crypto.js";

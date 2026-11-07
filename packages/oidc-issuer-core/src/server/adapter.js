@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: node-oidc-provider's storage adapter, which keeps the provider's protocol models (interactions, sessions, grants, codes and tokens) in oidc_issuer_models through the library's adapter interface
+
 const MODELS_TABLE = "oidc_issuer_models";
 
 function toDate(value) {
