@@ -30,6 +30,19 @@ Use `@jskit-ai/users-core` for profile persistence and policies,
 `defineCrudJsonApiFeature()` from `@jskit-ai/crud-core` for standard mechanics,
 and the resource contracts from `@jskit-ai/resource-crud-core`.
 
+Code that reads or writes the users' own records requires their owners'
+capabilities, never the `users` or `user_settings` tables:
+
+- `users.profiles`: `findById`, `findByEmail`, `findByIdentity`, `upsert`,
+  `createWithSettings({ profile, settings }, options)` (the profile and its
+  settings in one transaction; settings start from the defaults) and
+  `countUsers({ excludeIds, createdSince }, options)`.
+- `users.settings`: `findByUserId`, `ensureForUserId` and the settings updates.
+
+Their types are `UsersProfiles` and `UsersSettings` in
+`@jskit-ai/users-core/server/types`. Every method takes `options` last and
+joins `options.trx` when there is one.
+
 ## Invariants
 
 - The public user id is the resource identity.

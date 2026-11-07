@@ -5,7 +5,7 @@ import { resolveWorkspace } from "../support/resolveWorkspace.js";
 import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 import { workspaceMembersContract } from "../../shared/resources/workspaceMembersResource.js";
 import {
-  INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE,
+  createInviteRecipientBootstrapAudience,
   createWorkspaceEntityAndBootstrapEvents
 } from "../common/support/realtimeServiceEvents.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
@@ -14,22 +14,6 @@ const WORKSPACE_MEMBER_CHANGED_EVENTS = createWorkspaceEntityAndBootstrapEvents(
   workspaceEntity: "member",
   workspaceOperation: "updated",
   workspaceRealtimeEvent: "workspace.members.changed"
-});
-
-const WORKSPACE_INVITE_CREATED_EVENTS = createWorkspaceEntityAndBootstrapEvents({
-  workspaceEntity: "invite",
-  workspaceOperation: "created",
-  workspaceRealtimeEvent: "workspace.invites.changed",
-  bootstrapEntityId: ({ result }) => jsonApiResultValue(result).createdInviteId,
-  bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
-});
-
-const WORKSPACE_INVITE_REVOKED_EVENTS = createWorkspaceEntityAndBootstrapEvents({
-  workspaceEntity: "invite",
-  workspaceOperation: "updated",
-  workspaceRealtimeEvent: "workspace.invites.changed",
-  bootstrapEntityId: ({ result }) => jsonApiResultValue(result).revokedInviteId,
-  bootstrapAudience: INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE
 });
 
 const updateMemberRoleActionInput = composeSchemaDefinitions([
@@ -66,6 +50,23 @@ const revokeInviteActionInput = composeSchemaDefinitions([
 
 /** @param {{ workspaceMembersService: import("../types.js").WorkspaceMembersService }} dependencies */
 function createWorkspaceMembersActions({ workspaceMembersService }) {
+  const inviteRecipientAudience = createInviteRecipientBootstrapAudience({
+    inviteRecipientUserIds: workspaceMembersService.inviteRecipientUserIds
+  });
+  const inviteCreatedEvents = createWorkspaceEntityAndBootstrapEvents({
+    workspaceEntity: "invite",
+    workspaceOperation: "created",
+    workspaceRealtimeEvent: "workspace.invites.changed",
+    bootstrapEntityId: ({ result }) => jsonApiResultValue(result).createdInviteId,
+    bootstrapAudience: inviteRecipientAudience
+  });
+  const inviteRevokedEvents = createWorkspaceEntityAndBootstrapEvents({
+    workspaceEntity: "invite",
+    workspaceOperation: "updated",
+    workspaceRealtimeEvent: "workspace.invites.changed",
+    bootstrapEntityId: ({ result }) => jsonApiResultValue(result).revokedInviteId,
+    bootstrapAudience: inviteRecipientAudience
+  });
   return Object.freeze([
     Object.freeze({
       id: "workspace.roles.list",
@@ -212,7 +213,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
           })
         }
       },
-      events: WORKSPACE_INVITE_CREATED_EVENTS,
+      events: inviteCreatedEvents,
       execute: (input, context) => workspaceMembersService.createInvite(
         resolveWorkspace(context, input),
         resolveActionUser(context, input),
@@ -239,7 +240,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
           transformResult: (result) => result.value
         }
       },
-      events: WORKSPACE_INVITE_REVOKED_EVENTS,
+      events: inviteRevokedEvents,
       execute: (input, context) => workspaceMembersService.revokeInvite(
         resolveWorkspace(context, input),
         input.inviteId,

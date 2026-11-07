@@ -3,24 +3,24 @@ import { createRepository as createUserSettingsRepository } from "./common/repos
 import { createService as createAuthProfileSyncService } from "./common/services/authProfileSyncService.js";
 
 /**
- * The users' profile and settings records, and the projector that keeps a
- * profile in step with the identity that signs in.
+ * The users' profile and settings records (`users.profiles`, `users.settings`),
+ * and the projector that keeps a profile in step with the identity that signs
+ * in (`auth.profile.projector`).
  * @param {object} dependencies
  * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
  * @param {import("./types.js").UsersExtensions} dependencies.extensions
  */
 function createUsersIdentity({ jsonRestApi, extensions }) {
-  const repositories = Object.freeze({
-    userProfiles: createUserProfilesRepository({ api: jsonRestApi }),
-    userSettings: createUserSettingsRepository({ api: jsonRestApi })
-  });
+  const settings = createUserSettingsRepository({ api: jsonRestApi });
+  const profiles = createUserProfilesRepository({ api: jsonRestApi, userSettings: settings });
   const profileProjector = createAuthProfileSyncService({
-    userProfilesRepository: repositories.userProfiles,
-    userSettingsRepository: repositories.userSettings,
+    userProfilesRepository: profiles,
+    userSettingsRepository: settings,
     resolveLifecycleContributors: extensions.profileSyncLifecycleContributors
   });
   return Object.freeze({
-    repositories,
+    profiles,
+    settings,
     profileProjector
   });
 }

@@ -84,36 +84,41 @@ test("workspace mutation actions declare their domain and bootstrap changes expl
   assert.deepEqual(events[0].realtime.payload, { workspaceSlug: "acme" });
 });
 
-test("workspace invite actions carry recipient lookup as delivery policy, not service metadata", async () => {
-  const action = workspaceMembersActionSpecifications.find((entry) => entry.id === "workspace.invite.create");
+test("workspace invite actions reach the invite's recipient through the members service, once per event", async () => {
+  const lookups = [];
+  const [create, revoke] = ["workspace.invite.create", "workspace.invite.revoke"].map((id) => createWorkspaceMembersActions({
+    workspaceMembersService: {
+      async inviteRecipientUserIds(inviteId, options) {
+        lookups.push({ inviteId, options });
+        return ["55"];
+      }
+    }
+  }).find((entry) => entry.id === id));
   const context = {
     actor: { id: 7 },
     visibilityContext: { visibility: "workspace", scopeKind: "workspace", scopeOwnerId: 11 },
     requestMeta: { resolvedWorkspaceContext: { workspace: { id: 11, slug: "acme" } } }
   };
-  const events = await Promise.all(action.events.map((builder) => builder({
+  const created = await Promise.all(create.events.map((builder) => builder({
     input: { workspaceSlug: "acme", email: "reader@example.test", roleSid: "member" },
     result: returnJsonApiData({ createdInviteId: 91 }),
     context
   })));
-  assert.equal(events[0].operation, "created");
-  assert.equal(events[1].entityId, "91");
-  assert.equal(typeof events[1].realtime.audience.userQuery, "function");
-  const rows = await events[1].realtime.audience.userQuery({
-    event: events[1],
-    knex() {
-      return {
-        join() { return this; },
-        where(field, value) {
-          assert.equal(field, "wi.id");
-          assert.equal(value, "91");
-          return this;
-        },
-        async first() { return { user_id: 55 }; }
-      };
-    }
-  });
-  assert.deepEqual(rows, [{ userId: "55" }]);
+  assert.equal(created[0].operation, "created");
+  assert.equal(created[1].entityId, "91");
+  assert.equal(created[1].realtime.audience.preset, "event_scope");
+  const options = { context: { visibilityContext: { visibility: "workspace", scopeKind: "workspace", scopeOwnerId: "11" } } };
+  assert.deepEqual(await created[1].realtime.audience.audienceUsers({ event: created[1], options }), ["55"]);
+  assert.deepEqual(lookups, [{ inviteId: "91", options }]);
+
+  const revoked = await Promise.all(revoke.events.map((builder) => builder({
+    input: { workspaceSlug: "acme", inviteId: "92" },
+    result: returnJsonApiData({ revokedInviteId: 92 }),
+    context
+  })));
+  assert.equal(revoked[1].entityId, "92");
+  await revoked[1].realtime.audience.audienceUsers({ event: revoked[1], options });
+  assert.equal(lookups.at(-1).inviteId, "92");
 });
 
 test("accepting an invitation declares directory/member refresh while refusal does not", async () => {

@@ -31,6 +31,14 @@ Do not create a console merely to host one ordinary settings page.
 The first-owner policy, if the product selects it, is a runtime product rule;
 it is not a hard-coded seed account.
 
+Server code that needs the console's settings, such as who owns the console,
+requires `console.settings` and reads them with `getSingleton(options)`, which
+answers `{ id, ownerUserId, settings, createdAt, updatedAt }`; it never reads
+the `console_settings` table. Its type is `ConsoleSettings` in
+`@jskit-ai/console-core/server/types`. To check the console's owner, use
+`isConsoleOwnerUserId(userId, options)` of `console.core`'s
+`services.access`.
+
 ## Verification
 
 Test authorized and forbidden direct entry, first-owner behavior, switching,

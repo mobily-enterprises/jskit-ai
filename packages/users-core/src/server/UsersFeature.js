@@ -17,7 +17,9 @@ const UsersFeature = defineFeature({
     authService: "auth.service",
     bootstrap: "runtime.bootstrap",
     http: "runtime.http",
-    identity: "users.identity",
+    profileProjector: "auth.profile.projector",
+    profiles: "users.profiles",
+    settings: "users.settings",
     storage: "runtime.storage",
     uploads: "runtime.uploads"
   },
@@ -29,12 +31,14 @@ const UsersFeature = defineFeature({
    * @param {import("@jskit-ai/auth-core/server/types").AuthService} capabilities.authService
    * @param {import("@jskit-ai/kernel/server/types").RuntimeBootstrap} capabilities.bootstrap
    * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
-   * @param {import("./types.js").UsersIdentity} capabilities.identity
+   * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} capabilities.profileProjector
+   * @param {import("./types.js").UsersProfiles} capabilities.profiles
+   * @param {import("./types.js").UsersSettings} capabilities.settings
    * @param {import("@jskit-ai/storage-runtime/server/types").RuntimeStorage} capabilities.storage
    * @param {import("@jskit-ai/uploads-runtime/server/types").RuntimeUploads} capabilities.uploads
    */
-  setup({ authService, bootstrap, http, identity, storage, uploads }) {
-    const users = createUsersRuntime({ authService, identity, storage });
+  setup({ authService, bootstrap, http, profileProjector, profiles, settings, storage, uploads }) {
+    const users = createUsersRuntime({ authService, profileProjector, profiles, settings, storage });
     registerAccountProfileRoutes(http.router, {
       accountProfileService: users.services.accountProfile,
       authService,
@@ -48,8 +52,8 @@ const UsersFeature = defineFeature({
       order: 100,
       contribute: createUsersBootstrapContributor({
         authService,
-        userProfilesRepository: users.repositories.userProfiles,
-        userSettingsRepository: users.repositories.userSettings
+        userProfilesRepository: profiles,
+        userSettingsRepository: settings
       }).contribute
     });
     return { users };

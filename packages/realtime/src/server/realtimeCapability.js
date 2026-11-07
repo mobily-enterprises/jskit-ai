@@ -16,7 +16,6 @@ import {
 } from "./runtime.js";
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
-/** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} RuntimeDatabase */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} RuntimeAppRoot */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeEvents} RuntimeEvents */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeLogger} RuntimeLogger */
@@ -29,12 +28,11 @@ import {
  * @param {import("socket.io").Server} dependencies.io
  * @param {RuntimeLogger} dependencies.logger
  * @param {AuthService | null} dependencies.authService
- * @param {RuntimeDatabase | null} dependencies.database
  * @param {RuntimeEvents} dependencies.events
  * @param {RuntimeAppRoot | null} dependencies.appRoot
  * @param {{ redisUrl: string, redisNamespace: string }} dependencies.redis
  */
-function createRealtimeCapability({ io, logger, authService, database, events, appRoot, redis }) {
+function createRealtimeCapability({ io, logger, authService, events, appRoot, redis }) {
   const audiences = createAudienceContributors();
   const connectionListeners = new Set();
   let authenticationRequired = false;
@@ -123,7 +121,7 @@ function createRealtimeCapability({ io, logger, authService, database, events, a
    * event, to the other servers too when Redis is configured.
    */
   async function start() {
-    delivery = createRealtimeDelivery({ io, database, logger, authService, audiences });
+    delivery = createRealtimeDelivery({ io, logger, authService, audiences });
     authenticationRequired = realtimeAuthenticationRequired(authService);
     registerSocketAudienceBootstrap({ io, logger, authService, audiences });
     announceServedClientBuild({ io, appRoot, logger });
