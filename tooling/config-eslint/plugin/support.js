@@ -318,6 +318,8 @@ function compactText(sourceCode, node) {
 const GUIDE_URL = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features";
 // The client half of the guide: components, composables and client providers.
 const CLIENT_GUIDE_URL = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/client-features";
+// The data-access guide: the resource is the only door to a table.
+const DATA_ACCESS_GUIDE_URL = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access";
 
 // A default that makes a collaborator absent: null, undefined, {}, [] or a no-op.
 // A default that is the production implementation (a clock, the global fetch)
@@ -330,7 +332,8 @@ const ABSENT_DEFAULT = /^(null|undefined|\{\}|\[\]|(async\s*)?\(\)\s*=>\s*(null|
  * @param {string} description
  * @param {Record<string, string>} messages
  * @param {string} section The guide heading's anchor, such as "required-collaborators".
- * @param {string} [guide] The guide page: typed features, or the client page for rules only client code has.
+ * @param {string} [guide] The guide page: typed features, the client page for rules only client code has, or the
+ * data-access page.
  */
 function ruleMeta(description, messages, section, guide = GUIDE_URL) {
   const url = `${guide}#${section}`;
@@ -363,6 +366,7 @@ function isFactory(fn, client = false) {
 export {
   ABSENT_DEFAULT,
   CLIENT_GUIDE_URL,
+  DATA_ACCESS_GUIDE_URL,
   GUIDE_URL,
   compactText,
   createReporter,

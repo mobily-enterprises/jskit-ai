@@ -27,6 +27,8 @@ const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "
 const SERVER_ONLY_RULES = Object.freeze(["one-line-action", "action-execute-shape", "action-creator", "no-idempotency", "app-error-code", "no-patched-error"]);
 // The rule baseConfig holds every application's Playwright configs to, outside the client features.
 const BASE_ONLY_RULES = Object.freeze(["playwright-login-unchanged"]);
+// The data-access rules, which dataAccessConfig and baseConfig turn on for server and shared code.
+const DATA_ACCESS_RULES = Object.freeze(["no-direct-knex", "no-transaction-reader", "sql-literal", "no-hand-scope", "knex-reason"]);
 const COMPONENT_RULES = Object.freeze(["vue/require-prop-types", "vue/require-default-prop", "vue/require-valid-default-prop", "vue/no-required-prop-with-default", "vue/require-explicit-emits"]);
 
 // Each rule that reports on a file, once, with its severity.
@@ -78,7 +80,7 @@ test("an application's client code gets no client rule until it lists the tree",
 
 test("clientFeaturesConfig turns on every jskit rule but the server's action and error rules", () => {
   const [entry, components] = clientFeaturesConfig(["src/client/**"]);
-  const notClient = [...SERVER_ONLY_RULES, ...BASE_ONLY_RULES];
+  const notClient = [...SERVER_ONLY_RULES, ...BASE_ONLY_RULES, ...DATA_ACCESS_RULES];
   assert.deepEqual(Object.keys(jskitPlugin.rules).filter((rule) => !notClient.includes(rule) && entry.rules[`jskit/${rule}`] !== "error"), []);
   assert.deepEqual(notClient.filter((rule) => entry.rules[`jskit/${rule}`]), []);
   assert.deepEqual(entry.settings, { jskit: { client: true } });
