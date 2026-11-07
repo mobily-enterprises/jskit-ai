@@ -79,6 +79,16 @@ test("retryDeadlocks runs again only deadlock victims, a few times", async () =>
     return attempts;
   }
   assert.equal(await attemptsUntilRejected(new Error("Validation failed")), 1);
+  // A lock wait that timed out is not a deadlock: the database may have rolled back only the statement, so the
+  // transaction's earlier work could run twice. MySQL and MariaDB, then PostgreSQL's lock_timeout and NOWAIT.
+  for (const timeout of [
+    Object.assign(new Error("Lock wait timeout exceeded"), { code: "ER_LOCK_WAIT_TIMEOUT", errno: 1205 }),
+    Object.assign(new Error("canceling statement due to lock timeout"), { code: "55P03" }),
+    new Error("Write failed", { cause: Object.assign(new Error("Lock wait timeout exceeded"), { errno: 1205 }) })
+  ]) {
+    assert.equal(isDeadlockError(timeout), false, timeout.message);
+    assert.equal(await attemptsUntilRejected(timeout), 1, timeout.message);
+  }
   const victim = deadlock();
   assert.equal(await attemptsUntilRejected(victim), 4);
   assert.equal(await attemptsUntilRejected(victim, { retries: 0 }), 1);
