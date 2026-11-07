@@ -1,9 +1,11 @@
-import { spawn } from "node:child_process";
+import childProcess from "node:child_process";
 import { constants as fsConstants } from "node:fs";
 import { open } from "node:fs/promises";
 import path from "node:path";
 
 const FILE_LOCK_ERROR_CODE = "file_lock_failed";
+// flock(1) exits with this status when another open file description holds the lock.
+const LOCK_HELD_ELSEWHERE = 1;
 
 function fileLockError(message = "", code = FILE_LOCK_ERROR_CODE) {
   const error = new Error(message || "Exclusive file lock failed.");
@@ -19,6 +21,25 @@ function normalizedAbsolutePath(value = "", label = "path", errorCode = FILE_LOC
   return normalized;
 }
 
+// Node cannot call flock(2), so flock(1) takes the lock on the descriptor it inherits and exits. A flock lock belongs
+// to the open file description, which this process keeps open, so the lock lasts until the handle closes: at release,
+// or when this process ends for any reason. Each acquisition costs one short process and nothing runs while it is held.
+function lockThroughDescriptor(fd, cwd) {
+  return new Promise((resolve, reject) => {
+    const child = childProcess.spawn("/usr/bin/flock", ["--exclusive", "--nonblock", "3"], {
+      cwd,
+      env: { PATH: "/usr/bin:/bin" },
+      stdio: ["ignore", "ignore", "pipe", fd]
+    });
+    let stderr = "";
+    child.stderr.on("data", (chunk) => {
+      stderr = `${stderr}${String(chunk || "")}`.slice(-4096);
+    });
+    child.once("error", reject);
+    child.once("close", (status) => resolve({ status, stderr: stderr.trim() }));
+  });
+}
+
 async function tryAcquireExclusiveFileLock(lockPath = "", {
   cwd = "",
   errorCode = FILE_LOCK_ERROR_CODE
@@ -32,89 +53,29 @@ async function tryAcquireExclusiveFileLock(lockPath = "", {
     fsConstants.O_CREAT | fsConstants.O_NOFOLLOW | fsConstants.O_RDWR,
     0o660
   );
-  let child = null;
-  let stderr = "";
-  let closed = Promise.resolve({ code: null, signal: null });
+  let result;
   try {
-    child = spawn(
-      "/bin/sh",
-      [
-        "-c",
-        "/usr/bin/flock --exclusive --nonblock 3 || exit 1; " +
-          "printf 'locked\\n'; IFS= read -r _ || true"
-      ],
-      {
-        cwd: normalizedCwd,
-        env: { PATH: "/usr/bin:/bin" },
-        stdio: ["pipe", "pipe", "pipe", lockHandle.fd]
-      }
-    );
-    closed = new Promise((resolve) => {
-      child.once("close", (code, signal) => resolve({ code, signal }));
-    });
-    const acquired = await new Promise((resolve, reject) => {
-      let output = "";
-      let settled = false;
-      const settle = (callback, value) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        callback(value);
-      };
-      child.once("error", (error) => settle(reject, error));
-      child.stderr.on("data", (chunk) => {
-        stderr = `${stderr}${String(chunk || "")}`.slice(-4096);
-      });
-      child.stdout.on("data", (chunk) => {
-        output += String(chunk || "");
-        if (output.includes("\n")) {
-          settle(resolve, true);
-        }
-      });
-      child.once("exit", (code) => {
-        if (code === 1) {
-          settle(resolve, false);
-          return;
-        }
-        settle(reject, fileLockError(
-          `Exclusive file lock process failed${stderr ? `: ${stderr.trim()}` : "."}`, errorCode
-        ));
-      });
-    });
-    if (!acquired) {
-      await lockHandle.close();
-      return null;
-    }
-
-    let released = false;
-    return async () => {
-      if (released) {
-        return;
-      }
-      released = true;
-      try {
-        child.stdin.end("release\n");
-        const result = await closed;
-        if (result.code !== 0) {
-          throw fileLockError(
-            `Exclusive file lock process exited unexpectedly${stderr ? `: ${stderr.trim()}` : "."}`, errorCode
-          );
-        }
-      } finally {
-        await lockHandle.close();
-      }
-    };
+    result = await lockThroughDescriptor(lockHandle.fd, normalizedCwd);
   } catch (error) {
-    child?.stdin?.destroy();
-    child?.kill("SIGTERM");
-    await closed;
     await lockHandle.close().catch(() => null);
-    if (error?.code === errorCode) {
-      throw error;
-    }
     throw fileLockError(error?.message || String(error || "Exclusive file lock failed."), errorCode);
   }
+  if (result.status !== 0) {
+    await lockHandle.close();
+    if (result.status === LOCK_HELD_ELSEWHERE) {
+      return null;
+    }
+    throw fileLockError(`Exclusive file lock process failed${result.stderr ? `: ${result.stderr}` : "."}`, errorCode);
+  }
+
+  let released = false;
+  return async () => {
+    if (released) {
+      return;
+    }
+    released = true;
+    await lockHandle.close();
+  };
 }
 
 export {

@@ -1071,6 +1071,7 @@ Exports
 Local functions
 - `fileLockError(message = "", code = FILE_LOCK_ERROR_CODE)`
 - `normalizedAbsolutePath(value = "", label = "path", errorCode = FILE_LOCK_ERROR_CODE)`
+- `lockThroughDescriptor(fd, cwd)`
 
 ### `server/support/importFreshModuleFromAbsolutePath.js`
 Exports
