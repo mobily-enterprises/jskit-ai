@@ -15,6 +15,31 @@
 /** @typedef {ReturnType<typeof import("./tools/commands.js").createCommands>} AgentCommands The commands of every conversation (createCommands). */
 
 /**
+ * @typedef {object} AgentTodosCard A conversation's to-do card: one of the app's messages, of kind
+ * "todos".
+ * @property {number | string} id
+ * @property {{ list: string, items: { text: string, status: "todo" | "doing" | "done" }[], updatedAt: string }} body
+ */
+
+/**
+ * @typedef {object} AgentPlanning The app's store for the to-do cards and job notes (planningTools,
+ * planningNotes), on the messages and conversations it owns. A new card is a message the tools hand
+ * to `post`, as `{ kind: "todos", role: "bot", body }`.
+ * @property {(conversationId: number | string) => Promise<AgentTodosCard | undefined>} currentTodos
+ * The conversation's newest card (highest id) among its messages of kind "todos" whose
+ * `body.list` is `String(conversationId)`; undefined when it has none.
+ * @property {(cardId: number | string, body: AgentTodosCard["body"]) => Promise<unknown>} mergeTodos
+ * Merges `body`'s keys into the card's stored body (PostgreSQL `body || ?::jsonb`): its list, items
+ * and updatedAt replaced, any other keys kept.
+ * @property {(conversationId: number | string) => Promise<string[] | null | undefined>} jobNotes
+ * The conversation's job notes as last kept; null or undefined when none were ever kept or the
+ * conversation is gone.
+ * @property {(conversationId: number | string, notes: string[]) => Promise<unknown>} setJobNotes
+ * Keeps the whole list as the conversation's job notes, an empty list as an empty list; a
+ * conversation that is gone is left alone.
+ */
+
+/**
  * @typedef {object} AgentExecutor Where commands run (gvisorExecutor, localExecutor).
  * @property {string} kind
  * @property {() => boolean} available
