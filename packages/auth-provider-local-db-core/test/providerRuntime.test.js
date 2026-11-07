@@ -5,148 +5,16 @@ import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared
 import { AuthExtensionsProvider } from "@jskit-ai/auth-core/server/providers/AuthExtensionsProvider";
 import { createLocalAuthService, hashPassword } from "@jskit-ai/auth-provider-local-core/server/lib/index";
 import { AuthLocalProvider } from "@jskit-ai/auth-provider-local-core/server/providers/AuthLocalProvider";
-import { createLocalDbBackend, LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
+import { LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
 import { AuthLocalDatabaseBackendProvider } from "../src/server/providers/AuthLocalDatabaseBackendProvider.js";
 import { localServiceOptions } from "../../auth-provider-local-core/test-support/localService.js";
+import { localAuthRuntimeInputs, openMigratedSqlite, openSqliteLocalAuth } from "./support/localAuthRuntime.js";
 import packageJson from "../package.json" with { type: "json" };
 
 const packageMetadata = packageJson.jskit;
 
 const DEV_AUTH_SECRET_HEADER = "x-jskit-dev-auth-secret";
 const DEV_AUTH_SECRET = "local-db-preview-exchange-secret";
-
-function clone(value) {
-  return value == null ? value : JSON.parse(JSON.stringify(value));
-}
-
-function createDuplicateError() {
-  const error = new Error("duplicate key value violates unique constraint");
-  error.code = "23505";
-  return error;
-}
-
-function createMemoryKnex() {
-  const tables = new Map(Object.values(LOCAL_AUTH_DB_TABLES).map((tableName) => [tableName, []]));
-
-  function rowsFor(tableName) {
-    if (!tables.has(tableName)) {
-      tables.set(tableName, []);
-    }
-    return tables.get(tableName);
-  }
-
-  function assertUnique(tableName, row) {
-    const rows = rowsFor(tableName);
-    const duplicate = rows.some((existing) => {
-      if (existing.id === row.id) {
-        return true;
-      }
-      if (tableName === LOCAL_AUTH_DB_TABLES.users) {
-        return existing.email === row.email;
-      }
-      return existing.token_hash === row.token_hash;
-    });
-    if (duplicate) {
-      throw createDuplicateError();
-    }
-  }
-
-  class Query {
-    constructor(tableName) {
-      this.tableName = tableName;
-      this.filters = [];
-    }
-
-    where(criteria, ...rest) {
-      if (criteria && typeof criteria === "object") {
-        for (const [key, expected] of Object.entries(criteria)) {
-          this.filters.push((row) => row[key] === expected);
-        }
-        return this;
-      }
-      const key = String(criteria || "");
-      if (rest.length === 2) {
-        const [operator, limit] = rest;
-        const compare = { "<": (left, right) => left < right, "<=": (left, right) => left <= right }[operator];
-        assert.ok(compare, `unsupported operator ${operator}`);
-        this.filters.push((row) => compare(new Date(row[key]).getTime(), new Date(limit).getTime()));
-        return this;
-      }
-      this.filters.push((row) => row[key] === rest[0]);
-      return this;
-    }
-
-    whereNot(key, value) {
-      this.filters.push((row) => row[String(key || "")] !== value);
-      return this;
-    }
-
-    whereNull(key) {
-      this.filters.push((row) => row[String(key || "")] == null);
-      return this;
-    }
-
-    matches(row) {
-      return this.filters.every((filter) => filter(row));
-    }
-
-    async first() {
-      return clone(rowsFor(this.tableName).find((row) => this.matches(row)) || null);
-    }
-
-    // insert(row) inserts when awaited; insert(row).onConflict(column).merge() replaces the row with that column's value.
-    insert(row) {
-      const rows = rowsFor(this.tableName);
-      const append = async () => {
-        assertUnique(this.tableName, row);
-        rows.push(clone(row));
-        return [row.id];
-      };
-      return {
-        onConflict: (column) => ({
-          merge: async () => {
-            const index = rows.findIndex((existing) => existing[column] === row[column]);
-            if (index < 0) {
-              rows.push(clone(row));
-            } else {
-              rows[index] = clone(row);
-            }
-            return [row[column]];
-          }
-        }),
-        then: (resolve, reject) => append().then(resolve, reject)
-      };
-    }
-
-    async delete() {
-      const rows = rowsFor(this.tableName);
-      const kept = rows.filter((row) => !this.matches(row));
-      const count = rows.length - kept.length;
-      rows.splice(0, rows.length, ...kept);
-      return count;
-    }
-
-    async update(patch) {
-      let count = 0;
-      for (const row of rowsFor(this.tableName)) {
-        if (this.matches(row)) {
-          Object.assign(row, clone(patch));
-          count += 1;
-        }
-      }
-      return count;
-    }
-  }
-
-  function knex(tableName) {
-    return new Query(tableName);
-  }
-
-  knex.__tables = tables;
-  knex.transaction = async (callback) => callback(knex);
-
-  return knex;
-}
 
 function createReplyFixture() {
   const cookies = {};
@@ -161,23 +29,16 @@ function createReplyFixture() {
   };
 }
 
-function createDbBackendFixture() {
-  const knex = createMemoryKnex();
-  const transactionManager = {
-    transactions: 0,
-    async inTransaction(work) {
-      this.transactions += 1;
-      return knex.transaction(work);
+// The database backend on a migrated SQLite database, counting the transactions it opens.
+async function createDbBackendFixture(t) {
+  const records = await openSqliteLocalAuth(t);
+  const transactions = { count: 0 };
+  records.knex.on("query", ({ sql }) => {
+    if (/^begin/iu.test(String(sql))) {
+      transactions.count += 1;
     }
-  };
-  return {
-    knex,
-    transactionManager,
-    backend: createLocalDbBackend({
-      knex,
-      transactionManager
-    })
-  };
+  });
+  return { ...records, transactions };
 }
 
 function createService(backend, { env = {}, ...serviceOptions } = {}) {
@@ -201,8 +62,8 @@ function createLocalRequest({ cookies = {}, exchange = false } = {}) {
   };
 }
 
-test("DB local auth backend implements the storage repository contract", async () => {
-  const { backend, transactionManager } = createDbBackendFixture();
+test("DB local auth backend implements the storage repository contract", async (t) => {
+  const { backend, transactions } = await createDbBackendFixture(t);
   const password = await hashPassword("stored password value");
 
   await backend.withTransaction(async (tx) => {
@@ -250,35 +111,37 @@ test("DB local auth backend implements the storage repository contract", async (
     assert.equal(await tx.recovery.consumeForUser("usr_db_contract"), 0);
   });
 
-  assert.equal(transactionManager.transactions, 1);
+  assert.equal(transactions.count, 1);
 });
 
-test("DB local auth backend rejects duplicate users by canonical email", async () => {
-  const { backend } = createDbBackendFixture();
+test("DB local auth backend rejects duplicate users by canonical email", async (t) => {
+  const { backend } = await createDbBackendFixture(t);
   const password = await hashPassword("stored password value");
 
-  await backend.withTransaction(async (tx) => {
-    await tx.users.create({
-      id: "usr_duplicate_1",
-      email: "duplicate@example.com",
-      displayName: "Duplicate One",
-      password
-    });
-    await assert.rejects(
-      () =>
-        tx.users.create({
-          id: "usr_duplicate_2",
-          email: "duplicate@example.com",
-          displayName: "Duplicate Two",
-          password
-        }),
-      /Local auth user already exists/
-    );
-  });
+  await backend.withTransaction((tx) => tx.users.create({
+    id: "usr_duplicate_1",
+    email: "duplicate@example.com",
+    displayName: "Duplicate One",
+    password
+  }));
+  // A failed write fails its whole transaction, so the duplicate has one of its own. SQLite reports the duplicate in
+  // its own words; on MySQL and PostgreSQL it is "Local auth user already exists." (localAuthRecords.mysql.test.js).
+  await assert.rejects(
+    () =>
+      backend.withTransaction((tx) => tx.users.create({
+        id: "usr_duplicate_2",
+        email: "duplicate@example.com",
+        displayName: "Duplicate Two",
+        password
+      })),
+    /UNIQUE constraint failed: auth_local_users\.email/u
+  );
+  assert.equal((await backend.withTransaction((tx) => tx.users.findByEmail("duplicate@example.com"))).id, "usr_duplicate_1");
+  assert.equal(await backend.withTransaction((tx) => tx.users.findById("usr_duplicate_2")), null);
 });
 
-test("local auth service works end to end with DB backend", async () => {
-  const { backend } = createDbBackendFixture();
+test("local auth service works end to end with DB backend", async (t) => {
+  const { backend } = await createDbBackendFixture(t);
   const authService = createService(backend);
 
   const registered = await authService.register({
@@ -374,8 +237,8 @@ test("local auth service works end to end with DB backend", async () => {
   );
 });
 
-test("local database auth uses the shared native login-as session contract", async () => {
-  const { backend } = createDbBackendFixture();
+test("local database auth uses the shared native login-as session contract", async (t) => {
+  const { backend } = await createDbBackendFixture(t);
   const password = await hashPassword("stored password value");
   await backend.withTransaction((tx) => tx.users.create({
     displayName: "Database Preview User",
@@ -408,8 +271,8 @@ test("local database auth uses the shared native login-as session contract", asy
   assert.equal(authenticated.sessionPurpose, "dev-auth");
 });
 
-test("local auth DB backend works with custom password strategy", async () => {
-  const { backend } = createDbBackendFixture();
+test("local auth DB backend works with custom password strategy", async (t) => {
+  const { backend } = await createDbBackendFixture(t);
   const authService = createService(backend, {
     passwordStrategy: {
       async hashPassword(password) {
@@ -438,8 +301,8 @@ test("local auth DB backend works with custom password strategy", async () => {
   assert.equal(login.actor.email, "strategy-db@example.com");
 });
 
-test("local auth service rejects disabled DB-backed users", async () => {
-  const { backend } = createDbBackendFixture();
+test("local auth service rejects disabled DB-backed users", async (t) => {
+  const { backend } = await createDbBackendFixture(t);
   const password = await hashPassword("disabled password value");
   await backend.withTransaction((tx) =>
     tx.users.create({
@@ -462,8 +325,8 @@ test("local auth service rejects disabled DB-backed users", async () => {
   );
 });
 
-test("local auth DB backend still supports lazy profile projection", async () => {
-  const { backend } = createDbBackendFixture();
+test("local auth DB backend still supports lazy profile projection", async (t) => {
+  const { backend } = await createDbBackendFixture(t);
   let projectionCalls = 0;
   const authService = createService(backend, {
     profileProjector: {
@@ -510,8 +373,8 @@ test("package metadata declares portable local auth DB migrations without instal
   );
 });
 
-test("installing the DB backend capability makes local auth database-backed", async () => {
-  const knex = createMemoryKnex();
+test("installing the DB backend capability makes local auth database-backed", async (t) => {
+  const { inputs } = await localAuthRuntimeInputs(await openMigratedSqlite(t));
   let authService = null;
   const probe = defineProvider({
     id: "test.auth.local-db.probe",
@@ -532,14 +395,7 @@ test("installing the DB backend capability makes local auth database-backed", as
         NODE_ENV: "test"
       },
       "runtime.logger": console,
-      "runtime.database": {
-        knex,
-        transactionManager: {
-          inTransaction(work) {
-            return knex.transaction(work);
-          }
-        }
-      }
+      ...inputs
     },
     providers: [
       AuthExtensionsProvider,
@@ -563,14 +419,12 @@ test("installing the DB backend capability makes local auth database-backed", as
   assert.equal(registered.actor.email, "provider-db@example.com");
 });
 
-test("local auth DB backend rejects competing capability ownership", () => {
+test("local auth DB backend rejects competing capability ownership", async (t) => {
+  const { inputs } = await localAuthRuntimeInputs(await openMigratedSqlite(t));
   assert.throws(() => createCapabilityRuntime({
     inputs: {
       "auth.local.backend": { async withTransaction() {} },
-      "runtime.database": {
-        knex: createMemoryKnex(),
-        transactionManager: { async inTransaction(work) { return work(); } }
-      }
+      ...inputs
     },
     providers: [AuthLocalDatabaseBackendProvider]
   }), /auth\.local\.backend.*supplied both/);
