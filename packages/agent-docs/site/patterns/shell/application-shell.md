@@ -58,7 +58,9 @@ placement registry, topology, and adaptive smoke helper exported by
   below the target's `scroll-margin-top`), Back/Forward restore the saved
   position, and query, hash, tab or sub-view changes within the same page keep
   it. A tab or sub-view is the same page when both locations share a parent
-  page record below the surface root. Pass `scrollBehavior` to replace it
+  page record below the surface root that draws a component, a layout hosting
+  the tabs; a folder's component-less record, as file routing creates for
+  `bookings/`, makes its pages different pages. Pass `scrollBehavior` to replace it
   (calling `shellScrollBehavior` for what it leaves to the shell), or
   `scrollBehavior: false` to disable it. A `createRouter` that replaces the
   behaviour it is given throws, so never set one there; do not wrap the router

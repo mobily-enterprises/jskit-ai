@@ -108,7 +108,8 @@ Local functions
 - `isNavigationRule(rule)`
 - `isSkippedDirectory(name)`
 - `isSourceFile(relativePath)`
-- `walk(projectRoot, directory, files)`
+- `isFrameworkPackage(projectRoot, directory)`
+- `walk(projectRoot, directory, files, wholeApp = false)`
 - `collectFiles(projectRoot, paths)`
 - `createReporter(file, source, { navigationOnly = false } = {})`
 - `checkCode(code, offset, { report, themed })`

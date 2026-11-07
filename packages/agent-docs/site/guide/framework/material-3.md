@@ -45,7 +45,8 @@ app and never leaves it.
 - **What the person sees:** one Up arrow on every inner page, also when opened
   directly: icon only (`$arrowBack`), accessible name "Back" (localized), a
   tooltip on pointer devices. None on top-level destinations, and no other
-  back control anywhere; the bar title says where the person is. A list-detail
+  back control anywhere; the bar title says where the person is. A new or edit
+  form shows a close (X) in the arrow's place, which cancels. A list-detail
   layout showing the parent beside the page needs no arrow for that step;
   collapsed to one pane, the record pane gets it back.
 - **Where Up goes:** to the previous trail entry while it is valid, so inside
@@ -77,11 +78,12 @@ Exactly this, and nothing more:
    </script>
    ```
 
-   The same key works in a `<route lang="json">` block. A record names its
-   list, an edit page its record, a sub-page its page. Tabs under a layout
+   The same key works in a `<route lang="json">` block. Tabs under a layout
    (`settings.vue` rendering `<RouterView>` for `settings/`) declare nothing:
    they inherit the nearest layout's declaration, and moving between them keeps
-   the trail. The parent is read from the page up to its surface root, the
+   the trail and the scroll. A folder without a layout (`bookings/` with no
+   `bookings.vue`) only groups routes: its pages are different pages, each
+   opening at the top. The parent is read from the page up to its surface root, the
    record that declares `jskit.surface`, and stops there: a parent declared
    beside `jskit.surface` is never read, and an inner page repeating its
    surface becomes a root of its own with no Up. So the surface goes only on
@@ -99,18 +101,20 @@ Exactly this, and nothing more:
    `:to="paths.page('/suppliers')"` and `router.push(paths.page(...))` with
    `usePaths()`, the CRUD runtime's `resolveViewUrl()`, `resolveEditUrl()` and
    `resolveParams()`, and link placements (`surface` with `scopedSuffix` and
-   `unscopedSuffix`; `to` only for a global route such as `/auth/login`). A
-   global route (`scope: "global"`, on no surface) is
-   `paths.page("/auth/login", { scope: "global" })`; `explicitTo` passes a
-   finished target that arrives as data through unchanged, and is not a way to
-   write a path by hand. The trail follows the router, so there is no special
-   link component.
+   `unscopedSuffix`; `to` only for a global route). A global route
+   (`scope: "global"`, on no surface) is
+   `paths.page("/auth/login", { scope: "global" })`; `explicitTo` only passes
+   through a finished target that arrives as data, never a hand-written path.
+   The trail follows the router, so there is no special link component.
 4. **A custom new or edit page finishes through the shell:**
    `useShellNavigation()` (`@jskit-ai/shell-web/client/navigation/useShellNavigation`)
    gives `finish(target)` for Save (the target replaces the form in the trail)
    and `finish()` for Cancel (back to where the form was opened, else its
-   parent). A page whose record turns out deleted or forbidden calls
-   `pageUnavailable()`. JSKIT's CRUD screens already do both.
+   parent); `useShellPageClose({ label, close })`
+   (`@jskit-ai/shell-web/client/composables/useShellPageClose`) makes the
+   arrow its Cancel, never an X beside it. A page whose
+   record turns out deleted or forbidden calls `pageUnavailable()`. JSKIT's
+   CRUD screens already do all three.
 5. **A full page load goes through the shell too:** `reloadAppPage(path)`
    (after sign-in or a user switch, to rebuild client state) and
    `leaveApp(url)` (an external site in the same tab, such as a payment page),
@@ -131,7 +135,7 @@ Exactly this, and nothing more:
 | `nav/top-level-parent` | a main-navigation destination that declares a parent |
 | `nav/placement-data` | a main-navigation placement that isn't literal data (no page is judged for a missing parent until it is) |
 | `nav/missing-shell-layout` | a page that declares a parent with no shell layout rendering it, so its title, Up and actions never show |
-| `nav/surface-parent` | a parent declared beside `jskit.surface`, which the shell never reads: declare the surface only on the surface's layout page and the parent on the page it renders |
+| `nav/surface-parent` | a parent declared beside `jskit.surface`, which the shell never reads |
 | `nav/allow` | any `m3-check: allow nav/...` comment: nothing excuses a navigation rule |
 
 ### Each rule, right and wrong
@@ -208,24 +212,24 @@ Exactly this, and nothing more:
 
 ## Exact sizes
 
-JSKIT ships these exact sizes; an app never re-implements or overrides them,
-and needs no Sass and no `!important` (Vuetify 4 keeps its CSS in cascade
-layers):
+JSKIT ships these exact sizes; an app never re-implements or overrides them:
 
 - 40dp buttons with a 48dp touch target, icon buttons included; a smaller
   button is `size="small"` or `size="x-small"`, which keeps its smaller look
-  and the 48dp target;
-- one-line button labels: a label longer than its button ends in an ellipsis.
-  Keep labels short, and give a button whose label can run long, such as a
-  name, the full label as its `title`;
-- 12dp cards: elevated (the default) at level 1, flat and tonal at level 0;
+  and the 48dp target. No icon button is under 32dp, and a target stops at
+  the edge of a button beside it, so each of a row's touching icon buttons
+  answers its own press;
+- one-line button labels, ending in an ellipsis: keep labels short, and give
+  one that can run long, such as a name, its full label as `title`;
+- 12dp cards: flat (the default) and tonal at level 0, `variant="elevated"`
+  at level 1; flat expansion panels;
 - 28dp dialogs and bottom-sheet top corners, square full-screen dialogs;
 - 8dp chips, and FABs of 56dp (small 40dp, large 96dp; extended 56dp tall)
   with 16dp corners;
 - emphasized easing, with reduced motion honoured.
 
 So never set `height` or `min-height` on a button, or a radius on a card,
-dialog, chip or FAB. A missing size is a JSKIT defect.
+dialog, chip or FAB.
 
 ## The top app bar carries the page
 
@@ -233,36 +237,40 @@ dialog, chip or FAB. A missing size is a JSKIT defect.
   `useShellPageTitle(title)` (`@jskit-ai/shell-web/client/composables/useShellPageTitle`)
   for a runtime title such as the record's name. The shell renders it as the
   app bar's only `h1`; pages add no `h1`, page header, title block or
-  standalone heading. A section inside a page uses a title role. A page with
-  no top app bar (a hero front page, an intro, an invite or hand-off page)
-  has its own one `h1`.
-- **Up** sits in the bar on every inner page (see Navigation and Up). On phones
-  it replaces the menu icon.
+  standalone heading. Route pages own the title: a section or a nested
+  component uses a title role (a component's claim gives the title back when
+  it goes). A page with no top app bar (a hero front page, an intro, an invite
+  or hand-off page) has its own one `h1`.
+- **Up** leads the bar on every inner page; on phones it replaces the menu
+  icon.
 - **A layout that draws its own top app bar** (a workspace bar with the
   app's own controls, instead of `ShellLayout`) builds it from `ShellLayout`'s
   own pieces, from `@jskit-ai/shell-web/client`. It calls `useShellAppBar()`
   once, so its pages enter the trail and their `ShellPageActions` show in its
   bar, and renders `ShellUpButton` first, then `ShellPageTitle` (the page's one
-  `h1`: `useShellPageTitle()`, else the route's `jskit.title`, else its `title`
-  prop) and `ShellPageActionsTarget`. A title that is also a switcher, such as a
+  `h1`) and `ShellPageActionsTarget`. A title that is also a switcher, such as a
   project menu, goes in `ShellPageTitle`'s default slot (given `{ title }`) as
-  the menu's activator, so it stays the one `h1`. `jskit check` counts it as a shell
-  layout, so its inner pages need parents; an Up the app draws itself is a
-  `nav/back-control` finding.
+  the menu's activator, so it stays the one `h1`. `jskit check` counts it as a
+  shell layout, so its inner pages need parents.
 - **Actions:** a screen's actions go in the bar inside `ShellPageActions`
   (`@jskit-ai/shell-web/client/components/ShellPageActions`), each a
   `ShellPageAction` with `icon`, `label` (also its accessible name and compact
-  tooltip), and `primary`, `to`, `replace`, `disabled`, `loading` or `color`.
-  On compact widths every action shows only its icon except the single
-  `primary` one.
+  tooltip), and `primary`, `to`, `replace`, `href` (with `download` for a
+  file, such as a CSV export), `disabled`, `loading` or `color` (`error` for a
+  destructive one); attributes such as `target` reach its button. On compact
+  widths the bar keeps one trailing item after the title: the single
+  `primary` action when the page has one (a form's Save), otherwise its own
+  item nearest the corner (a top-right placement such as the account avatar).
+  Every other action and the bar's other items (a notification bell, tools)
+  go to its "More actions" menu, where `overflow` actions always are. Medium
+  and wider bars show them all.
 - **Window size classes:** compact under 600 (navigation bar), medium 600–839
-  (navigation rail), expanded 840–1199 and large from 1200 (drawer). A surface
-  with fewer than two navigation destinations (none, as on an account surface,
-  or Home alone) draws no navigation bar, rail or drawer; its pages keep the
-  app bar. Read them
-  from `useShellWindowSizeClass()`
+  (navigation rail), expanded 840–1199 and large from 1200 (drawer), read from
+  `useShellWindowSizeClass()`
   (`@jskit-ai/shell-web/client/composables/useShellWindowSizeClass`), never from
-  copied breakpoint numbers.
+  copied breakpoint numbers. A surface with fewer than two navigation
+  destinations (none, as on an account surface, or Home alone) draws no
+  navigation bar, rail or drawer; its pages keep the app bar.
 - **Section tabs:** a page's own sections (`page.section-nav`) are Material 3
   primary tabs: the topology names `ShellSectionTabLinkItem`'s token (the
   starter registers it as `local.main.ui.section-tab-link-item`), and the page
@@ -291,35 +299,41 @@ dialog, chip or FAB. A missing size is a JSKIT defect.
   control; never a permanent panel of outlined fields. A card opens its record
   when tapped (a stretched title link); a table row opens on click. Row actions
   are trailing icon buttons (edit, a `$moreVert` overflow menu, a chevron to
-  open), never "View" or "Edit" text buttons on every row. "New" is an extended
-  FAB on compact and medium widths and a filled bar button on expanded. Empty
-  and error states carry an icon.
+  open), never "View" or "Edit" text buttons on every row. "New" is
+  `ShellPrimaryAction` (`label`, and `to` or a click handler): an extended FAB
+  on compact and medium widths, a filled bar button on expanded. On/off filters
+  are `aria-pressed` chips, or chips in a `v-chip-group`; JSKIT draws them as
+  filter chips. Empty and error states carry an icon.
 - **A list never scrolls sideways, at any width.** The list's own width (a
   container query, not the window) chooses cards or table. Cards flow into a
   grid; tables use a fixed layout with an ellipsis on long values, and fold
   low-priority columns into a stronger column's second line. Lists show figures
   ("120 kg", tabular and right-aligned) and names, never ids.
 - **Record:** a header (avatar, title, status chips) and value-first detail
-  lists, never a grid of label/value text. Edit sits in the bar; the record's
+  lists, never a grid of label/value text. Edit sits in the bar, its secondary
+  actions in the bar's overflow menu, never in the content; the record's
   next workflow step is the one filled button, shown in context rather than a
   row of mostly disabled actions.
-- **Form:** Cancel and Save sit in the bar. Fields use `hideDetails: "auto"`.
-  Nothing moves under a finger: a multi-select chip field keeps its input width
-  when it loses focus. A pick-one-of-N choice is a segmented button with
-  `role="radiogroup"` and `role="radio"`/`aria-checked` buttons.
+- **Form:** the bar's close (X) cancels and Save is its filled action. Fields
+  use `hideDetails: "auto"`. Nothing moves under a finger: a multi-select chip
+  field keeps its input width when it loses focus. A pick-one-of-N choice is a
+  segmented button (`v-btn-toggle`, drawn by JSKIT, with 12dp segment sides as
+  in any `v-btn-group`) with `role="radiogroup"` and
+  `role="radio"`/`aria-checked` buttons.
 - **Dialogs:** plain `v-dialog` and `v-bottom-sheet`; JSKIT gives them their
   Material 3 shapes. A full-screen dialog (compact and medium) puts close, title
   and its confirm action in a top bar, never at the bottom where a snackbar
   covers them.
 - **Menus and badges:** a menu's list has `role="menu"` and its items
   `role="menuitem"`, with `aria-disabled` on unavailable ones; a badge has a
-  `label` such as "3 batches".
+  `label` such as "3 batches". JSKIT draws a menu's list and a dialog's card;
+  an app sets no `VMenu` or `VDialog` sub-component defaults, under which
+  Vuetify 4.2.1 to 4.3.2 loses a `v-select`'s typeahead match, or a dialog's
+  virtual list, when an ancestor re-renders.
 
 ## Components, state, and feedback
 
-- Choose components by purpose. Prefer standard buttons, fields, lists,
-  tables, sheets, dialogs, menus, navigation, progress, alerts, snackbars, and
-  tooltips over custom imitations.
+- Choose standard components by purpose over custom imitations.
 - Give one primary action emphasis. Distinguish destructive, secondary, and
   icon-only actions without relying on color; give icon controls accessible
   names and fields meaningful labels, errors, and autocomplete behavior.
@@ -339,8 +353,8 @@ dialog, chip or FAB. A missing size is a JSKIT defect.
 - A snackbar never covers the FAB or the actions it reports on. `ShellErrorHost`
   centres it above the navigation bar on compact windows and starts it at the
   content's start edge, at most half its width, on wider ones. A FAB takes
-  layout room (`<v-fab app layout>`) so the snackbar shows above it, and a
-  compact form's Save is the app bar's primary action.
+  layout room (`<v-fab app layout>`, as `ShellPrimaryAction`'s does), so the
+  snackbar shows above it.
 
 ## Adaptive layout
 
@@ -362,11 +376,10 @@ npx jskit check m3 src/pages/home/books  # a section
 npx jskit check m3 $(git diff --name-only --diff-filter=d main)  # changed files
 ```
 
-Plain `jskit check` fails on the [navigation rules](#forbidden-in-app-code);
-fix every one, because nothing excuses them. `jskit check m3` lists those and
-the visual rules below. The visual rules are a report until every JSKIT app has
-been converted to them; the JSKIT release after that makes plain `jskit check`,
-and so every app's verify, fail on them too:
+Plain `jskit check` fails on the [navigation rules](#forbidden-in-app-code).
+`jskit check m3` lists those and the visual rules below. The visual rules are a
+report until every JSKIT app has been converted to them; the JSKIT release after
+that makes plain `jskit check`, and so every app's verify, fail on them too:
 
 | Rule | Finds |
 |---|---|
@@ -424,9 +437,9 @@ What is left, such as a colour inside static SVG markup that can't import,
 may be excused one line at a time, on its line or the line before: `<!-- m3-check: allow m3/raw-hex - the partner's contractual logo colour -->`
 (`// m3-check: ...` in scripts, `/* ... */` in CSS). **Never add one on your
 own:** ask the person first, naming the rule and the reason. A comment with no
-reason (`m3/allow-reason`) or an unknown rule (`m3/allow-rule`), and any
-`m3-check: allow nav/...` (`nav/allow`), is itself a finding; nothing turns the
-check off for a file, a folder or the app. `jskit check m3` lists every
+reason (`m3/allow-reason`) or an unknown rule (`m3/allow-rule`) is itself a
+finding, as any `nav/allow` is; nothing turns the check off for a file, a
+folder or the app. `jskit check m3` lists every
 exception with its file, line and reason, and their total.
 
 ## Material 3 audit
@@ -435,19 +448,16 @@ Run this behavior-preserving audit over every affected screen:
 
 1. Identify the owning JSKIT surface, shared screen, shell, placement, theme,
    and Vuetify components before judging local markup.
-2. Check navigation and Up first, as must-fix: plain `jskit check` passes;
-   every inner page has a parent and one Up arrow in the bar; main-menu
-   destinations have none; no inner link is hand-built; nothing writes back
-   logic.
+2. Check navigation and Up first, as must-fix: plain `jskit check` passes and
+   every rule in Navigation and Up holds.
 3. Find parallel components, duplicated state chrome, page-local themes, raw
    visual constants, CSS against Vuetify internals, nested generic cards,
-   borders instead of tones, Material 2 typography, and desktop-only layout.
-4. Check hierarchy, token use, component purpose, responsive presentation,
-   interaction states, keyboard/focus behavior, labels, targets, contrast, and
-   reduced motion against the rules above.
-5. Correct issues at the narrowest established owner. Consolidate only truly
+   borders instead of tones, Material 2 typography, and desktop-only layout;
+   check states, focus, labels, targets, contrast and reduced motion against
+   the rules above.
+4. Correct issues at the narrowest established owner. Consolidate only truly
    repeated policy; avoid pass-through wrappers and speculative abstractions.
-6. Run `jskit check` and `jskit check m3` on the affected files, then focused
+5. Run `jskit check` and `jskit check m3` on the affected files, then focused
    tests and Playwright at compact, medium, and expanded widths in light and
    dark (`shellBackButton(page)` and `pressShellBack(page)` from
    `@jskit-ai/shell-web/test/shellNavigation` drive Up).

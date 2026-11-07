@@ -64,16 +64,21 @@ Delete, rather than port:
   title, and every `--shell-*` and `--shell-chrome-*` custom property (the shell
   no longer reads them);
 - `v-sheet border` panels and outlined cards used as page sections: Material 3
-  cards are elevated (`v-card`, the default) or filled
-  (`variant="flat" color="surface-container-highest"`), and a section on the
-  page needs no frame at all;
+  cards rest flat (`v-card`, the default), are elevated
+  (`variant="elevated"`) or filled (`color="surface-container-highest"`), and
+  a section on the page needs no frame at all;
 - `!important`, Sass variable overrides and component size or radius tweaks.
   `material.css` sets 40dp buttons with a 48dp touch target, 12dp cards, 28dp
   dialogs and sheets, 8dp chips and 16dp FABs, and an app's own props still win;
+- `:active="false"` on buttons with `to`: a button is active only on exactly
+  its route;
 - every `height` and `min-height` on a button, as a prop, a style or CSS. A
   button that should look smaller becomes `size="small"` or `size="x-small"`:
   it keeps the 48dp touch target. A long label ends in an ellipsis instead of
-  spilling out; give a label that can run long its `title`.
+  spilling out; give a label that can run long its `title`;
+- the `variant`, `color` and check icon of filter chips and segments: an on/off
+  chip with `aria-pressed`, a chip in a `v-chip-group` and a `v-btn-toggle`
+  segment draw Material 3's filter chip and segmented button themselves.
 
 Use colour roles (`color="secondary-container"`, `bg-color="surface-container-high"`,
 the `on-surface-variant` class) instead of colours.
@@ -159,7 +164,14 @@ the content into the app bar:
 ```
 
 At most one action is `primary`; on compact windows the others show as icon
-buttons named by their label.
+buttons named by their label. A record's secondary actions (Duplicate,
+Archive) are `overflow` actions in the bar's "More actions" menu, not buttons
+in the content; on compact windows the actions the bar can't hold join them.
+A screen's "New" is `<ShellPrimaryAction label="New book" :to="newPath" />`,
+or `@click` for one that opens a dialog, in place of a hand-wired `v-fab`,
+`ShellPageAction` and `useShellWindowSizeClass()`. A custom form's Cancel is
+`useShellPageClose({ label: "Cancel", close: () => finish() })`, which turns
+its Up arrow into a close (X), not a `$close` action beside the arrow.
 
 A layout that draws its own top app bar instead of `ShellLayout` keeps it and
 builds the page's part from the shell's pieces, so Up, the title and the
@@ -169,7 +181,9 @@ actions behave as in `ShellLayout`:
 <script setup>
 import { ShellPageActionsTarget, ShellPageTitle, ShellUpButton, useShellAppBar } from "@jskit-ai/shell-web/client";
 
-useShellAppBar();
+// On a phone the bar keeps one trailing item: the page's primary action when pageActions.hasPrimary is true,
+// otherwise the app's own control nearest the corner; put the others in ShellPageActionsTarget's #menu slot.
+const { pageActions } = useShellAppBar();
 </script>
 
 <template>

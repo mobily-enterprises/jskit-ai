@@ -43,10 +43,6 @@ Local functions
 - `isActionExecuting(action)`
 - `actionLabel(action = {})`
 
-### `src/client/components/CrudListCreateAction.vue`
-Exports
-- None
-
 ### `src/client/components/CrudListDateFilterControl.vue`
 Exports
 - None

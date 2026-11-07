@@ -125,8 +125,14 @@ Exports
 ### `src/client/components/ShellPageActionsTarget.vue`
 Exports
 - None
+Local functions
+- `itemProps(entry)`
 
 ### `src/client/components/ShellPageTitle.vue`
+Exports
+- None
+
+### `src/client/components/ShellPrimaryAction.vue`
 Exports
 - None
 
@@ -189,6 +195,10 @@ Exports
 ### `src/client/composables/useShellOutletPlacements.js`
 Exports
 - `useShellOutletPlacements(target, context = {})`
+
+### `src/client/composables/useShellPageClose.js`
+Exports
+- `useShellPageClose({ label, close })`
 
 ### `src/client/composables/useShellPageTitle.js`
 Exports
@@ -303,6 +313,7 @@ Exports
 - `ShellSectionTabLinkItem`
 - `ShellPageActions`
 - `ShellPageAction`
+- `ShellPrimaryAction`
 - `ShellListDetail`
 - `ShellUpButton`
 - `ShellPageTitle`
@@ -310,6 +321,7 @@ Exports
 - `useShellAppBar`
 - `useShellLayoutState`
 - `useShellPageTitle`
+- `useShellPageClose`
 - `useShellWindowSizeClass`
 - `useShellNavigation`
 - `leaveApp`
@@ -355,9 +367,11 @@ Exports
 - `createShellNavigationRuntime({ router })`
 - `resolvePageParent(matched)`
 - `resolvePageTitle(matched)`
+- `type ShellPageClose`
 Local functions
 - `normalizeTrail(value)`
 - `cssAttributeValue(value)`
+- `createClaimStack()`
 
 ### `src/client/navigation/usePaths.js`
 Exports
@@ -608,6 +622,18 @@ Exports
 - `VUETIFY_ICONS_KEY`
 - `filledIconAlias(icon, aliases)`
 
+### `src/client/support/pageActions.js`
+Exports
+- `NO_SHELL_PAGE_ACTIONS_REGISTRY`
+- `SHELL_PAGE_ACTIONS_REGISTRY_KEY`
+- `createShellPageActionsRegistry({ isCompact })`
+- `overflowEntries(entries, compact)`
+- `type ShellPageActionState`
+- `type ShellPageActionEntry`
+- `type ShellPageActionsRegistry`
+Local functions
+- `documentOrder(left, right)`
+
 ### `src/client/support/primaryNavigation.js`
 Exports
 - `normalizeComparablePathname(value = "")`
@@ -660,6 +686,14 @@ Exports
 
 ### fixtures
 
+### `fixtures/adaptive-shell/src/ActionsFormPage.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/src/ActionsPage.vue`
+Exports
+- None
+
 ### `fixtures/adaptive-shell/src/App.vue`
 Exports
 - None
@@ -667,6 +701,16 @@ Exports
 ### `fixtures/adaptive-shell/src/ButtonsPage.vue`
 Exports
 - None
+
+### `fixtures/adaptive-shell/src/ButtonStatesPage.vue`
+Exports
+- None
+
+### `fixtures/adaptive-shell/src/ComponentsPage.vue`
+Exports
+- None
+Local functions
+- `jumpToLastBooking()`
 
 ### `fixtures/adaptive-shell/src/FeedbackPage.vue`
 Exports
@@ -708,6 +752,10 @@ Exports
 Exports
 - None
 
+### `fixtures/adaptive-shell/src/StatusButton.vue`
+Exports
+- None
+
 ### `fixtures/adaptive-shell/src/StudioPage.vue`
 Exports
 - None
@@ -716,6 +764,10 @@ Exports
 Exports
 - `theme`
 - `adminTheme`
+
+### `fixtures/adaptive-shell/src/TitleClaim.vue`
+Exports
+- None
 
 ### `fixtures/adaptive-shell/vite.config.mjs`
 Exports

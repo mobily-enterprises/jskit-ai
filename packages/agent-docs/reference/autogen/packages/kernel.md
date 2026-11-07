@@ -536,6 +536,7 @@ Local functions
 - `ignoreBootstrapStep()`
 - `installAppPlugins(app, appPlugins = [])`
 - `isSurfaceRootRecord(record)`
+- `hostsChildViews(record)`
 - `hashScrollMargin(hash)`
 
 ### `client/shellRouting.js`

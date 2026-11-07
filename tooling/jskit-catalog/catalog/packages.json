@@ -2682,6 +2682,7 @@
                 "@jskit-ai/shell-web/client/navigation/documentNavigation",
                 "@jskit-ai/shell-web/client/composables/useShellAppBar",
                 "@jskit-ai/shell-web/client/composables/useShellLayoutState",
+                "@jskit-ai/shell-web/client/composables/useShellPageClose",
                 "@jskit-ai/shell-web/client/composables/useShellPageTitle",
                 "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass",
                 "@jskit-ai/shell-web/client/types"
