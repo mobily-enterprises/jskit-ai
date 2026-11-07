@@ -24,12 +24,19 @@ async function dataAccessFindings(config, filePath) {
 
 const ERRORS = Object.freeze(["error jskit/no-direct-knex", "error jskit/no-hand-scope", "error jskit/sql-literal"]);
 
-test("baseConfig reports the data-access rules as errors in every server and shared source", async () => {
+test("baseConfig reports the data-access rules as errors in every source but the client's, wherever it sits", async () => {
   for (const filePath of [
     "packages/receivals/src/server/receivalsService.js",
     "packages/receivals/src/shared/receivalResource.js",
+    "packages/receivals/src/receivalsStore.js",
+    "packages/receivals/lib/receivalsStore.mjs",
+    "src/server/receivalsStore.js",
+    "src/shared/receivalResource.js",
     "server/lib/startup.js",
-    "server.js"
+    "server.js",
+    "config/server.js",
+    "bin/report.cjs",
+    "scripts/report.js"
   ]) {
     assert.deepEqual(await dataAccessFindings(baseConfig, filePath), ERRORS, filePath);
   }
@@ -46,7 +53,10 @@ test("baseConfig leaves tests, migrations, seeds and client code to reach the da
     "seeds/receivals.js",
     "packages/receivals/src/server/seedReceivals.js",
     "packages/receivals/src/client/composables/useReceivals.js",
-    "scripts/report.js"
+    "src/main.js",
+    "src/pages/home/receivals.js",
+    "tests/e2e/receivals.js",
+    "dist/assets/index.js"
   ]) {
     assert.deepEqual(await dataAccessFindings(baseConfig, filePath), [], filePath);
   }

@@ -1,3 +1,4 @@
+// readable-check: allow no-direct-knex - infrastructure: the OpenID provider's entry, which hands the application's Knex to the hub
 import { RegistrationError, validateRegistrationMetadata } from "./clients.js";
 import { systemClock } from "./clock.js";
 import { resolveHubConfig, resolveHubDevAuth } from "./config.js";

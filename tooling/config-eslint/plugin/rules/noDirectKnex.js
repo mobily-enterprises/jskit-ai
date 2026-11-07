@@ -1,4 +1,4 @@
-import { DATA_ACCESS_GUIDE_URL, compactText, ruleMeta, unwrapChain } from "../support.js";
+import { DATA_ACCESS_GUIDE_URL, compactText, keyName, ruleMeta, unwrapChain } from "../support.js";
 import {
   KNEX_NAMES,
   calledMethod,
@@ -90,12 +90,14 @@ function isOtherLibrary(method, object, args) {
 }
 
 // Knex reached past the resource: a table builder called with a table name (`knex("t")`, `(trx || knex)("t")`,
-// `knex(tables.messages)`, `client(MODELS_TABLE)`), a
-// `.knex` read, a transaction opened by hand, and a literal table name given to from, table, into or a join.
+// `knex(tables.messages)`, `client(MODELS_TABLE)`), a `.knex` read or a `knex` destructured
+// (`const { knex: q } = database`), a transaction opened by hand, and a literal table name given to from, table, into
+// or a join.
 const noDirectKnex = Object.freeze({
   meta: ruleMeta("Disallow reaching a table with Knex past its resource.", {
     tableBuilder: `{{text}}(...) starts a query on a table by name, outside its resource. ${DOOR} ${HINT}`,
     knexMember: `{{text}} reaches Knex past the resource. ${DOOR} ${HINT}`,
+    knexDestructured: `{ {{text}} } takes Knex out of an object, past the resource. ${DOOR} ${HINT}`,
     handTransaction: `{{text}}() opens a transaction by hand. Open it with the handle's withTransaction(options, work) and pass its txOptions on. ${HINT}`,
     literalTable: `.{{method}}({{table}}) names a table outside its resource. ${DOOR} A row policy reads its owner's own tables through ownTable(). ${HINT}`
   }, "the-resource-is-the-only-door", DATA_ACCESS_GUIDE_URL),
@@ -126,6 +128,11 @@ const noDirectKnex = Object.freeze({
       MemberExpression(node) {
         if (!node.computed && node.property.name === "knex" && !isAssignmentTarget(node)) {
           context.report({ node, messageId: "knexMember", data: { text: compactText(sourceCode, node) } });
+        }
+      },
+      Property(node) {
+        if (node.parent.type === "ObjectPattern" && !node.computed && keyName(node) === "knex") {
+          context.report({ node, messageId: "knexDestructured", data: { text: compactText(sourceCode, node) } });
         }
       }
     };

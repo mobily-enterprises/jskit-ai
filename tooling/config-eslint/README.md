@@ -108,12 +108,17 @@ shared modules too (`packages/billing/src/shared/**`). Test files and `test`,
 ## Data access
 
 The resource is the only door to a table. `baseConfig` makes six rules
-errors in `**/src/server/**`, `**/src/shared/**`, `server/**` and `server.js`;
-tests, migrations and seeds are not checked. Each finding links its section of
+errors in every JavaScript file but client code (an application's own `src/`
+outside `src/server` and `src/shared`, and every package's `src/client`),
+tests (`test`, `tests`, `__tests__`, `e2e`, `test-support` and `*.test.*`),
+migrations, seeds and build output, so server code is checked wherever it sits.
+`eslint-disable` cannot turn them off: `jskit/allow-comment-form` reports a
+directive that names one. Each finding links its section of
 the [data-access guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access).
 
 - `jskit/no-direct-knex`: a Knex-named builder called with a table name
-  (`knex("users")`, `(trx || knex)("users")`), any `.knex` read, a transaction
+  (`knex("users")`, `(trx || knex)("users")`), any `.knex` read or `knex`
+  destructured (`const { knex: q } = database`), a transaction
   opened on `knex`, `db` or `database`, and a literal table name given to
   `from`, `table`, `into` or a join.
 - `jskit/no-transaction-reader`: a `.trx` read, `trx` destructured, a

@@ -26,6 +26,10 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
   ],
   invalid: [
     {
+      code: "const { knex: q } = database;\nfunction open({ knex }) { return knex; }",
+      errors: [{ messageId: "knexDestructured", data: { text: "knex: q" }, line: 1 }, { messageId: "knexDestructured", data: { text: "knex" }, line: 2 }]
+    },
+    {
       code: "const users = await knex(\"users\").where({ id });",
       errors: [{ messageId: "tableBuilder", data: { text: "knex" } }]
     },

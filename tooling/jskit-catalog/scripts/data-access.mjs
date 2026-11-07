@@ -8,14 +8,30 @@ import { blankJsComments, lineIndex } from "./material3-source.mjs";
 // installed @jskit-ai packages, so a duplicate name or table fails here before the boot-time throw; every system scope
 // (a feature's `systemScope: "<reason>"` and every `systemContext("<reason>")` call) is listed with its reason, and one
 // without a literal reason fails; and every file the infrastructure exception lifts past the data-access lint rules is
-// listed for review.
+// listed for review. In the app's own code, which no lint directive can hide from it, a feature's system scope and an
+// infrastructure exception fail until the checked-in BASELINE_FILE lists them, so each new one is reviewed; a module
+// that requires runtime.database or runtime.resources fails unless it is declared infrastructure; and an eslint-disable
+// that names a data-access rule, or no rule at all, fails in any file but the client's.
 
 const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access";
 const SECTIONS = Object.freeze({
   "data/one-resource-per-table": "layer-1-the-table-resource",
   "data/system-scope": "background-work",
-  "data/infrastructure-excuses": "hard-rules"
+  "data/infrastructure-excuses": "hard-rules",
+  "data/baseline": "hard-rules",
+  "data/runtime-capability": "the-resource-is-the-only-door",
+  "data/lint-disabled": "hard-rules"
 });
+// The reviewed list of the app's infrastructure exceptions and feature system scopes, at the app's root.
+const BASELINE_FILE = "jskit-data-access.json";
+const DATA_ACCESS_RULES = Object.freeze(["no-direct-knex", "no-transaction-reader", "sql-literal", "no-hand-scope", "no-hand-context", "knex-reason"]);
+// An eslint-disable directive and the rules it names, before any "--" description.
+const LINT_DISABLE = /\/[/*]\s*eslint-disable(?:-next-line|-line)?(?![\w-])([^\n]*)/gu;
+// A module that takes the database, or every table, past the features that own them.
+const RUNTIME_CAPABILITY = /(["'`])(runtime\.(?:database|resources))\1/gu;
+// An app's client code, which the data-access rules leave alone: its own src/ but src/server and src/shared, and every
+// package's src/client.
+const CLIENT_FILE = /^src\/(?!server\/|shared\/)|(?:^|\/)src\/client\//u;
 const FRAMEWORK_DIRECTORY = path.join("node_modules", "@jskit-ai");
 const SOURCE_FILE = /\.[cm]?js$/u;
 const SKIPPED_FILE = /\.(?:test|spec|vitest)\.[cm]?js$/u;
@@ -23,9 +39,9 @@ const SKIPPED_FILE = /\.(?:test|spec|vitest)\.[cm]?js$/u;
 // migrations and seeds, and the examples, templates and documentation JSKIT packages carry.
 const SKIPPED_DIRECTORIES = new Set([
   "node_modules", "dist", "build", "coverage", "test", "tests", "__tests__", "e2e", "fixtures", "test-results",
-  "migrations", "seeds", "templates", "patterns", "examples", "docs", "site", "skills"
+  "migrations", "seeds", "templates", "patterns", "examples", "docs", "site", "skills", "test-support"
 ]);
-const MARKERS = /defineTableResource|systemScope|systemContext|readable-check: allow/u;
+const MARKERS = /defineTableResource|systemScope|systemContext|readable-check: allow|eslint-disable|runtime\.(?:database|resources)/u;
 const TABLE_RESOURCE_CALL = /\bdefineTableResource\s*\(/gu;
 const FEATURE_CALL = /\bdefine(?:Crud)?Feature\s*\(/gu;
 const SYSTEM_CONTEXT_CALL = /\bsystemContext\s*\(/gu;
@@ -184,6 +200,69 @@ function readInfrastructureExcuses(file, source) {
   });
 }
 
+// Every eslint-disable in a file that turns off a data-access rule: one that names one, or one that names no rule and so
+// turns off every rule.
+function readLintDisables(file, source, position) {
+  const disables = [];
+  for (const match of source.matchAll(LINT_DISABLE)) {
+    const named = match[1].replace(/\*\/.*$/u, "").split(/\s--\s|\s--$/u)[0].split(",").map((rule) => rule.trim()).filter(Boolean);
+    const rules = named.filter((rule) => DATA_ACCESS_RULES.includes(rule.replace(/^jskit\//u, "")));
+    if (named.length < 1 || rules.length > 0) {
+      disables.push({ file, line: position(match.index).line, rules });
+    }
+  }
+  return disables;
+}
+
+// Every place a file's code takes runtime.database or runtime.resources: each time it names one outside a provides
+// object, the module that provides it.
+function readRuntimeCapabilities(file, { code, masked, position }) {
+  const provides = [...masked.matchAll(/\bprovides\s*:\s*\{/gu)].map((match) => {
+    const start = match.index + match[0].length - 1;
+    return { start, end: closingOffset(masked, start) };
+  });
+  return [...code.matchAll(RUNTIME_CAPABILITY)]
+    .filter((match) => !provides.some(({ start, end }) => match.index > start && match.index < end))
+    .map((match) => ({ file, line: position(match.index).line, capability: match[2] }));
+}
+
+// The app's reviewed baseline, or empty lists when it has none; a file that is not that JSON is a finding.
+async function readBaseline(root, report) {
+  let text;
+  try {
+    text = await readFile(path.join(root, BASELINE_FILE), "utf8");
+  } catch (error) {
+    if (error?.code === "ENOENT") return { infrastructure: [], systemScopes: [] };
+    throw error;
+  }
+  try {
+    const baseline = JSON.parse(text);
+    return {
+      infrastructure: Array.isArray(baseline.infrastructure) ? baseline.infrastructure : [],
+      systemScopes: Array.isArray(baseline.systemScopes) ? baseline.systemScopes : []
+    };
+  } catch {
+    report({ file: BASELINE_FILE, line: 1 }, "data/baseline", `${BASELINE_FILE} is not JSON; it lists { "infrastructure": [{ "file", "rule" }], "systemScopes": [{ "feature", "systemScope" }] }.`);
+    return { infrastructure: [], systemScopes: [] };
+  }
+}
+
+// Fails each infrastructure exception and feature system scope of the app's own code that the baseline does not list.
+function checkBaseline(baseline, excuses, scopes, report) {
+  const listed = (list, entry) => list.some((item) => Object.entries(entry).every(([key, value]) => item?.[key] === value));
+  for (const { file, line, rule } of excuses) {
+    if (!listed(baseline.infrastructure, { file, rule })) {
+      report({ file, line }, "data/baseline", `this infrastructure exception from ${rule} is not in ${BASELINE_FILE}. Review that the whole module's job is data access, then add ${JSON.stringify({ file, rule })} to its "infrastructure" list.`);
+    }
+  }
+  for (const { file, line, kind, id, reason, framework } of scopes) {
+    if (framework || kind !== "feature" || reason === null || !reason.trim()) continue;
+    if (!listed(baseline.systemScopes, { feature: id, systemScope: reason })) {
+      report({ file, line }, "data/baseline", `the system scope of feature "${id}" is not in ${BASELINE_FILE}. Review that it works across every workspace and user, then add ${JSON.stringify({ feature: id, systemScope: reason })} to its "systemScopes" list.`);
+    }
+  }
+}
+
 async function walk(root, directory, files) {
   let entries;
   try {
@@ -284,6 +363,8 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
   const resources = [];
   const scopes = [];
   const excuses = [];
+  const findings = [];
+  const report = ({ file, line }, rule, message) => findings.push({ file, line, rule, message });
   for (const { file, absolute, framework } of sources) {
     const source = await readFile(absolute, "utf8");
     if (!MARKERS.test(source)) continue;
@@ -291,12 +372,25 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
     const read = readSourceFile(source);
     resources.push(...readTableResources(name, read).map((resource) => ({ ...resource, framework })));
     scopes.push(...readSystemScopes(name, read).map((scope) => ({ ...scope, framework })));
-    if (!framework) excuses.push(...readInfrastructureExcuses(name, source));
+    if (framework) continue;
+    const fileExcuses = readInfrastructureExcuses(name, source);
+    excuses.push(...fileExcuses);
+    if (fileExcuses.length < 1) {
+      for (const use of readRuntimeCapabilities(name, read)) {
+        report(use, "data/runtime-capability", `this module takes ${use.capability}, which reaches tables past the features that own them. ` +
+          "A feature owns its tables with owns and gets their handles; only a module whose job is data access itself, declared with the infrastructure exception, takes it.");
+      }
+    }
+    if (CLIENT_FILE.test(name)) continue;
+    for (const disable of readLintDisables(name, source, read.position)) {
+      report(disable, "data/lint-disabled", disable.rules.length > 0
+        ? `eslint-disable turns off ${disable.rules.join(", ")}, which takes no eslint-disable. Change the code, or declare a whole data-access module with the infrastructure exception.`
+        : "eslint-disable names no rule, so it turns off the data-access rules too. Name the rules it turns off.");
+    }
   }
-  const findings = [];
-  const report = ({ file, line }, rule, message) => findings.push({ file, line, rule, message });
   checkTables(resources, report);
   checkSystemScopes(scopes, report);
+  checkBaseline(await readBaseline(root, report), excuses, scopes, report);
   findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);
   return {
     ok: findings.length < 1,
@@ -323,7 +417,7 @@ function formatDataAccessReport(result) {
   const listed = `${result.systemScopes.length} system scope(s) and ${result.excuses.length} infrastructure exception(s) listed for review`;
   lines.push(result.ok
     ? `JSKIT data access: ${result.resources} table resource(s), each table and name defined once; ${listed}.`
-    : `JSKIT data access: ${result.findings.length} error(s). Each table has exactly one table resource with its own name, and every system scope gives its reason as a string literal; ${listed}.`);
+    : `JSKIT data access: ${result.findings.length} error(s). Each finding says what to change; a new infrastructure exception or system scope passes once reviewed and listed in ${BASELINE_FILE}; ${listed}.`);
   return lines.join("\n");
 }
 

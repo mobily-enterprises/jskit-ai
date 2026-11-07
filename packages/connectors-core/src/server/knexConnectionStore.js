@@ -1,3 +1,4 @@
+// readable-check: allow no-direct-knex - infrastructure: a command-line script's connection store on the application's Knex
 import { createStandaloneResources } from "@jskit-ai/resource-runtime/server";
 import { CONNECTION_STORE_FEATURE, CONNECTION_STORE_SYSTEM_SCOPE } from "./ConnectionStoreFeature.js";
 import { createConnectionStore, requireProtection } from "./connectionStore.js";

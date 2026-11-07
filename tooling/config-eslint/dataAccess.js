@@ -1,13 +1,19 @@
 import { jskitPlugin } from "./plugin/index.js";
 
 const SOURCE_FILES = "**/*.{js,mjs,cjs}";
-// Tests, migrations and seeds reach the database directly on purpose, so the data-access rules leave them alone.
+// What the data-access rules leave alone, by directory: client code, which never reaches the database (an application's
+// own src/ but its src/server and src/shared, and every package's src/client), and tests, migrations and seeds, which
+// reach it directly on purpose. Everything else is server code, wherever it sits.
 const NOT_DATA_ACCESS_SOURCE = Object.freeze([
-  "**/{test,tests,__tests__}/**",
+  "src/!(server|shared)/**",
+  "src/*.{js,mjs,cjs}",
+  "**/src/client/**",
+  "**/{test,tests,__tests__,e2e,test-support}/**",
   "**/*.{test,spec,vitest}.*",
   "**/migrations/**",
   "**/{seed,seeds}/**",
-  "**/seed*.{js,mjs,cjs}"
+  "**/seed*.{js,mjs,cjs}",
+  "**/{dist,build,coverage}/**"
 ]);
 
 /**
@@ -29,9 +35,9 @@ function dataAccessRules(severity = "error") {
 }
 
 /**
- * The data-access rules, as errors unless another severity is given, for the server and shared source files the globs
- * select. Tests, migrations and seeds are not checked. baseConfig already applies them to every application's server
- * and shared code; a repository lists its own trees with this.
+ * The data-access rules, as errors unless another severity is given, for the source files the globs select, but
+ * client code, tests, migrations and seeds (NOT_DATA_ACCESS_SOURCE). baseConfig already applies them to every file of
+ * an application; a repository lists its own trees with this.
  * @param {string[]} files
  * @param {"error" | "warn" | "off"} [severity]
  */

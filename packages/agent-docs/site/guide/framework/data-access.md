@@ -366,14 +366,15 @@ and `OIDC_ISSUER_INFRASTRUCTURE_TABLES` (`@jskit-ai/oidc-issuer-core/server`).
 
 ## Hard rules
 
-These are always wrong, and lint reports them as errors in server and shared
-code. Tests, migrations and seeds are outside them.
+These are always wrong, and lint reports them as errors in all code but the
+client's, wherever it sits; tests, migrations and seeds are outside them.
+`eslint-disable` cannot turn them off.
 
 ### Lint rules
 
 | Rule | Reports | Section |
 | --- | --- | --- |
-| `jskit/no-direct-knex` | a table reached by name with Knex, a `.knex` read, a transaction opened by hand | [The resource is the only door](#the-resource-is-the-only-door) |
+| `jskit/no-direct-knex` | a table reached by name with Knex, a `.knex` read or `knex` destructured, a transaction opened by hand | [The resource is the only door](#the-resource-is-the-only-door) |
 | `jskit/no-transaction-reader` | `options.trx`, `trx \|\| knex`, a `trx = knex` default, `trx` destructured from options | [Transactions](#transactions) |
 | `jskit/no-hand-scope` | a hand-written `where` on `workspace_id` or `workspaceId` | [Layer 1: the table resource](#layer-1-the-table-resource) |
 | `jskit/sql-literal` | raw SQL built from strings or templates instead of one literal with bindings | [Layer 5: reports the resource cannot express](#layer-5-reports-the-resource-cannot-express) |
@@ -392,5 +393,15 @@ line per rule before its first line of code:
 ```
 
 `jskit check` lists every such file for review. The other four rules take no
-exception. `jskit check` also fails a table with two table resources, and a
-system scope or `systemContext` call without a reason.
+exception. `jskit check` also fails:
+
+- a table with two table resources;
+- a system scope or `systemContext` call without a reason;
+- an infrastructure exception or a feature's system scope that the app's
+  checked-in `jskit-data-access.json` does not list, so each new one is
+  reviewed: `{ "infrastructure": [{ "file", "rule" }], "systemScopes":
+  [{ "feature", "systemScope" }] }`;
+- a module that requires `runtime.database` or `runtime.resources` without
+  the infrastructure exception: features own their tables with `owns`;
+- an `eslint-disable` that names a data-access rule, or no rule, outside
+  client code.

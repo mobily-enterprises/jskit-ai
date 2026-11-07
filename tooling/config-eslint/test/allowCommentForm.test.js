@@ -1,6 +1,7 @@
 import { describe, it } from "node:test";
 import { RuleTester } from "eslint";
 import vueParser from "vue-eslint-parser";
+import { jskitPlugin } from "../plugin/index.js";
 import { allowCommentForm } from "../plugin/rules/allowCommentForm.js";
 
 RuleTester.describe = describe;
@@ -22,7 +23,8 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
     "// The vocabulary: \"// readable-check: allow <rule> - <reason>\".\nconst x = 1;",
     "const source = \"// readable-check: allow method-probe - anything\";",
     "// readable-check: allow no-direct-knex - infrastructure: the migration runner keeps its own bookkeeping table\nimport { readFile } from \"node:fs/promises\";",
-    "#!/usr/bin/env node\n/* readable-check: allow jskit/no-transaction-reader - infrastructure: the transaction manager every handle runs on */\n// readable-check: allow no-direct-knex - infrastructure: the transaction manager every handle runs on\nexport const run = () => {};"
+    "#!/usr/bin/env node\n/* readable-check: allow jskit/no-transaction-reader - infrastructure: the transaction manager every handle runs on */\n// readable-check: allow no-direct-knex - infrastructure: the transaction manager every handle runs on\nexport const run = () => {};",
+    "// eslint-disable-next-line no-control-regex -- strips control characters\nconst text = value.replace(/[\\x00-\\x1f]/gu, \"\");"
   ],
   invalid: [
     {
@@ -118,6 +120,20 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
     {
       code: "// readable-check: allow no-direct-knex - infrastructure:\nconst a = 1;",
       errors: [{ messageId: "allowPrefix", data: { reason: "infrastructure:" } }]
+    }
+  ]
+});
+
+// A directive naming a jskit rule needs the plugin loaded, or ESLint reports the rule as undefined.
+new RuleTester({ plugins: { jskit: jskitPlugin } }).run("jskit/allow-comment-form", allowCommentForm, {
+  valid: [],
+  invalid: [
+    {
+      code: "// eslint-disable-next-line jskit/no-direct-knex -- a quick report\nknex(\"users\");\n/* eslint-disable no-console, jskit/sql-literal */\nconsole.log(1);",
+      errors: [
+        { messageId: "dataAccessDisabled", data: { rule: "jskit/no-direct-knex" }, line: 1 },
+        { messageId: "dataAccessDisabled", data: { rule: "jskit/sql-literal" }, line: 3 }
+      ]
     }
   ]
 });

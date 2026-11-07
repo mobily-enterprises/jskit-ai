@@ -1,3 +1,4 @@
+// readable-check: allow no-direct-knex - infrastructure: the accounts hub, which hands the application's Knex to its own protocol stores
 import { createAccountStore } from "./accounts.js";
 import { createKnexAdapterClass, deleteExpiredModels } from "./adapter.js";
 import { createClientStore } from "./clients.js";
