@@ -72,8 +72,10 @@ function launchGoogleRewardedAd({
 
         let readySeen = false;
         let settled = false;
+        let availabilityTimer = null;
 
         const cleanup = () => {
+          window.clearTimeout(availabilityTimer);
           pubads.removeEventListener("rewardedSlotReady", handleReady);
           pubads.removeEventListener("rewardedSlotGranted", handleGranted);
           pubads.removeEventListener("rewardedSlotClosed", handleClosed);
@@ -120,8 +122,8 @@ function launchGoogleRewardedAd({
           gptServicesEnabled = true;
         }
 
-        googletag.display(slot);
-        window.setTimeout(() => {
+        // Started before display, so a slot that settles at once still clears it.
+        availabilityTimer = window.setTimeout(() => {
           if (settled || readySeen) {
             return;
           }
@@ -131,6 +133,7 @@ function launchGoogleRewardedAd({
             reject(new Error("No rewarded ad was available."));
           });
         }, 10000);
+        googletag.display(slot);
       });
     })
   );
