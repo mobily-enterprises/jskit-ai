@@ -33,12 +33,26 @@ Exports
 - `StaleRecordError`
 - `UnpagedQueryError`
 
+### `src/server/handleGuards.js`
+Exports
+- `missingOf(name, caller, missing = "throw")`
+- `requireDefinedFilters(name, caller, filters, path = "filters")`
+- `requireOwners(name, ownership, context)`
+- `requireReadParams(name, params)`
+- `valueOnly(name, expression)`
+- `whereSelection(name, operation, filters, options)`
+
 ### `src/server/handleRecords.js`
 Exports
+- `MANY_RETURNING`
+- `SINGLE_RETURNING`
 - `handleRecords(resource, records, include)`
 - `handleResult(resource, result, format, include)`
 - `idOf(result, format)`
 - `inputData(resource, attributes)`
+- `manyResult(resource, result, returning)`
+- `matchesOnlyIf(record, onlyIf)`
+- `pickReturning(modes, value, fallback, label)`
 - `readQueryParams(name, params, { page, caller })`
 - `textList(value)`
 Local functions
@@ -68,11 +82,8 @@ Exports
 - `MANY_ROW_CHANNEL`
 - `createResourceHandle({ api, resource, hooks, settings })`
 Local functions
-- `pickReturning(modes, value, fallback, label)`
 - `reportManyRow(resource, operation, rows, chunkSize)`
-- `openTransaction(api, options, work, asThrown)`
-- `manyResult(resource, result, returning)`
-- `whereSelection(name, operation, filters, options)`
+- `openTransaction(api, options, work)`
 - `findOrCreateRecord({ get, create }, attributes, options)`
 - `inTransaction(options)`
 - `write(options, run)`

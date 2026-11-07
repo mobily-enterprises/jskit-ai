@@ -86,10 +86,13 @@ function createReceivalsRepository({ receivals }) {
 
 `create` and `patch` answer the written record by default, read back through
 the row policy. Server code that does not use it passes `returning: "id"` or
-`"none"`, which skips that read. `patch` and `delete` answer `null` for a
-record that is missing or outside the caller's scope; inside a transaction the
-caller opened, that failed write fails the transaction instead, so check first
-or use `patchMany(rows, { missing: "skip" })`. A row keyed by an id the code
+`"none"`, which skips that read; `delete` answers the id. One rule covers a
+record that is missing or outside the caller's scope: `get`, `patch`, `delete`
+and `lock` throw json-rest-api's not-found error (a 404), and with
+`{ ...options, missing: "skip" }` they answer `null` instead, without failing
+the caller's transaction. Reads take `(params, options)` and writes
+`(data, options)`: `get(id, {}, options)`, and every setting rides in options,
+as `{ ...options, missing: "skip" }`. A row keyed by an id the code
 computes (a fingerprint, a conversation id) is read or created once with
 `findOrCreate({ id, ...attributes }, options)`, outside the transaction that
 then locks it.
@@ -121,8 +124,9 @@ const receivalCrud = defineCrudContract(receivalResource, {
 ## Layer 3: many rows at once
 
 When one action creates, changes or deletes many rows, use the handle's
-many-row operations: `createMany`, `patchMany`, `patchWhereIds`, `patchWhere`,
-`deleteMany` and `deleteWhere`. Each checks every row against the resource
+many-row operations: `createMany`, `patchMany`, `patchWhere` and `deleteWhere`.
+Every filter takes `id`, one id or a list, so `patchWhere({ id: ids }, changes)`
+and `deleteWhere({ id: ids })` change a known list. Each checks every row against the resource
 first, reads which of the rows the caller may touch, then writes each chunk
 with one statement, in one transaction. Audits and change events run once for
 the batch, so the statements are the same for 10 rows as for 200.
@@ -143,7 +147,8 @@ numbering documents, moving items into a batch), lock the rows first, inside
 the transaction: `lock(id)`, `lockMany(ids)` or `lockWhere(filters)`. The
 handle reads which of those rows the caller may see and locks exactly those,
 in id order, so nobody locks another workspace's rows. A worker taking the
-next job uses `claim`, which skips rows another worker holds. Take locks in
+next job uses `claim({ filters, sort, take }, options)`, which skips rows
+another worker holds. Take locks in
 the same order everywhere, parents before children, or two transactions can
 wait on each other.
 
@@ -160,9 +165,9 @@ over a non-null integer column with `defaultTo: 0`.
 only while it still holds that version, and advances it. A record whose
 version moved on rejects with a 409 coded `crud.document.lockVersionConflict`
 ("This record changed. Reload and try again.") and nothing is written; a
-missing or hidden record answers `null`. The changes leave the version field
-out. `patch(id, changes, { onlyIf: { status: "open" } })` is the same check on
-stored values, answering `null` when they differ.
+missing or hidden record follows the missing-row rule. The changes leave the
+version field out. `patch(id, changes, { ...options, onlyIf: { status: "open" } })`
+is the same check on stored values, answering `null` when they differ.
 
 ## Layer 5: reports the resource cannot express
 
@@ -251,13 +256,14 @@ transaction does the same. A call inside someone else's transaction fails at
 once and leaves the retry to its owner; a lock wait timeout is not retried.
 The work must therefore be safe to run again: HTTP calls, email and uploads go
 before or after the transaction, or into an outbox. Work that cannot be
-repeated passes `withTransaction(options, work, { retry: false })`.
+repeated passes `withTransaction({ ...options, retry: false }, work)`. Work
+that must commit before its caller goes on (it sends after commit) passes
+`{ ...options, outermost: true }`, which refuses a call inside a transaction.
 
-A failure of the work reaches the caller as json-rest-api's `RestApiWriteError`,
-with the work's error as its `cause` and the transaction's outcome. Work that
-throws an `AppError` for its callers, or whose callers compare or classify the
-error it threw, passes `{ asThrown: true }` and gets that error back as thrown;
-a failed commit still answers `RestApiWriteError`.
+When the work throws, the transaction rolls back and the caller gets the
+work's own error. A failed write inside the work, or a failed commit, reaches
+the caller as json-rest-api's `RestApiWriteError` with the transaction's
+outcome.
 
 ```js
 const allocate = (input, options) => repository.withTransaction(options, async (txOptions) => {

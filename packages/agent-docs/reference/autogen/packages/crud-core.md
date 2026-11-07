@@ -99,7 +99,9 @@ Local functions
 Exports
 - `createCrudService({ repository, resourceName })`
 Local functions
+- `documentNotFound()`
 - `requireDocument(document)`
+- `isNotFound(error)`
 
 ### `src/server/jsonApiResourceContract.js`
 Exports
