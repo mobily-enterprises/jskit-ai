@@ -10,7 +10,11 @@ import {
   DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
   DEFAULT_SHELL_RAIL_WIDTH
 } from "../support/drawerWidth.js";
-import { normalizeDesktopDrawerClosedMode, shellLayoutHasDrawer } from "../support/drawerPresentation.js";
+import {
+  normalizeDesktopDrawerClosedMode,
+  shellLayoutHasDrawer,
+  shellLayoutHasNavigationBar
+} from "../support/drawerPresentation.js";
 import { resolveShellLayoutClass } from "../support/shellLayoutClass.js";
 import { resolveWindowSizeClass } from "../support/windowSizeClass.js";
 import { NO_SHELL_WEB_REFRESH_RUNTIME, SHELL_WEB_REFRESH_RUNTIME_KEY } from "../runtime/refreshRuntime.js";
@@ -86,9 +90,10 @@ const layoutClass = computed(() => resolveShellLayoutClass(display.width.value))
 const isCompactLayout = computed(() => layoutClass.value === "compact");
 // Compact and medium windows open the drawer over the page; a medium window keeps a navigation rail beside it.
 const modalLayout = computed(() => layoutClass.value !== "expanded");
-// A surface draws only the navigation it has: no navigation bar without bar destinations, and no rail or drawer (nor
-// its menu control) without menu destinations, as on an account surface whose shell has no navigation. The surface
-// identity (a workspace switcher) keeps the drawer beside other navigation, as on a phone.
+// A surface draws only the navigation it has: no navigation bar without two bar destinations, and no rail or drawer
+// (nor its menu control) without two menu destinations, as on an account surface whose shell has no navigation or a
+// surface with Home alone. The surface identity (a workspace switcher) keeps the drawer beside other navigation, as on
+// a phone.
 const slots = useSlots();
 const primaryMenu = useShellOutletPlacements("shell-layout:primary-menu");
 const secondaryMenu = useShellOutletPlacements("shell-layout:secondary-menu");
@@ -102,7 +107,12 @@ const hasDrawer = computed(() =>
     bottomNavigationCount: bottomNavigation.value.length
   })
 );
-const showsBottomNavigation = computed(() => isCompactLayout.value && bottomNavigation.value.length > 0);
+const showsBottomNavigation = computed(() =>
+  isCompactLayout.value && shellLayoutHasNavigationBar({
+    bottomNavigationCount: bottomNavigation.value.length,
+    menuCount: primaryMenu.value.length + secondaryMenu.value.length
+  })
+);
 const showsMediumRail = computed(() =>
   hasDrawer.value &&
   layoutClass.value === "medium" &&
@@ -265,11 +275,11 @@ onBeforeUnmount(() => {
     :rail-width="resolvedRailWidth"
     @update:model-value="handleDrawerVisibilityChange"
   >
-    <div class="shell-layout__drawer-header">
+    <!-- The menu control alone, its tooltip its label: no text beside it that would read as its label. -->
+    <div v-if="standardDrawerVisible" class="shell-layout__drawer-header">
       <v-btn
-        v-if="standardDrawerVisible"
         ref="navigationToggle"
-        :icon="drawerPresentation.rail ? '$menu' : '$menuOpen'"
+        icon
         variant="text"
         color="on-surface-variant"
         data-testid="jskit-shell-nav-toggle"
@@ -277,8 +287,10 @@ onBeforeUnmount(() => {
         :aria-expanded="drawerOpen"
         aria-controls="jskit-shell-drawer"
         @click="toggleDrawer"
-      />
-      <span v-if="!drawerPresentation.rail" class="shell-layout__surface-label">{{ resolvedSurfaceLabel }}</span>
+      >
+        <v-icon :icon="drawerPresentation.rail ? '$menu' : '$menuOpen'" />
+        <v-tooltip activator="parent" location="end" :text="drawerToggleLabel" />
+      </v-btn>
     </div>
     <div v-if="!drawerPresentation.rail" class="shell-layout__identity">
       <slot name="top-left" :surface="resolvedSurface">
@@ -320,7 +332,9 @@ onBeforeUnmount(() => {
     :height="80"
     grow
   >
-    <ShellOutlet target="shell-layout:primary-bottom-nav" />
+    <ShellNavigationScope presentation="bar">
+      <ShellOutlet target="shell-layout:primary-bottom-nav" />
+    </ShellNavigationScope>
   </v-bottom-navigation>
 
   <v-bottom-sheet
@@ -439,19 +453,6 @@ onBeforeUnmount(() => {
 
 .shell-layout__drawer[data-presentation="drawer"] .shell-layout__drawer-header {
   padding-inline-start: max(0px, calc(var(--shell-navigation-rail-width) / 2 - 24px));
-}
-
-.shell-layout__surface-label {
-  color: rgb(var(--v-theme-on-surface-variant));
-  font-size: 0.875rem;
-  font-weight: 500;
-  letter-spacing: 0.00625rem;
-  line-height: 1.25rem;
-  min-width: 0;
-  overflow: hidden;
-  padding-inline-start: 4px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .shell-layout__identity {

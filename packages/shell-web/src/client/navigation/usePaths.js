@@ -48,8 +48,21 @@ function usePaths({ routeContext = useSurfaceRouteContext() } = {}) {
   const shellLinkResolver = useShellLinkResolver();
   const routeParams = computed(() => normalizeRouteParams(routeContext.route.params));
 
+  /**
+   * A page's path: on the current surface (or `options.surface`), its params filled from the route and
+   * `options.params`. A global route (a route with `scope: "global"`, such as /auth/login) belongs to no surface:
+   * `{ scope: "global" }` gives its app path, params filled the same way. `explicitTo` passes a finished target
+   * through unchanged, for a target that arrives as data.
+   */
   function page(relativePath = "/", options = {}) {
     const source = normalizeObject(options);
+    if (source.scope === "global") {
+      return shellLinkResolver.resolve(relativePath, {
+        surface: "",
+        params: resolveRouteParams(routeParams.value, source.params),
+        strictParams: source.strictParams !== false
+      });
+    }
     const surface =
       resolveSurfaceId(source.surface, routeContext.currentSurfaceId.value) ||
       resolveDefaultSurfaceIdFromPlacementContext(routeContext.placementContext.value);

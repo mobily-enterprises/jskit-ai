@@ -12,6 +12,7 @@ const bare = computed(() => route.meta.bare === true);
 const ownBar = computed(() => route.meta.ownBar === true);
 const surface = computed(() => {
   if (route.path.startsWith("/w/")) return "admin";
+  if (route.path.startsWith("/solo")) return "solo";
   return route.path.startsWith("/account") ? "account" : "home";
 });
 const surfaceLabel = computed(() => ({ admin: "Admin", account: "Account" })[surface.value] || "Home");

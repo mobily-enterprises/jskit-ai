@@ -25,6 +25,7 @@
     "./client/components/ShellMenuLinkItem": "./src/client/components/ShellMenuLinkItem.vue",
     "./client/components/ShellSurfaceAwareMenuLinkItem": "./src/client/components/ShellSurfaceAwareMenuLinkItem.vue",
     "./client/components/ShellTabLinkItem": "./src/client/components/ShellTabLinkItem.vue",
+    "./client/components/ShellSectionTabLinkItem": "./src/client/components/ShellSectionTabLinkItem.vue",
     "./client/components/ShellPageActions": "./src/client/components/ShellPageActions.vue",
     "./client/components/ShellPageAction": "./src/client/components/ShellPageAction.vue",
     "./client/components/ShellListDetail": "./src/client/components/ShellListDetail.vue",

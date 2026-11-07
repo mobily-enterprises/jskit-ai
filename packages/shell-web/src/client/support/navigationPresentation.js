@@ -1,4 +1,4 @@
-/** How navigation items inside it present: "rail", "drawer" or, outside the shell's navigation, "list". */
+/** How navigation items inside it present: "rail", "drawer", the navigation "bar" or, outside the shell's navigation, "list". */
 const SHELL_NAVIGATION_PRESENTATION_KEY = "jskit.shell-web.navigation.presentation";
 /** Navigation items outside the shell's drawer and rail, such as a settings section's own menu, present as a list. */
 const NO_SHELL_NAVIGATION_PRESENTATION = Object.freeze({ value: "list" });

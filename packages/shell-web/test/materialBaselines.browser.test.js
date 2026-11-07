@@ -37,7 +37,17 @@ const SHELL_PROBES = Object.freeze([
   { name: "scrim", selector: ".v-navigation-drawer__scrim" },
   { name: "content", selector: ".shell-layout__content" },
   { name: "listItem", selector: ".v-main .v-list-item" },
-  { name: "listPane", selector: "[data-testid=jskit-shell-list-detail] .shell-list-detail__list", width: true }
+  { name: "listPane", selector: "[data-testid=jskit-shell-list-detail] .shell-list-detail__list", width: true },
+  // A page's section tabs (page.section-nav), Material 3 primary tabs, and the navigation bar's item placed in a page.
+  { name: "sectionTabs", selector: "[data-testid=fixture-section-tabs]", width: true },
+  { name: "sectionTab", selector: "[data-testid=fixture-section-tabs] .section-tab-link-item:not(.section-tab-link-item--active)" },
+  { name: "sectionTabActive", selector: "[data-testid=fixture-section-tabs] .section-tab-link-item--active" },
+  {
+    name: "sectionTabIndicator",
+    selector: "[data-testid=fixture-section-tabs] .section-tab-link-item--active .section-tab-link-item__indicator",
+    width: true
+  },
+  { name: "barItemInPage", selector: "[data-testid=fixture-bar-items-in-page] .section-tab-link-item--active" }
 ]);
 
 const SCREENS = Object.freeze([
@@ -45,52 +55,51 @@ const SCREENS = Object.freeze([
   { name: "list", path: "/home/contacts" },
   { name: "record", path: "/home/contacts/ada" },
   { name: "list-detail", path: "/home/settings/general" },
+  { name: "section-tabs", path: "/home/reports/overview" },
   { name: "drawer-open", path: "/home", openDrawer: true }
 ]);
 
 test("shell-web keeps its Material 3 baselines in light and dark at every window size", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_MATERIAL_BASELINES=1 to check the Material 3 baselines",
   timeout: 300_000
-}, async () => {
+}, async (t) => {
+  // Stopped in after hooks, which run when the test fails or times out too (a body's `finally` doesn't after a
+  // timeout, and the server and browser would keep the test file's process alive).
   const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser = null;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    for (const viewport of DEFAULT_VIEWPORTS) {
-      for (const theme of ["light", "dark"]) {
-        const context = await browser.newContext({
-          baseURL: vite.baseURL,
-          colorScheme: theme,
-          locale: "en-US",
-          reducedMotion: "reduce",
-          viewport: { width: viewport.width, height: viewport.height }
-        });
-        try {
-          const page = await context.newPage();
-          for (const screen of SCREENS) {
-            // The expanded window already shows its drawer.
-            if (screen.openDrawer && viewport.name === "expanded") {
-              continue;
-            }
-            await page.goto(`${screen.path}?theme=${theme}`);
-            await expect(page.getByTestId("jskit-shell-page-title")).toBeVisible();
-            if (screen.openDrawer) {
-              await page.getByTestId("jskit-shell-nav-toggle").click();
-              await expect(page.locator("[data-testid=jskit-shell-drawer].v-navigation-drawer--active")).toBeVisible();
-            }
-            await expectMaterialBaseline(page, {
-              directory: BASELINE_DIRECTORY,
-              name: `shell-${screen.name}-${viewport.width}-${theme}`,
-              probes: SHELL_PROBES
-            });
+  t.after(() => stopProcess(vite));
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
+  for (const viewport of DEFAULT_VIEWPORTS) {
+    for (const theme of ["light", "dark"]) {
+      const context = await browser.newContext({
+        baseURL: vite.baseURL,
+        colorScheme: theme,
+        locale: "en-US",
+        reducedMotion: "reduce",
+        viewport: { width: viewport.width, height: viewport.height }
+      });
+      try {
+        const page = await context.newPage();
+        for (const screen of SCREENS) {
+          // The expanded window already shows its drawer.
+          if (screen.openDrawer && viewport.name === "expanded") {
+            continue;
           }
-        } finally {
-          await context.close();
+          await page.goto(`${screen.path}?theme=${theme}`);
+          await expect(page.getByTestId("jskit-shell-page-title")).toBeVisible();
+          if (screen.openDrawer) {
+            await page.getByTestId("jskit-shell-nav-toggle").click();
+            await expect(page.locator("[data-testid=jskit-shell-drawer].v-navigation-drawer--active")).toBeVisible();
+          }
+          await expectMaterialBaseline(page, {
+            directory: BASELINE_DIRECTORY,
+            name: `shell-${screen.name}-${viewport.width}-${theme}`,
+            probes: SHELL_PROBES
+          });
         }
+      } finally {
+        await context.close();
       }
     }
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
   }
 });

@@ -10,6 +10,7 @@ export { default as ShellErrorHost } from "./components/ShellErrorHost.vue";
 export { default as ShellMenuLinkItem } from "./components/ShellMenuLinkItem.vue";
 export { default as ShellSurfaceAwareMenuLinkItem } from "./components/ShellSurfaceAwareMenuLinkItem.vue";
 export { default as ShellTabLinkItem } from "./components/ShellTabLinkItem.vue";
+export { default as ShellSectionTabLinkItem } from "./components/ShellSectionTabLinkItem.vue";
 export { default as ShellPageActions } from "./components/ShellPageActions.vue";
 export { default as ShellPageAction } from "./components/ShellPageAction.vue";
 export { default as ShellListDetail } from "./components/ShellListDetail.vue";

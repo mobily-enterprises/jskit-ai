@@ -72,9 +72,14 @@ const {
       </div>
     </div>
 
+    <!-- Material 3 keeps a snackbar clear of the actions it reports on. Vuetify places it inside the layout, above the
+         navigation bar and a FAB that takes layout room (`<v-fab app layout>`). On a phone it is centred there; on
+         wider windows it starts at the content's start edge and takes at most half its width, clear of end-aligned
+         FABs and form actions (Save), so a person can press Save again while it shows. -->
     <v-snackbar
       :model-value="snackbarOpen"
-      location="bottom end"
+      class="shell-error-host__snackbar"
+      location="bottom start"
       :timeout="resolveTimeout(displayedSnackbarEntry)"
       :vertical="actionsFor(displayedSnackbarEntry).length > 1"
       @update:model-value="onSnackbarModelValue"
@@ -179,6 +184,20 @@ const {
 
 .shell-error-host__banner :deep(.v-alert__close .v-btn .v-icon) {
   font-size: 20px;
+}
+
+/* The snackbar is teleported out of this component, so its rules are written for its own classes. Compact windows
+   (below 600dp) centre it; wider ones keep it at the start, at most half the content's width. */
+@media (max-width: 599.98px) {
+  :global(.shell-error-host__snackbar.v-snackbar--start) {
+    justify-content: center;
+  }
+}
+
+@media (min-width: 600px) {
+  :global(.shell-error-host__snackbar .v-snackbar__wrapper) {
+    max-width: min(672px, 50%);
+  }
 }
 
 @media (max-width: 600px) {

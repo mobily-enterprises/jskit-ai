@@ -125,46 +125,44 @@ async function serveBooks(page, screen) {
 test("the CRUD screens keep their Material 3 baselines in light and dark at every window size", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_MATERIAL_BASELINES=1 to check the Material 3 baselines",
   timeout: 300_000
-}, async () => {
+}, async (t) => {
+  // Stopped in after hooks, which run when the test fails or times out too (a body's `finally` doesn't after a
+  // timeout, and the server and browser would keep the test file's process alive).
   const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser = null;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    for (const viewport of VIEWPORTS) {
-      // The app follows the system's light or dark setting, Material 3's default.
-      for (const colorScheme of ["light", "dark"]) {
-        const context = await browser.newContext({
-          baseURL: vite.baseURL,
-          colorScheme,
-          locale: "en-US",
-          reducedMotion: "reduce",
-          timezoneId: "UTC",
-          viewport
-        });
-        try {
-          for (const screen of SCREENS) {
-            const page = await context.newPage();
-            await serveBooks(page, screen);
-            await page.goto(screen.path);
-            await expect(page.locator(screen.ready).filter({ visible: true }).first()).toBeVisible();
-            if (screen.openDelete) {
-              await page.getByRole("button", { name: /^Delete/u }).first().click();
-              await expect(page.locator(".v-overlay--active .crud-delete-action__headline")).toBeVisible();
-            }
-            await expectMaterialBaseline(page, {
-              directory: BASELINE_DIRECTORY,
-              name: `crud-${screen.name}-${viewport.width}-${colorScheme}`,
-              probes: CRUD_PROBES
-            });
-            await page.close();
+  t.after(() => stopProcess(vite));
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
+  for (const viewport of VIEWPORTS) {
+    // The app follows the system's light or dark setting, Material 3's default.
+    for (const colorScheme of ["light", "dark"]) {
+      const context = await browser.newContext({
+        baseURL: vite.baseURL,
+        colorScheme,
+        locale: "en-US",
+        reducedMotion: "reduce",
+        timezoneId: "UTC",
+        viewport
+      });
+      try {
+        for (const screen of SCREENS) {
+          const page = await context.newPage();
+          await serveBooks(page, screen);
+          await page.goto(screen.path);
+          await expect(page.locator(screen.ready).filter({ visible: true }).first()).toBeVisible();
+          if (screen.openDelete) {
+            await page.getByRole("button", { name: /^Delete/u }).first().click();
+            await expect(page.locator(".v-overlay--active .crud-delete-action__headline")).toBeVisible();
           }
-        } finally {
-          await context.close();
+          await expectMaterialBaseline(page, {
+            directory: BASELINE_DIRECTORY,
+            name: `crud-${screen.name}-${viewport.width}-${colorScheme}`,
+            probes: CRUD_PROBES
+          });
+          await page.close();
         }
+      } finally {
+        await context.close();
       }
     }
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
   }
 });

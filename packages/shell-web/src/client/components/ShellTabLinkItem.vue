@@ -5,12 +5,23 @@ import {
   shellNavigationLinkProps,
   useShellNavigationLink
 } from "../composables/useShellNavigationLink.js";
-import { NO_VUETIFY_ICONS, VUETIFY_ICONS_KEY, filledIconAlias } from "../support/navigationPresentation.js";
+import {
+  NO_SHELL_NAVIGATION_PRESENTATION,
+  NO_VUETIFY_ICONS,
+  SHELL_NAVIGATION_PRESENTATION_KEY,
+  VUETIFY_ICONS_KEY,
+  filledIconAlias
+} from "../support/navigationPresentation.js";
 import { useJskitText } from "../i18n.js";
+import ShellSectionTabLinkItem from "./ShellSectionTabLinkItem.vue";
 
 // A Material 3 navigation bar destination: the icon in a 64x32 indicator with its label below; the active one's
-// indicator is filled and so is its icon.
+// indicator is filled and so is its icon. It is one only in ShellLayout's navigation bar; placed anywhere else (a
+// page's section tabs), it is a section tab, ShellSectionTabLinkItem, which a page.section-nav names itself.
 const props = defineProps(shellNavigationLinkProps);
+/** @type {{ value: string }} */
+const presentation = inject(SHELL_NAVIGATION_PRESENTATION_KEY, NO_SHELL_NAVIGATION_PRESENTATION);
+const inNavigationBar = computed(() => presentation.value === "bar");
 const { t } = useJskitText();
 const { resolvedLabel, resolvedTarget, resolvedIcon } = useShellNavigationLink(props);
 /** @type {{ aliases?: Record<string, unknown> }} */
@@ -25,8 +36,9 @@ const displayIcon = computed(() =>
 </script>
 
 <template>
+  <ShellSectionTabLinkItem v-if="!inNavigationBar" v-bind="props" />
   <v-btn
-    v-if="resolvedTarget.href"
+    v-else-if="resolvedTarget.href"
     class="tab-link-item text-none"
     :class="{ 'tab-link-item--active': active }"
     :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"

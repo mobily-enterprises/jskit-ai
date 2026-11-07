@@ -5,7 +5,8 @@ import { useShellWindowSizeClass } from "@jskit-ai/shell-web/client/composables/
 
 // A list's create action as Material 3 places it: an extended FAB above the navigation bar or beside the rail on
 // compact and medium windows, the app bar's filled primary action on expanded and large ones. Its layout order puts
-// it inside the shell's navigation bar, so the FAB sits above the bar instead of over it.
+// it inside the shell's navigation bar, so the FAB sits above the bar instead of over it, and it takes layout room
+// (`layout`), so the shell's snackbar shows above it and the list's last card scrolls clear of it.
 const props = defineProps({
   label: {
     type: String,
@@ -25,6 +26,7 @@ const { isCompact, isMedium } = useShellWindowSizeClass();
     v-if="isCompact || isMedium"
     class="crud-list-fab"
     app
+    layout
     extended
     location="bottom end"
     order="1"

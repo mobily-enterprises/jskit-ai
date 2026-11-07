@@ -13,12 +13,15 @@ import ButtonsPage from "./ButtonsPage.vue";
 import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
+import FeedbackPage from "./FeedbackPage.vue";
+import ReportsPage from "./ReportsPage.vue";
 import ScreenPage from "./ScreenPage.vue";
 import StudioPage from "./StudioPage.vue";
 import SettingsPage from "./SettingsPage.vue";
 import ShellMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellMenuLinkItem";
 import ShellSurfaceAwareMenuLinkItem from "@jskit-ai/shell-web/client/components/ShellSurfaceAwareMenuLinkItem";
 import ShellTabLinkItem from "@jskit-ai/shell-web/client/components/ShellTabLinkItem";
+import ShellSectionTabLinkItem from "@jskit-ai/shell-web/client/components/ShellSectionTabLinkItem";
 import { useShellLayoutStore } from "../../../src/client/stores/useShellLayoutStore.js";
 import { createWebPlacementRuntime } from "../../../src/client/placement/runtime.js";
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "../../../src/client/placement/inject.js";
@@ -37,7 +40,8 @@ import { silentLogger } from "@jskit-ai/kernel/shared/support/silentLogger";
 const COMPONENTS = new Map([
   ["fixture.menu-link", ShellMenuLinkItem],
   ["fixture.surface-menu-link", ShellSurfaceAwareMenuLinkItem],
-  ["fixture.tab-link", ShellTabLinkItem]
+  ["fixture.tab-link", ShellTabLinkItem],
+  ["fixture.section-tab-link", ShellSectionTabLinkItem]
 ]);
 
 // Main navigation as literal data, one placement per destination, as jskit check reads it.
@@ -122,6 +126,67 @@ const placements = [
     order: 50,
     props: { label: "Rostering", surface: "admin", scopedSuffix: "/rostering", unscopedSuffix: "/rostering" }
   },
+  // A page's section tabs (page.section-nav), with a long label that scrolls the row rather than squashing a tab.
+  {
+    id: "fixture.reports.overview",
+    target: "page.section-nav",
+    owner: "reports",
+    kind: "link",
+    surfaces: ["home"],
+    order: 10,
+    props: { label: "Overview", surface: "home", scopedSuffix: "/reports/overview", unscopedSuffix: "/reports/overview" }
+  },
+  {
+    id: "fixture.reports.activity",
+    target: "page.section-nav",
+    owner: "reports",
+    kind: "link",
+    surfaces: ["home"],
+    order: 20,
+    props: { label: "Activity", surface: "home", scopedSuffix: "/reports/activity", unscopedSuffix: "/reports/activity" }
+  },
+  {
+    id: "fixture.reports.quarterly",
+    target: "page.section-nav",
+    owner: "reports",
+    kind: "link",
+    surfaces: ["home"],
+    order: 30,
+    props: {
+      label: "Quarterly performance",
+      surface: "home",
+      scopedSuffix: "/reports/quarterly",
+      unscopedSuffix: "/reports/quarterly"
+    }
+  },
+  // The same tabs given to the navigation bar's renderer, as an app did: in a page it draws section tabs too.
+  {
+    id: "fixture.reports-views.overview",
+    target: "page.section-nav",
+    owner: "reports-views",
+    kind: "link",
+    surfaces: ["home"],
+    order: 10,
+    props: { label: "Overview", surface: "home", scopedSuffix: "/reports/overview", unscopedSuffix: "/reports/overview" }
+  },
+  {
+    id: "fixture.reports-views.activity",
+    target: "page.section-nav",
+    owner: "reports-views",
+    kind: "link",
+    surfaces: ["home"],
+    order: 20,
+    props: { label: "Activity", surface: "home", scopedSuffix: "/reports/activity", unscopedSuffix: "/reports/activity" }
+  },
+  // A surface with Home alone: nowhere to go, so no navigation.
+  {
+    id: "fixture.solo.home",
+    target: "shell.primary-nav",
+    kind: "link",
+    surfaces: ["solo"],
+    order: 10,
+    props: { label: "Home", surface: "solo", scopedSuffix: "/", unscopedSuffix: "/", exact: true }
+  },
   {
     id: "fixture.help",
     target: "shell.secondary-nav",
@@ -139,6 +204,7 @@ const placements = [
 
 const menuRenderers = Object.freeze({ link: "fixture.surface-menu-link" });
 const tabRenderers = Object.freeze({ link: "fixture.tab-link" });
+const sectionTabRenderers = Object.freeze({ link: "fixture.section-tab-link" });
 const placementTopology = [
   {
     id: "shell.primary-nav",
@@ -158,6 +224,26 @@ const placementTopology = [
       medium: { outlet: "shell-layout:secondary-menu", renderers: menuRenderers },
       expanded: { outlet: "shell-layout:secondary-menu", renderers: menuRenderers }
     }
+  },
+  {
+    id: "page.section-nav",
+    owner: "reports",
+    surfaces: ["home"],
+    variants: {
+      compact: { outlet: "reports:section-nav", renderers: sectionTabRenderers },
+      medium: { outlet: "reports:section-nav", renderers: sectionTabRenderers },
+      expanded: { outlet: "reports:section-nav", renderers: sectionTabRenderers }
+    }
+  },
+  {
+    id: "page.section-nav",
+    owner: "reports-views",
+    surfaces: ["home"],
+    variants: {
+      compact: { outlet: "reports-views:section-nav", renderers: tabRenderers },
+      medium: { outlet: "reports-views:section-nav", renderers: tabRenderers },
+      expanded: { outlet: "reports-views:section-nav", renderers: tabRenderers }
+    }
   }
 ];
 
@@ -168,12 +254,13 @@ placementRuntime.setContext({
   surfaceConfig: {
     tenancyMode: "path",
     defaultSurfaceId: "home",
-    enabledSurfaceIds: ["home", "admin", "account"],
+    enabledSurfaceIds: ["home", "admin", "account", "solo"],
     surfacesById: {
       home: { id: "home", routeBase: "/home", enabled: true },
       admin: { id: "admin", routeBase: "/w/:workspaceSlug/admin", enabled: true },
       // A surface whose shell has no navigation, as an account page's.
-      account: { id: "account", routeBase: "/account", enabled: true }
+      account: { id: "account", routeBase: "/account", enabled: true },
+      solo: { id: "solo", routeBase: "/solo", enabled: true }
     }
   }
 });
@@ -224,6 +311,10 @@ const routes = [
   { path: "/home/:section?", component: ScreenPage, meta: { title: "Home surface" } },
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
   { path: "/help", component: ScreenPage, meta: { title: "Help and support" } },
+  { path: "/solo", component: ScreenPage, meta: { title: "Solo", jskit: { title: "Solo" } } },
+  { path: "/home/reports", redirect: "/home/reports/overview" },
+  { path: "/home/reports/:section", component: ReportsPage, meta: { jskit: { title: "Reports" } } },
+  { path: "/home/feedback", component: FeedbackPage, meta: { jskit: { title: "Integration" } } },
   {
     path: "/account",
     component: ScreenPage,

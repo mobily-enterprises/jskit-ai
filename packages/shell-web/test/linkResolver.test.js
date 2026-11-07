@@ -180,4 +180,8 @@ test("usePaths().page() fills a declared parent's params from the current route"
   assert.equal(paths.page("/books/:bookId"), "/console/books/7");
   assert.equal(paths.page("/books/:bookId", { params: { bookId: "8" } }), "/console/books/8");
   assert.throws(() => paths.page("/authors/:authorId"), /Missing required route params/u);
+  // A global route belongs to no surface: its app path, its params filled the same way.
+  assert.equal(paths.page("/auth/login", { scope: "global" }), "/auth/login");
+  assert.equal(paths.page("/shared/:bookId", { scope: "global" }), "/shared/7");
+  assert.throws(() => paths.page("/shared/:authorId", { scope: "global" }), /Missing required route params/u);
 });

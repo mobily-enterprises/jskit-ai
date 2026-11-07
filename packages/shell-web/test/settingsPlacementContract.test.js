@@ -99,7 +99,9 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(barPieces, /:id="SHELL_PAGE_ACTIONS_ID"/u);
   assert.match(barPieces, /provide\(SHELL_PAGE_ACTIONS_TARGET_KEY, `#\$\{SHELL_PAGE_ACTIONS_ID\}`\)/u);
   assert.match(barPieces, /release = navigationRuntime\.attachShell\(\);/u);
-  assert.match(source, /shell-layout__surface-label/);
+  // The drawer's menu control stands alone, its tooltip its label; nothing beside it reads as its label.
+  assert.doesNotMatch(source, /shell-layout__surface-label/);
+  assert.match(source, /data-testid="jskit-shell-nav-toggle"[\s\S]*?<v-tooltip activator="parent" location="end" :text="drawerToggleLabel" \/>/u);
   assert.doesNotMatch(source, /shell-layout__surface-chip/);
   assert.doesNotMatch(source, /<v-chip[^>]*resolvedSurfaceLabel/);
   assert.match(source, /<v-bottom-navigation[\s\S]*target="shell-layout:primary-bottom-nav"/);

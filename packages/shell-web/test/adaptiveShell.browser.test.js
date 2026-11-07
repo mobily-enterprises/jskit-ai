@@ -20,6 +20,17 @@ const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const FIXTURE_ROOT = path.resolve(TEST_DIRECTORY, "../fixtures/adaptive-shell");
 const RUN_BROWSER_TEST = process.env.JSKIT_SHELL_WEB_BROWSER_INTEGRATION === "1";
 
+// Starts the fixture's Vite server and a browser for one test and stops them in its after hooks, which run when the
+// test fails or times out too: a `finally` in the test body never runs after a timeout, so the server and browser
+// would keep the test file's process alive.
+async function startFixture(t) {
+  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
+  t.after(() => stopProcess(vite));
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
+  return { vite, browser };
+}
+
 function parseRgb(color) {
   const channels = String(color || "").match(/[\d.]+/gu)?.map(Number) || [];
   return {
@@ -204,12 +215,9 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
     ? false
     : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1 to run shell-web browser integration",
   timeout: 180_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser = null;
-
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
   try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
     const context = await browser.newContext({
       baseURL: vite.baseURL,
       locale: "en-US"
@@ -280,91 +288,74 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
       `${error.message}\n\nAdaptive shell fixture output:\n${fixtureOutput}`,
       { cause: error }
     );
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
   }
 });
 
 test("the shared smoke case passes a phone shell whose destinations are all in the navigation bar", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    const page = await browser.newPage({ baseURL: vite.baseURL });
-    // The standard topology: admin's main navigation goes to shell-layout:primary-bottom-nav on a phone and it has no
-    // other destinations, so the shell draws no drawer or menu control there.
-    const compact = DEFAULT_VIEWPORTS.find(({ name }) => name === "compact");
-    await runAdaptiveShellSmokeCase({ page, expect, smokePath: "/w/acme/admin/bookings", viewport: compact });
-    await expect(page.getByTestId("jskit-shell-drawer")).toHaveCount(0);
-    await expect(page.getByTestId("jskit-shell-nav-toggle")).toHaveCount(0);
-    await page.close();
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
-  }
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL });
+  // The standard topology: admin's main navigation goes to shell-layout:primary-bottom-nav on a phone and it has no
+  // other destinations, so the shell draws no drawer or menu control there.
+  const compact = DEFAULT_VIEWPORTS.find(({ name }) => name === "compact");
+  await runAdaptiveShellSmokeCase({ page, expect, smokePath: "/w/acme/admin/bookings", viewport: compact });
+  await expect(page.getByTestId("jskit-shell-drawer")).toHaveCount(0);
+  await expect(page.getByTestId("jskit-shell-nav-toggle")).toHaveCount(0);
+  await page.close();
 });
 
 test("shell-web preserves the active form across responsive changes", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    for (const startingWidth of [1280, 390]) {
-      const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: startingWidth, height: 900 } });
-      await page.goto("/w/acme/admin/contacts");
-      await page.getByRole("link", { name: "Bookings", exact: true }).click();
-      await expect(page).toHaveURL(/\/bookings$/u);
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  for (const startingWidth of [1280, 390]) {
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: startingWidth, height: 900 } });
+    await page.goto("/w/acme/admin/contacts");
+    await page.getByRole("link", { name: "Bookings", exact: true }).click();
+    await expect(page).toHaveURL(/\/bookings$/u);
+    await expect(page.locator(".shell-route-transition__pane")).toHaveCount(1);
+    const answer = page.getByRole("textbox", { name: "Unsaved answer" });
+    await answer.fill("Keep this unsaved answer");
+    await page.getByText("More details", { exact: true }).click();
+    await page.getByRole("button", { name: "Validate answer" }).click();
+    await answer.focus();
+    const originalInput = await answer.elementHandle();
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1024, height: 1024 },
+      { width: 1280, height: 900 },
+      { width: 1280, height: 420 },
+      { width: 390, height: 420 },
+      { width: 390, height: 844 }
+    ]) {
+      await page.setViewportSize(viewport);
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await expect(answer).toHaveValue("Keep this unsaved answer");
+      await expect(page.locator("details")).toHaveAttribute("open", "");
+      await expect(page.getByRole("status")).toHaveText("Please review this answer.");
+      await expect(answer).toBeFocused();
+      assert.equal(await originalInput.evaluate((element) => element === document.activeElement), true);
       await expect(page.locator(".shell-route-transition__pane")).toHaveCount(1);
-      const answer = page.getByRole("textbox", { name: "Unsaved answer" });
-      await answer.fill("Keep this unsaved answer");
-      await page.getByText("More details", { exact: true }).click();
-      await page.getByRole("button", { name: "Validate answer" }).click();
-      await answer.focus();
-      const originalInput = await answer.elementHandle();
-      for (const viewport of [
-        { width: 390, height: 844 },
-        { width: 1024, height: 1024 },
-        { width: 1280, height: 900 },
-        { width: 1280, height: 420 },
-        { width: 390, height: 420 },
-        { width: 390, height: 844 }
-      ]) {
-        await page.setViewportSize(viewport);
-        await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
-        await expect(answer).toHaveValue("Keep this unsaved answer");
-        await expect(page.locator("details")).toHaveAttribute("open", "");
-        await expect(page.getByRole("status")).toHaveText("Please review this answer.");
-        await expect(answer).toBeFocused();
-        assert.equal(await originalInput.evaluate((element) => element === document.activeElement), true);
-        await expect(page.locator(".shell-route-transition__pane")).toHaveCount(1);
-        await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-      }
-      // Real compact navigation still replaces the pane and runs its animation.
-      await page.getByRole("link", { name: "Contacts", exact: true }).click();
-      await expect(page).toHaveURL(/\/contacts$/u);
-      await expect(page.locator(".shell-route-transition__pane")).toHaveCount(1);
-      await expect(answer).toHaveValue("");
-      assert.equal(await originalInput.evaluate((element) => element.isConnected), false);
-      // Desktop same-surface navigation continues to reuse the routed component.
-      await page.setViewportSize({ width: 1280, height: 900 });
-      await page.getByRole("link", { name: "Bookings", exact: true }).click();
-      await expect(page).toHaveURL(/\/bookings$/u);
-      await answer.fill("Desktop state");
-      await page.getByRole("link", { name: "Contacts", exact: true }).click();
-      await expect(page).toHaveURL(/\/contacts$/u);
-      await expect(answer).toHaveValue("Desktop state");
-      await page.close();
+      await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
     }
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
+    // Real compact navigation still replaces the pane and runs its animation.
+    await page.getByRole("link", { name: "Contacts", exact: true }).click();
+    await expect(page).toHaveURL(/\/contacts$/u);
+    await expect(page.locator(".shell-route-transition__pane")).toHaveCount(1);
+    await expect(answer).toHaveValue("");
+    assert.equal(await originalInput.evaluate((element) => element.isConnected), false);
+    // Desktop same-surface navigation continues to reuse the routed component.
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await page.getByRole("link", { name: "Bookings", exact: true }).click();
+    await expect(page).toHaveURL(/\/bookings$/u);
+    await answer.fill("Desktop state");
+    await page.getByRole("link", { name: "Contacts", exact: true }).click();
+    await expect(page).toHaveURL(/\/contacts$/u);
+    await expect(answer).toHaveValue("Desktop state");
+    await page.close();
   }
 });
 
@@ -405,246 +396,372 @@ async function reportBannerAndMeasure(page) {
 test("shell-web error banners never cover content and keep a readable close button", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 120_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
-      for (const theme of ["light", "dark"]) {
-        const page = await browser.newPage({ baseURL: vite.baseURL, viewport });
-        await page.goto(`/sign-in?theme=${theme}`);
-        await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
-        await expect(page.getByTestId("jskit-shell-app-bar")).toHaveCount(0);
-        const bare = await reportBannerAndMeasure(page);
-        for (const item of bare.content) {
-          assert.equal(
-            overlaps(bare.banner, item.rect),
-            false,
-            `${viewport.width}px ${theme}: the banner covers "${item.name}" on a surface without an app bar.`
-          );
-        }
-        const background = parseRgb(bare.background);
-        for (const color of [bare.closeColor, bare.closeColorWithThemedDefault]) {
-          const ratio = contrastRatio(parseRgb(color), background);
-          assert.ok(ratio >= 3, `${viewport.width}px ${theme}: banner close contrast was ${ratio.toFixed(2)}:1.`);
-        }
-
-        await page.goto(`/home?theme=${theme}`);
-        await expect(page.getByTestId("jskit-shell-app-bar")).toBeVisible();
-        const shell = await reportBannerAndMeasure(page);
-        assert.ok(
-          shell.banner.top >= shell.appBar.bottom - 1,
-          `${viewport.width}px ${theme}: the banner overlaps the top app bar.`
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) {
+    for (const theme of ["light", "dark"]) {
+      const page = await browser.newPage({ baseURL: vite.baseURL, viewport });
+      await page.goto(`/sign-in?theme=${theme}`);
+      await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+      await expect(page.getByTestId("jskit-shell-app-bar")).toHaveCount(0);
+      const bare = await reportBannerAndMeasure(page);
+      for (const item of bare.content) {
+        assert.equal(
+          overlaps(bare.banner, item.rect),
+          false,
+          `${viewport.width}px ${theme}: the banner covers "${item.name}" on a surface without an app bar.`
         );
-        await page.close();
       }
+      const background = parseRgb(bare.background);
+      for (const color of [bare.closeColor, bare.closeColorWithThemedDefault]) {
+        const ratio = contrastRatio(parseRgb(color), background);
+        assert.ok(ratio >= 3, `${viewport.width}px ${theme}: banner close contrast was ${ratio.toFixed(2)}:1.`);
+      }
+
+      await page.goto(`/home?theme=${theme}`);
+      await expect(page.getByTestId("jskit-shell-app-bar")).toBeVisible();
+      const shell = await reportBannerAndMeasure(page);
+      assert.ok(
+        shell.banner.top >= shell.appBar.bottom - 1,
+        `${viewport.width}px ${theme}: the banner overlaps the top app bar.`
+      );
+      await page.close();
     }
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
+  }
+});
+
+// Material 3 keeps a snackbar clear of the FAB and the actions it reports on, so a person who saves can press Save
+// again at once (a bottom-end snackbar over Save made each second press wait out its 5 seconds). On a phone the form's
+// Save is the app bar's primary action; wider, the form's own Save at the content's bottom end counts too.
+test("a snackbar never covers the FAB, the navigation bar or a form's Save, so Save can be pressed again at once", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  for (const viewport of DEFAULT_VIEWPORTS) {
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: viewport.width, height: viewport.height } });
+    try {
+      await page.goto("/home/feedback");
+      await expect(page.getByTestId("fixture-feedback")).toBeVisible();
+      const targets = {
+        bar: page.getByTestId("jskit-shell-app-bar").getByRole("button", { name: "Save", exact: true }),
+        form: page.getByTestId("fixture-form-save"),
+        fab: page.getByRole("button", { name: "New", exact: true })
+      };
+      const names = viewport.name === "compact" ? ["bar", "fab"] : ["bar", "form", "fab"];
+      const presses = page.getByTestId("fixture-presses");
+      const box = (locator) => locator.evaluate((element) => {
+        const rect = element.getBoundingClientRect();
+        return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
+      });
+      const counts = { bar: 0, form: 0, fab: 0 };
+      for (const name of names) {
+        await targets[name].click({ timeout: 2_000 });
+        const snackbar = page.locator(".shell-error-host__snackbar .v-snackbar__wrapper");
+        await expect(snackbar).toBeVisible();
+        // The snackbar's own transitions, which end: an endless animation elsewhere (a progress bar) never would.
+        await snackbar.evaluate((element) => Promise.all(element.closest(".v-snackbar").getAnimations({ subtree: true })
+          .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity))
+          .map((animation) => animation.finished.catch(() => null))));
+        const shown = await box(snackbar);
+        for (const other of names) {
+          assert.equal(overlaps(shown, await box(targets[other])), false,
+            `${viewport.width}px: the snackbar from ${name} covers ${other}: ${JSON.stringify(shown)}`);
+        }
+        const bottomNavigation = page.getByTestId("jskit-shell-bottom-nav");
+        if (await bottomNavigation.isVisible()) {
+          assert.ok(shown.bottom <= (await box(bottomNavigation)).top, `${viewport.width}px: the snackbar sits above the navigation bar`);
+        }
+        // Pressed again at once, while the snackbar shows: nothing may be in the way.
+        await targets[name].click({ timeout: 1_000 });
+        await expect(snackbar).toBeVisible();
+        counts[name] += 2;
+        await expect(presses).toHaveText(`${counts.bar} ${counts.form} ${counts.fab}`);
+        // Each press reported once: the second report waits its turn and shows when the first is dismissed.
+        const current = page.locator(".shell-error-host__snackbar .v-snackbar__wrapper:not(.v-snackbar-transition-leave-active)");
+        for (let report = 0; report < 2; report += 1) {
+          await current.getByRole("button", { name: "Dismiss", exact: true }).click();
+        }
+        await expect(snackbar).toBeHidden();
+      }
+    } finally {
+      await page.close();
+    }
   }
 });
 
 test("shell-web's app bar fills with surface-container once the page scrolls under it", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
-    await page.goto("/home/contacts?theme=light");
-    const appBar = page.getByTestId("jskit-shell-app-bar");
-    const background = () => appBar.evaluate((element) => window.getComputedStyle(element).backgroundColor);
-    await expect.poll(background).toBe(await readRoleColor(page, "surface"));
-    const bar = page.getByTestId("jskit-shell-bottom-nav");
-    assert.equal(
-      await bar.evaluate((element) => window.getComputedStyle(element).backgroundColor),
-      await readRoleColor(page, "surface-container")
-    );
-    assert.equal(Math.round((await bar.boundingBox()).height), 80);
-    await page.evaluate(() => window.scrollTo(0, 400));
-    await expect.poll(background).toBe(await readRoleColor(page, "surface-container"));
-    await page.close();
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
-  }
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
+  await page.goto("/home/contacts?theme=light");
+  const appBar = page.getByTestId("jskit-shell-app-bar");
+  const background = () => appBar.evaluate((element) => window.getComputedStyle(element).backgroundColor);
+  await expect.poll(background).toBe(await readRoleColor(page, "surface"));
+  const bar = page.getByTestId("jskit-shell-bottom-nav");
+  assert.equal(
+    await bar.evaluate((element) => window.getComputedStyle(element).backgroundColor),
+    await readRoleColor(page, "surface-container")
+  );
+  assert.equal(Math.round((await bar.boundingBox()).height), 80);
+  await page.evaluate(() => window.scrollTo(0, 400));
+  await expect.poll(background).toBe(await readRoleColor(page, "surface-container"));
+  await page.close();
 });
 
 test("shell-web's bar pieces give a layout that draws its own top app bar the shell's Up, title and actions", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 120_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    for (const viewport of DEFAULT_VIEWPORTS) {
-      const page = await browser.newPage({
-        baseURL: vite.baseURL,
-        viewport: { width: viewport.width, height: viewport.height }
-      });
-      const at = `${viewport.width}px`;
-      const ownBar = page.getByTestId("fixture-own-bar");
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  for (const viewport of DEFAULT_VIEWPORTS) {
+    const page = await browser.newPage({
+      baseURL: vite.baseURL,
+      viewport: { width: viewport.width, height: viewport.height }
+    });
+    const at = `${viewport.width}px`;
+    const ownBar = page.getByTestId("fixture-own-bar");
 
-      // A top-level page: the title is the page's one h1, in the app's own bar, with no arrow.
-      await page.goto("/home/studio");
-      await expect(ownBar.getByRole("heading", { level: 1, name: "Studio" }), at).toBeVisible();
-      await expect(page.getByRole("heading", { level: 1 }), at).toHaveCount(1);
-      await expect(shellBackButton(page), at).toHaveCount(0);
-      // A title that is also a switcher: the menu activator is inside the h1, which keeps its id and focus target.
-      const title = ownBar.getByRole("heading", { level: 1 });
-      await expect(title, at).toHaveAttribute("id", "jskit-shell-page-title");
-      await expect(title, at).toHaveAttribute("tabindex", "-1");
-      await title.getByRole("button", { name: "Studio" }).click();
-      await expect(page.getByText("Other studio", { exact: true }), at).toBeVisible();
-      await page.keyboard.press("Escape");
-      await expect(page.getByText("Other studio", { exact: true }), at).toBeHidden();
+    // A top-level page: the title is the page's one h1, in the app's own bar, with no arrow.
+    await page.goto("/home/studio");
+    await expect(ownBar.getByRole("heading", { level: 1, name: "Studio" }), at).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1 }), at).toHaveCount(1);
+    await expect(shellBackButton(page), at).toHaveCount(0);
+    // A title that is also a switcher: the menu activator is inside the h1, which keeps its id and focus target.
+    const title = ownBar.getByRole("heading", { level: 1 });
+    await expect(title, at).toHaveAttribute("id", "jskit-shell-page-title");
+    await expect(title, at).toHaveAttribute("tabindex", "-1");
+    await title.getByRole("button", { name: "Studio" }).click();
+    await expect(page.getByText("Other studio", { exact: true }), at).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByText("Other studio", { exact: true }), at).toBeHidden();
 
-      // An inner page: Up, its title and its actions, in the app's own bar; Up returns along the trail.
-      await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
-      await expect(page).toHaveURL(/\/home\/studio\/ada$/u);
-      await expect(ownBar.getByTestId("jskit-shell-page-title"), at).toHaveText("Ada Lovelace");
-      await expect(ownBar.getByTestId("jskit-shell-back"), at).toHaveAccessibleName("Back");
-      await expect(ownBar.getByRole("button", { name: "Run" }), at).toBeVisible();
-      await pressShellBack(page);
-      await expect(page).toHaveURL(/\/home\/studio$/u);
-      await expect(shellBackButton(page), at).toHaveCount(0);
+    // An inner page: Up, its title and its actions, in the app's own bar; Up returns along the trail.
+    await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
+    await expect(page).toHaveURL(/\/home\/studio\/ada$/u);
+    await expect(ownBar.getByTestId("jskit-shell-page-title"), at).toHaveText("Ada Lovelace");
+    await expect(ownBar.getByTestId("jskit-shell-back"), at).toHaveAccessibleName("Back");
+    await expect(ownBar.getByRole("button", { name: "Run" }), at).toBeVisible();
+    await pressShellBack(page);
+    await expect(page).toHaveURL(/\/home\/studio$/u);
+    await expect(shellBackButton(page), at).toHaveCount(0);
 
-      // A pasted link goes Up to the declared parent.
-      await page.goto("/home/studio/ada");
-      await pressShellBack(page);
-      await expect(page).toHaveURL(/\/home\/studio$/u);
-      await page.close();
-    }
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
+    // A pasted link goes Up to the declared parent.
+    await page.goto("/home/studio/ada");
+    await pressShellBack(page);
+    await expect(page).toHaveURL(/\/home\/studio$/u);
+    await page.close();
   }
 });
 
-test("a surface with no navigation draws no navigation bar, rail, drawer or menu control", {
+test("a surface with no navigation, or Home alone, draws no navigation bar, rail, drawer or menu control", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 120_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    const navigation = { compact: "jskit-shell-bottom-nav", medium: "jskit-shell-rail", expanded: "jskit-shell-drawer" };
-    for (const viewport of DEFAULT_VIEWPORTS) {
-      const page = await browser.newPage({
-        baseURL: vite.baseURL,
-        viewport: { width: viewport.width, height: viewport.height }
-      });
-      const at = `${viewport.width}px`;
-      await page.goto("/account");
-      await expect(shellPageTitle(page), at).toHaveText("Account");
-      for (const id of ["jskit-shell-bottom-nav", "jskit-shell-rail", "jskit-shell-drawer", "jskit-shell-nav-toggle"]) {
-        await expect(page.getByTestId(id), `${at} ${id}`).toHaveCount(0);
-      }
-      assert.equal(Math.round((await page.locator("main").boundingBox()).x), 0, `${at}: the page starts at the window's edge`);
-      // Its title and Up stay in the app bar; Up returns to the declared parent on another surface, which has navigation.
-      await pressShellBack(page);
-      await expect(page).toHaveURL(/\/home$/u);
-      await expect(page.getByTestId(navigation[viewport.name]), at).toBeVisible();
-      await page.close();
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const navigation = { compact: "jskit-shell-bottom-nav", medium: "jskit-shell-rail", expanded: "jskit-shell-drawer" };
+  for (const viewport of DEFAULT_VIEWPORTS) {
+    const page = await browser.newPage({
+      baseURL: vite.baseURL,
+      viewport: { width: viewport.width, height: viewport.height }
+    });
+    const at = `${viewport.width}px`;
+    await page.goto("/account");
+    await expect(shellPageTitle(page), at).toHaveText("Account");
+    for (const id of ["jskit-shell-bottom-nav", "jskit-shell-rail", "jskit-shell-drawer", "jskit-shell-nav-toggle"]) {
+      await expect(page.getByTestId(id), `${at} ${id}`).toHaveCount(0);
     }
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
+    assert.equal(Math.round((await page.locator("main").boundingBox()).x), 0, `${at}: the page starts at the window's edge`);
+    // Its title and Up stay in the app bar; Up returns to the declared parent on another surface, which has navigation.
+    await pressShellBack(page);
+    await expect(page).toHaveURL(/\/home$/u);
+    await expect(page.getByTestId(navigation[viewport.name]), at).toBeVisible();
+
+    // Home alone is nowhere to go: Material 3 navigation needs two destinations.
+    await page.goto("/solo");
+    await expect(shellPageTitle(page), at).toHaveText("Solo");
+    for (const id of ["jskit-shell-bottom-nav", "jskit-shell-rail", "jskit-shell-drawer", "jskit-shell-nav-toggle"]) {
+      await expect(page.getByTestId(id), `${at} solo ${id}`).toHaveCount(0);
+    }
+    assert.equal(Math.round((await page.locator("main").boundingBox()).x), 0, `${at}: the solo page starts at the window's edge`);
+
+    if (viewport.name === "expanded") {
+      // The standard drawer's header holds its menu control alone; the control's tooltip is its label.
+      await page.goto("/home");
+      const header = page.getByTestId("jskit-shell-drawer").locator(".shell-layout__drawer-header");
+      await expect(header).toBeVisible();
+      assert.equal((await header.innerText()).trim(), "", `${at}: no text beside the menu control`);
+      const toggle = page.getByTestId("jskit-shell-nav-toggle");
+      await expect(toggle).toHaveAccessibleName("Collapse navigation drawer");
+      await toggle.hover();
+      await expect(page.getByRole("tooltip", { name: "Collapse navigation drawer" })).toBeVisible();
+      await page.mouse.move(0, 0);
+    }
+    await page.close();
+  }
+});
+
+// page.section-nav is a page's own tabs: Material 3 primary tabs (48dp, title-small, the active label primary over a
+// 3dp indicator under its content), never navigation bar destinations, which belong to the navigation bar alone. The
+// bar's item placed in a page draws the same tabs.
+test("a page's section tabs are Material 3 primary tabs at every width, and the navigation bar keeps its destinations", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  for (const viewport of DEFAULT_VIEWPORTS) {
+    const page = await browser.newPage({
+      baseURL: vite.baseURL,
+      viewport: { width: viewport.width, height: viewport.height }
+    });
+    const at = `${viewport.width}px`;
+    await page.goto("/home/reports/overview");
+    await expect(shellPageTitle(page), at).toHaveText("Reports");
+    const rows = await page.evaluate(() => {
+      const role = (name) => {
+        const probe = document.body.appendChild(document.createElement("span"));
+        probe.style.color = `rgb(var(--v-theme-${name}))`;
+        const color = getComputedStyle(probe).color;
+        probe.remove();
+        return color;
+      };
+      const read = (testId) => [...document.querySelectorAll(`[data-testid=${testId}] .v-btn`)].map((tab) => {
+        const label = tab.querySelector(".section-tab-link-item__label");
+        const indicator = tab.querySelector(".section-tab-link-item__indicator");
+        const style = getComputedStyle(tab);
+        const labelStyle = label ? getComputedStyle(label) : null;
+        const indicatorStyle = indicator ? getComputedStyle(indicator) : null;
+        return {
+          name: tab.textContent.trim(),
+          sectionTab: tab.classList.contains("section-tab-link-item"),
+          barItem: tab.classList.contains("tab-link-item"),
+          current: tab.getAttribute("aria-current") === "page",
+          height: Math.round(tab.getBoundingClientRect().height),
+          type: labelStyle ? [labelStyle.fontSize, labelStyle.fontWeight] : null,
+          clipped: label ? label.scrollWidth > label.clientWidth + 1 : null,
+          primaryLabel: style.color === role("primary"),
+          indicator: indicatorStyle ? [indicatorStyle.opacity, indicatorStyle.height, indicatorStyle.borderTopLeftRadius] : null,
+          indicatorUnderLabel: indicator && label ? Math.abs(indicator.getBoundingClientRect().width - label.getBoundingClientRect().width) <= 1 : null
+        };
+      });
+      return { sections: read("fixture-section-tabs"), views: read("fixture-bar-items-in-page") };
+    });
+    for (const [row, tabs] of Object.entries(rows)) {
+      assert.ok(tabs.length >= 2, `${at} ${row}: its tabs render`);
+      for (const tab of tabs) {
+        const active = tab.name === "Overview";
+        assert.deepEqual(tab, {
+          name: tab.name,
+          sectionTab: true,
+          barItem: false,
+          current: active,
+          height: 48,
+          type: ["14px", "500"],
+          clipped: false,
+          primaryLabel: active,
+          indicator: [active ? "1" : "0", "3px", "3px"],
+          indicatorUnderLabel: true
+        }, `${at} ${row} ${tab.name}`);
+      }
+    }
+    // A tab moves to its section and becomes the active one.
+    await page.getByTestId("fixture-section-tabs").getByRole("link", { name: "Activity" }).click();
+    await expect(page).toHaveURL(/\/home\/reports\/activity$/u);
+    await expect(page.getByTestId("fixture-report-section")).toHaveText("activity");
+    await expect(page.getByTestId("fixture-section-tabs").getByRole("link", { name: "Activity" })).toHaveAttribute("aria-current", "page");
+    if (viewport.name === "compact") {
+      // The navigation bar's destinations keep their 64x32 indicators.
+      const indicator = page.getByTestId("jskit-shell-bottom-nav").locator(".tab-link-item__indicator").first();
+      const box = await indicator.boundingBox();
+      assert.deepEqual([Math.round(box.width), Math.round(box.height)], [64, 32], `${at}: a navigation bar destination`);
+    }
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+    assert.ok(overflow <= 1, `${at}: the page never scrolls sideways; the tab row does`);
+    await page.close();
   }
 });
 
 test("every button keeps its size, gets a 48dp touch target and ends a long label in an ellipsis; FABs and cards keep theirs", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
-    await page.goto("/home/buttons");
-    // Vuetify's heights for x-small, small and large, JSKIT's 40dp default; an icon button is 12dp more, JSKIT's 40dp.
-    const heights = {
-      "x-small": [20, 32],
-      small: [28, 40],
-      default: [40, 40],
-      large: [44, 56]
-    };
-    for (const [size, [textHeight, iconHeight]] of Object.entries(heights)) {
-      for (const [id, height] of [[`fixture-button-${size}`, textHeight], [`fixture-icon-button-${size}`, iconHeight]]) {
-        const button = page.getByTestId(id);
-        const box = await button.boundingBox();
-        assert.equal(Math.round(box.height), height, `${id} keeps its visual height`);
-        const target = await button.evaluate((element) => {
-          const style = window.getComputedStyle(element, "::before");
-          return { width: Number.parseFloat(style.width), height: Number.parseFloat(style.height) };
-        });
-        assert.equal(Math.round(target.height), Math.max(48, height), `${id} touch target height`);
-        assert.ok(target.width >= 48, `${id} touch target width ${target.width}`);
-        if (height < 48) {
-          // A tap just above the visual, inside the touch target, reaches the button.
-          const point = [box.x + box.width / 2, box.y - (48 - height) / 2 + 1];
-          const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest(".v-btn")?.dataset.testid, point);
-          assert.equal(hit, id, `${id} answers inside its touch target`);
-        }
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
+  await page.goto("/home/buttons");
+  // Vuetify's heights for x-small, small and large, JSKIT's 40dp default; an icon button is 12dp more, JSKIT's 40dp.
+  const heights = {
+    "x-small": [20, 32],
+    small: [28, 40],
+    default: [40, 40],
+    large: [44, 56]
+  };
+  for (const [size, [textHeight, iconHeight]] of Object.entries(heights)) {
+    for (const [id, height] of [[`fixture-button-${size}`, textHeight], [`fixture-icon-button-${size}`, iconHeight]]) {
+      const button = page.getByTestId(id);
+      const box = await button.boundingBox();
+      assert.equal(Math.round(box.height), height, `${id} keeps its visual height`);
+      const target = await button.evaluate((element) => {
+        const style = window.getComputedStyle(element, "::before");
+        return { width: Number.parseFloat(style.width), height: Number.parseFloat(style.height) };
+      });
+      assert.equal(Math.round(target.height), Math.max(48, height), `${id} touch target height`);
+      assert.ok(target.width >= 48, `${id} touch target width ${target.width}`);
+      if (height < 48) {
+        // A tap just above the visual, inside the touch target, reaches the button.
+        const point = [box.x + box.width / 2, box.y - (48 - height) / 2 + 1];
+        const hit = await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.closest(".v-btn")?.dataset.testid, point);
+        assert.equal(hit, id, `${id} answers inside its touch target`);
       }
     }
-    const long = page.getByTestId("fixture-long-label");
-    const label = await long.evaluate((element) => {
-      const content = element.querySelector(".v-btn__content");
-      const style = window.getComputedStyle(content);
-      return {
-        buttonWidth: element.getBoundingClientRect().width,
-        buttonRight: element.getBoundingClientRect().right,
-        contentRight: content.getBoundingClientRect().right,
-        clipped: content.scrollWidth > content.clientWidth,
-        textOverflow: style.textOverflow,
-        height: element.getBoundingClientRect().height
-      };
-    });
-    assert.ok(label.buttonWidth <= 160.5, `the long button stays in its 160px (${label.buttonWidth})`);
-    assert.ok(label.contentRight <= label.buttonRight + 0.5, "the label stays inside its button");
-    assert.equal(label.clipped, true);
-    assert.equal(label.textOverflow, "ellipsis");
-    assert.equal(Math.round(label.height), 40, "the label stays on one line");
-    // A touch target reaching past a scroll container's corner adds no scrollbar.
-    const corner = await page.getByTestId("fixture-button-corner").evaluate((element) => ({
-      extraWidth: element.scrollWidth - element.clientWidth,
-      extraHeight: element.scrollHeight - element.clientHeight
-    }));
-    assert.deepEqual(corner, { extraWidth: 0, extraHeight: 0 });
-    // FABs keep Material 3's sizes, not the common button's 40dp.
-    for (const [id, width, height] of [
-      ["fixture-fab", 56, 56],
-      ["fixture-fab-small", 40, 40],
-      ["fixture-fab-large", 96, 96],
-      ["fixture-fab-extended", null, 56]
-    ]) {
-      const box = await page.getByTestId(id).locator(".v-btn").boundingBox();
-      assert.equal(Math.round(box.height), height, `${id} height`);
-      if (width) assert.equal(Math.round(box.width), width, `${id} width`);
-    }
-    // An elevated card has its level-1 shadow; flat and tonal cards have none.
-    const shadows = {};
-    for (const variant of ["elevated", "flat", "tonal"]) {
-      shadows[variant] = await page.getByTestId(`fixture-card-${variant}`).evaluate((element) => window.getComputedStyle(element).boxShadow);
-    }
-    // A shadow of zero offsets, blur and spread (Vuetify's level 0) draws nothing.
-    const drawsShadow = (shadow) => shadow !== "none" &&
-      shadow.replace(/rgba?\([^)]*\)/gu, "").split(/[\s,]+/u).some((length) => Number.parseFloat(length) > 0);
-    assert.equal(drawsShadow(shadows.elevated), true, shadows.elevated);
-    assert.deepEqual([drawsShadow(shadows.flat), drawsShadow(shadows.tonal)], [false, false], JSON.stringify(shadows));
-    await page.close();
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
   }
+  const long = page.getByTestId("fixture-long-label");
+  const label = await long.evaluate((element) => {
+    const content = element.querySelector(".v-btn__content");
+    const style = window.getComputedStyle(content);
+    return {
+      buttonWidth: element.getBoundingClientRect().width,
+      buttonRight: element.getBoundingClientRect().right,
+      contentRight: content.getBoundingClientRect().right,
+      clipped: content.scrollWidth > content.clientWidth,
+      textOverflow: style.textOverflow,
+      height: element.getBoundingClientRect().height
+    };
+  });
+  assert.ok(label.buttonWidth <= 160.5, `the long button stays in its 160px (${label.buttonWidth})`);
+  assert.ok(label.contentRight <= label.buttonRight + 0.5, "the label stays inside its button");
+  assert.equal(label.clipped, true);
+  assert.equal(label.textOverflow, "ellipsis");
+  assert.equal(Math.round(label.height), 40, "the label stays on one line");
+  // A touch target reaching past a scroll container's corner adds no scrollbar.
+  const corner = await page.getByTestId("fixture-button-corner").evaluate((element) => ({
+    extraWidth: element.scrollWidth - element.clientWidth,
+    extraHeight: element.scrollHeight - element.clientHeight
+  }));
+  assert.deepEqual(corner, { extraWidth: 0, extraHeight: 0 });
+  // FABs keep Material 3's sizes, not the common button's 40dp.
+  for (const [id, width, height] of [
+    ["fixture-fab", 56, 56],
+    ["fixture-fab-small", 40, 40],
+    ["fixture-fab-large", 96, 96],
+    ["fixture-fab-extended", null, 56]
+  ]) {
+    const box = await page.getByTestId(id).locator(".v-btn").boundingBox();
+    assert.equal(Math.round(box.height), height, `${id} height`);
+    if (width) assert.equal(Math.round(box.width), width, `${id} width`);
+  }
+  // An elevated card has its level-1 shadow; flat and tonal cards have none.
+  const shadows = {};
+  for (const variant of ["elevated", "flat", "tonal"]) {
+    shadows[variant] = await page.getByTestId(`fixture-card-${variant}`).evaluate((element) => window.getComputedStyle(element).boxShadow);
+  }
+  // A shadow of zero offsets, blur and spread (Vuetify's level 0) draws nothing.
+  const drawsShadow = (shadow) => shadow !== "none" &&
+    shadow.replace(/rgba?\([^)]*\)/gu, "").split(/[\s,]+/u).some((length) => Number.parseFloat(length) > 0);
+  assert.equal(drawsShadow(shadows.elevated), true, shadows.elevated);
+  assert.deepEqual([drawsShadow(shadows.flat), drawsShadow(shadows.tonal)], [false, false], JSON.stringify(shadows));
+  await page.close();
 });
 
 async function openMainDestination(page, label) {
@@ -654,121 +771,114 @@ async function openMainDestination(page, label) {
 test("shell-web Up follows the tab's trail, falls back to the parent and returns to where the person was", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 180_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    for (const viewport of DEFAULT_VIEWPORTS) {
-      const context = await browser.newContext({
-        baseURL: vite.baseURL,
-        viewport: { width: viewport.width, height: viewport.height }
-      });
-      const page = await context.newPage();
-      const at = `${viewport.width}px`;
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  for (const viewport of DEFAULT_VIEWPORTS) {
+    const context = await browser.newContext({
+      baseURL: vite.baseURL,
+      viewport: { width: viewport.width, height: viewport.height }
+    });
+    const page = await context.newPage();
+    const at = `${viewport.width}px`;
 
-      // Main-menu pages have no arrow.
-      for (const path of ["/home", "/home/contacts", "/home/suppliers", "/home/bookings", "/home/settings"]) {
-        await page.goto(path);
-        await expect(shellPageTitle(page)).toBeVisible();
-        await expect(shellBackButton(page), `${at} ${path}`).toHaveCount(0);
-      }
-
-      // contact -> supplier -> Up = contact -> Up = the Contacts list.
-      await page.goto("/home/contacts");
-      await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
-      await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
-      await expect(shellPageTitle(page)).toHaveText("Ada Lovelace");
-      await expect(shellBackButton(page)).toHaveAccessibleName("Back");
-      await page.getByRole("link", { name: "Supplier", exact: true }).click();
-      await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
-      // A refresh keeps the trail.
-      await page.reload();
-      await expect(shellPageTitle(page)).toHaveText("Acme Supplies");
-      await pressShellBack(page);
-      await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
-      // The browser's Back and Forward move the trail with them.
-      await page.goBack();
-      await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
-      await page.goForward();
-      await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
-      await pressShellBack(page);
-      await expect(page).toHaveURL(/\/home\/contacts$/u);
-      await expect(shellBackButton(page)).toHaveCount(0);
-
-      // The trail is a stack of visits: contact -> supplier -> the same contact -> Up = supplier.
-      await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
-      await page.getByRole("link", { name: "Supplier", exact: true }).click();
-      await page.getByRole("link", { name: "Contact", exact: true }).click();
-      await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
-      await pressShellBack(page);
-      await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
-
-      // A main destination starts a fresh trail.
-      await openMainDestination(page, "Suppliers");
-      await expect(page).toHaveURL(/\/home\/suppliers$/u);
-      await page.getByRole("link", { name: "Acme Supplies", exact: true }).click();
-      await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
-      await pressShellBack(page);
-      await expect(page).toHaveURL(/\/home\/suppliers$/u);
-
-      // Up to a page that is no longer available goes to the current page's parent instead.
-      await page.goto("/home/contacts/ada");
-      await page.getByRole("link", { name: "Supplier", exact: true }).click();
-      await page.evaluate(() => {
-        window.__fixtureBlockedRecords = ["ada"];
-      });
-      await pressShellBack(page);
-      await expect(page).toHaveURL(/\/home\/suppliers$/u);
-      await page.evaluate(() => {
-        window.__fixtureBlockedRecords = [];
-      });
-
-      // Up returns to the list where it was scrolled, with focus on the record it opened.
-      await page.goto("/home/contacts");
-      const deepLink = page.getByRole("link", { name: "Contact 35", exact: true });
-      await deepLink.scrollIntoViewIfNeeded();
-      const scrollBefore = await page.evaluate(() => window.scrollY);
-      assert.ok(scrollBefore > 200, `${at}: the contacts list did not scroll.`);
-      await deepLink.click();
-      await expect(page).toHaveURL(/\/home\/contacts\/contact-35$/u);
-      await pressShellBack(page);
-      await expect(page).toHaveURL(/\/home\/contacts$/u);
-      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore - 3);
-      assert.ok(Math.abs(await page.evaluate(() => window.scrollY) - scrollBefore) <= 2, `${at}: scroll was not restored.`);
-      await expect(page.getByRole("link", { name: "Contact 35", exact: true })).toBeFocused();
-
-      // A pasted supplier link goes Up to the Suppliers list.
-      const pasted = await context.newPage();
-      await pasted.goto("/home/suppliers/acme");
-      await pressShellBack(pasted);
-      await expect(pasted).toHaveURL(/\/home\/suppliers$/u);
-      await expect(shellPageTitle(pasted)).toHaveText("Suppliers");
-      // A pasted edit link goes Up to its record: the parent "/contacts/:id" takes the id from the route.
-      await pasted.goto("/home/contacts/ada/edit");
-      await expect(shellPageTitle(pasted)).toHaveText("Edit contact");
-      await pressShellBack(pasted);
-      await expect(pasted).toHaveURL(/\/home\/contacts\/ada$/u);
-      await pasted.close();
-
-      // List-detail: beside the visible list, General has no arrow; alone, it has one back to the list.
-      await page.goto("/home/settings");
-      await page.getByRole("link", { name: "General", exact: true }).click();
-      await expect(page).toHaveURL(/\/home\/settings\/general$/u);
-      if (viewport.name === "expanded") {
-        await expect(shellBackButton(page)).toHaveCount(0);
-        await expect(page.getByRole("link", { name: "General", exact: true })).toBeVisible();
-      } else {
-        await pressShellBack(page);
-        await expect(page).toHaveURL(/\/home\/settings$/u);
-      }
-
-      // No page carries a worded back control.
-      await expect(page.getByText(/Back to /u)).toHaveCount(0);
-      await context.close();
+    // Main-menu pages have no arrow.
+    for (const path of ["/home", "/home/contacts", "/home/suppliers", "/home/bookings", "/home/settings"]) {
+      await page.goto(path);
+      await expect(shellPageTitle(page)).toBeVisible();
+      await expect(shellBackButton(page), `${at} ${path}`).toHaveCount(0);
     }
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
+
+    // contact -> supplier -> Up = contact -> Up = the Contacts list.
+    await page.goto("/home/contacts");
+    await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
+    await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
+    await expect(shellPageTitle(page)).toHaveText("Ada Lovelace");
+    await expect(shellBackButton(page)).toHaveAccessibleName("Back");
+    await page.getByRole("link", { name: "Supplier", exact: true }).click();
+    await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
+    // A refresh keeps the trail.
+    await page.reload();
+    await expect(shellPageTitle(page)).toHaveText("Acme Supplies");
+    await pressShellBack(page);
+    await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
+    // The browser's Back and Forward move the trail with them.
+    await page.goBack();
+    await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
+    await page.goForward();
+    await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
+    await pressShellBack(page);
+    await expect(page).toHaveURL(/\/home\/contacts$/u);
+    await expect(shellBackButton(page)).toHaveCount(0);
+
+    // The trail is a stack of visits: contact -> supplier -> the same contact -> Up = supplier.
+    await page.getByRole("link", { name: "Ada Lovelace", exact: true }).click();
+    await page.getByRole("link", { name: "Supplier", exact: true }).click();
+    await page.getByRole("link", { name: "Contact", exact: true }).click();
+    await expect(page).toHaveURL(/\/home\/contacts\/ada$/u);
+    await pressShellBack(page);
+    await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
+
+    // A main destination starts a fresh trail.
+    await openMainDestination(page, "Suppliers");
+    await expect(page).toHaveURL(/\/home\/suppliers$/u);
+    await page.getByRole("link", { name: "Acme Supplies", exact: true }).click();
+    await expect(page).toHaveURL(/\/home\/suppliers\/acme$/u);
+    await pressShellBack(page);
+    await expect(page).toHaveURL(/\/home\/suppliers$/u);
+
+    // Up to a page that is no longer available goes to the current page's parent instead.
+    await page.goto("/home/contacts/ada");
+    await page.getByRole("link", { name: "Supplier", exact: true }).click();
+    await page.evaluate(() => {
+      window.__fixtureBlockedRecords = ["ada"];
+    });
+    await pressShellBack(page);
+    await expect(page).toHaveURL(/\/home\/suppliers$/u);
+    await page.evaluate(() => {
+      window.__fixtureBlockedRecords = [];
+    });
+
+    // Up returns to the list where it was scrolled, with focus on the record it opened.
+    await page.goto("/home/contacts");
+    const deepLink = page.getByRole("link", { name: "Contact 35", exact: true });
+    await deepLink.scrollIntoViewIfNeeded();
+    const scrollBefore = await page.evaluate(() => window.scrollY);
+    assert.ok(scrollBefore > 200, `${at}: the contacts list did not scroll.`);
+    await deepLink.click();
+    await expect(page).toHaveURL(/\/home\/contacts\/contact-35$/u);
+    await pressShellBack(page);
+    await expect(page).toHaveURL(/\/home\/contacts$/u);
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(scrollBefore - 3);
+    assert.ok(Math.abs(await page.evaluate(() => window.scrollY) - scrollBefore) <= 2, `${at}: scroll was not restored.`);
+    await expect(page.getByRole("link", { name: "Contact 35", exact: true })).toBeFocused();
+
+    // A pasted supplier link goes Up to the Suppliers list.
+    const pasted = await context.newPage();
+    await pasted.goto("/home/suppliers/acme");
+    await pressShellBack(pasted);
+    await expect(pasted).toHaveURL(/\/home\/suppliers$/u);
+    await expect(shellPageTitle(pasted)).toHaveText("Suppliers");
+    // A pasted edit link goes Up to its record: the parent "/contacts/:id" takes the id from the route.
+    await pasted.goto("/home/contacts/ada/edit");
+    await expect(shellPageTitle(pasted)).toHaveText("Edit contact");
+    await pressShellBack(pasted);
+    await expect(pasted).toHaveURL(/\/home\/contacts\/ada$/u);
+    await pasted.close();
+
+    // List-detail: beside the visible list, General has no arrow; alone, it has one back to the list.
+    await page.goto("/home/settings");
+    await page.getByRole("link", { name: "General", exact: true }).click();
+    await expect(page).toHaveURL(/\/home\/settings\/general$/u);
+    if (viewport.name === "expanded") {
+      await expect(shellBackButton(page)).toHaveCount(0);
+      await expect(page.getByRole("link", { name: "General", exact: true })).toBeVisible();
+    } else {
+      await pressShellBack(page);
+      await expect(page).toHaveURL(/\/home\/settings$/u);
+    }
+
+    // No page carries a worded back control.
+    await expect(page.getByText(/Back to /u)).toHaveCount(0);
+    await context.close();
   }
 });
