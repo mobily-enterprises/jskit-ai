@@ -119,8 +119,8 @@ test("DatabaseProvider exposes one cohesive database capability", async () => {
       dateStrings: ["DATE"],
       timezone: "Z"
     });
-    assert.equal(typeof database.transactionManager.inTransaction, "function");
-    assert.deepEqual(Object.keys(database).sort(), ["driver", "knex", "transactionManager"]);
+    // One way to open a transaction: a table's handle. The database runtime offers none of its own.
+    assert.deepEqual(Object.keys(database).sort(), ["driver", "knex"]);
 
     await runtime.shutdown();
     assert.equal(database.knex.destroyCalls, 1);
