@@ -72,10 +72,9 @@ endpoint's query counts. Fresh-schema
 migration tests and production-artifact tests are separate operations. Measure
 migration, fixture, and server startup time and fix the slow phase; never retry
 a slow launch, or raise its deadline or a spec's timeout, to absorb it. A page
-that needs a longer timeout to load is a slow endpoint to fix (typed features'
-Time limits are not fixes). When a host supplies a managed target, use its
-scoped suite command so one startup serves the whole batch and cleanup
-restores normal Preview.
+that needs a longer timeout to load is a slow endpoint to fix. When a host
+supplies a managed target, use its scoped suite command so one startup serves
+the whole batch and cleanup restores normal Preview.
 
 ## Keep browser evidence focused
 

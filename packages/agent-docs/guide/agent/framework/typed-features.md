@@ -644,7 +644,7 @@ way (is this user an operator) is a member of its owner's capability.**
 - A helper two packages of an application use lives in its shared package,
   never inside one of them.
 
-Why: copies drift, and the next reader cannot tell which one is right.
+Why: the kernel's helpers fix one meaning of empty, and a copy brings its own.
 
 ```js
 // good
@@ -673,7 +673,8 @@ helper, never by hand.**
 | the workspace a request asks for, before any action context | `requestedWorkspaceScope(request)` (`@jskit-ai/workspaces-core/server/support/workspaceRouteInput`) |
 | a context's workspace id | `resolveWorkspaceScopeValue(context)` (`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`) |
 
-Why: each hand-written copy treats a missing value its own way.
+Why: each reader knows every place JSKIT keeps its fact (`trx` or
+`transaction`, a tagged result's wrapper), and a hand read misses one.
 
 ```js
 // good
@@ -733,9 +734,8 @@ const rows = extractJsonRestCollectionRows(await api.resources.workspaceMembersh
 ### Lists read related rows in batches
 
 **A read that builds a list fetches its related rows in batches, an id-list
-query per related table, and groups them in memory. Check its query count at a
-few rows and at a realistic number: the count should follow the tables and
-pages it reads, not the rows.**
+query per related table, and groups them in memory, so its query count follows
+the tables and pages it reads, not the rows.**
 
 - Collect the ids from the first read, then read each related table with an
   id-list filter: a `searchSchema` entry
@@ -754,12 +754,9 @@ pages it reads, not the rows.**
   unless it sets one). That cost follows pages, so three hundred invoices take
   a few more queries than ten, not three hundred more ([Query counts at
   realistic sizes](#query-counts-at-realistic-sizes)).
-- A list making hundreds of queries is broken, whatever its code looks like:
-  find what runs per row before anything else.
 
-Why: a read per row costs nothing with three test rows and seconds with a few
-hundred real ones, and every lookup and visibility check inside it repeats too;
-one list read 1,801 queries for a page of 100 rows this way.
+Why: each JSKIT single-record read runs its lookups and row policy too, so a
+read per row repeats all of them.
 
 ```js
 // good: a read per related table, however many invoices there are
@@ -796,24 +793,25 @@ paying a read policy for every row it writes.**
   [row policies heuristic](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/row-policies.md)
   has the policy contract and its package composition.
 - The policy runs on every single-record read, and a CRUD write includes one:
-  `createDocument()` and `patchDocumentById()` write with `returning: "full"`
-  and read the record back through the policy, and `patch` and `delete` first
-  look the record up through it. A write therefore pays the read policy for
-  each row it writes.
-- A write path decides access once, inside its transaction. A batch write (a
-  delivery, an import, a fan-out) whose per-row read-back would pay an
-  expensive policy writes through a repository method added with
-  `decorateRepository`, on `resolveRepoClient(database.knex, options)`,
-  setting the same columns the resource would, its ownership columns
-  included, and reading back only what it returns.
-- Check it by counting the queries of one read and one write for a subject
-  with a short history and for one with a realistic long one: a count that
-  grows with the history is a check sized by history. Look at the policy's
-  SQL too, since a statement that runs to kilobytes is planned on every read
-  that carries it.
+  `createDocument()` and `patchDocumentById()` default to `returning: "full"`,
+  which reads the record back through the policy, and `patch` and `delete`
+  first look the record up through it.
+- A write path decides access once, inside its transaction. A write that does
+  not use its result passes `returning: "minimal"` or `"none"`, and a batch of
+  creates (a delivery, an import, a fan-out) goes through
+  `createDocuments(payloads, { trx, context })`, which reads nothing back
+  unless asked
+  ([writes that return less](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#writes-that-return-less)).
+  Any other batch whose per-row lookup would pay an expensive policy writes
+  through a repository method added with `decorateRepository`, on
+  `resolveRepoClient(database.knex, options)`, setting the same columns the
+  resource would, its ownership columns included.
+- Its test counts the queries of one read and one write for a subject with a
+  short history and for one with a long one ([Query counts at realistic
+  sizes](#query-counts-at-realistic-sizes)).
 
-Why: a check sized by history grows with every record the subject receives,
-so the same write that takes milliseconds in a test takes seconds a year later.
+Why: the row policy runs on every read, write read-back and lookup, so every
+request pays what it costs.
 
 ```js
 // good: one predicate on the row being read
@@ -950,7 +948,8 @@ carries on.**
   (`response.body.cancel()`), for queue tails whose error reaches the queued
   caller, and for client best effort, each with a short comment saying so.
 
-Why: `() => {}` hides a wiring `TypeError` along with the failure.
+Why: a collaborator call's failure can be a wiring `TypeError`, and
+`() => {}` hides it with the rest.
 
 ```js
 // good
@@ -972,8 +971,8 @@ frame.**
 - Complete a double with the method the code calls, returning its neutral
   value; never shape production code around a double.
 
-Why: a double that mirrors internals pins them, so the test breaks on a
-refactor and passes on a real bug.
+Why: an owner's seams are its contract; its id formats and stream frames
+change with its package.
 
 ```js
 // good
@@ -992,8 +991,8 @@ double.**
 - One named clock per factory (`now = Date.now`) is a platform default, not a
   test seam.
 
-Why: a seam kept for tests is a shape no real caller uses, and a reader
-cannot tell it apart from one that matters.
+Why: a factory's parameters are its contract with the features that call it,
+and a test is not one of them.
 
 ```js
 // good
@@ -1012,8 +1011,8 @@ through the feature, and pure helpers through `__testables`.**
 - `__testables` holds pure helpers only, never one that touches a
   collaborator or reads request facts.
 
-Why: a test-only export widens the module's API and invites production
-callers.
+Why: `__testables` is the one way a test reaches inside a module, so every
+other export is production API.
 
 ```js
 // good
@@ -1028,28 +1027,19 @@ export function resetInvoiceCacheForTests() {
 
 ### Query counts at realistic sizes
 
-**A list, batch or write path has a database test at the row counts and
-history a real workspace holds. It counts the path's queries at a few rows and
-at a realistic number, and fails when the count grows with the rows instead of
-the pages.**
+**A list, batch or write path's database test counts its queries with the
+test Knex instance's `query` event at a few rows and at a realistic number,
+and fails when the count grows with the rows instead of the pages.**
 
-- Seed hundreds of records and long per-person histories, not one to three
-  rows: a read per row and a history-sized policy cost nothing at three.
-- Count the queries with the test Knex instance's `query` event at two sizes
-  and compare them. Pages add a few queries; rows should add none. A path that
-  pages nothing (one read, one write) compares a short and a long history. A
-  query count is stable in CI; also report the time the call took, and look
-  at it.
-- The assertion is a sanity bound, not a target: it catches a count that
-  grows with the data, and leaves room for paging. When it fails, fix the
-  reads ([Lists read related rows in
+- Pages add a few queries; rows should add none. A path that pages nothing
+  (one read, one write) compares a short and a long history.
+- When it fails, fix the reads ([Lists read related rows in
   batches](#lists-read-related-rows-in-batches), [Bounded access
-  checks](#bounded-access-checks)), never shrink the data or loosen the bound.
-- The [sanity checks](/guide/framework/sanity-checks#loading-a-dataset) say
-  what else to look at in the counted SQL.
+  checks](#bounded-access-checks)).
 
-Why: without a test at real counts, a path that does one read per row ships,
-and its first sign is a request that takes seconds in production.
+Why: JSON:API reads add queries per page and relationship field, so comparing
+two sizes separates that cost from a read per row, where one fixed number
+cannot.
 
 ```js
 // good
@@ -1081,44 +1071,6 @@ test("the invoice list's queries follow its pages, not its invoices", async () =
 test("the invoice list has its lines", async () => {
   await seedInvoices(knex, { workspace, count: 3, linesEach: 1 });
   assert.equal((await invoices.listWithLines(workspace, { context })).length, 3);
-});
-```
-
-### Time limits are not fixes
-
-**A slow test, suite, preparation or request is a defect to find, never a time
-limit to raise. Compare a limit above the default with the measured time: a
-limit many times the need hides the cause. Measure where the time goes and fix
-it.**
-
-- Raising `--test-timeout`, a test's `{ timeout }`, Playwright's `timeout`,
-  `test.setTimeout()` or an `expect` timeout, adding retries, or calling a
-  request in a loop until it answers hides the cause and lets it grow.
-- Read the preparation phases' durations and the query counts first; the
-  cause is usually a read per row, a history-sized policy, or a database
-  prepared by replaying migrations ([Test databases are prepared
-  once](#test-databases-are-prepared-once)).
-- A longer limit is right only for work that is long by nature, such as a
-  fixture of deliberate size, and the test names that work.
-- A time limit still bounds every run, so a hang ends; it is not a speed
-  setting. Check that one exists: a suite without one hangs instead of
-  failing.
-- A suite that runs for hours, or a preparation measured in minutes, is
-  broken: stop and find the cause ([sanity
-  checks](/guide/framework/sanity-checks#the-suite-takes-the-time-its-work-needs)).
-
-Why: a raised limit absorbs today's slowness and every later one, until a run
-takes hours and nobody knows which change made it slow.
-
-```js
-// good: the slow step was found and fixed, so the default limit holds
-test("delivers a batch of notices", async () => {
-  await deliveries.processBatch(workspace, { context });
-});
-
-// bad
-test("delivers a batch of notices", { timeout: 600_000 }, async () => {
-  await deliveries.processBatch(workspace, { context });
 });
 ```
 
@@ -1154,9 +1106,8 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
   one such file at a time, and fails on a marker without a reason or below the
   first line.
 
-Why: one file at a time leaves most of the machine idle and turns a
-ten-minute suite into forty, and an unbounded runner starves the machine and
-every other run on it.
+Why: `jskit test` and `testConcurrency()` read one budget, so every runner
+uses the machine without starving the other runs on it.
 
 ```js
 // good: package.json "test": "jskit test", and playwright.config.mjs
@@ -1170,11 +1121,9 @@ export default defineConfig({ workers: 1 });
 
 ### Test databases are prepared once
 
-**A test run prepares each database once and reuses it. Check how long
-preparation takes and how often it runs: replaying the whole migration history
-for each file or test is the slow case, and a stored snapshot of the schema,
-migration ledger and seed rows, checked by a digest of their sources, is the
-usual way out.**
+**A test run prepares each database once and restores it from a stored
+snapshot of the schema, migration ledger and seed rows, checked by a digest of
+their sources.**
 
 - The snapshot is rebuilt only when the digest of the migration and seed
   sources changes, once and outside the timed tests; every disposable
@@ -1184,13 +1133,13 @@ usual way out.**
   ([database verification](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#verification)).
 - The harness reports each preparation phase and its duration, and those
   durations are read, so slow preparation shows instead of hiding inside the
-  next test that waits for it. Preparation measured in minutes is broken.
+  next test that waits for it.
 - The database layer guide's [integration test
   databases](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#integration-test-databases)
   gives the snapshot's contents per engine.
 
-Why: the migration history only grows, so a run that replays it whenever a
-schema changed gets slower with every migration the application adds.
+Why: an application's migrations include those of every installed package, so
+replaying them costs more with each package as well as each migration.
 
 ```js
 // good: the application's test support restores the snapshot its digest names
