@@ -1,0 +1,109 @@
+import createKnex from "knex";
+import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { createResourceRuntime } from "@jskit-ai/resource-runtime/server";
+import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
+import initialMigration from "../../migrations/auth_local_db_initial.cjs";
+import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
+import protectionMigration from "../../migrations/auth_local_db_protection.cjs";
+import emailVerifiedMigration from "../../migrations/auth_local_db_users_email_verified.cjs";
+import { AuthLocalDatabaseBackendProvider } from "../../src/server/providers/AuthLocalDatabaseBackendProvider.js";
+
+// Every local auth migration, in order.
+const LOCAL_AUTH_MIGRATIONS = Object.freeze([initialMigration, oauthMigration, protectionMigration, emailVerifiedMigration]);
+
+/**
+ * The capabilities an application gives local auth's database backend, on the test's Knex: the database, an action
+ * catalogue and a resource runtime, which a test runtime takes as inputs beside its own providers.
+ * @param {import("knex").Knex} knex
+ */
+async function localAuthRuntimeInputs(knex) {
+  const api = await createResourceHost({ knex, logger: silentLogger });
+  return {
+    api,
+    inputs: {
+      "runtime.database": { knex },
+      "runtime.actions": createActionCatalogue(),
+      "runtime.resources": createResourceRuntime({ api })
+    }
+  };
+}
+
+/**
+ * Local auth's database backend started on the test's migrated Knex, as an application starts it. The test reaches
+ * its records through what the backend provides: `auth.local.backend` and the owner APIs.
+ * @param {import("knex").Knex} knex
+ */
+async function startLocalAuthRecords(knex) {
+  const { api, inputs } = await localAuthRuntimeInputs(knex);
+  let capabilities = null;
+  const probe = defineProvider({
+    id: "test.auth.local-db.records",
+    requires: {
+      backend: "auth.local.backend",
+      accounts: "auth.local.accounts",
+      sessions: "auth.local.sessions",
+      recovery: "auth.local.recovery"
+    },
+    setup(received) {
+      capabilities = received;
+      return {};
+    }
+  });
+  const runtime = createCapabilityRuntime({ inputs, providers: [AuthLocalDatabaseBackendProvider, probe] });
+  await runtime.start();
+
+  return Object.freeze({
+    ...capabilities,
+    /**
+     * Runs work in a caller's transaction, the managed transaction application code holds from its own handle's
+     * withTransaction, handing it the options its owner API calls pass on. Failed work rejects with the work's own
+     * error, which the managed transaction reports as the cause of its write error.
+     * @template T
+     * @param {(options: Record<string, unknown>) => Promise<T>} work
+     * @returns {Promise<T>}
+     */
+    async inCallerTransaction(work) {
+      let workFailure = null;
+      try {
+        return await api.transaction(async (trx) => {
+          try {
+            return await work({ trx });
+          } catch (error) {
+            workFailure = { error };
+            throw error;
+          }
+        });
+      } catch (error) {
+        throw workFailure ? workFailure.error : error;
+      }
+    }
+  });
+}
+
+/**
+ * A migrated in-memory SQLite database of the test's own, which enforces its foreign keys and is closed after the
+ * test.
+ * @param {import("node:test").TestContext} context
+ */
+async function openMigratedSqlite(context) {
+  const knex = createKnex({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  context.after(() => knex.destroy());
+  await knex.raw("PRAGMA foreign_keys = ON");
+  for (const migration of LOCAL_AUTH_MIGRATIONS) {
+    await migration.up(knex);
+  }
+  return knex;
+}
+
+/**
+ * Local auth's records in a migrated in-memory SQLite database of the test's own.
+ * @param {import("node:test").TestContext} context
+ */
+async function openSqliteLocalAuth(context) {
+  const knex = await openMigratedSqlite(context);
+  return Object.freeze({ knex, ...(await startLocalAuthRecords(knex)) });
+}
+
+export { LOCAL_AUTH_MIGRATIONS, localAuthRuntimeInputs, openMigratedSqlite, openSqliteLocalAuth, startLocalAuthRecords };

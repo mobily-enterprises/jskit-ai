@@ -1,10 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import createKnex from "knex";
-import initialMigration from "../migrations/auth_local_db_initial.cjs";
-import oauthMigration from "../migrations/auth_local_db_oauth.cjs";
 import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
-import { createLocalDbBackend, LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
+import { LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
 import {
   ATTEMPT_COOKIE,
   approveAtProvider,
@@ -13,24 +10,12 @@ import {
   sessionCookies,
   startOidcProvider
 } from "../../auth-provider-local-core/test-support/oauthHarness.js";
-
-async function databaseBackend(t) {
-  const knex = createKnex({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
-  await knex.raw("PRAGMA foreign_keys = ON");
-  await initialMigration.up(knex);
-  await oauthMigration.up(knex);
-  const backend = createLocalDbBackend({
-    knex,
-    transactionManager: { inTransaction: (work) => knex.transaction(work) }
-  });
-  return { knex, backend };
-}
+import { openSqliteLocalAuth } from "./support/localAuthRuntime.js";
 
 test("provider sign-in and linking store identities and single-use attempts in the database", async (t) => {
   const issuer = await startOidcProvider();
   t.after(() => issuer.close());
-  const { knex, backend } = await databaseBackend(t);
+  const { knex, backend } = await openSqliteLocalAuth(t);
   const service = createService({ backend, oauthProviders: [oidcProviderEntry(issuer)], profileProjector: noAppProfiles });
 
   const { input, request } = await approveAtProvider(service);
@@ -58,7 +43,7 @@ test("provider sign-in and linking store identities and single-use attempts in t
 });
 
 test("concurrent callbacks with one attempt complete at most once", async (t) => {
-  const { backend } = await databaseBackend(t);
+  const { backend } = await openSqliteLocalAuth(t);
   const attempt = {
     browserKeyHash: "browser-key-hash",
     provider: "google",
@@ -87,7 +72,7 @@ test("concurrent callbacks with one attempt complete at most once", async (t) =>
 test("an attempt cookie from another browser finds nothing", async (t) => {
   const issuer = await startOidcProvider();
   t.after(() => issuer.close());
-  const { backend } = await databaseBackend(t);
+  const { backend } = await openSqliteLocalAuth(t);
   const service = createService({ backend, oauthProviders: [oidcProviderEntry(issuer)], profileProjector: noAppProfiles });
   const { input } = await approveAtProvider(service);
   await assert.rejects(service.oauthComplete(input, { cookies: { [ATTEMPT_COOKIE]: "forged-browser-key" } }), {
