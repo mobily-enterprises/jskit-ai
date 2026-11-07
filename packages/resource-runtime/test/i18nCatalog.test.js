@@ -7,10 +7,10 @@ import { evaluateI18nCatalogContract } from "../../../tooling/test-support/i18nC
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(TEST_DIRECTORY, "..", "..", "..");
 
-test("json-rest-api-core English catalog matches its source", () => {
+test("resource-runtime English catalog matches its source", () => {
   const { problems } = evaluateI18nCatalogContract({
     repoRoot: REPO_ROOT,
-    packageDir: path.join(REPO_ROOT, "packages", "json-rest-api-core"),
+    packageDir: path.join(REPO_ROOT, "packages", "resource-runtime"),
     // json-rest-api throws these; their English is fixed by the library.
     externalCodes: ["REST_API_VERSION_CONFLICT", "REST_API_PRECONDITION_FAILED"]
   });

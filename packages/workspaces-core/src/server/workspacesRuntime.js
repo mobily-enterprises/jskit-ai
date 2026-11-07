@@ -2,7 +2,7 @@ import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
 import {
   addResourceIfMissing,
   createJsonRestResourceScopeOptions
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { workspaceInvitesResource } from "../shared/resources/workspaceInvitesResource.js";
 import { workspaceMembershipsResource } from "../shared/resources/workspaceMembershipsResource.js";
 import { workspaceResource } from "../shared/resources/workspaceResource.js";
@@ -55,7 +55,7 @@ function requireWorkspaceColorDefaults(defaults) {
   return colors;
 }
 
-/** @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} jsonRestApi */
+/** @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} jsonRestApi */
 async function installWorkspaceResources(jsonRestApi) {
   const scopeOptions = { writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc } };
   for (const resource of [workspaceResource, workspaceMembershipsResource, workspaceInvitesResource, workspaceSettingsResource]) {
@@ -66,7 +66,7 @@ async function installWorkspaceResources(jsonRestApi) {
 /**
  * The workspaces and their memberships, the `workspaces` and
  * `workspaces.memberships` capabilities. The workspace services are built on them.
- * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} jsonRestApi
+ * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} jsonRestApi
  */
 function createWorkspaceRecords(jsonRestApi) {
   return Object.freeze({
@@ -86,7 +86,7 @@ function createWorkspaceRecords(jsonRestApi) {
  * @param {import("./types.js").WorkspaceInviteEmailTemplate} dependencies.inviteEmailTemplate
  * @param {import("./types.js").WorkspaceInviteAcceptanceParticipant} dependencies.inviteAcceptanceParticipant
  * @param {import("./types.js").PersonalWorkspaceName} dependencies.personalWorkspaceName
- * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
+ * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
  * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} dependencies.userProfiles
  * @param {import("@jskit-ai/users-core/server/types").UsersSettings} dependencies.userSettings
  * @param {import("./types.js").Workspaces} dependencies.workspaces

@@ -127,7 +127,7 @@
   "dependencies": {
     "@jskit-ai/crud-core": "0.2.12",
     "@jskit-ai/database-runtime": "0.1.260",
-    "@jskit-ai/json-rest-api-core": "0.2.12",
+    "@jskit-ai/resource-runtime": "0.2.12",
     "@jskit-ai/resource-core": "0.1.202",
     "@jskit-ai/resource-crud-core": "0.1.202",
     "@jskit-ai/users-core": "0.2.13",

@@ -4,11 +4,11 @@ import knexLib from "knex";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import {
-  createJsonRestApiHost,
+  createResourceHost,
   createJsonRestResourceScopeOptions,
   extractJsonRestCollectionRows,
   queryAllJsonRestCollectionRows
-} from "../src/server/jsonRestApiHost.js";
+} from "../src/server/resourceHost.js";
 
 // 250 contacts: 200 in team "a" and 50 in team "b", interleaved, named so that
 // name order (the resources' default sort) is the reverse of id order.
@@ -32,7 +32,7 @@ async function createContactsFixture(t) {
     await knex("contacts").insert(rows.slice(start, start + 100));
   }
 
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
   const contacts = (name, extra = {}) => defineTableResource({
     name,
     tableName: "contacts",

@@ -32,7 +32,7 @@ import { resolveRouteValidatorOptions } from "../../kernel/server/http/lib/route
 import { registerApiErrorHandler } from "../../kernel/server/http/errorHandling.js";
 import { AppError, createValidationError } from "../../kernel/server/runtime/errors.js";
 import { buildHttpError } from "../src/shared/clientRuntime/errors.js";
-import { createJsonRestApiHost } from "../../json-rest-api-core/src/server/jsonRestApiHost.js";
+import { createResourceHost } from "../../resource-runtime/src/server/resourceHost.js";
 import { silentLogger } from "../../kernel/server/runtime/logger.js";
 
 const CONTACT_BODY_SCHEMA = Object.freeze({
@@ -296,7 +296,7 @@ test("real resource validation, permission hooks and completion failures retain 
     table.increments("id");
     table.string("title").notNullable();
   });
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
   await api.addResource("books", { schema: { title: { type: "string", required: true } } });
   await api.customize({ hooks: {
     checkPermissions({ context }) {

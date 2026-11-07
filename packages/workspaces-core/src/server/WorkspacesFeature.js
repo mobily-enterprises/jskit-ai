@@ -48,7 +48,7 @@ const WorkspacesFeature = defineFeature({
    * @param {import("./types.js").WorkspaceInviteAcceptanceParticipant | null} capabilities.inviteAcceptanceParticipant
    * @param {import("./types.js").WorkspaceInviteEmailTemplate | null} capabilities.inviteEmailTemplate
    * @param {import("./types.js").WorkspaceInviteMailer | null} capabilities.inviteMailer
-   * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
+   * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
    * @param {import("./types.js").PersonalWorkspaceName | null} capabilities.personalWorkspaceName
    * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} capabilities.userProfiles
    * @param {import("@jskit-ai/users-core/server/types").UsersSettings} capabilities.userSettings

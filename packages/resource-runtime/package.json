@@ -1,0 +1,76 @@
+{
+  "name": "@jskit-ai/resource-runtime",
+  "version": "0.2.12",
+  "type": "module",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "test": "jskit test"
+  },
+  "exports": {
+    "./server": "./src/server/index.js",
+    "./server/resourceHost": "./src/server/resourceHost.js",
+    "./server/types": "./src/server/types.js",
+    "./test": "./src/test/index.js",
+    "./locales/en.json": "./locales/en.json"
+  },
+  "dependencies": {
+    "@jskit-ai/database-runtime": "0.1.260",
+    "@jskit-ai/resource-core": "0.1.202",
+    "@jskit-ai/resource-crud-core": "0.1.202",
+    "json-rest-api": "file:/tmp/claude-1000/-home-merc-Development-current-vibe64-online/11913d76-21a5-4a94-bc3f-3a63ceff7b20/scratchpad/da-build/json-rest-api-3.0.0.tgz"
+  },
+  "description": "The resource runtime: features own their tables through it and read and write them with scoped handles on json-rest-api.",
+  "jskit": {
+    "kind": "runtime",
+    "capabilities": {
+      "provides": [
+        "runtime.resources",
+        "runtime.json-rest-api"
+      ],
+      "requires": [
+        "runtime.database",
+        "runtime.logger"
+      ]
+    },
+    "runtime": {
+      "server": {
+        "providers": [
+          {
+            "entrypoint": "src/server/ResourceRuntimeProvider.js",
+            "export": "ResourceRuntimeProvider"
+          }
+        ]
+      },
+      "client": {
+        "providers": []
+      }
+    },
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./server",
+            "summary": "Provides runtime.resources: own(featureId, owns) registers a feature's tables and answers their handles; createSystemContext gives background work its context. Exports the runtime's error classes."
+          },
+          {
+            "subpath": "./server/resourceHost",
+            "summary": "The json-rest-api host behind the runtime, and the host helpers crud-core, users-core and workspaces-core use until they own their tables through runtime.resources."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Types of runtime.resources, its handles, call options and system contexts."
+          },
+          {
+            "subpath": "./test",
+            "summary": "Data test helpers on a real test database: expectScoped, expectFlatQueries, expectEveryTableOwned and requireTestDatabase."
+          }
+        ]
+      }
+    }
+  },
+  "peerDependencies": {
+    "@jskit-ai/kernel": "0.2.11"
+  }
+}
