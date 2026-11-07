@@ -114,6 +114,7 @@ export function agentResources({ columns = {} } = {}) {
     agentRuns: defineTableResource({
       name: "agentRuns",
       tableName: "agent_runs",
+      ownership: "public",
       idProperty: "conversation_id",
       schema: { ...RUN_FIELDS, ...columns.runs },
       searchSchema: {
@@ -125,6 +126,7 @@ export function agentResources({ columns = {} } = {}) {
     agentGoals: defineTableResource({
       name: "agentGoals",
       tableName: "agent_goals",
+      ownership: "public",
       schema: { ...GOAL_FIELDS, ...columns.goals },
       searchSchema: {
         statusIn: { type: "array", actualField: "status", filterOperator: "in" },
@@ -134,11 +136,13 @@ export function agentResources({ columns = {} } = {}) {
     agentSummaries: defineTableResource({
       name: "agentSummaries",
       tableName: "agent_summaries",
+      ownership: "public",
       schema: { ...SUMMARY_FIELDS, ...columns.summaries }
     }),
     agentSummaryQueue: defineTableResource({
       name: "agentSummaryQueue",
       tableName: "agent_summary_queue",
+      ownership: "public",
       idProperty: "conversation_id",
       schema: { ...SUMMARY_QUEUE_FIELDS, ...columns.summaryQueue },
       searchSchema: {
@@ -149,6 +153,7 @@ export function agentResources({ columns = {} } = {}) {
     agentCommands: defineTableResource({
       name: "agentCommands",
       tableName: "agent_commands",
+      ownership: "public",
       schema: { ...COMMAND_FIELDS, ...columns.commands },
       searchSchema: {
         id: ID_FILTER

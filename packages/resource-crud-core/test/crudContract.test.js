@@ -7,6 +7,7 @@ import { defineCrudContract, isCrudContract } from "../src/shared/crudContract.j
 const contactResource = defineTableResource({
   name: "contacts",
   tableName: "contacts",
+  ownership: "public",
   schema: {
     name: { type: "string", maxLength: 190, required: true },
     createdAt: { type: "dateTime", readOnly: true }
@@ -105,7 +106,7 @@ test("a list-only contract needs no record output", () => {
 });
 
 test("a contract fails fast when an operation it offers cannot be derived", () => {
-  const settings = defineTableResource({ name: "assistantSettings", tableName: "assistant_settings", schema: { secret: { type: "string", hidden: true } } });
+  const settings = defineTableResource({ name: "assistantSettings", tableName: "assistant_settings", ownership: "public", schema: { secret: { type: "string", hidden: true } } });
 
   assert.throws(
     () => defineCrudContract(settings, { operations: ["view", "patch"], patchBody: createSchema({ prompt: { type: "string" } }) }),

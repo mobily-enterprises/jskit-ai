@@ -19,10 +19,11 @@ async function planningStore(knex) {
     defineTableResource({
       name: "chatMessages",
       tableName: PLANNING_TABLES.messages,
+      ownership: "public",
       schema: { kind: { type: "string" }, role: { type: "string" }, body: { type: "object" } },
       searchSchema: { todosOf: { type: "string", applyFilter: todosOf } }
     }),
-    defineTableResource({ name: "chatConversations", tableName: PLANNING_TABLES.conversations, schema: { job_notes: { type: "array", nullable: true } } })
+    defineTableResource({ name: "chatConversations", tableName: PLANNING_TABLES.conversations, ownership: "public", schema: { job_notes: { type: "array", nullable: true } } })
   ]);
   const options = { context: runtime.createSystemContext({ feature: "chat.test", systemScope: "the planning tools, under test", reason: "the planning tools read and write any conversation under test" }) };
   return {

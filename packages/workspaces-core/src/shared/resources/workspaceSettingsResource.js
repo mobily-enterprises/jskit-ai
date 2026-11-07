@@ -244,6 +244,7 @@ function normalizeWorkspaceColorInput(value) {
 const workspaceSettingsResource = defineTableResource({
   name: "workspaceSettings",
   tableName: "workspace_settings",
+  ownership: "public",
   idProperty: "workspace_id",
   searchSchema: {
     id: { type: "id", actualField: "id" }

@@ -76,6 +76,7 @@ const workspaceListItemOutputValidator = createSchemaDefinition(workspaceListIte
 const workspaceResource = defineTableResource({
   name: "workspaces",
   tableName: "workspaces",
+  ownership: "public",
   searchSchema: {
     id: { type: "id", actualField: "id" },
     slug: { type: "string", actualField: "slug", filterOperator: "=" },

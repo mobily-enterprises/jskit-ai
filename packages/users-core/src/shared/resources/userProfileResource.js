@@ -68,6 +68,7 @@ const avatarUploadBodySchema = createSchema({
 const userProfileResource = defineTableResource({
   name: "userProfiles",
   tableName: "users",
+  ownership: "public",
   searchSchema: {
     id: { type: "id", actualField: "id" },
     ids: { type: "array", actualField: "id", filterOperator: "in", items: { type: "string", pattern: RECORD_ID_PATTERN } },

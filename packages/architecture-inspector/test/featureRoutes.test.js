@@ -191,7 +191,7 @@ const CRUD = {
   "packages/receivals/src/shared/receivalResource.js": [
     "import { defineTableResource } from \"@jskit-ai/resource-core/shared/tableResource\";",
     "import { defineCrudContract } from \"@jskit-ai/resource-crud-core/shared/crudContract\";",
-    "const receivalResource = defineTableResource({ name: \"receivals\", tableName: \"receivals\", schema: { status: { type: \"string\" } } });",
+    "const receivalResource = defineTableResource({ name: \"receivals\", tableName: \"receivals\", ownership: \"public\", schema: { status: { type: \"string\" } } });",
     "const resource = defineCrudContract(receivalResource, { operations: [\"list\", \"view\"] });",
     "export { resource };",
     ""
