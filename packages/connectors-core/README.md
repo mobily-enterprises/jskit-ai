@@ -442,8 +442,17 @@ an old key before those rows are rewritten makes them unreadable. Applications
 with an existing vault can instead provide compatible `seal(value, binding)`
 and `open(ciphertext, binding)` methods.
 
-The Knex store uses the application's own Knex client and its `transaction()`;
-editing portable configuration does not install or activate a database provider.
+The Knex store uses the application's own Knex client; editing portable
+configuration does not install or activate a database provider. It owns the
+connector tables as table resources and reads and writes them through their
+handles. Code outside a JSKIT server, such as a command-line script, uses
+`createKnexConnectionStore`. A JSKIT application instead adds
+`createConnectionStoreFeature({ protection })`, also from
+`@jskit-ai/connectors-core/server/storage`: it owns the tables through the
+application's `runtime.resources` and provides the store as `connectors.store`,
+which `createConnectorsFeature(options)` uses when `options.store` is absent. An
+application that passes its own `store` (the file store, for example) needs no
+database.
 
 The package declares its authoritative migration directory in `package.json`.
 Use the normal app-owned `knexfile.js` and migration scripts described by the
