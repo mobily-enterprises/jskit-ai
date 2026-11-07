@@ -1,55 +1,10 @@
 import { createHash } from "node:crypto";
-import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
+
+// One transaction per work, run once, since work may exchange tokens with the provider; the work's own failure reaches
+// the caller as the work threw it.
+const RUN_ONCE = Object.freeze({ retry: false, asThrown: true });
 
 const hash = (value) => createHash("sha256").update(value).digest("hex");
-
-/**
- * The record with this id, created from `attributes` when it is missing. The create runs outside any transaction, so
- * of two concurrent creations one wins and the other reads the winner's record.
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
- * @param {{ id: string } & Record<string, unknown>} attributes
- * @param {{ context: object }} options
- */
-async function findOrCreate(handle, attributes, options) {
-  const existing = await handle.get(attributes.id, {}, options);
-  if (existing) {
-    return existing;
-  }
-  try {
-    return await handle.create(attributes, options);
-  } catch (error) {
-    if (!isLostDuplicateInsertRace(error, options)) {
-      throw error;
-    }
-    return handle.get(attributes.id, {}, options);
-  }
-}
-
-/**
- * Runs work in one transaction and answers what it returns. A failure of the work reaches the caller as the work
- * threw it, not inside json-rest-api's write error. A deadlock fails the work instead of running it again, since work
- * may exchange tokens with the provider.
- * @template T
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
- * @param {{ context: object }} options
- * @param {(txOptions: Readonly<Record<string, any>>) => Promise<T>} work
- * @returns {Promise<T>}
- */
-async function inTransaction(handle, options, work) {
-  let failure = null;
-  try {
-    return await handle.withTransaction(options, async (txOptions) => {
-      try {
-        return await work(txOptions);
-      } catch (error) {
-        failure = { error };
-        throw error;
-      }
-    }, { retry: false });
-  } catch (error) {
-    throw failure && error?.cause === failure.error ? failure.error : error;
-  }
-}
 
 /**
  * The application's credential protection, checked before it is used.
@@ -81,8 +36,8 @@ function createConnectionStore({ resources, systemContext, protection }) {
     const connectionKey = hash(JSON.stringify([owner.applicationId, owner.subjectId, integrationId]));
     const connectionBinding = `connection:${connectionKey}`;
     // Retain this row on disconnect so other processes continue to lock the same identity.
-    await findOrCreate(connections, { id: connectionKey, payload: null }, connectionOptions);
-    return inTransaction(connections, connectionOptions, async (txOptions) => {
+    await connections.findOrCreate({ id: connectionKey, payload: null }, connectionOptions);
+    return connections.withTransaction(connectionOptions, async (txOptions) => {
       const row = await connections.lock(connectionKey, txOptions);
       const writeOptions = { ...txOptions, returning: "none" };
       return work({
@@ -121,7 +76,7 @@ function createConnectionStore({ resources, systemContext, protection }) {
           return protection.open(attempt.payload, `attempt:${connectionKey}:${attemptKey}`);
         }
       });
-    });
+    }, RUN_ONCE);
   }
 
   async function pruneExpiredAttempts({ before = Date.now() } = {}) {
