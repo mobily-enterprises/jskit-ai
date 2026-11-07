@@ -1,4 +1,4 @@
-import { DATA_ACCESS_GUIDE_URL, ruleMeta } from "../support.js";
+import { ruleMeta } from "../support.js";
 
 const ALLOW_MARK = "readable-check: allow";
 const ALLOW_FORM = /readable-check: allow (\S+) - (.+?)\s*$/u;
@@ -180,11 +180,10 @@ const allowCommentForm = Object.freeze({
     citesTests: "\"{{reason}}\" cites tests. Describe the code; a guard that protects an internal invariant says what goes wrong without it under safety invariant:.",
     citesStatus: "\"{{reason}}\" cites the state of a project. Describe what is true of the code.",
     dataOnFunction: "\"{{reason}}\" excuses a function with data:, which is only for data. Give the function's real reason, or remove its duplicate.",
-    dataAccessUnexcusable: `{{rule}} takes no exception; change the code (${DATA_ACCESS_GUIDE_URL}#hard-rules).`,
-    dataAccessDisabled: `eslint-disable cannot turn off {{rule}}. Change the code, or, for a whole module whose job is data access itself, use the infrastructure exception (${DATA_ACCESS_GUIDE_URL}#hard-rules).`,
-    infrastructureExcuse: "The infrastructure exception excuses a whole file from no-direct-knex or no-transaction-reader, and nothing else: " +
-      "\"readable-check: allow no-direct-knex - infrastructure: <what the module is>\", one line per rule, in the file's first lines, " +
-      `before any code (${DATA_ACCESS_GUIDE_URL}#hard-rules).`
+    dataAccessUnexcusable: "{{rule}} takes no exception; change the code.",
+    dataAccessDisabled: "eslint-disable cannot turn off {{rule}}. Change the code; only a whole module whose job is data access itself takes the infrastructure exception.",
+    infrastructureExcuse: "The infrastructure exception excuses a whole file from no-direct-knex or no-transaction-reader, and nothing " +
+      "else, given before the file's first line of code."
   }, "exceptions"),
   create(context) {
     return {

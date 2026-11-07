@@ -1,9 +1,9 @@
 import { DATA_ACCESS_GUIDE_URL, compactText, keyName, ruleMeta, unwrapChain } from "../support.js";
-import { KNEX_NAMES, infrastructureHint, isAssignmentTarget, isInfrastructureFile } from "../dataAccess.js";
+import { INFRASTRUCTURE_HINT, KNEX_NAMES, isAssignmentTarget, isInfrastructureFile } from "../dataAccess.js";
 
 // The options a call carries: `options`, `opts`, `callOptions`, `queryOptions`.
 const OPTIONS_NAME = /^opts$|options$/iu;
-const HINT = infrastructureHint("no-transaction-reader");
+const HINT = INFRASTRUCTURE_HINT;
 
 // The Knex a `trx = knex` default falls back to: a Knex-named variable other than trx itself, or a `.knex` read.
 function isKnexValue(node) {

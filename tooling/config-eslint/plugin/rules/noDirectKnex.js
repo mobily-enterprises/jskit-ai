@@ -1,8 +1,8 @@
 import { DATA_ACCESS_GUIDE_URL, compactText, keyName, ruleMeta, unwrapChain } from "../support.js";
 import {
+  INFRASTRUCTURE_HINT,
   KNEX_NAMES,
   calledMethod,
-  infrastructureHint,
   isAssignmentTarget,
   isInfrastructureFile,
   isText,
@@ -27,7 +27,7 @@ const TABLE_METHODS = new Set([
 // What a transaction is opened on by hand: `knex.transaction(`, `db.transaction(`, `database.transaction(`.
 const TRANSACTION_OWNERS = new Set(["knex", "db", "database"]);
 const DOOR = "Every read and write goes through the table owner's resource handle; a report the resource cannot express starts from the owner's scopedQuery().";
-const HINT = infrastructureHint("no-direct-knex");
+const HINT = INFRASTRUCTURE_HINT;
 
 // A callee that names a Knex instance or transaction: `knex`, `trx`, or a branch of `trx || knex`, `a ? trx : knex`.
 function namesKnex(node) {

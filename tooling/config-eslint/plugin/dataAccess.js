@@ -5,7 +5,7 @@
 // line of code. jskit/allow-comment-form checks that comment's reason as it checks every other.
 
 import { isInfrastructureExcuse } from "./rules/allowCommentForm.js";
-import { DATA_ACCESS_GUIDE_URL, unwrapChain } from "./support.js";
+import { unwrapChain } from "./support.js";
 
 // The names a Knex instance or a transaction goes by: called with a table name, each one starts a query.
 const KNEX_NAMES = new Set(["knex", "trx", "db", "database", "client", "tx", "transaction"]);
@@ -72,14 +72,9 @@ function isInfrastructureFile(context, ruleName) {
     .some((comment) => comment.value.split(/\r?\n/u).some((line) => isInfrastructureExcuse(line, ruleName)));
 }
 
-/**
- * The closing sentence of the two excusable rules' messages: how a whole infrastructure module is excused.
- * @param {string} ruleName
- */
-function infrastructureHint(ruleName) {
-  return "Only a module whose job is data access itself (a migration runner, test databases, protocol state) is excused, as a whole, " +
-    `by "// readable-check: allow ${ruleName} - infrastructure: <what the module is>" before its first line of code ` +
-    `(${DATA_ACCESS_GUIDE_URL}#hard-rules).`;
-}
+// The closing sentence of the two excusable rules' messages: which modules the infrastructure exception is for, the
+// same list as the guide's Exceptions.
+const INFRASTRUCTURE_HINT = "Only a module whose job is data access itself (a database runtime, a migration runner, " +
+  "test-database setup) takes the infrastructure exception, as a whole file.";
 
-export { KNEX_NAMES, calledMethod, infrastructureHint, isAssignmentTarget, isInfrastructureFile, isText, lastName, literalText };
+export { INFRASTRUCTURE_HINT, KNEX_NAMES, calledMethod, isAssignmentTarget, isInfrastructureFile, isText, lastName, literalText };
