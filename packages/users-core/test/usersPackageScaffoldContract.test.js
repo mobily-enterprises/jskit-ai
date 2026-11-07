@@ -4,7 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import packageJson from "../package.json" with { type: "json" };
-import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
+import { userProfileTableResource } from "../src/shared/resources/userProfileResource.js";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const patternRoot = path.join(packageRoot, "patterns", "user-administration-server");
@@ -18,7 +18,7 @@ test("users-core publishes agent-readable administration patterns and package-ow
   assert.match(pattern, /ownerRepository: "users\.profiles"/);
   assert.match(pattern, /Workspace operations are scoped before repository access/);
   assert.match(pattern, /null\/cleared fields/);
-  assert.match(pattern, /defineCrudContract\(userProfileResource,/);
+  assert.match(pattern, /defineCrudContract\(userProfileTableResource,/);
   assert.doesNotMatch(pattern, /createCrudJsonApiModule/);
 });
 
@@ -78,7 +78,7 @@ test("both user administration variants stay read-only on users-core's one users
     const manifest = JSON.parse(await readFile(path.join(packageRootPath, "package.json"), "utf8"));
 
     assert.deepEqual(Object.keys(crudModule), ["userCrud"]);
-    assert.equal(userCrud.resource, userProfileResource);
+    assert.equal(userCrud.resource, userProfileTableResource);
     assert.equal(userCrud.namespace, "users");
     assert.deepEqual(Object.keys(userCrud.operations), ["list", "view"]);
     assert.equal(Object.hasOwn(userCrud.operations, "create"), false);

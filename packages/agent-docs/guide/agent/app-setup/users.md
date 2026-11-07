@@ -45,7 +45,7 @@ in-page banner that moves the form.
 Use `users/user-administration-server` only when the product needs global or
 workspace-scoped administration beyond self-service settings. It demonstrates
 an app-owned feature package built with `defineCrudFeature()` on a CRUD
-contract over users-core's `userProfileResource`, while keeping profile
+contract over users-core's `userProfileTableResource`, while keeping profile
 persistence, and the `users` table's one table resource, in `users-core`: the
 feature names `ownerRepository: "users.profiles"` and serves the table through
 users-core's repository instead of owning it.

@@ -289,3 +289,96 @@ test("users.profiles serves a CRUD feature's reads, with JSON:API documents pass
   assert.equal(document.data.attributes.email, "crud@example.test");
   assert.equal(typeof db.profiles.pageLimits().request, "number");
 });
+
+test("countUsers counts only the users of one sign-in provider when asked", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const before = await db.profiles.countUsers({ authProvider: "oidc-count" });
+  await db.profiles.upsert(identityOf("provider-a", { authProvider: "oidc-count" }));
+  await db.profiles.upsert(identityOf("provider-b"));
+  assert.equal(await db.profiles.countUsers({ authProvider: " OIDC-Count " }), before + 1);
+});
+
+test("createWithId creates a profile with the id it is given; a taken id fails", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  await insertProfile(db, "legacy-name");
+  const created = await db.profiles.createWithId(identityOf("legacy", { id: "880001", username: "legacy-name" }));
+  assert.equal(created.id, "880001");
+  // The username is made unique, as a new profile's always is.
+  assert.equal(created.username, "legacy-name-2");
+  assert.match(created.createdAt, ISO);
+  assert.equal((await db.profiles.findById("880001")).email, "legacy@example.test");
+  await assert.rejects(db.profiles.createWithId(identityOf("legacy-again", { id: "880001" })),
+    (error) => Boolean(findDuplicateEntryError(error)));
+  await assert.rejects(db.profiles.createWithId(identityOf("no-id")), /createWithId requires id/u);
+  await assert.rejects(db.profiles.createWithId({ id: "880002", email: "x@example.test" }),
+    /createWithId requires authProvider, authProviderUserSid, displayName/u);
+});
+
+test("listByEmails answers the profiles of a set of emails in one read", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const one = await db.profiles.upsert(identityOf("emails-one"));
+  const two = await db.profiles.upsert(identityOf("emails-two"));
+  const { result, count } = await statementsOf(db, () => db.profiles.listByEmails([
+    " Emails-One@Example.TEST ", "emails-two@example.test", "emails-one@example.test", "nobody@example.test"
+  ]));
+  assert.deepEqual(result.map(({ id }) => id).sort(), [one.id, two.id].sort());
+  assert.equal(count, 1);
+  assert.deepEqual(await db.profiles.listByEmails([]), []);
+  await assert.rejects(db.profiles.listByEmails("one@example.test"), /takes an array of emails/u);
+});
+
+test("createManyIgnoringExisting creates the new identities, keeps the existing ones and runs only as background work", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const existing = await db.profiles.upsert(identityOf("bulk-existing"));
+  const rows = [
+    identityOf("bulk-existing", { email: "bulk-changed@example.test", displayName: "Changed", username: "bulk-changed" }),
+    identityOf("bulk-new-one", { username: "bulk-new-one" }),
+    identityOf("bulk-new-two", { username: "bulk-new-two" })
+  ];
+  await assert.rejects(db.profiles.createManyIgnoringExisting(rows, {}), /runs only in a system context/u);
+  await assert.rejects(
+    db.profiles.createManyIgnoringExisting([identityOf("bulk-no-username")], { context: db.systemContext }),
+    /row 0 requires username/u
+  );
+
+  const ids = await db.profiles.createManyIgnoringExisting(rows, { context: db.systemContext });
+  const created = await db.profiles.listByEmails(["bulk-new-one@example.test", "bulk-new-two@example.test"]);
+  assert.deepEqual(created.map(({ id }) => id).sort(), [...ids].sort());
+  assert.equal(ids.length, 2);
+  // The existing identity's profile is untouched.
+  assert.deepEqual(await db.profiles.findById(existing.id), existing);
+
+  // Running it again creates nothing.
+  assert.deepEqual(await db.profiles.createManyIgnoringExisting(rows, { context: db.systemContext }), []);
+});
+
+test("changeUsername gives a profile a free username and refuses one another profile holds", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const mine = await db.profiles.upsert(identityOf("rename-mine"));
+  const other = await db.profiles.upsert(identityOf("rename-other"));
+  const renamed = await db.profiles.changeUsername(mine.id, " Rename-Fresh ");
+  assert.equal(renamed.username, "rename-fresh");
+  assert.equal((await db.profiles.changeUsername(mine.id, "rename-fresh")).username, "rename-fresh");
+  // Refused before any write, so the caller's transaction goes on.
+  const kept = await db.profiles.withTransaction({}, async (txOptions) => {
+    await assert.rejects(db.profiles.changeUsername(mine.id, other.username, txOptions), { code: "USER_PROFILE_USERNAME_CONFLICT" });
+    return db.profiles.updateDisplayNameById(mine.id, "Still Mine", txOptions);
+  });
+  assert.equal(kept.displayName, "Still Mine");
+  assert.equal(await db.profiles.changeUsername("999999999", "rename-ghost"), null);
+});
+
+test("a users list reads by display name, then email", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  for (const [tag, displayName] of [["sort-c", "Sort Bravo"], ["sort-a", "Sort Alpha"], ["sort-b", "Sort Bravo"]]) {
+    await db.profiles.upsert(identityOf(tag, { displayName }));
+  }
+  const page = await db.profiles.query({ filters: { q: "sort-" }, page: { size: 10 } }, {});
+  assert.deepEqual(page.records.map(({ email }) => email), ["sort-a@example.test", "sort-b@example.test", "sort-c@example.test"]);
+});

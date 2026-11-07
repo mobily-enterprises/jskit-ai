@@ -98,11 +98,11 @@
           },
           {
             "subpath": "./shared/resources/userProfileResource",
-            "summary": "Exports the users table resource (userProfileResource), the account profile's CRUD contract (userProfileCrud) and the profile API contract (userProfileContract)."
+            "summary": "Exports the users table resource (userProfileTableResource), the account profile's CRUD contract (userProfileCrud) and the profile API contract (userProfileContract)."
           },
           {
             "subpath": "./shared/resources/userSettingsResource",
-            "summary": "Exports the user_settings table resource (userSettingsResource), the account settings' CRUD contract (userSettingsCrud), the settings API contract (userSettingsContract) and the settings keys and output schemas."
+            "summary": "Exports the user_settings table resource (userSettingsTableResource), the account settings' CRUD contract (userSettingsCrud), the settings API contract (userSettingsContract) and the settings keys and output schemas."
           },
           {
             "subpath": "./shared/settings",

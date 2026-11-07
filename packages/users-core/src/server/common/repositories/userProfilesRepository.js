@@ -5,6 +5,7 @@ import {
   toIsoString
 } from "@jskit-ai/database-runtime/shared";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isSystemContext } from "@jskit-ai/resource-runtime/server";
 import { normalizeIdentity } from "../support/identity.js";
 import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "../../../shared/resources/userProfileValues.js";
 
@@ -100,6 +101,23 @@ function duplicateTargetsUsername(error) {
 
   const message = normalizeLowerText(duplicate.sqlMessage || duplicate.message);
   return message.includes("username");
+}
+
+function buildDuplicateUsernameConflictError(cause = undefined) {
+  const error = new Error("Username is already taken.", cause ? { cause } : undefined);
+  error.transactionOutcome = cause?.transactionOutcome;
+  error.code = "USER_PROFILE_USERNAME_CONFLICT";
+  return error;
+}
+
+// The fields a new profile needs, normalized; `context` names the call for its errors.
+function requireNewProfile(profileLike, context) {
+  const payload = normalizeCreatePayload(profileLike);
+  const missing = ["authProvider", "authProviderUserSid", "email", "displayName"].filter((field) => !payload[field]);
+  if (missing.length > 0) {
+    throw new TypeError(`${context} requires ${missing.join(", ")}.`);
+  }
+  return payload;
 }
 
 function buildDuplicateEmailConflictError(cause) {
@@ -323,13 +341,134 @@ function createRepository({ userProfiles, userSettings }) {
   }
 
   /**
-   * The number of users, leaving out `excludeIds` and, with `createdSince`,
-   * those created before it.
-   * @param {{ excludeIds?: readonly unknown[], createdSince?: Date | string | null }} [criteria]
+   * Creates a profile with the id it is given, as an application that keeps
+   * the ids of an earlier users table does, in one transaction: the caller's,
+   * or one it opens. Its username is the one given or one made from its email,
+   * the first of base, base-2 to base-1000 no other profile holds. A taken id or
+   * identity fails. On PostgreSQL the id sequence does not move past a given
+   * id, so an import advances it (setval) before the table creates profiles of
+   * its own again.
+   * @param {{ id: unknown, authProvider: string, authProviderUserSid: string, email: string, displayName: string, username?: string, avatarStorageKey?: string | null, avatarVersion?: string | null, avatarUpdatedAt?: Date | string | null }} profile
    * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
    */
-  async function countUsers({ excludeIds = [], createdSince = null } = {}, options = {}) {
-    const filters = createdSince == null ? {} : { createdSince: toIsoString(createdSince) };
+  async function createWithId(profile, options = {}) {
+    const id = normalizeDbRecordId(profile?.id, { fallback: null });
+    if (!id) {
+      throw new TypeError("createWithId requires id.");
+    }
+    const payload = requireNewProfile(profile, "createWithId");
+    return userProfiles.withTransaction(options, async (txOptions) => {
+      const username = await resolveUniqueUsername(
+        userProfiles,
+        payload.username || usernameBaseFromEmail(payload.email),
+        null,
+        txOptions
+      );
+      const now = new Date().toISOString();
+      return normalizeProfileRecord(await userProfiles.create(
+        { ...payload, id, username, createdAt: now, updatedAt: now },
+        txOptions
+      ));
+    });
+  }
+
+  /**
+   * The profiles with these emails, compared in lower case, in one read; an
+   * email no profile has is left out.
+   * @param {readonly string[]} emails
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
+   */
+  async function listByEmails(emails, options = {}) {
+    if (!Array.isArray(emails)) {
+      throw new TypeError("listByEmails takes an array of emails.");
+    }
+    const normalizedEmails = [...new Set(emails.map((email) => normalizeLowerText(email)).filter(Boolean))];
+    if (normalizedEmails.length < 1) {
+      return [];
+    }
+    const rows = await userProfiles.queryAll({ filters: { emails: normalizedEmails } }, options);
+    return rows.map(normalizeProfileRecord);
+  }
+
+  /**
+   * Creates the profiles whose identity (authProvider and authProviderUserSid)
+   * has none yet, in one INSERT per chunk, and leaves those that have one as
+   * they are: a bulk import that may run again. Only background work may call
+   * it, in a system context (`systemContext(reason)`), since it writes users no
+   * caller signed in as. Each row names its username; an email or username
+   * another identity holds fails the whole call.
+   * @param {ReadonlyArray<{ authProvider: string, authProviderUserSid: string, email: string, displayName: string, username: string }>} profiles
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options
+   * @returns {Promise<string[]>} The ids of the profiles it created; a row whose identity already had one adds none.
+   */
+  async function createManyIgnoringExisting(profiles, options = {}) {
+    if (!isSystemContext(options.context)) {
+      throw new TypeError("createManyIgnoringExisting runs only in a system context: pass { context: systemContext(reason) }.");
+    }
+    if (!Array.isArray(profiles)) {
+      throw new TypeError("createManyIgnoringExisting takes an array of profiles.");
+    }
+    const now = new Date().toISOString();
+    const rows = profiles.map((profile, index) => {
+      const payload = requireNewProfile(profile, `createManyIgnoringExisting row ${index}`);
+      if (!payload.username) {
+        throw new TypeError(`createManyIgnoringExisting row ${index} requires username.`);
+      }
+      return { ...payload, createdAt: now, updatedAt: now };
+    });
+    if (rows.length < 1) {
+      return [];
+    }
+    return userProfiles.createMany(rows, {
+      ...options,
+      returning: "ids",
+      onConflict: { keys: ["authProvider", "authProviderUserSid"], action: "ignore" }
+    });
+  }
+
+  /**
+   * Gives a profile a new username, in one transaction: the caller's, or one
+   * it opens. A username another profile holds is USER_PROFILE_USERNAME_CONFLICT,
+   * found before the write so the caller's transaction stays usable; null for a
+   * missing id or profile.
+   * @param {unknown} userId
+   * @param {string} username
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
+   */
+  async function changeUsername(userId, username, options = {}) {
+    const normalizedUsername = normalizeUsername(username);
+    if (!normalizedUsername) {
+      throw new TypeError("changeUsername requires a username.");
+    }
+    const normalizedUserId = normalizeDbRecordId(userId, { fallback: null });
+    try {
+      return await userProfiles.withTransaction(options, async (txOptions) => {
+        const holders = await userProfiles.queryAll({ filters: { usernames: [normalizedUsername] } }, txOptions);
+        if (holders.some((row) => normalizeDbRecordId(row.id, { fallback: null }) !== normalizedUserId)) {
+          throw buildDuplicateUsernameConflictError();
+        }
+        return patchProfile(userId, { username: normalizedUsername }, txOptions);
+      });
+    } catch (error) {
+      // Another request took it between the read and the write.
+      if (["pending", "rolledBack"].includes(error?.transactionOutcome) && duplicateTargetsUsername(error)) {
+        throw buildDuplicateUsernameConflictError(error);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * The number of users, leaving out `excludeIds` and, with `createdSince`,
+   * those created before it; with `authProvider`, only those who sign in with it.
+   * @param {{ excludeIds?: readonly unknown[], createdSince?: Date | string | null, authProvider?: string }} [criteria]
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
+   */
+  async function countUsers({ excludeIds = [], createdSince = null, authProvider = "" } = {}, options = {}) {
+    const filters = {
+      ...(createdSince == null ? {} : { createdSince: toIsoString(createdSince) }),
+      ...(normalizeLowerText(authProvider) ? { authProvider: normalizeLowerText(authProvider) } : {})
+    };
     const ids = [...new Set(excludeIds.map((id) => normalizeDbRecordId(id, { fallback: null })).filter(Boolean))];
     const total = await countProfiles(filters, options);
     // The ids filter has no "not in": the excluded users who match are subtracted.
@@ -346,6 +485,10 @@ function createRepository({ userProfiles, userSettings }) {
     clearAvatarById,
     upsert,
     createWithSettings,
+    createWithId,
+    createManyIgnoringExisting,
+    listByEmails,
+    changeUsername,
     countUsers,
     // The CRUD surface's reads (a CRUD feature serving the users table names this repository as its ownerRepository).
     query: userProfiles.query,

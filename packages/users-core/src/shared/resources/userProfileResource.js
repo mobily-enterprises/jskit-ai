@@ -65,7 +65,7 @@ const avatarUploadBodySchema = createSchema({
 });
 
 // The users table.
-const userProfileResource = defineTableResource({
+const userProfileTableResource = defineTableResource({
   name: "userProfiles",
   tableName: "users",
   ownership: "public",
@@ -73,6 +73,7 @@ const userProfileResource = defineTableResource({
     id: { type: "id", actualField: "id" },
     ids: { type: "array", actualField: "id", filterOperator: "in", items: { type: "string", pattern: RECORD_ID_PATTERN } },
     usernames: { type: "array", actualField: "username", filterOperator: "in", items: { type: "string" } },
+    emails: { type: "array", actualField: "email", filterOperator: "in", items: { type: "string" } },
     createdSince: { type: "dateTime", actualField: "createdAt", filterOperator: ">=" },
     // A list's free-text search: every word in the display name, email or username.
     q: {
@@ -158,13 +159,15 @@ const userProfileResource = defineTableResource({
       }
     }
   },
+  // A users list reads by name, then email; the id breaks ties.
+  defaultSort: ["displayName", "email"]
 });
 
 // The account profile's CRUD surface on the users table: view, list, create,
 // replace and patch, each with the account profile's output and display name
 // body. No JSKIT route serves it; an application that offers these operations
 // serves this contract.
-const userProfileCrud = defineCrudContract(userProfileResource, {
+const userProfileCrud = defineCrudContract(userProfileTableResource, {
   namespace: "userProfile",
   messages: OPERATION_MESSAGES,
   operations: ["view", "list", "create", "replace", "patch"],
@@ -195,4 +198,4 @@ const userProfileContract = defineApiContract({
   }
 });
 
-export { userProfileContract, userProfileCrud, userProfileResource };
+export { userProfileContract, userProfileCrud, userProfileTableResource };

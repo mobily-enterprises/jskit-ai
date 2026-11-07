@@ -1,7 +1,7 @@
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 
-const rewardedUnlockReceiptResource = defineTableResource({
+const rewardedUnlockReceiptTableResource = defineTableResource({
   name: "rewardedUnlockReceipts",
   tableName: "rewarded_unlock_receipts",
   ownership: "workspace_user",
@@ -67,7 +67,7 @@ const rewardedUnlockReceiptResource = defineTableResource({
   defaultSort: ["-createdAt"]
 });
 
-const rewardedUnlockReceiptCrud = defineCrudContract(rewardedUnlockReceiptResource, {
+const rewardedUnlockReceiptCrud = defineCrudContract(rewardedUnlockReceiptTableResource, {
   namespace: "rewarded_unlock_receipts",
   fields: {
     createdAt: { output: "required" }
@@ -88,4 +88,4 @@ const rewardedUnlockReceiptCrud = defineCrudContract(rewardedUnlockReceiptResour
   }
 });
 
-export { rewardedUnlockReceiptCrud, rewardedUnlockReceiptResource };
+export { rewardedUnlockReceiptCrud, rewardedUnlockReceiptTableResource };
