@@ -18,6 +18,7 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `LOCAL_AUTH_DB_TABLES`
 - `createLocalDbBackend({ knex, transactionManager })`
+- `createLocalDbOwners({ knex })`
 Local functions
 - `nowIso()`
 - `toDate(value)`
@@ -37,15 +38,24 @@ Local functions
 - `userInsert(input = {})`
 - `sessionInsert(input = {})`
 - `recoveryInsert(input = {})`
+- `table(client, tableName)`
+- `createTx(client, { knex })`
 
 ### `src/server/lib/index.js`
 Exports
 - `createLocalDbBackend`
+- `createLocalDbOwners`
 - `LOCAL_AUTH_DB_TABLES`
 
 ### `src/server/providers/AuthLocalDatabaseBackendProvider.js`
 Exports
 - `AuthLocalDatabaseBackendProvider`
+
+### `src/server/types.js`
+Exports
+- `type AuthLocalAccounts`
+- `type AuthLocalSessions`
+- `type AuthLocalRecovery`
 
 ### migrations
 
@@ -58,5 +68,9 @@ Exports
 - None
 
 ### `migrations/auth_local_db_protection.cjs`
+Exports
+- None
+
+### `migrations/auth_local_db_users_email_verified.cjs`
 Exports
 - None

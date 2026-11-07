@@ -57,15 +57,21 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
   const usersExtensions = createUsersExtensions();
   const jsonRestApi = createJsonRestApiFixture();
   let workspaces = null;
+  let workspaceRecords = null;
+  let memberships = null;
   let actionCatalogue = null;
   const probe = defineProvider({
     id: "test.workspaces.probe",
     requires: {
       actions: "runtime.actions",
+      membershipsCapability: "workspaces.memberships",
+      recordsCapability: "workspaces",
       workspaceCapability: "workspaces.core"
     },
-    setup({ actions, workspaceCapability }) {
+    setup({ actions, membershipsCapability, recordsCapability, workspaceCapability }) {
       actionCatalogue = actions;
+      memberships = membershipsCapability;
+      workspaceRecords = recordsCapability;
       workspaces = workspaceCapability;
       return {};
     }
@@ -94,11 +100,8 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
           audienceContributors.push(contributor);
         }
       },
-      "users.core": {
-        repositories: {
-          userProfiles: { async findById() { return null; } }
-        }
-      },
+      "users.profiles": { async findById() { return null; } },
+      "users.settings": { async findByUserId() { return null; } },
       "users.extensions": usersExtensions
     },
     providers: [EventProvider, ActionProvider, WorkspacesFeature, WorkspacesIntegrationsProvider, probe]
@@ -113,6 +116,11 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
     "workspaces"
   ]);
   assert.equal(typeof workspaces.services.directory.resolveWorkspaceContextForUserBySlug, "function");
+  assert.deepEqual(Object.keys(workspaces.repositories).sort(), ["workspaceInvites", "workspaceSettings"]);
+  assert.equal(typeof workspaceRecords.findBySlug, "function");
+  assert.equal(typeof workspaceRecords.lock, "function");
+  assert.equal(typeof memberships.addMember, "function");
+  assert.equal(typeof memberships.activeMemberIds, "function");
   assert.equal(typeof workspaces.services.members.prepareInvite, "function");
   assert.equal(typeof workspaces.services.members.sendInvite, "function");
   assert.equal(routes.includes("POST /api/workspaces"), true);
@@ -136,17 +144,15 @@ test("workspace realtime audiences are the actor's active memberships", async ()
     http: { registerVisibilityResolver: noop },
     realtime: { registerAudienceContributor: (entry) => audienceContributors.push(entry) },
     usersExtensions: { registerProfileSyncLifecycleContributor: noop },
+    workspaceMemberships: {
+      async listActiveWorkspaceIdsByUserIds(userIds) {
+        assert.deepEqual(userIds, ["9", "10"]);
+        return new Map([["9", ["11", "12"]], ["10", []]]);
+      }
+    },
     workspaces: {
       invitationsEnabled: false,
-      services: { directory: { async resolveWorkspaceContextForUserBySlug() { return null; } } },
-      repositories: {
-        workspaceMemberships: {
-          async listActiveWorkspaceIdsByUserIds(userIds) {
-            assert.deepEqual(userIds, ["9", "10"]);
-            return new Map([["9", ["11", "12"]], ["10", []]]);
-          }
-        }
-      }
+      services: { directory: { async resolveWorkspaceContextForUserBySlug() { return null; } } }
     }
   });
   assert.equal(audienceContributors.length, 1);

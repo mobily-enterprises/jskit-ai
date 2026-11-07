@@ -22,7 +22,8 @@
     "kind": "runtime",
     "capabilities": {
       "provides": [
-        "console.core"
+        "console.core",
+        "console.settings"
       ],
       "requires": [
         "auth.extensions",
@@ -59,7 +60,7 @@
         "surfaces": [
           {
             "subpath": "./server/ConsoleFeature",
-            "summary": "Exports ConsoleFeature, which provides console.core: owner access, the console settings actions and routes, and the console bootstrap."
+            "summary": "Exports ConsoleFeature, which provides console.core (owner access, the console settings actions and routes, and the console bootstrap) and console.settings (the console's settings record, read with getSingleton)."
           },
           {
             "subpath": "./shared/resources/consoleSettingsResource",
@@ -67,11 +68,12 @@
           },
           {
             "subpath": "./server/types",
-            "summary": "Type of the console.core capability, for features that require it."
+            "summary": "Types of the console.core and console.settings capabilities, for features that require them."
           }
         ],
         "capabilities": [
-          "console.core"
+          "console.core",
+          "console.settings"
         ]
       },
       "server": {

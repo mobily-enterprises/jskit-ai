@@ -12,6 +12,7 @@ import {
   createJsonRestContext,
   queryAllJsonRestCollectionRows
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { lockWorkspace } from "./workspacesRepository.js";
 
 function normalizeInviteRecord(payload) {
   if (!payload) {
@@ -136,18 +137,20 @@ function createRepository({ api }) {
   }
 
   async function lockWorkspaceForInvitations(workspaceId, options = {}) {
-    // readable-check: allow method-probe - platform object: a Knex transaction, which the workspace lock needs and options may omit
-    if (typeof options.trx !== "function" || options.trx.isCompleted()) {
-      throw new TypeError("Invitation locking requires an active transaction.");
-    }
-    const id = normalizeRecordId(workspaceId, { fallback: null });
-    if (!id) {
-      throw new TypeError("Invitation locking requires workspaceId.");
-    }
-    const row = await options.trx("workspaces").where({ id }).forUpdate().first("id");
-    if (!row) {
+    if (!await lockWorkspace(workspaceId, options)) {
       throw new AppError(404, "Invitation workspace no longer exists.", { code: "workspaces.invite.workspaceMissing" });
     }
+  }
+
+  // An invite in any status, or null.
+  async function findById(inviteId, options = {}) {
+    const id = normalizeRecordId(inviteId, { fallback: null });
+    if (!id) {
+      return null;
+    }
+
+    const rows = await queryInvites({ id }, options);
+    return normalizeInviteRecord(rows[0] || null);
   }
 
   async function findPendingByTokenHash(tokenHash, options = {}) {
@@ -402,6 +405,7 @@ function createRepository({ api }) {
   return Object.freeze({
     withTransaction,
     lockWorkspaceForInvitations,
+    findById,
     findPendingByTokenHash,
     findByTokenHashWithWorkspace,
     listPendingByEmail,

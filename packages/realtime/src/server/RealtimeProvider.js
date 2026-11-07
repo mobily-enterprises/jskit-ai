@@ -32,8 +32,7 @@ const RealtimeProvider = defineProvider({
   },
   optional: {
     appRoot: "runtime.app-root",
-    authService: "auth.service",
-    database: "runtime.database"
+    authService: "auth.service"
   },
   provides: {
     realtime: "runtime.realtime"
@@ -43,18 +42,16 @@ const RealtimeProvider = defineProvider({
    * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot | null} dependencies.appRoot
    * @param {import("@jskit-ai/auth-core/server/types").AuthService | null} dependencies.authService
    * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
-   * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase | null} dependencies.database
    * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
    * @param {import("@jskit-ai/kernel/server/types").RuntimeEvents} dependencies.events
    * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} dependencies.fastify
    * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
    */
-  setup({ appRoot, authService, config, database, env, events, fastify, logger }) {
+  setup({ appRoot, authService, config, env, events, fastify, logger }) {
     const realtime = createRealtimeCapability({
       io: createSocketIoServer({ fastify }),
       logger: createProviderLogger(logger, { debugEnabled: debugEnabled(config, env) }),
       authService,
-      database,
       events,
       appRoot,
       redis: { redisUrl: resolveRealtimeRedisUrl(env), redisNamespace: resolveRealtimeRedisNamespace(env) }

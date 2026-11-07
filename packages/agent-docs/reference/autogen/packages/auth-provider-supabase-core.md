@@ -163,7 +163,7 @@ Local functions
 ### `src/server/lib/profileModes.js`
 Exports
 - `PROVIDER_MODE_PROFILES`
-- `createUsersModeProfiles(identity)`
+- `createUsersModeProfiles({ profileProjector, userProfiles, userSettings })`
 Local functions
 - `createProviderProfileProjector()`
 

@@ -7,16 +7,22 @@ import { createService as createAvatarStorageService } from "./accountProfile/av
 import { createService as createAccountSecurityService } from "./accountSecurity/accountSecurityService.js";
 
 /**
- * The `users.core` capability: the users' repositories and the account
- * services built on them.
+ * The `users.core` capability: the account services built on the users'
+ * records. The records themselves are `users.profiles` and `users.settings`.
  * @param {object} dependencies
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
- * @param {import("./types.js").UsersIdentity} dependencies.identity
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
+ * @param {import("./types.js").UsersProfiles} dependencies.profiles
+ * @param {import("./types.js").UsersSettings} dependencies.settings
  * @param {import("@jskit-ai/storage-runtime/server/types").RuntimeStorage} dependencies.storage
  */
-function createUsersRuntime({ authService, identity, storage }) {
-  const userProfilesRepository = identity.repositories.userProfiles;
-  const userSettingsRepository = identity.repositories.userSettings;
+function createUsersRuntime({
+  authService,
+  profileProjector,
+  profiles: userProfilesRepository,
+  settings: userSettingsRepository,
+  storage
+}) {
   const avatarStorageService = createAvatarStorageService({ storage });
   const avatarService = createAvatarService({ userProfilesRepository, avatarStorageService });
   const accountProfileService = createAccountProfileService({
@@ -42,17 +48,13 @@ function createUsersRuntime({ authService, identity, storage }) {
   });
 
   return Object.freeze({
-    repositories: Object.freeze({
-      userProfiles: userProfilesRepository,
-      userSettings: userSettingsRepository
-    }),
     services: Object.freeze({
       accountNotifications: accountNotificationsService,
       accountPreferences: accountPreferencesService,
       accountProfile: accountProfileService,
       accountSecurity: accountSecurityService,
       avatar: avatarService,
-      profileProjector: identity.profileProjector
+      profileProjector
     }),
     shared: USERS_SHARED_API
   });
