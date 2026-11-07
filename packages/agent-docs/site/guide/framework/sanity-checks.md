@@ -64,9 +64,10 @@ expects the relationship id or an unselected field never gets it.
 
 - An unpaged JSON:API query returns the first 20 rows, and a page above the
   resource's `queryMaxLimit` (100 unless it sets one) is cut to that size,
-  both without an error. A read its callers treat as complete uses
-  `queryAllJsonRestCollectionRows()`, because the missing rows otherwise
-  vanish from every picker and delivery built on it
+  both without an error; CRUD `queryDocuments()` refuses such a `limit`. A
+  read its callers treat as complete uses `queryAllJsonRestCollectionRows()`
+  or the repository's `queryEveryDocument()`, because the missing rows
+  otherwise vanish from every picker and delivery built on it
   ([Every row](/guide/framework/typed-features#every-row)).
 - A lookup by a unique key may read `rows[0]` of a plain query.
 
@@ -84,9 +85,10 @@ expects the relationship id or an unselected field never gets it.
   batches](/guide/framework/typed-features#lists-read-related-rows-in-batches)).
 - A `rowPolicy` adds one correlated predicate to the query it is given, so
   its cost follows the rows read, not the subject's history. It runs on every
-  single-record read, including `createDocument()`'s `returning: "full"` read
-  back, so a batch writes through a repository method added with
-  `decorateRepository`, in the owner's transaction ([Bounded access
+  single-record read, including a write's default `returning: "full"` read
+  back, so a write that discards its result passes `returning: "minimal"` and
+  a batch of creates uses `createDocuments()`, in the owner's transaction
+  ([Bounded access
   checks](/guide/framework/typed-features#bounded-access-checks)).
 
 ### Tests

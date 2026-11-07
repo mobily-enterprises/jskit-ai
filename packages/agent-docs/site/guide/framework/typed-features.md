@@ -791,16 +791,19 @@ paying a read policy for every row it writes.**
   [row policies heuristic](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/row-policies.md)
   has the policy contract and its package composition.
 - The policy runs on every single-record read, and a CRUD write includes one:
-  `createDocument()` and `patchDocumentById()` write with `returning: "full"`
-  and read the record back through the policy, and `patch` and `delete` first
-  look the record up through it. A write therefore pays the read policy for
-  each row it writes.
-- A write path decides access once, inside its transaction. A batch write (a
-  delivery, an import, a fan-out) whose per-row read-back would pay an
-  expensive policy writes through a repository method added with
-  `decorateRepository`, on `resolveRepoClient(database.knex, options)`,
-  setting the same columns the resource would, its ownership columns
-  included, and reading back only what it returns.
+  `createDocument()` and `patchDocumentById()` default to `returning: "full"`,
+  which reads the record back through the policy, and `patch` and `delete`
+  first look the record up through it.
+- A write path decides access once, inside its transaction. A write that does
+  not use its result passes `returning: "minimal"` or `"none"`, and a batch of
+  creates (a delivery, an import, a fan-out) goes through
+  `createDocuments(payloads, { trx, context })`, which reads nothing back
+  unless asked
+  ([writes that return less](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#writes-that-return-less)).
+  Any other batch whose per-row lookup would pay an expensive policy writes
+  through a repository method added with `decorateRepository`, on
+  `resolveRepoClient(database.knex, options)`, setting the same columns the
+  resource would, its ownership columns included.
 - Its test counts the queries of one read and one write for a subject with a
   short history and for one with a long one ([Query counts at realistic
   sizes](#query-counts-at-realistic-sizes)).
