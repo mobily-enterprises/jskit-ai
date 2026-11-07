@@ -150,6 +150,8 @@ function isDeadlockError(error) {
 /**
  * Runs a whole transaction again when the database chose it as a deadlock
  * victim, so `run` must be safe to repeat: no external effects inside it.
+ * A lock wait that timed out is never run again: MySQL rolls back only the
+ * timed-out statement, so the transaction's earlier work could repeat.
  * @template T
  * @param {() => Promise<T>} run
  * @param {{ retries?: number }} [options]
