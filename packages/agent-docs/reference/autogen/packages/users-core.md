@@ -96,7 +96,7 @@ Local functions
 
 ### `src/server/common/repositories/userProfilesRepository.js`
 Exports
-- `createRepository({ api, userSettings })`
+- `createRepository({ userProfiles, userSettings })`
 Local functions
 - `normalizeProfileRecord(payload = null)`
 - `normalizeCreatePayload(payload = {})`
@@ -105,11 +105,11 @@ Local functions
 - `duplicateTargetsEmail(error)`
 - `duplicateTargetsUsername(error)`
 - `buildDuplicateEmailConflictError(cause)`
-- `resolveUniqueUsername(api, baseUsername, { excludeUserId = null, transaction = null } = {})`
+- `resolveUniqueUsername(userProfiles, baseUsername, excludeUserId, options)`
 
 ### `src/server/common/repositories/userSettingsRepository.js`
 Exports
-- `createRepository({ api })`
+- `createRepository({ userSettings })`
 Local functions
 - `pickPatchFields(source = {})`
 - `buildDefaultUserSettingsCreatePayload(userId)`
@@ -150,6 +150,7 @@ Exports
 Exports
 - `type UsersCore`
 - `type UsersExtensions`
+- `type UsersResources`
 - `type UsersProfiles`
 - `type UsersSettings`
 - `type UserProfilesRepository`
@@ -185,7 +186,7 @@ Exports
 
 ### `src/server/usersIdentity.js`
 Exports
-- `createUsersIdentity({ jsonRestApi, extensions })`
+- `createUsersIdentity({ resources, extensions })`
 
 ### `src/server/UsersIdentityProvider.js`
 Exports

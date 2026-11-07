@@ -14,32 +14,56 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/server/lib/dateTimes.js`
+Exports
+- `nowIso()`
+- `toDate(value)`
+
 ### `src/server/lib/dbBackend.js`
 Exports
 - `LOCAL_AUTH_DB_TABLES`
-- `createLocalDbBackend({ knex, transactionManager })`
-- `createLocalDbOwners({ knex })`
+- `createLocalDbBackend({ resources, identities })`
+- `createLocalDbOwners({ resources, identities })`
+- `type LocalAuthHandles`
 Local functions
-- `nowIso()`
-- `toDate(value)`
 - `requiredDateTime(value, fallback = nowIso())`
 - `optionalDateTime(value)`
 - `readDateTime(value, fallback = "")`
-- `readPassword(row)`
+- `text(value)`
+- `readPassword(record)`
 - `writePassword(password = {})`
-- `mapUser(row)`
-- `mapSession(row)`
-- `mapRecovery(row)`
+- `mapUser(record)`
+- `mapSession(record)`
+- `mapRecovery(record)`
+- `mapOAuthAttempt(record)`
+- `mapSignInFailures(record)`
+- `mapRegistration(record)`
+- `registrationRecord(input = {})`
+- `userRecord(input = {})`
+- `sessionRecord(input = {})`
+- `recoveryRecord(input = {})`
+- `oauthAttemptRecord(input = {})`
+- `findOne(handle, field, value, options)`
+- `findById(handle, id, options)`
+- `countOf(written)`
+- `deleteById(handle, id, options)`
+- `replace(handle, id, attributes, options)`
+- `patchExisting(handle, id, changes, options)`
+- `userRecords(users, options)`
+- `sessionRecords(sessions, options)`
+- `recoveryRecords(recovery, options)`
+- `oauthAttemptRecords(attempts, options)`
+- `signInFailureRecords(failures, options)`
+- `registrationRecords(registrations, options)`
+- `createRecords(resources, identities, options)`
+
+### `src/server/lib/identityStore.js`
+Exports
+- `IDENTITIES_TABLE`
+- `createIdentityStore({ database })`
+- `type IdentityStore`
+Local functions
 - `mapIdentity(row)`
-- `mapOAuthAttempt(row)`
-- `mapSignInFailures(row)`
-- `mapRegistration(row)`
-- `registrationRow(record = {})`
-- `userInsert(input = {})`
-- `sessionInsert(input = {})`
-- `recoveryInsert(input = {})`
-- `table(client, tableName)`
-- `createTx(client, { knex })`
 
 ### `src/server/lib/index.js`
 Exports
@@ -47,9 +71,21 @@ Exports
 - `createLocalDbOwners`
 - `LOCAL_AUTH_DB_TABLES`
 
+### `src/server/lib/localAuthResources.js`
+Exports
+- `LOCAL_AUTH_RESOURCES`
+- `localAuthOAuthAttemptResource`
+- `localAuthRecoveryResource`
+- `localAuthRegistrationResource`
+- `localAuthSessionResource`
+- `localAuthSignInFailureResource`
+- `localAuthUserResource`
+
 ### `src/server/providers/AuthLocalDatabaseBackendProvider.js`
 Exports
 - `AuthLocalDatabaseBackendProvider`
+Local functions
+- `textRecordId(value)`
 
 ### `src/server/types.js`
 Exports

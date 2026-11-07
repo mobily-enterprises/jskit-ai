@@ -60,7 +60,8 @@ hook, a job) requires their owners' capabilities, never the `users` or
 
 Their types are `UsersProfiles` and `UsersSettings` in
 `@jskit-ai/users-core/server/types`. Every method takes `options` last and
-joins `options.trx` when there is one.
+joins the caller's transaction: inside `withTransaction(options, async
+(txOptions) => …)`, pass `txOptions` to every call.
 
 ## Invariants
 

@@ -36,7 +36,7 @@ Exports
 
 ### `src/server/common/repositories/workspaceInvitesRepository.js`
 Exports
-- `createRepository({ api })`
+- `createRepository({ workspaceInvites, workspaces })`
 - `normalizeInviteRecord(payload)`
 - `normalizeInviteWithWorkspace(payload = {})`
 Local functions
@@ -44,7 +44,7 @@ Local functions
 
 ### `src/server/common/repositories/workspaceMembershipsRepository.js`
 Exports
-- `createRepository({ api })`
+- `createRepository({ workspaceMemberships })`
 - `normalizeMembershipRecord(payload)`
 - `normalizeMemberSummaryRow(row)`
 Local functions
@@ -52,10 +52,10 @@ Local functions
 
 ### `src/server/common/repositories/workspacesRepository.js`
 Exports
-- `createRepository({ api })`
-- `lockWorkspace(workspaceId, options)`
+- `createRepository({ workspaces, workspaceMemberships })`
 Local functions
 - `normalizeWorkspaceRecord(payload = null)`
+- `byId(left, right)`
 
 ### `src/server/common/services/workspaceDirectoryService.js`
 Exports
@@ -136,6 +136,7 @@ Exports
 - `type WorkspaceMembersService`
 - `type WorkspacePendingInvitationsService`
 - `type WorkspaceSettingsService`
+- `type WorkspacesResources`
 - `type WorkspacesRepository`
 - `type WorkspaceMembershipsRepository`
 - `type WorkspaceInvitesRepository`
@@ -229,7 +230,7 @@ Exports
 
 ### `src/server/workspaceSettings/workspaceSettingsRepository.js`
 Exports
-- `createRepository({ api, defaultInvitesEnabled, defaultColorSettings })`
+- `createRepository({ workspaceSettings, defaultInvitesEnabled, defaultColorSettings })`
 Local functions
 - `buildDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings)`
 
@@ -247,7 +248,6 @@ Exports
 - `buildWorkspaceName`
 - `createWorkspaceRecords`
 - `createWorkspacesRuntime`
-- `installWorkspaceResources`
 - `noInviteAcceptanceParticipant`
 - `renderDefaultWorkspaceInviteEmail`
 - `unconfiguredWorkspaceInviteMailer`
@@ -260,9 +260,8 @@ Local functions
 
 ### `src/server/workspacesRuntime.js`
 Exports
-- `createWorkspaceRecords(jsonRestApi)`
-- `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, personalWorkspaceName, jsonRestApi, userProfiles, userSettings, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
-- `installWorkspaceResources(jsonRestApi)`
+- `createWorkspaceRecords(resources)`
+- `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, personalWorkspaceName, resources, userProfiles, userSettings, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
 Local functions
 - `requirePositiveInteger(value, label)`
 - `requireBoolean(value, label)`
