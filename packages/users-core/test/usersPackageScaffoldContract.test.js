@@ -4,6 +4,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import packageJson from "../package.json" with { type: "json" };
+import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const patternRoot = path.join(packageRoot, "patterns", "user-administration-server");
@@ -16,6 +17,7 @@ test("users-core publishes agent-readable administration patterns and package-ow
   assert.match(pattern, /defineCrudJsonApiFeature\(\)/);
   assert.match(pattern, /Workspace operations are scoped before repository access/);
   assert.match(pattern, /null\/cleared fields/);
+  assert.match(pattern, /defineCrudContract\(userProfileResource,/);
   assert.doesNotMatch(pattern, /createCrudJsonApiModule/);
 });
 
@@ -65,16 +67,25 @@ test("workspace user administration example takes workspaces-core's workspace CR
   assert.doesNotMatch(feature, /\.make\(|\.singleton\(|containerToken|repositoryToken|serviceToken/);
 });
 
-test("both user administration variants stay read-only and canonical", async () => {
+test("both user administration variants stay read-only on users-core's one users table resource", async () => {
   for (const packageName of ["users", "users-workspace"]) {
-    const resourceModule = await import(pathToFileURL(
-      path.join(patternRoot, "example", "packages", packageName, "src", "shared", "userResource.js")
-    ).href);
-    const { userCrud, userResource } = resourceModule;
+    const packageRootPath = path.join(patternRoot, "example", "packages", packageName);
+    const crudModulePath = path.join(packageRootPath, "src", "shared", "userCrud.js");
+    const crudModule = await import(pathToFileURL(crudModulePath).href);
+    const { userCrud } = crudModule;
+    const manifest = JSON.parse(await readFile(path.join(packageRootPath, "package.json"), "utf8"));
 
+    assert.deepEqual(Object.keys(crudModule), ["userCrud"]);
+    assert.equal(userCrud.resource, userProfileResource);
+    assert.equal(userCrud.namespace, "users");
     assert.deepEqual(Object.keys(userCrud.operations), ["list", "view"]);
     assert.equal(Object.hasOwn(userCrud.operations, "create"), false);
-    assert.equal(userCrud.resource, userResource);
-    assert.equal(userResource.schema.updatedAt?.storage?.writeSerializer, "datetime-utc");
+    assert.deepEqual(
+      Object.keys(userCrud.operations.view.output.schema.getFieldDefinitions()).sort(),
+      ["createdAt", "displayName", "email", "id", "updatedAt", "username"]
+    );
+    assert.doesNotMatch(await readFile(crudModulePath, "utf8"), /defineTableResource/);
+    assert.ok(manifest.jskit.capabilities.requires.includes("users.profiles"));
+    assert.equal(manifest.dependencies["@jskit-ai/users-core"], packageJson.version);
   }
 });
