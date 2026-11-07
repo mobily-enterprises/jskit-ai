@@ -260,29 +260,29 @@ Build a routed CRUD user interface as thin application pages over JSKIT's shared
 - Owner: `@jskit-ai/http-web@0.2.19`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/crud/crud-screen-set/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/crud/crud-screen-set/example/)
-- Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-crud-core`
+- Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
 ## JSON API CRUD resource package
 
-Build a complete application-owned CRUD server package from a migration, resource contract, and one framework module declaration.
+Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.
 
 - Id: `crud/json-api-resource-package`
 - Keywords: `actions`, `crud`, `database`, `json-api`, `migration`, `permissions`, `provider`, `repository`, `routes`, `service`
 - Owner: `@jskit-ai/crud-core@0.2.12`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/crud/json-api-resource-package/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/crud/json-api-resource-package/example/)
-- Requires: `@jskit-ai/crud-core`, `@jskit-ai/resource-crud-core`
+- Requires: `@jskit-ai/crud-core`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
-## Owner-scoped CRUD resource contract
+## Owner-scoped table resource and CRUD contract
 
-Define an authenticated application resource whose records belong to the current user.
+Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.
 
 - Id: `crud/resource-contract`
-- Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `user`
+- Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `table`, `user`
 - Owner: `@jskit-ai/resource-crud-core@0.1.202`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/crud/resource-contract/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/crud/resource-contract/example/)
-- Requires: `@jskit-ai/resource-crud-core`
+- Requires: `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
 ## MySQL application database
 

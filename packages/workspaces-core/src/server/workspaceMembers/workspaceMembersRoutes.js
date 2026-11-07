@@ -6,7 +6,7 @@ import {
   WORKSPACE_MEMBER_ROLE_UPDATE_TRANSPORT,
   WORKSPACE_ROLE_CATALOG_TRANSPORT
 } from "../../shared/jsonApiTransports.js";
-import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
+import { workspaceMembersContract } from "../../shared/resources/workspaceMembersResource.js";
 import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
 import { resolveWorkspaceRoutePath } from "../support/workspaceRoutePaths.js";
 import {
@@ -37,7 +37,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       params: workspaceSlugParamsValidator,
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_ROLE_CATALOG_TRANSPORT,
-        output: workspaceMembersResource.operations.rolesList.output,
+        output: workspaceMembersContract.operations.rolesList.output,
         outputKind: "record",
         getRecordId: resolveWorkspaceRecordId
       })
@@ -68,7 +68,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       params: workspaceSlugParamsValidator,
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_MEMBERS_TRANSPORT,
-        output: workspaceMembersResource.operations.membersList.output,
+        output: workspaceMembersContract.operations.membersList.output,
         outputKind: "record",
         getRecordId: resolveWorkspaceRecordId
       })
@@ -99,8 +99,8 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       params: routeParamsValidator,
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_MEMBER_ROLE_UPDATE_TRANSPORT,
-        body: workspaceMembersResource.operations.updateMemberRole.body,
-        output: workspaceMembersResource.operations.updateMemberRole.output,
+        body: workspaceMembersContract.operations.updateMemberRole.body,
+        output: workspaceMembersContract.operations.updateMemberRole.output,
         outputKind: "record",
         getRecordId: resolveWorkspaceRecordId,
         includeValidation400: true
@@ -134,7 +134,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       params: routeParamsValidator,
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_MEMBERS_TRANSPORT,
-        output: workspaceMembersResource.operations.removeMember.output,
+        output: workspaceMembersContract.operations.removeMember.output,
         outputKind: "record",
         getRecordId: resolveWorkspaceRecordId
       })
@@ -167,7 +167,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
         params: workspaceSlugParamsValidator,
         ...createJsonApiResourceRouteContract({
           ...WORKSPACE_INVITES_TRANSPORT,
-          output: workspaceMembersResource.operations.invitesList.output,
+          output: workspaceMembersContract.operations.invitesList.output,
           outputKind: "record",
           getRecordId: resolveWorkspaceRecordId
         })
@@ -198,8 +198,8 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
         params: workspaceSlugParamsValidator,
         ...createJsonApiResourceRouteContract({
           ...WORKSPACE_INVITE_CREATE_TRANSPORT,
-          body: workspaceMembersResource.operations.createInvite.body,
-          output: workspaceMembersResource.operations.createInvite.output,
+          body: workspaceMembersContract.operations.createInvite.body,
+          output: workspaceMembersContract.operations.createInvite.output,
           outputKind: "record",
           getRecordId: resolveWorkspaceRecordId,
           includeValidation400: true
@@ -233,7 +233,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
         params: routeParamsValidator,
         ...createJsonApiResourceRouteContract({
           ...WORKSPACE_INVITES_TRANSPORT,
-          output: workspaceMembersResource.operations.revokeInvite.output,
+          output: workspaceMembersContract.operations.revokeInvite.output,
           outputKind: "record",
           getRecordId: resolveWorkspaceRecordId
         })

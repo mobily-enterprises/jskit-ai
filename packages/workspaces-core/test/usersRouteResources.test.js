@@ -5,10 +5,10 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
-import { workspaceMembersResource } from "../src/shared/resources/workspaceMembersResource.js";
-import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
-import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
-import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
+import { workspaceMembersContract } from "../src/shared/resources/workspaceMembersResource.js";
+import { workspacePendingInvitationsContract } from "../src/shared/resources/workspacePendingInvitationsResource.js";
+import { workspaceCrud } from "../src/shared/resources/workspaceResource.js";
+import { workspaceSettingsCrud } from "../src/shared/resources/workspaceSettingsResource.js";
 
 function assertResourceShape(resource, label) {
   assert.ok(resource, `${label} resource must exist.`);
@@ -48,10 +48,10 @@ function assertResourceShape(resource, label) {
   assert.ok(Array.isArray(requiredMetadata.patch), `${label}.derivedRequired.patch must be an array.`);
 }
 
-test("workspace resources expose canonical validators", () => {
+test("workspace CRUD contracts expose canonical validators", () => {
   const resourcesByLabel = {
-    workspace: workspaceResource,
-    workspaceSettings: workspaceSettingsResource
+    workspace: workspaceCrud,
+    workspaceSettings: workspaceSettingsCrud
   };
 
   for (const [label, resource] of Object.entries(resourcesByLabel)) {
@@ -61,16 +61,16 @@ test("workspace resources expose canonical validators", () => {
 
 test("workspace settings and invite operations expose canonical validators", () => {
   const operationSpecs = [
-    { label: "workspaceMembers.rolesList", operation: workspaceMembersResource.operations.rolesList },
-    { label: "workspaceMembers.membersList", operation: workspaceMembersResource.operations.membersList },
-    { label: "workspaceMembers.updateMemberRole", operation: workspaceMembersResource.operations.updateMemberRole },
-    { label: "workspaceMembers.removeMember", operation: workspaceMembersResource.operations.removeMember },
-    { label: "workspaceMembers.invitesList", operation: workspaceMembersResource.operations.invitesList },
-    { label: "workspaceMembers.createInvite", operation: workspaceMembersResource.operations.createInvite },
-    { label: "workspaceMembers.revokeInvite", operation: workspaceMembersResource.operations.revokeInvite },
-    { label: "workspaceMembers.redeemInvite", operation: workspaceMembersResource.operations.redeemInvite },
-    { label: "workspacePendingInvitations.resolve", operation: workspacePendingInvitationsResource.operations.resolve },
-    { label: "workspacePendingInvitations.list", operation: workspacePendingInvitationsResource.operations.list }
+    { label: "workspaceMembers.rolesList", operation: workspaceMembersContract.operations.rolesList },
+    { label: "workspaceMembers.membersList", operation: workspaceMembersContract.operations.membersList },
+    { label: "workspaceMembers.updateMemberRole", operation: workspaceMembersContract.operations.updateMemberRole },
+    { label: "workspaceMembers.removeMember", operation: workspaceMembersContract.operations.removeMember },
+    { label: "workspaceMembers.invitesList", operation: workspaceMembersContract.operations.invitesList },
+    { label: "workspaceMembers.createInvite", operation: workspaceMembersContract.operations.createInvite },
+    { label: "workspaceMembers.revokeInvite", operation: workspaceMembersContract.operations.revokeInvite },
+    { label: "workspaceMembers.redeemInvite", operation: workspaceMembersContract.operations.redeemInvite },
+    { label: "workspacePendingInvitations.resolve", operation: workspacePendingInvitationsContract.operations.resolve },
+    { label: "workspacePendingInvitations.list", operation: workspacePendingInvitationsContract.operations.list }
   ];
 
   for (const { label, operation } of operationSpecs) {

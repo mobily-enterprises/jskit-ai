@@ -3,7 +3,7 @@ id: crud/crud-screen-set
 title: CRUD list, view, create, and edit screens
 summary: Build a routed CRUD user interface as thin application pages over JSKIT's shared screen components and composables.
 keywords: actions, add, crud, delete, edit, filters, list, material, routes, view, vue
-requires: @jskit-ai/http-web, @jskit-ai/resource-crud-core
+requires: @jskit-ai/http-web, @jskit-ai/resource-crud-core, @jskit-ai/resource-core
 ---
 
 # CRUD list, view, create, and edit screens
@@ -27,7 +27,7 @@ supporting detail content; those are public extension seams.
 
 Decide which operations exist, the route hierarchy, record title, visible
 fields, create/edit participation, destructive confirmation language, access
-surface, filters, and domain actions. The resource contract and product intent
+surface, filters, and domain actions. The CRUD contract and product intent
 are authoritative. Do not derive these decisions from a live table or a field
 questionnaire.
 
@@ -49,7 +49,7 @@ questionnaire.
   history entry, so neither Up nor Back reopens it.
 - View fields are two-line list items with the value first:
   `<v-list-item :title="record.author" subtitle="Author" />`.
-- Transport and validators come from the shared resource contract.
+- Transport and validators come from the shared CRUD contract.
 - Initial visible loading uses structure-matching skeletons; pending buttons use
   stable disabled labels, never spinners.
 - Resource-load errors stay inside the screen with retry. Command success and
@@ -71,15 +71,18 @@ questionnaire.
 Use `CrudListScreen`, `CrudViewScreen`, `CrudAddEditScreen`, and
 `CrudDeleteAction` with their matching composables from `@jskit-ai/http-web`.
 Use `defineCrudListFilters()`, `defineCrudListRowActions()`, and
-`defineCrudListBulkActions()` for optional list extensions. The resource comes
-from `defineCrudResource()` in `@jskit-ai/resource-crud-core`.
+`defineCrudListBulkActions()` for optional list extensions. Screens take the
+CRUD contract from `defineCrudContract()` in `@jskit-ai/resource-crud-core`,
+built on the table resource from `defineTableResource()` in
+`@jskit-ai/resource-core`.
 
 ## Example files
 
 `example/books/` contains concrete list, view, new, and edit pages for the
-owner-scoped `bookResource` pattern. `BookFormFields.vue` and `formFields.js`
-show the small product-owned form seam. `listExtensions.js` makes optional
-filters and actions explicit without adding empty screen machinery elsewhere.
+owner-scoped `bookResource` table resource and its `bookCrud` contract.
+`BookFormFields.vue` and `formFields.js` show the small product-owned form
+seam. `listExtensions.js` makes optional filters and actions explicit without
+adding empty screen machinery elsewhere.
 
 ## Variation points
 

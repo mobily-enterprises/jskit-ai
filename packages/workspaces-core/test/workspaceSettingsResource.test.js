@@ -5,7 +5,7 @@ import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/
 import { resolveWorkspaceThemePalettes } from "@jskit-ai/workspaces-core/shared/settings";
 import {
   WORKSPACE_SETTINGS_FIELD_KEYS,
-  workspaceSettingsResource
+  workspaceSettingsCrud
 } from "../src/shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 
@@ -50,7 +50,7 @@ function parseBody(operation, payload = {}) {
 }
 
 test("workspace settings patch body validates valid payload without reshaping it", async () => {
-  const parsed = await parseBody(workspaceSettingsResource.operations.patch, {
+  const parsed = await parseBody(workspaceSettingsCrud.operations.patch, {
     lightPrimaryColor: "#0f6b54",
     lightSecondaryColor: "#0b4d3c",
     lightSurfaceColor: "#eef5f3",
@@ -78,7 +78,7 @@ test("workspace settings patch body validates valid payload without reshaping it
 });
 
 test("workspace settings patch body rejects unknown fields", async () => {
-  const parsed = await parseBody(workspaceSettingsResource.operations.patch, {
+  const parsed = await parseBody(workspaceSettingsCrud.operations.patch, {
     avatarUrl: "https://example.com/avatar.png"
   });
 
@@ -87,7 +87,7 @@ test("workspace settings patch body rejects unknown fields", async () => {
 });
 
 test("workspace settings create body requires full-write fields", async () => {
-  const parsed = await parseBody(workspaceSettingsResource.operations.create, {});
+  const parsed = await parseBody(workspaceSettingsCrud.operations.create, {});
 
   assert.equal(parsed.ok, false);
   assert.equal(parsed.fieldErrors.lightPrimaryColor, "Light primary color is required.");
@@ -102,7 +102,7 @@ test("workspace settings create body requires full-write fields", async () => {
 });
 
 test("workspace settings output schema accepts already-shaped service payloads", () => {
-  const outputSchema = resolveSchemaTransportSchemaDefinition(workspaceSettingsResource.operations.view.output, {
+  const outputSchema = resolveSchemaTransportSchemaDefinition(workspaceSettingsCrud.operations.view.output, {
     context: "workspaceSettings.view.output",
     defaultMode: "replace"
   });

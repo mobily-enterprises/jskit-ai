@@ -1,5 +1,5 @@
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
-import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
+import { consoleSettingsContract } from "../../shared/resources/consoleSettingsResource.js";
 
 function resolveConsoleSettingsRecordId() {
   return "console-settings";
@@ -20,7 +20,7 @@ function registerConsoleSettingsRoutes(router) {
       ...createJsonApiResourceRouteContract({
         requestType: "console-settings",
         responseType: "console-settings",
-        output: consoleSettingsResource.operations.view.output,
+        output: consoleSettingsContract.operations.view.output,
         outputKind: "record",
         getRecordId: resolveConsoleSettingsRecordId
       })
@@ -46,8 +46,8 @@ function registerConsoleSettingsRoutes(router) {
       ...createJsonApiResourceRouteContract({
         requestType: "console-settings",
         responseType: "console-settings",
-        body: consoleSettingsResource.operations.replace.body,
-        output: consoleSettingsResource.operations.view.output,
+        body: consoleSettingsContract.operations.replace.body,
+        output: consoleSettingsContract.operations.view.output,
         outputKind: "record",
         getRecordId: resolveConsoleSettingsRecordId,
         includeValidation400: true

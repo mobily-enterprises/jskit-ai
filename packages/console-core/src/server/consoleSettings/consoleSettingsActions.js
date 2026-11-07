@@ -2,7 +2,7 @@ import {
   emptyInputValidator
 } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
-import { consoleSettingsResource } from "../../shared/resources/consoleSettingsResource.js";
+import { consoleSettingsContract } from "../../shared/resources/consoleSettingsResource.js";
 
 /** @param {{ consoleSettingsService: import("../types.js").ConsoleSettingsService }} dependencies */
 function createConsoleSettingsActions({ consoleSettingsService }) {
@@ -34,7 +34,7 @@ function createConsoleSettingsActions({ consoleSettingsService }) {
       permission: {
         require: "authenticated"
       },
-      input: consoleSettingsResource.operations.replace.body,
+      input: consoleSettingsContract.operations.replace.body,
       output: null,
       extensions: {
         assistant: { exclude: "Application-owned console settings require an explicit assistant field allowlist; arbitrary configuration is not model-safe." },

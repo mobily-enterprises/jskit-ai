@@ -1,1 +1,1 @@
-export { resource } from "./userResource.js";
+export { userCrud, userResource } from "./userResource.js";

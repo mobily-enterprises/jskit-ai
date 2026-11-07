@@ -70,7 +70,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
 
 /**
  * The lookup container key a resource's contract declares, or "" when it declares none.
- * @param {import("./types.js").CrudResourceDefinition} resource
+ * @param {import("./types.js").CrudContract} resource
  */
 function resolveDeclaredLookupContainerKey(resource) {
   return normalizeText(resource.contract?.lookup?.containerKey);
