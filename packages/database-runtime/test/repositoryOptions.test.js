@@ -2,12 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   isDeadlockError,
-  joinOrOpenTransaction,
-  lockScopedRecordId,
   normalizeDbRecordId,
   parseJsonValue,
   resolveInsertedRecordId,
-  runInTransaction
+  retryDeadlocks
 } from "../src/shared/repositoryOptions.js";
 
 function deadlock() {
@@ -15,26 +13,6 @@ function deadlock() {
     code: "ER_LOCK_DEADLOCK",
     errno: 1213
   });
-}
-
-function fakeKnex({ isTransaction = false } = {}) {
-  return Object.assign(() => {}, { isTransaction, transaction: async (callback) => callback("trx") });
-}
-
-function fakeLockTransaction(row = null) {
-  const calls = [];
-  const query = {
-    select(value) { calls.push(["select", value]); return this; },
-    where(key, value) { calls.push(["where", key, value]); return this; },
-    andWhere(key, value) { calls.push(["andWhere", key, value]); return this; },
-    forUpdate() { calls.push(["forUpdate"]); return this; },
-    async first() { calls.push(["first"]); return row; }
-  };
-  const trx = (table) => {
-    calls.push(["table", table]);
-    return query;
-  };
-  return { calls, trx };
 }
 
 test("normalizeDbRecordId preserves canonical DB ids and rejects unsafe JS numbers", () => {
@@ -62,36 +40,6 @@ test("parseJsonValue parses stored JSON and falls back for empty, null or invali
   assert.deepEqual(parseJsonValue(undefined, null, { fallback: [] }), []);
 });
 
-test("lockScopedRecordId locks an exact record inside its owner scope", async () => {
-  const { calls, trx } = fakeLockTransaction({ id: "42" });
-  assert.equal(await lockScopedRecordId({
-    trx,
-    tableName: "daycare_events",
-    recordId: 42,
-    scopeId: 7
-  }), "42");
-  assert.deepEqual(calls, [
-    ["table", "daycare_events"],
-    ["select", "id"],
-    ["where", "id", "42"],
-    ["andWhere", "workspace_id", "7"],
-    ["forUpdate"],
-    ["first"]
-  ]);
-});
-
-test("lockScopedRecordId rejects missing transactions and unsafe identifiers", async () => {
-  await assert.rejects(
-    () => lockScopedRecordId({ tableName: "records", recordId: 1, scopeId: 1 }),
-    /requires a transaction/u
-  );
-  const { trx } = fakeLockTransaction();
-  await assert.rejects(
-    () => lockScopedRecordId({ trx, tableName: "records; drop table", recordId: 1, scopeId: 1 }),
-    /safe SQL identifier/u
-  );
-});
-
 test("isDeadlockError recognizes deadlock victims through causes, never a committed write", () => {
   assert.equal(isDeadlockError(deadlock()), true);
   assert.equal(isDeadlockError({ errno: 1213 }), true);
@@ -107,46 +55,30 @@ test("isDeadlockError recognizes deadlock victims through causes, never a commit
   }
 });
 
-test("runInTransaction runs a deadlock victim again and returns the clean run", async () => {
+test("retryDeadlocks runs a deadlock victim again and returns the clean run", async () => {
   let attempts = 0;
-  const result = await runInTransaction(fakeKnex(), async (trx) => {
+  const result = await retryDeadlocks(async () => {
     attempts += 1;
     if (attempts < 3) {
       throw deadlock();
     }
-    return trx;
+    return "clean";
   });
-  assert.equal(result, "trx");
+  assert.equal(result, "clean");
   assert.equal(attempts, 3);
 });
 
-test("runInTransaction retries only deadlocks of the outermost transaction, a few times", async () => {
-  async function attemptsUntilRejected(knex, error, options) {
+test("retryDeadlocks runs again only deadlock victims, a few times", async () => {
+  async function attemptsUntilRejected(error, options) {
     let attempts = 0;
-    await assert.rejects(runInTransaction(knex, async () => {
+    await assert.rejects(retryDeadlocks(async () => {
       attempts += 1;
       throw error;
     }, options), error);
     return attempts;
   }
-  const failure = new Error("Validation failed");
-  assert.equal(await attemptsUntilRejected(fakeKnex(), failure), 1);
+  assert.equal(await attemptsUntilRejected(new Error("Validation failed")), 1);
   const victim = deadlock();
-  assert.equal(await attemptsUntilRejected(fakeKnex(), victim), 4);
-  assert.equal(await attemptsUntilRejected(fakeKnex(), victim, { retries: 0 }), 1);
-  assert.equal(await attemptsUntilRejected(fakeKnex({ isTransaction: true }), victim), 1, "A savepoint leaves the retry to its outermost transaction");
-});
-
-test("joinOrOpenTransaction runs work in the caller's transaction, else in one it opens", async () => {
-  const opened = [];
-  const withTransaction = async (work) => {
-    opened.push("opened");
-    return work("new-trx");
-  };
-  const work = async (trx) => `ran in ${trx}`;
-
-  assert.equal(await joinOrOpenTransaction({ trx: "caller-trx" }, withTransaction, work), "ran in caller-trx");
-  assert.deepEqual(opened, []);
-  assert.equal(await joinOrOpenTransaction({}, withTransaction, work), "ran in new-trx");
-  assert.deepEqual(opened, ["opened"]);
+  assert.equal(await attemptsUntilRejected(victim), 4);
+  assert.equal(await attemptsUntilRejected(victim, { retries: 0 }), 1);
 });

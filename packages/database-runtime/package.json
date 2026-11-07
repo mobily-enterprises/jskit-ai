@@ -17,8 +17,7 @@
     "./shared/databaseClient": "./src/shared/databaseClient.js",
     "./shared/dialect": "./src/shared/dialect.js",
     "./shared/duplicateEntry": "./src/shared/duplicateEntry.js",
-    "./shared/repositoryOptions": "./src/shared/repositoryOptions.js",
-    "./shared/visibility": "./src/shared/visibility.js"
+    "./shared/repositoryOptions": "./src/shared/repositoryOptions.js"
   },
   "dependencies": {
     "knex": "^3.1.0"
@@ -72,7 +71,7 @@
           },
           {
             "subpath": "./shared",
-            "summary": "Exports shared repository helpers (transactions, record ids, JSON columns, visibility, duplicate-entry detection and date/time serialization)."
+            "summary": "Exports shared database helpers (deadlock retries, record ids, JSON columns, duplicate-entry detection and date/time serialization)."
           },
           {
             "subpath": "./server/types",
