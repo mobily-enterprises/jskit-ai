@@ -267,8 +267,8 @@ test("a message record has a fixed shape, and seq counts up per conversation", a
   requireTestDatabase(process.env);
   const conversations = store.conversations;
   const messages = store.messages;
-  assert.deepEqual(Object.keys(messages).sort(), ["countByConversationScope", "create", "findById", "lastSequence",
-    "listByConversationScope", "transaction", "updateById", "withTransaction"]);
+  assert.deepEqual(Object.keys(messages).sort(), ["countByConversationScope", "create", "findById", "findNewestAssistantByUserId",
+    "lastSequence", "listByConversationScope", "transaction", "updateById", "withTransaction"]);
   const first = await conversations.create({ surfaceId: "home", createdByUserId: 61 });
   const second = await conversations.create({ surfaceId: "home", createdByUserId: 61 });
   await assert.rejects(messages.create({ role: "user" }), { name: "TypeError", message: "messagesRepository.create requires conversationId." });
@@ -334,6 +334,41 @@ test("messages are listed and counted in seq order within a conversation and wor
   assert.equal((await messages.listByConversationScope(crowd.id)).length, 200, "200 a page by default");
   assert.equal((await messages.listByConversationScope(crowd.id, {}, { pageSize: 1000 })).length, 500, "at most 500");
   assert.equal(await messages.countByConversationScope(crowd.id), 520);
+});
+
+test("findNewestAssistantByUserId answers the newest assistant message in any of one user's conversations, in two reads", async () => {
+  requireTestDatabase(process.env);
+  const conversations = store.conversations;
+  const messages = store.messages;
+  const home = await conversations.create({ surfaceId: "home", createdByUserId: 81 });
+  const workspaceOne = await conversations.create({ surfaceId: "admin", workspaceId: 5, createdByUserId: 81 });
+  const someoneElse = await conversations.create({ surfaceId: "home", createdByUserId: 82 });
+  assert.equal(await messages.findNewestAssistantByUserId(81), null, "no assistant message yet");
+
+  await messages.create({ conversationId: home.id, role: "assistant", contentText: "older reply", createdAt: "2026-03-01T10:00:00.000Z" });
+  const reply = await messages.create({ conversationId: workspaceOne.id, workspaceId: 5, role: "assistant", contentText: "newest reply",
+    createdAt: "2026-03-02T10:00:00.000Z" });
+  const toolCall = await messages.create({ conversationId: workspaceOne.id, workspaceId: 5, role: "assistant", kind: "tool_call",
+    createdAt: "2026-03-02T10:00:00.000Z" });
+  await messages.create({ conversationId: home.id, role: "user", contentText: "a later question", createdAt: "2026-03-03T10:00:00.000Z" });
+  await messages.create({ conversationId: someoneElse.id, role: "assistant", contentText: "not theirs", createdAt: "2026-03-04T10:00:00.000Z" });
+
+  const statements = [];
+  const listener = (query) => statements.push(query.sql);
+  knex.on("query", listener);
+  let newest;
+  try {
+    newest = await messages.findNewestAssistantByUserId("81");
+  } finally {
+    knex.off("query", listener);
+  }
+  // The same createdAt: the higher id is newer.
+  assert.deepEqual(newest, toolCall);
+  assert.equal(statements.length, 2);
+  assert.deepEqual(await messages.findNewestAssistantByUserId(81, { kind: " Chat " }), reply);
+  assert.equal((await messages.findNewestAssistantByUserId(82)).contentText, "not theirs");
+  assert.equal(await messages.findNewestAssistantByUserId(83), null, "a user without conversations");
+  assert.equal(await messages.findNewestAssistantByUserId("nope"), null);
 });
 
 test("updateById changes a message's text and metadata only", async () => {

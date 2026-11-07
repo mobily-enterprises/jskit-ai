@@ -21,7 +21,7 @@ test("assistant-runtime repositories expose withTransaction", async () => {
   const repositories = [
     createAssistantConfigRepository({ assistantConfig: createHandleStub(), systemContext }),
     createConversationsRepository({ conversations: createHandleStub(), systemContext }),
-    createMessagesRepository({ messages: createHandleStub(), systemContext })
+    createMessagesRepository({ messages: createHandleStub(), conversations: createHandleStub(), systemContext })
   ];
 
   for (const repository of repositories) {
