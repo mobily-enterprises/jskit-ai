@@ -1,4 +1,5 @@
 import { normalizeSingleSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
+import { storedTimestamps } from "@jskit-ai/resource-core/shared/tableResource";
 import {
   isRecord,
   normalizeObject,
@@ -288,20 +289,22 @@ function normalizeCrudFieldOperations(fieldKey, entry) {
  * The operations a schema field takes part in. The field's entry in the CRUD
  * contract's `fields` always wins. A field without one takes the default: none
  * when it is `primary: true` (every record output already carries its id) or
- * `hidden: true`, output only when it is `readOnly: true`, and otherwise
- * output, create (required when the field is `required: true`) and patch.
+ * `hidden: true`, output only when it is `readOnly: true` or a stored
+ * timestamp the handle stamps (storedTimestamps), and otherwise output, create
+ * (required when the field is `required: true`) and patch.
  * @param {Record<string, any>} fieldDefinition
  * @param {Record<string, unknown> | undefined} fieldOperations
+ * @param {boolean} stamped Whether the field is a stored timestamp.
  * @returns {Record<string, unknown>}
  */
-function resolveCrudFieldOperations(fieldDefinition, fieldOperations) {
+function resolveCrudFieldOperations(fieldDefinition, fieldOperations, stamped) {
   if (fieldOperations !== undefined) {
     return fieldOperations;
   }
   if (fieldDefinition.primary === true || fieldDefinition.hidden === true) {
     return {};
   }
-  if (fieldDefinition.readOnly === true) {
+  if (fieldDefinition.readOnly === true || stamped) {
     return { output: { required: true } };
   }
   return {
@@ -320,12 +323,14 @@ function resolveCrudFieldOperations(fieldDefinition, fieldOperations) {
  */
 function buildCrudOperationSchemaFields(fields = {}, operationName = "", fieldOperations = {}) {
   const definitions = {};
+  const stamped = storedTimestamps(fields);
 
   for (const [fieldKey, fieldDefinition] of Object.entries(fields)) {
     if (!isRecord(fieldDefinition)) {
       continue;
     }
-    const operationConfig = resolveCrudFieldOperations(fieldDefinition, fieldOperations[fieldKey])[operationName];
+    const operations = resolveCrudFieldOperations(fieldDefinition, fieldOperations[fieldKey], stamped.includes(fieldKey));
+    const operationConfig = operations[operationName];
     if (!operationConfig) {
       continue;
     }

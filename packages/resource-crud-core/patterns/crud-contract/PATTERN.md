@@ -79,20 +79,20 @@ that has no entry takes the default:
 | `primary: true` | `{}`: no operation; every record output already carries its `id` |
 | `hidden: true` | `{}`: no operation |
 | `readOnly: true` | `{ output: { required: true } }` |
+| `createdAt` or `updatedAt` stored as a `dateTime` | `{ output: { required: true } }`: the handle stamps them |
 | any other field | `{ output: { required: true }, create: { required: <the field's required> }, patch: { required: false } }` |
 
 So a `required: true` field is required on create, and any other field is
 optional there. An entry you write always wins, for example
 `notes: { output: "optional", create: "optional", patch: "optional" }` for a
 field that is optional everywhere. Write an entry only where it differs from
-the default; the example's timestamps are output only:
+the default.
 
-```js
-fields: {
-  createdAt: { output: "required" },
-  updatedAt: { output: "required" }
-}
-```
+A stored `createdAt` or `updatedAt` is output only, and a contract that lets a
+request write one (a `create`, `patch` or `replace` entry, or an explicit body
+that takes it) is refused: the handle stamps `createdAt` on a create and
+`updatedAt` on every write, replacing what a request sends. Only a system
+context, as an import uses, sets its own.
 
 A lookup field (`lookup: "<namespace>"`) is the table resource's: the
 `database/table-resource` pattern lists what it expands to.

@@ -164,7 +164,12 @@ test("the CRUD service's writes are stamped with createdAt and updatedAt when th
   await service.patch(id, { title: "Second" }, {});
   assert.deepEqual(await stored(), { created_at: "2026-11-08 01:02:03.000", updated_at: "2026-11-08 05:06:07.000" });
 
-  // A create that sets its own createdAt keeps it.
-  const imported = await service.create({ title: "Imported", createdAt: "2020-01-02T03:04:05.000Z" }, {});
-  assert.equal((await knex("memos").where({ id: imported.value.data.id }).first("created_at")).created_at, "2020-01-02 03:04:05.000");
+  // A request, which carries its context, cannot set them: a create body's createdAt and a patch body's updatedAt
+  // give way to the server's time.
+  const request = { context: {} };
+  const forged = await service.create({ title: "Forged", createdAt: "2020-01-02T03:04:05.000Z" }, request);
+  const forgedId = forged.value.data.id;
+  await service.patch(forgedId, { title: "Forged again", updatedAt: "2020-01-02T03:04:05.000Z" }, request);
+  assert.deepEqual(await knex("memos").where({ id: forgedId }).first("created_at", "updated_at"),
+    { created_at: "2026-11-08 05:06:07.000", updated_at: "2026-11-08 05:06:07.000" });
 });
