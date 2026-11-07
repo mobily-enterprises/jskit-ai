@@ -252,7 +252,7 @@ Exports
 Exports
 - `WorkspacesIntegrationsProvider`
 Local functions
-- `resolveWorkspaceRealtimeScopes(workspaceMemberships, actorId)`
+- `resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds)`
 
 ### `src/server/workspacesRuntime.js`
 Exports

@@ -76,6 +76,7 @@ Exports
 - `type RuntimeDatabase`
 - `type RuntimeLogger`
 - `type ActorRoomsResolver`
+- `type ActorsRoomsResolver`
 - `type AudienceContributors`
 Local functions
 - `flattenEntries(value)`
@@ -107,16 +108,17 @@ Exports
 
 ### `src/server/realtimeDelivery.js`
 Exports
-- `createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorRooms } })`
+- `createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorsRooms } })`
 - `matchesRealtimeEvent(event)`
 - `type AuthService`
 - `type ActorRoomsResolver`
+- `type ActorsRoomsResolver`
 - `type AudienceContributors`
 Local functions
 - `publicRealtimePayload(event)`
-- `valueAsKey(value)`
-- `sharedWithinPass(load, keyOf = valueAsKey)`
-- `createPassChecks(authService, resolveActorRooms)`
+- `sharedWithinPass(load, keyOf)`
+- `createPassChecks(authService, resolveActorsRooms)`
+- `rememberedActorId(socket)`
 
 ### `src/server/RealtimeProvider.js`
 Exports
@@ -149,6 +151,7 @@ Exports
 Exports
 - `type RuntimeRealtime`
 - `type ActorRoomsResolver`
+- `type ActorsRoomsResolver`
 - `type AudienceContributors`
 - `type RealtimeAudienceContributor`
 

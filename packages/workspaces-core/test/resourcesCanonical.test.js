@@ -63,9 +63,11 @@ test("workspaces-core repository filters are declared on canonical resources", (
   assert.equal(workspaceResource.searchSchema.slugs.filterOperator, "in");
   assert.equal(workspaceResource.searchSchema.owner.actualField, "owner_user_id");
 
-  assert.deepEqual(Object.keys(workspaceMembershipsResource.searchSchema), ["id", "workspace", "user", "status"]);
+  assert.deepEqual(Object.keys(workspaceMembershipsResource.searchSchema), ["id", "workspace", "user", "users", "status"]);
   assert.equal(workspaceMembershipsResource.searchSchema.workspace.actualField, "workspace_id");
   assert.equal(workspaceMembershipsResource.searchSchema.user.actualField, "user_id");
+  assert.equal(workspaceMembershipsResource.searchSchema.users.actualField, "user_id");
+  assert.equal(workspaceMembershipsResource.searchSchema.users.filterOperator, "in");
 
   assert.deepEqual(Object.keys(workspaceInvitesResource.searchSchema), ["id", "workspace", "email", "status", "tokenHash"]);
   assert.equal(workspaceInvitesResource.searchSchema.workspace.actualField, "workspace_id");

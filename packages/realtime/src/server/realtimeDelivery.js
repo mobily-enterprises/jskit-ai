@@ -68,14 +68,14 @@ function createPassChecks(authService, resolveActorsRooms) {
     return (await roomLookups.get(actorId)).get(actorId);
   }
 
-  return {
+  return Object.freeze({
     authenticateRequest: sharedWithinPass(
       (request) => authService.authenticateRequest(request, { syncProfile: false, refreshSession: false }),
       JSON.stringify
     ),
     lookUpActorsRooms,
-    audiences: { resolveActorRooms }
-  };
+    audiences: Object.freeze({ resolveActorRooms })
+  });
 }
 
 /**
