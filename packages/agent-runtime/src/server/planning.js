@@ -6,37 +6,31 @@ import { createTool } from "@jskit-ai/agent/server";
 // outlast summaries, goal rounds and restarts.
 //
 // The list is a message of kind "todos" ({ list: conversation id, items: [{ text, status }],
-// updatedAt }) in the messages table; the notes are the conversation's `job_notes` (jsonb array).
+// updatedAt }) among the app's messages; the notes are its conversation's job notes. Both live in
+// the app's own tables, which `planning` (AgentPlanning, types.js) reads and writes for it.
 // `post(messages)` adds messages to the chat and tells open pages; `post([])` only tells them.
-export const PLANNING_TABLES = { messages: "agent_messages", conversations: "agent_conversations" };
-
-/** The conversation's newest to-do card, if any. */
-export function currentTodos(knex, conversationId, tables = PLANNING_TABLES) {
-  return knex(tables.messages).where({ kind: "todos" }).whereRaw("body->>'list' = ?", [String(conversationId)]).orderBy("id", "desc").first();
-}
 
 /**
  * The to-do and notes tools, for one turn in one conversation; the to-do list only with `post`.
  * @param {object} options
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} options.knex
+ * @param {import("./types.js").AgentPlanning} options.planning The app's to-do cards and job notes.
  * @param {number | string} options.conversationId
  * @param {((messages: object[]) => Promise<unknown>) | null} [options.post]
- * @param {typeof PLANNING_TABLES} [options.tables]
  */
-export function planningTools({ knex, conversationId, post, tables = PLANNING_TABLES }) {
+export function planningTools({ planning, conversationId, post }) {
   async function keepNotes({ notes }) {
-    await knex(tables.conversations).where({ id: conversationId }).update({ job_notes: JSON.stringify(notes) });
+    await planning.setJobNotes(conversationId, notes);
     return { status: notes.length ? "saved" : "cleared" };
   }
 
   async function updateTodos({ items }) {
     const doing = items.filter((item) => item.status === "doing");
     if (doing.length > 1) return { error: `Only one item can be doing at a time; these are all doing: ${doing.map((item) => item.text).join("; ")}.` };
-    const card = await currentTodos(knex, conversationId, tables);
+    const card = await planning.currentTodos(conversationId);
     const body = { list: String(conversationId), items, updatedAt: new Date().toISOString() };
     // A finished list stays as it was; the next job's list is a new card.
     if (card && card.body.items.some((item) => item.status !== "done")) {
-      await knex(tables.messages).where({ id: card.id }).update({ body: knex.raw("body || ?::jsonb", [JSON.stringify(body)]) });
+      await planning.mergeTodos(card.id, body);
       await post([]);
     } else {
       await post([{ kind: "todos", role: "bot", body }]);
@@ -68,10 +62,14 @@ export function planningTools({ knex, conversationId, post, tables = PLANNING_TA
   };
 }
 
-/** The open to-do list and the notes, for the model's state note at every turn. */
-export async function planningNotes(knex, conversationId, tables = PLANNING_TABLES) {
-  const card = await currentTodos(knex, conversationId, tables);
-  const notes = (await knex(tables.conversations).where({ id: conversationId }).first("job_notes"))?.job_notes || [];
+/**
+ * The open to-do list and the notes, for the model's state note at every turn.
+ * @param {import("./types.js").AgentPlanning} planning The app's to-do cards and job notes.
+ * @param {number | string} conversationId
+ */
+export async function planningNotes(planning, conversationId) {
+  const card = await planning.currentTodos(conversationId);
+  const notes = (await planning.jobNotes(conversationId)) || [];
   const mark = { todo: "[ ]", doing: "[doing]", done: "[x]" };
   return [
     card && card.body.items.some((item) => item.status !== "done")
