@@ -277,97 +277,12 @@ A separate Feature is warranted when an operation belongs to another domain,
 not merely because a useful resource has behavior beyond list and save. Write
 it as a [typed feature](/guide/framework/typed-features).
 
-## Writes that return less
+## Writes, versions, locks and deadlocks
 
-A CRUD repository's `createDocument(payload, options)` and
-`patchDocumentById(id, patch, options)` return the full document by default:
-the write is followed by a get through the resource's row policy and its
-lookups, about four queries and a policy run per linked type. Server code that
-does not use the result passes `returning: "minimal"`, which answers
-`{ data: { type, id } }`, or `"none"`, which answers `undefined`; a missing or
-out-of-scope record still patches to `null`. `createDocuments(payloads,
-{ trx, context, returning })` creates several records in order in one
-transaction, the caller's `trx` or one it owns, so they are all created or
-none; its `returning` is `"minimal"` unless the caller asks for `"full"`, and
-its results follow the payloads. Each record is still validated and inserted
-by itself: a batch saves the read-backs and the transactions, not the inserts.
-
-## Optimistic locking
-
-A table resource whose records carry a version number names it with
-`lockVersionField`, an integer schema field over a non-null integer column
-with a starting value, such as `0`:
-
-```js
-defineTableResource({
-  name: "contracts",
-  tableName: "contracts",
-  ownership: "workspace",
-  lockVersionField: "lockVersion",
-  schema: {
-    // ...
-    lockVersion: { type: "integer", min: 0, readOnly: true, column: "lock_version" }
-  }
-});
-```
-
-The CRUD repository's
-`patchDocumentIfLockVersion(recordId, expectedLockVersion, patch, { trx, context })`
-then applies `patch` only while the record still holds `expectedLockVersion`, a
-non-negative integer, and adds one to the lock version in the same
-transaction: the caller's `trx`, or one it owns. It returns the patched document, which carries the new lock
-version, or `null` when the record does not exist or is outside the caller's
-scope. A record whose lock version has moved on rejects with a 409 coded
-`crud.document.lockVersionConflict` ("This record changed. Reload and try
-again."), and nothing is written. The patch leaves the lock field out; an app
-that wants its own wording for the conflict catches that code. A resource
-without `lockVersionField` cannot call it, and `defineTableResource()` rejects
-a `lockVersionField` that names no integer schema field.
-
-## Row locks
-
-A check-then-write that must not race another request (is the drier empty?
-then load it) reads the record with
-`getDocumentById(recordId, query, { trx, context, forUpdate: true })` inside
-`withTransaction`. It locks the record's row in that transaction before
-reading it, so another `forUpdate` read or a write of the record waits until
-the transaction ends, and the read sees the latest version on PostgreSQL; on
-MySQL and MariaDB it does when the lock is the transaction's first read of
-that row. Without a transaction `forUpdate` throws, and a value other than
-`true` or `false` throws too. SQLite runs one transaction at a time on its
-single connection, so there is no row lock to take. The CRUD service's
-`getDocumentById` passes `forUpdate` through.
-
-## Deadlock retries
-
-When the database aborts a transaction as a deadlock victim (MySQL and MariaDB
-`ER_LOCK_DEADLOCK`, errno 1213; PostgreSQL `40P01`), it rolls the whole
-transaction back, so JSKIT runs the whole transaction callback again, up to
-three more times with a short random pause. The person sees one successful
-request instead of a 500. This applies to `runInTransaction()` and
-`createWithTransaction()` from `@jskit-ai/database-runtime/shared`, to
-`transactionManager.inTransaction()`, to the seed transaction, to every JSON
-REST repository's `withTransaction()` (CRUD, users and workspaces), and to a
-CRUD `createDocument`, `patchDocumentById`, `patchDocumentIfLockVersion` or
-`deleteDocumentById` given no `trx`, which owns its own transaction. A lock wait timeout (errno 1205) is not
-retried.
-
-Only the outermost transaction retries. A call given an existing `trx`, or a
-`runInTransaction()` on a transaction, which opens a savepoint, fails at once
-and leaves the retry to the transaction that owns it.
-
-A retried callback must be safe to run again: keep HTTP calls, email, file
-uploads and other external effects out of it, before or after the transaction
-or in an outbox, as above. CRUD lifecycle `before`, `execute` and `after`
-phases are inside the transaction; `afterCommit` is not. A transaction whose
-callback cannot be repeated passes `{ retries: 0 }`:
-`runInTransaction(knex, work, { retries: 0 })`.
-
-Application code that opens transactions directly uses the same behavior through
-`runInTransaction(knex, work)` instead of `knex.transaction(work)`, or wraps any
-other transaction opener in `retryDeadlocks(() => open(work))`. `isDeadlockError(error)`
-follows `error.cause` and is false for an error that reports
-`transactionOutcome: "committed"`, because that transaction must not run again.
+Writes that skip their read-back (`returning`), optimistic locking
+(`lockVersionField`), row locks and deadlock retries belong to the table
+resource's handle: see [Data access](/guide/framework/data-access), Layers 1
+and 4 and [Transactions](/guide/framework/data-access#transactions).
 
 ## Verification
 

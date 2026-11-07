@@ -49,13 +49,13 @@ Exports
 Exports
 - `AvailabilityEngineFeature`
 
-### `patterns/feature-package/example/variations/customKnexRepository.js`
+### `patterns/feature-package/example/variations/invoiceResource.js`
 Exports
-- `createInvoiceRollup({ knex })`
+- `invoiceResource`
 
 ### `patterns/feature-package/example/variations/invoiceRollupActions.js`
 Exports
-- `ACTION_GET_ROLLUP_STATUS`
+- `ACTION_READ_MONTHLY_TOTALS`
 - `createInvoiceRollupActions({ invoiceRollup })`
 
 ### `patterns/feature-package/example/variations/InvoiceRollupFeature.js`
@@ -65,6 +65,10 @@ Exports
 ### `patterns/feature-package/example/variations/orchestratorService.js`
 Exports
 - `createAvailabilityEngine()`
+
+### `patterns/feature-package/example/variations/ownedTableRepository.js`
+Exports
+- `createInvoiceRollup({ invoices })`
 
 ### `patterns/feature-package/example/variations/types.js`
 Exports

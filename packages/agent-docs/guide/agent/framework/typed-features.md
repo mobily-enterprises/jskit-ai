@@ -58,15 +58,13 @@ Why: every feature reads the same way, top to bottom.
 // good
 const InvoicesFeature = defineFeature({
   id: "feature.invoices",
-  requires: {
-    database: "runtime.database"
-  },
+  owns: [invoiceResource],
   provides: {
     invoices: "feature.invoices"
   },
-  /** @param {{ database: import("@jskit-ai/database-runtime/server/types").RuntimeDatabase }} capabilities */
-  setup({ database }) {
-    return { invoices: createInvoices({ knex: database.knex }) };
+  /** @param {{ resources: { invoices: import("@jskit-ai/resource-runtime/server/types").ResourceHandle } }} capabilities */
+  setup({ resources }) {
+    return { invoices: createInvoices({ invoices: resources.invoices }) };
   },
   actions({ invoices }) {
     return createInvoiceActions({ invoices });
@@ -74,7 +72,7 @@ const InvoicesFeature = defineFeature({
 });
 
 // bad: the value built inline, the actions an inline array
-setup: ({ database }) => ({ invoices: { list: () => database.knex("invoices") } }),
+setup: ({ resources }) => ({ invoices: { list: (options) => resources.invoices.queryAll({}, options) } }),
 actions: ({ invoices }) => [{ id: "invoices.list", execute: () => invoices.list() }]
 ```
 
@@ -93,7 +91,8 @@ there.**
 - Hand-write a contract only for a token with several implementations (such as
   `auth.service`), in its owning package, with optional operations marked
   optional.
-- JSKIT's names: `RuntimeKnex`, `RuntimeKnexTransaction`,
+- JSKIT's names: `ResourceHandle`, `ResourceCallOptions`, `SystemContext`
+  (`@jskit-ai/resource-runtime/server/types`), `RuntimeKnex`,
   `RuntimeKnexQueryBuilder`, `RuntimeRouter`, `RuntimeLogger`, `RuntimeEnv`,
   `CrudService`, `CrudRepository`.
 
@@ -129,13 +128,13 @@ Why: the type is what turns a call into one step.
 // good
 /**
  * The invoices the feature provides.
- * @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies
+ * @param {{ invoices: import("@jskit-ai/resource-runtime/server/types").ResourceHandle }} dependencies
  */
-function createInvoices({ knex }) {
+function createInvoices({ invoices }) {
 
 // bad: untyped, read from a bag in the body
 function createInvoices(dependencies) {
-  const knex = dependencies.knex;
+  const invoices = dependencies.invoices;
 ```
 
 ### Required collaborators
@@ -583,8 +582,8 @@ async function rename(input = {}, options = {}) {
 it, destructure and use.**
 
 - An options bag whose fields are optional by contract keeps `options = {}`,
-  with no `?.` or second `|| {}` on it. Pass it on as `options`, or
-  `{ ...options, trx }` inside a transaction.
+  with no `?.` or second `|| {}` on it. Pass it on as `options`, or as the
+  `txOptions` that `withTransaction` hands its work inside a transaction.
 - A parameter or bag no caller passes is dropped and its values written in
   place. A helper's argument takes no default unless a real caller omits it,
   and a default never comes before a required parameter.
@@ -597,13 +596,13 @@ second method inside the first.
 
 ```js
 // good
-async function list(query, options = {}) {
-  return resolveRepoClient(knex, options)("invoices").where(query);
+async function list(filters, options = {}) {
+  return invoices.queryAll({ filters }, options);
 }
 
 // bad
-async function list(query = {}, options = {}) {
-  const client = options?.trx || knex;
+async function list(filters = {}, options = {}) {
+  const context = options?.context || null;
 }
 async function save(invoice, skipAudit = false) {
 ```
@@ -618,8 +617,8 @@ map shows.
 
 ```js
 // good
-function createInvoices({ knex }) {
-  async function list(query) { … }
+function createInvoices({ invoices }) {
+  async function list(filters, options) { … }
   async function send(input, options) { … }
   return Object.freeze({
     list,
@@ -685,8 +684,6 @@ helper, never by hand.**
 
 | Fact | Reader |
 | --- | --- |
-| the call's transaction, or the client to query through | `resolveTransaction(options)`, `resolveRepoClient(knex, options)` (`@jskit-ai/database-runtime/shared`) |
-| what a service hands its repository | `repositoryCallOptions(options)` (`@jskit-ai/crud-core/server/jsonApiService`), only at the repository call |
 | the signed-in user | `resolveActor(context)`, `resolveActorId(context)` |
 | a tagged result's records, or its document | `simplifyJsonApiResult(result)`, `jsonApiResultValue(result)` (`@jskit-ai/http-runtime/shared`) |
 | a collection's next-page cursor | `jsonApiNextCursor(document)` (`@jskit-ai/http-runtime/shared`) |
@@ -695,62 +692,55 @@ helper, never by hand.**
 | the workspace a request asks for, before any action context | `requestedWorkspaceScope(request)` (`@jskit-ai/workspaces-core/server/support/workspaceRouteInput`) |
 | a context's workspace id | `resolveWorkspaceScopeValue(context)` (`@jskit-ai/resource-runtime/server/resourceHost`) |
 
-Why: each reader knows every place JSKIT keeps its fact (`trx` or
-`transaction`, a tagged result's wrapper), and a hand read misses one.
+A call's transaction is not a fact to read: pass `options` on, and inside a
+transaction the `txOptions` that `withTransaction` hands its work
+([Transactions](/guide/framework/data-access#transactions)).
+
+Why: each reader knows every place JSKIT keeps its fact (a tagged result's
+wrapper, the actor in a context), and a hand read misses one.
 
 ```js
 // good
-const trx = resolveTransaction(options);
+const actorId = resolveActorId(context);
 
 // bad
-const trx = options?.trx || options?.transaction || null;
+const actorId = context?.actor?.id || context?.auth?.userId || null;
 ```
 
 ### Every row
 
-**A server-side resource query that needs every row it matches reads them
-with `queryAllJsonRestCollectionRows(resource, params, context)`
-(`@jskit-ai/resource-runtime/server/resourceHost`). A query without a
-page means "the first 20 rows".**
+**A server-side read that needs every row it matches reads them with the
+handle's `queryAll(params, options)`. A `query()` names its page size, and
+answers one page.**
 
-- json-rest-api answers a query that names no page with the resource's
-  default page, 20 rows, and says nothing about the rest. The CRUD
-  repository's `queryDocuments(query)` without a `limit` is the same first
-  page, and one with a `limit` above its `queryMaxLimit()` (100) throws,
-  because json-rest-api would answer only 100. A CRUD read of every record
-  uses the repository's `queryEveryDocument(query, options)`, which answers
-  one JSON:API document `{ data, included }` with no `limit`, `cursor` or
-  `sort`.
-- The helper reads cursor pages of 1,000 rows (json-rest-api's server-only
-  `pageSizeLimit`; a resource whose `queryMaxLimit` is larger uses that) in id
-  order until none follows, keeping the call's transaction and context, so no
-  row is skipped or repeated. Each page pays the row policy and linkage
-  queries once, so 480 rows cost 3 statements, not 15. It sets the page and
-  sort itself; sort the rows it returns.
+- `query({ filters, page: { size } }, options)` answers `{ records, page }`:
+  one page of at most `pageLimits().request` rows (100 unless the resource
+  sets `queryMaxLimit`), with `page.next` for the next one. A `query()`
+  without `page.size` throws, and so does a larger size, because json-rest-api
+  would answer fewer rows than asked and say nothing.
+- `queryAll(params, options)` reads cursor pages of 1,000 rows in id order (or
+  the given `sort`) until none follows, keeping the call's transaction and
+  context, so no row is skipped or repeated. Each page pays the row policy and
+  linkage queries once, so 480 rows cost 3 statements, not 15. In a request it
+  throws past the request row limit (10,000 rows): work over more belongs in a
+  background job ([Background work](/guide/framework/data-access#background-work)).
 - A lookup by a unique key (an id, a slug, a token hash, a unique pair such
-  as workspace and user) matches at most one row and may read `rows[0]` of a
-  plain query. A read of the newest or first few rows names its own `sort`
-  and `page`.
+  as workspace and user) matches at most one row: `get(id)`, or a `query()`
+  of page size 1. A read of the newest or first few rows names its own `sort`
+  and page size.
 - HTTP list routes keep the caller's page: their default and maximum page
   sizes are public behaviour, not a server-side limit to raise.
 
-Why: a list read without a page looks complete until the 21st row, then
-silently drops the rest from every person picker, scope and delivery built on it.
+Why: a list read that stops at one page looks complete until the page fills,
+then silently drops the rest from every person picker, scope and delivery
+built on it.
 
 ```js
 // good
-const rows = await queryAllJsonRestCollectionRows(api.resources.workspaceMemberships, {
-  queryParams: { filters: { workspace: workspaceId, status: "active" }, include: ["user"] },
-  transaction: resolveTransaction(options),
-  format: "plain"
-}, options.context);
+const members = await memberships.queryAll({ filters: { workspaceId, status: "active" }, include: ["user"] }, options);
 
-// bad: the first 20 members only
-const rows = extractJsonRestCollectionRows(await api.resources.workspaceMemberships.query({
-  queryParams: { filters: { workspace: workspaceId, status: "active" }, include: ["user"] },
-  transaction: resolveTransaction(options),
-  format: "plain"
-}, createJsonRestContext(options.context)));
+// bad: the first page only, whatever its size
+const { records: members } = await memberships.query({ filters: { workspaceId, status: "active" }, page: { size: 20 } }, options);
 ```
 
 ### Lists read related rows in batches
@@ -760,13 +750,11 @@ query per related table, and groups them in memory, so its query count follows
 the tables and pages it reads, not the rows.**
 
 - Collect the ids from the first read, then read each related table with an
-  id-list filter: a `searchSchema` entry
-  `{ type: "array", actualField: "<column>", filterOperator: "in" }`, read
-  through `queryAllJsonRestCollectionRows()`, or the resource's `include`.
-  Group the rows by id with `Map.groupBy()`.
-- A count that grows with the rows means something runs per row:
-  `getDocumentById()`, `queryDocuments()`, a service `get` or another owner's
-  single-record read inside a loop over the list, however the loop is spelled
+  id-list filter (`filters: { invoiceId: ids }`) through `queryAll()`, or the
+  resource's `include`. Group the rows by id with `Map.groupBy()`.
+- A count that grows with the rows means something runs per row: a handle's
+  `get()` or `query()`, a service `get` or another owner's single-record read
+  inside a loop over the list, however the loop is spelled
   (`for`, `map` with `Promise.all`, a helper called per item), or a
   single-record helper reused for a list.
 - Work derived from a row (hashing, preparing a form, assembling a snapshot)
@@ -782,22 +770,14 @@ read per row repeats all of them.
 
 ```js
 // good: a read per related table, however many invoices there are
-const invoiceRows = await queryAllJsonRestCollectionRows(api.resources.invoices, {
-  queryParams: { filters: { workspace: workspaceId } },
-  transaction: resolveTransaction(options),
-  format: "plain"
-}, options.context);
-const lineRows = await queryAllJsonRestCollectionRows(api.resources.invoiceLines, {
-  queryParams: { filters: { invoiceIds: invoiceRows.map((invoice) => invoice.id) } },
-  transaction: resolveTransaction(options),
-  format: "plain"
-}, options.context);
+const invoiceRows = await invoices.queryAll({}, options);
+const lineRows = await invoiceLines.queryAll({ filters: { invoiceId: invoiceRows.map((invoice) => invoice.id) } }, options);
 const linesByInvoice = Map.groupBy(lineRows, (line) => line.invoiceId);
 return invoiceRows.map((invoice) => ({ ...invoice, lines: linesByInvoice.get(invoice.id) || [] }));
 
 // bad: one more query, and its lookups and row policy, for every invoice
 for (const invoice of invoiceRows) {
-  invoice.lines = await invoiceLines.queryDocuments({ invoiceId: invoice.id }, options);
+  invoice.lines = await invoiceLines.queryAll({ filters: { invoiceId: invoice.id } }, options);
 }
 ```
 
@@ -814,20 +794,17 @@ paying a read policy for every row it writes.**
   owner's access check once per item of that history. The
   [row policies heuristic](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/row-policies.md)
   has the policy contract and its package composition.
-- The policy runs on every single-record read, and a CRUD write includes one:
-  `createDocument()` and `patchDocumentById()` default to `returning: "full"`,
-  which reads the record back through the policy, and `patch` and `delete`
-  first look the record up through it.
+- The policy runs on every single-record read, and a write includes one: a
+  handle's `create()` and `patch()` default to `returning: "record"`, which
+  reads the record back through the policy, and `patch` and `delete` first
+  look the record up through it.
 - A write path decides access once, inside its transaction. A write that does
-  not use its result passes `returning: "minimal"` or `"none"`, and a batch of
-  creates (a delivery, an import, a fan-out) goes through
-  `createDocuments(payloads, { trx, context })`, which reads nothing back
-  unless asked
-  ([writes that return less](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#writes-that-return-less)).
-  Any other batch whose per-row lookup would pay an expensive policy writes
-  through a repository method added with `decorateRepository`, on
-  `resolveRepoClient(database.knex, options)`, setting the same columns the
-  resource would, its ownership columns included.
+  not use its result passes `returning: "id"` or `"none"`, and a batch (a
+  delivery, an import, a fan-out) goes through the many-row writes:
+  `createMany(rows, options)` inserts one statement per chunk and reads
+  nothing back unless asked, and `patchMany`, `patchWhereIds` and
+  `patchWhere` update the same way, each checking access once for the whole
+  set ([Layer 3](/guide/framework/data-access#layer-3-many-rows-at-once)).
 - Its test counts the queries of one read and one write for a subject with a
   short history and for one with a long one ([Query counts at realistic
   sizes](#query-counts-at-realistic-sizes)).
@@ -888,7 +865,7 @@ router.register("POST", "/api/invoices/:invoiceId/send", { auth: "required", met
   });
 
 // bad: the route reads storage itself
-router.register("GET", "/api/invoices", {}, async (request, reply) => reply.send(await knex("invoices")));
+router.register("GET", "/api/invoices", {}, async (request, reply) => reply.send(await invoices.queryAll({}, { context: request })));
 ```
 
 ## Errors
@@ -998,7 +975,7 @@ change with its package.
 
 ```js
 // good
-const invoices = createInvoices({ knex, mailer: { send: async () => ({ accepted: true }) } });
+const invoices = createInvoices({ invoices: resources.invoices, mailer: { send: async () => ({ accepted: true }) } });
 
 // bad: production code that exists for the double
 if (typeof mailer.send !== "function") return;
@@ -1053,6 +1030,11 @@ export function resetInvoiceCacheForTests() {
 `countQueries()` at a few rows and at a realistic number, and fails when the
 count grows with the rows instead of the pages.**
 
+- A data path's test is one line with `expectFlatQueries()` from
+  `@jskit-ai/resource-runtime/test`, which seeds growing sizes and fails when a
+  larger one sends more statements
+  ([Tests](/guide/framework/data-access#tests)). The helpers below are what it
+  builds on, for a route or a comparison of your own.
 - `countQueries(knex, work)`, from
   `@jskit-ai/database-runtime/server/testDatabases`, runs `work` and returns
   its `result`, the `count` of statements the Knex instance or transaction
@@ -1079,7 +1061,17 @@ two sizes separates that cost from a read per row, where one fixed number
 cannot.
 
 ```js
-// good
+// good: a data path, one line
+import { expectFlatQueries } from "@jskit-ai/resource-runtime/test";
+
+test("the invoice list is flat", () => expectFlatQueries({
+  environment: process.env,
+  knex,
+  seed: (count) => seedInvoices(knex, { count, linesEach: 5 }),
+  run: (workspace) => invoices.listWithLines(workspace, { context })
+}));
+
+// good: the helpers underneath, for a comparison of your own
 import { countQueries, countRuntimeQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 
 test("the invoice list's queries follow its pages, not its invoices", async () => {

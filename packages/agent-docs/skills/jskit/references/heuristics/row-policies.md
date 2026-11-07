@@ -12,16 +12,16 @@ Use when:
 
 Read first:
 
-- the owning CRUD provider and shared resource
-- the package-owned CRUD server pattern
-- `packages/crud-core/test/defineCrudJsonApiFeature.test.js`
+- the owning feature's `owns` entry and the shared table resource
+- the [data access](../data-access.md) guide's Layer 1
+- `packages/resource-runtime/test/resourceRuntime.test.js` (policies, `ownTable`, contributions)
 
 Default JSKIT pattern:
 
 1. Keep public search and structured filters in the existing list-filter contract.
 2. Keep direct user/workspace ownership and write stamping in the table resource's `ownership`.
 3. Put complex mandatory read visibility in a server-only row policy.
-4. Pass the policy through `createJsonRestResourceScopeOptions(resource, { rowPolicy })` in the owning provider.
+4. Pass the policy in the owner's `owns` entry: `owns: [{ resource, rowPolicy }]`. It reads the owner's other tables through `ownTable(name)`, a read-only subquery, never by table name. Visibility rules live in the row policy, never in hand queries.
 5. Derive identity from trusted execution context.
 6. Group every policy-owned `OR` branch.
 7. Return `true` after adding the predicate, return `false` to deny all rows, or throw for invalid trusted context.
@@ -29,19 +29,37 @@ Default JSKIT pattern:
 
 Package composition:
 
-- the package that owns the resource also owns the row policy
-- a package that grants extra visibility depends on the resource owner
+- the feature that owns the resource also owns the row policy
+- the owner accepts contributions with `{ resource, rowPolicy, acceptsContributions: true }` in `owns`
+- a package that grants extra visibility depends on the resource owner and calls `resources.contributeRowPolicy(name, policy)` on the handles its own `owns` gave it; a contribution is ANDed with the owner's policy inside its own group, so it can only narrow
 - the resource owner does not import grant packages
-- create one application-scoped visibility object during the owner's `register()`
-- grant packages add contributions during their `register()`
-- the owner seals the contributions and builds the policy during `boot()`
 - do not use module-global mutable registries
+
+Example, "your rooms or shared rooms":
+
+```js
+owns: [{
+  resource: roomResource,
+  acceptsContributions: true,
+  rowPolicy({ query, context, column, ownTable }) {
+    const userId = resolveActorId(context);
+    if (!userId) return false;
+    query.where((rooms) => rooms
+      .where(column("shared"), true)
+      .orWhereIn(column("id"), ownTable("roomMembers").select("room_id").where("user_id", userId)));
+    return true;
+  }
+}]
+```
+
+A system context (`systemScope`, `systemContext(reason)`) reaches the policy as
+`system: true`; the policy decides what a job sees and says why.
 
 Cost:
 
 - a policy's cost follows the rows its query reads: add a join, `EXISTS` or subquery correlated with the row through `column()` and `value()`, on indexed columns; look at its SQL too, since a statement that runs to kilobytes is planned again on every read that carries it
 - never load the subject's whole history (every source, notice or grant they were ever linked to) to build an `IN` list, and never call another owner's access check per item of it; another package's grant is a predicate contribution
-- the policy runs on every single-record read, including the read-back after `createDocument()` and `patchDocumentById()` (`returning: "full"`, their default) and the lookup before `patch` and `delete`, so a write pays it once per row it writes
+- the policy runs on every single-record read, including the read-back after a handle's `create()` and `patch()` (`returning: "record"`, their default) and the lookup before `patch` and `delete`, so a write pays it once per row it writes; the many-row writes check access once per statement
 - a write decides access once, inside its transaction; a batch write that would pay an expensive read-back per row follows the typed features guide's [Bounded access checks](../typed-features.md#bounded-access-checks)
 
 Child-resource rules:

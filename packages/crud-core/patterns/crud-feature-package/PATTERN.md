@@ -1,12 +1,12 @@
 ---
-id: crud/json-api-resource-package
-title: JSON API CRUD resource package
+id: crud/crud-feature-package
+title: CRUD feature package
 summary: Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.
-keywords: actions, crud, database, json-api, migration, permissions, provider, repository, routes, service
+keywords: actions, crud, database, defineCrudFeature, json-api, migration, owns, permissions, repository, routes, service, table resource
 requires: @jskit-ai/crud-core, @jskit-ai/resource-core, @jskit-ai/resource-crud-core
 ---
 
-# JSON API CRUD resource package
+# CRUD feature package
 
 ## Use when
 
