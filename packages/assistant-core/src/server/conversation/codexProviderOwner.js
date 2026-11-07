@@ -550,7 +550,12 @@ export function createCodexAppServerProviderOwner({
     assertOpen();
     if (!record.observationStop || record.observationStop.error !== error) {
       reportRecoveryEvent(record, "lost", error);
-      const stop = { error, promise: invalidation.suspendUnobservedProvider(record, error) };
+      // A shared stop of this native runtime gives each of its peers the failure that started it, and records their
+      // barriers and completion itself. A peer that then loses its own connection to the stopped process joins that
+      // stop instead of stopping the runtime again, which would reopen its stopped barrier while the first finishes.
+      const runtimeKey = codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions);
+      const shared = runtimePeers(runtimeKey).find(peer => peer !== record && peer.observationStop?.error === error);
+      const stop = { error, promise: shared?.observationStop.promise || invalidation.suspendUnobservedProvider(record, error) };
       record.observationStop = stop;
       const tracked = stop.promise.catch(failure => {
         reportRecoveryEvent(record, "stopFailed", failure);
