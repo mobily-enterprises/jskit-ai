@@ -725,6 +725,42 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal(Number((await knex("workspaces").count({ count: "*" }).first()).count), 1);
   });
 
+  test("a create that loses its slug to another owner's workspace never answers it, and the directory picks again", async () => {
+    const ada = await createProfile("Ada");
+    const grace = await createProfile("Grace");
+    const adas = await workspaces.insert({ slug: "acme", name: "Acme", ownerUserId: ada.id });
+    const duplicate = (error) => Boolean(findDuplicateEntryError(error));
+    await assert.rejects(workspaces.insert({ slug: "acme", name: "Acme", ownerUserId: grace.id }), duplicate);
+    // The same owner's personal create does not answer a team workspace either.
+    await assert.rejects(workspaces.insert({ slug: "acme", name: "Acme", ownerUserId: ada.id, isPersonal: true }), duplicate);
+
+    // The directory's free-slug read misses Ada's workspace once, as when it is created between the read and the insert.
+    let missed = false;
+    const racing = {
+      ...workspaces,
+      async listSlugsIn(slugs, options) {
+        if (!missed) {
+          missed = true;
+          return new Set();
+        }
+        return workspaces.listSlugsIn(slugs, options);
+      }
+    };
+    const directory = createDirectoryService({
+      tenancyProfile: resolveTenancyProfile({ tenancyMode: "workspaces", tenancyPolicy: { workspace: { allowSelfCreate: true } } }),
+      roleCatalog: createWorkspaceRoleCatalog(),
+      personalWorkspaceName: buildWorkspaceName,
+      workspacesRepository: racing,
+      workspaceMembershipsRepository: memberships,
+      workspaceSettingsRepository: settings
+    });
+    const created = await directory.createWorkspaceForAuthenticatedUser({ id: grace.id }, { name: "Acme" });
+    assert.equal(missed, true);
+    assert.equal(created.value.slug, "acme-2");
+    assert.notEqual(String(created.value.id), String(adas.id));
+    assert.equal(String((await workspaces.findBySlug("acme-2")).ownerUserId), String(grace.id));
+  });
+
   test("a duplicate participant poisons its managed transaction even when its caller catches the failure", async () => {
     const owner = await createProfile("Ada");
     await workspaces.insert({ slug: "duplicate", name: "Original", ownerUserId: owner.id });
