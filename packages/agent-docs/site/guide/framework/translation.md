@@ -191,6 +191,10 @@ and params to `details.fieldErrorCodes`, so an untranslated app shows exactly
 the English it showed before. The failed check's own params (for example
 `limit`) are sent too, and the coded entry's `params` win over them. JSKIT's
 own schemas use this form, which is why their field messages translate.
+With json-rest-schema 1.0.18 or later, which checks them, an array field's
+`minItems` and `maxItems` failures send `kernel.validation.field.minItems` and
+`kernel.validation.field.maxItems` with `{ min | max, actual }`, and its
+`messages.minItems` and `messages.maxItems` override them.
 
 ## Placement labels
 

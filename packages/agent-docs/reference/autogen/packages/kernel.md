@@ -643,7 +643,10 @@ Exports
 Local functions
 - `normalizeActionDomain(value, { context = "domain" } = {})`
 - `normalizeStringArray(value, fieldName)`
-- `normalizeActionSchema(value, fieldName, { required = false, defaultMode = "" } = {})`
+- `schemaFieldDefinitions(value)`
+- `refuseOneOfFields(fields, fieldName, parentPath = "")`
+- `refuseOneOfField(definition, fieldName, path)`
+- `normalizeActionSchema(value, fieldName, { required = false, defaultMode = "", refuseOneOf = false } = {})`
 - `normalizeActionPermission(permission, actionId)`
 - `normalizeActionExtensions(value)`
 - `normalizeActionEvents(value, actionId)`

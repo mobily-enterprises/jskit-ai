@@ -443,6 +443,9 @@ record declares `mode: "patch"`; a command never does.**
 
 - Patch mode skips `required`, so a service keeps its guard for a field a
   patch input lists as required.
+- An input field lists its allowed values with `enum`; the kernel refuses
+  `oneOf` on an input field at startup, because json-rest-schema checks no
+  `oneOf` and the field would accept any value.
 
 Why: a command whose required field is never enforced reaches the service
 without it.
