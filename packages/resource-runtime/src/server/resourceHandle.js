@@ -3,6 +3,7 @@ import { RestApiRowLimitError } from "json-rest-api";
 import { isLostDuplicateInsertRace, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
+import { lockOrCreate } from "./lockOrCreate.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
   missingOf, requireDefinedFilters, requireOwners, requireReadParams, requireUpsertRows, valueOnly, whereSelection
@@ -16,6 +17,7 @@ import {
   inputData,
   manyResult,
   matchesOnlyIf,
+  patchAnswer,
   pickReturning,
   readQueryParams,
   textList
@@ -369,14 +371,6 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     return findOrCreateRecord({ get, create }, attributes, options);
   }
 
-  // What patch() answers for the row it wrote or read: the record (default), its id, or nothing.
-  function patchAnswer(id, record, returning) {
-    if (returning === "none") {
-      return undefined;
-    }
-    return returning === "id" ? id : record;
-  }
-
   // One row's UPDATE, where a missing or hidden row throws. An empty patch reads the record instead, unless it moves
   // the lock version on: a lockVersion patch always writes.
   async function patchRecord(id, attributes, options, returning, { advance = false } = {}) {
@@ -642,6 +636,11 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     return handleRecords(resource, data);
   }
 
+  // Runs work on the record with row.id, locked, creating it first when missing (see lockOrCreate.js).
+  function lockOrCreateRecord(row, options, work) {
+    return lockOrCreate({ name, withTransaction, lock, createMany }, row, options, work);
+  }
+
   /**
    * Takes up to `take` (default 1) of the rows the filters select that no
    * other transaction holds, in `sort` order, locked until the transaction ends.
@@ -726,6 +725,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     lock,
     lockMany,
     lockWhere,
+    lockOrCreate: lockOrCreateRecord,
     claim,
     scopedQuery,
     column,

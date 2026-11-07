@@ -191,6 +191,14 @@ function manyResult(resource, result, returning) {
   return returning === "ids" ? rows.map((row) => String(row.id)) : handleRecords(resource, rows);
 }
 
+// What patch() answers for the row it wrote or read: the record (default), its id, or nothing.
+function patchAnswer(id, record, returning) {
+  if (returning === "none") {
+    return undefined;
+  }
+  return returning === "id" ? id : record;
+}
+
 // Whether the stored record still holds every value onlyIf names.
 function matchesOnlyIf(record, onlyIf) {
   return Object.entries(onlyIf).every(([field, value]) => (record[field] ?? null) === value);
@@ -205,6 +213,7 @@ export {
   inputData,
   manyResult,
   matchesOnlyIf,
+  patchAnswer,
   pickReturning,
   readQueryParams,
   textList
