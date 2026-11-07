@@ -1,15 +1,5 @@
-import {
-  isLostDuplicateInsertRace,
-  normalizeDbRecordId,
-  resolveTransaction,
-  retryDeadlocks,
-  toIsoString
-} from "@jskit-ai/database-runtime/shared";
+import { isLostDuplicateInsertRace, normalizeDbRecordId, toIsoString } from "@jskit-ai/database-runtime/shared";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import {
-  createJsonRestContext,
-  queryAllJsonRestCollectionRows
-} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { OWNER_ROLE_ID } from "../../../shared/roles.js";
 
 // A bulk read's users per query, so its "in" list stays well inside every database's limits.
@@ -61,32 +51,30 @@ function memberSummaryFromMembership(row) {
 }
 
 /**
- * The `workspaces.memberships` capability: the workspace memberships table's records.
- * @param {{ api: import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi }} dependencies
+ * The `workspaces.memberships` capability: the workspace memberships table's
+ * records. Every method takes the caller's options last and joins their transaction.
+ * @param {{ workspaceMemberships: import("@jskit-ai/resource-runtime/server/types").ResourceHandle }} dependencies
+ *   The workspace_memberships table's handle.
  */
-function createRepository({ api }) {
-  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
+function createRepository({ workspaceMemberships }) {
+  async function queryMemberships(filters, options, { include = [] } = {}) {
+    return workspaceMemberships.queryAll({ filters, ...(include.length > 0 ? { include } : {}) }, options);
+  }
 
-  async function queryMemberships(filters = {}, options = {}, { include = [] } = {}) {
-    const normalizedInclude = Array.from(
-      new Set(
-        (Array.isArray(include) ? include : [])
-          .map((entry) => normalizeText(entry))
-          .filter(Boolean)
-      )
-    );
-    return queryAllJsonRestCollectionRows(
-      api.resources.workspaceMemberships,
-      {
-        queryParams: {
-          filters,
-          ...(normalizedInclude.length > 0 ? { include: normalizedInclude } : {})
-        },
-        transaction: resolveTransaction(options),
-        format: "plain"
-      },
-      options.context
-    );
+  // A new membership, or nothing when a standalone insert lost to another one (the caller reads the winner).
+  async function createMembership(attributes, options) {
+    const createdAt = new Date().toISOString();
+    try {
+      await workspaceMemberships.create({ ...attributes, createdAt, updatedAt: createdAt }, { ...options, returning: "none" });
+    } catch (error) {
+      if (!isLostDuplicateInsertRace(error, options)) {
+        throw error;
+      }
+    }
+  }
+
+  async function patchMembership(id, changes, options) {
+    await workspaceMemberships.patch(id, { ...changes, updatedAt: new Date().toISOString() }, { ...options, returning: "none" });
   }
 
   async function findByWorkspaceIdAndUserId(workspaceId, userId, options = {}) {
@@ -96,15 +84,7 @@ function createRepository({ api }) {
       return null;
     }
 
-    const rows = await queryMemberships(
-      {
-        workspace: normalizedWorkspaceId,
-        user: normalizedUserId
-      },
-      options,
-      { include: ["workspace", "user"] }
-    );
-
+    const rows = await queryMemberships({ workspace: normalizedWorkspaceId, user: normalizedUserId }, options);
     return normalizeMembershipRecord(rows[0] || null);
   }
 
@@ -118,49 +98,15 @@ function createRepository({ api }) {
     const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     if (existing) {
       if (existing.roleSid !== OWNER_ROLE_ID || existing.status !== "active") {
-        const updatedAt = new Date().toISOString();
-        await api.resources.workspaceMemberships.patch(
-          {
-            id: existing.id,
-            data: {
-              roleSid: OWNER_ROLE_ID,
-              status: "active",
-              updatedAt
-            },
-            format: "plain",
-            returning: "full",
-            transaction: resolveTransaction(options)
-          },
-          createJsonRestContext(options.context)
-        );
+        await patchMembership(existing.id, { roleSid: OWNER_ROLE_ID, status: "active" }, options);
       }
       return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     }
 
-    try {
-      const createdAt = new Date().toISOString();
-      await api.resources.workspaceMemberships.post(
-        {
-          data: {
-            roleSid: OWNER_ROLE_ID,
-            status: "active",
-            createdAt,
-            updatedAt: createdAt,
-            workspace: normalizedWorkspaceId,
-            user: normalizedUserId
-          },
-          format: "plain",
-          returning: "full",
-          transaction: resolveTransaction(options)
-        },
-        createJsonRestContext(options.context)
-      );
-    } catch (error) {
-      if (!isLostDuplicateInsertRace(error, options)) {
-        throw error;
-      }
-    }
-
+    await createMembership(
+      { roleSid: OWNER_ROLE_ID, status: "active", workspaceId: normalizedWorkspaceId, userId: normalizedUserId },
+      options
+    );
     return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
   }
 
@@ -176,48 +122,11 @@ function createRepository({ api }) {
     const status = normalizeLowerText(patch?.status ?? existing?.status) || "active";
 
     if (!existing) {
-      try {
-        const createdAt = new Date().toISOString();
-        await api.resources.workspaceMemberships.post(
-          {
-            data: {
-              roleSid,
-              status,
-              createdAt,
-              updatedAt: createdAt,
-              workspace: normalizedWorkspaceId,
-              user: normalizedUserId
-            },
-            format: "plain",
-            returning: "full",
-            transaction: resolveTransaction(options)
-          },
-          createJsonRestContext(options.context)
-        );
-      } catch (error) {
-        if (!isLostDuplicateInsertRace(error, options)) {
-          throw error;
-        }
-      }
+      await createMembership({ roleSid, status, workspaceId: normalizedWorkspaceId, userId: normalizedUserId }, options);
       return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     }
 
-    const updatedAt = new Date().toISOString();
-    await api.resources.workspaceMemberships.patch(
-      {
-        id: existing.id,
-        data: {
-          roleSid,
-          status,
-          updatedAt
-        },
-        format: "plain",
-        returning: "full",
-        transaction: resolveTransaction(options)
-      },
-      createJsonRestContext(options.context)
-    );
-
+    await patchMembership(existing.id, { roleSid, status }, options);
     return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
   }
 
@@ -245,7 +154,7 @@ function createRepository({ api }) {
 
     const rows = await queryMemberships({ workspace: normalizedWorkspaceId, status: "active" }, options);
     return rows
-      .map((row) => normalizeDbRecordId(row?.user?.id || row?.userId, { fallback: null }))
+      .map((row) => normalizeDbRecordId(row.userId, { fallback: null }))
       .filter(Boolean);
   }
 
@@ -298,24 +207,15 @@ function createRepository({ api }) {
       return [];
     }
 
-    const rows = await queryMemberships(
-      {
-        user: normalizedUserId,
-        status: "active"
-      },
-      options,
-      { include: ["workspace"] }
-    );
-
+    const rows = await queryMemberships({ user: normalizedUserId, status: "active" }, options);
     return rows
-      .map((row) => normalizeDbRecordId(row?.workspace?.id || row?.workspaceId, { fallback: null }))
+      .map((row) => normalizeDbRecordId(row.workspaceId, { fallback: null }))
       .filter(Boolean);
   }
 
   /**
    * Each user's active workspace ids, as listActiveWorkspaceIdsByUserId lists them, in one
-   * query per 1,000 users: its cost does not grow with the users asked about. It reads the
-   * memberships' workspace_id column instead of including each workspace.
+   * query per 1,000 users: its cost does not grow with the users asked about.
    * @param {Iterable<string | number>} userIds
    * @param {object} [options]
    * @returns {Promise<Map<string, string[]>>} Every asked user, with no workspaces when they have none.
@@ -337,8 +237,8 @@ function createRepository({ api }) {
         options
       );
       for (const row of rows) {
-        const userId = normalizeDbRecordId(row?.user?.id || row?.userId, { fallback: null });
-        const workspaceId = normalizeDbRecordId(row?.workspace?.id || row?.workspaceId, { fallback: null });
+        const userId = normalizeDbRecordId(row.userId, { fallback: null });
+        const workspaceId = normalizeDbRecordId(row.workspaceId, { fallback: null });
         if (workspaceId) workspaceIdsByUserId.get(userId)?.push(workspaceId);
       }
     }
@@ -346,7 +246,7 @@ function createRepository({ api }) {
   }
 
   return Object.freeze({
-    withTransaction,
+    withTransaction: workspaceMemberships.withTransaction,
     findByWorkspaceIdAndUserId,
     ensureOwnerMembership,
     upsertMembership,

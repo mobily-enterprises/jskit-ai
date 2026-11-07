@@ -54,13 +54,13 @@ test("an inserted invite reads back in one shape through the resource reads and 
   assert.deepEqual(await db.invites.findPendingByTokenHash(" shape-hash "), read);
   assert.deepEqual(await db.invites.findPendingByIdForWorkspace(created.id, workspace.id), read);
 
-  const locked = await db.invites.withTransaction(async (trx) => ({
-    byId: await db.invites.findPendingByIdForWorkspace(created.id, workspace.id, { trx, lock: true }),
+  const locked = await db.invites.withTransaction({}, async (txOptions) => ({
+    byId: await db.invites.findPendingByIdForWorkspace(created.id, workspace.id, { ...txOptions, lock: true }),
     byToken: await db.invites.findPendingByTokenHash("shape-hash", {
-      trx, lock: true, workspaceId: workspace.id, inviteId: created.id
+      ...txOptions, lock: true, workspaceId: workspace.id, inviteId: created.id
     }),
     wrongToken: await db.invites.findPendingByTokenHash("another-hash", {
-      trx, lock: true, workspaceId: workspace.id, inviteId: created.id
+      ...txOptions, lock: true, workspaceId: workspace.id, inviteId: created.id
     })
   }));
   assert.deepEqual(locked.byId, read, "a locking read answers the same record as a resource read");
@@ -87,7 +87,7 @@ test("an invite without an expiry or inviter keeps them null; withTransaction an
   assert.equal(created.invitedByUserId, null);
   assert.equal(created.roleSid, "admin");
   assert.equal(created.status, "pending");
-  assert.deepEqual(await db.invites.withTransaction(async () => ({ answered: true })), { answered: true });
+  assert.deepEqual(await db.invites.withTransaction({}, async () => ({ answered: true })), { answered: true });
 });
 
 test("reads answer only the named invite, workspace or token, and null for anything else", async () => {
@@ -186,8 +186,8 @@ test("expiring an email's pending invites touches only that workspace's pending 
   assert.equal(await db.invites.expirePendingByWorkspaceIdAndEmail("", "hal@example.test"), undefined, "no workspace: nothing");
 
   const kept = await invite(db, workspace, "jan@example.test", "expire-6");
-  await assert.rejects(db.invites.withTransaction(async (trx) => {
-    await db.invites.expirePendingByWorkspaceIdAndEmail(workspace.id, "jan@example.test", { trx });
+  await assert.rejects(db.invites.withTransaction({}, async (txOptions) => {
+    await db.invites.expirePendingByWorkspaceIdAndEmail(workspace.id, "jan@example.test", txOptions);
     assert.equal(await statusOf(db, kept.id), "pending", "uncommitted while the caller's transaction runs");
     throw new Error("Abort the caller's transaction");
   }), /Abort the caller's transaction/u);
@@ -236,12 +236,12 @@ test("accepting or revoking stamps a pending invite once; a handled, unknown or 
   await assert.rejects(db.invites.revokeById(""), (error) => error instanceof TypeError &&
     error.message === "Invitation transition requires inviteId.");
 
-  await assert.rejects(db.invites.withTransaction(async (trx) => {
-    await db.invites.revokeById(kept.id, { trx });
+  await assert.rejects(db.invites.withTransaction({}, async (txOptions) => {
+    await db.invites.revokeById(kept.id, txOptions);
     throw new Error("Abort the caller's transaction");
   }), /Abort the caller's transaction/u);
   assert.equal(await statusOf(db, kept.id), "pending", "a revoke rolls back with the caller's transaction");
-  await db.invites.withTransaction((trx) => db.invites.revokeById(kept.id, { trx, workspaceId: workspace.id }));
+  await db.invites.withTransaction({}, (txOptions) => db.invites.revokeById(kept.id, { ...txOptions, workspaceId: workspace.id }));
   assert.equal(await statusOf(db, kept.id), "revoked", "and commits with it");
 });
 
@@ -255,22 +255,22 @@ test("locking reads need the caller's transaction and no includes, and refuse a 
     db.invites.findPendingByIdForWorkspace(created.id, workspace.id, { lock: true }),
     /requires an active transaction/u
   );
-  await db.invites.withTransaction(async (trx) => {
+  await db.invites.withTransaction({}, async (txOptions) => {
     await assert.rejects(
-      db.invites.findPendingByIdForWorkspace(created.id, workspace.id, { trx, lock: true, includeWorkspace: true }),
+      db.invites.findPendingByIdForWorkspace(created.id, workspace.id, { ...txOptions, lock: true, includeWorkspace: true }),
       (error) => error instanceof TypeError &&
         error.message === "Locking invites requires a transaction and no relationship includes."
     );
   });
-  await db.invites.withTransaction(async (trx) => {
+  await db.invites.withTransaction({}, async (txOptions) => {
     await assert.rejects(
-      db.invites.findPendingByIdForWorkspace(created.id, "999999999", { trx, lock: true }),
+      db.invites.findPendingByIdForWorkspace(created.id, "999999999", { ...txOptions, lock: true }),
       (error) => error.status === 404 && error.code === "workspaces.invite.workspaceMissing"
     );
   });
-  await db.invites.withTransaction(async (trx) => {
-    assert.equal(await db.invites.lockWorkspaceForInvitations(workspace.id, { trx }), undefined);
-    await assert.rejects(db.invites.lockWorkspaceForInvitations("999999999", { trx }),
+  await db.invites.withTransaction({}, async (txOptions) => {
+    assert.equal(await db.invites.lockWorkspaceForInvitations(workspace.id, txOptions), undefined);
+    await assert.rejects(db.invites.lockWorkspaceForInvitations("999999999", txOptions),
       (error) => error.status === 404 && error.code === "workspaces.invite.workspaceMissing");
   });
 });
@@ -292,9 +292,9 @@ test("insert needs a workspace; a duplicate token outside a transaction answers 
 
   // Inside a caller's transaction the duplicate is not recovered: it fails the transaction.
   let participantError = null;
-  await assert.rejects(db.invites.withTransaction(async (trx) => {
+  await assert.rejects(db.invites.withTransaction({}, async (txOptions) => {
     try {
-      await db.invites.insert({ workspaceId: workspace.id, email: "ola@example.test", tokenHash: "duplicates-1" }, { trx });
+      await db.invites.insert({ workspaceId: workspace.id, email: "ola@example.test", tokenHash: "duplicates-1" }, txOptions);
     } catch (error) {
       participantError = error;
       throw error;

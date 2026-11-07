@@ -9,6 +9,15 @@
 /** @typedef {ReturnType<typeof import("./workspacePendingInvitations/workspacePendingInvitationsService.js").createService>} WorkspacePendingInvitationsService The pending invitations service: `services.pendingInvitations` of `workspaces.core`. */
 /** @typedef {ReturnType<typeof import("./workspaceSettings/workspaceSettingsService.js").createService>} WorkspaceSettingsService The workspace settings service: `services.settings` of `workspaces.core`. */
 
+/**
+ * The handles of the tables `workspaces.core` owns, by resource name.
+ * @typedef {{
+ *   workspaces: import("@jskit-ai/resource-runtime/server/types").ResourceHandle,
+ *   workspaceMemberships: import("@jskit-ai/resource-runtime/server/types").ResourceHandle,
+ *   workspaceInvites: import("@jskit-ai/resource-runtime/server/types").ResourceHandle,
+ *   workspaceSettings: import("@jskit-ai/resource-runtime/server/types").ResourceHandle
+ * }} WorkspacesResources
+ */
 /** @typedef {ReturnType<typeof import("./common/repositories/workspacesRepository.js").createRepository>} WorkspacesRepository */
 /** @typedef {ReturnType<typeof import("./common/repositories/workspaceMembershipsRepository.js").createRepository>} WorkspaceMembershipsRepository */
 /** @typedef {ReturnType<typeof import("./common/repositories/workspaceInvitesRepository.js").createRepository>} WorkspaceInvitesRepository */
@@ -35,8 +44,8 @@
 /**
  * The `workspaces.invite-acceptance-participant` capability: the application's
  * writes for an accepted invitation. It runs after the membership is activated,
- * inside the uncommitted acceptance transaction (`trx`), and a failure rolls the
- * acceptance back.
+ * inside the uncommitted acceptance transaction, and a failure rolls the
+ * acceptance back. Its options join that transaction: pass them to every call.
  * @typedef {(acceptance: { invite: object, user: object }, options: { trx: unknown, context?: object }) => Promise<void>} WorkspaceInviteAcceptanceParticipant
  */
 

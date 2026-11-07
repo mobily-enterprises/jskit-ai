@@ -1,4 +1,3 @@
-import { joinOrOpenTransaction } from "@jskit-ai/database-runtime/shared";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { resolveInviteTokenHash, buildInviteToken, hashInviteToken } from "@jskit-ai/auth-core/server/inviteTokens";
@@ -293,8 +292,7 @@ function createService({
 
   async function prepareInvite(workspace, user, payload, options = {}) {
     ensureWorkspaceInvitationsEnabled();
-    // readable-check: allow required-collaborators - platform object: a Knex transaction, which prepareInvite writes in
-    if (!options.trx) {
+    if (!workspaceInvitesRepository.inTransaction(options)) {
       throw new TypeError("prepareInvite requires a managed transaction.");
     }
     const email = normalizeLowerText(payload.email);
@@ -330,8 +328,7 @@ function createService({
 
   async function sendInvite(workspace, user, prepared, options = {}) {
     ensureWorkspaceInvitationsEnabled();
-    // readable-check: allow required-collaborators - platform object: a Knex transaction, which sendInvite must run after
-    if (options.trx) {
+    if (workspaceInvitesRepository.inTransaction(options)) {
       throw new TypeError("sendInvite must run after the invitation transaction commits.");
     }
     const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
@@ -374,12 +371,11 @@ function createService({
 
   async function createInvite(workspace, user, payload, options = {}) {
     ensureWorkspaceInvitationsEnabled();
-    // readable-check: allow required-collaborators - platform object: a Knex transaction, which createInvite opens itself
-    if (options.trx) {
+    if (workspaceInvitesRepository.inTransaction(options)) {
       throw new TypeError("Use prepareInvite inside a transaction, then sendInvite after commit.");
     }
-    const prepared = await workspaceInvitesRepository.withTransaction((trx) =>
-      prepareInvite(workspace, user, payload, { ...options, trx })
+    const prepared = await workspaceInvitesRepository.withTransaction(options, (txOptions) =>
+      prepareInvite(workspace, user, payload, txOptions)
     );
     return returnJsonApiData(await sendInvite(workspace, user, prepared, options));
   }
@@ -391,8 +387,8 @@ function createService({
       throw inviteIdRequiredError();
     }
 
-    const revoke = async (trx) => {
-      const transactionOptions = { ...options, trx, lock: true, workspaceId: workspace.id };
+    const revoke = async (txOptions) => {
+      const transactionOptions = { ...txOptions, lock: true, workspaceId: workspace.id };
       const invite = await workspaceInvitesRepository.findPendingByIdForWorkspace(
         normalizedInviteId,
         workspace.id,
@@ -404,7 +400,7 @@ function createService({
       await workspaceInvitesRepository.revokeById(normalizedInviteId, transactionOptions);
       return normalizeRecordId(invite.id, { fallback: null });
     };
-    const revokedInviteId = await joinOrOpenTransaction(options, workspaceInvitesRepository.withTransaction, revoke);
+    const revokedInviteId = await workspaceInvitesRepository.withTransaction(options, revoke);
 
     const response = await listInvitesPayload(workspace, options);
     return returnJsonApiData({

@@ -5,67 +5,83 @@ import { createRepository as createWorkspaceMembershipsRepository } from "../src
 import { createRepository as createWorkspacesRepository } from "../src/server/common/repositories/workspacesRepository.js";
 import { createRepository as createWorkspaceSettingsRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 
-function createApiStub() {
-  return {
-    async transaction(work) {
-      return work({ trxId: "managed-1" });
+// A table handle whose reads find nothing and whose creates fail with `failure`; it counts its reads.
+function createHandleStub(failure = new Error("Unexpected write")) {
+  const stub = {
+    reads: 0,
+    writeStarted: false,
+    async withTransaction(options, work) {
+      return work(Object.freeze({ ...options, trx: { trxId: "managed-1" } }));
     },
-    resources: {
-      workspaceInvites: {},
-      workspaceMemberships: {},
-      workspaces: {},
-      workspaceSettings: {}
+    inTransaction(options) {
+      return Boolean(options.trx);
+    },
+    async query({ page }) {
+      assert.equal(stub.writeStarted, false, "A failed transaction cannot support duplicate recovery");
+      stub.reads += 1;
+      return { records: [], page: { size: page.size, hasMore: false, next: null } };
+    },
+    async queryAll() {
+      assert.equal(stub.writeStarted, false, "A failed transaction cannot support duplicate recovery");
+      stub.reads += 1;
+      return [];
+    },
+    async create() {
+      stub.writeStarted = true;
+      throw failure;
     }
   };
+  return stub;
 }
 
-test("workspaces-core repositories delegate transaction ownership and failures to the API", async () => {
-  const api = createApiStub();
-  const repositories = [
-    createWorkspaceInvitesRepository({ api }),
-    createWorkspaceMembershipsRepository({ api }),
-    createWorkspacesRepository({ api }),
-    createWorkspaceSettingsRepository({ api })
-  ];
+const repositoryFactories = {
+  invite: (handle) => createWorkspaceInvitesRepository({
+    workspaceInvites: handle,
+    workspaces: createWorkspacesRepository({ workspaces: createHandleStub(), workspaceMemberships: createHandleStub() })
+  }),
+  membership: (handle) => createWorkspaceMembershipsRepository({ workspaceMemberships: handle }),
+  workspace: (handle) => createWorkspacesRepository({ workspaces: handle, workspaceMemberships: createHandleStub() }),
+  settings: (handle) => createWorkspaceSettingsRepository({
+    workspaceSettings: handle,
+    defaultInvitesEnabled: true,
+    defaultColorSettings: {}
+  })
+};
 
-  for (const repository of repositories) {
+test("workspaces-core repositories delegate transaction ownership and failures to their table's handle", async () => {
+  for (const createRepository of Object.values(repositoryFactories)) {
+    const repository = createRepository(createHandleStub());
     assert.equal(typeof repository.withTransaction, "function");
-    const result = await repository.withTransaction(async (trx) => ({ id: trx.trxId }));
+    const result = await repository.withTransaction({}, async (txOptions) => ({ id: txOptions.trx.trxId }));
     assert.deepEqual(result, { id: "managed-1" });
     const failure = new Error("Participant failed");
-    await assert.rejects(repository.withTransaction(async () => { throw failure; }), error => error === failure);
+    await assert.rejects(repository.withTransaction({}, async () => { throw failure; }), error => error === failure);
+  }
+  for (const name of ["invite", "workspace"]) {
+    const repository = repositoryFactories[name](createHandleStub());
+    assert.equal(repository.inTransaction({}), false);
+    assert.equal(await repository.withTransaction({}, async (txOptions) => repository.inTransaction(txOptions)), true);
   }
 });
 
 const duplicateRecoveryCases = [
-  ["settings", createWorkspaceSettingsRepository, "workspaceSettings", repository => repository.ensureForWorkspaceId("7")],
-  ["owner membership", createWorkspaceMembershipsRepository, "workspaceMemberships", repository => repository.ensureOwnerMembership("7", "9")],
-  ["membership", createWorkspaceMembershipsRepository, "workspaceMemberships", repository => repository.upsertMembership("7", "9")],
-  ["invite", createWorkspaceInvitesRepository, "workspaceInvites", repository => repository.insert({ workspaceId: "7", email: "ada@example.com" })],
-  ["workspace", createWorkspacesRepository, "workspaces", repository => repository.insert({ ownerUserId: "9", slug: "shared" })]
+  ["settings", "settings", repository => repository.ensureForWorkspaceId("7")],
+  ["owner membership", "membership", repository => repository.ensureOwnerMembership("7", "9")],
+  ["membership", "membership", repository => repository.upsertMembership("7", "9")],
+  ["invite", "invite", repository => repository.insert({ workspaceId: "7", email: "ada@example.com" })],
+  ["workspace", "workspace", repository => repository.insert({ ownerUserId: "9", slug: "shared" })]
 ];
 
-for (const [name, createRepository, resourceName, write] of duplicateRecoveryCases) {
+for (const [name, factory, write] of duplicateRecoveryCases) {
   for (const outcome of ["pending", "committed", "unknown"]) {
     test(`${name} preserves a ${outcome} duplicate failure without a fallback query`, async () => {
-      let reads = 0;
-      let writeStarted = false;
       const failure = Object.assign(new Error("Write failed"), {
         transactionOutcome: outcome, cause: { code: "ER_DUP_ENTRY" }
       });
-      const api = createApiStub();
-      api.resources[resourceName] = {
-        vars: { queryMaxLimit: 100 },
-        async query() {
-          assert.equal(writeStarted, false, "A failed transaction cannot support duplicate recovery");
-          reads += 1;
-          return { data: [] };
-        },
-        async post() { writeStarted = true; throw failure; }
-      };
-      const repository = createRepository({ api });
+      const handle = createHandleStub(failure);
+      const repository = repositoryFactories[factory](handle);
       await assert.rejects(write(repository), error => error === failure);
-      assert.equal(reads, ["invite", "workspace"].includes(name) ? 0 : 1);
+      assert.equal(handle.reads, ["invite", "workspace"].includes(name) ? 0 : 1);
     });
   }
 }
