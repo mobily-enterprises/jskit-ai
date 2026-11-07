@@ -23,8 +23,7 @@ test("createHooksToCollectChildren batches children and hydrates returned record
   const context = {
     callOptions: {
       trx: { id: "trx-1" },
-      visibilityContext: { visibility: "workspace", scopeOwnerId: "workspace-1" },
-      ignored: true
+      context: { workspace: { id: "workspace-1" } }
     },
     state: {}
   };
@@ -36,10 +35,7 @@ test("createHooksToCollectChildren batches children and hydrates returned record
   assert.deepEqual(calls, [
     {
       contactIds: [7, 8],
-      options: {
-        trx: context.callOptions.trx,
-        visibilityContext: context.callOptions.visibilityContext
-      }
+      options: context.callOptions
     }
   ]);
   assert.deepEqual(hydrated[0].lookups?.pets?.map((entry) => entry.name), ["Milo", "Luna"]);
@@ -81,12 +77,12 @@ test("createHooksToCollectChildren supports childRepository + childListMethod sh
   assert.equal(hydrated.lookups?.pets?.length, 1);
 });
 
-test("createHooksToCollectChildren uses childRepository.listByIds by default", async () => {
+test("createHooksToCollectChildren reads every child of the page in one childRepository.queryAll by default", async () => {
   const calls = [];
   const childRepository = {
-    async listByIds(contactIds = [], options = {}) {
+    async queryAll(params = {}, options = {}) {
       calls.push({
-        contactIds,
+        params,
         options
       });
       return [{ id: 11, customerId: 9, name: "Milo" }];
@@ -104,19 +100,17 @@ test("createHooksToCollectChildren uses childRepository.listByIds by default", a
     },
     state: {}
   };
-  await hooks.afterQuery([{ id: 9 }], context);
+  await hooks.afterQuery([{ id: 9 }, { id: 10 }], context);
   const hydrated = hooks.transformReturnedRecord({ id: 9 }, context);
 
   assert.deepEqual(calls, [
     {
-      contactIds: [9],
-      options: {
-        trx: context.callOptions.trx,
-        valueKey: "customerId"
-      }
+      params: { filters: { customerId: [9, 10] } },
+      options: context.callOptions
     }
   ]);
   assert.equal(hydrated.lookups?.pets?.length, 1);
+  assert.deepEqual(hooks.transformReturnedRecord({ id: 10 }, context).lookups?.pets, []);
 });
 
 test("createHooksToCollectChildren supports override hooks for parent id, child owner id, call options, and attach", async () => {
@@ -210,12 +204,26 @@ test("createHooksToCollectChildren validates required configuration", async () =
       createHooksToCollectChildren({
         childKey: "pets",
         childRepository: {
+          async queryAll() {
+            return [];
+          }
+        }
+      }),
+    /requires childForeignKey when it reads childRepository\.queryAll/
+  );
+
+  assert.throws(
+    () =>
+      createHooksToCollectChildren({
+        childKey: "pets",
+        childForeignKey: "customerId",
+        childRepository: {
           async listByIds() {
             return [];
           }
         }
       }),
-    /requires childForeignKey when using childRepository\.listByIds/
+    /requires childRepository\.queryAll to be a function, or a childListMethod/
   );
 
   const hooks = createHooksToCollectChildren({
