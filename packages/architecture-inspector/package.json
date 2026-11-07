@@ -17,10 +17,10 @@
     "jskit-inspect-vue": "./src/cli.js"
   },
   "dependencies": {
-    "@babel/parser": "7.29.9",
+    "@babel/parser": "^7.29.9",
     "@jskit-ai/kernel": "0.2.12",
-    "@vue/compiler-sfc": "3.5.44",
-    "typescript": "6.0.3"
+    "@vue/compiler-sfc": "^3.5.44",
+    "typescript": "^6.0.3"
   },
   "peerDependencies": {
     "vue-router": "^5.3.1"
