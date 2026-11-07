@@ -18,7 +18,6 @@ const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
   "packages/assistant-runtime/src/server/repositories/assistantConfigRepository.js",
   "packages/assistant-runtime/src/server/repositories/conversationsRepository.js",
   "packages/assistant-runtime/src/server/repositories/messagesRepository.js",
-  "packages/auth-provider-local-db-core/src/server/providers/AuthLocalDatabaseBackendProvider.js",
   "packages/auth-provider-oidc-core/src/server/lib/localAccounts.js",
   "packages/auth-provider-oidc-core/src/server/lib/store.js",
   "packages/auth-provider-oidc-core/src/server/providers/AuthOidcProvider.js",
