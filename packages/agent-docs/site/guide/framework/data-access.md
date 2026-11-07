@@ -194,7 +194,11 @@ activeDays(memberIds, options) {
 
 ## Reads shaped for the screen
 
-- A list reads one page with `query`; it needs `page.size`.
+- A list reads one page with `query`; it needs `page.size`, at most the
+  resource's `queryMaxLimit`. A scrolling list passes the previous page's
+  `page.next` as `page.after`; numbered pages, or restoring a known page, pass
+  `page.number` (from 1) and answer `page: { size, number, hasMore, next }`.
+  Each page is one statement, with no count: never walk pages to reach one.
 - Related rows come by id list (`filters: { id: ids }`) or `include`, grouped
   in memory. Never a query per row.
 - `queryAll` reads every matching row. Use it for id lists, one parent's rows
