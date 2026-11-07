@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `pruneExpiredAttempts` counts the deleted attempts in the database instead of reading their ids.
 - `connectors.core` without a `store` and without `createConnectionStoreFeature({ protection })` fails at startup naming that feature and where to register it, where the runtime only said a capability was missing; `createConnectionService` given no store names the same fix.
 
 ## 0.2.0 - 2026-10-29
