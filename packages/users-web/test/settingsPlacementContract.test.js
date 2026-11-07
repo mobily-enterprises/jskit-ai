@@ -90,7 +90,9 @@ test("package-owned account settings host is placement-backed rather than scaffo
   );
 
   assert.match(source, /useAccountSettingsSections/);
-  // The app bar carries the title and the Done action; the page keeps only its intro.
+  // The app bar carries the title, and Done only where Up can't go back; the page keeps only its intro.
+  assert.match(source, /<ShellPageActions v-if="showsDone">/u);
+  assert.match(source, /const showsDone = computed\(\(\) => !canGoUp\.value \|\| !doneTarget\.value\.sameOrigin\);/u);
   assert.match(source, /settings-panel__intro/);
   assert.match(source, /useShellPageTitle/);
   assert.doesNotMatch(source, /<h1/u);

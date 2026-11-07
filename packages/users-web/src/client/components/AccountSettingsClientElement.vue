@@ -5,6 +5,7 @@ import { normalizeOneOf } from "@jskit-ai/kernel/shared/support/normalize";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
 import { useShellPageTitle } from "@jskit-ai/shell-web/client/composables/useShellPageTitle";
+import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
 import { useAccountSettingsRuntime } from "../composables/useAccountSettingsRuntime.js";
 import { useAccountSettingsSections } from "../account-settings/sections.js";
 import { useJskitText } from "../i18n.js";
@@ -14,10 +15,13 @@ const runtime = useAccountSettingsRuntime();
 const route = useRoute();
 const router = useRouter();
 const sections = useAccountSettingsSections();
-// The app bar carries the page's title and its Done action, which returns to where the person came from (returnTo,
-// which may be another of the app's origins).
+// The app bar carries the page's title. Its Up arrow, on a page that declares a parent, is the way out; a Done action
+// beside it would be a second back control. Done shows only where Up can't take the person back: a page without a
+// parent, or a returnTo on another of the app's origins.
 useShellPageTitle(() => t("jskit.users.accountSettings.title"));
+const { canGoUp } = useShellNavigation();
 const doneTarget = computed(() => runtime.backNavigationTarget.value);
+const showsDone = computed(() => !canGoUp.value || !doneTarget.value.sameOrigin);
 const sectionValues = computed(() => Object.freeze(sections.value.map((section) => section.value)));
 const defaultSection = computed(() => {
   if (sectionValues.value.includes("profile")) {
@@ -65,7 +69,7 @@ const activeTab = computed({
 
 <template>
   <section class="settings-view py-2 py-md-4">
-    <ShellPageActions>
+    <ShellPageActions v-if="showsDone">
       <ShellPageAction
         :label="t('jskit.users.accountSettings.done')"
         :to="doneTarget.sameOrigin ? doneTarget.href : undefined"
@@ -162,6 +166,14 @@ const activeTab = computed({
 .settings-section-list__item.v-list-item--active {
   background: rgb(var(--v-theme-secondary-container));
   color: rgb(var(--v-theme-on-secondary-container));
+}
+
+/* Material 3's navigation item label (label-large), not Vuetify's 13px nav list title. */
+.settings-section-list__item :deep(.v-list-item-title) {
+  font-size: 0.875rem;
+  font-weight: 500;
+  letter-spacing: 0.00625rem;
+  line-height: 1.25rem;
 }
 
 .settings-panel__state {

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Account settings have one way out: on a page with the shell's Up arrow (one that declares a parent) there is no Done action beside it, which read as a second back control. Done shows only where Up can't go back: a page without a parent, or a `returnTo` on another of the app's origins.
+- Account settings use Material 3's label type and single-column form: the section list's labels are label-large (14px/500) instead of Vuetify's 13px nav title, and `ProfileClientElement`'s and the pattern's display name and email each take the form's full width, so a long email no longer truncates in a half-width column.
 - The profile form's Save button, and the account-settings pattern's Save buttons, keep 16dp from the last field in every section; they touched it, as fields hide their empty details. The pattern's Avatar size select takes the same column width as the fields beside it.
 - The account settings section list marks the selected section with Material 3's pill indicator in `secondary-container`, as the shell's navigation does, instead of a grey rectangle; its hover and pressed state layers are pills too.
 - The account-settings pattern ships the account surface's layout, `src/pages/account.vue` (`ShellLayout` around `<RouterView />`, `meta.jskit.surface: "account"`), so the settings page's title, Up arrow and Done action show in the top app bar, with no navigation bar, rail or drawer on a surface that has no navigation. An app whose account page renders under no layout copies it; until then `jskit check` reports `nav/missing-shell-layout` on the page.

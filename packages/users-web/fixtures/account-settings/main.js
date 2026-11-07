@@ -128,6 +128,8 @@ const router = createRouter({
   routes: [
     { path: "/home", component: { render: () => h("p", { "data-testid": "home" }, "Home") } },
     { path: "/account", component: AccountPage },
+    // Account settings as an inner page, with the shell's Up arrow back to its parent.
+    { path: "/inner-account", component: AccountPage, meta: { jskit: { parent: "/home" } } },
     { path: "/profile-element", component: ProfileElementPage }
   ]
 });

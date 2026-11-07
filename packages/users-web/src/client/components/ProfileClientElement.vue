@@ -50,7 +50,7 @@
           </v-row>
 
           <v-row>
-            <v-col cols="12" md="6">
+            <v-col cols="12">
               <v-text-field
                 v-model="state.profileForm.displayName"
                 :label="copyText.displayName"
@@ -60,7 +60,7 @@
                 :error-messages="state.profileFieldErrors.displayName"
               />
             </v-col>
-            <v-col cols="12" md="6">
+            <v-col cols="12">
               <v-text-field
                 v-model="state.profileForm.email"
                 :label="copyText.email"

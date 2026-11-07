@@ -151,6 +151,11 @@ test("the profile section loads, saves, shows a refused field and removes the av
 
   await page.getByRole("link", { name: "Done" }).click();
   await expect(page.getByTestId("home")).toBeVisible();
+
+  // As an inner page, Up is the only way out: no Done beside it.
+  await page.goto("/inner-account?returnTo=/home");
+  await expect(page.getByLabel("Display name")).toHaveValue("Ada");
+  await expect(page.getByRole("link", { name: "Done" })).toHaveCount(0);
   await finish(api);
 });
 
@@ -224,6 +229,48 @@ test("notifications save, and sign-in methods link through the provider and unli
   await page.getByRole("button", { name: "Link" }).click();
   await page.getByText("Provider").waitFor();
   assert.equal(api.requests.at(-1).search, "?returnTo=%2Faccount%3Fsection%3Dsign-in-methods");
+  await finish(api);
+});
+
+// Material 3 type and layout: the section list's labels and the buttons are label-large (14px/500), a switch sits
+// after its label at the row's end, and each field has the form's full width, so a long email shows whole.
+test("account settings use Material 3 label type, trailing switches and full-width fields", options, async () => {
+  const email = "ada.lovelace.analytical.engine@difference-engine.example.com";
+  const api = await openApp({
+    routes: { "GET /api/settings": document(settings({ profile: { ...settings().profile, email } })) }
+  });
+  const { page } = api;
+  await page.goto("/account");
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue(email);
+  const type = (locator) => locator.evaluate((element) => {
+    const style = window.getComputedStyle(element);
+    return [style.fontSize, style.fontWeight];
+  });
+  assert.deepEqual(await type(page.locator(".settings-section-list__item .v-list-item-title").first()), ["14px", "500"]);
+  assert.deepEqual(await type(page.getByRole("button", { name: "Save profile" })), ["14px", "500"]);
+  const fields = await page.evaluate(() => {
+    const form = document.querySelector(".settings-sections-window .v-window-item--active form");
+    const width = (element) => Math.round(element.getBoundingClientRect().width);
+    return [...form.querySelectorAll(".v-text-field")].map((field) => {
+      const input = field.querySelector("input");
+      return { width: width(field), form: width(form), whole: input.scrollWidth <= input.clientWidth };
+    });
+  });
+  assert.ok(fields.length >= 2, "the profile form has its fields");
+  for (const field of fields) {
+    assert.ok(field.width >= field.form - 48, `a field has the form's width: ${JSON.stringify(field)}`);
+    assert.equal(field.whole, true, `a field shows its value whole: ${JSON.stringify(field)}`);
+  }
+
+  await page.goto("/account?section=notifications");
+  const switches = await page.locator(".v-switch").evaluateAll((elements) => elements.map((element) => {
+    const label = element.querySelector(".v-label").getBoundingClientRect();
+    const control = element.querySelector(".v-selection-control__wrapper").getBoundingClientRect();
+    const row = element.getBoundingClientRect();
+    return { after: control.left >= label.right, atEnd: Math.abs(row.right - control.right) <= 1, labelAtStart: Math.abs(label.left - row.left) <= 1 };
+  }));
+  assert.ok(switches.length >= 3, "the notification switches render");
+  for (const position of switches) assert.deepEqual(position, { after: true, atEnd: true, labelAtStart: true });
   await finish(api);
 });
 
