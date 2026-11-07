@@ -3,7 +3,8 @@ import { createLocalDbBackend, createLocalDbOwners } from "../lib/dbBackend.js";
 import { createIdentityStore } from "../lib/identityStore.js";
 import { LOCAL_AUTH_RESOURCES } from "../lib/localAuthResources.js";
 
-// Local sign-in's ids are text (generated ids, token hashes, account emails), kept as written.
+// Local sign-in's ids are text (generated ids, token hashes, and account emails, which local sign-in trims and lower-cases
+// before they get here), so the handles take every id as a string and never as a number.
 function textRecordId(value) {
   return value == null ? null : String(value);
 }

@@ -384,8 +384,8 @@ test("concurrent failed sign-ins for one email each count: find holds the email'
 test("the owner APIs answer as the backend does and join a caller's transaction, whose rollback undoes their writes", async (context) => {
   requireTestDatabase(process.env);
   const { accounts, sessions, recovery, backend, inCallerTransaction } = await openLocalAuthDatabase(context, "da_local_owners");
-  assert.deepEqual(Object.keys(accounts), ["create", "findByEmail", "updatePassword", "updateProfile", "markEmailVerified"]);
-  assert.deepEqual(Object.keys(sessions), ["create", "revoke", "revokeForUser", "deleteExpired"]);
+  assert.deepEqual(Object.keys(accounts), ["create", "findById", "findByEmail", "updatePassword", "updateProfile", "markEmailVerified"]);
+  assert.deepEqual(Object.keys(sessions), ["create", "update", "revoke", "revokeForUser", "deleteExpired"]);
   assert.deepEqual(Object.keys(recovery), ["create", "findByTokenHash", "consume", "consumeForUser"]);
 
   const created = await accounts.create(account("usr_ada", "ada@example.com"));

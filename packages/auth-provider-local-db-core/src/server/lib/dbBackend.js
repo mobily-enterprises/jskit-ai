@@ -1,3 +1,4 @@
+import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
 import { nowIso, toDate } from "./dateTimes.js";
 import { IDENTITIES_TABLE } from "./identityStore.js";
@@ -355,6 +356,20 @@ function sessionRecords(sessions, options) {
     async findByTokenHash(tokenHash) {
       return mapSession(await findOne(sessions, "tokenHash", tokenHash, options));
     },
+    // Only a session's purpose and expiry change, as when a magic-link session becomes a normal one.
+    async update(sessionId, { purpose, expiresAt, ...rest } = {}) {
+      if (Object.keys(rest).length > 0) {
+        throw new TypeError("auth.local.sessions.update() changes a session's purpose and expiresAt only.");
+      }
+      const changes = { updatedAt: requiredDateTime() };
+      if (purpose !== undefined) {
+        changes.purpose = String(purpose || "normal");
+      }
+      if (expiresAt !== undefined) {
+        changes.expiresAt = requiredDateTime(expiresAt);
+      }
+      return mapSession(await patchExisting(sessions, sessionId, changes, options));
+    },
     async revoke(sessionId) {
       const existing = await findById(sessions, sessionId, options);
       if (!existing || existing.revokedAt) {
@@ -593,15 +608,18 @@ function createLocalDbBackend({ resources, identities }) {
 function createLocalDbOwners({ resources, identities }) {
   const records = (options) => createRecords(resources, identities, options);
 
+  // An email is kept and found as local sign-in keeps it: trimmed and in lower case.
   const accounts = Object.freeze({
-    create: (input, options = {}) => records(options).users.create(input),
-    findByEmail: (email, options = {}) => records(options).users.findByEmail(email),
+    create: (input, options = {}) => records(options).users.create({ ...input, email: normalizeEmail(input?.email) }),
+    findById: (userId, options = {}) => records(options).users.findById(userId),
+    findByEmail: (email, options = {}) => records(options).users.findByEmail(normalizeEmail(email)),
     updatePassword: (userId, passwordRecord, options = {}) => records(options).users.updatePassword(userId, passwordRecord),
     updateProfile: (userId, updates, options = {}) => records(options).users.updateProfile(userId, updates),
     markEmailVerified: (userId, options = {}) => records(options).users.markEmailVerified(userId)
   });
   const sessions = Object.freeze({
     create: (input, options = {}) => records(options).sessions.create(input),
+    update: (sessionId, changes, options = {}) => records(options).sessions.update(sessionId, changes),
     revoke: (sessionId, options = {}) => records(options).sessions.revoke(sessionId),
     // options.exceptSessionId keeps that session.
     revokeForUser: (userId, { exceptSessionId, ...options } = {}) => records(options).sessions.revokeForUser(userId, { exceptSessionId }),
