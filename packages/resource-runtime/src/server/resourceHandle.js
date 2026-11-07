@@ -125,6 +125,22 @@ async function findOrCreateRecord({ get, create }, attributes, options) {
 }
 
 /**
+ * Whether the call runs inside a transaction (`options.trx` is set). It never
+ * hands out the transaction. It is the one reader for protocol guards: work
+ * that must run inside the caller's transaction, or must open its own.
+ * @param {{ trx?: object | null }} options
+ * @returns {boolean}
+ */
+function inTransaction(options) {
+  return Boolean(options.trx);
+}
+
+// A write given no transaction owns one, so it is outermost and may run again.
+function write(options, run) {
+  return inTransaction(options) ? run() : retryDeadlocks(run);
+}
+
+/**
  * One owned table's handle: every read and write of the table, each applying
  * the scope of the call's `options.context` (ownership and row policy) and
  * joining `options.trx` when there is one. Handles answer records:
@@ -181,16 +197,11 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    * @returns {Promise<T>}
    */
   async function withTransaction(options, work, { retry = true, asThrown = false } = {}) {
-    if (options.trx) {
+    if (inTransaction(options)) {
       return work(options);
     }
     const run = () => openTransaction(api, options, work, asThrown);
     return retry ? retryDeadlocks(run) : run();
-  }
-
-  // A write given no transaction owns one, so it is outermost and may run again.
-  function write(options, run) {
-    return options.trx ? run() : retryDeadlocks(run);
   }
 
   // With an afterWrite hook, the write and the hook share one transaction, in the caller's scope.
@@ -702,6 +713,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     name,
     pageLimits,
     withTransaction,
+    inTransaction,
     query,
     queryAll,
     get,
