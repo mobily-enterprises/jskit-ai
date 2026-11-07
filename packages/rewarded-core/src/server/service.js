@@ -373,7 +373,7 @@ function createService({
     }
 
     return rewardedWatchSessionsRepository.withTransaction({ context }, async (txOptions) => {
-      const sessionRecord = await rewardedWatchSessionsRepository.get(sessionId, {}, txOptions);
+      const sessionRecord = await rewardedWatchSessionsRepository.get(sessionId, {}, { ...txOptions, missing: "skip" });
       if (!sessionRecord) {
         throw new AppError(404, "Watch session not found.", { code: "rewarded.session.notFound" });
       }
@@ -451,7 +451,7 @@ function createService({
       throw new AppError(400, "sessionId is required.", { code: "rewarded.request.sessionIdRequired" });
     }
 
-    const sessionRecord = await rewardedWatchSessionsRepository.get(sessionId, {}, { context });
+    const sessionRecord = await rewardedWatchSessionsRepository.get(sessionId, {}, { context, missing: "skip" });
     if (!sessionRecord) {
       throw new AppError(404, "Watch session not found.", { code: "rewarded.session.notFound" });
     }

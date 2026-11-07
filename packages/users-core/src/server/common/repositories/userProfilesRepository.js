@@ -196,7 +196,7 @@ function createRepository({ userProfiles, userSettings }) {
     );
   }
 
-  // A profile's changed fields, stamped with the update time; null for a missing id.
+  // A profile's changed fields, stamped with the update time; null for a missing id or profile.
   async function patchProfile(userId, changes, options) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
@@ -206,7 +206,7 @@ function createRepository({ userProfiles, userSettings }) {
     return normalizeProfileRecord(await userProfiles.patch(
       normalizedUserId,
       { ...changes, updatedAt: new Date().toISOString() },
-      options
+      { ...options, missing: "skip" }
     ));
   }
 
