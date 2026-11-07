@@ -70,6 +70,8 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "client-features.md",
     "crud-form-actions.md",
     "crud-operations.md",
+    "data-access.md",
+    "database-layer.md",
     "existing-application-migration.md",
     "material-3.md",
     "multi-homing.md",
@@ -188,9 +190,10 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // example for each rule, so they need more room than the old summary; the UI pass method stays out of this budget,
   // in its own reference. Guidance stays clear rather than squeezed: when the rules grow, the budget grows with them
   // (60 and 40 KiB since app-owned top app bars, in-page steps and unblended theme colours; 62 KiB since section tabs,
-  // two-destination navigation, snackbar placement, global page paths and brand marks).
-  assert.ok(Buffer.byteLength(operationalSource) <= 62 * 1024);
-  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 40 * 1024);
+  // two-destination navigation, snackbar placement, global page paths and brand marks; 63 and 41 KiB since the skill
+  // routes table work to the data-access and database-layer references and CRUD names the table resource).
+  assert.ok(Buffer.byteLength(operationalSource) <= 63 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 41 * 1024);
 });
 
 test("the published JSKIT skill remains self-contained after relocation", async (t) => {

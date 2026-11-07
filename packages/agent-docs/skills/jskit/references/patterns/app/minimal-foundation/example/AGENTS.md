@@ -16,6 +16,10 @@ explains it; `npm run verify` adds the package graph, tests and build. Fix a
 finding in the code; excuse one only with the guide's `readable-check: allow`
 comment and reason prefix.
 
+Before writing or reviewing code that reads or writes a database table, read
+the data access guide at
+`https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access`.
+
 Before writing or reviewing client code (a composable, component, client
 factory or client provider), read the client features guide at
 `https://mobily-enterprises.github.io/jskit-ai/guide/framework/client-features`.
