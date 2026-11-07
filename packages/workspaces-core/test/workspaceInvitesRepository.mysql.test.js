@@ -245,6 +245,55 @@ test("accepting or revoking stamps a pending invite once; a handled, unknown or 
   assert.equal(await statusOf(db, kept.id), "revoked", "and commits with it");
 });
 
+// Resolves once a statement on this test's database waits on a row lock, so a race starts in a known order. The test
+// user sees its own connections in the process list without the PROCESS privilege: a waiting lock is a FOR UPDATE
+// read still running.
+async function untilLockWait(db) {
+  const deadline = Date.now() + 5_000;
+  while (Date.now() < deadline) {
+    const [rows] = await db.knex.raw(
+      "SELECT COUNT(*) AS waiting FROM information_schema.PROCESSLIST WHERE DB = ? AND COMMAND = 'Query' " +
+        "AND INFO LIKE '%for update%' AND INFO NOT LIKE '%PROCESSLIST%'",
+      [db.name]
+    );
+    if (Number(rows[0].waiting) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  throw new Error("No statement waited for a lock within 5 s.");
+}
+
+test("a revoke and an accept of one pending invite race: the first to lock it wins and the other is a 404", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const { workspace } = await teamOf(db, "race");
+  const handled = (error) => error.status === 404 && error.code === "workspaces.invite.invitationNotFoundOrHandled";
+  for (const [first, second, status] of [["revokeById", "markAcceptedById", "revoked"], ["markAcceptedById", "revokeById", "accepted"]]) {
+    const created = await invite(db, workspace, `${first}@example.test`, `race-${first}`);
+    const held = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    // The winner changes the invite and holds its locks until released.
+    const winner = db.invites.withTransaction({}, async (txOptions) => {
+      await db.invites[first](created.id, { ...txOptions, workspaceId: workspace.id });
+      held.resolve();
+      await release.promise;
+    });
+    let loser;
+    try {
+      await held.promise;
+      loser = db.invites[second](created.id);
+      await untilLockWait(db);
+    } finally {
+      release.resolve();
+      await winner;
+    }
+    await assert.rejects(loser, handled, `${second} after ${first}`);
+    const stored = await db.invites.findById(created.id);
+    assert.equal(stored.status, status);
+    assert.equal(stored.acceptedAt === null, status === "revoked");
+    assert.equal(stored.revokedAt === null, status === "accepted");
+  }
+});
+
 test("locking reads need the caller's transaction and no includes, and refuse a missing workspace", async () => {
   requireTestDatabase(process.env);
   const db = await database.open();

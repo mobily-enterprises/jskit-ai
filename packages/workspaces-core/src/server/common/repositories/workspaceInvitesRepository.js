@@ -89,8 +89,10 @@ function createRepository({ workspaceInvites, workspaces }) {
       if (Object.keys(filters).some((key) => !LOCKING_FILTERS.includes(key))) {
         throw new TypeError("Unsupported locking invitation filter.");
       }
-      // The locking read answers the rows as committed when the lock is granted.
-      return workspaceInvites.lockWhere(filters, options);
+      // The locking read answers the rows as committed when the lock is granted. A row whose status changed while the
+      // lock waited (another request accepted or revoked it) is left out, whether or not the database re-checked it.
+      const rows = await workspaceInvites.lockWhere(filters, options);
+      return filters.status === undefined ? rows : rows.filter((row) => row.status === filters.status);
     }
     return workspaceInvites.queryAll({ filters, ...(includeWorkspace ? { include: ["workspace"] } : {}) }, options);
   }
