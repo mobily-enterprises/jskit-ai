@@ -180,7 +180,11 @@ only while it still holds that version, and advances it. A record whose
 version moved on rejects with a 409 coded `crud.document.lockVersionConflict`
 ("This record changed. Reload and try again.") and nothing is written; a
 missing or hidden record follows the missing-row rule. The changes leave the
-version field out. `patch(id, changes, { ...options, onlyIf: { status: "open" } })`
+version field out. Every update advances the version, a plain `patch`,
+`patchMany`, `patchWhere` or upsert merge too, so a form that read version 3
+and saves after a background job's plain patch of the same record (now
+version 4) gets the 409 and reloads, even though the job changed other
+fields. `patch(id, changes, { ...options, onlyIf: { status: "open" } })`
 is the same check on stored values, answering `null` when they differ.
 
 ## Layer 5: reports the resource cannot express

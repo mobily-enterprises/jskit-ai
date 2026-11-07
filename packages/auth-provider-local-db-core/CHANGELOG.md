@@ -9,4 +9,4 @@
 
 ### Upgrading
 
-- Run `npm run db:migrate`. An application that added `email_verified_at` itself keeps its column (the migration leaves an existing one alone) and replaces its own writes with `markEmailVerified`.
+- Run `npm run db:migrate` before the new version serves requests: its account reads select `email_verified_at`, so until the migration has run every sign-in and account read fails with an unknown column. An application that added `email_verified_at` itself keeps its column (the migration leaves an existing one alone) and replaces its own writes with `markEmailVerified`.
