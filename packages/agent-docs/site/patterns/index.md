@@ -207,6 +207,15 @@ Add a protected administration surface, settings shell, and semantic navigation 
 - Owner: `@jskit-ai/console-web@0.1.238`
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
 
+## [Owner-scoped CRUD contract](/patterns/crud/crud-contract)
+
+Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.
+
+- Id: `crud/crud-contract`
+- Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `table`, `user`
+- Owner: `@jskit-ai/resource-crud-core@0.1.202`
+- Requires: `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
+
 ## [CRUD feature package](/patterns/crud/crud-feature-package)
 
 Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.
@@ -225,15 +234,6 @@ Build a routed CRUD user interface as thin application pages over JSKIT's shared
 - Owner: `@jskit-ai/http-web@0.2.19`
 - Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
-## [Owner-scoped table resource and CRUD contract](/patterns/crud/resource-contract)
-
-Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.
-
-- Id: `crud/resource-contract`
-- Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `table`, `user`
-- Owner: `@jskit-ai/resource-crud-core@0.1.202`
-- Requires: `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
-
 ## [MySQL application database](/patterns/database/mysql-application)
 
 Configure a JSKIT application for MySQL with a fixed driver, ordinary environment values, and rebuildable Knex migrations.
@@ -251,6 +251,15 @@ Configure a JSKIT application for PostgreSQL with a fixed driver, ordinary envir
 - Keywords: `database`, `knex`, `migrations`, `pg`, `postgres`, `postgresql`
 - Owner: `@jskit-ai/database-runtime-postgres@0.1.257`
 - Requires: `@jskit-ai/database-runtime-postgres`
+
+## [Table resource](/patterns/database/table-resource)
+
+Describe one database table once (its fields, columns, ownership, search and sort) so its owner feature reads and writes it through a scoped handle.
+
+- Id: `database/table-resource`
+- Keywords: `database`, `defaultTo`, `defineTableResource`, `lockVersionField`, `lookup`, `ownership`, `owns`, `resource`, `table`, `workspace_or_shared`
+- Owner: `@jskit-ai/resource-core@0.1.202`
+- Requires: `@jskit-ai/resource-core`
 
 ## [Capacitor Android application](/patterns/mobile/android-application)
 

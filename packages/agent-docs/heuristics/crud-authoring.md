@@ -11,7 +11,8 @@ choice is missing. Do not turn these decisions into generator options.
 
 Read these package-owned source patterns:
 
-- `crud/resource-contract` for the shared field and ownership contract
+- `database/table-resource` for the table's fields, ownership and lookups
+- `crud/crud-contract` for the HTTP surface on it
 - `crud/crud-feature-package` for migration and server composition
 - `crud/crud-screen-set` for routed list, view, create, edit, and delete UI
 
@@ -36,7 +37,7 @@ for understanding an imported system, but it is never the sole source of truth.
 Write a field's `operations` only where it differs from the default (output,
 create required as the field is, patch; none for `primary: true` or
 `hidden: true`; output only for `readOnly: true`), and write a lookup field as `lookup: "<namespace>"`.
-The `crud/resource-contract` pattern lists what each expands to.
+The `crud/crud-contract` and `database/table-resource` patterns list what each expands to.
 
 ## Ownership and access
 

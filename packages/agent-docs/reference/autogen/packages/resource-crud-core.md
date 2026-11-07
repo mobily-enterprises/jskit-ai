@@ -174,7 +174,7 @@ Exports
 
 ### patterns
 
-### `patterns/resource-contract/example/bookResource.js`
+### `patterns/crud-contract/example/bookResource.js`
 Exports
 - `bookCrud`
 - `bookResource`

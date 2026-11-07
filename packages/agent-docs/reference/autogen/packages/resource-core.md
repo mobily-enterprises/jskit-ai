@@ -37,3 +37,9 @@ Local functions
 - `requireText(value, label)`
 - `requireOwnership(value)`
 - `requireLockVersionField(lockVersionField, schema)`
+
+### patterns
+
+### `patterns/table-resource/example/orderResource.js`
+Exports
+- `orderResource`
