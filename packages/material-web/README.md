@@ -21,7 +21,8 @@ The app's only theme file is `src/theme/index.js`:
 export const theme = {
   seed: "#6750A4",
   colors: {},
-  icons: {}
+  icons: {},
+  typography: {}
 };
 ```
 
@@ -54,9 +55,13 @@ export const theme = {
   `theme.icons` as `{ name: "<24x24 path data>" }`, copied from the Material
   Symbols Rounded glyph (the `material-symbols:<name>-rounded` path in
   `@iconify-json/material-symbols`); `$name` then works everywhere.
-- **Type.** Roboto Flex (variable weight) for every Vuetify text style; the
-  Material 3 type scale is Vuetify's `text-display-*`, `text-headline-*`,
-  `text-title-*`, `text-body-*` and `text-label-*` classes.
+- **Type.** Material 3's two typefaces, Roboto Flex (variable weight) unless
+  the app names its own in `theme.typography`: `brand` for display, headline
+  and title-large, `plain` for title-medium and -small, body and label. Each is
+  a CSS font-family value, such as `'"Fraunces", serif'`; the app loads the
+  font itself. The Material 3 type scale is Vuetify's `text-display-*`,
+  `text-headline-*`, `text-title-*`, `text-body-*` and `text-label-*` classes,
+  which read them as `--v-font-heading` and `--v-font-body`.
 - **Components.** The md3 blueprint plus JSKIT's defaults: full-shape filled
   buttons, elevated cards on `surface-container-low` with 12dp corners, outlined
   fields, 8dp chips that close with `$close`, 4dp menus on `surface-container`,

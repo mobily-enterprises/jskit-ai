@@ -5,6 +5,24 @@ import { materialSymbols } from "./symbols.js";
 
 // The default Material 3 seed, the baseline purple of the Material 3 guidelines.
 const DEFAULT_SEED = "#6750A4";
+// Roboto Flex, Material 3's default for both typefaces (material.css loads it).
+const ROBOTO_FLEX = '"Roboto Flex Variable", "Roboto Flex", Roboto, system-ui, sans-serif';
+
+/**
+ * Material 3's two typefaces as Vuetify theme variables: brand for display, headline and title-large (Vuetify's
+ * heading font), plain for title-medium and -small, body and label (its body font). Each is a CSS font-family value.
+ * @param {{ brand?: string, plain?: string }} typography
+ */
+function typefaceVariables({ brand = ROBOTO_FLEX, plain = ROBOTO_FLEX } = {}) {
+  const family = (value, role) => {
+    const text = String(value ?? "").trim();
+    if (!text || /[;{}<>]/u.test(text)) {
+      throw new TypeError(`Theme typography.${role} needs a CSS font-family value, such as '"Inter", sans-serif', not "${text}".`);
+    }
+    return text;
+  };
+  return { "font-heading": family(brand, "brand"), "font-body": family(plain, "plain") };
+}
 
 /**
  * An app's own icons as Vuetify aliases: `{ name: "<24x24 path data>" }` becomes `$name`.
@@ -24,12 +42,18 @@ function appIconAliases(icons) {
 
 /**
  * Vuetify options for an exact Material 3 app: the md3 blueprint, light and dark schemes generated from the seed (with
- * the app's own colours as harmonized custom colours), following the system's light or dark setting, Material Symbols
- * Rounded behind every icon alias (plus the app's own), and JSKIT's Material 3 component defaults. Pass the result to
- * createVuetify(); import "@jskit-ai/material-web/client/material.css" after "vuetify/styles".
- * @param {{ seed?: string, colors?: Record<string, string | { value: string, blend?: boolean }>, icons?: Record<string, string> }} [theme]
+ * the app's own colours as harmonized custom colours), following the system's light or dark setting, the brand and
+ * plain typefaces (Roboto Flex unless the app names its own), Material Symbols Rounded behind every icon alias (plus
+ * the app's own), and JSKIT's Material 3 component defaults. Pass the result to createVuetify(); import
+ * "@jskit-ai/material-web/client/material.css" after "vuetify/styles".
+ * @param {{ seed?: string, colors?: Record<string, string | { value: string, blend?: boolean }>, icons?: Record<string, string>, typography?: { brand?: string, plain?: string } }} [theme]
  */
-function createMaterialVuetifyOptions({ seed = DEFAULT_SEED, colors = {}, icons = {} } = {}) {
+function createMaterialVuetifyOptions({ seed = DEFAULT_SEED, colors = {}, icons = {}, typography = {} } = {}) {
+  const themes = materialThemes(seed, colors);
+  const typefaces = typefaceVariables(typography);
+  for (const theme of Object.values(themes)) {
+    theme.variables = { ...theme.variables, ...typefaces };
+  }
   return {
     blueprint: md3,
     defaults: materialDefaults,
@@ -42,7 +66,7 @@ function createMaterialVuetifyOptions({ seed = DEFAULT_SEED, colors = {}, icons 
     },
     theme: {
       defaultTheme: "system",
-      themes: materialThemes(seed, colors)
+      themes
     }
   };
 }

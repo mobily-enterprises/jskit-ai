@@ -7,8 +7,19 @@
 @layer vuetify-core, vuetify-components, vuetify-overrides, vuetify-utilities, vuetify-final;
 @import "@fontsource-variable/roboto-flex/index.css";
 
+/*
+ * Material 3's brand typeface (display, headline, title-large: Vuetify's heading font) and plain one (the rest: its
+ * body font), Roboto Flex by default. The theme's own, from createMaterialVuetifyOptions({ typography }), come in a
+ * later Vuetify layer and win, so this is only the fallback.
+ */
+@layer vuetify-core {
+  :root {
+    --v-font-heading: "Roboto Flex Variable", "Roboto Flex", Roboto, system-ui, sans-serif;
+    --v-font-body: "Roboto Flex Variable", "Roboto Flex", Roboto, system-ui, sans-serif;
+  }
+}
+
 :root {
-  --v-font-body: "Roboto Flex Variable", "Roboto Flex", Roboto, system-ui, sans-serif;
   --md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
   --md-sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
   --md-sys-motion-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
