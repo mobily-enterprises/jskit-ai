@@ -2,12 +2,46 @@ import vueI18n from "@intlify/eslint-plugin-vue-i18n";
 import {
   baseConfig,
   clientFeaturesConfig,
+  dataAccessConfig,
   nodeConfig,
   sizeLimitsConfig,
   typedFeaturesConfig,
   vueConfig,
   webConfig
 } from "./tooling/config-eslint/index.js";
+
+// The JSKIT server and shared files that still reach tables past their resources, which the data-access rules leave
+// alone until they are converted. The store-conversion step of the data-access redesign converts each one and deletes
+// this list.
+const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
+  "packages/agent-runtime/src/server/goals.js",
+  "packages/agent-runtime/src/server/runs.js",
+  "packages/agent-runtime/src/server/summaryStore.js",
+  "packages/assistant-runtime/src/server/AssistantProvider.js",
+  "packages/assistant-runtime/src/server/repositories/assistantConfigRepository.js",
+  "packages/assistant-runtime/src/server/repositories/conversationsRepository.js",
+  "packages/assistant-runtime/src/server/repositories/messagesRepository.js",
+  "packages/auth-provider-local-db-core/src/server/providers/AuthLocalDatabaseBackendProvider.js",
+  "packages/auth-provider-oidc-core/src/server/lib/localAccounts.js",
+  "packages/auth-provider-oidc-core/src/server/lib/store.js",
+  "packages/auth-provider-oidc-core/src/server/providers/AuthOidcProvider.js",
+  "packages/connectors-core/src/server/knexConnectionStore.js",
+  "packages/console-core/src/server/consoleRuntime.js",
+  "packages/console-core/src/server/consoleSettings/consoleSettingsRepository.js",
+  "packages/crud-core/src/server/createHooksToCollectChildren.js",
+  "packages/crud-core/src/server/jsonApiModule/actions.js",
+  "packages/crud-core/src/server/jsonApiModule/repository.js",
+  "packages/crud-core/src/server/resourceRuntime/listControls.js",
+  "packages/oidc-issuer-core/src/server/providers/OidcIssuerProvider.js",
+  "packages/oidc-issuer-core/src/server/rateLimits.js",
+  "packages/payments-core/src/server/knexStore.js",
+  "packages/realtime/src/server/realtimeAudience.js",
+  "packages/workspaces-core/src/server/common/repositories/workspaceInvitesRepository.js",
+  "packages/workspaces-core/src/server/common/services/workspaceDirectoryService.js",
+  "packages/workspaces-core/src/server/common/support/realtimeServiceEvents.js",
+  "packages/workspaces-core/src/server/workspaceMembers/workspaceMembersService.js",
+  "packages/workspaces-core/src/server/workspacePendingInvitations/workspacePendingInvitationsService.js"
+]);
 
 export default [
   {
@@ -81,6 +115,21 @@ export default [
     "packages/assistant-runtime/src/shared/**",
     "packages/assistant-voice/src/shared/**"
   ]),
+  // The data-access rules: baseConfig makes them errors in every src/server and src/shared tree, and the kernel's
+  // server and shared code is listed here.
+  ...dataAccessConfig(["packages/kernel/server/**", "packages/kernel/shared/**"]),
+  // The packages whose job is data access are the resource path itself, so the rules leave them alone.
+  ...dataAccessConfig([
+    // The resource runtime (it becomes resource-runtime): the json-rest-api host, handles and scoped queries.
+    "packages/json-rest-api-core/**",
+    // Connections, migrations, test databases and the transaction manager every handle runs on.
+    "packages/database-runtime/**",
+    // The MySQL dialect: its driver, table introspection and dialect SQL.
+    "packages/database-runtime-mysql/**",
+    // The PostgreSQL dialect: its driver, table introspection and dialect SQL.
+    "packages/database-runtime-postgres/**"
+  ], "off"),
+  ...dataAccessConfig(DATA_ACCESS_CONVERTED_LATER, "off"),
   // Every other hand-written file stays under 750 lines and every function under 600.
   ...sizeLimitsConfig(["packages/**", "tooling/**", "scripts/**"]),
   ...webConfig,

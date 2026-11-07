@@ -1,5 +1,6 @@
 import { describe, it } from "node:test";
 import { RuleTester } from "eslint";
+import vueParser from "vue-eslint-parser";
 import { allowCommentForm } from "../plugin/rules/allowCommentForm.js";
 
 RuleTester.describe = describe;
@@ -19,7 +20,9 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
     "// readable-check: allow method-probe - data: a route definition may omit its handler\nconst handler = typeof route.handler === \"function\" ? route.handler : null;",
     "const routes = []; // readable-check: allow no-dual-shape - data: a route list or one route\nfunction read() {}",
     "// The vocabulary: \"// readable-check: allow <rule> - <reason>\".\nconst x = 1;",
-    "const source = \"// readable-check: allow method-probe - anything\";"
+    "const source = \"// readable-check: allow method-probe - anything\";",
+    "// readable-check: allow no-direct-knex - infrastructure: the migration runner keeps its own bookkeeping table\nimport { readFile } from \"node:fs/promises\";",
+    "#!/usr/bin/env node\n/* readable-check: allow jskit/no-transaction-reader - infrastructure: the transaction manager every handle runs on */\n// readable-check: allow no-direct-knex - infrastructure: the transaction manager every handle runs on\nexport const run = () => {};"
   ],
   invalid: [
     {
@@ -77,6 +80,44 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
     {
       code: "// readable-check: allow method-probe - an application slot\nif (typeof router.register !== \"function\") {}",
       errors: [{ messageId: "allowPrefix", data: { reason: "an application slot" } }]
+    },
+    {
+      code: "import { x } from \"y\";\n// readable-check: allow no-direct-knex - infrastructure: protocol state of the sign-in flow\nconst rows = x;",
+      errors: [{ messageId: "infrastructureExcuse", line: 2 }]
+    },
+    {
+      code: "// readable-check: allow method-probe - infrastructure: the connection pool\nif (typeof pool.end === \"function\") {}",
+      errors: [{ messageId: "infrastructureExcuse" }]
+    },
+    {
+      code: "// readable-check: allow no-transaction-reader - safety invariant: the caller always passes a transaction\nconst client = options.trx;",
+      errors: [{ messageId: "infrastructureExcuse" }]
+    },
+    {
+      code: "<template>\n  <!-- readable-check: allow no-direct-knex - infrastructure: protocol state -->\n  <div />\n</template>",
+      filename: "Example.vue",
+      languageOptions: { parser: vueParser },
+      errors: [{ messageId: "infrastructureExcuse" }]
+    },
+    {
+      code: "// readable-check: allow sql-literal - data: the report's column list\nquery.selectRaw(columns);\n// readable-check: allow jskit/no-hand-scope - infrastructure: protocol state\n// readable-check: allow knex-reason - safety invariant: a known report",
+      errors: [
+        { messageId: "dataAccessUnexcusable", data: { rule: "sql-literal" }, line: 1 },
+        { messageId: "dataAccessUnexcusable", data: { rule: "jskit/no-hand-scope" }, line: 3 },
+        { messageId: "dataAccessUnexcusable", data: { rule: "knex-reason" }, line: 4 }
+      ]
+    },
+    {
+      code: "// readable-check: allow no-direct-knex - infrastructure: kept for now\nconst a = 1;",
+      errors: [{ messageId: "citesStatus" }]
+    },
+    {
+      code: "// readable-check: allow no-direct-knex - infrastructure: the store a test double replaces\nconst a = 1;",
+      errors: [{ messageId: "citesTests" }]
+    },
+    {
+      code: "// readable-check: allow no-direct-knex - infrastructure:\nconst a = 1;",
+      errors: [{ messageId: "allowPrefix", data: { reason: "infrastructure:" } }]
     }
   ]
 });
