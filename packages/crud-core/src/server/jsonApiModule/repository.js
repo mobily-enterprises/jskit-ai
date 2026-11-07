@@ -1,6 +1,7 @@
 import {
   buildJsonRestQueryParams,
   createJsonRestContext,
+  queryAllJsonRestCollectionDocument,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   returnNullWhenJsonRestResourceMissing
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
@@ -77,7 +78,27 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
     return apiResource;
   }
 
+  /** The largest `limit` queryDocuments accepts: the resource's json-rest-api `queryMaxLimit`. */
+  function queryMaxLimit() {
+    return requireApiResource().vars.queryMaxLimit;
+  }
+
+  /**
+   * One page of the records the query matches: `limit` records (the
+   * resource's default page without one) after `cursor`, with
+   * `meta.pagination` reporting `hasMore` and the next cursor. A `limit`
+   * above queryMaxLimit() throws a TypeError naming queryEveryDocument,
+   * because json-rest-api would answer only queryMaxLimit() records.
+   * @param {Record<string, unknown>} [query]
+   * @param {{ trx?: any, context?: object | null }} [options]
+   */
   async function queryDocuments(query = {}, options = {}) {
+    if (query.limit != null && Number(query.limit) > queryMaxLimit()) {
+      throw new TypeError(
+        `${scopeName} queryDocuments limit ${query.limit} is above its queryMaxLimit (${queryMaxLimit()}), so it would ` +
+          `return only ${queryMaxLimit()} records. Read every record with queryEveryDocument(query, options), or page with limit and cursor.`
+      );
+    }
     return returnBadRequestWhenJsonRestFieldsetInvalid(() =>
       requireApiResource().query(
         {
@@ -86,6 +107,35 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
           format: "jsonapi"
         },
         createJsonRestContext(options.context)
+      )
+    );
+  }
+
+  /**
+   * Every record the query matches, as one JSON:API document `{ data,
+   * included }`, for server code that needs them all. It takes
+   * queryDocuments' filters, include and fields, but no limit, cursor or
+   * sort: it reads 1,000-record pages in id order in the caller's transaction,
+   * so no record is skipped or repeated. Sort the records it returns.
+   * @param {Record<string, unknown>} [query]
+   * @param {{ trx?: any, context?: object | null }} [options]
+   */
+  async function queryEveryDocument(query = {}, options = {}) {
+    for (const key of ["limit", "cursor", "sort"]) {
+      if (query[key] != null) {
+        throw new TypeError(
+          `${scopeName} queryEveryDocument reads every record in id order, so its query cannot name ${key}; sort the records it returns.`
+        );
+      }
+    }
+    return returnBadRequestWhenJsonRestFieldsetInvalid(() =>
+      queryAllJsonRestCollectionDocument(
+        requireApiResource(),
+        {
+          queryParams: buildJsonRestQueryParams(scopeName, query),
+          transaction: resolveTransaction(options)
+        },
+        options.context
       )
     );
   }
@@ -251,7 +301,9 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
 
   return Object.freeze({
     withTransaction,
+    queryMaxLimit,
     queryDocuments,
+    queryEveryDocument,
     getDocumentById,
     createDocument,
     createDocuments,

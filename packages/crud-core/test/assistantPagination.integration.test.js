@@ -64,6 +64,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
     actions: createCrudJsonApiActions(crudJsonApiActionOptions({
       namespace: "books",
       resource,
+      repository,
       service,
       surface: "admin",
       operations: ["list"],

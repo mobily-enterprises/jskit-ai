@@ -21,6 +21,13 @@ import {
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER } from "@jskit-ai/kernel/shared/support/visibility";
+import {
+  createJsonRestContext,
+  extractJsonRestCollectionRows,
+  queryAllJsonRestCollectionDocument,
+  queryAllJsonRestCollectionRows
+} from "./jsonRestCollectionReads.js";
+import { isPlainJsonRestObject } from "./jsonRestValues.js";
 
 const JSON_REST_AUTOFILTER_PRESETS = Object.freeze({
   public: Object.freeze([]),
@@ -55,15 +62,6 @@ const JSON_REST_RESERVED_QUERY_KEYS = Object.freeze(new Set([
   "sort",
   "fields"
 ]));
-
-function isPlainJsonRestObject(value) {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return false;
-  }
-
-  const prototype = Object.getPrototypeOf(value);
-  return prototype === Object.prototype || prototype === null;
-}
 
 function cloneJsonRestResourceValue(value, { writeSerializers = {} } = {}) {
   if (Array.isArray(value)) {
@@ -439,63 +437,6 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
   return queryParams;
 }
 
-function extractJsonRestCollectionRows(payload) {
-  if (!isPlainJsonRestObject(payload) || !Array.isArray(payload.data)) {
-    throw new TypeError("json-rest-api collection response must contain a data array.");
-  }
-  return payload.data;
-}
-
-// Every-row reads ask for pages this large, so each page's row policy and
-// linkage checks run once per 1,000 rows instead of once per queryMaxLimit.
-const EVERY_ROW_PAGE_SIZE = 1000;
-
-/**
- * Every row a resource query matches, for server code that needs them all: a
- * query without a page returns only the resource's first page, 20 rows by
- * default. It reads cursor pages in id order until json-rest-api reports no
- * more, so no row is skipped or repeated between pages; callers sort the rows
- * themselves. Pages are 1,000 rows, or the resource's `queryMaxLimit` when that
- * is larger, through json-rest-api's server-only `pageSizeLimit` (2.4.0 and
- * later); an earlier json-rest-api ignores it and caps each page at
- * `queryMaxLimit`, and the loop still returns every row. Each page runs with
- * the caller's params, its transaction among them, and its own copy of the
- * context, since json-rest-api keeps an operation's working state in the
- * context it is given.
- * @param {import("./types.js").JsonRestResource} resource One of `api.resources`.
- * @param {{ queryParams: object, transaction?: object | null, format?: "plain" | "jsonapi" }} params
- *   resource.query()'s params, with no `queryParams.page` or `queryParams.sort`.
- * @param {object | null | undefined} context The execution context, as createJsonRestContext() takes it.
- * @returns {Promise<object[]>}
- */
-async function queryAllJsonRestCollectionRows(resource, { queryParams, ...params }, context) {
-  if (Object.hasOwn(queryParams, "page") || Object.hasOwn(queryParams, "sort")) {
-    throw new TypeError("queryAllJsonRestCollectionRows pages in id order itself, so queryParams cannot name a page or sort.");
-  }
-
-  const size = Math.max(EVERY_ROW_PAGE_SIZE, resource.vars.queryMaxLimit || 0);
-  const rows = [];
-  let after = null;
-  do {
-    const payload = await resource.query(
-      {
-        ...params,
-        pageSizeLimit: size,
-        queryParams: {
-          ...queryParams,
-          sort: ["id"],
-          page: after ? { size, after } : { size }
-        }
-      },
-      createJsonRestContext(context)
-    );
-    rows.push(...extractJsonRestCollectionRows(payload));
-    const pagination = payload.meta?.pagination;
-    after = pagination?.hasMore === true ? pagination.cursor.next : null;
-  } while (after);
-  return rows;
-}
-
 function createJsonRestResourceScopeOptions(
   resource = {},
   {
@@ -543,30 +484,6 @@ function createJsonRestResourceScopeOptions(
   }
 
   return scopeOptions;
-}
-
-function createJsonRestContext(context = null) {
-  if (!context || typeof context !== "object" || Array.isArray(context)) {
-    return {};
-  }
-
-  const nextContext = {
-    ...context
-  };
-
-  if (context.visibilityContext && typeof context.visibilityContext === "object" && !Array.isArray(context.visibilityContext)) {
-    nextContext.visibilityContext = {
-      ...context.visibilityContext
-    };
-  }
-
-  if (context.scopeValues && typeof context.scopeValues === "object" && !Array.isArray(context.scopeValues)) {
-    nextContext.scopeValues = {
-      ...context.scopeValues
-    };
-  }
-
-  return nextContext;
 }
 
 const WORKSPACE_SCOPE_KINDS = new Set([ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER]);
@@ -724,6 +641,7 @@ export {
   createJsonRestResourceScopeOptions,
   createJsonRestContext,
   extractJsonRestCollectionRows,
+  queryAllJsonRestCollectionDocument,
   queryAllJsonRestCollectionRows,
   returnNullWhenJsonRestResourceMissing,
   returnBadRequestWhenJsonRestFieldsetInvalid,

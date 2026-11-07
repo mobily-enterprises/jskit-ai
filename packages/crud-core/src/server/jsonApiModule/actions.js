@@ -208,8 +208,15 @@ function createCrudJsonApiActions({
     servedOverHttp
   });
 
+  // HTTP and automation callers keep json-rest-api's page cap: a larger limit answers
+  // queryMaxLimit records, and the response's pagination reports the page size, hasMore
+  // and the next cursor, as it always has. Server code asking for more gets an error instead.
   function listDocuments(input, context) {
-    return service.queryDocuments(omitInputKeys(input, scopeInputKeys), { context });
+    const query = omitInputKeys(input, scopeInputKeys);
+    if (query.limit != null && Number(query.limit) > repository.queryMaxLimit()) {
+      query.limit = repository.queryMaxLimit();
+    }
+    return service.queryDocuments(query, { context });
   }
 
   function viewDocument(input, context) {

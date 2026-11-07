@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- New `queryAllJsonRestCollectionDocument(resource, params, context)`: every row a query matches as one JSON:API document `{ data, included }`, with each page's included records kept once, for server reads that use `include`. CRUD repositories' `queryEveryDocument` reads through it.
 - `queryAllJsonRestCollectionRows` asks for 1,000-row pages (or the resource's `queryMaxLimit` when larger) through json-rest-api's server-only `pageSizeLimit`, so an every-row read pays each page's row policy and linkage queries once per 1,000 rows instead of once per 100: 480 rows read in 3 statements instead of 15. json-rest-api before 2.4.0 ignores `pageSizeLimit` and keeps 100-row pages; the result is the same rows either way. HTTP page sizes are unchanged.
 
 ## 0.2.0 - 2026-10-29
