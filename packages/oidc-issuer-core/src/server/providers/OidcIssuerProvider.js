@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: hands the application's Knex to the accounts hub, the OpenID provider whose protocol state, signing keys, identity backend and rate limits the data-access spec keeps as infrastructure
+
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createOidcIssuer } from "../issuer.js";
 

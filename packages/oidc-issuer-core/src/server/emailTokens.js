@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: the accounts hub's single-use emailed link tokens (oidc_issuer_email_tokens), protocol state of its confirmation, recovery and Google-link flows
+
 import { randomToken, sha256 } from "./crypto.js";
 
 const EMAIL_TOKENS_TABLE = "oidc_issuer_email_tokens";

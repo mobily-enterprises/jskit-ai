@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: an operator's one-off command, run with the app's knexfile and no running app, that exports local sign-in's accounts for an accounts hub and moves the adopted users rows to the hub's provider
+
 import { open, readFile } from "node:fs/promises";
 import { AUTH_OIDC_PROVIDER_ID } from "../../shared/index.js";
 
