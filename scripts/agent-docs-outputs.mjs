@@ -15,12 +15,14 @@ const HEURISTICS_SOURCE_ROOT = path.join(AGENT_DOCS_ROOT, "heuristics");
 const JSKIT_SKILL_HEURISTICS_ROOT = path.join(JSKIT_SKILL_REFERENCES_ROOT, "heuristics");
 // Guide source (relative to site/guide) -> bundled skill reference file name.
 const JSKIT_SKILL_GUIDES = Object.freeze({
+  "app-setup/database-layer.md": "database-layer.md",
   "app-setup/existing-application-migration.md": "existing-application-migration.md",
   "app-setup/multi-homing.md": "multi-homing.md",
   "framework/application-operations.md": "app-operations.md",
   "framework/client-features.md": "client-features.md",
   "framework/crud-form-actions.md": "crud-form-actions.md",
   "framework/crud-operations.md": "crud-operations.md",
+  "framework/data-access.md": "data-access.md",
   "framework/material-3.md": "material-3.md",
   "framework/sanity-checks.md": "sanity-checks.md",
   "framework/translation.md": "translation.md",
