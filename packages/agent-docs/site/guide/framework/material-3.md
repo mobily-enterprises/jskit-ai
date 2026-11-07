@@ -81,7 +81,13 @@ Exactly this, and nothing more:
    list, an edit page its record, a sub-page its page. Tabs under a layout
    (`settings.vue` rendering `<RouterView>` for `settings/`) declare nothing:
    they inherit the nearest layout's declaration, and moving between them keeps
-   the trail.
+   the trail. The parent is read from the page up to its surface root, the
+   record that declares `jskit.surface`, and stops there: a parent declared
+   beside `jskit.surface` is never read, and an inner page repeating its
+   surface becomes a root of its own with no Up. So the surface goes only on
+   the surface's layout page (`account.vue`: `ShellLayout` around
+   `<RouterView />`) and the parent on the page it renders
+   (`account/index.vue`); `nav/surface-parent` reports the two on one record.
 2. **Each top-level destination is a main-navigation item** (a `kind: "link"`
    placement with `target: "shell.primary-nav"` or `"shell.secondary-nav"`) and
    declares no parent; nor do its tabs. A shell page with no parent is
@@ -116,11 +122,12 @@ Exactly this, and nothing more:
 | `nav/history` | `history.back()`, `history.go()`, `history.pushState()`/`replaceState()`, `router.back()`, `router.go()` |
 | `nav/window-location` | `window.location` assignments, `.href =`, `location.assign()`, `location.replace()` |
 | `nav/raw-link` | a hand-built in-app path in `to`, `href`, `router.push()`, `router.replace()` or a `to:`/`href:` object key outside a placement |
-| `nav/back-control` | any back control but the shell's Up that navigates the app: "Back to X", "← Suppliers", back arrows and navigating chevrons, breadcrumbs, a custom app-bar back button, a back component, a `goBack()`-style handler |
-| `nav/missing-parent` | an inner page of a shell surface without a declared parent |
+| `nav/back-control` | any back control but the shell's Up that navigates the app: "Back to X", "← Suppliers", back arrows and navigating chevrons, breadcrumbs, a custom app-bar back button, a back component (`<ContextBackButton />` or `<page-back-link>`, and its import), a `goBack()`-style handler |
+| `nav/missing-parent` | an inner page of a shell surface without a declared parent, when it always renders under the shell's top app bar (a layout that also renders its pages without `ShellLayout`, such as a shop device's sign-in in a `v-if`, leaves its pages unjudged) |
 | `nav/top-level-parent` | a main-navigation destination that declares a parent |
 | `nav/placement-data` | a main-navigation placement that isn't literal data (no page is judged for a missing parent until it is) |
 | `nav/missing-shell-layout` | a page that declares a parent with no shell layout rendering it, so its title, Up and actions never show |
+| `nav/surface-parent` | a parent declared beside `jskit.surface`, which the shell never reads: declare the surface only on the surface's layout page and the parent on the page it renders |
 | `nav/allow` | any `m3-check: allow nav/...` comment: nothing excuses a navigation rule |
 
 ### Each rule, right and wrong
@@ -178,7 +185,12 @@ Exactly this, and nothing more:
 - **Type:** Vuetify 4 Material 3 roles (`text-headline-small`,
   `text-title-large`, `text-body-medium`, `text-label-large`). Never the
   Material 2 scale (`text-h5`, `text-body-2`) or a page-local type system.
-  Roboto Flex is the font.
+  Material 3 has two typefaces, both Roboto Flex unless the app names its own
+  in `src/theme/index.js`:
+  `typography: { brand: '"Fraunces", serif', plain: '"Inter", sans-serif' }`.
+  `brand` sets display, headline and title-large, `plain` the rest (title-medium
+  and -small, body, label); each is a CSS font-family value, and the app loads
+  the font. Never set `font-family` or `--v-font-body` in app CSS.
 - **Icons:** Material Symbols Rounded through Vuetify `$` aliases: Vuetify's
   standard ones (`$close`, `$menu`, `$delete`, `$prev`, `$next`) and JSKIT's
   camelCase names (`$add`, `$edit`, `$search`, `$moreVert`, `$filterList`,
@@ -339,7 +351,7 @@ and so every app's verify, fail on them too:
 
 | Rule | Finds |
 |---|---|
-| `m3/duplicate-h1` | a second `h1`, or an in-page `h1` under the shell's page title |
+| `m3/duplicate-h1` | a second `h1` that can show beside the first (one per `v-if` branch is one), or an in-page `h1` under a layout that always shows the shell's page title |
 | `m3/raw-hex` | a hex colour outside `src/theme/` (`palettes.js` holds content colours) |
 | `m3/dark-scheme` | no dark scheme, or the theme pinned to light |
 | `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet |

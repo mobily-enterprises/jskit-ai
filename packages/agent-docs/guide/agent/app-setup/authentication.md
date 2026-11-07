@@ -174,7 +174,11 @@ invitation context resolver (such as workspace invites) resolves it for that
 email, and the first account is admitted by its setup code. In production
 without a sender, those registrations sign in at once; with one, they confirm
 as usual. An app that refused the register routes itself, with a 404 hook,
-can drop the hook for this setting.
+can drop the hook for this setting. The sign-in page then shows its Register
+tab only to an invited person (an `invitationToken` in its address) and, while
+the app has no account, to the first one: local auth reports
+`features.password.selfRegister: false` otherwise, and a provider that doesn't
+report it offers registering whenever it supports it.
 
 Accounts that exist already are confirmed: only registrations made after the
 upgrade wait. Waiting registrations are kept in the file store
@@ -371,8 +375,27 @@ the `auth_local_identities` and `auth_local_oauth_attempts` tables.
 ## Browser boundary
 
 `@jskit-ai/auth-web` owns the normal auth views, guard runtime, sign-out flow,
-and auth-aware HTTP integration. Applications may wrap and style those views
-while retaining the behavior contract.
+and auth-aware HTTP integration. `DefaultLoginView`, `DefaultResetPasswordView`
+and `DefaultSignOutView` fill the window themselves: a card on
+`surface-container` on wide windows, the whole screen on phones, and each
+screen's one `h1` ("Sign in", "Create your account", "Reset password", ...). An
+app shows its brand through their `brand` slot, which JSKIT lays out: a pane
+beside the card on wide windows (`primary-container`, its children from top to
+bottom) and a compact row above the card on phones. The slot gets `{ compact }`
+to choose what to show, and holds no heading:
+
+```vue
+<template>
+  <DefaultLoginView>
+    <template #brand="{ compact }">
+      <AppBrand :compact="compact" />
+    </template>
+  </DefaultLoginView>
+</template>
+```
+
+Never restyle the views' own classes (`.login-screen`, `.auth-card`) or wrap
+them in a frame of the app's; the brand slot is the one way in.
 
 Initial load errors stay inside the affected surface. Failed login, reset, and
 other transient mutations use the application toast and do not shift the form.

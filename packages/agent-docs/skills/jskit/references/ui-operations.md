@@ -31,7 +31,9 @@ Cancel, Close, and a wizard's Previous step; keep existing unsaved-change
 guards.
 
 `createShellRouter()` owns scroll position (`shell/application-shell`
-pattern); never reset scroll in page components.
+pattern); never reset scroll in page components. An app's own scroll behaviour
+is its `scrollBehavior` option, never a `createRouter` wrapper's (that throws);
+a hash target opens below its `scroll-margin-top`.
 
 ## Application-owned files
 

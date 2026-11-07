@@ -33,8 +33,9 @@ Exports
 ### `src/client/index.js`
 Exports
 - `materialThemes`
-- `createMaterialVuetifyOptions({ seed = DEFAULT_SEED, colors = {}, icons = {} } = {})`
+- `createMaterialVuetifyOptions({ seed = DEFAULT_SEED, colors = {}, icons = {}, typography = {} } = {})`
 Local functions
+- `typefaceVariables({ brand = ROBOTO_FLEX, plain = ROBOTO_FLEX } = {})`
 - `appIconAliases(icons)`
 
 ### `src/client/symbols.js`

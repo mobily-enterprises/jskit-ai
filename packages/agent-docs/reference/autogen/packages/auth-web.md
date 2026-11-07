@@ -285,6 +285,10 @@ Local functions
 Exports
 - None
 
+### `src/client/views/AuthScreen.vue`
+Exports
+- None
+
 ### `src/client/views/DefaultLoginView.vue`
 Exports
 - None
@@ -362,6 +366,8 @@ Exports
 ### `fixtures/sign-in/main.js`
 Exports
 - None
+Local functions
+- `branded(View)`
 
 ### `fixtures/sign-in/vite.config.mjs`
 Exports

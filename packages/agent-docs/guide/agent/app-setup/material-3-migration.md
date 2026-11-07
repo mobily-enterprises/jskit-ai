@@ -104,6 +104,13 @@ Rename them:
 | `text-button`, `text-overline` | `text-label-large`, `text-label-small` |
 | `text-medium-emphasis` | `on-surface-variant` |
 
+An app with its own fonts names them in the theme instead of in CSS, so they
+keep the app's look: `typography: { brand: '"Fraunces", serif', plain:
+'"Inter", sans-serif' }` in `src/theme/index.js` (both Roboto Flex when left
+out). `brand` is display, headline and title-large; `plain` is the rest. Delete
+the app's `font-family` and `--v-font-body` rules; the app still loads its
+font files.
+
 ## 5. Pages: titles, parents and the Up arrow
 
 Each page declares its app bar title, and each inner page the page it belongs
@@ -118,12 +125,15 @@ another one; its `:param` segments take the current route's values. A main
 navigation destination declares no parent and shows no arrow. A page with a
 parent renders in its surface's shell layout (`ShellLayout` around
 `<RouterView />`), which draws the bar with its title, Up and actions:
-`jskit check` reports `nav/missing-shell-layout` until it does. The account
+`jskit check` reports `nav/missing-shell-layout` until it does. Declare
+`jskit.surface` only on that layout page: a parent beside it is never read, so
+`nav/surface-parent` reports a page that repeats its surface. The account
 settings page needs `src/pages/account.vue` from the users/account-settings
 pattern. The shell's Up arrow returns to the page the person came from, or else
 to the parent, so:
 
-- delete "Back to X" buttons, `router.back()` and `history.back()` calls;
+- delete "Back to X" buttons, back components such as `ContextBackButton`
+  (and their imports), `router.back()` and `history.back()` calls;
 - rename a back button for a step or panel inside a page to what it does
   ("Previous step") or where it goes ("Dashboard"), without the back arrow.
   An embedded frame's own Back and Forward, such as a preview browser's, stay;
@@ -131,7 +141,12 @@ to the parent, so:
   A settings page is a list-detail page (`ShellListDetail`): on wide windows the
   list stays beside the open section, and on narrow ones the list is the
   landing page. Its `index.vue`, if it keeps one, is the empty detail
-  placeholder.
+  placeholder;
+- move a scroll behaviour the app sets through its own `createRouter` wrapper
+  into `createShellRouter`'s `scrollBehavior` option, calling
+  `shellScrollBehavior` for what it leaves to the shell: a wrapper that
+  replaces the shell's throws at startup, since it would lose the position Up
+  returns to. A hash target already opens below its `scroll-margin-top`.
 
 ## 6. Page actions go in the app bar
 

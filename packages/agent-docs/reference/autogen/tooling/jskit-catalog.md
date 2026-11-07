@@ -74,12 +74,16 @@ Local functions
 
 ### `scripts/material3-source.mjs`
 Exports
+- `TEMPLATE_TAG`
+- `VOID_TAGS`
 - `HEX_COLOUR`
 - `blankCssComments(source)`
 - `blankHtmlComments(source)`
 - `blankJsComments(source)`
+- `exclusiveBranches(left, right)`
 - `kebab(name)`
 - `lineIndex(text)`
+- `readConditionalBranches(template)`
 - `readDeclarations(css, offset)`
 - `readExceptions(source)`
 - `readInlineDeclarations(text, offset)`
@@ -141,7 +145,7 @@ Local functions
 - `navigatesFromControl(tag, script)`
 - `attribute(tag, name)`
 - `visibleText(inner)`
-- `isBackTag(tag)`
+- `isBackComponentName(name)`
 - `looksLikeBack(tag)`
 - `balancedFrom(text, start, open = "{", close = "}")`
 - `enclosingObject(text, offset)`
@@ -156,6 +160,8 @@ Local functions
 - `routeDeclarations(source)`
 - `readPage(file, source)`
 - `createShellBarReader(appFiles, read, tag = SHELL_UP_TAG)`
+- `shellPlacement(file, source, drawsShellBar, known, barTag = SHELL_UP_TAG)`
+- `rendersOutsideLayouts(code, name)`
 - `localComponent(file, specifier, known)`
 - `pageKey(file)`
 

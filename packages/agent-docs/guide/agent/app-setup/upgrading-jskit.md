@@ -189,6 +189,15 @@ app source: the theme, icons, type classes, page titles and parents, and page
 actions. [Move an app to the Material 3 defaults](./material-3-migration.md)
 lists each change, most of which delete app CSS and overrides.
 
+A release can add message keys (each package's changelog names its new ones,
+such as `jskit.auth.local.register.closed`). JSKIT keeps no separate list: in
+an app with other locales, run `npx jskit i18n export <locale>` for each one
+after updating, which adds every new key in English beside the existing
+translations, translate them, and let `npx jskit i18n check <locale>` confirm
+none is missing (see [Translation](../framework/translation.md#add-a-language)).
+Missing keys fall back to English, so nothing breaks before then, but an app
+whose CI runs the check fails until they are added.
+
 Commit `package.json`, every changed workspace manifest, and
 `package-lock.json` together. Do not hand-edit one JSKIT version after the
 updater succeeds; select a different published cohort only through a catalog

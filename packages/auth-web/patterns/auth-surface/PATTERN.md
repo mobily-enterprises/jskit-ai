@@ -27,7 +27,10 @@ Those choices must be known before adapting the example.
 ## Framework APIs
 
 Use the views, auth guard, HTTP client integration, sign-out runtime, providers,
-and Playwright auth helper exported by `@jskit-ai/auth-web`. Use auth policies
+and Playwright auth helper exported by `@jskit-ai/auth-web`. An app's brand on
+the sign-in, reset and sign-out screens goes in the views' `brand` slot (given
+`{ compact }`), which JSKIT lays out as a pane beside the card on wide windows
+and a row above it on phones; never restyle the views' own classes. Use auth policies
 from `@jskit-ai/auth-core` for server authorization.
 
 Every application with accounts includes the managed-preview login. It is

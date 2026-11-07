@@ -55,12 +55,15 @@ placement registry, topology, and adaptive smoke helper exported by
   border widths to `0` and gives navigation a tonal surface, for example
   `rgb(var(--v-theme-surface-container-low))` when the theme defines it.
 - `createShellRouter()` from `@jskit-ai/kernel/client` installs
-  `shellScrollBehavior`: a new screen opens at the top (or its hash target),
-  Back/Forward restore the saved position, and query, hash, tab or sub-view
-  changes within the same page keep it. A tab or sub-view is the same page when
-  both locations share a parent page record below the surface root. Pass
-  `scrollBehavior` to replace it, or `scrollBehavior: false` to disable it; do
-  not wrap the router or reset scroll in page components.
+  `shellScrollBehavior`: a new screen opens at the top (or its hash target,
+  below the target's `scroll-margin-top`), Back/Forward restore the saved
+  position, and query, hash, tab or sub-view changes within the same page keep
+  it. A tab or sub-view is the same page when both locations share a parent
+  page record below the surface root. Pass `scrollBehavior` to replace it
+  (calling `shellScrollBehavior` for what it leaves to the shell), or
+  `scrollBehavior: false` to disable it. A `createRouter` that replaces the
+  behaviour it is given throws, so never set one there; do not wrap the router
+  or reset scroll in page components.
 - The adaptive browser check closes navigation through its public close control.
 
 ## Example files
