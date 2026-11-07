@@ -136,16 +136,34 @@ test("many-row writes run per chunk in the caller's workspace, and answer nothin
 
   await assert.rejects(notes.patchWhere({}, { title: "every" }, { context: WORKSPACE_A }), /pass all: true/u);
   await assert.rejects(notes.deleteWhere({}, { context: WORKSPACE_A }), /pass all: true/u);
+  await assert.rejects(notes.patchWhere({ status: "done" }, { title: "every" }, { context: WORKSPACE_A, all: true }), /filters or all: true, not both/u);
+  await assert.rejects(notes.deleteWhere({ status: "done" }, { context: WORKSPACE_A, all: true }), /filters or all: true, not both/u);
+  // all: true reaches every row the caller owns, and no other workspace's.
+  await notes.patchWhere({}, { status: "done" }, { context: WORKSPACE_A, all: true });
+  assert.equal((await knex("notes").where({ id: other.id }).first()).status, "open");
   await notes.deleteMany([ids[2]], { context: WORKSPACE_A });
   await notes.deleteWhere({ status: "done" }, { context: WORKSPACE_A });
   assert.deepEqual(await knex("notes").pluck("title"), ["other"]);
 });
 
-test("an upsert finds rows by its conflict keys alone, never by an id", async (t) => {
-  const { notes } = await createFixture(t);
+test("an upsert finds rows by its conflict keys alone, never by an id, and stays in the caller's workspace", async (t) => {
+  const { notes, knex } = await createFixture(t);
+  await knex.schema.alterTable("notes", (table) => table.unique(["workspace_id", "title"]));
+  const upsert = { keys: ["workspaceId", "title"], action: "merge", merge: ["status"] };
   await assert.rejects(
-    notes.createMany([{ id: 1, title: "a" }], { context: WORKSPACE_A, onConflict: { keys: ["workspaceId", "title"], action: "ignore" } }),
+    notes.createMany([{ id: 1, title: "a" }], { context: WORKSPACE_A, onConflict: { ...upsert, action: "ignore" } }),
     /onConflict takes rows without an id/u
+  );
+  await assert.rejects(
+    notes.createMany([{ title: "a" }, { title: "a", status: "done" }], { context: WORKSPACE_A, onConflict: upsert }),
+    (error) => error.code === "REST_API_VALIDATION"
+  );
+  await notes.createMany([{ title: "a" }], { context: WORKSPACE_B });
+  await notes.createMany([{ title: "a" }], { context: WORKSPACE_A });
+  await notes.createMany([{ title: "a", status: "done" }], { context: WORKSPACE_A, onConflict: upsert });
+  assert.deepEqual(
+    (await knex("notes").orderBy("workspace_id").select("workspace_id", "status")).map(({ workspace_id: workspaceId, status }) => [workspaceId, status]),
+    [[1, "done"], [2, "open"]]
   );
 });
 
@@ -223,8 +241,13 @@ test("scopedQuery() answers a read-only builder over the caller's rows that orWh
   await notes.createMany([{ title: "a" }, { title: "b" }], { context: WORKSPACE_A });
   await notes.createMany([{ title: "other" }], { context: WORKSPACE_B });
   const { query } = await notes.scopedQuery({ alias: "n" }, { context: WORKSPACE_A });
-  const rows = await query.clone().orWhere(notes.column("title", "n"), "other").select(notes.column("title", "n")).orderBy(notes.column("id", "n"));
-  assert.deepEqual(rows.map(({ title }) => title), ["a", "b"]);
+  // The scope is inside the derived table "n", so an orWhere on the outer query cannot reach another workspace's row.
+  const rows = await query.clone()
+    .where(notes.column("title", "n"), "a")
+    .orWhere(notes.column("title", "n"), "other")
+    .select(notes.column("title", "n"))
+    .orderBy(notes.column("id", "n"));
+  assert.deepEqual(rows.map(({ title }) => title), ["a"]);
   const counted = await query.clone().select(notes.raw("count(*) as total")).first();
   assert.equal(Number(counted.total), 2);
   assert.throws(() => query.clone().update({ title: "x" }), RestApiScopedQueryReadOnlyError);

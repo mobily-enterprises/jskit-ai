@@ -36,12 +36,10 @@ const rewardedProviderConfigResource = defineTableResource({
     },
     createdAt: {
       type: "dateTime",
-      default: "now()",
       storage: { writeSerializer: "datetime-utc" }
     },
     updatedAt: {
       type: "dateTime",
-      default: "now()",
       storage: { writeSerializer: "datetime-utc" }
     }
   },

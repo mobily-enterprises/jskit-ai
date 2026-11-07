@@ -144,7 +144,6 @@ const userProfileResource = defineTableResource({
     },
     createdAt: {
       type: "dateTime",
-      default: "now()",
       storage: {
         column: "created_at",
         writeSerializer: "datetime-utc"
@@ -152,7 +151,6 @@ const userProfileResource = defineTableResource({
     },
     updatedAt: {
       type: "dateTime",
-      default: "now()",
       storage: {
         column: "updated_at",
         writeSerializer: "datetime-utc"

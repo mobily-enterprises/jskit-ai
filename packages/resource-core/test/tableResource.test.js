@@ -16,7 +16,7 @@ function receivals(overrides = {}) {
     schema: {
       workspaceId: { type: "id", required: true, hidden: true },
       status: { type: "string", required: true, search: true },
-      lockVersion: { type: "integer", default: 1 }
+      lockVersion: { type: "integer", defaultTo: 1 }
     },
     ...overrides
   };
@@ -63,6 +63,14 @@ test("the HTTP surface, field operations and server-only extras are refused with
     () => defineTableResource(receivals({ schema: { status: { type: "string", operations: { output: { required: true } } } } })),
     /schema\.status\.operations belongs to the CRUD contract: defineCrudContract\(resource, \{ fields: \{ status: \.\.\. \} \}\)/u
   );
+});
+
+test("a field's default value is defaultTo: default, which json-rest-api would ignore, is refused", () => {
+  assert.throws(
+    () => defineTableResource(receivals({ lockVersionField: undefined, schema: { status: { type: "string", default: "open" } } })),
+    /schema\.status\.default would be ignored: a field's default value is defaultTo/u
+  );
+  assert.equal(defineTableResource(receivals({ lockVersionField: undefined, schema: { status: { type: "string", defaultTo: "open" } } })).schema.status.defaultTo, "open");
 });
 
 test("lockVersionField names an integer field", () => {
