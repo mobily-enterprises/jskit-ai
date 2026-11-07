@@ -4724,6 +4724,31 @@
       ]
     },
     {
+      "id": "crud/crud-contract",
+      "title": "Owner-scoped CRUD contract",
+      "summary": "Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.",
+      "keywords": [
+        "authenticated",
+        "crud",
+        "database",
+        "owner-scoped",
+        "resource",
+        "table",
+        "user"
+      ],
+      "requires": [
+        "@jskit-ai/resource-core",
+        "@jskit-ai/resource-crud-core"
+      ],
+      "packageId": "@jskit-ai/resource-crud-core",
+      "packageVersion": "0.1.202",
+      "documentPath": "patterns/crud-contract/PATTERN.md",
+      "examplePath": "patterns/crud-contract/example",
+      "files": [
+        "bookResource.js"
+      ]
+    },
+    {
       "id": "crud/crud-feature-package",
       "title": "CRUD feature package",
       "summary": "Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.",
@@ -4796,31 +4821,6 @@
       ]
     },
     {
-      "id": "crud/resource-contract",
-      "title": "Owner-scoped table resource and CRUD contract",
-      "summary": "Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.",
-      "keywords": [
-        "authenticated",
-        "crud",
-        "database",
-        "owner-scoped",
-        "resource",
-        "table",
-        "user"
-      ],
-      "requires": [
-        "@jskit-ai/resource-core",
-        "@jskit-ai/resource-crud-core"
-      ],
-      "packageId": "@jskit-ai/resource-crud-core",
-      "packageVersion": "0.1.202",
-      "documentPath": "patterns/resource-contract/PATTERN.md",
-      "examplePath": "patterns/resource-contract/example",
-      "files": [
-        "bookResource.js"
-      ]
-    },
-    {
       "id": "database/mysql-application",
       "title": "MySQL application database",
       "summary": "Configure a JSKIT application for MySQL with a fixed driver, ordinary environment values, and rebuildable Knex migrations.",
@@ -4874,6 +4874,33 @@
         "package.json",
         "scripts/prepare-database.js",
         "tests/e2e/databases.js"
+      ]
+    },
+    {
+      "id": "database/table-resource",
+      "title": "Table resource",
+      "summary": "Describe one database table once (its fields, columns, ownership, search and sort) so its owner feature reads and writes it through a scoped handle.",
+      "keywords": [
+        "database",
+        "defaultTo",
+        "defineTableResource",
+        "lockVersionField",
+        "lookup",
+        "ownership",
+        "owns",
+        "resource",
+        "table",
+        "workspace_or_shared"
+      ],
+      "requires": [
+        "@jskit-ai/resource-core"
+      ],
+      "packageId": "@jskit-ai/resource-core",
+      "packageVersion": "0.1.202",
+      "documentPath": "patterns/table-resource/PATTERN.md",
+      "examplePath": "patterns/table-resource/example",
+      "files": [
+        "orderResource.js"
       ]
     },
     {

@@ -12,7 +12,7 @@ export default defineConfig({
       // The crud-screen-set pattern's pages import the app's shared book resource from here.
       "@local/books/shared": path.resolve(
         fixtureRoot,
-        "../../../resource-crud-core/patterns/resource-contract/example/bookResource.js"
+        "../../../resource-crud-core/patterns/crud-contract/example/bookResource.js"
       )
     }
   },

@@ -14,7 +14,8 @@ intent and current source. Ask when a material choice is missing. Do not
 translate the work into generator options.
 
 Read the narrow package-owned pattern in the [source pattern
-library](/patterns/): `crud/resource-contract` for the resource,
+library](/patterns/): `database/table-resource` for the table,
+`crud/crud-contract` for its HTTP surface,
 `crud/crud-feature-package` for the server, and `crud/crud-screen-set`
 for routed UI. Child-resource and row-policy patterns own those variations.
 
