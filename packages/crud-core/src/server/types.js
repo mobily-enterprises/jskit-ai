@@ -129,22 +129,4 @@
  * @typedef {{ list?: CrudLifecycleHooks<Service, Repository>, view?: CrudLifecycleHooks<Service, Repository>, create?: CrudLifecycleHooks<Service, Repository>, update?: CrudLifecycleHooks<Service, Repository>, delete?: CrudLifecycleHooks<Service, Repository> }} CrudOperationLifecycle
  */
 
-/**
- * The repository a lookup reads: any object with listByIds().
- * @typedef {object} CrudLookupRepository
- * @property {(ids: unknown[], options?: Record<string, unknown>) => Promise<unknown>} listByIds
- * @property {string} [ownershipFilter] The ownership filter its records use.
- */
-
-/**
- * A records service's field access policy: the fields a call may read and
- * write (a list, a set, "*", or a function of the call that returns one), and
- * whether a write to another field throws or is stripped.
- * createFieldAccessForRoleMatrix builds one from a role matrix.
- * @typedef {object} CrudFieldAccess
- * @property {unknown} [readable]
- * @property {unknown} [writable]
- * @property {"throw" | "strip"} [writeMode]
- */
-
 export {};

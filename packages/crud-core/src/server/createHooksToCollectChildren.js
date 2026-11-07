@@ -27,6 +27,28 @@ function passCallOptions({ callOptions = {} } = {}) {
   return callOptions;
 }
 
+/**
+ * The children are read with one filter that lists every owner id, which the child table
+ * accepts only when it declares that filter as an "in" search. Without it, json-rest-api
+ * answers a validation error on the filter; name the declaration that fixes it.
+ * @param {unknown} error
+ * @param {string} context
+ * @param {string} childForeignKey
+ */
+function explainForeignKeyFilterError(error, context, childForeignKey) {
+  const field = `queryParams.filters.${childForeignKey}`;
+  if (error?.code !== "REST_API_VALIDATION" || !error.details?.fields?.includes(field)) {
+    return error;
+  }
+  return new TypeError(
+    `${context} reads the children of a page with one ${childForeignKey} filter listing every owner id, ` +
+    `which the child table refused (${error.message}). Declare the filter in the child table resource's schema, ` +
+    `${childForeignKey}: { ..., search: { type: "array", filterOperator: "in" } }, or in its owns entry, ` +
+    `searchSchema: { ${childForeignKey}: { type: "array", actualField: "${childForeignKey}", filterOperator: "in" } }.`,
+    { cause: error }
+  );
+}
+
 function resolveListChildrenHandler(options = {}, { context = "createHooksToCollectChildren" } = {}) {
   // readable-check: allow method-probe - input validation: an application passes listChildren() or a childRepository to read through
   if (typeof options.listChildren === "function") {
@@ -51,8 +73,13 @@ function resolveListChildrenHandler(options = {}, { context = "createHooksToColl
       throw new TypeError(`${context} requires childForeignKey when it reads childRepository.queryAll.`);
     }
     // Every child of the page's owners in one read through the child table's own repository.
-    return (ids = [], childCallOptions = {}) =>
-      childRepository.queryAll({ filters: { [childForeignKey]: ids } }, childCallOptions);
+    return async (ids = [], childCallOptions = {}) => {
+      try {
+        return await childRepository.queryAll({ filters: { [childForeignKey]: ids } }, childCallOptions);
+      } catch (error) {
+        throw explainForeignKeyFilterError(error, context, childForeignKey);
+      }
+    };
   }
 
   const listChildren = childRepository[childListMethod];
@@ -121,6 +148,8 @@ function resolveChildrenContainerKey(hookContext = {}, options = {}) {
  *   Lists the children of the owner ids; otherwise childRepository does.
  * @param {object} [options.childRepository] The child table's repository: without childListMethod, its
  *   queryAll() reads the children whose childForeignKey is one of the owner ids, as a CRUD feature's repository does.
+ *   The child table must declare that filter as an "in" search, e.g. in its schema
+ *   `ownerId: { type: "integer", search: { type: "array", filterOperator: "in" } }`; the first read says so otherwise.
  * @param {string} [options.childListMethod] A repository method to call instead, with the owner ids, childForeignKey
  *   when it is given, the call options and the hook context.
  * @param {string} [options.childForeignKey]

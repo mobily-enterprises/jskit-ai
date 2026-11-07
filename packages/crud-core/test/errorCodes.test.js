@@ -10,7 +10,6 @@ import {
   jsonApiFieldsetsQueryValidator,
   lookupIncludeQueryValidator
 } from "../src/server/listQueryValidators.js";
-import { createCrudFieldAccessRuntime } from "../src/server/fieldAccess.js";
 import { createCrudService } from "../src/server/jsonApiModule/service.js";
 
 const english = mergeCatalogs(kernelEnglish, crudEnglish);
@@ -44,19 +43,13 @@ test("crud-core errors carry codes and params rendering their English", async ()
   const service = createCrudService({ repository: missingRepository, resourceName: "contacts" });
   const errors = [
     await rejection(() => service.view(7, {}, {})),
-    await rejection(() => service.patch(7, { name: "Ada" }, {})),
-    await rejection(() => createCrudFieldAccessRuntime({}).enforceWritablePayload(
-      { name: "Ada", role: "owner", secret: "x" },
-      { writable: () => ["name"], writeMode: "throw" }
-    ))
+    await rejection(() => service.patch(7, { name: "Ada" }, {}))
   ];
 
   assert.deepEqual(errors.map((error) => [error.status, error.code]), [
     [404, "crud.document.notFound"],
-    [404, "crud.document.notFound"],
-    [403, "crud.fieldAccess.writeDenied"]
+    [404, "crud.document.notFound"]
   ]);
-  assert.deepEqual(errors[2].params, { fields: "role, secret" });
   for (const error of errors) {
     assertCatalogRenders(error, error.message);
   }
