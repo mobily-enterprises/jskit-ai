@@ -32,13 +32,11 @@ const bookResource = defineTableResource({
     createdAt: {
       type: "dateTime",
       temporalPrecision: 0,
-      default: "now()",
       storage: { writeSerializer: "datetime-utc" }
     },
     updatedAt: {
       type: "dateTime",
       temporalPrecision: 0,
-      default: "now()",
       storage: { writeSerializer: "datetime-utc" }
     }
   },

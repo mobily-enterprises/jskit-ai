@@ -40,7 +40,6 @@ const rewardedWatchSessionResource = defineTableResource({
     },
     startedAt: {
       type: "dateTime",
-      default: "now()",
       search: true,
       storage: { writeSerializer: "datetime-utc" }
     },
@@ -64,12 +63,10 @@ const rewardedWatchSessionResource = defineTableResource({
     },
     createdAt: {
       type: "dateTime",
-      default: "now()",
       storage: { writeSerializer: "datetime-utc" }
     },
     updatedAt: {
       type: "dateTime",
-      default: "now()",
       storage: { writeSerializer: "datetime-utc" }
     }
   },

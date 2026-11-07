@@ -52,7 +52,6 @@ const workspaceMembershipsResource = defineTableResource({
     },
     createdAt: {
       type: "dateTime",
-      default: "now()",
       storage: {
         column: "created_at",
         writeSerializer: "datetime-utc"
@@ -60,7 +59,6 @@ const workspaceMembershipsResource = defineTableResource({
     },
     updatedAt: {
       type: "dateTime",
-      default: "now()",
       storage: {
         column: "updated_at",
         writeSerializer: "datetime-utc"
