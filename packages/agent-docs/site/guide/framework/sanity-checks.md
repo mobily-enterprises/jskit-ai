@@ -27,17 +27,18 @@ a change made for one screen can break others that never import it
 ### Navigation metadata
 
 **Check:** open each inner page directly and by link, and see its Up arrow
-and title. Some navigation declarations look right but are never read, and
-`jskit check` passes while the shell ignores them
+and title. Some navigation declarations look right but switch Up off, and
+some shapes leave pages the navigation rules cannot judge
 ([Material 3](/guide/framework/material-3)):
 
 - a parent declared beside `jskit.surface` is never read; the surface goes on
-  the layout page and the parent on the page it renders (`nav/surface-parent`);
+  the layout page and the parent on the page it renders (`nav/surface-parent`
+  reports the two on one record);
 - an inner page repeating its surface becomes a root of its own, with no Up;
-- a main-navigation placement that is not literal data leaves every page
-  unjudged for a missing parent (`nav/placement-data`);
+- until a main-navigation placement is literal data, no page is judged for a
+  missing parent (`nav/placement-data`);
 - a layout that also renders its pages without `ShellLayout` leaves those
-  pages unjudged by `nav/missing-parent`.
+  pages unjudged by `nav/missing-parent`, so a missing parent passes.
 
 **Example:** a design-system update moved a page title into a top app bar
 that one page did not have, so its title vanished; only the browser suite
