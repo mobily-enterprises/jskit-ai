@@ -211,7 +211,9 @@ test("a real server-forced disconnect reconnects through a fresh authenticated h
   });
   http.listen(0, "127.0.0.1");
   await once(http, "listening");
-  const client = createSocketIoClient({ url: `http://127.0.0.1:${http.address().port}` });
+  // WebSocket only, like the other real-socket tests: a polling transport the server closes waits 30 s for a poll
+  // that never comes, which keeps this file running long after its tests.
+  const client = createSocketIoClient({ url: `http://127.0.0.1:${http.address().port}`, options: { transports: ["websocket"] } });
   const detach = attachSocketConnectionRecovery(client, { prepareReconnect: prepareNothing });
   t.after(async () => {
     detach();
@@ -236,7 +238,7 @@ test("reconnect now opens a fresh transport while Socket.IO waits out its backof
   await once(http, "listening");
   const client = createSocketIoClient({
     url: `http://127.0.0.1:${http.address().port}`,
-    options: { randomizationFactor: 0, reconnectionDelay: 60_000, reconnectionDelayMax: 60_000 }
+    options: { transports: ["websocket"], randomizationFactor: 0, reconnectionDelay: 60_000, reconnectionDelayMax: 60_000 }
   });
   t.after(async () => {
     client.disconnect();
