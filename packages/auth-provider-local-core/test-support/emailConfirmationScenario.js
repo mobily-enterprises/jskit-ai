@@ -43,8 +43,9 @@ async function exerciseEmailConfirmation(t, service, storedRegistrations) {
     code: AUTH_TEXTS.invalidCredentials.code
   });
 
-  // Registering again, or asking for a new link, replaces the link.
-  const secondToken = linkToken(await service.register({ email: EMAIL, password: PASSWORD, displayName: "Ada" }));
+  // Registering again, or asking for a new link, replaces the link. Registering again keeps the waiting registration
+  // as it was, its password included: only the new link changes.
+  const secondToken = linkToken(await service.register({ email: EMAIL, password: "another password value", displayName: "Someone" }));
   await assert.rejects(service.confirmRegistration({ token: firstToken }), invalidLink);
   const resent = await service.resendRegisterConfirmation({ email: EMAIL });
   assert.equal(resent.messageCode, "auth.local.register.confirmationResent");
@@ -64,6 +65,10 @@ async function exerciseEmailConfirmation(t, service, storedRegistrations) {
   assert.equal(confirmed.actor.email, EMAIL);
   assert.equal(confirmed.actor.displayName, "Ada");
   assert.equal((await service.login({ email: EMAIL, password: PASSWORD })).actor.email, EMAIL);
+  await assert.rejects(service.login({ email: EMAIL, password: "another password value" }), {
+    status: 401,
+    code: AUTH_TEXTS.invalidCredentials.code
+  });
   assert.equal((await storedRegistrations()).includes(sha256Base64url(thirdToken)), false);
 
   // The link works once, and the confirmed email cannot register again.

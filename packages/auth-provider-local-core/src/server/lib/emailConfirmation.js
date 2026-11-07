@@ -31,7 +31,9 @@ function confirmationInvalidError() {
  * Registration with email confirmation: registering keeps the account waiting,
  * with no account, profile or session, until the link sent to its email is
  * opened, which creates the account and signs the person in. The link's code is stored only as a hash, works once and expires
- * after a day; registering again or asking for a new link replaces it.
+ * after a day; registering again or asking for a new link replaces it. Registering again while a registration waits keeps
+ * that registration, its password included, and only sends the new link, so nobody else's registration can change the
+ * password the link's account gets.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
@@ -84,7 +86,10 @@ function createLocalEmailConfirmation({
       }
       const now = new Date().toISOString();
       await tx.registrations.deleteExpired(now);
-      await tx.registrations.save({ email, displayName, password, invitation, tokenHash, createdAt: now, expiresAt });
+      const waiting = await tx.registrations.findByEmail(email);
+      await tx.registrations.save(waiting
+        ? { ...waiting, tokenHash, expiresAt }
+        : { email, displayName, password, invitation, tokenHash, createdAt: now, expiresAt });
     });
     return {
       actor: null,
