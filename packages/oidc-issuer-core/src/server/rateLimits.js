@@ -53,4 +53,4 @@ function createRateLimiter({ knex, now }) {
   });
 }
 
-export { createRateLimiter };
+export { RATE_LIMITS_TABLE, createRateLimiter };

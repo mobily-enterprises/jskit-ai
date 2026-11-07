@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `./server` exports `OIDC_ISSUER_INFRASTRUCTURE_TABLES`, the six `oidc_issuer_*` tables the accounts hub keeps outside table resources, for an app test's `expectEveryTableOwned({ infrastructureTables })`.
 - Closing the hub waits for the client row writes that follow a sent registration response (removing a rejected or deleted registration's row, renaming an updated one) instead of leaving them running, so they finish before the database closes. An app that closed right after such a response waited about 60 s for the abandoned write's database connection; a write that fails is logged as a warning instead of being dropped silently.
 - The hub decides production with the kernel's `isProductionEnv`, the check every JSKIT package now shares; what counts as production is unchanged.
 - Translation ready: the hub's refusals, emails and pages are message keys with their English in `locales/en.json` (exported as `./locales/en.json`). With no translations, every text, email and page is unchanged.

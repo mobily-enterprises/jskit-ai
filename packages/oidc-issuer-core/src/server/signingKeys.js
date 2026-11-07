@@ -88,4 +88,4 @@ function createSigningKeyStore({ knex, secret, now }) {
   });
 }
 
-export { createSigningKeyStore };
+export { SIGNING_KEYS_TABLE, createSigningKeyStore };

@@ -13,6 +13,9 @@ const TABLES = Object.freeze({
   registrations: "auth_local_registrations"
 });
 
+// The tables local sign-in keeps outside table resources, for an app test's expectEveryTableOwned infrastructureTables.
+const INFRASTRUCTURE_TABLES = Object.freeze([IDENTITIES_TABLE]);
+
 // One page of one record: a lookup by a unique field.
 const FIRST = Object.freeze({ size: 1 });
 
@@ -633,4 +636,4 @@ function createLocalDbOwners({ resources, identities }) {
   });
 }
 
-export { TABLES as LOCAL_AUTH_DB_TABLES, createLocalDbBackend, createLocalDbOwners };
+export { TABLES as LOCAL_AUTH_DB_TABLES, INFRASTRUCTURE_TABLES as LOCAL_AUTH_INFRASTRUCTURE_TABLES, createLocalDbBackend, createLocalDbOwners };

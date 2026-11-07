@@ -333,6 +333,16 @@ the first, and fails when the result holds the second owner's rows or the path
 changed them. A data test never skips: without `TEST_DB_NAME` it fails
 (`requireTestDatabase(process.env)`).
 
+One more test proves every table has an owner. `createTestResourceRuntime({ knex })`
+gives a test the resource runtime its features own their tables through, and
+`expectEveryTableOwned({ knex, runtime, infrastructureTables, environment })`
+fails, naming them, when the migrated test database holds a table no feature
+owns and no package keeps as infrastructure. JSKIT's packages export their
+infrastructure tables for it: `LOCAL_AUTH_INFRASTRUCTURE_TABLES`
+(`@jskit-ai/auth-provider-local-db-core/server/lib/index`),
+`OIDC_CLIENT_INFRASTRUCTURE_TABLES` (`@jskit-ai/auth-provider-oidc-core/server/lib/index`)
+and `OIDC_ISSUER_INFRASTRUCTURE_TABLES` (`@jskit-ai/oidc-issuer-core/server`).
+
 ## Hard rules
 
 These are always wrong, and lint reports them as errors in server and shared

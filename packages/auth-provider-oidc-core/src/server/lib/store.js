@@ -173,4 +173,7 @@ function createOidcStore({ database, profiles, now = Date.now }) {
   });
 }
 
-export { TABLES, createOidcStore };
+// The tables the relying party keeps outside table resources, for an app test's expectEveryTableOwned infrastructureTables.
+const OIDC_CLIENT_INFRASTRUCTURE_TABLES = Object.freeze(Object.values(TABLES));
+
+export { OIDC_CLIENT_INFRASTRUCTURE_TABLES, TABLES, createOidcStore };
