@@ -61,10 +61,12 @@ test("typedFeaturesConfig sets the file and function size limits", () => {
 const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "fixed-result-shape", "released-listeners", "no-module-state", "no-frozen-vue-state"]);
 // The rule baseConfig holds every application's Playwright configs to, outside the typed features.
 const BASE_ONLY_RULES = Object.freeze(["playwright-login-unchanged"]);
+// The data-access rules, which dataAccessConfig and baseConfig turn on.
+const DATA_ACCESS_RULES = Object.freeze(["no-direct-knex", "no-transaction-reader", "sql-literal", "no-hand-scope", "knex-reason"]);
 
-test("typedFeaturesConfig turns on every jskit rule but the client-only ones", () => {
+test("typedFeaturesConfig turns on every jskit rule but the client-only and data-access ones", () => {
   const [entry] = typedFeaturesConfig(["src/server/**"]);
-  const notTyped = [...CLIENT_ONLY_RULES, ...BASE_ONLY_RULES];
+  const notTyped = [...CLIENT_ONLY_RULES, ...BASE_ONLY_RULES, ...DATA_ACCESS_RULES];
   assert.deepEqual(Object.keys(jskitPlugin.rules).filter((rule) => !notTyped.includes(rule) && entry.rules[`jskit/${rule}`] !== "error"), []);
   assert.deepEqual(notTyped.filter((rule) => entry.rules[`jskit/${rule}`]), []);
 });

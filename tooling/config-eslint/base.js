@@ -1,8 +1,11 @@
 import js from "@eslint/js";
+import { dataAccessConfig } from "./dataAccess.js";
 import { jskitPlugin } from "./plugin/index.js";
 import { typedFeaturesConfig } from "./typedFeatures.js";
 
 const SOURCE_FILES = "**/*.{js,mjs,cjs,vue}";
+// An application's server and shared code: its packages' and the app's own.
+const DATA_ACCESS_SOURCES = Object.freeze(["**/src/server/**", "**/src/shared/**", "server/**", "server.js"]);
 
 const baseConfig = Object.freeze([
   {
@@ -56,7 +59,9 @@ const baseConfig = Object.freeze([
   },
   // Server code is reported against the typed-features rules; an application
   // makes them errors with typedFeaturesConfig as it converts each package.
-  ...typedFeaturesConfig(["**/src/server/**"], "warn")
+  ...typedFeaturesConfig(["**/src/server/**"], "warn"),
+  // The resource is the only door to a table: the data-access rules are errors in all server and shared code.
+  ...dataAccessConfig(DATA_ACCESS_SOURCES)
 ]);
 
 export { baseConfig };

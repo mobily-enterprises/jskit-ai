@@ -39,6 +39,11 @@ Local functions
 - `clientFeaturesRules(severity)`
 - `componentRules(severity)`
 
+### `dataAccess.js`
+Exports
+- `dataAccessConfig(files, severity = "error")`
+- `dataAccessRules(severity = "error")`
+
 ### `formatter.js`
 Exports
 - `formatterConfig(files, { ignores = [] } = {})`
@@ -52,6 +57,8 @@ Exports
 - `sizeLimitsConfig`
 - `typedFeaturesConfig`
 - `clientFeaturesConfig`
+- `dataAccessConfig`
+- `dataAccessRules`
 - `formatterConfig`
 - `jskitPlugin`
 
@@ -77,6 +84,17 @@ Exports
 - `webConfig`
 
 ### plugin
+
+### `plugin/dataAccess.js`
+Exports
+- `KNEX_NAMES`
+- `calledMethod(node)`
+- `infrastructureHint(ruleName)`
+- `isAssignmentTarget(node)`
+- `isInfrastructureFile(context, ruleName)`
+- `isText(node)`
+- `lastName(node)`
+- `literalText(node)`
 
 ### `plugin/factoryResults.js`
 Exports
@@ -129,10 +147,14 @@ Local functions
 ### `plugin/rules/allowCommentForm.js`
 Exports
 - `allowCommentForm`
+- `isInfrastructureExcuse(line, ruleName)`
+- `reasonProblem(reason)`
 Local functions
+- `readAllow(text)`
 - `holdsFunction(node)`
 - `excusedNode(sourceCode, comment)`
 - `allowLines(comment, opening = 2)`
+- `dataAccessProblem(rule, reason, inHeader)`
 
 ### `plugin/rules/appErrorCode.js`
 Exports
@@ -176,6 +198,15 @@ Exports
 Local functions
 - `startsItsLine(lines, comment)`
 
+### `plugin/rules/knexReason.js`
+Exports
+- `knexReason`
+Local functions
+- `exported(node)`
+- `namedFunction(node)`
+- `knexLines(sourceCode, site)`
+- `reasonProblem(lines)`
+
 ### `plugin/rules/namedRepeatedType.js`
 Exports
 - `namedRepeatedType`
@@ -186,6 +217,13 @@ Local functions
 - `importedNames(text, directory)`
 - `typeKey(text, file, imports)`
 - `commentTypes(text)`
+
+### `plugin/rules/noDirectKnex.js`
+Exports
+- `noDirectKnex`
+Local functions
+- `namesKnex(node)`
+- `isOtherLibrary(method, object, args)`
 
 ### `plugin/rules/noDualShape.js`
 Exports
@@ -223,6 +261,12 @@ Exports
 - `noFrozenVueState`
 Local functions
 - `holdsVueState(sourceCode, value)`
+
+### `plugin/rules/noHandScope.js`
+Exports
+- `noHandScope`
+Local functions
+- `isWorkspaceColumn(node)`
 
 ### `plugin/rules/noIdempotency.js`
 Exports
@@ -264,6 +308,13 @@ Exports
 Local functions
 - `exportedNames(node)`
 
+### `plugin/rules/noTransactionReader.js`
+Exports
+- `noTransactionReader`
+Local functions
+- `isKnexValue(node)`
+- `isOptionsObject(node)`
+
 ### `plugin/rules/oneLineAction.js`
 Exports
 - `oneLineAction`
@@ -304,6 +355,12 @@ Exports
 Local functions
 - `positionalCollaboratorDefaults(fn, visitorKeys)`
 
+### `plugin/rules/sqlLiteral.js`
+Exports
+- `sqlLiteral`
+Local functions
+- `shortText(sourceCode, node)`
+
 ### `plugin/rules/typedDependencies.js`
 Exports
 - `typedDependencies`
@@ -321,6 +378,7 @@ Local functions
 Exports
 - `ABSENT_DEFAULT`
 - `CLIENT_GUIDE_URL`
+- `DATA_ACCESS_GUIDE_URL`
 - `GUIDE_URL`
 - `compactText(sourceCode, node)`
 - `createReporter(context, ruleName)`

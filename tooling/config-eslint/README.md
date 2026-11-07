@@ -31,8 +31,12 @@ export default [
 ];
 ```
 
-- `baseConfig`: ESLint's recommended rules, JSKIT's import policy and, as
-  warnings on `**/src/server/**`, the typed-features rules.
+- `baseConfig`: ESLint's recommended rules, JSKIT's import policy, as
+  warnings on `**/src/server/**`, the typed-features rules and, as errors on
+  all server and shared code, the data-access rules.
+- `dataAccessConfig(globs, severity = "error")`: the data-access rules for the
+  server and shared code the globs select; `dataAccessRules(severity)` is the
+  rule map on its own.
 - `typedFeaturesConfig(globs)`: the typed-features rules and the size limits,
   as errors, for the server and shared code the globs select.
 - `clientFeaturesConfig(globs)`: the client rules, as errors, for the client
@@ -100,6 +104,42 @@ list; an existing application adds each package as it converts it. The rules
 cover every module a capability value is built from, so list a package's
 shared modules too (`packages/billing/src/shared/**`). Test files and `test`,
 `tests`, `client`, `components` and `pages` directories are not checked.
+
+## Data access
+
+The resource is the only door to a table. `baseConfig` makes five rules
+errors in `**/src/server/**`, `**/src/shared/**`, `server/**` and `server.js`;
+tests, migrations and seeds are not checked. Each finding links its section of
+the [data-access guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access).
+
+- `jskit/no-direct-knex`: a Knex-named builder called with a table name
+  (`knex("users")`, `(trx || knex)("users")`), any `.knex` read, a transaction
+  opened on `knex`, `db` or `database`, and a literal table name given to
+  `from`, `table`, `into` or a join.
+- `jskit/no-transaction-reader`: a `.trx` read, `trx` destructured, a
+  `trx = knex` default, and `options.transaction`.
+- `jskit/sql-literal`: raw SQL (`raw`, `whereRaw`, `orderByRaw`, ...) that is
+  not one literal, and a literal with `?` placeholders but no bindings.
+- `jskit/no-hand-scope`: `workspace_id` (or `<table>.workspace_id`) given to a
+  `where` filter, as a column or an object key.
+- `jskit/knex-reason`: a `scopedQuery()` report outside a repository module, or
+  without `// Knex: <kind> - <reason>` directly above its named method. The
+  kinds are `totals`, `report`, `newest-per-group`, `subquery`, `hot-path`
+  (with its ticket: `// Knex: hot-path #123 - <reason>`, or a URL) and
+  `runtime-tables`.
+
+Only a module whose job is data access itself (a migration runner, test
+databases, protocol state) is excused from the first two rules, as a whole, by
+one comment per rule before its first line of code:
+
+```js
+// readable-check: allow no-direct-knex - infrastructure: the migration runner keeps its own bookkeeping table
+// readable-check: allow no-transaction-reader - infrastructure: the migration runner keeps its own bookkeeping table
+import { readFile } from "node:fs/promises";
+```
+
+`jskit/allow-comment-form` checks its reason like any other, and an excuse it
+refuses excuses nothing. No comment excuses the other three rules.
 
 ## Playwright login
 
