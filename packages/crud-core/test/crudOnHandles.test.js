@@ -131,7 +131,7 @@ test("a failing CRUD afterCommit hook reports committed and leaves the actual wr
   assert.equal((await knex("notes").where({ id: 1 }).first()).title, "Kindred");
 });
 
-test("the CRUD service stamps createdAt and updatedAt when the table stores them", async (t) => {
+test("the CRUD service's writes are stamped with createdAt and updatedAt when the table stores them", async (t) => {
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
   t.after(() => knex.destroy());
   await knex.schema.createTable("memos", (table) => {
@@ -152,7 +152,7 @@ test("the CRUD service stamps createdAt and updatedAt when the table stores them
   });
   const runtime = await createTestResourceRuntime({ knex });
   const { memos: repository } = await runtime.own("test.memos", [memos]);
-  const service = createCrudService({ repository, resourceName: "memos", schema: memos.schema });
+  const service = createCrudService({ repository, resourceName: "memos" });
   t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-08T01:02:03.000Z") });
 
   const created = await service.create({ title: "First" }, {});

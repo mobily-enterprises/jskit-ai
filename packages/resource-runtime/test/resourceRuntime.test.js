@@ -334,6 +334,55 @@ test("lockOrCreate() runs work on the locked record, creating it first when miss
   await assert.rejects(resources.counters.lockOrCreate({ value: 0 }, options, bump), /takes \(row, options, work\)/u);
 });
 
+test("a table that stores createdAt and updatedAt has every write stamp them, unless the write sets them", async (t) => {
+  const stamped = defineTableResource({
+    name: "stamped",
+    tableName: "stamped",
+    ownership: "public",
+    schema: {
+      id: { type: "string", primary: true },
+      title: { type: "string", required: true },
+      createdAt: { type: "dateTime", storage: { column: "created_at", writeSerializer: "datetime-utc" } },
+      updatedAt: { type: "dateTime", storage: { column: "updated_at", writeSerializer: "datetime-utc" } }
+    }
+  });
+  const { knex, resources, systemContext } = await createFixture(t, {
+    owns: [noteResource(), { normalizeId: normalizeOpaqueId, resource: stamped }]
+  });
+  await knex.schema.createTable("stamped", (table) => {
+    table.string("id").primary();
+    table.string("title").notNullable();
+    table.string("created_at").notNullable();
+    table.string("updated_at").notNullable();
+  });
+  const options = { context: systemContext };
+  const at = (iso) => t.mock.timers.setTime(Date.parse(iso));
+  const stamps = async (id) => knex("stamped").where({ id }).first("created_at", "updated_at");
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-08T01:00:00.000Z") });
+  await resources.stamped.create({ id: "a", title: "a" }, options);
+  await resources.stamped.createMany([{ id: "b", title: "b" }, { id: "c", title: "c" }], options);
+  assert.deepEqual(await stamps("b"), { created_at: "2026-11-08 01:00:00.000", updated_at: "2026-11-08 01:00:00.000" });
+
+  at("2026-11-08T02:00:00.000Z");
+  await resources.stamped.patch("a", { title: "a2" }, options);
+  assert.deepEqual(await stamps("a"), { created_at: "2026-11-08 01:00:00.000", updated_at: "2026-11-08 02:00:00.000" });
+  at("2026-11-08T03:00:00.000Z");
+  await resources.stamped.patchMany([{ id: "b", title: "b2" }], options);
+  await resources.stamped.patchWhere({ id: "c" }, { title: "c2" }, options);
+  assert.equal((await stamps("b")).updated_at, "2026-11-08 03:00:00.000");
+  assert.equal((await stamps("c")).updated_at, "2026-11-08 03:00:00.000");
+  // An upsert merge moves updatedAt on and keeps the stored createdAt; a new row gets both.
+  at("2026-11-08T04:00:00.000Z");
+  await resources.stamped.createMany([{ id: "a", title: "a3" }, { id: "d", title: "d" }], { ...options, onConflict: { keys: ["id"], action: "merge" } });
+  assert.deepEqual(await stamps("a"), { created_at: "2026-11-08 01:00:00.000", updated_at: "2026-11-08 04:00:00.000" });
+  assert.deepEqual(await stamps("d"), { created_at: "2026-11-08 04:00:00.000", updated_at: "2026-11-08 04:00:00.000" });
+  // A write that sets a timestamp keeps it, and a patch that changes nothing stamps nothing.
+  await resources.stamped.patch("a", { updatedAt: "2020-01-01T00:00:00.000Z" }, options);
+  at("2026-11-08T05:00:00.000Z");
+  await resources.stamped.patch("a", {}, options);
+  assert.equal((await stamps("a")).updated_at, "2020-01-01 00:00:00.000");
+});
+
 test("patch() with lockVersion patches the version it read and refuses a stale one; onlyIf patches only matching rows", async (t) => {
   const { notes } = await createFixture(t);
   const note = await notes.create({ title: "draft" }, { context: WORKSPACE_A });
