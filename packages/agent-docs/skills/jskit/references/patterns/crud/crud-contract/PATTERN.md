@@ -1,12 +1,12 @@
 ---
-id: crud/resource-contract
-title: Owner-scoped table resource and CRUD contract
+id: crud/crud-contract
+title: Owner-scoped CRUD contract
 summary: Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.
 keywords: authenticated, crud, database, owner-scoped, resource, table, user
 requires: @jskit-ai/resource-core, @jskit-ai/resource-crud-core
 ---
 
-# Owner-scoped table resource and CRUD contract
+# Owner-scoped CRUD contract
 
 ## Use when
 
@@ -94,28 +94,8 @@ fields: {
 }
 ```
 
-A field that looks up a record of another resource can name that resource's
-namespace with `lookup`:
-
-```js
-shelfId: { type: "id", nullable: true, search: true, lookup: "shelves" }
-```
-
-`defineTableResource()` expands it, where `lookup` stood, to:
-
-```js
-relation: { kind: "lookup", namespace: "shelves", valueKey: "id" },
-belongsTo: "shelves",  // the table resource named by the namespace, camel-cased
-as: "shelf",           // the field key without its Id suffix
-ui: { formControl: "autocomplete" }
-```
-
-Keys you write beside `lookup` win: `belongsTo` and `as` replace the
-filled-in values, and `relation` and `ui` are merged over them, so
-`relation: { labelKey: "name" }` adds a label key and
-`ui: { formControl: "select" }` picks a select. A field whose key has no `Id`
-suffix must write `as`. The built resource equals one that writes the expanded
-keys out.
+A lookup field (`lookup: "<namespace>"`) is the table resource's: the
+`database/table-resource` pattern lists what it expands to.
 
 ## Example files
 

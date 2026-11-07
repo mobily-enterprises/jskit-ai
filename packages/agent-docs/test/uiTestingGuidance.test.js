@@ -121,7 +121,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(operationalSource, /current diff/);
   assert.match(operationalSource, /app\/shell-foundation/u);
   assert.match(operationalSource, /app\/minimal-foundation/u);
-  assert.match(operationalSource, /crud\/resource-contract/u);
+  assert.match(operationalSource, /crud\/crud-contract/u);
   assert.match(operationalSource, /JSKIT has no general authoring CLI/u);
   assert.match(operationalSource, /Install one planned dependency closure/u);
   assert.match(operationalSource, /(?:author|write) an immutable.*migration/iu);

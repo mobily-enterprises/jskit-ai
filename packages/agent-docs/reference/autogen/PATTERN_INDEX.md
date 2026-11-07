@@ -251,6 +251,17 @@ Add a protected administration surface, settings shell, and semantic navigation 
 - Examples: [example/](../../skills/jskit/references/patterns/console/console-surface/example/)
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
 
+## Owner-scoped CRUD contract
+
+Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.
+
+- Id: `crud/crud-contract`
+- Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `table`, `user`
+- Owner: `@jskit-ai/resource-crud-core@0.1.202`
+- Read: [PATTERN.md](../../skills/jskit/references/patterns/crud/crud-contract/PATTERN.md)
+- Examples: [example/](../../skills/jskit/references/patterns/crud/crud-contract/example/)
+- Requires: `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
+
 ## CRUD feature package
 
 Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.
@@ -273,17 +284,6 @@ Build a routed CRUD user interface as thin application pages over JSKIT's shared
 - Examples: [example/](../../skills/jskit/references/patterns/crud/crud-screen-set/example/)
 - Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
-## Owner-scoped table resource and CRUD contract
-
-Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.
-
-- Id: `crud/resource-contract`
-- Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `table`, `user`
-- Owner: `@jskit-ai/resource-crud-core@0.1.202`
-- Read: [PATTERN.md](../../skills/jskit/references/patterns/crud/resource-contract/PATTERN.md)
-- Examples: [example/](../../skills/jskit/references/patterns/crud/resource-contract/example/)
-- Requires: `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
-
 ## MySQL application database
 
 Configure a JSKIT application for MySQL with a fixed driver, ordinary environment values, and rebuildable Knex migrations.
@@ -305,6 +305,17 @@ Configure a JSKIT application for PostgreSQL with a fixed driver, ordinary envir
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/database/postgres-application/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/database/postgres-application/example/)
 - Requires: `@jskit-ai/database-runtime-postgres`
+
+## Table resource
+
+Describe one database table once (its fields, columns, ownership, search and sort) so its owner feature reads and writes it through a scoped handle.
+
+- Id: `database/table-resource`
+- Keywords: `database`, `defaultTo`, `defineTableResource`, `lockVersionField`, `lookup`, `ownership`, `owns`, `resource`, `table`, `workspace_or_shared`
+- Owner: `@jskit-ai/resource-core@0.1.202`
+- Read: [PATTERN.md](../../skills/jskit/references/patterns/database/table-resource/PATTERN.md)
+- Examples: [example/](../../skills/jskit/references/patterns/database/table-resource/example/)
+- Requires: `@jskit-ai/resource-core`
 
 ## Capacitor Android application
 

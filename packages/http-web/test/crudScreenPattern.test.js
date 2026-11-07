@@ -30,7 +30,7 @@ globalThis.definePage = () => {};
 const hooks = registerHooks({
   resolve(specifier, context, nextResolve) {
     if (specifier === "@local/books/shared") {
-      return { shortCircuit: true, url: new URL("../../resource-crud-core/patterns/resource-contract/example/bookResource.js", import.meta.url).href };
+      return { shortCircuit: true, url: new URL("../../resource-crud-core/patterns/crud-contract/example/bookResource.js", import.meta.url).href };
     }
     return nextResolve(specifier, context);
   },
