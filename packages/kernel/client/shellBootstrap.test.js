@@ -128,7 +128,7 @@ test("createSurfaceShellRouter installs an application's own guard function as i
 
 test("shellScrollBehavior opens new screens at the top and keeps in-page changes still", () => {
   const surface = { path: "/home", meta: { jskit: { surface: "home" } } };
-  const settings = { path: "/home/settings", meta: {} };
+  const settings = { path: "/home/settings", meta: {}, components: { default: {} } };
   const general = { path: "/home/settings/general", meta: {} };
   const profile = { path: "/home/settings/profile", meta: {} };
   const contacts = { path: "/home/contacts", meta: {} };
@@ -203,7 +203,7 @@ test("shellScrollBehavior opens a page Up returns to at the position its navigat
 
 test("staysOnSamePage tells tabs of one page from different pages", () => {
   const surface = { path: "/home", meta: { jskit: { surface: "home" } } };
-  const settings = { path: "/home/settings", meta: {} };
+  const settings = { path: "/home/settings", meta: {}, components: { default: {} } };
   const general = { path: "/home/settings/general", meta: {} };
   const profile = { path: "/home/settings/profile", meta: {} };
   const contacts = { path: "/home/contacts", meta: {} };
@@ -211,6 +211,48 @@ test("staysOnSamePage tells tabs of one page from different pages", () => {
   assert.equal(staysOnSamePage(at("/home/settings/profile", [surface, settings, profile]), at("/home/settings/general", [surface, settings, general])), true);
   assert.equal(staysOnSamePage(at("/home/contacts", [surface, contacts]), at("/home/settings/general", [surface, settings, general])), false);
   assert.equal(staysOnSamePage(at("/home/contacts", [surface, contacts]), at("/home/contacts", [surface, contacts])), true);
+});
+
+// File routing groups a folder's routes (/w/bookings/, /w/day/) under a record that draws no component; only a layout
+// that hosts tabs or sub-views, and so draws one, makes its children one page.
+test("shellScrollBehavior opens a page in a route folder at the top and lets Up restore the page it returns to", (t) => {
+  const page = {};
+  const surface = { path: "/w", meta: { jskit: { surface: "w" } }, components: { default: page } };
+  const day = { path: "/w/day", meta: {} };
+  const overview = { path: "/w/day/overview", meta: {}, components: { default: page } };
+  const bookings = { path: "/w/bookings", meta: {}, components: undefined };
+  const bookingList = { path: "/w/bookings/", meta: {}, components: { default: page } };
+  const booking = { path: "/w/bookings/:id", meta: {}, components: { default: page } };
+  const roster = { path: "/w/day/roster", meta: {}, components: { default: page } };
+  const at = (path, matched) => ({ path, matched, hash: "" });
+  const previousWindow = globalThis.window;
+  t.after(() => {
+    globalThis.window = previousWindow;
+  });
+  globalThis.window = { history: { state: {} } };
+  assert.equal(staysOnSamePage(at("/w/bookings/7", [surface, bookings, booking]), at("/w/bookings/", [surface, bookings, bookingList])), false);
+  assert.deepEqual(
+    shellScrollBehavior(at("/w/bookings/7", [surface, bookings, booking]), at("/w/bookings/", [surface, bookings, bookingList]), null),
+    { top: 0 }
+  );
+  assert.deepEqual(
+    shellScrollBehavior(at("/w/day/roster", [surface, day, roster]), at("/w/day/overview", [surface, day, overview]), null),
+    { top: 0 }
+  );
+  globalThis.window = { history: { state: { restoreScroll: { left: 0, top: 1313 } } } };
+  assert.deepEqual(
+    shellScrollBehavior(at("/w/day/overview", [surface, day, overview]), at("/w/day/roster", [surface, day, roster]), null),
+    { left: 0, top: 1313 }
+  );
+
+  // A layout in a folder that hosts tabs still keeps its tabs one page.
+  const settings = { path: "/w/settings", meta: {}, components: { default: page } };
+  const general = { path: "/w/settings/general", meta: {}, components: { default: page } };
+  const profile = { path: "/w/settings/profile", meta: {}, components: { default: page } };
+  assert.equal(
+    shellScrollBehavior(at("/w/settings/profile", [surface, settings, profile]), at("/w/settings/general", [surface, settings, general]), null),
+    false
+  );
 });
 
 test("createClientBootstrapLogger enables debug from env flag", () => {

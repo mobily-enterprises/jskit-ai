@@ -75,11 +75,19 @@ function isSurfaceRootRecord(record) {
   return Boolean(record?.meta?.jskit?.surface);
 }
 
+// A record that draws a component: a layout hosting tabs or sub-views, not a component-less record grouping the
+// routes of a folder (bookings/, contacts/) as file routing creates them.
+function hostsChildViews(record) {
+  return Object.values(record?.components || {}).some(Boolean);
+}
+
 /**
  * Whether two locations are the same page: the same path, or two children
  * (tabs, sub-views) of one page record below the surface root. A page that hosts
- * tabs or sub-views keeps its own record above the changing child, so the two
- * locations share a non-leaf record below the surface root.
+ * tabs or sub-views keeps its own record, with its component, above the changing
+ * child, so the two locations share a non-leaf record below the surface root that
+ * draws a component. A record that only groups a folder's routes draws none, so
+ * two pages in one folder are different pages.
  * @param {import("vue-router").RouteLocationNormalized} to
  * @param {import("vue-router").RouteLocationNormalized} from
  */
@@ -88,7 +96,9 @@ function staysOnSamePage(to, from) {
     return true;
   }
   const fromParents = new Set((from.matched || []).slice(0, -1));
-  return (to.matched || []).slice(0, -1).some((record) => fromParents.has(record) && !isSurfaceRootRecord(record));
+  return (to.matched || [])
+    .slice(0, -1)
+    .some((record) => fromParents.has(record) && !isSurfaceRootRecord(record) && hostsChildViews(record));
 }
 
 // The hash target's scroll-margin-top, which the router's own scroll to an element leaves out (the browser's
