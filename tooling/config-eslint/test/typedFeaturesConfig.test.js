@@ -62,7 +62,7 @@ const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "
 // The rule baseConfig holds every application's Playwright configs to, outside the typed features.
 const BASE_ONLY_RULES = Object.freeze(["playwright-login-unchanged"]);
 // The data-access rules, which dataAccessConfig and baseConfig turn on.
-const DATA_ACCESS_RULES = Object.freeze(["no-direct-knex", "no-transaction-reader", "sql-literal", "no-hand-scope", "knex-reason"]);
+const DATA_ACCESS_RULES = Object.freeze(["no-direct-knex", "no-transaction-reader", "sql-literal", "no-hand-scope", "no-hand-context", "knex-reason"]);
 
 test("typedFeaturesConfig turns on every jskit rule but the client-only and data-access ones", () => {
   const [entry] = typedFeaturesConfig(["src/server/**"]);

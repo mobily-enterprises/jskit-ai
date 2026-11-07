@@ -10,7 +10,6 @@
   },
   "exports": {
     "./server": "./src/server/index.js",
-    "./server/resourceHost": "./src/server/resourceHost.js",
     "./server/types": "./src/server/types.js",
     "./test": "./src/test/index.js",
     "./locales/en.json": "./locales/en.json"

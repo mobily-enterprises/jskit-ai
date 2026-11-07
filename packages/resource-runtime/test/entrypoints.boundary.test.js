@@ -20,13 +20,22 @@ import {
 } from "../src/server/resourceHost.js";
 import { ResourceRuntimeProvider } from "../src/server/ResourceRuntimeProvider.js";
 
-test("package exports the runtime, its host, its types and its test helpers", async () => {
+test("package exports its provider and helpers, its types and its test helpers, never the host or the runtime", async () => {
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
   assert.equal(exportsMap["./server"], "./src/server/index.js");
-  assert.equal(exportsMap["./server/resourceHost"], "./src/server/resourceHost.js");
+  assert.equal(Object.hasOwn(exportsMap, "./server/resourceHost"), false);
   assert.equal(exportsMap["./server/types"], "./src/server/types.js");
   assert.equal(exportsMap["./test"], "./src/test/index.js");
+  // Tables are owned through a feature (or createStandaloneResources outside a server), and system contexts come only
+  // from a declared system scope, so the host and the runtime themselves stay inside the package.
+  const server = await import("../src/server/index.js");
+  for (const name of ["createResourceRuntime", "createResourceHost", "createSystemContext", "createJsonRestContext"]) {
+    assert.equal(Object.hasOwn(server, name), false, name);
+  }
+  assert.equal(typeof server.createStandaloneResources, "function");
+  assert.equal(typeof server.buildJsonRestQueryParams, "function");
+  assert.equal(typeof server.resolveWorkspaceScopeValue, "function");
 });
 
 test("server resourceHost entrypoint exposes only the focused host API", async () => {
@@ -799,9 +808,15 @@ test("scope resolvers understand explicit scopeValues and JSKIT visibilityContex
       userId: "user-explicit"
     },
     visibilityContext: {
-      userId: "user-visibility"
+      userId: "user-explicit"
     }
   }), "user-explicit");
+  assert.equal(resolveUserScopeValue({ scopeValues: { userId: "user-explicit" } }), "user-explicit");
+  // Like two workspaces, two users in one context is refused instead of one of them winning.
+  assert.throws(() => resolveUserScopeValue({
+    scopeValues: { userId: "user-explicit" },
+    visibilityContext: { userId: "user-visibility" }
+  }), /safety invariant: a context names two users \(user-explicit, user-visibility\)/u);
 
   assert.equal(resolveUserScopeValue({
     visibilityContext: {

@@ -254,9 +254,9 @@ function resourceRuntimeStub(calls) {
               return [resource.name, { handleFor: resource.name }];
             }));
           },
-          createSystemContext(request) {
-            calls.push(["createSystemContext", request]);
-            return { system: true, reason: request.reason };
+          declareSystemScope(featureId, systemScope) {
+            calls.push(["declareSystemScope", featureId, systemScope]);
+            return (reason) => ({ system: true, reason });
           }
         })
       };
@@ -304,7 +304,7 @@ test("a feature that owns resources gets their handles in setup, and only setup 
   assert.equal(Object.hasOwn(actionDependencies, "resourceRuntime"), false);
 });
 
-test("a feature with systemScope names the reason at every systemContext call", async () => {
+test("a feature with systemScope declares it and gets the resource runtime's system context factory", async () => {
   const calls = [];
   let systemContext = null;
   const feature = defineFeature({
@@ -322,14 +322,8 @@ test("a feature with systemScope names the reason at every systemContext call", 
   });
   await runtime.start();
 
-  assert.deepEqual(systemContext("  close the week's leagues  "), { system: true, reason: "close the week's leagues" });
-  assert.deepEqual(calls, [["createSystemContext", {
-    feature: "feature.settlement",
-    systemScope: "settle finished weekly leagues for every user",
-    reason: "close the week's leagues"
-  }]]);
-  assert.throws(() => systemContext(), /systemContext\(reason\) needs the reason/u);
-  assert.throws(() => systemContext("  "), /systemContext\(reason\) needs the reason/u);
+  assert.deepEqual(calls, [["declareSystemScope", "feature.settlement", "settle finished weekly leagues for every user"]]);
+  assert.deepEqual(systemContext("close the week's leagues"), { system: true, reason: "close the week's leagues" });
 });
 
 test("owns and systemScope need the resource runtime; other features do not", async () => {

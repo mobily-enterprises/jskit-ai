@@ -35,7 +35,7 @@ function resourceRuntime(observed) {
         return [name, Object.freeze({ name })];
       })));
     },
-    createSystemContext() {
+    declareSystemScope() {
       throw new Error("Rewarded works in the caller's scope only.");
     }
   };

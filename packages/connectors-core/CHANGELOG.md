@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `createKnexConnectionStore` owns the connector tables through resource-runtime's `createStandaloneResources`, with the connection store's declared system scope, instead of building a resource runtime and host of its own.
 - `connectors.core` without a store requires `connectors.store` again, with a hint, so the kernel's startup error names the missing capability and says to register `createConnectionStoreFeature({ protection })` or pass `createConnectorsFeature({ store })`, instead of a check in its own setup.
 - The connection store locks or creates each connection row with its handle's `lockOrCreate`, in place of a helper of its own with the same behaviour.
 - `connectors.core` without a `store` and without `createConnectionStoreFeature({ protection })` fails at startup naming that feature and where to register it, where the runtime only said a capability was missing; `createConnectionService` given no store names the same fix.

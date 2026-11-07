@@ -1,9 +1,7 @@
 import createKnex from "knex";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
-import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { createResourceRuntime } from "@jskit-ai/resource-runtime/server";
-import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
+import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import initialMigration from "../../migrations/auth_local_db_initial.cjs";
 import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
@@ -20,13 +18,11 @@ const LOCAL_AUTH_MIGRATIONS = Object.freeze([initialMigration, oauthMigration, p
  * @param {import("knex").Knex} knex
  */
 async function localAuthRuntimeInputs(knex) {
-  const api = await createResourceHost({ knex, logger: silentLogger });
   return {
-    api,
     inputs: {
       "runtime.database": { knex },
       "runtime.actions": createActionCatalogue(),
-      "runtime.resources": createResourceRuntime({ api })
+      "runtime.resources": await createTestResourceRuntime({ knex })
     }
   };
 }

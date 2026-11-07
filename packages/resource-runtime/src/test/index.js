@@ -14,15 +14,21 @@ const MIGRATION_TABLES = Object.freeze(["knex_migrations", "knex_migrations_lock
  * tables without booting a server: `runtime.own(featureId, owns)` answers handles.
  * With `createTables`, own() also creates each owned table from its resource's
  * schema, for a SQLite test whose shipped migrations are written for another database.
+ * `hostHooks` are json-rest-api hooks the test installs on the runtime's host,
+ * such as an afterCommit that fails on request.
  * @param {object} options
  * @param {import("knex").Knex} options.knex
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} [options.logger]
  * @param {number} [options.requestRowLimit]
  * @param {number} [options.serverPageSize]
  * @param {boolean} [options.createTables]
+ * @param {Record<string, Function>} [options.hostHooks]
  */
-async function createTestResourceRuntime({ knex, logger = silentLogger, requestRowLimit, serverPageSize, createTables = false }) {
+async function createTestResourceRuntime({ knex, logger = silentLogger, requestRowLimit, serverPageSize, createTables = false, hostHooks }) {
   const api = await createResourceHost({ knex, logger });
+  if (hostHooks) {
+    await api.customize({ hooks: hostHooks });
+  }
   const runtime = createResourceRuntime({ api, requestRowLimit, serverPageSize });
   if (!createTables) {
     return runtime;

@@ -12,7 +12,8 @@ const NOT_DATA_ACCESS_SOURCE = Object.freeze([
 
 /**
  * The data-access rules at one severity: the resource is the only door to a table. No Knex past the resource, no
- * transaction read by hand, raw SQL only as one literal with bindings, no hand-written workspace predicate, and every
+ * transaction read by hand, raw SQL only as one literal with bindings, no hand-written workspace predicate, no system
+ * context or context scope made by hand, and every
  * scopedQuery() report a repository method under its `// Knex: <kind> - <reason>` line.
  * @param {"error" | "warn" | "off"} [severity]
  */
@@ -22,6 +23,7 @@ function dataAccessRules(severity = "error") {
     "jskit/no-transaction-reader": severity,
     "jskit/sql-literal": severity,
     "jskit/no-hand-scope": severity,
+    "jskit/no-hand-context": severity,
     "jskit/knex-reason": severity
   });
 }

@@ -691,9 +691,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     const grace = await createProfile("Grace");
     assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id), [grace.id]);
     // Realtime reads with the event's own scope: the workspace the invite belongs to.
-    const eventScope = { context: runtime.createSystemContext({
-      feature: "realtime.audience-scope", systemScope: "read an event's audience", reason: "read an invite's recipients"
-    }).forWorkspace(workspace.id) };
+    const eventScope = { context: runtime.declareSystemScope("realtime.audience-scope", "read an event's audience")("read an invite's recipients").forWorkspace(workspace.id) };
     assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id, eventScope), [grace.id]);
     await invites.revokeById(invite.id);
     assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id), [grace.id]);

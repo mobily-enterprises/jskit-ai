@@ -40,8 +40,8 @@ async function startFeatures(context, features) {
     own(_featureId, owns) {
       return Object.freeze(Object.fromEntries(owns.map((entry) => [(entry.resource || entry).name, Object.freeze({})])));
     },
-    createSystemContext(declaration) {
-      return Object.freeze({ ...declaration });
+    declareSystemScope(feature, systemScope) {
+      return (reason) => Object.freeze({ feature, systemScope, reason });
     }
   };
   let actions;

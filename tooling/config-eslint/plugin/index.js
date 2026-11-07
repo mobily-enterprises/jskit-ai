@@ -28,6 +28,7 @@ import { onePropertyPerLine } from "./rules/onePropertyPerLine.js";
 import { playwrightLoginUnchanged } from "./rules/playwrightLoginUnchanged.js";
 import { releasedListeners } from "./rules/releasedListeners.js";
 import { requiredCollaborators } from "./rules/requiredCollaborators.js";
+import { noHandContext } from "./rules/noHandContext.js";
 import { sqlLiteral } from "./rules/sqlLiteral.js";
 import { typedDependencies } from "./rules/typedDependencies.js";
 import { typedInject } from "./rules/typedInject.js";
@@ -70,6 +71,7 @@ const jskitPlugin = Object.freeze({
     "no-transaction-reader": noTransactionReader,
     "sql-literal": sqlLiteral,
     "no-hand-scope": noHandScope,
+    "no-hand-context": noHandContext,
     "knex-reason": knexReason
   })
 });

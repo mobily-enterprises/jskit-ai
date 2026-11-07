@@ -51,7 +51,7 @@ async function createFixture(t, { requestRowLimit, owns = [noteResource()] } = {
   });
   const runtime = await createTestResourceRuntime({ knex, requestRowLimit });
   const resources = await runtime.own("notes.feature", owns);
-  const systemContext = runtime.createSystemContext({ feature: "notes.feature", systemScope: "tests", reason: "read every note" });
+  const systemContext = runtime.declareSystemScope("notes.feature", "tests")("read every note");
   return { knex, runtime, resources, notes: resources.notes, systemContext };
 }
 
@@ -152,11 +152,27 @@ test("queryAll() stops at the request row limit, which background work does not 
   await assert.rejects(notes.queryAll({}, { context: WORKSPACE_A }), (error) => error instanceof RowLimitError &&
     error.status === 400 && error.code === "RESOURCE_ROW_LIMIT" && error.messageCode === "resource.rowLimit" &&
     error.messageParams.rowLimit === 3 && /background job/u.test(error.message));
-  const system = runtime.createSystemContext({ feature: "notes.feature", systemScope: "tests", reason: "nightly digest" });
+  const system = runtime.declareSystemScope("notes.feature", "tests")("nightly digest");
   assert.equal((await notes.queryAll({}, { context: system })).length, 5);
   assert.equal((await notes.queryAll({}, { context: system.forWorkspace("1") })).length, 5);
   assert.equal((await notes.queryAll({}, { context: system.forWorkspace("2") })).length, 0);
-  assert.throws(() => runtime.createSystemContext({ feature: "notes.feature", systemScope: "tests", reason: " " }), /needs the reason/u);
+  assert.throws(() => runtime.declareSystemScope("notes.feature", "tests")(" "), /needs the reason/u);
+});
+
+test("a system context comes only from a declared system scope, one per feature, and the runtime lists them", async (t) => {
+  const { runtime } = await createFixture(t);
+  assert.equal(Object.hasOwn(runtime, "createSystemContext"), false);
+  const systemContext = runtime.declareSystemScope("digest.feature", "  nightly digests  ");
+  assert.equal(systemContext("send the digest").reason, "send the digest");
+  assert.equal(typeof runtime.declareSystemScope("digest.feature", "nightly digests"), "function");
+  assert.throws(() => runtime.declareSystemScope("digest.feature", "something else"),
+    /Feature "digest\.feature" declares one system scope, and it already declared "nightly digests"\./u);
+  assert.throws(() => runtime.declareSystemScope("other.feature", " "), /systemScope must say why/u);
+  assert.throws(() => systemContext(), /systemContext\(reason\) needs the reason/u);
+  assert.deepEqual(runtime.systemScopes(), [
+    { featureId: "notes.feature", systemScope: "tests" },
+    { featureId: "digest.feature", systemScope: "nightly digests" }
+  ]);
 });
 
 test("forWorkspaceUser() reaches one user's rows in one workspace, of a workspace_user table and of a user table", async (t) => {
@@ -198,7 +214,7 @@ test("forWorkspaceUser() reaches one user's rows in one workspace, of a workspac
   });
   const runtime = await createTestResourceRuntime({ knex });
   const resources = await runtime.own("drafts.feature", [drafts, bookmarks]);
-  const system = runtime.createSystemContext({ feature: "drafts.feature", systemScope: "tests", reason: "deliver one user's event" });
+  const system = runtime.declareSystemScope("drafts.feature", "tests")("deliver one user's event");
   const context = system.forWorkspaceUser("1", "7");
 
   assert.deepEqual((await resources.drafts.queryAll({}, { context })).map(({ title }) => title), ["mine"]);
@@ -505,7 +521,7 @@ test("findOrCreate() answers the record with the id, creating it only when it is
       value: { type: "integer", required: true }
     }
   }) }]);
-  const options = { context: runtime.createSystemContext({ feature: "counters.feature", systemScope: "tests", reason: "keyed counters" }) };
+  const options = { context: runtime.declareSystemScope("counters.feature", "tests")("keyed counters") };
   assert.deepEqual(await counters.findOrCreate({ id: "visits", value: 0 }, options), { id: "visits", value: 0 });
   await knex("counters").where({ counter_key: "visits" }).update({ value: 7 });
   assert.deepEqual(await counters.findOrCreate({ id: "visits", value: 0 }, options), { id: "visits", value: 7 });
@@ -631,7 +647,7 @@ test("a context naming no owner the table needs is refused, never read as the ro
     defineTableResource({ name: "notes", tableName: "notes", ownership: "workspace", schema: { workspaceId: workspaceField, title: { type: "string", required: true } } }),
     defineTableResource({ name: "bookmarks", tableName: "bookmarks", ownership: "user", schema: { userId: userField, title: { type: "string", required: true } } })
   ]);
-  const system = runtime.createSystemContext({ feature: "notes.feature", systemScope: "tests", reason: "check scopes" });
+  const system = runtime.declareSystemScope("notes.feature", "tests")("check scopes");
   const userRoute = { visibilityContext: { visibility: "user", scopeOwnerId: "7", userId: "7" } };
   const page = { page: { size: 10 } };
 

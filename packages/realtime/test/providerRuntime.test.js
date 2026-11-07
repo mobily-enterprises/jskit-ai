@@ -347,7 +347,7 @@ test("realtime delivery reaches an audience's users, read once per event in the 
   const io = createIoDouble();
   const { audienceScope } = await RealtimeAudienceScopeFeature.setup({
     actionCatalogue: { register() {} },
-    resourceRuntime: { createSystemContext }
+    resourceRuntime: { declareSystemScope: (feature, systemScope) => (reason) => createSystemContext({ feature, systemScope, reason }) }
   }, {});
   const delivery = createRealtimeDelivery({ io, logger, audiences: createAudienceContributors(), audienceScope });
   const reads = [];

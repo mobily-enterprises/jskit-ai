@@ -1,6 +1,6 @@
 import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { buildJsonRestQueryParams } from "@jskit-ai/resource-runtime/server/resourceHost";
+import { buildJsonRestQueryParams } from "@jskit-ai/resource-runtime/server";
 
 // A record that is missing or out of the caller's scope.
 function documentNotFound() {

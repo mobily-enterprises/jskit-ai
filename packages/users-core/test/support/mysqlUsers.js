@@ -47,7 +47,7 @@ async function openDatabase(suffix, cleanups) {
   const resources = await runtime.own("users.identity", [userProfileTableResource, userSettingsTableResource]);
   const identity = createUsersIdentity({ resources, extensions: createUsersExtensions() });
   // Background work's context, as a feature declaring a systemScope receives it.
-  const systemContext = runtime.createSystemContext({ feature: "users.identity", systemScope: "import users", reason: "users test import" });
+  const systemContext = runtime.declareSystemScope("users.identity", "import users")("users test import");
   return Object.freeze({ knex, resources, systemContext, ...identity });
 }
 
