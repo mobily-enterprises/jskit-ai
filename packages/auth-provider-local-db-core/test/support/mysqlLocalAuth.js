@@ -1,11 +1,6 @@
 import knexLib from "knex";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
-import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import initialMigration from "../../migrations/auth_local_db_initial.cjs";
-import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
-import protectionMigration from "../../migrations/auth_local_db_protection.cjs";
-import emailVerifiedMigration from "../../migrations/auth_local_db_users_email_verified.cjs";
-import { AuthLocalDatabaseBackendProvider } from "../../src/server/providers/AuthLocalDatabaseBackendProvider.js";
+import { LOCAL_AUTH_MIGRATIONS, startLocalAuthRecords } from "./localAuthRuntime.js";
 
 // Local sign-in's tables in a MariaDB/MySQL database of the test's own, named after TEST_DB_NAME with the test's
 // suffix and dropped after the test, with the provider started as an application starts it. The test reaches its
@@ -13,7 +8,6 @@ import { AuthLocalDatabaseBackendProvider } from "../../src/server/providers/Aut
 
 // The runtime's own MySQL connection settings (database-runtime's resolveKnexConnectionFromEnvironment).
 const RUNTIME_MYSQL = Object.freeze({ supportBigNumbers: true, bigNumberStrings: true, dateStrings: ["DATE"], timezone: "Z" });
-const MIGRATIONS = Object.freeze([initialMigration, oauthMigration, protectionMigration, emailVerifiedMigration]);
 
 /**
  * @param {import("node:test").TestContext} context
@@ -35,44 +29,9 @@ async function openLocalAuthDatabase(context, suffix) {
       await admin.destroy();
     }
   });
-  for (const migration of MIGRATIONS) await migration.up(knex);
+  for (const migration of LOCAL_AUTH_MIGRATIONS) await migration.up(knex);
 
-  let capabilities = null;
-  const probe = defineProvider({
-    id: "test.auth.local-db.records",
-    requires: {
-      backend: "auth.local.backend",
-      accounts: "auth.local.accounts",
-      sessions: "auth.local.sessions",
-      recovery: "auth.local.recovery"
-    },
-    setup(received) {
-      capabilities = received;
-      return {};
-    }
-  });
-  const runtime = createCapabilityRuntime({
-    inputs: {
-      "runtime.database": { knex, transactionManager: { inTransaction: (work) => knex.transaction(work) } }
-    },
-    providers: [AuthLocalDatabaseBackendProvider, probe]
-  });
-  await runtime.start();
-
-  return Object.freeze({
-    knex,
-    ...capabilities,
-    /**
-     * Runs work in a caller's transaction, as application code holds one, handing it the options its owner API
-     * calls pass on.
-     * @template T
-     * @param {(options: Record<string, unknown>) => Promise<T>} work
-     * @returns {Promise<T>}
-     */
-    inCallerTransaction(work) {
-      return knex.transaction((trx) => work({ trx }));
-    }
-  });
+  return Object.freeze({ knex, ...(await startLocalAuthRecords(knex)) });
 }
 
 export { openLocalAuthDatabase };
