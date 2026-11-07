@@ -12,6 +12,7 @@ import {
   UnpagedQueryError
 } from "../src/server/index.js";
 import { normalizeOpaqueId } from "@jskit-ai/kernel/shared/support/normalize";
+import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 import { createTestResourceRuntime } from "../src/test/index.js";
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
@@ -105,6 +106,24 @@ test("query() pages with page.size and page.after, and refuses an unpaged or ove
   const filtered = await notes.query({ filters: { title: "n4" }, page: { size: 2 } }, { context: WORKSPACE_A });
   assert.deepEqual(filtered.records.map(({ title }) => title), ["n4"]);
   assert.deepEqual(notes.pageLimits(), { request: 20, server: 1000 });
+});
+
+test("query() serves a numbered page in one statement, with no count, and refuses page.number with page.after", async (t) => {
+  const { knex, notes } = await createFixture(t);
+  await notes.createMany(Array.from({ length: 5 }, (_, index) => ({ title: `n${index}` })), { context: WORKSPACE_A });
+  const { result: second, count } = await countQueries(knex, () => notes.query({ page: { size: 2, number: 2 } }, { context: WORKSPACE_A }));
+  assert.equal(count, 1);
+  assert.deepEqual(second.records.map(({ title }) => title), ["n2", "n3"]);
+  assert.deepEqual(second.page, { size: 2, number: 2, hasMore: true, next: 3 });
+  const last = await notes.query({ page: { size: 2, number: 3 } }, { context: WORKSPACE_A });
+  assert.deepEqual(last.records.map(({ title }) => title), ["n4"]);
+  assert.deepEqual(last.page, { size: 2, number: 3, hasMore: false, next: null });
+  assert.deepEqual((await notes.query({ page: { size: 2, number: 9 } }, { context: WORKSPACE_A })).records, []);
+  await assert.rejects(notes.query({ page: { number: 2 } }, { context: WORKSPACE_A }), UnpagedQueryError);
+  await assert.rejects(notes.query({ page: { size: 21, number: 1 } }, { context: WORKSPACE_A }), PageSizeError);
+  await assert.rejects(notes.query({ page: { size: 2, number: 0 } }, { context: WORKSPACE_A }), /page.number as a whole number from 1/u);
+  const first = await notes.query({ page: { size: 2 } }, { context: WORKSPACE_A });
+  await assert.rejects(notes.query({ page: { size: 2, number: 2, after: first.page.next } }, { context: WORKSPACE_A }), /not with page.after/u);
 });
 
 test("queryAll() stops at the request row limit, which background work does not have", async (t) => {
