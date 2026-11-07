@@ -1,5 +1,5 @@
 import { defineCrudJsonApiFeature } from "@jskit-ai/crud-core/server/defineCrudJsonApiFeature";
-import { userCrud } from "../shared/userResource.js";
+import { userCrud } from "../shared/userCrud.js";
 
 const UsersFeature = defineCrudJsonApiFeature({
   resource: userCrud,

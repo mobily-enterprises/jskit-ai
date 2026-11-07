@@ -274,12 +274,10 @@ Exports
 ### `patterns/user-administration-server/example/packages/users-workspace/src/shared/index.js`
 Exports
 - `userCrud`
-- `userResource`
 
-### `patterns/user-administration-server/example/packages/users-workspace/src/shared/userResource.js`
+### `patterns/user-administration-server/example/packages/users-workspace/src/shared/userCrud.js`
 Exports
 - `userCrud`
-- `userResource`
 
 ### `patterns/user-administration-server/example/packages/users/src/server/types.js`
 Exports
@@ -292,9 +290,7 @@ Exports
 ### `patterns/user-administration-server/example/packages/users/src/shared/index.js`
 Exports
 - `userCrud`
-- `userResource`
 
-### `patterns/user-administration-server/example/packages/users/src/shared/userResource.js`
+### `patterns/user-administration-server/example/packages/users/src/shared/userCrud.js`
 Exports
 - `userCrud`
-- `userResource`

@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@jskit-ai/crud-core": "0.2.14",
-    "@jskit-ai/resource-core": "0.1.204",
     "@jskit-ai/resource-crud-core": "0.1.204",
+    "@jskit-ai/users-core": "0.2.15",
     "@jskit-ai/workspaces-core": "0.2.15"
   },
   "jskit": {
@@ -25,7 +25,8 @@
         "runtime.http",
         "runtime.json-rest-api",
         "runtime.actions",
-        "runtime.database"
+        "runtime.database",
+        "users.profiles"
       ]
     },
     "runtime": {

@@ -64,6 +64,16 @@ test("the users and user_settings tables are table resources, apart from their C
   assert.equal(userSettingsCrud.resource, userSettingsResource);
 });
 
+test("the users table resource searches display name, email and username with q", () => {
+  assert.deepEqual(userProfileResource.searchSchema.q, {
+    type: "string",
+    oneOf: ["displayName", "email", "username"],
+    filterOperator: "like",
+    splitBy: " ",
+    matchAll: true
+  });
+});
+
 test("user profile resource exposes managed timestamps used by JSON REST writes", () => {
   assert.equal(userProfileResource.schema.createdAt?.type, "dateTime");
   assert.equal(userProfileResource.schema.createdAt?.storage?.column, "created_at");
