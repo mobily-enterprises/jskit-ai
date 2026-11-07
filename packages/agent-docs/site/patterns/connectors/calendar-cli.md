@@ -114,6 +114,6 @@ with a setter after construction, or keep a module-level registry.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connector-google-calendar@0.2.12`
+- Owner: `@jskit-ai/connector-google-calendar@0.2.13`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connector-google-calendar/patterns/calendar-cli/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connector-google-calendar/patterns/calendar-cli/example)
