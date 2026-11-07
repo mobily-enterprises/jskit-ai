@@ -67,24 +67,21 @@ function createConnectorsActions({ connections }) {
 
 /**
  * The `connectors.core` feature. Given no `store`, it keeps connections in the `connectors.store` capability, which
- * createConnectionStoreFeature() provides on the connector tables; without that feature it fails at startup, naming it.
+ * createConnectionStoreFeature() provides on the connector tables; without that feature the app fails at startup, naming it.
  * @param {Omit<import("./types.js").ConnectionServiceOptions, "store"> & { store?: import("./types.js").ConnectionStore }} options
  */
 function createConnectorsFeature(options) {
   return defineFeature({
     id: "connectors.core",
     domain: "connectors",
-    optional: options.store ? {} : { store: "connectors.store" },
+    requires: options.store ? {} : { store: "connectors.store" },
+    hints: options.store ? {} : {
+      "connectors.store": "Register createConnectionStoreFeature({ protection }) from @jskit-ai/connectors-core/server/storage " +
+        "in your server providers, or pass createConnectorsFeature({ store })."
+    },
     provides: { connections: "connectors.core" },
-    /** @param {{ store?: import("./types.js").ConnectionStore | null }} dependencies */
+    /** @param {{ store?: import("./types.js").ConnectionStore }} dependencies */
     setup({ store = options.store }) {
-      if (!store) {
-        throw new Error(
-          "connectors.core keeps connections in connectors.store, which no feature provides: register " +
-          "createConnectionStoreFeature({ protection }) from @jskit-ai/connectors-core/server/storage in your server providers, " +
-          "or pass createConnectorsFeature({ store })."
-        );
-      }
       return { connections: createConnectionService({ ...options, store }) };
     },
     actions({ connections }) {

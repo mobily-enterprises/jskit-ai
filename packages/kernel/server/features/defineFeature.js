@@ -112,6 +112,7 @@ function defineFeature({
   requires = {},
   optional = {},
   provides = {},
+  hints = {},
   setup = () => ({}),
   actions = [],
   actionDefaults = {},
@@ -152,6 +153,12 @@ function defineFeature({
     },
     optional,
     provides,
+    hints: {
+      ...(featureResources.owns || featureResources.systemScope
+        ? { [RESOURCE_RUNTIME]: "Install @jskit-ai/resource-runtime, whose ResourceRuntimeProvider provides it." }
+        : {}),
+      ...hints
+    },
     async setup(dependencies, context) {
       const { actionCatalogue } = dependencies;
       const featureDependencies = withoutActionCatalogue(dependencies);

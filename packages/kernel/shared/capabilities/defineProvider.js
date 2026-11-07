@@ -39,6 +39,35 @@ function normalizeCapabilityMap(value, label) {
   return Object.freeze(normalized);
 }
 
+/**
+ * What to do about each required capability when no provider gives it, keyed by capability id: the text the startup
+ * error adds, such as the feature to register.
+ * @param {unknown} value
+ * @param {Readonly<Record<string, string>>} requires
+ * @param {string} providerId
+ */
+function normalizeHints(value, requires, providerId) {
+  if (value == null) {
+    return Object.freeze({});
+  }
+  if (!isRecord(value)) {
+    throw new TypeError(`${providerId}.hints must be an object mapping required capability ids to what to register.`);
+  }
+  const required = new Set(Object.values(requires));
+  const normalized = {};
+  for (const [rawCapabilityId, hint] of Object.entries(value)) {
+    const capabilityId = normalizeArchitectureId(rawCapabilityId, `${providerId}.hints key`);
+    if (!required.has(capabilityId)) {
+      throw new TypeError(`${providerId}.hints names "${capabilityId}", which the provider does not require.`);
+    }
+    if (typeof hint !== "string" || !hint.trim()) {
+      throw new TypeError(`${providerId}.hints["${capabilityId}"] must be the text that says what to register.`);
+    }
+    normalized[capabilityId] = hint.trim();
+  }
+  return Object.freeze(normalized);
+}
+
 function assertDistinctLocalNames(maps) {
   const owners = new Map();
   for (const [kind, entries] of Object.entries(maps)) {
@@ -73,6 +102,7 @@ function defineProvider({
   requires = {},
   optional = {},
   provides = {},
+  hints = {},
   setup,
   boot = null,
   shutdown = null
@@ -97,6 +127,7 @@ function defineProvider({
     requires: normalizedRequires,
     optional: normalizedOptional,
     provides: normalizedProvides,
+    hints: normalizeHints(hints, normalizedRequires, providerId),
     setup: setupMethod,
     boot: normalizeLifecycleMethod(boot, `${providerId}.boot`),
     shutdown: normalizeLifecycleMethod(shutdown, `${providerId}.shutdown`)
