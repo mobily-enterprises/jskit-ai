@@ -34,21 +34,8 @@ function createRepository({ consoleSettings }) {
    * @param {(txOptions: object) => Promise<T>} work
    * @returns {Promise<T>}
    */
-  async function withTransaction(options, work) {
-    let workFailure = null;
-    try {
-      return await consoleSettings.withTransaction(options, async (txOptions) => {
-        workFailure = null;
-        try {
-          return await work(txOptions);
-        } catch (error) {
-          workFailure = { error };
-          throw error;
-        }
-      });
-    } catch (error) {
-      throw workFailure ? workFailure.error : error;
-    }
+  function withTransaction(options, work) {
+    return consoleSettings.withTransaction(options, work, { asThrown: true });
   }
 
   async function getSingleton(options = {}) {
