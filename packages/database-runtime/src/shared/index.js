@@ -10,12 +10,7 @@ export {
 export { normalizeDialect, detectDialectFromClient } from "./dialect.js";
 export { normalizeDatabaseClient, toKnexClientId } from "./databaseClient.js";
 export { findDuplicateEntryError, isDuplicateEntryError, isLostDuplicateInsertRace } from "./duplicateEntry.js";
-export { DEFAULT_VISIBILITY_COLUMNS, applyVisibility, applyVisibilityOwners } from "./visibility.js";
 export {
-  resolveTransaction,
-  resolveQueryOptions,
-  resolveRepoClient,
-  applyForUpdate,
   parseJsonObject,
   stringifyJsonObject,
   normalizeNullableString,
@@ -24,9 +19,5 @@ export {
   parseJsonValue,
   toDbJson,
   isDeadlockError,
-  retryDeadlocks,
-  runInTransaction,
-  createWithTransaction,
-  joinOrOpenTransaction,
-  lockScopedRecordId
+  retryDeadlocks
 } from "./repositoryOptions.js";

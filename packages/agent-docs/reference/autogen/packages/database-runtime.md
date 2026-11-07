@@ -163,13 +163,6 @@ Exports
 - `findDuplicateEntryError`
 - `isDuplicateEntryError`
 - `isLostDuplicateInsertRace`
-- `DEFAULT_VISIBILITY_COLUMNS`
-- `applyVisibility`
-- `applyVisibilityOwners`
-- `resolveTransaction`
-- `resolveQueryOptions`
-- `resolveRepoClient`
-- `applyForUpdate`
 - `parseJsonObject`
 - `stringifyJsonObject`
 - `normalizeNullableString`
@@ -179,17 +172,9 @@ Exports
 - `toDbJson`
 - `isDeadlockError`
 - `retryDeadlocks`
-- `runInTransaction`
-- `createWithTransaction`
-- `joinOrOpenTransaction`
-- `lockScopedRecordId`
 
 ### `src/shared/repositoryOptions.js`
 Exports
-- `resolveTransaction(options)`
-- `resolveQueryOptions(options)`
-- `resolveRepoClient(dbClient, options = {})`
-- `applyForUpdate(query, options = {})`
 - `parseJsonObject(value, fallback = {})`
 - `stringifyJsonObject(value, fallback = "{}")`
 - `normalizeNullableString(value, { trim = true } = {})`
@@ -199,19 +184,7 @@ Exports
 - `toDbJson(value)`
 - `isDeadlockError(error)`
 - `retryDeadlocks(run, { retries = 3 } = {})`
-- `runInTransaction(knex, callback, options = {})`
-- `createWithTransaction(knex)`
-- `joinOrOpenTransaction(options, withTransaction, work)`
-- `lockScopedRecordId({ trx, tableName, recordId, scopeId, idColumn = "id", scopeColumn = "workspace_id" } = {})`
-Local functions
-- `requireSqlIdentifier(value, label)`
 
 ### `src/shared/transactionManager.js`
 Exports
 - `createTransactionManager({ knex })`
-
-### `src/shared/visibility.js`
-Exports
-- `DEFAULT_VISIBILITY_COLUMNS`
-- `applyVisibility(queryBuilder, visibilityContext = {})`
-- `applyVisibilityOwners(payload = {}, visibilityContext = {})`
