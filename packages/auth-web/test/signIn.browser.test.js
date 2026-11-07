@@ -486,3 +486,105 @@ test("a failed sign-out shows the error and retries, on a phone-sized screen", o
   await expect(page.locator(".login-screen--mobile")).toHaveCount(1);
   await finish(api);
 });
+
+test("every auth screen has its one h1, sign-in's included", options, async () => {
+  const api = await openApp({
+    routes: {
+      "POST /api/password/recovery": deny(400, "Recovery link expired."),
+      "POST /api/logout": deny(503, "Sign-out service down.")
+    }
+  });
+  const { page } = api;
+  const heading = async (name) => {
+    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    assert.equal(await page.locator("h1").count(), 1, `one h1 for ${name}`);
+  };
+  await page.goto("/auth/login");
+  await heading("Sign in");
+  await page.getByTestId("auth-mode-register").click();
+  await heading("Create your account");
+  await page.getByTestId("auth-mode-sign-in").click();
+  await page.getByRole("button", { name: "Forgot password?" }).click();
+  await heading("Reset your password");
+  await page.goto("/auth/reset-password?token=stale");
+  await heading("Reset password");
+  await page.goto("/auth/signout");
+  await heading("Signing you out");
+  await finish(api);
+});
+
+test("an app's brand shows in a pane beside the card on wide windows and in a row above it on phones", options, async () => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+    const at = `${viewport.width}px`;
+    const api = await openApp({
+      viewport,
+      routes: {
+        "POST /api/password/recovery": deny(400, "Recovery link expired."),
+        "POST /api/logout": deny(503, "Sign-out service down.")
+      }
+    });
+    const { page } = api;
+    for (const [path, title] of [["/auth/branded/login", "Sign in"], ["/auth/branded/reset-password?token=stale", "Reset password"], ["/auth/branded/signout", "Signing you out"]]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1, name: title }), `${at} ${path}`).toBeVisible();
+      const layout = await page.evaluate(() => {
+        const box = (selector) => document.querySelector(selector)?.getBoundingClientRect().toJSON() || null;
+        const screen = document.querySelector("[data-testid='auth-screen']");
+        return {
+          pane: box("[data-testid='auth-brand-pane']"),
+          row: box("[data-testid='auth-brand-row']"),
+          card: box("[data-testid='auth-screen'] .v-card"),
+          treatment: (() => {
+            const style = window.getComputedStyle(document.querySelector("[data-testid='auth-screen'] .v-card"));
+            return { shadow: style.boxShadow, border: style.borderTopWidth, background: style.backgroundColor };
+          })(),
+          screenBackground: window.getComputedStyle(screen).backgroundColor,
+          h1s: document.querySelectorAll("h1").length,
+          overflow: screen.scrollWidth - screen.clientWidth
+        };
+      });
+      assert.equal(layout.h1s, 1, `${at} ${path}: the brand adds no heading`);
+      // Vuetify's flat variant computes as zero-size shadow layers: every offset, blur and spread is 0.
+      const shadowSizes = layout.treatment.shadow === "none" ? [] : layout.treatment.shadow.replace(/rgba?\([^)]*\)/gu, "").match(/-?[\d.]+px/gu) || [];
+      assert.deepEqual(shadowSizes.filter((size) => Number.parseFloat(size) !== 0), [], `${at} ${path}: the card has no shadow (${layout.treatment.shadow})`);
+      assert.equal(layout.treatment.border, "0px", `${at} ${path}: the card has no outline`);
+      assert.ok(layout.overflow <= 0, `${at} ${path}: no sideways scroll`);
+      if (viewport.width >= 960) {
+        assert.equal(layout.row, null, `${at} ${path}: no compact row`);
+        await expect(page.getByTestId("fixture-brand-pane")).toBeVisible();
+        assert.equal(Math.round(layout.pane.left), 0, `${at} ${path}: the pane starts at the window's edge`);
+        assert.equal(Math.round(layout.pane.height), viewport.height, `${at} ${path}: the pane fills the height`);
+        assert.ok(layout.card.left >= layout.pane.right, `${at} ${path}: the card is beside the pane`);
+        assert.notEqual(layout.treatment.background, layout.screenBackground, `${at} ${path}: the card's tone sets it off the screen`);
+      } else {
+        assert.equal(layout.pane, null, `${at} ${path}: no pane`);
+        await expect(page.getByTestId("fixture-brand-row")).toBeVisible();
+        assert.ok(layout.row.bottom <= layout.card.top + 1, `${at} ${path}: the row is above the card`);
+        assert.equal(Math.round(layout.card.width), viewport.width, `${at} ${path}: the card is full-bleed`);
+        assert.ok(Math.round(layout.card.bottom) >= viewport.height, `${at} ${path}: the card fills the rest`);
+      }
+    }
+    // Without a brand there is neither.
+    await page.goto("/auth/login");
+    await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+    await expect(page.getByTestId("auth-brand-pane")).toHaveCount(0);
+    await expect(page.getByTestId("auth-brand-row")).toHaveCount(0);
+    await finish(api);
+  }
+});
+
+test("an app whose accounts are by invitation offers Register only to an invited person", options, async () => {
+  const invitationOnly = {
+    ...SIGNED_OUT,
+    authCapabilities: { ...CAPABILITIES, features: { ...CAPABILITIES.features, password: { login: true, register: true, selfRegister: false } } }
+  };
+  const api = await openApp({ session: invitationOnly });
+  const { page } = api;
+  await page.goto("/auth/login");
+  await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+  await expect(page.getByTestId("auth-mode-sign-in")).toBeVisible();
+  await expect(page.getByTestId("auth-mode-register")).toHaveCount(0);
+  await page.goto("/auth/login?invitationToken=invite-for-bea");
+  await expect(page.getByTestId("auth-mode-register")).toBeVisible();
+  await finish(api);
+});

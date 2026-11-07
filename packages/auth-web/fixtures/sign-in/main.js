@@ -67,13 +67,29 @@ const HomePage = {
     ]);
   }
 };
+// An app's brand in the auth views' brand slot: a pane's wordmark and line on wide windows, a compact row on phones.
+function branded(View) {
+  return {
+    render: () => h(View, null, {
+      brand: ({ compact }) => compact
+        ? h("div", { class: "text-title-medium", "data-testid": "fixture-brand-row" }, "Racerlog")
+        : [
+            h("div", { class: "text-title-large", "data-testid": "fixture-brand-pane" }, "Racerlog"),
+            h("p", { class: "text-display-medium" }, "Your setup. Every lap.")
+          ]
+    })
+  };
+}
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/home", component: HomePage },
     { path: "/auth/login", component: DefaultLoginView },
     { path: "/auth/reset-password", component: DefaultResetPasswordView },
-    { path: "/auth/signout", component: DefaultSignOutView }
+    { path: "/auth/signout", component: DefaultSignOutView },
+    { path: "/auth/branded/login", component: branded(DefaultLoginView) },
+    { path: "/auth/branded/reset-password", component: branded(DefaultResetPasswordView) },
+    { path: "/auth/branded/signout", component: branded(DefaultSignOutView) }
   ]
 });
 const app = createApp({ render: () => h(components.VApp, null, { default: () => h(components.VMain, null, { default: () => h(RouterView) }) }) });

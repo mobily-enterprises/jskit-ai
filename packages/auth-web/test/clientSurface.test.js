@@ -75,38 +75,37 @@ test("auth profile activator keeps Material 3's 48dp touch target without a fixe
   const widgetSource = readFileSync(widgetPath, "utf8");
 
   assert.match(widgetSource, /class="auth-profile-widget__activator text-none pl-1 pr-2"/);
+  // Without the name, on a phone, the activator is an icon button, so its state layer is a circle round the avatar.
+  assert.match(widgetSource, /<v-btn v-else v-bind="props" icon variant="text" class="auth-profile-widget__activator" :aria-label="displayName">/u);
   // material-web gives every default-size button a 48dp touch target around its 40dp body; a fixed height would
   // make the button itself taller than Material 3 draws it.
   assert.doesNotMatch(widgetSource, /min-height/u);
   assert.doesNotMatch(widgetSource, /<v-btn[^>]*auth-profile-widget__activator[^>]*\ssize=/u);
 });
 
-test("default login view owns the viewport and becomes a full-screen mobile screen", () => {
-  const viewPath = fileURLToPath(new URL("../src/client/views/DefaultLoginView.vue", import.meta.url));
-  const viewSource = readFileSync(viewPath, "utf8");
-
-  assert.match(viewSource, /import\s+\{\s*useDisplay\s*\}\s+from\s+"vuetify";/);
-  assert.match(viewSource, /useDisplay\(\{\s*mobileBreakpoint:\s*960\s*\}\)/);
-  assert.doesNotMatch(viewSource, /<v-main\b/);
-  assert.match(viewSource, /login-screen--mobile/);
-  assert.match(viewSource, /login-shell--mobile/);
-  assert.match(viewSource, /auth-card--mobile/);
-  assert.match(viewSource, /auth-content--mobile/);
-  assert.match(viewSource, /:elevation="isMobileViewport \? 0 : 1"/);
-  // An elevated Material 3 card on wide windows, the whole screen on phones; never an outlined one.
-  assert.doesNotMatch(viewSource, /:border=|\sborder(?=[\s>])/);
-  assert.match(viewSource, /\.login-screen\s*\{[\s\S]*position:\s*fixed;/);
+test("the auth views fill the viewport through AuthScreen: a card on wide windows, the whole screen on phones", () => {
+  const read = (name) => readFileSync(fileURLToPath(new URL(`../src/client/views/${name}.vue`, import.meta.url)), "utf8");
+  const screen = read("AuthScreen");
+  assert.match(screen, /useDisplay\(\{\s*mobileBreakpoint:\s*960\s*\}\)/);
+  assert.match(screen, /\.auth-screen\s*\{[\s\S]*position:\s*fixed;/);
   // The full-viewport screen starts below shell banners shown on this bar-less surface.
-  assert.match(viewSource, /\.login-screen\s*\{[\s\S]*inset:\s*var\(--shell-error-banners-inline-height, 0px\) 0 0;/);
-});
-
-test("default reset view starts below shell banners on its bar-less surface", () => {
-  const viewPath = fileURLToPath(new URL("../src/client/views/DefaultResetPasswordView.vue", import.meta.url));
-  const viewSource = readFileSync(viewPath, "utf8");
-
-  assert.match(viewSource, /\.reset-screen\s*\{[\s\S]*position:\s*fixed;/);
-  assert.match(viewSource, /\.reset-screen\s*\{[\s\S]*inset:\s*var\(--shell-error-banners-inline-height, 0px\) 0 0;/);
-  assert.doesNotMatch(viewSource, /min-height:\s*100dvh/);
+  assert.match(screen, /\.auth-screen\s*\{[\s\S]*inset:\s*var\(--shell-error-banners-inline-height, 0px\) 0 0;/);
+  assert.doesNotMatch(screen, /min-height:\s*100dvh/);
+  for (const [name, card] of [["DefaultLoginView", "auth-card"], ["DefaultResetPasswordView", "reset-card"], ["DefaultSignOutView", "signout-card"]]) {
+    const view = read(name);
+    assert.match(view, /<AuthScreen\b/, name);
+    // The app's brand slot reaches the screen's pane and row.
+    assert.match(view, /<template v-if="\$slots\.brand" #brand="brand">\s*<slot name="brand" v-bind="brand" \/>/, name);
+    assert.doesNotMatch(view, /<v-main\b|position:\s*fixed/, name);
+    assert.match(view, new RegExp(`${card}--mobile`), name);
+    // One container treatment: the card's tone against the screen, with no shadow or outline over it.
+    assert.match(view, /<v-card\b[^>]*\svariant="flat"/, name);
+    assert.doesNotMatch(view, /:?elevation=/, name);
+    // An elevated Material 3 card on wide windows, the whole screen on phones; never an outlined one.
+    assert.doesNotMatch(view, /:border=|\sborder(?=[\s>])/, name);
+    // Each has its one h1.
+    assert.equal((view.match(/<h1\b/gu) || []).length, 1, name);
+  }
 });
 
 test("default login view avoids decorative login chrome", () => {
@@ -117,7 +116,9 @@ test("default login view avoids decorative login chrome", () => {
 
   assert.match(viewSource, /v-if="authTitle \|\| authSubtitle"/);
   assert.doesNotMatch(viewSource, /Jskit Workspace|JSKIT WORKSPACE|auth-kicker|>Secure</);
-  assert.match(constantsSource, /\[LOGIN_MODE\]:\s*""/);
+  // Sign-in has its one h1 ("Sign in") and no tagline.
+  assert.match(constantsSource, /AUTH_TITLE_BY_MODE = Object\.freeze\(\{\s*\[LOGIN_MODE\]:\s*"jskit\.auth\.login\.title\.login"/);
+  assert.match(constantsSource, /AUTH_SUBTITLE_BY_MODE = Object\.freeze\(\{\s*\[LOGIN_MODE\]:\s*""/);
   assert.doesNotMatch(constantsSource, /\[LOGIN_MODE\]:\s*"Welcome"/);
   assert.doesNotMatch(constantsSource, /\[LOGIN_MODE\]:\s*"Sign in to continue\.?"/);
 });

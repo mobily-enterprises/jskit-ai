@@ -4,9 +4,9 @@ const FORGOT_MODE = "forgot";
 const OTP_MODE = "otp";
 const EMAIL_CONFIRMATION_MODE = "confirm-email";
 
-// Message keys per mode; an empty entry shows nothing.
+// Message keys per mode; an empty entry shows nothing. Every mode has a title, the page's one h1.
 const AUTH_TITLE_BY_MODE = Object.freeze({
-  [LOGIN_MODE]: "",
+  [LOGIN_MODE]: "jskit.auth.login.title.login",
   [REGISTER_MODE]: "jskit.auth.login.title.register",
   [FORGOT_MODE]: "jskit.auth.login.title.forgot",
   [OTP_MODE]: "jskit.auth.login.title.otp",

@@ -80,7 +80,11 @@ export function useLoginViewState({ placementContext }) {
   const isOtp = computed(() => mode.value === OTP_MODE);
   const isEmailConfirmationPending = computed(() => mode.value === EMAIL_CONFIRMATION_MODE);
   const canUsePasswordLogin = computed(() => authCapabilities.value.features.password.login === true);
-  const canRegister = computed(() => authCapabilities.value.features.password.register === true);
+  // An app whose accounts are by invitation offers registering only to an invited person (or its first account).
+  const canRegister = computed(() => {
+    const { register, selfRegister } = authCapabilities.value.features.password;
+    return register === true && (selfRegister === true || Boolean(String(invitationToken.value || "").trim()));
+  });
   const canRequestPasswordRecovery = computed(
     () => authCapabilities.value.features.passwordRecovery.request === true
   );

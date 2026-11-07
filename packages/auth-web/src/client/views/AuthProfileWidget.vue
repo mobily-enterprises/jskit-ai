@@ -1,5 +1,6 @@
 <script setup>
 import { computed } from "vue";
+import { useDisplay } from "vuetify";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useAuthStore } from "../stores/useAuthStore.js";
@@ -8,6 +9,8 @@ import { useJskitText } from "../i18n.js";
 const auth = useAuthStore();
 const { t } = useJskitText();
 const { context: shellPlacementContext } = useWebPlacementContext();
+// Beside the name the activator is a pill; on a phone, without it, a round icon button around the avatar.
+const { smAndUp: showsName } = useDisplay();
 
 const shellUser = computed(() => {
   const user = shellPlacementContext.value?.user;
@@ -65,12 +68,23 @@ const placementContext = computed(() => {
 <template>
   <v-menu location="bottom end" offset="10">
     <template #activator="{ props }">
-      <v-btn v-bind="props" variant="text" class="auth-profile-widget__activator text-none pl-1 pr-2">
+      <v-btn
+        v-if="showsName"
+        v-bind="props"
+        variant="text"
+        class="auth-profile-widget__activator text-none pl-1 pr-2"
+      >
         <v-avatar size="32" color="primary" variant="tonal">
           <v-img v-if="avatarUrl" :src="avatarUrl" cover />
           <span v-else class="text-body-small font-weight-medium">{{ initials }}</span>
         </v-avatar>
-        <span class="ml-2 d-none d-sm-inline text-body-medium">{{ displayName }}</span>
+        <span class="ml-2 text-body-medium">{{ displayName }}</span>
+      </v-btn>
+      <v-btn v-else v-bind="props" icon variant="text" class="auth-profile-widget__activator" :aria-label="displayName">
+        <v-avatar size="32" color="primary" variant="tonal">
+          <v-img v-if="avatarUrl" :src="avatarUrl" cover />
+          <span v-else class="text-body-small font-weight-medium">{{ initials }}</span>
+        </v-avatar>
       </v-btn>
     </template>
 
