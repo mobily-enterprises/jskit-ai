@@ -1,19 +1,18 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { createInvoiceRollup } from "./customKnexRepository.js";
+import { invoiceResource } from "./invoiceResource.js";
+import { createInvoiceRollup } from "./ownedTableRepository.js";
 import { createInvoiceRollupActions } from "./invoiceRollupActions.js";
 
 const InvoiceRollupFeature = defineFeature({
   id: "feature.invoice-rollup",
   domain: "invoices",
-  requires: {
-    database: "runtime.database"
-  },
+  owns: [invoiceResource],
   provides: {
     invoiceRollup: "feature.invoice-rollup"
   },
-  /** @param {{ database: import("@jskit-ai/database-runtime/server/types").RuntimeDatabase }} capabilities */
-  setup({ database }) {
-    return { invoiceRollup: createInvoiceRollup({ knex: database.knex }) };
+  /** @param {{ resources: { invoices: import("@jskit-ai/resource-runtime/server/types").ResourceHandle } }} capabilities */
+  setup({ resources }) {
+    return { invoiceRollup: createInvoiceRollup({ invoices: resources.invoices }) };
   },
   actions({ invoiceRollup }) {
     return createInvoiceRollupActions({ invoiceRollup });

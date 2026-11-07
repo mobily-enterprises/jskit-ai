@@ -63,11 +63,11 @@ ends with the same link.
   - [One helper per package](../typed-features.md#one-helper-per-package)
 - `options?.trx || options?.transaction`, a hand-read actor, cursor or created id
   - [One reader per fact](../typed-features.md#one-reader-per-fact)
-- `api.resources.x.query(…)` with no `page` for a list, `queryDocuments(query)` with no `limit` in a service, a list that stops at 20 rows, `page: { size: 500 }` or `limit: 500` that returns 100 rows
+- a list read with `query()` where every row is meant (`queryAll()`), a list that stops at one page, `page: { size: 500 }` refused above the page limit
   - [Every row](../typed-features.md#every-row)
-- `await getDocumentById(…)`, `queryDocuments(…)` or a service `get` inside a loop or a `Promise.all` over a list, a single-record helper reused for a list, N+1 queries, a list whose query count grows with its rows, a slow list endpoint
+- `await handle.get(…)`, `handle.query(…)` or a service `get` inside a loop or a `Promise.all` over a list, a single-record helper reused for a list, N+1 queries, a list whose query count grows with its rows, a slow list endpoint
   - [Lists read related rows in batches](../typed-features.md#lists-read-related-rows-in-batches)
-- a `rowPolicy` that loads a person's whole history or calls an access check per item, `createDocument` per row of a batch, a write that gets slower as history grows
+- a `rowPolicy` that loads a person's whole history or calls an access check per item, `create()` per row of a batch instead of `createMany()`, a write that gets slower as history grows
   - [Bounded access checks](../typed-features.md#bounded-access-checks)
 - a route that queries storage, `boot*.js` holding routes
   - [Routes](../typed-features.md#routes)

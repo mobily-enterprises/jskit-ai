@@ -65,8 +65,8 @@ Server-side pattern, only when implementing real backend filter semantics:
 3. Pass the contract's `queryValidator` through the dedicated
    `listFilterQueryValidator` option of the standard CRUD list validator group
    at both the route and action boundaries.
-4. Pass the contract's `jsonRestSearchSchema` into `createJsonRestResourceScopeOptions(..., { searchSchema })`.
-5. Call `contract.toJsonRestQuery(query)` before `buildJsonRestQueryParams(...)` in the JSON REST repository path.
+4. Pass the contract's `jsonRestSearchSchema` as the `searchSchema` of the CRUD table's `owns` entry: `defineCrudFeature({ crud, owns: [{ resource, searchSchema: contract.jsonRestSearchSchema }] })`.
+5. Override the service's `list` in `decorateService` so it calls `service.list(contract.toJsonRestQuery(query), options)`.
 
 Exact file checklist:
 - create `packages/<crud>/src/shared/<crud>ListFilters.js`
@@ -77,8 +77,8 @@ Exact file checklist:
 - update `packages/<crud>/src/server/actions.js` so
   `createStandardCrudListQueryValidators(...)` receives the same
   `listFilterQueryValidator`
-- update the provider's `createJsonRestResourceScopeOptions(...)` call so `searchSchema: listFilterContract.jsonRestSearchSchema` is merged into the internal JSON REST resource
-- update `packages/<crud>/src/server/repository.js` so list queries pass `listFilterContract.toJsonRestQuery(query)` into `buildJsonRestQueryParams(...)`
+- update the feature's `owns` entry for the CRUD table so `searchSchema: listFilterContract.jsonRestSearchSchema` reaches the resource
+- update the feature's `decorateService` so `list(query, options)` passes `listFilterContract.toJsonRestQuery(query)` to the standard `list`
 - update the page-local `listFilters.js` first; only edit `index.vue` if a specialist lookup label/runtime integration is needed
 - for lookup-backed filters, wire `useCrudListFilterLookups(...)` beside the existing filter runtime instead of replacing `CrudListFilterSurface`
 
@@ -168,8 +168,8 @@ Good shape:
 - shared screen runtime passes `filterRuntime.queryParams` into the list request
 - `packages/receivals/src/shared/receivalListFilters.js`
 - `createCrudListFilterContract(RECEIVAL_LIST_FILTER_DEFINITIONS, { columns, invalidValues: "reject" })`
-- `createJsonRestResourceScopeOptions(resource, { searchSchema: receivalListFilterContract.jsonRestSearchSchema })`
-- `buildJsonRestQueryParams(JSON_REST_SCOPE_NAME, receivalListFilterContract.toJsonRestQuery(query))`
+- `owns: [{ resource: receivalResource, searchSchema: receivalListFilterContract.jsonRestSearchSchema }]`
+- `list: (query, options) => service.list(receivalListFilterContract.toJsonRestQuery(query), options)` in `decorateService`
 - `const listFilters = useCrudListFilters(RECEIVAL_LIST_FILTER_DEFINITIONS, { presets: [...] })`
 - `const filterLookups = useCrudListFilterLookups(RECEIVAL_LIST_FILTER_DEFINITIONS, { values: listFilters.values, ... })`
 - `queryParams: listFilters.queryParams`

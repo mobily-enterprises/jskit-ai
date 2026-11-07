@@ -16,16 +16,18 @@ actions whose implementations capture those exact dependencies.
 
 The concrete `booking-engine` example is intentionally repository-free. The
 `variations/` directory preserves the two important escalations: a meaningful
-orchestration service and an explicit custom Knex repository for a domain that
-cannot fit the normal resource APIs.
+orchestration service and a repository over a table the feature owns, for a
+domain whose operations are not CRUD screens.
 
 ## Do not use when
 
 Do not create a package for a tiny composition callback or one route with no
-domain behavior. Use the CRUD resource patterns when ordinary resource
-operations fit. Do not select custom Knex merely because SQL is familiar; it
-is an explicit exception for persistence behavior the higher-level APIs cannot
-express.
+domain behavior. Use the CRUD feature pattern when the table's operations are
+screens over HTTP. Do not reach for Knex because SQL is familiar: a table's
+reads and writes go through its handle, and a report the handle cannot express
+is one `scopedQuery()` method, as the
+[data access guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access)
+says.
 
 ## Product decisions
 
@@ -49,7 +51,7 @@ questionnaire.
 - Every factory, action creator and hook that receives a collaborator names its
   type in a JSDoc `@param`: `import("./types.js").<Name>` or
   `ReturnType<typeof createX>` inside the package, the owner's `./server/types`
-  across packages; a Knex client is database-runtime's `RuntimeKnex`.
+  across packages; a table's handle is resource-runtime's `ResourceHandle`.
 - Collaborators are required. There is no `= null`, `= {}` or no-op default,
   no `typeof` probe, no optional call and no "requires x" guard: the capability
   runtime refuses to start without a required token.
@@ -79,9 +81,11 @@ questionnaire.
 - One copy of each pure helper per package, imported directly. Files stay under
   750 lines and functions under 600, one concern per factory.
 - The service orchestrates the feature and does not issue SQL directly.
-- A repository owns persistence and accepts transaction/context options.
-- The normal persistence lane uses a public or documented high-level resource
-  API; custom Knex is an explicit, reviewed exception.
+- A feature that owns a table lists its table resource in `owns`; setup
+  receives the table's handle, and only its repository uses it. One table has
+  one owner.
+- A repository holds the owner's queries on its handles and passes each call's
+  options (context and transaction) on.
 - Ordinary HTTP and assistant exposure is projected from actions. Explicit
   route code exists only for a genuinely custom transport.
 - Register routes, actions, contributors, and other catalogue entries during
@@ -96,8 +100,8 @@ questionnaire.
 The provider uses `defineFeature()` from
 `@jskit-ai/kernel/server/features`. The runtime supplies named capabilities
 and the feature publishes its actions through the dedicated action catalogue.
-The custom persistence variation uses `createWithTransaction()` from
-`@jskit-ai/database-runtime/shared`.
+The persistence variation owns its table with `defineFeature({ owns })` and
+reads totals with the handle's `aggregate()`.
 
 ## Example files
 
@@ -146,9 +150,11 @@ const SeasonalAvailabilityFeature = defineFeature({
 `example/variations/availabilityEngineActions.js` and
 `example/variations/orchestratorService.js` show the repository-free lane.
 `example/variations/InvoiceRollupFeature.js`,
-`example/variations/invoiceRollupActions.js` and
-`example/variations/customKnexRepository.js` show the explicit custom
-persistence lane. `example/variations/types.js` declares the
+`example/variations/invoiceRollupActions.js`,
+`example/variations/invoiceResource.js` and
+`example/variations/ownedTableRepository.js` show the persistence lane: the
+feature owns the invoices table, and its repository reads monthly totals with
+`aggregate()`, scoped to the caller's workspace by the handle. `example/variations/types.js` declares the
 `AvailabilityEngine` and `InvoiceRollup` types.
 
 The [typed features guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/typed-features)
@@ -171,7 +177,9 @@ illustrative status query with narrow product language before shipping.
   denied access.
 - Exercise HTTP routes only when the package owns them.
 - Test service orchestration independently from persistence.
-- Test repository transaction and context forwarding.
+- Test each repository path against a second workspace's rows
+  (`expectScoped`) and at two sizes (`expectFlatQueries`), from
+  `@jskit-ai/resource-runtime/test`.
 - Rebuild any schema from immutable migrations in a disposable database.
 - Run the app's package, server, and integration verification.
 

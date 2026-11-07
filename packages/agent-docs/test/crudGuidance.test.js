@@ -27,7 +27,7 @@ test("CRUD guidance is source-pattern-first and contains no generator workflow",
   const combined = sources.join("\n");
 
   assert.match(combined, /crud\/resource-contract/u);
-  assert.match(combined, /crud\/json-api-resource-package/u);
+  assert.match(combined, /crud\/crud-feature-package/u);
   assert.match(combined, /crud\/crud-screen-set/u);
   assert.match(combined, /defineTableResource\(\)/u);
   assert.match(combined, /defineCrudContract\(\)/u);
