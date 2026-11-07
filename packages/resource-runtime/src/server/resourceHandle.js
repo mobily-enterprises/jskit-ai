@@ -610,20 +610,18 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   }
 
   /**
-   * Locks the caller's rows the filters select, as lockMany. It does not lock
-   * rows inserted later: unique numbers take a unique index, or a counter row
-   * taken with lock().
+   * Locks the caller's rows the filters select until the transaction ends, in id
+   * order, and answers them; it waits for transactions holding them, so a row that
+   * starts to match meanwhile is locked too. At most 1,000 rows (RestApiRowLimitError
+   * past that). It does not lock rows inserted later: unique numbers take a unique
+   * index, or a counter row taken with lock().
    * @param {object} filters
    * @param {{ context?: object | null, trx: object }} options
    */
   async function lockWhere(filters, options) {
     requireDefinedFilters(name, "lockWhere", filters);
-    const { query: visible } = await jsonRest().scopedQuery(
-      { filters, purpose: "lock", transaction: options.trx },
-      contextOf(options)
-    );
-    const ids = await visible.pluck(storage().getIdColumn());
-    return ids.length > 0 ? lockMany(ids, { ...options, missing: "skip" }) : [];
+    const { data } = await jsonRest().lockWhere({ filters, transaction: options.trx, format: "plain" }, contextOf(options));
+    return handleRecords(resource, data);
   }
 
   /**
