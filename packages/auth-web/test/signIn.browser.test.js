@@ -487,6 +487,92 @@ test("a failed sign-out shows the error and retries, on a phone-sized screen", o
   await finish(api);
 });
 
+// The app bar's account control leaves the bar's title and actions their room: an icon button around the avatar on
+// compact and medium windows, and on expanded ones the name beside it, ending in an ellipsis past 12rem.
+test("the account control is the avatar alone up to medium width and truncates a long name beside it on wider windows", options, async () => {
+  const name = "Augusta Ada King, Countess of Lovelace and First Programmer";
+  const api = await openApp({ session: { ...SIGNED_IN, username: name }, viewport: { width: 768, height: 1024 } });
+  const { page } = api;
+  await page.goto("/home");
+  const control = page.getByRole("button", { name });
+  await expect(control).toBeVisible();
+  assert.equal(await control.evaluate((element) => element.classList.contains("v-btn--icon")), true, "an icon button at 768");
+  await expect(page.locator(".auth-profile-widget__name")).toHaveCount(0);
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const label = page.locator(".auth-profile-widget__name");
+  await expect(label).toHaveText(name);
+  const shown = await label.evaluate((element) => ({
+    width: element.getBoundingClientRect().width,
+    truncated: element.scrollWidth > element.clientWidth,
+    rem: Number.parseFloat(getComputedStyle(document.documentElement).fontSize)
+  }));
+  assert.ok(shown.width <= 12 * shown.rem + 1, `the name takes at most 12rem: ${shown.width}px`);
+  assert.equal(shown.truncated, true, "a long name ends in an ellipsis");
+  await finish(api);
+});
+
+// Material 3's segmented button: one outline, equal segments, the selected one on secondary-container with a check.
+// Register has no "Back to sign in": the Sign in segment is the way back.
+test("Sign in and Register are a segmented button, and Register has no way back but its segment", options, async () => {
+  const api = await openApp();
+  const { page } = api;
+  await page.goto("/auth/login");
+  const group = page.getByRole("radiogroup", { name: "Sign in or register" });
+  await expect(group).toBeVisible();
+  const read = () => group.evaluate((element) => {
+    const role = (name) => {
+      const probe = document.body.appendChild(document.createElement("span"));
+      probe.style.color = `rgb(var(--v-theme-${name}))`;
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    };
+    const style = getComputedStyle(element);
+    return {
+      outline: [style.borderTopWidth, style.borderTopColor === role("outline"), style.borderTopLeftRadius],
+      height: element.getBoundingClientRect().height,
+      segments: [...element.querySelectorAll("[role=radio]")].map((segment) => {
+        const segmentStyle = getComputedStyle(segment);
+        return {
+          name: segment.textContent.trim(),
+          checked: segment.getAttribute("aria-checked"),
+          width: Math.round(segment.getBoundingClientRect().width),
+          check: segment.querySelectorAll(".v-btn__prepend .v-icon").length,
+          filled: segmentStyle.backgroundColor === role("secondary-container"),
+          type: [segmentStyle.fontSize, segmentStyle.fontWeight]
+        };
+      })
+    };
+  });
+  const expected = (selected) => {
+    const segments = ["Sign in", "Register"].map((name) => ({
+      name,
+      checked: String(name === selected),
+      check: name === selected ? 1 : 0,
+      filled: name === selected,
+      type: ["14px", "500"]
+    }));
+    return { outline: ["1px", true, "9999px"], height: 40, segments };
+  };
+  const withoutWidths = ({ segments, ...rest }) => ({ ...rest, segments: segments.map(({ width, ...segment }) => segment) });
+
+  const layout = await read();
+  assert.deepEqual(withoutWidths(layout), expected("Sign in"));
+  assert.equal(layout.segments[0].width, layout.segments[1].width, "the segments are equal");
+
+  await page.getByRole("radio", { name: "Register" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Create your account" })).toBeVisible();
+  // The segments' fill changes through Vuetify's background transition.
+  await expect.poll(async () => withoutWidths(await read())).toEqual(expected("Register"));
+  await expect(page.getByRole("button", { name: "Back to sign in" })).toHaveCount(0);
+  await expect(page.getByText("Already have an account?")).toHaveCount(0);
+
+  await page.getByRole("radio", { name: "Sign in" }).click();
+  await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+  await finish(api);
+});
+
 test("every auth screen has its one h1, sign-in's included", options, async () => {
   const api = await openApp({
     routes: {
@@ -582,9 +668,10 @@ test("an app whose accounts are by invitation offers Register only to an invited
   const { page } = api;
   await page.goto("/auth/login");
   await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
-  await expect(page.getByTestId("auth-mode-sign-in")).toBeVisible();
-  await expect(page.getByTestId("auth-mode-register")).toHaveCount(0);
+  // Sign in alone is no choice: no segmented button.
+  await expect(page.getByTestId("auth-mode-switch")).toHaveCount(0);
   await page.goto("/auth/login?invitationToken=invite-for-bea");
+  await expect(page.getByTestId("auth-mode-sign-in")).toBeVisible();
   await expect(page.getByTestId("auth-mode-register")).toBeVisible();
   await finish(api);
 });

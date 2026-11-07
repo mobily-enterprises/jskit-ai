@@ -17,22 +17,36 @@
           </div>
         </div>
 
-        <div v-if="!isForgot && !isOtp && !isEmailConfirmationPending" class="mode-switch d-flex ga-2 pa-1 mb-5">
+        <!-- Sign in and Register: a Material 3 segmented button, offered only when both are. -->
+        <div
+          v-if="!isForgot && !isOtp && !isEmailConfirmationPending && !showRememberedAccount && canRegister"
+          class="mode-switch mb-5"
+          role="radiogroup"
+          :aria-label="t('jskit.auth.login.mode.label')"
+          data-testid="auth-mode-switch"
+        >
           <v-btn
             data-testid="auth-mode-sign-in"
-            class="text-none"
-            :variant="isLogin ? 'flat' : 'text'"
-            :color="isLogin ? 'secondary-container' : undefined"
+            class="mode-switch__segment text-none"
+            role="radio"
+            :aria-checked="isLogin ? 'true' : 'false'"
+            :active="isLogin"
+            :prepend-icon="isLogin ? '$complete' : undefined"
+            variant="text"
+            rounded="0"
             @click="switchMode('login')"
           >
             {{ t("jskit.auth.login.mode.signIn") }}
           </v-btn>
           <v-btn
-            v-if="!showRememberedAccount && canRegister"
             data-testid="auth-mode-register"
-            class="text-none"
-            :variant="isRegister ? 'flat' : 'text'"
-            :color="isRegister ? 'secondary-container' : undefined"
+            class="mode-switch__segment text-none"
+            role="radio"
+            :aria-checked="isRegister ? 'true' : 'false'"
+            :active="isRegister"
+            :prepend-icon="isRegister ? '$complete' : undefined"
+            variant="text"
+            rounded="0"
             @click="switchMode('register')"
           >
             {{ t("jskit.auth.login.mode.register") }}
@@ -257,14 +271,7 @@
               {{ submitLabel }}
             </v-btn>
 
-            <div v-if="isRegister" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
-              <span class="on-surface-variant">{{ t("jskit.auth.login.hasAccount") }}</span>
-              <v-btn variant="text" color="secondary" @click="switchMode('login')">
-                {{ t("jskit.auth.login.backToSignIn") }}
-              </v-btn>
-            </div>
-
-            <div v-else-if="isForgot" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
+            <div v-if="isForgot" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
               <span class="on-surface-variant">{{ t("jskit.auth.login.rememberedPassword") }}</span>
               <v-btn variant="text" color="secondary" @click="switchMode('login')">
                 {{ t("jskit.auth.login.backToSignIn") }}
@@ -384,9 +391,35 @@ function toggleConfirmPasswordVisibility() {
   color: rgb(var(--v-theme-on-surface));
 }
 
+/* Material 3's segmented button: one outline, equal segments, the selected one in secondary-container with a check. */
+/* Two equal grid columns: the divider sits inside the second segment, so it can't make the segments differ. */
 .mode-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: 40px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--v-theme-outline));
   border-radius: 9999px;
-  background-color: rgb(var(--v-theme-surface-container-highest));
+}
+
+.mode-switch__segment.v-btn {
+  min-width: 0;
+  height: 100%;
+  color: rgb(var(--v-theme-on-surface));
+}
+
+.mode-switch__segment + .mode-switch__segment {
+  border-inline-start: 1px solid rgb(var(--v-theme-outline));
+}
+
+.mode-switch__segment.v-btn--active {
+  background-color: rgb(var(--v-theme-secondary-container));
+  color: rgb(var(--v-theme-on-secondary-container));
+}
+
+/* The fill marks the selection; the state layer stays for hover, focus and press. */
+.mode-switch__segment.v-btn--active > .v-btn__overlay {
+  opacity: 0;
 }
 
 .email-confirmation-state,

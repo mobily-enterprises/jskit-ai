@@ -1,7 +1,7 @@
 <script setup>
 import { computed } from "vue";
-import { useDisplay } from "vuetify";
 import ShellOutlet from "@jskit-ai/shell-web/client/components/ShellOutlet";
+import { useShellWindowSizeClass } from "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 import { useAuthStore } from "../stores/useAuthStore.js";
 import { useJskitText } from "../i18n.js";
@@ -9,8 +9,11 @@ import { useJskitText } from "../i18n.js";
 const auth = useAuthStore();
 const { t } = useJskitText();
 const { context: shellPlacementContext } = useWebPlacementContext();
-// Beside the name the activator is a pill; on a phone, without it, a round icon button around the avatar.
-const { smAndUp: showsName } = useDisplay();
+// On expanded windows the activator is a pill with the name beside the avatar, the name ending in an ellipsis past
+// 12rem; on medium and compact windows, where the app bar's title and actions need the room, it is a round icon
+// button around the avatar, named by its aria-label.
+const { isExpanded, isLarge } = useShellWindowSizeClass();
+const showsName = computed(() => isExpanded.value || isLarge.value);
 
 const shellUser = computed(() => {
   const user = shellPlacementContext.value?.user;
@@ -78,7 +81,7 @@ const placementContext = computed(() => {
           <v-img v-if="avatarUrl" :src="avatarUrl" cover />
           <span v-else class="text-body-small font-weight-medium">{{ initials }}</span>
         </v-avatar>
-        <span class="ml-2 text-body-medium">{{ displayName }}</span>
+        <span class="auth-profile-widget__name ml-2 text-body-medium">{{ displayName }}</span>
       </v-btn>
       <v-btn v-else v-bind="props" icon variant="text" class="auth-profile-widget__activator" :aria-label="displayName">
         <v-avatar size="32" color="primary" variant="tonal">
@@ -96,3 +99,12 @@ const placementContext = computed(() => {
     </v-list>
   </v-menu>
 </template>
+
+<style scoped>
+.auth-profile-widget__name {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+</style>

@@ -28,6 +28,7 @@
           "confirmEmail": "Continue"
         },
         "mode": {
+          "label": "Sign in or register",
           "signIn": "Sign in",
           "register": "Register"
         },
@@ -68,7 +69,6 @@
         "useOtp": "Use one-time code",
         "sendOtp": "Send one-time code",
         "backToSignIn": "Back to sign in",
-        "hasAccount": "Already have an account?",
         "rememberedPassword": "Remembered your password?",
         "otherMethod": "Want to use another method?",
         "passwordsMismatch": "Passwords do not match.",
