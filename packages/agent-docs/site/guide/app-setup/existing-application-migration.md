@@ -131,7 +131,13 @@ The foundation servers reuse compiled response serializers for identical JSON
 schemas through `createCachedResponseSerializerFactory` from
 `@jskit-ai/kernel/server/http`. This reduces duplicate startup compilation and
 retained memory in applications with many routes. Each Fastify compiler context
-keeps its own cache; request data and response payloads are not cached.
+keeps its own cache; request data and response payloads are not cached. A
+serializer is compiled when a response first uses it, in every environment, so
+startup compiles none. Startup still checks every response schema as
+fast-json-stringify would before building it: an invalid schema or a `$ref`
+that does not resolve stops the server. A problem fast-json-stringify only
+finds while generating a serializer fails the first response that uses it, so
+keep a test that calls each route.
 
 Existing applications adopt the same setup in their own `server.js` after
 upgrading JSKIT and declaring the directly used

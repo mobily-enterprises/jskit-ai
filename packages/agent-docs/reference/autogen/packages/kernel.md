@@ -872,7 +872,12 @@ Exports
 - `createCachedResponseSerializerFactory(buildSerializer)`
 - `schemaCacheKey(schema)`
 Local functions
+- `schemaTools()`
 - `isJsonValue(value, ancestors = new Set())`
+- `assertValidSchema(schema, name)`
+- `filedSchemaId(schema, fallback)`
+- `everyRefResolves(schema, externalSchemas)`
+- `compiledOnFirstUse(compile, options, key)`
 
 ### `server/http/securityHeaders.js`
 Exports

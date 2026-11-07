@@ -77,17 +77,21 @@ function trackNativeFactory() {
   };
 }
 
-test("reuses exact JSON schemas and preserves native rejection without caching failures", () => {
+test("reuses exact JSON schemas, compiles each on first use and preserves native rejection without caching failures", () => {
   const native = trackNativeFactory();
   const compile = createCachedResponseSerializerFactory(native.build)({}, {});
+  const calls = () => native.contexts[0].calls.length;
   const first = compile({ schema: successSchema, url: "/one", httpStatus: "200" });
   const second = compile({ schema: structuredClone(successSchema), url: "/two", httpStatus: "201" });
   assert.equal(second, first);
-  assert.equal(native.contexts[0].calls.length, 1);
   const errors = compile({ schema: errorSchema });
   assert.notEqual(errors, first);
-  assert.equal(native.contexts[0].calls.length, 2);
+  assert.equal(calls(), 0);
+  assert.equal(first({ data: null }), '{"data":null}');
+  assert.equal(second({ data: null, extra: 1 }), '{"data":null}');
+  assert.equal(calls(), 1);
 
+  // A schema changed after registration still serializes as it was registered.
   const schema = { type: "string" };
   const string = compile({ schema });
   schema.type = "integer";
@@ -95,12 +99,81 @@ test("reuses exact JSON schemas and preserves native rejection without caching f
   assert.notEqual(integer, string);
   assert.equal(string(3), '"3"');
   assert.equal(integer(3), "3");
+  assert.equal(calls(), 3);
 
+  // An invalid schema fails at registration, before anything is built; an unresolvable reference is built at once
+  // and fails with the build's own error. Neither failure is cached.
   for (let attempt = 0; attempt < 2; attempt++) {
+    assert.throws(() => compile({ schema: { type: "strin" } }), /schema is invalid: data\/type/);
     assert.throws(() => compile({ schema: { $ref: "missing" } }), /reference|schema/i);
+    assert.throws(() => compile({ schema: { type: "object", properties: { id: { $ref: "#/definitions/id" } } } }),
+      /Cannot find reference/);
   }
-  assert.equal(native.contexts[0].calls.length, 6);
+  assert.equal(calls(), 7);
   assert.throws(() => createCachedResponseSerializerFactory(null), /serializer builder/);
+});
+
+test("a serializer whose first build fails builds again at its next use", () => {
+  let builds = 0;
+  const compile = createCachedResponseSerializerFactory(() => () => {
+    builds += 1;
+    if (builds === 1) throw new Error("The first build fails.");
+    return (data) => `built ${data}`;
+  })({}, {});
+  const serialize = compile({ schema: { type: "string" } });
+  assert.equal(builds, 0);
+  assert.throws(() => serialize("a"), /first build fails/);
+  assert.equal(serialize("b"), "built b");
+  assert.equal(serialize("c"), "built c");
+  assert.equal(builds, 2);
+});
+
+test("routes compile no response serializer at startup and one per schema their responses use", async (t) => {
+  const native = trackNativeFactory();
+  const app = Fastify({
+    schemaController: { compilersFactory: { buildSerializer: createCachedResponseSerializerFactory(native.build) } }
+  });
+  t.after(() => app.close());
+  const routes = 40;
+  for (let index = 0; index < routes; index++) {
+    app.get(`/records/${index}`, {
+      schema: {
+        response: {
+          200: { ...structuredClone(successSchema), title: `Record ${index}` },
+          400: { ...structuredClone(errorSchema), title: `Record ${index} error` }
+        }
+      }
+    }, async () => ({ data: { type: "records", id: index, attributes: { title: "One" } } }));
+  }
+  await app.ready();
+  const compiled = () => native.contexts.reduce((sum, { calls }) => sum + calls.length, 0);
+  assert.equal(compiled(), 0);
+  for (let request = 0; request < 3; request++) {
+    assert.equal((await app.inject("/records/7")).body, '{"data":{"type":"records","id":7,"attributes":{"title":"One"}}}');
+  }
+  assert.equal(compiled(), 1);
+});
+
+test("an invalid or unresolvable response schema still stops startup", async () => {
+  const cases = [
+    [{ type: "object", properties: { title: { type: "strin" } } }, /schema is invalid: data\/properties\/title\/type/],
+    [{ type: "object", properties: { id: { $ref: "#/definitions/id" } } }, /Cannot find reference/],
+    [{ type: "object", properties: { id: { $ref: "shared#/properties/id" } } }, /Cannot resolve ref|not found/]
+  ];
+  for (const [schema, message] of cases) {
+    const app = Fastify({
+      schemaController: {
+        compilersFactory: { buildSerializer: createCachedResponseSerializerFactory(SerializerSelector()) }
+      }
+    });
+    app.get("/broken", { schema: { response: { 200: schema } } }, async () => ({}));
+    await assert.rejects(app.ready(), (error) => {
+      assert.match(error.message, /serialization schema/);
+      assert.match(error.message, message);
+      return true;
+    });
+    await app.close();
+  }
 });
 
 test("non-JSON schema inputs delegate unchanged without lossy cache keys or getter calls", () => {
@@ -150,6 +223,7 @@ test("each factory invocation isolates serializer options and external reference
   assert.equal(ceil(3.8), "4");
   assert.equal(string(3.8), '"3.8"');
   assert.notEqual(another, string);
+  assert.equal(another(1), '"1"');
   assert.equal(native.contexts.length, 4);
   assert.ok(native.contexts.every(({ calls }) => calls.length === 1));
 });
@@ -178,7 +252,7 @@ test("Fastify startup reuses serializers with identical native HTTP output and e
     await app.ready();
   }
   assert.equal(cached.contexts.length, 1);
-  assert.equal(cached.contexts[0].calls.length, 2);
+  assert.equal(cached.contexts[0].calls.length, 0);
   assert.ok(native.contexts[0].calls.length > 2);
 
   const cases = [
@@ -207,6 +281,7 @@ test("Fastify startup reuses serializers with identical native HTTP output and e
     payload = { errors: [{ links: { self: link } }] };
     assert.equal((await applications[1].inject("/two")).statusCode, 500);
   }
+  assert.equal(cached.contexts[0].calls.length, 2);
 });
 
 test("Fastify encapsulation and schema additions create isolated compiler contexts", async (t) => {
