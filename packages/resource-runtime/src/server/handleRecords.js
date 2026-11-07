@@ -163,7 +163,7 @@ function handleResult(resource, result, format, include) {
 // A single write's `returning`, as json-rest-api names it.
 const SINGLE_RETURNING = Object.freeze({ record: "full", id: "minimal", none: "none" });
 // A many-row write's `returning`, as json-rest-api names it.
-const MANY_RETURNING = Object.freeze({ none: "none", ids: "minimal", records: "full" });
+const MANY_RETURNING = Object.freeze({ none: "none", ids: "minimal", records: "full", count: "count" });
 
 /**
  * @param {Record<string, string>} modes
@@ -185,6 +185,9 @@ function manyResult(resource, result, returning) {
     return undefined;
   }
   const rows = result?.data || [];
+  if (returning === "count") {
+    return Number(result?.meta?.count ?? rows.length);
+  }
   return returning === "ids" ? rows.map((row) => String(row.id)) : handleRecords(resource, rows);
 }
 
