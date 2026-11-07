@@ -58,6 +58,7 @@ export async function verifyInvitationTransactions(t, db) {
   const { invitationTestPeople: people } = await runtime.own("test.invitations", [defineTableResource({
     name: "invitationTestPeople",
     tableName: "test_invitation_drafts",
+    ownership: "public",
     schema: {
       userId: { type: "id", nullable: true, storage: { column: "user_id" } },
       trainingUserId: { type: "id", nullable: true, storage: { column: "training_user_id" } }

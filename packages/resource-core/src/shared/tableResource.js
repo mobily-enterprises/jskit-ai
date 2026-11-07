@@ -121,11 +121,12 @@ function requireText(value, label) {
   return text;
 }
 
+// Ownership is always stated, so a table is never public by omission: a public table says `ownership: "public"`.
 function requireOwnership(value) {
-  const ownership = value === undefined ? "public" : normalizeText(value);
+  const ownership = normalizeText(value);
   if (!OWNERSHIP_KINDS.includes(ownership)) {
     throw new TypeError(
-      `defineTableResource ownership must be one of: ${OWNERSHIP_KINDS.join(", ")}. Received: ${JSON.stringify(value)}.`
+      `defineTableResource requires ownership, one of: ${OWNERSHIP_KINDS.join(", ")}. Received: ${JSON.stringify(value)}.`
     );
   }
   return ownership;
@@ -157,7 +158,7 @@ function requireLockVersionField(lockVersionField, schema) {
  * @param {Record<string, any>} definition
  * @param {string} definition.name The resource's name, unique in the application.
  * @param {string} definition.tableName The table, unique in the application.
- * @param {string} [definition.ownership] One of OWNERSHIP_KINDS; "public" when absent.
+ * @param {string} definition.ownership One of OWNERSHIP_KINDS, always stated.
  * @param {Record<string, any>} definition.schema The fields.
  */
 function defineTableResource(definition) {

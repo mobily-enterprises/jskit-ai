@@ -322,6 +322,7 @@ test("findOrCreate() answers the record with the id, creating it only when it is
   const { counters } = await runtime.own("counters.feature", [{ normalizeId: normalizeOpaqueId, resource: defineTableResource({
     name: "counters",
     tableName: "counters",
+    ownership: "public",
     idProperty: "counter_key",
     schema: {
       id: { type: "string", primary: true, required: true, storage: { column: "counter_key" } },
@@ -420,17 +421,20 @@ test("row policies read their own tables read-only, and contributions only narro
   const rooms = defineTableResource({
     name: "rooms",
     tableName: "rooms",
+    ownership: "public",
     defaultSort: ["id"],
     schema: { id: { type: "id", primary: true }, name: { type: "string" }, archived: { type: "boolean" } }
   });
   const roomMembers = defineTableResource({
     name: "roomMembers",
     tableName: "room_members",
+    ownership: "public",
     schema: { id: { type: "id", primary: true }, roomId: { type: "id", storage: { column: "room_id" } }, userId: { type: "id", storage: { column: "user_id" } } }
   });
   const roomBans = defineTableResource({
     name: "roomBans",
     tableName: "room_bans",
+    ownership: "public",
     schema: { id: { type: "id", primary: true }, roomId: { type: "id", storage: { column: "room_id" } } }
   });
   const runtime = await createTestResourceRuntime({ knex });
@@ -457,7 +461,7 @@ test("row policies read their own tables read-only, and contributions only narro
   });
   assert.throws(() => moderation.contributeRowPolicy("roomMembers", () => true), /does not accept contributions/u);
   await assert.rejects(runtime.own("sneaky.feature", [{
-    resource: defineTableResource({ name: "peek", tableName: "peek", schema: { id: { type: "id", primary: true } } }),
+    resource: defineTableResource({ name: "peek", tableName: "peek", ownership: "public", schema: { id: { type: "id", primary: true } } }),
     rowPolicy: ({ ownTable }) => Boolean(ownTable("roomMembers"))
   }]).then((peek) => peek.peek.query({ page: { size: 5 } }, {})), /reads only its own feature's tables/u);
 
@@ -565,10 +569,11 @@ test("a belongs-to field is written under its relationship, and naming both is r
     table.string("title").notNullable();
   });
   await knex("authors").insert([{ name: "Octavia" }, { name: "Ursula" }]);
-  const authors = defineTableResource({ name: "authors", tableName: "authors", schema: { name: { type: "string", required: true } } });
+  const authors = defineTableResource({ name: "authors", tableName: "authors", ownership: "public", schema: { name: { type: "string", required: true } } });
   const books = defineTableResource({
     name: "books",
     tableName: "books",
+    ownership: "public",
     schema: {
       authorId: { type: "id", nullable: true, belongsTo: "authors", as: "author", storage: { column: "author_id" } },
       title: { type: "string", required: true }

@@ -6,6 +6,7 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 const workspaceMembershipsResource = defineTableResource({
   name: "workspaceMemberships",
   tableName: "workspace_memberships",
+  ownership: "public",
   searchSchema: {
     id: { type: "id", actualField: "id" },
     workspace: { type: "id", actualField: "workspace_id", filterOperator: "=" },

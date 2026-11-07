@@ -284,6 +284,7 @@ const logoutOtherSessionsOutputSchema = createSchema({
 const userSettingsResource = defineTableResource({
   name: "userSettings",
   tableName: "user_settings",
+  ownership: "public",
   idProperty: "user_id",
   searchSchema: {
     id: { type: "id", actualField: "id" }
