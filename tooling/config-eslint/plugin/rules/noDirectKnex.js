@@ -41,6 +41,44 @@ function namesKnex(node) {
   return value?.type === "ConditionalExpression" && (namesKnex(value.consequent) || namesKnex(value.alternate));
 }
 
+// The unambiguous Knex names: a call of one is a table builder whatever names its table.
+const BUILDER_NAMES = new Set(["knex", "trx"]);
+// A table named through a variable or a property: `MODELS_TABLE`, `tableName`, `tables.messages`, `config.usersTable`.
+const TABLE_NAME = /table/iu;
+
+// Whether a callee is `knex` or `trx`, or a branch of `trx || knex`, `a ? trx : knex`.
+function namesBuilder(node) {
+  const value = unwrapChain(node);
+  if (value?.type === "Identifier") {
+    return BUILDER_NAMES.has(value.name);
+  }
+  if (value?.type === "LogicalExpression") {
+    return namesBuilder(value.left) || namesBuilder(value.right);
+  }
+  return value?.type === "ConditionalExpression" && (namesBuilder(value.consequent) || namesBuilder(value.alternate));
+}
+
+function isReference(node) {
+  return node?.type === "Identifier" || node?.type === "MemberExpression" || node?.type === "TemplateLiteral";
+}
+
+/**
+ * Whether the first argument of a Knex-named call names a table: a literal; for `knex(...)` and `trx(...)` any
+ * variable, property or template; for the other Knex names (db, client, ...) a variable or property whose name says
+ * table, since `client(model)` and `transaction(saved)` are other libraries' calls.
+ * @param {import("estree").Node} callee
+ * @param {import("estree").Node | undefined} first
+ */
+function namesTable(callee, first) {
+  if (isText(first)) {
+    return true;
+  }
+  if (!isReference(first)) {
+    return false;
+  }
+  return namesBuilder(callee) || (first.type !== "TemplateLiteral" && TABLE_NAME.test(lastName(first)));
+}
+
 // A call of another library's method of the same name: a class's static method (Buffer.from("…"), Array.from("…")),
 // console.table, a path module's join("a", "b") and an array's join(", ").
 function isOtherLibrary(method, object, args) {
@@ -51,7 +89,8 @@ function isOtherLibrary(method, object, args) {
   return method === "join" && (args.length < 2 || /path|^posix$|^win32$/iu.test(name));
 }
 
-// Knex reached past the resource: a table builder called with a table name (`knex("t")`, `(trx || knex)("t")`), a
+// Knex reached past the resource: a table builder called with a table name (`knex("t")`, `(trx || knex)("t")`,
+// `knex(tables.messages)`, `client(MODELS_TABLE)`), a
 // `.knex` read, a transaction opened by hand, and a literal table name given to from, table, into or a join.
 const noDirectKnex = Object.freeze({
   meta: ruleMeta("Disallow reaching a table with Knex past its resource.", {
@@ -68,7 +107,7 @@ const noDirectKnex = Object.freeze({
     return {
       CallExpression(node) {
         const [first] = node.arguments;
-        if (namesKnex(node.callee) && isText(first)) {
+        if (namesKnex(node.callee) && namesTable(node.callee, first)) {
           context.report({ node, messageId: "tableBuilder", data: { text: compactText(sourceCode, node.callee) } });
           return;
         }
