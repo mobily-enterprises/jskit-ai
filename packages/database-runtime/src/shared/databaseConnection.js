@@ -141,9 +141,28 @@ function resolveKnexConnectionFromEnvironment(
   return connection;
 }
 
+// Runs on each new PostgreSQL connection before the pool hands it out.
+function setPostgresSessionToUtc(connection, done) {
+  connection.query("SET TIME ZONE 'UTC'", (error) => done(error, connection));
+}
+
+/**
+ * The Knex pool settings of a dialect: a PostgreSQL session runs in UTC whatever
+ * the server's default time zone, as a MySQL connection does with timezone "Z".
+ * PostgreSQL reads a date-time written without an offset (as the "datetime-utc"
+ * storage writes it) in the session's time zone, and formats timestamptz values
+ * and date functions in it, so a non-UTC session would shift stored instants.
+ * @param {string} client The dialect id: "mysql2" or "pg".
+ * @returns {{ afterCreate: (connection: any, done: (error: unknown, connection: any) => void) => void } | undefined}
+ */
+function resolveKnexPool(client) {
+  return normalizeDatabaseClient(client) === "pg" ? { afterCreate: setPostgresSessionToUtc } : undefined;
+}
+
 export {
   parseDatabaseUrl,
   resolveDatabaseClientFromEnvironment,
   resolveDatabaseConnectionFromEnvironment,
-  resolveKnexConnectionFromEnvironment
+  resolveKnexConnectionFromEnvironment,
+  resolveKnexPool
 };

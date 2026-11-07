@@ -129,7 +129,8 @@ function knexOn(knexConfig, database, connectionOptions = {}) {
   return loadKnexFactory()({
     ...knexConfig,
     connection: { ...knexConfig.connection, ...connectionOptions, database },
-    pool: { min: 0, max: 1 }
+    // The configuration's own pool settings stay, such as a PostgreSQL session's UTC time zone.
+    pool: { ...knexConfig.pool, min: 0, max: 1 }
   });
 }
 
