@@ -1,13 +1,8 @@
 import { DEV_AUTH_SECRET_HEADER } from "@jskit-ai/auth-core/server/devAuth";
 import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 
-function defaultLocalBaseUrl() {
-  const port = String(process.env.PLAYWRIGHT_PORT || "").trim() || "4173";
-  return `http://127.0.0.1:${port}`;
-}
-
 function resolveLocalBaseUrl(value) {
-  const baseUrl = String(value || defaultLocalBaseUrl()).trim().replace(/\/+$/u, "");
+  const baseUrl = String(value).trim().replace(/\/+$/u, "");
   let url;
   try {
     url = new URL(baseUrl);
@@ -41,11 +36,18 @@ async function responseBody(response) {
   return body ? ` ${body}` : "";
 }
 
+/**
+ * Signs `page`'s context in as an existing user through the local app's dev-auth route. Without `baseURL`, it signs in
+ * on the test's own baseURL, its context's: under browserTestConfig() each worker's own server. The private secret is
+ * only ever sent to a local app URL; a managed target (PLAYWRIGHT_BASE_URL) is refused before any request.
+ * @param {import("@playwright/test").Page} page
+ * @param {{ email?: string, userId?: string, secret?: string, baseURL?: string }} [options]
+ */
 async function loginAsExistingUser(page, {
   email = "",
   userId = "",
   secret = process.env.AUTH_DEV_BYPASS_SECRET,
-  baseURL = process.env.PLAYWRIGHT_BASE_URL || defaultLocalBaseUrl()
+  baseURL = ""
 } = {}) {
   const context = page?.context?.();
   if (!context?.request) {
@@ -57,12 +59,18 @@ async function loginAsExistingUser(page, {
     throw new Error("loginAsExistingUser requires AUTH_DEV_BYPASS_SECRET.");
   }
 
-  const localBaseUrl = resolveLocalBaseUrl(baseURL);
+  const givenBaseUrl = baseURL ? resolveLocalBaseUrl(baseURL) : "";
+  if (!givenBaseUrl && process.env.PLAYWRIGHT_BASE_URL) {
+    resolveLocalBaseUrl(process.env.PLAYWRIGHT_BASE_URL);
+  }
   const identity = resolveIdentity({ email, userId });
-  const sessionResponse = await context.request.get(`${localBaseUrl}${AUTH_PATHS.SESSION}`);
+  // A path alone resolves against the context's own baseURL.
+  const sessionResponse = await context.request.get(`${givenBaseUrl}${AUTH_PATHS.SESSION}`);
   if (!sessionResponse.ok()) {
     throw new Error(`Session bootstrap failed: ${sessionResponse.status()}${await responseBody(sessionResponse)}`);
   }
+  // The secret goes only to the local server that answered the session request.
+  const localBaseUrl = givenBaseUrl || resolveLocalBaseUrl(new URL(sessionResponse.url()).origin);
 
   const session = await sessionResponse.json();
   const csrfToken = String(session?.csrfToken || "").trim();
