@@ -24,6 +24,9 @@ const SHARD = "--test-shard";
 const REPORTER = "--test-reporter";
 const DESTINATION = "--test-reporter-destination";
 const TIME_REPORTER = new URL("./test-time-report.mjs", import.meta.url).href;
+// Every test file's process compiles the same modules; Node's compile cache keeps them for the next process and run.
+// A cache the environment names, or NODE_DISABLE_COMPILE_CACHE=1, wins.
+const COMPILE_CACHE = path.join("node_modules", ".cache", "jskit-node-compile-cache");
 const STREAM_DESTINATIONS = new Set(["stdout", "stderr"]);
 
 function findTestFiles(patterns, cwd) {
@@ -189,7 +192,8 @@ async function runTests(args) {
   let interrupted = false;
   try {
     for (const [index, run] of plan.runs.entries()) {
-      const { code, signal } = await runNode([...preload, ...withTimeReporter(run, collected[index])], databases?.env);
+      const env = { NODE_COMPILE_CACHE: process.env.NODE_COMPILE_CACHE || path.resolve(COMPILE_CACHE), ...databases?.env };
+      const { code, signal } = await runNode([...preload, ...withTimeReporter(run, collected[index])], env);
       if (exitCode === 0) exitCode = code;
       // An interrupted run ends the whole command.
       interrupted = Boolean(signal);
