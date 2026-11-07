@@ -283,11 +283,16 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal(readded.status, "active");
     assert.deepEqual(await memberships.activeMemberIds("999999"), []);
 
-    await assert.rejects(workspaces.lock(workspace.id), /requires an active transaction/u);
+    await assert.rejects(workspaces.lock(workspace.id), /needs a transaction/u);
+    // The owner API's lock follows the missing-row rule: a missing workspace throws, or answers null with missing: "skip".
     await workspaces.withTransaction({}, async (txOptions) => {
       assert.deepEqual(await workspaces.lock(workspace.id, txOptions), { id: workspace.id });
-      assert.equal(await workspaces.lock("999999", txOptions), null);
+      assert.equal(await workspaces.lock("999999", { ...txOptions, missing: "skip" }), null);
     });
+    await assert.rejects(
+      workspaces.withTransaction({}, (txOptions) => workspaces.lock("999999", txOptions)),
+      (error) => error.code === "REST_API_RESOURCE" && error.subtype === "not_found"
+    );
   });
 
   test("workspace and membership repositories read mapped relationships through includes", async () => {
