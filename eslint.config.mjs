@@ -24,8 +24,6 @@ const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
   "packages/auth-provider-oidc-core/src/server/providers/AuthOidcProvider.js",
   "packages/console-core/src/server/ConsoleFeature.js",
   "packages/console-core/src/server/consoleSettings/consoleSettingsRepository.js",
-  "packages/crud-core/src/server/createHooksToCollectChildren.js",
-  "packages/crud-core/src/server/jsonApiModule/actions.js",
   "packages/oidc-issuer-core/src/server/providers/OidcIssuerProvider.js",
   "packages/oidc-issuer-core/src/server/rateLimits.js",
   "packages/realtime/src/server/realtimeAudience.js",
