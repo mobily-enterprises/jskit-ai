@@ -23,7 +23,7 @@
  * @property {{
  *   create(input: object): Promise<object>,
  *   findByTokenHash(tokenHash: string): Promise<object | null>,
- *   consume(tokenId: string): Promise<object | null>,
+ *   consume(tokenId: string): Promise<object | null>, the consumed token, or null when it is missing or already used
  *   consumeForUser(userId: string): Promise<number>
  * }} recovery
  * @property {{

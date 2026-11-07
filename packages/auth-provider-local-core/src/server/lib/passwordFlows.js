@@ -71,20 +71,24 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
     if (!recoveryEnabled) {
       throw new AppError(503, "Password recovery is not configured.", { code: "auth.local.recovery.notConfigured" });
     }
+    // Only the emailed token itself: the hash this provider stores of it never opens an account.
     const token = String(input.code || input.token || "").trim();
-    const tokenHash = String(input.tokenHash || "").trim() || (token ? sha256Base64url(token) : "");
-    if (!tokenHash) {
+    if (!token) {
       throw createAuthError(AUTH_TEXTS.recoveryTokenRequired);
     }
+    const tokenInvalid = () => new AppError(401, "Recovery token is invalid or expired.", { code: "auth.local.recovery.tokenInvalid" });
     return backend.withTransaction(async (tx) => {
-      const recovery = await tx.recovery.findByTokenHash(tokenHash);
+      const recovery = await tx.recovery.findByTokenHash(sha256Base64url(token));
       if (!recovery || recovery.usedAt || isExpiredIso(recovery.expiresAt)) {
-        throw new AppError(401, "Recovery token is invalid or expired.", { code: "auth.local.recovery.tokenInvalid" });
+        throw tokenInvalid();
       }
-      await tx.recovery.consume(recovery.id);
+      // Of two completions with one token at once, only the one that consumes it opens a session.
+      if (!await tx.recovery.consume(recovery.id)) {
+        throw tokenInvalid();
+      }
       const user = await tx.users.findById(recovery.userId);
       if (!user || user.disabled) {
-        throw new AppError(401, "Recovery token is invalid or expired.", { code: "auth.local.recovery.tokenInvalid" });
+        throw tokenInvalid();
       }
       const session = await sessions.createSessionForUser(tx, user, {
         purpose: "recovery",
