@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { shouldRetryTransientQueryFailure } from "@jskit-ai/kernel/shared/support";
+
 import { createTransientRetryHttpClient } from "../src/client/index.js";
 
 function mockResponse({ status = 200, data = {}, contentType = "application/json; charset=utf-8", text = "" } = {}) {
@@ -66,6 +68,29 @@ test("createTransientRetryHttpClient retries transient GET request failures", as
 
     assert.deepEqual(payload, { ok: true });
     assert.equal(callCount, 3);
+  });
+});
+
+test("createTransientRetryHttpClient marks a safe read whose retries it spent so queries do not repeat them", async () => {
+  await withImmediateTimers(async () => {
+    const calls = [];
+    const client = createTransientRetryHttpClient({
+      fetchImpl: async (url, options) => {
+        if (url === "/api/session") {
+          return mockResponse({ data: { csrfToken: "csrf-1" } });
+        }
+        calls.push(options.method);
+        return mockResponse({ status: 503, data: { error: "temporarily unavailable" } });
+      }
+    });
+
+    const read = await client.request("/api/demo", { method: "GET" }).catch((error) => error);
+    assert.equal(read.status, 503);
+    assert.equal(shouldRetryTransientQueryFailure(0, read), false);
+    const write = await client.request("/api/demo", { method: "POST" }).catch((error) => error);
+    assert.equal(write.status, 503);
+    assert.equal(shouldRetryTransientQueryFailure(0, write), true, "A request the client never retried keeps query retries");
+    assert.deepEqual(calls, ["GET", "GET", "GET", "POST"]);
   });
 });
 

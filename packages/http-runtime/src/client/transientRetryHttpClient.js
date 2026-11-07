@@ -1,6 +1,7 @@
 import { createHttpClient } from "../shared/clientRuntime/client.js";
 import {
   isTransientQueryError,
+  markTransientRetriesSpent,
   transientQueryRetryDelay
 } from "@jskit-ai/kernel/shared/support";
 
@@ -13,17 +14,14 @@ function sleep(delayMs) {
   });
 }
 
-function shouldRetryTransientHttpFailure(error, method, attemptIndex) {
+function retriesTransientHttpFailure(error, method) {
   if (error?.name === "AbortError" || error?.name === "TimeoutError") {
     return false;
   }
   if (!SAFE_RETRY_METHODS.has(String(method || "GET").toUpperCase())) {
     return false;
   }
-  if (!isTransientQueryError(error)) {
-    return false;
-  }
-  return Number(attemptIndex) < MAX_TRANSIENT_HTTP_RETRIES;
+  return isTransientQueryError(error);
 }
 
 async function requestWithTransientRetry(executor, method, signal) {
@@ -35,8 +33,12 @@ async function requestWithTransientRetry(executor, method, signal) {
       return await executor();
     } catch (error) {
       signal?.throwIfAborted();
-      if (!shouldRetryTransientHttpFailure(error, method, attemptIndex)) {
+      if (!retriesTransientHttpFailure(error, method)) {
         throw error;
+      }
+      if (attemptIndex >= MAX_TRANSIENT_HTTP_RETRIES) {
+        // This layer owns the retries of a safe request; a query must not repeat them.
+        throw markTransientRetriesSpent(error);
       }
       attemptIndex += 1;
       await sleep(transientQueryRetryDelay(attemptIndex));

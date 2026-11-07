@@ -35,7 +35,7 @@ Exports
 - `createTransientRetryHttpClient(options)`
 Local functions
 - `sleep(delayMs)`
-- `shouldRetryTransientHttpFailure(error, method, attemptIndex)`
+- `retriesTransientHttpFailure(error, method)`
 - `requestWithTransientRetry(executor, method, signal)`
 
 ### `src/client/types.js`

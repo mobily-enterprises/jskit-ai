@@ -326,6 +326,9 @@ the client, or `timeoutMs` on an individual request, for a different positive
 finite integer duration in milliseconds. CSRF session reads use `readTimeoutMs`.
 Cancellation and deadline errors are not retried by the transient HTTP client;
 the deadline applies per HTTP attempt, not to an entire query/retry lifecycle.
+A transient failure of a `GET`/`HEAD` that the client already retried is not
+retried again by `shouldRetryTransientQueryFailure`, so the app QueryClient
+defaults need no change and an unreachable read makes three requests, not nine.
 
 Writes and `requestStream()` have no default overall deadline. They accept an
 explicit `timeoutMs`; long-lived streams still need lifecycle cancellation.

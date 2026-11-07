@@ -60,6 +60,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "hasPermission",
       "isRecord",
       "isTransientQueryError",
+      "markTransientRetriesSpent",
       "normalizePermissionList",
       "normalizeReturnToPath",
       "pickOwnProperties",

@@ -46,6 +46,7 @@ Exports
 - `toCamelCase`
 - `toSnakeCase`
 - `isTransientQueryError`
+- `markTransientRetriesSpent`
 - `shouldRetryTransientQueryFailure`
 - `transientQueryRetryDelay`
 
@@ -136,6 +137,7 @@ Exports
 - `MAX_TRANSIENT_RETRY_DELAY_MS`
 - `normalizeQueryErrorStatus(error)`
 - `isTransientQueryError(error)`
+- `markTransientRetriesSpent(error)`
 - `shouldRetryTransientQueryFailure(failureCount, error)`
 - `transientQueryRetryDelay(attemptIndex)`
 

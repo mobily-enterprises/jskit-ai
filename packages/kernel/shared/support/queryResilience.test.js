@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   isTransientQueryError,
+  markTransientRetriesSpent,
   shouldRetryTransientQueryFailure,
   transientQueryRetryDelay,
   normalizeQueryErrorStatus
@@ -24,6 +25,14 @@ test("shouldRetryTransientQueryFailure allows capped transient retries only", ()
   assert.equal(shouldRetryTransientQueryFailure(1, { status: 502 }), true);
   assert.equal(shouldRetryTransientQueryFailure(2, { status: 503 }), false);
   assert.equal(shouldRetryTransientQueryFailure(0, { status: 422 }), false);
+});
+
+test("a transient failure its transport already retried is not retried again by the query", () => {
+  const error = markTransientRetriesSpent(Object.assign(new Error("Network request failed."), { status: 0 }));
+  assert.equal(isTransientQueryError(error), true);
+  assert.equal(shouldRetryTransientQueryFailure(0, error), false);
+  assert.deepEqual(Object.keys(error), ["status"], "The mark is not an enumerable field");
+  assert.equal(markTransientRetriesSpent(null), null);
 });
 
 test("transientQueryRetryDelay is bounded exponential", () => {
