@@ -39,11 +39,11 @@ so they resolve the caller's workspace and check its `crud.users.*`
 permissions, while the users it lists are every user, as the table's
 ownership says.
 
-The `users` table has one table resource, users-core's `userProfileResource`
+The `users` table has one table resource, users-core's `userProfileTableResource`
 (`@jskit-ai/users-core/shared/resources/userProfileResource`). An
 administration package never defines a second one; `jskit check` fails a table
 with two. It builds its CRUD contract on that resource,
-`defineCrudContract(userProfileResource, { namespace, operations, fields })`,
+`defineCrudContract(userProfileTableResource, { namespace, operations, fields })`,
 which chooses the operations, their namespace and the fields each returns; a
 field the contract keeps out of every operation gets an empty entry (`{}`). The
 list searches with the resource's `q` filter: every word in the display name,
@@ -53,10 +53,14 @@ Other code that reads or writes the users' records (a decorated service, a
 hook, a job) requires their owners' capabilities, never the `users` or
 `user_settings` tables:
 
-- `users.profiles`: `findById`, `findByEmail`, `findByIdentity`, `upsert`,
+- `users.profiles`: `findById`, `findByEmail`, `findByIdentity`,
+  `listByEmails(emails, options)` (one read), `upsert`,
   `createWithSettings({ profile, settings }, options)` (the profile and its
-  settings in one transaction; settings start from the defaults) and
-  `countUsers({ excludeIds, createdSince }, options)`.
+  settings in one transaction; settings start from the defaults),
+  `createWithId(profile, options)` (a profile keeping an earlier table's id),
+  `createManyIgnoringExisting(profiles, options)` (a re-runnable bulk import,
+  system context only), `changeUsername(userId, username, options)` and
+  `countUsers({ excludeIds, createdSince, authProvider }, options)`.
 - `users.settings`: `findByUserId`, `ensureForUserId` and the settings updates.
 
 Their types are `UsersProfiles` and `UsersSettings` in
@@ -91,7 +95,7 @@ joins the caller's transaction: inside `withTransaction(options, async
 `example/packages/users-workspace/` demonstrates the workspace route/action
 boundary, with workspaces-core's `WORKSPACE_CRUD_SCOPE`, while reusing the same
 service contract. Each package's `src/shared/userCrud.js` builds its CRUD
-contract on users-core's `userProfileResource`, its `package.json` requires
+contract on users-core's `userProfileTableResource`, its `package.json` requires
 `users.profiles` (users-core, which owns the table, must be installed), and its
 `src/server/types.js` declares the type of the capability it provides. Copy only the composition
 that matches the product and adapt it as ordinary application source.

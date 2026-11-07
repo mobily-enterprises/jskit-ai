@@ -97,33 +97,33 @@ Exports
 ### `src/shared/index.js`
 Exports
 - `rewardedRuleCrud`
-- `rewardedRuleResource`
+- `rewardedRuleTableResource`
 - `rewardedProviderConfigCrud`
-- `rewardedProviderConfigResource`
+- `rewardedProviderConfigTableResource`
 - `rewardedWatchSessionCrud`
-- `rewardedWatchSessionResource`
+- `rewardedWatchSessionTableResource`
 - `rewardedUnlockReceiptCrud`
-- `rewardedUnlockReceiptResource`
+- `rewardedUnlockReceiptTableResource`
 
 ### `src/shared/rewardedProviderConfigResource.js`
 Exports
 - `rewardedProviderConfigCrud`
-- `rewardedProviderConfigResource`
+- `rewardedProviderConfigTableResource`
 
 ### `src/shared/rewardedRuleResource.js`
 Exports
 - `rewardedRuleCrud`
-- `rewardedRuleResource`
+- `rewardedRuleTableResource`
 
 ### `src/shared/rewardedUnlockReceiptResource.js`
 Exports
 - `rewardedUnlockReceiptCrud`
-- `rewardedUnlockReceiptResource`
+- `rewardedUnlockReceiptTableResource`
 
 ### `src/shared/rewardedWatchSessionResource.js`
 Exports
 - `rewardedWatchSessionCrud`
-- `rewardedWatchSessionResource`
+- `rewardedWatchSessionTableResource`
 
 ### migrations
 

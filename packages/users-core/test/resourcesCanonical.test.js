@@ -4,8 +4,8 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
-import { userProfileContract, userProfileCrud, userProfileResource } from "../src/shared/resources/userProfileResource.js";
-import { userSettingsContract, userSettingsCrud, userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
+import { userProfileContract, userProfileCrud, userProfileTableResource } from "../src/shared/resources/userProfileResource.js";
+import { userSettingsContract, userSettingsCrud, userSettingsTableResource } from "../src/shared/resources/userSettingsResource.js";
 
 function assertResourceOperationMessages(resource, operationName, label) {
   const operation = resource?.operations?.[operationName];
@@ -54,18 +54,18 @@ test("users-core CRUD contracts expose messages for view, list, create, replace 
 });
 
 test("the users and user_settings tables are table resources, apart from their CRUD and API contracts", () => {
-  assert.equal(userProfileResource.name, "userProfiles");
-  assert.equal(userProfileResource.tableName, "users");
-  assert.equal(userSettingsResource.name, "userSettings");
-  assert.equal(userSettingsResource.tableName, "user_settings");
-  assert.equal(Object.hasOwn(userProfileResource, "operations"), false);
-  assert.equal(Object.hasOwn(userSettingsResource, "operations"), false);
-  assert.equal(userProfileCrud.resource, userProfileResource);
-  assert.equal(userSettingsCrud.resource, userSettingsResource);
+  assert.equal(userProfileTableResource.name, "userProfiles");
+  assert.equal(userProfileTableResource.tableName, "users");
+  assert.equal(userSettingsTableResource.name, "userSettings");
+  assert.equal(userSettingsTableResource.tableName, "user_settings");
+  assert.equal(Object.hasOwn(userProfileTableResource, "operations"), false);
+  assert.equal(Object.hasOwn(userSettingsTableResource, "operations"), false);
+  assert.equal(userProfileCrud.resource, userProfileTableResource);
+  assert.equal(userSettingsCrud.resource, userSettingsTableResource);
 });
 
 test("the users table resource searches display name, email and username with q", () => {
-  assert.deepEqual(userProfileResource.searchSchema.q, {
+  assert.deepEqual(userProfileTableResource.searchSchema.q, {
     type: "string",
     oneOf: ["displayName", "email", "username"],
     filterOperator: "like",
@@ -75,12 +75,12 @@ test("the users table resource searches display name, email and username with q"
 });
 
 test("user profile resource exposes managed timestamps used by JSON REST writes", () => {
-  assert.equal(userProfileResource.schema.createdAt?.type, "dateTime");
-  assert.equal(userProfileResource.schema.createdAt?.storage?.column, "created_at");
-  assert.equal(userProfileResource.schema.createdAt?.storage?.writeSerializer, "datetime-utc");
-  assert.equal(userProfileResource.schema.updatedAt?.type, "dateTime");
-  assert.equal(userProfileResource.schema.updatedAt?.storage?.column, "updated_at");
-  assert.equal(userProfileResource.schema.updatedAt?.storage?.writeSerializer, "datetime-utc");
+  assert.equal(userProfileTableResource.schema.createdAt?.type, "dateTime");
+  assert.equal(userProfileTableResource.schema.createdAt?.storage?.column, "created_at");
+  assert.equal(userProfileTableResource.schema.createdAt?.storage?.writeSerializer, "datetime-utc");
+  assert.equal(userProfileTableResource.schema.updatedAt?.type, "dateTime");
+  assert.equal(userProfileTableResource.schema.updatedAt?.storage?.column, "updated_at");
+  assert.equal(userProfileTableResource.schema.updatedAt?.storage?.writeSerializer, "datetime-utc");
 });
 
 test("users-core specialized resource operations expose messages and validators", () => {

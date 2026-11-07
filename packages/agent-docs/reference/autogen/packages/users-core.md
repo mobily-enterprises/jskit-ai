@@ -104,6 +104,8 @@ Local functions
 - `buildUsernameCandidate(baseUsername, suffix)`
 - `duplicateTargetsEmail(error)`
 - `duplicateTargetsUsername(error)`
+- `buildDuplicateUsernameConflictError(cause = undefined)`
+- `requireNewProfile(profileLike, context)`
 - `buildDuplicateEmailConflictError(cause)`
 - `resolveUniqueUsername(userProfiles, baseUsername, excludeUserId, options)`
 
@@ -215,7 +217,7 @@ Exports
 Exports
 - `userProfileContract`
 - `userProfileCrud`
-- `userProfileResource`
+- `userProfileTableResource`
 
 ### `src/shared/resources/userProfileValues.js`
 Exports
@@ -234,7 +236,7 @@ Exports
 - `userSettingsContract`
 - `userSettingsCrud`
 - `userSettingsOutputValidator`
-- `userSettingsResource`
+- `userSettingsTableResource`
 Local functions
 - `normalizePositiveInteger(value)`
 
