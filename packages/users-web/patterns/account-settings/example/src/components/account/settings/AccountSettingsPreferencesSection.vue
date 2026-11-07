@@ -94,7 +94,7 @@ const preferences = props.runtime.preferences;
             />
           </v-col>
 
-          <v-col cols="12" md="3">
+          <v-col cols="12" md="4">
             <v-select
               v-model.number="preferences.form.avatarSize"
               label="Avatar size"
@@ -110,6 +110,7 @@ const preferences = props.runtime.preferences;
         <v-btn
           type="submit"
           color="primary"
+          class="mt-4"
           :loading="preferences.isSaving.value"
           :disabled="preferences.isRefreshing.value"
         >

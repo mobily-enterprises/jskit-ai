@@ -79,6 +79,7 @@ const profile = props.runtime.profile;
         <v-btn
           type="submit"
           color="primary"
+          class="mt-4"
           :loading="profile.isSaving.value"
           :disabled="profile.isDeletingAvatar.value || profile.isRefreshing.value"
         >

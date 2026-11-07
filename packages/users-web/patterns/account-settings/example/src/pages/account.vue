@@ -16,7 +16,7 @@ import { RouterView } from "vue-router";
 </script>
 
 <template>
-  <ShellLayout title="" subtitle="">
+  <ShellLayout>
     <RouterView />
   </ShellLayout>
 </template>

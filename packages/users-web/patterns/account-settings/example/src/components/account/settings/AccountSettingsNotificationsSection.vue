@@ -35,11 +35,11 @@ const notifications = props.runtime.notifications;
           color="primary"
           hide-details
           disabled
-          class="mb-4"
         />
         <v-btn
           type="submit"
           color="primary"
+          class="mt-4"
           :loading="notifications.isSaving.value"
           :disabled="notifications.isRefreshing.value"
         >
