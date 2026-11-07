@@ -28,8 +28,8 @@ Match visibility to real ownership and test allowed plus cross-owner cases.
 1. Write an immutable app-owned migration.
 2. Define the table resource with `defineTableResource()` and its HTTP surface
    with `defineCrudContract()`.
-3. Use `defineCrudJsonApiFeature()` for standard repository, service, action,
-   permission, resource-host, and route mechanics.
+3. Use `defineCrudFeature()` for standard table ownership, service, action,
+   permission, and route mechanics.
 4. Customize through `decorateRepository`, `decorateService`,
    `operationLifecycle`, and named `actions`; do not copy the standard CRUD
    repository/action/route stack.
@@ -57,7 +57,7 @@ These controls answer different questions:
 | --- | --- | --- | --- |
 | Table resource `ownership` | Which rows belong to the request scope | `"public"`; no ownership column | `"user"`; real non-null `userId` column |
 | CRUD contract `apiAccess` | Who may call the API | `"public"` | `"authenticated"` |
-| Feature `ownershipFilter` | Server route/action ownership scope | `"public"` | `"user"` |
+| Feature route visibility | Server route/action ownership scope; follows the table's `ownership` unless the feature names `visibility` | `"public"` | `"user"` |
 | Client `access` | Whether to require bootstrap permissions | Default `"auto"` with no permission requirements | Default `"auto"`; declare permissions when required |
 
 `access` accepts `auto`, `always`, or `never`, not `public`. With `auto`, a
@@ -108,9 +108,9 @@ non-null `title`; omit `userId` and its foreign key for this public variant.
 page. A create response uses the CRUD contract's output. Keep operation names
 such as `list`, `view` and `create`; do not invent output-operation aliases.
 
-Bind `defineCrudJsonApiFeature()` with `bookCrud`, `ownershipFilter:
-"public"`, `relativePath: "/books"` and the application's configured public
-surface. Keep the existing package/provider and migration registration from
+Bind `defineCrudFeature()` with `crud: bookCrud`, `relativePath: "/books"`
+and the application's configured public surface; the table's `"public"`
+ownership makes its routes public. Keep the existing package/provider and migration registration from
 `crud/json-api-resource-package`.
 
 For the list, keep `BookListPage.vue` thin: use `resourceNamespace: "books"`

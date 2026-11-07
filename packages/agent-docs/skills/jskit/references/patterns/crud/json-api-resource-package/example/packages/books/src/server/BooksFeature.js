@@ -1,12 +1,12 @@
-import { defineCrudJsonApiFeature } from "@jskit-ai/crud-core/server/defineCrudJsonApiFeature";
+import { defineCrudFeature } from "@jskit-ai/crud-core/server/defineCrudFeature";
 import { bookCrud } from "../shared/bookResource.js";
 
-const BooksFeature = defineCrudJsonApiFeature({
-  resource: bookCrud,
+// Owns the books table and serves its CRUD contract.
+const BooksFeature = defineCrudFeature({
+  crud: bookCrud,
   id: "app.books",
   capability: "app.books",
   surface: "app",
-  ownershipFilter: "user",
   relativePath: "/books"
 });
 

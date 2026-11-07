@@ -15,7 +15,7 @@ test("JSON API resource package pattern leaves repetition in the framework", asy
   assert.equal(bookCrud.resource, bookResource);
   assert.equal(bookResource.tableName, "books");
   assert.equal(bookResource.ownership, "user");
-  assert.match(providerSource, /defineCrudJsonApiFeature/u);
+  assert.match(providerSource, /defineCrudFeature/u);
   assert.doesNotMatch(providerSource, /app\.singleton|app\.service|router\.register|createRepository/u);
   assert.doesNotMatch(providerSource, /generator|scaffold|receipt|provenance/u);
 });

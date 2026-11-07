@@ -17,7 +17,7 @@ const RESOLVE_EXTENSIONS = Object.freeze([".vue", ".js", ".ts", "/index.js", "/i
 const SOURCES = Object.freeze({
   crudContract: "@jskit-ai/resource-crud-core/shared/crudContract",
   tableResource: "@jskit-ai/resource-core/shared/tableResource",
-  crudJsonApiFeature: "@jskit-ai/crud-core/server/defineCrudJsonApiFeature",
+  crudFeature: "@jskit-ai/crud-core/server/defineCrudFeature",
   kernelFeatures: "@jskit-ai/kernel/server/features",
   kernelHttp: "@jskit-ai/kernel/server/http",
   crudListScreen: "@jskit-ai/http-web/client/components/CrudListScreen",

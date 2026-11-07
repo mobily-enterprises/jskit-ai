@@ -10,7 +10,7 @@ function workspaceCrudScopeInput(request) {
 }
 
 /**
- * The scope a workspace CRUD feature hands defineCrudJsonApiFeature: its routes
+ * The scope a workspace CRUD feature hands defineCrudFeature: its routes
  * live under /w/:workspaceSlug, and the workspace slug is the scope's only input.
  * @type {import("@jskit-ai/crud-core/server/types").CrudScope}
  */

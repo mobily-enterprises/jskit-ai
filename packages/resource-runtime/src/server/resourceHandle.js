@@ -4,6 +4,7 @@ import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
+import { handleRecords, handleResult, idOf, inputData, readQueryParams, textList } from "./handleRecords.js";
 import {
   returnBadRequestWhenJsonRestFieldsetInvalid,
   returnNullWhenJsonRestResourceMissing
@@ -19,7 +20,6 @@ const DEFAULT_CHUNK_SIZE = 500;
 const SINGLE_RETURNING = Object.freeze({ record: "full", id: "minimal", none: "none" });
 // A many-row write's `returning`, as json-rest-api names it.
 const MANY_RETURNING = Object.freeze({ none: "none", ids: "minimal", records: "full" });
-const READ_PARAM_KEYS = Object.freeze(["filters", "sort", "include", "fields", "page"]);
 
 /**
  * @param {Record<string, string>} modes
@@ -33,86 +33,6 @@ function pickReturning(modes, value, fallback, label) {
     throw new TypeError(`${label} returning must be one of ${Object.keys(modes).join(", ")}. Received: ${JSON.stringify(value)}`);
   }
   return key;
-}
-
-/** @param {unknown} value */
-function textList(value) {
-  return Array.isArray(value) ? value : [value];
-}
-
-/**
- * The read parameters of a handle call as json-rest-api's queryParams.
- * @param {string} name
- * @param {Record<string, any>} params
- * @param {{ page: boolean, caller: string }} allowed
- */
-function readQueryParams(name, params, { page, caller }) {
-  if (!isRecord(params)) {
-    throw new TypeError(`${name}.${caller}() params must be an object.`);
-  }
-  for (const key of Object.keys(params)) {
-    if (!READ_PARAM_KEYS.includes(key) || (key === "page" && !page)) {
-      throw new TypeError(`${name}.${caller}() does not take ${key}; it takes ${READ_PARAM_KEYS.filter((entry) => page || entry !== "page").join(", ")}.`);
-    }
-  }
-  const queryParams = {};
-  if (params.filters !== undefined) {
-    queryParams.filters = params.filters;
-  }
-  if (params.sort !== undefined) {
-    queryParams.sort = textList(params.sort);
-  }
-  if (params.include !== undefined) {
-    queryParams.include = textList(params.include);
-  }
-  if (params.fields !== undefined) {
-    queryParams.fields = Array.isArray(params.fields) ? { [name]: params.fields.join(",") } : params.fields;
-  }
-  if (page && params.page !== undefined) {
-    queryParams.page = { size: Number(params.page.size), ...(params.page.after ? { after: params.page.after } : {}) };
-  }
-  return queryParams;
-}
-
-/**
- * The id in a single write's answer: a record or `{ type, id }`, wrapped in
- * `data` for JSON:API documents.
- * @param {unknown} result
- * @param {string} format
- */
-function idOf(result, format) {
-  const resource = format === "jsonapi" && isRecord(result) ? result.data : result;
-  return isRecord(resource) ? resource.id : undefined;
-}
-
-/**
- * Record attributes as json-rest-api's input: a belongs-to field written under
- * its key goes to its relationship.
- * @param {{ name: string, schema: Record<string, any> }} resource
- * @param {unknown} attributes
- */
-function inputData(resource, attributes) {
-  if (!isRecord(attributes)) {
-    throw new TypeError(`${resource.name} writes take attributes as an object.`);
-  }
-  const data = { ...attributes };
-  for (const [fieldName, definition] of Object.entries(resource.schema)) {
-    if (!definition?.belongsTo || !Object.hasOwn(data, fieldName)) {
-      continue;
-    }
-    const relationshipName = definition.as || fieldName;
-    if (relationshipName === fieldName) {
-      continue;
-    }
-    if (Object.hasOwn(data, relationshipName)) {
-      throw new TypeError(`Provide either "${fieldName}" or "${relationshipName}", not both.`);
-    }
-    if (data[fieldName] !== undefined) {
-      data[relationshipName] = data[fieldName];
-    }
-    delete data[fieldName];
-  }
-  return data;
 }
 
 /**
@@ -251,7 +171,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     const pagination = payload.meta?.pagination;
     const hasMore = pagination?.hasMore === true;
     return Object.freeze({
-      records: payload.data,
+      records: handleRecords(resource, payload.data, params.include),
       page: Object.freeze({ size: Number(size), hasMore, next: hasMore ? pagination.cursor?.next ?? null : null })
     });
   }
@@ -278,7 +198,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
         },
         context
       ));
-      return payload.data;
+      return handleRecords(resource, payload.data, params.include);
     } catch (error) {
       if (error instanceof RestApiRowLimitError && rowLimit !== undefined) {
         throw new RowLimitError(name, rowLimit, error);
@@ -294,15 +214,17 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    * @param {{ context?: object | null, trx?: object | null, format?: "jsonapi" }} [options]
    */
   async function get(id, params = {}, options = {}) {
-    return returnBadRequestWhenJsonRestFieldsetInvalid(() => returnNullWhenJsonRestResourceMissing(() => jsonRest().get(
+    const format = formatOf(options);
+    const result = await returnBadRequestWhenJsonRestFieldsetInvalid(() => returnNullWhenJsonRestResourceMissing(() => jsonRest().get(
       {
         id,
         queryParams: readQueryParams(name, params, { page: false, caller: "get" }),
         transaction: options.trx || undefined,
-        format: formatOf(options)
+        format
       },
       contextOf(options)
     )));
+    return result === null ? null : handleResult(resource, result, format, params.include);
   }
 
   /**
@@ -351,11 +273,12 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     if (returning === "none") {
       return undefined;
     }
-    return returning === "id" ? idOf(result, format) : result;
+    return returning === "id" ? idOf(result, format) : handleResult(resource, result, format);
   }
 
-  async function patchRecord(id, attributes, options, returning) {
-    if (Object.keys(attributes).length < 1) {
+  // An empty patch reads the record instead, unless it moves the lock version on: a lockVersion patch always writes.
+  async function patchRecord(id, attributes, options, returning, { advance = false } = {}) {
+    if (Object.keys(attributes).length < 1 && !advance) {
       const current = await get(id, {}, options);
       if (!current || returning === "record") {
         return current;
@@ -372,11 +295,19 @@ function createResourceHandle({ api, resource, hooks, settings }) {
       },
       contextOf(callOptions)
     ), () => [String(id)]));
-    return returning === "id" && result !== null ? id : result;
+    if (result === null) {
+      return null;
+    }
+    if (returning === "none") {
+      return undefined;
+    }
+    return returning === "id" ? id : handleResult(resource, result, formatOf(options));
   }
 
   /**
-   * Patches one record; null when it is missing or hidden. `lockVersion` patches
+   * Patches one record; null when it is missing or hidden (inside the caller's
+   * transaction a missing record throws instead, since the failed write fails
+   * that transaction). `lockVersion` patches
    * only while the record's lockVersionField still holds it (StaleRecordError,
    * 409, otherwise); `onlyIf: { field: value }` patches only while the stored
    * values still equal these, and answers null otherwise. Both lock the row in
@@ -409,10 +340,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
       throw new TypeError(`${name}.patch() onlyIf must be an object of field values.`);
     }
     return withTransaction(callOptions, async (txOptions) => {
-      const { data: [current] } = await jsonRest().lockByIds(
-        { ids: [id], missing: "skip", transaction: txOptions.trx, format: "plain" },
-        contextOf(txOptions)
-      );
+      const [current] = await lockMany([id], { ...txOptions, missing: "skip" });
       if (!current) {
         return null;
       }
@@ -422,12 +350,13 @@ function createResourceHandle({ api, resource, hooks, settings }) {
       if (onlyIf !== undefined && Object.entries(onlyIf).some(([field, value]) => (current[field] ?? null) !== value)) {
         return null;
       }
-      return patchRecord(id, attributes, txOptions, returning);
+      return patchRecord(id, attributes, txOptions, returning, { advance: lockVersion !== undefined });
     });
   }
 
   /**
-   * Deletes one record. Answers null, also when it is missing or hidden.
+   * Deletes one record. Answers null, also when it is missing or hidden (inside
+   * the caller's transaction a missing record throws, as for patch).
    * @param {unknown} id
    * @param {{ context?: object | null, trx?: object | null }} [options]
    */
@@ -452,7 +381,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
       return undefined;
     }
     const rows = result?.data || [];
-    return returning === "ids" ? rows.map((row) => String(row.id)) : rows;
+    return returning === "ids" ? rows.map((row) => String(row.id)) : handleRecords(resource, rows);
   }
 
   // A filtered write's selection: its filters, or every owned row when they are empty and `all: true` says so.
@@ -619,7 +548,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
       { ids, transaction: options.trx, format: "plain", ...(options.missing ? { missing: options.missing } : {}) },
       contextOf(options)
     );
-    return data;
+    return handleRecords(resource, data);
   }
 
   /**
@@ -656,7 +585,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
       },
       contextOf(options)
     );
-    return data;
+    return handleRecords(resource, data);
   }
 
   /**

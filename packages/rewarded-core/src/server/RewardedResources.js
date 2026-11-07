@@ -1,49 +1,45 @@
-import { defineCrudJsonApiFeature } from "@jskit-ai/crud-core/server/defineCrudJsonApiFeature";
+import { defineCrudFeature } from "@jskit-ai/crud-core/server/defineCrudFeature";
 import { WORKSPACE_CRUD_SCOPE } from "@jskit-ai/workspaces-core/server/support/workspaceCrud";
 import { rewardedProviderConfigCrud } from "../shared/rewardedProviderConfigResource.js";
 import { rewardedRuleCrud } from "../shared/rewardedRuleResource.js";
 import { rewardedUnlockReceiptCrud } from "../shared/rewardedUnlockReceiptResource.js";
 import { rewardedWatchSessionCrud } from "../shared/rewardedWatchSessionResource.js";
 
-const RewardedRulesFeature = defineCrudJsonApiFeature({
+const RewardedRulesFeature = defineCrudFeature({
   id: "rewarded.rules",
   capability: "rewarded.rules",
-  resource: rewardedRuleCrud,
+  crud: rewardedRuleCrud,
   surface: "admin",
-  ownershipFilter: "workspace",
   relativePath: "/rewarded-rules",
   internal: true,
   scope: WORKSPACE_CRUD_SCOPE
 });
 
-const RewardedProviderConfigsFeature = defineCrudJsonApiFeature({
+const RewardedProviderConfigsFeature = defineCrudFeature({
   id: "rewarded.provider-configs",
   capability: "rewarded.provider-configs",
-  resource: rewardedProviderConfigCrud,
+  crud: rewardedProviderConfigCrud,
   surface: "admin",
-  ownershipFilter: "workspace",
   relativePath: "/rewarded-provider-configs",
   internal: true,
   scope: WORKSPACE_CRUD_SCOPE
 });
 
-const RewardedWatchSessionsFeature = defineCrudJsonApiFeature({
+const RewardedWatchSessionsFeature = defineCrudFeature({
   id: "rewarded.watch-sessions",
   capability: "rewarded.watch-sessions",
-  resource: rewardedWatchSessionCrud,
+  crud: rewardedWatchSessionCrud,
   surface: "admin",
-  ownershipFilter: "workspace_user",
   relativePath: "/rewarded-watch-sessions",
   internal: true,
   scope: WORKSPACE_CRUD_SCOPE
 });
 
-const RewardedUnlockReceiptsFeature = defineCrudJsonApiFeature({
+const RewardedUnlockReceiptsFeature = defineCrudFeature({
   id: "rewarded.unlock-receipts",
   capability: "rewarded.unlock-receipts",
-  resource: rewardedUnlockReceiptCrud,
+  crud: rewardedUnlockReceiptCrud,
   surface: "admin",
-  ownershipFilter: "workspace_user",
   relativePath: "/rewarded-unlock-receipts",
   internal: true,
   scope: WORKSPACE_CRUD_SCOPE

@@ -100,7 +100,7 @@ application's normal verification script, and Playwright.
 ## 3. Choose the narrowest server seam that owns each behavior
 
 Conventional resources use `defineTableResource()`, `defineCrudContract()`
-and `defineCrudJsonApiFeature()` so JSKIT owns the repeated repository,
+and `defineCrudFeature()` so JSKIT owns the repeated repository,
 service, permission, action, JSON API, and route mechanics. Extend that contract instead
 of copying it.
 

@@ -23,30 +23,35 @@ function valueProvider(id, capability, value) {
   });
 }
 
-function createRewardedRuntime(grantPolicy, observed = {}) {
-  const knex = Object.assign(() => {}, {
-    async transaction(callback) {
-      return callback({});
+// A resource runtime that records which feature owns each table and answers stand-in handles.
+function resourceRuntime(observed) {
+  return {
+    own(featureId, owns) {
+      return Object.freeze(Object.fromEntries(owns.map((entry) => {
+        const { name } = entry.resource || entry;
+        if (observed.resources) {
+          observed.resources[name] = featureId;
+        }
+        return [name, Object.freeze({ name })];
+      })));
+    },
+    createSystemContext() {
+      throw new Error("Rewarded works in the caller's scope only.");
     }
-  });
+  };
+}
+
+function createRewardedRuntime(grantPolicy, observed = {}) {
   return createCapabilityRuntime({
     inputs: { "runtime.logger": silentLogger },
     providers: [
       EventProvider, ActionProvider,
       valueProvider("test.grant-policy", "rewarded.grant-policy", grantPolicy),
-      valueProvider("test.database", "runtime.database", { knex }),
+      valueProvider("test.resources", "runtime.resources", resourceRuntime(observed)),
       valueProvider("test.http", "runtime.http", {
         router: {
           register(method, path, contract, handler) {
             observed.routes?.push({ method, path, contract, handler });
-          }
-        }
-      }),
-      valueProvider("test.json-rest-api", "runtime.json-rest-api", {
-        resources: observed.resources ?? {},
-        async addResource(name, config) {
-          if (observed.resources) {
-            observed.resources[name] = { config };
           }
         }
       }),
@@ -92,7 +97,12 @@ test("Rewarded composes standard resource capabilities around one explicit domai
   assert.ok(definitions.every((entry) => !Object.hasOwn(entry, "dependencies")));
   assert.equal(typeof rewarded.getCurrentState, "function");
   assert.equal(routes.length, 24);
-  assert.equal(Object.keys(resources).length, 4);
+  assert.deepEqual(resources, {
+    rewardedRules: "rewarded.rules",
+    rewardedProviderConfigs: "rewarded.provider-configs",
+    rewardedWatchSessions: "rewarded.watch-sessions",
+    rewardedUnlockReceipts: "rewarded.unlock-receipts"
+  });
 
   await runtime.shutdown();
 });

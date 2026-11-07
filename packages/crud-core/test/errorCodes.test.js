@@ -5,21 +5,13 @@ import { catalogMessage, formatMessage, messageKeyForCode, mergeCatalogs } from 
 import kernelEnglish from "@jskit-ai/kernel/locales/en.json" with { type: "json" };
 
 import crudEnglish from "../locales/en.json" with { type: "json" };
-import { normalizeCrudListCursor } from "../src/server/repositorySupport.js";
 import {
   createJsonApiFieldsetsQueryValidator,
   jsonApiFieldsetsQueryValidator,
   lookupIncludeQueryValidator
 } from "../src/server/listQueryValidators.js";
-import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
-import { createCrudJsonApiService } from "../src/server/jsonApiModule/service.js";
-import {
-  createCrudServiceRuntime,
-  crudServiceCreateRecord,
-  crudServiceDeleteRecord,
-  crudServiceGetRecord,
-  crudServiceUpdateRecord
-} from "../src/server/serviceMethods.js";
+import { createCrudFieldAccessRuntime } from "../src/server/fieldAccess.js";
+import { createCrudService } from "../src/server/jsonApiModule/service.js";
 
 const english = mergeCatalogs(kernelEnglish, crudEnglish);
 
@@ -41,60 +33,30 @@ async function rejection(run) {
 }
 
 test("crud-core errors carry codes and params rendering their English", async () => {
-  const runtime = createCrudServiceRuntime({ namespace: "contacts" });
   const missingRepository = {
-    async findById() {
+    async get() {
       return null;
     },
-    async create(payload) {
-      return { id: 1, ...payload };
-    },
-    async deleteById() {
-      return null;
-    },
-    async getDocumentById() {
+    async patch() {
       return null;
     }
   };
-
-  // A record whose lock version has moved on: the guarded update claims no row.
-  const movedOnRepository = createCrudJsonApiRepository({
-    api: {
-      resources: { notes: { async get() { return { data: { type: "notes", id: "7" } }; } } },
-      knex: { helpers: { getStorageAdapter: () => ({
-        getIdColumn: () => "id",
-        translateColumn: (field) => field,
-        translateFilterValue: (_field, value) => value,
-        buildBaseQuery: () => ({ where() { return this; }, async update() { return 0; } })
-      }) } },
-      transaction: (work) => work("managed")
-    },
-    resource: { lockVersionField: "lockVersion", schema: {} },
-    resourceScopeName: "notes"
-  });
+  const service = createCrudService({ repository: missingRepository, resourceName: "contacts" });
   const errors = [
-    await rejection(() => crudServiceGetRecord(runtime, missingRepository, {}, 7, {})),
-    await rejection(() => crudServiceUpdateRecord(runtime, missingRepository, {}, 7, {}, {})),
-    await rejection(() => crudServiceDeleteRecord(runtime, missingRepository, {}, 7, {})),
-    await rejection(() => crudServiceCreateRecord(runtime, missingRepository, {
-      writable: () => ["name"],
-      writeMode: "throw"
-    }, { name: "Ada", role: "owner", secret: "x" }, {})),
-    await rejection(() => createCrudJsonApiService({ repository: missingRepository }).getDocumentById(7)),
-    await rejection(() => movedOnRepository.patchDocumentIfLockVersion("7", 0, {})),
-    await rejection(() => normalizeCrudListCursor("abc"))
+    await rejection(() => service.view(7, {}, {})),
+    await rejection(() => service.patch(7, { name: "Ada" }, {})),
+    await rejection(() => createCrudFieldAccessRuntime({}).enforceWritablePayload(
+      { name: "Ada", role: "owner", secret: "x" },
+      { writable: () => ["name"], writeMode: "throw" }
+    ))
   ];
 
   assert.deepEqual(errors.map((error) => [error.status, error.code]), [
-    [404, "crud.record.notFound"],
-    [404, "crud.record.notFound"],
-    [404, "crud.record.notFound"],
-    [403, "crud.fieldAccess.writeDenied"],
     [404, "crud.document.notFound"],
-    [409, "crud.document.lockVersionConflict"],
-    [400, "INVALID_CURSOR"]
+    [404, "crud.document.notFound"],
+    [403, "crud.fieldAccess.writeDenied"]
   ]);
-  assert.deepEqual(errors[3].params, { fields: "role, secret" });
+  assert.deepEqual(errors[2].params, { fields: "role, secret" });
   for (const error of errors) {
     assertCatalogRenders(error, error.message);
   }
