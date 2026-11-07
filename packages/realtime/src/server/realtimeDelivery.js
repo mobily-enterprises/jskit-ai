@@ -93,8 +93,10 @@ function rememberedActorId(socket) {
  * @param {AuthService | null} dependencies.authService Absent when no auth.service is installed.
  * @param {AudienceContributors} dependencies.audiences The rooms revalidation may make a socket join.
  *   With no contributors registered, a socket stays in the rooms it already has.
+ * @param {import("./types.js").RealtimeAudienceScope | null} dependencies.audienceScope The contexts an
+ *   audience's audienceUsers reads in; absent when no feature provides `realtime.audience-scope`.
  */
-function createRealtimeDelivery({ io, logger, authService, audiences: { mayContribute, resolveActorsRooms } }) {
+function createRealtimeDelivery({ io, logger, authService, audiences: { mayContribute, resolveActorsRooms }, audienceScope }) {
   // With an auth.service, each socket is revalidated before it receives an event;
   // without one, events go straight to their rooms.
   const guarded = Boolean(authService);
@@ -218,7 +220,7 @@ function createRealtimeDelivery({ io, logger, authService, audiences: { mayContr
   async function handle(event) {
     try {
       const eventName = normalizeText(event.realtime.event);
-      const targets = await resolveAudienceTargets(event.realtime.audience, event, { logger });
+      const targets = await resolveAudienceTargets(event.realtime.audience, event, { logger, audienceScope });
       const payload = publicRealtimePayload(event);
       if (guarded) {
         const envelope = { eventName, payload, targets };

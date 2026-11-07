@@ -30,9 +30,11 @@ import {
  * @param {AuthService | null} dependencies.authService
  * @param {RuntimeEvents} dependencies.events
  * @param {RuntimeAppRoot | null} dependencies.appRoot
+ * @param {import("./types.js").RealtimeAudienceScope | null} dependencies.audienceScope The contexts an
+ *   audience's audienceUsers reads in; absent when no feature provides `realtime.audience-scope`.
  * @param {{ redisUrl: string, redisNamespace: string }} dependencies.redis
  */
-function createRealtimeCapability({ io, logger, authService, events, appRoot, redis }) {
+function createRealtimeCapability({ io, logger, authService, events, appRoot, audienceScope, redis }) {
   const audiences = createAudienceContributors();
   const connectionListeners = new Set();
   let authenticationRequired = false;
@@ -121,7 +123,7 @@ function createRealtimeCapability({ io, logger, authService, events, appRoot, re
    * event, to the other servers too when Redis is configured.
    */
   async function start() {
-    delivery = createRealtimeDelivery({ io, logger, authService, audiences });
+    delivery = createRealtimeDelivery({ io, logger, authService, audiences, audienceScope });
     authenticationRequired = realtimeAuthenticationRequired(authService);
     registerSocketAudienceBootstrap({ io, logger, authService, audiences });
     announceServedClientBuild({ io, appRoot, logger });
