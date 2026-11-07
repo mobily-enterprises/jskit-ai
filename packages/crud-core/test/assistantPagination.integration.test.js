@@ -155,7 +155,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
     assert.equal((await service.view("502", {}, { context })).value.data.attributes.name, "JSON:API record");
     await service.delete("501", { context });
     await repository.delete("502", { context });
-    assert.equal(await repository.get("501", {}, { context }), null);
+    assert.equal(await repository.get("501", {}, { context, missing: "skip" }), null);
     await assert.rejects(service.view("501", {}, { context }), { status: 404, code: "crud.document.notFound" });
     assert.equal(await knex("books").whereIn("id", [501, 502]).first(), undefined);
   });

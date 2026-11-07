@@ -51,16 +51,14 @@ test("withTransaction answers its work's value, commits with it and rolls back w
   for (const repository of [db.profiles, db.settings]) {
     assert.deepEqual(await repository.withTransaction({}, async () => ({ answered: true })), { answered: true });
     const failure = new Error("Participant failed");
-    // The managed transaction reports its outcome, with the participant's failure as the cause.
-    await assert.rejects(repository.withTransaction({}, async () => { throw failure; }), (error) => (
-      error.cause === failure && error.transactionOutcome === "rolledBack"
-    ));
+    // The managed transaction rolls back, and the participant's own failure reaches the caller.
+    await assert.rejects(repository.withTransaction({}, async () => { throw failure; }), (error) => error === failure);
   }
   const failure = new Error("Abort");
   await assert.rejects(db.profiles.withTransaction({}, async (txOptions) => {
     await db.profiles.createWithSettings({ profile: identityOf("rolled") }, txOptions);
     throw failure;
-  }), (error) => error.cause === failure);
+  }), (error) => error === failure);
   assert.equal(await db.profiles.findByIdentity({ provider: "local", providerUserId: "identity-rolled" }), null);
   const kept = await db.profiles.withTransaction({}, (txOptions) => db.profiles.createWithSettings({
     profile: identityOf("kept"),

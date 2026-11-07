@@ -2,11 +2,21 @@ import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { buildJsonRestQueryParams } from "@jskit-ai/resource-runtime/server/resourceHost";
 
+// A record that is missing or out of the caller's scope.
+function documentNotFound() {
+  return new AppError(404, "Document not found.", { code: "crud.document.notFound" });
+}
+
 function requireDocument(document) {
   if (!document) {
-    throw new AppError(404, "Document not found.", { code: "crud.document.notFound" });
+    throw documentNotFound();
   }
   return document;
+}
+
+// json-rest-api's not-found error, classified by its code.
+function isNotFound(error) {
+  return error?.code === "REST_API_RESOURCE" && error?.subtype === "not_found";
 }
 
 /**
@@ -41,7 +51,7 @@ function createCrudService({ repository, resourceName }) {
    */
   async function view(recordId, query, options) {
     return returnJsonApiDocument(requireDocument(
-      await repository.get(recordId, buildJsonRestQueryParams(resourceName, query), documentOptions(options))
+      await repository.get(recordId, buildJsonRestQueryParams(resourceName, query), { ...documentOptions(options), missing: "skip" })
     ));
   }
 
@@ -59,15 +69,20 @@ function createCrudService({ repository, resourceName }) {
    * @param {{ context?: object | null, trx?: object | null }} options
    */
   async function patch(recordId, payload, options) {
-    return returnJsonApiDocument(requireDocument(await repository.patch(recordId, payload, documentOptions(options))));
+    try {
+      return returnJsonApiDocument(requireDocument(await repository.patch(recordId, payload, documentOptions(options))));
+    } catch (error) {
+      throw isNotFound(error) ? documentNotFound() : error;
+    }
   }
 
   /**
+   * Deletes the record and answers its id; a record that is already gone answers null.
    * @param {unknown} recordId
    * @param {{ context?: object | null, trx?: object | null }} options
    */
   async function deleteRecord(recordId, options) {
-    return repository.delete(recordId, options);
+    return repository.delete(recordId, { ...options, missing: "skip" });
   }
 
   return Object.freeze({
