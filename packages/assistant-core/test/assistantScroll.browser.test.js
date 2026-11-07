@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { expect } from "@playwright/test";
+import { expect } from "../../../tooling/testUtils/browserExpect.mjs";
 import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));

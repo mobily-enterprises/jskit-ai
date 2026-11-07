@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { chromium, expect } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import { expect } from "../../../tooling/testUtils/browserExpect.mjs";
 import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const fixtureRoot = fileURLToPath(new URL("../fixtures/conversation/", import.meta.url));

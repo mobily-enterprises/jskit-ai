@@ -14,6 +14,10 @@ Use this on demand; do not load the full index at startup.
 
 ### root
 
+### `browserExpect.mjs`
+Exports
+- `expect`
+
 ### `browserFixture.mjs`
 Exports
 - `createChromiumLaunchOptions({ env = process.env } = {})`

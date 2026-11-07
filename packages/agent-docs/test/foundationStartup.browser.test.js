@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import { chromium, expect } from "@playwright/test";
+import { chromium } from "@playwright/test";
+import { expect } from "../../../tooling/testUtils/browserExpect.mjs";
 import { createChromiumLaunchOptions } from "../../../tooling/testUtils/browserFixture.mjs";
 
 test("foundation documents remain usable before JavaScript at every viewport", {

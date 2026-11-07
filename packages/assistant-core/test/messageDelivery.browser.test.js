@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { expect } from "@playwright/test";
+import { expect } from "../../../tooling/testUtils/browserExpect.mjs";
 import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const openFixture = sharedBrowserFixture({ fixtureRoot: fileURLToPath(new URL("../fixtures/responsive-assistant", import.meta.url)) });

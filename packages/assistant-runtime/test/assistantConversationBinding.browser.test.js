@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { expect } from "@playwright/test";
+import { expect } from "../../../tooling/testUtils/browserExpect.mjs";
 import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const options = { skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1", timeout: 120_000 };
