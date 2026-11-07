@@ -3,12 +3,11 @@ import test from "node:test";
 import knexLib from "knex";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import migration from "../migrations/payments_core_initial.cjs";
-import { createKnexPaymentStore } from "../src/server/knexStore.js";
+import { createTestPaymentStore } from "./support/paymentStore.js";
 
-// The payment store's behaviour on MariaDB, through its public functions, pinned before the store moves onto table
-// resources: what an account, its entries, a provider customer and a merchant's catalogue answer and keep; which scope
-// sees which rows; that work on one account or catalogue runs one at a time and rolls back as a whole; and the errors
-// it gives.
+// The payment store's behaviour on MariaDB, through its public functions, as PaymentStoreFeature provides it: what an
+// account, its entries, a provider customer and a merchant's catalogue answer and keep; which scope sees which rows;
+// that work on one account or catalogue runs one at a time and rolls back as a whole; and the errors it gives.
 
 // The runtime's own MySQL connection settings (database-runtime's resolveKnexConnectionFromEnvironment).
 const RUNTIME_MYSQL = Object.freeze({ supportBigNumbers: true, bigNumberStrings: true, dateStrings: ["DATE"], timezone: "Z" });
@@ -45,12 +44,9 @@ function gate() {
   return { opened, open };
 }
 
-test("the store needs the application's Knex and refuses incomplete scopes and identities before any work runs", async (context) => {
+test("the store refuses incomplete scopes and identities before any work runs", async (context) => {
   requireTestDatabase(process.env);
-  const knex = await ownDatabase(context, "da_pay_refusals");
-  assert.throws(() => createKnexPaymentStore({ knex: {} }), { name: "TypeError", message: "createKnexPaymentStore requires the application's Knex instance." });
-  assert.throws(() => createKnexPaymentStore({ knex: () => {} }), { name: "TypeError", message: "createKnexPaymentStore requires the application's Knex instance." });
-  const store = createKnexPaymentStore({ knex });
+  const store = await createTestPaymentStore(await ownDatabase(context, "da_pay_refusals"));
   assert.ok(Object.isFrozen(store));
   assert.deepEqual(Object.keys(store), ["inspect", "withAccount", "bindCustomer", "resolveCustomer", "inspectCatalogue", "withCatalogue"]);
 
@@ -87,7 +83,7 @@ test("the store needs the application's Knex and refuses incomplete scopes and i
 
 test("an account starts empty, keeps the state its work leaves as JSON, and answers what the work returns", async (context) => {
   requireTestDatabase(process.env);
-  const store = createKnexPaymentStore({ knex: await ownDatabase(context, "da_pay_account") });
+  const store = await createTestPaymentStore(await ownDatabase(context, "da_pay_account"));
   const scope = subject("tenant-a");
 
   const fresh = await store.inspect(scope);
@@ -120,7 +116,7 @@ test("an account starts empty, keeps the state its work leaves as JSON, and answ
 
 test("entries are recorded once per reference, read back by find, and belong to their own account", async (context) => {
   requireTestDatabase(process.env);
-  const store = createKnexPaymentStore({ knex: await ownDatabase(context, "da_pay_entries") });
+  const store = await createTestPaymentStore(await ownDatabase(context, "da_pay_entries"));
   const scope = subject("tenant-a");
 
   await store.withAccount(scope, async ({ find, record }) => {
@@ -158,7 +154,7 @@ test("entries are recorded once per reference, read back by find, and belong to 
 
 test("work that fails rolls back its state and entries, and its error reaches the caller unchanged", async (context) => {
   requireTestDatabase(process.env);
-  const store = createKnexPaymentStore({ knex: await ownDatabase(context, "da_pay_rollback") });
+  const store = await createTestPaymentStore(await ownDatabase(context, "da_pay_rollback"));
   const scope = subject("tenant-a");
   await store.withAccount(scope, async ({ state, record }) => {
     state.lots.push({ credits: 1 });
@@ -185,7 +181,7 @@ test("work that fails rolls back its state and entries, and its error reaches th
 
 test("work on one account runs one at a time, while other accounts, the catalogue and plain reads go on", { timeout: 20_000 }, async (context) => {
   requireTestDatabase(process.env);
-  const store = createKnexPaymentStore({ knex: await ownDatabase(context, "da_pay_serial") });
+  const store = await createTestPaymentStore(await ownDatabase(context, "da_pay_serial"));
   const scope = subject("tenant-a");
   const other = subject("tenant-b");
   await store.withAccount(scope, async ({ state }) => {
@@ -229,7 +225,7 @@ test("work on one account runs one at a time, while other accounts, the catalogu
 
 test("a provider customer binds to one subject per merchant: the first binding wins and a different one is refused", { timeout: 20_000 }, async (context) => {
   requireTestDatabase(process.env);
-  const store = createKnexPaymentStore({ knex: await ownDatabase(context, "da_pay_customers") });
+  const store = await createTestPaymentStore(await ownDatabase(context, "da_pay_customers"));
 
   assert.equal(await store.resolveCustomer(merchant, "cus_1"), null);
   assert.equal(await store.bindCustomer(merchant, "cus_1", "tenant-a"), undefined);
@@ -269,7 +265,7 @@ test("a provider customer binds to one subject per merchant: the first binding w
 
 test("a merchant's catalogue starts empty, keeps what its work leaves, rolls back on failure and is shared by the merchant's subjects", { timeout: 20_000 }, async (context) => {
   requireTestDatabase(process.env);
-  const store = createKnexPaymentStore({ knex: await ownDatabase(context, "da_pay_catalogue") });
+  const store = await createTestPaymentStore(await ownDatabase(context, "da_pay_catalogue"));
 
   const fresh = await store.inspectCatalogue(merchant);
   assert.deepEqual(fresh, EMPTY_CATALOGUE);

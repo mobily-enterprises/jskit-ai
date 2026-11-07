@@ -24,10 +24,11 @@ they are not an editor configuration database.
 Public API imports:
 
 - `@jskit-ai/payments-core/shared`: `validatePaymentConfiguration(document)`.
-- `@jskit-ai/payments-core/server/storage`: `createKnexPaymentStore({ knex })`
-  for scripts and hand-written compositions, and `PaymentStoreFeature`, which in
-  a JSKIT application owns the payment tables through `runtime.resources` and
-  provides the same store as `payments.store`.
+- `@jskit-ai/payments-core/server/storage`: `PaymentStoreFeature`, the payment
+  tables' one owner: registered in the server providers, it owns them through
+  `runtime.resources` and provides the payment store as `payments.store`. A
+  script or CLI starts it in a capability runtime of its own
+  ([standalone setup](docs/standalone.md#payments-from-a-script-or-cli)).
 - `@jskit-ai/payments-core/server`: `createPaymentService({ store, configuration, clock })`.
 - `@jskit-ai/payments-core/server/stripe`: `createStripePaymentAdapter(options)`.
 - `@jskit-ai/payments-core/server/paddle`: `createPaddlePaymentAdapter(options)`.

@@ -6,7 +6,7 @@ import knex from 'knex';
 import migration from '../migrations/payments_core_initial.cjs';
 import { validatePaymentConfiguration } from '../src/shared/configuration.js';
 import { createPaymentService } from '../src/server/service.js';
-import { createKnexPaymentStore } from '../src/server/knexStore.js';
+import { createTestPaymentStore } from './support/paymentStore.js';
 
 const fixture = JSON.parse(await readFile(new URL('../contracts/conformance.json', import.meta.url), 'utf8'));
 const schema = JSON.parse(await readFile(new URL('../contracts/configuration.schema.json', import.meta.url), 'utf8'));
@@ -53,7 +53,7 @@ test('portable account sequence defines actual credit, renewal, expiry and subje
   const scenario = fixture.accountScenario;
   const db = knex({ client: 'better-sqlite3', connection: { filename: ':memory:' }, useNullAsDefault: true, pool: { min: 1, max: 1 } });
   await migration.up(db);
-  const store = createKnexPaymentStore({ knex: db });
+  const store = await createTestPaymentStore(db);
   let now = scenario.clock;
   const service = createPaymentService({ store, configuration: validatePaymentConfiguration(scenario.document), clock: () => now });
   const { subjectId, ...merchant } = scenario.scope;
