@@ -1,12 +1,10 @@
 <template>
-  <section :class="props.rootClass">
+  <!-- The settings pane around it carries the page title, so the card adds no heading of its own: the title names the
+       section for assistive technology and the subtitle says what the settings apply to. -->
+  <section :class="props.rootClass" :aria-label="props.title">
     <v-card>
-      <v-card-item>
-        <v-card-title class="text-title-large">{{ props.title }}</v-card-title>
-        <v-card-subtitle>{{ props.subtitle }}</v-card-subtitle>
-      </v-card-item>
-      <v-divider />
-      <v-card-text class="pt-4">
+      <v-card-text>
+        <p class="text-body-medium on-surface-variant mb-4">{{ props.subtitle }}</p>
         <template v-if="props.showFormSkeleton">
           <v-skeleton-loader type="text@2, list-item-two-line@4, button" />
         </template>

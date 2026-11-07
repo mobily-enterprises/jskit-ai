@@ -1,7 +1,6 @@
 .assistant-transcript__plain-user { white-space: pre-wrap; margin: 0; }
+/* The transcript is the page's own area, not a container: its bubbles are the only containers in it. */
 .assistant-transcript {
-  border: 1px solid rgba(var(--v-theme-outline), 0.24);
-  border-radius: 8px;
   display: grid;
   gap: 0.35rem;
   grid-template-rows: minmax(0, 1fr);
@@ -87,7 +86,6 @@
 
 .assistant-transcript__welcome {
   background: rgba(var(--v-theme-primary), 0.08);
-  border: 1px solid rgba(var(--v-theme-primary), 0.18);
   border-radius: 16px;
   color: rgb(var(--v-theme-on-surface));
   display: grid;
@@ -237,10 +235,6 @@
   background: rgb(var(--v-theme-surface));
   color: rgb(var(--v-theme-on-surface));
   padding: 0;
-}
-
-.assistant-transcript--task {
-  border-color: rgba(126, 87, 194, 0.32);
 }
 
 .assistant-transcript--task .assistant-transcript__avatar--assistant {

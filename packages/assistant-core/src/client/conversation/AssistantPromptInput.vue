@@ -261,12 +261,13 @@ defineExpose({ inputElement: textareaRef, focus: focusTextarea, preserveHeightFo
   width: 100%;
 }
 
+/* Material 3's outlined text field: 4dp corners, a 1dp outline that becomes a 2dp primary one on focus (drawn inset, so
+   nothing moves), 16dp side padding, and the label in the outline. */
 .assistant-prompt-input__field {
   background: rgb(var(--v-theme-surface));
-  border: 1px solid rgba(var(--v-theme-on-surface), 0.34);
-  border-radius: 18px;
+  border: 1px solid rgb(var(--v-theme-outline));
+  border-radius: 4px;
   box-sizing: border-box;
-  box-shadow: inset 0 0 0 1px rgba(var(--v-theme-on-surface), 0.08);
   display: grid;
   max-width: 100%;
   min-width: 0;
@@ -274,29 +275,33 @@ defineExpose({ inputElement: textareaRef, focus: focusTextarea, preserveHeightFo
   transition: border-color 120ms ease, box-shadow 120ms ease;
 }
 
+.assistant-prompt-input__field:not(.assistant-prompt-input__field--disabled):hover {
+  border-color: rgb(var(--v-theme-on-surface));
+}
+
 .assistant-prompt-input__field:not(.assistant-prompt-input__field--disabled):focus-within {
   border-color: rgb(var(--v-theme-primary));
-  box-shadow:
-    0 0 0 2px rgba(var(--v-theme-primary), 0.28),
-    inset 0 0 0 1px rgba(var(--v-theme-primary), 0.2);
+  box-shadow: inset 0 0 0 1px rgb(var(--v-theme-primary));
 }
 
 .assistant-prompt-input__field--disabled {
-  background: rgba(var(--v-theme-on-surface), 0.04);
-  border-color: rgba(var(--v-theme-on-surface), 0.16);
-  box-shadow: none;
+  border-color: rgba(var(--v-theme-on-surface), 0.12);
+}
+
+.assistant-prompt-input__field:not(.assistant-prompt-input__field--disabled):focus-within .assistant-prompt-input__label {
+  color: rgb(var(--v-theme-primary));
 }
 
 .assistant-prompt-input__label {
   align-self: start;
   background: rgb(var(--v-theme-surface));
-  color: rgba(var(--v-theme-on-surface), 0.82);
-  font-size: 0.78rem;
-  line-height: 1.1;
-  margin: -0.5rem 0 0 0.9rem;
-  max-width: calc(100% - 1.8rem);
+  color: rgb(var(--v-theme-on-surface-variant));
+  font-size: 0.75rem;
+  line-height: 1rem;
+  margin: -0.5rem 0 0 12px;
+  max-width: calc(100% - 24px);
   overflow: hidden;
-  padding-inline: 0.24rem;
+  padding-inline: 4px;
   text-overflow: ellipsis;
   white-space: nowrap;
   width: fit-content;
@@ -349,19 +354,20 @@ defineExpose({ inputElement: textareaRef, focus: focusTextarea, preserveHeightFo
   opacity: 1;
 }
 
+/* Send and the other actions keep 12dp from the outline (8dp in the compact composer). */
 .assistant-prompt-input__footer {
   min-width: 0;
-  padding: 0 0.55rem 0.55rem;
+  padding: 0 12px 12px;
 }
 
 .assistant-prompt-input--compact .assistant-prompt-input__input {
   max-height: min(8rem, 20dvh);
   min-height: 2.5rem;
-  padding: 0.4rem 0.65rem 0.15rem;
+  padding: 0.4rem 12px 0.15rem;
 }
 
 .assistant-prompt-input--compact .assistant-prompt-input__footer {
-  padding: 0 0.3rem 0.25rem;
+  padding: 0 8px 8px;
 }
 
 .assistant-prompt-input__details {

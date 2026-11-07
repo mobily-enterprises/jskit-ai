@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Material 3 containers in the conversation, visual only: the transcript area is no longer outlined (its bubbles are the only containers, and the welcome bubble is a tonal fill without an outline), the composer is Material 3's outlined text field (4dp corners, the `outline` role, a 2dp primary outline on focus, 16dp side padding) with Send and the other actions 12dp from it (8dp when compact), and `AssistantSettingsFormCard` adds no heading or divider inside the settings pane that titles it: its subtitle is the card's first line and its title names the section for assistive technology.
 - The avatar's Show and Minimise buttons set no fixed height: they are 40dp icon buttons with material-web's 48dp touch target, so `jskit check m3` passes on `AssistantConversationElement`.
 - The goal menu closes when Cancel succeeds, as it does after Start; Pause and Resume keep it open.
 - `AssistantConversationElement` has an `avatar-thumbnail` slot, with the `{ size, height }` scope of the other avatar slots: while the avatar is hidden, the **Show avatar** button draws its content instead of the anonymous account icon, such as a still miniature of the avatar, clipped to the button's round 32-pixel disc. The button keeps its label, title and 44-pixel target, and shows the icon as before without the slot.
