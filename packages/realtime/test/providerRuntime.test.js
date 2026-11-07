@@ -4,6 +4,7 @@ import { once } from "node:events";
 import test from "node:test";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { EventProvider } from "@jskit-ai/kernel/server/runtime";
+import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { CLIENT_APP_CONFIG_GLOBAL_KEY, setClientAppConfig } from "../../kernel/client/appConfig.js";
 import { RealtimeClientProvider } from "../src/client/RealtimeClientProvider.js";
 import { RealtimeProvider } from "../src/server/RealtimeProvider.js";
@@ -391,6 +392,46 @@ test("realtime delivery reaches an audience's users, read once per event in the 
   await unscoped.handle({ type: "entity.changed", entityId: "91", scope: { kind: "workspace", id: "11" },
     realtime: { event: "users.bootstrap.changed", audience } });
   assert.deepEqual(reads.at(-1).options, {}, "Without realtime.audience-scope an audience reads with no context");
+});
+
+test("an audience entry whose read fails is logged as an error and skipped; the event still reaches the other rooms", async () => {
+  const io = createIoDouble();
+  const errors = [];
+  const delivery = createRealtimeDelivery({
+    io,
+    logger: { ...logger, error: (details, message) => errors.push({ details, message }) },
+    audiences: createAudienceContributors()
+  });
+  const failing = { preset: "event_scope", async audienceUsers() { throw new Error("owner API down"); } };
+  const reading = { async audienceUsers() { return ["55"]; } };
+  await delivery.handle({ type: "entity.changed", entityId: "91", scope: { kind: "workspace", id: "11" },
+    realtime: { event: "users.bootstrap.changed", audience: [failing, reading, { userId: "56" }] } });
+  assert.deepEqual(io.emitted.map((entry) => entry.room), [["workspace:11", "user:55", "user:56"]]);
+  assert.deepEqual(errors, [{
+    details: { socketEvent: "users.bootstrap.changed", entityId: "91", error: "owner API down" },
+    message: "Realtime audienceUsers failed; the event still reaches the audience's other rooms."
+  }]);
+});
+
+test("realtime refuses to boot when an action's events read their audience in a scope no feature provides", async (t) => {
+  const audienceUsers = async () => [];
+  const actionsWith = (audience) => ({ listDefinitions: () => [{ id: "notes.create", events: [createEntityChangedActionEvent({
+    source: "notes", entity: "note", operation: "created", entityId: 1, realtime: { event: "notes.changed", audience }
+  })] }] });
+  const boot = async (inputs) => {
+    const http = createServer();
+    t.after(() => new Promise((resolve) => http.close(() => resolve())));
+    const runtime = createCapabilityRuntime({ providers: [EventProvider, RealtimeProvider], inputs: {
+      "runtime.config": {}, "runtime.env": {}, "runtime.fastify": { server: http }, "runtime.logger": logger, ...inputs
+    } });
+    await runtime.start();
+    await runtime.shutdown();
+  };
+  await assert.rejects(boot({ "runtime.actions": actionsWith(["event_scope", { audienceUsers }]) }),
+    /Realtime events of notes\.create read their audience with audienceUsers .*register RealtimeAudienceScopeFeature/u);
+  await boot({ "runtime.actions": actionsWith({ audienceUsers, publicTablesOnly: true }) });
+  await boot({ "runtime.actions": actionsWith(() => ({ audienceUsers })) });
+  await boot({ "runtime.actions": actionsWith({ audienceUsers }), "realtime.audience-scope": {} });
 });
 
 test("socket audience bootstrap authenticates explicitly and joins contributed scope rooms", async () => {

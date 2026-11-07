@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isRecord, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeLogger} RuntimeLogger */
@@ -234,9 +234,38 @@ function audienceReadOptions(scope, audienceScope) {
 }
 
 /**
+ * Whether an audience entry reads its users with audienceUsers in a scope: every one does, unless it says it reads
+ * public tables only (`publicTablesOnly: true`), which need no context.
+ * @param {unknown} entry
+ */
+function readsInScope(entry) {
+  // readable-check: allow method-probe - data: an event's audience entry may name audienceUsers()
+  return isRecord(entry) && typeof entry.audienceUsers === "function" && entry.publicTablesOnly !== true;
+}
+
+/**
+ * The actions whose events declare an audience that reads its users in the event's scope, which only
+ * `realtime.audience-scope` gives: an audience given as a function of the execution is not known before it runs.
+ * @param {{ listDefinitions: () => Array<{ id: string, events: readonly Function[] }> } | null} actions
+ * @returns {string[]}
+ */
+function actionsNeedingAudienceScope(actions) {
+  const ids = new Set();
+  for (const definition of actions?.listDefinitions() ?? []) {
+    for (const build of definition.events) {
+      const audience = build.realtime?.audience;
+      if (typeof audience !== "function" && flattenEntries(audience).some(readsInScope)) ids.add(definition.id);
+    }
+  }
+  return [...ids];
+}
+
+/**
  * The rooms and flags an event's audience reaches. An audience entry's
  * `audienceUsers({ event, options })` answers user ids through the owners'
- * APIs, once for the event however many sockets receive it.
+ * APIs, once for the event however many sockets receive it. An entry whose
+ * read fails is logged as an error and skipped: the event still reaches the
+ * other entries' rooms.
  * @param {unknown} audience
  * @param {object} event
  * @param {object} dependencies
@@ -257,12 +286,18 @@ async function resolveAudienceTargets(audience, event, { logger, audienceScope }
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
     addAudienceRooms(entry, state);
     // readable-check: allow method-probe - data: an event's audience entry may name audienceUsers()
-    if (typeof entry.audienceUsers === "function") {
-      const userIds = await entry.audienceUsers({ event, options: audienceReadOptions(event?.scope, audienceScope) });
-      for (const rawUserId of flattenEntries(userIds)) {
-        const userId = normalizeRecordId(rawUserId, { fallback: null });
-        if (userId) rooms.add(roomForUser(userId));
-      }
+    if (typeof entry.audienceUsers !== "function") continue;
+    let userIds;
+    try {
+      userIds = await entry.audienceUsers({ event, options: audienceReadOptions(event?.scope, audienceScope) });
+    } catch (error) {
+      logger.error({ socketEvent: event?.realtime?.event ?? null, entityId: event?.entityId ?? null, error: String(error?.message || error) },
+        "Realtime audienceUsers failed; the event still reaches the audience's other rooms.");
+      continue;
+    }
+    for (const rawUserId of flattenEntries(userIds)) {
+      const userId = normalizeRecordId(rawUserId, { fallback: null });
+      if (userId) rooms.add(roomForUser(userId));
     }
   }
 
@@ -469,6 +504,7 @@ async function revalidateSocket({ socket, authService, audiences, request, authe
 }
 
 export {
+  actionsNeedingAudienceScope,
   authenticationRequiredError,
   createAudienceContributors,
   createSocketRequest,

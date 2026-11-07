@@ -129,7 +129,9 @@ function normalizeRealtime(value, execution) {
  * An action event builder: once the action has run, it announces that one of
  * the source's entities was created, updated or deleted. operation, entityId
  * and the realtime audience and payload may each be a function of the
- * action's execution ({ definition, input, result, context }).
+ * action's execution ({ definition, input, result, context }). The builder
+ * carries the realtime part it was declared with as `realtime`, so realtime can
+ * check an audience it is given as it is (not as a function) when it boots.
  * @param {object} change
  * @param {string} change.source The package or domain that announces the change.
  * @param {string} change.entity
@@ -149,7 +151,7 @@ function createEntityChangedActionEvent({
   if (!normalizedSource) throw new TypeError("Action entity-change source is required.");
   if (!normalizedEntity) throw new TypeError("Action entity-change entity is required.");
 
-  return function buildEntityChangedEvent(execution = {}) {
+  function buildEntityChangedEvent(execution = {}) {
     const normalizedOperation = normalizeText(resolveValue(operation, execution)).toLowerCase();
     if (!ENTITY_CHANGE_OPERATIONS.has(normalizedOperation)) {
       throw new TypeError("Action entity-change operation must resolve to created, updated, or deleted.");
@@ -173,7 +175,8 @@ function createEntityChangedActionEvent({
       occurredAt: new Date().toISOString(),
       ...(realtimeMeta ? { realtime: realtimeMeta } : {})
     });
-  };
+  }
+  return Object.defineProperty(buildEntityChangedEvent, "realtime", { value: realtime, enumerable: true });
 }
 
 export { createEntityChangedActionEvent };
