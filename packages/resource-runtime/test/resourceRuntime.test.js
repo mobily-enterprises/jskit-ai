@@ -392,6 +392,25 @@ test("raw() is a value only: awaiting it or running it any other way throws, and
   assert.deepEqual((await knex("notes").orderBy("id")).map(({ status }) => status), ["done", "open"]);
 });
 
+test("an undefined filter value is refused by every filtered call, so it never widens to every row", async (t) => {
+  const { notes, knex } = await createFixture(t);
+  await notes.createMany([{ title: "a", status: "paused" }, { title: "b", status: "paused" }], { context: WORKSPACE_A });
+  const context = WORKSPACE_A;
+  const refused = /filters\.status is undefined: pass its value, or leave the filter out/u;
+  await assert.rejects(notes.query({ filters: { status: undefined }, page: { size: 5 } }, { context }), refused);
+  await assert.rejects(notes.queryAll({ filters: { status: undefined } }, { context }), refused);
+  await assert.rejects(notes.aggregate({ measures: { total: { count: "id" } }, filters: { status: undefined } }, { context }), refused);
+  await assert.rejects(notes.scopedQuery({ filters: { status: undefined } }, { context }), refused);
+  await assert.rejects(notes.patchWhere({ status: undefined }, { title: "every" }, { context }), refused);
+  await assert.rejects(notes.patchWhere({ title: "a", status: undefined }, { title: "every" }, { context }), refused);
+  await assert.rejects(notes.deleteWhere({ status: undefined }, { context }), refused);
+  await notes.withTransaction({ context }, async (txOptions) => {
+    await assert.rejects(notes.lockWhere({ status: undefined }, txOptions), refused);
+    await assert.rejects(notes.claim({ status: undefined }, { limit: 5 }, txOptions), refused);
+  });
+  assert.deepEqual((await knex("notes").orderBy("id")).map(({ title, status }) => `${title}:${status}`), ["a:paused", "b:paused"]);
+});
+
 test("aggregate() totals the caller's rows", async (t) => {
   const { notes } = await createFixture(t);
   await notes.createMany([{ title: "a" }, { title: "b", status: "done" }, { title: "c", status: "done" }], { context: WORKSPACE_A });

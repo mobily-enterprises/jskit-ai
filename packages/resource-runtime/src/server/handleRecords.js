@@ -1,4 +1,5 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { requireDefinedFilters } from "./handleGuards.js";
 
 // What a handle takes and answers, in json-rest-api's terms: read parameters,
 // write input with belongs-to fields under their relationships, and plain
@@ -28,7 +29,7 @@ function readQueryParams(name, params, { page, caller }) {
   }
   const queryParams = {};
   if (params.filters !== undefined) {
-    queryParams.filters = params.filters;
+    queryParams.filters = requireDefinedFilters(name, caller, params.filters);
   }
   if (params.sort !== undefined) {
     queryParams.sort = textList(params.sort);
