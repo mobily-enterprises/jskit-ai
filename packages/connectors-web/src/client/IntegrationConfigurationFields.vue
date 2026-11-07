@@ -98,139 +98,152 @@ function settingErrors(field) {
 
 <template>
   <v-sheet v-if="integration" class="integration-fields" :aria-label="t('jskit.connectors.configurationFields.ariaLabel', { provider: definition.name })">
+    <!-- Each panel's fields take the app's own Vuetify defaults (root), not the panel's: a v-expansion-panel gives its
+         content new defaults on each re-render, as every edit causes, and under any VMenu default in the app, Vuetify
+         4.2.1 to 4.3.2 then makes a select's menu lose the match typed into it
+         (https://github.com/vuetifyjs/vuetify/issues/23366; material-web's README, Upstream workarounds). Defaults an
+         app scopes around this form with its own v-defaults-provider do not reach them either. -->
     <v-expansion-panels v-model="panels" multiple variant="accordion" :disabled="disabled">
       <v-expansion-panel value="details" :title="t('jskit.connectors.configurationFields.panels.details')">
         <v-expansion-panel-text>
-          <v-text-field
-            :label="t('jskit.connectors.configurationFields.displayName.label')" :model-value="integration.displayName || ''" :disabled="disabled"
-            :placeholder="definition.name" :error-messages="errors[`${integrationPath}.displayName`]"
-            @update:model-value="editIntegration({ displayName: $event || undefined })"
-          />
-          <v-select
-            :label="t('jskit.connectors.configurationFields.accountMode.label')" :items="modes" :model-value="integration.accountMode" :disabled="disabled"
-            :error-messages="errors[`${integrationPath}.accountMode`]"
-            @update:model-value="editIntegration({ accountMode: $event })"
-          />
+          <v-defaults-provider root>
+            <v-text-field
+              :label="t('jskit.connectors.configurationFields.displayName.label')" :model-value="integration.displayName || ''" :disabled="disabled"
+              :placeholder="definition.name" :error-messages="errors[`${integrationPath}.displayName`]"
+              @update:model-value="editIntegration({ displayName: $event || undefined })"
+            />
+            <v-select
+              :label="t('jskit.connectors.configurationFields.accountMode.label')" :items="modes" :model-value="integration.accountMode" :disabled="disabled"
+              :error-messages="errors[`${integrationPath}.accountMode`]"
+              @update:model-value="editIntegration({ accountMode: $event })"
+            />
+          </v-defaults-provider>
         </v-expansion-panel-text>
       </v-expansion-panel>
 
       <v-expansion-panel value="credentials" :title="t('jskit.connectors.configurationFields.panels.credentials')">
         <v-expansion-panel-text>
-          <v-select
-            v-if="authenticationOptions.length > 1"
-            :label="t('jskit.connectors.configurationFields.authentication.label')" :items="authenticationOptions" :model-value="integration.authentication.method" :disabled="disabled"
-            :hint="text(definition.authenticationHint)" :persistent-hint="Boolean(definition.authenticationHint)"
-            :error-messages="errors[`${integrationPath}.authentication.method`]"
-            @update:model-value="editAuthentication"
-          />
-          <template v-for="field in visibleSettings" :key="field.name">
-            <v-autocomplete
-              v-if="field.searchable"
-              :label="text(field.label)" :items="settingItems(field)" :disabled="disabled" auto-select-first
-              :model-value="settingValue(field)"
-              :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
-              @update:model-value="editSetting(field.name, $event)"
-            />
+          <v-defaults-provider root>
             <v-select
-              v-else-if="field.items"
-              :label="text(field.label)" :items="settingItems(field)" :disabled="disabled"
-              :model-value="settingValue(field)"
-              :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
-              @update:model-value="editSetting(field.name, $event)"
+              v-if="authenticationOptions.length > 1"
+              :label="t('jskit.connectors.configurationFields.authentication.label')" :items="authenticationOptions" :model-value="integration.authentication.method" :disabled="disabled"
+              :hint="text(definition.authenticationHint)" :persistent-hint="Boolean(definition.authenticationHint)"
+              :error-messages="errors[`${integrationPath}.authentication.method`]"
+              @update:model-value="editAuthentication"
             />
-            <v-text-field
-              v-else
-              :label="text(field.label)" :disabled="disabled" :placeholder="text(field.placeholder)"
-              :model-value="settingValue(field) ?? ''"
-              :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
-              @update:model-value="editSetting(field.name, $event)"
-            />
-          </template>
-          <template v-if="['api-key', 'service-account'].includes(integration.authentication.method)">
-            <slot name="credential" :reference="integration.authentication.secretRef" :disabled="disabled">
-              <v-text-field
-                :label="credentialReference.label" :model-value="integration.authentication.secretRef" :disabled="disabled"
-                :hint="credentialReference.hint"
-                persistent-hint :error-messages="errors[`${integrationPath}.authentication.secretRef`]"
-                @update:model-value="editSecretReference"
+            <template v-for="field in visibleSettings" :key="field.name">
+              <v-autocomplete
+                v-if="field.searchable"
+                :label="text(field.label)" :items="settingItems(field)" :disabled="disabled" auto-select-first
+                :model-value="settingValue(field)"
+                :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
+                @update:model-value="editSetting(field.name, $event)"
               />
-            </slot>
-          </template>
-          <template v-else-if="integration.authentication.method === 'oauth2'">
-            <v-select
-              :label="t('jskit.connectors.configurationFields.registration.label')" :items="registrationOptions" :model-value="registrationId" :disabled="disabled"
-              :error-messages="errors[`${integrationPath}.authentication.registrationRef`]"
-              @update:model-value="editIntegration({ authentication: { ...integration.authentication, registrationRef: $event } })"
-            />
-            <template v-if="registration?.source === 'own'">
               <v-select
-                v-if="grantOptions.length > 1"
-                :label="t('jskit.connectors.configurationFields.grantType.label')" :items="grantOptions" :model-value="grantType" :disabled="disabled"
-                :hint="text(definition.oauthGrantHint)" :persistent-hint="Boolean(definition.oauthGrantHint)"
-                :error-messages="errors[`${registrationPath}.grantType`]"
-                @update:model-value="editGrantType"
+                v-else-if="field.items"
+                :label="text(field.label)" :items="settingItems(field)" :disabled="disabled"
+                :model-value="settingValue(field)"
+                :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
+                @update:model-value="editSetting(field.name, $event)"
               />
               <v-text-field
-                :label="text(definition.clientIdLabel) || t('jskit.connectors.configurationFields.clientId.label')" :hint="text(definition.clientIdHint)" :persistent-hint="Boolean(definition.clientIdHint)" :model-value="registration.clientId" autocomplete="off" :disabled="disabled"
-                :error-messages="errors[`${registrationPath}.clientId`]"
-                @update:model-value="editRegistration('clientId', $event)"
+                v-else
+                :label="text(field.label)" :disabled="disabled" :placeholder="text(field.placeholder)"
+                :model-value="settingValue(field) ?? ''"
+                :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
+                @update:model-value="editSetting(field.name, $event)"
               />
-              <slot v-if="registration.tokenEndpointAuthMethod !== 'none'" name="credential" :reference="registration.clientSecretRef" :disabled="disabled">
+            </template>
+            <template v-if="['api-key', 'service-account'].includes(integration.authentication.method)">
+              <slot name="credential" :reference="integration.authentication.secretRef" :disabled="disabled">
                 <v-text-field
-                  :label="t('jskit.connectors.configurationFields.clientSecretReference.label')" :model-value="registration.clientSecretRef" :disabled="disabled"
-                  :hint="clientSecretHint"
-                  persistent-hint :error-messages="errors[`${registrationPath}.clientSecretRef`]"
-                  @update:model-value="editRegistration('clientSecretRef', $event)"
+                  :label="credentialReference.label" :model-value="integration.authentication.secretRef" :disabled="disabled"
+                  :hint="credentialReference.hint"
+                  persistent-hint :error-messages="errors[`${integrationPath}.authentication.secretRef`]"
+                  @update:model-value="editSecretReference"
                 />
               </slot>
-              <v-text-field
-                v-if="grantType === 'authorization_code'"
-                :hint="t('jskit.connectors.configurationFields.callbackUrlReference.hint')" persistent-hint
-                class="mt-4" :label="t('jskit.connectors.configurationFields.callbackUrlReference.label')" :model-value="registration.callbackUrlRef" :disabled="disabled"
-                :error-messages="errors[`${registrationPath}.callbackUrlRef`]"
-                @update:model-value="editRegistration('callbackUrlRef', $event)"
-              />
-              <v-text-field v-if="callbackUrl && grantType === 'authorization_code'" :label="t('jskit.connectors.configurationFields.callbackUrl.label')" :model-value="callbackUrl" readonly />
             </template>
-          </template>
+            <template v-else-if="integration.authentication.method === 'oauth2'">
+              <v-select
+                :label="t('jskit.connectors.configurationFields.registration.label')" :items="registrationOptions" :model-value="registrationId" :disabled="disabled"
+                :error-messages="errors[`${integrationPath}.authentication.registrationRef`]"
+                @update:model-value="editIntegration({ authentication: { ...integration.authentication, registrationRef: $event } })"
+              />
+              <template v-if="registration?.source === 'own'">
+                <v-select
+                  v-if="grantOptions.length > 1"
+                  :label="t('jskit.connectors.configurationFields.grantType.label')" :items="grantOptions" :model-value="grantType" :disabled="disabled"
+                  :hint="text(definition.oauthGrantHint)" :persistent-hint="Boolean(definition.oauthGrantHint)"
+                  :error-messages="errors[`${registrationPath}.grantType`]"
+                  @update:model-value="editGrantType"
+                />
+                <v-text-field
+                  :label="text(definition.clientIdLabel) || t('jskit.connectors.configurationFields.clientId.label')" :hint="text(definition.clientIdHint)" :persistent-hint="Boolean(definition.clientIdHint)" :model-value="registration.clientId" autocomplete="off" :disabled="disabled"
+                  :error-messages="errors[`${registrationPath}.clientId`]"
+                  @update:model-value="editRegistration('clientId', $event)"
+                />
+                <slot v-if="registration.tokenEndpointAuthMethod !== 'none'" name="credential" :reference="registration.clientSecretRef" :disabled="disabled">
+                  <v-text-field
+                    :label="t('jskit.connectors.configurationFields.clientSecretReference.label')" :model-value="registration.clientSecretRef" :disabled="disabled"
+                    :hint="clientSecretHint"
+                    persistent-hint :error-messages="errors[`${registrationPath}.clientSecretRef`]"
+                    @update:model-value="editRegistration('clientSecretRef', $event)"
+                  />
+                </slot>
+                <v-text-field
+                  v-if="grantType === 'authorization_code'"
+                  :hint="t('jskit.connectors.configurationFields.callbackUrlReference.hint')" persistent-hint
+                  class="mt-4" :label="t('jskit.connectors.configurationFields.callbackUrlReference.label')" :model-value="registration.callbackUrlRef" :disabled="disabled"
+                  :error-messages="errors[`${registrationPath}.callbackUrlRef`]"
+                  @update:model-value="editRegistration('callbackUrlRef', $event)"
+                />
+                <v-text-field v-if="callbackUrl && grantType === 'authorization_code'" :label="t('jskit.connectors.configurationFields.callbackUrl.label')" :model-value="callbackUrl" readonly />
+              </template>
+            </template>
+          </v-defaults-provider>
         </v-expansion-panel-text>
       </v-expansion-panel>
 
       <v-expansion-panel v-if="visibleScopes.length && (definition.scopes.length || definition.permissionsHint || ['oauth2', 'service-account'].includes(integration.authentication.method))" value="permissions" :title="t('jskit.connectors.configurationFields.panels.permissions')">
         <v-expansion-panel-text>
-          <p class="text-body-medium mb-3">{{ text(definition.permissionsHint) || t('jskit.connectors.configurationFields.permissions.hint') }}</p>
-          <v-checkbox
-            v-for="permission in visibleScopes" :key="permission.value"
-            :label="text(permission.label)" :value="permission.value" :model-value="integration.scopes" :disabled="disabled || permission.required"
-            hide-details @update:model-value="editIntegration({ scopes: $event })"
-          />
-          <p v-if="errors[`${integrationPath}.scopes`]" role="alert" class="text-error text-body-small mt-2">
-            {{ errors[`${integrationPath}.scopes`] }}
-          </p>
+          <v-defaults-provider root>
+            <p class="text-body-medium mb-3">{{ text(definition.permissionsHint) || t('jskit.connectors.configurationFields.permissions.hint') }}</p>
+            <v-checkbox
+              v-for="permission in visibleScopes" :key="permission.value"
+              :label="text(permission.label)" :value="permission.value" :model-value="integration.scopes" :disabled="disabled || permission.required"
+              hide-details @update:model-value="editIntegration({ scopes: $event })"
+            />
+            <p v-if="errors[`${integrationPath}.scopes`]" role="alert" class="text-error text-body-small mt-2">
+              {{ errors[`${integrationPath}.scopes`] }}
+            </p>
+          </v-defaults-provider>
         </v-expansion-panel-text>
       </v-expansion-panel>
       <v-expansion-panel v-if="definition.assistantActions?.length" value="assistant" :title="t('jskit.connectors.configurationFields.panels.assistant')">
         <v-expansion-panel-text>
-          <p class="text-body-medium mb-3">{{ t('jskit.connectors.configurationFields.assistant.hint') }}</p>
-          <v-switch
-            :label="t('jskit.connectors.configurationFields.assistant.enabled.label')" :model-value="integration.assistantPolicy?.enabled ?? true" :disabled="disabled"
-            :error-messages="errors[`${integrationPath}.assistantPolicy.enabled`]"
-            @update:model-value="editAssistantPolicy({ enabled: $event })"
-          />
-          <v-select
-            :label="t('jskit.connectors.configurationFields.assistant.defaultPermission.label')" :items="assistantPermissions" :model-value="integration.assistantPolicy?.defaultPermission || 'ask'"
-            :disabled="disabled || integration.assistantPolicy?.enabled === false"
-            :hint="t('jskit.connectors.configurationFields.assistant.defaultPermission.hint')" persistent-hint
-            :error-messages="errors[`${integrationPath}.assistantPolicy.defaultPermission`]"
-            @update:model-value="editAssistantPolicy({ defaultPermission: $event, actions: {} })"
-          />
-          <v-select
-            v-for="action in definition.assistantActions" :key="action.value" :label="text(action.label)" :items="assistantPermissions"
-            :model-value="integration.assistantPolicy?.actions?.[action.value] || integration.assistantPolicy?.defaultPermission || 'ask'"
-            :disabled="disabled || integration.assistantPolicy?.enabled === false"
-            :error-messages="errors[`${integrationPath}.assistantPolicy.actions.${action.value}`]"
-            @update:model-value="editAssistantPolicy({ actions: { ...integration.assistantPolicy?.actions, [action.value]: $event } })"
-          />
+          <v-defaults-provider root>
+            <p class="text-body-medium mb-3">{{ t('jskit.connectors.configurationFields.assistant.hint') }}</p>
+            <v-switch
+              :label="t('jskit.connectors.configurationFields.assistant.enabled.label')" :model-value="integration.assistantPolicy?.enabled ?? true" :disabled="disabled"
+              :error-messages="errors[`${integrationPath}.assistantPolicy.enabled`]"
+              @update:model-value="editAssistantPolicy({ enabled: $event })"
+            />
+            <v-select
+              :label="t('jskit.connectors.configurationFields.assistant.defaultPermission.label')" :items="assistantPermissions" :model-value="integration.assistantPolicy?.defaultPermission || 'ask'"
+              :disabled="disabled || integration.assistantPolicy?.enabled === false"
+              :hint="t('jskit.connectors.configurationFields.assistant.defaultPermission.hint')" persistent-hint
+              :error-messages="errors[`${integrationPath}.assistantPolicy.defaultPermission`]"
+              @update:model-value="editAssistantPolicy({ defaultPermission: $event, actions: {} })"
+            />
+            <v-select
+              v-for="action in definition.assistantActions" :key="action.value" :label="text(action.label)" :items="assistantPermissions"
+              :model-value="integration.assistantPolicy?.actions?.[action.value] || integration.assistantPolicy?.defaultPermission || 'ask'"
+              :disabled="disabled || integration.assistantPolicy?.enabled === false"
+              :error-messages="errors[`${integrationPath}.assistantPolicy.actions.${action.value}`]"
+              @update:model-value="editAssistantPolicy({ actions: { ...integration.assistantPolicy?.actions, [action.value]: $event } })"
+            />
+          </v-defaults-provider>
         </v-expansion-panel-text>
       </v-expansion-panel>
     </v-expansion-panels>

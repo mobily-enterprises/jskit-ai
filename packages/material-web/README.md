@@ -94,28 +94,32 @@ export const theme = {
 
 Each one comes off when the upstream fix ships; its test says when.
 
-- **Vuetify 4.2.1 to 4.3.2 (measured): `VMenu` sub-component defaults and a
-  `v-select` typeahead.** With any sub-component default under `VMenu` in the
-  app's defaults, even `VMenu: { VSheet: {} }`, a re-render of an ancestor of
-  a `v-select` makes VMenu's `root` defaults provider build a new merged
-  object; the menu's `VVirtualScroll` then resets its item height to 0 and
-  `scrollToIndex` silently gives up. Letters typed during or after the menu's
-  opening change the selection, but the match further down ("o" then "s" for
-  Osaka, the last AWS region) is never scrolled to or focused. JSKIT sets no
-  `VMenu` defaults: `material.css` draws a menu's own list as its container
-  instead. Upstream issue:
+- **Vuetify 4.2.1 to 4.3.2 (measured): `VMenu` defaults and a `v-select`
+  typeahead.** With any `VMenu` entry in the app's defaults, a sub-component
+  default such as `VMenu: { VSheet: {} }` or even a prop default such as
+  `VMenu: { scrim: false }`, a re-render of an ancestor of a `v-select` makes
+  VMenu's `root` defaults provider build a new merged object; the menu's
+  `VVirtualScroll` then resets its item height to 0 and `scrollToIndex`
+  silently gives up. Letters typed during or after the menu's opening change
+  the selection, but the match further down ("o" then "s" for Osaka, the last
+  AWS region) is never scrolled to or focused. JSKIT sets no `VMenu` defaults:
+  `material.css` draws a menu's own list as its container instead. Upstream
+  issue:
   [vuetifyjs/vuetify#23366](https://github.com/vuetifyjs/vuetify/issues/23366).
-  connectors-web's browser test "Vuetify still loses a select's typeahead match
-  under a VMenu sub-component default when the form re-renders" fails once a
-  Vuetify release past 4.3.2 fixes it; then delete that test, and the menu list may go back to
-  `VMenu` defaults. An app that adds its own `VMenu` sub-component defaults
-  brings the bug back. `VDialog`, Vuetify's other `root` defaults provider,
-  does the same to a virtual-scroll list in a dialog under any `VDialog`
-  default, so JSKIT sets none either: `material.css` draws a dialog's card
-  (and every card's 12dp corners, which a `rounded` default would make an
-  inline style). shell-web's browser test "a virtual-scroll list in a dialog
-  reaches its last item after the page around it re-renders" guards it; it
-  fails with `VDialog: { VCard: {} }` in the defaults.
+  connectors-web's browser test "Vuetify still loses a select's typeahead
+  match under a VMenu sub-component default when a panel around it re-renders"
+  fails once a Vuetify release past 4.3.2 fixes it; then delete that test, and
+  the menu list may go back to `VMenu` defaults. An app that adds its own
+  `VMenu` defaults brings the bug back, except in connectors-web's
+  configuration form, whose fields take the app's root defaults instead of
+  each expansion panel's; an app's own panels can wrap their fields in
+  `<v-defaults-provider root>` the same way. `VDialog`, Vuetify's other `root`
+  defaults provider, does the same to a virtual-scroll list in a dialog under
+  any `VDialog` default, so JSKIT sets none either: `material.css` draws a
+  dialog's card (and every card's 12dp corners, which a `rounded` default
+  would make an inline style). shell-web's browser test "a virtual-scroll list
+  in a dialog reaches its last item after the page around it re-renders"
+  guards it; it fails with `VDialog: { VCard: {} }` in the defaults.
 
 ## Maintaining the icon set
 

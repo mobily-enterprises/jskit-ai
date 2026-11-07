@@ -323,7 +323,7 @@ dialog, chip or FAB.
 - **Menus and badges:** a menu's list has `role="menu"` and its items
   `role="menuitem"`, with `aria-disabled` on unavailable ones; a badge has a
   `label` such as "3 batches". JSKIT draws a menu's list and a dialog's card;
-  an app sets no `VMenu` or `VDialog` sub-component defaults, under which
+  an app sets no `VMenu` or `VDialog` defaults, under which
   Vuetify 4.2.1 to 4.3.2 loses a `v-select`'s typeahead match, or a dialog's
   virtual list, when an ancestor re-renders.
 

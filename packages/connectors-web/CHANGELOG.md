@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- A select or autocomplete in the configuration form scrolls to and focuses the option typed into it even when the app sets `VMenu` defaults. Each panel's fields now take the app's root Vuetify defaults instead of the panel's, which Vuetify 4.2.1 to 4.3.2 gave new defaults on every edit; under any `VMenu` default that made the menu lose the match ([vuetifyjs/vuetify#23366](https://github.com/vuetifyjs/vuetify/issues/23366)). Upgrading: defaults an app scopes around the form with its own `v-defaults-provider` no longer reach its fields; set them in the app's Vuetify defaults instead.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
