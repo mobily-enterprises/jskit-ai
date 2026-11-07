@@ -16,13 +16,16 @@
 // The database the application connects to (DB_NAME, the one DATABASE_URL names, the Knex configuration's own) and
 // PROD_DB_NAME are never touched. Two runs at once need different database names, as before.
 //
-// A database test that guards a path's cost counts the statements the path sends with countQueries().
+// A database test that guards a path's cost counts the statements the path sends with countQueries(), or, for a route
+// of a server the test booted, countRuntimeQueries().
 import { createHash } from "node:crypto";
+import diagnosticsChannel from "node:diagnostics_channel";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseDatabaseUrl } from "../shared/databaseConnection.js";
+import { RUNTIME_QUERY_CHANNEL } from "./database.js";
 import { loadKnexFactory } from "./knexFactory.js";
 
 const SNAPSHOT_DIRECTORY = path.join("node_modules", ".cache", "jskit-test-databases");
@@ -487,6 +490,26 @@ async function testDatabaseRun({ knexConfig, environment, count, appRoot = proce
 }
 
 /**
+ * Runs `work` while `listen` hands each statement to the recorder it is given, and stops listening when `work` ends.
+ * @template T
+ * @param {(record: (query: { sql: string }) => void) => () => void} listen Starts listening; returns how to stop.
+ * @param {() => Promise<T> | T} work
+ * @returns {Promise<{ result: T, count: number, queries: string[] }>}
+ */
+async function recordStatements(listen, work) {
+  const queries = [];
+  const stop = listen((query) => {
+    queries.push(String(query.sql));
+  });
+  try {
+    const result = await work();
+    return { result, count: queries.length, queries };
+  } finally {
+    stop();
+  }
+}
+
+/**
  * Runs `work` and records the SQL of every statement `knex` sends meanwhile, its transactions' included (their BEGIN
  * and COMMIT among them), for a test that compares a path's statements at a few rows and at many. Pass the Knex
  * instance or transaction the work runs on; statements anything else sends through it meanwhile count too.
@@ -497,22 +520,33 @@ async function testDatabaseRun({ knexConfig, environment, count, appRoot = proce
  *   their SQL, in order.
  */
 async function countQueries(knex, work) {
-  const queries = [];
-  const record = (query) => {
-    queries.push(String(query.sql));
-  };
-  knex.on("query", record);
-  try {
-    const result = await work();
-    return { result, count: queries.length, queries };
-  } finally {
-    knex.off("query", record);
-  }
+  return recordStatements((record) => {
+    knex.on("query", record);
+    return () => knex.off("query", record);
+  }, work);
+}
+
+/**
+ * Runs `work` and records the SQL of every statement the application runtime's own database sends meanwhile: the
+ * `runtime.database` Knex of each server this process booted, as a test that creates the server with `createServer()`
+ * and calls a route with `app.inject()` does, its transactions' included. A Knex the test made itself is not counted,
+ * and neither is a server in another process. Statements the runtime sends for anything else meanwhile count too.
+ * @template T
+ * @param {() => Promise<T> | T} work
+ * @returns {Promise<{ result: T, count: number, queries: string[] }>} `work`'s result, how many statements the runtime
+ *   sent and their SQL, in order.
+ */
+async function countRuntimeQueries(work) {
+  return recordStatements((record) => {
+    diagnosticsChannel.subscribe(RUNTIME_QUERY_CHANNEL, record);
+    return () => diagnosticsChannel.unsubscribe(RUNTIME_QUERY_CHANNEL, record);
+  }, work);
 }
 
 export {
   RUN_SETTINGS_FILE,
   countQueries,
+  countRuntimeQueries,
   matchesSnapshot,
   prepareTestDatabases,
   requireDisposableDatabase,

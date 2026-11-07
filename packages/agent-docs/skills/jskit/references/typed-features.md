@@ -1035,6 +1035,11 @@ count grows with the rows instead of the pages.**
   sent meanwhile (a transaction's `BEGIN` and `COMMIT` included) and their
   SQL in `queries`. Pass the Knex the path runs on: the one the test built its
   repository or service with.
+- A route is counted through the server the test boots in its own process
+  (`createServer()`, then `app.inject()`): `countRuntimeQueries(work)`, from
+  the same module, records what the app's own `runtime.database` sends while
+  `work` runs, and leaves out the test's own Knex. A server in another process
+  is out of its reach, so the route's guard boots it in the test.
 - Pages add a few queries; rows should add none. A path that pages nothing
   (one read, one write) compares a short and a long history.
 - When the counts differ more than the pages explain, read `queries`: the
@@ -1051,7 +1056,7 @@ cannot.
 
 ```js
 // good
-import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
+import { countQueries, countRuntimeQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 
 test("the invoice list's queries follow its pages, not its invoices", async () => {
   const listAt = async (count) => {
@@ -1062,6 +1067,20 @@ test("the invoice list's queries follow its pages, not its invoices", async () =
   const few = await listAt(10);
   const many = await listAt(300);
   // Thirty times the invoices may add pages; a read per invoice would add about 290 queries.
+  assert.ok(many.count <= few.count * 2,
+    `${few.count} queries for 10 invoices, ${many.count} for 300:\n${many.queries.join("\n")}`);
+});
+
+// good: the same comparison for the route, through the server this test booted
+test("GET /api/invoices reads per page, not per invoice", async () => {
+  const app = await createServer({ runtimeEnv });
+  const listAt = async (count) => {
+    const workspace = await createWorkspace(knex);
+    await seedInvoices(knex, { workspace, count, linesEach: 5 });
+    return countRuntimeQueries(() => app.inject({ url: invoicesUrl(workspace), headers: signedIn }));
+  };
+  const few = await listAt(10);
+  const many = await listAt(300);
   assert.ok(many.count <= few.count * 2,
     `${few.count} queries for 10 invoices, ${many.count} for 300:\n${many.queries.join("\n")}`);
 });

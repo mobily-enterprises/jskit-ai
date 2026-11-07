@@ -1,7 +1,12 @@
+import diagnosticsChannel from "node:diagnostics_channel";
 import { normalizeDatabaseClient, toKnexClientId } from "../shared/databaseClient.js";
 import { resolveKnexConnectionFromEnvironment } from "../shared/databaseConnection.js";
 import { createTransactionManager } from "../shared/transactionManager.js";
 import { loadKnexFactory } from "./knexFactory.js";
+
+// The diagnostics channel that carries each statement the shared Knex sends (Knex's `query` event: its `sql`,
+// `bindings` and method), for observers in the process that booted the runtime, such as countRuntimeQueries().
+const RUNTIME_QUERY_CHANNEL = "jskit:database:query";
 
 /** @param {import("./types.js").RuntimeDatabaseDriver} driver */
 function resolveDriverDialectId(driver) {
@@ -34,6 +39,8 @@ function createDatabase({ driver, env }) {
       context: "database runtime"
     })
   });
+  const statements = diagnosticsChannel.channel(RUNTIME_QUERY_CHANNEL);
+  knex.on("query", (query) => statements.publish(query));
   const transactionManager = createTransactionManager({ knex });
 
   return Object.freeze({
@@ -43,4 +50,4 @@ function createDatabase({ driver, env }) {
   });
 }
 
-export { createDatabase };
+export { RUNTIME_QUERY_CHANNEL, createDatabase };

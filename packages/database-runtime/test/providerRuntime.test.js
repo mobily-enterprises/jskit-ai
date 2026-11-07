@@ -6,6 +6,7 @@ import test from "node:test";
 
 import { defineProvider, createCapabilityRuntime } from "@jskit-ai/kernel/shared/capabilities";
 import { DatabaseProvider } from "../src/server/providers/DatabaseProvider.js";
+import { countRuntimeQueries } from "../src/server/testDatabases.js";
 
 function driverProvider(dialectId = "mysql2") {
   return defineProvider({
@@ -51,8 +52,11 @@ async function withAppRootKnexStub(callback) {
       "    __config: config,",
       "    destroyCalls: 0,",
       "    rawQueries: [],",
+      "    queryListeners: [],",
+      "    on: function on(event, listener) { if (event === 'query') this.queryListeners.push(listener); return this; },",
       "    raw: async function raw(sql) {",
       "      this.rawQueries.push(sql);",
+      "      for (const listener of this.queryListeners) listener({ sql });",
       "      if (config.connection.host === 'db.down') throw new Error('connect ECONNREFUSED');",
       "      return [];",
       "    },",
@@ -199,6 +203,27 @@ test("DatabaseProvider starts without health checks", async () => {
       providers: [driverProvider(), DatabaseProvider]
     });
     await runtime.start();
+    await runtime.shutdown();
+  });
+});
+
+test("the runtime's statements reach countRuntimeQueries() in the process that booted it, only while the work runs", async () => {
+  await withAppRootKnexStub(async () => {
+    let database;
+    const runtime = createCapabilityRuntime({
+      inputs: { "runtime.env": { DB_HOST: "db.local", DB_NAME: "appdb", DB_USER: "appuser" } },
+      providers: [driverProvider(), DatabaseProvider, databaseConsumer((value) => { database = value; })]
+    });
+    await runtime.start();
+    await database.knex.raw("select 'before'");
+    const counted = await countRuntimeQueries(async () => {
+      for (const id of [1, 2, 3]) await database.knex.raw(`select ${id}`);
+      return "listed";
+    });
+    await database.knex.raw("select 'after'");
+    assert.deepEqual(counted, { result: "listed", count: 3, queries: ["select 1", "select 2", "select 3"] });
+    await assert.rejects(countRuntimeQueries(() => Promise.reject(new Error("stopped"))), /stopped/u);
+    assert.equal((await countRuntimeQueries(() => "nothing sent")).count, 0);
     await runtime.shutdown();
   });
 });

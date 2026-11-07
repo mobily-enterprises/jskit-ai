@@ -7,16 +7,21 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
+import Fastify from "fastify";
 import knex from "knex";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { DatabaseProvider } from "@jskit-ai/database-runtime/server/providers/DatabaseProvider";
 import { createKnexMigrationConfig } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
 import {
   RUN_SETTINGS_FILE,
   countQueries,
+  countRuntimeQueries,
   matchesSnapshot,
   prepareTestDatabases,
   restoreTestDatabase,
   testDatabaseRun
 } from "@jskit-ai/database-runtime/server/testDatabases";
+import { MysqlDatabaseDriverProvider } from "../src/server/providers/MysqlDatabaseDriverProvider.js";
 
 const BOOKS = `exports.up = async (knex) => {
   await knex.schema.createTable("books", (table) => { table.increments("id"); table.string("title"); table.date("published_on"); });
@@ -235,4 +240,61 @@ test("countQueries() counts a MySQL or MariaDB path's statements, its transactio
   assert.deepEqual([together.count, together.result.length], [1, 30]);
   const transaction = await countQueries(db, () => db.transaction((trx) => trx("books").count({ books: "*" })));
   assert.deepEqual(transaction.queries, ["BEGIN;", "select count(*) as `books` from `books`", "COMMIT;"]);
+});
+
+test("countRuntimeQueries() sees a route of a server booted in the test read per row, at 10 rows and at 200", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const database = `${process.env.TEST_DB_NAME}_routes`;
+  const environment = { ...process.env, DB_NAME: database, DATABASE_URL: "" };
+  const { connection } = createKnexMigrationConfig({ client: "mysql2", environment, appRoot: os.tmpdir() });
+  const server = knex({ client: "mysql2", connection: { ...connection, database: undefined } });
+  await server.raw("CREATE DATABASE IF NOT EXISTS ??", [database]);
+  const testKnex = knex({ client: "mysql2", connection });
+  const app = Fastify({ logger: false });
+  const routes = defineProvider({
+    id: "test.books.routes",
+    requires: { database: "runtime.database" },
+    setup({ database: { knex: db } }) {
+      // The list's books, read one by one, and the same list in one read.
+      app.get("/books", async (request) => {
+        const ids = await db("books").orderBy("id").limit(Number(request.query.limit)).pluck("id");
+        const books = [];
+        for (const id of ids) books.push(await db("books").where({ id }).first("id", "title"));
+        return books;
+      });
+      app.get("/books/batched", async (request) => db("books").orderBy("id").limit(Number(request.query.limit)).select("id", "title"));
+      return {};
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.env": environment },
+    providers: [MysqlDatabaseDriverProvider, DatabaseProvider, routes]
+  });
+  context.after(async () => {
+    await app.close();
+    await runtime.shutdown();
+    await testKnex.destroy();
+    await server.raw("DROP DATABASE IF EXISTS ??", [database]);
+    await server.destroy();
+  });
+  await testKnex.schema.createTable("books", (table) => { table.increments("id"); table.string("title"); });
+  await testKnex("books").insert(Array.from({ length: 200 }, (_, index) => ({ title: `Book ${index + 1}` })));
+  await runtime.start();
+
+  const listed = async (url) => {
+    const { result: response, count, queries } = await countRuntimeQueries(async () => {
+      // The test's own Knex is not the runtime's, so its statements do not count.
+      await testKnex("books").count({ books: "*" });
+      return app.inject(url);
+    });
+    assert.equal(response.statusCode, 200, url);
+    return { count, books: response.json().length, last: queries.at(-1) };
+  };
+  const perBook = "select `id`, `title` from `books` where `id` = ? limit ?";
+  assert.deepEqual(await listed("/books?limit=10"), { count: 11, books: 10, last: perBook });
+  assert.deepEqual(await listed("/books?limit=200"), { count: 201, books: 200, last: perBook });
+  const batched = "select `id`, `title` from `books` order by `id` asc limit ?";
+  assert.deepEqual(await listed("/books/batched?limit=10"), { count: 1, books: 10, last: batched });
+  assert.deepEqual(await listed("/books/batched?limit=200"), { count: 1, books: 200, last: batched });
 });

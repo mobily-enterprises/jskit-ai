@@ -16,6 +16,7 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/database.js`
 Exports
+- `RUNTIME_QUERY_CHANNEL`
 - `createDatabase({ driver, env })`
 Local functions
 - `resolveDriverDialectId(driver)`
@@ -66,6 +67,7 @@ Local functions
 Exports
 - `RUN_SETTINGS_FILE`
 - `countQueries(knex, work)`
+- `countRuntimeQueries(work)`
 - `matchesSnapshot(knexConfig, database, snapshot)`
 - `prepareTestDatabases({ knexConfig, environment, variable = "TEST_DB_NAME", count = 1, seed, appRoot = process.cwd() })`
 - `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`
@@ -83,6 +85,7 @@ Local functions
 - `ledgerNames(knex, ledger, tables)`
 - `dialectOf(knexConfig)`
 - `refusedPrivilege(error)`
+- `recordStatements(listen, work)`
 
 ### `src/server/types.js`
 Exports

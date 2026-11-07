@@ -444,7 +444,8 @@ the application's `knexfile.js`:
 
 Endpoints and batch operations get their own database tests at realistic row
 counts that compare their query counts, counted with `countQueries()` from
-`@jskit-ai/database-runtime/server/testDatabases`; see the typed features guide's
+`@jskit-ai/database-runtime/server/testDatabases`, or `countRuntimeQueries()`
+for a route of the server the test boots; see the typed features guide's
 [query counts at realistic sizes](/guide/framework/typed-features#query-counts-at-realistic-sizes).
 
 ## Browser test preparation

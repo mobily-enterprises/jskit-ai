@@ -3,9 +3,18 @@ import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
+import Fastify from "fastify";
 import knexFactory from "knex";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { DatabaseProvider } from "../src/server/providers/DatabaseProvider.js";
 import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
-import { countQueries, matchesSnapshot, prepareTestDatabases, restoreTestDatabase } from "../src/server/testDatabases.js";
+import {
+  countQueries,
+  countRuntimeQueries,
+  matchesSnapshot,
+  prepareTestDatabases,
+  restoreTestDatabase
+} from "../src/server/testDatabases.js";
 
 // Runs beside the PostgreSQL test database: run with DB_NAME set to TEST_DB_NAME (and the usual DB_HOST, DB_PORT,
 // DB_USER and DB_PASSWORD), DB_CLIENT unset or pg, and a database user that may create databases (CREATEDB).
@@ -96,4 +105,48 @@ test("countQueries() counts a PostgreSQL path's statements, its transactions' in
   assert.equal((await countQueries(db, () => db(table).whereIn("id", ids).pluck("title"))).count, 1);
   const inTransaction = await countQueries(db, () => db.transaction((trx) => trx(table).count({ books: "*" })));
   assert.deepEqual(inTransaction.queries, ["BEGIN;", `select count(*) as "books" from "${table}"`, "COMMIT;"]);
+});
+
+test("countRuntimeQueries() counts a PostgreSQL route's reads through the runtime the test booted", { skip: SKIP }, async (context) => {
+  const table = "route_count_books";
+  const environment = { ...process.env, DB_CLIENT: "pg" };
+  const { connection } = createKnexMigrationConfig({ client: "pg", environment, appRoot: os.tmpdir() });
+  const own = knexFactory({ client: "pg", connection });
+  const app = Fastify({ logger: false });
+  const driver = defineProvider({
+    id: "test.database.driver.pg",
+    provides: { driver: "runtime.database.driver" },
+    setup: () => ({ driver: Object.freeze({ DIALECT_ID: "pg" }) })
+  });
+  const route = defineProvider({
+    id: "test.route",
+    requires: { database: "runtime.database" },
+    setup({ database }) {
+      app.get("/titles/:count", async (request) => {
+        const rows = await database.knex(table).select("id").orderBy("id").limit(Number(request.params.count));
+        return Promise.all(rows.map(({ id }) => database.knex(table).where({ id }).first("title")));
+      });
+      return {};
+    }
+  });
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": environment }, providers: [driver, DatabaseProvider, route] });
+  context.after(async () => {
+    await app.close();
+    await runtime.shutdown();
+    await own.schema.dropTableIfExists(table);
+    await own.destroy();
+  });
+  await own.schema.dropTableIfExists(table);
+  await own.schema.createTable(table, (columns) => { columns.increments("id"); columns.string("title"); });
+  await own(table).insert(Array.from({ length: 200 }, (_, index) => ({ title: `Title ${index + 1}` })));
+  await runtime.start();
+
+  const counts = [];
+  for (const count of [10, 200]) {
+    const { result, count: statements } = await countRuntimeQueries(() => app.inject(`/titles/${count}`));
+    assert.equal(result.json().length, count);
+    counts.push(statements);
+  }
+  // A read per title: the statements follow the rows.
+  assert.deepEqual(counts, [11, 201]);
 });
