@@ -91,3 +91,34 @@ test("both user administration variants stay read-only on users-core's one users
     assert.equal(manifest.dependencies["@jskit-ai/users-core"], packageJson.version);
   }
 });
+
+test("the workspace variant lists and shows only the caller's workspace's active members", async () => {
+  const { workspaceMembersOnly } = await import(pathToFileURL(path.join(
+    patternRoot, "example", "packages", "users-workspace", "src", "server", "workspaceMembersOnly.js"
+  )).href);
+  const calls = [];
+  const repository = {
+    query: async (params) => (calls.push(["query", params.filters]), { data: [] }),
+    get: async (id) => (calls.push(["get", id]), { data: { id } }),
+    pageLimits: () => ({})
+  };
+  const memberships = { activeMemberIds: async (workspaceId) => (workspaceId === "7" ? ["1", "2"] : []) };
+  const users = workspaceMembersOnly(repository, memberships);
+  const options = { context: { workspace: { id: "7" } } };
+
+  await users.query({ filters: { q: "ann" }, page: { size: 20 } }, options);
+  await users.query({ filters: { ids: ["2", "3"] } }, options);
+  await users.query({ filters: { ids: "3" } }, options);
+  await users.query({}, { context: { workspace: { id: "8" } } });
+  assert.deepEqual(calls.splice(0), [
+    ["query", { q: "ann", ids: ["1", "2"] }],
+    ["query", { ids: ["2"] }],
+    ["query", { ids: [] }],
+    ["query", { ids: [] }]
+  ]);
+  assert.deepEqual(await users.get("1", {}, options), { data: { id: "1" } });
+  assert.equal(await users.get("3", {}, { ...options, missing: "skip" }), null);
+  await assert.rejects(users.get("3", {}, options), (error) => error.status === 404 && error.code === "crud.document.notFound");
+  assert.deepEqual(calls, [["get", "1"]]);
+  assert.equal(users.pageLimits, repository.pageLimits);
+});
