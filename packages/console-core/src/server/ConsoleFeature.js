@@ -5,14 +5,15 @@ import { registerConsoleSettingsRoutes } from "./consoleSettings/consoleSettings
 import { createConsoleSettingsActions } from "./consoleSettings/consoleSettingsActions.js";
 import { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 import { createConsoleRuntime } from "./consoleRuntime.js";
+import { consoleSettingsTableResource } from "../shared/resources/consoleSettingsTableResource.js";
 
 const ConsoleFeature = defineFeature({
   id: "console.core",
   domain: "console",
+  owns: [consoleSettingsTableResource],
   requires: {
     authExtensions: "auth.extensions",
     bootstrap: "runtime.bootstrap",
-    database: "runtime.database",
     http: "runtime.http"
   },
   provides: {
@@ -23,11 +24,11 @@ const ConsoleFeature = defineFeature({
    * @param {object} capabilities
    * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} capabilities.authExtensions
    * @param {import("@jskit-ai/kernel/server/types").RuntimeBootstrap} capabilities.bootstrap
-   * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} capabilities.database
    * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   * @param {{ consoleSettings: import("@jskit-ai/resource-runtime/server/types").ResourceHandle }} capabilities.resources
    */
-  setup({ authExtensions, bootstrap, database, http }) {
-    const consoleSettings = createConsoleSettingsRepository({ knex: database.knex });
+  setup({ authExtensions, bootstrap, http, resources }) {
+    const consoleSettings = createConsoleSettingsRepository({ consoleSettings: resources.consoleSettings });
     const consoleCore = createConsoleRuntime({ consoleSettingsRepository: consoleSettings });
 
     authExtensions.registerServiceDecorator(

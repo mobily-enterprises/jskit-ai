@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import knexLib from "knex";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
+import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import migration from "../migrations/console_core_generic_initial.cjs";
 import { createRepository } from "../src/server/consoleSettings/consoleSettingsRepository.js";
+import { consoleSettingsTableResource } from "../src/shared/resources/consoleSettingsTableResource.js";
 import { createConsoleRuntime } from "../src/server/consoleRuntime.js";
 
 // The console settings record on MariaDB, through the repository (the console.settings capability) and the console
@@ -34,12 +36,19 @@ async function ownDatabase(context, suffix) {
   return knex;
 }
 
+/** The repository on the console feature's handle of the record, over the test's database. */
+async function repositoryOn(knex) {
+  const runtime = await createTestResourceRuntime({ knex });
+  const { consoleSettings } = await runtime.own("console.core", [consoleSettingsTableResource]);
+  return createRepository({ consoleSettings });
+}
+
 /** The current second, as the second-precision timestamps keep it. */
 const thisSecond = () => Math.floor(Date.now() / 1000) * 1000;
 
 test("the singleton answers its id, owner, empty settings and ISO timestamps", async (context) => {
   requireTestDatabase(process.env);
-  const repository = createRepository({ knex: await ownDatabase(context, "da_console_shape") });
+  const repository = await repositoryOn(await ownDatabase(context, "da_console_shape"));
   assert.ok(Object.isFrozen(repository));
   assert.deepEqual(Object.keys(repository), ["withTransaction", "getSingleton", "ensureOwnerUserId", "updateSingleton"]);
 
@@ -64,7 +73,7 @@ test("the singleton answers its id, owner, empty settings and ISO timestamps", a
 
 test("the first owner wins, the same answer comes back after, and anything but a positive id is refused", async (context) => {
   requireTestDatabase(process.env);
-  const repository = createRepository({ knex: await ownDatabase(context, "da_console_owner") });
+  const repository = await repositoryOn(await ownDatabase(context, "da_console_owner"));
 
   for (const userId of [0, -1, 1.5, "abc", "007", "", null, undefined, Number.MAX_SAFE_INTEGER + 1]) {
     await assert.rejects(repository.ensureOwnerUserId(userId), {
@@ -89,7 +98,7 @@ test("the first owner wins, the same answer comes back after, and anything but a
 
 test("two first owners at once both get the same winner", async (context) => {
   requireTestDatabase(process.env);
-  const repository = createRepository({ knex: await ownDatabase(context, "da_console_race") });
+  const repository = await repositoryOn(await ownDatabase(context, "da_console_race"));
   const answers = await Promise.all([repository.ensureOwnerUserId(3), repository.ensureOwnerUserId(4)]);
   assert.equal(answers[0], answers[1]);
   assert.ok(["3", "4"].includes(answers[0]));
@@ -98,28 +107,28 @@ test("two first owners at once both get the same winner", async (context) => {
 
 test("the repository joins its caller's transaction: a rollback undoes the owner and the touch", async (context) => {
   requireTestDatabase(process.env);
-  const repository = createRepository({ knex: await ownDatabase(context, "da_console_trx") });
+  const repository = await repositoryOn(await ownDatabase(context, "da_console_trx"));
 
   const failure = new Error("rolled back");
-  await assert.rejects(repository.withTransaction(async (trx) => {
-    assert.equal(await repository.ensureOwnerUserId(" 5 ", { trx }), "5");
-    assert.equal((await repository.getSingleton({ trx })).ownerUserId, "5", "seen inside the transaction");
+  await assert.rejects(repository.withTransaction({}, async (txOptions) => {
+    assert.equal(await repository.ensureOwnerUserId(" 5 ", txOptions), "5");
+    assert.equal((await repository.getSingleton(txOptions)).ownerUserId, "5", "seen inside the transaction");
     assert.equal((await repository.getSingleton()).ownerUserId, null, "not outside it before the commit");
-    assert.notEqual((await repository.updateSingleton({ trx })).updatedAt, LONG_AGO);
+    assert.notEqual((await repository.updateSingleton(txOptions)).updatedAt, LONG_AGO);
     throw failure;
   }), (error) => error === failure);
   const after = await repository.getSingleton();
   assert.equal(after.ownerUserId, null);
   assert.equal(after.updatedAt, LONG_AGO);
 
-  assert.equal(await repository.withTransaction(async (trx) => repository.ensureOwnerUserId(6, { trx })), "6", "withTransaction answers the work's value");
+  assert.equal(await repository.withTransaction({}, async (txOptions) => repository.ensureOwnerUserId(6, txOptions)), "6", "withTransaction answers the work's value");
   assert.equal((await repository.getSingleton({ trx: null })).ownerUserId, "6", "kept once committed; a null trx reads outside one");
 });
 
 test("without its row, every call fails with the same plain error", async (context) => {
   requireTestDatabase(process.env);
   const knex = await ownDatabase(context, "da_console_missing");
-  const repository = createRepository({ knex });
+  const repository = await repositoryOn(knex);
   await knex("console_settings").where({ id: 1 }).del();
   const missing = (error) => {
     assert.equal(error.constructor, Error);
@@ -135,7 +144,7 @@ test("without its row, every call fails with the same plain error", async (conte
 
 test("the console runtime's services make the first signed-in user the owner and refuse everyone else", async (context) => {
   requireTestDatabase(process.env);
-  const repository = createRepository({ knex: await ownDatabase(context, "da_console_runtime") });
+  const repository = await repositoryOn(await ownDatabase(context, "da_console_runtime"));
   const { services } = createConsoleRuntime({ consoleSettingsRepository: repository });
   const refused = (status, code, message) => (error) => {
     assert.equal(error.name, "AppError");
