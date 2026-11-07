@@ -22,16 +22,9 @@ function readParentId(record) {
   return record?.id;
 }
 
-function toDefaultChildCallOptions({ callOptions = {} } = {}) {
-  const nextOptions = {};
-  if (Object.hasOwn(callOptions, "trx")) {
-    nextOptions.trx = callOptions.trx;
-  }
-  if (Object.hasOwn(callOptions, "visibilityContext")) {
-    nextOptions.visibilityContext = callOptions.visibilityContext;
-  }
-
-  return nextOptions;
+// The children are read with the page's own options: its context, which scopes the read, and its transaction.
+function passCallOptions({ callOptions = {} } = {}) {
+  return callOptions;
 }
 
 function resolveListChildrenHandler(options = {}, { context = "createHooksToCollectChildren" } = {}) {
@@ -41,7 +34,7 @@ function resolveListChildrenHandler(options = {}, { context = "createHooksToColl
   }
 
   const childRepository = options.childRepository;
-  const childListMethod = normalizeText(options.childListMethod) || "listByIds";
+  const childListMethod = normalizeText(options.childListMethod);
   const childForeignKey = normalizeText(options.childForeignKey);
   if (!childRepository || typeof childRepository !== "object" || Array.isArray(childRepository)) {
     throw new TypeError(
@@ -49,30 +42,27 @@ function resolveListChildrenHandler(options = {}, { context = "createHooksToColl
     );
   }
 
+  if (!childListMethod) {
+    // readable-check: allow method-probe - input validation: the child table's repository, a CRUD feature's handle, must read with queryAll()
+    if (typeof childRepository.queryAll !== "function") {
+      throw new TypeError(`${context} requires childRepository.queryAll to be a function, or a childListMethod.`);
+    }
+    if (!childForeignKey) {
+      throw new TypeError(`${context} requires childForeignKey when it reads childRepository.queryAll.`);
+    }
+    // Every child of the page's owners in one read through the child table's own repository.
+    return (ids = [], childCallOptions = {}) =>
+      childRepository.queryAll({ filters: { [childForeignKey]: ids } }, childCallOptions);
+  }
+
   const listChildren = childRepository[childListMethod];
+  // readable-check: allow method-probe - input validation: the named childListMethod must be a method of childRepository
   if (typeof listChildren !== "function") {
     throw new TypeError(`${context} requires childRepository.${childListMethod} to be a function.`);
   }
 
-  if (childListMethod === "listByIds") {
-    if (!childForeignKey) {
-      throw new TypeError(`${context} requires childForeignKey when using childRepository.listByIds.`);
-    }
-
-    return (ids = [], childCallOptions = {}, hookContext = {}) =>
-      listChildren.call(childRepository, ids, {
-        ...childCallOptions,
-        valueKey: childForeignKey
-      }, hookContext);
-  }
-
-  if (childListMethod === "listByForeignIds") {
-    if (!childForeignKey) {
-      throw new TypeError(`${context} requires childForeignKey when using childRepository.listByForeignIds.`);
-    }
-
-    return (ids = [], childCallOptions = {}, hookContext = {}) =>
-      listChildren.call(childRepository, ids, childForeignKey, childCallOptions, hookContext);
+  if (childListMethod === "listByForeignIds" && !childForeignKey) {
+    throw new TypeError(`${context} requires childForeignKey when using childRepository.listByForeignIds.`);
   }
 
   return (ids = [], childCallOptions = {}, hookContext = {}) => {
@@ -128,9 +118,11 @@ function resolveChildrenContainerKey(hookContext = {}, options = {}) {
  * @param {string} options.childKey The key the children are attached under.
  * @param {string} [options.context] The name errors give the hooks.
  * @param {(ids: unknown[], callOptions: object, hookContext: object) => Promise<object[]>} [options.listChildren]
- *   Lists the children of the owner ids; otherwise childRepository's childListMethod does.
- * @param {object} [options.childRepository]
- * @param {string} [options.childListMethod]
+ *   Lists the children of the owner ids; otherwise childRepository does.
+ * @param {object} [options.childRepository] The child table's repository: without childListMethod, its
+ *   queryAll() reads the children whose childForeignKey is one of the owner ids, as a CRUD feature's repository does.
+ * @param {string} [options.childListMethod] A repository method to call instead, with the owner ids, childForeignKey
+ *   when it is given, the call options and the hook context.
  * @param {string} [options.childForeignKey]
  * @param {(child: object, hookContext: object) => unknown} [options.getChildOwnerId]
  *   Reads a child's owner id; otherwise childOwnerIdKey or childForeignKey names it.
@@ -138,7 +130,8 @@ function resolveChildrenContainerKey(hookContext = {}, options = {}) {
  * @param {(record: object, hookContext: object) => unknown} [options.getParentId] Reads a record's id.
  * @param {(value: unknown) => string} [options.normalizeOwnerKey] Turns an owner id into a map key.
  * @param {(input: { callOptions: object, records: object[], ownerIds: unknown[], context: object }) => object} [options.buildChildCallOptions]
- *   The options the children are listed with; by default the query's trx and visibilityContext.
+ *   The options the children are listed with; by default the page's own call options, untouched: its context and
+ *   transaction.
  * @param {(record: object, children: object[], hookContext: object) => object} [options.attachChildren]
  *   Returns the record with its children; by default under childKey in the lookup container, or on
  *   the record itself when attachToLookupContainer is false.
@@ -159,7 +152,7 @@ function createHooksToCollectChildren(options = {}) {
   const {
     getParentId = readParentId,
     normalizeOwnerKey: normalizeCollectionOwnerKey = normalizeOwnerKey,
-    buildChildCallOptions = toDefaultChildCallOptions,
+    buildChildCallOptions = passCallOptions,
     attachChildren = attachChildrenToRecord
   } = options;
   const getChildOwnerId = resolveGetChildOwnerId(options, {
