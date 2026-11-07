@@ -34,6 +34,7 @@ Exports
 - `requireProtection(protection)`
 Local functions
 - `hash(value)`
+- `withLockedRow(handle, options, attributes, work)`
 
 ### `src/server/ConnectionStoreFeature.js`
 Exports

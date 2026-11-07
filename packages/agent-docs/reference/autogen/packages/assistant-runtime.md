@@ -326,13 +326,15 @@ Local functions
 - `mapConversationRecord(record = {})`
 - `normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimit = 200 } = {})`
 - `rethrowLockError(error)`
+- `conversationChanges(patch)`
 
 ### `src/server/repositories/messagesRepository.js`
 Exports
-- `createRepository({ messages, systemContext })`
+- `createRepository({ messages, conversations, systemContext })`
 Local functions
 - `mapMessageRecord(record = {})`
 - `normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 200, maxPageSize = 500 } = {})`
+- `isNewer(a, b)`
 
 ### `src/server/repositories/repositoryPersistenceUtils.js`
 Exports
