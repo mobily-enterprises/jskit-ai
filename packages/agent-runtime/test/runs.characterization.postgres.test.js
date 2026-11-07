@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import { RUN_LIMITS, createRuns, startResumer } from "../src/server/index.js";
-import { BOT_COLUMN, agentOwner, testDatabase } from "./database.js";
+import { BOT_COLUMN, OTHER_DATABASE, agentOwner, testDatabase } from "./database.js";
 
 // What createRuns answers and keeps today, pinned before its table moves onto a resource: the
 // shapes of saved() and of a taken-over run, what a claim of a stale run keeps, what save() does
@@ -14,7 +14,7 @@ const steps = [{ role: "assistant", content: [call] }, { role: "tool", content: 
 
 const quiet = (knex, conversationId) => knex("agent_runs").where({ conversation_id: conversationId }).update({ heartbeat_at: knex.raw("now() - interval '5 minutes'") });
 
-test("createRuns answers a conversation's saved state in fixed shapes", async (context) => {
+test("createRuns answers a conversation's saved state in fixed shapes", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
   const runs = createRuns(await agentOwner(knex));
@@ -35,7 +35,7 @@ test("createRuns answers a conversation's saved state in fixed shapes", async (c
   assert.deepEqual(await runs.saved(2), { steps: null, input: null });
 });
 
-test("save() writes nothing for a conversation nobody claimed, and keeps a run alive", async (context) => {
+test("save() writes nothing for a conversation nobody claimed, and keeps a run alive", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
   await knex.schema.alterTable("agent_runs", (table) => table.bigInteger("bot_id"));
@@ -63,7 +63,7 @@ test("save() writes nothing for a conversation nobody claimed, and keeps a run a
   assert.equal(taken.bot_id, "7", "a stale claim leaves the app's owner columns as the first claim wrote them");
 });
 
-test("takeOverStalled answers whole rows, at most `count`, of stale runs with steps", async (context) => {
+test("takeOverStalled answers whole rows, at most `count`, of stale runs with steps", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
   const runs = createRuns(await agentOwner(knex));
@@ -95,7 +95,7 @@ test("takeOverStalled answers whole rows, at most `count`, of stale runs with st
   assert.deepEqual(all.find((run) => run.conversation_id === "10").input, { human: true });
 });
 
-test("the staleness limit is the runs' own", async (context) => {
+test("the staleness limit is the runs' own", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
   const limits = { staleSeconds: 3600, heartbeatMs: 1000 };
@@ -110,7 +110,7 @@ test("the staleness limit is the runs' own", async (context) => {
   assert.equal(await createRuns(agent).claim(20), true, "while the default minute's limit finds it stale");
 });
 
-test("resumable(query) narrows takeOverStalled and the resumer with the store's query builder", async (context) => {
+test("resumable(query) narrows takeOverStalled and the resumer with the store's query builder", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
   const runs = createRuns(await agentOwner(knex));
@@ -131,7 +131,7 @@ test("resumable(query) narrows takeOverStalled and the resumer with the store's 
 
 // Incidental today: the writes answer Knex's count of rows touched. Nothing in the package reads
 // these; pinned so a conversion that changes them does it on purpose.
-test("heartbeat, release and save answer the number of rows they touched", async (context) => {
+test("heartbeat, release and save answer the number of rows they touched", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
   const runs = createRuns(await agentOwner(knex));

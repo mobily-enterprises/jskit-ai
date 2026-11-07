@@ -3,7 +3,7 @@ import test from "node:test";
 import { SUMMARY_LIMITS } from "@jskit-ai/agent/server";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import { createSummaries } from "../src/server/index.js";
-import { agentOwner, testDatabase } from "./database.js";
+import { OTHER_DATABASE, agentOwner, testDatabase } from "./database.js";
 
 // What createSummaries answers and keeps today, pinned before its tables move onto resources: the
 // shapes of current() and compact(), summaries kept per conversation, the newest-summary-wins rule
@@ -38,7 +38,7 @@ async function conversations(context) {
   return { knex, agent, say, exchanges, history, queued };
 }
 
-test("current() and compact() answer fixed shapes, per conversation", async (context) => {
+test("current() and compact() answer fixed shapes, per conversation", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { knex, agent, exchanges, history } = await conversations(context);
   const store = createSummaries({ ...agent, history, limits, summarize: async () => "SUMMARY ONE" });
@@ -60,7 +60,7 @@ test("current() and compact() answer fixed shapes, per conversation", async (con
   assert.deepEqual(await store.current(2), { summary: "", after: 0 });
 });
 
-test("only the newest summaries are kept, and a reply reads the newest", async (context) => {
+test("only the newest summaries are kept, and a reply reads the newest", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { knex, agent, exchanges, history } = await conversations(context);
   let count = 0;
@@ -77,7 +77,7 @@ test("only the newest summaries are kept, and a reply reads the newest", async (
   assert.deepEqual(await store.current(3), { summary: rows[1].summary, after: last.coversUpTo });
 });
 
-test("another server's newer summary wins, and the losing compact still answers what it covered", async (context) => {
+test("another server's newer summary wins, and the losing compact still answers what it covered", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { knex, agent, exchanges, history } = await conversations(context);
   let release;
@@ -100,7 +100,7 @@ test("another server's newer summary wins, and the losing compact still answers 
   assert.equal((await slow.current(4)).summary, "FAST SERVER");
 });
 
-test("the queue keeps one request per conversation, runs the oldest first and leaves a leased one alone", async (context) => {
+test("the queue keeps one request per conversation, runs the oldest first and leaves a leased one alone", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { knex, agent, exchanges, history, queued } = await conversations(context);
   const order = [];
@@ -129,7 +129,7 @@ test("the queue keeps one request per conversation, runs the oldest first and le
   assert.equal(await store.runOne(), false, "nothing left");
 });
 
-test("an empty summary is an error; failures back off 1, then 2 minutes", async (context) => {
+test("an empty summary is an error; failures back off 1, then 2 minutes", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { knex, agent, exchanges, history, queued } = await conversations(context);
   const store = createSummaries({ ...agent, history, limits, summarize: async () => "" });
@@ -156,7 +156,7 @@ test("an empty summary is an error; failures back off 1, then 2 minutes", async 
 // long turn, so there is no turn boundary to cut at) is removed from the queue and queued again
 // at once by the same runOne() (with a wake notice), so the loop takes it up again straight away,
 // up to 20 times a tick, without ever summarising it.
-test("a queued conversation whose compact is skipped is queued again at once", async (context) => {
+test("a queued conversation whose compact is skipped is queued again at once", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { agent, say, history, queued } = await conversations(context);
   const summarized = [];
