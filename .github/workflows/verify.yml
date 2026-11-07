@@ -224,7 +224,7 @@ jobs:
           DB_PASSWORD: native_test_password
           DB_NAME: application_test
           TEST_DB_NAME: application_test
-        run: npx jskit test packages/database-runtime/test/testDatabases.postgres.test.js packages/agent-runtime/test/*.postgres.test.js
+        run: npx jskit test packages/database-runtime/test/*.postgres.test.js packages/agent-runtime/test/*.postgres.test.js
 
   deploy-docs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'

@@ -1,6 +1,6 @@
 import diagnosticsChannel from "node:diagnostics_channel";
 import { normalizeDatabaseClient, toKnexClientId } from "../shared/databaseClient.js";
-import { resolveKnexConnectionFromEnvironment } from "../shared/databaseConnection.js";
+import { resolveKnexConnectionFromEnvironment, resolveKnexPool } from "../shared/databaseConnection.js";
 import { createTransactionManager } from "../shared/transactionManager.js";
 import { loadKnexFactory } from "./knexFactory.js";
 
@@ -30,6 +30,7 @@ function createDatabase({ driver, env }) {
     throw new Error(`DB_CLIENT="${configuredClient}" does not match installed database driver "${dialectId}".`);
   }
 
+  const pool = resolveKnexPool(dialectId);
   /** @type {import("./types.js").RuntimeKnex} */
   const knex = loadKnexFactory()({
     client: toKnexClientId(dialectId),
@@ -37,7 +38,8 @@ function createDatabase({ driver, env }) {
       client: dialectId,
       defaultPort: dialectId === "pg" ? 5432 : 3306,
       context: "database runtime"
-    })
+    }),
+    ...(pool ? { pool } : {})
   });
   const statements = diagnosticsChannel.channel(RUNTIME_QUERY_CHANNEL);
   knex.on("query", (query) => statements.publish(query));

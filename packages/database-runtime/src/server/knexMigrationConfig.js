@@ -5,7 +5,7 @@ import {
   normalizeDatabaseClient,
   toKnexClientId
 } from "../shared/databaseClient.js";
-import { resolveKnexConnectionFromEnvironment } from "../shared/databaseConnection.js";
+import { resolveKnexConnectionFromEnvironment, resolveKnexPool } from "../shared/databaseConnection.js";
 
 /**
  * The Knex configuration for migrating the database the application's environment names.
@@ -32,6 +32,7 @@ function createKnexMigrationConfig({
   }
   const dialectId = normalizeDatabaseClient(client);
   const resolvedMigrationsDirectory = path.resolve(appRoot, migrationsDirectory);
+  const pool = resolveKnexPool(dialectId);
 
   return {
     client: toKnexClientId(dialectId),
@@ -40,6 +41,7 @@ function createKnexMigrationConfig({
       defaultPort: dialectId === "pg" ? 5432 : 3306,
       context: "knex migrations"
     }),
+    ...(pool ? { pool } : {}),
     migrations: {
       // Packages create the tables application migrations build on; package constraints
       // can then reference application tables such as users.
