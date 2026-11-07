@@ -115,7 +115,7 @@ WORKSPACE_CRUD_SCOPE` (`@jskit-ai/workspaces-core/server/support/workspaceCrud`)
 the `/w/:workspaceSlug` route base, the workspace route and action validators
 and the slug input. A repository method of such a feature reads the workspace
 id with `resolveWorkspaceScopeValue(options.context)`
-(`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`), and a
+(`@jskit-ai/resource-runtime/server/resourceHost`), and a
 hand-written workspace route's path is
 `resolveWorkspaceRoutePath("relative-path")`
 (`@jskit-ai/workspaces-core/server/support/workspaceRoutePaths`). The feature exposes the

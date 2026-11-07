@@ -69,12 +69,12 @@ Exports
 - `TestDatabaseMissingError`
 - `countQueries(knex, work)`
 - `countRuntimeQueries(work)`
-- `expectFlatQueries({ sizes = [10, 200], seed, run, knex = null, environment })`
 - `matchesSnapshot(knexConfig, database, snapshot)`
 - `prepareTestDatabases({ knexConfig, environment, variable = "TEST_DB_NAME", count = 1, seed, schema = {}, appRoot = process.cwd() })`
 - `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`
 - `requireTestDatabase(environment)`
 - `restoreTestDatabase(knexConfig, database, snapshot)`
+- `tableNames(knex)`
 - `testDatabaseNames(name, count)`
 - `testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd() })`
 - `testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), schemaFiles = [] } = {})`
@@ -90,9 +90,6 @@ Local functions
 - `dialectOf(knexConfig)`
 - `refusedPrivilege(error)`
 - `recordStatements(listen, work)`
-- `normalizedStatement(sql)`
-- `mostRepeated(queries)`
-- `requireSizes(sizes)`
 
 ### `src/server/types.js`
 Exports

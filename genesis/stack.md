@@ -100,7 +100,7 @@
 - Manifest: `packages/database-runtime-postgres/package.json`
 - Manifest: `packages/http-runtime/package.json`
 - Manifest: `packages/http-web/package.json`
-- Manifest: `packages/json-rest-api-core/package.json`
+- Manifest: `packages/resource-runtime/package.json`
 - Manifest: `packages/kernel/package.json`
 - Manifest: `packages/mobile-capacitor/package.json`
 - Manifest: `packages/oidc-issuer-core/package.json`

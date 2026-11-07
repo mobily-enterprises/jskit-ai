@@ -688,7 +688,7 @@ helper, never by hand.**
 | a created record's id | `resolveCrudJsonApiEntityIdFromResult(result)` (`@jskit-ai/crud-core/server/serviceEvents`) |
 | a CRUD record change's event | `buildCrudRecordChangedEvent({ namespace, operation, entityId, audience })` (`@jskit-ai/crud-core/server/serviceEvents`) |
 | the workspace a request asks for, before any action context | `requestedWorkspaceScope(request)` (`@jskit-ai/workspaces-core/server/support/workspaceRouteInput`) |
-| a context's workspace id | `resolveWorkspaceScopeValue(context)` (`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`) |
+| a context's workspace id | `resolveWorkspaceScopeValue(context)` (`@jskit-ai/resource-runtime/server/resourceHost`) |
 
 Why: each reader knows every place JSKIT keeps its fact (`trx` or
 `transaction`, a tagged result's wrapper), and a hand read misses one.
@@ -705,7 +705,7 @@ const trx = options?.trx || options?.transaction || null;
 
 **A server-side resource query that needs every row it matches reads them
 with `queryAllJsonRestCollectionRows(resource, params, context)`
-(`@jskit-ai/json-rest-api-core/server/jsonRestApiHost`). A query without a
+(`@jskit-ai/resource-runtime/server/resourceHost`). A query without a
 page means "the first 20 rows".**
 
 - json-rest-api answers a query that names no page with the resource's

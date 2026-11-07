@@ -68,7 +68,7 @@ export default [
     "packages/database-runtime/src/server/**",
     "packages/database-runtime-mysql/src/server/**",
     "packages/database-runtime-postgres/src/server/**",
-    "packages/json-rest-api-core/src/server/**",
+    "packages/resource-runtime/src/server/**",
     "packages/crud-core/src/server/**",
     "packages/auth-core/src/server/**",
     "packages/auth-provider-local-core/src/server/**",
@@ -120,8 +120,8 @@ export default [
   ...dataAccessConfig(["packages/kernel/server/**", "packages/kernel/shared/**"]),
   // The packages whose job is data access are the resource path itself, so the rules leave them alone.
   ...dataAccessConfig([
-    // The resource runtime (it becomes resource-runtime): the json-rest-api host, handles and scoped queries.
-    "packages/json-rest-api-core/**",
+    // The resource runtime: the json-rest-api host, handles and scoped queries.
+    "packages/resource-runtime/**",
     // Connections, migrations, test databases and the transaction manager every handle runs on.
     "packages/database-runtime/**",
     // The MySQL dialect: its driver, table introspection and dialect SQL.

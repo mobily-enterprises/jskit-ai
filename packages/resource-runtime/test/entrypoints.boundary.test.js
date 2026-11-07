@@ -13,24 +13,26 @@ import {
   buildJsonRestQueryParams,
   createJsonRestResourceScopeOptions,
   createJsonRestContext,
-  createJsonRestApiHost,
+  createResourceHost,
   extractJsonRestCollectionRows,
   returnNullWhenJsonRestResourceMissing,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,
   resolveUserScopeValue
-} from "../src/server/jsonRestApiHost.js";
-import { JsonRestApiProvider } from "../src/server/JsonRestApiProvider.js";
+} from "../src/server/resourceHost.js";
+import { ResourceRuntimeProvider } from "../src/server/ResourceRuntimeProvider.js";
 
-test("package exports include explicit server jsonRestApiHost entrypoint only", async () => {
+test("package exports the runtime, its host, its types and its test helpers", async () => {
   const packageJson = JSON.parse(await readFile(new URL("../package.json", import.meta.url), "utf8"));
   const exportsMap = packageJson && typeof packageJson === "object" ? packageJson.exports : {};
-  assert.equal(exportsMap["./server/jsonRestApiHost"], "./src/server/jsonRestApiHost.js");
-  assert.equal(exportsMap["./server"], undefined);
+  assert.equal(exportsMap["./server"], "./src/server/index.js");
+  assert.equal(exportsMap["./server/resourceHost"], "./src/server/resourceHost.js");
+  assert.equal(exportsMap["./server/types"], "./src/server/types.js");
+  assert.equal(exportsMap["./test"], "./src/test/index.js");
 });
 
-test("server jsonRestApiHost entrypoint exposes only the focused host API", async () => {
-  const hostModule = await import("../src/server/jsonRestApiHost.js");
+test("server resourceHost entrypoint exposes only the focused host API", async () => {
+  const hostModule = await import("../src/server/resourceHost.js");
   assert.equal(Object.hasOwn(hostModule, "simplifyJsonApiDocument"), false);
   assert.equal(Object.hasOwn(hostModule, "createJsonApiInputRecord"), false);
   assert.equal(Object.hasOwn(hostModule, "createJsonApiRelationship"), false);
@@ -41,15 +43,15 @@ test("server entrypoint exports shared host helpers", () => {
   assert.equal(typeof buildJsonRestQueryParams, "function");
   assert.equal(typeof createJsonRestResourceScopeOptions, "function");
   assert.equal(typeof createJsonRestContext, "function");
-  assert.equal(typeof createJsonRestApiHost, "function");
+  assert.equal(typeof createResourceHost, "function");
   assert.equal(typeof extractJsonRestCollectionRows, "function");
   assert.equal(typeof returnNullWhenJsonRestResourceMissing, "function");
   assert.equal(typeof returnBadRequestWhenJsonRestFieldsetInvalid, "function");
   assert.equal(typeof resolveWorkspaceScopeValue, "function");
   assert.equal(typeof resolveUserScopeValue, "function");
-  assert.equal(JsonRestApiProvider.id, "runtime.json-rest-api");
-  assert.deepEqual(JsonRestApiProvider.requires, { database: "runtime.database", logger: "runtime.logger" });
-  assert.deepEqual(JsonRestApiProvider.provides, { jsonRestApi: "runtime.json-rest-api" });
+  assert.equal(ResourceRuntimeProvider.id, "runtime.resources");
+  assert.deepEqual(ResourceRuntimeProvider.requires, { database: "runtime.database", logger: "runtime.logger" });
+  assert.deepEqual(ResourceRuntimeProvider.provides, { resources: "runtime.resources", jsonRestApi: "runtime.json-rest-api" });
 });
 
 test("createJsonRestContext returns a mutable clone for frozen JSKIT execution context", () => {
@@ -108,7 +110,7 @@ test("extractJsonRestCollectionRows understands the internal collection-document
   }
 });
 
-test("createJsonRestApiHost installs normalizeRecordId as the default resource id normalizer", async () => {
+test("createResourceHost installs normalizeRecordId as the default resource id normalizer", async () => {
   const fakeKnex = Object.assign(() => {}, {
     client: {
       config: {
@@ -125,7 +127,7 @@ test("createJsonRestApiHost installs normalizeRecordId as the default resource i
     transaction() {}
   });
 
-  const api = await createJsonRestApiHost({
+  const api = await createResourceHost({
     knex: fakeKnex,
     logger: silentLogger
   });
@@ -136,7 +138,7 @@ test("createJsonRestApiHost installs normalizeRecordId as the default resource i
   assert.equal(api.vars.normalizeId(7.5), null);
 });
 
-test("createJsonRestApiHost uses the v2 runtime and the logger it is given", async () => {
+test("createResourceHost uses the v2 runtime and the logger it is given", async () => {
   const fakeKnex = Object.assign(() => {}, {
     client: {
       config: {
@@ -154,19 +156,19 @@ test("createJsonRestApiHost uses the v2 runtime and the logger it is given", asy
   });
 
   const messages = [];
-  const api = await createJsonRestApiHost({
+  const api = await createResourceHost({
     knex: fakeKnex,
     logger: { ...silentLogger, error: (...args) => messages.push(args) }
   });
 
   assert.ok(api instanceof JsonRestApi);
   await assert.rejects(
-    () => createJsonRestApiHost({ knex: fakeKnex }),
-    /createJsonRestApiHost requires a logger with debug, info, warn and error\./
+    () => createResourceHost({ knex: fakeKnex }),
+    /createResourceHost requires a logger with debug, info, warn and error\./
   );
   await assert.rejects(
-    () => createJsonRestApiHost({ knex: fakeKnex, logger: { error() {} } }),
-    /createJsonRestApiHost requires a logger/
+    () => createResourceHost({ knex: fakeKnex, logger: { error() {} } }),
+    /createResourceHost requires a logger/
   );
   assert.equal(api.vars.format, "plain");
   assert.equal(api.vars.returning, "full");
@@ -175,7 +177,7 @@ test("createJsonRestApiHost uses the v2 runtime and the logger it is given", asy
   assert.deepEqual(messages, [["failure", { code: "example" }]]);
 
   const providerMessages = [];
-  const { jsonRestApi } = await JsonRestApiProvider.setup({
+  const { jsonRestApi } = await ResourceRuntimeProvider.setup({
     database: { knex: fakeKnex },
     logger: { ...silentLogger, warn: (...args) => providerMessages.push(args) }
   });
@@ -183,7 +185,7 @@ test("createJsonRestApiHost uses the v2 runtime and the logger it is given", asy
   assert.deepEqual(providerMessages, [["provider warning"]]);
 });
 
-test("createJsonRestApiHost installs row policies before resources are added", async () => {
+test("createResourceHost installs row policies before resources are added", async () => {
   const fakeKnex = Object.assign(() => {}, {
     client: {
       config: {
@@ -200,7 +202,7 @@ test("createJsonRestApiHost installs row policies before resources are added", a
     transaction() {}
   });
 
-  const api = await createJsonRestApiHost({ knex: fakeKnex, logger: silentLogger });
+  const api = await createResourceHost({ knex: fakeKnex, logger: silentLogger });
   const rowPolicy = () => false;
   const scopeOptions = createJsonRestResourceScopeOptions(defineTableResource({
     name: "privateContacts",
@@ -523,7 +525,7 @@ test("createJsonRestResourceScopeOptions rejects query field names for column-ba
   );
 });
 
-test("createJsonRestApiHost installs json-rest-api query projections", async (t) => {
+test("createResourceHost installs json-rest-api query projections", async (t) => {
   const knex = knexLib({
     client: "better-sqlite3",
     connection: { filename: ":memory:" },
@@ -534,7 +536,7 @@ test("createJsonRestApiHost installs json-rest-api query projections", async (t)
     table.increments("id");
   });
   await knex("projection_contacts").insert({ id: 1 });
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
 
   await api.addResource("projectionContacts", {
     tableName: "projection_contacts",
@@ -573,7 +575,7 @@ async function createTemporalFixture() {
       table.time("opens_at");
       table.integer("holiday_id").references("id").inTable("holidays");
     });
-    const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+    const api = await createResourceHost({ knex, logger: silentLogger });
     await api.addResource("holidays", createJsonRestResourceScopeOptions(defineTableResource({
       name: "holidays",
       tableName: "holidays",
@@ -600,7 +602,7 @@ async function createTemporalFixture() {
   }
 }
 
-test("createJsonRestApiHost uses core temporal normalization for writes, reads and includes", async (t) => {
+test("createResourceHost uses core temporal normalization for writes, reads and includes", async (t) => {
   const { api, knex } = await createTemporalFixture();
   t.after(() => knex.destroy());
   const holiday = await api.resources.holidays.post({ data: { observedOn: "2024-03-01" } });
@@ -631,12 +633,12 @@ test("createJsonRestApiHost uses core temporal normalization for writes, reads a
 });
 
 test("calendar date writes and responses keep leap day across server time zones", () => {
-  const hostModuleUrl = new URL("../src/server/jsonRestApiHost.js", import.meta.url).href;
+  const hostModuleUrl = new URL("../src/server/resourceHost.js", import.meta.url).href;
   const script = `
     import knexLib from "knex";
     import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
     import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
-    import { createJsonRestApiHost, createJsonRestResourceScopeOptions } from ${JSON.stringify(hostModuleUrl)};
+    import { createResourceHost, createJsonRestResourceScopeOptions } from ${JSON.stringify(hostModuleUrl)};
     ${createTemporalFixture.toString()}
     const { api, knex } = await createTemporalFixture();
     try {
@@ -675,7 +677,7 @@ test("calendar date writes and responses keep leap day across server time zones"
   }
 });
 
-test("createJsonRestApiHost maps native database datetime strings through core reads", async (t) => {
+test("createResourceHost maps native database datetime strings through core reads", async (t) => {
   const { api, knex } = await createTemporalFixture();
   t.after(() => knex.destroy());
   await knex("books").insert({
@@ -831,7 +833,7 @@ test("scope resolvers understand explicit scopeValues and JSKIT visibilityContex
   assert.equal(resolveUserScopeValue(null), null);
 });
 
-test("json-rest-api's fixed-English errors render from the json-rest-api-core catalog", async () => {
+test("json-rest-api's fixed-English errors render from the resource-runtime catalog", async () => {
   const { RestApiPreconditionFailedError, RestApiVersionConflictError } = await import("json-rest-api");
   const { catalogMessage, formatMessage, messageKeyForCode } = await import("@jskit-ai/kernel/shared/i18n");
   const english = JSON.parse(await readFile(new URL("../locales/en.json", import.meta.url), "utf8"));

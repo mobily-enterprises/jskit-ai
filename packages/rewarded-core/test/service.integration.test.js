@@ -6,9 +6,9 @@ import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
 import { createCrudJsonApiRepository } from "@jskit-ai/crud-core/server/jsonApiRepository";
 import {
   addResourceIfMissing,
-  createJsonRestApiHost,
+  createResourceHost,
   createJsonRestResourceScopeOptions
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import providerConfigsMigration from "../migrations/rewarded_provider_configs_initial.cjs";
 import rulesMigration from "../migrations/rewarded_rules_initial.cjs";
 import watchSessionsMigration from "../migrations/rewarded_watch_sessions_initial.cjs";
@@ -77,7 +77,7 @@ test(`rewarded grants use real resources and atomic transactions (${databaseUrl 
   await knex("users").insert([{ id: 7 }, { id: 8 }]);
   await knex("workspaces").insert([{ id: 1 }, { id: 2 }]);
 
-  const api = await createJsonRestApiHost({ knex, logger: silentLogger });
+  const api = await createResourceHost({ knex, logger: silentLogger });
   const repositories = {};
   for (const [scopeName, resource, migration] of RESOURCES) {
     await addResourceIfMissing(api, scopeName, createJsonRestResourceScopeOptions(resource, {

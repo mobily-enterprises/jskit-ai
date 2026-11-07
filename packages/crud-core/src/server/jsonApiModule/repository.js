@@ -4,7 +4,7 @@ import {
   queryAllJsonRestCollectionDocument,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   returnNullWhenJsonRestResourceMissing
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { resolveTransaction, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 
@@ -27,7 +27,7 @@ function writeReturning(options, fallback = "full") {
 
 /**
  * @param {object} dependencies
- * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.api
+ * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} dependencies.api
  * @param {import("../types.js").TableResource} dependencies.resource The table resource.
  * @param {string} dependencies.resourceScopeName
  */
