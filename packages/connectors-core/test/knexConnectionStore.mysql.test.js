@@ -105,6 +105,35 @@ test("a failed disconnect or a failed seal keeps the connection and its attempts
   }), (error) => error === sealFailure);
   assert.deepEqual(await read(store, scope), { version: 1 });
   assert.deepEqual(await store.withConnection(scope, ({ consumeAttempt }) => consumeAttempt(attempt.state)), attempt);
+
+  // A connection whose first work fails leaves no row: its creation rolls back with the work.
+  const [{ rows }] = await knex("connector_connections").count({ rows: "*" });
+  await assert.rejects(store.withConnection({ ...scope, integrationId: "never-kept" }, async ({ save }) => {
+    await save({ version: 1 });
+    throw failure;
+  }), (error) => error === failure);
+  assert.deepEqual(await knex("connector_connections").count({ rows: "*" }), [{ rows }]);
+});
+
+test("first uses of new connections at once each create their row once and run their work once", { timeout: 20_000 }, async (context) => {
+  requireTestDatabase(process.env);
+  const knex = await ownDatabase(context, "da_conn_race");
+  const store = createKnexConnectionStore({ knex, protection });
+  const slots = ["one", "two", "three"].map((integrationId) => ({ ...scope, integrationId }));
+  let runs = 0;
+  const saved = await Promise.all(slots.flatMap((slot) => [1, 2].map(() => store.withConnection(slot, async ({ connection, save }) => {
+    runs += 1;
+    const version = (connection?.version ?? 0) + 1;
+    await save({ version });
+    return version;
+  }))));
+  assert.equal(runs, 6, "each work ran once");
+  for (const [index, slot] of slots.entries()) {
+    assert.deepEqual(saved.slice(index * 2, index * 2 + 2).sort(), [1, 2], slot.integrationId);
+    assert.deepEqual(await read(store, slot), { version: 2 }, slot.integrationId);
+  }
+  const [{ rows }] = await knex("connector_connections").count({ rows: "*" });
+  assert.equal(Number(rows), 3);
 });
 
 test("an attempt is keyed by its state alone, the newest live one is answered, and consuming takes it once", async (context) => {
