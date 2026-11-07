@@ -9,17 +9,11 @@
     "test": "jskit test"
   },
   "exports": {
-    "./server/repositorySupport": "./src/server/repositorySupport.js",
-    "./server/resourceRuntime": "./src/server/resourceRuntime/index.js",
     "./server/createHooksToCollectChildren": "./src/server/createHooksToCollectChildren.js",
     "./server/lookups": "./src/server/lookups.js",
     "./server/serviceEvents": "./src/server/serviceEvents.js",
-    "./server/serviceMethods": "./src/server/serviceMethods.js",
     "./server/fieldAccess": "./src/server/fieldAccess.js",
-    "./server/createCrudServiceFromResource": "./src/server/createCrudServiceFromResource.js",
-    "./server/defineCrudJsonApiFeature": "./src/server/defineCrudJsonApiFeature.js",
-    "./server/jsonApiRepository": "./src/server/jsonApiModule/repository.js",
-    "./server/jsonApiService": "./src/server/jsonApiModule/service.js",
+    "./server/defineCrudFeature": "./src/server/defineCrudFeature.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js",
     "./server/listFilters": "./src/server/listFilters.js",
     "./server/routeContracts": "./src/server/routeContracts.js",
@@ -27,11 +21,11 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.260",
-    "@jskit-ai/resource-runtime": "0.2.12",
+    "@jskit-ai/resource-core": "0.1.202",
     "@jskit-ai/resource-crud-core": "0.1.202",
-    "json-rest-schema": "^1.0.17",
-    "json-rest-api": "3.0.0"
+    "@jskit-ai/resource-runtime": "0.2.12",
+    "json-rest-api": "3.0.0",
+    "json-rest-schema": "^1.0.17"
   },
   "description": "Shared server-side CRUD service, repository, route, and query helpers.",
   "jskit": {

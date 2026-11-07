@@ -3,6 +3,11 @@
     "errors": {
       "REST_API_VERSION_CONFLICT": "Resource version condition failed",
       "REST_API_PRECONDITION_FAILED": "HTTP representation precondition failed"
+    },
+    "crud": {
+      "document": {
+        "lockVersionConflict": "This record changed. Reload and try again."
+      }
     }
   }
 }

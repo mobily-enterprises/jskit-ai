@@ -60,8 +60,6 @@ Exports
 - `type CrudRepository`
 - `type RewardedRepositoryOptions`
 Local functions
-- `normalizeRecordList(document)`
-- `normalizeRecord(document)`
 - `normalizeKeyword(value, fallback)`
 - `toIsoOrNull(value)`
 - `parseDate(value)`

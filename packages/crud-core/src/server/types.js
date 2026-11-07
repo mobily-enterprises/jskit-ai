@@ -1,5 +1,5 @@
 // The types of the capability a CRUD feature provides, for features that require it,
-// of what its custom actions receive, and of the records repository a CRUD service uses.
+// and of what its custom actions and lifecycle hooks receive.
 
 /**
  * One table's description, as defineTableResource returns it.
@@ -13,13 +13,15 @@
  */
 
 /**
- * The JSON:API repository a CRUD feature provides as its capability's `repository`.
- * @typedef {ReturnType<typeof import("./jsonApiModule/repository.js").createCrudJsonApiRepository>} CrudRepository
+ * The repository a CRUD feature provides as its capability's `repository`: its
+ * CRUD table's handle, as decorateRepository returns it.
+ * @typedef {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} CrudRepository
  */
 
 /**
- * The JSON:API service a CRUD feature provides as its capability's `service`.
- * @typedef {ReturnType<typeof import("./jsonApiModule/service.js").createCrudJsonApiService>} CrudService
+ * The CRUD service a CRUD feature provides as its capability's `service`: list,
+ * view, create, patch and delete, answering JSON:API documents.
+ * @typedef {ReturnType<typeof import("./jsonApiModule/service.js").createCrudService>} CrudService
  */
 
 /**
@@ -45,12 +47,12 @@
  */
 
 /**
- * What a `defineCrudJsonApiFeature` feature provides under the capability its
- * application names: the resource, its repository and its service, after any
- * decorateRepository and decorateService. The service keeps only the methods
- * of the feature's enabled operations.
+ * What a `defineCrudFeature` feature provides under the capability its
+ * application names: the CRUD contract, its repository and its service, after
+ * any decorateRepository and decorateService. The service keeps only the
+ * methods of the feature's enabled operations.
  * @typedef {object} CrudResourceApi
- * @property {CrudContract} resource
+ * @property {CrudContract} crud
  * @property {CrudRepository} repository
  * @property {CrudService} service
  */
@@ -77,8 +79,9 @@
 /**
  * What an `operationLifecycle` hook receives: the operation, the input its
  * schema validated, the action context, the feature's resource, repository
- * and service, and `trx`, the transaction a create, update or delete runs in
- * (null for list and view, and in afterCommit, which runs after the commit).
+ * and service, and `options`, the call options to pass to the repository:
+ * `{ context }`, and inside a create, update or delete the transaction they
+ * share (afterCommit, which runs after the commit, gets `{ context }`).
  * `after` and `afterCommit` also receive the operation's `result` (the JSON:API
  * document result; null for delete); `execute` receives `standard(nextInput)`,
  * which runs the standard operation and returns its result.
@@ -93,7 +96,7 @@
  * @property {CrudContract} resource
  * @property {Repository} repository
  * @property {Service} service
- * @property {import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction | null} trx
+ * @property {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options
  * @property {CrudJsonApiResult | null} [result]
  * @property {(nextInput?: object) => Promise<CrudJsonApiResult | null>} [standard]
  */
@@ -127,16 +130,6 @@
  */
 
 /**
- * The records repository a CRUD service reads and writes through, as createCrudResourceRuntime builds it.
- * @typedef {ReturnType<typeof import("./resourceRuntime/index.js").createCrudResourceRuntime>} CrudRecordRepository
- */
-
-/**
- * What a records repository resolves once from its resource and options, and each of its calls reads.
- * @typedef {ReturnType<typeof import("./resourceRuntime/compiledRuntime.js").buildCompiledCrudRepositoryRuntime>} CompiledCrudRepositoryRuntime
- */
-
-/**
  * The repository a lookup reads: any object with listByIds().
  * @typedef {object} CrudLookupRepository
  * @property {(ids: unknown[], options?: Record<string, unknown>) => Promise<unknown>} listByIds
@@ -152,11 +145,6 @@
  * @property {unknown} [readable]
  * @property {unknown} [writable]
  * @property {"throw" | "strip"} [writeMode]
- */
-
-/**
- * The resource, namespace and field access a CRUD service's methods share.
- * @typedef {ReturnType<typeof import("./serviceMethods.js").createCrudServiceRuntime>} CrudServiceRuntime
  */
 
 export {};

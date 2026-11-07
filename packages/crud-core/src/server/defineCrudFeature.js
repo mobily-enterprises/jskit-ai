@@ -1,54 +1,51 @@
-import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
-import {
-  addResourceIfMissing,
-  createJsonRestResourceScopeOptions
-} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { isWorkspaceRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
+import { isTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { isCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import {
   assertCrudOperationName,
   createCrudJsonApiActions,
   normalizeCrudOperationLifecycle
 } from "./jsonApiModule/actions.js";
-import { createCrudJsonApiRepository } from "./jsonApiModule/repository.js";
 import { registerCrudJsonApiRoutes } from "./jsonApiModule/routes.js";
-import { createCrudJsonApiService as createDefaultService } from "./jsonApiModule/service.js";
+import { createCrudService } from "./jsonApiModule/service.js";
 
 const RESERVED_REQUIREMENT_NAMES = Object.freeze([
   "context",
-  "database",
+  "crud",
   "http",
   "input",
-  "jsonRestApi",
+  "options",
+  "ownerRepository",
   "repository",
   "resource",
+  "resources",
   "result",
   "service",
   "standard",
-  "trx"
+  "systemContext"
 ]);
 const CRUD_SERVICE_METHOD_BY_OPERATION = Object.freeze({
-  list: "queryDocuments",
-  view: "getDocumentById",
-  create: "createDocument",
-  update: "patchDocumentById",
-  delete: "deleteDocumentById"
+  list: "list",
+  view: "view",
+  create: "create",
+  update: "patch",
+  delete: "delete"
 });
 const CRUD_SERVICE_METHODS = new Set(Object.values(CRUD_SERVICE_METHOD_BY_OPERATION));
 
-function normalizeAccess(resource = {}) {
-  const access = normalizeText(resource.apiAccess).toLowerCase() || "authenticated";
+function normalizeAccess(crud = {}) {
+  const access = normalizeText(crud.apiAccess).toLowerCase() || "authenticated";
   if (access !== "authenticated" && access !== "public") {
-    throw new TypeError('defineCrudJsonApiFeature resource apiAccess must be "authenticated" or "public".');
+    throw new TypeError('defineCrudFeature crud apiAccess must be "authenticated" or "public".');
   }
   return access;
 }
 
 function normalizeScope(scope = {}) {
   if (!scope || typeof scope !== "object" || Array.isArray(scope)) {
-    throw new TypeError("defineCrudJsonApiFeature scope must be an object.");
+    throw new TypeError("defineCrudFeature scope must be an object.");
   }
   return Object.freeze({
     routeBase: normalizeText(scope.routeBase) || "/",
@@ -62,6 +59,33 @@ function normalizeScope(scope = {}) {
     // readable-check: allow method-probe - input validation: the scope an application passes may define input()
     input: typeof scope.input === "function" ? scope.input : null
   });
+}
+
+// The route visibility of a table's ownership: a workspace_or_shared table's routes are a workspace's.
+function routeOwnership(ownership) {
+  return ownership === "workspace_or_shared" ? "workspace" : ownership;
+}
+
+/**
+ * The feature's owns: its CRUD contract's table resource first, unless an
+ * entry gives that resource its server-only extras, then the other tables.
+ * A feature serving another owner's table owns only the other tables, if any.
+ * @param {import("./types.js").CrudContract} crud
+ * @param {ReadonlyArray<object>} owns
+ * @param {string} ownerRepository
+ */
+function crudOwns(crud, owns, ownerRepository) {
+  if (!Array.isArray(owns)) {
+    throw new TypeError("defineCrudFeature owns must be an array of table resources or { resource, ...extras } entries.");
+  }
+  const ownsCrudResource = owns.some((entry) => (isTableResource(entry) ? entry : entry?.resource) === crud.resource);
+  if (ownerRepository) {
+    if (ownsCrudResource) {
+      throw new TypeError(`defineCrudFeature serves "${crud.resource.name}" through ${ownerRepository}, so it cannot own it too.`);
+    }
+    return owns.length > 0 ? Object.freeze([...owns]) : undefined;
+  }
+  return Object.freeze(ownsCrudResource ? [...owns] : [crud.resource, ...owns]);
 }
 
 function assertWorkspaceScope(scope, ownershipFilter) {
@@ -83,11 +107,11 @@ function assertWorkspaceScope(scope, ownershipFilter) {
 
 function normalizeFeatureRequirements(requires = {}) {
   if (!requires || typeof requires !== "object" || Array.isArray(requires)) {
-    throw new TypeError("defineCrudJsonApiFeature requires must be an object.");
+    throw new TypeError("defineCrudFeature requires must be an object.");
   }
   for (const name of RESERVED_REQUIREMENT_NAMES) {
     if (Object.hasOwn(requires, name)) {
-      throw new TypeError(`defineCrudJsonApiFeature requires reserves the local name ${name}.`);
+      throw new TypeError(`defineCrudFeature requires reserves the local name ${name}.`);
     }
   }
   return Object.freeze({ ...requires });
@@ -109,7 +133,7 @@ function operationsFromResource(resource) {
 function normalizeOperations(operations, resource) {
   const source = operations === undefined ? operationsFromResource(resource) : operations;
   if (!Array.isArray(source) || source.length < 1) {
-    throw new TypeError("defineCrudJsonApiFeature operations must be a non-empty array.");
+    throw new TypeError("defineCrudFeature operations must be a non-empty array.");
   }
   return Object.freeze([...new Set(source.map((operation) => assertCrudOperationName(operation)))]);
 }
@@ -153,24 +177,38 @@ function projectEnabledServiceOperations(service, operations) {
 }
 
 /**
+ * A feature serving a CRUD contract over HTTP and the action catalogue. It owns
+ * the contract's table resource (and the tables in `owns`): its repository is
+ * that table's handle, which `decorateRepository` may wrap, and its CRUD service
+ * (list, view, create, patch, delete) is the HTTP edge, answering JSON:API
+ * documents.
  * @param {object} feature
- * @param {import("./types.js").CrudContract} feature.resource The CRUD contract the feature serves, on its table resource.
+ * @param {import("./types.js").CrudContract} feature.crud The CRUD contract the feature serves, on its table resource.
  * @param {string} feature.surface The surface whose routes serve it.
+ * @param {ReadonlyArray<object>} [feature.owns] More tables the feature owns, and `{ resource, rowPolicy, hooks, searchSchema, ... }`
+ *   entries giving a table, the CRUD's own among them, its server-only extras.
+ * @param {string} [feature.ownerRepository] The capability of the repository another feature, the table's one owner,
+ *   provides for it, such as users-core's `users.profiles`: the feature then serves its CRUD surface through that
+ *   repository and does not own the table.
+ * @param {string} [feature.systemScope] Why the feature works across every workspace and user; decorateRepository then receives systemContext(reason).
+ * @param {string} [feature.visibility] The routes' visibility, when it differs from the table's ownership: a
+ *   workspace's admin surface serving a table every workspace shares (such as users) names "workspace", so its
+ *   routes resolve the caller's workspace and their actions check its permissions. The rows a call reaches still
+ *   follow the table's ownership.
  * @param {string} [feature.id] Defaults to `crud.<namespace>`.
  * @param {string} [feature.capability] Defaults to the feature id.
- * @param {string} [feature.ownershipFilter] Defaults to the table resource's ownership.
  * @param {string} [feature.relativePath] Defaults to the namespace, with dashes.
  * @param {boolean} [feature.internal] True keeps the routes off the HTTP server.
  * @param {boolean} [feature.routes] False registers no HTTP routes. Either way, an action no permission
  *   guards is then left off the automation channel, so the assistant cannot run it.
  * @param {object | null} [feature.listFilterQueryValidator]
- * @param {object | null} [feature.searchSchema]
  * @param {object | null} [feature.permissions]
  * @param {import("./types.js").CrudScope} [feature.scope] The route base, validators, input keys and input() of a scoped resource.
  * @param {Record<string, string>} [feature.requires] More capabilities the feature requires, by name.
- * @param {((dependencies: { repository: import("./types.js").CrudRepository, resource: import("./types.js").CrudContract } & Record<string, any>) => import("./types.js").CrudRepository | Promise<import("./types.js").CrudRepository>) | null} [feature.decorateRepository]
- *   Receives the CRUD repository, the CRUD contract, runtime.database, runtime.http, runtime.json-rest-api and the feature's requires.
- * @param {((dependencies: { service: import("./types.js").CrudService, repository: import("./types.js").CrudRepository, resource: import("./types.js").CrudContract } & Record<string, any>) => import("./types.js").CrudService | Promise<import("./types.js").CrudService>) | null} [feature.decorateService]
+ * @param {((dependencies: { repository: import("./types.js").CrudRepository, resources: Record<string, import("./types.js").CrudRepository>, crud: import("./types.js").CrudContract } & Record<string, any>) => import("./types.js").CrudRepository | Promise<import("./types.js").CrudRepository>) | null} [feature.decorateRepository]
+ *   Receives the CRUD table's handle (or the owner's repository) as repository, every owned table's handle as
+ *   resources, the CRUD contract, systemContext with systemScope, and the feature's requires.
+ * @param {((dependencies: { service: import("./types.js").CrudService, repository: import("./types.js").CrudRepository, crud: import("./types.js").CrudContract } & Record<string, any>) => import("./types.js").CrudService | Promise<import("./types.js").CrudService>) | null} [feature.decorateService]
  *   Receives the CRUD service, the (decorated) repository, the CRUD contract and the feature's requires.
  * @param {import("./types.js").CrudOperationLifecycle} [feature.operationLifecycle]
  * @param {object} [feature.operationInputs]
@@ -178,17 +216,19 @@ function projectEnabledServiceOperations(service, operations) {
  * @param {string[]} [feature.operations] Defaults to every operation the CRUD contract offers.
  * @param {string} [feature.realtimeAudience] Defaults to "event_scope".
  */
-function defineCrudJsonApiFeature({
-  resource,
+function defineCrudFeature({
+  crud,
   id = "",
   capability = "",
   surface,
-  ownershipFilter = "",
+  owns = [],
+  ownerRepository = "",
+  visibility = "",
+  systemScope = undefined,
   relativePath = "",
   internal = false,
   routes = true,
   listFilterQueryValidator = null,
-  searchSchema = null,
   permissions = null,
   scope = {},
   requires = {},
@@ -200,45 +240,48 @@ function defineCrudJsonApiFeature({
   operations = undefined,
   realtimeAudience = "event_scope"
 }) {
-  if (!isCrudContract(resource)) {
-    throw new TypeError("defineCrudJsonApiFeature requires resource, a CRUD contract from defineCrudContract.");
+  if (!isCrudContract(crud)) {
+    throw new TypeError("defineCrudFeature requires crud, a CRUD contract from defineCrudContract.");
   }
-  const tableResource = resource.resource;
-  const namespace = resource.namespace;
+  const tableResource = crud.resource;
+  const namespace = crud.namespace;
   const featureId = normalizeText(id) || `crud.${namespace}`;
   const featureCapability = normalizeText(capability) || featureId;
   const normalizedSurface = normalizeText(surface).toLowerCase();
   if (!normalizedSurface) {
-    throw new TypeError("defineCrudJsonApiFeature requires surface.");
+    throw new TypeError("defineCrudFeature requires surface.");
   }
-  const normalizedOwnershipFilter = normalizeText(ownershipFilter || tableResource.ownership).toLowerCase();
+  const ownershipFilter = normalizeText(visibility).toLowerCase() || routeOwnership(tableResource.ownership);
   const normalizedRelativePath = normalizeText(relativePath) || `/${namespace.replace(/_/gu, "-")}`;
-  const access = normalizeAccess(resource);
-  if (access === "public" && normalizedOwnershipFilter !== "public") {
-    throw new TypeError('A public CRUD feature requires ownershipFilter "public".');
+  const access = normalizeAccess(crud);
+  if (access === "public" && ownershipFilter !== "public") {
+    throw new TypeError('A public CRUD feature serves a table resource whose ownership (or visibility) is "public".');
   }
   const normalizedScope = normalizeScope(scope);
   const featureRequirements = normalizeFeatureRequirements(requires);
-  const enabledOperations = normalizeOperations(operations, resource);
+  if (typeof ownerRepository !== "string") {
+    throw new TypeError("defineCrudFeature ownerRepository must be the capability of the table owner's repository.");
+  }
+  const featureOwns = crudOwns(crud, owns, ownerRepository.trim());
+  const enabledOperations = normalizeOperations(operations, crud);
   if (typeof routes !== "boolean") {
-    throw new TypeError("defineCrudJsonApiFeature routes must be a boolean.");
+    throw new TypeError("defineCrudFeature routes must be a boolean.");
   }
   if (decorateRepository != null && typeof decorateRepository !== "function") {
-    throw new TypeError("defineCrudJsonApiFeature decorateRepository must be a function.");
+    throw new TypeError("defineCrudFeature decorateRepository must be a function.");
   }
   if (decorateService != null && typeof decorateService !== "function") {
-    throw new TypeError("defineCrudJsonApiFeature decorateService must be a function.");
+    throw new TypeError("defineCrudFeature decorateService must be a function.");
   }
   const normalizedOperationLifecycle = normalizeCrudOperationLifecycle(operationLifecycle);
   if (!operationInputs || typeof operationInputs !== "object" || Array.isArray(operationInputs)) {
-    throw new TypeError("defineCrudJsonApiFeature operationInputs must be an object.");
+    throw new TypeError("defineCrudFeature operationInputs must be an object.");
   }
   if (!actions || typeof actions !== "object" || Array.isArray(actions)) {
-    throw new TypeError("defineCrudJsonApiFeature actions must be an object.");
+    throw new TypeError("defineCrudFeature actions must be an object.");
   }
-  assertWorkspaceScope(normalizedScope, normalizedOwnershipFilter);
-  const workspaceScoped = isWorkspaceRouteVisibility(normalizedOwnershipFilter);
-  const resourceScopeName = tableResource.name;
+  assertWorkspaceScope(normalizedScope, ownershipFilter);
+  const workspaceScoped = isWorkspaceRouteVisibility(ownershipFilter);
   const permissionOptions = permissions && typeof permissions === "object" && !Array.isArray(permissions)
     ? { ...permissions, namespace }
     : { namespace };
@@ -246,45 +289,33 @@ function defineCrudJsonApiFeature({
   return defineFeature({
     id: featureId,
     domain: "crud",
+    ...(featureOwns ? { owns: featureOwns } : {}),
+    ...(systemScope === undefined ? {} : { systemScope }),
     requires: {
-      database: "runtime.database",
       http: "runtime.http",
-      jsonRestApi: "runtime.json-rest-api",
+      ...(ownerRepository.trim() ? { ownerRepository: ownerRepository.trim() } : {}),
       ...featureRequirements
     },
     provides: {
       resourceApi: featureCapability
     },
-    async setup({ database, http, jsonRestApi, ...featureDependencies }) {
-      await addResourceIfMissing(
-        jsonRestApi,
-        resourceScopeName,
-        createJsonRestResourceScopeOptions(tableResource, {
-          ...(searchSchema ? { searchSchema } : {}),
-          writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc }
-        })
-      );
-      const defaultRepository = createCrudJsonApiRepository({
-        api: jsonRestApi,
-        resource: tableResource,
-        resourceScopeName
-      });
+    async setup({ http, resources = {}, systemContext, ownerRepository: servedRepository, ...featureDependencies }) {
+      const handle = servedRepository || resources[tableResource.name];
       const repository = decorateRepository
         ? await decorateRepository(Object.freeze({
-            repository: defaultRepository,
-            resource,
-            database,
-            http,
-            jsonRestApi,
+            repository: handle,
+            resources,
+            crud,
+            ...(systemContext ? { systemContext } : {}),
             ...featureDependencies
           }))
-        : defaultRepository;
-      const defaultService = createDefaultService({ repository });
+        : handle;
+      const defaultService = createCrudService({ repository, resourceName: tableResource.name });
       const decoratedService = decorateService
         ? await decorateService(Object.freeze({
             service: defaultService,
             repository,
-            resource,
+            crud,
             ...featureDependencies
         }))
         : defaultService;
@@ -292,11 +323,11 @@ function defineCrudJsonApiFeature({
       if (routes) {
         registerCrudJsonApiRoutes(http.router, {
           namespace,
-          resource,
+          resource: crud,
           routeBase: normalizedScope.routeBase,
           relativePath: normalizedRelativePath,
           surface: normalizedSurface,
-          ownershipFilter: normalizedOwnershipFilter,
+          ownershipFilter,
           access,
           internal,
           operations: enabledOperations,
@@ -308,7 +339,7 @@ function defineCrudJsonApiFeature({
         });
       }
       return {
-        resourceApi: Object.freeze({ repository, resource, service })
+        resourceApi: Object.freeze({ repository, crud, service })
       };
     },
     actions({ resourceApi, ...required }) {
@@ -317,7 +348,7 @@ function defineCrudJsonApiFeature({
       ));
       return createCrudJsonApiActions({
         namespace,
-        resource,
+        resource: crud,
         repository: resourceApi.repository,
         service: resourceApi.service,
         surface: normalizedSurface,
@@ -341,4 +372,4 @@ function defineCrudJsonApiFeature({
   });
 }
 
-export { defineCrudJsonApiFeature };
+export { defineCrudFeature };

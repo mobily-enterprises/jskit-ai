@@ -323,3 +323,121 @@ test("row policies read their own tables read-only, and contributions only narro
   const { records } = await owned.rooms.query({ page: { size: 10 } }, { context: { userId: 7 } });
   assert.deepEqual(records.map(({ name }) => name), ["general", "banned"]);
 });
+
+function deadlockVictim() {
+  return Object.assign(new Error("Deadlock found when trying to get lock; try restarting transaction"), {
+    code: "ER_LOCK_DEADLOCK",
+    errno: 1213
+  });
+}
+
+test("a deadlock victim runs again whole when it owns its transaction, and never inside the caller's", async (t) => {
+  let deadlocks = 0;
+  let hookRuns = 0;
+  const resource = noteResource();
+  const { notes, knex } = await createFixture(t, {
+    owns: [{
+      resource,
+      hooks: {
+        afterWrite() {
+          hookRuns += 1;
+          if (deadlocks > 0) {
+            deadlocks -= 1;
+            throw deadlockVictim();
+          }
+        }
+      }
+    }]
+  });
+  deadlocks = 1;
+  await notes.create({ title: "once" }, { context: WORKSPACE_A });
+  assert.deepEqual(await knex("notes").pluck("title"), ["once"]);
+
+  deadlocks = 1;
+  let attempts = 0;
+  await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    attempts += 1;
+    await notes.create({ title: `attempt ${attempts}` }, txOptions);
+  });
+  assert.equal(attempts, 2);
+  assert.deepEqual(await knex("notes").orderBy("id").pluck("title"), ["once", "attempt 2"]);
+
+  deadlocks = 1;
+  hookRuns = 0;
+  await assert.rejects(
+    notes.withTransaction({ context: WORKSPACE_A }, (txOptions) => notes.create({ title: "inner" }, txOptions), { retry: false }),
+    (error) => error.code === "ER_LOCK_DEADLOCK"
+  );
+  assert.equal(hookRuns, 1);
+  assert.deepEqual(await knex("notes").orderBy("id").pluck("title"), ["once", "attempt 2"]);
+});
+
+test("a write refuses a transaction the runtime did not open, and a missing record fails the transaction it was written in", async (t) => {
+  const { notes, knex } = await createFixture(t);
+  await knex.transaction(async (trx) => {
+    await assert.rejects(
+      notes.create({ title: "raw" }, { context: WORKSPACE_A, trx }),
+      (error) => error.code === "REST_API_VALIDATION" && error.transactionOutcome === "none"
+    );
+  });
+  assert.deepEqual(await knex("notes"), []);
+
+  // json-rest-api fails a managed transaction once a write in it fails, so inside a transaction a
+  // missing record throws its not-found error (null only answers a patch that ran alone).
+  await assert.rejects(notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    await notes.create({ title: "kept?" }, txOptions);
+    await assert.rejects(notes.patch("999", { title: "missing" }, txOptions), (error) => error.code === "REST_API_RESOURCE" && error.transactionOutcome === "pending");
+    return "committed?";
+  }), (error) => error.code === "REST_API_RESOURCE" && error.transactionOutcome === "rolledBack");
+  assert.deepEqual(await knex("notes"), []);
+  assert.equal(await notes.patch("999", { title: "missing" }, { context: WORKSPACE_A }), null);
+});
+
+test("a lockVersion patch moves the version on by one, also with no attributes, and rolls back with the caller", async (t) => {
+  const { notes, knex } = await createFixture(t);
+  const note = await notes.create({ title: "draft" }, { context: WORKSPACE_A });
+  assert.equal((await notes.patch(note.id, {}, { context: WORKSPACE_A, lockVersion: 0 })).lockVersion, 1);
+  assert.equal((await notes.patch(note.id, {}, { context: WORKSPACE_A })).lockVersion, 1);
+  await assert.rejects(notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    assert.equal((await notes.patch(note.id, { title: "renamed" }, { ...txOptions, lockVersion: 1 })).lockVersion, 2);
+    throw new Error("Abandon the rename");
+  }), /Abandon the rename/u);
+  assert.deepEqual(await knex("notes").where({ id: note.id }).first("title", "lock_version"), { title: "draft", lock_version: 1 });
+  await assert.rejects(notes.patch(note.id, {}, { context: WORKSPACE_A, lockVersion: -1 }), /must be a non-negative integer/u);
+  await assert.rejects(notes.patch(note.id, {}, { context: WORKSPACE_A, lockVersion: "1" }), /must be a non-negative integer/u);
+  await assert.rejects(
+    notes.patch(note.id, { lockVersion: 9 }, { context: WORKSPACE_A, lockVersion: 1 }),
+    /advances lockVersion itself, so the attributes must leave it out/u
+  );
+});
+
+test("a belongs-to field is written under its relationship, and naming both is refused", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("authors", (table) => {
+    table.increments("id");
+    table.string("name").notNullable();
+  });
+  await knex.schema.createTable("books", (table) => {
+    table.increments("id");
+    table.integer("author_id").nullable();
+    table.string("title").notNullable();
+  });
+  await knex("authors").insert([{ name: "Octavia" }, { name: "Ursula" }]);
+  const authors = defineTableResource({ name: "authors", tableName: "authors", schema: { name: { type: "string", required: true } } });
+  const books = defineTableResource({
+    name: "books",
+    tableName: "books",
+    schema: {
+      authorId: { type: "id", nullable: true, belongsTo: "authors", as: "author", storage: { column: "author_id" } },
+      title: { type: "string", required: true }
+    }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const { books: handle } = await runtime.own("books.feature", [authors, books]);
+  const book = await handle.create({ title: "Kindred", authorId: "1" });
+  assert.equal(String(book.authorId), "1");
+  assert.equal(String((await handle.patch(book.id, { authorId: "2" })).authorId), "2");
+  assert.equal((await handle.patch(book.id, { authorId: null })).authorId, null);
+  await assert.rejects(handle.create({ title: "Dune", authorId: "1", author: "2" }), /Provide either "authorId" or "author", not both/u);
+});

@@ -76,7 +76,7 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
   it returns. Anything else is reported as `CONTROLLER_UNRESOLVED`.
   `--api-base-path /api` prefixes these paths.
 - Actual `CrudListScreen` / `CrudAddEditScreen` uses whose bound screen comes from
-  the matching JSKIT composable can connect to exported `defineCrudJsonApiFeature`
+  the matching JSKIT composable can connect to exported `defineCrudFeature`
   controller declarations. The resource must resolve through indexed imports and
   named re-exports to a literal `defineCrudContract` declaration with literal
   enabled operations, and a literal namespace or, without one, a table

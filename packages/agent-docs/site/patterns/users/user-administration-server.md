@@ -27,8 +27,16 @@ CRUD contract.
 ## Framework APIs
 
 Use `@jskit-ai/users-core` for profile persistence and policies,
-`defineCrudJsonApiFeature()` from `@jskit-ai/crud-core` for standard mechanics,
+`defineCrudFeature()` from `@jskit-ai/crud-core` for standard mechanics,
 and the resource contracts from `@jskit-ai/resource-crud-core`.
+
+users-core is the `users` table's one owner, so an administration feature does
+not own it: `defineCrudFeature({ crud: userCrud, ownerRepository: "users.profiles", ... })`
+serves the CRUD contract through users-core's repository. The workspace
+variant also names `visibility: "workspace"`: its routes are a workspace's,
+so they resolve the caller's workspace and check its `crud.users.*`
+permissions, while the users it lists are every user, as the table's
+ownership says.
 
 The `users` table has one table resource, users-core's `userProfileResource`
 (`@jskit-ai/users-core/shared/resources/userProfileResource`). An
@@ -101,7 +109,7 @@ isolation, missing records, null/cleared fields, filtering, and pagination.
 - a second table resource on `users` or `user_settings`
 - copying authentication credential tables into the CRUD contract
 - trusting route scope without repository scope
-- adding app-local mechanics already provided by `defineCrudJsonApiFeature()`
+- adding app-local mechanics already provided by `defineCrudFeature()`
 - generator metadata or field questionnaires
 - probing a collaborator, defaulting one to `null`, `{}` or a no-op, setters
   that fill a slot after construction, and module-level registries
