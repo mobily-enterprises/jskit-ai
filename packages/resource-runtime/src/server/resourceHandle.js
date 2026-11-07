@@ -4,7 +4,7 @@ import { isLostDuplicateInsertRace, retryDeadlocks } from "@jskit-ai/database-ru
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
-import { valueOnly } from "./handleGuards.js";
+import { requireOwners, valueOnly } from "./handleGuards.js";
 import { handleRecords, handleResult, idOf, inputData, readQueryParams, textList } from "./handleRecords.js";
 import {
   returnBadRequestWhenJsonRestFieldsetInvalid,
@@ -171,6 +171,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     if (!options.context && resource.ownership !== "public") {
       throw new MissingScopeError(name);
     }
+    requireOwners(name, resource.ownership, options.context);
     return createJsonRestContext(options.context);
   }
 
