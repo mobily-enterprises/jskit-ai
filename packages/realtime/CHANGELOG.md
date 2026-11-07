@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- An audience entry whose `audienceUsers` fails no longer loses the whole event: the failure is logged as an error naming the socket event and entity, the entry is skipped, and the event still reaches the audience's presets, rooms, users and other entries. Before, one failing read dropped the event for everybody, logged only as a warning.
+- **Breaking.** `RealtimeProvider` refuses to boot when an action's event declares an audience whose `audienceUsers` reads in the event's scope and no feature provides `realtime.audience-scope`, naming those actions; before, each delivery read with no context and missed the users of an owned table. It reads the declared events through the optional `runtime.actions`. An audience that reads public tables only says `publicTablesOnly: true` and still needs no scope; an audience given as a function of the execution is not checked.
+
 - A server without `REDIS_URL` no longer loads Redis: `redis` and `@socket.io/redis-adapter`, about 650 modules and 0.3 s on their own, are imported only when the Socket.IO Redis adapter is configured. Real app boots load 480 fewer modules. `configureSocketIoRedisAdapter`'s `createRedisConnection` and `createRedisAdapter` still default to them.
 - `SESSION_REFRESH_REQUIRED` has its English in the catalog, so it translates.
 - A publish to a user or workspace room checks only the sockets that can receive it: those already in a target room, those whose actor's contributed rooms include a target, and those not signed in yet. Before, once any audience contributor was registered, every connected socket was authenticated and had its actor's rooms looked up (one memberships query per online actor) inside the mutating request, and again on each Redis peer. A socket that cannot receive the publish is rechecked by the 30-second pass, as a socket outside any other room already was. An actor granted membership still receives the very next publish, and a removed or revoked one does not.
@@ -12,6 +15,7 @@
 
 ### Upgrading
 
+- An app whose action events declare an `audienceUsers` audience registers `RealtimeAudienceScopeFeature`, or marks an audience that reads only public tables `publicTablesOnly: true`; otherwise it no longer boots.
 - An app whose audiences call owners' APIs on owned tables registers `RealtimeAudienceScopeFeature` beside `RealtimeProvider`.
 - An audience that provided `userQuery({ knex, event })` provides `audienceUsers({ event, options })` instead, asking the record's owner for the users (for example `activeMemberIds(workspaceId, options)` of `workspaces.memberships`) and answering their ids rather than rows.
 

@@ -83,3 +83,11 @@ test("entity-changed action events read the request's user when the context has 
 
   assert.equal(event.actorId, "31");
 });
+
+test("an entity-changed event builder carries the realtime part it was declared with", () => {
+  const audience = Object.freeze({ preset: "event_scope" });
+  const realtime = { event: "workspace.settings.changed", audience };
+  assert.equal(createEntityChangedActionEvent({ source: "workspace", entity: "settings", operation: "updated", entityId: 1, realtime }).realtime,
+    realtime);
+  assert.equal(createEntityChangedActionEvent({ source: "workspace", entity: "settings", operation: "updated", entityId: 1 }).realtime, null);
+});

@@ -32,6 +32,8 @@ function createInviteRecipientBootstrapAudience({ inviteRecipientUserIds }) {
 
   return Object.freeze({
     preset: "event_scope",
+    // The invite and the recipient's profile are public tables, so realtime needs no audience scope to read them.
+    publicTablesOnly: true,
     audienceUsers
   });
 }
