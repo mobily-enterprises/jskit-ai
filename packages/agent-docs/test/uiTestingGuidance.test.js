@@ -185,8 +185,9 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // The Material 3 rules are exact (#241) and open with the navigation MUST, with a right and a wrong
   // example for each rule, so they need more room than the old summary; the UI pass method stays out of this budget,
   // in its own reference. Guidance stays clear rather than squeezed: when the rules grow, the budget grows with them
-  // (60 and 40 KiB since app-owned top app bars, in-page steps and unblended theme colours).
-  assert.ok(Buffer.byteLength(operationalSource) <= 60 * 1024);
+  // (60 and 40 KiB since app-owned top app bars, in-page steps and unblended theme colours; 62 KiB since section tabs,
+  // two-destination navigation, snackbar placement, global page paths and brand marks).
+  assert.ok(Buffer.byteLength(operationalSource) <= 62 * 1024);
   assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 40 * 1024);
 });
 

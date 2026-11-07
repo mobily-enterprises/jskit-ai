@@ -99,8 +99,12 @@ Exactly this, and nothing more:
    `:to="paths.page('/suppliers')"` and `router.push(paths.page(...))` with
    `usePaths()`, the CRUD runtime's `resolveViewUrl()`, `resolveEditUrl()` and
    `resolveParams()`, and link placements (`surface` with `scopedSuffix` and
-   `unscopedSuffix`; `to` only for a global route such as `/auth/login`). The
-   trail follows the router, so there is no special link component.
+   `unscopedSuffix`; `to` only for a global route such as `/auth/login`). A
+   global route (`scope: "global"`, on no surface) is
+   `paths.page("/auth/login", { scope: "global" })`; `explicitTo` passes a
+   finished target that arrives as data through unchanged, and is not a way to
+   write a path by hand. The trail follows the router, so there is no special
+   link component.
 4. **A custom new or edit page finishes through the shell:**
    `useShellNavigation()` (`@jskit-ai/shell-web/client/navigation/useShellNavigation`)
    gives `finish(target)` for Save (the target replaces the form in the trail)
@@ -197,7 +201,10 @@ Exactly this, and nothing more:
   `$arrowBack`); `$homeFilled`-style `Filled` variants mark active navigation.
   An app adds an icon under `theme.icons` in `src/theme/index.js` as
   `{ name: "<24x24 path data>" }` from Material Symbols Rounded, then uses
-  `$name`. No `mdi-*` strings and no `@mdi/js` imports in app code.
+  `$name`. No `mdi-*` strings and no `@mdi/js` imports in app code. Material
+  Symbols has no brand marks (Google, GitHub, a payment network): a brand's
+  logo is the brand's own artwork, a content image or SVG used as its owner
+  publishes it, not an icon alias.
 
 ## Exact sizes
 
@@ -250,11 +257,18 @@ dialog, chip or FAB. A missing size is a JSKIT defect.
   `primary` one.
 - **Window size classes:** compact under 600 (navigation bar), medium 600–839
   (navigation rail), expanded 840–1199 and large from 1200 (drawer). A surface
-  with no navigation destinations, such as an account surface, draws no
-  navigation bar, rail or drawer; its pages keep the app bar. Read them
+  with fewer than two navigation destinations (none, as on an account surface,
+  or Home alone) draws no navigation bar, rail or drawer; its pages keep the
+  app bar. Read them
   from `useShellWindowSizeClass()`
   (`@jskit-ai/shell-web/client/composables/useShellWindowSizeClass`), never from
   copied breakpoint numbers.
+- **Section tabs:** a page's own sections (`page.section-nav`) are Material 3
+  primary tabs: the topology names `ShellSectionTabLinkItem`'s token (the
+  starter registers it as `local.main.ui.section-tab-link-item`), and the page
+  draws one tab row, `display: flex; overflow-x: auto` over a 1dp
+  `outline-variant` bottom border. `ShellTabLinkItem` is the navigation bar's
+  destination; placed in a page it draws a section tab.
 
 ## Colour
 
@@ -322,6 +336,11 @@ dialog, chip or FAB. A missing size is a JSKIT defect.
   field. A user-triggered command uses JSKIT's shared action
   feedback/snackbar path. Never insert a transient command-error alert above
   page content where it shifts the working layout.
+- A snackbar never covers the FAB or the actions it reports on. `ShellErrorHost`
+  centres it above the navigation bar on compact windows and starts it at the
+  content's start edge, at most half its width, on wider ones. A FAB takes
+  layout room (`<v-fab app layout>`) so the snackbar shows above it, and a
+  compact form's Save is the app bar's primary action.
 
 ## Adaptive layout
 
@@ -352,7 +371,7 @@ and so every app's verify, fail on them too:
 | Rule | Finds |
 |---|---|
 | `m3/duplicate-h1` | a second `h1` that can show beside the first (one per `v-if` branch is one), or an in-page `h1` under a layout that always shows the shell's page title |
-| `m3/raw-hex` | a hex colour outside `src/theme/` (`palettes.js` holds content colours) |
+| `m3/raw-hex` | a hex colour, or one written as channels (`rgba(0, 0, 0, 0.15)`, as in a hand-made shadow), outside `src/theme/` (`palettes.js` holds content colours); `rgba(var(--v-theme-shadow), 0.2)` reads a role and passes |
 | `m3/dark-scheme` | no dark scheme, or the theme pinned to light |
 | `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet |
 | `m3/mdi-icon` | `mdi-*` icon strings and `@mdi/js` imports |
