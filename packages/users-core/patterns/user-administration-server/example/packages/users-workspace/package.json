@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@jskit-ai/crud-core": "0.2.14",
+    "@jskit-ai/kernel": "0.2.13",
     "@jskit-ai/resource-crud-core": "0.1.204",
+    "@jskit-ai/resource-runtime": "0.2.12",
     "@jskit-ai/users-core": "0.2.15",
     "@jskit-ai/workspaces-core": "0.2.15"
   },
@@ -24,7 +26,8 @@
       "requires": [
         "runtime.http",
         "runtime.actions",
-        "users.profiles"
+        "users.profiles",
+        "workspaces.memberships"
       ]
     },
     "runtime": {

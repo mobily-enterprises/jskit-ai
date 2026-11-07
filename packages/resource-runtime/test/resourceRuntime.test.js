@@ -528,6 +528,13 @@ test("findOrCreate() answers the record with the id, creating it only when it is
   assert.deepEqual(await knex("counters").select("counter_key", "value"), [{ counter_key: "visits", value: 7 }]);
 });
 
+test("an id filter with an empty list matches no row", async (t) => {
+  const { notes } = await createFixture(t);
+  await notes.create({ title: "kept" }, { context: WORKSPACE_A });
+  assert.deepEqual((await notes.query({ filters: { id: [] }, page: { size: 5 } }, { context: WORKSPACE_A })).records, []);
+  assert.deepEqual(await notes.queryAll({ filters: { id: [] } }, { context: WORKSPACE_A }), []);
+});
+
 test("findOrCreate() of an id another workspace's row holds answers a missing record, never null or that row", async (t) => {
   const { notes } = await createFixture(t);
   const created = await notes.create({ title: "theirs" }, { context: WORKSPACE_B });
