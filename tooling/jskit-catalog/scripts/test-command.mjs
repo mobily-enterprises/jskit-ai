@@ -7,14 +7,16 @@ import { pathToFileURL } from "node:url";
 import { toPosixPath } from "./files.mjs";
 import { BUDGET_VARIABLE, testConcurrency } from "./test-budget.mjs";
 import { DATABASES_OPTION, testDatabaseRunFor } from "./test-databases.mjs";
-import { reportTestTimes } from "./test-time-report.mjs";
+import { STOPS_VARIABLE } from "./test-file-stop.mjs";
+import { reportTestTimes, writeFileStops } from "./test-time-report.mjs";
 
 // `jskit test [node options] [files or globs]`: node --test, running test files in parallel within the machine's test
 // budget (test-budget.mjs). Its arguments go to node --test unchanged. A file that truly must run alone says why on its
 // first line, `// jskit-test: alone - <reason>`, and runs after the others, one such file at a time. That second run
 // writes a reporter's file destination beside the first run's (`<name>.alone<ext>`) instead of over it, and with
 // --test-shard=<index>/<total> it runs only its shard's alone files, picked the way node --test picks a shard's files.
-// Every run also reports to test-time-report.mjs, which times the command's files against coarse bounds.
+// Every run also reports to test-time-report.mjs, which times the command's files against coarse bounds, and preloads
+// test-file-stop.mjs, which stops a file still running at a generous multiple of its time.
 
 // node --test's own default (Node 26) when it is given no files.
 const DEFAULT_PATTERN = "**/{test,test/**/*,test-*,*[._-]test}.{js,mjs,cjs,ts,mts,cts}";
@@ -24,6 +26,7 @@ const SHARD = "--test-shard";
 const REPORTER = "--test-reporter";
 const DESTINATION = "--test-reporter-destination";
 const TIME_REPORTER = new URL("./test-time-report.mjs", import.meta.url).href;
+const FILE_STOP = new URL("./test-file-stop.mjs", import.meta.url).href;
 // Every test file's process compiles the same modules; Node's compile cache keeps them for the next process and run.
 // A cache the environment names, or NODE_DISABLE_COMPILE_CACHE=1, wins.
 const COMPILE_CACHE = path.join("node_modules", ".cache", "jskit-node-compile-cache");
@@ -113,7 +116,7 @@ function planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency
   const { alone, problems } = readAloneFiles(files, cwd);
   if (problems.length > 0) throw new Error(`jskit test:\n- ${problems.join("\n- ")}`);
   const parallel = ["--test", `--test-concurrency=${concurrency}`];
-  if (alone.length < 1) return { concurrency, files: files.length, alone, runs: [[...parallel, ...args]] };
+  if (alone.length < 1) return { concurrency, files: files.length, paths: files, alone, runs: [[...parallel, ...args]] };
 
   const options = args.filter((argument) => !(matched.get(argument)?.length > 0));
   const aloneFiles = new Set(alone.map((entry) => entry.file));
@@ -122,6 +125,7 @@ function planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency
   return {
     concurrency,
     files: others.length,
+    paths: files,
     alone,
     runs: [
       ...(others.length > 0 ? [[...parallel, ...options, ...others]] : []),
@@ -184,22 +188,29 @@ async function runTests(args) {
   }
   process.stderr.write(`jskit test: ${plan.concurrency} test file(s) at a time (${databases ? "test databases" : source}).\n`);
   for (const { file, reason } of plan.alone) process.stderr.write(`jskit test: ${file} runs alone: ${reason}\n`);
-  const preload = databases?.preload ? ["--import", pathToFileURL(databases.preload).href] : [];
+  const preload = [...(databases?.preload ? ["--import", pathToFileURL(databases.preload).href] : []), "--import", FILE_STOP];
   const timesDirectory = mkdtempSync(path.join(os.tmpdir(), "jskit-test-times-"));
+  const stops = writeFileStops({ cwd: process.cwd(), files: plan.paths, directory: timesDirectory });
   const collected = plan.runs.map((_run, index) => path.join(timesDirectory, `run-${index}.json`));
   const started = performance.now();
   let exitCode = 0;
   let interrupted = false;
   try {
     for (const [index, run] of plan.runs.entries()) {
-      const env = { NODE_COMPILE_CACHE: process.env.NODE_COMPILE_CACHE || path.resolve(COMPILE_CACHE), ...databases?.env };
+      const env = {
+        NODE_COMPILE_CACHE: process.env.NODE_COMPILE_CACHE || path.resolve(COMPILE_CACHE),
+        [STOPS_VARIABLE]: stops,
+        ...databases?.env
+      };
       const { code, signal } = await runNode([...preload, ...withTimeReporter(run, collected[index])], env);
       if (exitCode === 0) exitCode = code;
       // An interrupted run ends the whole command.
       interrupted = Boolean(signal);
       if (interrupted) break;
     }
-    const times = interrupted ? null : reportTestTimes({ cwd: process.cwd(), collected, wallMs: performance.now() - started });
+    const times = interrupted
+      ? null
+      : reportTestTimes({ cwd: process.cwd(), collected, directory: timesDirectory, wallMs: performance.now() - started });
     if (times) process.stderr.write(times.report);
     if (times?.overruns.length > 0 && exitCode === 0) exitCode = 1;
   } finally {

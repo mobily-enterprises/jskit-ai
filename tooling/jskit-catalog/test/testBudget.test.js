@@ -10,7 +10,7 @@ import { parseArgs, usage } from "../scripts/jskit.mjs";
 import { discoverProjectManifests } from "../scripts/project-manifests.mjs";
 import { testConcurrency } from "../scripts/test-budget.mjs";
 import { planTestRuns, withTimeReporter } from "../scripts/test-command.mjs";
-import { checkTestTimes, FILE_TIMES } from "../scripts/test-time-report.mjs";
+import { checkTestTimes, FILE_TIMES, fileStop } from "../scripts/test-time-report.mjs";
 import { checkTestRuns, formatTestRunsReport } from "../scripts/test-runs.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -213,6 +213,42 @@ test("jskit test records each file's time and fails a run whose file went past t
     assert.match(failure.stdout, /pass 2\b/u);
     assert.match(failure.stderr, /^ {2}test\/two\.test\.js took [\d.]+ s, past its 0\.0 s bound\.$/mu);
     assert.doesNotMatch(failure.stderr, /test\/one\.test\.js took/u);
+  });
+});
+
+test("a file still running is stopped at twice its bound, or sooner at ten times its recorded time, never too soon", () => {
+  assert.deepEqual(fileStop({ bound: 10 * 60_000 }), { ms: 20 * 60_000, reason: "past twice its 10.0 min bound" });
+  assert.deepEqual(fileStop({ bound: 10 * 60_000, recorded: 30_000 }), { ms: 5 * 60_000, reason: "past ten times its last time of 30.0 s" });
+  // A quick file on a loaded machine or with a cold compile cache gets two minutes, and an absurd bound two seconds.
+  assert.deepEqual(fileStop({ bound: 10 * 60_000, recorded: 50 }), { ms: 2 * 60_000, reason: "past ten times its last time of 0.1 s" });
+  assert.deepEqual(fileStop({ bound: 60_000, recorded: 50_000 }), { ms: 2 * 60_000, reason: "past twice its 1.0 min bound" });
+  assert.deepEqual(fileStop({ bound: 1, recorded: 50 }), { ms: 2000, reason: "past twice its 0.0 s bound" });
+});
+
+test("jskit test stops a file that never finishes, fails it by name and still runs and reports the other files", async () => {
+  await withProject({
+    // Its test passes, but the interval it leaves open would keep its process running for ever.
+    "test/hang.test.js": "import test from \"node:test\";\ntest(\"leaves an interval open\", () => { setInterval(() => {}, 60_000); });\n",
+    "test/quick.test.js": "import test from \"node:test\";\ntest(\"quick\", () => {});\n",
+    "test/skips.test.js": "import test from \"node:test\";\ntest(\"needs a database\", { skip: \"no database\" }, () => {});\n",
+    "test-time-bounds.json": { files: { "test/hang.test.js": 500 } }
+  }, async (root) => {
+    const env = { ...process.env, V64_TEST_CONCURRENCY: "3" };
+    delete env.NODE_TEST_CONTEXT;
+    // Without the stop, the hanging file would hold the command until this timeout killed it.
+    const failure = await execFileAsync(process.execPath, [CLI_PATH, "test"], { cwd: root, env, timeout: 60_000 })
+      .then(() => null, (error) => error);
+    assert.equal(failure?.signal, null);
+    assert.equal(failure?.code, 1);
+    assert.match(failure.stdout, /pass 2\b/u);
+    assert.match(failure.stdout, /fail 1\b/u);
+    assert.match(failure.stdout, /^✖ test\/hang\.test\.js \(/mu);
+    // The stopped file never reported its own time: the report counts the two that finished.
+    assert.match(failure.stderr, /^jskit test: 2 test file\(s\) in [\d.]+ s/mu);
+    assert.match(failure.stderr, /^ {2}test\/hang\.test\.js was stopped after 2\.\d s, past twice its 0\.5 s bound: it did not finish\.$/mu);
+    // Only a file that finished without skipping a test has its time recorded: the next stop is reckoned from it.
+    const recorded = JSON.parse(await readFile(path.join(root, FILE_TIMES), "utf8"));
+    assert.deepEqual(Object.keys(recorded), ["test/quick.test.js"]);
   });
 });
 

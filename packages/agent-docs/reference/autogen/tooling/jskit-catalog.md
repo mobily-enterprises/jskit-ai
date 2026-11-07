@@ -300,6 +300,11 @@ Exports
 Local functions
 - `withOwnEnvironment(load)`
 
+### `scripts/test-file-stop.mjs`
+Exports
+- `STOPPED_PREFIX`
+- `STOPS_VARIABLE`
+
 ### `scripts/test-runs.mjs`
 Exports
 - `checkTestRuns({ projectRoot, manifests })`
@@ -321,8 +326,10 @@ Local functions
 Exports
 - `BOUNDS_FILE`
 - `FILE_TIMES`
-- `checkTestTimes({ bounds, files, tests, wallMs })`
-- `reportTestTimes({ cwd, collected, wallMs })`
+- `checkTestTimes({ bounds, files, tests, wallMs, stopped = [] })`
+- `fileStop({ bound, recorded })`
+- `reportTestTimes({ cwd, collected, directory, wallMs })`
+- `writeFileStops({ cwd, files, directory })`
 Local functions
 - `seconds(ms)`
 - `readTestTimeBounds(cwd)`

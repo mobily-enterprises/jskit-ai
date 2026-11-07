@@ -1143,7 +1143,12 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
   bounds only a clearly broken suite reaches, such as a file waiting out its
   timeouts. A suite whose measured work needs more sets `runMs`, `fileMs` or a
   file's own bound in `test-time-bounds.json`, with the measurement in the
-  commit that raises it; a file that got slow is fixed instead.
+  commit that raises it; a file that got slow is fixed instead. A file still
+  running at twice its bound, or sooner at ten times the time it last finished
+  in (at least two minutes), is stopped and fails the run by name, so the other
+  files still finish and report: look for what it leaves open (a server, child
+  process, timer or socket) or a test without a timeout. A file with its own
+  bound is stopped at twice that bound.
 
 Why: `jskit test` and `testConcurrency()` read one budget, so every runner
 uses the machine without starving the other runs on it.
