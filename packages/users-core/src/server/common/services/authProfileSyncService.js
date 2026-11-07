@@ -1,4 +1,3 @@
-import { joinOrOpenTransaction } from "@jskit-ai/database-runtime/shared";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeIdentity } from "../support/identity.js";
 
@@ -93,7 +92,7 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
    * contributors (personal workspace provisioning). With `onlyWhenChanged`, an existing row that already
    * matches the identity is answered after one read, without that work: an ordinary request's check.
    * @param {object} profileLike
-   * @param {{ onlyWhenChanged?: boolean, trx?: object }} [options]
+   * @param {{ onlyWhenChanged?: boolean, trx?: object, context?: object }} [options]
    */
   async function syncIdentityProfile(profileLike, { onlyWhenChanged = false, ...options } = {}) {
     const normalized = buildNormalizedIdentityProfile(profileLike);
@@ -103,8 +102,7 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
     }
     const lifecycleContributors = resolveLifecycleContributors();
 
-    const runSync = async (trx) => {
-      const operationOptions = { ...options, trx };
+    const runSync = async (operationOptions) => {
       const existing = await findByIdentity(normalized, operationOptions);
       let created = false;
       if (!profileNeedsUpdate(existing, normalized)) {
@@ -135,7 +133,7 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
       return synchronizedProfile;
     };
 
-    return joinOrOpenTransaction(options, userProfilesRepository.withTransaction, runSync);
+    return userProfilesRepository.withTransaction(options, runSync);
   }
 
   return Object.freeze({

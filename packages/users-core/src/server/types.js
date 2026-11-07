@@ -2,6 +2,13 @@
 
 /** @typedef {ReturnType<typeof import("./usersRuntime.js").createUsersRuntime>} UsersCore */
 /** @typedef {ReturnType<typeof import("./usersExtensions.js").createUsersExtensions>} UsersExtensions */
+/**
+ * The handles of the tables `users.identity` owns: users (`userProfiles`) and user_settings (`userSettings`).
+ * @typedef {{
+ *   userProfiles: import("@jskit-ai/resource-runtime/server/types").ResourceHandle,
+ *   userSettings: import("@jskit-ai/resource-runtime/server/types").ResourceHandle
+ * }} UsersResources
+ */
 /** @typedef {ReturnType<typeof import("./common/repositories/userProfilesRepository.js").createRepository>} UsersProfiles The users table's records: `users.profiles`. */
 /** @typedef {ReturnType<typeof import("./common/repositories/userSettingsRepository.js").createRepository>} UsersSettings The users' settings records: `users.settings`. */
 
