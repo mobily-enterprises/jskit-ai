@@ -162,12 +162,12 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
       required: true
     });
     const workspaceId = resolveExpectedWorkspaceId(resolvedAssistantSurface, options.workspace || context.workspace);
-    return conversationsRepository.transaction(async trx => {
+    return conversationsRepository.transaction(async txOptions => {
       const existing = await conversationsRepository.findByIdForActorScope(normalizedConversationId, {
         workspaceId,
         actorUserId,
         surfaceId: resolvedAssistantSurface.targetSurfaceId
-      }, { trx, forUpdate: true });
+      }, { ...txOptions, forUpdate: true });
       if (!existing) {
         throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
       }
@@ -181,7 +181,7 @@ function createTranscriptService({ conversationsRepository, messagesRepository }
           ...normalizeObject(existing.metadata),
           ...normalizeObject(source.metadata)
         }
-      }, { trx });
+      }, txOptions);
     });
   }
 

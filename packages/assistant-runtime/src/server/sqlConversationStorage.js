@@ -126,25 +126,25 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
     }
   }
 
-  async function readRows(id, conversation, trx) {
+  async function readRows(id, conversation, txOptions) {
     const rows = [];
     for (let page = 1; ; page += 1) {
-      const batch = await messagesRepository.listByConversationScope(id, { workspaceId: conversation.workspaceId }, { page, pageSize: 500 }, { trx });
+      const batch = await messagesRepository.listByConversationScope(id, { workspaceId: conversation.workspaceId }, { page, pageSize: 500 }, txOptions);
       rows.push(...batch);
       if (batch.length < 500) break;
     }
     return rows;
   }
 
-  async function load(id, trx, write = false) {
-    const conversation = await conversationsRepository.findById(id, { trx, forUpdate: write });
+  async function load(id, txOptions, write = false) {
+    const conversation = await conversationsRepository.findById(id, { ...txOptions, forUpdate: write });
     if (!conversation) throw new AppError(404, "Conversation not found.", { code: "assistant.runtime.conversation.notFound" });
-    const { revision, summary } = await conversationsRepository.readTranscriptState(id, { trx });
-    const lastSeq = await messagesRepository.lastSequence(id, { trx });
+    const { revision, summary } = await conversationsRepository.readTranscriptState(id, txOptions);
+    const lastSeq = await messagesRepository.lastSequence(id, txOptions);
     let saved = cache.get(id);
     if (saved && revision && saved.revision === revision && saved.lastSeq === lastSeq) remember(id, saved);
     else {
-      const rows = await readRows(id, conversation, trx);
+      const rows = await readRows(id, conversation, txOptions);
       saved = { revision, lastSeq, rows, projection: inspectSqlConversationRows(conversation, rows) };
       remember(id, saved);
     }
@@ -153,7 +153,7 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
     return { conversation, summary, lastSeq, rows: saved.rows, projection: { ...projection, record }, next: null };
   }
 
-  async function save(id, loaded, record, trx) {
+  async function save(id, loaded, record, txOptions) {
     const { conversation, projection } = loaded;
     let added = 0;
     let title = conversation.title;
@@ -162,11 +162,11 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
     const persist = async (previous, fields) => {
       if (previous) {
         if (previous.contentText !== fields.contentText || !isDeepStrictEqual(previous.metadata, fields.metadata)) {
-          updated.set(previous.id, await messagesRepository.updateById(previous.id, { contentText: fields.contentText, metadata: fields.metadata }, { trx }));
+          updated.set(previous.id, await messagesRepository.updateById(previous.id, { contentText: fields.contentText, metadata: fields.metadata }, txOptions));
         }
       } else {
         inserted.push(await messagesRepository.create({ conversationId: id, workspaceId: conversation.workspaceId,
-          actorUserId: conversation.createdByUserId, ...fields }, { trx }));
+          actorUserId: conversation.createdByUserId, ...fields }, txOptions));
         added += 1;
       }
     };
@@ -203,11 +203,11 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
     const patch = { ...(added ? { messageCount: conversation.messageCount + added } : {}),
       ...(title !== conversation.title ? { title } : {}),
       ...(!isDeepStrictEqual(record.metadata, conversation.metadata) ? { metadata: record.metadata } : {}) };
-    if (Object.keys(patch).length) await conversationsRepository.updateById(id, patch, { trx });
+    if (Object.keys(patch).length) await conversationsRepository.updateById(id, patch, txOptions);
     const summary = record.summary ? { text: record.summary.text, throughTurnId: record.summary.throughTurnId } : null;
     if (!updated.size && !inserted.length && isDeepStrictEqual(summary, loaded.summary)) return;
     const revision = randomUUID();
-    await conversationsRepository.writeTranscriptState(id, { revision, summary }, { trx });
+    await conversationsRepository.writeTranscriptState(id, { revision, summary }, txOptions);
     const rows = loaded.rows.map(row => updated.get(row.id) || row).concat(inserted);
     loaded.next = { revision, lastSeq: Math.max(loaded.lastSeq, ...inserted.map(row => row.seq)), rows,
       projection: inspectSqlConversationRows(conversation, rows) };
@@ -218,12 +218,12 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
       let entered = false;
       let loaded = null;
       try {
-        const result = await conversationsRepository.transaction(async trx => {
-          loaded = await load(id, trx, write);
+        const result = await conversationsRepository.transaction(async txOptions => {
+          loaded = await load(id, txOptions, write);
           requireUnambiguous(loaded.projection);
           const storage = createConversationStorage({
             readRecord: () => loaded.projection.record,
-            writeRecord: (_scope, record) => save(id, loaded, record, trx)
+            writeRecord: (_scope, record) => save(id, loaded, record, txOptions)
           });
           entered = true;
           return storage[write ? "write" : "read"](id, operation);
@@ -249,8 +249,8 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
   }
 
   function preflight(id) {
-    return conversationsRepository.transaction(async trx => {
-      const { rows, projection } = await load(id, trx);
+    return conversationsRepository.transaction(async txOptions => {
+      const { rows, projection } = await load(id, txOptions);
       return { conversationId: id, rowCount: rows.length, issues: projection.issues };
     });
   }
