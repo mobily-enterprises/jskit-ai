@@ -40,7 +40,6 @@ async function renderShowAvatarButton(element, slots) {
   assert.equal(buttons.length, 1, "One Show avatar button while the avatar is hidden");
   const [, attributes, content] = buttons[0];
   assert.match(attributes, /title="jskit.assistant.chat.showAvatar"/u);
-  assert.match(attributes, /width="44"/u);
   return content;
 }
 
@@ -61,10 +60,10 @@ test("the hidden avatar's Show button shows the avatar-thumbnail slot, or the ac
   assert.doesNotMatch(fallback, /fixture-thumbnail/u);
 });
 
-test("the avatar's Show and Minimise buttons set no fixed height, so material-web gives them the 48dp touch target", () => {
+test("the avatar's Show and Minimise buttons set no fixed size, so material-web gives them the 48dp touch target", () => {
   const source = readFileSync(new URL(elementUrl), "utf8");
   const buttons = [...source.matchAll(/<v-btn\b[^>]*>/gu)].map(([tag]) => tag).filter((tag) => tag.includes("assistant-conversation__avatar-size"));
   assert.equal(buttons.length, 2);
-  for (const tag of buttons) assert.doesNotMatch(tag, /(?:^|\s):?(?:min-)?height=/u);
-  assert.doesNotMatch(source, /\.assistant-conversation__avatar-size\s*\{[^}]*height/u);
+  for (const tag of buttons) assert.doesNotMatch(tag, /(?:^|\s):?(?:min-)?(?:height|width)=/u);
+  assert.doesNotMatch(source, /\.assistant-conversation__avatar-size\s*\{[^}]*(?:height|width)/u);
 });

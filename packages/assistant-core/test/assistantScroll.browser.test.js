@@ -1122,8 +1122,7 @@ test("an optional avatar clamps in a short conversation without consuming its pr
         assert.ok(send.y + send.height <= bounds.y + bounds.height + 1, "Send stays inside the supplied container");
         assert.ok(feedback.y + feedback.height <= bounds.y + bounds.height + 1, "Feedback stays inside the supplied container");
         assert.ok((await input.boundingBox()).height >= 40);
-        const avatarExpanded = await sizeControl.getAttribute("aria-expanded") === "true";
-        assert.equal(avatarButton.width, avatarExpanded ? 40 : 44, "Expanded minimise is compact; collapsed Show retains its wider target");
+        assert.equal(Math.round(avatarButton.width), 40, "Avatar visibility is a 40dp icon button, Show and Minimise alike");
         assert.equal(Math.round(avatarButton.height), 40, "Avatar visibility is a 40dp icon button, with no fixed height");
         const avatarTarget = await sizeControl.evaluate((element) => Number.parseFloat(window.getComputedStyle(element, "::before").height));
         assert.ok(avatarTarget >= 48, "Avatar visibility keeps Material's 48dp touch target");
@@ -1175,7 +1174,7 @@ test("an optional avatar clamps in a short conversation without consuming its pr
       await expect(artwork).toHaveCount(0);
       await expect(sizeControl).toBeVisible();
       const showBounds = await sizeControl.boundingBox();
-      assert.equal(showBounds.width, 44, "Collapsed Show retains its original wider target");
+      assert.equal(Math.round(showBounds.width), 40, "Collapsed Show is the small icon button, as Minimise is");
       assert.equal(Math.round(showBounds.height), 40, "Collapsed Show keeps the small icon button's height");
       assert.ok(await sizeControl.evaluate(element => Number.parseFloat(getComputedStyle(element, "::before").height)) >= 48,
         "Collapsed Show keeps a 48dp touch target");

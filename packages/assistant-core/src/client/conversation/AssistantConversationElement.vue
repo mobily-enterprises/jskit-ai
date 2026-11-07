@@ -8,7 +8,7 @@
         <slot name="avatar-control" :size="avatarSize" :height="avatarHeight" />
         <v-btn
           icon="$accountCircle" size="small"
-          variant="text" :width="44" :min-width="44"
+          variant="text"
           class="assistant-conversation__avatar-size"
           :aria-label="t('jskit.assistant.chat.showAvatar')" :title="t('jskit.assistant.chat.showAvatar')"
           :aria-expanded="avatarSize !== 'hidden'" @click="toggleAvatar"
@@ -26,7 +26,7 @@
           <slot name="avatar-tools" :size="avatarSize" :height="avatarHeight" />
           <v-btn
             icon="$minus" size="small" variant="text" color="primary"
-            :width="40" :min-width="40" class="assistant-conversation__avatar-size"
+            class="assistant-conversation__avatar-size"
             :aria-label="t('jskit.assistant.chat.minimiseAvatar')" :title="t('jskit.assistant.chat.minimiseAvatar')" :aria-expanded="true"
             @click="toggleAvatar"
           >
