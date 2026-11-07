@@ -3,7 +3,7 @@ import test from "node:test";
 import { readSingleMultipartFile } from "@jskit-ai/uploads-runtime/server/multipart/readSingleMultipartFile";
 import { createRouter } from "../../kernel/server/http/lib/router.js";
 import { validateOperationSection } from "../../http-runtime/src/shared/validators/operationValidation.js";
-import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
+import { userProfileContract } from "../src/shared/resources/userProfileResource.js";
 import { registerAccountProfileRoutes } from "../src/server/accountProfile/accountProfileRoutes.js";
 import { registerAccountPreferencesRoutes } from "../src/server/accountPreferences/accountPreferencesRoutes.js";
 import { registerAccountNotificationsRoutes } from "../src/server/accountNotifications/accountNotificationsRoutes.js";
@@ -319,7 +319,7 @@ test("account settings jsonapi transport resolves response resource id from requ
 
 test("avatar upload operation accepts the internal multipart stream field", () => {
   const parsed = validateOperationSection({
-    operation: userProfileResource.operations.avatarUpload,
+    operation: userProfileContract.operations.avatarUpload,
     section: "body",
     value: {
       stream: {},

@@ -6,21 +6,21 @@ import { ActionProvider } from "@jskit-ai/kernel/server/actions";
 import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { defineCrudJsonApiFeature } from "../src/server/defineCrudJsonApiFeature.js";
 
 function createResource(namespace) {
-  return defineCrudResource({
-    namespace,
+  const resource = defineTableResource({
+    name: namespace,
     tableName: namespace,
-    crudOperations: ["list", "view"],
     schema: {
-      reason: {
-        type: "string",
-        required: true,
-        operations: { output: { required: true } }
-      }
+      reason: { type: "string", required: true }
     }
+  });
+  return defineCrudContract(resource, {
+    operations: ["list", "view"],
+    fields: { reason: { output: "required" } }
   });
 }
 

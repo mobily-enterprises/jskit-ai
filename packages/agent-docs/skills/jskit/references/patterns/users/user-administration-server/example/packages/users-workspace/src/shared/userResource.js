@@ -1,9 +1,9 @@
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 
-const resource = defineCrudResource({
-  namespace: "users",
+const userResource = defineTableResource({
+  name: "users",
   tableName: "users",
-  crudOperations: ["list", "view"],
   schema: {
     name: {
       type: "string",
@@ -11,32 +11,27 @@ const resource = defineCrudResource({
       minLength: 1,
       maxLength: 160,
       actualField: "display_name",
-      search: true,
-      operations: { output: { required: false } }
+      search: true
     },
     email: {
       type: "string",
       required: true,
-      search: true,
-      operations: { output: { required: false } }
+      search: true
     },
     username: {
       type: "string",
       required: true,
-      search: true,
-      operations: { output: { required: false } }
+      search: true
     },
     createdAt: {
       type: "dateTime",
       required: true,
-      storage: { writeSerializer: "datetime-utc" },
-      operations: { output: { required: true } }
+      storage: { writeSerializer: "datetime-utc" }
     },
     updatedAt: {
       type: "dateTime",
       required: true,
-      storage: { writeSerializer: "datetime-utc" },
-      operations: { output: { required: true } }
+      storage: { writeSerializer: "datetime-utc" }
     }
   },
   searchSchema: {
@@ -49,8 +44,18 @@ const resource = defineCrudResource({
       matchAll: true
     }
   },
-  defaultSort: ["name", "email"],
-  autofilter: "public"
+  defaultSort: ["name", "email"]
 });
 
-export { resource };
+const userCrud = defineCrudContract(userResource, {
+  operations: ["list", "view"],
+  fields: {
+    name: { output: "optional" },
+    email: { output: "optional" },
+    username: { output: "optional" },
+    createdAt: { output: "required" },
+    updatedAt: { output: "required" }
+  }
+});
+
+export { userCrud, userResource };

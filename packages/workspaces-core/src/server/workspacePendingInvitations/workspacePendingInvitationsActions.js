@@ -2,8 +2,8 @@ import { pendingInvitationsAssistantOutput } from "../../shared/resources/worksp
 import {
   emptyInputValidator
 } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
-import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
+import { workspaceMembersContract } from "../../shared/resources/workspaceMembersResource.js";
+import { workspacePendingInvitationsContract } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import { createInviteDecisionEvents } from "../common/support/realtimeServiceEvents.js";
 import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 
@@ -21,7 +21,7 @@ function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsS
       permission: {
         require: "none"
       },
-      input: { schema: workspacePendingInvitationsResource.operations.resolve.query.schema },
+      input: { schema: workspacePendingInvitationsContract.operations.resolve.query.schema },
       output: null,
       extensions: {
         assistant: {
@@ -70,7 +70,7 @@ function createWorkspacePendingInvitationsActions({ workspacePendingInvitationsS
       permission: {
         require: "authenticated"
       },
-      input: workspaceMembersResource.operations.redeemInvite.body,
+      input: workspaceMembersContract.operations.redeemInvite.body,
       output: null,
       extensions: {
         assistant: {

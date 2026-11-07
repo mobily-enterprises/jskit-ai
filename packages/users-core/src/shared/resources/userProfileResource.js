@@ -1,7 +1,8 @@
 import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineApiContract } from "@jskit-ai/resource-core/shared/apiContract";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { userProfileOutputSchema } from "./accountSettingsSchemas.js";
 import { userSettingsOutputSchema } from "./userSettingsResource.js";
@@ -61,8 +62,9 @@ const avatarUploadBodySchema = createSchema({
   }
 });
 
-const userProfileResource = defineCrudResource({
-  namespace: "userProfile",
+// The users table.
+const userProfileResource = defineTableResource({
+  name: "userProfiles",
   tableName: "users",
   searchSchema: {
     id: { type: "id", actualField: "id" },
@@ -145,13 +147,18 @@ const userProfileResource = defineCrudResource({
       }
     }
   },
+});
+
+// The signed-in user's profile over HTTP.
+const userProfileContract = defineApiContract({
+  namespace: "userProfile",
   messages: OPERATION_MESSAGES,
-  crudOperations: ["view", "list", "create", "replace", "patch"],
-  crud: {
-    output: userProfileOutputSchema,
-    body: userProfileBodySchema
-  },
   operations: {
+    patch: {
+      method: "PATCH",
+      body: userProfileBodySchema,
+      output: userProfileOutputSchema
+    },
     avatarUpload: {
       method: "POST",
       body: avatarUploadBodySchema,
@@ -165,4 +172,4 @@ const userProfileResource = defineCrudResource({
   }
 });
 
-export { userProfileResource };
+export { userProfileContract, userProfileResource };

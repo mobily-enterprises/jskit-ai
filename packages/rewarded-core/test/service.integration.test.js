@@ -13,10 +13,10 @@ import providerConfigsMigration from "../migrations/rewarded_provider_configs_in
 import rulesMigration from "../migrations/rewarded_rules_initial.cjs";
 import watchSessionsMigration from "../migrations/rewarded_watch_sessions_initial.cjs";
 import unlockReceiptsMigration from "../migrations/rewarded_unlock_receipts_initial.cjs";
-import { resource as providerConfigsResource } from "../src/shared/rewardedProviderConfigResource.js";
-import { resource as rulesResource } from "../src/shared/rewardedRuleResource.js";
-import { resource as watchSessionsResource } from "../src/shared/rewardedWatchSessionResource.js";
-import { resource as unlockReceiptsResource } from "../src/shared/rewardedUnlockReceiptResource.js";
+import { rewardedProviderConfigResource as providerConfigsResource } from "../src/shared/rewardedProviderConfigResource.js";
+import { rewardedRuleResource as rulesResource } from "../src/shared/rewardedRuleResource.js";
+import { rewardedWatchSessionResource as watchSessionsResource } from "../src/shared/rewardedWatchSessionResource.js";
+import { rewardedUnlockReceiptResource as unlockReceiptsResource } from "../src/shared/rewardedUnlockReceiptResource.js";
 import { createService } from "../src/server/service.js";
 import { openOwnDatabase } from "./mysqlDatabase.js";
 

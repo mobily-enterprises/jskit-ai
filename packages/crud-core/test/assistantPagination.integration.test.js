@@ -10,7 +10,8 @@ import {
   createJsonRestContext,
   createJsonRestResourceScopeOptions
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
@@ -37,22 +38,19 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
   }));
   await knex.batchInsert("books", rows, 100);
 
-  const resource = defineCrudResource({
-    namespace: "books",
+  const resource = defineTableResource({
+    name: "books",
     tableName: "books",
-    autofilter: "workspace",
+    ownership: "workspace",
     defaultSort: ["-createdAt"],
-    crudOperations: ["list"],
     schema: {
       id: { type: "id", primary: true },
       workspaceId: { type: "id", column: "workspace_id" },
-      name: {
-        type: "string",
-        operations: { output: { required: true } }
-      },
+      name: { type: "string" },
       createdAt: { type: "dateTime", temporalPrecision: 3, column: "created_at" }
     }
   });
+  const crud = defineCrudContract(resource, { operations: ["list"], fields: { name: { output: "required" } } });
   const api = await createJsonRestApiHost({ knex, logger: silentLogger });
   await addResourceIfMissing(api, "books", createJsonRestResourceScopeOptions(resource));
   const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "books" });
@@ -63,7 +61,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
     domain: "books",
     actions: createCrudJsonApiActions(crudJsonApiActionOptions({
       namespace: "books",
-      resource,
+      resource: crud,
       repository,
       service,
       surface: "admin",

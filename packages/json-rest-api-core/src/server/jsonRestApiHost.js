@@ -14,6 +14,7 @@ import {
   normalizeUniqueTextList
 } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
+import { isTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import {
   normalizeJsonApiFieldList,
   normalizeJsonApiFieldsets
@@ -323,12 +324,12 @@ function applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {}) {
 }
 
 function resolveJsonRestDefaultExcludedFields(resource) {
-  const defaultExclude = resource?.contract?.response?.defaultExclude;
+  const defaultExclude = resource.defaultExclude;
   if (defaultExclude == null) {
     return [];
   }
   if (!Array.isArray(defaultExclude)) {
-    throw new TypeError("json-rest-api resource contract.response.defaultExclude must be an array.");
+    throw new TypeError("json-rest-api resource defaultExclude must be an array.");
   }
 
   return normalizeUniqueTextList(defaultExclude);
@@ -349,14 +350,14 @@ function applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {}) {
   for (const field of excludedFields) {
     if (field === "id" || field === idProperty) {
       throw new TypeError(
-        `json-rest-api resource contract.response.defaultExclude cannot exclude identifier field "${field}".`
+        `json-rest-api resource defaultExclude cannot exclude identifier field "${field}".`
       );
     }
 
     const definitions = Object.hasOwn(schema, field) ? schema : queryFields;
     if (!Object.hasOwn(definitions, field)) {
       throw new TypeError(
-        `json-rest-api resource contract.response.defaultExclude references unknown field "${field}".`
+        `json-rest-api resource defaultExclude references unknown field "${field}".`
       );
     }
 
@@ -437,8 +438,16 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
   return queryParams;
 }
 
+/**
+ * json-rest-api's options for a table resource: its own keys, with `ownership`
+ * as json-rest-api's autofilter preset (none for a public table),
+ * `defaultExclude` as normally hidden fields, symbolic write serializers
+ * resolved and collection relations derived.
+ * @param {Record<string, any>} resource A table resource from defineTableResource.
+ * @param {Record<string, any>} [options]
+ */
 function createJsonRestResourceScopeOptions(
-  resource = {},
+  resource,
   {
     writeSerializers = {},
     normalizeId,
@@ -447,9 +456,26 @@ function createJsonRestResourceScopeOptions(
     queryFields
   } = {}
 ) {
-  const scopeOptions = cloneJsonRestResourceValue(resource, {
+  if (!isTableResource(resource)) {
+    throw new TypeError("createJsonRestResourceScopeOptions requires a table resource from defineTableResource.");
+  }
+  if (resource.ownership === "workspace_or_shared") {
+    throw new TypeError(
+      `${resource.name} has ownership "workspace_or_shared", which the resource runtime serves from json-rest-api 3.0.0.`
+    );
+  }
+  const {
+    name: _name,
+    ownership,
+    defaultExclude: _defaultExclude,
+    ...tableOptions
+  } = resource;
+  const scopeOptions = cloneJsonRestResourceValue(tableOptions, {
     writeSerializers: normalizeObject(writeSerializers)
   });
+  if (ownership !== "public") {
+    scopeOptions.autofilter = ownership;
+  }
   if (isPlainJsonRestObject(searchSchema)) {
     scopeOptions.searchSchema = {
       ...normalizeObject(scopeOptions.searchSchema),

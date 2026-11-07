@@ -1,7 +1,8 @@
 import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { workspaceRoleCatalogSchema } from "./workspaceRoleCatalogSchema.js";
 import {
   normalizeWorkspaceHexColor,
@@ -239,8 +240,9 @@ function normalizeWorkspaceColorInput(value) {
   return normalizeWorkspaceHexColor(value);
 }
 
-const workspaceSettingsResource = defineCrudResource({
-  namespace: "workspaceSettings",
+// The workspace_settings table, one row per workspace.
+const workspaceSettingsResource = defineTableResource({
+  name: "workspaceSettings",
   tableName: "workspace_settings",
   idProperty: "workspace_id",
   searchSchema: {
@@ -348,22 +350,26 @@ const workspaceSettingsResource = defineCrudResource({
         writeSerializer: "datetime-utc"
       }
     }
-  },
+  }
+});
+
+// A workspace's settings over HTTP.
+const workspaceSettingsCrud = defineCrudContract(workspaceSettingsResource, {
+  namespace: "workspaceSettings",
   messages: {
     validation: "jskit.workspaces.feedback.settingsInvalid",
     saveSuccess: "jskit.workspaces.feedback.settingsUpdated",
     saveError: "jskit.workspaces.feedback.settingsUpdateFailed",
     apiValidation: OPERATION_MESSAGES.apiValidation
   },
-  crudOperations: ["view", "list", "create", "replace", "patch"],
-  crud: {
-    output: workspaceSettingsOutputSchema,
-    body: workspaceSettingsBodySchema
-  }
+  operations: ["view", "list", "create", "replace", "patch"],
+  output: workspaceSettingsOutputSchema,
+  body: workspaceSettingsBodySchema
 });
 
 export {
   WORKSPACE_SETTINGS_FIELD_KEYS,
+  workspaceSettingsCrud,
   workspaceSettingsOutputSchema,
   workspaceSettingsResource
 };

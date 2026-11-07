@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { buildCrudOperationSchemaFields } from "../src/shared/crudFieldContract.js";
 
-test("buildCrudOperationSchemaFields projects operation-aware field definitions without losing metadata", () => {
+test("buildCrudOperationSchemaFields projects each field the CRUD contract gives an operation, without losing metadata", () => {
   const serializer = () => "serialized";
   const fields = Object.freeze({
     name: Object.freeze({
@@ -12,17 +12,6 @@ test("buildCrudOperationSchemaFields projects operation-aware field definitions 
       search: true,
       ui: Object.freeze({
         label: "Name"
-      }),
-      operations: Object.freeze({
-        output: Object.freeze({
-          required: true
-        }),
-        create: Object.freeze({
-          required: true
-        }),
-        patch: Object.freeze({
-          required: false
-        })
       })
     }),
     createdAt: Object.freeze({
@@ -31,22 +20,21 @@ test("buildCrudOperationSchemaFields projects operation-aware field definitions 
         column: "created_at",
         writeSerializer: "datetime-utc",
         serialize: serializer
-      }),
-      operations: Object.freeze({
-        output: Object.freeze({
-          required: true
-        })
       })
     }),
     workspaceId: Object.freeze({
       type: "id",
-      required: true,
-      operations: Object.freeze({})
+      required: true
     })
   });
+  const fieldOperations = Object.freeze({
+    name: Object.freeze({ output: { required: true }, create: { required: true }, patch: { required: false } }),
+    createdAt: Object.freeze({ output: { required: true } }),
+    workspaceId: Object.freeze({})
+  });
 
-  const outputFields = buildCrudOperationSchemaFields(fields, "output");
-  const createFields = buildCrudOperationSchemaFields(fields, "create");
+  const outputFields = buildCrudOperationSchemaFields(fields, "output", fieldOperations);
+  const createFields = buildCrudOperationSchemaFields(fields, "create", fieldOperations);
 
   assert.deepEqual(Object.keys(outputFields).sort(), ["createdAt", "name"]);
   assert.deepEqual(Object.keys(createFields).sort(), ["name"]);
@@ -62,6 +50,5 @@ test("buildCrudOperationSchemaFields projects operation-aware field definitions 
   assert.equal(outputFields.createdAt.storage.serialize, serializer);
 
   assert.equal(createFields.name.required, true);
-  assert.equal(fields.name.operations.output.required, true);
-  assert.equal(Object.hasOwn(fields.name, "operations"), true);
+  assert.equal(Object.hasOwn(fields.name, "required"), false);
 });

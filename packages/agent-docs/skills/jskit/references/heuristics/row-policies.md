@@ -19,7 +19,7 @@ Read first:
 Default JSKIT pattern:
 
 1. Keep public search and structured filters in the existing list-filter contract.
-2. Keep direct user/workspace ownership and write stamping in autofilter.
+2. Keep direct user/workspace ownership and write stamping in the table resource's `ownership`.
 3. Put complex mandatory read visibility in a server-only row policy.
 4. Pass the policy through `createJsonRestResourceScopeOptions(resource, { rowPolicy })` in the owning provider.
 5. Derive identity from trusted execution context.

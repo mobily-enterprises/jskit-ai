@@ -211,6 +211,7 @@ Exports
 
 ### `src/shared/resources/userProfileResource.js`
 Exports
+- `userProfileContract`
 - `userProfileResource`
 
 ### `src/shared/resources/userProfileValues.js`
@@ -227,6 +228,7 @@ Exports
 - `USER_SETTINGS_NOTIFICATION_KEYS`
 - `USER_SETTINGS_PREFERENCE_KEYS`
 - `userSettingsOutputSchema`
+- `userSettingsContract`
 - `userSettingsOutputValidator`
 - `userSettingsResource`
 Local functions
@@ -268,11 +270,13 @@ Exports
 
 ### `patterns/user-administration-server/example/packages/users-workspace/src/shared/index.js`
 Exports
-- `resource`
+- `userCrud`
+- `userResource`
 
 ### `patterns/user-administration-server/example/packages/users-workspace/src/shared/userResource.js`
 Exports
-- `resource`
+- `userCrud`
+- `userResource`
 
 ### `patterns/user-administration-server/example/packages/users/src/server/types.js`
 Exports
@@ -284,8 +288,10 @@ Exports
 
 ### `patterns/user-administration-server/example/packages/users/src/shared/index.js`
 Exports
-- `resource`
+- `userCrud`
+- `userResource`
 
 ### `patterns/user-administration-server/example/packages/users/src/shared/userResource.js`
 Exports
-- `resource`
+- `userCrud`
+- `userResource`

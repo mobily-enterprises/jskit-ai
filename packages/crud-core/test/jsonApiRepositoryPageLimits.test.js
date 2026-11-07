@@ -6,7 +6,7 @@ import {
   createJsonRestApiHost,
   createJsonRestResourceScopeOptions
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
 import { createCrudJsonApiService } from "../src/server/jsonApiModule/service.js";
@@ -33,13 +33,13 @@ async function createFixture(t) {
     title: `Note ${index + 1}`
   })), 100);
 
-  const authors = defineCrudResource({
-    namespace: "authors",
+  const authors = defineTableResource({
+    name: "authors",
     tableName: "authors",
     schema: { name: { type: "string", required: true } }
   });
-  const notes = defineCrudResource({
-    namespace: "notes",
+  const notes = defineTableResource({
+    name: "notes",
     tableName: "notes",
     schema: {
       authorId: { type: "id", required: true, column: "author_id", belongsTo: "authors", as: "author" },

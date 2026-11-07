@@ -12,7 +12,8 @@ import { createSSRApp, h } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { createMemoryHistory, createRouter } from "vue-router";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { useCrudAddEditScreen } from "../src/client/composables/useCrudAddEditScreen.js";
 import { useCrudListScreen } from "../src/client/composables/useCrudListScreen.js";
 
@@ -43,7 +44,11 @@ const hooks = registerHooks({
 test("the human guide's public create/list configuration works without bootstrap permissions", async () => {
   const guide = await readFile(new URL("../../agent-docs/site/guide/framework/crud-operations.md", import.meta.url), "utf8");
   const snippets = Array.from(guide.matchAll(/```js\n([\s\S]*?)\n```/gu), (match) => match[1]);
-  const resource = new Function("defineCrudResource", `${snippets.find((source) => source.startsWith("const bookResource"))}\nreturn bookResource;`)(defineCrudResource);
+  const resource = new Function(
+    "defineTableResource",
+    "defineCrudContract",
+    `${snippets.find((source) => source.startsWith("const bookResource"))}\nreturn bookCrud;`
+  )(defineTableResource, defineCrudContract);
   const options = new Function(`return ({${snippets.find((source) => source.startsWith("addEditOptions:"))}});`)();
   const router = createRouter({ history: createMemoryHistory(), routes: [{ path: "/books/:bookId?", component: { render: () => h("div") } }] });
   await router.push("/books/new");
@@ -95,7 +100,7 @@ test("the human guide's public create/list configuration works without bootstrap
     await list.records.reload();
     assert.deepEqual(list.records.items, [{ id: "1", title: "Public book" }]);
     assert.deepEqual(Object.keys(resource.operations), ["list", "view", "create"]);
-    assert.equal(Object.hasOwn(resource.schema, "userId"), false);
+    assert.equal(Object.hasOwn(resource.resource.schema, "userId"), false);
   } finally {
     queryClient.clear();
   }

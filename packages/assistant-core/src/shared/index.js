@@ -29,13 +29,13 @@ export {
   MAX_INPUT_CHARS,
   MAX_MESSAGE_PAGE_SIZE,
   attachmentIdsField,
-  assistantResource,
+  assistantContract,
   assistantConversationOutputValidator
 } from "./assistantResource.js";
 
 export {
   MAX_SYSTEM_PROMPT_CHARS,
-  assistantConfigResource
+  assistantConfigContract
 } from "./assistantSettingsResource.js";
 
 export {

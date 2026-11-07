@@ -1,18 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { bookResource } from "../patterns/resource-contract/example/bookResource.js";
+import { bookCrud, bookResource } from "../patterns/resource-contract/example/bookResource.js";
 
-test("owner-scoped resource pattern is executable framework source", () => {
-  assert.equal(bookResource.namespace, "books");
+test("owner-scoped table resource and CRUD contract pattern is executable framework source", () => {
+  assert.equal(bookResource.name, "books");
   assert.equal(bookResource.tableName, "books");
-  assert.equal(bookResource.apiAccess, "authenticated");
-  assert.equal(bookResource.autofilter, "user");
+  assert.equal(bookResource.ownership, "user");
+  assert.equal(bookCrud.resource, bookResource);
+  assert.equal(bookCrud.namespace, "books");
+  assert.equal(bookCrud.apiAccess, "authenticated");
   assert.deepEqual(
-    Object.keys(bookResource.operations),
+    Object.keys(bookCrud.operations),
     ["list", "view", "create", "patch", "delete"]
   );
   assert.deepEqual(
-    bookResource.operations.create.body.schema.create({
+    bookCrud.operations.create.body.schema.create({
       title: "The Dispossessed",
       author: "Ursula K. Le Guin",
       notes: null
@@ -20,7 +22,7 @@ test("owner-scoped resource pattern is executable framework source", () => {
     {}
   );
   assert.match(
-    bookResource.operations.create.body.schema.create({
+    bookCrud.operations.create.body.schema.create({
       author: "Ursula K. Le Guin"
     }).errors.title.message,
     /required/i

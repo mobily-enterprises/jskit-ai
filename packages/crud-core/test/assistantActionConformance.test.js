@@ -7,7 +7,8 @@ import {
   validateSchemaPayload
 } from "@jskit-ai/kernel/shared/validators";
 import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 
@@ -45,36 +46,32 @@ function lookupField(namespace, relationshipName) {
       namespace,
       valueKey: "id",
       labelKey: "name"
-    },
-    operations: {
-      output: { required: true }
     }
   };
 }
 
 function createBookingsResource() {
-  return defineCrudResource({
-    namespace: "bookings",
+  const bookings = defineTableResource({
+    name: "bookings",
     tableName: "bookings",
-    crudOperations: ["list", "view"],
-    contract: {
-      lookup: {
-        containerKey: "lookups"
-      }
-    },
     schema: {
       serviceId: lookupField("services", "service"),
       productId: lookupField("products", "product"),
       contactId: lookupField("contacts", "contact"),
       petId: lookupField("pets", "pet"),
-      summary: {
-        type: "string",
-        required: true,
-        operations: {
-          output: { required: true }
-        }
-      }
+      summary: { type: "string", required: true }
     }
+  });
+  return defineCrudContract(bookings, {
+    operations: ["list", "view"],
+    contract: {
+      lookup: {
+        containerKey: "lookups"
+      }
+    },
+    fields: Object.fromEntries(
+      ["serviceId", "productId", "contactId", "petId", "summary"].map((field) => [field, { output: "required" }])
+    )
   });
 }
 

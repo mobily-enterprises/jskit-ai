@@ -595,7 +595,7 @@ async function deleteRecordById(runtime, knex, recordId, callOptions) {
 }
 
 /**
- * @param {import("../types.js").CrudResourceDefinition} resource
+ * @param {import("../types.js").CrudContract} resource
  * @param {RuntimeKnex} knex
  * @param {object} [repositoryOptions]
  */

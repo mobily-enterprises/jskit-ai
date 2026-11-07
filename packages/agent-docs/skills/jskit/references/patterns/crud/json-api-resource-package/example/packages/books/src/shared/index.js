@@ -1,1 +1,1 @@
-export { bookResource } from "./bookResource.js";
+export { bookCrud, bookResource } from "./bookResource.js";

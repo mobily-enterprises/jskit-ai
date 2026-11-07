@@ -2,8 +2,9 @@ import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
-import { createSchemaDefinition } from "@jskit-ai/resource-core/shared/resource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
+import { createSchemaDefinition } from "@jskit-ai/resource-core/shared/apiContract";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 
 // Each field message: its English and the code a client renders it from in the user's language.
@@ -71,8 +72,9 @@ const WORKSPACE_PATCH_FIELD_KEYS = Object.freeze(["name", "avatarUrl"]);
 
 const workspaceListItemOutputValidator = createSchemaDefinition(workspaceListItemSchema, "replace");
 
-const resource = defineCrudResource({
-  namespace: "workspace",
+// The workspaces table.
+const workspaceResource = defineTableResource({
+  name: "workspaces",
   tableName: "workspaces",
   searchSchema: {
     id: { type: "id", actualField: "id" },
@@ -142,22 +144,25 @@ const resource = defineCrudResource({
         writeSerializer: "datetime-utc"
       }
     }
-  },
+  }
+});
+
+// Workspaces over HTTP: the workspace directory's routes and actions.
+const workspaceCrud = defineCrudContract(workspaceResource, {
+  namespace: "workspace",
   messages: {
     validation: "jskit.workspaces.feedback.workspaceInvalid",
     saveSuccess: "jskit.workspaces.feedback.workspaceUpdated",
     saveError: "jskit.workspaces.feedback.workspaceUpdateFailed",
     apiValidation: OPERATION_MESSAGES.apiValidation
   },
-  crudOperations: ["view", "list", "create", "replace", "patch"],
-  crud: {
-    output: workspaceOutputSchema,
-    listItemOutput: workspaceListItemOutputValidator,
-    createBody: workspaceCreateBodySchema,
-    replaceBody: workspaceCreateBodySchema,
-    patchBody: workspacePatchBodySchema
-  }
+  operations: ["view", "list", "create", "replace", "patch"],
+  output: workspaceOutputSchema,
+  listItemOutput: workspaceListItemOutputValidator,
+  createBody: workspaceCreateBodySchema,
+  replaceBody: workspaceCreateBodySchema,
+  patchBody: workspacePatchBodySchema
 });
 
-export { resource as workspaceResource };
+export { workspaceCrud, workspaceResource };
 export { WORKSPACE_PATCH_FIELD_KEYS, workspaceListItemOutputValidator };

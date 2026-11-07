@@ -1,8 +1,8 @@
 import { defineCrudJsonApiFeature } from "@jskit-ai/crud-core/server/defineCrudJsonApiFeature";
-import { bookResource } from "../shared/bookResource.js";
+import { bookCrud } from "../shared/bookResource.js";
 
 const BooksFeature = defineCrudJsonApiFeature({
-  resource: bookResource,
+  resource: bookCrud,
   id: "app.books",
   capability: "app.books",
   surface: "app",

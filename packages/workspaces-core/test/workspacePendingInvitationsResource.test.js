@@ -1,10 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
-import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
+import { workspacePendingInvitationsContract } from "../src/shared/resources/workspacePendingInvitationsResource.js";
 
-test("workspacePendingInvitationsResource output schema accepts already-shaped invite payloads", () => {
-  const outputSchema = resolveSchemaTransportSchemaDefinition(workspacePendingInvitationsResource.operations.list.output, {
+test("workspacePendingInvitationsContract output schema accepts already-shaped invite payloads", () => {
+  const outputSchema = resolveSchemaTransportSchemaDefinition(workspacePendingInvitationsContract.operations.list.output, {
     context: "workspacePendingInvitations.list.output",
     defaultMode: "replace"
   });
@@ -32,12 +32,12 @@ test("workspacePendingInvitationsResource output schema accepts already-shaped i
   assert.equal(result.pendingInvites[0].roleSid, "member");
 });
 
-test("workspacePendingInvitationsResource exposes public resolve query and terminal statuses", () => {
-  const querySchema = resolveSchemaTransportSchemaDefinition(workspacePendingInvitationsResource.operations.resolve.query, {
+test("workspacePendingInvitationsContract exposes public resolve query and terminal statuses", () => {
+  const querySchema = resolveSchemaTransportSchemaDefinition(workspacePendingInvitationsContract.operations.resolve.query, {
     context: "workspacePendingInvitations.resolve.query",
     defaultMode: "replace"
   });
-  const outputSchema = resolveSchemaTransportSchemaDefinition(workspacePendingInvitationsResource.operations.resolve.output, {
+  const outputSchema = resolveSchemaTransportSchemaDefinition(workspacePendingInvitationsContract.operations.resolve.output, {
     context: "workspacePendingInvitations.resolve.output",
     defaultMode: "replace"
   });
