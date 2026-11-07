@@ -14,6 +14,12 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/server/arguments.js`
+Exports
+- `requireStoreDependencies(factory, dependencies, resourceNames)`
+- `requirePlanning(caller, planning)`
+- `refusePlanningKnex(caller, options)`
+
 ### `src/server/executors.js`
 Exports
 - `gvisorExecutor(settings = {})`
@@ -26,7 +32,7 @@ Local functions
 Exports
 - `roundPrompt(goal)`
 - `goalTools(operations)`
-- `createGoals({ resources, systemContext, runs, channel = "agent-goals", notices, limits = GOAL_LIMITS, find, respond, claim, record, notify = notifyNoPages, owner = noOwnerColumns, spent = nothingSpent, track = runUnmetered, background = leaveRunning })`
+- `createGoals({ resources, systemContext, runs, channel = "agent-goals", notices, limits = GOAL_LIMITS, find, respond, claim, record, notify = notifyNoPages, owner = noOwnerColumns, spent = nothingSpent, track = runUnmetered, background = leaveRunning, ...removed })`
 - `GOAL_LIMITS`
 Local functions
 - `notifyNoPages()`
@@ -71,7 +77,7 @@ Local functions
 
 ### `src/server/planning.js`
 Exports
-- `planningTools({ planning, conversationId, post })`
+- `planningTools({ planning, conversationId, post, ...removed })`
 - `planningNotes(planning, conversationId)`
 
 ### `src/server/repositories/commandsRepository.js`
@@ -108,13 +114,13 @@ Local functions
 
 ### `src/server/runs.js`
 Exports
-- `createRuns({ resources, systemContext, limits = RUN_LIMITS })`
+- `createRuns({ resources, systemContext, limits = RUN_LIMITS, ...removed })`
 - `startResumer({ runs, resume, resumable, everyMs = 30000 })`
 - `RUN_LIMITS`
 
 ### `src/server/summaryStore.js`
 Exports
-- `createSummaries({ resources, systemContext, model, app = "the app", history, track = runSummaryUnmetered, notices, channel = "agent-summaries", summarize = (input) => writeSummary({ model, app, ...input, limits }), limits = SUMMARY_LIMITS })`
+- `createSummaries({ resources, systemContext, model, app = "the app", history, track = runSummaryUnmetered, notices, channel = "agent-summaries", summarize = (input) => writeSummary({ model, app, ...input, limits }), limits = SUMMARY_LIMITS, ...removed })`
 Local functions
 - `runSummaryUnmetered(_conversationId, work)`
 
@@ -125,7 +131,7 @@ Exports
 
 ### `src/server/tools/commands.js`
 Exports
-- `createCommands({ resources, systemContext, executor, outputDir = path.join(os.tmpdir(), "agent-runs"), onEnd = ignoreEnd, limits = COMMAND_LIMITS, server = `${os.hostname()}:${process.pid}` })`
+- `createCommands({ resources, systemContext, executor, outputDir = path.join(os.tmpdir(), "agent-runs"), onEnd = ignoreEnd, limits = COMMAND_LIMITS, server = `${os.hostname()}:${process.pid}`, ...removed })`
 - `commandTools({ commands, conversationId, root })`
 - `COMMAND_LIMITS`
 Local functions
@@ -133,7 +139,7 @@ Local functions
 
 ### `src/server/tools/defaults.js`
 Exports
-- `defaultTools({ root, commands = null, planning = null, conversationId, post = null, goals = null })`
+- `defaultTools({ root, commands = null, planning = null, conversationId, post = null, goals = null, ...removed })`
 
 ### `src/server/tools/files.js`
 Exports

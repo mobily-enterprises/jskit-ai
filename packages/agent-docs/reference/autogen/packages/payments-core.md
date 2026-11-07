@@ -30,10 +30,6 @@ Exports
 - `PaymentError`
 - `fingerprint(value)`
 
-### `src/server/knexStore.js`
-Exports
-- `createKnexPaymentStore({ knex })`
-
 ### `src/server/paddle.js`
 Exports
 - `createPaddlePaymentAdapter({ apiKey, webhookSecret, environment, priceBindings, taxCategory, historicalPriceBindings = {}, client = new Paddle(apiKey, { environment: environment === "live" ? Environment.production : Environment.sandbox }) })`
@@ -61,6 +57,7 @@ Local functions
 - `accountKey(scope)`
 - `customerKey(scope, customerId)`
 - `entryKey(account, reference)`
+- `withLockedRow(handle, options, attributes, work)`
 
 ### `src/server/PaymentStoreFeature.js`
 Exports
@@ -94,7 +91,6 @@ Local functions
 
 ### `src/server/storage.js`
 Exports
-- `createKnexPaymentStore`
 - `PaymentStoreFeature`
 
 ### `src/server/stripe.js`
