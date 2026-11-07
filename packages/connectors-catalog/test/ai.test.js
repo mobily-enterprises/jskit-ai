@@ -25,6 +25,22 @@ test("AI retains the attributed snapshot with reviewed current identities and ex
   assert.equal(aiCatalogue.providers.find((provider) => provider.id === "amazon-bedrock").connection, "framework");
 });
 
+test("the AI definition answers every configurable model as the whole catalogue does", () => {
+  const field = aiDefinition.settingsFields[0];
+  assert.deepEqual(field.items.map((item) => item.value), listAiModels({ configurableOnly: true }).map((model) => model.key));
+  assert.deepEqual(aiDefinition.settingsSchema.getFieldDefinitions().model.enum, field.items.map((item) => item.value));
+  const configurable = listAiModels({ configurableOnly: true, includeDeprecated: true });
+  assert.equal(new Set(configurable.map((model) => model.providerId)).size, 13);
+  for (const model of configurable) {
+    assert.equal(field.credentialScope(model.key), model.providerId);
+    assert.deepEqual(aiDefinition.authenticationMethodsForSettings({ model: model.key }),
+      model.access === "free-no-setup" ? ["none", "api-key"] : ["api-key"]);
+    assert.equal(field.hint({ model: model.key }).params.model, model.name);
+  }
+  assert.deepEqual(aiCatalogue.providers.map((provider) => provider.id),
+    aiCatalogue.providers.map((provider) => provider.id).sort());
+});
+
 test("DeepSeek retains provider-supported saved aliases and exact current model limits", async () => {
   const current = "deepseek/deepseek-flash";
   assert.equal(getAiModel(current).name, "DeepSeek V4.1 Flash");

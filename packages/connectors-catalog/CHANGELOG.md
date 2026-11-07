@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The browser catalog (`./shared`) no longer bundles the whole AI model snapshot. The AI connector definition now reads only the 13 configurable providers (0.2 MB, in `ai-models.json`). The other 200 providers, which are framework metadata (2.0 MB), moved to `ai-framework-models.json`, which only `./shared/ai` and `./server/ai` load. Exports, the catalogue and every configurable model's choices, hints and credential scopes are unchanged. The definition no longer recognises a framework provider's model key, which its settings schema already rejected.
 - The Resend guide shows local auth's `auth.local.confirmation-sender` next to its recovery sender.
 
 ## 0.2.0 - 2026-10-29

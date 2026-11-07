@@ -951,6 +951,14 @@ Exports
 - `zohoOAuthMetadata(accounts)`
 - `normalizeZohoTokenResponse(response, expectedApiOrigin)`
 
+### `src/shared/ai-definition.js`
+Exports
+- `aiAccessLabels`
+- `aiDefinition`
+- `byAccessThenKey(a, b)`
+- `catalogueProvider(provider, connection)`
+- `configurableProviders`
+
 ### `src/shared/ai.js`
 Exports
 - `aiCatalogue`

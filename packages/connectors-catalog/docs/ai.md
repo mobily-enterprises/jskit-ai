@@ -39,6 +39,15 @@ The raw-source hashes and source URLs are in the bundled `ai-models.json`;
 [upstream MIT notices](ai-upstream-notices.md) accompany it. Updates require
 deliberate review and a new package release.
 
+The snapshot is kept in two files. `ai-models.json` holds the extraction's
+details and the 13 configurable providers. `ai-framework-models.json` holds the
+other 200 providers, which are framework metadata. The AI connector definition
+in `@jskit-ai/connectors-catalog/shared` needs only the configurable providers,
+so a browser bundle of the catalog carries about 0.2 MB of model data instead of
+the 2.2 MB snapshot. `./shared/ai` and `./server/ai` load both files and see the
+whole catalogue. When the snapshot is refreshed, keep each provider in the file
+that matches whether it is configurable.
+
 The reviewed catalogue adds the exact `deepseek/deepseek-flash` identity for
 DeepSeek V4.1 Flash. It retains `deepseek/deepseek-v4-flash` and
 `deepseek/deepseek-v4-flash-vision-exp` for saved selections: DeepSeek still

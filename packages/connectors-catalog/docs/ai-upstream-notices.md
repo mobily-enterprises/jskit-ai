@@ -1,6 +1,6 @@
 # AI catalogue upstream notices
 
-The bundled snapshot is derived from models.dev data and OpenCode’s public-access rule. Both are MIT licensed. See `src/shared/ai-models.json` for retrieval date, URLs and source hashes. No upstream code executes at runtime.
+The bundled snapshot is derived from models.dev data and OpenCode’s public-access rule. Both are MIT licensed. See `src/shared/ai-models.json` for retrieval date, URLs and source hashes; the providers that are not configurable are in `src/shared/ai-framework-models.json`. No upstream code executes at runtime.
 
 ## models.dev
 

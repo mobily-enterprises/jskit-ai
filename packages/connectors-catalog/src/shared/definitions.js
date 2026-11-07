@@ -1,5 +1,5 @@
-import { aiDefinition } from "./ai.js";
-export { aiDefinition } from "./ai.js";
+import { aiDefinition } from "./ai-definition.js";
+export { aiDefinition } from "./ai-definition.js";
 import { wizDefinition } from "./wiz.js";
 export { wizDefinition } from "./wiz.js";
 import { shopifyDefinition } from "./shopify.js";
