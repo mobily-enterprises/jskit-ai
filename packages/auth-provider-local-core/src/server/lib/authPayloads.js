@@ -60,6 +60,18 @@ async function buildAuthPayload({ user, session, profileProjector, profileOption
 }
 
 /**
+ * The result of a change to the user's own profile: the auth result and the synchronized app profile
+ * (`profile`, null when the application keeps none), so the caller does not write the profile again.
+ * @param {object} input
+ * @param {object} input.user
+ * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} input.profileProjector
+ */
+async function buildProfileChangePayload({ user, profileProjector }) {
+  const appProfile = await profileProjector.syncIdentityProfile(buildProfile(user));
+  return { ...buildAuthResult({ user, session: null, appProfile }), profile: appProfile };
+}
+
+/**
  * @param {object} user
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} profileProjector
  */
@@ -103,6 +115,7 @@ export {
   PROVIDER_ID,
   buildAuthPayload,
   buildAuthResult,
+  buildProfileChangePayload,
   buildSessionAuthPayload,
   findExistingAppProfile,
   isAuthenticatingSession

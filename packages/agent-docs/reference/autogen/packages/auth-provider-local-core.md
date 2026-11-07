@@ -34,6 +34,7 @@ Exports
 - `PROVIDER_ID`
 - `buildAuthPayload({ user, session, profileProjector, profileOptions = {} })`
 - `buildAuthResult({ user, session, appProfile })`
+- `buildProfileChangePayload({ user, profileProjector })`
 - `buildSessionAuthPayload({ appProfileProjection, devAuth, profileProjector, request, session, user, syncProfile = true })`
 - `findExistingAppProfile(user, profileProjector)`
 - `isAuthenticatingSession(session)`

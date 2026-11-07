@@ -4,7 +4,7 @@ import { ensureDevAuthExchangeAvailable, isDevAuthBootstrapEnabled } from "@jski
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { AUTH_TEXTS, authFieldErrorDetails, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
-import { DEV_AUTH_SESSION_PURPOSE, buildAuthPayload, buildAuthResult, findExistingAppProfile } from "./authPayloads.js";
+import { DEV_AUTH_SESSION_PURPOSE, buildAuthPayload, buildAuthResult, buildProfileChangePayload, findExistingAppProfile } from "./authPayloads.js";
 import { forgottenFailuresBefore, recordSignInFailure, signInLockedError, signInWaitMs } from "./signInThrottle.js";
 import { createId } from "./tokens.js";
 
@@ -290,7 +290,7 @@ function createLocalAccounts({
       if (!user) {
         throw createAuthError(AUTH_TEXTS.sessionRequired);
       }
-      return buildAuthPayload({ user, session: null, profileProjector });
+      return buildProfileChangePayload({ user, profileProjector });
     });
   }
 
