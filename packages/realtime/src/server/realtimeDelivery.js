@@ -4,6 +4,7 @@ import { countConnectedClients } from "./runtime.js";
 
 /** @typedef {import("@jskit-ai/auth-core/server/types").AuthService} AuthService */
 /** @typedef {import("./types.js").ActorRoomsResolver} ActorRoomsResolver */
+/** @typedef {import("./types.js").ActorsRoomsResolver} ActorsRoomsResolver */
 /** @typedef {import("./types.js").AudienceContributors} AudienceContributors */
 
 const DELIVERY_EVENT = "jskit:realtime:delivery";
@@ -27,16 +28,8 @@ function publicRealtimePayload(event) {
   });
 }
 
-/**
- * A question's key when its value is the key.
- * @param {unknown} value
- */
-function valueAsKey(value) {
-  return value;
-}
-
 /** One answer per question within one pass. */
-function sharedWithinPass(load, keyOf = valueAsKey) {
+function sharedWithinPass(load, keyOf) {
   const answers = new Map();
   return (value) => {
     const key = keyOf(value);
@@ -48,20 +41,49 @@ function sharedWithinPass(load, keyOf = valueAsKey) {
 /**
  * The checks of one publish or 30-second pass. Identical socket requests share
  * one authentication (the auth service sees only the request), and sockets of
- * one actor share its contributed rooms. Revalidation asks only who is signed
- * in, so the provider reads the app profile instead of synchronizing it, and
- * never refreshes a session the socket could not store.
+ * one actor share its contributed rooms. The rooms of the actors a pass names
+ * up front are one bulk resolution, which the sockets it revalidates then
+ * share, so no actor's rooms are looked up twice in a pass. Revalidation asks
+ * only who is signed in, so the provider reads the app profile instead of
+ * synchronizing it, and never refreshes a session the socket could not store.
  * @param {AuthService} authService
- * @param {ActorRoomsResolver} resolveActorRooms
+ * @param {ActorsRoomsResolver} resolveActorsRooms
  */
-function createPassChecks(authService, resolveActorRooms) {
+function createPassChecks(authService, resolveActorsRooms) {
+  const roomLookups = new Map();
+
+  /** @param {Iterable<string>} actorIds Resolved together, except those this pass already has. */
+  function lookUpActorsRooms(actorIds) {
+    const unknown = [...new Set(actorIds)].filter((actorId) => !roomLookups.has(actorId));
+    if (unknown.length === 0) return;
+    const lookup = (async () => resolveActorsRooms(unknown))();
+    // A failed lookup fails each revalidation that waits for it, not the process.
+    lookup.catch(() => {});
+    for (const actorId of unknown) roomLookups.set(actorId, lookup);
+  }
+
+  /** @type {ActorRoomsResolver} */
+  async function resolveActorRooms(actorId) {
+    lookUpActorsRooms([actorId]);
+    return (await roomLookups.get(actorId)).get(actorId);
+  }
+
   return {
     authenticateRequest: sharedWithinPass(
       (request) => authService.authenticateRequest(request, { syncProfile: false, refreshSession: false }),
       JSON.stringify
     ),
-    audiences: { resolveActorRooms: sharedWithinPass(resolveActorRooms) }
+    lookUpActorsRooms,
+    audiences: { resolveActorRooms }
   };
+}
+
+/**
+ * The actor a socket signed in as, when it did.
+ * @param {import("socket.io").Socket} socket
+ */
+function rememberedActorId(socket) {
+  return socket.data.actorId || null;
 }
 
 /**
@@ -73,7 +95,7 @@ function createPassChecks(authService, resolveActorRooms) {
  * @param {AudienceContributors} dependencies.audiences The rooms revalidation may make a socket join.
  *   With no contributors registered, a socket stays in the rooms it already has.
  */
-function createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorRooms } }) {
+function createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorsRooms } }) {
   // With an auth.service, each socket is revalidated before it receives an event;
   // without one, events go straight to their rooms.
   const guarded = Boolean(authService);
@@ -102,18 +124,45 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
   }
 
   /**
+   * The sockets that can receive the event, and so are revalidated before it.
    * A socket outside every target room can enter one only by revalidation
-   * joining a contributed room; otherwise checking it cannot change delivery.
+   * joining a contributed room, and the rooms it joins are exactly its actor's
+   * (a socket whose login now names another actor is disconnected instead). So
+   * a socket outside is checked only when its actor's rooms, one bulk lookup
+   * for every outside actor, include a target, or when it has no actor yet and
+   * may sign in now. Any other socket is left to the 30-second pass.
+   * @param {{ broadcastAllClients: boolean, rooms: readonly string[] }} targets
+   * @param {ReturnType<typeof createPassChecks>} checks
    */
-  function candidateSockets(targets) {
+  async function candidateSockets(targets, checks) {
     const sockets = [...io.sockets.sockets.values()];
-    if (targets.broadcastAllClients || targets.rooms.some((room) => mayContribute(room))) return sockets;
-    return sockets.filter((socket) => targets.rooms.some((room) => socket.rooms.has(room)));
+    if (targets.broadcastAllClients) return sockets;
+    const inTargets = (socket) => targets.rooms.some((room) => socket.rooms.has(room));
+    const contributable = targets.rooms.filter((room) => mayContribute(room));
+    if (contributable.length === 0) return sockets.filter(inTargets);
+
+    // The rooms of every signed-in socket's actor, inside or outside, in one lookup.
+    checks.lookUpActorsRooms(sockets.map(rememberedActorId).filter(Boolean));
+    const entering = await Promise.all(sockets.map(async (socket) => {
+      if (inTargets(socket)) return true;
+      const actorId = rememberedActorId(socket);
+      if (!actorId) return true;
+      try {
+        const rooms = await checks.audiences.resolveActorRooms(actorId);
+        return contributable.some((room) => rooms.has(room));
+      } catch {
+        // Revalidating it meets the same failure and disconnects it, as before.
+        return true;
+      }
+    }));
+    return sockets.filter((_socket, index) => entering[index]);
   }
 
   async function deliverLocal({ eventName, payload, targets }) {
-    const checks = createPassChecks(authService, resolveActorRooms);
-    await Promise.all(candidateSockets(targets).map(async (socket) => {
+    const checks = createPassChecks(authService, resolveActorsRooms);
+    const candidates = await candidateSockets(targets, checks);
+    checks.lookUpActorsRooms(candidates.map(rememberedActorId).filter(Boolean));
+    await Promise.all(candidates.map(async (socket) => {
       try {
         const actor = await revalidate(socket, checks);
         if (!socket.connected) return;
@@ -143,8 +192,10 @@ function createRealtimeDelivery({ io, database, logger, authService, audiences: 
   function scheduleRevalidation() {
     if (stopped) return;
     revalidationTimer = setTimeout(async () => {
-      const checks = createPassChecks(authService, resolveActorRooms);
-      await Promise.all([...io.sockets.sockets.values()].map((socket) => revalidate(socket, checks)));
+      const checks = createPassChecks(authService, resolveActorsRooms);
+      const sockets = [...io.sockets.sockets.values()];
+      checks.lookUpActorsRooms(sockets.map(rememberedActorId).filter(Boolean));
+      await Promise.all(sockets.map((socket) => revalidate(socket, checks)));
       scheduleRevalidation();
     }, 30_000);
     revalidationTimer.unref();

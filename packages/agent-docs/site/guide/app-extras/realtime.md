@@ -60,12 +60,18 @@ When `auth.service.authenticateRequest()` is present, each publish reauthenticat
 every socket that could receive it before sending, and every socket is rechecked
 every 30 seconds. A socket could receive a publish when the audience is
 `all_clients` or `broadcast`, when it is already in a target room, or, when an
-audience contributor is registered, when a target room is a user or workspace
-room it could join on revalidation. Other sockets are not checked for that
-publish. Sockets whose authentication requests are identical, such as tabs of
+audience contributor is registered and a target room is a user or workspace
+room, when its actor's contributed rooms include a target room or it has not
+signed in yet. A socket joins only its own actor's contributed rooms, so a
+publish to `workspace:7` checks that workspace's members' sockets, not every
+connected one. To decide, the publish resolves the contributed rooms of every
+signed-in socket's actor in one call to each contributor, whatever the number
+of sockets. Other sockets are not checked for that publish; the 30-second check
+reaches them. Sockets whose authentication requests are identical, such as tabs of
 one browser, share one `authenticateRequest()` call within a publish or a
-30-second pass, and sockets of one actor share one lookup of their contributed
-rooms; nothing is reused from one publish or pass to the next. Revoked,
+30-second pass, and the sockets a publish or pass checks reuse that one lookup
+of their contributed rooms; nothing is reused from one publish or pass to the
+next. Redis peers select the sockets they check the same way. Revoked,
 expired, or changed actors are disconnected by the first publish that could
 reach them or the next 30-second check. Authentication lookup errors fail
 closed.
@@ -89,14 +95,18 @@ a connected socket is disconnected. The local and OIDC providers never need
 this: their checks do not rotate tokens.
 
 Packages that know which scopes an actor belongs to contribute them through
-`runtime.realtime.registerAudienceContributor({ id, resolveActorScopes })` during
-setup. `resolveActorScopes(actorId)` returns event scopes (`{ kind: "user", id }`,
+`runtime.realtime.registerAudienceContributor({ id, resolveActorsScopes })` during
+setup. `resolveActorsScopes(actorIds)` answers for many actors at once, so read
+them in one query rather than one per actor: it returns, or resolves to, a `Map`
+from actor id to that actor's event scopes (`{ kind: "user", id }`,
 `{ kind: "workspace", id }` or `{ kind: "workspace_user", workspaceId, userId }`);
-realtime turns each into the same room an `event_scope` audience targets. Sockets
+an actor it leaves out has none. A single actor is asked as a list of one.
+Realtime turns each scope into the same room an `event_scope` audience targets. Sockets
 join those rooms on connection and, on every revalidation, leave the contributed
 rooms the actor no longer belongs to; rooms joined by anything else are left
-alone. `@jskit-ai/workspaces-core` contributes the actor's active workspace
-memberships this way when realtime is installed.
+alone. `@jskit-ai/workspaces-core` contributes the actors' active workspace
+memberships this way when realtime is installed, with
+`listActiveWorkspaceIdsByUserIds()`: one memberships query per 1,000 actors.
 
 The authentication request includes parsed cookies, the `Host`, `Origin` and
 `X-Forwarded-Proto` headers when present, and the socket address and TLS state.

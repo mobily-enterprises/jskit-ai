@@ -141,21 +141,24 @@ test("workspace realtime audiences are the actor's active memberships", async ()
       services: { directory: { async resolveWorkspaceContextForUserBySlug() { return null; } } },
       repositories: {
         workspaceMemberships: {
-          async listActiveWorkspaceIdsByUserId(userId) {
-            assert.equal(userId, "9");
-            return ["11", "12"];
+          async listActiveWorkspaceIdsByUserIds(userIds) {
+            assert.deepEqual(userIds, ["9", "10"]);
+            return new Map([["9", ["11", "12"]], ["10", []]]);
           }
         }
       }
     }
   });
   assert.equal(audienceContributors.length, 1);
-  assert.deepEqual(await audienceContributors[0].resolveActorScopes("9"), [
-    { kind: "workspace", id: "11" },
-    { kind: "workspace_user", workspaceId: "11", userId: "9" },
-    { kind: "workspace", id: "12" },
-    { kind: "workspace_user", workspaceId: "12", userId: "9" }
-  ]);
+  assert.deepEqual(await audienceContributors[0].resolveActorsScopes(["9", "10"]), new Map([
+    ["9", [
+      { kind: "workspace", id: "11" },
+      { kind: "workspace_user", workspaceId: "11", userId: "9" },
+      { kind: "workspace", id: "12" },
+      { kind: "workspace_user", workspaceId: "12", userId: "9" }
+    ]],
+    ["10", []]
+  ]));
 });
 
 test("workspace settings color defaults must be hex colors", () => {

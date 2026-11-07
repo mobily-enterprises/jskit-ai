@@ -9,16 +9,20 @@ import {
 
 /**
  * Every active membership puts the actor in the workspace audience and in its
- * own workspace-user audience.
+ * own workspace-user audience. All the actors' memberships are one bulk read.
  * @param {import("./types.js").WorkspaceMembershipsRepository} workspaceMemberships
- * @param {string} actorId
+ * @param {string[]} actorIds
  */
-async function resolveWorkspaceRealtimeScopes(workspaceMemberships, actorId) {
-  const workspaceIds = await workspaceMemberships.listActiveWorkspaceIdsByUserId(actorId);
-  return workspaceIds.flatMap((workspaceId) => [
-    { kind: "workspace", id: workspaceId },
-    { kind: "workspace_user", workspaceId, userId: actorId }
-  ]);
+async function resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds) {
+  const workspaceIdsByActorId = await workspaceMemberships.listActiveWorkspaceIdsByUserIds(actorIds);
+  const scopesByActorId = new Map();
+  for (const [actorId, workspaceIds] of workspaceIdsByActorId) {
+    scopesByActorId.set(actorId, workspaceIds.flatMap((workspaceId) => [
+      { kind: "workspace", id: workspaceId },
+      { kind: "workspace_user", workspaceId, userId: actorId }
+    ]));
+  }
+  return scopesByActorId;
 }
 
 const WorkspacesIntegrationsProvider = defineProvider({
@@ -88,9 +92,9 @@ const WorkspacesIntegrationsProvider = defineProvider({
     if (realtime) {
       realtime.registerAudienceContributor({
         id: "workspaces.memberships",
-        resolveActorScopes: (actorId) => resolveWorkspaceRealtimeScopes(
+        resolveActorsScopes: (actorIds) => resolveWorkspaceRealtimeScopes(
           workspaces.repositories.workspaceMemberships,
-          actorId
+          actorIds
         )
       });
     }

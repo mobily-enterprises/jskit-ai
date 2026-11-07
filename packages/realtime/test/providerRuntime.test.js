@@ -115,7 +115,10 @@ test("RealtimeProvider joins the rooms a registered audience contributor names",
     async authenticateRequest() { return { authenticated: true, actor: { id: "42" } }; }
   }, {
     id: "test.memberships",
-    resolveActorScopes: (actorId) => [{ kind: "workspace_user", workspaceId: "7", userId: actorId }]
+    resolveActorsScopes: (actorIds) => new Map(actorIds.map((actorId) => [
+      actorId,
+      [{ kind: "workspace_user", workspaceId: "7", userId: actorId }]
+    ]))
   });
   const { connection } = await f.connect();
   assert.equal((await connection.readRequest()).user.id, "42");
@@ -374,12 +377,12 @@ test("socket audience bootstrap authenticates explicitly and joins contributed s
   const audiences = createAudienceContributors();
   audiences.register({
     id: "test.memberships",
-    async resolveActorScopes(actorId) {
-      assert.equal(actorId, "9");
-      return [11, 12].flatMap((workspaceId) => [
+    async resolveActorsScopes(actorIds) {
+      assert.deepEqual(actorIds, ["9"]);
+      return new Map([["9", [11, 12].flatMap((workspaceId) => [
         { kind: "workspace", id: workspaceId },
-        { kind: "workspace_user", workspaceId, userId: actorId }
-      ]);
+        { kind: "workspace_user", workspaceId, userId: "9" }
+      ])]]);
     }
   });
   let connectionHandler = null;
@@ -438,10 +441,13 @@ test("socket revalidation leaves only the contributed rooms the actor lost", asy
   const audiences = createAudienceContributors();
   audiences.register({
     id: "test.memberships",
-    resolveActorScopes: () => memberships.map((id) => ({ kind: "workspace", id }))
+    resolveActorsScopes: (actorIds) => new Map(actorIds.map((actorId) => [
+      actorId,
+      memberships.map((id) => ({ kind: "workspace", id }))
+    ]))
   });
-  assert.throws(() => audiences.register({ id: "test.memberships", resolveActorScopes() {} }), /already registered/);
-  assert.throws(() => audiences.register({ id: "test.other" }), /requires resolveActorScopes/);
+  assert.throws(() => audiences.register({ id: "test.memberships", resolveActorsScopes() {} }), /already registered/);
+  assert.throws(() => audiences.register({ id: "test.other" }), /requires resolveActorsScopes/);
   const rooms = new Set(["clients", "users", "user:9", "workspace:legacy-app-room"]);
   const socket = {
     data: {},

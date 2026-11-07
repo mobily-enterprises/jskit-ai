@@ -6,13 +6,20 @@
  * The rooms an actor's contributed scopes name.
  * @typedef {(actorId: string) => Promise<Set<string>>} ActorRoomsResolver
  */
+/**
+ * The rooms each actor's contributed scopes name, every asked actor included.
+ * @typedef {(actorIds: string[]) => Promise<Map<string, Set<string>>>} ActorsRoomsResolver
+ */
 /** @typedef {ReturnType<typeof import("./realtimeAudience.js").createAudienceContributors>} AudienceContributors */
 
 /**
- * A package that knows which scopes an actor belongs to.
+ * A package that knows which scopes actors belong to. It answers for many
+ * actors in one call (one query, not one per actor), and a lone actor is asked
+ * as a list of one.
  * @typedef {object} RealtimeAudienceContributor
  * @property {string} id
- * @property {(actorId: string) => unknown} resolveActorScopes Returns, or resolves to, the actor's scopes.
+ * @property {(actorIds: string[]) => Map<string, unknown> | Promise<Map<string, unknown>>} resolveActorsScopes
+ *   Returns, or resolves to, each actor's scopes by actor id; an actor it leaves out has none.
  */
 
 export {};

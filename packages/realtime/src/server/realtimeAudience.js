@@ -5,6 +5,7 @@ import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/suppor
 /** @typedef {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} RuntimeDatabase */
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeLogger} RuntimeLogger */
 /** @typedef {import("./types.js").ActorRoomsResolver} ActorRoomsResolver */
+/** @typedef {import("./types.js").ActorsRoomsResolver} ActorsRoomsResolver */
 /** @typedef {import("./types.js").AudienceContributors} AudienceContributors */
 
 const ALL_CLIENTS_ROOM = "clients";
@@ -73,22 +74,24 @@ function roomForScope(scope) {
 /**
  * Packages that know which scopes an actor belongs to (for example workspace
  * memberships) contribute them here; realtime only turns scopes into rooms.
+ * A contributor answers for many actors at once, so a publish that may let
+ * every online actor into a room asks each contributor once, not once per actor.
  */
 function createAudienceContributors() {
   const contributors = new Map();
 
   /** @param {import("./types.js").RealtimeAudienceContributor} contributor Validated here. */
-  function register({ id, resolveActorScopes }) {
+  function register({ id, resolveActorsScopes }) {
     const contributorId = normalizeText(id);
     if (!contributorId) throw new TypeError("Realtime audience contributors require an id.");
     // readable-check: allow method-probe - input validation: a package registers its own contributor
-    if (typeof resolveActorScopes !== "function") {
-      throw new TypeError(`Realtime audience contributor "${contributorId}" requires resolveActorScopes().`);
+    if (typeof resolveActorsScopes !== "function") {
+      throw new TypeError(`Realtime audience contributor "${contributorId}" requires resolveActorsScopes().`);
     }
     if (contributors.has(contributorId)) {
       throw new Error(`Realtime audience contributor "${contributorId}" is already registered.`);
     }
-    contributors.set(contributorId, resolveActorScopes);
+    contributors.set(contributorId, { id: contributorId, resolveActorsScopes });
   }
 
   /**
@@ -100,22 +103,40 @@ function createAudienceContributors() {
     return contributors.size > 0 && /^(?:user|workspace):/u.test(String(room));
   }
 
-  /** @type {ActorRoomsResolver} */
-  async function resolveActorRooms(actorId) {
-    const rooms = new Set();
-    for (const resolveActorScopes of contributors.values()) {
-      for (const scope of flattenEntries(await resolveActorScopes(actorId))) {
-        const room = roomForScope(scope);
-        if (room) rooms.add(room);
+  /**
+   * Every actor's contributed rooms, with one call per contributor whatever
+   * the number of actors.
+   * @type {ActorsRoomsResolver}
+   */
+  async function resolveActorsRooms(actorIds) {
+    const roomsByActorId = new Map();
+    for (const actorId of actorIds) roomsByActorId.set(actorId, new Set());
+    if (roomsByActorId.size === 0) return roomsByActorId;
+    for (const { id, resolveActorsScopes } of contributors.values()) {
+      const scopesByActorId = await resolveActorsScopes([...roomsByActorId.keys()]);
+      if (!(scopesByActorId instanceof Map)) {
+        throw new TypeError(`Realtime audience contributor "${id}" must resolve to a Map of actor ids to scopes.`);
+      }
+      for (const [actorId, rooms] of roomsByActorId) {
+        for (const scope of flattenEntries(scopesByActorId.get(actorId))) {
+          const room = roomForScope(scope);
+          if (room) rooms.add(room);
+        }
       }
     }
-    return rooms;
+    return roomsByActorId;
+  }
+
+  /** @type {ActorRoomsResolver} */
+  async function resolveActorRooms(actorId) {
+    return (await resolveActorsRooms([actorId])).get(actorId);
   }
 
   return Object.freeze({
     register,
     mayContribute,
-    resolveActorRooms
+    resolveActorRooms,
+    resolveActorsRooms
   });
 }
 
