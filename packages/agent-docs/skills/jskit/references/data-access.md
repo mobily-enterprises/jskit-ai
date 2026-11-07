@@ -110,6 +110,7 @@ covers this layer in depth.
 
 ```js
 const receivalCrud = defineCrudContract(receivalResource, {
+  namespace: "receivals",
   apiAccess: "authenticated",
   operations: ["list", "view", "create", "patch"],
   fields: { arrivedAt: { output: "optional" } }
@@ -125,6 +126,10 @@ and `deleteWhere({ id: ids })` change a known list. Each checks every row agains
 first, reads which of the rows the caller may touch, then writes each chunk
 with one statement, in one transaction. Audits and change events run once for
 the batch, so the statements are the same for 10 rows as for 200.
+`patchWhere` and `deleteWhere` put the scope and filters in the statement
+itself, so a row gone meanwhile is skipped, and they take no `missing`. A purge
+that needs only how many rows it removed passes `returning: "count"`, which
+reads nothing back.
 
 Bad: a batch intake patched each record through the resource: 705 statements
 for 10 records, 11,915 for 200. Written with `patchMany`, it sends the same
@@ -133,7 +138,12 @@ number at both sizes.
 An upsert (`createMany(rows, { onConflict })`) on an owned table names the
 ownership field among its conflict keys, or it throws: otherwise it could
 update or hide another workspace's row. `merge` is refused under a row policy;
-use `ignore`, then `patchMany`.
+use `ignore`, then `patchMany`. A table with no owners and no row policy, keyed
+by a natural id such as an email, may key the upsert on the id alone:
+`onConflict: { keys: ["id"], action: "merge" }`, with an id on every row,
+creates the record or replaces the fields given in one statement. Of two
+upserts at once the later stays, so a counter that must count both is
+created plainly and its duplicate retried instead.
 
 ## Layer 4: locks
 
@@ -141,7 +151,13 @@ When two requests could change the same rows at once (allocating stock,
 numbering documents, moving items into a batch), lock the rows first, inside
 the transaction: `lock(id)`, `lockMany(ids)` or `lockWhere(filters)`. The
 handle reads which of those rows the caller may see and locks exactly those,
-in id order, so nobody locks another workspace's rows. A worker taking the
+in id order, so nobody locks another workspace's rows. On MySQL and MariaDB a
+locking read locks every row it examines, so two rules apply there. Lock ids
+taken from your own scoped reads, never a list straight from a request: every
+id listed is locked, a hidden one too, before it is left out. And `lockWhere`
+needs an index that starts with the ownership columns (on a table with no
+owners, with a column the filters compare); without one it refuses with
+`RestApiBulkWriteUnsupportedError` naming the index to add in a migration. A worker taking the
 next job uses `claim({ filters, sort, take }, options)`, which skips rows
 another worker holds. Take locks in
 the same order everywhere, parents before children, or two transactions can
@@ -204,7 +220,8 @@ activeDays(memberIds, options) {
 - Related rows come by id list (`filters: { id: ids }`) or `include`, grouped
   in memory. Never a query per row.
 - `queryAll` reads every matching row. Use it for id lists, one parent's rows
-  and jobs; in a request it throws past the request row limit.
+  and jobs; in a request it stops past the request row limit (10,000 rows)
+  with a 400 coded `RESOURCE_ROW_LIMIT`.
 
 Bad: a list read 100-row pages in a loop for each of 40 related sets.
 
@@ -239,7 +256,8 @@ hour.
 
 Open a transaction with the repository's `withTransaction(options, work)` and
 pass the `txOptions` it gives `work` to every call inside. Never read the
-transaction out of `options` by hand. Inside an open transaction it joins it;
+transaction out of `options` by hand. A handle refuses every other
+transaction, a raw Knex one or a savepoint, for reads as for writes. Inside an open transaction it joins it;
 otherwise it opens one and runs events and other after-effects after commit.
 Any failed write inside it fails the whole transaction.
 

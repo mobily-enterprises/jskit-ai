@@ -39,6 +39,7 @@ Exports
 - `requireDefinedFilters(name, caller, filters, path = "filters")`
 - `requireOwners(name, ownership, context)`
 - `requireReadParams(name, params)`
+- `requireUpsertRows(name, rows, onConflict, idProperty)`
 - `valueOnly(name, expression)`
 - `whereSelection(name, operation, filters, options)`
 
@@ -83,6 +84,7 @@ Exports
 - `createResourceHandle({ api, resource, hooks, settings })`
 Local functions
 - `reportManyRow(resource, operation, rows, chunkSize)`
+- `requireHandleTransaction(name, options)`
 - `openTransaction(api, options, work)`
 - `findOrCreateRecord({ get, create }, attributes, options)`
 - `inTransaction(options)`

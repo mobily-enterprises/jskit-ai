@@ -59,7 +59,7 @@ The example uses `defineTableResource()` from
 `@jskit-ai/resource-core/shared/tableResource` for the table's facts (name,
 table, ownership, fields, search and sort) and `defineCrudContract()` from
 `@jskit-ai/resource-crud-core/shared/crudContract` for its HTTP surface
-(operations, access, field operations and messages). The CRUD contract derives
+(its required `namespace`, operations, access, field operations and messages). The CRUD contract derives
 the normal CRUD operation validators from the table resource's fields.
 
 Higher layers should consume this resource through JSKIT's CRUD service,
