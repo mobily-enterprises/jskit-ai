@@ -29,7 +29,6 @@ const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
   "packages/crud-core/src/server/jsonApiModule/actions.js",
   "packages/oidc-issuer-core/src/server/providers/OidcIssuerProvider.js",
   "packages/oidc-issuer-core/src/server/rateLimits.js",
-  "packages/payments-core/src/server/knexStore.js",
   "packages/realtime/src/server/realtimeAudience.js",
   "packages/workspaces-core/src/server/common/repositories/workspaceInvitesRepository.js",
   "packages/workspaces-core/src/server/common/services/workspaceDirectoryService.js",
