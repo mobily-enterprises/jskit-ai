@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import { RUN_LIMITS, createRuns, startResumer } from "../src/server/index.js";
-import { testDatabase } from "./database.js";
+import { BOT_COLUMN, agentOwner, testDatabase } from "./database.js";
 
 // What createRuns answers and keeps today, pinned before its table moves onto a resource: the
 // shapes of saved() and of a taken-over run, what a claim of a stale run keeps, what save() does
@@ -17,7 +17,7 @@ const quiet = (knex, conversationId) => knex("agent_runs").where({ conversation_
 test("createRuns answers a conversation's saved state in fixed shapes", async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
-  const runs = createRuns({ knex });
+  const runs = createRuns(await agentOwner(knex));
   assert.equal(runs.limits, RUN_LIMITS, "the default limits object itself");
   assert.deepEqual(RUN_LIMITS, { staleSeconds: 60, heartbeatMs: 15000 });
   assert.deepEqual(Object.keys(runs).sort(), ["claim", "heartbeat", "limits", "release", "save", "saved", "takeOverStalled"]);
@@ -39,7 +39,7 @@ test("save() writes nothing for a conversation nobody claimed, and keeps a run a
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
   await knex.schema.alterTable("agent_runs", (table) => table.bigInteger("bot_id"));
-  const runs = createRuns({ knex });
+  const runs = createRuns(await agentOwner(knex, { columns: { runs: BOT_COLUMN } }));
 
   await runs.save(2, steps, { human: true });
   assert.equal(await runs.saved(2), undefined, "no row is created by save()");
@@ -66,7 +66,7 @@ test("save() writes nothing for a conversation nobody claimed, and keeps a run a
 test("takeOverStalled answers whole rows, at most `count`, of stale runs with steps", async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
-  const runs = createRuns({ knex });
+  const runs = createRuns(await agentOwner(knex));
   const old = knex.raw("now() - interval '5 minutes'");
   await knex("agent_runs").insert([
     { conversation_id: 10, heartbeat_at: old, steps: JSON.stringify(steps), input: JSON.stringify({ human: true }) },
@@ -99,20 +99,21 @@ test("the staleness limit is the runs' own", async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
   const limits = { staleSeconds: 3600, heartbeatMs: 1000 };
-  const runs = createRuns({ knex, limits });
+  const agent = await agentOwner(knex);
+  const runs = createRuns({ ...agent, limits });
   assert.equal(runs.limits, limits);
   assert.equal(await runs.claim(20), true);
   await runs.save(20, steps, {});
   await quiet(knex, 20);
   assert.equal(await runs.claim(20), false, "five minutes quiet is not stale under an hour's limit");
   assert.deepEqual(await runs.takeOverStalled(), []);
-  assert.equal(await createRuns({ knex }).claim(20), true, "while the default minute's limit finds it stale");
+  assert.equal(await createRuns(agent).claim(20), true, "while the default minute's limit finds it stale");
 });
 
 test("resumable(query) narrows takeOverStalled and the resumer with the store's query builder", async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
-  const runs = createRuns({ knex });
+  const runs = createRuns(await agentOwner(knex));
   const old = knex.raw("now() - interval '5 minutes'");
   await knex("agent_runs").insert([
     { conversation_id: 30, heartbeat_at: old, steps: JSON.stringify(steps), input: JSON.stringify({ human: true }) },
@@ -133,7 +134,7 @@ test("resumable(query) narrows takeOverStalled and the resumer with the store's 
 test("heartbeat, release and save answer the number of rows they touched", async (context) => {
   requireTestDatabase(process.env);
   const knex = await testDatabase(context);
-  const runs = createRuns({ knex });
+  const runs = createRuns(await agentOwner(knex));
   assert.equal(await runs.claim(40), true);
   assert.equal(await runs.heartbeat(40), 1);
   assert.equal(await runs.save(40, steps, {}), 1);

@@ -14,9 +14,6 @@ import {
 // alone until they are converted. The store-conversion step of the data-access redesign converts each one and deletes
 // this list.
 const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
-  "packages/agent-runtime/src/server/goals.js",
-  "packages/agent-runtime/src/server/runs.js",
-  "packages/agent-runtime/src/server/summaryStore.js",
   "packages/assistant-runtime/src/server/AssistantProvider.js",
   "packages/assistant-runtime/src/server/repositories/assistantConfigRepository.js",
   "packages/assistant-runtime/src/server/repositories/conversationsRepository.js",

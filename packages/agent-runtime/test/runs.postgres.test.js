@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createRuns, startResumer } from "../src/server/index.js";
-import { DATABASE, testDatabase } from "./database.js";
+import { BOT_COLUMN, DATABASE, agentOwner, testDatabase } from "./database.js";
 
 // A reply saves its steps as each one finishes; one a stopped server left part-way is taken over
 // by another server, once, and carried on from them.
@@ -13,7 +13,7 @@ const quiet = (knex) => knex.raw("now() - interval '5 minutes'");
 test("a reply claims its conversation, saves its steps while it runs, and is gone once it ends", { skip: DATABASE }, async (context) => {
   const knex = await testDatabase(context);
   await knex.schema.alterTable("agent_runs", (table) => table.bigInteger("bot_id"));
-  const runs = createRuns({ knex });
+  const runs = createRuns(await agentOwner(knex, { columns: { runs: BOT_COLUMN } }));
   assert.equal(await runs.claim(1, { bot_id: 9 }), true);
   assert.equal(await runs.claim(1), false, "one reply per conversation at a time");
   assert.equal((await knex("agent_runs").where({ conversation_id: 1 }).first()).bot_id, "9", "with the app's own columns");
@@ -31,7 +31,7 @@ test("a reply claims its conversation, saves its steps while it runs, and is gon
 
 test("a run whose server stopped beating is taken over once, with its steps", { skip: DATABASE }, async (context) => {
   const knex = await testDatabase(context);
-  const runs = createRuns({ knex });
+  const runs = createRuns(await agentOwner(knex));
   await knex("agent_runs").insert([
     { conversation_id: 2, heartbeat_at: quiet(knex), steps: JSON.stringify(steps), input: JSON.stringify({ human: true }) },
     { conversation_id: 3, heartbeat_at: quiet(knex), steps: JSON.stringify(steps), input: JSON.stringify({ human: false }) },
@@ -49,7 +49,7 @@ test("a run whose server stopped beating is taken over once, with its steps", { 
 
 test("the resumer carries on what stopped servers left, then drains", { skip: DATABASE }, async (context) => {
   const knex = await testDatabase(context);
-  const runs = createRuns({ knex });
+  const runs = createRuns(await agentOwner(knex));
   await knex("agent_runs").insert({ conversation_id: 6, heartbeat_at: quiet(knex), steps: JSON.stringify(steps), input: JSON.stringify({ human: true }) });
   const resumed = [];
   const resumer = startResumer({ runs, resume: async (run) => resumed.push(Number(run.conversation_id)), everyMs: 50 });

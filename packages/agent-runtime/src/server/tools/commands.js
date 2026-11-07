@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import { z } from "zod";
 import { createTool, textPart } from "@jskit-ai/agent/server";
+import { createCommandsRepository } from "../repositories/commandsRepository.js";
 
 // Commands in the workspace, through an executor (executors.js). One still running after
 // `foregroundSeconds` carries on in the background on this server, with a heartbeat, and the model
@@ -13,31 +14,37 @@ import { createTool, textPart } from "@jskit-ai/agent/server";
 // read_command_output reads in parts and the next commands can read too (as Claude Code keeps
 // large outputs). Point outputDir at storage every server shares when there are several.
 //
-// The table has: id, conversation_id, why, script, status (running, done, failed, timed_out,
-// stopped), exit_code, output, truncated, server, heartbeat_at, started_at, ended_at.
+// The table (agentCommands, resources.js) has: id, conversation_id, why, script, status (running,
+// done, failed, timed_out, stopped), exit_code, output, truncated, server, heartbeat_at,
+// started_at, ended_at.
 export const COMMAND_LIMITS = { foregroundSeconds: 120, maxSeconds: 1800, outputHead: 8000, outputTail: 8000, outputFull: 16 * 1024 * 1024, heartbeatSeconds: 20, staleSeconds: 90 };
 
 /**
- * The commands of every conversation, in `table`, run through `executor`.
+ * The commands of every conversation, on the agentCommands handle of the feature that owns the
+ * agent's tables, run through `executor`.
  * @param {object} dependencies
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {Readonly<Record<string, import("@jskit-ai/resource-runtime/server/types").ResourceHandle>>} dependencies.resources The owner's handles (agentResources()).
+ * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext The owner's system context factory.
  * @param {import("../types.js").AgentExecutor} dependencies.executor
- * @param {string} [dependencies.table]
  * @param {string} [dependencies.outputDir]
  * @param {(command: object) => unknown} [dependencies.onEnd]
  * @param {typeof COMMAND_LIMITS} [dependencies.limits]
  * @param {string} [dependencies.server]
  */
 export function createCommands({
-  knex,
+  resources,
+  systemContext,
   executor,
-  table = "agent_commands",
   outputDir = path.join(os.tmpdir(), "agent-runs"),
   onEnd = ignoreEnd,
   limits = COMMAND_LIMITS,
   server = `${os.hostname()}:${process.pid}`
 }) {
   const live = new Map();
+  const store = createCommandsRepository({
+    commands: resources.agentCommands,
+    options: Object.freeze({ context: systemContext("commands run in any conversation, and any server follows them") })
+  });
   const logOf = (conversationId, id) => path.join(outputDir, String(conversationId), `${id}.log`);
 
   function view(row) {
@@ -52,7 +59,7 @@ export function createCommands({
 
   async function run({ conversationId, cwd, why, script, seconds = limits.maxSeconds }) {
     if (!executor.available()) return { error: "Commands can't run on this server (its sandbox isn't installed)." };
-    const [row] = await knex(table).insert({ conversation_id: conversationId, why, script, status: "running", server, heartbeat_at: knex.fn.now() }).returning("*");
+    const row = await store.start({ conversationId, why, script, server });
     const log = logOf(conversationId, row.id);
     await mkdir(path.dirname(log), { recursive: true });
     const whole = createWriteStream(log);
@@ -76,7 +83,7 @@ export function createCommands({
       timedOut = true;
       child.kill();
     }, Math.min(seconds, limits.maxSeconds) * 1000);
-    const beat = setInterval(() => knex(table).where({ id: row.id }).update({ heartbeat_at: knex.fn.now() }).catch(() => {}), limits.heartbeatSeconds * 1000);
+    const beat = setInterval(() => store.beat(row.id).catch(() => {}), limits.heartbeatSeconds * 1000);
     live.set(row.id, child);
     const ended = new Promise((resolve) => child.on("close", (code) => resolve(code)))
       .then(async (code) => {
@@ -87,7 +94,7 @@ export function createCommands({
         const truncated = size > shown;
         const output = truncated ? `${kept.slice(0, limits.outputHead)}\n… (${size - shown} characters cut) …\n${tail}` : kept;
         const status = timedOut ? "timed_out" : code === 0 ? "done" : "failed";
-        const [done] = await knex(table).where({ id: row.id }).update({ status, exit_code: code, output, truncated, ended_at: knex.fn.now() }).returning("*");
+        const done = await store.end(row.id, { status, exitCode: code, output, truncated });
         await Promise.resolve(onEnd(done)).catch(() => {});
         return done;
       });
@@ -99,17 +106,17 @@ export function createCommands({
   /** A running command whose server stopped beating has stopped with it. */
   async function check(conversationId, id) {
     if (!/^\d+$/u.test(String(id))) return { error: "Give the run number from run_command." };
-    const row = await knex(table).where({ id, conversation_id: conversationId }).first();
+    const row = await store.find(conversationId, id);
     if (!row) return { error: "There's no such command in this conversation." };
     if (row.status === "running" && !live.has(row.id) && Date.now() - new Date(row.heartbeat_at).getTime() > limits.staleSeconds * 1000) {
-      const [stopped] = await knex(table).where({ id: row.id, status: "running" }).update({ status: "stopped", output: `${row.output || ""}\n(The server running it stopped, so the command stopped too.)`, ended_at: knex.fn.now() }).returning("*");
+      const stopped = await store.markStopped(row.id, `${row.output || ""}\n(The server running it stopped, so the command stopped too.)`);
       return view(stopped || row);
     }
     return view(row);
   }
 
   async function wholeOutput(conversationId, id, fromLine = 1) {
-    const row = await knex(table).where({ id, conversation_id: conversationId }).first();
+    const row = await store.find(conversationId, id);
     if (!row) return { error: "There's no such command in this conversation." };
     if (row.status === "running") return { error: "It's still running; check_command shows its output so far." };
     if (!row.truncated) return { note: "Its output wasn't cut, so the result already showed all of it.", output: row.output };
