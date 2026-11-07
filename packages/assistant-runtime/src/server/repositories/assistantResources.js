@@ -70,13 +70,16 @@ const assistantMessagesResource = defineTableResource({
     conversationId: { type: "id", search: true },
     workspaceId: { type: "id", nullable: true, search: true },
     seq: { type: "integer" },
-    role: textField(),
-    kind: textField(),
+    role: textField({ search: true }),
+    kind: textField({ search: true }),
     clientMessageSid: textField(),
     actorUserId: { type: "id", nullable: true },
     contentText: textField({ nullable: true }),
     metadataJson: textField({ nullable: true }),
     createdAt: dateTimeField()
+  },
+  searchSchema: {
+    conversationIds: { type: "array", actualField: "conversationId", filterOperator: "in", items: { type: "string" } }
   }
 });
 

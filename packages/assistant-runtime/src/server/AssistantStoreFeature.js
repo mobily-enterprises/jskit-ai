@@ -20,7 +20,11 @@ function createAssistantRepositories({ resources, systemContext }) {
   return Object.freeze({
     config: createConfigRepository({ assistantConfig: resources.assistantConfig, systemContext }),
     conversations: createConversationsRepository({ conversations: resources.assistantConversations, systemContext }),
-    messages: createMessagesRepository({ messages: resources.assistantMessages, systemContext }),
+    messages: createMessagesRepository({
+      messages: resources.assistantMessages,
+      conversations: resources.assistantConversations,
+      systemContext
+    }),
     turnRequests: createTurnRequestsRepository({ turnRequests: resources.assistantTurnRequests, systemContext })
   });
 }

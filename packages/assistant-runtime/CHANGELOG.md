@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `assistant.repositories`' messages gain `findNewestAssistantByUserId(userId, { kind }, options)`: the newest assistant message (latest `createdAt`, then highest id) in any of one user's conversations, in every workspace and surface, or null; `kind` narrows it, such as `"chat"` for a reply. It costs two reads for a user with up to 1,000 conversations. The messages table resource gains `role` and `kind` filters and a `conversationIds` list filter.
 - `@jskit-ai/assistant-runtime/client/providers/AssistantClientProvider` exports the client provider by itself, so the client bootstrap loads it without the assistant's elements and what they import.
 - `subscribeAssistantConversation()` takes `noticeMs`, how long an unanswered subscription waits before the loading notice. It stays ten seconds; tests pass a shorter one, so the real-socket proof of a slow subscription no longer waits ten seconds.
 - Reads its operations from assistant-core's `assistantContract` and `assistantConfigContract`.

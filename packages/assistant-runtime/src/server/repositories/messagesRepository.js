@@ -37,16 +37,28 @@ function normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize
   };
 }
 
+// A conversation id list per query, so its "in" list stays well inside every database's limits.
+const CONVERSATION_IDS_PER_QUERY = 1000;
+
+// Whether message a was written after b: the later createdAt, then the higher id.
+function isNewer(a, b) {
+  const byTime = Date.parse(toIso(a.createdAt)) - Date.parse(toIso(b.createdAt));
+  return byTime !== 0 ? byTime > 0 : BigInt(a.id) > BigInt(b.id);
+}
+
 /**
  * A conversation's messages, on the assistantMessages table. Callers reach
  * them by conversation id after checking that conversation's actor scope; a
  * workspace's messages are read in that workspace, the rest in the system context.
  * @param {object} dependencies
  * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.messages
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.conversations The
+ *   assistantConversations table's handle, for the conversations of one user.
  * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext
  */
-function createRepository({ messages, systemContext }) {
+function createRepository({ messages, conversations, systemContext }) {
   const messageContext = systemContext("messages reached by conversation id after the caller checked the conversation's actor scope");
+  const userContext = systemContext("the newest assistant message among one user's conversations, which the caller is entitled to read");
 
   // A workspace's messages in that workspace; messages without one in the system context, filtered to none.
   function scoped(workspaceId, options) {
@@ -153,6 +165,46 @@ function createRepository({ messages, systemContext }) {
     return records.map(mapMessageRecord);
   }
 
+  /**
+   * The newest assistant message (the latest createdAt, then the highest id)
+   * in any of one user's conversations, in every workspace and surface, or
+   * null; with `kind`, the newest of that kind, such as "chat" for a reply.
+   * Two reads for a user with up to 1,000 conversations: their ids, then the
+   * newest message among them.
+   * @param {unknown} userId
+   * @param {{ kind?: string }} [criteria]
+   * @param {{ context?: object | null, trx?: object | null }} [options]
+   */
+  async function findNewestAssistantByUserId(userId, { kind = "" } = {}, options = {}) {
+    const normalizedUserId = normalizeInputRecordId(userId);
+    if (!normalizedUserId) {
+      return null;
+    }
+
+    const owned = await conversations.queryAll(
+      { filters: { userId: normalizedUserId }, fields: ["userId"] },
+      { ...options, context: userContext.forUser(normalizedUserId) }
+    );
+    const conversationIds = owned.map((conversation) => normalizeRecordId(conversation.id, { fallback: "" })).filter(Boolean);
+    const normalizedKind = normalizeText(kind).toLowerCase();
+    let newest = null;
+    for (let start = 0; start < conversationIds.length; start += CONVERSATION_IDS_PER_QUERY) {
+      const { records: [candidate] } = await messages.query({
+        filters: {
+          conversationIds: conversationIds.slice(start, start + CONVERSATION_IDS_PER_QUERY),
+          role: "assistant",
+          ...(normalizedKind ? { kind: normalizedKind } : {})
+        },
+        sort: ["-createdAt", "-id"],
+        page: { size: 1 }
+      }, { ...options, context: messageContext });
+      if (candidate && (!newest || isNewer(candidate, newest))) {
+        newest = candidate;
+      }
+    }
+    return newest ? mapMessageRecord(newest) : null;
+  }
+
   async function lastSequence(conversationId, options = {}) {
     const normalizedConversationId = normalizeInputRecordId(conversationId);
     if (!normalizedConversationId) return 0;
@@ -166,6 +218,7 @@ function createRepository({ messages, systemContext }) {
     updateById,
     countByConversationScope,
     listByConversationScope,
+    findNewestAssistantByUserId,
     lastSequence,
     transaction
   });
