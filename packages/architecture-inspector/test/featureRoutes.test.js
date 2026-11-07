@@ -192,7 +192,7 @@ const CRUD = {
     "import { defineTableResource } from \"@jskit-ai/resource-core/shared/tableResource\";",
     "import { defineCrudContract } from \"@jskit-ai/resource-crud-core/shared/crudContract\";",
     "const receivalResource = defineTableResource({ name: \"receivals\", tableName: \"receivals\", ownership: \"public\", schema: { status: { type: \"string\" } } });",
-    "const resource = defineCrudContract(receivalResource, { operations: [\"list\", \"view\"] });",
+    "const resource = defineCrudContract(receivalResource, { namespace: \"receivals\", operations: [\"list\", \"view\"] });",
     "export { resource };",
     ""
   ].join("\n"),

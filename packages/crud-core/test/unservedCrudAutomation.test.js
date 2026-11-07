@@ -20,6 +20,7 @@ function createResource(namespace) {
     }
   });
   return defineCrudContract(resource, {
+    namespace,
     operations: ["list", "view"],
     fields: { reason: { output: "required" } }
   });
