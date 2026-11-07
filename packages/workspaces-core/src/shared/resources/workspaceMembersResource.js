@@ -1,7 +1,7 @@
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
-import { defineResource } from "@jskit-ai/resource-core/shared/resource";
+import { defineApiContract } from "@jskit-ai/resource-core/shared/apiContract";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { workspaceRoleCatalogSchema } from "./workspaceRoleCatalogSchema.js";
 
@@ -213,7 +213,7 @@ const redeemInviteOutputSchema = createSchema({
   }
 });
 
-const workspaceMembersResource = defineResource({
+const workspaceMembersContract = defineApiContract({
   namespace: "workspaceMembers",
   messages: OPERATION_MESSAGES,
   operations: {
@@ -258,4 +258,4 @@ const workspaceMembersResource = defineResource({
   }
 });
 
-export { workspaceMembersResource };
+export { workspaceMembersContract };

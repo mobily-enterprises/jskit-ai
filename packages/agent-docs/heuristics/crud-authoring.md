@@ -18,7 +18,8 @@ Read these package-owned source patterns:
 ## Normal implementation order
 
 1. Author a source-controlled migration in the package that owns the entity.
-2. Define the resource with `defineCrudResource()`.
+2. Define the table resource with `defineTableResource()` and its HTTP surface
+   with `defineCrudContract()`.
 3. Bind standard server behavior with `defineCrudJsonApiFeature()`.
 4. Add only product-specific service methods, lifecycle, actions, validation,
    policy, queries, messages, and orchestration.

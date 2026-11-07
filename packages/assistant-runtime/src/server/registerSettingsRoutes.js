@@ -2,7 +2,7 @@ import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/share
 import {
   ASSISTANT_SETTINGS_UPDATE_TRANSPORT,
   ASSISTANT_SETTINGS_TRANSPORT,
-  assistantConfigResource,
+  assistantConfigContract,
   resolveAssistantApiBasePath
 } from "@jskit-ai/assistant-core/shared";
 import { actionIds } from "./actionIds.js";
@@ -45,7 +45,7 @@ function registerSettingsRoutes(
       },
       ...createJsonApiResourceRouteContract({
         ...ASSISTANT_SETTINGS_TRANSPORT,
-        output: assistantConfigResource.operations.view.output,
+        output: assistantConfigContract.operations.view.output,
         outputKind: "record",
         getRecordId: resolveAssistantSettingsRecordId
       })
@@ -81,8 +81,8 @@ function registerSettingsRoutes(
       },
       ...createJsonApiResourceRouteContract({
         ...ASSISTANT_SETTINGS_UPDATE_TRANSPORT,
-        body: assistantConfigResource.operations.patch.body,
-        output: assistantConfigResource.operations.patch.output,
+        body: assistantConfigContract.operations.patch.body,
+        output: assistantConfigContract.operations.patch.output,
         outputKind: "record",
         getRecordId: resolveAssistantSettingsRecordId,
         includeValidation400: true

@@ -129,7 +129,7 @@ function resolveLookupRuntimeDefaults(resource) {
  * A resource's lookup relations, resolved once: the error context, the
  * resource's namespace and lookup container key, the default include and
  * depth, and each lookup entry, in order and by key.
- * @param {import("../types.js").CrudResourceDefinition} resource
+ * @param {import("../types.js").CrudContract} resource
  * @param {{ outputKeys: readonly string[], context: string }} options
  */
 function buildCrudLookupRuntime(resource, { outputKeys, context }) {

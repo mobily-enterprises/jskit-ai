@@ -1,66 +1,45 @@
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 
-const bookResource = defineCrudResource({
-  namespace: "books",
+const bookResource = defineTableResource({
+  name: "books",
   tableName: "books",
-  apiAccess: "authenticated",
+  ownership: "user",
   schema: {
     userId: {
       type: "id",
       required: true,
-      hidden: true,
-      operations: {}
+      hidden: true
     },
     title: {
       type: "string",
       maxLength: 255,
       required: true,
-      search: true,
-      operations: {
-        output: { required: true },
-        create: { required: true },
-        patch: { required: false }
-      }
+      search: true
     },
     author: {
       type: "string",
       maxLength: 255,
       required: true,
-      search: true,
-      operations: {
-        output: { required: true },
-        create: { required: true },
-        patch: { required: false }
-      }
+      search: true
     },
     notes: {
       type: "string",
       maxLength: 65535,
       nullable: true,
-      search: true,
-      operations: {
-        output: { required: true },
-        create: { required: false },
-        patch: { required: false }
-      }
+      search: true
     },
     createdAt: {
       type: "dateTime",
       temporalPrecision: 0,
       default: "now()",
-      storage: { writeSerializer: "datetime-utc" },
-      operations: {
-        output: { required: true }
-      }
+      storage: { writeSerializer: "datetime-utc" }
     },
     updatedAt: {
       type: "dateTime",
       temporalPrecision: 0,
       default: "now()",
-      storage: { writeSerializer: "datetime-utc" },
-      operations: {
-        output: { required: true }
-      }
+      storage: { writeSerializer: "datetime-utc" }
     }
   },
   searchSchema: {
@@ -73,8 +52,15 @@ const bookResource = defineCrudResource({
       matchAll: true
     }
   },
-  defaultSort: ["-createdAt"],
-  autofilter: "user",
+  defaultSort: ["-createdAt"]
+});
+
+const bookCrud = defineCrudContract(bookResource, {
+  apiAccess: "authenticated",
+  fields: {
+    createdAt: { output: "required" },
+    updatedAt: { output: "required" }
+  },
   messages: {
     validation: "Fix invalid values and try again.",
     saveSuccess: "Book saved.",
@@ -84,4 +70,4 @@ const bookResource = defineCrudResource({
   }
 });
 
-export { bookResource };
+export { bookCrud, bookResource };

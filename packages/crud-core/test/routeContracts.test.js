@@ -18,7 +18,7 @@ function createSchemaDefinition(structure = {}, mode = "patch") {
 function createCrudResource() {
   return Object.freeze({
     namespace: "contacts",
-    defaultSort: Object.freeze(["-createdAt"]),
+    resource: Object.freeze({ defaultSort: Object.freeze(["-createdAt"]) }),
     contract: Object.freeze({
       lookup: Object.freeze({
         containerKey: "lookups"

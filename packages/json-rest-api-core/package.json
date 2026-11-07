@@ -15,6 +15,7 @@
   },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.262",
+    "@jskit-ai/resource-core": "0.1.204",
     "@jskit-ai/resource-crud-core": "0.1.204",
     "json-rest-api": "2.4.0"
   },

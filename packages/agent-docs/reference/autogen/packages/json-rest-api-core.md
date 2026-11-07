@@ -18,7 +18,7 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `addResourceIfMissing(api, scopeName, resourceConfig)`
 - `buildJsonRestQueryParams(resourceType = "", query = {}, { include = undefined } = {})`
-- `createJsonRestResourceScopeOptions(resource = {}, { writeSerializers = {}, normalizeId, rowPolicy, searchSchema, queryFields } = {})`
+- `createJsonRestResourceScopeOptions(resource, { writeSerializers = {}, normalizeId, rowPolicy, searchSchema, queryFields } = {})`
 - `createJsonRestContext`
 - `extractJsonRestCollectionRows`
 - `queryAllJsonRestCollectionDocument`

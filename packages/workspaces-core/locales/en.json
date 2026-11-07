@@ -52,11 +52,6 @@
       },
       "feedback": {
         "validationFailed": "Validation failed.",
-        "fixInvalidValues": "Fix invalid values and try again.",
-        "recordSaved": "Record saved.",
-        "recordSaveFailed": "Unable to save record.",
-        "recordDeleted": "Record deleted.",
-        "recordDeleteFailed": "Unable to delete record.",
         "workspaceInvalid": "Fix invalid workspace values and try again.",
         "workspaceUpdated": "Workspace updated.",
         "workspaceUpdateFailed": "Unable to update workspace.",

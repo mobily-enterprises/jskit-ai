@@ -2,7 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
-import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { userSettingsContract } from "../../shared/resources/userSettingsResource.js";
 import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
 
 const passwordChangeMetaOutputValidator = deepFreeze({
@@ -42,7 +42,7 @@ function registerAccountSecurityRoutes(router, { authService }) {
       },
       ...createJsonApiResourceRouteContract({
         requestType: "user-password-changes",
-        body: userSettingsResource.operations.passwordChange.body,
+        body: userSettingsContract.operations.passwordChange.body,
         output: passwordChangeMetaOutputValidator,
         outputKind: "meta",
         includeValidation400: true
@@ -78,8 +78,8 @@ function registerAccountSecurityRoutes(router, { authService }) {
       ...createJsonApiResourceRouteContract({
         requestType: "user-password-method-settings",
         responseType: "user-security-settings",
-        body: userSettingsResource.operations.passwordMethodToggle.body,
-        output: userSettingsResource.operations.passwordMethodToggle.output,
+        body: userSettingsContract.operations.passwordMethodToggle.body,
+        output: userSettingsContract.operations.passwordMethodToggle.output,
         outputKind: "record",
         getRecordId: resolveAccountSettingsResourceId,
         includeValidation400: true
@@ -109,11 +109,11 @@ function registerAccountSecurityRoutes(router, { authService }) {
         tags: ["settings"],
         summary: "Start linking an OAuth provider for authenticated user"
       },
-      params: userSettingsResource.operations.oauthLinkStart.params,
-      query: userSettingsResource.operations.oauthLinkStart.query,
+      params: userSettingsContract.operations.oauthLinkStart.params,
+      query: userSettingsContract.operations.oauthLinkStart.query,
       responses: withStandardErrorResponses(
         {
-          302: userSettingsResource.operations.oauthLinkStart.output
+          302: userSettingsContract.operations.oauthLinkStart.output
         },
         { includeValidation400: true }
       ),
@@ -150,10 +150,10 @@ function registerAccountSecurityRoutes(router, { authService }) {
         tags: ["settings"],
         summary: "Unlink an OAuth provider from authenticated account"
       },
-      params: userSettingsResource.operations.oauthUnlink.params,
+      params: userSettingsContract.operations.oauthUnlink.params,
       ...createJsonApiResourceRouteContract({
         responseType: "user-security-settings",
-        output: userSettingsResource.operations.oauthUnlink.output,
+        output: userSettingsContract.operations.oauthUnlink.output,
         outputKind: "record",
         getRecordId: resolveAccountSettingsResourceId,
         includeValidation400: true

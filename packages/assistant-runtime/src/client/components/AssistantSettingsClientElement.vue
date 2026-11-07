@@ -41,7 +41,7 @@ import { getClientAppConfig } from "@jskit-ai/kernel/client";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { assistantHttpClient, createAssistantApi, AssistantSettingsFormCard } from "@jskit-ai/assistant-core/client";
-import { assistantConfigResource, assistantSettingsQueryKey, buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
+import { assistantConfigContract, assistantSettingsQueryKey, buildAssistantApiPath } from "@jskit-ai/assistant-core/shared";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
 import { useShellPageTitle } from "@jskit-ai/shell-web/client/composables/useShellPageTitle";
@@ -195,7 +195,7 @@ async function submit() {
   clearFieldErrors();
 
   const validation = validateOperationSection({
-    operation: assistantConfigResource.operations.patch,
+    operation: assistantConfigContract.operations.patch,
     section: "body",
     value: {
       systemPrompt: form.systemPrompt

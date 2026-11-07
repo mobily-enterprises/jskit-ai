@@ -14,13 +14,26 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
-### `src/shared/resource.js`
+### `src/shared/apiContract.js`
 Exports
 - `createSchemaDefinition(schema, mode = "patch", { context = "schema definition" } = {})`
-- `defineResource(resource = {})`
+- `defineApiContract(contract = {})`
 - `normalizeSchemaDefinitionLike(value, { context = "schema definition", defaultMode = "patch" } = {})`
 Local functions
 - `resolveDefaultOperationSchemaMode(sectionName, operation)`
-- `normalizeOperationDefinition(operationName, operation = null, resourceMessages = null)`
-- `normalizeResourceOperations(operations = null, resourceMessages = null)`
-- `requireResourceNamespace(value, { context = "defineResource resource.namespace" } = {})`
+- `normalizeOperationDefinition(operationName, operation = null, contractMessages = null)`
+- `normalizeContractOperations(operations = null, contractMessages = null)`
+- `requireContractNamespace(value, { context = "defineApiContract namespace" } = {})`
+
+### `src/shared/tableResource.js`
+Exports
+- `OWNERSHIP_KINDS`
+- `defineTableResource(definition)`
+- `isTableResource(value)`
+- `resourceNameFromNamespace(namespace = "")`
+Local functions
+- `expandLookupField(fieldKey, fieldDefinition)`
+- `normalizeTableSchema(schema)`
+- `requireText(value, label)`
+- `requireOwnership(value)`
+- `requireLockVersionField(lockVersionField, schema)`

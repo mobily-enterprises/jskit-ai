@@ -2,8 +2,14 @@
 // of what its custom actions receive, and of the records repository a CRUD service uses.
 
 /**
- * The resource definition a CRUD feature serves, as defineCrudResource returns it.
- * @typedef {object} CrudResourceDefinition
+ * One table's description, as defineTableResource returns it.
+ * @typedef {object} TableResource
+ */
+
+/**
+ * The CRUD surface a CRUD feature serves, as defineCrudContract returns it; its
+ * table resource is its `resource`.
+ * @typedef {object} CrudContract
  */
 
 /**
@@ -44,7 +50,7 @@
  * decorateRepository and decorateService. The service keeps only the methods
  * of the feature's enabled operations.
  * @typedef {object} CrudResourceApi
- * @property {CrudResourceDefinition} resource
+ * @property {CrudContract} resource
  * @property {CrudRepository} repository
  * @property {CrudService} service
  */
@@ -62,7 +68,7 @@
  * @typedef {{
  *   input: any,
  *   context: object,
- *   resource: CrudResourceDefinition,
+ *   resource: CrudContract,
  *   repository: Repository,
  *   service: Service
  * } & Requires} CrudCustomActionInvocation
@@ -84,7 +90,7 @@
  * @property {"list" | "view" | "create" | "update" | "delete"} operation
  * @property {any} input
  * @property {object} context
- * @property {CrudResourceDefinition} resource
+ * @property {CrudContract} resource
  * @property {Repository} repository
  * @property {Service} service
  * @property {import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction | null} trx

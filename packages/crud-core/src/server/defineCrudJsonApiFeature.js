@@ -6,7 +6,7 @@ import {
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { isWorkspaceRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
-import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
+import { isCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import {
   assertCrudOperationName,
   createCrudJsonApiActions,
@@ -41,7 +41,7 @@ const CRUD_SERVICE_METHODS = new Set(Object.values(CRUD_SERVICE_METHOD_BY_OPERAT
 function normalizeAccess(resource = {}) {
   const access = normalizeText(resource.apiAccess).toLowerCase() || "authenticated";
   if (access !== "authenticated" && access !== "public") {
-    throw new TypeError('defineCrudJsonApiFeature resource.apiAccess must be "authenticated" or "public".');
+    throw new TypeError('defineCrudJsonApiFeature resource apiAccess must be "authenticated" or "public".');
   }
   return access;
 }
@@ -154,11 +154,11 @@ function projectEnabledServiceOperations(service, operations) {
 
 /**
  * @param {object} feature
- * @param {import("./types.js").CrudResourceDefinition} feature.resource The CRUD resource definition the feature serves.
+ * @param {import("./types.js").CrudContract} feature.resource The CRUD contract the feature serves, on its table resource.
  * @param {string} feature.surface The surface whose routes serve it.
  * @param {string} [feature.id] Defaults to `crud.<namespace>`.
  * @param {string} [feature.capability] Defaults to the feature id.
- * @param {string} [feature.ownershipFilter] Defaults to the resource's autofilter, then "public".
+ * @param {string} [feature.ownershipFilter] Defaults to the table resource's ownership.
  * @param {string} [feature.relativePath] Defaults to the namespace, with dashes.
  * @param {boolean} [feature.internal] True keeps the routes off the HTTP server.
  * @param {boolean} [feature.routes] False registers no HTTP routes. Either way, an action no permission
@@ -168,14 +168,14 @@ function projectEnabledServiceOperations(service, operations) {
  * @param {object | null} [feature.permissions]
  * @param {import("./types.js").CrudScope} [feature.scope] The route base, validators, input keys and input() of a scoped resource.
  * @param {Record<string, string>} [feature.requires] More capabilities the feature requires, by name.
- * @param {((dependencies: { repository: import("./types.js").CrudRepository, resource: import("./types.js").CrudResourceDefinition } & Record<string, any>) => import("./types.js").CrudRepository | Promise<import("./types.js").CrudRepository>) | null} [feature.decorateRepository]
- *   Receives the CRUD repository, the resource, runtime.database, runtime.http, runtime.json-rest-api and the feature's requires.
- * @param {((dependencies: { service: import("./types.js").CrudService, repository: import("./types.js").CrudRepository, resource: import("./types.js").CrudResourceDefinition } & Record<string, any>) => import("./types.js").CrudService | Promise<import("./types.js").CrudService>) | null} [feature.decorateService]
- *   Receives the CRUD service, the (decorated) repository, the resource and the feature's requires.
+ * @param {((dependencies: { repository: import("./types.js").CrudRepository, resource: import("./types.js").CrudContract } & Record<string, any>) => import("./types.js").CrudRepository | Promise<import("./types.js").CrudRepository>) | null} [feature.decorateRepository]
+ *   Receives the CRUD repository, the CRUD contract, runtime.database, runtime.http, runtime.json-rest-api and the feature's requires.
+ * @param {((dependencies: { service: import("./types.js").CrudService, repository: import("./types.js").CrudRepository, resource: import("./types.js").CrudContract } & Record<string, any>) => import("./types.js").CrudService | Promise<import("./types.js").CrudService>) | null} [feature.decorateService]
+ *   Receives the CRUD service, the (decorated) repository, the CRUD contract and the feature's requires.
  * @param {import("./types.js").CrudOperationLifecycle} [feature.operationLifecycle]
  * @param {object} [feature.operationInputs]
  * @param {object} [feature.actions] Custom actions, by name.
- * @param {string[]} [feature.operations] Defaults to every operation the resource defines.
+ * @param {string[]} [feature.operations] Defaults to every operation the CRUD contract offers.
  * @param {string} [feature.realtimeAudience] Defaults to "event_scope".
  */
 function defineCrudJsonApiFeature({
@@ -200,20 +200,18 @@ function defineCrudJsonApiFeature({
   operations = undefined,
   realtimeAudience = "event_scope"
 }) {
-  if (!resource || typeof resource !== "object" || Array.isArray(resource)) {
-    throw new TypeError("defineCrudJsonApiFeature requires resource.");
+  if (!isCrudContract(resource)) {
+    throw new TypeError("defineCrudJsonApiFeature requires resource, a CRUD contract from defineCrudContract.");
   }
-  const namespace = normalizeText(resource.namespace);
-  if (!namespace) {
-    throw new TypeError("defineCrudJsonApiFeature requires resource.namespace.");
-  }
+  const tableResource = resource.resource;
+  const namespace = resource.namespace;
   const featureId = normalizeText(id) || `crud.${namespace}`;
   const featureCapability = normalizeText(capability) || featureId;
   const normalizedSurface = normalizeText(surface).toLowerCase();
   if (!normalizedSurface) {
     throw new TypeError("defineCrudJsonApiFeature requires surface.");
   }
-  const normalizedOwnershipFilter = normalizeText(ownershipFilter || resource.autofilter).toLowerCase() || "public";
+  const normalizedOwnershipFilter = normalizeText(ownershipFilter || tableResource.ownership).toLowerCase();
   const normalizedRelativePath = normalizeText(relativePath) || `/${namespace.replace(/_/gu, "-")}`;
   const access = normalizeAccess(resource);
   if (access === "public" && normalizedOwnershipFilter !== "public") {
@@ -240,7 +238,7 @@ function defineCrudJsonApiFeature({
   }
   assertWorkspaceScope(normalizedScope, normalizedOwnershipFilter);
   const workspaceScoped = isWorkspaceRouteVisibility(normalizedOwnershipFilter);
-  const resourceScopeName = resolveCrudResourceScopeName(namespace);
+  const resourceScopeName = tableResource.name;
   const permissionOptions = permissions && typeof permissions === "object" && !Array.isArray(permissions)
     ? { ...permissions, namespace }
     : { namespace };
@@ -261,14 +259,14 @@ function defineCrudJsonApiFeature({
       await addResourceIfMissing(
         jsonRestApi,
         resourceScopeName,
-        createJsonRestResourceScopeOptions(resource, {
+        createJsonRestResourceScopeOptions(tableResource, {
           ...(searchSchema ? { searchSchema } : {}),
           writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc }
         })
       );
       const defaultRepository = createCrudJsonApiRepository({
         api: jsonRestApi,
-        resource,
+        resource: tableResource,
         resourceScopeName
       });
       const repository = decorateRepository

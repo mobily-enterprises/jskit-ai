@@ -6,24 +6,28 @@ import {
   createJsonRestApiHost,
   createJsonRestResourceScopeOptions
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
 
 // People in teams, parents owned by people, and children of parents, each read
 // through a row policy for the context's team, as a real application's are.
 const resources = {
-  people: {
+  people: defineTableResource({
+    name: "people",
     tableName: "people",
     schema: { id: { type: "id", primary: true }, name: { type: "string" }, team: { type: "string" } }
-  },
-  parents: {
+  }),
+  parents: defineTableResource({
+    name: "parents",
     tableName: "parents",
     schema: {
       id: { type: "id", primary: true },
       title: { type: "string" },
       ownerId: { type: "id", belongsTo: "people", as: "owner" }
     }
-  },
-  children: {
+  }),
+  children: defineTableResource({
+    name: "children",
     tableName: "children",
     schema: {
       id: { type: "id", primary: true },
@@ -31,7 +35,7 @@ const resources = {
       authorId: { type: "id", belongsTo: "people", as: "author" },
       title: { type: "string" }
     }
-  }
+  })
 };
 
 async function createFixture(t) {

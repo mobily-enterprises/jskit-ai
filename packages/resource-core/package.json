@@ -6,9 +6,10 @@
     "test": "jskit test"
   },
   "exports": {
-    "./shared/resource": "./src/shared/resource.js"
+    "./shared/apiContract": "./src/shared/apiContract.js",
+    "./shared/tableResource": "./src/shared/tableResource.js"
   },
-  "description": "Generic resource-definition helpers and schema-definition normalization.",
+  "description": "Table resources (one per table: fields, columns, ownership) and API contracts (HTTP operations), with schema-definition normalization.",
   "jskit": {
     "kind": "runtime",
     "capabilities": {

@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.262",
-    "@jskit-ai/resource-crud-core": "0.1.204",
+    "@jskit-ai/resource-core": "0.1.204",
     "@jskit-ai/users-core": "0.2.15",
     "json-rest-schema": "^1.0.17"
   },

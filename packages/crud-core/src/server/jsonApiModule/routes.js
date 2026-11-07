@@ -79,7 +79,7 @@ function normalizeCustomActionRoutes(actions, namespace) {
  * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
  * @param {object} options
  * @param {string} options.namespace
- * @param {import("../types.js").CrudResourceDefinition} options.resource
+ * @param {import("../types.js").CrudContract} options.resource
  * @param {string} options.routeBase
  * @param {string} options.relativePath
  * @param {string} options.surface

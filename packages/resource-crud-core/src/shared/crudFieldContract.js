@@ -42,7 +42,7 @@ function cloneStructuredFieldMetadata(value = {}) {
   return Object.keys(normalized).length > 0 ? Object.freeze(normalized) : null;
 }
 
-function resolveCrudFieldSchemaProperties(value, { context = "crud resource field definitions" } = {}) {
+function resolveCrudFieldSchemaProperties(value, { context = "crud contract field definitions" } = {}) {
   if (value == null) {
     return {};
   }
@@ -183,15 +183,15 @@ function mergeFieldContractEntry(target, source, { context = "crud field contrac
   return next;
 }
 
-function buildCrudFieldContractMap(resource, { context = "crud resource field contract" } = {}) {
+function buildCrudFieldContractMap(contract, { context = "crud contract field contract" } = {}) {
   const sections = [
-    resolveCrudFieldSchemaProperties(resource?.operations?.view?.output, {
+    resolveCrudFieldSchemaProperties(contract?.operations?.view?.output, {
       context: `${context}.operations.view.output`
     }),
-    resolveCrudFieldSchemaProperties(resource?.operations?.create?.body, {
+    resolveCrudFieldSchemaProperties(contract?.operations?.create?.body, {
       context: `${context}.operations.create.body`
     }),
-    resolveCrudFieldSchemaProperties(resource?.operations?.patch?.body, {
+    resolveCrudFieldSchemaProperties(contract?.operations?.patch?.body, {
       context: `${context}.operations.patch.body`
     })
   ];
@@ -248,18 +248,55 @@ function buildCrudFieldContractMap(resource, { context = "crud resource field co
   );
 }
 
+const FIELD_OPERATION_NAMES = Object.freeze(["output", "create", "patch", "replace"]);
+const FIELD_OPERATION_SHORTHANDS = Object.freeze({
+  required: Object.freeze({ required: true }),
+  optional: Object.freeze({ required: false })
+});
+
 /**
- * The operations a schema field takes part in. A field's own `operations` always
- * win. A field without them takes the default: none when it is `primary: true`
- * (every record output already carries its id) or `hidden: true`, output only
- * when it is `readOnly: true`, and otherwise output, create (required when the
- * field is `required: true`) and patch.
+ * One field's entry in a CRUD contract's `fields`: for each operation it takes
+ * part in, "required", "optional", true, or the keys merged over the field's
+ * definition for that operation.
+ * @param {string} fieldKey
+ * @param {unknown} entry
+ * @returns {Record<string, true | Record<string, unknown>>}
+ */
+function normalizeCrudFieldOperations(fieldKey, entry) {
+  if (!isRecord(entry)) {
+    throw new TypeError(`defineCrudContract fields.${fieldKey} must be an object of operations.`);
+  }
+  return Object.fromEntries(Object.entries(entry).map(([operationName, value]) => {
+    if (!FIELD_OPERATION_NAMES.includes(operationName)) {
+      throw new TypeError(
+        `defineCrudContract fields.${fieldKey}.${operationName} is not a field operation; use ${FIELD_OPERATION_NAMES.join(", ")}.`
+      );
+    }
+    if (typeof value === "string" && Object.hasOwn(FIELD_OPERATION_SHORTHANDS, value)) {
+      return [operationName, FIELD_OPERATION_SHORTHANDS[value]];
+    }
+    if (value === true || isRecord(value)) {
+      return [operationName, value];
+    }
+    throw new TypeError(
+      `defineCrudContract fields.${fieldKey}.${operationName} must be "required", "optional", true or an object.`
+    );
+  }));
+}
+
+/**
+ * The operations a schema field takes part in. The field's entry in the CRUD
+ * contract's `fields` always wins. A field without one takes the default: none
+ * when it is `primary: true` (every record output already carries its id) or
+ * `hidden: true`, output only when it is `readOnly: true`, and otherwise
+ * output, create (required when the field is `required: true`) and patch.
  * @param {Record<string, any>} fieldDefinition
+ * @param {Record<string, unknown> | undefined} fieldOperations
  * @returns {Record<string, unknown>}
  */
-function resolveCrudFieldOperations(fieldDefinition) {
-  if (fieldDefinition.operations !== undefined) {
-    return normalizeObject(fieldDefinition.operations);
+function resolveCrudFieldOperations(fieldDefinition, fieldOperations) {
+  if (fieldOperations !== undefined) {
+    return fieldOperations;
   }
   if (fieldDefinition.primary === true || fieldDefinition.hidden === true) {
     return {};
@@ -274,14 +311,21 @@ function resolveCrudFieldOperations(fieldDefinition) {
   };
 }
 
-function buildCrudOperationSchemaFields(fields = {}, operationName = "") {
+/**
+ * The schema fields one CRUD operation takes, each with that operation's keys
+ * merged over its definition.
+ * @param {Record<string, any>} fields The table resource's schema.
+ * @param {string} operationName
+ * @param {Record<string, Record<string, unknown>>} [fieldOperations] The CRUD contract's normalized `fields`.
+ */
+function buildCrudOperationSchemaFields(fields = {}, operationName = "", fieldOperations = {}) {
   const definitions = {};
 
   for (const [fieldKey, fieldDefinition] of Object.entries(fields)) {
     if (!isRecord(fieldDefinition)) {
       continue;
     }
-    const operationConfig = resolveCrudFieldOperations(fieldDefinition)[operationName];
+    const operationConfig = resolveCrudFieldOperations(fieldDefinition, fieldOperations[fieldKey])[operationName];
     if (!operationConfig) {
       continue;
     }
@@ -289,7 +333,6 @@ function buildCrudOperationSchemaFields(fields = {}, operationName = "") {
     const nextDefinition = {
       ...fieldDefinition
     };
-    delete nextDefinition.operations;
 
     if (operationConfig !== true) {
       Object.assign(nextDefinition, operationConfig);
@@ -310,5 +353,6 @@ export {
   resolveCrudFieldSchemaProperties,
   normalizeCrudFieldStorageConfig,
   buildCrudOperationSchemaFields,
-  buildCrudFieldContractMap
+  buildCrudFieldContractMap,
+  normalizeCrudFieldOperations
 };

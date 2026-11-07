@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import {
   USER_SETTINGS_ALL_KEYS,
-  userSettingsResource
+  userSettingsContract
 } from "../src/shared/resources/userSettingsResource.js";
 
 function parseBody(operation, payload = {}) {
@@ -15,7 +15,7 @@ function parseBody(operation, payload = {}) {
 }
 
 test("user settings preferences update keeps required string validation", async () => {
-  const parsed = await parseBody(userSettingsResource.operations.preferencesUpdate, {
+  const parsed = await parseBody(userSettingsContract.operations.preferencesUpdate, {
     theme: "   "
   });
 
@@ -24,7 +24,7 @@ test("user settings preferences update keeps required string validation", async 
 });
 
 test("user settings notifications update rejects non-boolean values", async () => {
-  const parsed = await parseBody(userSettingsResource.operations.notificationsUpdate, {
+  const parsed = await parseBody(userSettingsContract.operations.notificationsUpdate, {
     productUpdates: "yes"
   });
 

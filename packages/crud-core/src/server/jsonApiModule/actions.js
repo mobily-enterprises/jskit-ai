@@ -160,7 +160,7 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
  * defineCrudJsonApiFeature resolved.
  * @param {object} dependencies
  * @param {string} dependencies.namespace
- * @param {import("../types.js").CrudResourceDefinition} dependencies.resource
+ * @param {import("../types.js").CrudContract} dependencies.resource
  * @param {import("../types.js").CrudRepository} dependencies.repository
  * @param {import("../types.js").CrudService} dependencies.service
  * @param {string} dependencies.surface
