@@ -11,7 +11,8 @@ import { blankJsComments, lineIndex } from "./material3-source.mjs";
 // listed for review. In the app's own code, which no lint directive can hide from it, a feature's system scope and an
 // infrastructure exception fail until the checked-in BASELINE_FILE lists them, so each new one is reviewed; a module
 // that requires runtime.database or runtime.resources fails unless it is declared infrastructure; and an eslint-disable
-// that names a data-access rule, or no rule at all, fails in any file but the client's.
+// that names a data-access rule, or no rule at all, fails in any file but the client's. As information, it lists the
+// fields of each app table resource that its CRUD contracts never name, which no API shows or accepts.
 
 const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access";
 const SECTIONS = Object.freeze({
@@ -20,7 +21,8 @@ const SECTIONS = Object.freeze({
   "data/infrastructure-excuses": "hard-rules",
   "data/baseline": "hard-rules",
   "data/runtime-capability": "the-resource-is-the-only-door",
-  "data/lint-disabled": "hard-rules"
+  "data/lint-disabled": "hard-rules",
+  "data/unnamed-fields": "layer-2-the-crud-surface"
 });
 // What each rule asks, said once above its findings in the report.
 const RULE_EXPLANATIONS = Object.freeze({
@@ -53,8 +55,19 @@ const SKIPPED_DIRECTORIES = new Set([
   "node_modules", "dist", "build", "coverage", "test", "tests", "__tests__", "e2e", "fixtures", "test-results",
   "migrations", "seeds", "templates", "patterns", "examples", "docs", "site", "skills", "test-support"
 ]);
-const MARKERS = /defineTableResource|systemScope|systemContext|readable-check: allow|eslint-disable|runtime\.(?:database|resources)/u;
+const MARKERS = /defineTableResource|defineCrudContract|systemScope|systemContext|readable-check: allow|eslint-disable|runtime\.(?:database|resources)/u;
 const TABLE_RESOURCE_CALL = /\bdefineTableResource\s*\(/gu;
+// A CRUD contract on a table resource named by its variable: `defineCrudContract(receivalResource, { ... })`.
+const CRUD_CONTRACT_CALL = /\bdefineCrudContract\s*\(\s*([A-Za-z_$][\w$]*)\s*,\s*/gu;
+// The fields an ownership kind keeps for itself: json-rest-api fills them from the context.
+const OWNERSHIP_FIELDS = Object.freeze({
+  workspace: ["workspaceId"],
+  workspace_or_shared: ["workspaceId"],
+  user: ["userId"],
+  workspace_user: ["workspaceId", "userId"]
+});
+// The stamped timestamps every contract shows without an entry.
+const STAMPED_FIELDS = Object.freeze(["createdAt", "updatedAt"]);
 const FEATURE_CALL = /\bdefine(?:Crud)?Feature\s*\(/gu;
 const SYSTEM_CONTEXT_CALL = /\bsystemContext\s*\(/gu;
 const INFRASTRUCTURE_EXCUSE = /readable-check: allow (?:jskit\/)?(no-direct-knex|no-transaction-reader) - (infrastructure:.*?)\s*(?:\*\/)?\s*$/u;
@@ -161,21 +174,102 @@ function readSourceFile(source) {
   return { code, masked: maskStrings(code), position: lineIndex(source) };
 }
 
-// Every table resource a file defines: its name and table, each null when the source does not write it as a literal.
+// Every key of the object literal between `start` and `end` (masked code), in order, and whether the literal also
+// spreads or computes keys, so that its keys are not all known.
+function objectKeys(masked, start, end) {
+  let depth = 0;
+  let top = "";
+  for (let index = start; index < end; index += 1) {
+    const char = masked[index];
+    if ("([{".includes(char)) depth += 1;
+    top += depth === 1 || char === "\n" ? char : " ";
+    if (")]}".includes(char)) depth -= 1;
+  }
+  const keys = [...top.matchAll(/(?:^|[{,])\s*([A-Za-z_$][\w$]*)\s*(?::|(?=[,}]))/gu)].map((match) => ({
+    key: match[1],
+    at: start + match.index + match[0].length
+  }));
+  return { keys, partial: /(?:^|[{,])\s*(?:\.\.\.|["'`[])/u.test(top) };
+}
+
+// The object literal written at an offset: { start, end } in masked code, or null for anything else.
+function objectAt(masked, offset) {
+  const start = nextCodeOffset(masked, offset);
+  if (masked[start] !== "{") return null;
+  const end = closingOffset(masked, start);
+  return end < 0 ? null : { start, end };
+}
+
+// A table resource's schema fields that a CRUD contract could show: { names, partial }, or null when the schema is
+// not an object literal. The ownership fields, the stamped timestamps, the primary key and hidden fields are left out.
+function readSchemaFields(code, masked, keys, ownership) {
+  const at = keys.get("schema");
+  const schema = typeof at === "number" ? objectAt(masked, at) : null;
+  if (!schema) return null;
+  const { keys: fields, partial } = objectKeys(masked, schema.start, schema.end);
+  const kept = new Set([...(OWNERSHIP_FIELDS[ownership] || []), ...STAMPED_FIELDS]);
+  const names = fields.filter(({ key, at: valueAt }) => {
+    if (kept.has(key)) return false;
+    const field = objectAt(masked, valueAt);
+    if (!field) return true;
+    const flags = topLevelKeys(masked, field.start, field.end, ["hidden", "primary"]);
+    return ![...flags.values()].some((flagAt) => typeof flagAt === "number" && code.slice(nextCodeOffset(code, flagAt)).startsWith("true"));
+  }).map(({ key }) => key);
+  return { names, partial };
+}
+
+// Every table resource a file defines: its name and table, each null when the source does not write it as a literal,
+// the variable it is assigned to and the schema fields a CRUD contract could show.
 function readTableResources(file, { code, masked, position }) {
   const resources = [];
   for (const match of masked.matchAll(TABLE_RESOURCE_CALL)) {
     const object = objectArgument(masked, match.index, match[0].length);
     if (!object) continue;
-    const keys = topLevelKeys(masked, object.start, object.end, ["name", "tableName"]);
+    const keys = topLevelKeys(masked, object.start, object.end, ["name", "tableName", "ownership", "schema"]);
+    const ownership = keyValue(code, masked, keys, "ownership")?.text ?? null;
     resources.push({
       file,
       line: position(match.index).line,
       name: keyValue(code, masked, keys, "name")?.text ?? null,
-      tableName: keyValue(code, masked, keys, "tableName")?.text ?? null
+      tableName: keyValue(code, masked, keys, "tableName")?.text ?? null,
+      variable: /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*$/u.exec(masked.slice(Math.max(0, match.index - 120), match.index))?.[1] ?? null,
+      fields: readSchemaFields(code, masked, keys, ownership)
     });
   }
   return resources;
+}
+
+// Every CRUD contract a file defines: the variable of its table resource and the fields its `fields` names, null when
+// they are not all written as literal keys.
+function readCrudContracts(masked) {
+  const contracts = [];
+  for (const match of masked.matchAll(CRUD_CONTRACT_CALL)) {
+    const config = objectAt(masked, match.index + match[0].length);
+    if (!config) {
+      contracts.push({ resource: match[1], fields: null });
+      continue;
+    }
+    const at = topLevelKeys(masked, config.start, config.end, ["fields"]).get("fields");
+    const fields = typeof at === "number" ? objectAt(masked, at) : null;
+    const named = fields ? objectKeys(masked, fields.start, fields.end) : null;
+    contracts.push({ resource: match[1], fields: at === undefined ? [] : named && !named.partial ? named.keys.map(({ key }) => key) : null });
+  }
+  return contracts;
+}
+
+// The fields of each app table resource that its CRUD contracts never name, for a resource with at least one contract
+// whose fields are all known.
+function unnamedFields(resources, contracts) {
+  const byResource = Map.groupBy(contracts, ({ resource }) => resource);
+  const unnamed = [];
+  for (const resource of resources) {
+    const own = byResource.get(resource.variable);
+    if (resource.framework || !resource.fields || !own || own.some(({ fields }) => fields === null)) continue;
+    const named = new Set(own.flatMap(({ fields }) => fields));
+    const fields = resource.fields.names.filter((name) => !named.has(name));
+    if (fields.length > 0) unnamed.push({ file: resource.file, line: resource.line, name: resource.name, fields });
+  }
+  return unnamed;
 }
 
 // Every system scope a file declares or calls: a feature's systemScope and each systemContext(...) call, with its
@@ -373,6 +467,7 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
     sources.push(...files.map((file) => ({ file: path.join(directory, file), absolute: path.join(real, file), framework: true })));
   }
   const resources = [];
+  const contracts = [];
   const scopes = [];
   const excuses = [];
   const findings = [];
@@ -385,6 +480,7 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
     resources.push(...readTableResources(name, read).map((resource) => ({ ...resource, framework })));
     scopes.push(...readSystemScopes(name, read).map((scope) => ({ ...scope, framework })));
     if (framework) continue;
+    contracts.push(...readCrudContracts(read.masked));
     const fileExcuses = readInfrastructureExcuses(name, source);
     excuses.push(...fileExcuses);
     if (fileExcuses.length < 1) {
@@ -409,7 +505,8 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
     files: sources.length,
     resources: resources.length,
     systemScopes: scopes.filter((scope) => scope.reason !== null),
-    excuses
+    excuses,
+    unnamedFields: unnamedFields(resources, contracts)
   };
 }
 
@@ -429,6 +526,11 @@ function formatDataAccessReport(result) {
   if (result.excuses.length > 0) {
     lines.push(`Infrastructure exceptions (${result.excuses.length}), each a whole file past a data-access lint rule (data/infrastructure-excuses; ${GUIDE}#${SECTIONS["data/infrastructure-excuses"]}):`);
     for (const { file, line, rule, reason } of result.excuses) lines.push(`  ${file}:${line}  ${rule}  ${reason}`);
+  }
+  if (result.unnamedFields.length > 0) {
+    lines.push(`Fields no CRUD contract names (${result.unnamedFields.length} table resource(s)), so no API shows or accepts them; ` +
+      `name one in a contract's fields to offer it (data/unnamed-fields; ${GUIDE}#${SECTIONS["data/unnamed-fields"]}):`);
+    for (const { file, line, name, fields } of result.unnamedFields) lines.push(`  ${file}:${line}  ${name}: ${fields.join(", ")}`);
   }
   const listed = `${result.systemScopes.length} system scope(s) and ${result.excuses.length} infrastructure exception(s) listed for review`;
   lines.push(result.ok

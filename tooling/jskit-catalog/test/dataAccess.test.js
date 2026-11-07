@@ -73,6 +73,50 @@ test("every table has one table resource with its own name, across the app and i
   });
 });
 
+test("the fields of an app table resource that its CRUD contracts never name are listed, as information", async () => {
+  const noteResource = [
+    "export const noteResource = defineTableResource({",
+    "  name: \"notes\",",
+    "  tableName: \"notes\",",
+    "  ownership: \"workspace\",",
+    "  schema: {",
+    "    id: { type: \"id\", primary: true },",
+    "    workspaceId: { type: \"id\", required: true },",
+    "    title: { type: \"string\", required: true },",
+    "    body: { type: \"string\", nullable: true },",
+    "    internalNote: { type: \"string\", nullable: true },",
+    "    secret: { type: \"string\", hidden: true },",
+    "    createdAt: { type: \"dateTime\" }",
+    "  }",
+    "});",
+    "export const draftResource = defineTableResource({ name: \"drafts\", tableName: \"drafts\", ownership: \"public\", schema: { text: { type: \"string\" } } });",
+    "export const memoResource = defineTableResource({ name: \"memos\", tableName: \"memos\", ownership: \"public\", schema: { text: { type: \"string\" } } });",
+    ""
+  ].join("\n");
+  await withProject({
+    "packages/notes/src/shared/noteResource.js": noteResource,
+    "packages/notes/src/shared/noteCrud.js": [
+      "export const noteCrud = defineCrudContract(noteResource, {",
+      "  namespace: \"notes\",",
+      "  fields: { title: { output: \"required\", create: \"required\" } }",
+      "});",
+      "export const noteSummaryCrud = defineCrudContract(noteResource, { namespace: \"note-summaries\", fields: { body: { output: \"optional\" } } });",
+      // A contract whose fields are not all written out leaves its resource unjudged.
+      "export const draftCrud = defineCrudContract(draftResource, { namespace: \"drafts\", fields: { ...draftFields } });",
+      ""
+    ].join("\n")
+  }, async (root) => {
+    const result = await checkDataAccess({ projectRoot: root });
+    assert.equal(result.ok, true);
+    assert.deepEqual(result.unnamedFields, [
+      { file: "packages/notes/src/shared/noteResource.js", line: 1, name: "notes", fields: ["internalNote"] }
+    ]);
+    const report = formatDataAccessReport(result);
+    assert.match(report, /^Fields no CRUD contract names \(1 table resource\(s\)\), so no API shows or accepts them; name one in a contract's fields to offer it \(data\/unnamed-fields; https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access#layer-2-the-crud-surface\):$/mu);
+    assert.match(report, /^ {2}packages\/notes\/src\/shared\/noteResource\.js:1 {2}notes: internalNote$/mu);
+  });
+});
+
 test("a second table resource for a table, a repeated name and an unreadable one fail, naming both files", async () => {
   await withProject({
     ...TABLES,

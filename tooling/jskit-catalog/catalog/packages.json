@@ -5148,6 +5148,7 @@
         "packages/users-workspace/package.json",
         "packages/users-workspace/src/server/types.js",
         "packages/users-workspace/src/server/UsersWorkspaceFeature.js",
+        "packages/users-workspace/src/server/workspaceMembersOnly.js",
         "packages/users-workspace/src/shared/index.js",
         "packages/users-workspace/src/shared/userCrud.js"
       ]
