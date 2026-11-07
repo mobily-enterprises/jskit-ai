@@ -19,7 +19,9 @@
 // PROD_DB_NAME are never touched. Two runs at once need different database names, as before.
 //
 // A database test that guards a path's cost counts the statements the path sends with countQueries(), or, for a route
-// of a server the test booted, countRuntimeQueries().
+// of a server the test booted, countRuntimeQueries(); expectFlatQueries() compares those counts at a few rows and at
+// many. A data test never skips: requireTestDatabase() fails it when TEST_DB_NAME is not set.
+import { AssertionError } from "node:assert";
 import { createHash } from "node:crypto";
 import diagnosticsChannel from "node:diagnostics_channel";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -571,13 +573,112 @@ async function countRuntimeQueries(work) {
   }, work);
 }
 
+/** A data test that has no test database: it fails rather than skip. */
+class TestDatabaseMissingError extends Error {
+  constructor() {
+    super("TEST_DB_NAME is not set; data tests never skip.");
+    this.name = "TestDatabaseMissingError";
+  }
+}
+
+/**
+ * The test database a data test runs on. A data test never skips: without TEST_DB_NAME it throws
+ * TestDatabaseMissingError, so a run without a database fails instead of passing what it never ran.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} environment The test's environment, such as `process.env`.
+ * @returns {string}
+ */
+function requireTestDatabase(environment) {
+  const name = String(environment.TEST_DB_NAME || "").trim();
+  if (!name) {
+    throw new TestDatabaseMissingError();
+  }
+  return name;
+}
+
+const REPEATED_STATEMENTS_SHOWN = 5;
+
+/** A statement with its values taken out, so the same statement for another row reads the same. */
+function normalizedStatement(sql) {
+  return sql
+    .replace(/'(?:[^']|'')*'/gu, "?")
+    .replace(/\$\d+/gu, "?")
+    .replace(/\b\d+(?:\.\d+)?\b/gu, "?")
+    .replace(/\(\s*\?(?:\s*,\s*\?)+\s*\)/gu, "(?, ...)");
+}
+
+function mostRepeated(queries) {
+  const counts = new Map();
+  for (const query of queries) {
+    const statement = normalizedStatement(query);
+    counts.set(statement, (counts.get(statement) || 0) + 1);
+  }
+  return [...counts].sort((left, right) => right[1] - left[1]).slice(0, REPEATED_STATEMENTS_SHOWN);
+}
+
+function requireSizes(sizes) {
+  const valid = Array.isArray(sizes) && sizes.length >= 2 &&
+    sizes.every((size, index) => Number.isInteger(size) && size > 0 && (index === 0 || size > sizes[index - 1]));
+  if (!valid) {
+    throw new TypeError("expectFlatQueries sizes must be at least two growing whole numbers of rows, such as [10, 200].");
+  }
+}
+
+/**
+ * Fails when a path's statements grow with its rows. For each size, smallest first, it seeds that many rows with
+ * `seed(size)`, then runs `run(seeded, size)` and counts the statements sent meanwhile: through `knex` when given (its
+ * transactions' included), else through the runtime of a server the test booted, as countRuntimeQueries() does. A flat
+ * path sends as many statements at every size; a path that reads or writes row by row sends more at each. On failure
+ * the message gives every count and the statements repeated most at the largest size. Its seed keeps the sizes apart
+ * (a workspace or user of their own, or a fresh database).
+ * @template S
+ * @param {object} options
+ * @param {number[]} [options.sizes] Growing row counts; 10 and 200 when absent.
+ * @param {(size: number) => S | Promise<S>} options.seed
+ * @param {(seeded: S, size: number) => unknown} options.run
+ * @param {import("knex").Knex | import("knex").Knex.Transaction | null} [options.knex]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.environment The test's environment, such as `process.env`.
+ * @returns {Promise<Array<{ size: number, count: number }>>} The count at each size.
+ */
+async function expectFlatQueries({ sizes = [10, 200], seed, run, knex = null, environment }) {
+  requireTestDatabase(environment);
+  requireSizes(sizes);
+  // readable-check: allow method-probe - input validation: seed and run are the caller's own functions
+  if (typeof seed !== "function" || typeof run !== "function") {
+    throw new TypeError("expectFlatQueries requires seed(size) and run(seeded, size) functions.");
+  }
+  const measured = [];
+  for (const size of sizes) {
+    const seeded = await seed(size);
+    const work = () => run(seeded, size);
+    const { count, queries } = knex ? await countQueries(knex, work) : await countRuntimeQueries(work);
+    measured.push({ size, count, queries });
+  }
+  const counts = measured.map(({ size, count }) => ({ size, count }));
+  const [smallest] = measured;
+  const largest = measured.at(-1);
+  if (measured.some(({ count }) => count > smallest.count)) {
+    const repeated = mostRepeated(largest.queries).map(([statement, times]) => `  ${times} x ${statement}`);
+    throw new AssertionError({
+      message: [
+        `The statements grow with the rows: ${counts.map(({ size, count }) => `${count} at ${size} rows`).join(", ")}.`,
+        `Repeated most at ${largest.size} rows:`,
+        ...repeated
+      ].join("\n")
+    });
+  }
+  return counts;
+}
+
 export {
   RUN_SETTINGS_FILE,
+  TestDatabaseMissingError,
   countQueries,
   countRuntimeQueries,
+  expectFlatQueries,
   matchesSnapshot,
   prepareTestDatabases,
   requireDisposableDatabase,
+  requireTestDatabase,
   restoreTestDatabase,
   testDatabaseNames,
   testDatabaseRun,
