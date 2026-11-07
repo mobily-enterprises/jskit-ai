@@ -158,25 +158,33 @@ function createRepository({ workspaceMemberships }) {
       .filter(Boolean);
   }
 
-  async function listActiveByWorkspaceId(workspaceId, options = {}) {
+  // The member summaries of a workspace's memberships the filters select, by display name, with their users in the same read.
+  async function listWorkspaceMembers(workspaceId, filters, options) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
       return [];
     }
 
-    const rows = await queryMemberships(
-      {
-        workspace: normalizedWorkspaceId,
-        status: "active"
-      },
-      options,
-      { include: ["user"] }
-    );
-
+    const rows = await queryMemberships({ workspace: normalizedWorkspaceId, ...filters }, options, { include: ["user"] });
     const members = rows.map(memberSummaryFromMembership).filter(Boolean);
 
     members.sort((left, right) => String(left.displayName || "").localeCompare(String(right.displayName || "")));
     return members;
+  }
+
+  async function listActiveByWorkspaceId(workspaceId, options = {}) {
+    return listWorkspaceMembers(workspaceId, { status: "active" }, options);
+  }
+
+  /**
+   * Every member of a workspace whatever their membership's status, such as
+   * one just removed ("revoked"), as listActiveByWorkspaceId lists the active
+   * ones; each summary carries its status.
+   * @param {unknown} workspaceId
+   * @param {object} [options]
+   */
+  async function listByWorkspaceId(workspaceId, options = {}) {
+    return listWorkspaceMembers(workspaceId, {}, options);
   }
 
   // One active member's summary, as listActiveByWorkspaceId lists it, or null. Its cost does not grow
@@ -253,6 +261,7 @@ function createRepository({ workspaceMemberships }) {
     addMember,
     activeMemberIds,
     listActiveByWorkspaceId,
+    listByWorkspaceId,
     findActiveByWorkspaceIdAndUserId,
     listActiveWorkspaceIdsByUserId,
     listActiveWorkspaceIdsByUserIds
