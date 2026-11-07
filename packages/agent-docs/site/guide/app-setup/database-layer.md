@@ -277,6 +277,21 @@ A separate Feature is warranted when an operation belongs to another domain,
 not merely because a useful resource has behavior beyond list and save. Write
 it as a [typed feature](/guide/framework/typed-features).
 
+## Writes that return less
+
+A CRUD repository's `createDocument(payload, options)` and
+`patchDocumentById(id, patch, options)` return the full document by default:
+the write is followed by a get through the resource's row policy and its
+lookups, about four queries and a policy run per linked type. Server code that
+does not use the result passes `returning: "minimal"`, which answers
+`{ data: { type, id } }`, or `"none"`, which answers `undefined`; a missing or
+out-of-scope record still patches to `null`. `createDocuments(payloads,
+{ trx, context, returning })` creates several records in order in one
+transaction, the caller's `trx` or one it owns, so they are all created or
+none; its `returning` is `"minimal"` unless the caller asks for `"full"`, and
+its results follow the payloads. Each record is still validated and inserted
+by itself: a batch saves the read-backs and the transactions, not the inserts.
+
 ## Optimistic locking
 
 A CRUD resource whose records carry a version number names it with

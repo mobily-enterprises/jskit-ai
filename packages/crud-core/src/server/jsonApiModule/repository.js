@@ -7,6 +7,23 @@ import {
 import { resolveTransaction, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 
+/** @typedef {"full" | "minimal" | "none"} WriteReturning */
+
+const WRITE_RETURNING = new Set(["full", "minimal", "none"]);
+
+/**
+ * @param {{ returning?: unknown }} options
+ * @param {WriteReturning} [fallback]
+ * @returns {WriteReturning}
+ */
+function writeReturning(options, fallback = "full") {
+  const returning = options.returning ?? fallback;
+  if (!WRITE_RETURNING.has(returning)) {
+    throw new TypeError(`returning must be "full", "minimal" or "none". Received: ${JSON.stringify(returning)}`);
+  }
+  return /** @type {WriteReturning} */ (returning);
+}
+
 /**
  * @param {object} dependencies
  * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.api
@@ -89,21 +106,70 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
     );
   }
 
-  async function createDocument(payload = {}, options = {}) {
-    return write(options, () => requireApiResource().post(
+  function post(payload, returning, options) {
+    return requireApiResource().post(
       {
         data: inputData(payload),
-        returning: "full",
+        returning,
         transaction: resolveTransaction(options),
         format: "jsonapi"
       },
       createJsonRestContext(options.context)
-    ));
+    );
   }
 
+  /**
+   * Creates one record. `options.returning` picks the result: "full" (the
+   * default) reads the new record back through its row policy and lookups;
+   * "minimal" answers `{ data: { type, id } }` and "none" undefined, without
+   * that read.
+   * @param {Record<string, unknown>} [payload]
+   * @param {{ trx?: any, context?: object | null, returning?: WriteReturning }} [options]
+   */
+  async function createDocument(payload = {}, options = {}) {
+    const returning = writeReturning(options);
+    return write(options, () => post(payload, returning, options));
+  }
+
+  /**
+   * Creates every payload, in order, in one transaction: the caller's `trx`,
+   * or one it owns and retries whole on a deadlock, so either all are created
+   * or none. Results follow the payloads' order; `options.returning` is
+   * "minimal" by default, so no record is read back.
+   * @param {Record<string, unknown>[]} payloads
+   * @param {{ trx?: any, context?: object | null, returning?: WriteReturning }} [options]
+   */
+  async function createDocuments(payloads, options = {}) {
+    if (!Array.isArray(payloads)) {
+      throw new TypeError("createDocuments requires an array of payloads.");
+    }
+    const returning = writeReturning(options, "minimal");
+    async function createAll(trx) {
+      const results = [];
+      for (const payload of payloads) {
+        results.push(await post(payload, returning, { ...options, trx }));
+      }
+      return results;
+    }
+    const trx = resolveTransaction(options);
+    return trx ? createAll(trx) : withTransaction(createAll);
+  }
+
+  /**
+   * Patches one record; null when it does not exist or is out of the
+   * caller's scope. `options.returning` picks the result as createDocument's.
+   * @param {string | number} recordId
+   * @param {Record<string, unknown>} patch
+   * @param {{ trx?: any, context?: object | null, returning?: WriteReturning }} [options]
+   */
   async function patchDocumentById(recordId, patch, options = {}) {
+    const returning = writeReturning(options);
     if (Object.keys(patch).length < 1) {
-      return getDocumentById(recordId, {}, options);
+      const document = await getDocumentById(recordId, {}, options);
+      if (!document || returning === "full") {
+        return document;
+      }
+      return returning === "minimal" ? { data: { type: scopeName, id: document.data.id } } : undefined;
     }
 
     return returnNullWhenJsonRestResourceMissing(() => write(options, () =>
@@ -111,7 +177,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
         {
           id: recordId,
           data: inputData(patch),
-          returning: "full",
+          returning,
           transaction: resolveTransaction(options),
           format: "jsonapi"
         },
@@ -188,6 +254,7 @@ function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {
     queryDocuments,
     getDocumentById,
     createDocument,
+    createDocuments,
     patchDocumentById,
     patchDocumentIfLockVersion,
     deleteDocumentById

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A CRUD JSON:API repository's `createDocument` and `patchDocumentById` take `returning: "full"` (the default, unchanged), `"minimal"` (`{ data: { type, id } }`) or `"none"`, so server code that ignores the result skips the read-back: a get through the row policy and lookups, about four queries per written record. `createDocuments(payloads, { trx, context, returning })` creates several records in order in one transaction, all or none, returning `"minimal"` results unless asked for `"full"`.
 - The actions of an `internal: true` or `routes: false` CRUD feature are left off the `automation` channel, so the assistant cannot call them, unless their permission names a permission (`require: "all"` or `"any"`), as workspace-scoped CRUD's defaults do. An additional action's own `channels` still decide for it.
 
 ### Upgrading
