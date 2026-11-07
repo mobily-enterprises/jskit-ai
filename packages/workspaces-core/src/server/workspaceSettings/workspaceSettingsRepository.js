@@ -1,8 +1,4 @@
-import { isLostDuplicateInsertRace, resolveTransaction, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
-import {
-  createJsonRestContext,
-  extractJsonRestCollectionRows
-} from "@jskit-ai/resource-runtime/server/resourceHost";
+import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { WORKSPACE_SETTINGS_FIELD_KEYS } from "../../shared/resources/workspaceSettingsResource.js";
@@ -26,38 +22,24 @@ function buildDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesE
 }
 
 /**
+ * The workspaces' settings records, `repositories.workspaceSettings` of
+ * `workspaces.core`. Every method takes the caller's options last and joins
+ * their transaction.
  * @param {object} dependencies
- * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} dependencies.api
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.workspaceSettings
+ *   The workspace_settings table's handle.
  * @param {boolean} dependencies.defaultInvitesEnabled
  * @param {object} dependencies.defaultColorSettings The configured colors that replace the theme's.
  */
-function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) {
-  const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
-
-  async function queryFirst(filters = {}, options = {}) {
-    const rows = extractJsonRestCollectionRows(
-      await api.resources.workspaceSettings.query(
-        {
-          queryParams: {
-            filters
-          },
-          transaction: resolveTransaction(options),
-          format: "plain"
-        },
-        createJsonRestContext(options.context)
-      )
-    );
-
-    return rows[0] || null;
-  }
-
+function createRepository({ workspaceSettings, defaultInvitesEnabled, defaultColorSettings }) {
   async function findByWorkspaceId(workspaceId, options = {}) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
       return null;
     }
 
-    return queryFirst({ id: normalizedWorkspaceId }, options);
+    const { records } = await workspaceSettings.query({ filters: { id: normalizedWorkspaceId }, page: { size: 1 } }, options);
+    return records[0] || null;
   }
 
   async function ensureForWorkspaceId(workspaceId, options = {}) {
@@ -72,20 +54,12 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
     }
 
     try {
-      await api.resources.workspaceSettings.post(
-        {
-          data: buildDefaultWorkspaceSettingsCreatePayload(
-            normalizedWorkspaceId,
-            defaultInvitesEnabled,
-            defaultColorSettings
-          ),
-          format: "plain",
-          returning: "full",
-          transaction: resolveTransaction(options)
-        },
-        createJsonRestContext(options.context)
+      await workspaceSettings.create(
+        buildDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId, defaultInvitesEnabled, defaultColorSettings),
+        { ...options, returning: "none" }
       );
     } catch (error) {
+      // A standalone insert that lost to another one reads the winner; inside the caller's transaction it fails it.
       if (!isLostDuplicateInsertRace(error, options)) {
         throw error;
       }
@@ -108,25 +82,20 @@ function createRepository({ api, defaultInvitesEnabled, defaultColorSettings }) 
       return findByWorkspaceId(normalizedWorkspaceId, options);
     }
 
-    await api.resources.workspaceSettings.patch(
+    await workspaceSettings.patch(
+      normalizedWorkspaceId,
       {
-        id: normalizedWorkspaceId,
-        data: {
-          ...updatePayload,
-          updatedAt: new Date().toISOString()
-        },
-        format: "plain",
-        returning: "full",
-        transaction: resolveTransaction(options)
+        ...updatePayload,
+        updatedAt: new Date().toISOString()
       },
-      createJsonRestContext(options.context)
+      { ...options, returning: "none" }
     );
 
     return findByWorkspaceId(normalizedWorkspaceId, options);
   }
 
   return Object.freeze({
-    withTransaction,
+    withTransaction: workspaceSettings.withTransaction,
     findByWorkspaceId,
     ensureForWorkspaceId,
     updateSettingsByWorkspaceId

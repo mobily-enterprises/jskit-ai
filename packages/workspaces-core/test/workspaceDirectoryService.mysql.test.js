@@ -80,9 +80,9 @@ test("a personal workspace is made once per user, slugged and named after them, 
   await assert.rejects(directory.ensurePersonalWorkspaceForUser(null), errorWith(400, "workspaces.user.invalidPayload"));
 
   const rolledBack = await db.createProfile("personal-dee");
-  await assert.rejects(db.workspaces.withTransaction(async (trx) => {
-    const inside = await directory.ensurePersonalWorkspaceForUser(rolledBack, { trx });
-    assert.equal((await db.memberships.findByWorkspaceIdAndUserId(inside.id, rolledBack.id, { trx })).status, "active");
+  await assert.rejects(db.workspaces.withTransaction({}, async (txOptions) => {
+    const inside = await directory.ensurePersonalWorkspaceForUser(rolledBack, txOptions);
+    assert.equal((await db.memberships.findByWorkspaceIdAndUserId(inside.id, rolledBack.id, txOptions)).status, "active");
     throw new Error("Abort the caller's transaction");
   }), /Abort the caller's transaction/u);
   assert.equal(await countWhere(db, "workspaces", { owner_user_id: rolledBack.id }), 0, "nothing stays after a rollback");
@@ -117,8 +117,8 @@ test("createWorkspaceForAuthenticatedUser makes an owned workspace with a free s
     errorWith(403, "workspaces.workspace.creationDisabled", "Workspace creation is disabled for this tenancy mode."));
   assert.equal(await countWhere(db, "workspaces", { name: "Refused" }), 0);
 
-  await assert.rejects(db.workspaces.withTransaction(async (trx) => {
-    await directory.createWorkspaceForAuthenticatedUser(user, { name: "Create Rolled", slug: "create-rolled" }, { trx });
+  await assert.rejects(db.workspaces.withTransaction({}, async (txOptions) => {
+    await directory.createWorkspaceForAuthenticatedUser(user, { name: "Create Rolled", slug: "create-rolled" }, txOptions);
     throw new Error("Abort the caller's transaction");
   }), /Abort the caller's transaction/u);
   assert.equal(await db.workspaces.findBySlug("create-rolled"), null, "nothing stays after a rollback");

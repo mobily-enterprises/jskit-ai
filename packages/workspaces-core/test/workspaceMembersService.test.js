@@ -124,8 +124,11 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) {
-        return work({});
+      async withTransaction(options, work) {
+        return work({ ...options, trx: {} });
+      },
+      inTransaction(options) {
+        return Boolean(options.trx);
       },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail() {},
@@ -191,8 +194,11 @@ test("workspaceMembersService.createInvite without a provided mailer neither loo
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) {
-        return work({});
+      async withTransaction(options, work) {
+        return work({ ...options, trx: {} });
+      },
+      inTransaction(options) {
+        return Boolean(options.trx);
       },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail() {},
@@ -247,8 +253,11 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) {
-        return work({});
+      async withTransaction(options, work) {
+        return work({ ...options, trx: {} });
+      },
+      inTransaction(options) {
+        return Boolean(options.trx);
       },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail(workspaceId, email) {
@@ -341,8 +350,11 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) {
-        return work({});
+      async withTransaction(options, work) {
+        return work({ ...options, trx: {} });
+      },
+      inTransaction(options) {
+        return Boolean(options.trx);
       },
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
@@ -649,8 +661,11 @@ function createMailingService({ accounts = {}, appRoot = "", mailer } = {}) {
       }
     },
     workspaceInvitesRepository: {
-      async withTransaction(work) {
-        return work({});
+      async withTransaction(options, work) {
+        return work({ ...options, trx: {} });
+      },
+      inTransaction(options) {
+        return Boolean(options.trx);
       },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail() {},

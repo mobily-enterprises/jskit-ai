@@ -92,6 +92,9 @@ function createWorkspaceServiceFixture({
       roleCatalog: roleCatalog && typeof roleCatalog === "object" ? { ...roleCatalog } : roleCatalog
     }),
     workspacesRepository: {
+      inTransaction(options) {
+        return Boolean(options.trx);
+      },
       async findBySlug(slug) {
         calls.findBySlug += 1;
         const normalizedSlug = String(slug || "").trim().toLowerCase();
@@ -545,6 +548,9 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug grants owner access 
       roleCatalog: createRoleCatalog()
     }),
     workspacesRepository: {
+      inTransaction(options) {
+        return Boolean(options.trx);
+      },
       async findBySlug(slug) {
         if (String(slug) !== "tony") {
           return null;
@@ -613,6 +619,9 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug can resolve an exist
       roleCatalog: createRoleCatalog()
     }),
     workspacesRepository: {
+      inTransaction(options) {
+        return Boolean(options.trx);
+      },
       async findBySlug() {
         return {
           id: "42",

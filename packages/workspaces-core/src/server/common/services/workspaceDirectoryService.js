@@ -226,7 +226,7 @@ function createService({
    */
   function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
     const request = options.request;
-    if (!request || typeof request !== "object" || options.trx) {
+    if (!request || typeof request !== "object" || workspacesRepository.inTransaction(options)) {
       return readWorkspaceContextForUserBySlug(user, workspaceSlug, options);
     }
     const key = [
