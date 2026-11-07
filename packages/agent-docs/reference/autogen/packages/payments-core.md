@@ -57,7 +57,6 @@ Local functions
 - `accountKey(scope)`
 - `customerKey(scope, customerId)`
 - `entryKey(account, reference)`
-- `withLockedRow(handle, options, attributes, work)`
 
 ### `src/server/PaymentStoreFeature.js`
 Exports

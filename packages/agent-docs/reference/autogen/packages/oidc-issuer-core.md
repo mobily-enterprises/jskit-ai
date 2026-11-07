@@ -89,6 +89,7 @@ Exports
 
 ### `src/server/emailTokens.js`
 Exports
+- `EMAIL_TOKENS_TABLE`
 - `createEmailTokenStore({ knex, now })`
 
 ### `src/server/google.js`
@@ -165,6 +166,7 @@ Exports
 - `HUB_GLOBAL_PATHS`
 - `createOidcIssuer`
 - `runPreviewIdentityCommand`
+- `OIDC_ISSUER_INFRASTRUCTURE_TABLES`
 
 ### `src/server/issuer.js`
 Exports
@@ -207,10 +209,12 @@ Exports
 
 ### `src/server/rateLimits.js`
 Exports
+- `RATE_LIMITS_TABLE`
 - `createRateLimiter({ knex, now })`
 
 ### `src/server/signingKeys.js`
 Exports
+- `SIGNING_KEYS_TABLE`
 - `createSigningKeyStore({ knex, secret, now })`
 
 ### `src/server/types.js`
