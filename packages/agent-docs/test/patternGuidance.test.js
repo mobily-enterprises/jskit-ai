@@ -46,7 +46,7 @@ test("JSKIT documentation publishes complete pattern pages and self-contained in
     "utf8"
   );
   const publicCrudPattern = await readFile(
-    path.join(packageRoot, "site/patterns/crud/resource-contract.md"),
+    path.join(packageRoot, "site/patterns/crud/crud-contract.md"),
     "utf8"
   );
   const referenceIndex = await readFile(path.join(packageRoot, "reference/autogen/README.md"), "utf8");
@@ -62,13 +62,14 @@ test("JSKIT documentation publishes complete pattern pages and self-contained in
   assert.doesNotMatch(`${skill}\n${appOperations}`, /scaffoldShape|scaffoldMode|feature-lane|handmade-feature|containerTokens/u);
 
   for (const index of [patternIndex, skillPatternIndex]) {
-    assert.match(index, /crud\/resource-contract/);
+    assert.match(index, /crud\/crud-contract/);
+    assert.match(index, /database\/table-resource/);
     assert.doesNotMatch(index, /node_modules\/@jskit-ai\//u);
   }
-  assert.match(patternIndex, /\.\.\/\.\.\/skills\/jskit\/references\/patterns\/crud\/resource-contract\/PATTERN\.md/u);
-  assert.match(skillPatternIndex, /patterns\/crud\/resource-contract\/PATTERN\.md/u);
-  assert.match(publicPatternIndex, /\[Owner-scoped table resource and CRUD contract\]\(\/patterns\/crud\/resource-contract\)/u);
-  assert.match(publicCrudPattern, /# Owner-scoped table resource and CRUD contract/u);
+  assert.match(patternIndex, /\.\.\/\.\.\/skills\/jskit\/references\/patterns\/crud\/crud-contract\/PATTERN\.md/u);
+  assert.match(skillPatternIndex, /patterns\/crud\/crud-contract\/PATTERN\.md/u);
+  assert.match(publicPatternIndex, /\[Owner-scoped CRUD contract\]\(\/patterns\/crud\/crud-contract\)/u);
+  assert.match(publicCrudPattern, /# Owner-scoped CRUD contract/u);
   assert.match(publicCrudPattern, /Browse the complete example tree/u);
   assert.doesNotMatch(
     referenceIndex,
