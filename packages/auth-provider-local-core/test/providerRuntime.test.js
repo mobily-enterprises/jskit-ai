@@ -696,6 +696,10 @@ test("local auth service accepts a custom stored-password format", async () => {
       async withTransaction(callback) {
         return callback({
           users: {
+            // The first-account check reads this at the first registration, in development too.
+            async hasAny() {
+              return true;
+            },
             async findByEmail(email) {
               if (email !== "existing@example.com") {
                 return null;
@@ -1385,6 +1389,9 @@ test("with AUTH_LOCAL_SELF_REGISTRATION=false, production starts without a confi
   });
   t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
   assert.equal(app.authService.getCapabilities().features.emailConfirmation, false);
+  // Until the first account exists, its registration is offered; then only an invited person's.
+  const password = () => app.authService.getCapabilities().features.password;
+  assert.deepEqual([password().register, password().selfRegister], [true, true]);
   // The first account registers with its setup code.
   const owner = await app.authService.register({
     email: "owner@example.com",
@@ -1392,6 +1399,7 @@ test("with AUTH_LOCAL_SELF_REGISTRATION=false, production starts without a confi
     setupCode: await firstAccountSetupCode(app.storeDir)
   });
   assert.equal(owner.actor.email, "owner@example.com");
+  assert.deepEqual([password().register, password().selfRegister], [true, false]);
   const closed = { status: 403, code: "auth.local.register.closed" };
   await assert.rejects(() => app.authService.register({ email: "eve@example.com", password: "correct horse battery staple" }), closed);
   await assert.rejects(() => app.authService.register({
@@ -1406,6 +1414,24 @@ test("with AUTH_LOCAL_SELF_REGISTRATION=false, production starts without a confi
   });
   assert.equal(invited.actor.email, "bea@example.com");
   assert.equal(invited.requiresEmailConfirmation, false);
+});
+
+test("in development with AUTH_LOCAL_SELF_REGISTRATION=false, the first account's registration is offered until it exists", async (t) => {
+  const app = await createStartedApp({ env: { AUTH_LOCAL_SELF_REGISTRATION: "false", AUTH_LOCAL_EMAIL_CONFIRMATION: "false" } });
+  t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
+  const password = () => app.authService.getCapabilities().features.password;
+  assert.equal(password().selfRegister, true);
+  assert.equal(app.authService.getCapabilities().features.firstAccountSetupCode, false, "development needs no setup code");
+  await app.authService.register({ email: "owner@example.com", password: "correct horse battery staple" });
+  assert.equal(password().selfRegister, false);
+  await assert.rejects(
+    () => app.authService.register({ email: "eve@example.com", password: "correct horse battery staple" }),
+    { status: 403, code: "auth.local.register.closed" }
+  );
+  // With self-registration on (the default), anyone may register.
+  const open = await createStartedApp({ env: { AUTH_LOCAL_EMAIL_CONFIRMATION: "false" } });
+  t.after(() => fs.rm(open.storeDir, { recursive: true, force: true }));
+  assert.equal(open.authService.getCapabilities().features.password.selfRegister, true);
 });
 
 test("the confirmation sender emails the link, which is never returned or logged, and the register hook runs on confirming", async (t) => {

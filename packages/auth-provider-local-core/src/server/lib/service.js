@@ -56,6 +56,8 @@ function createLocalAuthService({
       password: {
         login: true,
         register: true,
+        // Off with AUTH_LOCAL_SELF_REGISTRATION=false: an account registers by invitation, or as the first one.
+        selfRegister: config.selfRegistration,
         change: true,
         methodToggle: false
       },
@@ -84,10 +86,14 @@ function createLocalAuthService({
       devLoginAs: isDevAuthBootstrapEnabled(config.devAuth)
     }
   });
-  // While a production server has no account, registering asks for the setup code.
-  const capabilitiesWaitingForFirstAccount = normalizeAuthCapabilities({
+  // While the app has no account, its first one may register, and on a production server that asks for the setup code.
+  const capabilitiesForFirstAccount = normalizeAuthCapabilities({
     ...capabilities,
-    features: { ...capabilities.features, firstAccountSetupCode: true }
+    features: { ...capabilities.features, password: { ...capabilities.features.password, selfRegister: true } }
+  });
+  const capabilitiesWaitingForFirstAccount = normalizeAuthCapabilities({
+    ...capabilitiesForFirstAccount,
+    features: { ...capabilitiesForFirstAccount.features, firstAccountSetupCode: true }
   });
 
   const sessions = createLocalSessions({ appProfileProjection, backend, config, profileProjector });
@@ -132,7 +138,10 @@ function createLocalAuthService({
   });
 
   function getCapabilities() {
-    return firstAccountSetup.isWaiting() ? capabilitiesWaitingForFirstAccount : capabilities;
+    if (firstAccountSetup.isWaiting()) {
+      return capabilitiesWaitingForFirstAccount;
+    }
+    return firstAccountSetup.isOwnerless() ? capabilitiesForFirstAccount : capabilities;
   }
 
   function resendRegisterConfirmation(input) {

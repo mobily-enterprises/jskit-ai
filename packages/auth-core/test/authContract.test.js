@@ -56,6 +56,13 @@ test("normalizeAuthCapabilities returns one provider-neutral feature shape", () 
   assert.equal(capabilities.provider.label, "Local");
   assert.equal(capabilities.features.password.login, true);
   assert.equal(capabilities.features.password.methodToggle, false);
+  // Self-registration follows register unless the provider says otherwise.
+  assert.equal(capabilities.features.password.selfRegister, true);
+  assert.equal(
+    normalizeAuthCapabilities({ features: { password: { register: true, selfRegister: false } } }).features.password.selfRegister,
+    false
+  );
+  assert.equal(normalizeAuthCapabilities({ features: { password: { selfRegister: true } } }).features.password.selfRegister, true);
   assert.equal(capabilities.features.passwordRecovery.delivery, "email");
   assert.deepEqual(capabilities.features.oauthLogin.providers, [
     { id: "google", label: "Google" },

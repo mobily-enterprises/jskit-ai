@@ -286,6 +286,7 @@ const authCapabilityProviderOutputSchema = createSchema({
 const authPasswordCapabilitiesOutputSchema = createSchema({
   login: { type: "boolean", required: true },
   register: { type: "boolean", required: true },
+  selfRegister: { type: "boolean", required: true },
   change: { type: "boolean", required: true },
   methodToggle: { type: "boolean", required: true }
 });

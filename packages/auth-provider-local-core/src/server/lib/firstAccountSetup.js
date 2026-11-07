@@ -49,7 +49,9 @@ function setupCodeInvalid() {
  * AUTH_LOCAL_SETUP_CODE shows it to the operator itself: the server then uses
  * that code at every start, and neither logs nor writes it. The code admits
  * registrations until an account exists, then stops working and its file is
- * deleted. Development needs no code.
+ * deleted. Development needs no code. In every mode it knows whether the app
+ * still has no account, so an invitation-only app can let its first account
+ * register.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
@@ -58,6 +60,7 @@ function setupCodeInvalid() {
 function createFirstAccountSetup({ backend, config, logger }) {
   const codeFile = path.join(config.storeDir, SETUP_CODE_FILE);
   let codeHash = null;
+  let ownerless = false;
   let started = null;
 
   // The file only hands the code to the operator, and the log has it too, so
@@ -84,12 +87,17 @@ function createFirstAccountSetup({ backend, config, logger }) {
 
   function finish() {
     codeHash = null;
+    ownerless = false;
     removeCodeFile();
   }
 
   async function prepare() {
     if (await backend.withTransaction((tx) => tx.users.hasAny())) {
       finish();
+      return;
+    }
+    ownerless = true;
+    if (!config.isProduction) {
       return;
     }
     if (config.setupCode) {
@@ -112,12 +120,9 @@ function createFirstAccountSetup({ backend, config, logger }) {
 
   /**
    * Checks for an account once, when the server starts; outside production,
-   * there is nothing to check. Later calls answer the same check.
+   * only whether there is one. Later calls answer the same check.
    */
   function start() {
-    if (!config.isProduction) {
-      return Promise.resolve();
-    }
     started ??= prepare().catch((error) => {
       started = null;
       throw error;
@@ -167,6 +172,12 @@ function createFirstAccountSetup({ backend, config, logger }) {
     if (codeHash !== null) {
       finish();
     }
+    ownerless = false;
+  }
+
+  /** True while the app has no account, as far as this server knows. */
+  function isOwnerless() {
+    return ownerless;
   }
 
   /** True while the first account needs the setup code, as far as this server knows. */
@@ -179,6 +190,7 @@ function createFirstAccountSetup({ backend, config, logger }) {
     admitRegistration,
     admitOAuthAccount,
     accountCreated,
+    isOwnerless,
     isWaiting
   });
 }

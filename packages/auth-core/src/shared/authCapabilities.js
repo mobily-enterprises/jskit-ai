@@ -122,6 +122,9 @@ function normalizeAuthCapabilities(value = {}) {
       password: Object.freeze({
         login: normalizeBoolean(passwordSource.login),
         register: normalizeBoolean(passwordSource.register),
+        // Anyone may register, not only an invited person or the first account; a provider that says nothing means
+        // whatever register says.
+        selfRegister: normalizeBoolean(passwordSource.selfRegister, normalizeBoolean(passwordSource.register)),
         change: normalizeBoolean(passwordSource.change),
         methodToggle: normalizeBoolean(passwordSource.methodToggle)
       }),

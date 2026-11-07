@@ -118,7 +118,7 @@ test("capabilities: one OIDC button, no password features, preview identity unch
   const { provider, features } = authService.getCapabilities();
   assert.deepEqual(provider, { id: "oidc", label: "Sign in with Example" });
   assert.deepEqual(features.oauthLogin, { enabled: true, providers: [{ id: "oidc", label: "Sign in with Example" }], defaultProvider: "oidc" });
-  assert.deepEqual(features.password, { login: false, register: false, change: false, methodToggle: false });
+  assert.deepEqual(features.password, { login: false, register: false, selfRegister: false, change: false, methodToggle: false });
   assert.equal(features.passwordRecovery.request, false);
   assert.equal(features.otp.login, false);
   assert.equal(features.devLoginAs, true);
