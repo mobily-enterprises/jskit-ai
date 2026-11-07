@@ -61,12 +61,13 @@ function jobContext(reason, scopeValues) {
 
 /**
  * @param {unknown} value
- * @param {string} label
+ * @param {string} label The deriving method, such as "forWorkspace".
+ * @param {"workspace" | "user"} subject What the id names.
  */
-function requireScopeId(value, label) {
+function requireScopeId(value, label, subject) {
   const id = normalizeRecordId(value, { fallback: null });
   if (!id) {
-    throw new TypeError(`${label} needs the id of the ${label === "forWorkspace" ? "workspace" : "user"} to work on.`);
+    throw new TypeError(`${label} needs the id of the ${subject} to work on.`);
   }
   return id;
 }
@@ -75,9 +76,10 @@ function requireScopeId(value, label) {
  * The context of work across every workspace and user, for a feature that
  * declares `systemScope`. Ownership predicates are skipped for it, row
  * policies receive `system: true`, and creates name their ownership values.
- * `forWorkspace(id)` and `forUser(id)` derive ordinary contexts scoped to one
- * workspace or user, so the work for each is scoped as usual (and, as
- * background work, free of request row limits).
+ * `forWorkspace(id)`, `forUser(id)` and `forWorkspaceUser(workspaceId, userId)`
+ * derive ordinary contexts scoped to one workspace, one user, or one user in
+ * one workspace, so the work for each is scoped as usual (and, as background
+ * work, free of request row limits).
  * @param {{ feature: string, systemScope: string, reason: string }} declaration
  */
 function createSystemContext({ feature, systemScope, reason }) {
@@ -89,12 +91,26 @@ function createSystemContext({ feature, systemScope, reason }) {
 
   /** @param {unknown} workspaceId */
   function forWorkspace(workspaceId) {
-    return jobContext(description, { workspaceId: requireScopeId(workspaceId, "forWorkspace") });
+    return jobContext(description, { workspaceId: requireScopeId(workspaceId, "forWorkspace", "workspace") });
   }
 
   /** @param {unknown} userId */
   function forUser(userId) {
-    return jobContext(description, { userId: requireScopeId(userId, "forUser") });
+    return jobContext(description, { userId: requireScopeId(userId, "forUser", "user") });
+  }
+
+  /**
+   * One user's context inside one workspace: a `workspace_user` table reads
+   * that user's rows in that workspace, a `workspace` table the workspace's
+   * and a `user` table the user's.
+   * @param {unknown} workspaceId
+   * @param {unknown} userId
+   */
+  function forWorkspaceUser(workspaceId, userId) {
+    return jobContext(description, {
+      workspaceId: requireScopeId(workspaceId, "forWorkspaceUser", "workspace"),
+      userId: requireScopeId(userId, "forWorkspaceUser", "user")
+    });
   }
 
   return Object.freeze(createJsonRestSystemContext(description, {
@@ -102,7 +118,8 @@ function createSystemContext({ feature, systemScope, reason }) {
     systemScope,
     reason: normalizedReason,
     forWorkspace,
-    forUser
+    forUser,
+    forWorkspaceUser
   }));
 }
 

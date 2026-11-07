@@ -117,6 +117,54 @@ test("queryAll() stops at the request row limit, which background work does not 
   assert.throws(() => runtime.createSystemContext({ feature: "notes.feature", systemScope: "tests", reason: " " }), /needs the reason/u);
 });
 
+test("forWorkspaceUser() reaches one user's rows in one workspace, of a workspace_user table and of a user table", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("drafts", (table) => {
+    table.increments("id");
+    table.integer("workspace_id").notNullable();
+    table.integer("user_id").notNullable();
+    table.string("title").notNullable();
+  });
+  await knex.schema.createTable("bookmarks", (table) => {
+    table.increments("id");
+    table.integer("user_id").notNullable();
+    table.string("title").notNullable();
+  });
+  await knex("drafts").insert([
+    { workspace_id: 1, user_id: 7, title: "mine" },
+    { workspace_id: 1, user_id: 8, title: "a colleague's" },
+    { workspace_id: 2, user_id: 7, title: "mine elsewhere" }
+  ]);
+  await knex("bookmarks").insert([{ user_id: 7, title: "mine" }, { user_id: 8, title: "someone else's" }]);
+  const userField = { type: "id", search: true, storage: { column: "user_id" } };
+  const drafts = defineTableResource({
+    name: "drafts",
+    tableName: "drafts",
+    ownership: "workspace_user",
+    schema: {
+      workspaceId: { type: "id", search: true, storage: { column: "workspace_id" } },
+      userId: userField,
+      title: { type: "string", required: true }
+    }
+  });
+  const bookmarks = defineTableResource({
+    name: "bookmarks",
+    tableName: "bookmarks",
+    ownership: "user",
+    schema: { userId: userField, title: { type: "string", required: true } }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const resources = await runtime.own("drafts.feature", [drafts, bookmarks]);
+  const system = runtime.createSystemContext({ feature: "drafts.feature", systemScope: "tests", reason: "deliver one user's event" });
+  const context = system.forWorkspaceUser("1", "7");
+
+  assert.deepEqual((await resources.drafts.queryAll({}, { context })).map(({ title }) => title), ["mine"]);
+  assert.deepEqual((await resources.bookmarks.queryAll({}, { context })).map(({ title }) => title), ["mine"]);
+  assert.throws(() => system.forWorkspaceUser("", "7"), /forWorkspaceUser needs the id of the workspace/u);
+  assert.throws(() => system.forWorkspaceUser("1", null), /forWorkspaceUser needs the id of the user/u);
+});
+
 test("many-row writes run per chunk in the caller's workspace, and answer nothing, ids or records", async (t) => {
   const { notes, knex } = await createFixture(t);
   const ids = await notes.createMany([{ title: "a" }, { title: "b" }, { title: "c" }], { context: WORKSPACE_A, returning: "ids" });
