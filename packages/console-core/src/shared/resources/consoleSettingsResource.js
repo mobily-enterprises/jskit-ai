@@ -11,7 +11,7 @@ const consoleSettingsOutputSchema = createSchema({
   }
 });
 
-// The console settings over HTTP: read them, and replace them whole.
+// The console settings over HTTP: read them (GET), and patch them (PATCH, the method of the route that serves it).
 const consoleSettingsContract = defineApiContract({
   namespace: "consoleSettings",
   messages: OPERATION_MESSAGES,
@@ -20,8 +20,8 @@ const consoleSettingsContract = defineApiContract({
       method: "GET",
       output: consoleSettingsOutputSchema
     },
-    replace: {
-      method: "PUT",
+    patch: {
+      method: "PATCH",
       body: consoleSettingsBodySchema,
       output: consoleSettingsOutputSchema
     }
