@@ -124,11 +124,16 @@ above. This section documents that existing surface's behavior and migration
 constraints, not a second engine/tool implementation.
 
 ```bash
-npm install @jskit-ai/assistant-runtime
+npm install @jskit-ai/assistant-runtime @jskit-ai/resource-runtime
 npm run db:migrate
 ```
 
-These migration instructions apply only to an application selecting the database
+The application registers `AssistantStoreFeature` (from
+`@jskit-ai/assistant-runtime/server`) in its server feature list. It owns the
+assistant's four tables as table resources and provides their repositories as
+`assistant.repositories`, which `AssistantFeature` uses; without it, or an
+`assistant.conversations` runtime, the assistant refuses to start. These
+migration instructions apply only to an application selecting the database
 integration. Its `assistant/assistant-surface` pattern composes the SQL surface;
 there is no assistant generator.
 

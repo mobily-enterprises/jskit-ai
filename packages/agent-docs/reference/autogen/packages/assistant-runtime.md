@@ -198,6 +198,12 @@ Local functions
 - `releaseNoSubscriptions()`
 - `assertConversationAccess(conversationAccess, conversationRuntime)`
 
+### `src/server/AssistantStoreFeature.js`
+Exports
+- `AssistantStoreFeature`
+Local functions
+- `createAssistantRepositories({ resources, systemContext })`
+
 ### `src/server/conversationOperations.js`
 Exports
 - `createConversationOperations({ conversationRuntime, config, workspaceScopeSupport, conversationDataSchema })`
@@ -239,6 +245,7 @@ Exports
 ### `src/server/index.js`
 Exports
 - `AssistantFeature`
+- `AssistantStoreFeature`
 - `createAssistantActions`
 - `assistantConversationGoalBodyValidator`
 - `registerAssistantRoutes`
@@ -294,43 +301,53 @@ Local functions
 
 ### `src/server/repositories/assistantConfigRepository.js`
 Exports
-- `createRepository(knex)`
+- `createRepository({ assistantConfig, systemContext })`
 Local functions
 - `normalizeTargetSurfaceId(value = "")`
 - `buildScopeKey(targetSurfaceId, workspaceId = null)`
-- `mapConfigRow(row = {})`
+- `mapConfigRecord(record = {})`
 - `createDefaultRecord({ targetSurfaceId = "", workspaceId = null } = {})`
+
+### `src/server/repositories/assistantResources.js`
+Exports
+- `assistantConfigResource`
+- `assistantConversationsResource`
+- `assistantMessagesResource`
+- `assistantTurnRequestsResource`
+Local functions
+- `textField(definition = {})`
+- `dateTimeField(definition = {})`
 
 ### `src/server/repositories/conversationsRepository.js`
 Exports
-- `createRepository(knex)`
+- `createRepository({ conversations, systemContext })`
 Local functions
 - `normalizeRequiredSurfaceId(value)`
-- `mapConversationRow(row = {})`
+- `mapConversationRecord(record = {})`
 - `normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimit = 200 } = {})`
-- `createConversationBaseQuery(client)`
+- `rethrowLockError(error)`
 
 ### `src/server/repositories/messagesRepository.js`
 Exports
-- `createRepository(knex)`
+- `createRepository({ messages, systemContext })`
 Local functions
-- `mapMessageRow(row = {})`
+- `mapMessageRecord(record = {})`
 - `normalizePagination(pagination = {}, { defaultPage = 1, defaultPageSize = 200, maxPageSize = 500 } = {})`
-- `resolveNextSequence(client, conversationId)`
 
 ### `src/server/repositories/repositoryPersistenceUtils.js`
 Exports
-- `applyWorkspaceScope(query, columnName, workspaceId)`
-- `normalizeDbWorkspaceId(value)`
 - `normalizeInputRecordId(value)`
 - `parseJsonObject`
 - `stringifyJsonObject(value)`
 - `toIso(value)`
-- `resolveInsertedId(insertResult)`
+- `toWrittenDateTime(value = null)`
 
 ### `src/server/repositories/turnRequestsRepository.js`
 Exports
-- `createRepository(knex)`
+- `createRepository({ turnRequests, systemContext })`
+Local functions
+- `scopeKey(scope)`
+- `mapTurnRequestRecord(record)`
 
 ### `src/server/services/assistantConfigService.js`
 Exports
@@ -449,6 +466,7 @@ Exports
 - `type ConversationsRepository`
 - `type MessagesRepository`
 - `type TurnRequestsRepository`
+- `type AssistantRepositories`
 - `type WorkspaceScopeSupport`
 - `type ConversationAccess`
 - `type AssistantAttachments`

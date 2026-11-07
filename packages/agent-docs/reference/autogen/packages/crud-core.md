@@ -20,7 +20,7 @@ Exports
 Local functions
 - `normalizeOwnerKey(value)`
 - `readParentId(record)`
-- `toDefaultChildCallOptions({ callOptions = {} } = {})`
+- `passCallOptions({ callOptions = {} } = {})`
 - `resolveListChildrenHandler(options = {}, { context = "createHooksToCollectChildren" } = {})`
 - `resolveGetChildOwnerId(options = {}, { context = "createHooksToCollectChildren" } = {})`
 - `resolveChildrenContainerKey(hookContext = {}, options = {})`

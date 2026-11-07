@@ -223,6 +223,9 @@ Exports
 - `noDirectKnex`
 Local functions
 - `namesKnex(node)`
+- `namesBuilder(node)`
+- `isReference(node)`
+- `namesTable(callee, first)`
 - `isOtherLibrary(method, object, args)`
 
 ### `plugin/rules/noDualShape.js`
