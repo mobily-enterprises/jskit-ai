@@ -207,7 +207,8 @@ activeDays(memberIds, options) {
 - Related rows come by id list (`filters: { id: ids }`) or `include`, grouped
   in memory. Never a query per row.
 - `queryAll` reads every matching row. Use it for id lists, one parent's rows
-  and jobs; in a request it throws past the request row limit.
+  and jobs; in a request it stops past the request row limit (10,000 rows)
+  with a 400 coded `RESOURCE_ROW_LIMIT`.
 
 Bad: a list read 100-row pages in a loop for each of 40 related sets.
 
