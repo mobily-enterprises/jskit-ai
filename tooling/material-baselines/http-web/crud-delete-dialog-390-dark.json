@@ -62,21 +62,7 @@
     "paddingInlineStart": "0px"
   },
   "primaryAction": null,
-  "pageAction": {
-    "height": 40,
-    "backgroundColor": "rgba(0, 0, 0, 0)",
-    "color": "rgb(202, 196, 207)",
-    "borderTopLeftRadius": "9999px",
-    "borderTopRightRadius": "9999px",
-    "borderTopWidth": "0px",
-    "borderTopColor": "rgb(73, 69, 78)",
-    "boxShadow": "none",
-    "fontFamily": "\"Roboto Flex Variable\", \"Roboto Flex\", Roboto, system-ui, sans-serif",
-    "fontSize": "16px",
-    "fontWeight": "400",
-    "lineHeight": "24px",
-    "paddingInlineStart": "0px"
-  },
+  "pageAction": null,
   "navigationBar": {
     "height": 80,
     "width": 390,
@@ -148,7 +134,7 @@
     "borderTopRightRadius": "12px",
     "borderTopWidth": "0px",
     "borderTopColor": "rgb(73, 69, 78)",
-    "boxShadow": "rgba(0, 0, 0, 0.3) 0px 1px 2px 0px, rgba(0, 0, 0, 0.15) 0px 1px 3px 1px",
+    "boxShadow": "rgba(0, 0, 0, 0.3) 0px 0px 0px 0px, rgba(0, 0, 0, 0.15) 0px 0px 0px 0px",
     "fontFamily": "\"Roboto Flex Variable\", \"Roboto Flex\", Roboto, system-ui, sans-serif",
     "fontSize": "16px",
     "fontWeight": "400",
@@ -188,7 +174,7 @@
   "field": null,
   "fieldLabel": null,
   "dialog": {
-    "height": 232,
+    "height": 240,
     "width": 342,
     "backgroundColor": "rgb(43, 41, 47)",
     "color": "rgb(230, 224, 233)",
