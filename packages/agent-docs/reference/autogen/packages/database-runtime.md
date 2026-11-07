@@ -55,6 +55,34 @@ Local functions
 Exports
 - `DatabaseProvider`
 
+### `src/server/testDatabaseFile.js`
+Exports
+- None
+Local functions
+- `isRunning(pid)`
+- `claimDatabase(directory, databases)`
+
+### `src/server/testDatabases.js`
+Exports
+- `RUN_SETTINGS_FILE`
+- `matchesSnapshot(knexConfig, database, snapshot)`
+- `prepareTestDatabases({ knexConfig, environment, variable = "TEST_DB_NAME", count = 1, seed, appRoot = process.cwd() })`
+- `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`
+- `restoreTestDatabase(knexConfig, database, snapshot)`
+- `testDatabaseNames(name, count)`
+- `testDatabaseRun({ knexConfig, environment, count, appRoot = process.cwd() })`
+- `testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd() } = {})`
+Local functions
+- `folded(value)`
+- `milliseconds(since)`
+- `ledgerOf(knexConfig)`
+- `connectedDatabaseName(environment)`
+- `knexOn(knexConfig, database, connectionOptions = {})`
+- `withKnex(knexConfig, database, use, connectionOptions)`
+- `ledgerNames(knex, ledger, tables)`
+- `dialectOf(knexConfig)`
+- `refusedPrivilege(error)`
+
 ### `src/server/types.js`
 Exports
 - `type RuntimeDatabase`

@@ -52,6 +52,18 @@ dialect. `example/scripts/prepare-database.js` is the portable
 migrate-then-seed entrypoint for managed sessions and deployments.
 `example/.env.example` names the five connection values without a secret.
 
+Tests get their own databases from
+`@jskit-ai/database-runtime/server/testDatabases`. The `test` script runs
+`jskit test --databases`: each Node test file running at once gets a copy of
+`TEST_DB_NAME`, created from `<TEST_DB_NAME>_snapshot`, a database the
+migrations are replayed into once and again only when a migration changes.
+`example/tests/e2e/databases.js` is the browser run's `prepare` module for
+`browserTestConfig({ prepare: "tests/e2e/databases.js" })` from
+`@jskit-ai/jskit-catalog/browser-tests`: each Playwright worker's server gets
+its own seeded copy of `BROWSER_TEST_DB_NAME`. The database user needs
+`CREATEDB`; without it, Node test files run one at a time on the connected
+database.
+
 `example/.github/workflows/verify.yml` is a normal app-owned CI workflow with
 exactly one database service: `postgres` (`postgres:17`, `POSTGRES_*`
 variables, port `5432`, a `pg_isready` health check). Copy it whole from this

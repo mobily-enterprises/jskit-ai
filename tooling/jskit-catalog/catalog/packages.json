@@ -1670,6 +1670,10 @@
                 "summary": "Adds a single-column foreign key only when it is missing, refusing rows without a parent, for constraints migrations on fresh and already-migrated databases."
               },
               {
+                "subpath": "./server/testDatabases",
+                "summary": "Gives each test file or browser worker running at once its own disposable copy of TEST_DB_NAME or BROWSER_TEST_DB_NAME, restored from a schema snapshot keyed by the migrations' names and contents (MySQL, MariaDB and PostgreSQL)."
+              },
+              {
                 "subpath": "./shared",
                 "summary": "Exports shared repository helpers (transactions, record ids, JSON columns, visibility, duplicate-entry detection and date/time serialization)."
               },
@@ -4802,7 +4806,7 @@
         "knexfile.js",
         "package.json",
         "scripts/prepare-database.js",
-        "tests/browser/database.js"
+        "tests/e2e/databases.js"
       ]
     },
     {
@@ -4829,7 +4833,8 @@
         ".github/workflows/verify.yml",
         "knexfile.js",
         "package.json",
-        "scripts/prepare-database.js"
+        "scripts/prepare-database.js",
+        "tests/e2e/databases.js"
       ]
     },
     {

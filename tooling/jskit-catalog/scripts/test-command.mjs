@@ -3,8 +3,10 @@ import { globSync, readFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
+import { pathToFileURL } from "node:url";
 import { toPosixPath } from "./files.mjs";
 import { BUDGET_VARIABLE, testConcurrency } from "./test-budget.mjs";
+import { DATABASES_OPTION, testDatabaseRunFor } from "./test-databases.mjs";
 
 // `jskit test [node options] [files or globs]`: node --test, running test files in parallel within the machine's test
 // budget (test-budget.mjs). Its arguments go to node --test unchanged. A file that truly must run alone says why on its
@@ -64,13 +66,14 @@ function planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency
   const { alone, problems } = readAloneFiles(files, cwd);
   if (problems.length > 0) throw new Error(`jskit test:\n- ${problems.join("\n- ")}`);
   const parallel = ["--test", `--test-concurrency=${concurrency}`];
-  if (alone.length < 1) return { concurrency, alone, runs: [[...parallel, ...args]] };
+  if (alone.length < 1) return { concurrency, files: files.length, alone, runs: [[...parallel, ...args]] };
 
   const options = args.filter((argument) => !(matched.get(argument)?.length > 0));
   const aloneFiles = new Set(alone.map((entry) => entry.file));
   const others = files.filter((file) => !aloneFiles.has(file));
   return {
     concurrency,
+    files: others.length,
     alone,
     runs: [
       ...(others.length > 0 ? [[...parallel, ...options, ...others]] : []),
@@ -79,9 +82,9 @@ function planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency
   };
 }
 
-function runNode(args) {
+function runNode(args, env) {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, args, { stdio: "inherit" });
+    const child = spawn(process.execPath, args, { stdio: "inherit", env: { ...process.env, ...env } });
     const forward = (signal) => child.kill(signal);
     process.on("SIGINT", forward);
     process.on("SIGTERM", forward);
@@ -95,20 +98,35 @@ function runNode(args) {
 }
 
 /**
- * Runs `jskit test` and resolves to its exit code: the first failing run's, or 0.
+ * Runs `jskit test` and resolves to its exit code: the first failing run's, or 0. With `--databases`, each file running
+ * at once has a test database of its own (test-databases.mjs), and the run's concurrency is how many there are.
  * @param {string[]} args
  */
 async function runTests(args) {
-  const plan = planTestRuns(args);
+  const nodeArgs = args.filter((argument) => argument !== DATABASES_OPTION);
+  let plan = planTestRuns(nodeArgs);
   const source = process.env[BUDGET_VARIABLE] ? BUDGET_VARIABLE : "half of this machine";
-  process.stderr.write(`jskit test: ${plan.concurrency} test file(s) at a time (${source}).\n`);
+  // A database for each file that can run at once: a focused run of one file prepares one.
+  const databases = nodeArgs.length < args.length
+    ? await testDatabaseRunFor(Math.max(1, Math.min(plan.concurrency, plan.files)))
+    : null;
+  if (databases) {
+    process.stderr.write(`jskit test: ${databases.summary}.\n`);
+    plan = planTestRuns(nodeArgs, { concurrency: databases.concurrency });
+  }
+  process.stderr.write(`jskit test: ${plan.concurrency} test file(s) at a time (${databases ? "test databases" : source}).\n`);
   for (const { file, reason } of plan.alone) process.stderr.write(`jskit test: ${file} runs alone: ${reason}\n`);
+  const preload = databases?.preload ? ["--import", pathToFileURL(databases.preload).href] : [];
   let exitCode = 0;
-  for (const run of plan.runs) {
-    const { code, signal } = await runNode(run);
-    if (exitCode === 0) exitCode = code;
-    // An interrupted run ends the whole command.
-    if (signal) break;
+  try {
+    for (const run of plan.runs) {
+      const { code, signal } = await runNode([...preload, ...run], databases?.env);
+      if (exitCode === 0) exitCode = code;
+      // An interrupted run ends the whole command.
+      if (signal) break;
+    }
+  } finally {
+    databases?.cleanup();
   }
   return exitCode;
 }

@@ -133,6 +133,23 @@ test("jskit test runs test files in parallel within V64_TEST_CONCURRENCY, then t
   });
 });
 
+test("jskit test --databases takes the application's knexfile.js and its installed database runtime", async () => {
+  await withProject({ "test/a.test.js": "" }, async (root) => {
+    const env = { ...process.env };
+    delete env.NODE_TEST_CONTEXT;
+    const missingKnexfile = await execFileAsync(process.execPath, [CLI_PATH, "test", "--databases"], { cwd: root, env })
+      .then(() => null, (error) => error);
+    assert.equal(missingKnexfile?.code, 1);
+    assert.match(missingKnexfile.stderr, /^jskit test --databases reads the application's knexfile\.js, and .+ has none\.$/mu);
+
+    await writeFile(path.join(root, "knexfile.js"), "export default {};\n");
+    const missingRuntime = await execFileAsync(process.execPath, [CLI_PATH, "test", "--databases"], { cwd: root, env })
+      .then(() => null, (error) => error);
+    assert.equal(missingRuntime?.code, 1);
+    assert.match(missingRuntime.stderr, /needs @jskit-ai\/database-runtime\/server\/testDatabases; install the application's JSKIT database driver\./u);
+  });
+});
+
 const BUDGET_IMPORT = "import { testConcurrency } from \"@jskit-ai/jskit-catalog/test-budget\";\n";
 
 test("jskit check fails test runs outside the budget: node --test, fixed counts and configs that ignore the budget", async () => {
@@ -165,13 +182,14 @@ test("jskit check fails test runs outside the budget: node --test, fixed counts 
       "package.json:12 test/fixed-concurrency",
       "packages/main/vite.config.mjs:1 test/vitest-workers",
       "playwright.config.mjs:1 test/playwright-workers",
+      "playwright.config.mjs:1 test/playwright-global-timeout",
       "vite.config.mjs:2 test/vitest-workers"
     ]);
     const result = await checkTestRuns({ projectRoot: root, manifests: await discoverProjectManifests(root) });
     const report = formatTestRunsReport(result);
     assert.match(report, /^package\.json:8 {2}test\/node-test {2}scripts\.test runs node --test directly; use `jskit test`/mu);
     assert.match(report, /guide\/framework\/typed-features#test-files-run-in-parallel/u);
-    assert.match(report, /JSKIT test runs: 9 error\(s\)\./u);
+    assert.match(report, /JSKIT test runs: 10 error\(s\)\./u);
   });
   await withProject({
     "package.json": { name: "no-config", scripts: { "test:e2e": "playwright test", "test:unit": "vitest run -c config/unit.mjs" } }
@@ -187,7 +205,7 @@ test("jskit check passes an app whose runs use jskit test and whose configs read
       scripts: { test: "jskit test", "test:client": "vitest run tests/client", "test:e2e": "playwright test tests/e2e" }
     },
     "package-lock.json": { name: "budgeted", lockfileVersion: 3, packages: { "": { name: "budgeted" } } },
-    "playwright.config.mjs": `${BUDGET_IMPORT}export default { workers: testConcurrency() };\n`,
+    "playwright.config.mjs": `${BUDGET_IMPORT}export default { workers: testConcurrency(), globalTimeout: 20 * 60_000 };\n`,
     "vite.config.mjs": `${BUDGET_IMPORT}export default { test: { maxWorkers: testConcurrency() } };\n`
   };
   await withProject(app, async (root) => {

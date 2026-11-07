@@ -29,15 +29,22 @@ Do not install an unrelated runtime package only to read documentation.
 Before adding or changing browser-test setup, read the browser verification
 guide at
 `https://mobily-enterprises.github.io/jskit-ai/guide/framework/ui-operations#browser-verification`.
-Routine tests reuse the isolated schema and prepare fixtures once per suite
-invocation. Keep `BROWSER_TEST_DB_NAME` distinct from disposable `TEST_DB_NAME`
-and prove that disposable cleanup preserves browser migrations. Require
-repeat-start regression proof; do not rebuild the database or production
-frontend for each focused browser check.
+`playwright.config.mjs` is `browserTestConfig()` from
+`@jskit-ai/jskit-catalog/browser-tests`: every Playwright worker gets its own
+server on the production build, its own port and, through the config's
+`prepare` module, its own copy of the browser database, restored from a schema
+snapshot and seeded. A local run never starts the development server; with
+`PLAYWRIGHT_BASE_URL`, the tests use that managed target as its host serves
+it. Keep `BROWSER_TEST_DB_NAME` distinct from disposable `TEST_DB_NAME`. The build and
+the snapshot are reused while their sources are unchanged; do not rebuild the
+database or production frontend for each focused browser check. Require
+repeat-start regression proof.
 
 Tests run in parallel within the machine's test budget: run node's test
-runner through `jskit test` (`npm test`), and take Playwright's `workers` and
-Vitest's `maxWorkers` from `testConcurrency()` of
+runner through `jskit test` (`npm test`), with `--databases` once the app has a
+database so each file running at once gets its own copy of `TEST_DB_NAME`,
+Playwright through `browserTestConfig()`, and take Vitest's `maxWorkers` from
+`testConcurrency()` of
 `@jskit-ai/jskit-catalog/test-budget`; never one file at a time or a fixed
 count. Isolate files that collide (their own port, temporary directory and
 database) instead of serialising them; a file that truly must run alone says

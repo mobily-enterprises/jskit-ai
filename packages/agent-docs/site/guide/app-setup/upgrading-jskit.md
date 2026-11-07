@@ -189,6 +189,45 @@ An application adopts it once, at the upgrade that brings `jskit test`:
 4. The whole suite passes with the budget, and its time before and after is
    recorded.
 
+## Move browser and database tests onto the JSKIT harness
+
+The release that brings `browserTestConfig()` and `jskit test --databases`
+makes JSKIT own the fast test harness. Plain `jskit check` fails a Playwright
+webServer on the development server (`test/playwright-dev-server`), one
+webServer every worker shares (`test/playwright-isolation`), and a config
+without a `globalTimeout` (`test/playwright-global-timeout`). At that repin, an
+application:
+
+1. Deletes its own copies of the harness: a local test-budget helper
+   (`testConcurrency()` in its own scripts), a launcher that starts a server
+   per worker, a cached production-build step, worker port and database-name
+   helpers, a Node test runner wrapper that hands each file a database, and
+   its schema-snapshot code. It imports `testConcurrency()` from
+   `@jskit-ai/jskit-catalog/test-budget` wherever it still needs the number.
+2. Replaces `playwright.config.*` with
+   `defineConfig(browserTestConfig({ testDir: "./tests/e2e", prepare: "tests/e2e/databases.js" }))`
+   from `@jskit-ai/jskit-catalog/browser-tests`, with `server`, `build`, `env`
+   or `port` only where its own differ from `node ./bin/server.js`,
+   `npm run build` and 4173, and `globalTimeout` only for a suite measured to
+   need more than 20 minutes. Settings a config adds (projects, a globalSetup
+   that proves the server's identity, `timezoneId`) spread over the result:
+   `defineConfig({ ...base, projects, use: { ...base.use, timezoneId } })`. A
+   second local Playwright config and any `npm run develop` or `vite`
+   webServer go.
+3. Copies its database pattern's `example/tests/e2e/databases.js` and moves
+   its browser fixture seed into its `seed`; each worker's server then gets a
+   seeded copy of `BROWSER_TEST_DB_NAME`. Server settings for tests only (a
+   simulated email or payment driver) go in `browserTestConfig({ env })`.
+4. Runs Node tests with `"test": "jskit test --databases"`, with
+   `TEST_DB_NAME` distinct from `DB_NAME`, `BROWSER_TEST_DB_NAME` and
+   `PROD_DB_NAME`, and a database user that may create its numbered copies
+   (`CREATEDB` on PostgreSQL). Test files read `DB_NAME`/`TEST_DB_NAME` as
+   given rather than naming the test database themselves, and no longer
+   create, migrate or drop it: the run hands each file a restored copy.
+5. Proves it with a timed full run: `npm test` and `npx playwright test`, every
+   test passing, the time of each before and after recorded, and the slowest
+   tests the run lists read.
+
 ## Application migration
 
 The updater changes package manifests and the lockfile only. It does not

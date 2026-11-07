@@ -396,21 +396,43 @@ database migration table are sufficient.
 
 Disposable integration and migration tests use `TEST_DB_NAME`, never the
 application's `DB_NAME`. A test run prepares that schema once and restores it
-from a stored snapshot:
+from a stored snapshot. `jskit test --databases` (the database patterns' `test`
+script) does this with `@jskit-ai/database-runtime/server/testDatabases`, from
+the application's `knexfile.js`:
 
-- The snapshot holds the schema as the engine reports it (each table's
-  `SHOW CREATE TABLE` on MySQL and MariaDB, `pg_dump --schema-only` on
-  PostgreSQL), the migration ledger rows and the seed rows. Its key is a digest
-  of the migration files that the application's `migrations/` and its installed
-  packages supply, and of the seed source.
-- When that digest changes, the harness migrates one database once, outside
-  the timed tests, and stores a new snapshot. Otherwise it restores the stored
-  one. On PostgreSQL, `CREATE DATABASE <name> TEMPLATE <prepared>` copies a
-  prepared database that has no open connections.
-- A test that runs migrations up or down, or otherwise changes the schema,
-  leaves its database dirty. The harness restores the snapshot before another
-  test uses that database, instead of running `migrate.latest()` over the
-  whole history.
+- Each test file running at once gets a database of its own for as long as it
+  runs, as both `DB_NAME` and `TEST_DB_NAME`: `TEST_DB_NAME` itself, then
+  copies named `<TEST_DB_NAME>_1`, `_2`, ... up to the machine's test budget,
+  as many as the database user may create. With no usable `TEST_DB_NAME`
+  (unset, the connected database itself, or one the database user may not
+  prepare), the files run one at a time on the connected database. A copy
+  named like the application's database or `PROD_DB_NAME`, or a server that
+  cannot be reached, fails the run instead.
+- The snapshot holds the schema as the engine reports it and the rows the
+  migrations wrote, including the migration ledger. On MySQL and MariaDB it is
+  each table's `SHOW CREATE TABLE` and rows, in
+  `node_modules/.cache/jskit-test-databases/`; on PostgreSQL it is the database
+  `<TEST_DB_NAME>_snapshot`, which `CREATE DATABASE <name> TEMPLATE <snapshot>`
+  copies while nothing is connected to it (the user needs `CREATEDB`). Its key
+  is a digest of the dialect, of the name and contents of every migration file
+  that the application's `migrations/` and its installed packages supply, and
+  of `package-lock.json`, since an upgraded package can change a helper its
+  migrations import. MySQL test databases hold tables only: a schema with
+  views, triggers, routines or events is refused.
+- Each test file gets the environment `jskit test` was given, plus its
+  database's connection (`DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD`); the
+  rest of the `.env` that `knexfile.js` loads is read for the databases only.
+  The run's settings, connection password included, are in a file only the
+  user can read; the runner's environment names only its directory.
+- When that digest changes, the harness replays the migrations into the
+  designated database once, outside the timed tests, and stores a new
+  snapshot. Otherwise it restores the stored one.
+- A test that runs migrations up or down, or otherwise changes the tables,
+  leaves its database dirty: its tables or migration ledger differ from the
+  snapshot's. The harness restores the snapshot before another test file uses
+  that database, instead of running `migrate.latest()` over the whole history.
+- A browser run's seed is not part of the snapshot: it runs in each restored
+  database, in one transaction ([Browser test preparation](#browser-test-preparation)).
 - Only the fresh-schema check in [Verification](#verification) replays the
   whole history, as its own step.
 - The harness reports each phase (digest, restore or rebuild, seed) with its
@@ -424,22 +446,32 @@ counts that compare their query counts; see the typed features guide's
 
 ## Browser test preparation
 
-Keep the test schema and migration history between routine browser runs. The
-MySQL application pattern includes `example/tests/browser/database.js`: it
-validates the exact `BROWSER_TEST_DB_NAME`, applies pending migrations, clears test rows,
-and runs one explicit fixture seed. Restore migration-owned baseline rows in
-that seed. Prove repeat preparation, stale-data removal, pending migrations, and
-isolation from the normal database before adopting the launcher. Give disposable
-integration and migration tests their own `TEST_DB_NAME`; require the two names
-to differ and provision exact grants for each. Run disposable cleanup between
-two browser preparations in the regression test to prove it cannot erase the
-reusable schema. Startup reports applied migration counts and phase durations
-so a cold rebuild is visible to the caller.
+A browser run gives every Playwright worker its own server and its own copy of
+`BROWSER_TEST_DB_NAME`. The database patterns' `example/tests/e2e/databases.js`
+is the `prepare` module of `browserTestConfig({ prepare: "tests/e2e/databases.js" })`
+from `@jskit-ai/jskit-catalog/browser-tests`: it calls `prepareTestDatabases()`
+with `variable: "BROWSER_TEST_DB_NAME"`, the worker count and the app's fixture
+seed, and returns each worker's `DB_NAME`. The worker's own process gets the
+same environment as its server, so a test that opens the database itself (with
+the app's `knexfile.js`) reaches that worker's copy. The copies (`<name>`, `<name>_1`,
+...) are restored from the same stored snapshot as the Node test databases
+([Integration test databases](#integration-test-databases)), then seeded in one
+transaction each, so stale rows never survive a run and the migrations are
+replayed only when one changes. It refuses the application's database,
+`PROD_DB_NAME`, `TEST_DB_NAME` and their copies.
+
+Give disposable integration and migration tests their own `TEST_DB_NAME`;
+the two names, and their copies, must differ, and the application account
+needs grants for each (a `<app>_%` grant covers the copies). Each preparation
+reports how many databases it made, whether it replayed the migrations for a
+new snapshot, and its restore and seed durations, so a cold rebuild is visible
+to the caller.
 
 Run related checks in one suite invocation and prepare only their required
-fixtures. The application foundations use the development launcher for ordinary
-browser checks; fresh-schema migration proofs and production builds are separate.
-A managed suite uses the host's server URL and identity, starts no second server,
-and restores normal Preview after the batch. Database isolation alone does not
+fixtures. A local browser run serves the production build, never the
+development launcher; fresh-schema migration proofs are separate. A managed
+suite (`PLAYWRIGHT_BASE_URL`) uses the host's server URL and identity, as the
+host serves it, starts no second server, and restores normal Preview after the
+batch. Database isolation alone does not
 disable email, payments or other external effects: configure those test controls
 and verify the actual server identity before destructive requests.

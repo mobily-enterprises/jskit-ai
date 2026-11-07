@@ -42,7 +42,10 @@ function usage() {
     "               page without a declared parent, or a main-navigation page that declares one. It also fails when",
     "               a package script runs tests outside the machine's test budget (test/*): node --test instead of",
     "               jskit test, a fixed test concurrency or worker count, or a Playwright or Vitest config whose",
-    "               workers do not come from testConcurrency() of @jskit-ai/jskit-catalog/test-budget.",
+    "               workers do not come from testConcurrency() of @jskit-ai/jskit-catalog/test-budget. A Playwright",
+    "               config with a webServer uses browserTestConfig() of @jskit-ai/jskit-catalog/browser-tests (one",
+    "               production-build server and database per worker), never a development server, and every one",
+    "               has a globalTimeout.",
     "  check m3     List application UI source that departs from the JSKIT Material 3 guide, each finding with its",
     "               guide section: the whole app, or only the given files and directories (a section, or a task's",
     "               changed files). Its visual rules (m3/*) are a report; its nav/* rules are plain jskit check's.",
@@ -53,7 +56,9 @@ function usage() {
     "  test         Run node --test with these arguments, test files in parallel within the machine's test budget:",
     "               V64_TEST_CONCURRENCY when it is a positive whole number, otherwise half of the machine's CPUs",
     "               (at least 1). A file whose first line is `// jskit-test: alone - <reason>` runs after the others,",
-    "               on its own.",
+    "               on its own. With --databases, each file running at once gets its own copy of TEST_DB_NAME,",
+    "               restored from a schema snapshot (the app's knexfile.js and @jskit-ai/database-runtime); with no",
+    "               usable TEST_DB_NAME, the files run one at a time on the connected database.",
     "",
     "<locale> is a BCP 47 language tag, such as fr or pt-BR."
   ].join("\n");

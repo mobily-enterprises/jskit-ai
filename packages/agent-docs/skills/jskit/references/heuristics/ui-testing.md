@@ -50,23 +50,28 @@ Rules:
 ## Keep startup incremental
 
 Run related cases in one suite invocation. Prepare the isolated database and
-fixtures once for that invocation, never once per test. Retain the test schema
-and migration ledger, apply only pending migrations, and reset fixture data
-deterministically. Restore any migration-owned baseline rows through the test
-seed. MySQL applications start from the `database/mysql-application` pattern's
-`example/tests/browser/database.js`. Require a repeat-start regression test that
-proves unchanged migration history, removal of stale data, pending migration
-application, and isolation from the normal database.
+fixtures once for that invocation, never once per test. An app's
+`playwright.config.mjs` is `browserTestConfig()` from
+`@jskit-ai/jskit-catalog/browser-tests`: the production build, made once and
+reused while its sources are unchanged, and one server, port and database per
+worker. Its `prepare` module (the `database/mysql-application` and
+`database/postgres-application` patterns' `example/tests/e2e/databases.js`)
+restores each worker's copy of `BROWSER_TEST_DB_NAME` from the stored schema
+snapshot and runs the fixture seed, which restores any migration-owned
+baseline rows. The migrations are replayed only when one changes, so a second
+run reports a stored snapshot, no stale rows, and an unchanged normal
+database.
 
-Use `BROWSER_TEST_DB_NAME` for that retained schema and a different
-`TEST_DB_NAME` for disposable integration and migration tests. Reject a name
-collision before connecting. Include disposable cleanup between browser starts
-in the regression: one test's teardown must not erase another test's migrations.
+Use `BROWSER_TEST_DB_NAME` for the browser copies and a different
+`TEST_DB_NAME` for disposable integration and migration tests; the harness
+refuses a collision, or one with the application's database, before
+connecting.
 
-Do not drop/recreate the database, replay completed migrations, build every
-module fixture, or run a production frontend build for each focused check. A
+Do not replay completed migrations, build every module fixture, or run a
+production frontend build for each focused check. A
 build made once for a whole run is different: it is the fix when a development
-server makes every page load slow. Choose small fixture sets for the selected
+server makes every page load slow, and browser tests never run on the
+development server. Choose small fixture sets for the selected
 suite; realistic row counts belong in the database tests that compare each
 endpoint's query counts. Fresh-schema
 migration tests and production-artifact tests are separate operations. Measure

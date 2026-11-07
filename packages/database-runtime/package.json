@@ -10,6 +10,7 @@
     "./server/databaseSetup": "./src/server/databaseSetup.js",
     "./server/knexMigrationConfig": "./src/server/knexMigrationConfig.js",
     "./server/foreignKeyMigrations": "./src/server/foreignKeyMigrations.js",
+    "./server/testDatabases": "./src/server/testDatabases.js",
     "./server/types": "./src/server/types.js",
     "./shared": "./src/shared/index.js",
     "./shared/dateUtils": "./src/shared/dateUtils.js",
@@ -64,6 +65,10 @@
           {
             "subpath": "./server/foreignKeyMigrations",
             "summary": "Adds a single-column foreign key only when it is missing, refusing rows without a parent, for constraints migrations on fresh and already-migrated databases."
+          },
+          {
+            "subpath": "./server/testDatabases",
+            "summary": "Gives each test file or browser worker running at once its own disposable copy of TEST_DB_NAME or BROWSER_TEST_DB_NAME, restored from a schema snapshot keyed by the migrations' names and contents (MySQL, MariaDB and PostgreSQL)."
           },
           {
             "subpath": "./shared",

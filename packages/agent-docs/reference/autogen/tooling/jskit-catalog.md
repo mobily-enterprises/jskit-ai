@@ -14,6 +14,44 @@ Use this on demand; do not load the full index at startup.
 
 ### scripts
 
+### `scripts/browser-test-build.mjs`
+Exports
+- `buildFrontend({ appRoot = process.cwd(), build = "npm run build", run = runToCompletion } = {})`
+Local functions
+- `seconds(since)`
+- `digest(file)`
+- `buildFingerprint(appRoot, build, env = process.env)`
+- `runToCompletion(command, appRoot)`
+- `lastBuild(appRoot)`
+- `isRunning(pid)`
+- `lockBuild(appRoot)`
+- `isCurrent(appRoot, inputs)`
+
+### `scripts/browser-test-servers.mjs`
+Exports
+- None
+Local functions
+- `seconds(since)`
+- `words(command)`
+- `prepareWorkers(appRoot, prepare, workers, baseUrls)`
+- `waitUntilReady(url, server, name)`
+- `stopServers()`
+
+### `scripts/browser-test-times.mjs`
+Exports
+- None
+
+### `scripts/browser-tests.mjs`
+Exports
+- `SETTINGS_VARIABLE`
+- `browserTestConfig({ testDir = "./tests/e2e", port = DEFAULT_PORT, server = "node ./bin/server.js", build = "npm run build", prepare = "", env = {}, health = "/api/health", globalTimeout = GLOBAL_TIMEOUT_MS, environment = process.env, cwd = process.cwd() } = {})`
+- `browserTestWorkers({ env = process.env, argv = process.argv } = {})`
+Local functions
+- `positiveInteger(value)`
+- `managedBaseUrl(env)`
+- `commandLineWorkers(argv)`
+- `preparedWorkerEnvironment(file, index)`
+
 ### `scripts/build-catalog.mjs`
 Exports
 - None
@@ -248,7 +286,14 @@ Exports
 Local functions
 - `findTestFiles(patterns, cwd)`
 - `readAloneFiles(files, cwd)`
-- `runNode(args)`
+- `runNode(args, env)`
+
+### `scripts/test-databases.mjs`
+Exports
+- `DATABASES_OPTION`
+- `testDatabaseRunFor(count, cwd = process.cwd())`
+Local functions
+- `withOwnEnvironment(load)`
 
 ### `scripts/test-runs.mjs`
 Exports
@@ -262,6 +307,9 @@ Local functions
 - `configOption(args)`
 - `lineOf(contents, needle, after = "")`
 - `findConfig(directory, explicit, names)`
+- `usesBrowserHarness(source)`
+- `developmentServerCommand(source)`
+- `checkPlaywrightIsolation({ file, source, report })`
 - `checkRunnerConfig({ root, configPath, directory, runner, report })`
 
 ### `scripts/verify-packages.mjs`

@@ -60,27 +60,38 @@ metadata. Do not combine it with the PostgreSQL pattern's workflow: a MySQL
 application's workflow has no `postgres` service, `POSTGRES_*` variables, port
 `5432`, or `pg_isready` option.
 
-`example/tests/browser/database.js` is the application-owned browser preparation
-helper. It requires the exact `BROWSER_TEST_DB_NAME`, rejects the ordinary and
-disposable `TEST_DB_NAME` databases,
-retains the schema and migration ledger, applies pending migrations, then clears
-test rows and calls one explicit fixture seed transaction. The seed must restore
-any migration-owned baseline rows the app needs. Call it once before starting
-the isolated test server, never in `beforeEach`. It closes its connections without
-dropping the database. The launcher selects that database only for its own server
-and identity process, disables external effects, and proves actual server identity
-before the suite writes data. It must not edit the normal environment. Provision
-both test databases with exact grants for the application account. A disposable
-integration or migration test must never drop the browser database.
+Tests get their own databases from
+`@jskit-ai/database-runtime/server/testDatabases`. The `test` script runs
+`jskit test --databases`: each Node test file running at once gets its own
+copy of `TEST_DB_NAME` (`<name>`, `<name>_1`, ...), restored from a stored
+snapshot of the current migrations' schema and the rows they write, in
+`node_modules/.cache/jskit-test-databases/`. The snapshot is replayed once, and
+again only when a migration's name or contents or `package-lock.json` change;
+a file that migrates or drops tables leaves its copy to be restored before the
+next file takes it.
 
-Startup reports whether the schema exists, the number of migrations applied,
-and the migration, fixture-reset and seed durations. Use those measurements to
-diagnose a slow start before rerunning a browser case.
+`example/tests/e2e/databases.js` is the browser run's `prepare` module for
+`browserTestConfig({ prepare: "tests/e2e/databases.js" })` from
+`@jskit-ai/jskit-catalog/browser-tests`. It gives each Playwright worker's
+server its own copy of `BROWSER_TEST_DB_NAME`, restored from the same kind of
+snapshot and seeded in one transaction by the app's fixture `seed`, which
+restores any migration-owned baseline rows the app needs. Every server serves
+the production build. Both refuse the application's database (`DB_NAME`,
+`DATABASE_URL`'s, the Knex connection's), `PROD_DB_NAME` and the other test
+database and its copies. Provision `TEST_DB_NAME`, `BROWSER_TEST_DB_NAME` and
+their numbered copies with grants for the application account (a `<app>_%`
+grant covers them); a user who may create no copies runs one file or worker at
+a time. Two test runs at once need different database names. Test-only server
+settings that disable external effects (email, payments) go in
+`browserTestConfig({ env })`; a suite that writes data proves the server's
+identity first.
+
+Each preparation reports how many databases it made, whether it replayed the
+migrations for a new snapshot, and the restore and seed durations. Use those
+measurements to diagnose a slow start before rerunning a browser case.
 
 Keep fixtures small for the selected test scope. Run related cases in one suite
-invocation. Use the development launcher for ordinary browser checks; test the
-production build separately when needed. Fresh-schema migration proofs are
-separate from browser startup.
+invocation. Fresh-schema migration proofs are separate from browser startup.
 
 ## Variation points
 
@@ -98,11 +109,10 @@ it as `seed` to `prepareDatabaseFromApp()`.
 - Run `npm run db:migrate:status` and the application verification command.
 - Exercise one transaction and one negative connection case.
 - When a seed exists, run `db:prepare` twice and require the second run to be safe.
-- For browser preparation, run a disposable test between two starts: the second applies no
-  old migrations, stale fixture data is removed, baseline rows are restored,
-  foreign-key checks remain enabled, and the normal database is unchanged.
-  Also prove that a new pending migration is applied. Keep this as a regression
-  test when adapting the example; reject a harness that recreates the schema.
+- For the test databases, run the suite twice: the second run restores the
+  stored snapshot instead of replaying the migrations, stale rows are gone,
+  baseline rows are restored, foreign keys are enforced, and the normal
+  database is unchanged. A new migration takes a new snapshot.
 - Confirm `.github/workflows/verify.yml` parses as YAML and declares only the
   `mariadb` service. GitHub reports an unparseable workflow only as a failed
   run with "no jobs were run".

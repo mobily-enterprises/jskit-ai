@@ -131,24 +131,46 @@ test("application foundations own one exact development command", async () => {
   }
 });
 
-test("foundation browser configurations reuse the development launcher or the managed server", async () => {
+test("foundation browser configurations serve the production build, a server per worker, or use the managed server", async () => {
   for (const patternName of FOUNDATION_NAMES) {
-    const configPath = path.join(PATTERNS_ROOT, patternName, "example", "playwright.config.mjs");
-    for (const baseURL of ["", "http://127.0.0.1:4321"]) {
+    const exampleRoot = path.join(PATTERNS_ROOT, patternName, "example");
+    const configPath = path.join(exampleRoot, "playwright.config.mjs");
+    const load = async (env) => {
       const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
         const { default: config } = await import(${JSON.stringify(configPath)});
-        console.log(JSON.stringify({ command: config.webServer?.command, baseURL: config.use.baseURL }));
-      `], { env: { ...process.env, PLAYWRIGHT_BASE_URL: baseURL } });
-      const config = JSON.parse(stdout);
-      assert.equal(config.command, baseURL ? undefined : "npm run develop");
-      assert.equal(config.baseURL, baseURL || "http://127.0.0.1:4173");
-    }
+        console.log(JSON.stringify({
+          webServer: config.webServer ?? null,
+          baseURL: config.use.baseURL,
+          workers: config.workers,
+          globalTimeout: config.globalTimeout
+        }));
+      `], {
+        env: { ...process.env, PLAYWRIGHT_BASE_URL: "", PLAYWRIGHT_PORT: "", PLAYWRIGHT_WORKERS: "", TEST_PARALLEL_INDEX: "", ...env }
+      });
+      return JSON.parse(stdout);
+    };
 
-    const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
-      const { default: config } = await import(${JSON.stringify(configPath)});
-      console.log(JSON.stringify({ port: config.webServer?.env?.PORT, baseURL: config.use.baseURL }));
-    `], { env: { ...process.env, PLAYWRIGHT_BASE_URL: "", PLAYWRIGHT_PORT: "4183" } });
-    assert.deepEqual(JSON.parse(stdout), { port: "4183", baseURL: "http://127.0.0.1:4183" });
+    const managed = await load({ PLAYWRIGHT_BASE_URL: "http://127.0.0.1:4321", V64_TEST_CONCURRENCY: "3" });
+    assert.deepEqual(managed, { webServer: null, baseURL: "http://127.0.0.1:4321", workers: 1, globalTimeout: 20 * 60_000 });
+
+    const local = await load({ V64_TEST_CONCURRENCY: "6" });
+    assert.match(local.webServer.command, /browser-test-servers\.mjs"$/u);
+    assert.doesNotMatch(local.webServer.command, /develop|vite/u);
+    const settings = JSON.parse(local.webServer.env.JSKIT_BROWSER_TESTS);
+    assert.deepEqual(
+      { workers: settings.workers, basePort: settings.basePort, server: settings.server, build: settings.build },
+      { workers: 3, basePort: 4173, server: "node ./bin/server.js", build: "npm run build" }
+    );
+    assert.equal(local.baseURL, "http://127.0.0.1:4173");
+    assert.equal(local.globalTimeout, 20 * 60_000);
+    const packageJson = await readExamplePackageJson(patternName);
+    assert.equal(packageJson.scripts?.build, "vite build");
+    assert.equal(packageJson.scripts?.server, "node ./bin/server.js");
+
+    // A Playwright worker loads the config with its own TEST_PARALLEL_INDEX and reaches its own server.
+    const worker = await load({ PLAYWRIGHT_PORT: "4183", TEST_PARALLEL_INDEX: "2" });
+    assert.equal(worker.baseURL, "http://127.0.0.1:4185");
+    assert.equal(JSON.parse(worker.webServer.env.JSKIT_BROWSER_TESTS).basePort, 4183);
   }
 });
 
@@ -161,7 +183,8 @@ test("application foundations run every test runner within the machine's test bu
     const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
       const { default: config } = await import(${JSON.stringify(path.join(exampleRoot, "playwright.config.mjs"))});
       console.log(JSON.stringify(config.workers));
-    `], { env: { ...process.env, V64_TEST_CONCURRENCY: "3" } });
+    `], { env: { ...process.env, PLAYWRIGHT_BASE_URL: "", PLAYWRIGHT_WORKERS: "", V64_TEST_CONCURRENCY: "6" } });
+    // Half the budget: each browser worker drives a browser and its own app server.
     assert.equal(JSON.parse(stdout), 3);
 
     const viteConfigSource = await readFile(path.join(exampleRoot, "vite.config.mjs"), "utf8");

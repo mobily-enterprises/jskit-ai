@@ -85,7 +85,7 @@ ends with the same link.
   - [No test-only exports](../site/guide/framework/typed-features.md#no-test-only-exports)
 - a list, batch or write test with one to three rows, no query count, a fixed query ceiling tuned to pass, a slow endpoint first seen with real data
   - [Query counts at realistic sizes](../site/guide/framework/typed-features.md#query-counts-at-realistic-sizes)
-- `node --test --test-concurrency=1`, `workers: 1`, `fileParallelism: false`, a suite that runs one file at a time, test files that collide when run together, `test/*` findings of `jskit check`
+- `node --test --test-concurrency=1`, `workers: 1`, `fileParallelism: false`, a suite that runs one file at a time, test files that collide when run together, a Playwright webServer running `npm run develop` or `vite`, a browser suite that takes hours, `test/*` findings of `jskit check`
   - [Test files run in parallel](../site/guide/framework/typed-features.md#test-files-run-in-parallel)
 - `knex.migrate.latest()` in each test file, a template database rebuilt by migrating, test preparation slower than its tests
   - [Test databases are prepared once](../site/guide/framework/typed-features.md#test-databases-are-prepared-once)

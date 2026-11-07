@@ -1101,8 +1101,20 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
   file uses, its own Vite `cacheDir` for each dev server it starts (Vite
   replaces a shared dependency cache under servers still reading it), and no
   writes into the source tree. Files that collide are isolated, never
-  serialised. A Playwright spec works on its own records, so
-  specs can share one server.
+  serialised. A database test file gets its own copy of `TEST_DB_NAME` from
+  `jskit test --databases`
+  ([integration test databases](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#integration-test-databases)).
+- An application's `playwright.config.mjs` is
+  `defineConfig(browserTestConfig({ testDir: "./tests/e2e" }))` from
+  `@jskit-ai/jskit-catalog/browser-tests`. It builds the production frontend
+  once (reused while its sources are unchanged) and gives each worker its own
+  server, port and, through its `prepare` module, its own seeded database; a
+  spec file's tests run in order in one worker. With `PLAYWRIGHT_BASE_URL`, the
+  tests use that managed target as its host serves it. Every run is bounded by
+  a `globalTimeout` (20 minutes, or the suite's own measured bound) and ends
+  with its 10 slowest tests. `jskit check` fails a webServer that runs the development server
+  (`npm run develop`, `vite`), one webServer shared by every worker, and a
+  config without a `globalTimeout`.
 - A file that truly cannot run beside others, because it holds a resource of
   the whole machine, says why on its first line,
   `// jskit-test: alone - <reason>`. `jskit test` runs it after the others,
@@ -1114,24 +1126,24 @@ uses the machine without starving the other runs on it.
 
 ```js
 // good: package.json "test": "jskit test", and playwright.config.mjs
-import { testConcurrency } from "@jskit-ai/jskit-catalog/test-budget";
+import { browserTestConfig } from "@jskit-ai/jskit-catalog/browser-tests";
 
-export default defineConfig({ workers: testConcurrency() });
+export default defineConfig(browserTestConfig({ testDir: "./tests/e2e" }));
 
 // bad: "test": "node --test --test-concurrency=1", and
-export default defineConfig({ workers: 1 });
+export default defineConfig({ workers: 1, webServer: { command: "npm run develop" } });
 ```
 
 ### Test databases are prepared once
 
 **A test run prepares each database once and restores it from a stored
-snapshot of the schema, migration ledger and seed rows, checked by a digest of
-their sources.**
+snapshot of the schema and the rows the migrations write, migration ledger
+included, checked by a digest of the migrations.**
 
-- The snapshot is rebuilt only when the digest of the migration and seed
-  sources changes, once and outside the timed tests; every disposable
+- The snapshot is rebuilt only when the digest of the migrations' names and
+  contents changes, once and outside the timed tests; every disposable
   database, and every database a test migrated up or down, is restored from
-  it.
+  it. A browser run's fixture seed runs after each restore.
 - The full migration history runs once, in its own fresh-schema check
   ([database verification](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#verification)).
 - The harness reports each preparation phase and its duration, and those
@@ -1145,8 +1157,8 @@ Why: an application's migrations include those of every installed package, so
 replaying them costs more with each package as well as each migration.
 
 ```js
-// good: the application's test support restores the snapshot its digest names
-before(async () => restoreTestDatabase(knex, await testDatabaseSnapshot()));
+// good: package.json "test": "jskit test --databases"; each file gets a restored copy of TEST_DB_NAME
+const { databases } = await prepareTestDatabases({ knexConfig, environment: process.env, count: workers, seed });
 
 // bad: every file replays every migration
 before(() => knex.migrate.latest());
@@ -1346,8 +1358,11 @@ that must run alone says so on its own first line instead.
 | Rule | Reports | Section |
 | --- | --- | --- |
 | `test/node-test` | a script that runs `node --test` directly instead of `jskit test` | [Test files run in parallel](#test-files-run-in-parallel) |
-| `test/fixed-concurrency` | `--test-concurrency` in a script | [Test files run in parallel](#test-files-run-in-parallel) |
-| `test/playwright-workers` | `--workers` or `-j` passed to `playwright test`, or its config without `workers: testConcurrency()` | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/fixed-concurrency` | `--test-concurrency` in a script, or a script that pins `V64_TEST_CONCURRENCY` or `PLAYWRIGHT_WORKERS` | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/playwright-workers` | `--workers` or `-j` passed to `playwright test`, its config without `workers: testConcurrency()` or `browserTestConfig()`, or with `workers` set over `browserTestConfig()`'s | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/playwright-dev-server` | a Playwright webServer command that runs the development server (`npm run develop`, `npm run dev`, `bin/develop.js`, `vite`, `vite dev`) | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/playwright-isolation` | a Playwright webServer every worker shares, without `browserTestConfig()` | [Test files run in parallel](#test-files-run-in-parallel) |
+| `test/playwright-global-timeout` | a Playwright config without a `globalTimeout` (or `browserTestConfig()`), or with `globalTimeout: 0` | [Test files run in parallel](#test-files-run-in-parallel) |
 | `test/vitest-workers` | `--maxWorkers`, `--minWorkers` or `--no-file-parallelism` passed to Vitest, or its config without `maxWorkers: testConcurrency()` or with `fileParallelism: false` | [Test files run in parallel](#test-files-run-in-parallel) |
 
 The rules see shapes, not intent. Feature files, owned state beyond

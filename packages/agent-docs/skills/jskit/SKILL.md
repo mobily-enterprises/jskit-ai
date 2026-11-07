@@ -131,9 +131,11 @@ slowest files. Find why a check is slow; never raise its time limit. Typed
 features' repository and Tests rules say how.
 
 Test files run in parallel by default, bounded by the machine: a script runs
-`jskit test`, never `node --test` or a fixed `--test-concurrency`, and
-Playwright's `workers` and Vitest's `maxWorkers` are `testConcurrency()` from
-`@jskit-ai/jskit-catalog/test-budget`; plain `jskit check` fails anything else.
-Files that collide when run together get isolated (their own port, temporary
-directory and database), never serialised. A file that truly must run alone
-says why on its first line, `// jskit-test: alone - <reason>`.
+`jskit test` (`--databases`: a `TEST_DB_NAME` copy per file), never
+`node --test` or a fixed `--test-concurrency`; Playwright's config is
+`browserTestConfig()` from `@jskit-ai/jskit-catalog/browser-tests` and Vitest's
+`maxWorkers` is `testConcurrency()` from `@jskit-ai/jskit-catalog/test-budget`.
+Plain `jskit check` fails anything else. Files that collide when run together
+get isolated (their own port, temporary directory and database), never
+serialised. A file that truly must run alone says why on its first line,
+`// jskit-test: alone - <reason>`.
