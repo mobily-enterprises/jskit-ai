@@ -238,6 +238,20 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.deepEqual(await workspaces.listForUserId(member.id), []);
   });
 
+  const createMembers = () => createMembersService({
+    workspaceMembershipsRepository: memberships,
+    workspaceInvitesRepository: invites,
+    inviteExpiresInMs: 86400000,
+    roleCatalog: createWorkspaceRoleCatalog(),
+    workspaceInvitationsEnabled: false,
+    inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
+    workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
+    workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail,
+    i18n: createWorkspacesServerI18n(),
+    userProfilesRepository: profiles,
+    userSettingsRepository: userSettings
+  });
+
   // Lists of more rows than json-rest-api's default page (20) and maximum page (100), written in bulk.
   async function insertRows(table, rows) {
     for (let start = 0; start < rows.length; start += 100) {
@@ -289,19 +303,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.deepEqual(listed.map(({ displayName }) => displayName), expectedNames);
     assert.equal(new Set(listed.map(({ userId }) => userId)).size, 1050);
 
-    const membersService = createMembersService({
-      workspaceMembershipsRepository: memberships,
-      workspaceInvitesRepository: invites,
-      inviteExpiresInMs: 86400000,
-      roleCatalog: createWorkspaceRoleCatalog(),
-      workspaceInvitationsEnabled: false,
-      inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
-      workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
-      workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail,
-      i18n: createWorkspacesServerI18n(),
-      userProfilesRepository: profiles,
-      userSettingsRepository: userSettings
-    });
+    const membersService = createMembers();
     const { members } = await membersService.listMembers(workspace);
     assert.deepEqual(members.map(({ userId }) => userId), listed.map(({ userId }) => userId));
     assert.deepEqual(members.filter(({ isOwner }) => isOwner).map(({ userId }) => userId), [ownerId]);
@@ -312,6 +314,66 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       const withJoiner = await memberships.listActiveByWorkspaceId(workspace.id, { trx });
       assert.equal(withJoiner.length, 1051);
       assert.equal(withJoiner.at(-1).displayName, "Zara");
+    });
+  });
+
+  test("getMember answers a member's listMembers entry at the same cost among 10 and 200 members", async () => {
+    const usernames = Array.from({ length: 212 }, (_, index) => `person-${String(index).padStart(3, "0")}`);
+    const users = await insertUsers(usernames, (username) => username.replace("person-", "Person "));
+    const ownerId = users.get("person-000");
+    const small = await workspaces.insert({ slug: "small-team", name: "Small Team", ownerUserId: ownerId });
+    const large = await workspaces.insert({ slug: "large-team", name: "Large Team", ownerUserId: ownerId });
+    // Small: persons 0-9 (9 removed). Large: persons 0 and 10-209 (209 removed). 210 and 211 are in neither.
+    const membership = (workspaceId, username, status = "active") => ({
+      workspace_id: workspaceId,
+      user_id: users.get(username),
+      role_sid: users.get(username) === ownerId ? "owner" : "member",
+      status
+    });
+    await insertRows("workspace_memberships", [
+      ...usernames.slice(0, 10).map((username) => membership(small.id, username, username === "person-009" ? "revoked" : "active")),
+      membership(large.id, "person-000"),
+      ...usernames.slice(10, 210).map((username) => membership(large.id, username, username === "person-209" ? "revoked" : "active"))
+    ]);
+    const membersService = createMembers();
+    async function statementsOf(run) {
+      let statements = 0;
+      const onQuery = () => { statements += 1; };
+      knex.on("query", onQuery);
+      try {
+        const result = await run();
+        return { result, statements };
+      } finally {
+        knex.removeListener("query", onQuery);
+      }
+    }
+
+    for (const [workspace, memberName, removedName] of [
+      [small, "person-004", "person-009"],
+      [large, "person-150", "person-209"]
+    ]) {
+      const { members } = await membersService.listMembers(workspace);
+      for (const userId of [users.get(memberName), ownerId]) {
+        const entry = members.find((member) => member.userId === userId);
+        assert.ok(entry);
+        assert.deepEqual(await membersService.getMember(workspace, userId), entry);
+      }
+      assert.equal((await membersService.getMember(workspace, ownerId)).isOwner, true);
+      assert.equal(await membersService.getMember(workspace, users.get(removedName)), null);
+      assert.equal(await membersService.getMember(workspace, users.get("person-211")), null);
+      assert.equal(await membersService.getMember(workspace, "999999"), null);
+    }
+    assert.equal(await membersService.getMember(small, users.get("person-150")), null);
+
+    const smallRead = await statementsOf(() => membersService.getMember(small, users.get("person-004")));
+    const largeRead = await statementsOf(() => membersService.getMember(large, users.get("person-150")));
+    assert.equal(smallRead.result.displayName, "Person 004");
+    assert.equal(largeRead.result.displayName, "Person 150");
+    assert.equal(largeRead.statements, smallRead.statements);
+    assert.ok(smallRead.statements <= 4, `one member read costs ${smallRead.statements} statements`);
+    await profiles.withTransaction(async (trx) => {
+      const member = await membersService.getMember(large, users.get("person-150"), { trx });
+      assert.equal(member.userId, users.get("person-150"));
     });
   });
 

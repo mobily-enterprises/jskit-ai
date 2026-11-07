@@ -208,6 +208,13 @@ function createService({
     });
   }
 
+  // One active member's summary, the same as their listMembers entry, or null for a removed or
+  // unknown member. It reads one membership, so a per-member lookup costs the same in any workspace.
+  async function getMember(workspace, userId, options = {}) {
+    const member = await workspaceMembershipsRepository.findActiveByWorkspaceIdAndUserId(workspace.id, userId, options);
+    return member ? mapMemberSummary(member, workspace) : null;
+  }
+
   async function listMembersResponse(workspace, options = {}) {
     return returnJsonApiData(await listMembers(workspace, options));
   }
@@ -410,6 +417,7 @@ function createService({
     listRoles,
     listRolesResponse,
     listMembers,
+    getMember,
     listMembersResponse,
     updateMemberRole,
     removeMember,

@@ -42,6 +42,21 @@ function normalizeMemberSummaryRow(row) {
   };
 }
 
+// A membership read with its user included, as a member summary.
+function memberSummaryFromMembership(row) {
+  if (!row) {
+    return null;
+  }
+
+  return normalizeMemberSummaryRow({
+    user_id: row.user?.id,
+    role_sid: row.roleSid,
+    status: row.status,
+    display_name: row.user?.displayName,
+    email: row.user?.email
+  });
+}
+
 /** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
 function createRepository({ api }) {
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
@@ -215,18 +230,32 @@ function createRepository({ api }) {
       { include: ["user"] }
     );
 
-    const members = rows
-      .map((row) => normalizeMemberSummaryRow({
-        user_id: row?.user?.id,
-        role_sid: row?.roleSid,
-        status: row?.status,
-        display_name: row?.user?.displayName,
-        email: row?.user?.email
-      }))
-      .filter(Boolean);
+    const members = rows.map(memberSummaryFromMembership).filter(Boolean);
 
     members.sort((left, right) => String(left.displayName || "").localeCompare(String(right.displayName || "")));
     return members;
+  }
+
+  // One active member's summary, as listActiveByWorkspaceId lists it, or null. Its cost does not grow
+  // with the workspace's members.
+  async function findActiveByWorkspaceIdAndUserId(workspaceId, userId, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedWorkspaceId || !normalizedUserId) {
+      return null;
+    }
+
+    const rows = await queryMemberships(
+      {
+        workspace: normalizedWorkspaceId,
+        user: normalizedUserId,
+        status: "active"
+      },
+      options,
+      { include: ["user"] }
+    );
+
+    return memberSummaryFromMembership(rows[0] || null);
   }
 
   async function listActiveWorkspaceIdsByUserId(userId, options = {}) {
@@ -255,6 +284,7 @@ function createRepository({ api }) {
     ensureOwnerMembership,
     upsertMembership,
     listActiveByWorkspaceId,
+    findActiveByWorkspaceIdAndUserId,
     listActiveWorkspaceIdsByUserId
   });
 }

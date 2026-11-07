@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `services.members.getMember(workspace, userId, options)` answers one active member's summary, the same as their `listMembers` entry, or `null` for a removed or unknown member. It reads that one membership through `workspaceMembershipsRepository.findActiveByWorkspaceIdAndUserId`, so a per-member lookup (a notification's recipient check, for example) costs the same few statements in a workspace of 10 or 1,000 members instead of listing them all.
 - The workspace, settings, member and invitation field messages are sent in the coded form `{ code, message, params }`, so their field errors translate. The English is unchanged.
 - The resources' save, delete and validation feedback names catalog keys under `jskit.workspaces.feedback.*` instead of plain English; JSKIT's forms render them with `text()`, so the English shown is unchanged.
 - The invitation email writes its expiry date with `Intl` in the recipient's locale and saved time zone (UTC without one), for example "November 2, 2026 at 12:00 AM UTC", instead of the raw ISO timestamp. An app's own `workspaces.invite-email-template` also receives the recipient's `timeZone` next to `locale`.
