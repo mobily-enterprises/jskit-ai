@@ -76,7 +76,7 @@ expects the relationship id or an unselected field never gets it.
 
 ### Query counts and batches
 
-- Count a path's queries with `countQueries()` from
+- Count a path's queries with `expectFlatQueries()` or `countQueries()` from
   `@jskit-ai/database-runtime/server/testDatabases` at a few rows and at a
   realistic number; the count should follow tables and pages, not rows
   ([Query counts at realistic
