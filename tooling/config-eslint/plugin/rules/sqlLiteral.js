@@ -5,6 +5,10 @@ import { calledMethod, lastName, literalText } from "../dataAccess.js";
 const RAW_METHODS = new Set(["raw", "whereRaw", "orWhereRaw", "havingRaw", "orderByRaw", "groupByRaw", "joinRaw", "fromRaw", "selectRaw"]);
 // A Knex placeholder: ? for a value, ?? for an identifier. \? is a question mark.
 const PLACEHOLDER = /(?<!\\)\?/u;
+// A statement's or a subquery's words. Raw SQL is an expression inside a scoped query, so a statement or a subquery in it
+// would reach rows outside the scope. The FROM inside EXTRACT, TRIM, SUBSTRING, OVERLAY and POSITION is an expression's.
+const STATEMENT_WORD = /\b(?:FROM|JOIN|INTO|UPDATE|DELETE|INSERT)\b/iu;
+const FROM_FUNCTION = /\b(?:EXTRACT|TRIM|SUBSTRING|OVERLAY|POSITION)\s*\([^()]*\)/giu;
 
 function shortText(sourceCode, node) {
   const text = compactText(sourceCode, node);
@@ -16,7 +20,8 @@ function shortText(sourceCode, node) {
 const sqlLiteral = Object.freeze({
   meta: ruleMeta("Require raw SQL to be one string literal with its values as bindings.", {
     notLiteral: "{{method}}() takes SQL built at run time ({{text}}). Write the SQL as one string literal and pass every value as a ? binding and every identifier as a ?? binding of column().",
-    noBindings: "{{method}}() has placeholders but no bindings. Pass the values as its second argument."
+    noBindings: "{{method}}() has placeholders but no bindings. Pass the values as its second argument.",
+    statement: "{{method}}() holds {{word}}, a statement or a subquery, which reaches rows outside the scope. Raw SQL is one expression; read other tables through the resource's includes, scopedQuery() or a row policy's ownTable()."
   }, "layer-5-reports-the-resource-cannot-express", DATA_ACCESS_GUIDE_URL),
   create(context) {
     const sourceCode = context.sourceCode;
@@ -33,6 +38,11 @@ const sqlLiteral = Object.freeze({
           context.report({ node: sql, messageId: "notLiteral", data: { method: method.name, text: shortText(sourceCode, sql) } });
         } else if (!bindings && PLACEHOLDER.test(text)) {
           context.report({ node: sql, messageId: "noBindings", data: { method: method.name } });
+        } else {
+          const word = text.replace(FROM_FUNCTION, "").match(STATEMENT_WORD)?.[0];
+          if (word) {
+            context.report({ node: sql, messageId: "statement", data: { method: method.name, word: word.toUpperCase() } });
+          }
         }
       }
     };
