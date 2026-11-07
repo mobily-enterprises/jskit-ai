@@ -395,11 +395,8 @@ database migration table are sufficient.
 ## Integration test databases
 
 Disposable integration and migration tests use `TEST_DB_NAME`, never the
-application's `DB_NAME`. A test run prepares that schema once and reuses it.
-Check how long preparation takes and how often it runs: a database rebuilt by
-replaying the whole migration history for each file gets slower with every
-migration, while a stored snapshot restores in a fraction of a second. The
-usual way:
+application's `DB_NAME`. A test run prepares that schema once and restores it
+from a stored snapshot:
 
 - The snapshot holds the schema as the engine reports it (each table's
   `SHOW CREATE TABLE` on MySQL and MariaDB, `pg_dump --schema-only` on
@@ -419,8 +416,7 @@ usual way:
 - The harness reports each phase (digest, restore or rebuild, seed) with its
   duration, and those durations are read, so slow preparation is visible
   instead of hiding inside the next test that waits for it. A slow phase is
-  fixed, never absorbed by a longer time limit; preparation measured in
-  minutes is broken.
+  fixed, never absorbed by a longer time limit.
 
 Endpoints and batch operations get their own database tests at realistic row
 counts that compare their query counts; see the typed features guide's
