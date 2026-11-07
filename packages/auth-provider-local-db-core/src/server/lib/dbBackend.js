@@ -463,8 +463,10 @@ function oauthAttemptRecords(attempts, options) {
  */
 function signInFailureRecords(failures, options) {
   return Object.freeze({
+    // Locks the email's record until the transaction ends, so concurrent failed sign-ins count one after another.
     async find(email) {
-      return mapSignInFailures(await findById(failures, email, options));
+      const id = text(email);
+      return id ? mapSignInFailures(await failures.lock(id, { ...options, missing: "skip" })) : null;
     },
     async save(input) {
       const email = text(input.email);

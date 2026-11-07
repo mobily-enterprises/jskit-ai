@@ -367,6 +367,20 @@ test("two first saves of one email's sign-in failure at once both succeed: the l
   assert.equal(Number((await knex("auth_local_sign_in_failures").count({ count: "*" }).first()).count), 1);
 });
 
+test("concurrent failed sign-ins for one email each count: find holds the email's record until the transaction ends", async (context) => {
+  requireTestDatabase(process.env);
+  const { backend } = await openLocalAuthDatabase(context, "da_local_throttle");
+  await backend.withTransaction((tx) => tx.signInFailures.save({ email: "guess@example.com", failures: 1, lastFailedAt: CREATED }));
+  // Each failure reads the count, waits as a password check does, then saves one more.
+  const fail = () => backend.withTransaction(async (tx) => {
+    const failures = await tx.signInFailures.find("guess@example.com");
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    return tx.signInFailures.save({ email: "guess@example.com", failures: failures.failures + 1, lastFailedAt: CREATED });
+  });
+  await Promise.all([fail(), fail(), fail(), fail(), fail()]);
+  assert.equal((await backend.withTransaction((tx) => tx.signInFailures.find("guess@example.com"))).failures, 6);
+});
+
 test("the owner APIs answer as the backend does and join a caller's transaction, whose rollback undoes their writes", async (context) => {
   requireTestDatabase(process.env);
   const { accounts, sessions, recovery, backend, inCallerTransaction } = await openLocalAuthDatabase(context, "da_local_owners");
