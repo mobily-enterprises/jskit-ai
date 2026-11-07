@@ -111,8 +111,10 @@ Exports
 - `resolveDatabaseClientFromEnvironment(env = {}, { allowEmpty = false } = {})`
 - `resolveDatabaseConnectionFromEnvironment(env = {}, { defaultHost = "localhost", defaultPort = 3306, context = "database runtime" } = {})`
 - `resolveKnexConnectionFromEnvironment(env = {}, { client = "", defaultHost = "localhost", defaultPort = 3306, context = "database runtime" } = {})`
+- `resolveKnexPool(client)`
 Local functions
 - `toPositiveInteger(value, fallback)`
+- `setPostgresSessionToUtc(connection, done)`
 
 ### `src/shared/dateUtils.js`
 Exports
