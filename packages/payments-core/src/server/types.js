@@ -50,8 +50,8 @@
  */
 
 /**
- * Where payment accounts and catalogues are kept: createKnexPaymentStore() or
- * the application's own store. Each `with*` call runs its work under the
+ * Where payment accounts and catalogues are kept: the store PaymentStoreFeature
+ * provides as `payments.store`, or the application's own store. Each `with*` call runs its work under the
  * record's lock and saves the state the work leaves.
  * @typedef {object} PaymentStore
  * @property {(scope: PaymentAccountScope) => Promise<PaymentAccountState>} inspect

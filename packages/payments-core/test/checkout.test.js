@@ -5,7 +5,7 @@ import knex from 'knex';
 import Stripe from 'stripe';
 import { Paddle, Environment } from '@paddle/paddle-node-sdk';
 import migration from '../migrations/payments_core_initial.cjs';
-import { createKnexPaymentStore } from '../src/server/knexStore.js';
+import { createTestPaymentStore } from './support/paymentStore.js';
 import { createPaymentService } from '../src/server/service.js';
 import { createPaymentCheckoutService } from '../src/server/checkout.js';
 import { createStripePaymentAdapter } from '../src/server/stripe.js';
@@ -36,7 +36,7 @@ test('official SDK signature verification rejects mutation and expired delivery 
 test('checkout authorizes before provider access, persists intent, deduplicates requests and needs explicit recovery', async () => {
   const db = knex({ client: 'better-sqlite3', connection: { filename: ':memory:' }, useNullAsDefault: true, pool: { min: 1, max: 1 } });
   await migration.up(db);
-  const store = createKnexPaymentStore({ knex: db });
+  const store = await createTestPaymentStore(db);
   let creates = 0;
   let fails = false;
   const adapter = {
@@ -163,7 +163,7 @@ test('Paddle reconciliation uses current status and grants only qualifying compl
 test('signed subscription lifecycle updates app access without crossing subjects or environments', async () => {
   const db = knex({ client: 'better-sqlite3', connection: { filename: ':memory:' }, useNullAsDefault: true, pool: { min: 1, max: 1 } });
   await migration.up(db);
-  const store = createKnexPaymentStore({ knex: db });
+  const store = await createTestPaymentStore(db);
   const stripeSdk = new Stripe('sk_test_fixture', { maxNetworkRetries: 0 });
   const paddleSdk = new Paddle('test-fixture', { environment: Environment.sandbox });
   try {
