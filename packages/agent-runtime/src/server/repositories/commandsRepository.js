@@ -1,5 +1,5 @@
 import { AGENT_ROWS } from "../resources.js";
-import { firstRow, rowOf } from "./rows.js";
+import { conversationKey, firstRow, rowOf } from "./rows.js";
 
 /**
  * Every statement on commands (createCommands), on the agentCommands handle, in the owner's system
@@ -21,12 +21,12 @@ export function createCommandsRepository({ commands, options }) {
     if (!Number.isSafeInteger(number) || number < 1) {
       return undefined;
     }
-    return firstRow(AGENT_ROWS.commands, await commands.query({ filters: { id: number, conversation_id: conversationId }, page: { size: 1 } }, options));
+    return firstRow(AGENT_ROWS.commands, await commands.query({ filters: { id: number, conversation_id: conversationKey(conversationId) }, page: { size: 1 } }, options));
   }
 
   /** A running command's new row; its heartbeat and start are the database's now, its `why` "" when left out. */
   async function start({ conversationId, why, script, server }) {
-    const attributes = { conversation_id: conversationId, ...(why === undefined ? {} : { why }), script, status: "running", server };
+    const attributes = { conversation_id: conversationKey(conversationId), ...(why === undefined ? {} : { why }), script, status: "running", server };
     return rowOf(AGENT_ROWS.commands, await commands.create(attributes, options));
   }
 

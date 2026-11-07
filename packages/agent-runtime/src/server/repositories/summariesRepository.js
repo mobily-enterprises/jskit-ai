@@ -1,6 +1,6 @@
 import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { AGENT_ROWS } from "../resources.js";
-import { firstRow, rowOf } from "./rows.js";
+import { conversationKey, firstRow, rowOf } from "./rows.js";
 
 /**
  * Every statement on summaries and their queue (createSummaries), on the agentSummaries and
@@ -15,7 +15,7 @@ export function createSummariesRepository({ summaries, queue, options }) {
 
   /** The conversation's newest summary, or undefined. */
   async function latest(conversationId, callOptions = options) {
-    return firstRow(AGENT_ROWS.summaries, await summaries.query({ filters: { conversation_id: conversationId }, sort: ["-id"], page: { size: 1 } }, callOptions));
+    return firstRow(AGENT_ROWS.summaries, await summaries.query({ filters: { conversation_id: conversationKey(conversationId) }, sort: ["-id"], page: { size: 1 } }, callOptions));
   }
 
   /**
@@ -23,6 +23,7 @@ export function createSummariesRepository({ summaries, queue, options }) {
    * decides), and keeps only the newest `keep` of the conversation's summaries.
    */
   function saveUnlessNewer(conversationId, { coversUpTo, summary, messages }, keep) {
+    conversationKey(conversationId);
     return summaries.withTransaction(options, async (txOptions) => {
       const newest = await latest(conversationId, txOptions);
       const [locked] = newest ? await summaries.lockMany([newest.id], { ...txOptions, missing: "skip" }) : [];
@@ -37,7 +38,7 @@ export function createSummariesRepository({ summaries, queue, options }) {
   /** Queues the conversation; one that is queued already keeps its place. */
   async function enqueue(conversationId) {
     try {
-      await queue.create({ id: conversationId }, { ...options, returning: "none" });
+      await queue.create({ id: conversationKey(conversationId) }, { ...options, returning: "none" });
     } catch (error) {
       if (!isLostDuplicateInsertRace(error, options)) {
         throw error;
@@ -58,12 +59,12 @@ export function createSummariesRepository({ summaries, queue, options }) {
   }
 
   async function dequeue(conversationId) {
-    await queue.deleteMany([conversationId], { ...options, missing: "skip" });
+    await queue.deleteMany([conversationKey(conversationId)], { ...options, missing: "skip" });
   }
 
   /** A failed request waits `waitSeconds` before its next try, its lease let go. */
   async function retryLater(conversationId, { attempts, lastError, waitSeconds }) {
-    await queue.patchWhereIds([conversationId], { attempts, lease_until: null, last_error: lastError, run_after: inSeconds(waitSeconds) }, { ...options, missing: "skip" });
+    await queue.patchWhereIds([conversationKey(conversationId)], { attempts, lease_until: null, last_error: lastError, run_after: inSeconds(waitSeconds) }, { ...options, missing: "skip" });
   }
 
   return Object.freeze({

@@ -1,3 +1,4 @@
+import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { isSystemContext } from "./contexts.js";
 import { MissingScopeError } from "./errors.js";
 import { resolveUserScopeValue, resolveWorkspaceScopeValue } from "./resourceHost.js";
@@ -54,4 +55,51 @@ function valueOnly(name, expression) {
   });
 }
 
-export { requireOwners, valueOnly };
+/**
+ * Refuses a filter whose value is undefined, at any depth. json-rest-api drops such a filter, so a caller's missing
+ * value would widen the selection to every row it owns instead of none.
+ * @param {string} name
+ * @param {string} caller
+ * @param {unknown} filters
+ * @param {string} [path]
+ */
+function requireDefinedFilters(name, caller, filters, path = "filters") {
+  if (!isRecord(filters)) {
+    return filters;
+  }
+  for (const [key, value] of Object.entries(filters)) {
+    if (value === undefined) {
+      throw new TypeError(`${name}.${caller}() ${path}.${key} is undefined: pass its value, or leave the filter out.`);
+    }
+    requireDefinedFilters(name, caller, value, `${path}.${key}`);
+  }
+  return filters;
+}
+
+
+/**
+ * A filtered write's selection: its filters, or every owned row when they are empty and `all: true` says so. An
+ * undefined filter value is refused, so a missing value never counts as a filter yet selects every row.
+ * @param {string} name The resource's name.
+ * @param {string} operation
+ * @param {unknown} filters
+ * @param {{ all?: boolean }} options
+ */
+function whereSelection(name, operation, filters, options) {
+  if (!isRecord(filters)) {
+    throw new TypeError(`${name}.${operation}() takes filters as an object.`);
+  }
+  requireDefinedFilters(name, operation, filters);
+  if (Object.keys(filters).length > 0) {
+    if (options.all !== undefined) {
+      throw new TypeError(`${name}.${operation}() takes filters or all: true, not both.`);
+    }
+    return { filters };
+  }
+  if (options.all !== true) {
+    throw new TypeError(`${name}.${operation}() with empty filters changes every row the caller owns; pass all: true to mean it.`);
+  }
+  return { all: true };
+}
+
+export { requireDefinedFilters, requireOwners, valueOnly, whereSelection };
