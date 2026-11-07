@@ -374,6 +374,24 @@ test("scopedQuery() answers a read-only builder over the caller's rows that orWh
   assert.deepEqual(notes.toRecords([{ id: 1, workspace_id: 1, title: "t", lock_version: 0 }]), [{ id: 1, workspaceId: 1, title: "t", lockVersion: 0 }]);
 });
 
+test("raw() is a value only: awaiting it or running it any other way throws, and nothing runs", async (t) => {
+  const { notes, knex } = await createFixture(t);
+  await notes.create({ title: "keep" }, { context: WORKSPACE_A });
+  await notes.create({ title: "theirs" }, { context: WORKSPACE_B });
+  const statement = notes.raw("DELETE FROM notes");
+  await assert.rejects(async () => await statement, /notes\.raw\(\) is a value inside a scoped query or a write/u);
+  for (const method of ["then", "catch", "finally", "asCallback", "stream", "pipe"]) {
+    assert.throws(() => statement[method](() => {}), /never runs as a statement of its own/u, method);
+  }
+  assert.equal((await knex("notes")).length, 2);
+
+  const { query } = await notes.scopedQuery({}, { context: WORKSPACE_A });
+  const rows = await query.select({ shout: notes.raw("UPPER(??)", [notes.column("title")]) });
+  assert.deepEqual(rows.map(({ shout }) => shout), ["KEEP"]);
+  await notes.patchWhere({ title: "keep" }, { status: notes.raw("?", ["done"]) }, { context: WORKSPACE_A });
+  assert.deepEqual((await knex("notes").orderBy("id")).map(({ status }) => status), ["done", "open"]);
+});
+
 test("aggregate() totals the caller's rows", async (t) => {
   const { notes } = await createFixture(t);
   await notes.createMany([{ title: "a" }, { title: "b", status: "done" }, { title: "c", status: "done" }], { context: WORKSPACE_A });

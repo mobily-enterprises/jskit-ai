@@ -15,7 +15,9 @@ new RuleTester().run("jskit/sql-literal", sqlLiteral, {
     "query.havingRaw(\"count(*) > ?\", [minimum]).groupByRaw(\"??\", [column]).selectRaw(\"max(??) as last\", [column]);",
     String.raw`query.whereRaw("note = 'a\\?'");`,
     "const text = String.raw({ raw: [\"a\", \"b\"] }, 1);",
-    "const label = String.raw`a${name}`;"
+    "const label = String.raw`a${name}`;",
+    "query.select({ year: visits.raw(\"EXTRACT(YEAR FROM ??)\", [visits.column(\"visitedAt\")]) });",
+    "query.select({ fromDate: visits.raw(\"DATE(??)\", [visits.column(\"from_date\")]) });"
   ],
   invalid: [
     {
@@ -40,6 +42,24 @@ new RuleTester().run("jskit/sql-literal", sqlLiteral, {
         { messageId: "noBindings", data: { method: "whereRaw" }, line: 1 },
         { messageId: "noBindings", data: { method: "raw" }, line: 2 },
         { messageId: "noBindings", data: { method: "orderByRaw" }, line: 3 }
+      ]
+    },
+    {
+      code: [
+        "await handle.raw(\"DELETE FROM receivals\");",
+        "query.whereRaw(\"?? in (select id from other_table)\", [column]);",
+        "receivals.raw(\"insert into audit values (?)\", [value]);",
+        "query.joinRaw(\"LEFT JOIN payments ON payments.id = receivals.payment_id\");",
+        "query.select(handle.raw(\"(UPDATE x SET y = 1)\"));",
+        "query.select(handle.raw(\"1 INTO OUTFILE '/tmp/x'\"));"
+      ].join("\n"),
+      errors: [
+        { messageId: "statement", data: { method: "raw", word: "DELETE" }, line: 1 },
+        { messageId: "statement", data: { method: "whereRaw", word: "FROM" }, line: 2 },
+        { messageId: "statement", data: { method: "raw", word: "INSERT" }, line: 3 },
+        { messageId: "statement", data: { method: "joinRaw", word: "JOIN" }, line: 4 },
+        { messageId: "statement", data: { method: "raw", word: "UPDATE" }, line: 5 },
+        { messageId: "statement", data: { method: "raw", word: "INTO" }, line: 6 }
       ]
     },
     {
