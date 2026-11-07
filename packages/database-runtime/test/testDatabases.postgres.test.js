@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -149,4 +149,45 @@ test("countRuntimeQueries() counts a PostgreSQL route's reads through the runtim
   }
   // A read per title: the statements follow the rows.
   assert.deepEqual(counts, [11, 201]);
+});
+
+test("a PostgreSQL snapshot built by the application's own schema build carries its baseline and its ledger", {
+  skip: SKIP
+}, async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-pg-baseline-"));
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_shelf_colour.cjs"),
+    "exports.up = (knex) => knex.schema.alterTable(\"shelves\", (table) => table.string(\"colour\"));\nexports.down = () => {};\n");
+  await writeFile(path.join(appRoot, "baseline.sql"), "CREATE TABLE shelves (id integer PRIMARY KEY, label text)");
+  const name = `${TEST_DB_NAME}_baseline`;
+  const environment = { ...process.env, DB_CLIENT: "pg", DB_NAME: TEST_DB_NAME, DATABASE_URL: "", TEST_DB_NAME: name };
+  const knexConfig = createKnexMigrationConfig({ client: "pg", environment, appRoot });
+  context.after(async () => {
+    const admin = knexFactory({ client: "pg", connection: knexConfig.connection });
+    try {
+      for (const database of [name, `${name}_snapshot`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    } finally {
+      await admin.destroy();
+    }
+    await rm(appRoot, { recursive: true, force: true });
+  });
+  const schema = {
+    files: ["baseline.sql"],
+    async build(db) {
+      await db.raw(await readFile(path.join(appRoot, "baseline.sql"), "utf8"));
+      await db("shelves").insert({ id: 1, label: "Reference" });
+      await db.migrate.latest();
+    }
+  };
+
+  const prepared = await prepareTestDatabases({ knexConfig, environment, count: 1, schema, appRoot });
+  assert.match(prepared.summary, /schema built once for a new snapshot/u);
+  assert.deepEqual(prepared.snapshot.migrations, ["20200101000000_shelf_colour.cjs"]);
+  const copy = knexFactory({ client: "pg", connection: { ...knexConfig.connection, database: name } });
+  try {
+    assert.deepEqual(await copy("shelves").select("id", "label", "colour"), [{ id: 1, label: "Reference", colour: null }]);
+  } finally {
+    await copy.destroy();
+  }
+  assert.equal(await matchesSnapshot(knexConfig, name, prepared.snapshot), true);
 });

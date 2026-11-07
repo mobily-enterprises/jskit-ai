@@ -428,6 +428,15 @@ the application's `knexfile.js`:
 - When that digest changes, the harness replays the migrations into the
   designated database once, outside the timed tests, and stores a new
   snapshot. Otherwise it restores the stored one.
+- A schema the migrations alone do not build, such as migrations that start
+  from a baseline schema file, or reference rows every test reads, comes from
+  the application's own build: `knexfile.js` also exports
+  `testDatabaseSchema = { files, build }`, and a browser `prepare` module passes
+  the same `schema` to `prepareTestDatabases()`. `build(knex)` runs in the empty
+  designated database instead of `knex.migrate.latest()` (the baseline, then
+  `knex.migrate.latest()`), and `files` lists every file it reads, its own
+  module included, relative to the application root: their contents join the
+  digest, so changing one takes a new snapshot.
 - A test that runs migrations up or down, or otherwise changes the tables,
   leaves its database dirty: its tables or migration ledger differ from the
   snapshot's. The harness restores the snapshot before another test file uses

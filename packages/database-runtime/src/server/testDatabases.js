@@ -6,7 +6,9 @@
 // write, instead of replaying every migration. A snapshot is taken once from a real replay into the designated
 // database, keyed by the dialect, the names and contents of the migrations and the application's package-lock.json
 // (a package upgrade can change what its migrations' helpers build), so changing, adding or reordering a migration, or
-// installing other packages, takes a new one:
+// installing other packages, takes a new one. An application whose schema does not come from its migrations alone, such
+// as one whose migrations start from a baseline schema file, gives its own `schema.build` and the files it reads, which
+// join the key:
 //
 // - MySQL and MariaDB: each table's SHOW CREATE TABLE and its rows, in a file under
 //   `node_modules/.cache/jskit-test-databases/` named after the key and the server's version;
@@ -55,6 +57,15 @@ const MYSQL_GENERATED_COLUMN = /\b(?:VIRTUAL|STORED|PERSISTENT) GENERATED\b/iu;
 const INSERT_BATCH = 500;
 const TEST_DATABASE_FILE = fileURLToPath(new URL("./testDatabaseFile.js", import.meta.url));
 const LOCKFILE = "package-lock.json";
+
+/**
+ * @typedef {object} TestDatabaseSchema How a new snapshot's schema is built when the migrations alone do not build it.
+ * @property {string[]} [files] Every file the build reads, its own module included, relative to the application root:
+ *   their contents join the snapshot key, so changing one takes a new snapshot.
+ * @property {(knex: import("knex").Knex) => Promise<unknown>} [build] Builds the schema, and any rows every test
+ *   database starts with, in the empty database `knex` connects to, instead of `knex.migrate.latest()`: for example a
+ *   baseline schema file, then the migrations.
+ */
 
 const folded = (value) => String(value ?? "").trim().toLowerCase();
 const milliseconds = (since) => Math.round(performance.now() - since);
@@ -131,13 +142,14 @@ async function withKnex(knexConfig, database, use, connectionOptions) {
 
 /**
  * Every migration Knex applies, in its order, and the key of the schema they build: a digest of the dialect, of each
- * migration's name and contents and of the application's package-lock.json. A migration's own file does not show a
- * change in a helper it imports from an installed package; the lockfile does, when that package is upgraded.
+ * migration's name and contents, of each of `schemaFiles` (a schema build's own files) and of the application's
+ * package-lock.json. A migration's own file does not show a change in a helper it imports from an installed package;
+ * the lockfile does, when that package is upgraded.
  * @param {{ client: string, connection: object, migrations?: object }} knexConfig
- * @param {{ appRoot?: string }} [options]
+ * @param {{ appRoot?: string, schemaFiles?: string[] }} [options] `schemaFiles` are relative to `appRoot`.
  * @returns {Promise<{ key: string, migrations: string[] }>}
  */
-async function testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd() } = {}) {
+async function testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), schemaFiles = [] } = {}) {
   // Without a connection, Knex lists the migrations without loading the database driver or connecting.
   const knex = loadKnexFactory()({ client: knexConfig.client, migrations: knexConfig.migrations });
   try {
@@ -149,6 +161,10 @@ async function testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd() } =
       migrations.push(name);
       hash.update(`${name}\0`);
       hash.update(readFileSync(path.join(migration.directory, migration.file)));
+    }
+    for (const file of schemaFiles) {
+      hash.update(`\0${file}\0`);
+      hash.update(readFileSync(path.resolve(appRoot, file)));
     }
     const lockfile = path.join(path.resolve(appRoot), LOCKFILE);
     hash.update(`\0${LOCKFILE}\0`);
@@ -220,27 +236,28 @@ const mysql = {
     return tables;
   },
 
-  async ensureSnapshot(knexConfig, database, { key, migrations }, appRoot) {
+  async ensureSnapshot(knexConfig, database, key, appRoot, build) {
     // Another server version may write, or accept, another SHOW CREATE TABLE.
     const version = await withKnex(knexConfig, undefined, async (knex) => (await knex.raw("SELECT VERSION() AS version"))[0][0].version);
     const server = createHash("sha256").update(String(version)).digest("hex").slice(0, 8);
     const file = path.join(appRoot, SNAPSHOT_DIRECTORY, `${key}-${server}.json`);
-    const snapshot = { key, file, migrations };
     if (existsSync(file)) {
-      return { ...snapshot, tables: JSON.parse(readFileSync(file, "utf8")).tables.map(({ name }) => name), replayed: false };
+      const { migrations, tables } = JSON.parse(readFileSync(file, "utf8"));
+      return { key, file, migrations, tables: tables.map(({ name }) => name), replayed: false };
     }
     await mysql.createDatabase(knexConfig, database);
-    // The migrations run on the application's own connection settings; only the capture reads values as text.
+    // The schema is built on the application's own connection settings; only the capture reads values as text.
     await withKnex(knexConfig, database, async (knex) => {
       await mysql.replaceTables(knex, database, []);
-      await knex.migrate.latest();
+      await build(knex);
     });
+    const { migrations } = await mysql.outline(knexConfig, database);
     const tables = await withKnex(knexConfig, database, (knex) => mysql.capture(knex, database), MYSQL_SNAPSHOT_CONNECTION);
     mkdirSync(path.dirname(file), { recursive: true });
     // Written whole, then renamed, so a run beside this one never reads half a snapshot.
     writeFileSync(`${file}.${process.pid}`, JSON.stringify({ migrations, tables }));
     renameSync(`${file}.${process.pid}`, file);
-    return { ...snapshot, tables: tables.map(({ name }) => name), replayed: true };
+    return { key, file, migrations, tables: tables.map(({ name }) => name), replayed: true };
   },
 
   /** Creates `database` unless it exists; false when the database user may not create it. */
@@ -297,10 +314,9 @@ const postgres = {
     return withKnex(knexConfig, POSTGRES_MAINTENANCE_DATABASE, use);
   },
 
-  async ensureSnapshot(knexConfig, database, { key, migrations }) {
+  async ensureSnapshot(knexConfig, database, key, _appRoot, build) {
     const snapshotDatabase = `${database}_snapshot`;
     const label = `jskit-test-snapshot ${key}`;
-    const snapshot = { key, database: snapshotDatabase, migrations };
     const current = await postgres.maintenance(knexConfig, async (knex) => {
       const { rows } = await knex.raw(
         "SELECT shobj_description(oid, 'pg_database') AS label FROM pg_database WHERE datname = ?", [snapshotDatabase]
@@ -313,13 +329,13 @@ const postgres = {
         await knex.raw("DROP DATABASE IF EXISTS ??", [snapshotDatabase]);
         await knex.raw("CREATE DATABASE ??", [snapshotDatabase]);
       });
-      await withKnex(knexConfig, snapshotDatabase, (knex) => knex.migrate.latest());
+      await withKnex(knexConfig, snapshotDatabase, build);
       // The key is hexadecimal, so it is safe inline; COMMENT takes no bound parameters.
       await postgres.maintenance(knexConfig, (knex) => knex.raw(`COMMENT ON DATABASE ?? IS '${label}'`, [snapshotDatabase]));
     }
     // Read, then closed: a template database is copied only while nothing is connected to it.
-    const tables = await withKnex(knexConfig, snapshotDatabase, (knex) => postgres.tables(knex));
-    return { ...snapshot, tables, replayed };
+    const { tables, migrations } = await postgres.outline(knexConfig, snapshotDatabase);
+    return { key, database: snapshotDatabase, migrations, tables, replayed };
   },
 
   /** Recreates `database` from the snapshot; false when the database user may not create databases. */
@@ -382,6 +398,7 @@ function dialectOf(knexConfig) {
  * @param {number} [options.count]
  * @param {(transaction: import("knex").Knex.Transaction) => unknown} [options.seed] Runs in each database, in one
  *   transaction, after its restore.
+ * @param {TestDatabaseSchema} [options.schema] How a new snapshot's schema is built, when not by the migrations alone.
  * @param {string} [options.appRoot]
  */
 async function prepareTestDatabases({
@@ -390,13 +407,16 @@ async function prepareTestDatabases({
   variable = "TEST_DB_NAME",
   count = 1,
   seed,
+  schema = {},
   appRoot = process.cwd()
 }) {
   const started = performance.now();
   const dialect = dialectOf(knexConfig);
   const name = requireDisposableDatabase(environment, variable, count, { connected: knexConfig.connection.database });
   const root = path.resolve(appRoot);
-  const snapshot = await dialect.ensureSnapshot(knexConfig, name, await testDatabaseSnapshotKey(knexConfig, { appRoot: root }), root);
+  const { key, migrations } = await testDatabaseSnapshotKey(knexConfig, { appRoot: root, schemaFiles: schema.files });
+  const build = schema.build ?? ((knex) => knex.migrate.latest());
+  const snapshot = await dialect.ensureSnapshot(knexConfig, name, key, root, build);
   const restoreStarted = performance.now();
   const databases = await dialect.provide(knexConfig, testDatabaseNames(name, count), snapshot);
   const restoreMs = milliseconds(restoreStarted);
@@ -410,7 +430,9 @@ async function prepareTestDatabases({
     databases,
     snapshot: stored,
     summary: `${databases.length} test database(s) from ${name} ready in ${milliseconds(started)}ms: ` +
-      (replayed ? `${snapshot.migrations.length} migrations replayed once for a new snapshot, ` : "stored snapshot, ") +
+      (replayed && schema.build ? "schema built once for a new snapshot, " : "") +
+      (replayed && !schema.build ? `${migrations.length} migrations replayed once for a new snapshot, ` : "") +
+      (replayed ? "" : "stored snapshot, ") +
       `restore ${restoreMs}ms${seed ? `, seed ${seedMs}ms` : ""}`
   };
 }
@@ -454,9 +476,10 @@ function refusedPrivilege(error) {
  * @param {{ client: string, connection: object, migrations?: object }} options.knexConfig
  * @param {Record<string, string | undefined>} options.environment
  * @param {number} options.count How many test files run at once: at most the run's test budget.
+ * @param {TestDatabaseSchema} [options.schema]
  * @param {string} [options.appRoot]
  */
-async function testDatabaseRun({ knexConfig, environment, count, appRoot = process.cwd() }) {
+async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd() }) {
   const oneAtATime = (reason) => ({
     concurrency: 1,
     env: {},
@@ -471,7 +494,7 @@ async function testDatabaseRun({ knexConfig, environment, count, appRoot = proce
   }
   let prepared;
   try {
-    prepared = await prepareTestDatabases({ knexConfig, environment, count, appRoot });
+    prepared = await prepareTestDatabases({ knexConfig, environment, count, schema, appRoot });
   } catch (error) {
     if (!refusedPrivilege(error)) throw error;
     return oneAtATime(`the database user may not prepare ${testDatabase} (${error.code})`);

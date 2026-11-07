@@ -82,6 +82,15 @@ test("the snapshot key changes when a migration changes, is added or is renamed,
   const locked = await testDatabaseSnapshotKey(knexConfig, { appRoot });
   assert.notEqual(locked.key, before.key);
   assert.deepEqual(await testDatabaseSnapshotKey(knexConfig, { appRoot }), locked);
+
+  // A schema build's own files join the key: a changed baseline takes a new snapshot.
+  await writeFile(path.join(appRoot, "baseline.sql"), "CREATE TABLE shelves (id INT);\n");
+  const built = await testDatabaseSnapshotKey(knexConfig, { appRoot, schemaFiles: ["baseline.sql"] });
+  assert.notEqual(built.key, locked.key);
+  assert.deepEqual(built.migrations, locked.migrations);
+  assert.deepEqual(await testDatabaseSnapshotKey(knexConfig, { appRoot, schemaFiles: ["baseline.sql"] }), built);
+  await writeFile(path.join(appRoot, "baseline.sql"), "CREATE TABLE shelves (id BIGINT);\n");
+  assert.notEqual((await testDatabaseSnapshotKey(knexConfig, { appRoot, schemaFiles: ["baseline.sql"] })).key, built.key);
 });
 
 test("with no usable test database, a run's test files run one at a time on the connected database", async () => {

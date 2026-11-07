@@ -8,7 +8,8 @@ import { pathToFileURL } from "node:url";
 // from a schema snapshot, from the application's installed @jskit-ai/database-runtime and its knexfile.js, which loads
 // .env and fixes the dialect. JSKIT's catalog itself depends on no database package. What the knexfile loads into the
 // environment is read for the databases only: the test files get the environment `jskit test` was given, plus their
-// own database and its connection (DB_NAME, TEST_DB_NAME, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD).
+// own database and its connection (DB_NAME, TEST_DB_NAME, DB_HOST, DB_PORT, DB_USER, DB_PASSWORD). A knexfile whose
+// schema the migrations alone do not build also exports `testDatabaseSchema` ({ files, build }, see testDatabases.js).
 const OPTION = "--databases";
 const KNEXFILES = Object.freeze(["knexfile.js", "knexfile.mjs", "knexfile.cjs"]);
 const TEST_DATABASES = "@jskit-ai/database-runtime/server/testDatabases";
@@ -40,10 +41,10 @@ async function testDatabaseRunFor(count, cwd = process.cwd()) {
   } catch {
     throw new Error(`jskit test ${OPTION} needs ${TEST_DATABASES}; install the application's JSKIT database driver.`);
   }
-  const { result: knexConfig, environment } = await withOwnEnvironment(async () =>
-    (await import(pathToFileURL(knexfile).href)).default);
+  const { result: { default: knexConfig, testDatabaseSchema: schema }, environment } = await withOwnEnvironment(async () =>
+    import(pathToFileURL(knexfile).href));
   const { testDatabaseRun } = await import(pathToFileURL(testDatabases).href);
-  return testDatabaseRun({ knexConfig, environment, count, appRoot: cwd });
+  return testDatabaseRun({ knexConfig, environment, count, schema, appRoot: cwd });
 }
 
 export { OPTION as DATABASES_OPTION, testDatabaseRunFor };

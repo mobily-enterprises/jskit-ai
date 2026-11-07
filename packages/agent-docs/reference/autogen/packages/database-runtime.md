@@ -69,12 +69,13 @@ Exports
 - `countQueries(knex, work)`
 - `countRuntimeQueries(work)`
 - `matchesSnapshot(knexConfig, database, snapshot)`
-- `prepareTestDatabases({ knexConfig, environment, variable = "TEST_DB_NAME", count = 1, seed, appRoot = process.cwd() })`
+- `prepareTestDatabases({ knexConfig, environment, variable = "TEST_DB_NAME", count = 1, seed, schema = {}, appRoot = process.cwd() })`
 - `requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {})`
 - `restoreTestDatabase(knexConfig, database, snapshot)`
 - `testDatabaseNames(name, count)`
-- `testDatabaseRun({ knexConfig, environment, count, appRoot = process.cwd() })`
-- `testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd() } = {})`
+- `testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd() })`
+- `testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), schemaFiles = [] } = {})`
+- `type TestDatabaseSchema`
 Local functions
 - `folded(value)`
 - `milliseconds(since)`

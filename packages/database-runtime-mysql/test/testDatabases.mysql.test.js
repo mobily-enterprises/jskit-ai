@@ -128,6 +128,57 @@ test("each test database is restored from one snapshot, rebuilt only when a migr
   assert.equal(Number(application.count), 0);
 });
 
+const SHELF_COLOUR = "exports.up = (knex) => knex.schema.alterTable(\"shelves\", (table) => table.string(\"colour\"));\n" +
+  "exports.down = () => {};\n";
+
+test("an application whose migrations start from a baseline schema builds its snapshot with its own schema build", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-baseline-"));
+  await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
+  await writeFile(path.join(appRoot, "migrations", "20200101000000_shelf_colour.cjs"), SHELF_COLOUR);
+  await writeFile(path.join(appRoot, "baseline.sql"), "CREATE TABLE `shelves` (`id` INT PRIMARY KEY, `label` VARCHAR(40))");
+  const name = `${process.env.TEST_DB_NAME}_baseline`;
+  const environment = { ...process.env, DB_NAME: `${process.env.TEST_DB_NAME}_application`, DATABASE_URL: "", TEST_DB_NAME: name };
+  const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment, appRoot });
+  const server = { ...knexConfig.connection, database: undefined };
+  const admin = knex({ client: "mysql2", connection: server });
+  context.after(async () => {
+    for (const database of [name, `${name}_1`]) await admin.raw("DROP DATABASE IF EXISTS ??", [database]);
+    await admin.destroy();
+    await rm(appRoot, { recursive: true, force: true });
+  });
+  // The baseline and the reference rows every test database starts with, then the migrations.
+  const schema = {
+    files: ["baseline.sql"],
+    async build(db) {
+      await db.raw(await readFile(path.join(appRoot, "baseline.sql"), "utf8"));
+      await db("shelves").insert({ id: 1, label: "Reference" });
+      await db.migrate.latest();
+    }
+  };
+
+  // The migrations alone cannot build this schema.
+  await assert.rejects(prepareTestDatabases({ knexConfig, environment, count: 2, appRoot }), /shelves/u);
+  const first = await prepareTestDatabases({ knexConfig, environment, count: 2, schema, appRoot });
+  assert.match(first.summary, /schema built once for a new snapshot/u);
+  assert.deepEqual(first.snapshot.migrations, ["20200101000000_shelf_colour.cjs"]);
+  for (const database of first.databases) {
+    const db = knex({ client: "mysql2", connection: { ...server, database } });
+    try {
+      assert.deepEqual(await db("shelves").select("id", "label", "colour"), [{ id: 1, label: "Reference", colour: null }]);
+      assert.equal(await matchesSnapshot(knexConfig, database, first.snapshot), true, database);
+    } finally {
+      await db.destroy();
+    }
+  }
+  assert.match((await prepareTestDatabases({ knexConfig, environment, count: 2, schema, appRoot })).summary, /stored snapshot/u);
+  await writeFile(path.join(appRoot, "baseline.sql"), "CREATE TABLE `shelves` (`id` BIGINT PRIMARY KEY, `label` VARCHAR(40))");
+  const changed = await prepareTestDatabases({ knexConfig, environment, count: 2, schema, appRoot });
+  assert.notEqual(changed.snapshot.key, first.snapshot.key);
+  assert.match(changed.summary, /schema built once for a new snapshot/u);
+});
+
 const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 const JSKIT_CLI = path.join(REPO_ROOT, "tooling", "jskit-catalog", "scripts", "jskit.mjs");
 const FIXTURE_KNEXFILE = `import { createKnexMigrationConfig } from "@jskit-ai/database-runtime/server/knexMigrationConfig";
