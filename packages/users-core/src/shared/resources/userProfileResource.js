@@ -72,7 +72,15 @@ const userProfileResource = defineTableResource({
     id: { type: "id", actualField: "id" },
     ids: { type: "array", actualField: "id", filterOperator: "in", items: { type: "string", pattern: RECORD_ID_PATTERN } },
     usernames: { type: "array", actualField: "username", filterOperator: "in", items: { type: "string" } },
-    createdSince: { type: "dateTime", actualField: "createdAt", filterOperator: ">=" }
+    createdSince: { type: "dateTime", actualField: "createdAt", filterOperator: ">=" },
+    // A list's free-text search: every word in the display name, email or username.
+    q: {
+      type: "string",
+      oneOf: ["displayName", "email", "username"],
+      filterOperator: "like",
+      splitBy: " ",
+      matchAll: true
+    }
   },
   schema: {
     authProvider: {

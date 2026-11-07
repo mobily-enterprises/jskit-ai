@@ -21,7 +21,8 @@ credentials, or an application that needs no administrative user listing.
 
 Choose global versus workspace scope, visible and editable fields, permission
 policy, route surface, filters, and whether account deletion is part of the
-product. Do not expose password/session data through the resource.
+product. Do not expose password, session or sign-in identity data through the
+CRUD contract.
 
 ## Framework APIs
 
@@ -29,8 +30,19 @@ Use `@jskit-ai/users-core` for profile persistence and policies,
 `defineCrudJsonApiFeature()` from `@jskit-ai/crud-core` for standard mechanics,
 and the resource contracts from `@jskit-ai/resource-crud-core`.
 
-Code that reads or writes the users' own records requires their owners'
-capabilities, never the `users` or `user_settings` tables:
+The `users` table has one table resource, users-core's `userProfileResource`
+(`@jskit-ai/users-core/shared/resources/userProfileResource`). An
+administration package never defines a second one; `jskit check` fails a table
+with two. It builds its CRUD contract on that resource,
+`defineCrudContract(userProfileResource, { namespace, operations, fields })`,
+which chooses the operations, their namespace and the fields each returns; a
+field the contract keeps out of every operation gets an empty entry (`{}`). The
+list searches with the resource's `q` filter: every word in the display name,
+email or username.
+
+Other code that reads or writes the users' records (a decorated service, a
+hook, a job) requires their owners' capabilities, never the `users` or
+`user_settings` tables:
 
 - `users.profiles`: `findById`, `findByEmail`, `findByIdentity`, `upsert`,
   `createWithSettings({ profile, settings }, options)` (the profile and its
@@ -47,8 +59,9 @@ joins `options.trx` when there is one.
 - The public user id is the resource identity.
 - Workspace operations are scoped before repository access.
 - Permission checks happen before records or record existence are disclosed.
-- Shared profile persistence remains owned by `@jskit-ai/users-core`.
-- The resource is the field contract; the feature projects its repository,
+- Shared profile persistence remains owned by `@jskit-ai/users-core`, and so
+  does the `users` table's one table resource.
+- The CRUD contract is the field contract; the feature projects its repository,
   service, actions, and routes without app-local ceremony.
 - Each package exports the type of the capability it provides:
   `src/server/types.js` declares `AppUsers` (for `app.users`) or
@@ -67,7 +80,9 @@ joins `options.trx` when there is one.
 `example/packages/users/` is a global administration package.
 `example/packages/users-workspace/` demonstrates the workspace route/action
 boundary, with workspaces-core's `WORKSPACE_CRUD_SCOPE`, while reusing the same
-service contract. Each package's
+service contract. Each package's `src/shared/userCrud.js` builds its CRUD
+contract on users-core's `userProfileResource`, its `package.json` requires
+`users.profiles` (users-core, which owns the table, must be installed), and its
 `src/server/types.js` declares the type of the capability it provides. Copy only the composition
 that matches the product and adapt it as ordinary application source.
 
@@ -83,7 +98,8 @@ isolation, missing records, null/cleared fields, filtering, and pagination.
 
 ## Avoid
 
-- copying authentication credential tables into the user resource
+- a second table resource on `users` or `user_settings`
+- copying authentication credential tables into the CRUD contract
 - trusting route scope without repository scope
 - adding app-local mechanics already provided by `defineCrudJsonApiFeature()`
 - generator metadata or field questionnaires

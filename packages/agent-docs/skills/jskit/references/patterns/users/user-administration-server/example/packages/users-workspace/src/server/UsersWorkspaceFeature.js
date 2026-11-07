@@ -1,6 +1,6 @@
 import { defineCrudJsonApiFeature } from "@jskit-ai/crud-core/server/defineCrudJsonApiFeature";
 import { WORKSPACE_CRUD_SCOPE } from "@jskit-ai/workspaces-core/server/support/workspaceCrud";
-import { userCrud } from "../shared/userResource.js";
+import { userCrud } from "../shared/userCrud.js";
 
 const UsersWorkspaceFeature = defineCrudJsonApiFeature({
   resource: userCrud,
