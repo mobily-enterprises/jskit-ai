@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: the OIDC relying party's protocol state (the clients it registered at each issuer, the sessions the issuer's tokens opened and the back-channel logout token ids it has seen) is kept with Knex, as the data-access spec keeps protocol state
+
 const TABLES = Object.freeze({
   clients: "auth_oidc_clients",
   sessions: "auth_oidc_sessions",
@@ -49,13 +51,21 @@ function isDuplicateError(error) {
 }
 
 /**
+ * @typedef {object} OidcKnownUsers The accounts the app already knows: users-core's `users.profiles`.
+ * @property {(identity: { provider: string, providerUserId: string }) => Promise<{ authProvider: string, authProviderUserSid: string, email: string, displayName: string } | null>} findByIdentity
+ * @property {(email: string) => Promise<{ authProvider: string, authProviderUserSid: string, email: string, displayName: string } | null>} findByEmail
+ */
+
+/**
  * Knex storage for registered clients (one per issuer and app origin), app
  * sessions, and seen back-channel logout token ids.
  * @param {object} dependencies
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} dependencies.database
+ * @param {OidcKnownUsers | null} dependencies.profiles users-core's `users.profiles`, or null when the app keeps no users.
  * @param {() => number} [dependencies.now]
  */
-function createOidcStore({ knex, now = Date.now }) {
+function createOidcStore({ database, profiles, now = Date.now }) {
+  const { knex } = database;
   const stamp = () => new Date(now());
 
   async function findClient(issuer, origin) {
@@ -134,18 +144,20 @@ function createOidcStore({ knex, now = Date.now }) {
     }
   }
 
-  /** Preview identity signs in as an account the app already knows. */
+  /** Preview identity signs in as an account the app already knows, which users-core's records answer. */
   async function findKnownUser(provider, { userId = "", email = "" } = {}) {
-    const query = knex("users").where({ auth_provider: provider });
-    if (userId) query.andWhere({ auth_provider_user_sid: userId });
-    else query.andWhere({ email });
-    let row;
+    if (!profiles) return null;
+    let profile;
     try {
-      row = await query.first("auth_provider_user_sid", "email", "display_name");
+      profile = userId
+        ? await profiles.findByIdentity({ provider, providerUserId: userId })
+        : await profiles.findByEmail(email);
     } catch {
       return null;
     }
-    return row ? { sub: row.auth_provider_user_sid, email: row.email, displayName: row.display_name } : null;
+    return profile && profile.authProvider === provider
+      ? { sub: profile.authProviderUserSid, email: profile.email, displayName: profile.displayName }
+      : null;
   }
 
   return Object.freeze({
