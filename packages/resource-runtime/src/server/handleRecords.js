@@ -40,10 +40,15 @@ function readQueryParams(name, params, { page, caller }) {
     queryParams.fields = Array.isArray(params.fields) ? { [name]: params.fields.join(",") } : params.fields;
   }
   if (page && params.page !== undefined) {
+    const { after, number } = params.page;
+    if (number !== undefined && (after || !Number.isSafeInteger(number) || number < 1)) {
+      throw new TypeError(`${name}.${caller}() takes page.number as a whole number from 1, and not with page.after.`);
+    }
     // A CRUD list may name only its cursor: json-rest-api then serves its default page size.
     queryParams.page = {
       ...(params.page.size == null ? {} : { size: Number(params.page.size) }),
-      ...(params.page.after ? { after: params.page.after } : {})
+      ...(after ? { after } : {}),
+      ...(number === undefined ? {} : { number })
     };
   }
   return queryParams;

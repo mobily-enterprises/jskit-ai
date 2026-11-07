@@ -630,10 +630,12 @@ async function createResourceHost({ knex, logger }) {
     logger
   });
 
+  // A numbered page is one statement: json-rest-api counts no rows for it.
   await api.use(RestApiPlugin, {
     format: "plain",
     returning: "full",
-    normalizeId: normalizeRecordId
+    normalizeId: normalizeRecordId,
+    enablePaginationCounts: false
   });
 
   await api.use(QueryProjectionsPlugin);
