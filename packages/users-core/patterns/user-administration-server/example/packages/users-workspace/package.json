@@ -24,6 +24,7 @@
         "app.users-workspace"
       ],
       "requires": [
+        "crud.contracts",
         "runtime.http",
         "runtime.actions",
         "users.profiles",

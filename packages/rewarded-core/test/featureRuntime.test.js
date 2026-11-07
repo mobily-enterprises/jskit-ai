@@ -4,6 +4,7 @@ import test from "node:test";
 import { ActionProvider } from "@jskit-ai/kernel/server/actions";
 import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+import { CrudContractsProvider } from "@jskit-ai/crud-core/server/crudContracts";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { RewardedCoreFeature } from "../src/server/RewardedCoreFeature.js";
 import {
@@ -55,6 +56,7 @@ function createRewardedRuntime(grantPolicy, observed = {}) {
           }
         }
       }),
+      CrudContractsProvider,
       RewardedRulesFeature,
       RewardedProviderConfigsFeature,
       RewardedWatchSessionsFeature,

@@ -220,7 +220,8 @@ const receivalCrud = defineCrudContract(receivalResource, {
 });
 ```
 
-A contract shows and accepts only the fields it names.
+A contract shows and accepts only the fields it names, and an included record
+shows only what its own table's contract shows.
 A second surface on the same table (a customer's view beside the staff's) is
 a second CRUD contract on the same resource, never a second resource. A field
 fragment several resources spread into their schemas carries only the field:

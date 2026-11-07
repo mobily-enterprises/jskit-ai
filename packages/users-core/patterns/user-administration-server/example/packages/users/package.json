@@ -21,6 +21,7 @@
         "app.users"
       ],
       "requires": [
+        "crud.contracts",
         "runtime.http",
         "runtime.actions",
         "users.profiles"

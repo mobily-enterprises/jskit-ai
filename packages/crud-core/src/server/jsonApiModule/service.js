@@ -1,7 +1,11 @@
 import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { buildJsonRestQueryParams } from "@jskit-ai/resource-runtime/server";
-import { resolveDeclaredLookupContainerKey, resolveSchemaFieldDefinitions } from "../jsonApiResourceContract.js";
+import {
+  resolveDeclaredLookupContainerKey,
+  resolveJsonApiRelationshipEntries,
+  resolveSchemaFieldDefinitions
+} from "../jsonApiResourceContract.js";
 
 // A record that is missing or out of the caller's scope.
 function documentNotFound() {
@@ -21,47 +25,140 @@ function isNotFound(error) {
 }
 
 /**
- * The attributes a contract's records carry: the fields of its record output, or of a list-only contract's list item.
+ * A contract's record output: its view (or create, replace, patch) output, or a list-only contract's list item.
  * @param {import("../types.js").CrudContract} crud
  */
-function shownAttributes(crud) {
+function recordOutput(crud) {
   const record = ["view", "create", "replace", "patch"].map((name) => crud.operations[name]?.output).find(Boolean);
-  const fields = resolveSchemaFieldDefinitions(record || { schema: resolveSchemaFieldDefinitions(crud.operations.list?.output).items?.items });
-  const lookupContainerKey = resolveDeclaredLookupContainerKey(crud);
-  return new Set(Object.keys(fields).filter((key) => key !== lookupContainerKey));
+  return record || { schema: resolveSchemaFieldDefinitions(crud.operations.list?.output).items?.items };
 }
+
+/**
+ * What a contract shows of its own records: the attributes its record output names, and the relationships of the
+ * fields it names.
+ * @param {import("../types.js").CrudContract} crud
+ */
+function contractShape(crud) {
+  const output = recordOutput(crud);
+  const lookupContainerKey = resolveDeclaredLookupContainerKey(crud);
+  const relationships = resolveJsonApiRelationshipEntries(output);
+  return {
+    attributes: new Set(Object.keys(resolveSchemaFieldDefinitions(output)).filter((key) => key !== lookupContainerKey)),
+    relationshipNames: new Set(relationships.map(({ relationshipName }) => relationshipName)),
+    relationships
+  };
+}
+
+const intersection = (sets) => sets.length < 1 ? new Set() : sets.reduce((kept, set) => new Set([...kept].filter((key) => set.has(key))));
+
+/**
+ * What the documents of a contract show of each JSON:API type its includes reach, each as that type shows it. A lookup that declares its label shows the label; one
+ * that names its contract's namespace shows that contract's output; otherwise the type's contracts show what they all
+ * show, and a type no contract serves shows only its id. Built once, from the registry sealed at boot.
+ * @param {import("../types.js").CrudContract} crud
+ * @param {ReturnType<typeof import("../crudContracts.js").createCrudContracts>} contracts
+ */
+function documentShapes(crud, contracts) {
+  const own = contractShape(crud);
+  /** @type {Map<string, { attributes: Set<string>, relationshipNames: Set<string> }>} */
+  const shapes = new Map();
+  const pending = [own.relationships];
+  const visited = new Set([crud.resource.name]);
+  while (pending.length > 0) {
+    for (const entry of pending.pop()) {
+      const type = entry.relationshipType;
+      const named = entry.lookupNamespace ? contracts.forNamespace(entry.lookupNamespace) : null;
+      const served = (named ? [named] : contracts.forType(type)).map(contractShape);
+      const attributes = entry.labelKey ? new Set([entry.labelKey]) : intersection(served.map((shape) => shape.attributes));
+      const relationshipNames = entry.labelKey ? new Set() : intersection(served.map((shape) => shape.relationshipNames));
+      const shape = shapes.get(type);
+      shapes.set(type, shape
+        ? { attributes: new Set([...shape.attributes, ...attributes]), relationshipNames: new Set([...shape.relationshipNames, ...relationshipNames]) }
+        : { attributes, relationshipNames });
+      if (!visited.has(type)) {
+        visited.add(type);
+        pending.push(served.flatMap((shape) => shape.relationships.filter(({ relationshipName }) => relationshipNames.has(relationshipName))));
+      }
+    }
+  }
+  return shapes;
+}
+
+const NOTHING_SHOWN = Object.freeze({ attributes: new Set(), relationshipNames: new Set() });
 
 /**
  * The CRUD service: the HTTP edge of a CRUD feature. It takes an operation's
  * HTTP query and body, calls the feature's repository (its table's handle, as
  * decorated) with the call's options and `format: "jsonapi"`, and answers
- * JSON:API documents whose records carry only the attributes the CRUD
- * contract's output names, so a column it does not name is never answered.
+ * JSON:API documents that show only what the CRUD contract names: its records'
+ * attributes and relationships, and each included record as its own type's
+ * contract shows it (see documentShapes), so a column or relationship no
+ * contract names is never answered.
  * Server code calls the repository instead. The handle stamps the table's
  * createdAt and updatedAt, as it does for every write.
  * @param {object} dependencies
  * @param {import("../types.js").CrudRepository} dependencies.repository
  * @param {import("../types.js").CrudContract} dependencies.crud The CRUD contract the service answers for.
+ * @param {ReturnType<typeof import("../crudContracts.js").createCrudContracts>} dependencies.contracts The
+ *   application's CRUD contracts, read after boot.
  */
-function createCrudService({ repository, crud }) {
+function createCrudService({ repository, crud, contracts }) {
   const resourceName = crud.resource.name;
-  const shown = shownAttributes(crud);
+  const own = contractShape(crud);
+  /** @type {Map<string, { attributes: Set<string>, relationshipNames: Set<string> }> | null} */
+  let shapes = null;
 
-  /** @param {Record<string, any>} record A JSON:API resource object of the contract's table. */
-  function shownRecord(record) {
-    if (!record?.attributes) {
-      return record;
+  /**
+   * @param {Record<string, any>} record A JSON:API resource object.
+   * @param {{ attributes: Set<string>, relationshipNames: Set<string> }} shape
+   */
+  function shownRecord(record, shape) {
+    const shown = { ...record };
+    if (record.attributes) {
+      shown.attributes = Object.fromEntries(Object.entries(record.attributes).filter(([key]) => shape.attributes.has(key)));
     }
-    return { ...record, attributes: Object.fromEntries(Object.entries(record.attributes).filter(([key]) => shown.has(key))) };
+    if (record.relationships) {
+      shown.relationships = Object.fromEntries(Object.entries(record.relationships).filter(([name]) => shape.relationshipNames.has(name)));
+    }
+    return shown;
   }
 
-  /** @param {Record<string, any> | null} document */
+  /**
+   * The (type, id) keys a record's kept relationships point to.
+   * @param {Record<string, any>} record
+   */
+  function linkedKeys(record) {
+    return Object.values(record.relationships || {}).flatMap(({ data }) => (Array.isArray(data) ? data : data ? [data] : []))
+      .map(({ type, id }) => `${type}:${id}`);
+  }
+
+  /**
+   * The document as the contract shows it: its records, and only the included records a kept relationship reaches,
+   * each shaped by its type.
+   * @param {Record<string, any> | null} document
+   */
   function answer(document) {
     if (!document?.data) {
       return returnJsonApiDocument(document);
     }
-    const data = Array.isArray(document.data) ? document.data.map(shownRecord) : shownRecord(document.data);
-    return returnJsonApiDocument({ ...document, data });
+    shapes ??= documentShapes(crud, contracts);
+    const records = (Array.isArray(document.data) ? document.data : [document.data]).map((record) => shownRecord(record, own));
+    const shown = { ...document, data: Array.isArray(document.data) ? records : records[0] };
+    if (document.included) {
+      const included = new Map(document.included.map((record) => [`${record.type}:${record.id}`, record]));
+      const kept = new Map();
+      const reached = records.flatMap(linkedKeys);
+      while (reached.length > 0) {
+        const key = reached.pop();
+        if (kept.has(key) || !included.has(key)) continue;
+        const record = included.get(key);
+        const shaped = shownRecord(record, shapes.get(record.type) ?? NOTHING_SHOWN);
+        kept.set(key, shaped);
+        reached.push(...linkedKeys(shaped));
+      }
+      shown.included = document.included.map((record) => kept.get(`${record.type}:${record.id}`)).filter(Boolean);
+    }
+    return returnJsonApiDocument(shown);
   }
 
   /** @param {{ context?: object | null, trx?: object | null }} options */

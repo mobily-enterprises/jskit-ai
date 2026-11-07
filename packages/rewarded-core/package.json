@@ -24,6 +24,7 @@
         "rewarded.core"
       ],
       "requires": [
+        "crud.contracts",
         "runtime.actions",
         "runtime.http",
         "rewarded.grant-policy",

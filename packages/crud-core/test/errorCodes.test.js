@@ -13,6 +13,7 @@ import {
   lookupIncludeQueryValidator
 } from "../src/server/listQueryValidators.js";
 import { createCrudService } from "../src/server/jsonApiModule/service.js";
+import { createCrudContracts } from "../src/server/crudContracts.js";
 
 const english = mergeCatalogs(kernelEnglish, crudEnglish);
 
@@ -44,7 +45,9 @@ test("crud-core errors carry codes and params rendering their English", async ()
   };
   const contacts = defineTableResource({ name: "contacts", tableName: "contacts", ownership: "public", schema: { name: { type: "string" } } });
   const crud = defineCrudContract(contacts, { namespace: "contacts", fields: { name: { output: "optional", create: "optional", patch: "optional" } } });
-  const service = createCrudService({ repository: missingRepository, crud });
+  const contracts = createCrudContracts();
+  contracts.seal();
+  const service = createCrudService({ repository: missingRepository, crud, contracts });
   const errors = [
     await rejection(() => service.view(7, {}, {})),
     await rejection(() => service.patch(7, { name: "Ada" }, {}))

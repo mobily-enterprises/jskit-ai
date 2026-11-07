@@ -29,6 +29,9 @@ function resolveJsonApiRelationshipEntries(definition = null) {
         relationshipName,
         relationshipType,
         labelKey: normalizeText(normalizedFieldDefinition.relation?.labelKey),
+        lookupNamespace: normalizeText(normalizedFieldDefinition.relation?.kind).toLowerCase() === "lookup"
+          ? normalizeText(normalizedFieldDefinition.relation?.namespace)
+          : "",
         required: normalizedFieldDefinition.required === true,
         nullable: normalizedFieldDefinition.nullable === true
       }));

@@ -20,6 +20,7 @@
         "app.books"
       ],
       "requires": [
+        "crud.contracts",
         "runtime.http",
         "runtime.actions",
         "runtime.resources"

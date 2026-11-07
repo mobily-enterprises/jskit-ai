@@ -20,6 +20,7 @@ import {
 const RESERVED_REQUIREMENT_NAMES = Object.freeze([
   "context",
   "crud",
+  "crudContracts",
   "http",
   "input",
   "options",
@@ -414,13 +415,15 @@ function defineCrudFeature(feature) {
     ...(systemScope === undefined ? {} : { systemScope }),
     requires: {
       http: "runtime.http",
+      crudContracts: "crud.contracts",
       ...(ownerRepository.trim() ? { ownerRepository: ownerRepository.trim() } : {}),
       ...featureRequirements
     },
     provides: {
       resourceApi: featureCapability
     },
-    async setup({ http, resources = {}, systemContext, ownerRepository: servedRepository, ...featureDependencies }) {
+    async setup({ http, crudContracts, resources = {}, systemContext, ownerRepository: servedRepository, ...featureDependencies }) {
+      crudContracts.register(crud);
       const handle = servedRepository || resources[tableResource.name];
       const repository = decorateRepository
         ? rejectLegacyMethods(await decorateRepository(Object.freeze(withRemovedProperties({
@@ -431,7 +434,7 @@ function defineCrudFeature(feature) {
             ...featureDependencies
           }, REMOVED_REPOSITORY_DEPENDENCIES, "decorateRepository's dependencies"))), LEGACY_REPOSITORY_METHODS, "The repository decorateRepository returned")
         : handle;
-      const defaultService = createCrudService({ repository, crud });
+      const defaultService = createCrudService({ repository, crud, contracts: crudContracts });
       const decoratedService = decorateService
         ? rejectLegacyMethods(await decorateService(Object.freeze(withRemovedProperties({
             service: defaultService,

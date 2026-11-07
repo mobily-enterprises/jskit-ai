@@ -9,6 +9,7 @@ import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { defineCrudFeature } from "../src/server/defineCrudFeature.js";
+import { CrudContractsProvider } from "../src/server/crudContracts.js";
 
 function createResource(namespace) {
   const resource = defineTableResource({
@@ -52,6 +53,7 @@ async function startFeatures(context, features) {
       ActionProvider,
       valueProvider("test.resources", "runtime.resources", resources),
       valueProvider("test.http", "runtime.http", { router: { register() {} } }),
+      CrudContractsProvider,
       ...features,
       defineProvider({
         id: "test.observer",

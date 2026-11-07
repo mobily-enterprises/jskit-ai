@@ -11,6 +11,7 @@
   "exports": {
     "./server/createHooksToCollectChildren": "./src/server/createHooksToCollectChildren.js",
     "./server/serviceEvents": "./src/server/serviceEvents.js",
+    "./server/crudContracts": "./src/server/crudContracts.js",
     "./server/defineCrudFeature": "./src/server/defineCrudFeature.js",
     "./server/listQueryValidators": "./src/server/listQueryValidators.js",
     "./server/listFilters": "./src/server/listFilters.js",
@@ -29,12 +30,19 @@
   "jskit": {
     "kind": "runtime",
     "capabilities": {
-      "provides": [],
+      "provides": [
+        "crud.contracts"
+      ],
       "requires": []
     },
     "runtime": {
       "server": {
-        "providers": []
+        "providers": [
+          {
+            "entrypoint": "src/server/crudContracts.js",
+            "export": "CrudContractsProvider"
+          }
+        ]
       },
       "client": {
         "providers": []

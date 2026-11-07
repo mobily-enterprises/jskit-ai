@@ -12,6 +12,7 @@ import { returnJsonApiData, returnJsonApiDocument } from "@jskit-ai/http-runtime
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { defineCrudFeature } from "../src/server/defineCrudFeature.js";
+import { CrudContractsProvider } from "../src/server/crudContracts.js";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { crudJsonApiActionOptions, crudJsonApiRouteOptions } from "./support/crudJsonApiActionOptions.js";
 import { registerCrudJsonApiRoutes } from "../src/server/jsonApiModule/routes.js";
@@ -105,7 +106,8 @@ function createFeatureDependencies(routes, owned = []) {
   };
   return [
     valueProvider("test.resources", "runtime.resources", resources),
-    valueProvider("test.http", "runtime.http", http)
+    valueProvider("test.http", "runtime.http", http),
+    CrudContractsProvider
   ];
 }
 
