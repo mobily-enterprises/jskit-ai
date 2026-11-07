@@ -549,28 +549,19 @@ function createRecords(resources, identities, options) {
 /**
  * The `auth.local.backend` that keeps local auth's records in the database: each withTransaction opens one
  * transaction on the records' handles, runs it again whole on a deadlock, and hands the callback the records in it.
- * A failed callback rejects with the callback's own error (an AppError stays one), which json-rest-api's transaction
- * reports inside a RestApiWriteError; a failed commit rejects with that error.
+ * A failed callback rejects with the callback's own error (an AppError stays one); a failed commit rejects with
+ * json-rest-api's RestApiWriteError.
  * @param {object} dependencies
  * @param {LocalAuthHandles} dependencies.resources
  * @param {import("./identityStore.js").IdentityStore} dependencies.identities
  */
 function createLocalDbBackend({ resources, identities }) {
-  async function withTransaction(callback) {
-    let callbackFailure = null;
-    try {
-      return await resources.localAuthUsers.withTransaction({}, async (txOptions) => {
-        callbackFailure = null;
-        try {
-          return await callback(createRecords(resources, identities, txOptions));
-        } catch (error) {
-          callbackFailure = { error };
-          throw error;
-        }
-      });
-    } catch (error) {
-      throw callbackFailure ? callbackFailure.error : error;
-    }
+  function withTransaction(callback) {
+    return resources.localAuthUsers.withTransaction(
+      {},
+      (txOptions) => callback(createRecords(resources, identities, txOptions)),
+      { asThrown: true }
+    );
   }
 
   return Object.freeze({
