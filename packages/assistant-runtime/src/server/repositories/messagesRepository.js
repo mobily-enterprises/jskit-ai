@@ -56,11 +56,11 @@ function createRepository({ messages, systemContext }) {
   }
 
   function withTransaction(options, work) {
-    return messages.withTransaction(options, work, { asThrown: true });
+    return messages.withTransaction(options, work);
   }
 
   function transaction(work) {
-    return messages.withTransaction({}, work, { asThrown: true });
+    return messages.withTransaction({}, work);
   }
 
   async function findById(messageId, options = {}) {
@@ -69,7 +69,7 @@ function createRepository({ messages, systemContext }) {
       return null;
     }
 
-    const record = await messages.get(normalizedMessageId, {}, { ...options, context: messageContext });
+    const record = await messages.get(normalizedMessageId, {}, { ...options, context: messageContext, missing: "skip" });
     return record ? mapMessageRecord(record) : null;
   }
 
@@ -131,7 +131,7 @@ function createRepository({ messages, systemContext }) {
     if (Object.hasOwn(patch, "contentText")) changes.contentText = patch.contentText == null ? null : String(patch.contentText);
     if (Object.hasOwn(patch, "metadata")) changes.metadataJson = stringifyJsonObject(patch.metadata);
     if (Object.keys(changes).length) {
-      await messages.patchWhereIds([id], changes, { ...options, context: messageContext, missing: "skip" });
+      await messages.patch(id, changes, { ...options, context: messageContext, missing: "skip", returning: "none" });
     }
     return findById(id, options);
   }

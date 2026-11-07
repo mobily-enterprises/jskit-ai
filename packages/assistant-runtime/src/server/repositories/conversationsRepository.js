@@ -73,18 +73,18 @@ function createRepository({ conversations, systemContext }) {
   const conversationContext = systemContext("a conversation reached by id after its caller checked the actor scope, or created without a valid creator");
 
   function withTransaction(options, work) {
-    return conversations.withTransaction(options, work, { asThrown: true });
+    return conversations.withTransaction(options, work);
   }
 
   function transaction(work, { retries } = {}) {
-    return conversations.withTransaction({}, work, { retry: retries !== 0, asThrown: true });
+    return conversations.withTransaction({ retry: retries !== 0 }, work);
   }
 
   // The record as `context` sees it, under a row lock when asked.
   async function readRecord(id, { forUpdate = false, ...options }, context) {
     const scoped = { ...options, context };
     if (forUpdate !== true) {
-      return conversations.get(id, {}, scoped);
+      return conversations.get(id, {}, { ...scoped, missing: "skip" });
     }
     const [locked] = await conversations.lockMany([id], { ...scoped, missing: "skip" }).catch(rethrowLockError);
     return locked || null;
@@ -182,10 +182,11 @@ function createRepository({ conversations, systemContext }) {
 
     if (Object.keys(changes).length > 0) {
       changes.updatedAt = toWrittenDateTime();
-      await conversations.patchWhereIds([normalizedConversationId], changes, {
+      await conversations.patch(normalizedConversationId, changes, {
         ...options,
         context: conversationContext,
-        missing: "skip"
+        missing: "skip",
+        returning: "none"
       });
     }
 
@@ -196,7 +197,7 @@ function createRepository({ conversations, systemContext }) {
   async function readTranscriptState(conversationId, options = {}) {
     const id = normalizeInputRecordId(conversationId);
     if (!id) return null;
-    const record = await conversations.get(id, { fields: [...TRANSCRIPT_FIELDS] }, { ...options, context: conversationContext });
+    const record = await conversations.get(id, { fields: [...TRANSCRIPT_FIELDS] }, { ...options, context: conversationContext, missing: "skip" });
     if (!record) return null;
     return {
       revision: record.transcriptRevision || "",
@@ -208,11 +209,11 @@ function createRepository({ conversations, systemContext }) {
   async function writeTranscriptState(conversationId, { revision, summary }, options = {}) {
     const id = normalizeInputRecordId(conversationId);
     if (!id) throw new TypeError("writeTranscriptState requires conversationId.");
-    await conversations.patchWhereIds([id], {
+    await conversations.patch(id, {
       transcriptRevision: revision,
       summaryText: summary ? summary.text : null,
       summaryThroughTurnId: summary ? summary.throughTurnId : null
-    }, { ...options, context: conversationContext, missing: "skip" });
+    }, { ...options, context: conversationContext, missing: "skip", returning: "none" });
   }
 
   async function listForActorScope(

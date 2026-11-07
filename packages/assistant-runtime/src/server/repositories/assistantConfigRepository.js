@@ -62,7 +62,7 @@ function createRepository({ assistantConfig, systemContext }) {
   }
 
   function withTransaction(options, work) {
-    return assistantConfig.withTransaction(options, work, { asThrown: true });
+    return assistantConfig.withTransaction(options, work);
   }
 
   async function findRecord(defaultRecord, options) {
@@ -93,10 +93,10 @@ function createRepository({ assistantConfig, systemContext }) {
     const now = toWrittenDateTime();
 
     if (existing) {
-      await assistantConfig.patchWhereIds([existing.id], {
+      await assistantConfig.patch(existing.id, {
         systemPrompt: nextSystemPrompt,
         updatedAt: now
-      }, { ...scoped(defaultRecord.workspaceId, options), missing: "skip" });
+      }, { ...scoped(defaultRecord.workspaceId, options), missing: "skip", returning: "none" });
 
       return {
         ...defaultRecord,

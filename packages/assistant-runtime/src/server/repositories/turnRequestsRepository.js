@@ -51,7 +51,7 @@ function createRepository({ turnRequests, systemContext }) {
   }
 
   async function update(claimed, response, status = "running") {
-    const changed = await turnRequests.patchWhereIds([claimed.id], {
+    const changed = await turnRequests.patch(claimed.id, {
       responseJson: JSON.stringify(response),
       status,
       updatedAt: toWrittenDateTime()
@@ -59,9 +59,9 @@ function createRepository({ turnRequests, systemContext }) {
       context: receiptContext,
       onlyIf: { claimToken: claimed.token, status: "running" },
       missing: "skip",
-      returning: "ids"
+      returning: "id"
     });
-    if (!changed.length) throw new Error("Assistant request ownership was lost.");
+    if (changed === null) throw new Error("Assistant request ownership was lost.");
   }
 
   return Object.freeze({
