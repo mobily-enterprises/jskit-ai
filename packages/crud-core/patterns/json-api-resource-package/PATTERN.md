@@ -1,9 +1,9 @@
 ---
 id: crud/json-api-resource-package
 title: JSON API CRUD resource package
-summary: Build a complete application-owned CRUD server package from a migration, resource contract, and one framework module declaration.
+summary: Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.
 keywords: actions, crud, database, json-api, migration, permissions, provider, repository, routes, service
-requires: @jskit-ai/crud-core, @jskit-ai/resource-crud-core
+requires: @jskit-ai/crud-core, @jskit-ai/resource-core, @jskit-ai/resource-crud-core
 ---
 
 # JSON API CRUD resource package
@@ -13,7 +13,8 @@ requires: @jskit-ai/crud-core, @jskit-ai/resource-crud-core
 Use this pattern when a product entity needs conventional JSON API list, view,
 create, patch, and delete behavior. JSKIT owns the repeated repository, service,
 action, route, and provider mechanics. The application owns the migration,
-resource contract, access surface, ownership policy, and package composition.
+table resource, CRUD contract, access surface, ownership policy, and package
+composition.
 
 ## Do not use when
 
@@ -30,8 +31,10 @@ from a generator questionnaire or treat a live table as the sole contract.
 
 ## Invariants
 
-- Migration and resource storage metadata describe the same table.
-- `apiAccess`, surface access, and `autofilter` agree.
+- The migration and the table resource's storage metadata describe the same
+  table, and that table has no other table resource.
+- The CRUD contract's `apiAccess`, surface access, and the table resource's
+  `ownership` agree.
 - Public routes use public ownership only.
 - Workspace routes receive explicit scope validators and route-to-action input:
   workspaces-core's `WORKSPACE_CRUD_SCOPE`, never a copied scope literal.
@@ -55,10 +58,12 @@ from a generator questionnaire or treat a live table as the sole contract.
 
 ## Framework APIs
 
-Use `defineCrudResource()` from `@jskit-ai/resource-crud-core` and
-`defineCrudJsonApiFeature()` from `@jskit-ai/crud-core`. The latter composes the
-JSON REST resource, repository, service, standard CRUD actions with their
-record-changed events, route contracts, access policy, and HTTP routes.
+Use `defineTableResource()` from `@jskit-ai/resource-core`,
+`defineCrudContract()` from `@jskit-ai/resource-crud-core` and
+`defineCrudJsonApiFeature()` from `@jskit-ai/crud-core`. The feature takes the
+CRUD contract as `resource` and composes the JSON REST resource, repository,
+service, standard CRUD actions with their record-changed events, route
+contracts, access policy, and HTTP routes.
 
 ## Example files
 
@@ -80,8 +85,8 @@ For a package-owned migration instead, declare its actual directory in
 `package.json#jskit.migrations.directories`, as described in the database-layer
 guide.
 
-`BooksFeature.js` is deliberately tiny: it binds the readable resource contract
-to the framework module and exports the resulting provider.
+`BooksFeature.js` is deliberately tiny: it binds the `bookCrud` contract to the
+framework module and exports the resulting provider.
 `types.js` declares the type of the `app.books` capability, for features that
 require it.
 
@@ -115,7 +120,7 @@ id with `resolveWorkspaceScopeValue(options.context)`
 hand-written workspace route's path is
 `resolveWorkspaceRoutePath("relative-path")`
 (`@jskit-ai/workspaces-core/server/support/workspaceRoutePaths`). The feature exposes the
-operations declared by the resource. Use `operations` only to narrow that
+operations declared by the CRUD contract. Use `operations` only to narrow that
 surface further; do not register unused mutation actions and routes. Use
 `routes: false` only for an internal
 capability/action surface that deliberately has no HTTP API.

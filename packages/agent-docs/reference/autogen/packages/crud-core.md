@@ -341,7 +341,8 @@ Local functions
 
 ### `src/server/types.js`
 Exports
-- `type CrudResourceDefinition`
+- `type TableResource`
+- `type CrudContract`
 - `type CrudRepository`
 - `type CrudService`
 - `type CrudJsonApiResult`
@@ -373,8 +374,10 @@ Exports
 
 ### `patterns/json-api-resource-package/example/packages/books/src/shared/bookResource.js`
 Exports
+- `bookCrud`
 - `bookResource`
 
 ### `patterns/json-api-resource-package/example/packages/books/src/shared/index.js`
 Exports
+- `bookCrud`
 - `bookResource`

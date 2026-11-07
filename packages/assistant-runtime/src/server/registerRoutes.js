@@ -5,7 +5,7 @@ import {
   ASSISTANT_CONVERSATIONS_TRANSPORT,
   ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT,
   assistantConversationOutputValidator,
-  assistantResource,
+  assistantContract,
   resolveAssistantApiBasePath
 } from "@jskit-ai/assistant-core/shared";
 import {
@@ -109,7 +109,7 @@ function registerRuntimeRoutes(
     ? requireWorkspaceAssistantRouteParams(workspaceScopeSupport)
     : assistantSurfaceRouteParamsValidator;
   const conversationMessagesParams = composeSchemaDefinitions(
-    [params, assistantResource.operations.conversationMessagesList.params],
+    [params, assistantContract.operations.conversationMessagesList.params],
     {
       mode: "patch",
       context: requiresWorkspace === true
@@ -129,7 +129,7 @@ function registerRuntimeRoutes(
         tags: ["assistant"],
         summary: "Stream assistant response."
       },
-      body: assistantResource.operations.chatStream.body
+      body: assistantContract.operations.chatStream.body
     },
     async function assistantChatStreamRoute(request, reply) {
       const routeState = resolveRouteRequestState(request, {
@@ -223,7 +223,7 @@ function registerRuntimeRoutes(
       },
       ...createJsonApiResourceRouteContract({
         ...ASSISTANT_CONVERSATIONS_TRANSPORT,
-        query: assistantResource.operations.conversationsList.query,
+        query: assistantContract.operations.conversationsList.query,
         output: assistantConversationOutputValidator,
         outputKind: "collection"
       })
@@ -262,8 +262,8 @@ function registerRuntimeRoutes(
       },
       ...createJsonApiResourceRouteContract({
         ...ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT,
-        query: assistantResource.operations.conversationMessagesList.query,
-        output: assistantResource.operations.conversationMessagesList.output,
+        query: assistantContract.operations.conversationMessagesList.query,
+        output: assistantContract.operations.conversationMessagesList.output,
         outputKind: "record",
         getRecordId: resolveAssistantConversationMessagesRecordId
       })

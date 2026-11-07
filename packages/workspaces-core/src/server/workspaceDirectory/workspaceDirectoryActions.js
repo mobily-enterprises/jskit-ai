@@ -1,6 +1,6 @@
 import { emptyInputValidator } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
-import { workspaceResource } from "../../shared/resources/workspaceResource.js";
+import { workspaceCrud } from "../../shared/resources/workspaceResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
 
@@ -10,7 +10,7 @@ function workspaceAssistantSummary({ id, slug, name, ownerUserId, avatarUrl }) {
 
 const workspaceUpdateInputValidator = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
-  workspaceResource.operations.patch.body
+  workspaceCrud.operations.patch.body
 ], {
   mode: "patch",
   context: "workspaceDirectoryActions.workspaceUpdateInputValidator"
@@ -28,12 +28,12 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
       permission: {
         require: "authenticated"
       },
-      input: workspaceResource.operations.create.body,
+      input: workspaceCrud.operations.create.body,
       output: null,
       extensions: {
         assistant: {
           description: "Create a workspace for the signed-in user.",
-          output: workspaceResource.operations.create.output,
+          output: workspaceCrud.operations.create.output,
           transformResult: (result) => workspaceAssistantSummary(result.value)
         }
       },
@@ -57,7 +57,7 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
       extensions: {
         assistant: {
           description: "List workspaces accessible to the signed-in user.",
-          output: workspaceResource.operations.list.output,
+          output: workspaceCrud.operations.list.output,
           transformResult: (result) => ({
             items: result.value.items.map(({ id, slug, name, avatarUrl, roleSid, isAccessible }) =>
               ({ id, slug, name, avatarUrl, roleSid, isAccessible })),
@@ -85,7 +85,7 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
       extensions: {
         assistant: {
           description: "Read the active workspace profile.",
-          output: workspaceResource.operations.view.output,
+          output: workspaceCrud.operations.view.output,
           transformResult: (result) => workspaceAssistantSummary(result.value)
         }
       },
@@ -110,7 +110,7 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
       extensions: {
         assistant: {
           description: "Update the active workspace name or avatar URL.",
-          output: workspaceResource.operations.patch.output,
+          output: workspaceCrud.operations.patch.output,
           transformResult: (result) => workspaceAssistantSummary(result.value)
         }
       },

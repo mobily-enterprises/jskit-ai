@@ -4,8 +4,8 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
-import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
-import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
+import { userProfileContract, userProfileResource } from "../src/shared/resources/userProfileResource.js";
+import { userSettingsContract, userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 
 function assertResourceOperationMessages(resource, operationName, label) {
   const operation = resource?.operations?.[operationName];
@@ -25,17 +25,26 @@ function assertResourceOperationMessages(resource, operationName, label) {
   );
 }
 
-test("users-core resources expose messages for all operations", () => {
-  const resources = {
-    userProfile: userProfileResource,
-    userSettings: userSettingsResource
+test("users-core API contracts expose messages for all operations", () => {
+  const contracts = {
+    userProfile: userProfileContract,
+    userSettings: userSettingsContract
   };
 
-  for (const [label, resource] of Object.entries(resources)) {
-    for (const operationName of ["view", "list", "create", "replace", "patch"]) {
-      assertResourceOperationMessages(resource, operationName, label);
+  for (const [label, contract] of Object.entries(contracts)) {
+    for (const operationName of Object.keys(contract.operations)) {
+      assertResourceOperationMessages(contract, operationName, label);
     }
   }
+});
+
+test("the users and user_settings tables are table resources, apart from their API contracts", () => {
+  assert.equal(userProfileResource.name, "userProfiles");
+  assert.equal(userProfileResource.tableName, "users");
+  assert.equal(userSettingsResource.name, "userSettings");
+  assert.equal(userSettingsResource.tableName, "user_settings");
+  assert.equal(Object.hasOwn(userProfileResource, "operations"), false);
+  assert.equal(Object.hasOwn(userSettingsResource, "operations"), false);
 });
 
 test("user profile resource exposes managed timestamps used by JSON REST writes", () => {
@@ -49,13 +58,13 @@ test("user profile resource exposes managed timestamps used by JSON REST writes"
 
 test("users-core specialized resource operations expose messages and validators", () => {
   const operationSpecs = [
-    { label: "userProfile.avatarUpload", operation: userProfileResource.operations.avatarUpload },
-    { label: "userProfile.avatarDelete", operation: userProfileResource.operations.avatarDelete },
-    { label: "userSettings.passwordChange", operation: userSettingsResource.operations.passwordChange },
-    { label: "userSettings.passwordMethodToggle", operation: userSettingsResource.operations.passwordMethodToggle },
-    { label: "userSettings.oauthLinkStart", operation: userSettingsResource.operations.oauthLinkStart },
-    { label: "userSettings.oauthUnlink", operation: userSettingsResource.operations.oauthUnlink },
-    { label: "userSettings.logoutOtherSessions", operation: userSettingsResource.operations.logoutOtherSessions }
+    { label: "userProfile.avatarUpload", operation: userProfileContract.operations.avatarUpload },
+    { label: "userProfile.avatarDelete", operation: userProfileContract.operations.avatarDelete },
+    { label: "userSettings.passwordChange", operation: userSettingsContract.operations.passwordChange },
+    { label: "userSettings.passwordMethodToggle", operation: userSettingsContract.operations.passwordMethodToggle },
+    { label: "userSettings.oauthLinkStart", operation: userSettingsContract.operations.oauthLinkStart },
+    { label: "userSettings.oauthUnlink", operation: userSettingsContract.operations.oauthUnlink },
+    { label: "userSettings.logoutOtherSessions", operation: userSettingsContract.operations.logoutOtherSessions }
   ];
 
   for (const { label, operation } of operationSpecs) {

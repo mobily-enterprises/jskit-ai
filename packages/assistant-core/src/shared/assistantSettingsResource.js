@@ -1,7 +1,7 @@
 import { createSchema } from "json-rest-schema";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineApiContract } from "@jskit-ai/resource-core/shared/apiContract";
 
 const MAX_SYSTEM_PROMPT_CHARS = 12_000;
 
@@ -61,16 +61,23 @@ const assistantConfigPatchSchema = createSchema({
   }
 });
 
-const assistantConfigResource = defineCrudResource({
+// The assistant's configuration over HTTP: read it, and patch it.
+const assistantConfigContract = defineApiContract({
   namespace: "assistantConfig",
-  crudOperations: ["view", "patch"],
-  crud: {
-    output: assistantConfigRecordSchema,
-    patchBody: assistantConfigPatchSchema
+  operations: {
+    view: {
+      method: "GET",
+      output: assistantConfigRecordSchema
+    },
+    patch: {
+      method: "PATCH",
+      body: assistantConfigPatchSchema,
+      output: assistantConfigRecordSchema
+    }
   }
 });
 
 export {
   MAX_SYSTEM_PROMPT_CHARS,
-  assistantConfigResource
+  assistantConfigContract
 };

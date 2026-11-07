@@ -5,6 +5,7 @@ import test from "node:test";
 import knexLib from "knex";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { JsonRestApi, RestApiFieldsetError, RestApiWriteError } from "json-rest-api";
 
 import {
@@ -201,12 +202,13 @@ test("createJsonRestApiHost installs row policies before resources are added", a
 
   const api = await createJsonRestApiHost({ knex: fakeKnex, logger: silentLogger });
   const rowPolicy = () => false;
-  const scopeOptions = createJsonRestResourceScopeOptions({
+  const scopeOptions = createJsonRestResourceScopeOptions(defineTableResource({
+    name: "privateContacts",
     tableName: "private_contacts",
     schema: {
       id: { type: "id", primary: true }
     }
-  }, {
+  }), {
     rowPolicy
   });
 
@@ -292,51 +294,32 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
   const serializer = (value) => value;
   const normalizeId = (value) => String(value || "").trim() || null;
   const rowPolicy = () => false;
-  const source = Object.freeze({
-    namespace: "contacts",
+  const source = defineTableResource({
+    name: "contacts",
     tableName: "contacts",
+    ownership: "workspace",
     defaultSort: Object.freeze(["-createdAt"]),
     schema: Object.freeze({
       name: Object.freeze({
         type: "string",
         maxLength: 190,
         required: true,
-        search: true,
-        operations: Object.freeze({
-          output: Object.freeze({
-            required: true
-          })
-        })
+        search: true
       }),
       createdAt: Object.freeze({
         type: "dateTime",
         storage: Object.freeze({
           column: "created_at",
           writeSerializer: "datetime-utc"
-        }),
-        operations: Object.freeze({
-          output: Object.freeze({
-            required: true
-          })
         })
       }),
       publishedOn: Object.freeze({
-        type: "date",
-        operations: Object.freeze({
-          output: Object.freeze({
-            required: true
-          })
-        })
+        type: "date"
       }),
       bookingSteps: Object.freeze({
         type: "array",
         storage: Object.freeze({
           virtual: true
-        }),
-        operations: Object.freeze({
-          output: Object.freeze({
-            required: false
-          })
         })
       }),
       pets: Object.freeze({
@@ -345,11 +328,6 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
           kind: "collection",
           namespace: "pets",
           foreignKey: "contactId"
-        }),
-        operations: Object.freeze({
-          output: Object.freeze({
-            required: false
-          })
         })
       })
     }),
@@ -358,11 +336,6 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
         type: "hasMany",
         target: "auditEvents",
         foreignKey: "contactId"
-      })
-    }),
-    operations: Object.freeze({
-      view: Object.freeze({
-        method: "GET"
       })
     })
   });
@@ -388,8 +361,9 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
   assert.equal(result.normalizeId, normalizeId);
   assert.equal(result.rowPolicy, rowPolicy);
   assert.equal(result.schema.name.maxLength, 190);
-  assert.equal(result.schema.name.operations.output.required, true);
-  assert.equal(result.operations.view.method, "GET");
+  assert.equal(result.autofilter, "workspace");
+  assert.equal(Object.hasOwn(result, "ownership"), false);
+  assert.equal(Object.hasOwn(result, "name"), false);
   assert.deepEqual(result.relationships, {
     pets: {
       type: "hasMany",
@@ -409,8 +383,9 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
 
 test("createJsonRestResourceScopeOptions maps server query projections into json-rest-api queryFields", () => {
   const select = ({ knex }) => knex.raw("1");
-  const resource = {
-    namespace: "receivals",
+  const resource = defineTableResource({
+    name: "receivals",
+    tableName: "receivals",
     schema: {
       id: { type: "id", primary: true },
       remainingProcessableWeight: {
@@ -430,7 +405,7 @@ test("createJsonRestResourceScopeOptions maps server query projections into json
         }
       }
     }
-  };
+  });
 
   const result = createJsonRestResourceScopeOptions(resource, {
     queryFields: {
@@ -456,17 +431,13 @@ test("createJsonRestResourceScopeOptions maps server query projections into json
 });
 
 test("createJsonRestResourceScopeOptions applies resource-owned default response exclusions", () => {
-  const source = Object.freeze({
-    namespace: "contacts",
+  const source = defineTableResource({
+    name: "contacts",
     tableName: "contacts",
-    contract: Object.freeze({
-      response: Object.freeze({
-        defaultExclude: Object.freeze([
-          "privateNotes",
-          "searchRank"
-        ])
-      })
-    }),
+    defaultExclude: [
+      "privateNotes",
+      "searchRank"
+    ],
     schema: Object.freeze({
       id: Object.freeze({
         type: "id",
@@ -492,6 +463,8 @@ test("createJsonRestResourceScopeOptions applies resource-owned default response
 
   const result = createJsonRestResourceScopeOptions(source);
 
+  assert.equal(Object.hasOwn(result, "defaultExclude"), false);
+  assert.equal(Object.hasOwn(result, "autofilter"), false);
   assert.equal(result.schema.name.normallyHidden, undefined);
   assert.equal(result.schema.privateNotes.normallyHidden, true);
   assert.equal(result.queryFields.searchRank.normallyHidden, true);
@@ -500,14 +473,10 @@ test("createJsonRestResourceScopeOptions applies resource-owned default response
 });
 
 test("createJsonRestResourceScopeOptions rejects invalid default response exclusions", () => {
-  const createResource = (defaultExclude) => ({
-    namespace: "contacts",
+  const createResource = (defaultExclude) => defineTableResource({
+    name: "contacts",
     tableName: "contacts",
-    contract: {
-      response: {
-        defaultExclude
-      }
-    },
+    defaultExclude,
     schema: {
       id: {
         type: "id",
@@ -521,7 +490,7 @@ test("createJsonRestResourceScopeOptions rejects invalid default response exclus
 
   assert.throws(
     () => createJsonRestResourceScopeOptions(createResource("name")),
-    /contract\.response\.defaultExclude must be an array/
+    /resource defaultExclude must be an array/
   );
   assert.throws(
     () => createJsonRestResourceScopeOptions(createResource(["unknown"])),
@@ -535,13 +504,14 @@ test("createJsonRestResourceScopeOptions rejects invalid default response exclus
 
 test("createJsonRestResourceScopeOptions rejects query field names for column-backed schema fields", () => {
   assert.throws(
-    () => createJsonRestResourceScopeOptions({
-      namespace: "receivals",
+    () => createJsonRestResourceScopeOptions(defineTableResource({
+      name: "receivals",
+      tableName: "receivals",
       schema: {
         id: { type: "id", primary: true },
         status: { type: "string" }
       }
-    }, {
+    }), {
       queryFields: {
         status: {
           type: "string",
@@ -604,14 +574,16 @@ async function createTemporalFixture() {
       table.integer("holiday_id").references("id").inTable("holidays");
     });
     const api = await createJsonRestApiHost({ knex, logger: silentLogger });
-    await api.addResource("holidays", createJsonRestResourceScopeOptions({
+    await api.addResource("holidays", createJsonRestResourceScopeOptions(defineTableResource({
+      name: "holidays",
       tableName: "holidays",
       schema: {
         id: { type: "id", primary: true },
         observedOn: { type: "date" }
       }
-    }));
-    await api.addResource("books", createJsonRestResourceScopeOptions({
+    })));
+    await api.addResource("books", createJsonRestResourceScopeOptions(defineTableResource({
+      name: "books",
       tableName: "books",
       schema: {
         id: { type: "id", primary: true },
@@ -620,7 +592,7 @@ async function createTemporalFixture() {
         opensAt: { type: "time" },
         holidayId: { type: "id", belongsTo: "holidays", as: "holiday", nullable: true }
       }
-    }));
+    })));
     return { api, knex };
   } catch (error) {
     await knex.destroy();
@@ -663,6 +635,7 @@ test("calendar date writes and responses keep leap day across server time zones"
   const script = `
     import knexLib from "knex";
     import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+    import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
     import { createJsonRestApiHost, createJsonRestResourceScopeOptions } from ${JSON.stringify(hostModuleUrl)};
     ${createTemporalFixture.toString()}
     const { api, knex } = await createTemporalFixture();

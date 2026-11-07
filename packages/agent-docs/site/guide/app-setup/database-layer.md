@@ -255,10 +255,10 @@ database allocation, credentials, lifetime, and environment injection.
 
 ## Resource services and custom operations
 
-Conventional persisted resources use `defineCrudResource()` and
-`defineCrudJsonApiFeature()` so the framework owns repeated repository,
-service, action, permission, JSON API, and route mechanics. This does not make
-product CRUD behavior fixed.
+Conventional persisted resources use `defineTableResource()`,
+`defineCrudContract()` and `defineCrudJsonApiFeature()` so the framework owns
+repeated repository, service, action, permission, JSON API, and route
+mechanics. This does not make product CRUD behavior fixed.
 
 - `decorateRepository` adds resource-specific queries, locks, or writes.
 - `decorateService` overrides a standard method or adds domain methods such as
@@ -294,15 +294,15 @@ by itself: a batch saves the read-backs and the transactions, not the inserts.
 
 ## Optimistic locking
 
-A CRUD resource whose records carry a version number names it with
+A table resource whose records carry a version number names it with
 `lockVersionField`, an integer schema field over a non-null integer column
 with a starting value, such as `0`:
 
 ```js
-defineCrudResource({
-  namespace: "contracts",
+defineTableResource({
+  name: "contracts",
   tableName: "contracts",
-  autofilter: "workspace",
+  ownership: "workspace",
   lockVersionField: "lockVersion",
   schema: {
     // ...
@@ -321,7 +321,7 @@ scope. A record whose lock version has moved on rejects with a 409 coded
 `crud.document.lockVersionConflict` ("This record changed. Reload and try
 again."), and nothing is written. The patch leaves the lock field out; an app
 that wants its own wording for the conflict catches that code. A resource
-without `lockVersionField` cannot call it, and `defineCrudResource()` rejects
+without `lockVersionField` cannot call it, and `defineTableResource()` rejects
 a `lockVersionField` that names no integer schema field.
 
 ## Row locks

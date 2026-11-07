@@ -15,7 +15,8 @@ const RESOLVE_EXTENSIONS = Object.freeze([".vue", ".js", ".ts", "/index.js", "/i
 
 // Framework sources whose declarations this inspector reads statically.
 const SOURCES = Object.freeze({
-  crudResource: "@jskit-ai/resource-crud-core/shared/crudResource",
+  crudContract: "@jskit-ai/resource-crud-core/shared/crudContract",
+  tableResource: "@jskit-ai/resource-core/shared/tableResource",
   crudJsonApiFeature: "@jskit-ai/crud-core/server/defineCrudJsonApiFeature",
   kernelFeatures: "@jskit-ai/kernel/server/features",
   kernelHttp: "@jskit-ai/kernel/server/http",

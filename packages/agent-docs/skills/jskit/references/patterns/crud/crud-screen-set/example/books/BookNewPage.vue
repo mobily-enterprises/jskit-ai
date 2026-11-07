@@ -1,7 +1,7 @@
 <script setup>
 import CrudAddEditScreen from "@jskit-ai/http-web/client/components/CrudAddEditScreen";
 import { useCrudAddEditScreen } from "@jskit-ai/http-web/client/composables/useCrudAddEditScreen";
-import { bookResource } from "@local/books/shared";
+import { bookCrud } from "@local/books/shared";
 import BookFormFields from "./BookFormFields.vue";
 import { bookFormFields } from "./formFields.js";
 
@@ -11,7 +11,7 @@ const screen = useCrudAddEditScreen({
   mode: "new",
   saveLabel: "Save book",
   cancelTo: "/books",
-  resource: bookResource,
+  resource: bookCrud,
   operationName: "create",
   formFields: bookFormFields,
   addEditOptions: {

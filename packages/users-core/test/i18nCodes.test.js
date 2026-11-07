@@ -6,7 +6,7 @@ import en from "../locales/en.json" with { type: "json" };
 import { createService as createAccountProfileService } from "../src/server/accountProfile/accountProfileService.js";
 import { createService as createAccountSecurityService } from "../src/server/accountSecurity/accountSecurityService.js";
 import { createRepository as createUserSettingsRepository } from "../src/server/common/repositories/userSettingsRepository.js";
-import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
+import { userSettingsContract, userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 import { normalizeLocaleCode } from "../src/shared/settings.js";
 
 // A code's catalog English, rendered with its params, is exactly the English sent.
@@ -71,7 +71,7 @@ test("saved locales are canonical BCP 47 tags", () => {
 
 test("preference input keeps the locale's case and storage canonicalizes it", async () => {
   const parsed = validateOperationSection({
-    operation: userSettingsResource.operations.preferencesUpdate,
+    operation: userSettingsContract.operations.preferencesUpdate,
     section: "body",
     value: {
       theme: "system",

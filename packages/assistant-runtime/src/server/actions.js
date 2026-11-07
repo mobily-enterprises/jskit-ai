@@ -7,7 +7,7 @@ import {
 } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import {
-  assistantResource
+  assistantContract
 } from "@jskit-ai/assistant-core/shared";
 import { actionIds } from "./actionIds.js";
 import { createAssistantSettingsActions } from "./createAssistantSettingsActions.js";
@@ -40,7 +40,7 @@ const runtimeConversationsListQueryInputValidator = deepFreeze({
     query: {
       type: "object",
       required: false,
-      schema: assistantResource.operations.conversationsList.query.schema
+      schema: assistantContract.operations.conversationsList.query.schema
     }
   }),
   mode: "patch"
@@ -59,7 +59,7 @@ const runtimeConversationMessagesListQueryInputValidator = deepFreeze({
     query: {
       type: "object",
       required: false,
-      schema: assistantResource.operations.conversationMessagesList.query.schema
+      schema: assistantContract.operations.conversationMessagesList.query.schema
     }
   }),
   mode: "patch"
@@ -68,7 +68,7 @@ const runtimeConversationMessagesListQueryInputValidator = deepFreeze({
 const runtimeConversationMessagesListInputValidator = composeSchemaDefinitions(
   [
     assistantTargetSurfaceInputValidator,
-    assistantResource.operations.conversationMessagesList.params,
+    assistantContract.operations.conversationMessagesList.params,
     runtimeConversationMessagesListQueryInputValidator
   ],
   {
@@ -80,7 +80,7 @@ const runtimeConversationMessagesListInputValidator = composeSchemaDefinitions(
 const runtimeChatStreamInputValidator = composeSchemaDefinitions(
   [
     assistantTargetSurfaceInputValidator,
-    assistantResource.operations.chatStream.body
+    assistantContract.operations.chatStream.body
   ],
   {
     mode: "create",

@@ -1,7 +1,7 @@
 import {
   resolveRequest
 } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { userSettingsContract } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
@@ -17,12 +17,12 @@ function createAccountNotificationsActions({ accountNotificationsService }) {
       permission: {
         require: "authenticated"
       },
-      input: userSettingsResource.operations.notificationsUpdate.body,
+      input: userSettingsContract.operations.notificationsUpdate.body,
       output: null,
       extensions: {
         assistant: {
           description: "Update the signed-in user’s notification preferences.",
-          output: userSettingsResource.operations.notificationsUpdate.output,
+          output: userSettingsContract.operations.notificationsUpdate.output,
           transformResult: (result) => result.value
         }
       },

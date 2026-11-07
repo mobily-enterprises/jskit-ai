@@ -1,5 +1,5 @@
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
-import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
+import { workspaceSettingsCrud } from "../../shared/resources/workspaceSettingsResource.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
 import { createWorkspaceEntityAndBootstrapEvents } from "../common/support/realtimeServiceEvents.js";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
@@ -12,7 +12,7 @@ const WORKSPACE_SETTINGS_CHANGED_EVENTS = createWorkspaceEntityAndBootstrapEvent
 
 const workspaceSettingsUpdateInputValidator = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
-  workspaceSettingsResource.operations.patch.body
+  workspaceSettingsCrud.operations.patch.body
 ], {
   mode: "patch",
   context: "workspaceSettingsActions.workspaceSettingsUpdateInputValidator"
@@ -36,7 +36,7 @@ function createWorkspaceSettingsActions({ workspaceSettingsService }) {
       extensions: {
         assistant: {
           description: "Read the active workspace appearance and invitation settings.",
-          output: workspaceSettingsResource.operations.view.output,
+          output: workspaceSettingsCrud.operations.view.output,
           transformResult: (result) => result.value
         }
       },
@@ -60,7 +60,7 @@ function createWorkspaceSettingsActions({ workspaceSettingsService }) {
       extensions: {
         assistant: {
           description: "Update the active workspace appearance and invitation settings.",
-          output: workspaceSettingsResource.operations.patch.output,
+          output: workspaceSettingsCrud.operations.patch.output,
           transformResult: (result) => result.value
         }
       },

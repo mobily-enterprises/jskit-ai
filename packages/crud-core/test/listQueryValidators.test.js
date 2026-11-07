@@ -275,7 +275,7 @@ test("standard CRUD query validator groups remain plain and extensible", () => {
   };
   const resource = {
     ...createCrudResource(),
-    defaultSort: ["-createdAt"],
+    resource: { defaultSort: ["-createdAt"] },
     contract: {
       listFilters: {
         queryValidator: listFilterQueryValidator

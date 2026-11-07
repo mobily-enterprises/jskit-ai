@@ -1,7 +1,7 @@
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import {
   workspaceListItemOutputValidator,
-  workspaceResource
+  workspaceCrud
 } from "../../shared/resources/workspaceResource.js";
 import {
   WORKSPACES_COLLECTION_TRANSPORT,
@@ -31,8 +31,8 @@ function registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateE
       },
       ...createJsonApiResourceRouteContract({
         ...WORKSPACES_TRANSPORT,
-        body: workspaceResource.operations.create.body,
-        output: workspaceResource.operations.create.output,
+        body: workspaceCrud.operations.create.body,
+        output: workspaceCrud.operations.create.output,
         outputKind: "record",
         includeValidation400: true
       })
@@ -89,7 +89,7 @@ function registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateE
       params: workspaceSlugParamsValidator,
       ...createJsonApiResourceRouteContract({
         ...WORKSPACES_TRANSPORT,
-        output: workspaceResource.operations.view.output,
+        output: workspaceCrud.operations.view.output,
         outputKind: "record",
         getRecordId: resolveWorkspaceRecordId
       })
@@ -119,8 +119,8 @@ function registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateE
       params: workspaceSlugParamsValidator,
       ...createJsonApiResourceRouteContract({
         ...WORKSPACES_TRANSPORT,
-        body: workspaceResource.operations.patch.body,
-        output: workspaceResource.operations.patch.output,
+        body: workspaceCrud.operations.patch.body,
+        output: workspaceCrud.operations.patch.output,
         outputKind: "record",
         getRecordId: resolveWorkspaceRecordId,
         includeValidation400: true

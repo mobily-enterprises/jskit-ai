@@ -9,44 +9,32 @@ import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { returnJsonApiData, returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { defineCrudJsonApiFeature } from "../src/server/defineCrudJsonApiFeature.js";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { crudJsonApiActionOptions, crudJsonApiRouteOptions } from "./support/crudJsonApiActionOptions.js";
 import { registerCrudJsonApiRoutes } from "../src/server/jsonApiModule/routes.js";
 
-function createBookResource({ apiAccess = "authenticated", autofilter = "user" } = {}) {
-  return defineCrudResource({
-    namespace: "books",
+function bookTable(ownership) {
+  return defineTableResource({
+    name: "books",
     tableName: "books",
-    apiAccess,
-    autofilter,
+    ownership,
     schema: {
-      title: {
-        type: "string",
-        required: true,
-        operations: {
-          output: { required: true },
-          create: { required: true },
-          patch: { required: false }
-        }
-      }
+      title: { type: "string", required: true }
     }
   });
 }
 
+function createBookResource({ apiAccess = "authenticated", ownership = "user" } = {}) {
+  return defineCrudContract(bookTable(ownership), { apiAccess });
+}
+
 function createReadOnlyBookResource() {
-  return defineCrudResource({
-    namespace: "books",
-    tableName: "books",
-    crudOperations: ["list", "view"],
-    schema: {
-      title: {
-        type: "string",
-        required: true,
-        operations: { output: { required: true } }
-      }
-    }
+  return defineCrudContract(bookTable("public"), {
+    operations: ["list", "view"],
+    fields: { title: { output: "required" } }
   });
 }
 
@@ -172,7 +160,7 @@ test("defineCrudJsonApiFeature sends record.changed to its realtime audience", a
         EventProvider, ActionProvider,
         ...createFeatureDependencies([]),
         defineCrudJsonApiFeature({
-          resource: createBookResource({ apiAccess: "public", autofilter: "public" }),
+          resource: createBookResource({ apiAccess: "public", ownership: "public" }),
           surface: "home",
           ...options
         }),
@@ -197,7 +185,7 @@ test("defineCrudJsonApiFeature sends record.changed to its realtime audience", a
 test("defineCrudJsonApiFeature makes workspace scope and permissions explicit", async () => {
   const routes = [];
   const feature = defineCrudJsonApiFeature({
-    resource: createBookResource({ autofilter: "workspace" }),
+    resource: createBookResource({ ownership: "workspace" }),
     surface: "app",
     scope: {
       routeBase: "/w/:workspaceSlug",
@@ -238,7 +226,7 @@ test("defineCrudJsonApiFeature makes workspace scope and permissions explicit", 
 test("a scoped CRUD custom action's input keeps its own mode, and one without a mode is create", async () => {
   const routes = [];
   const feature = defineCrudJsonApiFeature({
-    resource: createBookResource({ autofilter: "workspace" }),
+    resource: createBookResource({ ownership: "workspace" }),
     surface: "app",
     scope: {
       routeBase: "/w/:workspaceSlug",
@@ -976,14 +964,14 @@ test("defineCrudJsonApiFeature rejects implicit workspace scope and public priva
   );
   assert.throws(
     () => defineCrudJsonApiFeature({
-      resource: createBookResource({ autofilter: "workspace" }),
+      resource: createBookResource({ ownership: "workspace" }),
       surface: "app"
     }),
     /requires explicit scope routeBase, actionInputValidator, routeParamsValidator, inputKeys, input/u
   );
   assert.throws(
     () => defineCrudJsonApiFeature({
-      resource: createBookResource({ apiAccess: "public", autofilter: "user" }),
+      resource: createBookResource({ apiAccess: "public", ownership: "user" }),
       surface: "public"
     }),
     /public CRUD feature requires ownershipFilter "public"/u
@@ -1016,7 +1004,7 @@ test("registerCrudJsonApiRoutes forwards scope, record, query, and body values t
     },
     crudJsonApiRouteOptions({
       namespace: "books",
-      resource: createBookResource({ autofilter: "workspace" }),
+      resource: createBookResource({ ownership: "workspace" }),
       routeBase: "/w/:workspaceSlug",
       relativePath: "/books",
       surface: "app",

@@ -10,8 +10,8 @@ import {
 } from "@jskit-ai/shell-web/client/placement";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { ROUTE_VISIBILITY_PUBLIC } from "@jskit-ai/kernel/shared/support/visibility";
-import { userProfileResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
-import { userSettingsResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
+import { userProfileContract } from "@jskit-ai/users-core/shared/resources/userProfileResource";
+import { userSettingsContract } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
 import { useAddEdit } from "@jskit-ai/http-web/client/composables/useAddEdit";
 import { useCommand } from "@jskit-ai/http-web/client/composables/useCommand";
 import { useView } from "@jskit-ai/http-web/client/composables/useView";
@@ -250,7 +250,7 @@ function useAccountSettingsRuntime() {
 
   const profileAddEdit = useAddEdit({
     ownershipFilter: OWNERSHIP_PUBLIC,
-    resource: userProfileResource,
+    resource: userProfileContract,
     apiSuffix: "/settings/profile",
     queryKeyFactory: () => accountProfileWriteQueryKey,
     readEnabled: false,
@@ -260,7 +260,7 @@ function useAccountSettingsRuntime() {
     fieldErrorKeys: ["displayName"],
     model: profileForm,
     mapLoadedToModel: mapAccountSettingsPayload,
-    input: userProfileResource.operations.patch.body,
+    input: userProfileContract.operations.patch.body,
     buildRawPayload: (model) => ({
       displayName: String(model.displayName || "").trim()
     }),
@@ -289,7 +289,7 @@ function useAccountSettingsRuntime() {
 
   const preferencesAddEdit = useAddEdit({
     ownershipFilter: OWNERSHIP_PUBLIC,
-    resource: userSettingsResource,
+    resource: userSettingsContract,
     apiSuffix: "/settings/preferences",
     queryKeyFactory: () => accountPreferencesWriteQueryKey,
     readEnabled: false,
@@ -299,7 +299,7 @@ function useAccountSettingsRuntime() {
     fieldErrorKeys: ["theme", "locale", "timeZone", "dateFormat", "numberFormat", "currencyCode", "avatarSize"],
     model: preferencesForm,
     mapLoadedToModel: mapAccountSettingsPayload,
-    input: userSettingsResource.operations.preferencesUpdate.body,
+    input: userSettingsContract.operations.preferencesUpdate.body,
     buildRawPayload: (model) => ({
       theme: model.theme,
       locale: model.locale,
@@ -317,7 +317,7 @@ function useAccountSettingsRuntime() {
 
   const notificationsAddEdit = useAddEdit({
     ownershipFilter: OWNERSHIP_PUBLIC,
-    resource: userSettingsResource,
+    resource: userSettingsContract,
     apiSuffix: "/settings/notifications",
     queryKeyFactory: () => accountNotificationsWriteQueryKey,
     readEnabled: false,
@@ -326,7 +326,7 @@ function useAccountSettingsRuntime() {
     fallbackSaveError: t("jskit.users.accountSettings.notifications.saveFailed"),
     model: notificationsForm,
     mapLoadedToModel: mapAccountSettingsPayload,
-    input: userSettingsResource.operations.notificationsUpdate.body,
+    input: userSettingsContract.operations.notificationsUpdate.body,
     buildRawPayload: (model) => ({
       productUpdates: Boolean(model.productUpdates),
       accountActivity: Boolean(model.accountActivity),

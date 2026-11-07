@@ -6,7 +6,8 @@ import {
   createJsonRestApiHost,
   createJsonRestResourceScopeOptions
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
@@ -100,7 +101,7 @@ async function createDatabaseRepository(t) {
     table.string("message").notNullable();
   });
   const api = await createJsonRestApiHost({ knex, logger: silentLogger });
-  const resource = { tableName: "books", schema: { title: { type: "string", required: true } } };
+  const resource = defineTableResource({ name: "books", tableName: "books", schema: { title: { type: "string", required: true } } });
   await api.addResource("books", createJsonRestResourceScopeOptions(resource));
   const repository = createCrudJsonApiRepository({ api, resource, resourceScopeName: "books" });
   return { api, knex, repository };
@@ -208,18 +209,11 @@ test("a failing CRUD afterCommit hook reports committed and leaves the actual wr
   const failure = Object.freeze(new Error("Notification failed"));
   const actions = createCrudJsonApiActions(crudJsonApiActionOptions({
     namespace: "books",
-    resource: defineCrudResource({
-      namespace: "books",
+    resource: defineCrudContract(defineTableResource({
+      name: "books",
       tableName: "books",
-      autofilter: "public",
-      schema: {
-        title: {
-          type: "string",
-          required: true,
-          operations: { output: { required: true }, create: { required: true }, patch: { required: false } }
-        }
-      }
-    }),
+      schema: { title: { type: "string", required: true } }
+    })),
     repository,
     service: createCrudJsonApiService({ repository }),
     surface: "app",
@@ -255,10 +249,10 @@ async function createLockedNotesRepository(t, { lockVersionField = "lockVersion"
     { workspace_id: 1, title: "Dune", lock_version: 3 },
     { workspace_id: 2, title: "Kindred", lock_version: 0 }
   ]);
-  const resource = defineCrudResource({
-    namespace: "notes",
+  const resource = defineTableResource({
+    name: "notes",
     tableName: "notes",
-    autofilter: "workspace",
+    ownership: "workspace",
     lockVersionField,
     schema: {
       workspaceId: { type: "id", required: true, hidden: true, column: "workspace_id" },

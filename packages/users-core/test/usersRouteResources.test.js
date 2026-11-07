@@ -5,26 +5,24 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { deriveResourceRequiredMetadata } from "@jskit-ai/kernel/_testable";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
-import { userProfileResource } from "../src/shared/resources/userProfileResource.js";
-import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
+import { userProfileContract } from "../src/shared/resources/userProfileResource.js";
+import { userSettingsContract } from "../src/shared/resources/userSettingsResource.js";
 
-function assertResourceShape(resource, label) {
-  assert.ok(resource, `${label} resource must exist.`);
-  assert.equal(typeof resource, "object", `${label} resource must be an object.`);
-  assert.equal(typeof resource.namespace, "string", `.namespace must be a string.`);
+function assertContractShape(contract, label) {
+  assert.ok(contract, `${label} contract must exist.`);
+  assert.equal(typeof contract, "object", `${label} contract must be an object.`);
+  assert.equal(typeof contract.namespace, "string", `.namespace must be a string.`);
 
-  for (const operationName of ["view", "list", "create", "replace", "patch"]) {
-    const operation = resource.operations?.[operationName];
-    assert.equal(typeof operation, "object", `${label}.operations.${operationName} must exist.`);
+  for (const [operationName, operation] of Object.entries(contract.operations)) {
     assert.equal(typeof operation.method, "string", `${label}.operations.${operationName}.method must exist.`);
     const resolvedMessages =
       operation?.messages && typeof operation.messages === "object"
         ? operation.messages
-        : resource?.messages || resource?.operationMessages;
+        : contract?.messages;
     assert.equal(
       typeof resolvedMessages,
       "object",
-      `${label}.operations.${operationName} must resolve messages from operation.messages or resource.messages.`
+      `${label}.operations.${operationName} must resolve messages from operation.messages or contract.messages.`
     );
     assert.equal(
       typeof resolveSchemaTransportSchemaDefinition(operation.output, {
@@ -34,38 +32,48 @@ function assertResourceShape(resource, label) {
       "object",
       `${label}.operations.${operationName} payload schema is required.`
     );
+    if (operation.body) {
+      assert.equal(typeof operation.body.schema, "object", `${label}.operations.${operationName}.body.schema is required.`);
+    }
   }
 
-  assert.equal(typeof resource.operations.create.body?.schema, "object", `${label}.operations.create.body.schema is required.`);
-  assert.equal(typeof resource.operations.replace.body?.schema, "object", `${label}.operations.replace.body.schema is required.`);
-  assert.equal(typeof resource.operations.patch.body?.schema, "object", `${label}.operations.patch.body.schema is required.`);
-
-  const requiredMetadata = deriveResourceRequiredMetadata(resource);
+  const requiredMetadata = deriveResourceRequiredMetadata(contract);
   assert.ok(Array.isArray(requiredMetadata.create), `${label}.derivedRequired.create must be an array.`);
   assert.ok(Array.isArray(requiredMetadata.replace), `${label}.derivedRequired.replace must be an array.`);
   assert.ok(Array.isArray(requiredMetadata.patch), `${label}.derivedRequired.patch must be an array.`);
 }
 
-test("workspace and account resources expose canonical validators", () => {
-  const resourcesByLabel = {
-    userProfile: userProfileResource,
-    userSettings: userSettingsResource
+test("account API contracts expose canonical validators for the operations they serve", () => {
+  const contractsByLabel = {
+    userProfile: userProfileContract,
+    userSettings: userSettingsContract
   };
 
-  for (const [label, resource] of Object.entries(resourcesByLabel)) {
-    assertResourceShape(resource, label);
+  for (const [label, contract] of Object.entries(contractsByLabel)) {
+    assertContractShape(contract, label);
   }
+  assert.deepEqual(Object.keys(userProfileContract.operations), ["patch", "avatarUpload", "avatarDelete"]);
+  assert.deepEqual(Object.keys(userSettingsContract.operations), [
+    "view",
+    "preferencesUpdate",
+    "notificationsUpdate",
+    "passwordChange",
+    "passwordMethodToggle",
+    "oauthLinkStart",
+    "oauthUnlink",
+    "logoutOtherSessions"
+  ]);
 });
 
 test("specialized settings and invite operations expose canonical validators", () => {
   const operationSpecs = [
-    { label: "userProfile.avatarUpload", operation: userProfileResource.operations.avatarUpload },
-    { label: "userProfile.avatarDelete", operation: userProfileResource.operations.avatarDelete },
-    { label: "userSettings.passwordChange", operation: userSettingsResource.operations.passwordChange },
-    { label: "userSettings.passwordMethodToggle", operation: userSettingsResource.operations.passwordMethodToggle },
-    { label: "userSettings.oauthLinkStart", operation: userSettingsResource.operations.oauthLinkStart },
-    { label: "userSettings.oauthUnlink", operation: userSettingsResource.operations.oauthUnlink },
-    { label: "userSettings.logoutOtherSessions", operation: userSettingsResource.operations.logoutOtherSessions }
+    { label: "userProfile.avatarUpload", operation: userProfileContract.operations.avatarUpload },
+    { label: "userProfile.avatarDelete", operation: userProfileContract.operations.avatarDelete },
+    { label: "userSettings.passwordChange", operation: userSettingsContract.operations.passwordChange },
+    { label: "userSettings.passwordMethodToggle", operation: userSettingsContract.operations.passwordMethodToggle },
+    { label: "userSettings.oauthLinkStart", operation: userSettingsContract.operations.oauthLinkStart },
+    { label: "userSettings.oauthUnlink", operation: userSettingsContract.operations.oauthUnlink },
+    { label: "userSettings.logoutOtherSessions", operation: userSettingsContract.operations.logoutOtherSessions }
   ];
 
   for (const { label, operation } of operationSpecs) {

@@ -214,25 +214,25 @@ Build a routed CRUD user interface as thin application pages over JSKIT's shared
 - Id: `crud/crud-screen-set`
 - Keywords: `actions`, `add`, `crud`, `delete`, `edit`, `filters`, `list`, `material`, `routes`, `view`, `vue`
 - Owner: `@jskit-ai/http-web@0.2.19`
-- Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-crud-core`
+- Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
 ## [JSON API CRUD resource package](/patterns/crud/json-api-resource-package)
 
-Build a complete application-owned CRUD server package from a migration, resource contract, and one framework module declaration.
+Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.
 
 - Id: `crud/json-api-resource-package`
 - Keywords: `actions`, `crud`, `database`, `json-api`, `migration`, `permissions`, `provider`, `repository`, `routes`, `service`
 - Owner: `@jskit-ai/crud-core@0.2.12`
-- Requires: `@jskit-ai/crud-core`, `@jskit-ai/resource-crud-core`
+- Requires: `@jskit-ai/crud-core`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
-## [Owner-scoped CRUD resource contract](/patterns/crud/resource-contract)
+## [Owner-scoped table resource and CRUD contract](/patterns/crud/resource-contract)
 
-Define an authenticated application resource whose records belong to the current user.
+Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.
 
 - Id: `crud/resource-contract`
-- Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `user`
+- Keywords: `authenticated`, `crud`, `database`, `owner-scoped`, `resource`, `table`, `user`
 - Owner: `@jskit-ai/resource-crud-core@0.1.202`
-- Requires: `@jskit-ai/resource-crud-core`
+- Requires: `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
 
 ## [MySQL application database](/patterns/database/mysql-application)
 
