@@ -87,7 +87,10 @@ the row policy. Server code that does not use it passes `returning: "id"` or
 `"none"`, which skips that read. `patch` and `delete` answer `null` for a
 record that is missing or outside the caller's scope; inside a transaction the
 caller opened, that failed write fails the transaction instead, so check first
-or use `patchMany(rows, { missing: "skip" })`.
+or use `patchMany(rows, { missing: "skip" })`. A row keyed by an id the code
+computes (a fingerprint, a conversation id) is read or created once with
+`findOrCreate({ id, ...attributes }, options)`, outside the transaction that
+then locks it.
 
 You never write `where workspace_id = ?`, so you cannot forget it. The row
 policy and write hooks go in the `owns` entry on the server, never in the
@@ -214,8 +217,9 @@ const SettlementFeature = defineFeature({
 });
 ```
 
-- Prefer `systemContext(reason).forWorkspace(id)` or `.forUser(id)`: the work
-  for each workspace or user is then scoped as usual.
+- Prefer `systemContext(reason).forWorkspace(id)`, `.forUser(id)` or
+  `.forWorkspaceUser(workspaceId, userId)`: the work for each workspace or user
+  is then scoped as usual.
 - A job loops over units of work, one transaction each, never over rows.
 - A request uses its own context. The only exception is a console report
   behind a console permission, with bounded output.
@@ -242,6 +246,12 @@ once and leaves the retry to its owner; a lock wait timeout is not retried.
 The work must therefore be safe to run again: HTTP calls, email and uploads go
 before or after the transaction, or into an outbox. Work that cannot be
 repeated passes `withTransaction(options, work, { retry: false })`.
+
+A failure of the work reaches the caller as json-rest-api's `RestApiWriteError`,
+with the work's error as its `cause` and the transaction's outcome. Work that
+throws an `AppError` for its callers, or whose callers compare or classify the
+error it threw, passes `{ asThrown: true }` and gets that error back as thrown;
+a failed commit still answers `RestApiWriteError`.
 
 ```js
 const allocate = (input, options) => repository.withTransaction(options, async (txOptions) => {
