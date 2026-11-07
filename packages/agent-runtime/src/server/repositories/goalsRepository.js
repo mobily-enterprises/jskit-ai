@@ -1,5 +1,5 @@
 import { AGENT_ROWS } from "../resources.js";
-import { firstRow, rowOf } from "./rows.js";
+import { conversationKey, firstRow, rowOf } from "./rows.js";
 
 const OPEN = Object.freeze(["active", "paused"]);
 
@@ -20,11 +20,11 @@ export function createGoalsRepository({ goals, options }) {
 
   /** The conversation's active or paused goal, or undefined. */
   function open(conversationId) {
-    return first({ conversation_id: conversationId, statusIn: OPEN });
+    return first({ conversation_id: conversationKey(conversationId), statusIn: OPEN });
   }
 
   function active(conversationId) {
-    return first({ conversation_id: conversationId, status: "active" });
+    return first({ conversation_id: conversationKey(conversationId), status: "active" });
   }
 
   async function create(attributes) {
@@ -46,7 +46,7 @@ export function createGoalsRepository({ goals, options }) {
   }
 
   async function resumePaused(conversationId) {
-    await goals.patchWhere({ conversation_id: conversationId, status: "paused" }, { status: "active", updated_at: now() }, { ...options, onlyIf: { status: "paused" } });
+    await goals.patchWhere({ conversation_id: conversationKey(conversationId), status: "paused" }, { status: "active", updated_at: now() }, { ...options, onlyIf: { status: "paused" } });
   }
 
   /** The goal's row once it is leased to this server for a round, or null when no round is due. */

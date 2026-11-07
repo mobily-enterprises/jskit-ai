@@ -4,7 +4,7 @@ import { isLostDuplicateInsertRace, retryDeadlocks } from "@jskit-ai/database-ru
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
-import { requireOwners, valueOnly } from "./handleGuards.js";
+import { requireDefinedFilters, requireOwners, valueOnly, whereSelection } from "./handleGuards.js";
 import { handleRecords, handleResult, idOf, inputData, readQueryParams, textList } from "./handleRecords.js";
 import {
   returnBadRequestWhenJsonRestFieldsetInvalid,
@@ -82,23 +82,6 @@ function manyResult(resource, result, returning) {
   }
   const rows = result?.data || [];
   return returning === "ids" ? rows.map((row) => String(row.id)) : handleRecords(resource, rows);
-}
-
-// A filtered write's selection: its filters, or every owned row when they are empty and `all: true` says so.
-function whereSelection(name, operation, filters, options) {
-  if (!isRecord(filters)) {
-    throw new TypeError(`${name}.${operation}() takes filters as an object.`);
-  }
-  if (Object.keys(filters).length > 0) {
-    if (options.all !== undefined) {
-      throw new TypeError(`${name}.${operation}() takes filters or all: true, not both.`);
-    }
-    return { filters };
-  }
-  if (options.all !== true) {
-    throw new TypeError(`${name}.${operation}() with empty filters changes every row the caller owns; pass all: true to mean it.`);
-  }
-  return { all: true };
 }
 
 /**
@@ -325,6 +308,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    * @param {{ context?: object | null, trx?: object | null }} [options]
    */
   async function aggregate({ measures, groupBy, filters, sort, page }, options = {}) {
+    requireDefinedFilters(name, "aggregate", filters);
     const result = await jsonRest().aggregate(
       {
         measures,
@@ -633,6 +617,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    * @param {{ context?: object | null, trx: object }} options
    */
   async function lockWhere(filters, options) {
+    requireDefinedFilters(name, "lockWhere", filters);
     const { query: visible } = await jsonRest().scopedQuery(
       { filters, purpose: "lock", transaction: options.trx },
       contextOf(options)
@@ -649,6 +634,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    * @param {{ context?: object | null, trx: object }} options
    */
   async function claim(filters, { limit, sort } = {}, options) {
+    requireDefinedFilters(name, "claim", filters);
     const { data } = await jsonRest().claim(
       {
         filters,
@@ -671,6 +657,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    * @param {{ context?: object | null, trx?: object | null }} [options]
    */
   async function scopedQuery(params = {}, options = {}) {
+    requireDefinedFilters(name, "scopedQuery", params.filters);
     return jsonRest().scopedQuery({ ...params, transaction: options.trx || undefined }, contextOf(options));
   }
 
