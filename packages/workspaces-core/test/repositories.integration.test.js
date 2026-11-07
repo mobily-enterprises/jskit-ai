@@ -704,9 +704,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     }
   });
 
-  test("a standalone duplicate workspace recovers after rollback without overwriting the existing row", {
-    skip: !databaseUrl && "Application duplicate recovery supports native MySQL/Postgres drivers"
-  }, async () => {
+  test("a standalone duplicate workspace recovers after rollback without overwriting the existing row", async () => {
     const owner = await createProfile("Ada");
     const original = await workspaces.insert({ slug: "duplicate", name: "Original", ownerUserId: owner.id });
     const duplicate = await workspaces.insert({ slug: "duplicate", name: "Replacement", ownerUserId: owner.id });
@@ -731,15 +729,12 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       return true;
     });
     assert.equal(participantFailure?.transactionOutcome, "pending");
-    if (databaseUrl) assert.ok(findDuplicateEntryError(participantFailure));
-    else assert.equal(participantFailure.cause.code, "SQLITE_CONSTRAINT_UNIQUE");
+    assert.ok(findDuplicateEntryError(participantFailure));
     assert.equal((await profiles.findById(owner.id)).displayName, "Ada");
     assert.equal(Number((await knex("workspaces").count({ count: "*" }).first()).count), 1);
   });
 
-  test("profile email conflicts retain the real database cause after the standalone transaction rolls back", {
-    skip: !databaseUrl && "Application duplicate recovery supports native MySQL/Postgres drivers"
-  }, async () => {
+  test("profile email conflicts retain the real database cause after the standalone transaction rolls back", async () => {
     const owner = await createProfile("Ada");
     await assert.rejects(profiles.upsert({
       authProvider: "local", authProviderUserSid: "different-identity",
