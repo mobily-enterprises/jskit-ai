@@ -411,6 +411,60 @@ test("workspace_or_shared reads a workspace's rows and the shared ones, and writ
   assert.equal((await knex("notes").where({ id: shared.id }).first()).title, "shared");
 });
 
+test("a context naming no owner the table needs is refused, never read as the rows with no owner", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("notes", (table) => {
+    table.increments("id");
+    table.integer("workspace_id").nullable();
+    table.string("title").notNullable();
+  });
+  await knex.schema.createTable("bookmarks", (table) => {
+    table.increments("id");
+    table.integer("user_id").nullable();
+    table.string("title").notNullable();
+  });
+  await knex("notes").insert([{ workspace_id: null, title: "orphan" }, { workspace_id: 1, title: "mine" }]);
+  await knex("bookmarks").insert([{ user_id: null, title: "orphan" }, { user_id: 7, title: "mine" }]);
+  const workspaceField = { type: "id", nullable: true, search: true, storage: { column: "workspace_id" } };
+  const userField = { type: "id", nullable: true, search: true, storage: { column: "user_id" } };
+  const runtime = await createTestResourceRuntime({ knex });
+  const { notes, bookmarks } = await runtime.own("notes.feature", [
+    defineTableResource({ name: "notes", tableName: "notes", ownership: "workspace", schema: { workspaceId: workspaceField, title: { type: "string", required: true } } }),
+    defineTableResource({ name: "bookmarks", tableName: "bookmarks", ownership: "user", schema: { userId: userField, title: { type: "string", required: true } } })
+  ]);
+  const system = runtime.createSystemContext({ feature: "notes.feature", systemScope: "tests", reason: "check scopes" });
+  const userRoute = { visibilityContext: { visibility: "user", scopeOwnerId: "7", userId: "7" } };
+  const page = { page: { size: 10 } };
+
+  for (const [handle, context, owner] of [
+    [notes, {}, "workspace"],
+    [notes, userRoute, "workspace"],
+    [notes, system.forUser("7"), "workspace"],
+    [bookmarks, {}, "user"],
+    [bookmarks, system.forWorkspace("1"), "user"]
+  ]) {
+    const refused = new RegExp(`rows each belong to a ${owner}, and this context names no ${owner}`, "u");
+    await assert.rejects(handle.query(page, { context }), refused);
+    await assert.rejects(handle.queryAll({}, { context }), refused);
+    await assert.rejects(handle.create({ title: "x" }, { context }), refused);
+    await assert.rejects(handle.patchWhere({ title: "orphan" }, { title: "taken" }, { context }), refused);
+  }
+  assert.equal((await knex("notes").where({ title: "x" })).length, 0);
+  assert.deepEqual((await notes.queryAll({}, { context: WORKSPACE_A })).map(({ title }) => title), ["mine"]);
+  assert.deepEqual((await bookmarks.queryAll({}, { context: userRoute })).map(({ title }) => title), ["mine"]);
+  assert.equal((await notes.queryAll({}, { context: system })).length, 2);
+});
+
+test("workspace_or_shared without a workspace reads only the shared rows and writes none", async (t) => {
+  const { notes, knex } = await createFixture(t, { owns: [noteResource({ ownership: "workspace_or_shared" })] });
+  await knex("notes").insert([{ workspace_id: null, title: "shared" }, { workspace_id: 2, title: "theirs" }]);
+  const { records } = await notes.query({ page: { size: 10 } }, { context: {} });
+  assert.deepEqual(records.map(({ title }) => title), ["shared"]);
+  await assert.rejects(notes.create({ title: "stray" }, { context: {} }));
+  assert.equal((await knex("notes").where({ title: "stray" })).length, 0);
+});
+
 test("row policies read their own tables read-only, and contributions only narrow", async (t) => {
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
   t.after(() => knex.destroy());

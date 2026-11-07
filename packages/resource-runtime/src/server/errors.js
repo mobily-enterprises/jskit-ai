@@ -6,11 +6,17 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 
 /** A handle call on an owned resource without the caller's context: ownership cannot be applied, so nothing runs. */
 class MissingScopeError extends TypeError {
-  /** @param {string} resourceName */
-  constructor(resourceName) {
+  /**
+   * @param {string} resourceName
+   * @param {"workspace" | "user"} [owner] The owner the table's rows belong to, when the context names none.
+   */
+  constructor(resourceName, owner) {
     super(
-      `${resourceName} needs options.context: the caller's action context, or a system context for work across ` +
-        "every workspace. Without it the ownership scope cannot be applied."
+      (owner
+        ? `${resourceName} rows each belong to a ${owner}, and this context names no ${owner}, so the ownership scope cannot be applied. `
+        : `${resourceName} needs options.context, so the ownership scope can be applied. `) +
+        "Pass on the options your function received. Only a background job of a feature with systemScope uses " +
+        "systemContext(reason).forWorkspace(id); never use it to make a request work."
     );
     this.name = "MissingScopeError";
     this.code = "RESOURCE_MISSING_SCOPE";
