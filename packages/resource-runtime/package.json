@@ -19,7 +19,7 @@
     "@jskit-ai/database-runtime": "0.1.260",
     "@jskit-ai/resource-core": "0.1.202",
     "@jskit-ai/resource-crud-core": "0.1.202",
-    "json-rest-api": "3.0.0"
+    "json-rest-api": "file:/tmp/claude-1000/-home-merc-Development-current-vibe64-online/11913d76-21a5-4a94-bc3f-3a63ceff7b20/scratchpad/da-build/json-rest-api-3.0.0.tgz"
   },
   "description": "The resource runtime: features own their tables through it and read and write them with scoped handles on json-rest-api.",
   "jskit": {
