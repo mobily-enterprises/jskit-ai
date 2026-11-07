@@ -1,5 +1,6 @@
 import { SUMMARY_LIMITS, assertCallbacks, cutPoint, estimateTokens, transcriptText, writeSummary } from "@jskit-ai/agent/server";
 import { NO_NOTICES } from "./notices.js";
+import { createSummariesRepository } from "./repositories/summariesRepository.js";
 
 /**
  * Summaries between turns, in the background. A reply reads the conversation's newest summary and
@@ -11,8 +12,9 @@ import { NO_NOTICES } from "./notices.js";
  * close to DeepSeek Harness's 727k/127k: a chat is read word for word until it's far into the
  * window, leaving room for one long turn's own steps on top.
  *
- * Tables: summaries (id, conversation_id, covers_up_to, summary, messages, created_at) and a queue
- * (conversation_id unique, requested_at, run_after, lease_until, attempts, last_error).
+ * Tables (resources.js): summaries (agentSummaries: id, conversation_id, covers_up_to, summary,
+ * messages, created_at) and a queue (agentSummaryQueue: conversation_id its key, requested_at,
+ * run_after, lease_until, attempts, last_error), on the handles of the feature that owns them.
  *
  * Hooks: `history(conversationId, { after })` gives { messages, inherited, toModel, named }: the
  * stored messages after `after` (message ids), what a conversation inherits from one it continues
@@ -22,35 +24,37 @@ import { NO_NOTICES } from "./notices.js";
  * the model call. `track` and `summarize` are functions, or left out for their defaults. Without
  * `notices`, each server finds queued conversations on its own timer.
  * @param {object} dependencies
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ * @param {Readonly<Record<string, import("@jskit-ai/resource-runtime/server/types").ResourceHandle>>} dependencies.resources The owner's handles (agentResources()).
+ * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext The owner's system context factory.
  * @param {import("ai").LanguageModel} [dependencies.model]
  * @param {string} [dependencies.app]
  * @param {(conversationId: number | string, query: { after: number }) => Promise<{ messages: object[], inherited: object[], toModel: (messages: object[]) => Promise<object[]>, named?: boolean }>} dependencies.history
  * @param {(conversationId: number | string, work: () => Promise<string>) => Promise<string>} [dependencies.track]
  * @param {import("./types.js").AgentNotices | null} [dependencies.notices]
- * @param {{ summaries: string, queue: string }} [dependencies.tables]
  * @param {string} [dependencies.channel]
  * @param {(input: { previous: string, text: string }) => Promise<string>} [dependencies.summarize]
  * @param {typeof SUMMARY_LIMITS} [dependencies.limits]
  */
 export function createSummaries({
-  knex,
+  resources,
+  systemContext,
   model,
   app = "the app",
   history,
   track = runSummaryUnmetered,
   notices,
-  tables = { summaries: "agent_summaries", queue: "agent_summary_queue" },
   channel = "agent-summaries",
   summarize = (input) => writeSummary({ model, app, ...input, limits }),
   limits = SUMMARY_LIMITS
 }) {
   assertCallbacks("createSummaries", { track, summarize });
   const channelNotices = notices ?? NO_NOTICES;
-
-  async function latest(conversationId) {
-    return knex(tables.summaries).where({ conversation_id: conversationId }).orderBy("id", "desc").first();
-  }
+  const store = createSummariesRepository({
+    summaries: resources.agentSummaries,
+    queue: resources.agentSummaryQueue,
+    options: Object.freeze({ context: systemContext("summaries between turns are queued and written for every conversation by any server") })
+  });
+  const latest = (conversationId) => store.latest(conversationId);
 
   /** What a reply reads: the newest summary's text, and the id after which messages are read whole. */
   async function current(conversationId) {
@@ -64,7 +68,7 @@ export function createSummaries({
     const { messages, inherited, toModel } = await history(conversationId, { after });
     const size = estimateTokens(await toModel([...(after ? [] : inherited), ...messages]));
     if (size <= limits.compactAt) return false;
-    await knex(tables.queue).insert({ conversation_id: conversationId }).onConflict("conversation_id").ignore();
+    await store.enqueue(conversationId);
     await channelNotices.publish(channel, "all", {}).catch(() => {});
     return true;
   }
@@ -92,14 +96,8 @@ export function createSummaries({
     const summary = await track(conversationId, () => summarize({ previous: previous?.summary || "", text: transcriptText(modelMessages, { named }) }));
     if (!summary) throw new Error("The summary came back empty.");
     const coversUpTo = Number(folded.at(-1).id);
-    await knex.transaction(async (trx) => {
-      // Another server's newer summary wins; this one is dropped.
-      const newest = await trx(tables.summaries).where({ conversation_id: conversationId }).orderBy("id", "desc").forUpdate().first();
-      if (newest && Number(newest.covers_up_to) >= coversUpTo) return;
-      await trx(tables.summaries).insert({ conversation_id: conversationId, covers_up_to: coversUpTo, summary, messages: folded.length });
-      const old = await trx(tables.summaries).where({ conversation_id: conversationId }).orderBy("id", "desc").offset(limits.keepSummaries).pluck("id");
-      if (old.length) await trx(tables.summaries).whereIn("id", old).del();
-    });
+    // Another server's newer summary wins; this one is dropped.
+    await store.saveUnlessNewer(conversationId, { coversUpTo, summary, messages: folded.length }, limits.keepSummaries);
     return { coversUpTo, messages: folded.length };
   }
 
@@ -122,29 +120,17 @@ export function createSummaries({
   }
 
   /** Claimed once across servers with a lease; a failure waits longer before the next try. */
-  async function claim() {
-    return knex.transaction(async (trx) => {
-      const due = await trx(tables.queue).where("run_after", "<=", trx.fn.now())
-        .where((query) => query.whereNull("lease_until").orWhere("lease_until", "<", trx.fn.now()))
-        .orderBy("requested_at").forUpdate().skipLocked().first();
-      if (!due) return null;
-      await trx(tables.queue).where({ conversation_id: due.conversation_id }).update({ lease_until: trx.raw(`now() + interval '${Number(limits.leaseMinutes)} minutes'`) });
-      return due;
-    });
-  }
-
   async function runOne() {
-    const job = await claim();
+    const job = await store.claimDue(Number(limits.leaseMinutes) * 60);
     if (!job) return false;
     try {
       await compact(job.conversation_id);
-      await knex(tables.queue).where({ conversation_id: job.conversation_id }).del();
+      await store.dequeue(job.conversation_id);
       // Still too long (a backlog folded in pieces)? Queue the next piece.
       await consider(job.conversation_id);
     } catch (error) {
       const wait = Math.min(60, 2 ** job.attempts);
-      await knex(tables.queue).where({ conversation_id: job.conversation_id })
-        .update({ attempts: job.attempts + 1, lease_until: null, last_error: String(error?.message || error).slice(0, 500), run_after: knex.raw(`now() + interval '${wait} minutes'`) }).catch(() => {});
+      await store.retryLater(job.conversation_id, { attempts: job.attempts + 1, lastError: String(error?.message || error).slice(0, 500), waitSeconds: wait * 60 }).catch(() => {});
     }
     return true;
   }

@@ -3,7 +3,7 @@ import test from "node:test";
 import { SUMMARY_LIMITS } from "@jskit-ai/agent/server";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import { createSummaries } from "../src/server/index.js";
-import { testDatabase } from "./database.js";
+import { agentOwner, testDatabase } from "./database.js";
 
 // What createSummaries answers and keeps today, pinned before its tables move onto resources: the
 // shapes of current() and compact(), summaries kept per conversation, the newest-summary-wins rule
@@ -14,6 +14,7 @@ const words = (n) => `Message ${n}. ${"Some detail here. ".repeat(11)}`;
 
 async function conversations(context) {
   const knex = await testDatabase(context);
+  const agent = await agentOwner(knex);
   await knex.schema.createTable("chat_messages", (table) => {
     table.bigIncrements("id").primary();
     table.bigInteger("conversation_id").notNullable();
@@ -34,13 +35,13 @@ async function conversations(context) {
     toModel: async (messages) => messages.map((message) => ({ role: message.role === "user" ? "user" : "assistant", content: message.body.text }))
   });
   const queued = (conversationId) => knex("agent_summary_queue").where({ conversation_id: conversationId }).first();
-  return { knex, say, exchanges, history, queued };
+  return { knex, agent, say, exchanges, history, queued };
 }
 
 test("current() and compact() answer fixed shapes, per conversation", async (context) => {
   requireTestDatabase(process.env);
-  const { knex, exchanges, history } = await conversations(context);
-  const store = createSummaries({ knex, history, limits, summarize: async () => "SUMMARY ONE" });
+  const { knex, agent, exchanges, history } = await conversations(context);
+  const store = createSummaries({ ...agent, history, limits, summarize: async () => "SUMMARY ONE" });
   assert.deepEqual(Object.keys(store).sort(), ["compact", "consider", "current", "ensureWithin", "runOne", "start"]);
   assert.ok(Object.isFrozen(store));
   assert.deepEqual(await store.current(1), { summary: "", after: 0 });
@@ -61,9 +62,9 @@ test("current() and compact() answer fixed shapes, per conversation", async (con
 
 test("only the newest summaries are kept, and a reply reads the newest", async (context) => {
   requireTestDatabase(process.env);
-  const { knex, exchanges, history } = await conversations(context);
+  const { knex, agent, exchanges, history } = await conversations(context);
   let count = 0;
-  const store = createSummaries({ knex, history, limits, summarize: async ({ previous }) => `SUMMARY ${++count} after [${previous}]` });
+  const store = createSummaries({ ...agent, history, limits, summarize: async ({ previous }) => `SUMMARY ${++count} after [${previous}]` });
   await exchanges(3, 1, 4);
   await store.compact(3);
   await exchanges(3, 5, 7);
@@ -78,17 +79,17 @@ test("only the newest summaries are kept, and a reply reads the newest", async (
 
 test("another server's newer summary wins, and the losing compact still answers what it covered", async (context) => {
   requireTestDatabase(process.env);
-  const { knex, exchanges, history } = await conversations(context);
+  const { knex, agent, exchanges, history } = await conversations(context);
   let release;
   const gate = new Promise((resolve) => (release = resolve));
   let reached;
   const started = new Promise((resolve) => (reached = resolve));
-  const slow = createSummaries({ knex, history, limits, summarize: async () => {
+  const slow = createSummaries({ ...agent, history, limits, summarize: async () => {
     reached();
     await gate;
     return "SLOW SERVER";
   } });
-  const fast = createSummaries({ knex, history, limits, summarize: async () => "FAST SERVER" });
+  const fast = createSummaries({ ...agent, history, limits, summarize: async () => "FAST SERVER" });
   await exchanges(4, 1, 4);
   const losing = slow.compact(4);
   await started;
@@ -101,9 +102,9 @@ test("another server's newer summary wins, and the losing compact still answers 
 
 test("the queue keeps one request per conversation, runs the oldest first and leaves a leased one alone", async (context) => {
   requireTestDatabase(process.env);
-  const { knex, exchanges, history, queued } = await conversations(context);
+  const { knex, agent, exchanges, history, queued } = await conversations(context);
   const order = [];
-  const store = createSummaries({ knex, history, limits, summarize: async () => "QUEUED SUMMARY", track: (conversationId, work) => (order.push(conversationId), work()) });
+  const store = createSummaries({ ...agent, history, limits, summarize: async () => "QUEUED SUMMARY", track: (conversationId, work) => (order.push(conversationId), work()) });
   await exchanges(5, 1, 4);
   await exchanges(6, 1, 4);
   assert.equal(await store.consider(5), true);
@@ -130,8 +131,8 @@ test("the queue keeps one request per conversation, runs the oldest first and le
 
 test("an empty summary is an error; failures back off 1, then 2 minutes", async (context) => {
   requireTestDatabase(process.env);
-  const { knex, exchanges, history, queued } = await conversations(context);
-  const store = createSummaries({ knex, history, limits, summarize: async () => "" });
+  const { knex, agent, exchanges, history, queued } = await conversations(context);
+  const store = createSummaries({ ...agent, history, limits, summarize: async () => "" });
   await exchanges(7, 1, 4);
   await assert.rejects(store.compact(7), (error) => error instanceof Error && error.message === "The summary came back empty.");
   assert.equal(await store.consider(7), true);
@@ -157,9 +158,9 @@ test("an empty summary is an error; failures back off 1, then 2 minutes", async 
 // up to 20 times a tick, without ever summarising it.
 test("a queued conversation whose compact is skipped is queued again at once", async (context) => {
   requireTestDatabase(process.env);
-  const { knex, say, history, queued } = await conversations(context);
+  const { agent, say, history, queued } = await conversations(context);
   const summarized = [];
-  const store = createSummaries({ knex, history, limits, summarize: async (input) => (summarized.push(input), "NEVER") });
+  const store = createSummaries({ ...agent, history, limits, summarize: async (input) => (summarized.push(input), "NEVER") });
   await say(8, "user", "One long turn. ".repeat(60));
   await say(8, "bot", "A long answer. ".repeat(60));
   assert.equal(await store.consider(8), true);
