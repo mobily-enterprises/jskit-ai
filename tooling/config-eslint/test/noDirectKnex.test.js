@@ -20,6 +20,7 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
     "const file = path.join(\"migrations\", name);\nconst other = nodePath.posix.join(\"a\", \"b\");",
     "const label = names.join(\", \");\nconsole.table(\"rows\");",
     "runtime.knex = connection;",
+    "const reply = await client(model);\nconst draft = transaction(saved);\nconst view = db(record).view;",
     `${EXCUSE}\nimport { readFile } from "node:fs/promises";\nexport const applied = (knex) => knex("knex_migrations").select("name");`,
     "/* readable-check: allow jskit/no-direct-knex - infrastructure: the database template copier */\nexport const copy = (database) => database.knex.raw(\"select 1\");"
   ],
@@ -35,6 +36,10 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
     {
       code: "await trx(`audit_events`).insert(row);\nawait db(\"pets\").del();\nawait client(\"rooms\").select();\nawait tx(\"lots\").select();",
       errors: [{ messageId: "tableBuilder", line: 1 }, { messageId: "tableBuilder", line: 2 }, { messageId: "tableBuilder", line: 3 }, { messageId: "tableBuilder", line: 4 }]
+    },
+    {
+      code: "await knex(tables.messages).where({ id });\nawait trx(table).insert(row);\nawait knex(`${prefix}_rows`).select();\nawait client(MODELS_TABLE).del();\nawait db(config.usersTable).select();\nawait client(tableName).first();",
+      errors: [1, 2, 3, 4, 5, 6].map((line) => ({ messageId: "tableBuilder", line }))
     },
     {
       code: "const rows = await database.knex(\"users\");",
