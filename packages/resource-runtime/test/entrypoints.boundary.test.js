@@ -9,12 +9,10 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 import { JsonRestApi, RestApiFieldsetError, RestApiWriteError } from "json-rest-api";
 
 import {
-  addResourceIfMissing,
   buildJsonRestQueryParams,
-  createJsonRestResourceScopeOptions,
   createJsonRestContext,
   createResourceHost,
-  extractJsonRestCollectionRows,
+  resourceScopeOptions,
   returnNullWhenJsonRestResourceMissing,
   returnBadRequestWhenJsonRestFieldsetInvalid,
   resolveWorkspaceScopeValue,
@@ -36,22 +34,22 @@ test("server resourceHost entrypoint exposes only the focused host API", async (
   assert.equal(Object.hasOwn(hostModule, "simplifyJsonApiDocument"), false);
   assert.equal(Object.hasOwn(hostModule, "createJsonApiInputRecord"), false);
   assert.equal(Object.hasOwn(hostModule, "createJsonApiRelationship"), false);
+  assert.equal(Object.hasOwn(hostModule, "addResourceIfMissing"), false);
+  assert.equal(Object.hasOwn(hostModule, "queryAllJsonRestCollectionRows"), false);
 });
 
 test("server entrypoint exports shared host helpers", () => {
-  assert.equal(typeof addResourceIfMissing, "function");
   assert.equal(typeof buildJsonRestQueryParams, "function");
-  assert.equal(typeof createJsonRestResourceScopeOptions, "function");
+  assert.equal(typeof resourceScopeOptions, "function");
   assert.equal(typeof createJsonRestContext, "function");
   assert.equal(typeof createResourceHost, "function");
-  assert.equal(typeof extractJsonRestCollectionRows, "function");
   assert.equal(typeof returnNullWhenJsonRestResourceMissing, "function");
   assert.equal(typeof returnBadRequestWhenJsonRestFieldsetInvalid, "function");
   assert.equal(typeof resolveWorkspaceScopeValue, "function");
   assert.equal(typeof resolveUserScopeValue, "function");
   assert.equal(ResourceRuntimeProvider.id, "runtime.resources");
   assert.deepEqual(ResourceRuntimeProvider.requires, { database: "runtime.database", logger: "runtime.logger" });
-  assert.deepEqual(ResourceRuntimeProvider.provides, { resources: "runtime.resources", jsonRestApi: "runtime.json-rest-api" });
+  assert.deepEqual(ResourceRuntimeProvider.provides, { resources: "runtime.resources" });
 });
 
 test("createJsonRestContext returns a mutable clone for frozen JSKIT execution context", () => {
@@ -90,24 +88,6 @@ test("createJsonRestContext returns an empty mutable object when source context 
   assert.deepEqual(result, {});
   result.method = "query";
   assert.equal(result.method, "query");
-});
-
-test("extractJsonRestCollectionRows understands the internal collection-document contract", () => {
-  const rows = [{ id: "1" }, { id: "2" }];
-
-  assert.deepEqual(
-    extractJsonRestCollectionRows({
-      data: rows,
-      links: {
-        self: "/contacts"
-      }
-    }),
-    rows
-  );
-  assert.deepEqual(extractJsonRestCollectionRows({ data: [] }), []);
-  for (const malformed of [rows, { data: null }, {}, null, undefined]) {
-    assert.throws(() => extractJsonRestCollectionRows(malformed), /collection response must contain a data array/);
-  }
 });
 
 test("createResourceHost installs normalizeRecordId as the default resource id normalizer", async () => {
@@ -176,13 +156,8 @@ test("createResourceHost uses the v2 runtime and the logger it is given", async 
   api.log.error("failure", { code: "example" });
   assert.deepEqual(messages, [["failure", { code: "example" }]]);
 
-  const providerMessages = [];
-  const { jsonRestApi } = await ResourceRuntimeProvider.setup({
-    database: { knex: fakeKnex },
-    logger: { ...silentLogger, warn: (...args) => providerMessages.push(args) }
-  });
-  jsonRestApi.log.warn("provider warning");
-  assert.deepEqual(providerMessages, [["provider warning"]]);
+  const provided = await ResourceRuntimeProvider.setup({ database: { knex: fakeKnex }, logger: silentLogger });
+  assert.deepEqual(Object.keys(provided), ["resources"]);
 });
 
 test("createResourceHost installs row policies before resources are added", async () => {
@@ -204,7 +179,7 @@ test("createResourceHost installs row policies before resources are added", asyn
 
   const api = await createResourceHost({ knex: fakeKnex, logger: silentLogger });
   const rowPolicy = () => false;
-  const scopeOptions = createJsonRestResourceScopeOptions(defineTableResource({
+  const scopeOptions = resourceScopeOptions(defineTableResource({
     name: "privateContacts",
     tableName: "private_contacts",
     schema: {
@@ -292,7 +267,7 @@ test("buildJsonRestQueryParams preserves structured filter values", () => {
   );
 });
 
-test("createJsonRestResourceScopeOptions clones canonical resource metadata and resolves symbolic write serializers", () => {
+test("resourceScopeOptions clones canonical resource metadata and resolves symbolic write serializers", () => {
   const serializer = (value) => value;
   const normalizeId = (value) => String(value || "").trim() || null;
   const rowPolicy = () => false;
@@ -342,7 +317,7 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
     })
   });
 
-  const result = createJsonRestResourceScopeOptions(source, {
+  const result = resourceScopeOptions(source, {
     normalizeId,
     rowPolicy,
     writeSerializers: {
@@ -383,7 +358,7 @@ test("createJsonRestResourceScopeOptions clones canonical resource metadata and 
   assert.equal(source.schema.createdAt.indexed, undefined);
 });
 
-test("createJsonRestResourceScopeOptions maps server query projections into json-rest-api queryFields", () => {
+test("resourceScopeOptions maps server query projections into json-rest-api queryFields", () => {
   const select = ({ knex }) => knex.raw("1");
   const resource = defineTableResource({
     name: "receivals",
@@ -409,7 +384,7 @@ test("createJsonRestResourceScopeOptions maps server query projections into json
     }
   });
 
-  const result = createJsonRestResourceScopeOptions(resource, {
+  const result = resourceScopeOptions(resource, {
     queryFields: {
       availableCapacityWeight: {
         type: "number",
@@ -432,7 +407,7 @@ test("createJsonRestResourceScopeOptions maps server query projections into json
   assert.equal(resource.schema.remainingProcessableWeight.storage.virtual, true);
 });
 
-test("createJsonRestResourceScopeOptions applies resource-owned default response exclusions", () => {
+test("resourceScopeOptions applies resource-owned default response exclusions", () => {
   const source = defineTableResource({
     name: "contacts",
     tableName: "contacts",
@@ -463,7 +438,7 @@ test("createJsonRestResourceScopeOptions applies resource-owned default response
     })
   });
 
-  const result = createJsonRestResourceScopeOptions(source);
+  const result = resourceScopeOptions(source);
 
   assert.equal(Object.hasOwn(result, "defaultExclude"), false);
   assert.equal(Object.hasOwn(result, "autofilter"), false);
@@ -474,7 +449,7 @@ test("createJsonRestResourceScopeOptions applies resource-owned default response
   assert.equal(source.schema.searchRank.normallyHidden, undefined);
 });
 
-test("createJsonRestResourceScopeOptions rejects invalid default response exclusions", () => {
+test("resourceScopeOptions rejects invalid default response exclusions", () => {
   const createResource = (defaultExclude) => defineTableResource({
     name: "contacts",
     tableName: "contacts",
@@ -491,22 +466,22 @@ test("createJsonRestResourceScopeOptions rejects invalid default response exclus
   });
 
   assert.throws(
-    () => createJsonRestResourceScopeOptions(createResource("name")),
+    () => resourceScopeOptions(createResource("name")),
     /resource defaultExclude must be an array/
   );
   assert.throws(
-    () => createJsonRestResourceScopeOptions(createResource(["unknown"])),
+    () => resourceScopeOptions(createResource(["unknown"])),
     /defaultExclude references unknown field "unknown"/
   );
   assert.throws(
-    () => createJsonRestResourceScopeOptions(createResource(["id"])),
+    () => resourceScopeOptions(createResource(["id"])),
     /defaultExclude cannot exclude identifier field "id"/
   );
 });
 
-test("createJsonRestResourceScopeOptions rejects query field names for column-backed schema fields", () => {
+test("resourceScopeOptions rejects query field names for column-backed schema fields", () => {
   assert.throws(
-    () => createJsonRestResourceScopeOptions(defineTableResource({
+    () => resourceScopeOptions(defineTableResource({
       name: "receivals",
       tableName: "receivals",
       schema: {
@@ -576,7 +551,7 @@ async function createTemporalFixture() {
       table.integer("holiday_id").references("id").inTable("holidays");
     });
     const api = await createResourceHost({ knex, logger: silentLogger });
-    await api.addResource("holidays", createJsonRestResourceScopeOptions(defineTableResource({
+    await api.addResource("holidays", resourceScopeOptions(defineTableResource({
       name: "holidays",
       tableName: "holidays",
       schema: {
@@ -584,7 +559,7 @@ async function createTemporalFixture() {
         observedOn: { type: "date" }
       }
     })));
-    await api.addResource("books", createJsonRestResourceScopeOptions(defineTableResource({
+    await api.addResource("books", resourceScopeOptions(defineTableResource({
       name: "books",
       tableName: "books",
       schema: {
@@ -638,7 +613,7 @@ test("calendar date writes and responses keep leap day across server time zones"
     import knexLib from "knex";
     import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
     import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
-    import { createResourceHost, createJsonRestResourceScopeOptions } from ${JSON.stringify(hostModuleUrl)};
+    import { createResourceHost, resourceScopeOptions } from ${JSON.stringify(hostModuleUrl)};
     ${createTemporalFixture.toString()}
     const { api, knex } = await createTemporalFixture();
     try {

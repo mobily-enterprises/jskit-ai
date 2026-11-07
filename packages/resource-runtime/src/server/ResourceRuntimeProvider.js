@@ -9,13 +9,11 @@ const ResourceRuntimeProvider = defineProvider({
     logger: "runtime.logger"
   },
   provides: {
-    resources: "runtime.resources",
-    jsonRestApi: "runtime.json-rest-api"
+    resources: "runtime.resources"
   },
   /**
-   * One json-rest-api host serves both: `runtime.resources`, through which
-   * features own their tables, and, until crud-core, users-core and
-   * workspaces-core own theirs, the host itself as `runtime.json-rest-api`.
+   * `runtime.resources`, through which features own their tables, on one
+   * json-rest-api host.
    * @param {object} dependencies
    * @param {import("@jskit-ai/database-runtime/server/types").RuntimeDatabase} dependencies.database
    * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
@@ -23,8 +21,7 @@ const ResourceRuntimeProvider = defineProvider({
   async setup({ database, logger }) {
     const api = await createResourceHost({ knex: database.knex, logger });
     return {
-      resources: createResourceRuntime({ api }),
-      jsonRestApi: api
+      resources: createResourceRuntime({ api })
     };
   }
 });
