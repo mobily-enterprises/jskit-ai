@@ -106,9 +106,24 @@ async function loadAppModule({
   return fallback;
 }
 
-function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime) {
+// Starts the app's optional modules downloading together, so boot waits for the slowest one instead of each in
+// turn; each is still read, checked and applied in order. A missing module is expected, so each import gets a
+// handler at once and its failure is read where it is awaited.
+function importAppModules() {
+  const imports = {
+    placements: import("/src/placement.js"),
+    placementTopology: import("/src/placementTopology.js"),
+    errorConfig: import("/src/error.js")
+  };
+  for (const pending of Object.values(imports)) {
+    pending.catch(() => {});
+  }
+  return imports;
+}
+
+function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime, pendingImport) {
   return loadAppModule({
-    importModule: () => import("/src/placement.js"),
+    importModule: () => pendingImport,
     specifier: APP_PLACEMENT_MODULE_SPECIFIER,
     label: t("jskit.shell.recovery.placementConfigLabel"),
     resolve(exported) {
@@ -123,9 +138,9 @@ function loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime) {
   });
 }
 
-function loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime) {
+function loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime, pendingImport) {
   return loadAppModule({
-    importModule: () => import("/src/placementTopology.js"),
+    importModule: () => pendingImport,
     specifier: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER,
     label: t("jskit.shell.recovery.placementTopologyLabel"),
     resolve: (exported) => resolveAppPlacementTopologyExport(exported, logger),
@@ -168,9 +183,9 @@ function createErrorConfigToolkit(errorRuntime) {
   });
 }
 
-function loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime) {
+function loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime, pendingImport) {
   return loadAppModule({
-    importModule: () => import("/src/error.js"),
+    importModule: () => pendingImport,
     specifier: APP_ERROR_MODULE_SPECIFIER,
     label: t("jskit.shell.recovery.errorConfigLabel"),
     async resolve(exported) {
@@ -353,9 +368,10 @@ const ShellWebClientProvider = defineProvider({
     // Before the router's first navigation, so the trail starts with the page the tab opened on.
     navigationRuntime.install();
 
-    const placementTopology = await loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime);
+    const appModules = importAppModules();
+    const placementTopology = await loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime, appModules.placementTopology);
     placementRuntime.replacePlacementTopology(placementTopology, { source: APP_PLACEMENT_TOPOLOGY_MODULE_SPECIFIER });
-    const placements = await loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime);
+    const placements = await loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime, appModules.placements);
     placementRuntime.replacePlacements(placements, { source: APP_PLACEMENT_MODULE_SPECIFIER });
     const appConfig = getClientAppConfig();
     const surfaceConfig = buildSurfaceConfigContext(surfaceRuntime, {
@@ -371,7 +387,7 @@ const ShellWebClientProvider = defineProvider({
       }
     );
 
-    const errorConfig = await loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime);
+    const errorConfig = await loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime, appModules.errorConfig);
     errorRuntime.configure(errorConfig);
     requestRecoveryRuntime.install();
     // After the app's error configuration, so the offer follows its policy.

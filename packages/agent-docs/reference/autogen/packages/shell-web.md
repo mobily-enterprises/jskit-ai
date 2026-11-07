@@ -500,10 +500,11 @@ Exports
 - `resolveAppPlacementTopologyExport(exported, logger)`
 Local functions
 - `loadAppModule({ importModule, specifier, label, resolve, invalidExportMessage = "", loadFailureMessage, fallback, logger, asyncModuleRecoveryRuntime })`
-- `loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime)`
-- `loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime)`
+- `importAppModules()`
+- `loadAppPlacementDefinitions(logger, asyncModuleRecoveryRuntime, pendingImport)`
+- `loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime, pendingImport)`
 - `createErrorConfigToolkit(errorRuntime)`
-- `loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime)`
+- `loadAppErrorConfig(logger, errorRuntime, asyncModuleRecoveryRuntime, pendingImport)`
 - `installVueErrorBridge(vueApp, errorRuntime, logger)`
 - `installRouterErrorBridge(router, errorRuntime, logger)`
 

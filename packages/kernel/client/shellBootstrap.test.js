@@ -413,6 +413,49 @@ test("bootstrapClientShellApp boots modules, reinstalls fallback route, and moun
   assert.equal(calls.includes("router-ready:3"), true);
 });
 
+test("bootstrapClientShellApp starts loading the opening page's code before the client modules boot", async () => {
+  const loads = [];
+  const loader = (name) => () => {
+    loads.push(name);
+    return Promise.resolve({ default: { name } });
+  };
+  const notFound = loader("not-found");
+  const matchedByLocation = {
+    "/home": [
+      { name: "home-layout", components: { default: loader("layout") } },
+      { name: "home", components: { default: loader("page"), aside: { name: "RenderedAside" } } }
+    ],
+    "/auth/login": [{ name: "not-found", components: { default: notFound } }]
+  };
+
+  for (const [location, expected] of [["/home", ["layout", "page"]], ["/auth/login", []]]) {
+    loads.length = 0;
+    let loadedWhenModulesBoot = null;
+    await bootstrapClientShellApp({
+      createApp: () => ({ use() {}, mount() {} }),
+      router: {
+        options: { history: { location } },
+        resolve: (to) => ({ matched: matchedByLocation[to] }),
+        addRoute() {},
+        hasRoute: () => false,
+        removeRoute() {},
+        getRoutes: () => [],
+        async isReady() {}
+      },
+      surfaceRuntime: createSurfaceRuntimeFixture(),
+      logger: silentLogger,
+      fallbackRoute: { name: "not-found", path: "/:pathMatch(.*)*", component: notFound },
+      bootClientModules: async () => {
+        await Promise.resolve();
+        loadedWhenModulesBoot = [...loads];
+        return {};
+      }
+    });
+
+    assert.deepEqual(loadedWhenModulesBoot, expected, location);
+  }
+});
+
 test("bootstrapClientShellApp installs the app's vue-i18n once and translates JSKIT through it", async () => {
   const { createI18n } = await import("vue-i18n");
   const { registerJskitMessages, useJskitText } = await import("./i18n.js");

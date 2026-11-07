@@ -197,6 +197,43 @@ function createSurfaceShellRouter({
   });
 }
 
+// A route record's component is a loader, not a component, when it is a function vue-router cannot render: the
+// router calls it while navigating, after the beforeEach guards, and keeps the module it resolves to.
+function isLazyRouteComponent(component) {
+  return typeof component === "function" &&
+    !("displayName" in component) &&
+    !("props" in component) &&
+    !("__vccOpts" in component);
+}
+
+// Starts downloading the code of the page the tab opened on, so it arrives while the client modules boot (the shell's
+// bootstrap and session requests among them) instead of after them and the router's guards. The router later calls
+// the same loaders and gets the modules from the browser's module map, and still reports a failed one. A guard that
+// redirects leaves the download unused; a path only the modules' routes serve, which the router cannot match yet, is
+// left to the router.
+function preloadOpeningRouteComponents(router, fallbackRoute) {
+  const location = router.options?.history?.location;
+  if (!location) {
+    return;
+  }
+  let matched = [];
+  try {
+    ({ matched } = router.resolve(location));
+  } catch {
+    return;
+  }
+  if (fallbackRoute?.name && matched.some((record) => record.name === fallbackRoute.name)) {
+    return;
+  }
+  for (const record of matched) {
+    for (const component of Object.values(record.components || {})) {
+      if (isLazyRouteComponent(component)) {
+        Promise.resolve().then(component).catch(ignoreBootstrapStep);
+      }
+    }
+  }
+}
+
 /**
  * Starts the application: its plugins, its client modules, its router and finally the mounted app.
  * @param {object} options
@@ -266,6 +303,7 @@ async function bootstrapClientShellApp({
     debugEnvKey
   }));
 
+  preloadOpeningRouteComponents(router, fallbackRoute);
   const clientBootstrap = await bootClientModules({
     app,
     pinia,

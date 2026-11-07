@@ -538,6 +538,8 @@ Local functions
 - `isSurfaceRootRecord(record)`
 - `hostsChildViews(record)`
 - `hashScrollMargin(hash)`
+- `isLazyRouteComponent(component)`
+- `preloadOpeningRouteComponents(router, fallbackRoute)`
 
 ### `client/shellRouting.js`
 Exports
