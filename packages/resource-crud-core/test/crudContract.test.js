@@ -16,6 +16,7 @@ const contactResource = defineTableResource({
 
 function contactsCrud(overrides = {}) {
   return defineCrudContract(contactResource, {
+    namespace: "contacts",
     contract: { lookup: { containerKey: "lookups" } },
     messages: { validation: "Fix invalid values." },
     ...overrides
@@ -109,17 +110,20 @@ test("a contract fails fast when an operation it offers cannot be derived", () =
   const settings = defineTableResource({ name: "assistantSettings", tableName: "assistant_settings", ownership: "public", schema: { secret: { type: "string", hidden: true } } });
 
   assert.throws(
-    () => defineCrudContract(settings, { operations: ["view", "patch"], patchBody: createSchema({ prompt: { type: "string" } }) }),
+    () => defineCrudContract(settings, { namespace: "assistantSettings", operations: ["view", "patch"], patchBody: createSchema({ prompt: { type: "string" } }) }),
     /derived output requires an explicit output or at least one field with an output operation/u
   );
   assert.throws(
-    () => defineCrudContract(settings, { operations: ["patch"], output: idOutput }),
+    () => defineCrudContract(settings, { namespace: "assistantSettings", operations: ["patch"], output: idOutput }),
     /derived patch body requires an explicit patchBody or at least one field with a patch operation/u
   );
 });
 
 test("a contract is built on a table resource and takes only the CRUD keys", () => {
-  assert.throws(() => defineCrudContract({ name: "contacts", tableName: "contacts", schema: {} }, {}), /requires a table resource from defineTableResource/u);
+  assert.throws(() => defineCrudContract({ name: "contacts", tableName: "contacts", schema: {} }, { namespace: "contacts" }), /requires a table resource from defineTableResource/u);
+  // The namespace is the API's public name, so it is always named.
+  assert.throws(() => defineCrudContract(contactResource, {}), /defineCrudContract\(contacts\) needs namespace/u);
+  assert.throws(() => defineCrudContract(contactResource, { namespace: " " }), /needs namespace/u);
   assert.throws(() => contactsCrud({ tableName: "contacts" }), /does not take tableName\. A CRUD contract takes namespace, apiAccess, operations, fields/u);
   assert.throws(() => contactsCrud({ crudOperations: ["list"] }), /does not take crudOperations/u);
   assert.throws(() => contactsCrud({ contract: { response: { defaultExclude: ["notes"] } } }), /contract\.response belongs to the table resource: its defaultExclude/u);

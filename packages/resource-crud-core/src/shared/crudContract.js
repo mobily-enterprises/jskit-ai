@@ -343,18 +343,25 @@ function requireContractConfig(config) {
  * without one takes the default (see buildCrudOperationSchemaFields).
  * Operations that are not CRUD belong to an API contract (defineApiContract).
  * @param {Record<string, any>} resource A table resource from defineTableResource.
- * @param {Record<string, any>} [config]
- * @param {string} [config.namespace] The HTTP, message and realtime namespace; the resource's name when absent.
+ * @param {Record<string, any>} config
+ * @param {string} config.namespace The HTTP, message and realtime namespace, named on purpose: it is the API's
+ *   public name, and renaming the resource must not move it.
  * @param {string} [config.apiAccess] "authenticated" or "public".
  * @param {string[]} [config.operations] The CRUD operations offered; list, view, create, patch and delete when absent.
  * @param {Record<string, Record<string, unknown>>} [config.fields]
  */
-function defineCrudContract(resource, config = {}) {
+function defineCrudContract(resource, config) {
   if (!isTableResource(resource)) {
     throw new TypeError("defineCrudContract requires a table resource from defineTableResource.");
   }
   requireContractConfig(config);
-  const namespace = normalizeText(config.namespace) || resource.name;
+  const namespace = normalizeText(config.namespace);
+  if (!namespace) {
+    throw new TypeError(
+      `defineCrudContract(${resource.name}) needs namespace: the HTTP, message and realtime namespace its routes, ` +
+        "messages and events use, such as \"bookings\". It is the API's public name, so it is named, not taken from the resource."
+    );
+  }
   const source = Object.freeze({
     resource,
     config,

@@ -64,6 +64,7 @@ function createBookingsResource() {
     }
   });
   return defineCrudContract(bookings, {
+    namespace: "bookings",
     operations: ["list", "view"],
     contract: {
       lookup: {

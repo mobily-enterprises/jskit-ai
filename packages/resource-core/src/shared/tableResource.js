@@ -106,7 +106,7 @@ function normalizeTableSchema(schema) {
     if (Object.hasOwn(fieldDefinition, "operations")) {
       throw new TypeError(
         `defineTableResource schema.${fieldKey}.operations belongs to the CRUD contract: ` +
-          `defineCrudContract(resource, { fields: { ${fieldKey}: ... } }).`
+          `defineCrudContract(resource, { namespace, fields: { ${fieldKey}: ... } }).`
       );
     }
     return [fieldKey, typeof fieldDefinition.lookup === "string" ? expandLookupField(fieldKey, fieldDefinition) : fieldDefinition];

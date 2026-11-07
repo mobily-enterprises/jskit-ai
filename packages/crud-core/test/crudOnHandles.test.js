@@ -49,7 +49,7 @@ async function createFixture(t) {
   const service = createCrudService({ repository, resourceName: "notes" });
   const actionsFor = (options) => createCrudJsonApiActions(crudJsonApiActionOptions({
     namespace: "notes",
-    resource: defineCrudContract(notes),
+    resource: defineCrudContract(notes, { namespace: "notes" }),
     repository,
     service,
     surface: "admin",
