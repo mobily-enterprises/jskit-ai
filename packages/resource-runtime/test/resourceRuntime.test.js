@@ -11,6 +11,7 @@ import {
   StaleRecordError,
   UnpagedQueryError
 } from "../src/server/index.js";
+import { normalizeOpaqueId } from "@jskit-ai/kernel/shared/support/normalize";
 import { createTestResourceRuntime } from "../src/test/index.js";
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
@@ -269,6 +270,50 @@ test("withTransaction() commits together and rolls back together", async (t) => 
   assert.equal((await knex("notes").count({ count: "*" }).first()).count, 0);
   await notes.withTransaction({ context: WORKSPACE_A }, (txOptions) => notes.create({ title: "kept" }, txOptions));
   assert.deepEqual(await knex("notes").pluck("title"), ["kept"]);
+});
+
+test("withTransaction() answers a failure of its work as RestApiWriteError, or as the work threw it with asThrown", async (t) => {
+  const { notes } = await createFixture(t);
+  const failure = Object.freeze(new Error("refused by the work"));
+  await assert.rejects(
+    notes.withTransaction({ context: WORKSPACE_A }, () => {
+      throw failure;
+    }),
+    (error) => error !== failure && error.cause === failure && error.transactionOutcome === "rolledBack"
+  );
+  await assert.rejects(
+    notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+      await notes.create({ title: "undone" }, txOptions);
+      throw failure;
+    }, { retry: false, asThrown: true }),
+    (error) => error === failure
+  );
+  assert.equal((await notes.queryAll({}, { context: WORKSPACE_A })).length, 0);
+});
+
+test("findOrCreate() answers the record with the id, creating it only when it is missing", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("counters", (table) => {
+    table.string("counter_key").primary();
+    table.integer("value").notNullable();
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  // A key the feature computes is an opaque string id.
+  const { counters } = await runtime.own("counters.feature", [{ normalizeId: normalizeOpaqueId, resource: defineTableResource({
+    name: "counters",
+    tableName: "counters",
+    idProperty: "counter_key",
+    schema: {
+      id: { type: "string", primary: true, required: true, storage: { column: "counter_key" } },
+      value: { type: "integer", required: true }
+    }
+  }) }]);
+  const options = { context: runtime.createSystemContext({ feature: "counters.feature", systemScope: "tests", reason: "keyed counters" }) };
+  assert.deepEqual(await counters.findOrCreate({ id: "visits", value: 0 }, options), { id: "visits", value: 0 });
+  await knex("counters").where({ counter_key: "visits" }).update({ value: 7 });
+  assert.deepEqual(await counters.findOrCreate({ id: "visits", value: 0 }, options), { id: "visits", value: 7 });
+  assert.deepEqual(await knex("counters").select("counter_key", "value"), [{ counter_key: "visits", value: 7 }]);
 });
 
 test("locks need a transaction and take only the caller's rows", async (t) => {

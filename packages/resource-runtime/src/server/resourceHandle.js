@@ -1,6 +1,6 @@
 import diagnosticsChannel from "node:diagnostics_channel";
 import { RestApiRowLimitError } from "json-rest-api";
-import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
+import { isLostDuplicateInsertRace, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
@@ -56,6 +56,74 @@ function reportManyRow(resource, operation, rows, chunkSize) {
   }
 }
 
+// Opens a transaction for work. json-rest-api reports a failure of the work as a RestApiWriteError whose cause is
+// the work's error; with asThrown the work's own error reaches the caller as the work threw it.
+async function openTransaction(api, options, work, asThrown) {
+  let own = null;
+  try {
+    return await api.transaction(async (trx) => {
+      try {
+        return await work(Object.freeze({ ...options, trx }));
+      } catch (error) {
+        own = { error };
+        throw error;
+      }
+    });
+  } catch (error) {
+    throw asThrown && own && error?.cause === own.error ? own.error : error;
+  }
+}
+
+// The answer of a many-row write: nothing, the ids, or the records.
+function manyResult(resource, result, returning) {
+  if (returning === "none") {
+    return undefined;
+  }
+  const rows = result?.data || [];
+  return returning === "ids" ? rows.map((row) => String(row.id)) : handleRecords(resource, rows);
+}
+
+// A filtered write's selection: its filters, or every owned row when they are empty and `all: true` says so.
+function whereSelection(name, operation, filters, options) {
+  if (!isRecord(filters)) {
+    throw new TypeError(`${name}.${operation}() takes filters as an object.`);
+  }
+  if (Object.keys(filters).length > 0) {
+    if (options.all !== undefined) {
+      throw new TypeError(`${name}.${operation}() takes filters or all: true, not both.`);
+    }
+    return { filters };
+  }
+  if (options.all !== true) {
+    throw new TypeError(`${name}.${operation}() with empty filters changes every row the caller owns; pass all: true to mean it.`);
+  }
+  return { all: true };
+}
+
+/**
+ * The record with `attributes.id`, created from `attributes` when it is
+ * missing. Outside a transaction, of two concurrent creations one wins and
+ * the other answers the winner's record; inside one, a lost race fails the
+ * transaction as any failed write does.
+ * @param {{ get: Function, create: Function }} handle
+ * @param {{ id: unknown } & Record<string, unknown>} attributes
+ * @param {{ context?: object | null, trx?: object | null }} [options]
+ */
+async function findOrCreateRecord({ get, create }, attributes, options) {
+  const existing = await get(attributes.id, {}, options);
+  if (existing) {
+    return existing;
+  }
+  try {
+    return await create(attributes, options);
+  } catch (error) {
+    if (!isLostDuplicateInsertRace(error, options)) {
+      throw error;
+    }
+    return get(attributes.id, {}, options);
+  }
+}
+
 /**
  * One owned table's handle: every read and write of the table, each applying
  * the scope of the call's `options.context` (ownership and row policy) and
@@ -100,18 +168,23 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   /**
    * Runs work in the caller's transaction (`options.trx`), or in one it opens,
    * commits and, on a deadlock or lock timeout, runs again whole. `work`
-   * receives the frozen options it must pass to every call inside.
+   * receives the frozen options it must pass to every call inside. `retry:
+   * false` runs work once, for work that cannot be repeated (it calls a
+   * provider). A failure of work in a transaction it opened reaches the caller
+   * as json-rest-api's RestApiWriteError, with the work's error as its cause and
+   * the transaction's outcome; `asThrown: true` rethrows the work's own error as
+   * it threw it, for callers that compare or classify it.
    * @template T
    * @param {{ trx?: object | null, context?: object | null }} options
    * @param {(txOptions: Readonly<Record<string, any>>) => Promise<T> | T} work
-   * @param {{ retry?: boolean }} [settingsForCall]
+   * @param {{ retry?: boolean, asThrown?: boolean }} [settingsForCall]
    * @returns {Promise<T>}
    */
-  async function withTransaction(options, work, { retry = true } = {}) {
+  async function withTransaction(options, work, { retry = true, asThrown = false } = {}) {
     if (options.trx) {
       return work(options);
     }
-    const run = () => api.transaction((trx) => work(Object.freeze({ ...options, trx })));
+    const run = () => openTransaction(api, options, work, asThrown);
     return retry ? retryDeadlocks(run) : run();
   }
 
@@ -276,6 +349,15 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     return returning === "id" ? idOf(result, format) : handleResult(resource, result, format);
   }
 
+  /**
+   * The record with `attributes.id`, created when it is missing (findOrCreateRecord).
+   * @param {{ id: unknown } & Record<string, unknown>} attributes
+   * @param {{ context?: object | null, trx?: object | null }} [options]
+   */
+  function findOrCreate(attributes, options = {}) {
+    return findOrCreateRecord({ get, create }, attributes, options);
+  }
+
   // An empty patch reads the record instead, unless it moves the lock version on: a lockVersion patch always writes.
   async function patchRecord(id, attributes, options, returning, { advance = false } = {}) {
     if (Object.keys(attributes).length < 1 && !advance) {
@@ -375,32 +457,6 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     });
   }
 
-  // The answer of a many-row write: nothing, the ids, or the records.
-  function manyResult(result, returning) {
-    if (returning === "none") {
-      return undefined;
-    }
-    const rows = result?.data || [];
-    return returning === "ids" ? rows.map((row) => String(row.id)) : handleRecords(resource, rows);
-  }
-
-  // A filtered write's selection: its filters, or every owned row when they are empty and `all: true` says so.
-  function whereSelection(operation, filters, options) {
-    if (!isRecord(filters)) {
-      throw new TypeError(`${name}.${operation}() takes filters as an object.`);
-    }
-    if (Object.keys(filters).length > 0) {
-      if (options.all !== undefined) {
-        throw new TypeError(`${name}.${operation}() takes filters or all: true, not both.`);
-      }
-      return { filters };
-    }
-    if (options.all !== true) {
-      throw new TypeError(`${name}.${operation}() with empty filters changes every row the caller owns; pass all: true to mean it.`);
-    }
-    return { all: true };
-  }
-
   function manyRowWrite(operation, rows, options, request) {
     const returning = pickReturning(MANY_RETURNING, options.returning, "none", `${name}.${operation}()`);
     const askFor = hooks.afterWrite && returning === "none" ? "ids" : returning;
@@ -413,7 +469,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
         ...(askFor === "records" ? { format: "plain" } : {})
       },
       contextOf(callOptions)
-    ), (result) => manyResult(result, "ids")).then((result) => manyResult(result, returning));
+    ), (result) => manyResult(resource, result, "ids")).then((result) => manyResult(resource, result, returning));
   }
 
   /**
@@ -487,7 +543,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records", onlyIf?: object, all?: boolean, chunkSize?: number }} [options]
    */
   async function patchWhere(filters, attributes, options = {}) {
-    const selection = whereSelection("patchWhere", filters, options);
+    const selection = whereSelection(name, "patchWhere", filters, options);
     return manyRowWrite("patchWhere", 0, options, (params, context) => jsonRest().patchWhere(
       { ...params, ...selection, data: inputData(resource, attributes), ...(options.onlyIf ? { onlyIf: options.onlyIf } : {}) },
       context
@@ -519,7 +575,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     if (options.returning === "records") {
       throw new TypeError(`${name}.deleteWhere() returning is "none" or "ids".`);
     }
-    const selection = whereSelection("deleteWhere", filters, options);
+    const selection = whereSelection(name, "deleteWhere", filters, options);
     return manyRowWrite("deleteWhere", 0, options, ({ format: _format, ...params }, context) => jsonRest().deleteWhere(
       { ...params, ...selection },
       context
@@ -651,6 +707,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     get,
     aggregate,
     create,
+    findOrCreate,
     patch,
     delete: deleteRecord,
     createMany,
