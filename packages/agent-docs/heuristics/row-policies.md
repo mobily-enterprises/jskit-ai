@@ -37,7 +37,7 @@ Package composition:
 
 Cost:
 
-- a policy's cost follows the rows its query reads: add a join, `EXISTS` or subquery correlated with the row through `column()` and `value()`, on indexed columns
+- a policy's cost follows the rows its query reads: add a join, `EXISTS` or subquery correlated with the row through `column()` and `value()`, on indexed columns; look at its SQL too, since a statement that runs to kilobytes is planned again on every read that carries it
 - never load the subject's whole history (every source, notice or grant they were ever linked to) to build an `IN` list, and never call another owner's access check per item of it; another package's grant is a predicate contribution
 - the policy runs on every single-record read, including the read-back after `createDocument()` and `patchDocumentById()` (`returning: "full"`) and the lookup before `patch` and `delete`, so a write pays it once per row it writes
 - a write decides access once, inside its transaction; a batch write that would pay an expensive read-back per row follows the typed features guide's [Bounded access checks](../site/guide/framework/typed-features.md#bounded-access-checks)
@@ -56,7 +56,7 @@ Testing:
 - assert hidden direct records behave as not found
 - assert children and includes do not leak records
 - assert package and provider dependencies stay one-way
-- run one read and one write for a subject with a short history and with a realistic long one (hundreds of linked rows), and assert the same query count
+- count the queries of one read and one write for a subject with a short history and with a realistic long one (hundreds of linked rows), and fail when the count grows with the history
 
 AnyAPI boundary:
 

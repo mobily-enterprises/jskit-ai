@@ -35,6 +35,8 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Material 3](/guide/framework/material-3)
 - [UI pass](/guide/framework/ui-pass): make a task's changes, a section or the
   whole app exact Material 3
+- [Sanity checks](/guide/framework/sanity-checks): check that data access,
+  tests, a refactor, a screen or a deployment is sane before calling it done
 - [Translating a JSKIT app](/guide/framework/translation)
 - [Complete source pattern library](/patterns/)
 

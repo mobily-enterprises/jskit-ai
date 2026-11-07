@@ -62,9 +62,11 @@ collision before connecting. Include disposable cleanup between browser starts
 in the regression: one test's teardown must not erase another test's migrations.
 
 Do not drop/recreate the database, replay completed migrations, build every
-module fixture, or run a production frontend build for each focused check.
-Choose small fixture sets for the selected suite; realistic row counts belong
-in the database tests that hold each endpoint's query budget. Fresh-schema
+module fixture, or run a production frontend build for each focused check. A
+build made once for a whole run is different: it is the fix when a development
+server makes every page load slow. Choose small fixture sets for the selected
+suite; realistic row counts belong in the database tests that compare each
+endpoint's query counts. Fresh-schema
 migration tests and production-artifact tests are separate operations. Measure
 migration, fixture, and server startup time and fix the slow phase; never retry
 a slow launch, or raise its deadline or a spec's timeout, to absorb it. A page

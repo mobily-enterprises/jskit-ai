@@ -394,9 +394,12 @@ database migration table are sufficient.
 
 ## Integration test databases
 
-Disposable integration and migration tests use `TEST_DB_NAME`. A test run
-prepares that schema once and restores it from a stored snapshot; it never
-rebuilds a database by replaying the whole migration history:
+Disposable integration and migration tests use `TEST_DB_NAME`, never the
+application's `DB_NAME`. A test run prepares that schema once and reuses it.
+Check how long preparation takes and how often it runs: a database rebuilt by
+replaying the whole migration history for each file gets slower with every
+migration, while a stored snapshot restores in a fraction of a second. The
+usual way:
 
 - The snapshot holds the schema as the engine reports it (each table's
   `SHOW CREATE TABLE` on MySQL and MariaDB, `pg_dump --schema-only` on
@@ -414,13 +417,14 @@ rebuilds a database by replaying the whole migration history:
 - Only the fresh-schema check in [Verification](#verification) replays the
   whole history, as its own step.
 - The harness reports each phase (digest, restore or rebuild, seed) with its
-  duration, and the suite has a time budget, so slow preparation is visible
+  duration, and those durations are read, so slow preparation is visible
   instead of hiding inside the next test that waits for it. A slow phase is
-  fixed, never absorbed by a longer time limit.
+  fixed, never absorbed by a longer time limit; preparation measured in
+  minutes is broken.
 
 Endpoints and batch operations get their own database tests at realistic row
-counts with a fixed query budget; see the typed features guide's
-[budgets at realistic counts](/guide/framework/typed-features#budgets-at-realistic-counts).
+counts that compare their query counts; see the typed features guide's
+[query counts at realistic sizes](/guide/framework/typed-features#query-counts-at-realistic-sizes).
 
 ## Browser test preparation
 

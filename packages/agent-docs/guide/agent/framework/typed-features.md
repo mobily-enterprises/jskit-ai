@@ -730,33 +730,39 @@ const rows = extractJsonRestCollectionRows(await api.resources.workspaceMembersh
 }, createJsonRestContext(options.context)));
 ```
 
-### One read per table
+### Lists read related rows in batches
 
-**A read that builds a list reads each table once for the whole list: one
-query per table with an id-list filter, the rows grouped in memory. It never
-reads one row, or runs one lookup, per item of the list.**
+**A read that builds a list fetches its related rows in batches, an id-list
+query per related table, and groups them in memory. Check its query count at a
+few rows and at a realistic number: the count should follow the tables and
+pages it reads, not the rows.**
 
-- Collect the ids from the first read, then read each related table once with
-  an id-list filter: a `searchSchema` entry
+- Collect the ids from the first read, then read each related table with an
+  id-list filter: a `searchSchema` entry
   `{ type: "array", actualField: "<column>", filterOperator: "in" }`, read
   through `queryAllJsonRestCollectionRows()`, or the resource's `include`.
   Group the rows by id with `Map.groupBy()`.
-- `getDocumentById()`, `queryDocuments()`, a service `get` or another owner's
-  single-record read inside a loop over the list is a read per row, however
-  the loop is spelled (`for`, `map` with `Promise.all`, a helper called per
-  item). So is a single-record helper reused for a list.
+- A count that grows with the rows means something runs per row:
+  `getDocumentById()`, `queryDocuments()`, a service `get` or another owner's
+  single-record read inside a loop over the list, however the loop is spelled
+  (`for`, `map` with `Promise.all`, a helper called per item), or a
+  single-record helper reused for a list.
 - Work derived from a row (hashing, preparing a form, assembling a snapshot)
   runs once per distinct input in the call, not once per row it appears in.
-- The list's query count follows its tables and pages (100 rows a page unless
-  the resource sets `queryMaxLimit`), never its rows: three hundred invoices
-  and their lines take a handful of queries, not three hundred more (see
-  [Budgets at realistic counts](#budgets-at-realistic-counts)).
+- A JSON:API read also costs a few lookup and visibility queries per page and
+  relationship field, and pages hold the resource's `queryMaxLimit` (100 rows
+  unless it sets one). That cost follows pages, so three hundred invoices take
+  a few more queries than ten, not three hundred more ([Query counts at
+  realistic sizes](#query-counts-at-realistic-sizes)).
+- A list making hundreds of queries is broken, whatever its code looks like:
+  find what runs per row before anything else.
 
 Why: a read per row costs nothing with three test rows and seconds with a few
-hundred real ones, and every lookup and visibility check inside it repeats too.
+hundred real ones, and every lookup and visibility check inside it repeats too;
+one list read 1,801 queries for a page of 100 rows this way.
 
 ```js
-// good: one read per table, however many invoices there are
+// good: a read per related table, however many invoices there are
 const invoiceRows = await queryAllJsonRestCollectionRows(api.resources.invoices, {
   queryParams: { filters: { workspace: workspaceId } },
   transaction: resolveTransaction(options),
@@ -800,8 +806,11 @@ paying a read policy for every row it writes.**
   `decorateRepository`, on `resolveRepoClient(database.knex, options)`,
   setting the same columns the resource would, its ownership columns
   included, and reading back only what it returns.
-- Its test runs one read and one write for a subject with a short history and
-  with a realistic long one, and asserts the same query count.
+- Check it by counting the queries of one read and one write for a subject
+  with a short history and for one with a realistic long one: a count that
+  grows with the history is a check sized by history. Look at the policy's
+  SQL too, since a statement that runs to kilobytes is planned on every read
+  that carries it.
 
 Why: a check sized by history grows with every record the subject receives,
 so the same write that takes milliseconds in a test takes seconds a year later.
@@ -1017,43 +1026,58 @@ export function resetInvoiceCacheForTests() {
 }
 ```
 
-### Budgets at realistic counts
+### Query counts at realistic sizes
 
 **A list, batch or write path has a database test at the row counts and
-history a real workspace holds, and that test fails above a fixed query
-budget, one that a read per row or a history-sized check cannot meet.**
+history a real workspace holds. It counts the path's queries at a few rows and
+at a realistic number, and fails when the count grows with the rows instead of
+the pages.**
 
 - Seed hundreds of records and long per-person histories, not one to three
   rows: a read per row and a history-sized policy cost nothing at three.
-- Count the queries with the test Knex instance's `query` event and assert a
-  ceiling: the count the correct implementation needs at that size, which a
-  read per row overshoots by hundreds. A path that pages nothing (one read,
-  one write) asserts the same count at a short and a long history. A query
-  count is stable in CI; also report the time the call took.
-- Meet the budget by fixing the reads ([One read per
-  table](#one-read-per-table), [Bounded access checks](#bounded-access-checks)),
-  never by shrinking the data or raising the budget.
+- Count the queries with the test Knex instance's `query` event at two sizes
+  and compare them. Pages add a few queries; rows should add none. A path that
+  pages nothing (one read, one write) compares a short and a long history. A
+  query count is stable in CI; also report the time the call took, and look
+  at it.
+- The assertion is a sanity bound, not a target: it catches a count that
+  grows with the data, and leaves room for paging. When it fails, fix the
+  reads ([Lists read related rows in
+  batches](#lists-read-related-rows-in-batches), [Bounded access
+  checks](#bounded-access-checks)), never shrink the data or loosen the bound.
+- The [sanity checks](/guide/framework/sanity-checks#loading-a-dataset) say
+  what else to look at in the counted SQL.
 
-Why: without a budget at real counts, a path that does one read per row ships,
+Why: without a test at real counts, a path that does one read per row ships,
 and its first sign is a request that takes seconds in production.
 
 ```js
 // good
-test("the invoice list reads each table once", async () => {
-  await seedInvoices(knex, { workspace, count: 300, linesEach: 5 });
+async function countQueries(knex, work) {
   let queries = 0;
   const count = () => { queries += 1; };
   knex.on("query", count);
   try {
-    await invoices.listWithLines(workspace, { context });
+    await work();
   } finally {
     knex.off("query", count);
   }
-  // A page of each table at a time; one read per invoice would add 300.
-  assert.ok(queries <= 40, `${queries} queries`);
+  return queries;
+}
+
+test("the invoice list's queries follow its pages, not its invoices", async () => {
+  const listAt = async (count) => {
+    const workspace = await createWorkspace(knex);
+    await seedInvoices(knex, { workspace, count, linesEach: 5 });
+    return countQueries(knex, () => invoices.listWithLines(workspace, { context }));
+  };
+  const few = await listAt(10);
+  const many = await listAt(300);
+  // Thirty times the invoices may add pages; a read per invoice would add about 290 queries.
+  assert.ok(many <= few * 2, `${few} queries for 10 invoices, ${many} for 300`);
 });
 
-// bad: three invoices and no budget, so a read per invoice passes
+// bad: three invoices, nothing counted, so a read per invoice passes
 test("the invoice list has its lines", async () => {
   await seedInvoices(knex, { workspace, count: 3, linesEach: 1 });
   assert.equal((await invoices.listWithLines(workspace, { context })).length, 3);
@@ -1063,8 +1087,9 @@ test("the invoice list has its lines", async () => {
 ### Time limits are not fixes
 
 **A slow test, suite, preparation or request is a defect to find, never a time
-limit to raise. Measure where the time goes, fix that cause, and keep the
-default limits.**
+limit to raise. Compare a limit above the default with the measured time: a
+limit many times the need hides the cause. Measure where the time goes and fix
+it.**
 
 - Raising `--test-timeout`, a test's `{ timeout }`, Playwright's `timeout`,
   `test.setTimeout()` or an `expect` timeout, adding retries, or calling a
@@ -1076,7 +1101,11 @@ default limits.**
 - A longer limit is right only for work that is long by nature, such as a
   fixture of deliberate size, and the test names that work.
 - A time limit still bounds every run, so a hang ends; it is not a speed
-  setting.
+  setting. Check that one exists: a suite without one hangs instead of
+  failing.
+- A suite that runs for hours, or a preparation measured in minutes, is
+  broken: stop and find the cause ([sanity
+  checks](/guide/framework/sanity-checks#the-suite-takes-the-time-its-work-needs)).
 
 Why: a raised limit absorbs today's slowness and every later one, until a run
 takes hours and nobody knows which change made it slow.
@@ -1141,9 +1170,11 @@ export default defineConfig({ workers: 1 });
 
 ### Test databases are prepared once
 
-**A test run prepares each database once, from a stored snapshot of its
-schema, migration ledger and seed rows checked by a digest of their sources,
-and never replays the whole migration history inside the run.**
+**A test run prepares each database once and reuses it. Check how long
+preparation takes and how often it runs: replaying the whole migration history
+for each file or test is the slow case, and a stored snapshot of the schema,
+migration ledger and seed rows, checked by a digest of their sources, is the
+usual way out.**
 
 - The snapshot is rebuilt only when the digest of the migration and seed
   sources changes, once and outside the timed tests; every disposable
@@ -1151,9 +1182,9 @@ and never replays the whole migration history inside the run.**
   it.
 - The full migration history runs once, in its own fresh-schema check
   ([database verification](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#verification)).
-- The harness reports each preparation phase and its duration, and the suite
-  has a time budget, so slow preparation shows instead of hiding inside the
-  next test that waits for it.
+- The harness reports each preparation phase and its duration, and those
+  durations are read, so slow preparation shows instead of hiding inside the
+  next test that waits for it. Preparation measured in minutes is broken.
 - The database layer guide's [integration test
   databases](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#integration-test-databases)
   gives the snapshot's contents per engine.
@@ -1176,6 +1207,10 @@ before(() => knex.migrate.latest());
 **Files stay under 750 lines and functions under 600, in all hand-written
 code: server, shared, client (`.vue` and `.js`) and scripts. One concern per
 factory.**
+
+- The limit is an outer bound, not a size to aim for: a file near it usually
+  holds more than one concern. Split it by concern; never trim lines or join
+  statements to fit.
 
 Why: a reader holds one concern at a time; a 2,000-line closure holds ten.
 

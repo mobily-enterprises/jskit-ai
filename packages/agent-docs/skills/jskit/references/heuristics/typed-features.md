@@ -63,10 +63,10 @@ ends with the same link.
   - [One helper per package](../typed-features.md#one-helper-per-package)
 - `options?.trx || options?.transaction`, a hand-read actor, cursor or created id
   - [One reader per fact](../typed-features.md#one-reader-per-fact)
-- `api.resources.x.query(…)` with no `page` for a list, `queryDocuments(query)` with no `limit` in a service, a list that stops at 20 rows
+- `api.resources.x.query(…)` with no `page` for a list, `queryDocuments(query)` with no `limit` in a service, a list that stops at 20 rows, `page: { size: 500 }` or `limit: 500` that returns 100 rows
   - [Every row](../typed-features.md#every-row)
-- `await getDocumentById(…)`, `queryDocuments(…)` or a service `get` inside a loop or a `Promise.all` over a list, a single-record helper reused for a list, N+1 queries, a slow list endpoint
-  - [One read per table](../typed-features.md#one-read-per-table)
+- `await getDocumentById(…)`, `queryDocuments(…)` or a service `get` inside a loop or a `Promise.all` over a list, a single-record helper reused for a list, N+1 queries, a list whose query count grows with its rows, a slow list endpoint
+  - [Lists read related rows in batches](../typed-features.md#lists-read-related-rows-in-batches)
 - a `rowPolicy` that loads a person's whole history or calls an access check per item, `createDocument` per row of a batch, a write that gets slower as history grows
   - [Bounded access checks](../typed-features.md#bounded-access-checks)
 - a route that queries storage, `boot*.js` holding routes
@@ -85,8 +85,8 @@ ends with the same link.
   - [Tests are not callers](../typed-features.md#tests-are-not-callers)
 - `…ForTests`, `__reset…`, `testOnly…` exports (`jskit/no-test-only-export`)
   - [No test-only exports](../typed-features.md#no-test-only-exports)
-- a list, batch or write test with one to three rows, no query count, a slow endpoint first seen with real data
-  - [Budgets at realistic counts](../typed-features.md#budgets-at-realistic-counts)
+- a list, batch or write test with one to three rows, no query count, a fixed query ceiling tuned to pass, a slow endpoint first seen with real data
+  - [Query counts at realistic sizes](../typed-features.md#query-counts-at-realistic-sizes)
 - a raised `{ timeout }`, `test.setTimeout()`, `--test-timeout` or Playwright `timeout`, retries or a request loop that absorbs slowness, a slow suite
   - [Time limits are not fixes](../typed-features.md#time-limits-are-not-fixes)
 - `node --test --test-concurrency=1`, `workers: 1`, `fileParallelism: false`, a suite that runs one file at a time, test files that collide when run together, `test/*` findings of `jskit check`

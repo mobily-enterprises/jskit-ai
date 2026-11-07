@@ -58,6 +58,9 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
      also read [Material 3](references/material-3.md) completely before acting.
    - For a UI pass (the changes, a section, or the whole app), also read
      [UI pass](references/ui-pass.md) completely.
+   - Before writing a list, save, batch or test, before a refactor, and before
+     calling work done, read [sanity checks](references/sanity-checks.md): its
+     checks, and the short list of what is wrong in any context.
 
 These are complete operational references required by this skill. Do not load
 irrelevant references or other docs.
@@ -122,10 +125,10 @@ whole changeset. Use the current-state owners in application operations and
 Playwright for affected UI. There is no current JSKIT Doctor command; ignore
 old CLI authoring-history diagnoses. Never expose environment values.
 
-Tests and requests take the time their work needs, no more: a list reads each
-table once, a row policy is bounded by the rows it reads, list and batch paths
-have a query budget tested at realistic row counts, and test databases restore
-a stored snapshot instead of replaying migrations. Find why a check is slow;
+Tests and requests take the time their work needs, no more. Before calling
+work done, run the sanity checks: count a list's or save's queries at a few
+rows and at a realistic number and judge whether they grow with the rows, and
+read the suite's time and its slowest files. Find why a check is slow;
 never raise its time limit. Typed features' repository and Tests rules say how.
 
 Test files run in parallel by default, bounded by the machine: a script runs

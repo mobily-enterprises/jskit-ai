@@ -282,6 +282,39 @@ test("the typed-features heuristic sends each keyword to a guide section", async
   assert.doesNotMatch(heuristic, /^\| Reason prefix/mu, "The heuristic copies the guide's exceptions table.");
 });
 
+test("the sanity checks give each check what good is, what to look at, an example and an outer limit", async () => {
+  const guide = await readFile(path.join(packageRoot, "site/guide/framework/sanity-checks.md"), "utf8");
+  const sections = guideSections(guide);
+  assert.deepEqual(sections.map((section) => section.title), [
+    "Never do these",
+    "Data access",
+    "Refactors keep behaviour",
+    "Failing tests are bugs",
+    "Tests",
+    "Inputs and access",
+    "Changes others depend on",
+    "Screens in use",
+    "Production settings"
+  ]);
+  // The don'ts are the few things wrong whatever the context, one line each; everything else is a check the reader judges.
+  assert.equal(sections[0].body.match(/^- \*\*Never /gmu)?.length, 10);
+  const checks = sections.slice(1).flatMap((section) => (section.rules.length > 0 ? section.rules : [section]));
+  assert.ok(checks.length >= 11, "The sanity checks lost checks.");
+  for (const check of checks) {
+    for (const part of [/^\*\*Good:\*\* \S/mu, /^\*\*Check:\*\*/mu, /^\*\*Examples?:\*\*/mu, /^\*\*Outer limit:\*\* \S/mu]) {
+      assert.match(check.body, part, `"${check.title}" lacks ${part.source}.`);
+    }
+  }
+  // Checks are judged, not tuned to a number: the typed-features rules count and compare instead of capping.
+  const typedFeatures = await readFile(path.join(packageRoot, "site/guide/framework/typed-features.md"), "utf8");
+  assert.doesNotMatch(typedFeatures, /^### (?:One read per table|Budgets at realistic counts)$/mu);
+  assert.doesNotMatch(typedFeatures, /fixed query\s+budget|queries <= \d+|asserts the same query count/u);
+  const bundled = await readFile(path.join(packageRoot, "skills/jskit/references/sanity-checks.md"), "utf8");
+  assert.ok(bundled.includes("](typed-features.md#query-counts-at-realistic-sizes)"), "The bundled sanity checks do not link typed features.");
+  const heuristicsIndex = await readFile(path.join(packageRoot, "heuristics/INDEX.md"), "utf8");
+  assert.match(heuristicsIndex, /\(\.\.\/site\/guide\/framework\/sanity-checks\.md\)/u);
+});
+
 test("the client-features guide gives each rule what, why and good and bad code, simplicity first", async () => {
   const guide = await readFile(path.join(packageRoot, "site/guide/framework/client-features.md"), "utf8");
   const sections = guideSections(guide);
