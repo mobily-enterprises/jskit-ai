@@ -117,7 +117,10 @@ Read these together before adapting the shell:
 
 ## Variation points
 
-Rename the example, replace the home content, add or remove settings routes,
+Rename the example (its name is spelt in `package.json`, `app.json` and
+`index.html`'s `<title>`, and, once the app adds sign-in, in the
+`auth/auth-surface` pattern's `src/components/AppBrand.vue`; rename them
+together), replace the home content, add or remove settings routes,
 and change placements through their public contracts. Use package-owned
 patterns for auth, users, databases, CRUD, realtime, and other capabilities.
 Do not preinstall capabilities solely because they appear in another app.

@@ -375,6 +375,10 @@ Exports
 
 ### patterns
 
+### `patterns/auth-surface/example/src/components/AppBrand.vue`
+Exports
+- None
+
 ### `patterns/auth-surface/example/src/pages/auth/login.vue`
 Exports
 - None

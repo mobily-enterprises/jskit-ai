@@ -17,8 +17,12 @@ tests, browser tests, and the normal build entrypoints.
 
 The example is a concrete application named `reading-room`. Copy the useful
 files into the project root, rename the application in normal source and
-package metadata, and then edit the product-facing page. The files become
-ordinary application source immediately.
+package metadata, and then edit the product-facing page. The name is spelt in
+`package.json`, `app.json` and `index.html`'s `<title>` (the app's name, which
+the shell's messages use), and, once the app adds sign-in, in the
+`auth/auth-surface` pattern's `src/components/AppBrand.vue` (the brand on the
+sign-in screens); rename them together. The files become ordinary application
+source immediately.
 
 ## Do not use when
 

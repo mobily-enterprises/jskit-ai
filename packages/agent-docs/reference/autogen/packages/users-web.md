@@ -34,8 +34,7 @@ Exports
 Exports
 - None
 Local functions
-- `normalizeSection(value)`
-- `readRouteSection()`
+- `sectionTarget(value)`
 
 ### `src/client/components/ProfileClientElement.vue`
 Exports
@@ -210,6 +209,10 @@ Exports
 - None
 
 ### `patterns/account-settings/example/src/pages/account.vue`
+Exports
+- None
+
+### `patterns/account-settings/example/src/pages/account/[section].vue`
 Exports
 - None
 

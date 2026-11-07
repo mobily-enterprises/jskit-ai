@@ -9,9 +9,9 @@
 </route>
 
 <script setup>
-import DefaultResetPasswordView from "@jskit-ai/auth-web/client/views/DefaultResetPasswordView";
+import ResetPasswordView from "@/views/auth/ResetPasswordView.vue";
 </script>
 
 <template>
-  <DefaultResetPasswordView />
+  <ResetPasswordView />
 </template>

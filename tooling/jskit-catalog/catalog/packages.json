@@ -4169,6 +4169,7 @@
       "documentPath": "patterns/auth-surface/PATTERN.md",
       "examplePath": "patterns/auth-surface/example",
       "files": [
+        "src/components/AppBrand.vue",
         "src/pages/auth/login.vue",
         "src/pages/auth/reset-password.vue",
         "src/pages/auth/signout.vue",
@@ -5016,6 +5017,7 @@
         "src/components/account/settings/AccountSettingsPreferencesSection.vue",
         "src/components/account/settings/AccountSettingsProfileSection.vue",
         "src/components/account/settings/AccountSettingsSignInMethodsSection.vue",
+        "src/pages/account/[section].vue",
         "src/pages/account/index.vue",
         "src/pages/account.vue"
       ]

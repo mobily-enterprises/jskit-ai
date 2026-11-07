@@ -81,12 +81,11 @@ Exactly this, and nothing more:
    the trail and the scroll. A folder without a layout (`bookings/` with no
    `bookings.vue`) only groups routes: its pages are different pages, each
    opening at the top. The parent is read from the page up to its surface root, the
-   record that declares `jskit.surface`, and stops there: a parent declared
-   beside `jskit.surface` is never read, and an inner page repeating its
-   surface becomes a root of its own with no Up. So the surface goes only on
-   the surface's layout page (`account.vue`: `ShellLayout` around
+   record that declares `jskit.surface`, and stops there. So the surface goes
+   only on the surface's layout page (`account.vue`: `ShellLayout` around
    `<RouterView />`) and the parent on the page it renders
-   (`account/index.vue`); `nav/surface-parent` reports the two on one record.
+   (`account/index.vue`). A package route declares its parent in its
+   `package.json` `meta`; under no layout, its component draws `ShellLayout`.
 2. **Each top-level destination is a main-navigation item** (a `kind: "link"`
    placement with `target: "shell.primary-nav"` or `"shell.secondary-nav"`) and
    declares no parent; nor do its tabs. A shell page with no parent is

@@ -521,6 +521,16 @@ Exports
 Exports
 - None
 
+### `fixtures/settings/main.js`
+Exports
+- None
+Local functions
+- `settingsPage(targetSurfaceId)`
+
+### `fixtures/settings/vite.config.mjs`
+Exports
+- None
+
 ### migrations
 
 ### `migrations/assistant_config_initial.cjs`

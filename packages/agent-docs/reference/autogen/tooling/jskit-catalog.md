@@ -74,15 +74,19 @@ Local functions
 
 ### `scripts/material3-source.mjs`
 Exports
+- `DEFAULT_IMPORT`
 - `TEMPLATE_TAG`
 - `VOID_TAGS`
 - `HEX_COLOUR`
+- `balancedFrom(text, start, open = "{", close = "}")`
 - `blankCssComments(source)`
 - `blankHtmlComments(source)`
 - `blankJsComments(source)`
+- `enclosingObject(text, offset)`
 - `exclusiveBranches(left, right)`
 - `kebab(name)`
 - `lineIndex(text)`
+- `localComponent(file, specifier, known)`
 - `readConditionalBranches(template)`
 - `readDeclarations(css, offset)`
 - `readExceptions(source)`
@@ -149,8 +153,6 @@ Local functions
 - `visibleText(inner)`
 - `isBackComponentName(name)`
 - `looksLikeBack(tag)`
-- `balancedFrom(text, start, open = "{", close = "}")`
-- `enclosingObject(text, offset)`
 - `stringValue(text, key)`
 - `readMainNavigation(sources)`
 - `computedPlacementPart(placement)`
@@ -164,8 +166,16 @@ Local functions
 - `createShellBarReader(appFiles, read, tag = SHELL_UP_TAG)`
 - `shellPlacement(file, source, drawsShellBar, known, barTag = SHELL_UP_TAG)`
 - `rendersOutsideLayouts(code, name)`
-- `localComponent(file, specifier, known)`
+- `judgePackageRoute(route, { surfaces, appShell, drawsShellBar, isDestination, isAddress, readable, report })`
 - `pageKey(file)`
+
+### `scripts/package-routes.mjs`
+Exports
+- `readPackageRoutes(root, known)`
+Local functions
+- `isRecord(value)`
+- `clientEntryOf(manifest, directory)`
+- `readRouteComponents(entry, code, known)`
 
 ### `scripts/pattern-assets.mjs`
 Exports

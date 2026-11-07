@@ -40,7 +40,9 @@ some shapes leave pages the navigation rules cannot judge
 - until a main-navigation placement is literal data, no page is judged for a
   missing parent (`nav/placement-data`);
 - a layout that also renders its pages without `ShellLayout` leaves those
-  pages unjudged by `nav/missing-parent`, so a missing parent passes.
+  pages unjudged by `nav/missing-parent`, so a missing parent passes;
+- a package route is judged only when its client entry lists
+  `routeComponents` literally; a built map passes unjudged.
 
 **Example:** a design-system update moved a page title into a top app bar
 that one page did not have, so its title vanished; only the browser suite

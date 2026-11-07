@@ -378,11 +378,16 @@ the `auth_local_identities` and `auth_local_oauth_attempts` tables.
 and auth-aware HTTP integration. `DefaultLoginView`, `DefaultResetPasswordView`
 and `DefaultSignOutView` fill the window themselves: a card on
 `surface-container` on wide windows, the whole screen on phones, and each
-screen's one `h1` ("Sign in", "Create your account", "Reset password", ...). An
-app shows its brand through their `brand` slot, which JSKIT lays out: a pane
+screen's one `h1` ("Sign in", "Create your account", "Reset password", ...).
+Every app shows its identity there, so a person always sees which app they are
+signing in to. It goes in their `brand` slot, which JSKIT lays out: a pane
 beside the card on wide windows (`primary-container`, its children from top to
 bottom) and a compact row above the card on phones. The slot gets `{ compact }`
-to choose what to show, and holds no heading:
+to choose what to show, and holds no heading. The `auth/auth-surface` pattern
+does this already: its pages render the app's view wrappers
+(`src/views/auth/LoginView.vue`, `ResetPasswordView.vue`, `SignOutView.vue`),
+and each fills the slot with `src/components/AppBrand.vue`, the app's name as
+`index.html`'s `<title>` spells it. Renaming the app renames both:
 
 ```vue
 <template>
@@ -393,6 +398,9 @@ to choose what to show, and holds no heading:
   </DefaultLoginView>
 </template>
 ```
+
+An app with a logo or a line about the product puts them in `AppBrand.vue`
+too, keeping the name.
 
 Never restyle the views' own classes (`.login-screen`, `.auth-card`) or wrap
 them in a frame of the app's; the brand slot is the one way in.

@@ -152,6 +152,12 @@ Use `AssistantSurfaceClientElement` and
 `AssistantSettingsClientElement` from `@jskit-ai/assistant-runtime/client`.
 Configure public surface behavior and server settings in ordinary app-owned
 config, then register routes and placements like any other feature.
+`AssistantSettingsClientElement` is a settings pane: render it on a page under
+the shell's top app bar (`ShellLayout`), which shows its title and its **Save**,
+a submit button for the pane's form, with its loading state while a save runs.
+The card has no Save of its own, and until there are settings to edit (no
+workspace chosen for a workspace surface, a surface without assistant
+settings) it shows a note and the bar shows no Save.
 
 For an application-supplied `assistant.conversations` common runtime, use
 `AssistantConversationClientElement` or `useAssistantConversation` from that
@@ -766,6 +772,7 @@ removed; there is no forwarding alias.
 ### Database surface verification
 
 Run migrations, load assistant and settings pages through normal navigation,
+save the instructions from the app bar's Save at phone and wide window sizes,
 test missing credentials without exposing values, exercise one successful and
 one provider-error conversation, and verify global or cross-workspace isolation.
 

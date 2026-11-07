@@ -9,9 +9,9 @@
 </route>
 
 <script setup>
-import DefaultLoginView from "@jskit-ai/auth-web/client/views/DefaultLoginView";
+import LoginView from "@/views/auth/LoginView.vue";
 </script>
 
 <template>
-  <DefaultLoginView />
+  <LoginView />
 </template>
