@@ -72,7 +72,13 @@
               />
             </v-col>
           </v-row>
-          <v-btn type="submit" color="primary" :loading="state.profileMutation.isPending.value" :data-testid="uiTestIds.submitButton">
+          <v-btn
+            type="submit"
+            color="primary"
+            class="mt-4"
+            :loading="state.profileMutation.isPending.value"
+            :data-testid="uiTestIds.submitButton"
+          >
             {{ copyText.saveProfile }}
           </v-btn>
 

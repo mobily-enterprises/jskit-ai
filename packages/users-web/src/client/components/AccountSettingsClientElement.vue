@@ -105,6 +105,7 @@ const activeTab = computed({
                 <v-list-item
                   v-for="section in sections"
                   :key="section.value"
+                  class="settings-section-list__item"
                   :title="text(section.title)"
                   :active="activeTab === section.value"
                   @click="activeTab = section.value"
@@ -147,6 +148,20 @@ const activeTab = computed({
 
 .settings-panel__body {
   padding: 1rem;
+}
+
+/* The selected section is Material 3's pill indicator in secondary-container, as the shell's navigation draws it, and
+   its hover and pressed state layers take the same pill. */
+.settings-section-list__item {
+  --v-activated-opacity: 0;
+  border-radius: 9999px;
+  min-height: 56px;
+  color: rgb(var(--v-theme-on-surface-variant));
+}
+
+.settings-section-list__item.v-list-item--active {
+  background: rgb(var(--v-theme-secondary-container));
+  color: rgb(var(--v-theme-on-secondary-container));
 }
 
 .settings-panel__state {

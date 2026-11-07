@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The profile form's Save button, and the account-settings pattern's Save buttons, keep 16dp from the last field in every section; they touched it, as fields hide their empty details. The pattern's Avatar size select takes the same column width as the fields beside it.
+- The account settings section list marks the selected section with Material 3's pill indicator in `secondary-container`, as the shell's navigation does, instead of a grey rectangle; its hover and pressed state layers are pills too.
 - The account-settings pattern ships the account surface's layout, `src/pages/account.vue` (`ShellLayout` around `<RouterView />`, `meta.jskit.surface: "account"`), so the settings page's title, Up arrow and Done action show in the top app bar, with no navigation bar, rail or drawer on a surface that has no navigation. An app whose account page renders under no layout copies it; until then `jskit check` reports `nav/missing-shell-layout` on the page.
 - The account settings page and the account-settings pattern's sections sit directly on the page, without bordered sheets, and the section list has no extra border or tint.
 - The account settings page has no in-page title or Back button: it gives the shell's top app bar its title (`useShellPageTitle`) and a Done action (`ShellPageAction`) that returns to `returnTo`, another of the app's origins included, as Back did. Message keys: `jskit.users.accountSettings.back` is removed and `jskit.users.accountSettings.done` ("Done") is new. The pattern's section buttons no longer set a fixed height; they are Material 3's 40dp buttons inside material-web's 48dp touch target.

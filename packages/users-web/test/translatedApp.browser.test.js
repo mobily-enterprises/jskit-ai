@@ -295,6 +295,15 @@ test("the profile menu and a refused, then retried, sign-out show only the pseud
   });
   const { page } = api;
   await api.open("/home");
+  // On a phone, where the name is hidden, the activator is a round icon button around the avatar.
+  await page.setViewportSize({ width: 390, height: 844 });
+  const activator = await page.locator(".auth-profile-widget__activator").evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return { width: box.width, height: box.height, radius: Number.parseFloat(window.getComputedStyle(element).borderTopLeftRadius) };
+  });
+  assert.equal(Math.round(activator.width), Math.round(activator.height), "The phone activator is as wide as it is tall.");
+  assert.ok(activator.radius >= activator.height / 2, `The phone activator's corner radius was ${activator.radius}px.`);
+  await page.setViewportSize({ width: 1280, height: 900 });
   await page.locator(".auth-profile-widget__activator").click();
   const signOut = page.getByRole("link", { name: shown("app.menu.signOut") });
   await expect(signOut).toBeVisible();
@@ -371,6 +380,25 @@ test("account settings, their feedback and a refused field show only the pseudo-
   await api.open("/account?returnTo=/home");
   await expect(page.getByText(shown("jskit.users.accountSettings.profile.save"))).toBeVisible();
   await assertTranslated(page, "account settings");
+  // The selected section carries Material 3's pill indicator in secondary-container, not a grey rectangle.
+  const selected = await page.locator(".settings-section-list .v-list-item--active").evaluate((element) => {
+    const probe = document.createElement("div");
+    probe.style.background = "rgb(var(--v-theme-secondary-container))";
+    document.body.append(probe);
+    const indicator = window.getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    const style = window.getComputedStyle(element);
+    return { background: style.backgroundColor, indicator, radius: Number.parseFloat(style.borderTopLeftRadius), height: element.getBoundingClientRect().height };
+  });
+  assert.equal(selected.background, selected.indicator);
+  assert.ok(selected.radius >= selected.height / 2, `The selected section's corner radius was ${selected.radius}px.`);
+  // Save keeps 16dp from the last field above it.
+  const saveGap = await page.getByTestId("profile-submit-button").evaluate((button) => {
+    const row = button.previousElementSibling;
+    const fields = [...row.querySelectorAll(".v-input")].map((field) => field.getBoundingClientRect().bottom);
+    return button.getBoundingClientRect().top - Math.max(...fields);
+  });
+  assert.ok(saveGap >= 15.5, `Save sat ${saveGap}px below the last field.`);
 
   await page.getByRole("listitem").filter({ hasText: shown("app.settings.preferences") }).click();
   await page.waitForURL("**section=preferences**");
