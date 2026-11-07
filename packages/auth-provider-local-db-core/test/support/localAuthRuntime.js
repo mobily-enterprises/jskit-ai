@@ -4,6 +4,7 @@ import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createResourceRuntime } from "@jskit-ai/resource-runtime/server";
 import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import initialMigration from "../../migrations/auth_local_db_initial.cjs";
 import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
 import protectionMigration from "../../migrations/auth_local_db_protection.cjs";
@@ -36,7 +37,18 @@ async function localAuthRuntimeInputs(knex) {
  * @param {import("knex").Knex} knex
  */
 async function startLocalAuthRecords(knex) {
-  const { api, inputs } = await localAuthRuntimeInputs(knex);
+  const { inputs } = await localAuthRuntimeInputs(knex);
+  // An application table of the test's own, whose handle opens the caller's transactions.
+  await knex.schema.createTable("test_app_records", (table) => {
+    table.increments("id");
+    table.string("note", 40);
+  });
+  const { appRecords } = await inputs["runtime.resources"].own("test.app", [defineTableResource({
+    name: "appRecords",
+    tableName: "test_app_records",
+    ownership: "public",
+    schema: { note: { type: "string", nullable: true } }
+  })]);
   let capabilities = null;
   const probe = defineProvider({
     id: "test.auth.local-db.records",
@@ -57,27 +69,14 @@ async function startLocalAuthRecords(knex) {
   return Object.freeze({
     ...capabilities,
     /**
-     * Runs work in a caller's transaction, the managed transaction application code holds from its own handle's
-     * withTransaction, handing it the options its owner API calls pass on. Failed work rejects with the work's own
-     * error, which the managed transaction reports as the cause of its write error.
+     * Runs work in a caller's transaction, the one application code opens with its own handle's withTransaction,
+     * handing it the options its owner API calls pass on. Failed work rejects with the work's own error.
      * @template T
      * @param {(options: Record<string, unknown>) => Promise<T>} work
      * @returns {Promise<T>}
      */
-    async inCallerTransaction(work) {
-      let workFailure = null;
-      try {
-        return await api.transaction(async (trx) => {
-          try {
-            return await work({ trx });
-          } catch (error) {
-            workFailure = { error };
-            throw error;
-          }
-        });
-      } catch (error) {
-        throw workFailure ? workFailure.error : error;
-      }
+    inCallerTransaction(work) {
+      return appRecords.withTransaction({}, work);
     }
   });
 }

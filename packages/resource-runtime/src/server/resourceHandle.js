@@ -50,6 +50,19 @@ function reportManyRow(resource, operation, rows, chunkSize) {
   }
 }
 
+// The transactions handles opened: json-rest-api's own, which every handle call inside the work joins.
+const handleTransactions = new WeakSet();
+
+// A call's options.trx, read or write, is one a handle's withTransaction opened, never a raw Knex transaction.
+function requireHandleTransaction(name, options) {
+  if (options.trx && !handleTransactions.has(options.trx)) {
+    throw new TypeError(
+      `${name}: options.trx is not a transaction a handle opened. A raw Knex transaction or savepoint cannot carry ` +
+        "handle calls, reads included: run the work in withTransaction(options, work) and pass on the txOptions it gives work."
+    );
+  }
+}
+
 // Opens a transaction for work. When work throws, json-rest-api rolls the transaction back and the caller gets the
 // error work threw. A failed write inside work (an error that reports a transactionOutcome, which said "pending")
 // arrives as json-rest-api's RestApiWriteError, which reports the outcome after the rollback, as a failed commit does.
@@ -57,6 +70,7 @@ async function openTransaction(api, options, work) {
   let own = null;
   try {
     return await api.transaction(async (trx) => {
+      handleTransactions.add(trx);
       try {
         return await work(Object.freeze({ ...options, trx }));
       } catch (error) {
@@ -131,6 +145,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
 
   /** @param {{ context?: object | null }} options */
   function contextOf(options) {
+    requireHandleTransaction(name, options);
     if (!options.context && resource.ownership !== "public") {
       throw new MissingScopeError(name);
     }
@@ -167,6 +182,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
       throw new TypeError(`${name}.withTransaction() takes (options, work); settings ride in options: withTransaction({ ...options, retry: false }, work).`);
     }
     const { retry = true, outermost = false, ...callOptions } = options;
+    requireHandleTransaction(name, callOptions);
     if (inTransaction(callOptions)) {
       if (outermost) {
         throw new TypeError(`${name}.withTransaction() outermost work commits before it answers, so it cannot run inside the caller's transaction.`);
