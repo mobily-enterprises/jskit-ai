@@ -40,6 +40,22 @@ test("replies that stop at 'let me…' are caught; finished ones aren't", () => 
     "Done — here's the GIF. If you need it lighter, say the word and I'll shrink it.",
     "Total: 106.40, due 28 October 2026. Want me to set a reminder?",
     "I saved it as plan.docx. Let me know if you want changes.",
-    `I'll take a look. ${"Here are the totals by month. ".repeat(12)}`
+    `I'll take a look. ${"Here are the totals by month. ".repeat(12)}`,
+    // Advice, or a question to the person, that ends in "first." announces nothing.
+    "First.",
+    "Safety first.",
+    "Stretch gently for five minutes before you start, and always warm up first.",
+    "Please ask your physiotherapist first.",
+    "I need to know your age first."
+  ]) assert.equal(stoppedShort(text), false, text);
+});
+
+// Known misses: a plan with none of the announcing phrases. "Checking" or "I need to" would catch
+// these, but also advice ("I recommend checking your blood pressure daily.") and questions to the
+// person ("I need to know your age first."), which are finished replies.
+test("plans without an announcing phrase are not caught", () => {
+  for (const text of [
+    "Got it. Checking the file first.",
+    "I'll do it. I need to read the schema first."
   ]) assert.equal(stoppedShort(text), false, text);
 });

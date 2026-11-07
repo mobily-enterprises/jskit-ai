@@ -13,7 +13,9 @@ export function checkTexts(app) {
 }
 
 // --- Stopping short: a short reply that ends by announcing its next step, with no result.
-const ANNOUNCES_NEXT = /(?:\b(?:let me|let's|I'll|I will|I'm going to|now I'll|next,? I'll|one moment|give me a (?:moment|second|sec)|just a (?:moment|second|sec))\b[^.!?\n]{0,160}[.…:>]*|\bfirst\.)\s*$/iu;
+// Only an announcing phrase counts: a reply that merely ends "first." is as often advice to the
+// person ("Please ask your physiotherapist first.") as a plan.
+const ANNOUNCES_NEXT = /\b(?:let me|let's|I'll|I will|I'm going to|now I'll|next,? I'll|one moment|give me a (?:moment|second|sec)|just a (?:moment|second|sec))\b[^.!?\n]{0,160}[.…:>]*\s*$/iu;
 const REPORTS_RESULT = /\b(?:done|here(?:'s| is| are)|saved|I've|I have|made|ready|finished|let me know|if you(?:'d)? (?:like|want)|say the word)\b/iu;
 /** A plan of a paragraph or two counts too ("…then verify it before switching it in."). */
 export const stoppedShort = (text) => text.length < 600 && ANNOUNCES_NEXT.test(text) && !REPORTS_RESULT.test(text);
