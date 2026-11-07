@@ -1,4 +1,3 @@
-import OpenAI from "openai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { chatModel } from "@jskit-ai/agent/server";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -37,11 +36,16 @@ function createOpenAiCompatibleClient({
   const normalizedBaseUrl = normalizeOptionalHttpUrl(baseUrl, {
     context: `assistant ${normalizedProvider} baseUrl`
   });
-  const client = new OpenAI({
-    apiKey: normalizedApiKey,
-    ...(normalizedBaseUrl ? { baseURL: normalizedBaseUrl } : {}),
-    timeout: normalizeTimeoutMs(timeoutMs)
-  });
+  // The OpenAI SDK (150 modules) loads with the first completion, not with every server that could ask for one.
+  let clientPromise = null;
+  const chatCompletions = async () => {
+    clientPromise ??= import("openai").then(({ default: OpenAI }) => new OpenAI({
+      apiKey: normalizedApiKey,
+      ...(normalizedBaseUrl ? { baseURL: normalizedBaseUrl } : {}),
+      timeout: normalizeTimeoutMs(timeoutMs)
+    }));
+    return (await clientPromise).chat.completions;
+  };
 
   const baseURL = normalizedBaseUrl || undefined;
 
@@ -54,11 +58,11 @@ function createOpenAiCompatibleClient({
       stream: false
     };
 
-    return client.chat.completions.create(requestPayload, signal ? { signal } : undefined);
+    return (await chatCompletions()).create(requestPayload, signal ? { signal } : undefined);
   }
 
   async function createChatCompletionStream({ messages = [], tools = [], signal, temperature = 0.2 } = {}) {
-    return client.chat.completions.create(
+    return (await chatCompletions()).create(
       {
         model: normalizedModel,
         messages,
