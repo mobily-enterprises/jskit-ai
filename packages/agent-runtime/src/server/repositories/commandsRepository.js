@@ -11,8 +11,8 @@ import { conversationKey, firstRow, rowOf } from "./rows.js";
 export function createCommandsRepository({ commands, options }) {
   const now = () => commands.raw("now()");
   const changed = async (id, changes, more = {}) => {
-    const [row] = await commands.patchWhereIds([id], changes, { ...options, missing: "skip", returning: "records", ...more });
-    return rowOf(AGENT_ROWS.commands, row);
+    const row = await commands.patch(id, changes, { ...options, missing: "skip", ...more });
+    return rowOf(AGENT_ROWS.commands, row ?? undefined);
   };
 
   /** The conversation's command by its number (digits, as the model gives it), or undefined. */
@@ -31,7 +31,7 @@ export function createCommandsRepository({ commands, options }) {
   }
 
   async function beat(id) {
-    await commands.patchWhereIds([id], { heartbeat_at: now() }, { ...options, missing: "skip" });
+    await commands.patch(id, { heartbeat_at: now() }, { ...options, missing: "skip", returning: "none" });
   }
 
   /** The ended command's row. */

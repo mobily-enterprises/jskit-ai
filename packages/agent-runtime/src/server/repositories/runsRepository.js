@@ -11,7 +11,9 @@ import { conversationKey, rowOf } from "./rows.js";
  */
 export function createRunsRepository({ runs, options }) {
   const now = () => runs.raw("now()");
-  const touching = Object.freeze({ ...options, missing: "skip", returning: "ids" });
+  const touching = Object.freeze({ ...options, missing: "skip", returning: "id" });
+  // How many runs a write touched: none when the conversation has no run.
+  const touched = (answer) => (answer === null ? 0 : 1);
 
   /** A new run for the conversation; false when it already has one. */
   async function insert(conversationId, owner) {
@@ -33,12 +35,11 @@ export function createRunsRepository({ runs, options }) {
   function takeOver(conversationId, staleSeconds) {
     conversationKey(conversationId);
     return runs.withTransaction(options, async (txOptions) => {
-      const [stale] = await runs.claim({ id: conversationId, staleFor: staleSeconds }, {}, txOptions);
+      const [stale] = await runs.claim({ filters: { id: conversationId, staleFor: staleSeconds } }, txOptions);
       if (!stale) {
         return null;
       }
-      const [taken] = await runs.patchWhereIds([stale.id], { started_at: now(), heartbeat_at: now() }, { ...txOptions, returning: "records" });
-      return rowOf(AGENT_ROWS.runs, taken);
+      return rowOf(AGENT_ROWS.runs, await runs.patch(stale.id, { started_at: now(), heartbeat_at: now() }, { ...txOptions, missing: "skip" }));
     });
   }
 
@@ -50,20 +51,20 @@ export function createRunsRepository({ runs, options }) {
 
   /** The steps and input saved so far, or undefined without a run. */
   async function saved(conversationId) {
-    const run = await runs.get(conversationKey(conversationId), { fields: ["steps", "input"] }, options);
+    const run = await runs.get(conversationKey(conversationId), { fields: ["steps", "input"] }, { ...options, missing: "skip" });
     return run ? { steps: run.steps, input: run.input } : undefined;
   }
 
   async function heartbeat(conversationId) {
-    return (await runs.patchWhereIds([conversationKey(conversationId)], { heartbeat_at: now() }, touching)).length;
+    return touched(await runs.patch(conversationKey(conversationId), { heartbeat_at: now() }, touching));
   }
 
   async function save(conversationId, steps, input) {
-    return (await runs.patchWhereIds([conversationKey(conversationId)], { steps, input, heartbeat_at: now() }, touching)).length;
+    return touched(await runs.patch(conversationKey(conversationId), { steps, input, heartbeat_at: now() }, touching));
   }
 
   async function release(conversationId) {
-    return (await runs.deleteMany([conversationKey(conversationId)], touching)).length;
+    return touched(await runs.delete(conversationKey(conversationId), { ...options, missing: "skip" }));
   }
 
   return Object.freeze({

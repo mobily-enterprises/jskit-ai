@@ -31,7 +31,7 @@ export function createSummariesRepository({ summaries, queue, options }) {
       await summaries.create({ conversation_id: conversationId, covers_up_to: coversUpTo, summary, messages }, { ...txOptions, returning: "none" });
       const newestFirst = await summaries.queryAll({ filters: { conversation_id: conversationId }, sort: ["-id"], fields: ["covers_up_to"] }, txOptions);
       const old = newestFirst.slice(keep).map((row) => row.id);
-      if (old.length) await summaries.deleteMany(old, { ...txOptions, missing: "skip" });
+      if (old.length) await summaries.deleteWhere({ id: old }, txOptions);
     });
   }
 
@@ -49,22 +49,22 @@ export function createSummariesRepository({ summaries, queue, options }) {
   /** The oldest due request no server holds, as it was before this server leased it; null when none. */
   function claimDue(leaseSeconds) {
     return queue.withTransaction(options, async (txOptions) => {
-      const [due] = await queue.claim({ summaryDue: true }, { sort: ["requested_at"] }, txOptions);
+      const [due] = await queue.claim({ filters: { summaryDue: true }, sort: ["requested_at"] }, txOptions);
       if (!due) {
         return null;
       }
-      await queue.patchWhereIds([due.id], { lease_until: inSeconds(leaseSeconds) }, txOptions);
+      await queue.patch(due.id, { lease_until: inSeconds(leaseSeconds) }, { ...txOptions, missing: "skip", returning: "none" });
       return rowOf(AGENT_ROWS.summaryQueue, due);
     });
   }
 
   async function dequeue(conversationId) {
-    await queue.deleteMany([conversationKey(conversationId)], { ...options, missing: "skip" });
+    await queue.delete(conversationKey(conversationId), { ...options, missing: "skip" });
   }
 
   /** A failed request waits `waitSeconds` before its next try, its lease let go. */
   async function retryLater(conversationId, { attempts, lastError, waitSeconds }) {
-    await queue.patchWhereIds([conversationKey(conversationId)], { attempts, lease_until: null, last_error: lastError, run_after: inSeconds(waitSeconds) }, { ...options, missing: "skip" });
+    await queue.patch(conversationKey(conversationId), { attempts, lease_until: null, last_error: lastError, run_after: inSeconds(waitSeconds) }, { ...options, missing: "skip", returning: "none" });
   }
 
   return Object.freeze({
