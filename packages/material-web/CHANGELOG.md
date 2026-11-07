@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Buttons' and pressable chips' state layers are their shape again: the 48dp touch target makes a button's overflow visible, which stopped it clipping Vuetify's overlay and underlay, so hover, focus and press drew a square on every round icon button (an app bar avatar, the rail's menu control) and on disabled ones. They now take the button's corners.
+- A labelled switch sits after its label, at the end of the row, as Material 3 places it, instead of before it. A switch without a label of its own (one in a list row's append slot) stays where it is.
 - `theme.typography: { brand, plain }` names Material 3's brand typeface (display, headline, title-large) and plain one (title-medium and -small, body, label) as CSS font-family values, both Roboto Flex by default. They become the theme variables `--v-font-heading` and `--v-font-body`, which Vuetify's type classes read; `material.css` keeps Roboto Flex for both only as a fallback in the `vuetify-core` layer, so an app's typefaces win. Upgrading: an app with its own fonts names them here instead of overriding `--v-font-body` or `font-family` in CSS.
 - Cards have no default `elevation`: Vuetify's elevated variant (the default) keeps its level-1 shadow, and flat, tonal and outlined cards (banners, heroes, containers) have none, as Material 3 draws them; the same for cards in a bottom sheet.
 - FABs keep Material 3's sizes instead of the common button's 40dp: 56dp, small 40dp, large 96dp (36dp icon), and the extended FAB 56dp tall.

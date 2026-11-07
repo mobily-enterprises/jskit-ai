@@ -58,6 +58,17 @@
     font-size: 24px;
   }
 
+  /* Switches: Material 3 puts the switch after its label, at the end of the row. A switch without a label (one a
+     list row's append slot holds) stays where it is. */
+  .v-switch .v-selection-control:has(> .v-label) {
+    flex-direction: row-reverse;
+    justify-content: space-between;
+  }
+
+  .v-switch .v-selection-control > .v-label {
+    padding-inline: 0 16px;
+  }
+
   /* FABs are not common buttons: 56dp (small 40dp, large 96dp with a 36dp icon), and the extended FAB is 56dp tall. */
   .v-fab .v-btn {
     --jskit-fab-size: 56px;
@@ -94,6 +105,13 @@
   .v-btn:not(.v-btn--stacked) {
     contain: layout;
     overflow: visible;
+  }
+
+  /* Vuetify's state layers have no corners of their own: they were round only because the button clipped them. With
+     its overflow visible they take the button's corners, or every hover, focus and press would draw a square. */
+  .v-btn:not(.v-btn--stacked) > .v-btn__overlay,
+  .v-btn:not(.v-btn--stacked) > .v-btn__underlay {
+    border-radius: inherit;
   }
 
   .v-btn:not(.v-btn--stacked)::before {
@@ -135,6 +153,11 @@
   .v-chip--link.v-chip--size-default {
     isolation: isolate;
     overflow: visible;
+  }
+
+  .v-chip--link.v-chip--size-default > .v-chip__overlay,
+  .v-chip--link.v-chip--size-default > .v-chip__underlay {
+    border-radius: inherit;
   }
 
   .v-chip--link.v-chip--size-default::after {
