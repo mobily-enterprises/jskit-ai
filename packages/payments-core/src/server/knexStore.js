@@ -1,84 +1,57 @@
-import { PaymentError, fingerprint } from "./errors.js";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+import { createResourceRuntime } from "@jskit-ai/resource-runtime/server";
+import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
+import { PAYMENT_STORE_FEATURE, PAYMENT_STORE_SYSTEM_SCOPE } from "./PaymentStoreFeature.js";
+import { PAYMENT_TABLES } from "./paymentResources.js";
+import { createPaymentStore } from "./paymentStore.js";
 
-const empty = () => ({ lots: [], subscriptions: {} });
-
-function merchant(scope) {
-  const fields = ["applicationId", "integrationId", "providerAccountId", "environment"];
-  for (const field of fields) {
-    if (typeof scope?.[field] !== "string" || !scope[field] || scope[field].length > 200) throw new TypeError(`Payment scope requires ${field}.`);
-  }
-  if (!["sandbox", "live"].includes(scope.environment)) throw new TypeError("Payment scope requires sandbox or live.");
-  return fields.map((field) => scope[field]);
-}
-function identifier(value) {
-  if (typeof value !== "string" || !value || value.length > 200) throw new TypeError("Payment identity is required (maximum 200 characters).");
-  return value;
-}
-const accountKey = (scope) => fingerprint([...merchant(scope), identifier(scope.subjectId)]);
-
-/** @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies */
+/**
+ * The payment store for code outside a JSKIT server, such as a script or a hand-written composition: it owns the
+ * payment tables through a resource runtime of its own on the application's Knex and answers what PaymentStoreFeature's
+ * store answers. A JSKIT application uses PaymentStoreFeature instead, so its tables have one owner.
+ * @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies
+ * @returns {import("./types.js").PaymentStore}
+ */
 function createKnexPaymentStore({ knex }) {
   // readable-check: allow method-probe - input validation: the application passes its own Knex instance
   if (typeof knex !== "function" || typeof knex.transaction !== "function") {
     throw new TypeError("createKnexPaymentStore requires the application's Knex instance.");
   }
+  let ready = null;
+  async function compose() {
+    const runtime = createResourceRuntime({ api: await createResourceHost({ knex, logger: silentLogger }) });
+    const resources = await runtime.own(PAYMENT_STORE_FEATURE, PAYMENT_TABLES);
+    const systemContext = (reason) => runtime.createSystemContext({ feature: PAYMENT_STORE_FEATURE, systemScope: PAYMENT_STORE_SYSTEM_SCOPE, reason });
+    return createPaymentStore({ resources, systemContext });
+  }
+  // The handles are built once, on the first call; a failed build is tried again on the next one.
+  function store() {
+    ready ||= compose().catch((error) => {
+      ready = null;
+      throw error;
+    });
+    return ready;
+  }
 
   async function inspect(scope) {
-    const row = await knex("payment_accounts").where({ account_key: accountKey(scope) }).first();
-    return row ? JSON.parse(row.payload) : empty();
+    return (await store()).inspect(scope);
   }
   async function withAccount(scope, work) {
-    const key = accountKey(scope);
-    return knex.transaction(async (trx) => {
-      // The retained account row serializes grants, usage, refunds and event handling.
-      await trx("payment_accounts").insert({ account_key: key, payload: JSON.stringify(empty()) })
-        .onConflict("account_key").merge({ account_key: key });
-      const row = await trx("payment_accounts").where({ account_key: key }).forUpdate().first();
-      const state = JSON.parse(row.payload);
-      const result = await work({
-        state,
-        async find(reference) {
-          const entry = await trx("payment_entries").where({ entry_key: fingerprint([key, identifier(reference)]) }).first();
-          return entry ? JSON.parse(entry.payload) : null;
-        },
-        async record(reference, payload) {
-          await trx("payment_entries").insert({ entry_key: fingerprint([key, identifier(reference)]), account_key: key, payload: JSON.stringify(payload) });
-        }
-      });
-      await trx("payment_accounts").where({ account_key: key }).update({ payload: JSON.stringify(state) });
-      return result;
-    });
+    return (await store()).withAccount(scope, work);
   }
   async function bindCustomer(scope, customerId, subjectId) {
-    const key = fingerprint([...merchant(scope), identifier(customerId)]);
-    identifier(subjectId);
-    await knex.transaction(async (trx) => {
-      await trx("payment_customers").insert({ customer_key: key, subject_id: subjectId })
-        .onConflict("customer_key").merge({ customer_key: key });
-      const row = await trx("payment_customers").where({ customer_key: key }).first();
-      if (row.subject_id !== subjectId) throw new PaymentError("payment_customer_conflict", "This provider customer is already bound to a different billable subject.", 409);
-    });
+    return (await store()).bindCustomer(scope, customerId, subjectId);
   }
   async function resolveCustomer(scope, customerId) {
-    const row = await knex("payment_customers").where({ customer_key: fingerprint([...merchant(scope), identifier(customerId)]) }).first();
-    return row?.subject_id ?? null;
+    return (await store()).resolveCustomer(scope, customerId);
   }
   async function inspectCatalogue(scope) {
-    const row = await knex("payment_catalogues").where({ catalogue_key: fingerprint(merchant(scope)) }).first();
-    return row ? JSON.parse(row.payload) : { plans: {}, history: [] };
+    return (await store()).inspectCatalogue(scope);
   }
   async function withCatalogue(scope, work) {
-    const key = fingerprint(merchant(scope));
-    return knex.transaction(async (trx) => {
-      await trx("payment_catalogues").insert({ catalogue_key: key, payload: JSON.stringify({ plans: {}, history: [] }) })
-        .onConflict("catalogue_key").merge({ catalogue_key: key });
-      const row = await trx("payment_catalogues").where({ catalogue_key: key }).forUpdate().first();
-      const state = JSON.parse(row.payload);
-      const result = await work(state);
-      await trx("payment_catalogues").where({ catalogue_key: key }).update({ payload: JSON.stringify(state) });
-      return result;
-    });
+    return (await store()).withCatalogue(scope, work);
   }
+
   return Object.freeze({
     inspect,
     withAccount,
