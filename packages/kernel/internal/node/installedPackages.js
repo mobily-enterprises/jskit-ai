@@ -1,5 +1,6 @@
-import { realpath } from "node:fs/promises";
+import { realpath, stat } from "node:fs/promises";
 import path from "node:path";
+import { deepFreeze } from "../../shared/support/deepFreeze.js";
 import { normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import { fileExists, readJsonFile } from "./fileSystem.js";
@@ -84,6 +85,8 @@ function resolveFileDependencyRoot(appRoot, specifier = "") {
   return relativePath ? path.resolve(appRoot, relativePath) : "";
 }
 
+// The directory holding the package's package.json, looked up as Node resolves it from the package that depends on
+// it, or "" when none is installed.
 async function resolveInstalledPackageRoot({ appRoot, packageId, parentPackageRoot = "" }) {
   const candidates = [];
   const seen = new Set();
@@ -98,7 +101,10 @@ async function resolveInstalledPackageRoot({ appRoot, packageId, parentPackageRo
   if (parentPackageRoot) {
     let currentRoot = path.resolve(parentPackageRoot);
     while (true) {
-      appendCandidate(path.join(currentRoot, "node_modules", ...packageId.split("/")));
+      // As in Node's resolution, a directory named node_modules has no node_modules of its own.
+      if (path.basename(currentRoot) !== "node_modules") {
+        appendCandidate(path.join(currentRoot, "node_modules", ...packageId.split("/")));
+      }
       const parentRoot = path.dirname(currentRoot);
       if (parentRoot === currentRoot) {
         break;
@@ -113,7 +119,7 @@ async function resolveInstalledPackageRoot({ appRoot, packageId, parentPackageRo
       return candidateRoot;
     }
   }
-  return path.resolve(appRoot, "node_modules", ...packageId.split("/"));
+  return "";
 }
 
 async function resolvePackageRoots({
@@ -122,11 +128,12 @@ async function resolvePackageRoots({
   directSpecifier = "",
   parentPackageRoot = ""
 }) {
-  const installedPackageRoot = await resolveInstalledPackageRoot({
+  const foundPackageRoot = await resolveInstalledPackageRoot({
     appRoot,
     packageId,
     parentPackageRoot
   });
+  const installedPackageRoot = foundPackageRoot || path.resolve(appRoot, "node_modules", ...packageId.split("/"));
   const fileDependencyRoot = resolveFileDependencyRoot(appRoot, directSpecifier);
   let sourcePackageRoot =
     fileDependencyRoot &&
@@ -134,7 +141,7 @@ async function resolvePackageRoots({
       ? fileDependencyRoot
       : "";
 
-  if (!sourcePackageRoot && (await fileExists(installedPackageRoot))) {
+  if (!sourcePackageRoot && foundPackageRoot) {
     try {
       const resolvedRoot = await realpath(installedPackageRoot);
       const relativeToNodeModules = path.relative(path.resolve(appRoot, "node_modules"), resolvedRoot);
@@ -158,16 +165,59 @@ async function resolvePackageRoots({
   };
 }
 
+// A discovery reads the manifest of every installed package, npm's own included, and an app's server boot and its
+// database preparation each ask for it. npm rewrites node_modules/.package-lock.json on every install, so a process
+// reuses an app's discovery while that file, the app's package.json and its local packages' manifests keep their size
+// and modification time. Without that file (another package manager, a node_modules written by hand) every call
+// discovers afresh.
+const discoveries = new Map();
+
+async function fileStamp(filePath) {
+  try {
+    const { mtimeMs, size } = await stat(filePath);
+    return `${mtimeMs}:${size}`;
+  } catch {
+    return "";
+  }
+}
+
+async function stampsOf(filePaths) {
+  return (await Promise.all(filePaths.map(fileStamp))).join("\n");
+}
+
 async function discoverInstalledPackages({ appRoot } = {}) {
   const normalizedAppRoot = String(appRoot || "").trim();
   if (!normalizedAppRoot) {
     throw new TypeError("discoverInstalledPackages requires appRoot.");
   }
 
+  const appKey = path.resolve(normalizedAppRoot);
+  const kept = discoveries.get(appKey);
+  if (kept && (await stampsOf(kept.watchedPaths)) === kept.stamps) {
+    return kept.packages;
+  }
+  discoveries.delete(appKey);
+
+  // Stamped before reading, so a file that changes during the walk is read again next time.
+  const watchedPaths = [path.join(appKey, "package.json"), path.join(appKey, "node_modules", ".package-lock.json")];
+  const watchedStamps = await Promise.all(watchedPaths.map(fileStamp));
+  const { packages, localManifests } = await walkInstalledPackages(normalizedAppRoot);
+  if (watchedStamps[1]) {
+    discoveries.set(appKey, {
+      watchedPaths: [...watchedPaths, ...localManifests.map(({ manifestPath }) => manifestPath)],
+      stamps: [...watchedStamps, ...localManifests.map(({ stamp }) => stamp)].join("\n"),
+      packages
+    });
+  }
+  return packages;
+}
+
+async function walkInstalledPackages(normalizedAppRoot) {
   const rootPackageJson = await readJsonFile(path.resolve(normalizedAppRoot, "package.json"), {});
   const directSpecifiers = collectRootDependencySpecifiers(rootPackageJson);
   const directPackageIds = new Set(directSpecifiers.keys());
   const visited = new Set();
+  const localManifests = [];
   // Breadth-first walk of the dependency graph; the queue stays ordered by packageId.
   const queue = [];
   const queued = new Set();
@@ -177,9 +227,17 @@ async function discoverInstalledPackages({ appRoot } = {}) {
     if (!packageId || visited.has(packageId) || queued.has(packageId)) {
       return;
     }
-    queue.push({ packageId, parentPackageRoot });
+    let index = 0;
+    for (let high = queue.length; index < high;) {
+      const middle = (index + high) >> 1;
+      if (queue[middle].packageId.localeCompare(packageId) < 0) {
+        index = middle + 1;
+      } else {
+        high = middle;
+      }
+    }
+    queue.splice(index, 0, { packageId, parentPackageRoot });
     queued.add(packageId);
-    queue.sort((left, right) => left.packageId.localeCompare(right.packageId));
   };
 
   for (const packageId of sortStrings([...directPackageIds])) {
@@ -202,11 +260,13 @@ async function discoverInstalledPackages({ appRoot } = {}) {
       parentPackageRoot
     });
     const packageJsonPath = path.join(roots.packageRoot, "package.json");
-    if (!(await fileExists(packageJsonPath))) {
+    if (roots.sourceType === "local-package") {
+      localManifests.push({ manifestPath: packageJsonPath, stamp: await fileStamp(packageJsonPath) });
+    }
+    const packageJson = await readJsonFile(packageJsonPath, null);
+    if (!packageJson) {
       continue;
     }
-
-    const packageJson = await readJsonFile(packageJsonPath, {});
     const packageMetadata = createPackageMetadata(packageJson);
     // An npm alias ("alias": "npm:real@1") installs another package under the alias name,
     // which is only an error for JSKIT packages.
@@ -229,9 +289,9 @@ async function discoverInstalledPackages({ appRoot } = {}) {
       Object.freeze({
         packageId,
         version: String(packageJson.version || "").trim(),
-        packageMetadata,
+        packageMetadata: deepFreeze(packageMetadata),
         manifestPath: packageJsonPath,
-        packageJson: Object.freeze({ ...normalizeObject(packageJson) }),
+        packageJson: deepFreeze({ ...normalizeObject(packageJson) }),
         packageRoot: roots.packageRoot,
         installedPackageRoot: roots.installedPackageRoot,
         sourcePackageRoot: roots.sourcePackageRoot || roots.packageRoot,
@@ -243,9 +303,10 @@ async function discoverInstalledPackages({ appRoot } = {}) {
     );
   }
 
-  return Object.freeze(
-    packages.sort((left, right) => left.packageId.localeCompare(right.packageId))
-  );
+  return {
+    packages: Object.freeze(packages.sort((left, right) => left.packageId.localeCompare(right.packageId))),
+    localManifests
+  };
 }
 
 export {

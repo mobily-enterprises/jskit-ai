@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import fsPromises, { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -147,4 +148,103 @@ test("discoverInstalledPackages walks npm alias dependencies but rejects aliased
     () => discoverInstalledPackages({ appRoot }),
     /Installed package manifest mismatch: expected @example\/sdk-v0_3, received @example\/sdk\./
   );
+});
+
+test("discoverInstalledPackages keeps an installed app's discovery until a manifest or the install changes", async (context) => {
+  const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-installed-package-kept-"));
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+  const runtimeRoot = path.join(appRoot, "node_modules", "@example", "runtime");
+  const localRoot = path.join(appRoot, "packages", "main");
+  const lockfilePath = path.join(appRoot, "node_modules", ".package-lock.json");
+  const writeJson = (filePath, value) => writeFile(filePath, JSON.stringify(value));
+  await mkdir(runtimeRoot, { recursive: true });
+  await mkdir(localRoot, { recursive: true });
+  const appDependencies = { "@example/runtime": "1.0.0", "@local/main": "file:packages/main" };
+  await writeJson(path.join(appRoot, "package.json"), { dependencies: appDependencies });
+  await writeJson(path.join(runtimeRoot, "package.json"), {
+    name: "@example/runtime",
+    version: "1.0.0",
+    jskit: { kind: "runtime", capabilities: { provides: ["feature.example"] } }
+  });
+  await writeJson(path.join(localRoot, "package.json"), { name: "@local/main", version: "0.1.0", jskit: { kind: "runtime" } });
+  await writeJson(lockfilePath, { lockfileVersion: 3, packages: {} });
+
+  const first = await discoverInstalledPackages({ appRoot });
+  assert.deepEqual(first.map((entry) => entry.packageId), ["@example/runtime", "@local/main"]);
+  assert.equal(await discoverInstalledPackages({ appRoot }), first);
+  assert.ok(Object.isFrozen(first[0].packageMetadata.capabilities.provides));
+
+  await writeJson(path.join(localRoot, "package.json"), {
+    name: "@local/main",
+    version: "0.1.0",
+    description: "Main package.",
+    jskit: { kind: "runtime" }
+  });
+  const afterLocalEdit = await discoverInstalledPackages({ appRoot });
+  assert.equal(afterLocalEdit[1].packageMetadata.description, "Main package.");
+
+  await writeJson(path.join(runtimeRoot, "package.json"), { name: "@example/runtime", version: "1.1.0", jskit: { kind: "runtime" } });
+  await writeJson(lockfilePath, { lockfileVersion: 3, packages: { "node_modules/@example/runtime": { version: "1.1.0" } } });
+  const afterInstall = await discoverInstalledPackages({ appRoot });
+  assert.equal(afterInstall[0].version, "1.1.0");
+
+  await writeJson(path.join(appRoot, "package.json"), { dependencies: { "@local/main": appDependencies["@local/main"] } });
+  const afterAppEdit = await discoverInstalledPackages({ appRoot });
+  assert.deepEqual(afterAppEdit.map((entry) => entry.packageId), ["@local/main"]);
+
+  await rm(lockfilePath);
+  const withoutLockfile = await discoverInstalledPackages({ appRoot });
+  assert.notEqual(await discoverInstalledPackages({ appRoot }), withoutLockfile);
+});
+
+/**
+ * Runs `work` and counts its calls to the node:fs/promises functions discovery uses.
+ * @param {() => Promise<unknown>} work
+ */
+async function fileSystemCallsDuring(work) {
+  const names = ["access", "readFile", "realpath", "stat"];
+  const originals = Object.fromEntries(names.map((name) => [name, fsPromises[name]]));
+  let calls = 0;
+  for (const name of names) {
+    fsPromises[name] = function countedCall(...args) {
+      calls += 1;
+      return originals[name].apply(this, args);
+    };
+  }
+  syncBuiltinESMExports();
+  try {
+    await work();
+  } finally {
+    Object.assign(fsPromises, originals);
+    syncBuiltinESMExports();
+  }
+  return calls;
+}
+
+test("discovery costs a few file system calls per installed package, however many there are", async (context) => {
+  const appRoot = await mkdtemp(path.join(tmpdir(), "jskit-installed-package-calls-"));
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+  // Each direct dependency depends on a package npm hoisted beside it.
+  async function writeApp(count) {
+    const root = path.join(appRoot, String(count));
+    const writePackage = async (name, dependencies = {}) => {
+      await mkdir(path.join(root, "node_modules", name), { recursive: true });
+      await writeFile(path.join(root, "node_modules", name, "package.json"), JSON.stringify({ name, version: "1.0.0", dependencies }));
+    };
+    const dependencies = {};
+    for (let index = 0; index < count; index += 1) {
+      dependencies[`direct-${index}`] = "1.0.0";
+      await writePackage(`direct-${index}`, { [`hoisted-${index}`]: "1.0.0" });
+      await writePackage(`hoisted-${index}`);
+    }
+    await writeFile(path.join(root, "package.json"), JSON.stringify({ dependencies }));
+    return root;
+  }
+  const [small, large] = [await writeApp(10), await writeApp(200)];
+
+  const smallCalls = await fileSystemCallsDuring(() => discoverInstalledPackages({ appRoot: small }));
+  const largeCalls = await fileSystemCallsDuring(() => discoverInstalledPackages({ appRoot: large }));
+
+  // Reading a manifest, resolving its real path and finding it, with one miss for a hoisted package.
+  assert.ok((largeCalls - smallCalls) / (2 * 190) <= 4, `${smallCalls} calls for 20 packages, ${largeCalls} for 400`);
 });

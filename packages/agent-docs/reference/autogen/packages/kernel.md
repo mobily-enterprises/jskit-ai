@@ -1146,3 +1146,6 @@ Local functions
 - `resolveFileDependencyRoot(appRoot, specifier = "")`
 - `resolveInstalledPackageRoot({ appRoot, packageId, parentPackageRoot = "" })`
 - `resolvePackageRoots({ appRoot, packageId, directSpecifier = "", parentPackageRoot = "" })`
+- `fileStamp(filePath)`
+- `stampsOf(filePaths)`
+- `walkInstalledPackages(normalizedAppRoot)`

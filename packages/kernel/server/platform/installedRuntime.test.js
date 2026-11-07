@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import fsPromises, { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -54,6 +55,31 @@ async function writeExampleApp(capabilities) {
   return appRoot;
 }
 
+/**
+ * Runs `work` and lists the package.json files under appRoot that it read.
+ * @param {string} appRoot
+ * @param {() => Promise<unknown>} work
+ */
+async function manifestReadsDuring(appRoot, work) {
+  const { readFile } = fsPromises;
+  const reads = [];
+  fsPromises.readFile = function countedReadFile(filePath, ...rest) {
+    const readPath = String(filePath);
+    if (readPath.startsWith(appRoot) && path.basename(readPath) === "package.json") {
+      reads.push(path.relative(appRoot, readPath));
+    }
+    return readFile.call(this, filePath, ...rest);
+  };
+  syncBuiltinESMExports();
+  try {
+    await work();
+  } finally {
+    fsPromises.readFile = readFile;
+    syncBuiltinESMExports();
+  }
+  return reads.sort();
+}
+
 test("installed runtime composes explicit package providers and application inputs", async (context) => {
   const appRoot = await writeExampleApp({
     requires: ["runtime.env"],
@@ -92,6 +118,28 @@ test("installed runtime composes explicit package providers and application inpu
     "fixture.observer"
   ]);
   assert.equal(Object.hasOwn(runtime, "app"), false);
+});
+
+test("a second boot of an installed app reads no package manifests until its packages change", async (context) => {
+  const appRoot = await writeExampleApp({
+    requires: ["runtime.env"],
+    provides: ["feature.example"]
+  });
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+  const lockfilePath = path.join(appRoot, "node_modules", ".package-lock.json");
+  await mkdir(path.dirname(lockfilePath), { recursive: true });
+  await writeFile(lockfilePath, JSON.stringify({ name: "fixture-app", lockfileVersion: 3, packages: {} }));
+  const boot = () => createInstalledRuntime({ appRoot, env: { APP_NAME: "Books" }, logger: silentLogger });
+  const manifests = ["package.json", path.join("packages", "example", "package.json")];
+
+  assert.deepEqual(await manifestReadsDuring(appRoot, boot), manifests);
+  assert.deepEqual(await manifestReadsDuring(appRoot, boot), []);
+  assert.deepEqual(await manifestReadsDuring(appRoot, boot), []);
+
+  // npm rewrites its hidden lockfile on every install.
+  await writeFile(lockfilePath, JSON.stringify({ name: "fixture-app", lockfileVersion: 3, packages: { "": {} } }));
+  assert.deepEqual(await manifestReadsDuring(appRoot, boot), manifests);
+  assert.deepEqual(await manifestReadsDuring(appRoot, boot), []);
 });
 
 test("installed runtime attaches one idempotent Fastify shutdown hook", async (context) => {
