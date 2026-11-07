@@ -22,6 +22,21 @@ jobs:
         node:
           - 24
           - 26
+    # The data tests never skip: each MariaDB one makes and drops a database of its own beside TEST_DB_NAME on this
+    # server. The PostgreSQL ones leave this MariaDB run (DB_CLIENT) to test-databases-postgres.
+    services:
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_DATABASE: application
+          MARIADB_ROOT_PASSWORD: native_test_password
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -39,6 +54,14 @@ jobs:
         run: npm run security:audit
 
       - name: Run verify
+        env:
+          DB_CLIENT: mysql2
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_USER: root
+          DB_PASSWORD: native_test_password
+          DB_NAME: application
+          TEST_DB_NAME: jskit_data_test
         run: npm run verify
 
   browser-contracts:
@@ -198,7 +221,7 @@ jobs:
           cache: npm
       - name: Install dependencies
         run: npm ci
-      - name: Verify test databases copied from a snapshot database (PostgreSQL)
+      - name: Verify test databases and the PostgreSQL data tests
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: 5432
@@ -206,7 +229,7 @@ jobs:
           DB_PASSWORD: native_test_password
           DB_NAME: application_test
           TEST_DB_NAME: application_test
-        run: npx jskit test packages/database-runtime/test/testDatabases.postgres.test.js
+        run: npx jskit test packages/database-runtime/test/testDatabases.postgres.test.js packages/agent-runtime/test/*.postgres.test.js
 
   deploy-docs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
