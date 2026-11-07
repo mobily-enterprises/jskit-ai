@@ -1,5 +1,5 @@
 import { isLostDuplicateInsertRace, resolveTransaction, retryDeadlocks, toIsoString } from "@jskit-ai/database-runtime/shared";
-import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   createJsonRestContext,
   extractJsonRestCollectionRows,
@@ -61,6 +61,36 @@ function createRepository({ api }) {
     }
 
     return queryFirst({ slug: normalizedSlug }, options);
+  }
+
+  /**
+   * Which of these slugs workspaces already hold, in one read however many do.
+   * @param {string[]} slugs
+   * @param {object} [options]
+   * @returns {Promise<Set<string>>}
+   */
+  async function listSlugsIn(slugs, options = {}) {
+    const normalizedSlugs = [...new Set(
+      (Array.isArray(slugs) ? slugs : []).map((slug) => normalizeLowerText(slug)).filter(Boolean)
+    )];
+    if (normalizedSlugs.length < 1) {
+      return new Set();
+    }
+
+    const rows = await queryAllJsonRestCollectionRows(
+      api.resources.workspaces,
+      {
+        queryParams: {
+          filters: {
+            slugs: normalizedSlugs
+          }
+        },
+        transaction: resolveTransaction(options),
+        format: "plain"
+      },
+      options.context
+    );
+    return new Set(rows.map((row) => normalizeLowerText(row.slug)));
   }
 
   async function findPersonalByOwnerUserId(userId, options = {}) {
@@ -231,6 +261,7 @@ function createRepository({ api }) {
     withTransaction,
     findById,
     findBySlug,
+    listSlugsIn,
     findPersonalByOwnerUserId,
     insert,
     updateById,

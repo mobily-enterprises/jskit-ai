@@ -21,6 +21,8 @@ import { renderDefaultWorkspaceInviteEmail } from "../src/server/workspaceMember
 import { unconfiguredWorkspaceInviteMailer } from "../src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
 import { createWorkspaceInviteUrlBuilder } from "../src/server/workspaceMembers/workspaceInviteUrls.js";
 import { createService as createMembersService } from "../src/server/workspaceMembers/workspaceMembersService.js";
+import { buildWorkspaceName, createService as createDirectoryService } from "../src/server/common/services/workspaceDirectoryService.js";
+import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 import { createWorkspacesServerI18n } from "../src/server/i18n.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 import { verifyInvitationTransactions } from "./support/invitationTransactions.js";
@@ -377,6 +379,50 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       const member = await membersService.getMember(large, users.get("person-150"), { trx });
       assert.equal(member.userId, users.get("person-150"));
     });
+  });
+
+  // `base`, then `base-2` to `base-<count>`: the names `count` earlier namesakes took.
+  const namesakes = (base, count) => [base, ...Array.from({ length: count - 1 }, (_, index) => `${base}-${index + 2}`)];
+
+  test("a new profile's username costs the same statements after 10 and after 200 namesakes", async () => {
+    await insertUsers([...namesakes("info", 10), ...namesakes("john", 200)]);
+    const signUp = (base) => statementsOf(() => profiles.upsert({
+      authProvider: "local",
+      authProviderUserSid: `newcomer-${base}`,
+      email: `${base}@newcomer.example`,
+      displayName: base
+    }));
+
+    const few = await signUp("info");
+    const many = await signUp("john");
+    assert.equal(few.result.username, "info-11");
+    assert.equal(many.result.username, "john-201");
+    // A read per taken candidate would add about 190 statements.
+    assert.equal(many.statements, few.statements, `${few.statements} statements after 10 namesakes, ${many.statements} after 200`);
+  });
+
+  test("a new workspace's slug costs the same statements after 10 and after 200 namesakes", async () => {
+    const users = await insertUsers(["founder"]);
+    const ownerUserId = users.get("founder");
+    await insertRows("workspaces", [...namesakes("acme", 10), ...namesakes("globex", 200)].map((slug) => ({
+      slug, name: slug, owner_user_id: ownerUserId, is_personal: false
+    })));
+    const directory = createDirectoryService({
+      tenancyProfile: resolveTenancyProfile({ tenancyMode: "workspaces", tenancyPolicy: { workspace: { allowSelfCreate: true } } }),
+      roleCatalog: createWorkspaceRoleCatalog(),
+      personalWorkspaceName: buildWorkspaceName,
+      workspacesRepository: workspaces,
+      workspaceMembershipsRepository: memberships,
+      workspaceSettingsRepository: settings
+    });
+    const create = (name) => statementsOf(() => directory.createWorkspaceForAuthenticatedUser({ id: ownerUserId }, { name }));
+
+    const few = await create("Acme");
+    const many = await create("Globex");
+    assert.equal(few.result.value.slug, "acme-11");
+    assert.equal(many.result.value.slug, "globex-201");
+    // A read per taken candidate would add about 190 statements.
+    assert.equal(many.statements, few.statements, `${few.statements} statements after 10 namesakes, ${many.statements} after 200`);
   });
 
   test("a member of 130 workspaces has all of them listed", async () => {

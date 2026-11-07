@@ -7,6 +7,8 @@ import { listCatalogRolePermissions } from "../../../shared/roles.js";
 import { TENANCY_MODE_NONE } from "../../../shared/tenancyProfile.js";
 import { mapWorkspaceSummary } from "../formatters/workspaceFormatter.js";
 
+const WORKSPACE_SLUG_CANDIDATE_LIMIT = 1000;
+
 function toSlugPart(value) {
   const normalized = normalizeLowerText(value)
     .replace(/[^a-z0-9]+/g, "-")
@@ -69,14 +71,16 @@ function createService({
   const workspacePolicy = tenancyProfile.workspace;
 
   async function ensureUniqueWorkspaceSlug(baseSlug, options = {}) {
-    let suffix = 0;
-    while (suffix < 1000) {
-      suffix += 1;
-      const candidate = suffix === 1 ? toSlugPart(baseSlug) : `${toSlugPart(baseSlug)}-${suffix}`;
-      const existing = await workspacesRepository.findBySlug(candidate, options);
-      if (!existing) {
-        return candidate;
-      }
+    const slugPart = toSlugPart(baseSlug);
+    // The base, then base-2 to base-1000, read in one query however many are taken.
+    const candidates = Array.from(
+      { length: WORKSPACE_SLUG_CANDIDATE_LIMIT },
+      (_, index) => (index === 0 ? slugPart : `${slugPart}-${index + 1}`)
+    );
+    const takenSlugs = await workspacesRepository.listSlugsIn(candidates, options);
+    const candidate = candidates.find((slug) => !takenSlugs.has(slug));
+    if (candidate) {
+      return candidate;
     }
     throw new Error("Unable to generate unique workspace slug.");
   }

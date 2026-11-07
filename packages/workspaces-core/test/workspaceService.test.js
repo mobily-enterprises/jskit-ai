@@ -49,6 +49,7 @@ function createWorkspaceServiceFixture({
   }
 } = {}) {
   const calls = {
+    listSlugsIn: 0,
     findPersonalByOwnerUserId: 0,
     listForUserId: 0,
     insert: 0,
@@ -95,6 +96,10 @@ function createWorkspaceServiceFixture({
           return null;
         }
         return { ...workspace };
+      },
+      async listSlugsIn(slugs) {
+        calls.listSlugsIn += 1;
+        return new Set(slugs.filter((slug) => workspaceBySlug.has(String(slug).trim().toLowerCase())));
       },
       async findPersonalByOwnerUserId() {
         calls.findPersonalByOwnerUserId += 1;
@@ -410,6 +415,42 @@ test("workspaceService.createWorkspaceForAuthenticatedUser generates an omitted 
   assert.equal(insertedPayloads[0].slug, "operations-team");
   assert.equal(insertedPayloads[0].isPersonal, false);
   assert.equal(insertedPayloads[0].ownerUserId, "7");
+});
+
+// The slug a new workspace named `name` gets while `takenSlugs` are held, and how many reads chose it.
+async function chooseWorkspaceSlug(name, takenSlugs) {
+  const { service, calls } = createWorkspaceServiceFixture({
+    tenancyMode: "workspaces",
+    tenancyPolicy: { workspace: { allowSelfCreate: true } },
+    personalWorkspace: null,
+    additionalWorkspaces: takenSlugs.map((slug, index) => ({
+      id: String(1000 + index), slug, name: slug, ownerUserId: "8", isPersonal: false, avatarUrl: ""
+    }))
+  });
+  const workspace = (await service.createWorkspaceForAuthenticatedUser({ id: "7" }, { name })).value;
+  assert.equal(calls.listSlugsIn, 1);
+  return workspace.slug;
+}
+
+test("workspaceService chooses the first free slug of base, base-2 to base-1000 in one read", async () => {
+  assert.equal(await chooseWorkspaceSlug("Acme", []), "acme");
+  assert.equal(await chooseWorkspaceSlug("Acme", ["acme"]), "acme-2");
+  assert.equal(
+    await chooseWorkspaceSlug("Acme", ["acme", "acme-2", "acme-4", "acme-5"]),
+    "acme-3"
+  );
+  assert.equal(await chooseWorkspaceSlug("Acme", ["acme-2"]), "acme");
+
+  const longName = "a".repeat(60);
+  const trimmedBase = "a".repeat(48);
+  assert.equal(await chooseWorkspaceSlug(longName, []), trimmedBase);
+  assert.equal(await chooseWorkspaceSlug(longName, [trimmedBase]), `${trimmedBase}-2`);
+});
+
+test("workspaceService fails the same way when base to base-1000 are all taken", async () => {
+  const taken = ["acme", ...Array.from({ length: 999 }, (_, index) => `acme-${index + 2}`)];
+  await assert.rejects(chooseWorkspaceSlug("Acme", taken), /Unable to generate unique workspace slug\./);
+  assert.equal(await chooseWorkspaceSlug("Acme", taken.slice(0, -1)), "acme-1000");
 });
 
 test("workspaceService.createWorkspaceForAuthenticatedUser rejects creation when self-create policy is disabled", async () => {

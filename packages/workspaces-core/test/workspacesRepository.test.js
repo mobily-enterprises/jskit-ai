@@ -43,6 +43,7 @@ function createWorkspacesApiStub({
   insertError = null
 } = {}) {
   const state = {
+    queries: [],
     postPayload: null,
     patchPayload: null
   };
@@ -50,9 +51,16 @@ function createWorkspacesApiStub({
   const api = {
     resources: {
       workspaces: {
-        async query({ queryParams, format }) {
+        vars: { queryMaxLimit: 100 },
+        async query({ queryParams, transaction, format }) {
           assert.equal(format, "plain");
           const filters = queryParams?.filters || {};
+          state.queries.push({ filters, transaction });
+
+          if (Object.hasOwn(filters, "slugs")) {
+            const rows = filters.slugs.map((slug) => rowsBySlug.get(String(slug))).filter(Boolean);
+            return asCollectionDocument(rows.map((row) => toWorkspaceRow(row)));
+          }
 
           if (Object.hasOwn(filters, "id")) {
             const row = rowsById.get(String(filters.id)) || null;
@@ -177,6 +185,26 @@ test("workspacesRepository.findById reads a canonical workspace row through json
     updatedAt: toIsoString("2026-03-10 00:26:35.710"),
     deletedAt: null
   });
+});
+
+test("workspacesRepository.listSlugsIn reads which slugs are taken in one query through the caller's transaction", async () => {
+  const trx = { trxId: "trx-slugs" };
+  const { api, state } = createWorkspacesApiStub({
+    rowsBySlug: new Map([
+      ["acme", { id: "7", slug: "acme", name: "Acme", ownerUserId: "9", isPersonal: false, avatarUrl: "" }],
+      ["acme-3", { id: "8", slug: "acme-3", name: "Acme 3", ownerUserId: "9", isPersonal: false, avatarUrl: "" }]
+    ])
+  });
+  const repository = createRepository({ api });
+
+  const taken = await repository.listSlugsIn([" ACME ", "acme-2", "acme-3", "acme"], { trx });
+
+  assert.deepEqual([...taken].sort(), ["acme", "acme-3"]);
+  assert.equal(state.queries.length, 1);
+  assert.deepEqual(state.queries[0].filters, { slugs: ["acme", "acme-2", "acme-3"] });
+  assert.equal(state.queries[0].transaction, trx);
+  assert.deepEqual([...await repository.listSlugsIn([])], []);
+  assert.equal(state.queries.length, 1);
 });
 
 test("workspacesRepository.findPersonalByOwnerUserId returns the first personal workspace by canonical id order", async () => {
