@@ -760,9 +760,22 @@ test("Claude cancellation waits for an application effect after closing the nati
 
 test("the common request deadline stops an unfinished native turn and retains its admitted history", async t => {
   // The deadline also covers starting the native process and admitting the turn, which took up to 8.4 s (median 1.3 to
-  // 2.5 s) with 4 to 8 copies of this test running on an 8-thread host, so it allows 10 s.
-  const f = await fixture(t, { limits: { timeoutMs: 10_000 } });
+  // 2.5 s) with 4 to 8 copies of this test running on an 8-thread host. Rather than a deadline long enough to outlast
+  // that, the test holds the request's deadline timer and runs it once the turn is admitted, so it always stops an
+  // admitted turn and never waits for the clock.
+  const timeoutMs = 10_000;
+  const setTimer = globalThis.setTimeout;
+  let deadline = null;
+  t.mock.method(globalThis, "setTimeout", (callback, delay, ...args) => {
+    if (deadline || delay !== timeoutMs) return setTimer(callback, delay, ...args);
+    deadline = () => callback(...args);
+    return setTimer(() => {}, 0);
+  });
+  const f = await fixture(t, { limits: { timeoutMs } });
   await f.conversation.send({ messageId: "waiting", text: "wait" });
+  assert.equal(typeof deadline, "function", "The request armed its deadline with the configured time limit");
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1, "The turn was admitted");
+  deadline();
   const snapshot = await f.conversation.wait();
   assert.equal(snapshot.conversationLog[0].metadata.runtime.status, "failed");
   assert.match(snapshot.error, /time limit/);
