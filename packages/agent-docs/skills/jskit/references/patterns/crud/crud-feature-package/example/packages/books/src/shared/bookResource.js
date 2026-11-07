@@ -54,6 +54,7 @@ const bookResource = defineTableResource({
 });
 
 const bookCrud = defineCrudContract(bookResource, {
+  namespace: "books",
   apiAccess: "authenticated",
   fields: {
     createdAt: { output: "required" },

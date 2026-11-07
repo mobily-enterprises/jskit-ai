@@ -16,7 +16,7 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/shared/crudContract.js`
 Exports
-- `defineCrudContract(resource, config = {})`
+- `defineCrudContract(resource, config)`
 - `isCrudContract(value)`
 Local functions
 - `buildCrudRecordIdFieldDefinition()`

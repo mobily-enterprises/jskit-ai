@@ -45,9 +45,8 @@ Local functions
 - `oauthAttemptRecord(input = {})`
 - `findOne(handle, field, value, options)`
 - `findById(handle, id, options)`
-- `countOf(written)`
 - `deleteById(handle, id, options)`
-- `replace(handle, id, attributes, options)`
+- `replaceFailures(failures, email, attributes, options)`
 - `patchExisting(handle, id, changes, options)`
 - `userRecords(users, options)`
 - `sessionRecords(sessions, options)`
