@@ -1,4 +1,4 @@
-import { ruleMeta } from "../support.js";
+import { DATA_ACCESS_GUIDE_URL, ruleMeta } from "../support.js";
 
 const ALLOW_MARK = "readable-check: allow";
 const ALLOW_FORM = /readable-check: allow (\S+) - (.+?)\s*$/u;
@@ -19,7 +19,8 @@ const REASON_PREFIXES = Object.freeze([
   /^deferred until boot: \S/u,
   /^filled by \S.*; convert with its supplier/u,
   /^cross-repository slot \S/u,
-  /^shared resource: \S/u
+  /^shared resource: \S/u,
+  /^infrastructure: \S/u
 ]);
 // A guard once kept because a test asserted its error now says what goes wrong
 // without it, under safety invariant:.
@@ -36,6 +37,53 @@ const MARKER = /\b(?:TODO|FIXME|XXX)\b/u;
 const DATA_PREFIX = /^data: /u;
 const PARAMETER_RULES = new Set(["dependency-default", "required-collaborators"]);
 const FUNCTION_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
+// The data-access rules. A module whose job is data access itself (a migration runner, test databases, protocol state)
+// is excused from the first two as a whole, by an `infrastructure:` comment in its first lines, before any code. No
+// other rule takes that prefix, and the other three data-access rules take no excuse at all.
+const INFRASTRUCTURE_RULES = new Set(["no-direct-knex", "no-transaction-reader"]);
+const UNEXCUSABLE_RULES = new Set(["sql-literal", "no-hand-scope", "knex-reason"]);
+const INFRASTRUCTURE_PREFIX = /^infrastructure:/u;
+
+/**
+ * The rule or finding and the reason of one "readable-check: allow <rule> - <reason>" text, or null when it is not in
+ * that form.
+ * @param {string} text
+ */
+function readAllow(text) {
+  const match = ALLOW_FORM.exec(text);
+  return match ? { rule: match[1], reason: match[2] } : null;
+}
+
+/**
+ * What is wrong with an exception's reason, as a message id of jskit/allow-comment-form, or "" for a good reason: it
+ * starts with a fixed prefix and says what is true of the code, never its tests or the state of a project.
+ * @param {string} reason
+ */
+function reasonProblem(reason) {
+  if (RETIRED_PREFIX.test(reason)) {
+    return "retiredPrefix";
+  }
+  if (!REASON_PREFIXES.some((prefix) => prefix.test(reason))) {
+    return "allowPrefix";
+  }
+  if (CITES_TESTS.test(reason)) {
+    return "citesTests";
+  }
+  return CITES_STATUS.test(reason) || MARKER.test(reason) ? "citesStatus" : "";
+}
+
+/**
+ * Whether one comment line excuses a whole file from a data-access rule as infrastructure: it names the rule, and its
+ * reason starts with `infrastructure:` and passes jskit/allow-comment-form. Only a comment before the file's first
+ * token counts; the caller selects those.
+ * @param {string} line
+ * @param {string} ruleName The rule's name without the plugin, such as "no-direct-knex".
+ */
+function isInfrastructureExcuse(line, ruleName) {
+  const allow = readAllow(line);
+  return Boolean(allow) && (allow.rule === ruleName || allow.rule === `jskit/${ruleName}`) &&
+    INFRASTRUCTURE_PREFIX.test(allow.reason) && !reasonProblem(allow.reason);
+}
 
 /**
  * Whether a node is a function, or declares or holds one: a function or arrow, an exported function, a variable
@@ -95,42 +143,56 @@ function allowLines(comment, opening = 2) {
   });
 }
 
+// What is wrong with a data-access rule's exception, or "": the three rules no comment excuses, and the infrastructure
+// excuse anywhere but a whole data-access file's first lines.
+function dataAccessProblem(rule, reason, inHeader) {
+  const name = rule.replace(/^jskit\//u, "");
+  if (UNEXCUSABLE_RULES.has(name)) {
+    return "dataAccessUnexcusable";
+  }
+  const infrastructure = INFRASTRUCTURE_PREFIX.test(reason);
+  if (!infrastructure && !INFRASTRUCTURE_RULES.has(name)) {
+    return "";
+  }
+  return infrastructure && INFRASTRUCTURE_RULES.has(name) && inHeader ? "" : "infrastructureExcuse";
+}
+
 // Every "readable-check: allow <rule> - <reason>" comment names a rule or
 // finding, then a reason that starts with one of the fixed prefixes and says
 // what is true of the code; a component template's HTML comments are read too.
 const allowCommentForm = Object.freeze({
   meta: ruleMeta("Require readable-check allow comments to give a reason with a fixed prefix that describes the code.", {
     allowForm: "Write the exception as \"readable-check: allow <rule> - <reason>\".",
-    allowPrefix: "\"{{reason}}\" starts with no reason prefix. Start it with input validation:, data:, platform object:, optional operation:, safety invariant:, not a slot:, cycle: <supplier> requires <owner>, deferred until boot:, filled by <repository>; convert with its supplier, cross-repository slot <token>, or shared resource:.",
+    allowPrefix: "\"{{reason}}\" starts with no reason prefix. Start it with input validation:, data:, platform object:, optional operation:, safety invariant:, not a slot:, cycle: <supplier> requires <owner>, deferred until boot:, filled by <repository>; convert with its supplier, cross-repository slot <token>, shared resource:, or (for a data-access infrastructure module) infrastructure:.",
     retiredPrefix: "\"{{reason}}\" uses the retired test asserts error:. Say what goes wrong without the guard under safety invariant: <what goes wrong>, or remove the guard.",
     citesTests: "\"{{reason}}\" cites tests. Describe the code; a guard that protects an internal invariant says what goes wrong without it under safety invariant:.",
     citesStatus: "\"{{reason}}\" cites the state of a project. Describe what is true of the code.",
-    dataOnFunction: "\"{{reason}}\" excuses a function with data:, which is only for data. Give the function's real reason, or remove its duplicate."
+    dataOnFunction: "\"{{reason}}\" excuses a function with data:, which is only for data. Give the function's real reason, or remove its duplicate.",
+    dataAccessUnexcusable: `{{rule}} takes no exception; change the code (${DATA_ACCESS_GUIDE_URL}#hard-rules).`,
+    infrastructureExcuse: "The infrastructure exception excuses a whole file from no-direct-knex or no-transaction-reader, and nothing else: " +
+      "\"readable-check: allow no-direct-knex - infrastructure: <what the module is>\", one line per rule, in the file's first lines, " +
+      `before any code (${DATA_ACCESS_GUIDE_URL}#hard-rules).`
   }, "exceptions"),
   create(context) {
     return {
       Program() {
-        const templateComments = (context.sourceCode.ast.templateBody?.comments || [])
+        const sourceCode = context.sourceCode;
+        const firstToken = sourceCode.ast.tokens[0];
+        const templateComments = (sourceCode.ast.templateBody?.comments || [])
           .filter((comment) => comment.type === "HTMLComment")
           .map((comment) => ({ comment, opening: 4 }));
-        const scriptComments = context.sourceCode.getAllComments().map((comment) => ({ comment, opening: 2 }));
+        const scriptComments = sourceCode.getAllComments().map((comment) => ({ comment, opening: 2 }));
         for (const { comment, opening } of [...scriptComments, ...templateComments]) {
+          const inHeader = opening === 2 && (!firstToken || comment.range[1] <= firstToken.range[0]);
           for (const { body, loc } of allowLines(comment, opening)) {
-            const match = ALLOW_FORM.exec(body);
-            const reason = match?.[2] || "";
-            const data = { reason: reason.length > 60 ? `${reason.slice(0, 57)}...` : reason };
-            if (!match) {
-              context.report({ loc, messageId: "allowForm" });
-            } else if (RETIRED_PREFIX.test(reason)) {
-              context.report({ loc, messageId: "retiredPrefix", data });
-            } else if (!REASON_PREFIXES.some((prefix) => prefix.test(reason))) {
-              context.report({ loc, messageId: "allowPrefix", data });
-            } else if (CITES_TESTS.test(reason)) {
-              context.report({ loc, messageId: "citesTests", data });
-            } else if (CITES_STATUS.test(reason) || MARKER.test(reason)) {
-              context.report({ loc, messageId: "citesStatus", data });
-            } else if (DATA_PREFIX.test(reason) && !PARAMETER_RULES.has(match[1]) && opening === 2) {
-              const node = excusedNode(context.sourceCode, comment);
+            const allow = readAllow(body);
+            const reason = allow?.reason || "";
+            const data = { reason: reason.length > 60 ? `${reason.slice(0, 57)}...` : reason, rule: allow?.rule || "" };
+            const problem = allow ? dataAccessProblem(allow.rule, reason, inHeader) || reasonProblem(reason) : "allowForm";
+            if (problem) {
+              context.report({ loc, messageId: problem, data });
+            } else if (DATA_PREFIX.test(reason) && !PARAMETER_RULES.has(allow.rule) && opening === 2) {
+              const node = excusedNode(sourceCode, comment);
               if (node && holdsFunction(node)) {
                 context.report({ loc, messageId: "dataOnFunction", data });
               }
@@ -142,4 +204,4 @@ const allowCommentForm = Object.freeze({
   }
 });
 
-export { allowCommentForm };
+export { allowCommentForm, isInfrastructureExcuse, reasonProblem };
