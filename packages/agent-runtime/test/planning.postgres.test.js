@@ -32,13 +32,13 @@ async function planningStore(knex) {
       return records[0];
     },
     async mergeTodos(cardId, body) {
-      await chatMessages.patchWhereIds([cardId], { body: chatMessages.raw("body || ?::jsonb", [JSON.stringify(body)]) }, { ...options, missing: "skip" });
+      await chatMessages.patch(cardId, { body: chatMessages.raw("body || ?::jsonb", [JSON.stringify(body)]) }, { ...options, missing: "skip", returning: "none" });
     },
     async jobNotes(conversationId) {
-      return (await chatConversations.get(conversationId, { fields: ["job_notes"] }, options))?.job_notes;
+      return (await chatConversations.get(conversationId, { fields: ["job_notes"] }, { ...options, missing: "skip" }))?.job_notes;
     },
     async setJobNotes(conversationId, notes) {
-      await chatConversations.patchWhereIds([conversationId], { job_notes: notes }, { ...options, missing: "skip" });
+      await chatConversations.patch(conversationId, { job_notes: notes }, { ...options, missing: "skip", returning: "none" });
     }
   };
 }
