@@ -105,10 +105,10 @@ of copying it.
 | --- | --- |
 | Behavior before, around, or after one standard CRUD operation | `operationLifecycle` |
 | A resource-specific domain method or override | `decorateService` |
-| A resource-specific query, lock, or persistence operation | `decorateRepository` |
+| A resource-specific query, lock, or many-row write | `decorateRepository`, on the table's handle |
 | A named non-CRUD command on the resource | a named CRUD `action` backed by the service |
 | A separate aggregate, workflow, or capability domain | `defineFeature()` with named actions |
-| Persistence that the high-level resource APIs cannot express | an explicit custom repository owned by that Feature |
+| A report the handle cannot express | one `scopedQuery()` repository method, under `// Knex: <kind> - <reason>` ([data access](data-access.md#layer-5-reports-the-resource-cannot-express)) |
 
 For mutations, lifecycle phases before commit share one repository
 transaction. An `execute` hook that only normalizes input calls
@@ -120,7 +120,7 @@ and delivered separately.
 Give commands product names such as `confirm`, `publish`, or `cancel`, with
 explicit input, permissions, routes where needed, audit behavior, events, and
 tests. Do not hide unrelated workflows behind a generic `execute(anything)`
-action, and do not create a custom repository merely because SQL is familiar.
+action, and do not write Knex merely because SQL is familiar.
 
 ### Reuse response serializers
 
@@ -162,77 +162,86 @@ through the application's normal installation flow and restart the backend to
 activate the new setup. Updating packages or starter examples alone does not
 change an existing application's startup source.
 
-### JSON REST v2 integration
+### Data access on table resources (json-rest-api 3)
 
 Applications using `@jskit-ai/resource-runtime` require Node.js 24 or newer.
 JSKIT's repository and application default is Node.js 26. Upgrade dependencies,
-custom resource calls, and hooks together; rebuild native database dependencies
-after changing Node.
+resource calls and hooks together; rebuild native database dependencies after
+changing Node.
 
-The standard `defineCrudJsonApiFeature()` API keeps `queryDocuments`,
-`getDocumentById`, `createDocument`, `patchDocumentById`, and
-`deleteDocumentById`, with `{ trx, context }` repository/service options.
-Read, create, and patch services still return tagged JSON:API documents.
-Application-owned hosts use `JsonRestApi` from `json-rest-api`; the JSKIT host
-already owns that setup.
+Every table has one table resource and one owner feature, and every read and
+write goes through that table's handle
+([data access](data-access.md)). Rename as you go:
 
-For direct resource calls, replace `inputRecord` with exactly one of `data`
-(plain values) or `document` (a JSON:API document). `format` selects output
-independently: `"plain"` or `"jsonapi"`. Replace `simplified` and
-`returnFullRecord` with `format` and `returning: "full" | "minimal" | "none"`.
-The JSKIT host defaults to plain output and full write responses; standard
-document repositories explicitly request JSON:API output and full create/patch
-responses. A plain collection is still `{ data: [...], meta?, links? }`; use
-`extractJsonRestCollectionRows()` when a custom repository needs its rows.
-A query without a page returns only the resource's first 20 rows; a
-server-side read that needs every row uses `queryAllJsonRestCollectionRows()`
-([every row](typed-features.md#every-row)).
+| Before | Now |
+| --- | --- |
+| `defineCrudResource()` | `defineTableResource()` plus `defineCrudContract()` |
+| `defineCrudJsonApiFeature()`, `createCrudResourceRuntime()` | `defineCrudFeature({ crud })` |
+| `runtime.json-rest-api`, `addResourceIfMissing()`, `createJsonRestResourceScopeOptions()` | `defineFeature({ owns })`; a row policy, search schema or query fields go in the `owns` entry |
+| `queryDocuments()`, `getDocumentById()` | `query({ page: { size } })`, `get(id)` |
+| `queryAllJsonRestCollectionRows()`, `queryEveryDocument()` | `queryAll(params)` |
+| `createDocument()`, `createDocuments()` | `create()`, `createMany()` |
+| `patchDocumentById()`, `patchDocumentIfLockVersion()` | `patch(id, changes)`, `patch(id, changes, { lockVersion })` |
+| `deleteDocumentById()` | `delete(id)` |
+| `getDocumentById(…, { forUpdate: true })` | `lock(id)` inside `withTransaction` |
+| `runInTransaction()`, `resolveTransaction()`, `resolveRepoClient()` | `withTransaction(options, (txOptions) => …)` |
+| `returning: "full" \| "minimal"` | `returning: "record" \| "id"` (`"none"` is unchanged) |
+| a hand-built `visibilityContext` or scope values | the caller's context, or `systemContext(reason).forWorkspace(id)` |
+| a field's `default:` | `defaultTo:` (`default` is refused, since json-rest-api never read it) |
 
-```js
-await jsonRestApi.resources.books.patch({
-  id: recordId,
-  data: { title: "Revised title" },
-  format: "jsonapi",
-  returning: "full",
-  transaction: trx
-}, createJsonRestContext(context));
-```
+Handles answer records, `{ id, ...fields }`, with a belongs-to field as the
+related id; the CRUD service alone answers JSON:API documents. Every call takes
+`options` last: the caller's context, and inside a transaction the `txOptions`
+`withTransaction` handed its work. A call without a context throws on a table
+that is not public.
 
-Keep the target ID outside the patch data. Direct plain writes use the
-belongs-to relationship name and ID, such as `author: authorId`; the standard
-repository maps a resource field's declared `as` alias. Do not send both names.
-
-Resource hooks share the mutable context supplied as the second argument
-within one operation. The normalized hook field remains
-`context.inputRecord.data`; only the public input argument changed.
-`createJsonRestContext()` clones the JSKIT execution context and its
-`visibilityContext` and `scopeValues`, allowing frozen caller contexts; other
-nested objects remain shared references. Permission hooks use
-`context.originalContext ?? context` for operation-wide caches; enrichment
-hooks use `context.parentContext`. Built-in nested operations get separate
-contexts with shallow inheritance. For an application-initiated child call,
-choose the application properties to share in a fresh context and pass
-`transaction` explicitly; reusing or blindly spreading an active operation
-context carries its working state into the child.
-
-The standard repository's `withTransaction(work)` delegates to
-`jsonRestApi.transaction(work)`. Its callback and mutation lifecycle phases
-receive the actual callable Knex transaction: custom repository SQL can use
-`await trx("audit_entries").insert(...)`, while resource calls receive it as
-`transaction`. Await every participant before returning. The helper owns
-commit, rollback, and completion hooks. Raw `knex.transaction()` handles cannot
-own resource writes, and calling `transaction()` again starts an independent
-unit; forward the existing handle to compose work.
+json-rest-api 3 changes what a failed write means: any failed write inside a
+managed transaction fails the whole transaction. "Insert, catch the duplicate,
+then read" inside a transaction no longer works; use
+`createMany(rows, { onConflict: { keys, action: "ignore" } })` and then read,
+or read first. A `patch` or `delete` of a missing record answers `null` on its
+own, and throws inside a transaction the caller opened. Upsert rows carry no
+`id`, never repeat their conflict keys, and name the ownership field among
+those keys. `patchWhere` and `deleteWhere` need filters, or `all: true`.
 
 Preserve `error.transactionOutcome` and its cause when translating failures:
 `none` means no transaction was acquired or accepted, `pending` leaves
 completion to the owner, `rolledBack` confirms rollback, `committed` confirms
 commit, and `unknown` means the outcome is unresolved. These describe database
-transaction evidence, not external effects. A failed JSKIT mutation
-`afterCommit` hook raises `RestApiWriteError` with outcome `committed` and does
-not undo the write. Do not turn pending, committed, or unknown write failures
-into successful missing-record results, or automatically replay a committed
-or unresolved write.
+transaction evidence, not external effects. A failed `afterCommit` hook raises
+`RestApiWriteError` with outcome `committed` and does not undo the write. Do
+not turn pending, committed, or unknown write failures into successful
+missing-record results, or automatically replay a committed or unresolved
+write.
+
+### Moving hand-written SQL behind resources
+
+An application with Knex in its repositories moves it behind table resources
+one table at a time:
+
+1. **Inventory.** List every statement that reads or writes a table: the
+   repository methods, raw queries, migrations' seed data, jobs and scripts.
+   `jskit check` and the data-access lint rules (`jskit/no-direct-knex`,
+   `jskit/no-hand-scope`) find most of them.
+2. **One owner per table.** Pick the feature that owns each table and give the
+   table one table resource with its `ownership`. Two features writing one
+   table means one of them asks the other.
+3. **Owner APIs.** Code outside the owner calls the owner's service or
+   repository capability. JSKIT's own tables already work this way: users
+   (`users.profiles`, `users.settings`), workspaces, local sign-in and console
+   settings.
+4. **Map each statement to a layer**
+   ([data access](data-access.md)): one record or page →
+   Layer 1; screens over HTTP → Layer 2; a loop of writes → a many-row write;
+   a `forUpdate` read → a lock; totals and reports → `aggregate`, a window
+   include, or one `scopedQuery()` method; work over every workspace → a job
+   with `systemScope`.
+5. **Two tests per path.** `expectScoped` proves the path never reads or
+   changes a second owner's rows; `expectFlatQueries` proves its statements do
+   not grow with its rows. Both come from `@jskit-ai/resource-runtime/test`.
+
+Keep each move behaviour-preserving: pin what a path answers with a test
+first, then move it, then run the same test.
 
 ### Workspace invitation transaction compatibility (workspaces-core 0.1.198)
 

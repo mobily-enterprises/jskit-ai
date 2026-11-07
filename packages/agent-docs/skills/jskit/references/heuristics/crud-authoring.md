@@ -14,7 +14,7 @@ choice is missing. Do not turn these decisions into generator options.
 Read these package-owned source patterns:
 
 - `crud/resource-contract` for the shared field and ownership contract
-- `crud/json-api-resource-package` for migration and server composition
+- `crud/crud-feature-package` for migration and server composition
 - `crud/crud-screen-set` for routed list, view, create, edit, and delete UI
 
 ## Normal implementation order

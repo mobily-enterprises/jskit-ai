@@ -3,28 +3,26 @@
 Use when:
 - a CRUD list accepts `q` or other server-side query params
 - a resource needs alias filters such as `onlyArchived -> archived`
-- a list needs access-scoped filters that the repository injects before querying
+- a list needs filters with compound SQL (status buckets, null/not-null semantics)
 - the user asks where search belongs on the server in a current JSKIT app
 
 Core rule:
-- for current JSKIT CRUD apps, the server search contract lives in `resource.searchSchema` on the internal JSON REST path
+- the server search contract lives in the table resource's `searchSchema`; a server-only entry (one with `applyFilter`) goes in the owner's `owns` entry, `{ resource, searchSchema }`
 - route validators decide which public query keys HTTP callers may send
-- repositories may add internal-only filter keys before forwarding the query to JSON REST
-- structured list filters should use `createCrudListFilterContract(...)` so route/action validators, JSON REST search schema, and repository query normalization are derived from one definition
+- who may see a row is never a filter: it is the row policy ([row-policies.md](./row-policies.md)), applied by the handle on every read
+- structured list filters should use `createCrudListFilterContract(...)` so route/action validators, the search schema, and query normalization are derived from one definition
 
-The standard CRUD repository pattern follows this path:
+The standard CRUD service lists through the table's handle:
 
 ```js
-return api.resources.contacts.query({
-  queryParams: buildJsonRestQueryParams(RESOURCE_TYPE, contactListFilterContract.toJsonRestQuery(query)),
-  format: "jsonapi"
-}, createJsonRestContext(context));
+// what defineCrudFeature's service does; a decorateService list maps structured filters first
+return repository.query(buildJsonRestQueryParams("contacts", contactListFilterContract.toJsonRestQuery(query)), { ...options, format: "jsonapi" });
 ```
 
 The normal layer split is:
 1. `actions.js` / `registerRoutes.js`: accept and validate public query keys
-2. `repository.js`: add internal-only filter keys such as visibility scope, or call `listFilterContract.toJsonRestQuery(query)` for structured filters
-3. provider/resource registration: merge backend filter behavior into JSON REST with `createJsonRestResourceScopeOptions(resource, { searchSchema })`
+2. the feature's `decorateService`: call `listFilterContract.toJsonRestQuery(query)` for structured filters before the standard `list`; visibility belongs in the row policy, never in a filter key
+3. the owner feature: backend filter behavior goes in the table resource's `searchSchema`, or a server-only one in its `owns` entry (`{ resource, searchSchema }`)
 
 ### Shared list and HTTP transport
 
@@ -72,13 +70,13 @@ Do not use `search: true` when:
 - you want a different public key than the storage field
 - you need one key to search several fields
 - you need custom SQL semantics
-- you need an internal-only injected filter
+- you need a key the service maps from a structured filter
 
 Use explicit `searchSchema` when:
 - the public key differs from the field name
 - one key searches multiple fields
 - the route/API contract should stay stable even if field names change
-- the filter is internal-only and injected by the repository
+- the key is internal and only the service's structured-filter mapping sends it
 - you need to override the simple `search: true` behavior
 
 Example:
@@ -108,32 +106,23 @@ Important merge rule:
 Use `applyFilter` when:
 - `actualField`, `oneOf`, and normal operators are not enough
 - the filter needs compound SQL
-- the filter encodes visibility rules, status buckets, or null/not-null semantics that are more complex than a direct field comparison
+- the filter encodes status buckets or null/not-null semantics that are more complex than a direct field comparison (never visibility: that is the row policy)
 
 Example:
 
 ```js
 searchSchema: {
-  "__viewerAccess": {
+  dueState: {
     type: "string",
     applyFilter(query, rawValue) {
       const value = String(rawValue || "").trim();
-
-      query.whereNull("deleted_at");
-      if (value === "privileged") {
+      if (value === "overdue") {
+        query.whereNull("paid_at").where("due_at", "<", new Date());
         return;
       }
-
-      const userId = value.startsWith("user:")
-        ? String(value.slice(5) || "").trim()
-        : "";
-
-      query.where(function () {
-        this.where("user_added", 0);
-        if (userId) {
-          this.orWhere("added_by_user_id", userId);
-        }
-      });
+      if (value === "paid") {
+        query.whereNotNull("paid_at");
+      }
     }
   }
 }
@@ -165,7 +154,7 @@ input: composeSchemaDefinitions([
 That means:
 - pagination, `q`, parent filters, includes, sparse fieldsets, and the
   structured filter keys remain one standard group
-- the repository may still add internal-only keys later
+- the service may still map structured keys before the standard list
 
 Use the same `listFilterQueryValidator` option with
 `createCrudJsonApiRouteContracts(...)` at the route boundary. The layers
@@ -194,13 +183,16 @@ const receivalListFilterContract = createCrudListFilterContract(
 );
 ```
 
-Use `receivalListFilterContract.queryValidator` at route/action boundaries. Use `receivalListFilterContract.jsonRestSearchSchema` when registering the JSON REST resource. Use `receivalListFilterContract.toJsonRestQuery(query)` before `buildJsonRestQueryParams(...)`.
+Use `receivalListFilterContract.queryValidator` at route/action boundaries. Use `receivalListFilterContract.jsonRestSearchSchema` as the `searchSchema` of the table's `owns` entry. Use `receivalListFilterContract.toJsonRestQuery(query)` in the service's `list` before the standard one.
 
 That contract preserves arrays for `enumMany` and `recordIdMany`, maps range filters to internal JSON REST search keys, and keeps those internal keys out of the public HTTP query contract.
 
 Do not add route validators for:
-- repository-injected internal keys such as `"__viewerAccess"`
+- internal keys that only the service's structured-filter mapping sends
 - filters that must never be supplied by the client directly
+
+Who may see a row is never a search key at all: it is the row policy, which
+the handle applies to every read whatever the query says.
 
 ## Recommended Shapes
 
@@ -234,15 +226,10 @@ searchSchema: {
 }
 ```
 
-Repository-injected internal filter:
+Visibility, by the owner, on every read:
 
 ```js
-function buildScopedQuery(query = {}, context = null) {
-  return {
-    ...(query || {}),
-    "__viewerAccess": resolveViewerAccess(context)
-  };
-}
+owns: [{ resource: contactResource, rowPolicy: ownContactsOrShared }]
 ```
 
 ## Keep These Boundaries Clean
@@ -250,8 +237,8 @@ function buildScopedQuery(query = {}, context = null) {
 - Put backend filter behavior in `searchSchema`, not in page code.
 - Use `createCrudListFilterContract(...)` for structured list filters before writing custom JSON REST query glue.
 - Put permission checks in the action/service layer, not in `applyFilter`.
-- Put repository-only scoping in the repository, not in route query validation.
-- Do not expose a query key publicly just because the repository uses it internally.
+- Put visibility in the owner's row policy, never in a search key or route query validation.
+- Do not expose a query key publicly just because the service maps to it internally.
 - Do not rely on route validators alone; a public key still needs a matching backend search definition.
 
 ## Quick Rule Of Thumb
@@ -260,4 +247,4 @@ function buildScopedQuery(query = {}, context = null) {
 - Public alias or multi-field search: `searchSchema`
 - Complex SQL semantics: `searchSchema` + `applyFilter`
 - Public HTTP query key: add it through the standard route/action query group
-- Internal-only repository key: inject it in `repository.js`, skip the public validator
+- Who may see a row: the owner's row policy, never a key
