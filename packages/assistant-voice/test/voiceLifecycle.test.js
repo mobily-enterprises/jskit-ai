@@ -1894,10 +1894,12 @@ test("reconnection opens only the transport and never replays speech or reopens 
   const starting = view.colleague.talk();
   await flushVue(); view.media[0].resolve(); await starting;
   await view.speak("Already heard answer", "old-answer");
+  t.mock.timers.enable({ apis: ["setTimeout"] });
   view.sockets[0].close();
   await flushVue();
   assert.equal(view.voice.reconnecting.value, true);
-  await new Promise(resolve => setTimeout(resolve, 1100));
+  // The first recovery waits 750 ms plus up to 250 ms of jitter.
+  t.mock.timers.tick(1_000);
   await flushVue();
   assert.equal(view.sockets.length, 2);
   assert.equal(view.voice.ready.value, true);
