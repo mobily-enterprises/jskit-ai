@@ -1,6 +1,6 @@
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { normalizeInputRecordId, runInHandleTransaction, toWrittenDateTime } from "./repositoryPersistenceUtils.js";
+import { normalizeInputRecordId, toWrittenDateTime } from "./repositoryPersistenceUtils.js";
 
 function normalizeTargetSurfaceId(value = "") {
   return normalizeSurfaceId(value);
@@ -62,7 +62,7 @@ function createRepository({ assistantConfig, systemContext }) {
   }
 
   function withTransaction(options, work) {
-    return runInHandleTransaction(assistantConfig, options, work);
+    return assistantConfig.withTransaction(options, work, { asThrown: true });
   }
 
   async function findRecord(defaultRecord, options) {
