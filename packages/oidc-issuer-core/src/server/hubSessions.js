@@ -1,3 +1,5 @@
+// readable-check: allow no-direct-knex - infrastructure: the accounts hub's own browser sessions and settings, kept as models in node-oidc-provider's oidc_issuer_models table beside the provider's protocol state
+
 import { MODELS_TABLE } from "./adapter.js";
 import { randomToken, sha256 } from "./crypto.js";
 
