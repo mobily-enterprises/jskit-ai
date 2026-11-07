@@ -1,3 +1,4 @@
+import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
 import { pickOwnProperties } from "@jskit-ai/kernel/shared/support";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
@@ -8,6 +9,8 @@ import { TENANCY_MODE_NONE } from "../../../shared/tenancyProfile.js";
 import { mapWorkspaceSummary } from "../formatters/workspaceFormatter.js";
 
 const WORKSPACE_SLUG_CANDIDATE_LIMIT = 1000;
+// How many times a new workspace picks a free slug again after another owner's create took the one it picked.
+const WORKSPACE_SLUG_ATTEMPTS = 3;
 
 function toSlugPart(value) {
   const normalized = normalizeLowerText(value)
@@ -85,6 +88,26 @@ function createService({
     throw new Error("Unable to generate unique workspace slug.");
   }
 
+  /**
+   * Creates a workspace under the first free slug from baseSlug. When another owner's create takes that slug between
+   * the read and the insert, it picks again; inside the caller's transaction the duplicate fails the transaction.
+   * @param {string} baseSlug
+   * @param {Record<string, unknown>} payload The workspace, without its slug.
+   * @param {object} [options]
+   */
+  async function insertWithFreeSlug(baseSlug, payload, options = {}) {
+    for (let attempt = 1; ; attempt += 1) {
+      const slug = await ensureUniqueWorkspaceSlug(baseSlug, options);
+      try {
+        return await workspacesRepository.insert({ ...payload, slug }, options);
+      } catch (error) {
+        if (attempt >= WORKSPACE_SLUG_ATTEMPTS || !isLostDuplicateInsertRace(error, options)) {
+          throw error;
+        }
+      }
+    }
+  }
+
   async function ensureWorkspaceSettingsForWorkspace(workspace, options = {}) {
     return workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, {
       ...options,
@@ -105,10 +128,9 @@ function createService({
       return existing;
     }
 
-    const slug = await ensureUniqueWorkspaceSlug(buildWorkspaceBaseSlug(user), options);
-    const inserted = await workspacesRepository.insert(
+    const inserted = await insertWithFreeSlug(
+      buildWorkspaceBaseSlug(user),
       {
-        slug,
         name: normalizeText(personalWorkspaceName(user)) || buildWorkspaceName(user),
         ownerUserId: normalizedUserId,
         isPersonal: true,
@@ -183,10 +205,9 @@ function createService({
       });
     }
 
-    const slug = await ensureUniqueWorkspaceSlug(requestedSlug || toSlugPart(name), options);
-    const inserted = await workspacesRepository.insert(
+    const inserted = await insertWithFreeSlug(
+      requestedSlug || toSlugPart(name),
       {
-        slug,
         name,
         ownerUserId: normalizedUserId,
         isPersonal: false,

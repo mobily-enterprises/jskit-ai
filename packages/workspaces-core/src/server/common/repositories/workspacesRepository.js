@@ -127,8 +127,10 @@ function createRepository({ workspaces, workspaceMemberships }) {
         throw error;
       }
 
+      // A create lost to the same owner's identical create, such as a personal workspace made twice at a first
+      // sign-in, answers that workspace. Another owner's workspace is never answered: the caller picks another slug.
       const bySlug = await findBySlug(createPayload.slug, options);
-      if (bySlug) {
+      if (bySlug && bySlug.ownerUserId === ownerUserId && bySlug.isPersonal === (createPayload.isPersonal === true)) {
         return bySlug;
       }
       throw error;
