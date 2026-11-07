@@ -35,11 +35,11 @@ function createRepository({ consoleSettings }) {
    * @returns {Promise<T>}
    */
   function withTransaction(options, work) {
-    return consoleSettings.withTransaction(options, work, { asThrown: true });
+    return consoleSettings.withTransaction(options, work);
   }
 
   async function getSingleton(options = {}) {
-    return mapSingletonRecord(await consoleSettings.get(SINGLETON_ID, {}, options));
+    return mapSingletonRecord(await consoleSettings.get(SINGLETON_ID, {}, { ...options, missing: "skip" }));
   }
 
   async function ensureOwnerUserId(userId, options = {}) {
@@ -53,11 +53,11 @@ function createRepository({ consoleSettings }) {
       return current.ownerUserId;
     }
 
-    // Only while the record has no owner: of two first owners at once, the first to lock it wins.
+    // Only while the record has no owner: of two first owners at once, the first to write it wins.
     await consoleSettings.patch(SINGLETON_ID, {
       ownerUserId: candidateOwnerUserId,
       updatedAt: new Date().toISOString()
-    }, { ...options, onlyIf: { ownerUserId: null }, returning: "none" });
+    }, { ...options, onlyIf: { ownerUserId: null }, missing: "skip", returning: "none" });
 
     const reloaded = await getSingleton(options);
     if (!reloaded.ownerUserId) {
