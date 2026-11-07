@@ -160,4 +160,49 @@ function handleResult(resource, result, format, include) {
   return format === "jsonapi" ? result : handleRecord(resource, result, includedRelationships(include));
 }
 
-export { handleRecords, handleResult, idOf, inputData, readQueryParams, textList };
+// A single write's `returning`, as json-rest-api names it.
+const SINGLE_RETURNING = Object.freeze({ record: "full", id: "minimal", none: "none" });
+// A many-row write's `returning`, as json-rest-api names it.
+const MANY_RETURNING = Object.freeze({ none: "none", ids: "minimal", records: "full" });
+
+/**
+ * @param {Record<string, string>} modes
+ * @param {unknown} value
+ * @param {string} fallback
+ * @param {string} label
+ */
+function pickReturning(modes, value, fallback, label) {
+  const key = value === undefined ? fallback : value;
+  if (typeof key !== "string" || !Object.hasOwn(modes, key)) {
+    throw new TypeError(`${label} returning must be one of ${Object.keys(modes).join(", ")}. Received: ${JSON.stringify(value)}`);
+  }
+  return key;
+}
+
+// The answer of a many-row write: nothing, the ids, or the records.
+function manyResult(resource, result, returning) {
+  if (returning === "none") {
+    return undefined;
+  }
+  const rows = result?.data || [];
+  return returning === "ids" ? rows.map((row) => String(row.id)) : handleRecords(resource, rows);
+}
+
+// Whether the stored record still holds every value onlyIf names.
+function matchesOnlyIf(record, onlyIf) {
+  return Object.entries(onlyIf).every(([field, value]) => (record[field] ?? null) === value);
+}
+
+export {
+  MANY_RETURNING,
+  SINGLE_RETURNING,
+  handleRecords,
+  handleResult,
+  idOf,
+  inputData,
+  manyResult,
+  matchesOnlyIf,
+  pickReturning,
+  readQueryParams,
+  textList
+};

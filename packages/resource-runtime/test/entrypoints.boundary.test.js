@@ -403,8 +403,10 @@ test("resourceScopeOptions maps server query projections into json-rest-api quer
   assert.equal(result.queryFields.remainingProcessableWeight.sortable, true);
   assert.equal(result.queryFields.remainingProcessableWeight.select, select);
   assert.equal(result.queryFields.availableCapacityWeight.select, select);
+  // Every resource's filters also take `id`, one id or a list of them.
   assert.deepEqual(result.searchSchema, {
-    status: { type: "string", filterOperator: "=" }
+    status: { type: "string", filterOperator: "=" },
+    id: { type: "array", actualField: "id", filterOperator: "in" }
   });
   assert.equal(resource.schema.remainingProcessableWeight.storage.virtual, true);
 });

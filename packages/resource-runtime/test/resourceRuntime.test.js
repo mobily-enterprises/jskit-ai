@@ -17,6 +17,8 @@ import { createTestResourceRuntime } from "../src/test/index.js";
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
 const WORKSPACE_B = Object.freeze({ workspace: { id: "2" } });
+// json-rest-api's not-found error, classified by its code (404 at the HTTP edge).
+const notFound = (error) => error.code === "REST_API_RESOURCE" && error.subtype === "not_found";
 
 function noteResource(extra = {}) {
   return defineTableResource({
@@ -81,15 +83,32 @@ test("reads and single writes stay in the context's workspace", async (t) => {
   const { records, page } = await notes.query({ page: { size: 10 } }, { context: WORKSPACE_A });
   assert.deepEqual(records.map(({ title }) => title), ["mine", "quiet", "by id"]);
   assert.deepEqual(page, { size: 10, hasMore: false, next: null });
-  assert.equal(await notes.get(theirs.id, {}, { context: WORKSPACE_A }), null);
-  assert.equal(await notes.patch(theirs.id, { title: "taken" }, { context: WORKSPACE_A }), null);
-  assert.equal(await notes.delete(theirs.id, { context: WORKSPACE_A }), null);
+  // Another workspace's record is missing to this caller: get, patch and delete throw, or answer null with missing: "skip".
+  await assert.rejects(notes.get(theirs.id, {}, { context: WORKSPACE_A }), notFound);
+  await assert.rejects(notes.patch(theirs.id, { title: "taken" }, { context: WORKSPACE_A }), notFound);
+  await assert.rejects(notes.delete(theirs.id, { context: WORKSPACE_A }), notFound);
+  assert.equal(await notes.get(theirs.id, {}, { context: WORKSPACE_A, missing: "skip" }), null);
+  assert.equal(await notes.patch(theirs.id, { title: "taken" }, { context: WORKSPACE_A, missing: "skip" }), null);
+  assert.equal(await notes.patch(theirs.id, { title: "taken" }, { context: WORKSPACE_A, missing: "skip", returning: "id" }), null);
+  assert.equal(await notes.delete(theirs.id, { context: WORKSPACE_A, missing: "skip" }), null);
+  // Inside a transaction a skipped row fails nothing: the transaction goes on and commits.
+  await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    assert.equal(await notes.patch(theirs.id, { title: "taken" }, { ...txOptions, missing: "skip" }), null);
+    assert.equal(await notes.delete(theirs.id, { ...txOptions, missing: "skip" }), null);
+    await notes.create({ title: "after the skipped row" }, { ...txOptions, returning: "none" });
+  });
   assert.equal((await knex("notes").where({ id: theirs.id }).first()).title, "theirs");
+  assert.equal((await knex("notes").where({ title: "after the skipped row" })).length, 1);
+  await assert.rejects(notes.get(mine.id, { context: WORKSPACE_A }), /options go third: get\(id, \{\}, options\)/u);
+  await assert.rejects(notes.get(mine.id, {}, { context: WORKSPACE_A, missing: "ignore" }), /missing is "throw" \(the default\) or "skip"/u);
 
   const patched = await notes.patch(mine.id, { title: "mine, edited" }, { context: WORKSPACE_A });
   assert.equal(patched.title, "mine, edited");
-  await notes.delete(mine.id, { context: WORKSPACE_A });
-  assert.equal(await notes.get(mine.id, {}, { context: WORKSPACE_A }), null);
+  assert.equal(await notes.patch(mine.id, { title: "mine, again" }, { context: WORKSPACE_A, missing: "skip", returning: "id" }), mine.id);
+  assert.equal((await notes.patch(mine.id, { status: "done" }, { context: WORKSPACE_A, missing: "skip" })).status, "done");
+  assert.equal(await notes.patch(mine.id, { title: "x" }, { context: WORKSPACE_A, missing: "skip", onlyIf: { status: "open" } }), null);
+  assert.equal(await notes.delete(mine.id, { context: WORKSPACE_A }), mine.id);
+  assert.equal(await notes.get(mine.id, {}, { context: WORKSPACE_A, missing: "skip" }), null);
 });
 
 test("query() pages with page.size and page.after, and refuses an unpaged or oversized read", async (t) => {
@@ -197,8 +216,10 @@ test("many-row writes run per chunk in the caller's workspace, and answer nothin
   await notes.patchMany([{ id: other.id, status: "done" }], { context: WORKSPACE_A, missing: "skip" });
   assert.equal((await knex("notes").where({ id: other.id }).first()).status, "open");
 
-  const changed = await notes.patchWhereIds(ids, { title: "same" }, { context: WORKSPACE_A, returning: "records" });
+  // `filters: { id }` takes a list of ids, or one, and stays in the caller's rows.
+  const changed = await notes.patchWhere({ id: [...ids, other.id] }, { title: "same" }, { context: WORKSPACE_A, returning: "records" });
   assert.deepEqual(changed.map(({ title }) => title), ["same", "same", "same"]);
+  assert.equal((await knex("notes").where({ id: other.id }).first()).title, "other");
   await notes.patchWhere({ status: "done" }, { title: "finished" }, { context: WORKSPACE_A });
   assert.deepEqual((await knex("notes").where({ title: "finished" }).pluck("id")).map(String).sort(), [ids[0], ids[1]].map(String).sort());
 
@@ -209,7 +230,7 @@ test("many-row writes run per chunk in the caller's workspace, and answer nothin
   // all: true reaches every row the caller owns, and no other workspace's.
   await notes.patchWhere({}, { status: "done" }, { context: WORKSPACE_A, all: true });
   assert.equal((await knex("notes").where({ id: other.id }).first()).status, "open");
-  await notes.deleteMany([ids[2]], { context: WORKSPACE_A });
+  assert.deepEqual(await notes.deleteWhere({ id: ids[2] }, { context: WORKSPACE_A, returning: "ids" }), [String(ids[2])]);
   await notes.deleteWhere({ status: "done" }, { context: WORKSPACE_A });
   assert.deepEqual(await knex("notes").pluck("title"), ["other"]);
 });
@@ -241,13 +262,13 @@ test("patch() with lockVersion patches the version it read and refuses a stale o
   assert.equal(note.lockVersion, 0);
   const saved = await notes.patch(note.id, { title: "v1" }, { context: WORKSPACE_A, lockVersion: 0 });
   assert.equal(saved.lockVersion, 1);
-  // A write's failure reaches the caller as json-rest-api's RestApiWriteError, its status and code copied from the cause.
   await assert.rejects(notes.patch(note.id, { title: "late" }, { context: WORKSPACE_A, lockVersion: 0 }), (error) =>
-    error.cause instanceof StaleRecordError && error.status === 409 && error.code === "crud.document.lockVersionConflict" &&
-    error.transactionOutcome === "rolledBack");
+    error instanceof StaleRecordError && error.status === 409 && error.code === "crud.document.lockVersionConflict");
   assert.equal(await notes.patch(note.id, { title: "x" }, { context: WORKSPACE_A, onlyIf: { status: "done" } }), null);
   assert.equal((await notes.patch(note.id, { status: "done" }, { context: WORKSPACE_A, onlyIf: { status: "open" } })).status, "done");
-  assert.equal(await notes.patch(note.id, { title: "x" }, { context: WORKSPACE_B, lockVersion: 2 }), null);
+  await assert.rejects(notes.patch(note.id, { title: "x" }, { context: WORKSPACE_B, lockVersion: 2 }), notFound);
+  await assert.rejects(notes.patch(note.id, { title: "x" }, { context: WORKSPACE_B, onlyIf: { status: "done" } }), notFound);
+  assert.equal(await notes.patch(note.id, { title: "x" }, { context: WORKSPACE_B, lockVersion: 2, missing: "skip" }), null);
 });
 
 test("afterWrite runs once per write, in the write's transaction and scope", async (t) => {
@@ -291,23 +312,35 @@ test("withTransaction() commits together and rolls back together", async (t) => 
   assert.deepEqual(await knex("notes").pluck("title"), ["kept"]);
 });
 
-test("withTransaction() answers a failure of its work as RestApiWriteError, or as the work threw it with asThrown", async (t) => {
+test("withTransaction() rethrows its work's own error, and takes its settings in options", async (t) => {
   const { notes } = await createFixture(t);
   const failure = Object.freeze(new Error("refused by the work"));
   await assert.rejects(
     notes.withTransaction({ context: WORKSPACE_A }, () => {
       throw failure;
     }),
-    (error) => error !== failure && error.cause === failure && error.transactionOutcome === "rolledBack"
+    (error) => error === failure
   );
   await assert.rejects(
-    notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    notes.withTransaction({ context: WORKSPACE_A, retry: false }, async (txOptions) => {
+      assert.equal(Object.hasOwn(txOptions, "retry"), false);
       await notes.create({ title: "undone" }, txOptions);
       throw failure;
-    }, { retry: false, asThrown: true }),
+    }),
     (error) => error === failure
   );
   assert.equal((await notes.queryAll({}, { context: WORKSPACE_A })).length, 0);
+  // A failed write inside the work reports the outcome after the rollback, not the "pending" it saw.
+  await assert.rejects(
+    notes.withTransaction({ context: WORKSPACE_A }, (txOptions) => notes.patch("999", { title: "missing" }, txOptions)),
+    (error) => notFound(error) && error.transactionOutcome === "rolledBack"
+  );
+  await assert.rejects(notes.withTransaction({ context: WORKSPACE_A }, () => null, { retry: false }), /settings ride in options/u);
+  // outermost work owns its transaction, so a call inside one is refused.
+  await notes.withTransaction({ context: WORKSPACE_A, outermost: true }, async (txOptions) => {
+    await assert.rejects(notes.withTransaction({ ...txOptions, outermost: true }, () => null), /cannot run inside the caller's transaction/u);
+    assert.equal(await notes.withTransaction(txOptions, () => "joined"), "joined");
+  });
 });
 
 test("findOrCreate() answers the record with the id, creating it only when it is missing", async (t) => {
@@ -336,10 +369,11 @@ test("findOrCreate() answers the record with the id, creating it only when it is
   assert.deepEqual(await knex("counters").select("counter_key", "value"), [{ counter_key: "visits", value: 7 }]);
 });
 
-test("inTransaction() answers whether a call runs inside a transaction", async (t) => {
+test("a handle offers one way to each write: no patchWhereIds, deleteMany, toRecords or inTransaction", async (t) => {
   const { notes } = await createFixture(t);
-  assert.equal(notes.inTransaction({ context: WORKSPACE_A }), false);
-  assert.equal(await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => notes.inTransaction(txOptions)), true);
+  for (const method of ["patchWhereIds", "deleteMany", "toRecords", "inTransaction"]) {
+    assert.equal(notes[method], undefined, method);
+  }
 });
 
 test("locks need a transaction and take only the caller's rows", async (t) => {
@@ -349,10 +383,13 @@ test("locks need a transaction and take only the caller's rows", async (t) => {
   await assert.rejects(notes.lock(a.id, { context: WORKSPACE_A }), RestApiLockOutsideTransactionError);
   await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
     assert.equal((await notes.lock(a.id, txOptions)).title, "a");
+    assert.equal(await notes.lock(other.id, { ...txOptions, missing: "skip" }), null);
     assert.deepEqual((await notes.lockMany([a.id, other.id], { ...txOptions, missing: "skip" })).map(({ title }) => title), ["a"]);
     assert.deepEqual((await notes.lockWhere({ status: "queued" }, txOptions)).map(({ title }) => title), ["b"]);
-    assert.deepEqual((await notes.claim({ status: "queued" }, { limit: 5 }, txOptions)).map(({ id }) => String(id)), [String(b.id)]);
+    assert.deepEqual((await notes.claim({ filters: { status: "queued" }, take: 5 }, txOptions)).map(({ id }) => String(id)), [String(b.id)]);
+    await assert.rejects(notes.claim({ status: "queued" }, { limit: 5 }, txOptions), /takes \(\{ filters, sort, take \}, options\)/u);
   });
+  await assert.rejects(notes.withTransaction({ context: WORKSPACE_A }, (txOptions) => notes.lock(other.id, txOptions)), notFound);
 });
 
 test("scopedQuery() answers a read-only builder over the caller's rows that orWhere cannot widen", async (t) => {
@@ -371,7 +408,6 @@ test("scopedQuery() answers a read-only builder over the caller's rows that orWh
   assert.equal(Number(counted.total), 2);
   assert.throws(() => query.clone().update({ title: "x" }), RestApiScopedQueryReadOnlyError);
   assert.throws(() => notes.raw("count(?)"), /needs the bindings/u);
-  assert.deepEqual(notes.toRecords([{ id: 1, workspace_id: 1, title: "t", lock_version: 0 }]), [{ id: 1, workspaceId: 1, title: "t", lockVersion: 0 }]);
 });
 
 test("raw() is a value only: awaiting it or running it any other way throws, and nothing runs", async (t) => {
@@ -406,7 +442,7 @@ test("an undefined filter value is refused by every filtered call, so it never w
   await assert.rejects(notes.deleteWhere({ status: undefined }, { context }), refused);
   await notes.withTransaction({ context }, async (txOptions) => {
     await assert.rejects(notes.lockWhere({ status: undefined }, txOptions), refused);
-    await assert.rejects(notes.claim({ status: undefined }, { limit: 5 }, txOptions), refused);
+    await assert.rejects(notes.claim({ filters: { status: undefined }, take: 5 }, txOptions), refused);
   });
   assert.deepEqual((await knex("notes").orderBy("id")).map(({ title, status }) => `${title}:${status}`), ["a:paused", "b:paused"]);
 });
@@ -580,8 +616,8 @@ test("the owner's row policy cannot widen past ownership: its orWhere stays insi
   assert.deepEqual(records.map(({ title }) => title), ["mine"]);
   assert.deepEqual((await notes.query({ page: { size: 10 } }, { context: WORKSPACE_B })).records.map(({ title }) => title), ["theirs", "shared"]);
   const theirs = await knex("notes").where({ title: "shared" }).first();
-  assert.equal(await notes.get(theirs.id, {}, { context: WORKSPACE_A }), null);
-  assert.equal(await notes.patch(theirs.id, { title: "taken" }, { context: WORKSPACE_A }), null);
+  await assert.rejects(notes.get(theirs.id, {}, { context: WORKSPACE_A }), notFound);
+  assert.equal(await notes.patch(theirs.id, { title: "taken" }, { context: WORKSPACE_A, missing: "skip" }), null);
   assert.equal((await knex("notes").where({ id: theirs.id }).first()).title, "shared");
 });
 
@@ -626,7 +662,7 @@ test("a deadlock victim runs again whole when it owns its transaction, and never
   deadlocks = 1;
   hookRuns = 0;
   await assert.rejects(
-    notes.withTransaction({ context: WORKSPACE_A }, (txOptions) => notes.create({ title: "inner" }, txOptions), { retry: false }),
+    notes.withTransaction({ context: WORKSPACE_A, retry: false }, (txOptions) => notes.create({ title: "inner" }, txOptions)),
     (error) => error.code === "ER_LOCK_DEADLOCK"
   );
   assert.equal(hookRuns, 1);
@@ -643,15 +679,15 @@ test("a write refuses a transaction the runtime did not open, and a missing reco
   });
   assert.deepEqual(await knex("notes"), []);
 
-  // json-rest-api fails a managed transaction once a write in it fails, so inside a transaction a
-  // missing record throws its not-found error (null only answers a patch that ran alone).
+  // json-rest-api fails a managed transaction once a write in it fails, so a missing record's not-found error fails the
+  // transaction it was written in even when the work catches it; missing: "skip" leaves the row alone instead.
   await assert.rejects(notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
     await notes.create({ title: "kept?" }, txOptions);
     await assert.rejects(notes.patch("999", { title: "missing" }, txOptions), (error) => error.code === "REST_API_RESOURCE" && error.transactionOutcome === "pending");
     return "committed?";
   }), (error) => error.code === "REST_API_RESOURCE" && error.transactionOutcome === "rolledBack");
   assert.deepEqual(await knex("notes"), []);
-  assert.equal(await notes.patch("999", { title: "missing" }, { context: WORKSPACE_A }), null);
+  await assert.rejects(notes.patch("999", { title: "missing" }, { context: WORKSPACE_A }), notFound);
 });
 
 test("a lockVersion patch moves the version on by one, also with no attributes, and rolls back with the caller", async (t) => {

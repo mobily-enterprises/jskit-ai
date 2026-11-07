@@ -102,4 +102,33 @@ function whereSelection(name, operation, filters, options) {
   return { all: true };
 }
 
-export { requireDefinedFilters, requireOwners, valueOnly, whereSelection };
+// The keys of a call's options, which get() takes third, after its params.
+const OPTION_KEYS = Object.freeze(["context", "trx", "format", "missing", "returning"]);
+
+/**
+ * get(), patch(), delete() and lock() throw json-rest-api's not-found error for
+ * a missing or hidden row, or answer null with `missing: "skip"`.
+ * @param {string} name
+ * @param {string} caller
+ * @param {unknown} [missing]
+ * @returns {"throw" | "skip"}
+ */
+function missingOf(name, caller, missing = "throw") {
+  if (missing !== "throw" && missing !== "skip") {
+    throw new TypeError(`${name}.${caller}() missing is "throw" (the default) or "skip". Received: ${JSON.stringify(missing)}`);
+  }
+  return missing;
+}
+
+/**
+ * Refuses get(id, options): get takes its options third, after its params.
+ * @param {string} name
+ * @param {unknown} params
+ */
+function requireReadParams(name, params) {
+  if (isRecord(params) && OPTION_KEYS.some((key) => Object.hasOwn(params, key))) {
+    throw new TypeError(`${name}.get() takes (id, params, options), and options go third: get(id, {}, options).`);
+  }
+}
+
+export { missingOf, requireDefinedFilters, requireOwners, requireReadParams, valueOnly, whereSelection };
