@@ -179,3 +179,94 @@ test("pages in a route folder are different pages, so a new page opens at the to
     delete globalThis.window;
   }
 });
+
+// After Up, the runtime retries focusing the opener of the page left until the page draws it. Those retries end at the
+// next navigation and when focus has moved since they were scheduled, so they never take the caret from a field
+// someone is typing in (a Back then Forward within the retry window used to focus a matching tab on the next page).
+test("Up's opener focus retries stop at the next navigation and when focus has moved", async () => {
+  const router = browserLikeRouter(routes);
+  const timers = new Map();
+  let nextTimer = 1;
+  globalThis.window.setTimeout = (callback) => {
+    timers.set(nextTimer, callback);
+    return nextTimer++;
+  };
+  globalThis.window.clearTimeout = (id) => {
+    timers.delete(id);
+  };
+  // One round runs the timers due now (one focus attempt); every round runs until none is left.
+  const runRound = () => {
+    const due = [...timers];
+    timers.clear();
+    for (const [, callback] of due) {
+      callback();
+    }
+  };
+  const runEveryRound = () => {
+    for (let round = 0; round < 20 && timers.size > 0; round += 1) {
+      runRound();
+    }
+  };
+  const focused = [];
+  const element = (name) => ({ name, focus: () => focused.push(name) });
+  const body = element("body");
+  const upButton = element("up");
+  const searchBox = element("search");
+  let openerDrawn = false;
+  const opener = { ...element("opener"), getClientRects: () => (openerDrawn ? [{}] : []) };
+  globalThis.document = {
+    body,
+    activeElement: body,
+    querySelectorAll: () => [opener],
+    getElementById: () => element("title")
+  };
+  const runtime = createShellNavigationRuntime({ router });
+  runtime.install();
+  runtime.attachShell();
+  const openFormAndGoUp = async () => {
+    await router.push("/home/actions");
+    await router.push("/home/actions/new");
+    focused.length = 0;
+    openerDrawn = false;
+    globalThis.document.activeElement = upButton;
+    await runtime.up("/home/actions");
+    assert.equal(router.currentRoute.value.fullPath, "/home/actions");
+  };
+  try {
+    // Unchanged: focus still on Up, the page draws its opener on a later attempt, and the opener gets focus.
+    await openFormAndGoUp();
+    runRound();
+    assert.deepEqual(focused, [], "no opener drawn yet");
+    openerDrawn = true;
+    runRound();
+    assert.deepEqual(focused, ["opener"]);
+
+    // A navigation before the opener is drawn cancels the retries.
+    await openFormAndGoUp();
+    runRound();
+    assert.equal(timers.size, 1, "a retry is waiting");
+    await router.push("/home/actions/new");
+    openerDrawn = true;
+    runEveryRound();
+    assert.deepEqual(focused, [], "the next page's matching element is not focused");
+
+    // Focus moved to a field since Up: the retries give up instead of taking it.
+    await openFormAndGoUp();
+    runRound();
+    globalThis.document.activeElement = searchBox;
+    openerDrawn = true;
+    runEveryRound();
+    assert.deepEqual(focused, [], "the field keeps focus");
+
+    // Focus that only fell back to the body (the left page's element went away) does not stop it.
+    await openFormAndGoUp();
+    globalThis.document.activeElement = body;
+    openerDrawn = true;
+    runRound();
+    assert.deepEqual(focused, ["opener"]);
+  } finally {
+    runtime.dispose();
+    delete globalThis.window;
+    delete globalThis.document;
+  }
+});

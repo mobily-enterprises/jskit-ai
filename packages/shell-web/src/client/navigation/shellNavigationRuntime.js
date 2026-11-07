@@ -209,18 +209,25 @@ function createShellNavigationRuntime({ router }) {
     return null;
   }
 
-  // After Up or Back, focus the element that opened the page left, or else the page title.
+  // After Up or Back, focus the element that opened the page left, or else the page title. The next navigation
+  // cancels it (handleBeforeEach), and so does focus moved since it was scheduled: a person already typing in a field
+  // keeps the caret there.
   function scheduleFocus(leftPath) {
     clearFocusTimer();
     const windowRef = pageWindow();
     if (!windowRef) {
       return;
     }
+    const focusedWhenScheduled = pageDocument()?.activeElement || null;
     let attempts = 0;
     const tryFocus = () => {
       focusTimer = null;
       const documentRef = pageDocument();
       if (!documentRef) {
+        return;
+      }
+      const focused = documentRef.activeElement;
+      if (focused && focused !== documentRef.body && focused !== focusedWhenScheduled) {
         return;
       }
       const opener = findOpener(documentRef, leftPath);
@@ -239,6 +246,7 @@ function createShellNavigationRuntime({ router }) {
   }
 
   function handleBeforeEach(to, from) {
+    clearFocusTimer();
     if (pending && !pending.redirected && pending.fallback && to.redirectedFrom && sameLocation(to.redirectedFrom.fullPath, pending.target)) {
       // The trail's page now redirects (no access, workspace left): go to the declared parent instead.
       pending = {
