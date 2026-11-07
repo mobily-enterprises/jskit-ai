@@ -215,18 +215,18 @@ function createService({
   // The checks that run before a request's handler (its auth policy and its action context)
   // each need the request's workspace context. They pass the request and share one resolution
   // for the same user, slug and membership requirement, instead of reading the workspace, the
-  // membership and the settings again for each check. A call in a transaction, or without a
-  // request, resolves on its own.
+  // membership and the settings again for each check. A call without a request resolves on
+  // its own.
   const requestWorkspaceContexts = new WeakMap();
 
   /**
    * @param {{ id?: unknown } | null} user
    * @param {string} workspaceSlug
-   * @param {{ request?: object, requireMembership?: boolean, trx?: unknown }} [options]
+   * @param {{ request?: object, requireMembership?: boolean }} [options]
    */
   function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
     const request = options.request;
-    if (!request || typeof request !== "object" || workspacesRepository.inTransaction(options)) {
+    if (!request || typeof request !== "object") {
       return readWorkspaceContextForUserBySlug(user, workspaceSlug, options);
     }
     const key = [

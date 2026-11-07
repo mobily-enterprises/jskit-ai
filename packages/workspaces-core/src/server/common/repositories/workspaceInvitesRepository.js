@@ -82,8 +82,9 @@ function normalizeInviteWithWorkspace(payload = {}) {
 function createRepository({ workspaceInvites, workspaces }) {
   async function queryInvites(filters, options, { includeWorkspace = false } = {}) {
     if (options.lock === true) {
-      if (!workspaceInvites.inTransaction(options) || includeWorkspace) {
-        throw new TypeError("Locking invites requires a transaction and no relationship includes.");
+      // The handle's lock refuses a call outside a transaction.
+      if (includeWorkspace) {
+        throw new TypeError("Locking invites takes no relationship includes.");
       }
       if (Object.keys(filters).some((key) => !LOCKING_FILTERS.includes(key))) {
         throw new TypeError("Unsupported locking invitation filter.");
@@ -99,7 +100,7 @@ function createRepository({ workspaceInvites, workspaces }) {
   }
 
   async function lockWorkspaceForInvitations(workspaceId, options = {}) {
-    if (!await workspaces.lock(workspaceId, options)) {
+    if (!await workspaces.lock(workspaceId, { ...options, missing: "skip" })) {
       throw new AppError(404, "Invitation workspace no longer exists.", { code: "workspaces.invite.workspaceMissing" });
     }
   }
@@ -343,7 +344,6 @@ function createRepository({ workspaceInvites, workspaces }) {
 
   return Object.freeze({
     withTransaction: workspaceInvites.withTransaction,
-    inTransaction: workspaceInvites.inTransaction,
     lockWorkspaceForInvitations,
     findById,
     findPendingByTokenHash,

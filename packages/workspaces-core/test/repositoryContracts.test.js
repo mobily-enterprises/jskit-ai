@@ -13,9 +13,6 @@ function createHandleStub(failure = new Error("Unexpected write")) {
     async withTransaction(options, work) {
       return work(Object.freeze({ ...options, trx: { trxId: "managed-1" } }));
     },
-    inTransaction(options) {
-      return Boolean(options.trx);
-    },
     async query({ page }) {
       assert.equal(stub.writeStarted, false, "A failed transaction cannot support duplicate recovery");
       stub.reads += 1;
@@ -57,10 +54,9 @@ test("workspaces-core repositories delegate transaction ownership and failures t
     const failure = new Error("Participant failed");
     await assert.rejects(repository.withTransaction({}, async () => { throw failure; }), error => error === failure);
   }
+  // Whether a call runs in a transaction stays the handle's own business.
   for (const name of ["invite", "workspace"]) {
-    const repository = repositoryFactories[name](createHandleStub());
-    assert.equal(repository.inTransaction({}), false);
-    assert.equal(await repository.withTransaction({}, async (txOptions) => repository.inTransaction(txOptions)), true);
+    assert.equal(repositoryFactories[name](createHandleStub()).inTransaction, undefined);
   }
 });
 

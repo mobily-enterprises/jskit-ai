@@ -253,13 +253,13 @@ test("locking reads need the caller's transaction and no includes, and refuse a 
 
   await assert.rejects(
     db.invites.findPendingByIdForWorkspace(created.id, workspace.id, { lock: true }),
-    /requires an active transaction/u
+    /needs a transaction/u
   );
   await db.invites.withTransaction({}, async (txOptions) => {
     await assert.rejects(
       db.invites.findPendingByIdForWorkspace(created.id, workspace.id, { ...txOptions, lock: true, includeWorkspace: true }),
       (error) => error instanceof TypeError &&
-        error.message === "Locking invites requires a transaction and no relationship includes."
+        error.message === "Locking invites takes no relationship includes."
     );
   });
   await db.invites.withTransaction({}, async (txOptions) => {

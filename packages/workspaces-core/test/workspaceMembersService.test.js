@@ -127,9 +127,6 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
       async withTransaction(options, work) {
         return work({ ...options, trx: {} });
       },
-      inTransaction(options) {
-        return Boolean(options.trx);
-      },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert(payload) {
@@ -197,9 +194,6 @@ test("workspaceMembersService.createInvite without a provided mailer neither loo
       async withTransaction(options, work) {
         return work({ ...options, trx: {} });
       },
-      inTransaction(options) {
-        return Boolean(options.trx);
-      },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert(payload) {
@@ -255,9 +249,6 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
     workspaceInvitesRepository: {
       async withTransaction(options, work) {
         return work({ ...options, trx: {} });
-      },
-      inTransaction(options) {
-        return Boolean(options.trx);
       },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail(workspaceId, email) {
@@ -352,9 +343,6 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
     workspaceInvitesRepository: {
       async withTransaction(options, work) {
         return work({ ...options, trx: {} });
-      },
-      inTransaction(options) {
-        return Boolean(options.trx);
       },
       async listPendingByWorkspaceIdWithWorkspace() {
         return [];
@@ -663,9 +651,6 @@ function createMailingService({ accounts = {}, appRoot = "", mailer } = {}) {
     workspaceInvitesRepository: {
       async withTransaction(options, work) {
         return work({ ...options, trx: {} });
-      },
-      inTransaction(options) {
-        return Boolean(options.trx);
       },
       async lockWorkspaceForInvitations() {},
       async expirePendingByWorkspaceIdAndEmail() {},

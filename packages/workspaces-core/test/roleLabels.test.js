@@ -126,7 +126,6 @@ test("pending and resolved invitation responses derive labels while acceptance s
       async findByTokenHashWithWorkspace() { return invite; },
       async findPendingByTokenHash() { return invite; },
       async withTransaction(options, work) { return work({ ...options, trx: {} }); },
-      inTransaction(options) { return Boolean(options.trx); },
       async markAcceptedById() {}
     },
     workspaceMembershipsRepository: { async upsertMembership(_workspaceId, _userId, patch) { membership = patch; } }
