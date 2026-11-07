@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/agent-runtime",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -10,7 +10,7 @@
     "./server/types": "./src/server/types.js"
   },
   "dependencies": {
-    "@jskit-ai/agent": "0.1.1",
+    "@jskit-ai/agent": "0.1.2",
     "zod": "^4.6.7"
   },
   "description": "Opt-in parts of the agent: its own tables (saved runs, goals, summaries, commands) and coding tools (files, commands in gVisor or a local process, to-do list, notes, goals, asking the person). PostgreSQL.",
