@@ -13,6 +13,34 @@ const REPOSITORY_ROOT = path.resolve(PACKAGE_ROOT, "../..");
 const PATTERNS_ROOT = path.join(PACKAGE_ROOT, "patterns");
 const FOUNDATION_NAMES = Object.freeze(["minimal-foundation", "shell-foundation"]);
 
+let playwrightConfigLoads = 0;
+
+/**
+ * A foundation's Playwright configuration as a run with `env` would load it. The config is imported afresh (a new
+ * URL) with that environment in place, then the environment is put back as it was; the modules it imports load once,
+ * as browserTestConfig reads the environment when the config calls it.
+ */
+async function loadPlaywrightConfig(patternName, env) {
+  const configPath = path.join(PATTERNS_ROOT, patternName, "example", "playwright.config.mjs");
+  const saved = { ...process.env };
+  Object.assign(process.env, env);
+  try {
+    const url = `${pathToFileURL(configPath).href}?load=${++playwrightConfigLoads}`;
+    const { default: config } = await import(url);
+    return JSON.parse(JSON.stringify({
+      webServer: config.webServer ?? null,
+      baseURL: config.use.baseURL,
+      workers: config.workers,
+      globalTimeout: config.globalTimeout
+    }));
+  } finally {
+    for (const name of Object.keys(process.env)) {
+      if (!Object.hasOwn(saved, name)) delete process.env[name];
+    }
+    Object.assign(process.env, saved);
+  }
+}
+
 async function collectFiles(rootDirectory) {
   const files = [];
 
@@ -133,22 +161,9 @@ test("application foundations own one exact development command", async () => {
 
 test("foundation browser configurations serve the production build, a server per worker, or use the managed server", async () => {
   for (const patternName of FOUNDATION_NAMES) {
-    const exampleRoot = path.join(PATTERNS_ROOT, patternName, "example");
-    const configPath = path.join(exampleRoot, "playwright.config.mjs");
-    const load = async (env) => {
-      const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
-        const { default: config } = await import(${JSON.stringify(configPath)});
-        console.log(JSON.stringify({
-          webServer: config.webServer ?? null,
-          baseURL: config.use.baseURL,
-          workers: config.workers,
-          globalTimeout: config.globalTimeout
-        }));
-      `], {
-        env: { ...process.env, PLAYWRIGHT_BASE_URL: "", PLAYWRIGHT_PORT: "", PLAYWRIGHT_WORKERS: "", TEST_PARALLEL_INDEX: "", ...env }
-      });
-      return JSON.parse(stdout);
-    };
+    const load = (env) => loadPlaywrightConfig(patternName, {
+      PLAYWRIGHT_BASE_URL: "", PLAYWRIGHT_PORT: "", PLAYWRIGHT_WORKERS: "", TEST_PARALLEL_INDEX: "", ...env
+    });
 
     const managed = await load({ PLAYWRIGHT_BASE_URL: "http://127.0.0.1:4321", V64_TEST_CONCURRENCY: "3" });
     assert.deepEqual(managed, { webServer: null, baseURL: "http://127.0.0.1:4321", workers: 1, globalTimeout: 20 * 60_000 });
@@ -180,12 +195,11 @@ test("application foundations run every test runner within the machine's test bu
     const packageJson = await readExamplePackageJson(patternName);
     assert.equal(packageJson.scripts?.test, "jskit test");
 
-    const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
-      const { default: config } = await import(${JSON.stringify(path.join(exampleRoot, "playwright.config.mjs"))});
-      console.log(JSON.stringify(config.workers));
-    `], { env: { ...process.env, PLAYWRIGHT_BASE_URL: "", PLAYWRIGHT_WORKERS: "", V64_TEST_CONCURRENCY: "6" } });
+    const { workers } = await loadPlaywrightConfig(patternName, {
+      PLAYWRIGHT_BASE_URL: "", PLAYWRIGHT_WORKERS: "", V64_TEST_CONCURRENCY: "6"
+    });
     // Half the budget: each browser worker drives a browser and its own app server.
-    assert.equal(JSON.parse(stdout), 3);
+    assert.equal(workers, 3);
 
     const viteConfigSource = await readFile(path.join(exampleRoot, "vite.config.mjs"), "utf8");
     assert.match(viteConfigSource, /^import \{ testConcurrency \} from "@jskit-ai\/jskit-catalog\/test-budget";$/mu);
