@@ -4,7 +4,9 @@ import { isLostDuplicateInsertRace, retryDeadlocks } from "@jskit-ai/database-ru
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
-import { missingOf, requireDefinedFilters, requireOwners, requireReadParams, valueOnly, whereSelection } from "./handleGuards.js";
+import {
+  missingOf, requireDefinedFilters, requireOwners, requireReadParams, requireUpsertRows, valueOnly, whereSelection
+} from "./handleGuards.js";
 import {
   MANY_RETURNING,
   SINGLE_RETURNING,
@@ -506,7 +508,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
 
   function manyRowWrite(operation, rows, options, request) {
     const returning = pickReturning(MANY_RETURNING, options.returning, "none", `${name}.${operation}()`);
-    const askFor = hooks.afterWrite && returning === "none" ? "ids" : returning;
+    const askFor = hooks.afterWrite && (returning === "none" || returning === "count") ? "ids" : returning;
     reportManyRow(name, operation, rows, options.chunkSize);
     return hooked(operation, options, (callOptions) => request(
       {
@@ -522,18 +524,18 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   /**
    * Creates every row with one INSERT per chunk, all or nothing. `onConflict:
    * { keys, action: "ignore" | "merge", merge? }` upserts; the keys must include
-   * the ownership fields, and merge is refused under a row policy.
-   * `returning`: "none" (default), "ids" or "records".
+   * the ownership fields, and merge is refused under a row policy. A table with
+   * no owners and no row policy may key it on the id alone (`keys: ["id"]`).
+   * `returning`: "none" (default), "ids", "records" or "count".
    * @param {Array<Record<string, unknown>>} rows
-   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records", onConflict?: object, chunkSize?: number }} [options]
+   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records" | "count", onConflict?: object, chunkSize?: number }} [options]
    */
   async function createMany(rows, options = {}) {
     if (!Array.isArray(rows)) {
       throw new TypeError(`${name}.createMany() takes an array of rows.`);
     }
-    // An upsert matches rows by its conflict keys alone: a row naming its id could update another owner's record.
-    if (options.onConflict && rows.some((row) => isRecord(row) && Object.hasOwn(row, "id"))) {
-      throw new TypeError(`${name}.createMany() with onConflict takes rows without an id; the conflict keys find the existing rows.`);
+    if (options.onConflict) {
+      requireUpsertRows(name, rows, options.onConflict, resource.idProperty);
     }
     return manyRowWrite("createMany", rows.length, options, (params, context) => jsonRest().postMany(
       { ...params, data: rows.map((row) => inputData(resource, row)), ...(options.onConflict ? { onConflict: options.onConflict } : {}) },
@@ -564,11 +566,12 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   }
 
   /**
-   * The same changes to every record the filters select (the caller's own rows only).
-   * Empty filters change every row the caller owns, so they need `all: true`.
+   * The same changes to every record the filters select (the caller's own rows only), in one statement
+   * that carries the scope and filters, so a row gone meanwhile is skipped. Empty filters change every
+   * row the caller owns, so they need `all: true`. `returning: "count"` answers how many changed.
    * @param {object} filters
    * @param {Record<string, unknown>} attributes
-   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records", onlyIf?: object, all?: boolean, chunkSize?: number }} [options]
+   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records" | "count", onlyIf?: object, all?: boolean, chunkSize?: number }} [options]
    */
   async function patchWhere(filters, attributes, options = {}) {
     const selection = whereSelection(name, "patchWhere", filters, options);
@@ -579,14 +582,15 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   }
 
   /**
-   * Deletes every record the filters select (the caller's own rows only).
-   * Empty filters delete every row the caller owns, so they need `all: true`.
+   * Deletes every record the filters select (the caller's own rows only), as patchWhere selects them.
+   * Empty filters delete every row the caller owns, so they need `all: true`. `returning: "count"`
+   * answers how many it deleted, with no ids read back.
    * @param {object} filters
-   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids", all?: boolean, chunkSize?: number }} [options]
+   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "count", all?: boolean, chunkSize?: number }} [options]
    */
   async function deleteWhere(filters, options = {}) {
     if (options.returning === "records") {
-      throw new TypeError(`${name}.deleteWhere() returning is "none" or "ids".`);
+      throw new TypeError(`${name}.deleteWhere() returning is "none", "ids" or "count".`);
     }
     const selection = whereSelection(name, "deleteWhere", filters, options);
     return manyRowWrite("deleteWhere", 0, options, ({ format: _format, ...params }, context) => jsonRest().deleteWhere(
@@ -609,8 +613,8 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   }
 
   /**
-   * Locks the visible rows among the ids, in id order, and answers them.
-   * Hidden or missing ids throw, or are left out with `missing: "skip"`.
+   * Locks the visible rows among the ids, in id order, and answers them; hidden or missing ids throw, or are
+   * left out with `missing: "skip"`. MySQL locks every listed id, a hidden one too: take ids from scoped reads.
    * @param {unknown[]} ids
    * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip" }} options
    */
@@ -627,7 +631,8 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    * order, and answers them; it waits for transactions holding them, so a row that
    * starts to match meanwhile is locked too. At most 1,000 rows (RestApiRowLimitError
    * past that). It does not lock rows inserted later: unique numbers take a unique
-   * index, or a counter row taken with lock().
+   * index, or a counter row taken with lock(). On MySQL it needs an index starting
+   * with the ownership columns (no owners: with a filtered column), or it refuses.
    * @param {object} filters
    * @param {{ context?: object | null, trx: object }} options
    */
