@@ -6,8 +6,31 @@ import { join } from 'node:path';
 import knex from 'knex';
 import { validatePaymentConfiguration } from '@jskit-ai/payments-core/shared';
 import { createPaymentService } from '@jskit-ai/payments-core/server';
-import { createKnexPaymentStore } from '@jskit-ai/payments-core/server/storage';
+import { PaymentStoreFeature } from '@jskit-ai/payments-core/server/storage';
+import { ActionProvider } from '@jskit-ai/kernel/server/actions';
+import { EventProvider } from '@jskit-ai/kernel/server/runtime';
+import { silentLogger } from '@jskit-ai/kernel/server/runtime/logger';
+import { createCapabilityRuntime, defineProvider } from '@jskit-ai/kernel/shared/capabilities';
+import { ResourceRuntimeProvider } from '@jskit-ai/resource-runtime/server';
 import migration from '../migrations/payments_core_initial.cjs';
+
+/** The payment store as a script or CLI starts it (docs/standalone.md): PaymentStoreFeature in a runtime of its own. */
+async function startPaymentStore(knex) {
+  let store;
+  const runtime = createCapabilityRuntime({
+    inputs: { 'runtime.logger': silentLogger },
+    providers: [
+      EventProvider,
+      ActionProvider,
+      defineProvider({ id: 'cli.database', provides: { database: 'runtime.database' }, setup: () => ({ database: { knex } }) }),
+      ResourceRuntimeProvider,
+      PaymentStoreFeature,
+      defineProvider({ id: 'cli.payments', requires: { payments: 'payments.store' }, setup({ payments }) { store = payments; } })
+    ]
+  });
+  await runtime.start();
+  return { store, stop: () => runtime.shutdown() };
+}
 
 // No editor, project tooling, network or generated application is involved.
 test('a hand-written app reloads payment policy from disk while retaining its own billing state', async () => {
@@ -23,16 +46,18 @@ test('a hand-written app reloads payment policy from disk while retaining its ow
     } }
   };
   const scope = { applicationId: 'hand-written-app', integrationId: 'billing', providerAccountId: 'acct_fixture', environment: 'sandbox', subjectId: 'workspace-a' };
+  let payments = null;
   const boot = async () => createPaymentService({
-    store: createKnexPaymentStore({ knex: db }),
+    store: payments.store,
     configuration: validatePaymentConfiguration(JSON.parse(await readFile(path, 'utf8'))),
     clock: () => 1000
   });
   try {
     await migration.up(db);
+    payments = await startPaymentStore(db);
     await writeFile(path, JSON.stringify(document));
     const first = await boot();
-    await createKnexPaymentStore({ knex: db }).bindCustomer(scope, 'cus_fixture', scope.subjectId);
+    await payments.store.bindCustomer(scope, 'cus_fixture', scope.subjectId);
     await first.reconcileEvent(scope, {
       eventId: 'evt_fixture', customerId: 'cus_fixture',
       load: async () => ({ subscription: { id: 'sub_fixture', status: 'active', planId: 'pro', periodEnd: 10000 }, renewal: { id: 'invoice_fixture', planId: 'pro', periodEnd: 10000 } })
@@ -55,6 +80,7 @@ test('a hand-written app reloads payment policy from disk while retaining its ow
     await assert.rejects(boot(), { code: 'payment_configuration_invalid' });
     assert.equal((await restarted.inspect(scope)).balance, 93);
   } finally {
+    await payments?.stop();
     await db.destroy();
     await rm(directory, { recursive: true, force: true });
   }

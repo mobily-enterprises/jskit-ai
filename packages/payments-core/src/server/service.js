@@ -48,9 +48,15 @@ async function grant(tx, { reference: id, units: quantity, expiresAt }, now) {
  * @param {() => number} [dependencies.clock]
  */
 function createPaymentService({ store, configuration, clock = Date.now }) {
-  // readable-check: allow method-probe - input validation: the application passes its own payment store and validated configuration
-  if (typeof store?.withAccount !== "function" || typeof store?.inspect !== "function" || !configuration?.plans) {
-    throw new TypeError("Supply payment storage and validated payment configuration.");
+  // readable-check: allow method-probe - input validation: the application passes its own payment store
+  if (typeof store?.withAccount !== "function" || typeof store?.inspect !== "function") {
+    throw new TypeError(
+      "createPaymentService requires a payment store: register PaymentStoreFeature from @jskit-ai/payments-core/server/storage " +
+      "in your server providers and pass the payments.store it provides."
+    );
+  }
+  if (!configuration?.plans) {
+    throw new TypeError("createPaymentService requires validated payment configuration: pass validatePaymentConfiguration(document) from @jskit-ai/payments-core/shared.");
   }
   const plans = structuredClone(configuration.plans);
   const environments = structuredClone(configuration.environments);

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import knex from 'knex';
 import migration from '../migrations/payments_core_initial.cjs';
-import { createKnexPaymentStore } from '../src/server/knexStore.js';
+import { createTestPaymentStore } from './support/paymentStore.js';
 import { createPaymentCatalogue } from '../src/server/catalogue.js';
 
 const scope = { applicationId: 'app', integrationId: 'billing', providerAccountId: 'acct_a', environment: 'sandbox' };
@@ -13,7 +13,7 @@ const config = { environments: { sandbox: { integrationId: 'billing', providerAc
 test('reviewed catalogue publication preserves IDs, handles drift, and recovers a partial write', async () => {
   const db = knex({ client: 'better-sqlite3', connection: { filename: ':memory:' }, useNullAsDefault: true, pool: { min: 1, max: 1 } });
   await migration.up(db);
-  const store = createKnexPaymentStore({ knex: db });
+  const store = await createTestPaymentStore(db);
   const products = new Map(); const prices = new Map();
   let writes = 0; let failPrice = false;
   const adapter = {
@@ -68,7 +68,7 @@ test('reviewed catalogue publication preserves IDs, handles drift, and recovers 
 test('sandbox and live publish independently and cannot reuse each other’s review', async () => {
   const db = knex({ client: 'better-sqlite3', connection: { filename: ':memory:' }, useNullAsDefault: true, pool: { min: 1, max: 1 } });
   await migration.up(db);
-  const store = createKnexPaymentStore({ knex: db });
+  const store = await createTestPaymentStore(db);
   const configuration = structuredClone(config);
   configuration.environments.live = { integrationId: 'billing-live', providerAccountId: 'acct_live' };
   const liveScope = { ...scope, environment: 'live', ...configuration.environments.live };

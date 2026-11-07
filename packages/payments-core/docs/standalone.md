@@ -81,9 +81,12 @@ values, including the placeholder `MISSING`, must fail setup visibly.
 
 ## Compose the server libraries
 
-This is application startup code. `knex`, `authorizeBilling`, `applicationId`,
-`environment` and `configurationUrl` are supplied by the application's existing
-server composition. Select them on the server. `applicationId` is a durable
+This is application startup code, in a server provider that requires
+`payments.store`: the payment store of `PaymentStoreFeature` (from
+`@jskit-ai/payments-core/server/storage`), which the application registers in
+its server providers as the payment tables' one owner. `store`,
+`authorizeBilling`, `applicationId`, `environment` and `configurationUrl` are
+supplied by the application's existing server composition. Select them on the server. `applicationId` is a durable
 application identity, not its current domain. The environment is explicitly
 `sandbox` or `live`; do not silently fall back between them.
 
@@ -91,7 +94,6 @@ application identity, not its current domain. The environment is explicitly
 import { readFile } from 'node:fs/promises';
 import { createEnvironmentReferenceResolver } from '@jskit-ai/connectors-core/server';
 import { validatePaymentConfiguration } from '@jskit-ai/payments-core/shared';
-import { createKnexPaymentStore } from '@jskit-ai/payments-core/server/storage';
 import { createPaymentService } from '@jskit-ai/payments-core/server';
 import { createStripePaymentAdapter } from '@jskit-ai/payments-core/server/stripe';
 import { createPaymentCheckoutService } from '@jskit-ai/payments-core/server/checkout';
@@ -114,7 +116,6 @@ const merchantScope = {
   applicationId, integrationId: binding.integrationId,
   providerAccountId: binding.providerAccountId, environment
 };
-const store = createKnexPaymentStore({ knex });
 const payments = createPaymentService({ store, configuration });
 const published = await store.inspectCatalogue(merchantScope);
 const priceBindings = Object.fromEntries(Object.entries(published.plans)
@@ -151,6 +152,36 @@ preserving the unmodified request Buffer. Enforce features using
 `payments.requireFeature({...merchantScope, subjectId}, 'export')`; debit credits
 using a stable business-operation reference. A successful checkout redirect is
 not proof of payment: verified provider reconciliation updates access and credits.
+
+## Payments from a script or CLI
+
+Code outside the server, such as a CLI that publishes the catalogue, starts
+`PaymentStoreFeature` in a capability runtime of its own on the application's
+Knex, so the payment tables keep one owner:
+
+```js
+import { ActionProvider } from '@jskit-ai/kernel/server/actions';
+import { EventProvider } from '@jskit-ai/kernel/server/runtime';
+import { silentLogger } from '@jskit-ai/kernel/server/runtime/logger';
+import { createCapabilityRuntime, defineProvider } from '@jskit-ai/kernel/shared/capabilities';
+import { ResourceRuntimeProvider } from '@jskit-ai/resource-runtime/server';
+import { PaymentStoreFeature } from '@jskit-ai/payments-core/server/storage';
+
+let store;
+const runtime = createCapabilityRuntime({
+  inputs: { 'runtime.logger': silentLogger },
+  providers: [
+    EventProvider,
+    ActionProvider,
+    defineProvider({ id: 'cli.database', provides: { database: 'runtime.database' }, setup: () => ({ database: { knex } }) }),
+    ResourceRuntimeProvider,
+    PaymentStoreFeature,
+    defineProvider({ id: 'cli.payments', requires: { payments: 'payments.store' }, setup({ payments }) { store = payments; } })
+  ]
+});
+await runtime.start();
+// ... compose the services above on `store`, then `await runtime.shutdown()` and destroy the Knex.
+```
 
 ## Paddle composition
 

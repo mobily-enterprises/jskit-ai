@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Breaking: `createKnexPaymentStore` is gone, so the payment tables have one owner, `PaymentStoreFeature`. A JSKIT application registers it in its server providers and composes billing on the `payments.store` it provides; a script or CLI starts it in a capability runtime of its own on the application's Knex, as `docs/standalone.md` shows. `createPaymentService` given no store names that fix, and a missing configuration names `validatePaymentConfiguration`.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".
