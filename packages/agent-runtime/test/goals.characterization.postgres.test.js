@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import { GOAL_LIMITS, createGoals, createRuns } from "../src/server/index.js";
-import { BOT_COLUMN, agentOwner, testDatabase } from "./database.js";
+import { BOT_COLUMN, OTHER_DATABASE, agentOwner, testDatabase } from "./database.js";
 
 // What createGoals answers and keeps today, pinned before its table moves onto a resource: the
 // goal row openGoal() answers and the view the tools answer, the cuts on objective and reason,
@@ -36,7 +36,7 @@ async function setup(context, { respond = async () => null, claim = null, find =
   return { knex, runs, goals, make, recorded, responded, rowsOf };
 }
 
-test("a goal's row and its view have fixed shapes", async (context) => {
+test("a goal's row and its view have fixed shapes", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { goals, recorded } = await setup(context, { columns: true, owner: (row) => ({ bot_id: row.bot_id }) });
   assert.deepEqual(Object.keys(goals).sort(), ["afterTurn", "openFor", "openGoal", "operationsFor", "resume", "runDue", "start"]);
@@ -67,7 +67,7 @@ test("a goal's row and its view have fixed shapes", async (context) => {
   assert.deepEqual(await goals.operationsFor({ conversation_id: 2 }).get(), { goal: null });
 });
 
-test("conversations keep their own goals", async (context) => {
+test("conversations keep their own goals", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { goals, rowsOf } = await setup(context);
   await goals.operationsFor({ conversation_id: 1 }, { human: true }).create("First conversation's goal");
@@ -84,7 +84,7 @@ test("conversations keep their own goals", async (context) => {
   assert.equal((await rowsOf(2))[0].language, "it");
 });
 
-test("complete and blocked close a goal: it is no longer open, resume leaves it, a new one may open", async (context) => {
+test("complete and blocked close a goal: it is no longer open, resume leaves it, a new one may open", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { knex, goals, recorded, rowsOf } = await setup(context);
   const row = { conversation_id: 1 };
@@ -119,7 +119,7 @@ test("complete and blocked close a goal: it is no longer open, resume leaves it,
   assert.equal(recorded.at(-1).detail, "Blocked: A third job. ", "and its event line ends in a space");
 });
 
-test("a goal an error paused stays open, with its reason in the view, and resume keeps that reason", async (context) => {
+test("a goal an error paused stays open, with its reason in the view, and resume keeps that reason", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { goals } = await setup(context, {
     respond: async () => {
@@ -144,7 +144,7 @@ test("a goal an error paused stays open, with its reason in the view, and resume
   assert.deepEqual(await goals.operationsFor(row).get(), { goal: { ...view, status: "active" } });
 });
 
-test("afterTurn queues one round and wakes the other servers; pause cancels the queued round", async (context) => {
+test("afterTurn queues one round and wakes the other servers; pause cancels the queued round", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const published = [];
   const notices = {
@@ -176,7 +176,7 @@ test("afterTurn queues one round and wakes the other servers; pause cancels the 
   assert.equal(paused.round_at, null, "pausing drops the queued round");
 });
 
-test("a due round runs on one server only, and not while another server's lease holds it", async (context) => {
+test("a due round runs on one server only, and not while another server's lease holds it", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   let release;
   let gate = new Promise((resolve) => (release = resolve));
@@ -216,7 +216,7 @@ test("a due round runs on one server only, and not while another server's lease 
   assert.deepEqual(responded, ["1", "2"], "an expired lease is taken over");
 });
 
-test("a round whose conversation is gone pauses its goal without running", async (context) => {
+test("a round whose conversation is gone pauses its goal without running", { skip: OTHER_DATABASE }, async (context) => {
   requireTestDatabase(process.env);
   const { goals, responded, rowsOf } = await setup(context, { find: async () => null });
   await goals.operationsFor({ conversation_id: 1 }, { human: true }).create("Gone");

@@ -7,7 +7,12 @@ import { agentResources } from "../src/server/index.js";
 // A disposable PostgreSQL schema with only this package's tables, in the test database: run with
 // DB_NAME set to TEST_DB_NAME (and the usual DB_HOST, DB_PORT, DB_USER and DB_PASSWORD).
 const name = process.env.TEST_DB_NAME?.trim();
-export const DATABASE = name && process.env.DB_NAME === name ? false : "not on the test database (DB_NAME=$TEST_DB_NAME)";
+// A run whose DB_CLIENT names another database, such as CI's MariaDB run, leaves the PostgreSQL tests to the
+// PostgreSQL run; any other run without the test database fails the data tests.
+export const OTHER_DATABASE = process.env.DB_CLIENT && process.env.DB_CLIENT !== "pg"
+  ? `a PostgreSQL test, on a ${process.env.DB_CLIENT} run`
+  : false;
+export const DATABASE = OTHER_DATABASE || (name && process.env.DB_NAME === name ? false : "not on the test database (DB_NAME=$TEST_DB_NAME)");
 
 export async function testDatabase(context) {
   const schema = `agent_test_${process.pid}_${Date.now()}`;
