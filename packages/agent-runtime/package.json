@@ -11,6 +11,9 @@
   },
   "dependencies": {
     "@jskit-ai/agent": "0.1.2",
+    "@jskit-ai/database-runtime": "0.1.260",
+    "@jskit-ai/resource-core": "0.1.202",
+    "@jskit-ai/resource-runtime": "0.2.12",
     "zod": "^4.6.7"
   },
   "description": "Opt-in parts of the agent: its own tables (saved runs, goals, summaries, commands) and coding tools (files, commands in gVisor or a local process, to-do list, notes, goals, asking the person). PostgreSQL.",

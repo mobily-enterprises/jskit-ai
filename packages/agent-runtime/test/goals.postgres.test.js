@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { GOAL_LIMITS, createGoals, createRuns, goalTools } from "../src/server/index.js";
-import { DATABASE, testDatabase } from "./database.js";
+import { DATABASE, agentOwner, testDatabase } from "./database.js";
 
 // Goal rounds (after DeepSeek Harness P3–P5), with scripted turns in place of the model: a reply
 // that stops short is sent another round until it marks the goal complete; "blocked" needs real
 // attempts; the round cap and the cost limit end it; only the person's own turn opens one.
 async function setup(context, script, { limits = {}, spent = 0 } = {}) {
   const knex = await testDatabase(context);
-  const runs = createRuns({ knex });
+  const agent = await agentOwner(knex);
+  const runs = createRuns(agent);
   const recorded = [];
   const notified = [];
   const prompts = [];
@@ -18,7 +19,7 @@ async function setup(context, script, { limits = {}, spent = 0 } = {}) {
     return script(goalTools(goals.operationsFor(row, { human: !options.goalTurn, ...options })), options.prompt);
   };
   goals = createGoals({
-    knex,
+    ...agent,
     runs,
     limits: { ...GOAL_LIMITS, retryMs: 200, ...limits },
     find: async (goal) => ({ conversation_id: goal.conversation_id }),

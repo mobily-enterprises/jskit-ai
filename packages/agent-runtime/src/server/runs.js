@@ -1,63 +1,67 @@
+import { createRunsRepository } from "./repositories/runsRepository.js";
+
 // Replies in progress, one per conversation at a time, kept in the database so any server can see
 // them (one claimed per conversation, with a heartbeat). Each finished step is saved as it happens,
 // so a reply whose server stops (deploy, crash) is carried on from its last step by any server, as
 // Claude Code resumes from its transcript.
 //
-// The table has: conversation_id (unique), started_at, heartbeat_at, steps (jsonb), input (jsonb),
-// plus whatever `owner` columns the app adds (for example bot_id).
+// The table (agentRuns, resources.js) has: conversation_id (its key), started_at, heartbeat_at,
+// steps (jsonb), input (jsonb), plus whatever `owner` columns the app adds (for example bot_id).
 // A run is stale once its heartbeat (every heartbeatMs) is older than staleSeconds.
 export const RUN_LIMITS = { staleSeconds: 60, heartbeatMs: 15000 };
 
 /**
- * The replies in progress, in `table`.
+ * The replies in progress, on the agentRuns handle of the feature that owns the agent's tables.
  * @param {object} dependencies
- * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
- * @param {string} [dependencies.table]
+ * @param {Readonly<Record<string, import("@jskit-ai/resource-runtime/server/types").ResourceHandle>>} dependencies.resources The owner's handles (agentResources()).
+ * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext The owner's system context factory.
  * @param {typeof RUN_LIMITS} [dependencies.limits]
  */
 export function createRuns({
-  knex,
-  table = "agent_runs",
+  resources,
+  systemContext,
   limits = RUN_LIMITS
 }) {
-  const stale = (query) => query.where("heartbeat_at", "<", knex.raw(`now() - interval '${Number(limits.staleSeconds)} seconds'`));
+  const repository = createRunsRepository({
+    runs: resources.agentRuns,
+    options: Object.freeze({ context: systemContext("a reply runs in any conversation, and one a stopped server left is carried on by another server") })
+  });
+  const staleSeconds = () => Number(limits.staleSeconds);
 
   /** Claims the conversation for one reply: a new run, or one whose server stopped beating. */
   async function claim(conversationId, owner = {}) {
-    const [fresh] = await knex(table).insert({ conversation_id: conversationId, ...owner }).onConflict("conversation_id").ignore().returning("conversation_id");
-    if (fresh) return true;
-    const [taken] = await stale(knex(table).where({ conversation_id: conversationId }))
-      .update({ started_at: knex.fn.now(), heartbeat_at: knex.fn.now() }).returning("conversation_id");
-    return Boolean(taken);
+    if (await repository.insert(conversationId, owner)) return true;
+    return Boolean(await repository.takeOver(conversationId, staleSeconds()));
   }
 
+  /** Keeps the run alive; answers the number of runs it touched. */
   function heartbeat(conversationId) {
-    return knex(table).where({ conversation_id: conversationId }).update({ heartbeat_at: knex.fn.now() });
+    return repository.heartbeat(conversationId);
   }
 
   function release(conversationId) {
-    return knex(table).where({ conversation_id: conversationId }).del();
+    return repository.release(conversationId);
   }
 
   /** What a reply saved so far: its steps and what started it. */
   function saved(conversationId) {
-    return knex(table).where({ conversation_id: conversationId }).first("steps", "input");
+    return repository.saved(conversationId);
   }
 
   function save(conversationId, steps, input) {
-    return knex(table).where({ conversation_id: conversationId }).update({ steps: JSON.stringify(steps), input: JSON.stringify(input), heartbeat_at: knex.fn.now() });
+    return repository.save(conversationId, steps, input);
   }
 
   /**
    * Replies left part-way by a stopped server, each taken over by this one (still stale when
-   * claimed, so two servers can't both take it). `resumable(query)` narrows which kinds count.
+   * claimed, so two servers can't both take it). `resumable(query)` narrows which kinds count, on
+   * the store's read-only query builder.
    */
   async function takeOverStalled({ resumable = (query) => query, count = 10 } = {}) {
-    const rows = await resumable(stale(knex(table).whereNotNull("steps"))).limit(count);
+    const ids = await repository.stalledIds({ staleSeconds: staleSeconds(), resumable, count });
     const taken = [];
-    for (const row of rows) {
-      const [mine] = await stale(knex(table).where({ conversation_id: row.conversation_id }))
-        .update({ started_at: knex.fn.now(), heartbeat_at: knex.fn.now() }).returning("*");
+    for (const id of ids) {
+      const mine = await repository.takeOver(id, staleSeconds());
       if (mine) taken.push(mine);
     }
     return taken;

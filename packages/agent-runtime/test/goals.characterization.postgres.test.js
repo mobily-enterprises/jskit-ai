@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import { GOAL_LIMITS, createGoals, createRuns } from "../src/server/index.js";
-import { testDatabase } from "./database.js";
+import { BOT_COLUMN, agentOwner, testDatabase } from "./database.js";
 
 // What createGoals answers and keeps today, pinned before its table moves onto a resource: the
 // goal row openGoal() answers and the view the tools answer, the cuts on objective and reason,
@@ -13,11 +13,12 @@ const CREATED_NOTE = "Work on it now. If this turn ends before it's done, you'll
 async function setup(context, { respond = async () => null, claim = null, find = null, limits = {}, owner, notices, columns = false } = {}) {
   const knex = await testDatabase(context);
   if (columns) await knex.schema.alterTable("agent_goals", (table) => table.bigInteger("bot_id"));
-  const runs = createRuns({ knex });
+  const agent = await agentOwner(knex, columns ? { columns: { goals: BOT_COLUMN } } : {});
+  const runs = createRuns(agent);
   const recorded = [];
   const responded = [];
   const make = () => createGoals({
-    knex,
+    ...agent,
     runs,
     notices,
     limits: { ...GOAL_LIMITS, ...limits },
