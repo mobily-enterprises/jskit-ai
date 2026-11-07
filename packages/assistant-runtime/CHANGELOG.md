@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Reads its operations from assistant-core's `assistantContract` and `assistantConfigContract`.
 - The assistant settings are a settings pane: the app bar shows their title and Save (a primary bar action that submits the form, with the card's loading and disabled states), and the card no longer has a Save row at its bottom. The button reads **Save** (`jskit.assistant.runtime.settings.save`, was "Save assistant settings"), since the bar's title names the settings. Visual only: what saving does is unchanged.
 - A browser test (`test/assistantSettings.browser.test.js`, fixture `fixtures/settings/`, run in CI) renders the settings pane in the shell's `ShellLayout` at 390 and 1280 px: the bar's title is the page's one `h1`, its **Save** is a submit button for `assistant-settings-form` that sends the edited prompt and shows its loading state until the save answers, a refused save shows the prompt's field message and reports the failure, and workspace settings show their note and no Save until the address names a workspace.
 - The assistant surface pattern's icon is `$smartToy`, and the fixtures render with `@jskit-ai/material-web`.

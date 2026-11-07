@@ -3,7 +3,7 @@ import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { jsonApiResultValue } from "@jskit-ai/http-runtime/shared";
 import { resolveWorkspace } from "../support/resolveWorkspace.js";
 import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser";
-import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
+import { workspaceMembersContract } from "../../shared/resources/workspaceMembersResource.js";
 import {
   INVITE_RECIPIENT_BOOTSTRAP_AUDIENCE,
   createWorkspaceEntityAndBootstrapEvents
@@ -34,7 +34,7 @@ const WORKSPACE_INVITE_REVOKED_EVENTS = createWorkspaceEntityAndBootstrapEvents(
 
 const updateMemberRoleActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
-  workspaceMembersResource.operations.updateMemberRole.input
+  workspaceMembersContract.operations.updateMemberRole.input
 ], {
   mode: "create",
   context: "workspaceMembersActions.updateMemberRoleActionInput"
@@ -42,7 +42,7 @@ const updateMemberRoleActionInput = composeSchemaDefinitions([
 
 const removeMemberActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
-  workspaceMembersResource.operations.removeMember.input
+  workspaceMembersContract.operations.removeMember.input
 ], {
   mode: "create",
   context: "workspaceMembersActions.removeMemberActionInput"
@@ -50,7 +50,7 @@ const removeMemberActionInput = composeSchemaDefinitions([
 
 const createInviteActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
-  workspaceMembersResource.operations.createInvite.body
+  workspaceMembersContract.operations.createInvite.body
 ], {
   mode: "create",
   context: "workspaceMembersActions.createInviteActionInput"
@@ -58,7 +58,7 @@ const createInviteActionInput = composeSchemaDefinitions([
 
 const revokeInviteActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
-  workspaceMembersResource.operations.revokeInvite.input
+  workspaceMembersContract.operations.revokeInvite.input
 ], {
   mode: "create",
   context: "workspaceMembersActions.revokeInviteActionInput"
@@ -82,7 +82,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       extensions: {
         assistant: {
           description: "List the active workspace roles and assignable permissions.",
-          output: workspaceMembersResource.operations.rolesList.output,
+          output: workspaceMembersContract.operations.rolesList.output,
           transformResult: (result) => result.value
         }
       },
@@ -103,7 +103,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       extensions: {
         assistant: {
           description: "List members of the active workspace.",
-          output: workspaceMembersResource.operations.membersList.output,
+          output: workspaceMembersContract.operations.membersList.output,
           transformResult: (result) => result.value
         }
       },
@@ -127,7 +127,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       extensions: {
         assistant: {
           description: "Change a member’s role in the active workspace.",
-          output: workspaceMembersResource.operations.updateMemberRole.output,
+          output: workspaceMembersContract.operations.updateMemberRole.output,
           transformResult: (result) => result.value
         }
       },
@@ -153,7 +153,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       extensions: {
         assistant: {
           description: "Remove a member from the active workspace.",
-          output: workspaceMembersResource.operations.removeMember.output,
+          output: workspaceMembersContract.operations.removeMember.output,
           transformResult: (result) => result.value
         }
       },
@@ -179,7 +179,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       extensions: {
         assistant: {
           description: "List invitations for the active workspace without invitation tokens.",
-          output: workspaceMembersResource.operations.invitesList.output,
+          output: workspaceMembersContract.operations.invitesList.output,
           transformResult: (result) => result.value
         }
       },
@@ -235,7 +235,7 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
       extensions: {
         assistant: {
           description: "Revoke an invitation to the active workspace.",
-          output: workspaceMembersResource.operations.revokeInvite.output,
+          output: workspaceMembersContract.operations.revokeInvite.output,
           transformResult: (result) => result.value
         }
       },

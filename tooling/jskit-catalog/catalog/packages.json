@@ -347,7 +347,6 @@
           "@ai-sdk/xai": "^4.0.58",
           "@jskit-ai/agent": "0.1.2",
           "@jskit-ai/resource-core": "0.1.202",
-          "@jskit-ai/resource-crud-core": "0.1.202",
           "@openrouter/ai-sdk-provider": "^3.0.0",
           "ai": "^7.0.152",
           "json-rest-schema": "^1.0.17",
@@ -1467,7 +1466,7 @@
       "packageJson": {
         "dependencies": {
           "@jskit-ai/database-runtime": "0.1.260",
-          "@jskit-ai/resource-crud-core": "0.1.202",
+          "@jskit-ai/resource-core": "0.1.202",
           "@jskit-ai/users-core": "0.2.13",
           "json-rest-schema": "^1.0.17"
         },
@@ -1980,6 +1979,7 @@
       "packageJson": {
         "dependencies": {
           "@jskit-ai/database-runtime": "0.1.260",
+          "@jskit-ai/resource-core": "0.1.202",
           "@jskit-ai/resource-crud-core": "0.1.202",
           "json-rest-api": "2.4.0"
         },
@@ -2398,7 +2398,7 @@
     {
       "packageId": "@jskit-ai/resource-core",
       "version": "0.1.202",
-      "description": "Generic resource-definition helpers and schema-definition normalization.",
+      "description": "Table resources (one per table: fields, columns, ownership) and API contracts (HTTP operations), with schema-definition normalization.",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -2425,7 +2425,7 @@
     {
       "packageId": "@jskit-ai/resource-crud-core",
       "version": "0.1.202",
-      "description": "Shared CRUD resource, field, lookup, filter, and namespace contracts.",
+      "description": "CRUD contracts on table resources, with their field, lookup, filter, and namespace support.",
       "jskit": {
         "kind": "runtime",
         "capabilities": {
@@ -2572,6 +2572,7 @@
           "@jskit-ai/crud-core": "0.2.12",
           "@jskit-ai/database-runtime": "0.1.260",
           "@jskit-ai/json-rest-api-core": "0.2.12",
+          "@jskit-ai/resource-core": "0.1.202",
           "@jskit-ai/resource-crud-core": "0.1.202",
           "@jskit-ai/users-core": "0.2.13",
           "@jskit-ai/workspaces-core": "0.2.13",
@@ -3395,7 +3396,6 @@
           "@jskit-ai/database-runtime": "0.1.260",
           "@jskit-ai/json-rest-api-core": "0.2.12",
           "@jskit-ai/resource-core": "0.1.202",
-          "@jskit-ai/resource-crud-core": "0.1.202",
           "@jskit-ai/storage-runtime": "0.1.257",
           "@jskit-ai/uploads-runtime": "0.2.11",
           "json-rest-schema": "^1.0.17"
@@ -4709,6 +4709,7 @@
       ],
       "requires": [
         "@jskit-ai/http-web",
+        "@jskit-ai/resource-core",
         "@jskit-ai/resource-crud-core"
       ],
       "packageId": "@jskit-ai/http-web",
@@ -4728,7 +4729,7 @@
     {
       "id": "crud/json-api-resource-package",
       "title": "JSON API CRUD resource package",
-      "summary": "Build a complete application-owned CRUD server package from a migration, resource contract, and one framework module declaration.",
+      "summary": "Build a complete application-owned CRUD server package from a migration, a table resource with its CRUD contract, and one framework module declaration.",
       "keywords": [
         "actions",
         "crud",
@@ -4743,6 +4744,7 @@
       ],
       "requires": [
         "@jskit-ai/crud-core",
+        "@jskit-ai/resource-core",
         "@jskit-ai/resource-crud-core"
       ],
       "packageId": "@jskit-ai/crud-core",
@@ -4760,17 +4762,19 @@
     },
     {
       "id": "crud/resource-contract",
-      "title": "Owner-scoped CRUD resource contract",
-      "summary": "Define an authenticated application resource whose records belong to the current user.",
+      "title": "Owner-scoped table resource and CRUD contract",
+      "summary": "Define an application table resource whose records belong to the current user, and the authenticated CRUD contract that serves it.",
       "keywords": [
         "authenticated",
         "crud",
         "database",
         "owner-scoped",
         "resource",
+        "table",
         "user"
       ],
       "requires": [
+        "@jskit-ai/resource-core",
         "@jskit-ai/resource-crud-core"
       ],
       "packageId": "@jskit-ai/resource-crud-core",

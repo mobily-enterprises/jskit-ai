@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import knexLib from "knex";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import {
   createJsonRestApiHost,
   createJsonRestResourceScopeOptions,
@@ -32,18 +33,20 @@ async function createContactsFixture(t) {
   }
 
   const api = await createJsonRestApiHost({ knex, logger: silentLogger });
-  const resource = {
+  const contacts = (name, extra = {}) => defineTableResource({
+    name,
     tableName: "contacts",
     defaultSort: ["name"],
     schema: {
       id: { type: "id", primary: true },
       team: { type: "string", search: true },
       name: { type: "string" }
-    }
-  };
-  await api.addResource("contacts", createJsonRestResourceScopeOptions(resource));
-  await api.addResource("smallPageContacts", createJsonRestResourceScopeOptions({ ...resource, queryMaxLimit: 30 }));
-  await api.addResource("largePageContacts", createJsonRestResourceScopeOptions({ ...resource, queryMaxLimit: 2000 }));
+    },
+    ...extra
+  });
+  await api.addResource("contacts", createJsonRestResourceScopeOptions(contacts("contacts")));
+  await api.addResource("smallPageContacts", createJsonRestResourceScopeOptions(contacts("smallPageContacts", { queryMaxLimit: 30 })));
+  await api.addResource("largePageContacts", createJsonRestResourceScopeOptions(contacts("largePageContacts", { queryMaxLimit: 2000 })));
   return { api, knex };
 }
 

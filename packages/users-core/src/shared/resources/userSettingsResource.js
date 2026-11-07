@@ -2,9 +2,10 @@ import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
-  createSchemaDefinition
-} from "@jskit-ai/resource-core/shared/resource";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+  createSchemaDefinition,
+  defineApiContract
+} from "@jskit-ai/resource-core/shared/apiContract";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../settings.js";
 import {
@@ -63,47 +64,6 @@ const USER_SETTINGS_BOOTSTRAP_KEYS = USER_SETTINGS_ALL_KEYS;
 function normalizePositiveInteger(value) {
   return Number(value);
 }
-
-const userSettingsBodySchema = createSchema({
-  theme: { type: "string", required: true, minLength: 1, maxLength: 32 },
-  locale: { type: "string", required: true, minLength: 1, maxLength: 24 },
-  timeZone: { type: "string", required: true, minLength: 1, maxLength: 64 },
-  dateFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
-  numberFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
-  currencyCode: {
-    type: "string",
-    required: true,
-    minLength: 3,
-    maxLength: 3,
-    uppercase: true,
-    pattern: "^[A-Z]{3}$"
-  },
-  avatarSize: { type: "number", required: true, min: 1 },
-  productUpdates: {
-    type: "boolean",
-    required: true,
-    strictBoolean: true,
-    messages: {
-      default: USER_SETTINGS_FIELD_MESSAGES.productUpdatesInvalid
-    }
-  },
-  accountActivity: {
-    type: "boolean",
-    required: true,
-    strictBoolean: true,
-    messages: {
-      default: USER_SETTINGS_FIELD_MESSAGES.accountActivityInvalid
-    }
-  },
-  securityAlerts: {
-    type: "boolean",
-    required: true,
-    strictBoolean: true,
-    messages: {
-      default: USER_SETTINGS_FIELD_MESSAGES.securityAlertsInvalid
-    }
-  }
-});
 
 const userSettingsPreferencesSchema = createSchema({
   theme: { type: "string", required: true, minLength: 1, maxLength: 32 },
@@ -277,8 +237,9 @@ const logoutOtherSessionsOutputSchema = createSchema({
   ok: { type: "boolean", required: true }
 });
 
-const userSettingsResource = defineCrudResource({
-  namespace: "userSettings",
+// The user_settings table, one row per user.
+const userSettingsResource = defineTableResource({
+  name: "userSettings",
   tableName: "user_settings",
   idProperty: "user_id",
   searchSchema: {
@@ -394,13 +355,17 @@ const userSettingsResource = defineCrudResource({
       }
     }
   },
+});
+
+// The signed-in user's settings over HTTP.
+const userSettingsContract = defineApiContract({
+  namespace: "userSettings",
   messages: OPERATION_MESSAGES,
-  crudOperations: ["view", "list", "create", "replace", "patch"],
-  crud: {
-    output: userSettingsOutputValidator,
-    body: userSettingsBodySchema
-  },
   operations: {
+    view: {
+      method: "GET",
+      output: userSettingsOutputValidator
+    },
     preferencesUpdate: {
       method: "PATCH",
       body: userSettingsPreferencesSchema,
@@ -446,6 +411,7 @@ export {
   USER_SETTINGS_NOTIFICATION_KEYS,
   USER_SETTINGS_PREFERENCE_KEYS,
   userSettingsOutputSchema,
+  userSettingsContract,
   userSettingsOutputValidator,
   userSettingsResource
 };

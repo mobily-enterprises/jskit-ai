@@ -3,9 +3,9 @@ import test from "node:test";
 import { createSchema, normalizeSingleSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import {
   createSchemaDefinition,
-  defineResource,
+  defineApiContract,
   normalizeSchemaDefinitionLike
-} from "../src/shared/resource.js";
+} from "../src/shared/apiContract.js";
 
 test("createSchemaDefinition wraps json-rest-schema instances with an explicit mode", () => {
   const definition = createSchemaDefinition(createSchema({
@@ -42,8 +42,8 @@ test("normalizeSchemaDefinitionLike accepts raw schemas and schema definition ob
   assert.equal(fromDefinition.mode, "patch");
 });
 
-test("defineResource normalizes operation messages and schema sections", () => {
-  const resource = defineResource({
+test("defineApiContract normalizes operation messages and schema sections", () => {
+  const contract = defineApiContract({
     namespace: "assistantConfig",
     messages: {
       validation: "Fix invalid values."
@@ -76,14 +76,14 @@ test("defineResource normalizes operation messages and schema sections", () => {
     }
   });
 
-  assert.equal(resource.namespace, "assistantConfig");
-  assert.equal(resource.operations.view.output.mode, "replace");
-  assert.equal(resource.operations.patch.body.mode, "patch");
-  assert.equal(resource.operations.patch.messages, resource.messages);
+  assert.equal(contract.namespace, "assistantConfig");
+  assert.equal(contract.operations.view.output.mode, "replace");
+  assert.equal(contract.operations.patch.body.mode, "patch");
+  assert.equal(contract.operations.patch.messages, contract.messages);
 });
 
-test("defineResource rejects invalid operation schema section values eagerly", () => {
-  assert.throws(() => defineResource({
+test("defineApiContract rejects invalid operation schema section values eagerly", () => {
+  assert.throws(() => defineApiContract({
     namespace: "assistantConfig",
     operations: {
       view: {
@@ -93,7 +93,7 @@ test("defineResource rejects invalid operation schema section values eagerly", (
     }
   }), /operations\.view\.output must be a schema definition object/);
 
-  assert.throws(() => defineResource({
+  assert.throws(() => defineApiContract({
     namespace: "assistantConfig",
     operations: {
       patch: {
@@ -104,7 +104,7 @@ test("defineResource rejects invalid operation schema section values eagerly", (
   }), /operations\.patch\.body must be a schema definition object/);
 });
 
-test("resource schema definitions follow the kernel's definition rules", () => {
+test("contract schema definitions follow the kernel's definition rules", () => {
   const schema = createSchema({ ok: { type: "boolean", required: true } });
 
   assert.deepEqual(

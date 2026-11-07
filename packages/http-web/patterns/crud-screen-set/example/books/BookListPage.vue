@@ -1,14 +1,14 @@
 <script setup>
 import CrudListScreen from "@jskit-ai/http-web/client/components/CrudListScreen";
 import { useCrudListScreen } from "@jskit-ai/http-web/client/composables/useCrudListScreen";
-import { bookResource } from "@local/books/shared";
+import { bookCrud } from "@local/books/shared";
 import { listBulkActions, listFilters, listRowActions } from "./listExtensions.js";
 
 // A main menu destination: the app bar shows its title and no Up arrow.
 definePage({ meta: { jskit: { title: "Books" } } });
 
 const screen = useCrudListScreen({
-  resource: bookResource,
+  resource: bookCrud,
   resourceNamespace: "books",
   apiSuffix: "/books",
   recordIdParam: "bookId",

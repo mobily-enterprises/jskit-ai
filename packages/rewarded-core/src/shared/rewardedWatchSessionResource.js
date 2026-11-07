@@ -1,125 +1,91 @@
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 
-const resource = defineCrudResource({
-  namespace: "rewarded_watch_sessions",
+const rewardedWatchSessionResource = defineTableResource({
+  name: "rewardedWatchSessions",
   tableName: "rewarded_watch_sessions",
+  ownership: "workspace_user",
   schema: {
-  workspaceId: {
-    type: "id",
-    required: true,
-    search: true,
-    hidden: true,
-    operations: {}
-  },
-  userId: {
-    type: "id",
-    required: true,
-    search: true,
-    hidden: true,
-    operations: {}
-  },
-  gateKey: {
-    type: "string",
-    maxLength: 120,
-    required: true,
-    search: true,
-    operations: {
-      output: { required: true },
-      create: { required: true },
-      patch: { required: false }
+    workspaceId: {
+      type: "id",
+      required: true,
+      search: true,
+      hidden: true
+    },
+    userId: {
+      type: "id",
+      required: true,
+      search: true,
+      hidden: true
+    },
+    gateKey: {
+      type: "string",
+      maxLength: 120,
+      required: true,
+      search: true
+    },
+    providerConfigId: {
+      type: "id",
+      nullable: true,
+      search: true,
+      relation: { kind: "lookup", namespace: "rewarded-provider-configs", valueKey: "id" },
+      belongsTo: "rewardedProviderConfigs",
+      as: "providerConfig",
+      ui: { formControl: "autocomplete" }
+    },
+    status: {
+      type: "string",
+      maxLength: 32,
+      search: true
+    },
+    startedAt: {
+      type: "dateTime",
+      default: "now()",
+      search: true,
+      storage: { writeSerializer: "datetime-utc" }
+    },
+    rewardedAt: {
+      type: "dateTime",
+      nullable: true,
+      search: true,
+      storage: { writeSerializer: "datetime-utc" }
+    },
+    completedAt: {
+      type: "dateTime",
+      nullable: true,
+      search: true,
+      storage: { writeSerializer: "datetime-utc" }
+    },
+    closedAt: {
+      type: "dateTime",
+      nullable: true,
+      search: true,
+      storage: { writeSerializer: "datetime-utc" }
+    },
+    createdAt: {
+      type: "dateTime",
+      default: "now()",
+      storage: { writeSerializer: "datetime-utc" }
+    },
+    updatedAt: {
+      type: "dateTime",
+      default: "now()",
+      storage: { writeSerializer: "datetime-utc" }
     }
-  },
-  providerConfigId: {
-    type: "id",
-    nullable: true,
-    search: true,
-    relation: { kind: "lookup", namespace: "rewarded-provider-configs", valueKey: "id" },
-    belongsTo: "rewardedProviderConfigs",
-    as: "providerConfig",
-    ui: { formControl: "autocomplete" },
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  status: {
-    type: "string",
-    maxLength: 32,
-    search: true,
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  startedAt: {
-    type: "dateTime",
-    default: "now()",
-    search: true,
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  rewardedAt: {
-    type: "dateTime",
-    nullable: true,
-    search: true,
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  completedAt: {
-    type: "dateTime",
-    nullable: true,
-    search: true,
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  closedAt: {
-    type: "dateTime",
-    nullable: true,
-    search: true,
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  createdAt: {
-    type: "dateTime",
-    default: "now()",
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true }
-    }
-  },
-  updatedAt: {
-    type: "dateTime",
-    default: "now()",
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true }
-    }
-  },
   },
   searchSchema: {
     id: { type: "id", actualField: "id" },
-    q: { type: "string", oneOf: ["gateKey","status"], filterOperator: "like", splitBy: " ", matchAll: true },
+    q: { type: "string", oneOf: ["gateKey", "status"], filterOperator: "like", splitBy: " ", matchAll: true }
   },
-  defaultSort: ["-createdAt"],
-  autofilter: "workspace_user",
+  defaultSort: ["-createdAt"]
+});
+
+const rewardedWatchSessionCrud = defineCrudContract(rewardedWatchSessionResource, {
+  namespace: "rewarded_watch_sessions",
+  fields: {
+    createdAt: { output: "required" },
+    updatedAt: { output: "required" }
+  },
   messages: {
     validation: "jskit.rewarded.feedback.fixInvalidValues",
     saveSuccess: "jskit.rewarded.feedback.recordSaved",
@@ -136,4 +102,4 @@ const resource = defineCrudResource({
   }
 });
 
-export { resource };
+export { rewardedWatchSessionCrud, rewardedWatchSessionResource };

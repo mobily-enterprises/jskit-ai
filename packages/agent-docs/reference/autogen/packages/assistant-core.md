@@ -2100,7 +2100,7 @@ Exports
 - `MAX_INPUT_CHARS`
 - `MAX_MESSAGE_PAGE_SIZE`
 - `attachmentIdsField`
-- `assistantResource`
+- `assistantContract`
 - `assistantConversationOutputValidator`
 
 ### `src/shared/assistantResponseText.js`
@@ -2110,7 +2110,7 @@ Exports
 ### `src/shared/assistantSettingsResource.js`
 Exports
 - `MAX_SYSTEM_PROMPT_CHARS`
-- `assistantConfigResource`
+- `assistantConfigContract`
 
 ### `src/shared/conversation/answerChoiceSugar.js`
 Exports
@@ -2253,10 +2253,10 @@ Exports
 - `MAX_INPUT_CHARS`
 - `MAX_MESSAGE_PAGE_SIZE`
 - `attachmentIdsField`
-- `assistantResource`
+- `assistantContract`
 - `assistantConversationOutputValidator`
 - `MAX_SYSTEM_PROMPT_CHARS`
-- `assistantConfigResource`
+- `assistantConfigContract`
 - `ASSISTANT_SETTINGS_TRANSPORT`
 - `ASSISTANT_SETTINGS_UPDATE_TRANSPORT`
 - `ASSISTANT_CONVERSATIONS_TRANSPORT`

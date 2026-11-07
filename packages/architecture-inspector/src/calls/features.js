@@ -3,7 +3,8 @@ import { isFunctionLike, unwrapExpression } from "./functions.js";
 
 const FEATURE_PACKAGE = "@jskit-ai/kernel";
 const CRUD_PACKAGE = "@jskit-ai/crud-core";
-const CRUD_RESOURCE_PACKAGE = "@jskit-ai/resource-crud-core";
+const CRUD_CONTRACT_PACKAGE = "@jskit-ai/resource-crud-core";
+const TABLE_RESOURCE_PACKAGE = "@jskit-ai/resource-core";
 // How many arrays, spreads, conditionals, calls and functions an action
 // definition may sit under in a feature's actions() result: enough for a
 // flagged spread of a create*Actions call whose definitions are each frozen.
@@ -238,20 +239,34 @@ function collectCrudActions(declarations, { symbols, evaluator }) {
   return actions;
 }
 
-// The literal namespace of a CRUD declaration's `defineCrudResource` resource.
-function crudNamespace(config, { symbols, evaluator }) {
-  let resource = unwrapExpression(memberValue(memberNamed(config, "resource")));
-  for (let depth = 0; resource && ts.isIdentifier(resource) && depth < MAX_OBJECT_DEPTH; depth += 1) {
-    const declaration = symbols.declarationOf(resource);
-    resource = declaration && ts.isVariableDeclaration(declaration) ? unwrapExpression(declaration.initializer) : null;
+// The call an expression's value comes from, through variable declarations,
+// when that call is `name` imported from `packageName`.
+function factoryCall(expression, packageName, name, symbols) {
+  let value = unwrapExpression(expression);
+  for (let depth = 0; value && ts.isIdentifier(value) && depth < MAX_OBJECT_DEPTH; depth += 1) {
+    const declaration = symbols.declarationOf(value);
+    value = declaration && ts.isVariableDeclaration(declaration) ? unwrapExpression(declaration.initializer) : null;
   }
-  const callee = resource && ts.isCallExpression(resource) ? unwrapExpression(resource.expression) : null;
-  if (!callee || !ts.isIdentifier(callee) || !symbols.isImportOf(callee, CRUD_RESOURCE_PACKAGE, ["defineCrudResource"])) {
+  const callee = value && ts.isCallExpression(value) ? unwrapExpression(value.expression) : null;
+  return callee && ts.isIdentifier(callee) && symbols.isImportOf(callee, packageName, [name]) ? value : null;
+}
+
+// The literal namespace of a CRUD declaration's `defineCrudContract` contract:
+// its own `namespace`, else the `name` of the table resource it is built on.
+function crudNamespace(config, { symbols, evaluator }) {
+  const contract = factoryCall(memberValue(memberNamed(config, "resource")), CRUD_CONTRACT_PACKAGE, "defineCrudContract", symbols);
+  if (!contract) {
     return null;
   }
-  const definition = objectLiteral(resource.arguments[0], symbols);
-  const namespace = definition && evaluator.evaluateLiteral(memberValue(memberNamed(definition, "namespace")));
-  return namespace?.trim() || null;
+  const definition = contract.arguments[1] ? objectLiteral(contract.arguments[1], symbols) : null;
+  const declared = definition && memberNamed(definition, "namespace");
+  if (declared) {
+    return evaluator.evaluateLiteral(memberValue(declared))?.trim() || null;
+  }
+  const table = factoryCall(contract.arguments[0], TABLE_RESOURCE_PACKAGE, "defineTableResource", symbols);
+  const tableDefinition = table && objectLiteral(table.arguments[0], symbols);
+  const name = tableDefinition && evaluator.evaluateLiteral(memberValue(memberNamed(tableDefinition, "name")));
+  return name?.trim() || null;
 }
 
 // Action definitions inside each feature's actions() result: object literals

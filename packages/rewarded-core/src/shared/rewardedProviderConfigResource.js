@@ -1,81 +1,63 @@
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 
-const resource = defineCrudResource({
-  namespace: "rewarded_provider_configs",
+const rewardedProviderConfigResource = defineTableResource({
+  name: "rewardedProviderConfigs",
   tableName: "rewarded_provider_configs",
+  ownership: "workspace",
   schema: {
-  workspaceId: {
-    type: "id",
-    required: true,
-    search: true,
-    hidden: true,
-    operations: {}
-  },
-  surface: {
-    type: "string",
-    maxLength: 64,
-    required: true,
-    search: true,
-    operations: {
-      output: { required: true },
-      create: { required: true },
-      patch: { required: false }
+    workspaceId: {
+      type: "id",
+      required: true,
+      search: true,
+      hidden: true
+    },
+    surface: {
+      type: "string",
+      maxLength: 64,
+      required: true,
+      search: true
+    },
+    enabled: {
+      type: "boolean",
+      search: true
+    },
+    placement: {
+      type: "string",
+      maxLength: 255,
+      required: true,
+      search: true
+    },
+    provider: {
+      type: "string",
+      maxLength: 64,
+      required: true,
+      search: true
+    },
+    createdAt: {
+      type: "dateTime",
+      default: "now()",
+      storage: { writeSerializer: "datetime-utc" }
+    },
+    updatedAt: {
+      type: "dateTime",
+      default: "now()",
+      storage: { writeSerializer: "datetime-utc" }
     }
-  },
-  enabled: {
-    type: "boolean",
-    search: true,
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  placement: {
-    type: "string",
-    maxLength: 255,
-    required: true,
-    search: true,
-    operations: {
-      output: { required: true },
-      create: { required: true },
-      patch: { required: false }
-    }
-  },
-  provider: {
-    type: "string",
-    maxLength: 64,
-    required: true,
-    search: true,
-    operations: {
-      output: { required: true },
-      create: { required: true },
-      patch: { required: false }
-    }
-  },
-  createdAt: {
-    type: "dateTime",
-    default: "now()",
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true }
-    }
-  },
-  updatedAt: {
-    type: "dateTime",
-    default: "now()",
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true }
-    }
-  },
   },
   searchSchema: {
     id: { type: "id", actualField: "id" },
-    q: { type: "string", oneOf: ["surface","placement","provider"], filterOperator: "like", splitBy: " ", matchAll: true },
+    q: { type: "string", oneOf: ["surface", "placement", "provider"], filterOperator: "like", splitBy: " ", matchAll: true }
   },
-  defaultSort: ["-createdAt"],
-  autofilter: "workspace",
+  defaultSort: ["-createdAt"]
+});
+
+const rewardedProviderConfigCrud = defineCrudContract(rewardedProviderConfigResource, {
+  namespace: "rewarded_provider_configs",
+  fields: {
+    createdAt: { output: "required" },
+    updatedAt: { output: "required" }
+  },
   messages: {
     validation: "jskit.rewarded.feedback.fixInvalidValues",
     saveSuccess: "jskit.rewarded.feedback.recordSaved",
@@ -92,4 +74,4 @@ const resource = defineCrudResource({
   }
 });
 
-export { resource };
+export { rewardedProviderConfigCrud, rewardedProviderConfigResource };

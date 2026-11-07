@@ -1,8 +1,9 @@
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 
-const workspaceInvitesResource = defineCrudResource({
-  namespace: "workspaceInvites",
+// The workspace_invites table.
+const workspaceInvitesResource = defineTableResource({
+  name: "workspaceInvites",
   tableName: "workspace_invites",
   searchSchema: {
     id: { type: "id", actualField: "id" },
@@ -17,22 +18,14 @@ const workspaceInvitesResource = defineCrudResource({
       required: true,
       search: true,
       belongsTo: "workspaces",
-      as: "workspace",
-      operations: {
-        output: { required: true },
-        create: { required: true }
-      }
+      as: "workspace"
     },
     email: {
       type: "string",
       required: true,
       max: 255,
       search: true,
-      setter: (value) => normalizeLowerText(value),
-      operations: {
-        output: { required: true },
-        create: { required: true }
-      }
+      setter: (value) => normalizeLowerText(value)
     },
     roleSid: {
       type: "string",
@@ -41,12 +34,7 @@ const workspaceInvitesResource = defineCrudResource({
       defaultTo: "member",
       search: true,
       storage: { column: "role_sid" },
-      setter: (value) => normalizeLowerText(value),
-      operations: {
-        output: { required: true },
-        create: { required: true },
-        patch: { required: false }
-      }
+      setter: (value) => normalizeLowerText(value)
     },
     status: {
       type: "string",
@@ -54,12 +42,7 @@ const workspaceInvitesResource = defineCrudResource({
       max: 64,
       defaultTo: "pending",
       search: true,
-      setter: (value) => normalizeLowerText(value),
-      operations: {
-        output: { required: true },
-        create: { required: true },
-        patch: { required: false }
-      }
+      setter: (value) => normalizeLowerText(value)
     },
     tokenHash: {
       type: "string",
@@ -67,22 +50,14 @@ const workspaceInvitesResource = defineCrudResource({
       max: 255,
       search: true,
       storage: { column: "token_hash" },
-      setter: (value) => normalizeText(value),
-      operations: {
-        output: { required: true },
-        create: { required: true }
-      }
+      setter: (value) => normalizeText(value)
     },
     invitedByUserId: {
       type: "id",
       nullable: true,
       belongsTo: "userProfiles",
       as: "invitedByUser",
-      storage: { column: "invited_by_user_id" },
-      operations: {
-        output: { required: false },
-        create: { required: false }
-      }
+      storage: { column: "invited_by_user_id" }
     },
     expiresAt: {
       type: "dateTime",
@@ -90,11 +65,6 @@ const workspaceInvitesResource = defineCrudResource({
       storage: {
         column: "expires_at",
         writeSerializer: "datetime-utc"
-      },
-      operations: {
-        output: { required: true },
-        create: { required: false },
-        patch: { required: false }
       }
     },
     acceptedAt: {
@@ -103,11 +73,6 @@ const workspaceInvitesResource = defineCrudResource({
       storage: {
         column: "accepted_at",
         writeSerializer: "datetime-utc"
-      },
-      operations: {
-        output: { required: true },
-        create: { required: false },
-        patch: { required: false }
       }
     },
     revokedAt: {
@@ -116,11 +81,6 @@ const workspaceInvitesResource = defineCrudResource({
       storage: {
         column: "revoked_at",
         writeSerializer: "datetime-utc"
-      },
-      operations: {
-        output: { required: true },
-        create: { required: false },
-        patch: { required: false }
       }
     },
     createdAt: {
@@ -129,10 +89,6 @@ const workspaceInvitesResource = defineCrudResource({
       storage: {
         column: "created_at",
         writeSerializer: "datetime-utc"
-      },
-      operations: {
-        output: { required: true },
-        create: { required: false }
       }
     },
     updatedAt: {
@@ -141,22 +97,9 @@ const workspaceInvitesResource = defineCrudResource({
       storage: {
         column: "updated_at",
         writeSerializer: "datetime-utc"
-      },
-      operations: {
-        output: { required: true },
-        create: { required: false },
-        patch: { required: false }
       }
     }
-  },
-  messages: {
-    validation: "jskit.workspaces.feedback.fixInvalidValues",
-    saveSuccess: "jskit.workspaces.feedback.recordSaved",
-    saveError: "jskit.workspaces.feedback.recordSaveFailed",
-    deleteSuccess: "jskit.workspaces.feedback.recordDeleted",
-    deleteError: "jskit.workspaces.feedback.recordDeleteFailed"
-  },
-  crudOperations: ["list", "view", "create", "patch"]
+  }
 });
 
 export { workspaceInvitesResource };

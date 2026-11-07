@@ -9,7 +9,7 @@ import {
 
 /**
  * A records service factory for one resource.
- * @param {import("./types.js").CrudResourceDefinition} resource
+ * @param {import("./types.js").CrudContract} resource
  * @param {{ context?: string }} [options] The name the service's errors give it.
  */
 function createCrudServiceFromResource(resource, { context = "crudService" } = {}) {

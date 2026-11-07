@@ -70,10 +70,11 @@ test("both user administration variants stay read-only and canonical", async () 
     const resourceModule = await import(pathToFileURL(
       path.join(patternRoot, "example", "packages", packageName, "src", "shared", "userResource.js")
     ).href);
-    const resource = resourceModule.resource;
+    const { userCrud, userResource } = resourceModule;
 
-    assert.deepEqual(Object.keys(resource.operations), ["list", "view"]);
-    assert.equal(Object.hasOwn(resource.operations, "create"), false);
-    assert.equal(resource.schema.updatedAt?.storage?.writeSerializer, "datetime-utc");
+    assert.deepEqual(Object.keys(userCrud.operations), ["list", "view"]);
+    assert.equal(Object.hasOwn(userCrud.operations, "create"), false);
+    assert.equal(userCrud.resource, userResource);
+    assert.equal(userResource.schema.updatedAt?.storage?.writeSerializer, "datetime-utc");
   }
 });

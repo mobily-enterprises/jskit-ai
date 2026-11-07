@@ -2,7 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { returnJsonApiData } from "@jskit-ai/http-runtime/shared";
-import { assistantConfigResource } from "@jskit-ai/assistant-core/shared";
+import { assistantConfigContract } from "@jskit-ai/assistant-core/shared";
 import { actionIds } from "./actionIds.js";
 import { assistantTargetSurfaceInputValidator } from "./inputSchemas.js";
 
@@ -15,7 +15,7 @@ const settingsUpdatePatchInputValidator = deepFreeze({
     patch: {
       type: "object",
       required: true,
-      schema: assistantConfigResource.operations.patch.body.schema
+      schema: assistantConfigContract.operations.patch.body.schema
     }
   }),
   mode: "patch"

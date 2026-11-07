@@ -3,9 +3,9 @@ import test from "node:test";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { createWorkspaceRoleCatalog, cloneWorkspaceRoleCatalog, listRoleDescriptors } from "../src/shared/roles.js";
-import { workspaceMembersResource } from "../src/shared/resources/workspaceMembersResource.js";
-import { workspaceSettingsResource, WORKSPACE_SETTINGS_FIELD_KEYS } from "../src/shared/resources/workspaceSettingsResource.js";
-import { workspacePendingInvitationsResource } from "../src/shared/resources/workspacePendingInvitationsResource.js";
+import { workspaceMembersContract } from "../src/shared/resources/workspaceMembersResource.js";
+import { workspaceSettingsCrud, WORKSPACE_SETTINGS_FIELD_KEYS } from "../src/shared/resources/workspaceSettingsResource.js";
+import { workspacePendingInvitationsContract } from "../src/shared/resources/workspacePendingInvitationsResource.js";
 import { createService as createMembersService } from "../src/server/workspaceMembers/workspaceMembersService.js";
 import { createWorkspacesServerI18n } from "../src/server/i18n.js";
 import { noInviteAcceptanceParticipant } from "../src/server/workspacePendingInvitations/noInviteAcceptanceParticipant.js";
@@ -84,14 +84,14 @@ test("Members and Invitations response validation preserves labels and saved rol
   });
   for (const roleSid of ["worker", "safety_manager", "administrator", "training_assessor"]) {
     await service.updateMemberRole(workspace, { memberUserId: "11", roleSid });
-    const reloaded = output(workspaceMembersResource, "membersList", await service.listMembers(workspace));
+    const reloaded = output(workspaceMembersContract, "membersList", await service.listMembers(workspace));
     assert.equal(savedRole, roleSid);
     assert.equal(reloaded.members[0].roleSid, roleSid);
     assert.deepEqual(reloaded.roleCatalog.roles.map((role) => role.label), expectedLabels);
   }
-  const roles = output(workspaceMembersResource, "rolesList", await service.listRoles());
+  const roles = output(workspaceMembersContract, "rolesList", await service.listRoles());
   assert.deepEqual(roles.roles.map((role) => role.label), expectedLabels);
-  const invites = output(workspaceMembersResource, "invitesList", (await service.listInvitesResponse(workspace)).value);
+  const invites = output(workspaceMembersContract, "invitesList", (await service.listInvitesResponse(workspace)).value);
   assert.deepEqual(invites.roleCatalog.roles.map((role) => role.label), expectedLabels);
   await assert.rejects(service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "Controller" }), /Validation failed/);
   await assert.rejects(service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "owner" }), /Validation failed/);
@@ -107,7 +107,7 @@ test("Workspace Settings response validation preserves configured labels", async
       }
     }
   });
-  const response = output(workspaceSettingsResource, "view", (await service.getWorkspaceSettings(workspace, {
+  const response = output(workspaceSettingsCrud, "view", (await service.getWorkspaceSettings(workspace, {
     context: { actor: { id: "9" }, permissions: ["workspace.settings.view"] }
   })).value);
   assert.deepEqual(response.roleCatalog.roles.map((role) => role.label), expectedLabels);
@@ -131,8 +131,8 @@ test("pending and resolved invitation responses derive labels while acceptance s
     workspaceMembershipsRepository: { async upsertMembership(_workspaceId, _userId, patch) { membership = patch; } }
   });
   const user = { id: "11", email: invite.email };
-  const pending = output(workspacePendingInvitationsResource, "list", { pendingInvites: await service.listPendingInvitesForUser(user) });
-  const resolved = output(workspacePendingInvitationsResource, "resolve", (await service.resolveInviteByToken(token)).value);
+  const pending = output(workspacePendingInvitationsContract, "list", { pendingInvites: await service.listPendingInvitesForUser(user) });
+  const resolved = output(workspacePendingInvitationsContract, "resolve", (await service.resolveInviteByToken(token)).value);
   assert.equal(pending.pendingInvites[0].roleLabel, "Operator");
   assert.equal(resolved.roleLabel, "Operator");
   assert.equal(resolved.roleSid, "safety_manager");

@@ -1,16 +1,16 @@
-import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { userSettingsContract } from "../../shared/resources/userSettingsResource.js";
 import {
   emptyInputValidator,
   resolveRequest
 } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
-import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { userProfileContract } from "../../shared/resources/userProfileResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
 const settingsProfileUpdateInputValidator = deepFreeze({
-  schema: userProfileResource.operations.patch.body.schema,
-  mode: userProfileResource.operations.patch.body.mode
+  schema: userProfileContract.operations.patch.body.schema,
+  mode: userProfileContract.operations.patch.body.mode
 });
 
 /** @param {{ accountProfileService: import("../types.js").AccountProfileService }} dependencies */
@@ -30,7 +30,7 @@ function createAccountProfileActions({ accountProfileService }) {
       extensions: {
         assistant: {
           description: "Read the signed-in user’s profile, preferences, notifications and security status.",
-          output: userSettingsResource.operations.view.output,
+          output: userSettingsContract.operations.view.output,
           transformResult: (result) => result.value
         }
       },
@@ -50,7 +50,7 @@ function createAccountProfileActions({ accountProfileService }) {
       extensions: {
         assistant: {
           description: "Update the signed-in user’s display name.",
-          output: userSettingsResource.operations.view.output,
+          output: userSettingsContract.operations.view.output,
           transformResult: (result) => result.response.value
         }
       },
@@ -70,7 +70,7 @@ function createAccountProfileActions({ accountProfileService }) {
       permission: {
         require: "authenticated"
       },
-      input: userProfileResource.operations.avatarUpload.body,
+      input: userProfileContract.operations.avatarUpload.body,
       output: null,
       extensions: {
         assistant: {
@@ -93,12 +93,12 @@ function createAccountProfileActions({ accountProfileService }) {
       permission: {
         require: "authenticated"
       },
-      input: { schema: userProfileResource.operations.avatarDelete.body.schema },
+      input: { schema: userProfileContract.operations.avatarDelete.body.schema },
       output: null,
       extensions: {
         assistant: {
           description: "Remove the signed-in user’s uploaded avatar.",
-          output: userSettingsResource.operations.view.output,
+          output: userSettingsContract.operations.view.output,
           transformResult: (result) => result.value
         }
       },

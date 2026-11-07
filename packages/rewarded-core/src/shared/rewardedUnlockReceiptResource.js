@@ -1,101 +1,79 @@
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 
-const resource = defineCrudResource({
-  namespace: "rewarded_unlock_receipts",
+const rewardedUnlockReceiptResource = defineTableResource({
+  name: "rewardedUnlockReceipts",
   tableName: "rewarded_unlock_receipts",
+  ownership: "workspace_user",
   schema: {
-  workspaceId: {
-    type: "id",
-    required: true,
-    search: true,
-    hidden: true,
-    operations: {}
-  },
-  userId: {
-    type: "id",
-    required: true,
-    search: true,
-    hidden: true,
-    operations: {}
-  },
-  gateKey: {
-    type: "string",
-    maxLength: 120,
-    required: true,
-    search: true,
-    operations: {
-      output: { required: true },
-      create: { required: true },
-      patch: { required: false }
+    workspaceId: {
+      type: "id",
+      required: true,
+      search: true,
+      hidden: true
+    },
+    userId: {
+      type: "id",
+      required: true,
+      search: true,
+      hidden: true
+    },
+    gateKey: {
+      type: "string",
+      maxLength: 120,
+      required: true,
+      search: true
+    },
+    providerConfigId: {
+      type: "id",
+      nullable: true,
+      search: true,
+      relation: { kind: "lookup", namespace: "rewarded-provider-configs", valueKey: "id" },
+      belongsTo: "rewardedProviderConfigs",
+      as: "providerConfig",
+      ui: { formControl: "autocomplete" }
+    },
+    watchSessionId: {
+      type: "id",
+      nullable: true,
+      search: true,
+      relation: { kind: "lookup", namespace: "rewarded-watch-sessions", valueKey: "id" },
+      belongsTo: "rewardedWatchSessions",
+      as: "watchSession",
+      ui: { formControl: "autocomplete" }
+    },
+    grantedAt: {
+      type: "dateTime",
+      default: "now()",
+      search: true,
+      storage: { writeSerializer: "datetime-utc" }
+    },
+    unlockedUntil: {
+      type: "dateTime",
+      required: true,
+      search: true,
+      storage: { writeSerializer: "datetime-utc" }
+    },
+    createdAt: {
+      type: "dateTime",
+      default: "now()",
+      storage: { writeSerializer: "datetime-utc" }
     }
-  },
-  providerConfigId: {
-    type: "id",
-    nullable: true,
-    search: true,
-    relation: { kind: "lookup", namespace: "rewarded-provider-configs", valueKey: "id" },
-    belongsTo: "rewardedProviderConfigs",
-    as: "providerConfig",
-    ui: { formControl: "autocomplete" },
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  watchSessionId: {
-    type: "id",
-    nullable: true,
-    search: true,
-    relation: { kind: "lookup", namespace: "rewarded-watch-sessions", valueKey: "id" },
-    belongsTo: "rewardedWatchSessions",
-    as: "watchSession",
-    ui: { formControl: "autocomplete" },
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  grantedAt: {
-    type: "dateTime",
-    default: "now()",
-    search: true,
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true },
-      create: { required: false },
-      patch: { required: false }
-    }
-  },
-  unlockedUntil: {
-    type: "dateTime",
-    required: true,
-    search: true,
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true },
-      create: { required: true },
-      patch: { required: false }
-    }
-  },
-  createdAt: {
-    type: "dateTime",
-    default: "now()",
-    storage: { writeSerializer: "datetime-utc" },
-    operations: {
-      output: { required: true }
-    }
-  },
   },
   searchSchema: {
     id: { type: "id", actualField: "id" },
     q: { type: "string", oneOf: ["gateKey"], filterOperator: "like", splitBy: " ", matchAll: true },
     // Server-only: the rewarded service counts the receipts granted since a day began.
-    grantedSince: { type: "dateTime", actualField: "grantedAt", filterOperator: ">=" },
+    grantedSince: { type: "dateTime", actualField: "grantedAt", filterOperator: ">=" }
   },
-  defaultSort: ["-createdAt"],
-  autofilter: "workspace_user",
+  defaultSort: ["-createdAt"]
+});
+
+const rewardedUnlockReceiptCrud = defineCrudContract(rewardedUnlockReceiptResource, {
+  namespace: "rewarded_unlock_receipts",
+  fields: {
+    createdAt: { output: "required" }
+  },
   messages: {
     validation: "jskit.rewarded.feedback.fixInvalidValues",
     saveSuccess: "jskit.rewarded.feedback.recordSaved",
@@ -112,4 +90,4 @@ const resource = defineCrudResource({
   }
 });
 
-export { resource };
+export { rewardedUnlockReceiptCrud, rewardedUnlockReceiptResource };

@@ -296,14 +296,15 @@ Exports
 
 ### `src/shared/resources/workspaceMembersResource.js`
 Exports
-- `workspaceMembersResource`
+- `workspaceMembersContract`
 
 ### `src/shared/resources/workspacePendingInvitationsResource.js`
 Exports
-- `workspacePendingInvitationsResource`
+- `workspacePendingInvitationsContract`
 
 ### `src/shared/resources/workspaceResource.js`
 Exports
+- `workspaceCrud`
 - `workspaceResource`
 - `WORKSPACE_PATCH_FIELD_KEYS`
 - `workspaceListItemOutputValidator`
@@ -318,6 +319,7 @@ Exports
 ### `src/shared/resources/workspaceSettingsResource.js`
 Exports
 - `WORKSPACE_SETTINGS_FIELD_KEYS`
+- `workspaceSettingsCrud`
 - `workspaceSettingsOutputSchema`
 - `workspaceSettingsResource`
 Local functions

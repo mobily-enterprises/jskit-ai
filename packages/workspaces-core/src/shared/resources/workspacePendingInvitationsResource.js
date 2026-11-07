@@ -1,7 +1,7 @@
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
-import { defineResource } from "@jskit-ai/resource-core/shared/resource";
+import { defineApiContract } from "@jskit-ai/resource-core/shared/apiContract";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 
 // Each field message: its English and the code a client renders it from in the user's language.
@@ -69,7 +69,7 @@ const pendingInvitationsListOutputSchema = createSchema({
   }
 });
 
-const workspacePendingInvitationsResource = defineResource({
+const workspacePendingInvitationsContract = defineApiContract({
   namespace: "workspacePendingInvitations",
   messages: OPERATION_MESSAGES,
   operations: {
@@ -85,4 +85,4 @@ const workspacePendingInvitationsResource = defineResource({
   }
 });
 
-export { workspacePendingInvitationsResource };
+export { workspacePendingInvitationsContract };

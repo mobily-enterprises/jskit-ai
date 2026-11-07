@@ -1,7 +1,7 @@
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { workspaceMembersResource } from "../../shared/resources/workspaceMembersResource.js";
-import { workspacePendingInvitationsResource } from "../../shared/resources/workspacePendingInvitationsResource.js";
+import { workspaceMembersContract } from "../../shared/resources/workspaceMembersResource.js";
+import { workspacePendingInvitationsContract } from "../../shared/resources/workspacePendingInvitationsResource.js";
 import {
   WORKSPACE_INVITATION_RESOLVE_TRANSPORT,
   WORKSPACE_INVITE_REDEEM_TRANSPORT,
@@ -43,8 +43,8 @@ function registerWorkspacePendingInvitationsRoutes(router) {
       },
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_INVITATION_RESOLVE_TRANSPORT,
-        query: workspacePendingInvitationsResource.operations.resolve.query,
-        output: workspacePendingInvitationsResource.operations.resolve.output,
+        query: workspacePendingInvitationsContract.operations.resolve.query,
+        output: workspacePendingInvitationsContract.operations.resolve.output,
         outputKind: "record",
         getRecordId: resolveInviteResolutionRecordId,
         includeValidation400: true
@@ -70,7 +70,7 @@ function registerWorkspacePendingInvitationsRoutes(router) {
       },
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_PENDING_INVITATIONS_TRANSPORT,
-        output: workspacePendingInvitationsResource.operations.list.output,
+        output: workspacePendingInvitationsContract.operations.list.output,
         outputKind: "record",
         getRecordId: resolveAuthenticatedUserRecordId
       })
@@ -94,8 +94,8 @@ function registerWorkspacePendingInvitationsRoutes(router) {
       },
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_INVITE_REDEEM_TRANSPORT,
-        body: workspaceMembersResource.operations.redeemInvite.body,
-        output: workspaceMembersResource.operations.redeemInvite.output,
+        body: workspaceMembersContract.operations.redeemInvite.body,
+        output: workspaceMembersContract.operations.redeemInvite.output,
         outputKind: "record",
         getRecordId: resolveAuthenticatedUserRecordId,
         includeValidation400: true

@@ -54,6 +54,7 @@ Local functions
 - `memberValue(member)`
 - `executeFunctions(member, symbols)`
 - `collectCrudActions(declarations, { symbols, evaluator })`
+- `factoryCall(expression, packageName, name, symbols)`
 - `crudNamespace(config, { symbols, evaluator })`
 - `collectFeatureActions(features, { symbols, evaluator })`
 
@@ -181,10 +182,13 @@ Exports
 - `crudOperationKey(inspection, surface, namespace, operation, apiSuffix)`
 - `discoverComponents(inspection)`
 - `discoverPages(inspection, discoveries)`
-- `resolveCrudResource(inspection, module, node, seen = new Set())`
+- `resolveCrudResource(inspection, module, node)`
 Local functions
 - `pageTitle(file)`
-- `resolveExportedCrudResource(inspection, module, name, seen)`
+- `resolveCall(inspection, module, node, seen = new Set())`
+- `resolveExportedCall(inspection, module, name, seen)`
+- `factoryRecord({ module, node }, source, imported)`
+- `resolveTableResourceName(inspection, module, node)`
 - `recordPage(inspection, { file, discovery, identity, registrationModule, registrationNode, parentId = null })`
 - `isSupportedFilesystemOptions(options)`
 - `discoverFilesystemPages(inspection, discovery, module, registrationPath)`

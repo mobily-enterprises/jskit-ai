@@ -1,5 +1,5 @@
 import { createSchema } from "json-rest-schema";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineApiContract } from "@jskit-ai/resource-core/shared/apiContract";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 
 const consoleSettingsBodySchema = createSchema({});
@@ -11,14 +11,21 @@ const consoleSettingsOutputSchema = createSchema({
   }
 });
 
-const consoleSettingsResource = defineCrudResource({
+// The console settings over HTTP: read them, and replace them whole.
+const consoleSettingsContract = defineApiContract({
   namespace: "consoleSettings",
   messages: OPERATION_MESSAGES,
-  crudOperations: ["view", "list", "create", "replace", "patch"],
-  crud: {
-    output: consoleSettingsOutputSchema,
-    body: consoleSettingsBodySchema
+  operations: {
+    view: {
+      method: "GET",
+      output: consoleSettingsOutputSchema
+    },
+    replace: {
+      method: "PUT",
+      body: consoleSettingsBodySchema,
+      output: consoleSettingsOutputSchema
+    }
   }
 });
 
-export { consoleSettingsResource };
+export { consoleSettingsContract };

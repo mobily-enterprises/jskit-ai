@@ -2,12 +2,12 @@ import {
   resolveRequest
 } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
-import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { userSettingsContract } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 
 const oauthLinkStartInputValidator = composeSchemaDefinitions([
-  userSettingsResource.operations.oauthLinkStart.params,
-  userSettingsResource.operations.oauthLinkStart.query
+  userSettingsContract.operations.oauthLinkStart.params,
+  userSettingsContract.operations.oauthLinkStart.query
 ], {
   mode: "create",
   context: "accountSecurityActions.oauthLinkStartInputValidator"
@@ -25,7 +25,7 @@ function createAccountSecurityActions({ accountSecurityService }) {
       permission: {
         require: "authenticated"
       },
-      input: userSettingsResource.operations.passwordChange.body,
+      input: userSettingsContract.operations.passwordChange.body,
       output: null,
       extensions: {
         assistant: {
@@ -43,12 +43,12 @@ function createAccountSecurityActions({ accountSecurityService }) {
       permission: {
         require: "authenticated"
       },
-      input: { schema: userSettingsResource.operations.passwordMethodToggle.body.schema },
+      input: { schema: userSettingsContract.operations.passwordMethodToggle.body.schema },
       output: null,
       extensions: {
         assistant: {
           description: "Enable or disable password sign-in for the signed-in user, subject to the account authentication policy.",
-          output: userSettingsResource.operations.passwordMethodToggle.output,
+          output: userSettingsContract.operations.passwordMethodToggle.output,
           transformResult: (result) => ({ securityStatus: result.value.securityStatus, settings: result.value.settings })
         }
       },
@@ -85,12 +85,12 @@ function createAccountSecurityActions({ accountSecurityService }) {
       permission: {
         require: "authenticated"
       },
-      input: { schema: userSettingsResource.operations.oauthUnlink.params.schema },
+      input: { schema: userSettingsContract.operations.oauthUnlink.params.schema },
       output: null,
       extensions: {
         assistant: {
           description: "Unlink an OAuth sign-in method from the signed-in account, subject to the account authentication policy.",
-          output: userSettingsResource.operations.oauthUnlink.output,
+          output: userSettingsContract.operations.oauthUnlink.output,
           transformResult: (result) => ({ securityStatus: result.value.securityStatus })
         }
       },
@@ -105,12 +105,12 @@ function createAccountSecurityActions({ accountSecurityService }) {
       permission: {
         require: "authenticated"
       },
-      input: userSettingsResource.operations.logoutOtherSessions.body,
+      input: userSettingsContract.operations.logoutOtherSessions.body,
       output: null,
       extensions: {
         assistant: {
           description: "Sign the current user out of other devices.",
-          output: userSettingsResource.operations.logoutOtherSessions.output,
+          output: userSettingsContract.operations.logoutOtherSessions.output,
           transformResult: () => ({ ok: true })
         }
       },

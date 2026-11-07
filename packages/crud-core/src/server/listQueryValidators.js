@@ -214,7 +214,7 @@ function createStandardCrudListQueryValidators({
 
   return Object.freeze([
     createCrudCursorPaginationQueryValidator({
-      orderBy: resource.defaultSort
+      orderBy: resource.resource?.defaultSort
     }),
     searchQueryValidator,
     createCrudParentFilterQueryValidator(resource),

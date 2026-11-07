@@ -52,9 +52,9 @@ function resolveDefaultOperationSchemaMode(sectionName, operation) {
   return "patch";
 }
 
-function normalizeOperationDefinition(operationName, operation = null, resourceMessages = null) {
+function normalizeOperationDefinition(operationName, operation = null, contractMessages = null) {
   if (!operation || typeof operation !== "object" || Array.isArray(operation)) {
-    throw new TypeError(`defineResource operations.${operationName} must be an object.`);
+    throw new TypeError(`defineApiContract operations.${operationName} must be an object.`);
   }
 
   const source = normalizeObject(operation);
@@ -63,12 +63,12 @@ function normalizeOperationDefinition(operationName, operation = null, resourceM
   };
 
   if (
-    resourceMessages &&
-    typeof resourceMessages === "object" &&
-    !Array.isArray(resourceMessages) &&
+    contractMessages &&
+    typeof contractMessages === "object" &&
+    !Array.isArray(contractMessages) &&
     !Object.hasOwn(source, "messages")
   ) {
-    normalizedOperation.messages = resourceMessages;
+    normalizedOperation.messages = contractMessages;
   }
 
   for (const sectionName of OPERATION_SCHEMA_SECTION_NAMES) {
@@ -78,7 +78,7 @@ function normalizeOperationDefinition(operationName, operation = null, resourceM
 
     const defaultMode = resolveDefaultOperationSchemaMode(sectionName, source);
     normalizedOperation[sectionName] = normalizeSchemaDefinitionLike(source[sectionName], {
-      context: `defineResource operations.${operationName}.${sectionName}`,
+      context: `defineApiContract operations.${operationName}.${sectionName}`,
       defaultMode
     });
   }
@@ -86,7 +86,7 @@ function normalizeOperationDefinition(operationName, operation = null, resourceM
   return deepFreeze(normalizedOperation);
 }
 
-function normalizeResourceOperations(operations = null, resourceMessages = null) {
+function normalizeContractOperations(operations = null, contractMessages = null) {
   const source = normalizeObject(operations);
   const normalizedOperations = {};
 
@@ -99,15 +99,15 @@ function normalizeResourceOperations(operations = null, resourceMessages = null)
     normalizedOperations[normalizedOperationName] = normalizeOperationDefinition(
       normalizedOperationName,
       operation,
-      resourceMessages
+      contractMessages
     );
   }
 
   return Object.freeze(normalizedOperations);
 }
 
-function requireResourceNamespace(value, {
-  context = "defineResource resource.namespace"
+function requireContractNamespace(value, {
+  context = "defineApiContract namespace"
 } = {}) {
   const normalizedNamespace = normalizeText(value);
   if (!normalizedNamespace) {
@@ -117,22 +117,29 @@ function requireResourceNamespace(value, {
   return normalizedNamespace;
 }
 
-function defineResource(resource = {}) {
-  const source = normalizeObject(resource);
+/**
+ * An HTTP operations contract that is not a table: a namespace, its messages,
+ * and operations with body, query, params, input and output schemas. A table's
+ * data is described by defineTableResource, and its optional CRUD surface by
+ * defineCrudContract.
+ * @param {Record<string, any>} [contract]
+ */
+function defineApiContract(contract = {}) {
+  const source = normalizeObject(contract);
   const normalizedMessages = Object.hasOwn(source, "messages")
     ? normalizeObject(source.messages)
     : null;
 
   return deepFreeze({
     ...source,
-    namespace: requireResourceNamespace(source.namespace),
+    namespace: requireContractNamespace(source.namespace),
     ...(normalizedMessages ? { messages: normalizedMessages } : {}),
-    operations: normalizeResourceOperations(source.operations, normalizedMessages)
+    operations: normalizeContractOperations(source.operations, normalizedMessages)
   });
 }
 
 export {
   createSchemaDefinition,
-  defineResource,
+  defineApiContract,
   normalizeSchemaDefinitionLike
 };

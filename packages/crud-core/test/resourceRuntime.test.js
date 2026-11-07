@@ -198,8 +198,7 @@ function createKnexDouble(
 function createResourceFixture() {
   return {
     namespace: "contacts",
-    tableName: "contacts_table",
-    idColumn: "contact_id",
+    resource: { tableName: "contacts_table", idColumn: "contact_id" },
     operations: {
       view: {
         output: {
@@ -234,8 +233,7 @@ function createResourceFixture() {
 function createLookupResourceFixture() {
   return {
     namespace: "contacts",
-    tableName: "contacts_table",
-    idColumn: "contact_id",
+    resource: { tableName: "contacts_table", idColumn: "contact_id" },
     operations: {
       view: {
         output: {
@@ -291,8 +289,7 @@ function createLookupResourceFixture() {
 function createLeafLookupResourceFixture() {
   return {
     namespace: "users",
-    tableName: "users_table",
-    idColumn: "user_id",
+    resource: { tableName: "users_table", idColumn: "user_id" },
     operations: {
       view: {
         output: {
@@ -324,8 +321,7 @@ function createLeafLookupResourceFixture() {
 function createNormalizedWriteResourceFixture() {
   return {
     namespace: "contacts",
-    tableName: "contacts_table",
-    idColumn: "contact_id",
+    resource: { tableName: "contacts_table", idColumn: "contact_id" },
     operations: {
       view: {
         output: {
@@ -382,8 +378,7 @@ function createNormalizedWriteResourceFixture() {
 function createVirtualProjectionResourceFixture() {
   return {
     namespace: "receivals",
-    tableName: "receivals_table",
-    idColumn: "receival_id",
+    resource: { tableName: "receivals_table", idColumn: "receival_id" },
     operations: {
       view: {
         output: {
@@ -446,7 +441,7 @@ test("createCrudResourceRuntime requires table metadata from resource", () => {
           }
         }
       }, knex),
-    /requires resource\.tableName or resource\.namespace/
+    /requires a CRUD contract on a table resource with a tableName/
   );
 });
 
@@ -502,7 +497,7 @@ test("list uses resource table and id defaults", async () => {
 test("list converts database temporal values before strict resource validation", async () => {
   const resource = {
     namespace: "appointments",
-    tableName: "appointments",
+    resource: { tableName: "appointments" },
     operations: {
       view: {
         output: {
@@ -836,8 +831,7 @@ test("create uses operations.create.prepareInsertPayload before insert", async (
   });
   const resource = {
     namespace: "contacts",
-    tableName: "contacts_table",
-    idColumn: "contact_id",
+    resource: { tableName: "contacts_table", idColumn: "contact_id" },
     operations: {
       view: {
         output: {

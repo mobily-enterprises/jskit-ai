@@ -123,7 +123,8 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(operationalSource, /JSKIT has no general authoring CLI/u);
   assert.match(operationalSource, /Install one planned dependency closure/u);
   assert.match(operationalSource, /(?:author|write) an immutable.*migration/iu);
-  assert.match(operationalSource, /defineCrudResource\(\)/u);
+  assert.match(operationalSource, /defineTableResource\(\)/u);
+  assert.match(operationalSource, /defineCrudContract\(\)/u);
   assert.match(operationalSource, /Use semantic placement ids/u);
   assert.match(operationalSource, /route\s+template or relative string raw to Vue Router `to`/u);
   assert.match(skill, /Caller-owned verification/u);
