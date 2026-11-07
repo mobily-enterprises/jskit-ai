@@ -49,7 +49,10 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
      or error codes.
    - For creation, foundation patterns, or package selection, read
      [application operations](references/app-operations.md).
-   - Before database, schema, CRUD, repository, or persistence work, read
+   - Before code that reads or writes a database table, read
+     [data access](references/data-access.md) completely; for connections,
+     migrations and test databases, [database layer](references/database-layer.md).
+   - Before schema, CRUD or screen work on a table, also read
      [CRUD operations](references/crud-operations.md) completely; for custom
      form actions, also [form actions](references/crud-form-actions.md).
    - For routes, placements, user-facing UI, or browser verification, read

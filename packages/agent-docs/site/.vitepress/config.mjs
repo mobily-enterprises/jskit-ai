@@ -56,6 +56,7 @@ export default defineConfig({
           text: "Framework Reference",
           items: [
             { text: "Application Operations", link: "/guide/framework/application-operations" },
+            { text: "Data Access", link: "/guide/framework/data-access" },
             { text: "CRUD Operations", link: "/guide/framework/crud-operations" },
             { text: "Record Form Actions", link: "/guide/framework/crud-form-actions" },
             { text: "Typed Features", link: "/guide/framework/typed-features" },

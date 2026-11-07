@@ -23,6 +23,8 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 ## Framework reference
 
 - [Application operations](/guide/framework/application-operations)
+- [Data access](/guide/framework/data-access): read before any code that reads
+  or writes a database table
 - [CRUD operations](/guide/framework/crud-operations)
 - [Record form actions](/guide/framework/crud-form-actions)
 - [Typed features](/guide/framework/typed-features): read before writing any

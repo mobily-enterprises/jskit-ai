@@ -304,6 +304,7 @@ test("foundation agent instructions point to public framework docs without requi
   );
   assert.match(minimalAgents, /prefer that version-matched package-owned copy/u);
   assert.match(minimalAgents, /https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/typed-features`/u);
+  assert.match(minimalAgents, /reads or writes a database table, read\s+the data access guide at\s+`https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access`/u);
   assert.match(minimalAgents, /`npm run lint` checks its rules/u);
   assert.match(minimalAgents, /Do not install an unrelated runtime package only to read documentation/u);
   assert.match(minimalAgents, /Keep `BROWSER_TEST_DB_NAME` distinct from disposable `TEST_DB_NAME`/u);
