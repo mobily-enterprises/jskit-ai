@@ -7,7 +7,7 @@ import { createService as createAuthProfileSyncService } from "./common/services
  * and the projector that keeps a profile in step with the identity that signs
  * in (`auth.profile.projector`).
  * @param {object} dependencies
- * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
+ * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
  * @param {import("./types.js").UsersExtensions} dependencies.extensions
  */
 function createUsersIdentity({ jsonRestApi, extensions }) {

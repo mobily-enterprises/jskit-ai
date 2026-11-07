@@ -249,14 +249,17 @@ statement count in the thousands.
 Each data path gets two one-line tests on the real test database:
 
 ```js
-test("allocation stays in its workspace", () => expectScoped(app, { seed: seedInvoices, run: (ctx) => billing.allocate(input, ctx) }));
+test("allocation stays in its workspace", () => expectScoped({ environment: process.env, handles: [invoices, payments], systemContext, owners: [workspaceA, workspaceB], seed: seedInvoices, run: (owner) => billing.allocate(input, owner) }));
 test("allocation is flat", () => expectFlatQueries({ environment: process.env, seed: seedInvoices, run: (seeded) => billing.allocate(inputFor(seeded), seeded.options) }));
 ```
 
-`expectFlatQueries` (from `@jskit-ai/database-runtime/server/testDatabases`)
-seeds each size, counts the statements the path sends, and fails when a larger
-size sends more, with the counts and the statements repeated most. A data test
-never skips: without `TEST_DB_NAME` it fails (`requireTestDatabase(process.env)`).
+`expectFlatQueries` (from `@jskit-ai/resource-runtime/test`) seeds each size,
+counts the statements the path sends, and fails when a larger size sends more,
+with the counts and the statements repeated most; the later chunks a many-row
+write reports are allowed. `expectScoped` seeds a second owner, runs the path as
+the first, and fails when the result holds the second owner's rows or the path
+changed them. A data test never skips: without `TEST_DB_NAME` it fails
+(`requireTestDatabase(process.env)`).
 
 ## Hard rules
 

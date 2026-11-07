@@ -33,7 +33,6 @@
       "@jskit-ai/http-runtime": "0.2.11",
       "@jskit-ai/http-web": "0.2.19",
       "@jskit-ai/jskit-catalog": "0.2.32",
-      "@jskit-ai/json-rest-api-core": "0.2.12",
       "@jskit-ai/kernel": "0.2.11",
       "@jskit-ai/material-web": "0.1.3",
       "@jskit-ai/mobile-capacitor": "0.2.14",
@@ -44,6 +43,7 @@
       "@jskit-ai/release": "0.1.10",
       "@jskit-ai/resource-core": "0.1.202",
       "@jskit-ai/resource-crud-core": "0.1.202",
+      "@jskit-ai/resource-runtime": "0.2.12",
       "@jskit-ai/rewarded-core": "0.2.13",
       "@jskit-ai/rewarded-web": "0.2.16",
       "@jskit-ai/shell-web": "0.2.14",
@@ -1629,10 +1629,10 @@
       "packageJson": {
         "dependencies": {
           "@jskit-ai/database-runtime": "0.1.260",
-          "@jskit-ai/json-rest-api-core": "0.2.12",
+          "@jskit-ai/resource-runtime": "0.2.12",
           "@jskit-ai/resource-crud-core": "0.1.202",
           "json-rest-schema": "^1.0.17",
-          "json-rest-api": "2.4.0"
+          "json-rest-api": "3.0.0"
         },
         "peerDependencies": {
           "@jskit-ai/http-runtime": "0.2.11",
@@ -1948,61 +1948,6 @@
           "vue": "^3.5.13",
           "vue-router": "^5.0.4",
           "vuetify": "^4.3.0"
-        }
-      }
-    },
-    {
-      "packageId": "@jskit-ai/json-rest-api-core",
-      "version": "0.2.12",
-      "description": "Shared internal json-rest-api host runtime with autofilter, query-projection, and row-policy support.",
-      "jskit": {
-        "kind": "runtime",
-        "capabilities": {
-          "provides": [
-            "runtime.json-rest-api"
-          ],
-          "requires": [
-            "runtime.database",
-            "runtime.logger"
-          ]
-        },
-        "runtime": {
-          "server": {
-            "providers": [
-              {
-                "entrypoint": "src/server/JsonRestApiProvider.js",
-                "export": "JsonRestApiProvider"
-              }
-            ]
-          },
-          "client": {
-            "providers": []
-          }
-        },
-        "metadata": {
-          "apiSummary": {
-            "surfaces": [
-              {
-                "subpath": "./server",
-                "summary": "Provides runtime.json-rest-api and exports focused resource/query helpers, including server-only row policies."
-              },
-              {
-                "subpath": "./server/types",
-                "summary": "Type of the runtime.json-rest-api capability, for features that require it."
-              }
-            ]
-          }
-        }
-      },
-      "packageJson": {
-        "dependencies": {
-          "@jskit-ai/database-runtime": "0.1.260",
-          "@jskit-ai/resource-core": "0.1.202",
-          "@jskit-ai/resource-crud-core": "0.1.202",
-          "json-rest-api": "2.4.0"
-        },
-        "peerDependencies": {
-          "@jskit-ai/kernel": "0.2.11"
         }
       }
     },
@@ -2471,6 +2416,70 @@
       }
     },
     {
+      "packageId": "@jskit-ai/resource-runtime",
+      "version": "0.2.12",
+      "description": "The resource runtime: features own their tables through it and read and write them with scoped handles on json-rest-api.",
+      "jskit": {
+        "kind": "runtime",
+        "capabilities": {
+          "provides": [
+            "runtime.resources",
+            "runtime.json-rest-api"
+          ],
+          "requires": [
+            "runtime.database",
+            "runtime.logger"
+          ]
+        },
+        "runtime": {
+          "server": {
+            "providers": [
+              {
+                "entrypoint": "src/server/ResourceRuntimeProvider.js",
+                "export": "ResourceRuntimeProvider"
+              }
+            ]
+          },
+          "client": {
+            "providers": []
+          }
+        },
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "Provides runtime.resources: own(featureId, owns) registers a feature's tables and answers their handles; createSystemContext gives background work its context. Exports the runtime's error classes."
+              },
+              {
+                "subpath": "./server/resourceHost",
+                "summary": "The json-rest-api host behind the runtime, and the host helpers crud-core, users-core and workspaces-core use until they own their tables through runtime.resources."
+              },
+              {
+                "subpath": "./server/types",
+                "summary": "Types of runtime.resources, its handles, call options and system contexts."
+              },
+              {
+                "subpath": "./test",
+                "summary": "Data test helpers on a real test database: expectScoped, expectFlatQueries, expectEveryTableOwned and requireTestDatabase."
+              }
+            ]
+          }
+        }
+      },
+      "packageJson": {
+        "dependencies": {
+          "@jskit-ai/database-runtime": "0.1.260",
+          "@jskit-ai/resource-core": "0.1.202",
+          "@jskit-ai/resource-crud-core": "0.1.202",
+          "json-rest-api": "3.0.0"
+        },
+        "peerDependencies": {
+          "@jskit-ai/kernel": "0.2.11"
+        }
+      }
+    },
+    {
       "packageId": "@jskit-ai/rewarded-core",
       "version": "0.2.13",
       "description": "Rewarded workflow runtime plus internal CRUD providers for rules, provider configs, watch sessions, and unlock receipts.",
@@ -2589,7 +2598,7 @@
         "dependencies": {
           "@jskit-ai/crud-core": "0.2.12",
           "@jskit-ai/database-runtime": "0.1.260",
-          "@jskit-ai/json-rest-api-core": "0.2.12",
+          "@jskit-ai/resource-runtime": "0.2.12",
           "@jskit-ai/resource-core": "0.1.202",
           "@jskit-ai/resource-crud-core": "0.1.202",
           "@jskit-ai/users-core": "0.2.13",
@@ -3414,7 +3423,7 @@
       "packageJson": {
         "dependencies": {
           "@jskit-ai/database-runtime": "0.1.260",
-          "@jskit-ai/json-rest-api-core": "0.2.12",
+          "@jskit-ai/resource-runtime": "0.2.12",
           "@jskit-ai/resource-core": "0.1.202",
           "@jskit-ai/storage-runtime": "0.1.257",
           "@jskit-ai/uploads-runtime": "0.2.11",
@@ -3829,7 +3838,7 @@
       "packageJson": {
         "dependencies": {
           "@jskit-ai/database-runtime": "0.1.260",
-          "@jskit-ai/json-rest-api-core": "0.2.12",
+          "@jskit-ai/resource-runtime": "0.2.12",
           "@jskit-ai/resource-core": "0.1.202",
           "@jskit-ai/resource-crud-core": "0.1.202",
           "@jskit-ai/users-core": "0.2.13",

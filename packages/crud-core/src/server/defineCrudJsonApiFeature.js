@@ -2,7 +2,7 @@ import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
 import {
   addResourceIfMissing,
   createJsonRestResourceScopeOptions
-} from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+} from "@jskit-ai/resource-runtime/server/resourceHost";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { isWorkspaceRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";

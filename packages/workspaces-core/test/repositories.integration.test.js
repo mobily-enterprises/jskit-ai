@@ -4,7 +4,7 @@ import knexLib from "knex";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
 import { normalizeVisibilityContext } from "@jskit-ai/kernel/shared/support/visibility";
-import { createJsonRestApiHost } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
+import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
 import usersInitial from "../../users-core/migrations/users_core_generic_initial.cjs";
@@ -113,7 +113,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     ]) {
       await migration.up(knex);
     }
-    api = await createJsonRestApiHost({ knex, logger: { error() {}, warn() {}, info() {}, debug() {} } });
+    api = await createResourceHost({ knex, logger: { error() {}, warn() {}, info() {}, debug() {} } });
     usersExtensions = createUsersExtensions();
     ({ profiles, settings: userSettings, profileProjector } = await UsersIdentityProvider.setup({
       authExtensions: createAuthExtensions(),
