@@ -152,11 +152,11 @@ function createFixture() {
   const resource = createBookingsResource();
   const calls = [];
   const service = {
-    async queryDocuments(query, { context }) {
+    async list(query, { context }) {
       calls.push({ query, context });
       return returnJsonApiDocument(createBookingDocument(query));
     },
-    async getDocumentById(_recordId, query) {
+    async view(_recordId, query) {
       const document = createBookingDocument(query);
       return returnJsonApiDocument({
         data: document.data[0],

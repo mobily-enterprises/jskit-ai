@@ -37,7 +37,7 @@ capability composition beside `RewardedClientProvider` from
 `client.rewarded-delivery`; the generic UI supplies `client.rewarded`.
 Use `useRewardedRuntime().requireUnlock({ gateKey, workspaceSlug })` for gates.
 Separately supply server capability `rewarded.grant-policy` with
-`authorizeGrant({ session, context, trx })`; only `true` permits a grant.
+`authorizeGrant({ session, context, options })`; only `true` permits a grant.
 This delivery example does not provide or choose the server policy.
 
 ## Example files
