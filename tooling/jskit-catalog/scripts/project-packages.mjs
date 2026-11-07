@@ -364,9 +364,17 @@ async function preparePackageLockForInstall(projectRoot, manifests, packageLockP
   const next = structuredClone(packageLock.value);
   const localPackageNames = collectLocalPackageNames(manifests);
   if (next.packages && typeof next.packages === "object" && !Array.isArray(next.packages)) {
-    for (const [packagePath, record] of Object.entries(next.packages)) {
-      const packageId = resolveLockPackageName(packagePath, record);
-      if (packageId && record?.link !== true && !localPackageNames.has(packageId)) {
+    const removedPaths = Object.entries(next.packages)
+      .filter(([packagePath, record]) => {
+        const packageId = resolveLockPackageName(packagePath, record);
+        return packageId && record?.link !== true && !localPackageNames.has(packageId);
+      })
+      .map(([packagePath]) => packagePath);
+    // A removed package's nested dependencies go with it. Left behind without
+    // their parent, npm install drops them from the lock it writes while the
+    // new version still needs them nested, and npm ci then refuses that lock.
+    for (const packagePath of Object.keys(next.packages)) {
+      if (removedPaths.some((removed) => packagePath === removed || packagePath.startsWith(`${removed}/`))) {
         delete next.packages[packagePath];
       }
     }

@@ -82,6 +82,8 @@ async function writeStaleInstalledProject(projectRoot) {
       },
       "node_modules/@jskit-ai/assistant-runtime": { version: "0.1.3" },
       "node_modules/@jskit-ai/shell-web": { version: "0.1.2" },
+      // A dependency the old version nests because it pins another version than the app resolves.
+      "node_modules/@jskit-ai/shell-web/node_modules/@vue/compiler-sfc": { version: "3.4.0" },
       "node_modules/vue": { version: "3.5.0" }
     }
   });
