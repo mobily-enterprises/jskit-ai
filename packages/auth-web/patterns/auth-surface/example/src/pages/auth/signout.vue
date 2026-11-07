@@ -9,9 +9,9 @@
 </route>
 
 <script setup>
-import DefaultSignOutView from "@jskit-ai/auth-web/client/views/DefaultSignOutView";
+import SignOutView from "@/views/auth/SignOutView.vue";
 </script>
 
 <template>
-  <DefaultSignOutView />
+  <SignOutView />
 </template>

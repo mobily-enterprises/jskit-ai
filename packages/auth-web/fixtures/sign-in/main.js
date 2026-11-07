@@ -16,6 +16,9 @@ import DefaultResetPasswordView from "../../src/client/views/DefaultResetPasswor
 import DefaultSignOutView from "../../src/client/views/DefaultSignOutView.vue";
 import { AuthWebClientProvider } from "../../src/client/providers/AuthWebClientProvider.js";
 import { useAuthStore } from "../../src/client/stores/useAuthStore.js";
+import PatternLoginPage from "../../patterns/auth-surface/example/src/pages/auth/login.vue";
+import PatternResetPasswordPage from "../../patterns/auth-surface/example/src/pages/auth/reset-password.vue";
+import PatternSignOutPage from "../../patterns/auth-surface/example/src/pages/auth/signout.vue";
 
 // The shell's two runtimes as doubles; the auth client above them is the real one the provider builds.
 window.authFixture = { reports: [], bootstrapRefreshes: [], context: {} };
@@ -89,7 +92,11 @@ const router = createRouter({
     { path: "/auth/signout", component: DefaultSignOutView },
     { path: "/auth/branded/login", component: branded(DefaultLoginView) },
     { path: "/auth/branded/reset-password", component: branded(DefaultResetPasswordView) },
-    { path: "/auth/branded/signout", component: branded(DefaultSignOutView) }
+    { path: "/auth/branded/signout", component: branded(DefaultSignOutView) },
+    // The auth-surface pattern's own pages, as an app copies them: its view wrappers show the app's brand.
+    { path: "/auth/pattern/login", component: PatternLoginPage },
+    { path: "/auth/pattern/reset-password", component: PatternResetPasswordPage },
+    { path: "/auth/pattern/signout", component: PatternSignOutPage }
   ]
 });
 const app = createApp({ render: () => h(components.VApp, null, { default: () => h(components.VMain, null, { default: () => h(RouterView) }) }) });

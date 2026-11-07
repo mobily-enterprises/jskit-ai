@@ -239,6 +239,20 @@ test("shell foundation demonstrates skeleton loading and public adaptive-shell v
   assert.doesNotMatch(adaptiveTestSource, /scrim|coordinates/u);
 });
 
+// The app's name is spelt where a person sees it: index.html's <title> and, once the app adds sign-in, the
+// auth-surface pattern's AppBrand.vue. Both foundations name the same app, and their rename step names both places.
+test("the foundations' app name is the sign-in brand's, and renaming the app renames both", async () => {
+  const brand = await readFile(path.join(REPOSITORY_ROOT, "packages/auth-web/patterns/auth-surface/example/src/components/AppBrand.vue"), "utf8");
+  const brandName = /const APP_NAME = "([^"]+)";/u.exec(brand)?.[1];
+  assert.ok(brandName, "AppBrand.vue names the app");
+  for (const patternName of FOUNDATION_NAMES) {
+    const html = await readFile(path.join(PATTERNS_ROOT, patternName, "example", "index.html"), "utf8");
+    assert.equal(/<title>([^<]+)<\/title>/u.exec(html)?.[1], brandName, `${patternName}'s <title> is the sign-in brand's name`);
+    const pattern = await readFile(path.join(PATTERNS_ROOT, patternName, "PATTERN.md"), "utf8");
+    assert.match(pattern, /`index\.html`'s `<title>`[\s\S]*`src\/components\/AppBrand\.vue`[\s\S]*rename them\s+together/u, `${patternName}'s rename step names both`);
+  }
+});
+
 test("foundation agent instructions point to public framework docs without requiring agent-docs", async () => {
   const [minimalAgents, shellAgents] = await Promise.all(FOUNDATION_NAMES.map((patternName) =>
     readFile(path.join(PATTERNS_ROOT, patternName, "example", "AGENTS.md"), "utf8")

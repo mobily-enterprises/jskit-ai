@@ -659,6 +659,31 @@ test("an app's brand shows in a pane beside the card on wide windows and in a ro
   }
 });
 
+// The auth-surface pattern's own pages, as an app copies them: each renders the app's view wrapper, which puts the
+// app's name (AppBrand.vue, "Reading Room") in the brand slot, so every screen says which app it signs in to.
+test("the auth-surface pattern's sign-in, reset and sign-out pages show the app's name", options, async () => {
+  for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
+    const at = `${viewport.width}px`;
+    const api = await openApp({
+      viewport,
+      routes: {
+        "POST /api/password/recovery": deny(400, "Recovery link expired."),
+        "POST /api/logout": deny(503, "Sign-out service down.")
+      }
+    });
+    const { page } = api;
+    for (const [path, title] of [["/auth/pattern/login", "Sign in"], ["/auth/pattern/reset-password?token=stale", "Reset password"], ["/auth/pattern/signout", "Signing you out"]]) {
+      await page.goto(path);
+      await expect(page.getByRole("heading", { level: 1, name: title }), `${at} ${path}`).toBeVisible();
+      const holder = page.getByTestId(viewport.width >= 960 ? "auth-brand-pane" : "auth-brand-row");
+      await expect(holder.getByTestId("app-brand"), `${at} ${path}`).toHaveText("Reading Room");
+      await expect(page.getByTestId("app-brand"), `${at} ${path}: one brand`).toHaveCount(1);
+      await expect(page.getByRole("heading", { level: 1 }), `${at} ${path}: the brand adds no heading`).toHaveCount(1);
+    }
+    await finish(api);
+  }
+});
+
 test("an app whose accounts are by invitation offers Register only to an invited person", options, async () => {
   const invitationOnly = {
     ...SIGNED_OUT,

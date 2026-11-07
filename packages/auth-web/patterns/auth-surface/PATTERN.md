@@ -27,11 +27,14 @@ Those choices must be known before adapting the example.
 ## Framework APIs
 
 Use the views, auth guard, HTTP client integration, sign-out runtime, providers,
-and Playwright auth helper exported by `@jskit-ai/auth-web`. An app's brand on
-the sign-in, reset and sign-out screens goes in the views' `brand` slot (given
-`{ compact }`), which JSKIT lays out as a pane beside the card on wide windows
-and a row above it on phones; never restyle the views' own classes. Use auth policies
-from `@jskit-ai/auth-core` for server authorization.
+and Playwright auth helper exported by `@jskit-ai/auth-web`. The sign-in, reset
+and sign-out screens show the app's identity: the pages render the app's view
+wrappers (`src/views/auth/`), and each wrapper fills the default view's `brand`
+slot (given `{ compact }`) with `src/components/AppBrand.vue`, the app's name
+as `index.html`'s `<title>` spells it. JSKIT lays the slot out as a pane beside
+the card on wide windows and a row above it on phones; never restyle the views'
+own classes. Use auth policies from `@jskit-ai/auth-core` for server
+authorization.
 
 Every application with accounts includes the managed-preview login. It is
 standard, not optional: adding this pattern adds it, so a managed host's
@@ -95,6 +98,10 @@ a user as a side effect.
 - Public auth routes do not require an existing session.
 - Protected routes use the framework auth policy rather than page-local checks.
 - Login, sign-out, and reset views use the public auth components/composables.
+- The sign-in, reset and sign-out pages render the app's view wrappers, which
+  fill the `brand` slot with the app's identity (`AppBrand.vue`): a person
+  always sees which app they are signing in to. Renaming the app renames
+  `AppBrand.vue` with `index.html`'s `<title>`; the brand adds no heading.
 - A custom login view must preserve the default view's initial session check:
   already authenticated people return to the validated requested destination.
   Process incoming login callbacks before that redirect, and keep signed-out
@@ -105,8 +112,9 @@ a user as a side effect.
 
 ## Example files
 
-`example/` contains concrete route wrappers, editable view wrappers, and the
-client runtime helpers needed by an authentication surface. It also contains
+`example/` contains concrete route wrappers, editable view wrappers that show
+the app's brand (`src/components/AppBrand.vue`), and the client runtime helpers
+needed by an authentication surface. It also contains
 the standard app-owned managed-preview identity executable,
 `tools/preview-identity`. Compose their
 surface and placement declarations into the application's ordinary config and
@@ -119,7 +127,9 @@ placements, and post-auth destinations while retaining the runtime contracts.
 
 ## Verification
 
-Exercise failed and successful login, sign-out, reset, protected navigation,
+Check that the sign-in, reset and sign-out screens show the app's name, in the
+pane on a wide window and in the row on a phone. Exercise failed and successful
+login, sign-out, reset, protected navigation,
 keyboard interaction, warm-cache return navigation, and browser refresh.
 Open the login route with an existing authenticated session and confirm it
 returns to the requested screen; repeat signed out and confirm the form remains.
