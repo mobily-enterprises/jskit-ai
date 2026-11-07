@@ -4,8 +4,8 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
-import { userProfileContract, userProfileResource } from "../src/shared/resources/userProfileResource.js";
-import { userSettingsContract, userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
+import { userProfileContract, userProfileCrud, userProfileResource } from "../src/shared/resources/userProfileResource.js";
+import { userSettingsContract, userSettingsCrud, userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
 
 function assertResourceOperationMessages(resource, operationName, label) {
   const operation = resource?.operations?.[operationName];
@@ -38,13 +38,30 @@ test("users-core API contracts expose messages for all operations", () => {
   }
 });
 
-test("the users and user_settings tables are table resources, apart from their API contracts", () => {
+test("users-core CRUD contracts expose messages for view, list, create, replace and patch", () => {
+  const contracts = {
+    userProfile: userProfileCrud,
+    userSettings: userSettingsCrud
+  };
+
+  for (const [label, contract] of Object.entries(contracts)) {
+    assert.equal(contract.namespace, label);
+    assert.deepEqual(Object.keys(contract.operations), ["view", "list", "create", "replace", "patch"]);
+    for (const operationName of Object.keys(contract.operations)) {
+      assertResourceOperationMessages(contract, operationName, label);
+    }
+  }
+});
+
+test("the users and user_settings tables are table resources, apart from their CRUD and API contracts", () => {
   assert.equal(userProfileResource.name, "userProfiles");
   assert.equal(userProfileResource.tableName, "users");
   assert.equal(userSettingsResource.name, "userSettings");
   assert.equal(userSettingsResource.tableName, "user_settings");
   assert.equal(Object.hasOwn(userProfileResource, "operations"), false);
   assert.equal(Object.hasOwn(userSettingsResource, "operations"), false);
+  assert.equal(userProfileCrud.resource, userProfileResource);
+  assert.equal(userSettingsCrud.resource, userSettingsResource);
 });
 
 test("user profile resource exposes managed timestamps used by JSON REST writes", () => {

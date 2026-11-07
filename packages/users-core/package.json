@@ -18,8 +18,9 @@
   },
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.262",
-    "@jskit-ai/resource-runtime": "0.2.12",
     "@jskit-ai/resource-core": "0.1.204",
+    "@jskit-ai/resource-crud-core": "0.1.204",
+    "@jskit-ai/resource-runtime": "0.2.12",
     "@jskit-ai/storage-runtime": "0.1.259",
     "@jskit-ai/uploads-runtime": "0.2.13",
     "json-rest-schema": "^1.0.17"
@@ -97,11 +98,11 @@
           },
           {
             "subpath": "./shared/resources/userProfileResource",
-            "summary": "Exports the shared user profile resource."
+            "summary": "Exports the users table resource (userProfileResource), the account profile's CRUD contract (userProfileCrud) and the profile API contract (userProfileContract)."
           },
           {
             "subpath": "./shared/resources/userSettingsResource",
-            "summary": "Exports the shared user settings resource."
+            "summary": "Exports the user_settings table resource (userSettingsResource), the account settings' CRUD contract (userSettingsCrud), the settings API contract (userSettingsContract) and the settings keys and output schemas."
           },
           {
             "subpath": "./shared/settings",
