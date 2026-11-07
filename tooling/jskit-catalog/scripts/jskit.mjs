@@ -11,6 +11,7 @@ import {
   formatCheckReport,
   formatExportSummary
 } from "./i18n.mjs";
+import { checkDataAccess, formatDataAccessReport } from "./data-access.mjs";
 import { checkMaterial3, formatMaterial3Report, formatNavigationReport } from "./material3.mjs";
 import { checkProject, updateProject } from "./project-packages.mjs";
 import { runTests } from "./test-command.mjs";
@@ -45,7 +46,11 @@ function usage() {
     "               workers do not come from testConcurrency() of @jskit-ai/jskit-catalog/test-budget. A Playwright",
     "               config with a webServer uses browserTestConfig() of @jskit-ai/jskit-catalog/browser-tests (one",
     "               production-build server and database per worker), never a development server, and every one",
-    "               has a globalTimeout.",
+    "               has a globalTimeout. It fails when two table resources (defineTableResource) of the app and its",
+    "               installed JSKIT packages share a table or a name (data/one-resource-per-table), or when a system",
+    "               scope (a feature's systemScope, a systemContext() call) gives no literal reason (data/system-scope),",
+    "               and it lists every system scope and every file the infrastructure exception lifts past the",
+    "               data-access lint rules for review.",
     "  check m3     List application UI source that departs from the JSKIT Material 3 guide, each finding with its",
     "               guide section: the whole app, or only the given files and directories (a section, or a task's",
     "               changed files). Its visual rules (m3/*) are a report; its nav/* rules are plain jskit check's.",
@@ -253,15 +258,17 @@ async function main(argv = process.argv.slice(2)) {
   });
   const ui = await checkMaterial3({ projectRoot: options.projectRoot, navigationOnly: !MATERIAL3_GATE });
   const tests = await checkTestRuns({ projectRoot: options.projectRoot, manifests: result.manifests });
+  const data = await checkDataAccess({ projectRoot: options.projectRoot });
   const reports = [
     result.ok
       ? `JSKIT project graph is coordinated across ${result.manifests.length} manifest(s) and ` +
         `${result.installations.length} resolved package installation(s).`
       : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
     MATERIAL3_GATE ? formatMaterial3Report(ui) : formatNavigationReport(ui),
-    formatTestRunsReport(tests)
+    formatTestRunsReport(tests),
+    formatDataAccessReport(data)
   ];
-  if (!result.ok || !ui.ok || !tests.ok) {
+  if (!result.ok || !ui.ok || !tests.ok || !data.ok) {
     throw new Error(reports.join("\n"));
   }
   process.stdout.write(`${reports.join("\n")}\n`);

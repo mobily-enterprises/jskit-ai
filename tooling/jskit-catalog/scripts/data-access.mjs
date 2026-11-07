@@ -1,0 +1,330 @@
+import { readdir, readFile, realpath } from "node:fs/promises";
+import path from "node:path";
+import { toPosixPath } from "./files.mjs";
+import { blankJsComments, lineIndex } from "./material3-source.mjs";
+
+// The data part of plain `jskit check`, read from source, never run. It backs up what the lint rules cannot see across
+// files: every table has exactly one table resource (`defineTableResource({ name, tableName })`) across the app and its
+// installed @jskit-ai packages, so a duplicate name or table fails here before the boot-time throw; every system scope
+// (a feature's `systemScope: "<reason>"` and every `systemContext("<reason>")` call) is listed with its reason, and one
+// without a literal reason fails; and every file the infrastructure exception lifts past the data-access lint rules is
+// listed for review.
+
+const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access";
+const SECTIONS = Object.freeze({
+  "data/one-resource-per-table": "layer-1-the-table-resource",
+  "data/system-scope": "background-work",
+  "data/infrastructure-excuses": "hard-rules"
+});
+const FRAMEWORK_DIRECTORY = path.join("node_modules", "@jskit-ai");
+const SOURCE_FILE = /\.[cm]?js$/u;
+const SKIPPED_FILE = /\.(?:test|spec|vitest)\.[cm]?js$/u;
+// Code that defines no table resource or system scope an app runs: dependencies, build output, tests and fixtures,
+// migrations and seeds, and the examples, templates and documentation JSKIT packages carry.
+const SKIPPED_DIRECTORIES = new Set([
+  "node_modules", "dist", "build", "coverage", "test", "tests", "__tests__", "e2e", "fixtures", "test-results",
+  "migrations", "seeds", "templates", "patterns", "examples", "docs", "site", "skills"
+]);
+const MARKERS = /defineTableResource|systemScope|systemContext|readable-check: allow/u;
+const TABLE_RESOURCE_CALL = /\bdefineTableResource\s*\(/gu;
+const FEATURE_CALL = /\bdefine(?:Crud)?Feature\s*\(/gu;
+const SYSTEM_CONTEXT_CALL = /\bsystemContext\s*\(/gu;
+const INFRASTRUCTURE_EXCUSE = /readable-check: allow (?:jskit\/)?(no-direct-knex|no-transaction-reader) - (infrastructure:.*?)\s*(?:\*\/)?\s*$/u;
+
+const blank = (text) => text.replace(/[^\n]/gu, " ");
+
+// Code with its comments and the contents of its strings and templates blanked to spaces, every offset kept: calls
+// and keys are found in it, values are read from the code at the same offsets.
+function maskStrings(code) {
+  let output = "";
+  let index = 0;
+  while (index < code.length) {
+    const quote = code[index];
+    if (quote !== "\"" && quote !== "'" && quote !== "`") {
+      output += quote;
+      index += 1;
+      continue;
+    }
+    let end = index + 1;
+    while (end < code.length && code[end] !== quote && (quote === "`" || code[end] !== "\n")) {
+      end += code[end] === "\\" ? 2 : 1;
+    }
+    output += quote + blank(code.slice(index + 1, end)) + code.slice(end, end + 1);
+    index = end + 1;
+  }
+  return output;
+}
+
+// The offset just past the bracket that closes the one at `start`, in masked code; -1 when it never closes.
+function closingOffset(masked, start) {
+  let depth = 0;
+  for (let index = start; index < masked.length; index += 1) {
+    if ("([{".includes(masked[index])) depth += 1;
+    else if (")]}".includes(masked[index]) && --depth === 0) return index + 1;
+  }
+  return -1;
+}
+
+const nextCodeOffset = (text, offset) => offset + (/^\s*/u.exec(text.slice(offset))?.[0].length || 0);
+
+// The string a top-level `const NAME = "..."` gives, or null.
+function constantValue(code, name) {
+  const match = new RegExp(`(?:^|[\\s;])const\\s+${name}\\s*=\\s*(["'\`])((?:\\\\.|(?!\\1)[^\\\\\\n])*)\\1\\s*[;,\\n]`, "u").exec(code);
+  return match && !(match[1] === "`" && match[2].includes("${")) ? match[2] : null;
+}
+
+/**
+ * The value written at an offset, read up to the comma or bracket that ends it: { text } for a string literal, a
+ * template without expressions, or a const holding one; { text: null } for anything else.
+ */
+function readValue(code, masked, offset) {
+  const start = nextCodeOffset(code, offset);
+  const quote = code[start];
+  if (quote === "\"" || quote === "'" || quote === "`") {
+    let end = start + 1;
+    while (end < code.length && code[end] !== quote) end += code[end] === "\\" ? 2 : 1;
+    const after = masked[nextCodeOffset(masked, end + 1)];
+    const text = code.slice(start + 1, end);
+    const whole = after === "," || after === "}" || after === ")";
+    return { text: whole && !(quote === "`" && text.includes("${")) ? text.replace(/\\(.)/gu, "$1") : null };
+  }
+  const identifier = /^[A-Za-z_$][\w$]*(?=\s*[,})])/u.exec(code.slice(start));
+  return { text: identifier ? constantValue(code, identifier[0]) : null };
+}
+
+// The top-level keys of the object literal between `start` and `end`, in masked code: for each wanted key, the offset
+// just past its colon, or "shorthand" for `{ name }`.
+function topLevelKeys(masked, start, end, names) {
+  let depth = 0;
+  let top = "";
+  for (let index = start; index < end; index += 1) {
+    const char = masked[index];
+    if ("([{".includes(char)) depth += 1;
+    top += depth === 1 || char === "\n" ? char : " ";
+    if (")]}".includes(char)) depth -= 1;
+  }
+  const keys = new Map();
+  for (const match of top.matchAll(/(?:^|[{,])\s*([A-Za-z_$][\w$]*)\s*(:|(?=[,}]))/gu)) {
+    const [whole, key, colon] = match;
+    if (names.includes(key) && !keys.has(key)) keys.set(key, colon ? start + match.index + whole.length : "shorthand");
+  }
+  return keys;
+}
+
+// The object literal a call at `callOffset` takes as its first argument: { start, end } in masked code, or null when the
+// call is a declaration (`function defineFeature(`) or its first argument is anything else.
+function objectArgument(masked, callOffset, matchLength) {
+  if (/function\s*\*?\s*$/u.test(masked.slice(Math.max(0, callOffset - 20), callOffset))) return null;
+  const start = nextCodeOffset(masked, callOffset + matchLength);
+  if (masked[start] !== "{") return null;
+  const end = closingOffset(masked, start);
+  return end < 0 ? null : { start, end };
+}
+
+// The value of one key of an object literal, as readValue reads it; undefined when the object has no such key.
+function keyValue(code, masked, keys, key) {
+  const at = keys.get(key);
+  if (at === undefined) return undefined;
+  return at === "shorthand" ? { text: constantValue(code, key) } : readValue(code, masked, at);
+}
+
+function readSourceFile(source) {
+  const code = blankJsComments(source);
+  return { code, masked: maskStrings(code), position: lineIndex(source) };
+}
+
+// Every table resource a file defines: its name and table, each null when the source does not write it as a literal.
+function readTableResources(file, { code, masked, position }) {
+  const resources = [];
+  for (const match of masked.matchAll(TABLE_RESOURCE_CALL)) {
+    const object = objectArgument(masked, match.index, match[0].length);
+    if (!object) continue;
+    const keys = topLevelKeys(masked, object.start, object.end, ["name", "tableName"]);
+    resources.push({
+      file,
+      line: position(match.index).line,
+      name: keyValue(code, masked, keys, "name")?.text ?? null,
+      tableName: keyValue(code, masked, keys, "tableName")?.text ?? null
+    });
+  }
+  return resources;
+}
+
+// Every system scope a file declares or calls: a feature's systemScope and each systemContext(...) call, with its
+// reason, null when it is not a literal.
+function readSystemScopes(file, { code, masked, position }) {
+  const scopes = [];
+  for (const match of masked.matchAll(FEATURE_CALL)) {
+    const object = objectArgument(masked, match.index, match[0].length);
+    if (!object) continue;
+    const keys = topLevelKeys(masked, object.start, object.end, ["id", "systemScope"]);
+    const reason = keyValue(code, masked, keys, "systemScope");
+    if (reason === undefined) continue;
+    scopes.push({ file, line: position(match.index).line, kind: "feature", id: keyValue(code, masked, keys, "id")?.text || "", reason: reason.text });
+  }
+  for (const match of masked.matchAll(SYSTEM_CONTEXT_CALL)) {
+    const open = match.index + match[0].length - 1;
+    const close = closingOffset(masked, open);
+    const before = masked.slice(Math.max(0, match.index - 20), match.index);
+    // A declaration, not a call: `function systemContext(reason) {` or a method `systemContext(reason) {`.
+    if (close < 0 || /function\s*\*?\s*$/u.test(before) || masked[nextCodeOffset(masked, close)] === "{") continue;
+    const empty = masked.slice(open + 1, close - 1).trim() === "";
+    const reason = empty ? { text: "" } : readValue(code, masked, open + 1);
+    scopes.push({ file, line: position(match.index).line, kind: "call", id: "", reason: reason.text });
+  }
+  return scopes;
+}
+
+// The infrastructure exceptions in a file's first lines, before its first line of code.
+function readInfrastructureExcuses(file, source) {
+  const header = /^(?:#![^\n]*\n)?(?:\s|\/\/[^\n]*|\/\*[\s\S]*?\*\/)*/u.exec(source)[0];
+  return header.split("\n").flatMap((text, index) => {
+    const match = INFRASTRUCTURE_EXCUSE.exec(text);
+    return match ? [{ file, line: index + 1, rule: match[1], reason: match[2] }] : [];
+  });
+}
+
+async function walk(root, directory, files) {
+  let entries;
+  try {
+    entries = await readdir(path.join(root, directory), { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT" || error?.code === "ENOTDIR") return;
+    throw error;
+  }
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const relative = directory ? path.join(directory, entry.name) : entry.name;
+    if (entry.isDirectory()) {
+      if (!entry.name.startsWith(".") && !SKIPPED_DIRECTORIES.has(entry.name)) await walk(root, relative, files);
+    } else if (entry.isFile() && SOURCE_FILE.test(entry.name) && !SKIPPED_FILE.test(entry.name)) {
+      files.push(relative);
+    }
+  }
+}
+
+// The installed @jskit-ai packages outside the app's own tree (a workspace's linked packages are read as app source),
+// each as { directory, real }: where the app sees it and where it is.
+async function frameworkPackages(root) {
+  let entries;
+  try {
+    entries = await readdir(path.join(root, FRAMEWORK_DIRECTORY), { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  }
+  const packages = [];
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const directory = path.join(FRAMEWORK_DIRECTORY, entry.name);
+    const real = await realpath(path.join(root, directory)).catch(() => "");
+    const inside = path.relative(root, real);
+    const appSource = real && !inside.startsWith("..") && !path.isAbsolute(inside) && !inside.split(path.sep).includes("node_modules");
+    if (real && !appSource) packages.push({ directory, real });
+  }
+  return packages;
+}
+
+// Every table resource of a table, and of a name, that another one shares: each one is reported, naming the others.
+function checkTables(resources, report) {
+  const where = (resource) => `${resource.file}:${resource.line}`;
+  const groups = { tableName: new Map(), name: new Map() };
+  for (const resource of resources) {
+    if (resource.name === null || resource.tableName === null) {
+      if (!resource.framework) {
+        report(resource, "data/one-resource-per-table",
+          "defineTableResource() does not write its name and tableName as string literals (or consts holding them), so this check cannot see which table it owns.");
+      }
+      continue;
+    }
+    for (const key of ["tableName", "name"]) {
+      groups[key].set(resource[key], [...(groups[key].get(resource[key]) || []), resource]);
+    }
+  }
+  for (const [key, byValue] of Object.entries(groups)) {
+    for (const [value, group] of byValue) {
+      for (const resource of group.length > 1 ? group : []) {
+        const others = group.filter((other) => other !== resource).map(where).join(", ");
+        report(resource, "data/one-resource-per-table", key === "tableName"
+          ? `table "${value}" has another table resource at ${others}; a table has exactly one table resource, owned by one feature.`
+          : `resource name "${value}" is also the name of the table resource at ${others}; every table resource has its own name.`);
+      }
+    }
+  }
+}
+
+function checkSystemScopes(scopes, report) {
+  for (const scope of scopes) {
+    if (scope.reason === null && !scope.framework) {
+      report(scope, "data/system-scope", scope.kind === "feature"
+        ? "systemScope is not a string literal; write the reason this feature reads past ownership where it is declared."
+        : "systemContext() does not take its reason as a string literal; write why this call reads past ownership at the call.");
+    } else if (scope.reason !== null && scope.reason.trim() === "") {
+      report(scope, "data/system-scope", scope.kind === "feature"
+        ? "systemScope gives no reason; say why this feature reads past ownership."
+        : "systemContext() gives no reason; say why this call reads past ownership.");
+    }
+  }
+}
+
+/**
+ * Reads the app's source and its installed @jskit-ai packages for table resources, system scopes and infrastructure
+ * exceptions.
+ * @param {{ projectRoot?: string }} options
+ */
+async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
+  const root = path.resolve(projectRoot);
+  const sources = [];
+  const appFiles = [];
+  await walk(root, "", appFiles);
+  sources.push(...appFiles.map((file) => ({ file, absolute: path.join(root, file), framework: false })));
+  for (const { directory, real } of await frameworkPackages(root)) {
+    const files = [];
+    await walk(real, "", files);
+    sources.push(...files.map((file) => ({ file: path.join(directory, file), absolute: path.join(real, file), framework: true })));
+  }
+  const resources = [];
+  const scopes = [];
+  const excuses = [];
+  for (const { file, absolute, framework } of sources) {
+    const source = await readFile(absolute, "utf8");
+    if (!MARKERS.test(source)) continue;
+    const name = toPosixPath(file);
+    const read = readSourceFile(source);
+    resources.push(...readTableResources(name, read).map((resource) => ({ ...resource, framework })));
+    scopes.push(...readSystemScopes(name, read).map((scope) => ({ ...scope, framework })));
+    if (!framework) excuses.push(...readInfrastructureExcuses(name, source));
+  }
+  const findings = [];
+  const report = ({ file, line }, rule, message) => findings.push({ file, line, rule, message });
+  checkTables(resources, report);
+  checkSystemScopes(scopes, report);
+  findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);
+  return {
+    ok: findings.length < 1,
+    findings,
+    files: sources.length,
+    resources: resources.length,
+    systemScopes: scopes.filter((scope) => scope.reason !== null),
+    excuses
+  };
+}
+
+function formatDataAccessReport(result) {
+  const lines = result.findings.flatMap(({ file, line, rule, message }) => [`${file}:${line}  ${rule}  ${message}`, `  ${GUIDE}#${SECTIONS[rule]}`]);
+  if (result.systemScopes.length > 0) {
+    lines.push(`System scopes (${result.systemScopes.length}), each reading past ownership for its reason (data/system-scope; ${GUIDE}#${SECTIONS["data/system-scope"]}):`);
+    for (const { file, line, kind, id, reason } of result.systemScopes) {
+      lines.push(`  ${file}:${line}  ${kind === "feature" ? `feature ${id || "(no id)"}` : "systemContext()"}  "${reason}"`);
+    }
+  }
+  if (result.excuses.length > 0) {
+    lines.push(`Infrastructure exceptions (${result.excuses.length}), each a whole file past a data-access lint rule (data/infrastructure-excuses; ${GUIDE}#${SECTIONS["data/infrastructure-excuses"]}):`);
+    for (const { file, line, rule, reason } of result.excuses) lines.push(`  ${file}:${line}  ${rule}  ${reason}`);
+  }
+  const listed = `${result.systemScopes.length} system scope(s) and ${result.excuses.length} infrastructure exception(s) listed for review`;
+  lines.push(result.ok
+    ? `JSKIT data access: ${result.resources} table resource(s), each table and name defined once; ${listed}.`
+    : `JSKIT data access: ${result.findings.length} error(s). Each table has exactly one table resource with its own name, and every system scope gives its reason as a string literal; ${listed}.`);
+  return lines.join("\n");
+}
+
+export { checkDataAccess, formatDataAccessReport };
