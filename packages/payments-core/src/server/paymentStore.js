@@ -1,3 +1,4 @@
+import { isDeadlockError, isDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
 import { PaymentError, fingerprint } from "./errors.js";
 
 const empty = () => ({ lots: [], subscriptions: {} });
@@ -18,6 +19,45 @@ function identifier(value) {
 const accountKey = (scope) => fingerprint([...merchant(scope), identifier(scope.subjectId)]);
 const customerKey = (scope, customerId) => fingerprint([...merchant(scope), identifier(customerId)]);
 const entryKey = (account, reference) => fingerprint([account, identifier(reference)]);
+
+// First uses of one key at once can collide on its insert before any work runs (on MySQL and MariaDB, first uses of
+// neighbouring keys too, through their gap locks): each collision runs the loser again after a short random wait.
+const CREATE_RACE_ATTEMPTS = 4;
+const CREATE_IF_MISSING = Object.freeze({ keys: ["id"], action: "ignore" });
+
+/**
+ * Runs work once on the row with `attributes.id`, locked in one transaction with the work, creating the row there when
+ * it is missing, so work that fails leaves no row behind. Two first uses of one key can collide on that insert before
+ * either work runs (a deadlock on MySQL's and MariaDB's gap locks, a duplicate key elsewhere): the loser runs again,
+ * up to four runs in all, and finds the winner's row. Work that has started never runs again.
+ * @template T
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
+ * @param {object} options The transaction's options: its context, and `retry: false`.
+ * @param {{ id: string } & Record<string, unknown>} attributes
+ * @param {(row: Record<string, any>, txOptions: object) => Promise<T>} work
+ * @returns {Promise<T>}
+ */
+async function withLockedRow(handle, options, attributes, work) {
+  for (let attempt = 1; ; attempt += 1) {
+    let started = false;
+    try {
+      return await handle.withTransaction(options, async (txOptions) => {
+        let row = await handle.lock(attributes.id, { ...txOptions, missing: "skip" });
+        if (!row) {
+          await handle.createMany([attributes], { ...txOptions, onConflict: CREATE_IF_MISSING, returning: "none" });
+          row = await handle.lock(attributes.id, txOptions);
+        }
+        started = true;
+        return work(row, txOptions);
+      });
+    } catch (error) {
+      if (started || attempt >= CREATE_RACE_ATTEMPTS || !(isDeadlockError(error) || isDuplicateEntryError(error))) {
+        throw error;
+      }
+      await new Promise((resolve) => setTimeout(resolve, Math.random() * 20 * 2 ** attempt));
+    }
+  }
+}
 
 /**
  * The payment store on its table resources' handles: each account and each catalogue is one locked row holding its
@@ -45,9 +85,9 @@ function createPaymentStore({ resources, systemContext }) {
   async function withAccount(scope, work) {
     const key = accountKey(scope);
     // The retained account row serializes grants, usage, refunds and event handling.
-    await accounts.findOrCreate({ id: key, payload: JSON.stringify(empty()) }, accountOptions);
-    return accounts.withTransaction(accountWork, async (txOptions) => {
-      const state = JSON.parse((await accounts.lock(key, txOptions)).payload);
+    return withLockedRow(accounts, accountWork, { id: key, payload: JSON.stringify(empty()) }, async (account, txOptions) => {
+      const state = JSON.parse(account.payload);
+      const stored = JSON.stringify(state);
       const result = await work({
         state,
         async find(reference) {
@@ -58,7 +98,9 @@ function createPaymentStore({ resources, systemContext }) {
           await entries.create({ id: entryKey(key, reference), accountKey: key, payload: JSON.stringify(payload) }, { ...txOptions, returning: "none" });
         }
       });
-      await accounts.patch(key, { payload: JSON.stringify(state) }, { ...txOptions, returning: "none" });
+      // Work that leaves the state as it was, such as a duplicate grant, writes nothing.
+      const payload = JSON.stringify(state);
+      if (payload !== stored) await accounts.patch(key, { payload }, { ...txOptions, returning: "none" });
       return result;
     });
   }
@@ -82,11 +124,12 @@ function createPaymentStore({ resources, systemContext }) {
 
   async function withCatalogue(scope, work) {
     const key = fingerprint(merchant(scope));
-    await catalogues.findOrCreate({ id: key, payload: JSON.stringify(emptyCatalogue()) }, catalogueOptions);
-    return catalogues.withTransaction(catalogueWork, async (txOptions) => {
-      const state = JSON.parse((await catalogues.lock(key, txOptions)).payload);
+    return withLockedRow(catalogues, catalogueWork, { id: key, payload: JSON.stringify(emptyCatalogue()) }, async (catalogue, txOptions) => {
+      const state = JSON.parse(catalogue.payload);
+      const stored = JSON.stringify(state);
       const result = await work(state);
-      await catalogues.patch(key, { payload: JSON.stringify(state) }, { ...txOptions, returning: "none" });
+      const payload = JSON.stringify(state);
+      if (payload !== stored) await catalogues.patch(key, { payload }, { ...txOptions, returning: "none" });
       return result;
     });
   }
