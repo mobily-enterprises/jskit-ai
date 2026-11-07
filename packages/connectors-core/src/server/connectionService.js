@@ -82,7 +82,13 @@ function createConnectionService({
     throw new TypeError("Connections require application authorization and reference resolution.");
   }
   // readable-check: allow method-probe - input validation: the application passes its own connection store
-  if (typeof store?.withConnection !== "function") throw new TypeError("Connection storage requires withConnection().");
+  if (typeof store?.withConnection !== "function") {
+    throw new TypeError(
+      "Connections require a connection store with withConnection(): register createConnectionStoreFeature({ protection }) from " +
+      "@jskit-ai/connectors-core/server/storage in your server providers and pass its connectors.store, or pass " +
+      "createFileConnectionStore() or createKnexConnectionStore() outside a JSKIT server."
+    );
+  }
   const connectionCredentials = createConnectionCredentials({ config, resolveReference });
   const providerRequests = createProviderRequests({ fetchImpl, now, resolveReference });
 
