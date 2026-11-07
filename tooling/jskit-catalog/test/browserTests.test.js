@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
+import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -197,6 +198,30 @@ function waitForReady(child) {
   });
 }
 
+function listenOn(port) {
+  return new Promise((resolve) => {
+    const server = net.createServer();
+    server.once("error", () => resolve(null));
+    server.listen(port, "127.0.0.1", () => resolve(server));
+  });
+}
+
+/**
+ * The first of `count` consecutive ports nothing listens on: the system assigns the first, and each next one is held
+ * while it is checked, since the launcher gives worker n the base port + n.
+ */
+async function freeConsecutivePorts(count) {
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const held = [await listenOn(0)];
+    const base = held[0]?.address().port;
+    for (let offset = 1; offset < count && held.at(-1); offset += 1) held.push(await listenOn(base + offset));
+    const free = held.every(Boolean);
+    await Promise.all(held.filter(Boolean).map((server) => new Promise((resolve) => server.close(resolve))));
+    if (free) return base;
+  }
+  throw new Error(`No ${count} consecutive free ports on 127.0.0.1.`);
+}
+
 test("a local run starts one server per worker, each on its own port and with its own database, and signs each in once", async () => {
   await withProject({
     "package.json": { name: "app", type: "module" },
@@ -208,8 +233,8 @@ test("a local run starts one server per worker, each on its own port and with it
     // The app's own Playwright.
     await mkdir(path.join(root, "node_modules", "@playwright"), { recursive: true });
     await symlink(PLAYWRIGHT, path.join(root, "node_modules", "@playwright", "test"));
-    // Ports a busy machine is unlikely to be using.
-    const basePort = 40_000 + (process.pid % 10_000);
+    // Ports nothing else is using, so no other run's server can take one.
+    const basePort = await freeConsecutivePorts(3);
     const cache = path.join(root, "node_modules", ".cache", "jskit-browser-tests");
     const settings = {
       workers: 3, host: "127.0.0.1", basePort, server: "node ./server.mjs", build: "node ./build.mjs",
