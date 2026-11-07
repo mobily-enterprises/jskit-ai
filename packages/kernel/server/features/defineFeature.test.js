@@ -239,3 +239,131 @@ test("feature actions publish explicit success events without service registrati
   assert.equal(received[0].realtime.event, "books.changed");
   assert.equal(received[0].realtime.audience, "actor_user");
 });
+
+function resourceRuntimeStub(calls) {
+  return defineProvider({
+    id: "test.resources",
+    provides: { resources: "runtime.resources" },
+    setup() {
+      return {
+        resources: Object.freeze({
+          own(featureId, owns) {
+            calls.push(["own", featureId, owns]);
+            return Object.fromEntries(owns.map((entry) => {
+              const resource = entry.resource ?? entry;
+              return [resource.name, { handleFor: resource.name }];
+            }));
+          },
+          createSystemContext(request) {
+            calls.push(["createSystemContext", request]);
+            return { system: true, reason: request.reason };
+          }
+        })
+      };
+    }
+  });
+}
+
+test("a feature that owns resources gets their handles in setup, and only setup gets them", async () => {
+  const calls = [];
+  let received = null;
+  let actionDependencies = null;
+  const receivals = { name: "receivals", tableName: "receivals" };
+  const events = { name: "receivalEvents", tableName: "receival_events" };
+  const policy = () => true;
+  const feature = defineFeature({
+    id: "feature.receivals",
+    owns: [receivals, { resource: events, rowPolicy: policy }],
+    setup(dependencies) {
+      calls.push(["setup"]);
+      received = dependencies;
+      return {};
+    },
+    actions(dependencies) {
+      actionDependencies = dependencies;
+      return [];
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, resourceRuntimeStub(calls), feature]
+  });
+  await runtime.start();
+
+  assert.deepEqual(calls, [
+    ["own", "feature.receivals", [receivals, { resource: events, rowPolicy: policy }]],
+    ["setup"]
+  ]);
+  assert.deepEqual(received.resources, {
+    receivals: { handleFor: "receivals" },
+    receivalEvents: { handleFor: "receivalEvents" }
+  });
+  assert.equal(Object.hasOwn(received, "resourceRuntime"), false);
+  assert.equal(Object.hasOwn(received, "systemContext"), false);
+  assert.equal(Object.hasOwn(actionDependencies, "resources"), false);
+  assert.equal(Object.hasOwn(actionDependencies, "resourceRuntime"), false);
+});
+
+test("a feature with systemScope names the reason at every systemContext call", async () => {
+  const calls = [];
+  let systemContext = null;
+  const feature = defineFeature({
+    id: "feature.settlement",
+    systemScope: "settle finished weekly leagues for every user",
+    setup(dependencies) {
+      systemContext = dependencies.systemContext;
+      assert.equal(Object.hasOwn(dependencies, "resources"), false);
+      return {};
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, resourceRuntimeStub(calls), feature]
+  });
+  await runtime.start();
+
+  assert.deepEqual(systemContext("  close the week's leagues  "), { system: true, reason: "close the week's leagues" });
+  assert.deepEqual(calls, [["createSystemContext", {
+    feature: "feature.settlement",
+    systemScope: "settle finished weekly leagues for every user",
+    reason: "close the week's leagues"
+  }]]);
+  assert.throws(() => systemContext(), /systemContext\(reason\) needs the reason/u);
+  assert.throws(() => systemContext("  "), /systemContext\(reason\) needs the reason/u);
+});
+
+test("owns and systemScope need the resource runtime; other features do not", async () => {
+  for (const feature of [
+    defineFeature({ id: "feature.owner", owns: [{ name: "receivals" }] }),
+    defineFeature({ id: "feature.owner", systemScope: "close every workspace's day" })
+  ]) {
+    assert.throws(
+      () => createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, feature] }),
+      /Provider "feature\.owner" requires missing capability "runtime\.resources"/u
+    );
+  }
+
+  const plain = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, defineFeature({ id: "feature.plain" })]
+  });
+  await plain.start();
+});
+
+test("owns, systemScope and the reserved names are checked when the feature is defined", () => {
+  assert.throws(() => defineFeature({ id: "feature.x", owns: [] }), /owns must be a non-empty array/u);
+  assert.throws(() => defineFeature({ id: "feature.x", owns: {} }), /owns must be a non-empty array/u);
+  assert.throws(() => defineFeature({ id: "feature.x", owns: ["receivals"] }), /owns must be a non-empty array/u);
+  assert.throws(() => defineFeature({ id: "feature.x", systemScope: " " }), /systemScope must say why/u);
+  assert.throws(() => defineFeature({ id: "feature.x", systemScope: true }), /systemScope must say why/u);
+  assert.throws(
+    () => defineFeature({ id: "feature.x", requires: { store: "runtime.resources" } }),
+    /must not require runtime\.resources: it receives handles for the resources it owns/u
+  );
+  for (const localName of ["actionCatalogue", "resourceRuntime", "resources", "systemContext"]) {
+    assert.throws(
+      () => defineFeature({ id: "feature.x", optional: { [localName]: "app.thing" } }),
+      /reserve the local names actionCatalogue, resourceRuntime, resources, systemContext/u
+    );
+  }
+});
