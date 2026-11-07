@@ -2,8 +2,9 @@
 
 ## Unreleased
 
-- `pruneExpiredAttempts` counts the deleted attempts in the database instead of reading their ids.
 - `connectors.core` without a `store` and without `createConnectionStoreFeature({ protection })` fails at startup naming that feature and where to register it, where the runtime only said a capability was missing; `createConnectionService` given no store names the same fix.
+- `withConnection` creates a missing connection row inside the work's own transaction (an insert that skips an existing id), so work that fails leaves no row behind. Two first uses of one connection that collide on that insert before either work runs (a deadlock on MySQL's and MariaDB's gap locks, a duplicate key elsewhere) run the loser again, up to three times; work that has started never runs again. An existing row costs one locking read, where the store read it once outside the transaction and again under the lock.
+- `pruneExpiredAttempts` counts the deleted attempts in the database instead of reading their ids.
 
 ## 0.2.0 - 2026-10-29
 
