@@ -4,7 +4,7 @@ export { agentResources } from "./resources.js";
 export { createRuns, startResumer, RUN_LIMITS } from "./runs.js";
 export { createGoals, goalTools, roundPrompt, GOAL_LIMITS } from "./goals.js";
 export { createSummaries } from "./summaryStore.js";
-export { planningTools, planningNotes, currentTodos, PLANNING_TABLES } from "./planning.js";
+export { planningTools, planningNotes } from "./planning.js";
 export { defaultTools } from "./tools/defaults.js";
 export { fileTools, inWorkspace, FILE_LIMITS } from "./tools/files.js";
 export { createCommands, commandTools, COMMAND_LIMITS } from "./tools/commands.js";
