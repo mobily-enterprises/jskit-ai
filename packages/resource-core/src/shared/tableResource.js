@@ -100,6 +100,9 @@ function normalizeTableSchema(schema) {
     if (!isRecord(fieldDefinition)) {
       throw new TypeError(`defineTableResource schema.${fieldKey} must be an object.`);
     }
+    if (Object.hasOwn(fieldDefinition, "default")) {
+      throw new TypeError(`defineTableResource schema.${fieldKey}.default would be ignored: a field's default value is defaultTo.`);
+    }
     if (Object.hasOwn(fieldDefinition, "operations")) {
       throw new TypeError(
         `defineTableResource schema.${fieldKey}.operations belongs to the CRUD contract: ` +
