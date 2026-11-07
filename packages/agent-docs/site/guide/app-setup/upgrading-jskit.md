@@ -228,6 +228,19 @@ application:
    test passing, the time of each before and after recorded, and the slowest
    tests the run lists read.
 
+## Cache built assets for good
+
+The foundations' `server.js` serves each content-hashed file under
+`dist/assets/` with `Cache-Control: public, max-age=31536000, immutable`, so a
+page load no longer revalidates every script and stylesheet the build made;
+`index.html` and unhashed files are still revalidated on every load. An
+application copies `HASHED_ASSET`, `HASHED_ASSET_CACHE` and the
+`reply.sendFile()` choice from its foundation's `example/server.js` into its
+own `server.js`, with the browser test "built assets are kept for good and the
+page itself is revalidated" from `example/tests/e2e/startup.spec.ts`. A spec
+that mocks requests with `page.route()` turns Playwright's HTTP cache off, so
+it still fetches every asset on each navigation.
+
 ## Application migration
 
 The updater changes package manifests and the lockfile only. It does not

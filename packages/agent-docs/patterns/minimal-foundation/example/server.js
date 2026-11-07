@@ -23,6 +23,10 @@ import { surfaceRuntime } from "./server/lib/surfaceRuntime.js";
 /** @typedef {import("@jskit-ai/kernel/server/types").RuntimeEnv} RuntimeEnv */
 
 const SPA_INDEX_FILE = "index.html";
+// Vite names each built file under assets/ after its content (`index-BxY3kz9a.js`), so a browser may keep one for good:
+// a new build references new names. index.html and unhashed files are revalidated on every load.
+const HASHED_ASSET = /^assets\/(?:.+\/)?[^/]+-[\w-]{8}\.[a-z0-9]+$/u;
+const HASHED_ASSET_CACHE = Object.freeze({ maxAge: 365 * 24 * 60 * 60 * 1000, immutable: true });
 const STATIC_GLOBAL_UI_PATHS = Object.freeze([
   "/assets",
   "/favicon.svg",
@@ -157,7 +161,9 @@ async function createServer({ runtimeEnv }) {
     if (hasFileExtension(pathname)) {
       const staticFilePath = toStaticFilePath(pathname);
       if (hasWebBuild && staticFilePath && canServeStaticFile(distRoot, staticFilePath)) {
-        return reply.sendFile(staticFilePath);
+        return HASHED_ASSET.test(staticFilePath)
+          ? reply.sendFile(staticFilePath, HASHED_ASSET_CACHE)
+          : reply.sendFile(staticFilePath);
       }
       return reply.code(404).send({
         message: `Route ${method}:${pathname} not found`,

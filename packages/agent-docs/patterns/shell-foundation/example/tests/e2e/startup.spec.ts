@@ -33,3 +33,16 @@ for (const width of [390, 768, 1280]) {
     await expect(page.locator("#startup-shell")).toHaveCount(0);
   });
 }
+
+test("built assets are kept for good and the page itself is revalidated", async ({ page }) => {
+  test.skip(Boolean(process.env.PLAYWRIGHT_BASE_URL), "A managed target's server and proxy set its own caching.");
+  const assets: string[] = [];
+  page.on("response", response => {
+    if (new URL(response.url()).pathname.startsWith("/assets/")) assets.push(response.headers()["cache-control"] ?? "");
+  });
+  const document = await page.goto("/home");
+  await page.waitForLoadState("load");
+  expect(document?.headers()["cache-control"] ?? "").not.toContain("immutable");
+  expect(assets.length).toBeGreaterThan(0);
+  expect(new Set(assets)).toEqual(new Set(["public, max-age=31536000, immutable"]));
+});
