@@ -427,6 +427,9 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
   return queryParams;
 }
 
+// `filters: { id }`: one id, or a list of them.
+const ID_FILTER = Object.freeze({ type: "array", actualField: "id", filterOperator: "in" });
+
 /**
  * json-rest-api's options for a table resource: its own keys, with `ownership`
  * as json-rest-api's autofilter preset (none for a public table),
@@ -467,6 +470,10 @@ function resourceScopeOptions(
       ...normalizeObject(scopeOptions.searchSchema),
       ...searchSchema
     };
+  }
+  // Every filtered call selects records by id: `filters: { id }` takes one id or a list.
+  if (!Object.hasOwn(normalizeObject(scopeOptions.searchSchema), "id") && !scopeOptions.schema?.id?.search) {
+    scopeOptions.searchSchema = { ...normalizeObject(scopeOptions.searchSchema), id: ID_FILTER };
   }
   applyJsonRestQueryFields(scopeOptions, queryFields);
   applyJsonRestDefaultExclusions(scopeOptions, resource);
