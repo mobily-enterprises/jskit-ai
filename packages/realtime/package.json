@@ -7,6 +7,7 @@
   },
   "exports": {
     "./server/RealtimeProvider": "./src/server/RealtimeProvider.js",
+    "./server/RealtimeAudienceScopeFeature": "./src/server/RealtimeAudienceScopeFeature.js",
     "./server/runtime": "./src/server/runtime.js",
     "./server/types": "./src/server/types.js",
     "./client": "./src/client/RealtimeClientProvider.js",
@@ -74,6 +75,10 @@
           {
             "subpath": "./server/RealtimeProvider",
             "summary": "Exports the explicit RealtimeProvider capability provider."
+          },
+          {
+            "subpath": "./server/RealtimeAudienceScopeFeature",
+            "summary": "Exports RealtimeAudienceScopeFeature, which provides realtime.audience-scope: the contexts scoped to an event's workspace, user or workspace user that an audience's audienceUsers reads in. Applications whose audiences read owned tables register it."
           },
           {
             "subpath": "./server/runtime",

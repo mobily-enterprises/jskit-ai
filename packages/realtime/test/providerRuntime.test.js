@@ -14,6 +14,8 @@ import {
   revalidateSocket
 } from "../src/server/realtimeAudience.js";
 import { createRealtimeDelivery } from "../src/server/realtimeDelivery.js";
+import { RealtimeAudienceScopeFeature } from "../src/server/RealtimeAudienceScopeFeature.js";
+import { createSystemContext, isJobContext } from "../../resource-runtime/src/server/contexts.js";
 import { attachDeferredAuthService, createDeferredAuthService } from "../../auth-core/src/server/deferredAuthService.js";
 
 const logger = Object.freeze({ debug() {}, info() {}, warn() {}, error() {} });
@@ -342,7 +344,11 @@ test("realtime delivery warns and continues when an event's scope is null", asyn
 
 test("realtime delivery reaches an audience's users, read once per event in the event's own scope", async () => {
   const io = createIoDouble();
-  const delivery = createRealtimeDelivery({ io, logger, audiences: createAudienceContributors() });
+  const { audienceScope } = await RealtimeAudienceScopeFeature.setup({
+    actionCatalogue: { register() {} },
+    resourceRuntime: { createSystemContext }
+  }, {});
+  const delivery = createRealtimeDelivery({ io, logger, audiences: createAudienceContributors(), audienceScope });
   const reads = [];
   const audience = {
     preset: "none",
@@ -365,24 +371,26 @@ test("realtime delivery reaches an audience's users, read once per event in the 
   assert.equal(Object.hasOwn(io.emitted[0].payload, "realtime"), false);
   assert.equal(reads.length, 1);
   assert.equal(reads[0].entityId, "91");
-  assert.deepEqual(reads[0].options.context.visibilityContext, {
-    visibility: "workspace", scopeKind: "workspace", requiresActorScope: false, scopeOwnerId: "11", userId: null
-  });
+  assert.deepEqual(reads[0].options.context.scopeValues, { workspaceId: "11" });
+  assert.equal(isJobContext(reads[0].options.context), true, "a context derived from the feature's system scope");
+  assert.match(reads[0].options.context.jobReason, /^realtime\.audience-scope: /u);
 
   const scopes = [
-    [{ kind: "workspace_user", workspaceId: "11", userId: "7" }, {
-      visibility: "workspace_user", scopeKind: "workspace", requiresActorScope: true, scopeOwnerId: "11", userId: "7"
-    }],
-    [{ kind: "user", id: "7" }, {
-      visibility: "user", scopeKind: "user", requiresActorScope: false, scopeOwnerId: "7", userId: "7"
-    }]
+    [{ kind: "workspace_user", workspaceId: "11", userId: "7" }, { workspaceId: "11", userId: "7" }],
+    [{ kind: "workspace", id: "11", userId: "7" }, { workspaceId: "11", userId: "7" }],
+    [{ kind: "user", id: "7" }, { userId: "7" }]
   ];
-  for (const [scope, visibilityContext] of scopes) {
+  for (const [scope, scopeValues] of scopes) {
     await delivery.handle({ type: "entity.changed", entityId: "91", scope, realtime: { event: "users.bootstrap.changed", audience } });
-    assert.deepEqual(reads.at(-1).options.context.visibilityContext, visibilityContext);
+    assert.deepEqual(reads.at(-1).options.context.scopeValues, scopeValues);
   }
   await delivery.handle({ type: "entity.changed", entityId: "91", realtime: { event: "users.bootstrap.changed", audience } });
   assert.deepEqual(reads.at(-1).options, {}, "An event without a scope reads with no context");
+
+  const unscoped = createRealtimeDelivery({ io, logger, audiences: createAudienceContributors(), audienceScope: null });
+  await unscoped.handle({ type: "entity.changed", entityId: "91", scope: { kind: "workspace", id: "11" },
+    realtime: { event: "users.bootstrap.changed", audience } });
+  assert.deepEqual(reads.at(-1).options, {}, "Without realtime.audience-scope an audience reads with no context");
 });
 
 test("socket audience bootstrap authenticates explicitly and joins contributed scope rooms", async () => {

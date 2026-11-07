@@ -17,8 +17,7 @@ const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
   "packages/assistant-runtime/src/server/AssistantProvider.js",
   "packages/assistant-runtime/src/server/repositories/assistantConfigRepository.js",
   "packages/assistant-runtime/src/server/repositories/conversationsRepository.js",
-  "packages/assistant-runtime/src/server/repositories/messagesRepository.js",
-  "packages/realtime/src/server/realtimeAudience.js"
+  "packages/assistant-runtime/src/server/repositories/messagesRepository.js"
 ]);
 
 export default [
