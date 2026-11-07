@@ -50,8 +50,11 @@ class PageSizeError extends TypeError {
   }
 }
 
-/** queryAll() in a request context reading past the request row limit. */
-class RowLimitError extends Error {
+/**
+ * queryAll() in a request context reading past the request row limit: the request answers a 400 coded
+ * RESOURCE_ROW_LIMIT, with a sentence the client can show in the user's language, instead of a 500.
+ */
+class RowLimitError extends AppError {
   /**
    * @param {string} resourceName
    * @param {number} rowLimit
@@ -59,12 +62,12 @@ class RowLimitError extends Error {
    */
   constructor(resourceName, rowLimit, cause) {
     super(
+      400,
       `${resourceName}.queryAll() read more than ${rowLimit} rows inside a request. Work over that many rows belongs ` +
         "in a background job: a feature with systemScope, working per workspace with systemContext(reason).forWorkspace(id).",
-      { cause }
+      { cause, code: "RESOURCE_ROW_LIMIT", messageCode: "resource.rowLimit", messageParams: { rowLimit } }
     );
     this.name = "RowLimitError";
-    this.code = "RESOURCE_ROW_LIMIT";
   }
 }
 
