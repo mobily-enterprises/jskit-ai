@@ -26,7 +26,7 @@ Local functions
 Exports
 - `roundPrompt(goal)`
 - `goalTools(operations)`
-- `createGoals({ knex, runs, table = "agent_goals", channel = "agent-goals", notices, limits = GOAL_LIMITS, find, respond, claim, record, notify = notifyNoPages, owner = noOwnerColumns, spent = nothingSpent, track = runUnmetered, background = leaveRunning })`
+- `createGoals({ resources, systemContext, runs, channel = "agent-goals", notices, limits = GOAL_LIMITS, find, respond, claim, record, notify = notifyNoPages, owner = noOwnerColumns, spent = nothingSpent, track = runUnmetered, background = leaveRunning })`
 - `GOAL_LIMITS`
 Local functions
 - `notifyNoPages()`
@@ -37,6 +37,7 @@ Local functions
 
 ### `src/server/index.js`
 Exports
+- `agentResources`
 - `createRuns`
 - `startResumer`
 - `RUN_LIMITS`
@@ -47,8 +48,6 @@ Exports
 - `createSummaries`
 - `planningTools`
 - `planningNotes`
-- `currentTodos`
-- `PLANNING_TABLES`
 - `defaultTools`
 - `fileTools`
 - `inWorkspace`
@@ -72,20 +71,49 @@ Local functions
 
 ### `src/server/planning.js`
 Exports
-- `currentTodos(knex, conversationId, tables = PLANNING_TABLES)`
-- `planningTools({ knex, conversationId, post, tables = PLANNING_TABLES })`
-- `planningNotes(knex, conversationId, tables = PLANNING_TABLES)`
-- `PLANNING_TABLES`
+- `planningTools({ planning, conversationId, post })`
+- `planningNotes(planning, conversationId)`
+
+### `src/server/repositories/commandsRepository.js`
+Exports
+- `createCommandsRepository({ commands, options })`
+
+### `src/server/repositories/goalsRepository.js`
+Exports
+- `createGoalsRepository({ goals, options })`
+
+### `src/server/repositories/rows.js`
+Exports
+- `rowOf(resource, record)`
+- `firstRow(resource, page)`
+
+### `src/server/repositories/runsRepository.js`
+Exports
+- `createRunsRepository({ runs, options })`
+
+### `src/server/repositories/summariesRepository.js`
+Exports
+- `createSummariesRepository({ summaries, queue, options })`
+
+### `src/server/resources.js`
+Exports
+- `agentResources({ columns = {} } = {})`
+- `AGENT_ROWS`
+Local functions
+- `staleFor(query, seconds, { column })`
+- `withSteps(query, _withSteps, { column })`
+- `roundDue(query, _due, { column })`
+- `summaryDue(query, _due, { column })`
 
 ### `src/server/runs.js`
 Exports
-- `createRuns({ knex, table = "agent_runs", limits = RUN_LIMITS })`
+- `createRuns({ resources, systemContext, limits = RUN_LIMITS })`
 - `startResumer({ runs, resume, resumable, everyMs = 30000 })`
 - `RUN_LIMITS`
 
 ### `src/server/summaryStore.js`
 Exports
-- `createSummaries({ knex, model, app = "the app", history, track = runSummaryUnmetered, notices, tables = { summaries: "agent_summaries", queue: "agent_summary_queue" }, channel = "agent-summaries", summarize = (input) => writeSummary({ model, app, ...input, limits }), limits = SUMMARY_LIMITS })`
+- `createSummaries({ resources, systemContext, model, app = "the app", history, track = runSummaryUnmetered, notices, channel = "agent-summaries", summarize = (input) => writeSummary({ model, app, ...input, limits }), limits = SUMMARY_LIMITS })`
 Local functions
 - `runSummaryUnmetered(_conversationId, work)`
 
@@ -96,7 +124,7 @@ Exports
 
 ### `src/server/tools/commands.js`
 Exports
-- `createCommands({ knex, executor, table = "agent_commands", outputDir = path.join(os.tmpdir(), "agent-runs"), onEnd = ignoreEnd, limits = COMMAND_LIMITS, server = `${os.hostname()}:${process.pid}` })`
+- `createCommands({ resources, systemContext, executor, outputDir = path.join(os.tmpdir(), "agent-runs"), onEnd = ignoreEnd, limits = COMMAND_LIMITS, server = `${os.hostname()}:${process.pid}` })`
 - `commandTools({ commands, conversationId, root })`
 - `COMMAND_LIMITS`
 Local functions
@@ -104,7 +132,7 @@ Local functions
 
 ### `src/server/tools/defaults.js`
 Exports
-- `defaultTools({ root, commands = null, knex = null, conversationId, post = null, goals = null, tables })`
+- `defaultTools({ root, commands = null, planning = null, conversationId, post = null, goals = null })`
 
 ### `src/server/tools/files.js`
 Exports
@@ -120,6 +148,8 @@ Exports
 - `type AgentRuns`
 - `type AgentGoalOperations`
 - `type AgentCommands`
+- `type AgentTodosCard`
+- `type AgentPlanning`
 - `type AgentExecutor`
 
 ### migrations

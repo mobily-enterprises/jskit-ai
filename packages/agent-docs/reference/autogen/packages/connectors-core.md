@@ -28,6 +28,27 @@ Local functions
 - `connectionMatches(connection, integration, providerId, registration)`
 - `callbackMatches(connection, provider, registration)`
 
+### `src/server/connectionStore.js`
+Exports
+- `createConnectionStore({ resources, systemContext, protection })`
+- `requireProtection(protection)`
+Local functions
+- `hash(value)`
+
+### `src/server/ConnectionStoreFeature.js`
+Exports
+- `CONNECTION_STORE_FEATURE`
+- `CONNECTION_STORE_SYSTEM_SCOPE`
+- `createConnectionStoreFeature({ protection })`
+
+### `src/server/connectorResources.js`
+Exports
+- `CONNECTOR_TABLES`
+- `connectorAuthorizationAttemptResource`
+- `connectorConnectionResource`
+Local functions
+- `key(column)`
+
 ### `src/server/ConnectorsFeature.js`
 Exports
 - `createConnectorsFeature(options)`
@@ -68,8 +89,6 @@ Exports
 ### `src/server/knexConnectionStore.js`
 Exports
 - `createKnexConnectionStore({ knex, protection })`
-Local functions
-- `hash(value)`
 
 ### `src/server/providerRequests.js`
 Exports
@@ -86,6 +105,7 @@ Local functions
 ### `src/server/storage.js`
 Exports
 - `createCredentialProtection`
+- `createConnectionStoreFeature`
 - `createKnexConnectionStore`
 
 ### `src/server/types.js`

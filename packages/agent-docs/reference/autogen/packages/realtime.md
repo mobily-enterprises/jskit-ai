@@ -71,12 +71,13 @@ Exports
 - `realtimeAuthenticationRequired(authService)`
 - `revalidateSocket({ socket, authService, audiences, request, authenticateRequest })`
 - `registerSocketAudienceBootstrap({ io, logger, authService, audiences })`
-- `resolveAudienceTargets(audience, event, { logger })`
+- `resolveAudienceTargets(audience, event, { logger, audienceScope })`
 - `type AuthService`
 - `type RuntimeLogger`
 - `type ActorRoomsResolver`
 - `type ActorsRoomsResolver`
 - `type AudienceContributors`
+- `type RealtimeAudienceScope`
 Local functions
 - `flattenEntries(value)`
 - `roomForUser(userId)`
@@ -87,7 +88,7 @@ Local functions
 - `roomForScope(scope)`
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`
 - `addAudienceRooms(selection, state)`
-- `audienceReadOptions(scope)`
+- `audienceReadOptions(scope, audienceScope)`
 - `parseCookieHeader(value = "")`
 - `authenticateWithoutRefresh(authService)`
 - `resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket), authenticateRequest = authenticateWithoutRefresh(authService))`
@@ -96,9 +97,16 @@ Local functions
 - `registerSocketAuthentication({ io, logger, authService })`
 - `joinContributedRooms(socket, actorId, audiences)`
 
+### `src/server/RealtimeAudienceScopeFeature.js`
+Exports
+- `RealtimeAudienceScopeFeature`
+- `type SystemContextFactory`
+Local functions
+- `audienceScopeFor(systemContext)`
+
 ### `src/server/realtimeCapability.js`
 Exports
-- `createRealtimeCapability({ io, logger, authService, events, appRoot, redis })`
+- `createRealtimeCapability({ io, logger, authService, events, appRoot, audienceScope, redis })`
 - `type AuthService`
 - `type RuntimeAppRoot`
 - `type RuntimeEvents`
@@ -106,7 +114,7 @@ Exports
 
 ### `src/server/realtimeDelivery.js`
 Exports
-- `createRealtimeDelivery({ io, logger, authService, audiences: { mayContribute, resolveActorsRooms } })`
+- `createRealtimeDelivery({ io, logger, authService, audiences: { mayContribute, resolveActorsRooms }, audienceScope })`
 - `matchesRealtimeEvent(event)`
 - `type AuthService`
 - `type ActorRoomsResolver`
@@ -151,6 +159,7 @@ Exports
 - `type ActorRoomsResolver`
 - `type ActorsRoomsResolver`
 - `type AudienceContributors`
+- `type RealtimeAudienceScope`
 - `type RealtimeAudienceContributor`
 
 ### `src/shared/servedClientBuild.js`
