@@ -15,6 +15,13 @@ function isPostgresDuplicateEntryError(error) {
   return code === "23505";
 }
 
+// better-sqlite3 names the constraint a duplicate broke: a unique index or the primary key.
+const SQLITE_DUPLICATE_CODES = Object.freeze(new Set(["SQLITE_CONSTRAINT_UNIQUE", "SQLITE_CONSTRAINT_PRIMARYKEY"]));
+
+function isSqliteDuplicateEntryError(error) {
+  return SQLITE_DUPLICATE_CODES.has(String(error?.code || "").trim().toUpperCase());
+}
+
 function findDuplicateEntryError(error, { dialect = "", client = null } = {}) {
   const resolvedDialect =
     normalizeDialect(dialect) || (client ? normalizeDialect(detectDialectFromClient(client)) : "");
@@ -28,8 +35,10 @@ function findDuplicateEntryError(error, { dialect = "", client = null } = {}) {
       matches = isPostgresDuplicateEntryError(error);
     } else if (resolvedDialect === "mysql") {
       matches = isMysqlDuplicateEntryError(error);
+    } else if (resolvedDialect.includes("sqlite")) {
+      matches = isSqliteDuplicateEntryError(error);
     } else {
-      matches = isMysqlDuplicateEntryError(error) || isPostgresDuplicateEntryError(error);
+      matches = isMysqlDuplicateEntryError(error) || isPostgresDuplicateEntryError(error) || isSqliteDuplicateEntryError(error);
     }
 
     if (matches) {
