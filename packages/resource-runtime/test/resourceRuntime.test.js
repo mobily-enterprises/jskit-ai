@@ -469,6 +469,31 @@ test("row policies read their own tables read-only, and contributions only narro
   assert.deepEqual(records.map(({ name }) => name), ["general", "banned"]);
 });
 
+test("the owner's row policy cannot widen past ownership: its orWhere stays inside its own group", async (t) => {
+  const { notes, knex } = await createFixture(t, {
+    owns: [{
+      resource: noteResource(),
+      rowPolicy: ({ query, column }) => {
+        query.where(column("status"), "open").orWhere(column("title"), "shared");
+        return true;
+      }
+    }]
+  });
+  await knex("notes").insert([
+    { workspace_id: 1, title: "mine", status: "open" },
+    { workspace_id: 1, title: "closed", status: "closed" },
+    { workspace_id: 2, title: "theirs", status: "open" },
+    { workspace_id: 2, title: "shared", status: "closed" }
+  ]);
+  const { records } = await notes.query({ page: { size: 10 } }, { context: WORKSPACE_A });
+  assert.deepEqual(records.map(({ title }) => title), ["mine"]);
+  assert.deepEqual((await notes.query({ page: { size: 10 } }, { context: WORKSPACE_B })).records.map(({ title }) => title), ["theirs", "shared"]);
+  const theirs = await knex("notes").where({ title: "shared" }).first();
+  assert.equal(await notes.get(theirs.id, {}, { context: WORKSPACE_A }), null);
+  assert.equal(await notes.patch(theirs.id, { title: "taken" }, { context: WORKSPACE_A }), null);
+  assert.equal((await knex("notes").where({ id: theirs.id }).first()).title, "shared");
+});
+
 function deadlockVictim() {
   return Object.assign(new Error("Deadlock found when trying to get lock; try restarting transaction"), {
     code: "ER_LOCK_DEADLOCK",
