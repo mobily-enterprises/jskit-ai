@@ -1,3 +1,4 @@
+// readable-check: allow no-direct-knex - infrastructure: an operator's one-off import of accounts into the hub's own account table
 import { createAccountStore, isEmail, normalizeEmail } from "./accounts.js";
 import { systemClock } from "./clock.js";
 

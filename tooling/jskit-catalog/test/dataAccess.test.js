@@ -135,7 +135,15 @@ const SCOPES = Object.freeze({
     "const contexts = { systemContext(reason) { return systemContext(reason); } };",
     "export const sweep = () => systemContext(\"delete expired sessions of every user\");",
     ""
-  ].join("\n")
+  ].join("\n"),
+  // The reviewed scopes of the app's own features.
+  "jskit-data-access.json": {
+    infrastructure: [],
+    systemScopes: [
+      { feature: "leagues.settlement", systemScope: "settle finished weekly leagues for every user" },
+      { feature: "", systemScope: "console reports across all users" }
+    ]
+  }
 });
 
 test("every system scope is listed with its reason: feature declarations and systemContext() calls", async () => {
@@ -197,7 +205,11 @@ test("the files the infrastructure exception lifts past the lint rules are liste
       ""
     ].join("\n"),
     "packages/notes/src/server/notes.js": "// readable-check: allow method-probe - data: a note may lack a body\nexport const body = (note) => note.body;\n",
-    "node_modules/@jskit-ai/oidc-issuer-core/src/server/store.js": "// readable-check: allow no-direct-knex - infrastructure: protocol state of the issuer\nexport const store = {};\n"
+    "node_modules/@jskit-ai/oidc-issuer-core/src/server/store.js": "// readable-check: allow no-direct-knex - infrastructure: protocol state of the issuer\nexport const store = {};\n",
+    "jskit-data-access.json": {
+      infrastructure: [{ file: "server/lib/migrate.js", rule: "no-direct-knex" }, { file: "server/lib/migrate.js", rule: "no-transaction-reader" }],
+      systemScopes: []
+    }
   }, async (root) => {
     const result = await checkDataAccess({ projectRoot: root });
     assert.equal(result.ok, true);
@@ -209,6 +221,53 @@ test("the files the infrastructure exception lifts past the lint rules are liste
     assert.match(report, /^Infrastructure exceptions \(2\), each a whole file past a data-access lint rule \(data\/infrastructure-excuses; https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access#hard-rules\):$/mu);
     assert.match(report, /^ {2}server\/lib\/migrate\.js:2 {2}no-direct-knex {2}infrastructure: the migration runner keeps its own bookkeeping table$/mu);
     assert.match(report, /; 0 system scope\(s\) and 2 infrastructure exception\(s\) listed for review\.$/u);
+  });
+});
+
+test("a new exception or system scope fails until the baseline lists it, as do runtime capabilities and data-access disables", async () => {
+  await withProject({
+    "server/lib/health.js": "// readable-check: allow no-direct-knex - infrastructure: the health check's ping\nexport const ping = ({ database }) => database;\n",
+    "packages/jobs/src/server/CleanupFeature.js": "export const CleanupFeature = defineFeature({ id: \"jobs.cleanup\", systemScope: \"delete expired drafts of every user\" });\n",
+    "packages/jobs/src/server/RawProvider.js": [
+      "export const RawProvider = defineProvider({",
+      "  id: \"jobs.raw\",",
+      "  requires: { database: \"runtime.database\", resources: 'runtime.resources' },",
+      "  setup: ({ database }) => ({})",
+      "});",
+      ""
+    ].join("\n"),
+    "packages/jobs/src/server/report.js": [
+      "// eslint-disable-next-line jskit/no-direct-knex -- a quick report",
+      "export const report = (knex) => knex(\"drafts\");",
+      "/* eslint-disable */",
+      "// eslint-disable-next-line no-control-regex -- strips control characters",
+      "export const clean = (text) => text;",
+      ""
+    ].join("\n"),
+    "src/pages/drafts.js": "/* eslint-disable */\nexport const page = {};\n",
+    "server/lib/databaseProvider.js": "export const DatabaseProvider = defineProvider({ provides: { database: \"runtime.database\" } });\n",
+    "node_modules/@jskit-ai/database-runtime/package.json": { name: "@jskit-ai/database-runtime", version: "0.1.0" },
+    "node_modules/@jskit-ai/database-runtime/src/server/DatabaseProvider.js": "export const provides = { database: \"runtime.database\" };\n// eslint-disable\n",
+    "jskit-data-access.json": { infrastructure: [{ file: "server/lib/old.js", rule: "no-direct-knex" }], systemScopes: [] }
+  }, async (root) => {
+    const result = await checkDataAccess({ projectRoot: root });
+    assert.deepEqual(findingLines(result), [
+      "packages/jobs/src/server/CleanupFeature.js:1 data/baseline",
+      "packages/jobs/src/server/RawProvider.js:3 data/runtime-capability",
+      "packages/jobs/src/server/RawProvider.js:3 data/runtime-capability",
+      "packages/jobs/src/server/report.js:1 data/lint-disabled",
+      "packages/jobs/src/server/report.js:3 data/lint-disabled",
+      "server/lib/health.js:1 data/baseline"
+    ]);
+    const messages = result.findings.map(({ message }) => message);
+    assert.ok(messages.includes("this infrastructure exception from no-direct-knex is not in jskit-data-access.json. Review that the whole module's job is data access, then add {\"file\":\"server/lib/health.js\",\"rule\":\"no-direct-knex\"} to its \"infrastructure\" list."));
+    assert.ok(messages.some((message) => message.startsWith("the system scope of feature \"jobs.cleanup\" is not in jskit-data-access.json.")));
+    assert.ok(messages.some((message) => message.startsWith("this module takes runtime.resources, which reaches tables past the features that own them.")));
+    assert.ok(messages.includes("eslint-disable turns off jskit/no-direct-knex, which takes no eslint-disable. Change the code, or declare a whole data-access module with the infrastructure exception."));
+    assert.ok(messages.includes("eslint-disable names no rule, so it turns off the data-access rules too. Name the rules it turns off."));
+  });
+  await withProject({ "jskit-data-access.json": "{ not json" }, async (root) => {
+    assert.deepEqual(findingLines(await checkDataAccess({ projectRoot: root })), ["jskit-data-access.json:1 data/baseline"]);
   });
 });
 

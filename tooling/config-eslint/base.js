@@ -4,8 +4,9 @@ import { jskitPlugin } from "./plugin/index.js";
 import { typedFeaturesConfig } from "./typedFeatures.js";
 
 const SOURCE_FILES = "**/*.{js,mjs,cjs,vue}";
-// An application's server and shared code: its packages' and the app's own.
-const DATA_ACCESS_SOURCES = Object.freeze(["**/src/server/**", "**/src/shared/**", "server/**", "server.js"]);
+// Every JavaScript file of an application but its client code, tests, migrations and seeds (see dataAccessConfig): its
+// packages' server and shared code, its own server, configuration and scripts, wherever they sit.
+const DATA_ACCESS_SOURCES = Object.freeze(["**"]);
 
 const baseConfig = Object.freeze([
   {
@@ -60,7 +61,7 @@ const baseConfig = Object.freeze([
   // Server code is reported against the typed-features rules; an application
   // makes them errors with typedFeaturesConfig as it converts each package.
   ...typedFeaturesConfig(["**/src/server/**"], "warn"),
-  // The resource is the only door to a table: the data-access rules are errors in all server and shared code.
+  // The resource is the only door to a table: the data-access rules are errors in all code but the client's.
   ...dataAccessConfig(DATA_ACCESS_SOURCES)
 ]);
 

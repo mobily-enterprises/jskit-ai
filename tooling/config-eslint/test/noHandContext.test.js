@@ -33,11 +33,11 @@ new RuleTester().run("jskit/no-hand-context", noHandContext, {
     },
     {
       code: "await bookings.query({}, { context: { scopeValues: { workspaceId } } });",
-      errors: [{ messageId: "scopeValues" }]
+      errors: [{ messageId: "handScope" }]
     },
     {
       code: "context.scopeValues = { userId };\ncontext.scopeValues.workspaceId = id;",
-      errors: [{ messageId: "scopeValues", line: 1 }, { messageId: "scopeValues", line: 2 }]
+      errors: [{ messageId: "handScope", line: 1 }, { messageId: "handScope", line: 2 }]
     }
   ]
 });

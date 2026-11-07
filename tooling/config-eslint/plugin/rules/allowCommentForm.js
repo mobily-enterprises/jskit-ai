@@ -42,6 +42,18 @@ const FUNCTION_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "Ar
 // other rule takes that prefix, and the other four data-access rules take no excuse at all.
 const INFRASTRUCTURE_RULES = new Set(["no-direct-knex", "no-transaction-reader"]);
 const UNEXCUSABLE_RULES = new Set(["sql-literal", "no-hand-scope", "no-hand-context", "knex-reason"]);
+// An ESLint directive that turns rules off, with the rules it names (before any "--" description).
+const DISABLE_DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?(?:\s+([^]*?))?(?:\s+--[^]*)?\s*$/u;
+
+/**
+ * The data-access rules an `eslint-disable` comment names, each as written; none for any other comment.
+ * @param {string} text The comment's text.
+ */
+function disabledDataAccessRules(text) {
+  const match = DISABLE_DIRECTIVE.exec(text);
+  return (match?.[1] || "").split(",").map((rule) => rule.trim())
+    .filter((rule) => INFRASTRUCTURE_RULES.has(rule.replace(/^jskit\//u, "")) || UNEXCUSABLE_RULES.has(rule.replace(/^jskit\//u, "")));
+}
 const INFRASTRUCTURE_PREFIX = /^infrastructure:/u;
 
 /**
@@ -169,6 +181,7 @@ const allowCommentForm = Object.freeze({
     citesStatus: "\"{{reason}}\" cites the state of a project. Describe what is true of the code.",
     dataOnFunction: "\"{{reason}}\" excuses a function with data:, which is only for data. Give the function's real reason, or remove its duplicate.",
     dataAccessUnexcusable: `{{rule}} takes no exception; change the code (${DATA_ACCESS_GUIDE_URL}#hard-rules).`,
+    dataAccessDisabled: `eslint-disable cannot turn off {{rule}}. Change the code, or, for a whole module whose job is data access itself, use the infrastructure exception (${DATA_ACCESS_GUIDE_URL}#hard-rules).`,
     infrastructureExcuse: "The infrastructure exception excuses a whole file from no-direct-knex or no-transaction-reader, and nothing else: " +
       "\"readable-check: allow no-direct-knex - infrastructure: <what the module is>\", one line per rule, in the file's first lines, " +
       `before any code (${DATA_ACCESS_GUIDE_URL}#hard-rules).`
@@ -183,6 +196,9 @@ const allowCommentForm = Object.freeze({
           .map((comment) => ({ comment, opening: 4 }));
         const scriptComments = sourceCode.getAllComments().map((comment) => ({ comment, opening: 2 }));
         for (const { comment, opening } of [...scriptComments, ...templateComments]) {
+          for (const rule of disabledDataAccessRules(comment.value)) {
+            context.report({ loc: comment.loc, messageId: "dataAccessDisabled", data: { rule } });
+          }
           const inHeader = opening === 2 && (!firstToken || comment.range[1] <= firstToken.range[0]);
           for (const { body, loc } of allowLines(comment, opening)) {
             const allow = readAllow(body);

@@ -10,7 +10,7 @@ const SYSTEM_CONTEXT = "createSystemContext";
 const noHandContext = Object.freeze({
   meta: ruleMeta("Disallow making a system context or a context's scope by hand.", {
     systemContext: "createSystemContext makes a system context by hand, which reads and writes every workspace's rows. Declare systemScope on the feature instead: its setup receives systemContext(reason), and every call names why it skips the ownership scope.",
-    scopeValues: "scopeValues sets a context's workspace or user by hand, so its calls reach whichever rows it names. Pass the call's options; background work derives a scoped context from its system context with forWorkspace(id), forUser(id) or forWorkspaceUser(workspaceId, userId)."
+    handScope: "scopeValues sets a context's workspace or user by hand, so its calls reach whichever rows it names. Pass the call's options; background work derives a scoped context from its system context with forWorkspace(id), forUser(id) or forWorkspaceUser(workspaceId, userId)."
   }, "background-work", DATA_ACCESS_GUIDE_URL),
   create(context) {
     const reportSystemContext = (node) => context.report({ node, messageId: "systemContext" });
@@ -26,7 +26,7 @@ const noHandContext = Object.freeze({
         }
         const written = isAssignmentTarget(node) || (node.parent.type === "MemberExpression" && node.parent.object === node && isAssignmentTarget(node.parent));
         if (!node.computed && node.property.name === "scopeValues" && written) {
-          context.report({ node: node.property, messageId: "scopeValues" });
+          context.report({ node: node.property, messageId: "handScope" });
         }
       },
       Property(node) {
@@ -37,7 +37,7 @@ const noHandContext = Object.freeze({
           reportSystemContext(node.key);
         }
         if (node.parent.type === "ObjectExpression" && keyName(node) === "scopeValues") {
-          context.report({ node: node.key, messageId: "scopeValues" });
+          context.report({ node: node.key, messageId: "handScope" });
         }
       }
     };
