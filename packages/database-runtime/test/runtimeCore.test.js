@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { createWithTransaction } from "../src/shared/index.js";
 import { createTransactionManager } from "../src/shared/transactionManager.js";
 
 function createKnexStub() {
@@ -39,13 +38,4 @@ test("transaction manager runs a deadlocked transaction again but never a borrow
     throw deadlock;
   }, { trx: { trxId: "outer" } }), deadlock);
   assert.equal(attempts, 1);
-});
-
-test("createWithTransaction creates a reusable withTransaction function", async () => {
-  const knex = Object.assign(() => {
-    throw new Error("query execution not expected");
-  }, createKnexStub());
-  const withTransaction = createWithTransaction(knex);
-  const result = await withTransaction(async (trx) => ({ id: trx.trxId }));
-  assert.deepEqual(result, { id: "trx-1" });
 });

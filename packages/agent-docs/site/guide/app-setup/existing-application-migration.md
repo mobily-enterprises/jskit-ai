@@ -193,10 +193,10 @@ write goes through that table's handle
 | `createDocument()`, `createDocuments()` | `create()`, `createMany()` |
 | `patchDocumentById()`, `patchDocumentIfLockVersion()` | `patch(id, changes)`, `patch(id, changes, { lockVersion })` |
 | `deleteDocumentById()` | `delete(id)` |
-| `getDocumentById(…, { forUpdate: true })` | `lock(id)` inside `withTransaction` |
-| `runInTransaction()`, `resolveTransaction()`, `resolveRepoClient()` | `withTransaction(options, (txOptions) => …)` |
+| `getDocumentById(…, { forUpdate: true })`, `applyForUpdate()`, `lockScopedRecordId()` | `lock(id)` inside `withTransaction` |
+| `runInTransaction()`, `createWithTransaction()`, `joinOrOpenTransaction()`, `resolveTransaction()`, `resolveQueryOptions()`, `resolveRepoClient()` | `withTransaction(options, (txOptions) => …)` |
 | `returning: "full" \| "minimal"` | `returning: "record" \| "id"` (`"none"` is unchanged) |
-| a hand-built `visibilityContext` or scope values | the caller's context, or `systemContext(reason).forWorkspace(id)` |
+| a hand-built `visibilityContext` or scope values, `applyVisibility()`, `applyVisibilityOwners()` | the caller's context, or `systemContext(reason).forWorkspace(id)` |
 | a field's `default:` | `defaultTo:` (`default` is refused, since json-rest-api never read it) |
 
 Handles answer records, `{ id, ...fields }`, with a belongs-to field as the

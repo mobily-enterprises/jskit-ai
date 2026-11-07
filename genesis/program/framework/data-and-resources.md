@@ -25,9 +25,9 @@ storage; selecting a package does not provision an external service.
 
 A transaction the database aborts as a deadlock victim is rolled back in full
 and runs again, up to three more times, when JSKIT opens it as the outermost
-transaction. That covers `runInTransaction()`, `inTransaction()`, the seed
-transaction, JSON REST repository `withTransaction()`, and CRUD writes that own
-their transaction. A call joining an existing transaction fails at once and
+transaction. That covers a table resource handle's `withTransaction()` and the
+writes that own their transaction, the transaction manager's `inTransaction()`,
+and the seed transaction. A call joining an existing transaction fails at once and
 leaves the retry to that transaction's owner. Retried callbacks must have no
 external effects. Assistant conversation storage opts out because it never
 replays a caller. `isDeadlockError()` and `retryDeadlocks()` give application
