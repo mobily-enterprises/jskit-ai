@@ -100,6 +100,11 @@ jobs:
           JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1"
         run: npx jskit test packages/assistant-runtime/test/conversation.browser.test.js
 
+      - name: Verify the assistant settings pane's app bar Save
+        env:
+          JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1"
+        run: npx jskit test packages/assistant-runtime/test/assistantSettings.browser.test.js
+
       - name: Verify adaptive shell behavior
         env:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
