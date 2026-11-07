@@ -243,7 +243,8 @@ hour.
 
 Open a transaction with the repository's `withTransaction(options, work)` and
 pass the `txOptions` it gives `work` to every call inside. Never read the
-transaction out of `options` by hand. Inside an open transaction it joins it;
+transaction out of `options` by hand. A handle refuses every other
+transaction, a raw Knex one or a savepoint, for reads as for writes. Inside an open transaction it joins it;
 otherwise it opens one and runs events and other after-effects after commit.
 Any failed write inside it fails the whole transaction.
 

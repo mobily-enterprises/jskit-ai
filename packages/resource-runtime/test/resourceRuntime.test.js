@@ -672,13 +672,17 @@ test("a deadlock victim runs again whole when it owns its transaction, and never
   assert.deepEqual(await knex("notes").orderBy("id").pluck("title"), ["once", "attempt 2"]);
 });
 
-test("a write refuses a transaction the runtime did not open, and a missing record fails the transaction it was written in", async (t) => {
+test("every call refuses a transaction no handle opened, and a missing record fails the transaction it was written in", async (t) => {
   const { notes, knex } = await createFixture(t);
+  // Reads and writes alike, before anything runs, with the way to a handle's transaction.
+  const refused = /notes: options\.trx is not a transaction a handle opened\. .*withTransaction\(options, work\)/u;
   await knex.transaction(async (trx) => {
-    await assert.rejects(
-      notes.create({ title: "raw" }, { context: WORKSPACE_A, trx }),
-      (error) => error.code === "REST_API_VALIDATION" && error.transactionOutcome === "none"
-    );
+    const options = { context: WORKSPACE_A, trx };
+    await assert.rejects(notes.create({ title: "raw" }, options), refused);
+    await assert.rejects(notes.get("1", {}, options), refused);
+    await assert.rejects(notes.query({ page: { size: 5 } }, options), refused);
+    await assert.rejects(notes.queryAll({}, options), refused);
+    await assert.rejects(notes.withTransaction(options, () => "joined"), refused);
   });
   assert.deepEqual(await knex("notes"), []);
 
