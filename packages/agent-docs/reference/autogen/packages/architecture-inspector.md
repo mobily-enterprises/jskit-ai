@@ -88,6 +88,7 @@ Local functions
 Exports
 - `loadCallProgram({ projectRoot, sources, resolveImport })`
 Local functions
+- `librarySourceFile(name, languageVersion)`
 - `vueScriptText(source, filePath)`
 
 ### `src/calls/resolve.js`

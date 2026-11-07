@@ -29,6 +29,25 @@ const COMPILER_OPTIONS = Object.freeze({
   lib: LIBRARIES
 });
 
+// TypeScript's default libraries as parsed source files, shared by every program
+// of the process, as TypeScript's own language service shares them through its
+// document registry. Each inspection with calls builds a program, and parsing
+// and binding lib.dom.d.ts again for each one cost most of an inspection of a
+// small project. A library file is the installed TypeScript's own, so its text
+// cannot change while the process runs, and every program uses the same
+// compiler options; the key keeps the parse options the program asks for.
+const librarySourceFiles = new Map();
+
+function librarySourceFile(name, languageVersion) {
+  const options = typeof languageVersion === "object" ? languageVersion : { languageVersion };
+  const key = [name, options.languageVersion, options.impliedNodeFormat, options.jsDocParsingMode].join("\0");
+  if (!librarySourceFiles.has(key)) {
+    const text = ts.sys.readFile(name);
+    librarySourceFiles.set(key, text === undefined ? undefined : ts.createSourceFile(name, text, languageVersion));
+  }
+  return librarySourceFiles.get(key);
+}
+
 // A Vue component's script blocks at their original offsets; template and
 // style text become spaces so every position matches the component file.
 function vueScriptText(source, filePath) {
@@ -100,7 +119,10 @@ function loadCallProgram({ projectRoot, sources, resolveImport }) {
 
   const host = {
     getSourceFile(name, languageVersion) {
-      const text = virtual.get(name)?.text ?? (isLibraryFile(name) ? ts.sys.readFile(name) : undefined);
+      if (!virtual.has(name) && isLibraryFile(name)) {
+        return librarySourceFile(name, languageVersion);
+      }
+      const text = virtual.get(name)?.text;
       return text === undefined ? undefined : ts.createSourceFile(name, text, languageVersion);
     },
     getDefaultLibFileName: (options) => ts.getDefaultLibFilePath(options),
