@@ -4,6 +4,7 @@ import { isLostDuplicateInsertRace, retryDeadlocks } from "@jskit-ai/database-ru
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
+import { valueOnly } from "./handleGuards.js";
 import { handleRecords, handleResult, idOf, inputData, readQueryParams, textList } from "./handleRecords.js";
 import {
   returnBadRequestWhenJsonRestFieldsetInvalid,
@@ -684,8 +685,9 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   }
 
   /**
-   * One SQL expression for a scoped query: a literal string, with its values
-   * (and its identifiers, as `??` with column()) given as bindings.
+   * One SQL expression for a scoped query or a write's value: a literal string,
+   * with its values (and its identifiers, as `??` with column()) given as
+   * bindings. It is a value only: awaiting it, or running it any other way, throws.
    * @param {string} sql
    * @param {unknown[]} [bindings]
    */
@@ -696,7 +698,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     if (/\?/u.test(sql) && !Array.isArray(bindings)) {
       throw new TypeError(`${name}.raw() needs the bindings of its placeholders.`);
     }
-    return api.knex.instance.raw(sql, bindings || []);
+    return valueOnly(name, api.knex.instance.raw(sql, bindings || []));
   }
 
   /**
