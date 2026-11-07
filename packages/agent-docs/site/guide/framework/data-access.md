@@ -168,7 +168,14 @@ wait on each other.
 
 A check-then-write that must not race (is the drier empty? then load it)
 locks the record first: `lock(id, txOptions)` reads it and locks its row, so
-another lock or write of it waits until the transaction ends. Every lock needs
+another lock or write of it waits until the transaction ends. A record that
+serializes work on a key and may not exist yet (an account's balance, a
+connection to a provider), on a table with no owners, takes
+`lockOrCreate({ id, ...initial }, options, work)`: it locks the record, creating
+it from the row first when it is missing, and runs `work(record, txOptions)` in
+the same transaction, so failed work leaves no record behind. On its own it
+runs work once, so work may call a provider: two first uses of one id at once
+can collide on the insert, and the loser runs again before its work starts. Every lock needs
 a transaction; SQLite runs one transaction at a time, so there is no row lock
 to take.
 

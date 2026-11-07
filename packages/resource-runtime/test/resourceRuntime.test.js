@@ -299,6 +299,41 @@ test("an upsert finds rows by its conflict keys alone, never by an id, and stays
   );
 });
 
+test("lockOrCreate() runs work on the locked record, creating it first when missing, with the work or not at all", async (t) => {
+  const counters = defineTableResource({
+    name: "counters",
+    tableName: "counters",
+    ownership: "public",
+    schema: { id: { type: "string", primary: true }, value: { type: "integer", required: true } }
+  });
+  const { knex, resources, systemContext } = await createFixture(t, {
+    owns: [noteResource(), { normalizeId: normalizeOpaqueId, resource: counters }]
+  });
+  await knex.schema.createTable("counters", (table) => {
+    table.string("id").primary();
+    table.integer("value").notNullable();
+  });
+  const options = { context: systemContext };
+  const bump = (record, txOptions) => resources.counters.patch(record.id, { value: record.value + 1 }, txOptions);
+  assert.deepEqual(await resources.counters.lockOrCreate({ id: "visits", value: 0 }, options, bump), { id: "visits", value: 1 });
+  assert.deepEqual(await resources.counters.lockOrCreate({ id: "visits", value: 0 }, options, bump), { id: "visits", value: 2 });
+  // Work that fails leaves no new record behind, and runs once.
+  let runs = 0;
+  await assert.rejects(resources.counters.lockOrCreate({ id: "failed", value: 0 }, options, () => {
+    runs += 1;
+    throw new Error("provider refused");
+  }), /provider refused/u);
+  assert.equal(runs, 1);
+  assert.equal(await knex("counters").where({ id: "failed" }).first(), undefined);
+  // In the caller's transaction it locks and creates there, and rolls back with it.
+  await assert.rejects(resources.counters.withTransaction(options, async (txOptions) => {
+    await resources.counters.lockOrCreate({ id: "inner", value: 5 }, txOptions, bump);
+    throw new Error("caller failed");
+  }), /caller failed/u);
+  assert.equal(await knex("counters").where({ id: "inner" }).first(), undefined);
+  await assert.rejects(resources.counters.lockOrCreate({ value: 0 }, options, bump), /takes \(row, options, work\)/u);
+});
+
 test("patch() with lockVersion patches the version it read and refuses a stale one; onlyIf patches only matching rows", async (t) => {
   const { notes } = await createFixture(t);
   const note = await notes.create({ title: "draft" }, { context: WORKSPACE_A });
