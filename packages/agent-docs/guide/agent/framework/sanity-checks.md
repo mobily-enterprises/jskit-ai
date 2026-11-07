@@ -39,10 +39,11 @@ These are wrong whatever the context:
   scope or collaborator refuses instead of allowing.
 - **Never store a missing value as a real one.** A blank stored as `0`,
   `"undefined"` or "healthy" corrupts the data and cannot be told apart later.
-- **Never run tests against the developer's or a production database or
-  configuration.** Tests use `TEST_DB_NAME` and `BROWSER_TEST_DB_NAME`, both
-  different from `DB_NAME`, and build their own configuration. They write and
-  delete rows, so they destroy real data. A test that skips because no test
+- **Never run tests against the developer's or a production database,
+  storage or configuration.** Tests use `TEST_DB_NAME` and
+  `BROWSER_TEST_DB_NAME`, both different from `DB_NAME`, their own storage
+  directory, and their own configuration. They write and delete rows and
+  files, so they destroy real data. A test that skips because no test
   database is set is a failure to fix, not a pass.
 - **Never edit a migration that has run anywhere.** Databases that ran the old
   one diverge from fresh ones; add a new migration instead.
@@ -121,8 +122,8 @@ notices, planning tomorrow) runs as a job, outside the save.
 - Look for awaited writes in a loop, a `createDocument()` per row of a batch
   (each one checks its lookups and reads its row back through the row policy),
   and work inside the save that the person does not need before it returns.
-  JSKIT has no batch create; a batch writes each table in one statement
-  through the repository, in the owner's transaction ([Bounded access
+  A batch writes each table in one statement through the repository, in the
+  owner's transaction ([Bounded access
   checks](/guide/framework/typed-features#bounded-access-checks)).
 
 **Examples:**
@@ -183,8 +184,8 @@ the run that does cover it, and every test can fail.
 - Triage each failure, including one that also fails on the main branch: a bug
   to fix, a rule someone must decide, or a wrong test to remove. "Pre-existing"
   is not a cause.
-- Report reruns, chunks and partial runs as partial. One whole-suite run on
-  one tree is the final run.
+- Report reruns, chunks, runs a failure cap stopped and other partial runs as
+  partial. One whole-suite run on one tree is the final run.
 - Before pushing, compare the commit the run tested with the one you push.
 - List the skips and where each one runs. A skip because something in the
   environment is missing is a failure to fix.
@@ -194,8 +195,8 @@ the run that does cover it, and every test can fail.
 
 - A proof with 228 failures and 94 timeouts was recorded as a proof because
   the baseline had 350 failures.
-- A run with 65 failures at the start and the same 65 at the end was reported
-  as "no regressions".
+- A cap of two failures per group stopped a browser run early, and 371 of its
+  701 tests never ran.
 - Seventeen billing defects (a fee of 688 charged instead of 2,750, GST
   charged twice) failed on CI and stayed unfixed, while local runs skipped
   those tests for want of a test database.
@@ -221,7 +222,9 @@ and nothing waits for time to pass.
 - Read the suite's total time and its slowest files: `node --test
   --test-reporter=spec` prints each test's time, and Playwright's `list`
   reporter each spec's. Compare the total with the summed file times and the
-  machine's cores: a total near the sum means the files ran one at a time.
+  machine's cores: a total near the sum means the files ran one at a time
+  ([Test files run in
+  parallel](/guide/framework/typed-features#test-files-run-in-parallel)).
 - For each slow file, find where the time goes: database preparation,
   migrations, sleeps, polling, server or build starts. Fix that cause ([Time
   limits are not fixes](/guide/framework/typed-features#time-limits-are-not-fixes)).
@@ -236,9 +239,11 @@ and nothing waits for time to pass.
   whole length when the condition already holds, and still fails when it holds
   late. Wait for the condition instead: `await expect(page).toHaveURL(…)`,
   `expect.poll()`, an event.
-- Look at how long a page takes to load in a browser test. When each load
-  takes seconds because a development server sends hundreds of unbundled
-  modules, run the specs against a build made once for the run.
+- Look at how long a page takes to load in a browser test, and when it takes
+  seconds, find why. A development server sending hundreds of unbundled
+  modules calls for a build made once for the run; a catch-all
+  `page.route("**/*")` sends every request through the test and turns the
+  browser cache off, so route only the requests the test fakes.
 - Assert counts, not clock times: a 1,500 ms assertion flips between pass and
   fail on a shared machine, while a DOM node count with a coarse 10 s bound
   does not.
@@ -309,7 +314,8 @@ soon as its tests end.
 - Two database tests with no time limit hung for 26 to 36 min.
 - A pointer resting on a snackbar paused its timeout, so a test waited out its
   whole 180 s limit.
-- A wait for every animation never ended on a page with a spinner.
+- The code under test can be the cause: a server's shutdown never cleared its
+  20 s drain timer, so every server a test closed stayed alive for 20 s.
 
 **Outer limit:** a run that hangs, or a file that ends only when its time
 limit kills it, is broken.
