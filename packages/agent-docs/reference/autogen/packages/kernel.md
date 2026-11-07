@@ -734,12 +734,16 @@ Exports
 
 ### `server/features/defineFeature.js`
 Exports
-- `defineFeature({ id, domain = id, requires = {}, optional = {}, provides = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null } = {})`
+- `defineFeature({ id, domain = id, requires = {}, optional = {}, provides = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null, owns = undefined, systemScope = undefined } = {})`
 - `type FeatureDefinition`
 Local functions
 - `normalizeActionFactory(value, featureId)`
 - `applyActionDefaults(actions, defaults, featureId)`
 - `withoutActionCatalogue(dependencies)`
+- `normalizeOwns(owns, featureId)`
+- `normalizeSystemScope(systemScope, featureId)`
+- `createSystemContextFactory(resourceRuntime, featureId, systemScope)`
+- `resourceDependencies({ resourceRuntime }, { featureId, owns, systemScope })`
 
 ### `server/features/index.js`
 Exports
@@ -1140,6 +1144,7 @@ Exports
 - `type ProviderDefinition`
 - `type FeatureSetupContext`
 - `type FeatureDefinition`
+- `type ResourceRuntime`
 - `type ActionPolicy`
 - `type ActionPolicyExecution`
 
