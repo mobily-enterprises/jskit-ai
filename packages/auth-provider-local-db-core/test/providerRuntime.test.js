@@ -124,8 +124,7 @@ test("DB local auth backend rejects duplicate users by canonical email", async (
     displayName: "Duplicate One",
     password
   }));
-  // A failed write fails its whole transaction, so the duplicate has one of its own. SQLite reports the duplicate in
-  // its own words; on MySQL and PostgreSQL it is "Local auth user already exists." (localAuthRecords.mysql.test.js).
+  // A failed write fails its whole transaction, so the duplicate has one of its own.
   await assert.rejects(
     () =>
       backend.withTransaction((tx) => tx.users.create({
@@ -134,7 +133,7 @@ test("DB local auth backend rejects duplicate users by canonical email", async (
         displayName: "Duplicate Two",
         password
       })),
-    /UNIQUE constraint failed: auth_local_users\.email/u
+    { message: "Local auth user already exists." }
   );
   assert.equal((await backend.withTransaction((tx) => tx.users.findByEmail("duplicate@example.com"))).id, "usr_duplicate_1");
   assert.equal(await backend.withTransaction((tx) => tx.users.findById("usr_duplicate_2")), null);
