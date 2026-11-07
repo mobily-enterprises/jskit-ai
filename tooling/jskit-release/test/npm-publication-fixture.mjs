@@ -213,4 +213,19 @@ if(args[0]==='view'){
   };
 }
 
-export { publicationFixture };
+// Publishes the fixture's regenerated packages as their current versions, the state a preparation starts from.
+async function publishFixtureBaseline(f) {
+  f.regenerate();
+  await f.syncLockfile();
+  await f.publishedAll();
+}
+
+// Each fixture package's version in its package.json.
+async function fixtureVersions(f) {
+  return Object.fromEntries(await Promise.all(f.packages.map(async record => {
+    const manifest = JSON.parse(await readFile(path.join(record.dir, "package.json"), "utf8"));
+    return [record.name, manifest.version];
+  })));
+}
+
+export { fixtureVersions, publicationFixture, publishFixtureBaseline };
