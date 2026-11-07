@@ -27,16 +27,9 @@ const UsersIdentityProvider = defineProvider({
     const scopeOptions = {
       writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc }
     };
-    await addResourceIfMissing(
-      jsonRestApi,
-      "userProfiles",
-      createJsonRestResourceScopeOptions(userProfileResource, scopeOptions)
-    );
-    await addResourceIfMissing(
-      jsonRestApi,
-      "userSettings",
-      createJsonRestResourceScopeOptions(userSettingsResource, scopeOptions)
-    );
+    for (const resource of [userProfileResource, userSettingsResource]) {
+      await addResourceIfMissing(jsonRestApi, resource.name, createJsonRestResourceScopeOptions(resource, scopeOptions));
+    }
     const identity = createUsersIdentity({ jsonRestApi, extensions });
     return { identity, profileProjector: identity.profileProjector };
   }

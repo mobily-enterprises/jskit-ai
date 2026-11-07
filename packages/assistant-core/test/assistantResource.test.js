@@ -2,18 +2,18 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
-import { assistantResource } from "../src/shared/assistantResource.js";
+import { assistantContract } from "../src/shared/assistantResource.js";
 
 test("assistant output schemas accept normalized paginated payloads", () => {
   const conversationsListSchema = resolveSchemaTransportSchemaDefinition(
-    assistantResource.operations.conversationsList.output,
+    assistantContract.operations.conversationsList.output,
     {
       context: "assistant conversations list output",
       defaultMode: "replace"
     }
   );
   const conversationMessagesSchema = resolveSchemaTransportSchemaDefinition(
-    assistantResource.operations.conversationMessagesList.output,
+    assistantContract.operations.conversationMessagesList.output,
     {
       context: "assistant conversation messages output",
       defaultMode: "replace"
@@ -53,14 +53,14 @@ test("assistant output schemas accept normalized paginated payloads", () => {
 
 test("assistant conversation message params accept numeric path strings", async () => {
   const params = resolveSchemaTransportSchemaDefinition(
-    assistantResource.operations.conversationMessagesList.params,
+    assistantContract.operations.conversationMessagesList.params,
     {
       context: "assistant conversation message params",
       defaultMode: "patch"
     }
   );
   const parsed = await validateOperationSection({
-    operation: assistantResource.operations.conversationMessagesList,
+    operation: assistantContract.operations.conversationMessagesList,
     section: "params",
     value: { conversationId: "2" }
   });

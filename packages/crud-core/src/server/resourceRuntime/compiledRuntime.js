@@ -39,13 +39,12 @@ function requireCrudRepositoryOptions(value) {
 }
 
 function resolveRepositoryDefaults(resource, repositoryMapping, { context }) {
-  const resourceName = normalizeText(resource.namespace);
-  const tableName = normalizeText(resource.tableName) || resourceName;
+  const tableName = normalizeText(resource.resource?.tableName);
   if (!tableName) {
-    throw new TypeError(`${context} requires resource.tableName or resource.namespace.`);
+    throw new TypeError(`${context} requires a CRUD contract on a table resource with a tableName.`);
   }
 
-  const idColumn = normalizeText(resource.idColumn) || resolveColumnName("id", repositoryMapping.columnOverrides) || "id";
+  const idColumn = normalizeText(resource.resource.idColumn) || resolveColumnName("id", repositoryMapping.columnOverrides) || "id";
   const createdAtColumn = repositoryMapping.outputKeys.includes("createdAt") &&
     repositoryMapping.fieldStorageByKey.createdAt === CRUD_FIELD_STORAGE_COLUMN
     ? resolveColumnName("createdAt", repositoryMapping.columnOverrides)
@@ -229,7 +228,7 @@ function normalizeCrudRepositoryOperations(sourceOperations, { context }) {
  * error context, table and id column (the options' tableName and idColumn, else
  * the resource's), the field mapping, the input and output schemas, the list
  * controls, the lookups, each operation's stages and the virtual fields.
- * @param {import("../types.js").CrudResourceDefinition} resource
+ * @param {import("../types.js").CrudContract} resource
  * @param {object} repositoryOptions
  */
 function buildCompiledCrudRepositoryRuntime(resource, repositoryOptions) {

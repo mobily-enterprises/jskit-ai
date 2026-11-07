@@ -2,13 +2,13 @@ import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/valida
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { DEFAULT_IMAGE_UPLOAD_MAX_BYTES } from "@jskit-ai/uploads-runtime/shared";
 import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
-import { userProfileResource } from "../../shared/resources/userProfileResource.js";
+import { userSettingsContract } from "../../shared/resources/userSettingsResource.js";
+import { userProfileContract } from "../../shared/resources/userProfileResource.js";
 import { resolveAccountSettingsResourceId } from "../common/support/accountSettingsJsonApiTransport.js";
 
 const USER_SETTINGS_RESOURCE_TRANSPORT = Object.freeze({
   responseType: "user-settings",
-  output: userSettingsResource.operations.view.output,
+  output: userSettingsContract.operations.view.output,
   outputKind: "record",
   getRecordId: resolveAccountSettingsResourceId
 });
@@ -53,7 +53,7 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
       },
       ...createJsonApiResourceRouteContract({
         requestType: "user-profiles",
-        body: userProfileResource.operations.patch.body,
+        body: userProfileContract.operations.patch.body,
         includeValidation400: true,
         ...USER_SETTINGS_RESOURCE_TRANSPORT
       })
@@ -109,7 +109,7 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
       },
       responses: withStandardErrorResponses(
         {
-          200: userProfileResource.operations.avatarUpload.output
+          200: userProfileContract.operations.avatarUpload.output
         },
         { includeValidation400: true }
       )

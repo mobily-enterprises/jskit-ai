@@ -28,7 +28,7 @@ function writeReturning(options, fallback = "full") {
 /**
  * @param {object} dependencies
  * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.api
- * @param {import("../types.js").CrudResourceDefinition} dependencies.resource
+ * @param {import("../types.js").TableResource} dependencies.resource The table resource.
  * @param {string} dependencies.resourceScopeName
  */
 function createCrudJsonApiRepository({ api, resource, resourceScopeName }) {

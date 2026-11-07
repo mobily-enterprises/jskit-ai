@@ -33,9 +33,9 @@ function pageTitle(file) {
   return name === "index" ? path.posix.basename(path.posix.dirname(file)) : name;
 }
 
-// Follows an expression through local bindings, imports and re-exports to a
-// literal defineCrudResource declaration.
-async function resolveCrudResource(inspection, module, node, seen = new Set()) {
+// Follows an expression through local bindings, imports and re-exports to the
+// call that made its value, and the module that call is in.
+async function resolveCall(inspection, module, node, seen = new Set()) {
   if (!node || seen.size >= MAX_RESOURCE_HOPS) {
     return null;
   }
@@ -47,47 +47,22 @@ async function resolveCrudResource(inspection, module, node, seen = new Set()) {
     const next = new Set([...seen, identity]);
     const imported = module.imports.get(node.name);
     if (!imported) {
-      return resolveCrudResource(inspection, module, module.bindings.get(node.name), next);
+      return resolveCall(inspection, module, module.bindings.get(node.name), next);
     }
     const target = resolveImport(inspection, module.path, imported.source);
     const owner = target && await loadModule(inspection, target);
-    return owner ? resolveExportedCrudResource(inspection, owner, imported.imported, next) : null;
+    return owner ? resolveExportedCall(inspection, owner, imported.imported, next) : null;
   }
-  if (node.type !== "CallExpression" || node.callee.type !== "Identifier") {
-    return null;
-  }
-  const factory = module.imports.get(node.callee.name);
-  const record = findRecord(module, node);
-  const isFactory = factory?.source === SOURCES.crudResource && factory.imported === "defineCrudResource";
-  if (!isFactory || !record || isShadowed(record, node.callee.name)) {
-    return null;
-  }
-  const config = bindingNode(node.arguments[0], module.bindings);
-  if (config?.type !== "ObjectExpression" || !hasOnlyStaticProperties(config)) {
-    return null;
-  }
-  const namespace = staticValue(objectProperty(config, "namespace"), module.bindings);
-  const declaredOperations = objectProperty(config, "crudOperations");
-  const operations = declaredOperations ? staticValue(declaredOperations, module.bindings) : [...CRUD_RESOURCE_OPERATIONS];
-  if (typeof namespace !== "string" || !namespace.trim()) {
-    return null;
-  }
-  if (!Array.isArray(operations) || !operations.length || !operations.every((name) => CRUD_RESOURCE_OPERATIONS.includes(name))) {
-    return null;
-  }
-  if (objectProperty(config, "operations")) {
-    return null;
-  }
-  return { namespace: namespace.trim(), operations, evidence: sourceEvidence(module, node, record.offset) };
+  return node.type === "CallExpression" && node.callee.type === "Identifier" ? { module, node } : null;
 }
 
-async function resolveExportedCrudResource(inspection, module, name, seen) {
+async function resolveExportedCall(inspection, module, name, seen) {
   const entry = module.exports.get(name);
   if (!entry) {
     return null;
   }
   if (!entry.source) {
-    return resolveCrudResource(inspection, module, { type: "Identifier", name: entry.local }, seen);
+    return resolveCall(inspection, module, { type: "Identifier", name: entry.local }, seen);
   }
   const identity = `${module.path}:export:${name}`;
   if (seen.has(identity) || seen.size >= MAX_RESOURCE_HOPS) {
@@ -95,8 +70,55 @@ async function resolveExportedCrudResource(inspection, module, name, seen) {
   }
   const target = resolveImport(inspection, module.path, entry.source);
   const owner = target && await loadModule(inspection, target);
-  return owner ? resolveExportedCrudResource(inspection, owner, entry.local, new Set([...seen, identity])) : null;
+  return owner ? resolveExportedCall(inspection, owner, entry.local, new Set([...seen, identity])) : null;
 }
+
+// The node record of a call to `imported` from `source`, unless a local binding shadows it.
+function factoryRecord({ module, node }, source, imported) {
+  const factory = module.imports.get(node.callee.name);
+  const record = findRecord(module, node);
+  return factory?.source === source && factory.imported === imported && record && !isShadowed(record, node.callee.name)
+    ? record
+    : null;
+}
+
+// The literal name of the table resource an expression stands for.
+async function resolveTableResourceName(inspection, module, node) {
+  const call = await resolveCall(inspection, module, node);
+  if (!call || !factoryRecord(call, SOURCES.tableResource, "defineTableResource")) {
+    return undefined;
+  }
+  const definition = bindingNode(call.node.arguments[0], call.module.bindings);
+  return staticValue(objectProperty(definition, "name"), call.module.bindings);
+}
+
+// The namespace and operations of the literal defineCrudContract declaration
+// an expression stands for. Its namespace is its own, else its table resource's name.
+async function resolveCrudResource(inspection, module, node) {
+  const call = await resolveCall(inspection, module, node);
+  const record = call && factoryRecord(call, SOURCES.crudContract, "defineCrudContract");
+  if (!record) {
+    return null;
+  }
+  const config = call.node.arguments[1] ? bindingNode(call.node.arguments[1], call.module.bindings) : null;
+  if (config && (config.type !== "ObjectExpression" || !hasOnlyStaticProperties(config))) {
+    return null;
+  }
+  const declaredNamespace = objectProperty(config, "namespace");
+  const namespace = declaredNamespace
+    ? staticValue(declaredNamespace, call.module.bindings)
+    : await resolveTableResourceName(inspection, call.module, call.node.arguments[0]);
+  const declaredOperations = objectProperty(config, "operations");
+  const operations = declaredOperations ? staticValue(declaredOperations, call.module.bindings) : [...CRUD_RESOURCE_OPERATIONS];
+  if (typeof namespace !== "string" || !namespace.trim()) {
+    return null;
+  }
+  if (!Array.isArray(operations) || !operations.length || !operations.every((name) => CRUD_RESOURCE_OPERATIONS.includes(name))) {
+    return null;
+  }
+  return { namespace: namespace.trim(), operations, evidence: sourceEvidence(call.module, call.node, record.offset) };
+}
+
 
 function crudOperationKey(inspection, surface, namespace, operation, apiSuffix) {
   return {

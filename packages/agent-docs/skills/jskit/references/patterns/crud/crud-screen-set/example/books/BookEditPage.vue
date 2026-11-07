@@ -3,7 +3,7 @@ import { computed } from "vue";
 import { useRoute } from "vue-router";
 import CrudAddEditScreen from "@jskit-ai/http-web/client/components/CrudAddEditScreen";
 import { useCrudAddEditScreen } from "@jskit-ai/http-web/client/composables/useCrudAddEditScreen";
-import { bookResource } from "@local/books/shared";
+import { bookCrud } from "@local/books/shared";
 import BookFormFields from "./BookFormFields.vue";
 import { bookFormFields } from "./formFields.js";
 
@@ -17,7 +17,7 @@ const screen = useCrudAddEditScreen({
   saveLabel: "Save changes",
   cancelTo: "/books/:bookId",
   preserveCancelQuery: true,
-  resource: bookResource,
+  resource: bookCrud,
   operationName: "patch",
   formFields: bookFormFields,
   addEditOptions: {

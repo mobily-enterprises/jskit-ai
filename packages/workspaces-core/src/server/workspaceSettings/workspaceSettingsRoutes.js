@@ -1,6 +1,6 @@
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { WORKSPACE_SETTINGS_TRANSPORT } from "../../shared/jsonApiTransports.js";
-import { workspaceSettingsResource } from "../../shared/resources/workspaceSettingsResource.js";
+import { workspaceSettingsCrud } from "../../shared/resources/workspaceSettingsResource.js";
 import { resolveWorkspaceRecordId } from "../common/support/workspaceRecordId.js";
 import { resolveWorkspaceRoutePath } from "../support/workspaceRoutePaths.js";
 import { workspaceSlugParamsValidator } from "../common/validators/routeParamsValidator.js";
@@ -27,7 +27,7 @@ function registerWorkspaceSettingsRoutes(router, { config }) {
       params: workspaceSlugParamsValidator,
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_SETTINGS_TRANSPORT,
-        output: workspaceSettingsResource.operations.view.output,
+        output: workspaceSettingsCrud.operations.view.output,
         outputKind: "record",
         getRecordId: resolveWorkspaceRecordId
       })
@@ -57,8 +57,8 @@ function registerWorkspaceSettingsRoutes(router, { config }) {
       params: workspaceSlugParamsValidator,
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_SETTINGS_TRANSPORT,
-        body: workspaceSettingsResource.operations.patch.body,
-        output: workspaceSettingsResource.operations.patch.output,
+        body: workspaceSettingsCrud.operations.patch.body,
+        output: workspaceSettingsCrud.operations.patch.output,
         outputKind: "record",
         getRecordId: resolveWorkspaceRecordId,
         includeValidation400: true

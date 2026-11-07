@@ -1,5 +1,5 @@
 import { createSchema } from "json-rest-schema";
-import { createSchemaDefinition } from "@jskit-ai/resource-core/shared/resource";
+import { createSchemaDefinition } from "@jskit-ai/resource-core/shared/apiContract";
 
 // Deliberate assistant allowlists: HTTP invitation responses also contain credentials.
 const workspaceInviteAssistantOutput = createSchemaDefinition(createSchema({

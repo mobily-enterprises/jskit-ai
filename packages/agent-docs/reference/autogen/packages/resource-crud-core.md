@@ -14,6 +14,28 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/shared/crudContract.js`
+Exports
+- `defineCrudContract(resource, config = {})`
+- `isCrudContract(value)`
+Local functions
+- `buildCrudRecordIdFieldDefinition()`
+- `resolveConfiguredLookupContainerKey(config)`
+- `buildDerivedCrudRecordOutputDefinition(source)`
+- `buildDerivedCrudBodyDefinition(source, operationName = "patch", bodyMode = "patch")`
+- `buildCrudDeleteOutputDefinition()`
+- `requireCrudOperationName(value = "")`
+- `resolveCrudOperationNames(operations)`
+- `resolveFirstPresentValue(source = {}, keys = [])`
+- `resolveExplicitCrudSchemaDefinition(config, keys, { context, defaultMode })`
+- `buildCrudListOutputDefinition(resolveRecordOutputDefinition, config)`
+- `createCrudRecordOutputDefinitionResolver(source)`
+- `resolveCrudBodyDefinition(spec, source)`
+- `resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, config)`
+- `buildCrudOperations(source, namespace, operationNames)`
+- `normalizeContractFields(resource, fields)`
+- `requireContractConfig(config)`
+
 ### `src/shared/crudFieldContract.js`
 Exports
 - `CRUD_FIELD_STORAGE_COLUMN`
@@ -21,14 +43,15 @@ Exports
 - `CRUD_FIELD_WRITE_SERIALIZER_DATETIME_UTC`
 - `CRUD_LOOKUP_FORM_CONTROL_AUTOCOMPLETE`
 - `CRUD_LOOKUP_FORM_CONTROL_SELECT`
-- `resolveCrudFieldSchemaProperties(value, { context = "crud resource field definitions" } = {})`
+- `resolveCrudFieldSchemaProperties(value, { context = "crud contract field definitions" } = {})`
 - `normalizeCrudFieldStorageConfig(fieldDefinition = {}, { context = "crud field storage", fieldKey = "" } = {})`
-- `buildCrudOperationSchemaFields(fields = {}, operationName = "")`
-- `buildCrudFieldContractMap(resource, { context = "crud resource field contract" } = {})`
+- `buildCrudOperationSchemaFields(fields = {}, operationName = "", fieldOperations = {})`
+- `buildCrudFieldContractMap(contract, { context = "crud contract field contract" } = {})`
+- `normalizeCrudFieldOperations(fieldKey, entry)`
 Local functions
 - `cloneStructuredFieldMetadata(value = {})`
 - `mergeFieldContractEntry(target, source, { context = "crud field contract", fieldKey = "" } = {})`
-- `resolveCrudFieldOperations(fieldDefinition)`
+- `resolveCrudFieldOperations(fieldDefinition, fieldOperations)`
 
 ### `src/shared/crudListFilters.js`
 Exports
@@ -129,7 +152,6 @@ Local functions
 ### `src/shared/crudLookup.js`
 Exports
 - `DEFAULT_CRUD_LOOKUP_CONTAINER_KEY`
-- `expandCrudLookupFields(schema)`
 - `normalizeCrudLookupApiPath(value = "")`
 - `normalizeCrudLookupNamespace(value = "")`
 - `resolveCrudLookupApiPathFromNamespace(value = "")`
@@ -141,8 +163,6 @@ Exports
 - `resolveCrudParentFilterKeys(resource = {})`
 - `resolveCrudLookupFieldKeyFromRouteParam(resource = {}, routeParamKey = "", { allowKeys = [] } = {})`
 Local functions
-- `usesCrudLookupShorthand(fieldDefinition)`
-- `expandCrudLookupField(fieldKey, fieldDefinition)`
 - `resolveCrudLookupFieldEntries(resource = {}, { allowKeys = [] } = {})`
 - `resolveCrudLookupCreateSchemaKeys(resource)`
 
@@ -152,34 +172,9 @@ Exports
 - `requireCrudNamespace(namespace, { context = "requireCrudNamespace" } = {})`
 - `resolveCrudRecordChangedEvent(namespace = "")`
 
-### `src/shared/crudResource.js`
-Exports
-- `defineCrudResource(resource = {})`
-Local functions
-- `buildCrudRecordIdFieldDefinition()`
-- `resolveConfiguredLookupContainerKey(resource)`
-- `resolveFieldEntries(resource, operationName = "output")`
-- `buildDerivedCrudRecordOutputDefinition(resource = {})`
-- `buildDerivedCrudBodyDefinition(resource = {}, operationName = "patch", bodyMode = "patch")`
-- `buildCrudDeleteOutputDefinition()`
-- `requireCrudOperationName(value = "", { context = "crud operation name" } = {})`
-- `requireCrudOperationSpec(operationName = "")`
-- `resolveCrudOperationNames(resource = {})`
-- `resolveFirstPresentValue(source = {}, keys = [])`
-- `resolveExplicitCrudSchemaDefinition(crudConfig = {}, keys = [], { context = "defineCrudResource schema definition", defaultMode = "patch" } = {})`
-- `buildCrudListOutputDefinition(resolveRecordOutputDefinition, crudConfig = {})`
-- `createCrudRecordOutputDefinitionResolver(resource = {}, crudConfig = {})`
-- `resolveCrudBodyDefinition(spec, resource = {}, crudConfig = {})`
-- `resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, crudConfig = {})`
-- `buildCrudOperationDefinition(operationName, { namespace = "", resource = {}, crudConfig = {}, resolveRecordOutputDefinition } = {})`
-- `buildDefaultCrudOperations(resource = {})`
-- `mergeCrudOperationDefinition(baseDefinition, overrideDefinition)`
-- `mergeCrudOperations(defaultOperations = {}, overrides = {})`
-- `requireCrudLockVersionField(resource)`
-- `withExpandedCrudLookups(resource)`
-
 ### patterns
 
 ### `patterns/resource-contract/example/bookResource.js`
 Exports
+- `bookCrud`
 - `bookResource`

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { buildSecurityStatusFromAuthMethodsStatus } from "@jskit-ai/auth-core/shared/authSecurityStatus";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
 import { createService } from "../src/server/accountSecurity/accountSecurityService.js";
-import { userSettingsResource } from "../src/shared/resources/userSettingsResource.js";
+import { userSettingsContract } from "../src/shared/resources/userSettingsResource.js";
 
 test("account security service returns no content result for other sessions", async () => {
   const calls = [];
@@ -41,7 +41,7 @@ test("unlinking returns the security status in the settings output contract", as
     ]
   });
   const outputOf = (value) => validateOperationSection({
-    operation: userSettingsResource.operations.oauthUnlink,
+    operation: userSettingsContract.operations.oauthUnlink,
     section: "output",
     value
   });

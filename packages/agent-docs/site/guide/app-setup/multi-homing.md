@@ -123,7 +123,7 @@ before an operation discloses records or record existence.
 ### Workspace-scoped features and routes
 
 For a standard CRUD resource owned by a workspace, give its table the
-`workspace_id` column, set the resource's `autofilter: "workspace"`, and bind
+`workspace_id` column, set its table resource's `ownership: "workspace"`, and bind
 `defineCrudJsonApiFeature()` with `ownershipFilter: "workspace"` and `scope:
 WORKSPACE_CRUD_SCOPE` (from `@jskit-ai/workspaces-core/server/support/workspaceCrud`)
 on a workspace surface. JSKIT then filters `workspaceId` by the workspace in the

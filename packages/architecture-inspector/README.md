@@ -78,10 +78,12 @@ Each discovery supplies `id`, `adapter`, `surface`, `mode`, `registrations`,
 - Actual `CrudListScreen` / `CrudAddEditScreen` uses whose bound screen comes from
   the matching JSKIT composable can connect to exported `defineCrudJsonApiFeature`
   controller declarations. The resource must resolve through indexed imports and
-  named re-exports to a literal `defineCrudResource` namespace and enabled
-  operations. Scope includes the explicit HTTP application identity, declared
-  surface and API suffix; the key uses `jskit.crud` resource operations rather
-  than claiming a fully expanded runtime URL. Custom clients, transport/resource
+  named re-exports to a literal `defineCrudContract` declaration with literal
+  enabled operations, and a literal namespace or, without one, a table
+  resource whose `defineTableResource` name is literal. Scope includes the
+  explicit HTTP application identity, declared surface and API suffix; the key
+  uses `jskit.crud` resource operations rather than claiming a fully expanded
+  runtime URL. Custom clients, transport/resource
   overrides, dynamic operations and disabled routes do not create guessed links.
   This shows declared entry points; runtime provider activation is not proven.
   Each such entry operation carries the `actionId` its route runs,

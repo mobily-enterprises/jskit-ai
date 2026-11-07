@@ -2,11 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/validators";
 import { validateOperationSection } from "@jskit-ai/http-runtime/shared/validators/operationValidation";
-import { assistantConfigResource } from "../src/shared/assistantSettingsResource.js";
+import { assistantConfigContract } from "../src/shared/assistantSettingsResource.js";
 
 test("assistant config resource exposes valid output schema", () => {
   const viewSchema = resolveSchemaTransportSchemaDefinition(
-    assistantConfigResource.operations.view.output,
+    assistantConfigContract.operations.view.output,
     {
       context: "assistant config view output",
       defaultMode: "replace"
@@ -23,7 +23,7 @@ test("assistant config resource exposes valid output schema", () => {
 
 test("assistant settings patch validation preserves omitted fields", async () => {
   const patch = await validateOperationSection({
-    operation: assistantConfigResource.operations.patch,
+    operation: assistantConfigContract.operations.patch,
     section: "body",
     value: {}
   });

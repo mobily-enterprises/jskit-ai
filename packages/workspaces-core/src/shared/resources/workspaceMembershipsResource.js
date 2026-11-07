@@ -1,9 +1,10 @@
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 
-const workspaceMembershipsResource = defineCrudResource({
-  namespace: "workspaceMemberships",
+// The workspace_memberships table.
+const workspaceMembershipsResource = defineTableResource({
+  name: "workspaceMemberships",
   tableName: "workspace_memberships",
   searchSchema: {
     id: { type: "id", actualField: "id" },
@@ -23,22 +24,14 @@ const workspaceMembershipsResource = defineCrudResource({
       required: true,
       search: true,
       belongsTo: "workspaces",
-      as: "workspace",
-      operations: {
-        output: { required: true },
-        create: { required: true }
-      }
+      as: "workspace"
     },
     userId: {
       type: "id",
       required: true,
       search: true,
       belongsTo: "userProfiles",
-      as: "user",
-      operations: {
-        output: { required: true },
-        create: { required: true }
-      }
+      as: "user"
     },
     roleSid: {
       type: "string",
@@ -47,12 +40,7 @@ const workspaceMembershipsResource = defineCrudResource({
       defaultTo: "member",
       search: true,
       storage: { column: "role_sid" },
-      setter: (value) => normalizeLowerText(value),
-      operations: {
-        output: { required: true },
-        create: { required: true },
-        patch: { required: false }
-      }
+      setter: (value) => normalizeLowerText(value)
     },
     status: {
       type: "string",
@@ -60,12 +48,7 @@ const workspaceMembershipsResource = defineCrudResource({
       max: 32,
       defaultTo: "active",
       search: true,
-      setter: (value) => normalizeLowerText(value),
-      operations: {
-        output: { required: true },
-        create: { required: true },
-        patch: { required: false }
-      }
+      setter: (value) => normalizeLowerText(value)
     },
     createdAt: {
       type: "dateTime",
@@ -73,10 +56,6 @@ const workspaceMembershipsResource = defineCrudResource({
       storage: {
         column: "created_at",
         writeSerializer: "datetime-utc"
-      },
-      operations: {
-        output: { required: true },
-        create: { required: false }
       }
     },
     updatedAt: {
@@ -85,22 +64,9 @@ const workspaceMembershipsResource = defineCrudResource({
       storage: {
         column: "updated_at",
         writeSerializer: "datetime-utc"
-      },
-      operations: {
-        output: { required: true },
-        create: { required: false },
-        patch: { required: false }
       }
     }
-  },
-  messages: {
-    validation: "jskit.workspaces.feedback.fixInvalidValues",
-    saveSuccess: "jskit.workspaces.feedback.recordSaved",
-    saveError: "jskit.workspaces.feedback.recordSaveFailed",
-    deleteSuccess: "jskit.workspaces.feedback.recordDeleted",
-    deleteError: "jskit.workspaces.feedback.recordDeleteFailed"
-  },
-  crudOperations: ["list", "view", "create", "patch"]
+  }
 });
 
 export { workspaceMembershipsResource };

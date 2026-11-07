@@ -20,7 +20,8 @@ Match visibility to real ownership and test allowed plus cross-owner cases.
 ## Author the resource normally
 
 1. Write an immutable app-owned migration.
-2. Define the shared resource contract through `defineCrudResource()`.
+2. Define the table resource with `defineTableResource()` and its HTTP surface
+   with `defineCrudContract()`.
 3. Use `defineCrudJsonApiFeature()` for standard repository, service, action,
    permission, resource-host, and route mechanics.
 4. Customize through `decorateRepository`, `decorateService`,
@@ -28,8 +29,9 @@ Match visibility to real ownership and test allowed plus cross-owner cases.
    repository/action/route stack.
 5. Build routed screens from the matching `http-web`/CRUD UI pattern.
 
-The resource is canonical for fields, operations, validation, transport,
-messages, and route parameters. Do not duplicate its schema or serializers.
+The table resource is canonical for fields, columns, ownership and search; the
+CRUD contract for operations, validation, transport, messages and route
+parameters. Do not duplicate their schema or serializers.
 Prefer `useCrudListScreen()`, `useCrudViewScreen()`, and
 `useCrudAddEditScreen()`; use `useCommand()` or `useEndpointResource()` for
 non-standard operations.
@@ -47,8 +49,8 @@ These controls answer different questions:
 
 | Control | Purpose | Public records | Owner-scoped records |
 | --- | --- | --- | --- |
-| Resource `autofilter` | Which rows belong to the request scope | `"public"`; no ownership column | `"user"`; real non-null `userId` column |
-| Resource `apiAccess` | Who may call the API | `"public"` | `"authenticated"` |
+| Table resource `ownership` | Which rows belong to the request scope | `"public"`; no ownership column | `"user"`; real non-null `userId` column |
+| CRUD contract `apiAccess` | Who may call the API | `"public"` | `"authenticated"` |
 | Feature `ownershipFilter` | Server route/action ownership scope | `"public"` | `"user"` |
 | Client `access` | Whether to require bootstrap permissions | Default `"auto"` with no permission requirements | Default `"auto"`; declare permissions when required |
 
@@ -59,25 +61,20 @@ compensate for an unnecessary `always` override. Server access and ownership
 remain authoritative.
 
 The Books source patterns demonstrate user ownership. For an intentionally
-public create/list resource, use the same patterns with this resource contract:
+public create/list resource, use the same patterns with this table resource and
+CRUD contract:
 
 ```js
-const bookResource = defineCrudResource({
-  namespace: "books",
+const bookResource = defineTableResource({
+  name: "books",
   tableName: "books",
-  apiAccess: "public",
-  autofilter: "public",
-  crudOperations: ["list", "view", "create"],
+  ownership: "public",
   schema: {
     title: {
       type: "string",
       required: true,
       minLength: 1,
-      maxLength: 255,
-      operations: {
-        output: { required: true },
-        create: { required: true }
-      }
+      maxLength: 255
     }
   },
   searchSchema: {
@@ -90,17 +87,22 @@ const bookResource = defineCrudResource({
     }
   }
 });
+
+const bookCrud = defineCrudContract(bookResource, {
+  apiAccess: "public",
+  operations: ["list", "view", "create"]
+});
 ```
 
-Import `defineCrudResource` from
-`@jskit-ai/resource-crud-core/shared/crudResource`. Its app-owned migration
-creates `books` with an integer primary key `id` and non-null `title`; omit
-`userId` and its foreign key for this public variant. `list` requires `view`
-in the shared resource contract, even when the UI has no detail page. A create
-response uses the resource output contract. Keep operation names such as
-`list`, `view` and `create`; do not invent output-operation aliases.
+Import `defineTableResource` from `@jskit-ai/resource-core/shared/tableResource`
+and `defineCrudContract` from `@jskit-ai/resource-crud-core/shared/crudContract`.
+Its app-owned migration creates `books` with an integer primary key `id` and
+non-null `title`; omit `userId` and its foreign key for this public variant.
+`list` requires `view` in the CRUD contract, even when the UI has no detail
+page. A create response uses the CRUD contract's output. Keep operation names
+such as `list`, `view` and `create`; do not invent output-operation aliases.
 
-Bind `defineCrudJsonApiFeature()` with this resource, `ownershipFilter:
+Bind `defineCrudJsonApiFeature()` with `bookCrud`, `ownershipFilter:
 "public"`, `relativePath: "/books"` and the application's configured public
 surface. Keep the existing package/provider and migration registration from
 `crud/json-api-resource-package`.

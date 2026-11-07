@@ -2,8 +2,8 @@ import { createSchema } from "json-rest-schema";
 import { createCursorListValidator, RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import {
   createSchemaDefinition,
-  defineResource
-} from "@jskit-ai/resource-core/shared/resource";
+  defineApiContract
+} from "@jskit-ai/resource-core/shared/apiContract";
 import { ASSISTANT_ATTACHMENT_ID_MAX_LENGTH, ASSISTANT_ATTACHMENT_MAX_ITEMS } from "./conversation/attachments.js";
 
 const MAX_INPUT_CHARS = 8000;
@@ -267,7 +267,7 @@ const conversationMessagesListOutputSchema = createSchema({
 
 const assistantConversationOutputValidator = createSchemaDefinition(conversationRecordSchema, "replace");
 
-const assistantResource = defineResource({
+const assistantContract = defineApiContract({
   namespace: "assistant",
   operations: {
     chatStream: {
@@ -292,6 +292,6 @@ export {
   MAX_INPUT_CHARS,
   MAX_MESSAGE_PAGE_SIZE,
   attachmentIdsField,
-  assistantResource,
+  assistantContract,
   assistantConversationOutputValidator
 };

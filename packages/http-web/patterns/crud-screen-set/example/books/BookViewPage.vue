@@ -3,13 +3,13 @@ import CrudDeleteAction from "@jskit-ai/http-web/client/components/CrudDeleteAct
 import CrudViewScreen from "@jskit-ai/http-web/client/components/CrudViewScreen";
 import { useCrudDeleteAction } from "@jskit-ai/http-web/client/composables/useCrudDeleteAction";
 import { useCrudViewScreen } from "@jskit-ai/http-web/client/composables/useCrudViewScreen";
-import { bookResource } from "@local/books/shared";
+import { bookCrud } from "@local/books/shared";
 
 // Up returns to the page the book was opened from, or else to the list.
 definePage({ meta: { jskit: { title: "Book", parent: "/books" } } });
 
 const screen = useCrudViewScreen({
-  resource: bookResource,
+  resource: bookCrud,
   resourceNamespace: "books",
   apiUrlTemplate: "/books/:bookId",
   recordIdParam: "bookId",
@@ -22,7 +22,7 @@ const screen = useCrudViewScreen({
 
 const deleteAction = useCrudDeleteAction({
   screen,
-  resource: bookResource,
+  resource: bookCrud,
   resourceNamespace: "books",
   apiUrlTemplate: "/books/:bookId"
 });

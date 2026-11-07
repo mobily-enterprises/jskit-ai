@@ -58,26 +58,9 @@ function requireWorkspaceColorDefaults(defaults) {
 /** @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} jsonRestApi */
 async function installWorkspaceResources(jsonRestApi) {
   const scopeOptions = { writeSerializers: { "datetime-utc": toDatabaseDateTimeUtc } };
-  await addResourceIfMissing(
-    jsonRestApi,
-    "workspaces",
-    createJsonRestResourceScopeOptions(workspaceResource, scopeOptions)
-  );
-  await addResourceIfMissing(
-    jsonRestApi,
-    "workspaceMemberships",
-    createJsonRestResourceScopeOptions(workspaceMembershipsResource, scopeOptions)
-  );
-  await addResourceIfMissing(
-    jsonRestApi,
-    "workspaceInvites",
-    createJsonRestResourceScopeOptions(workspaceInvitesResource, scopeOptions)
-  );
-  await addResourceIfMissing(
-    jsonRestApi,
-    "workspaceSettings",
-    createJsonRestResourceScopeOptions(workspaceSettingsResource, scopeOptions)
-  );
+  for (const resource of [workspaceResource, workspaceMembershipsResource, workspaceInvitesResource, workspaceSettingsResource]) {
+    await addResourceIfMissing(jsonRestApi, resource.name, createJsonRestResourceScopeOptions(resource, scopeOptions));
+  }
 }
 
 /**

@@ -72,7 +72,7 @@ Exports
 
 ### `src/shared/resources/consoleSettingsResource.js`
 Exports
-- `consoleSettingsResource`
+- `consoleSettingsContract`
 
 ### migrations
 

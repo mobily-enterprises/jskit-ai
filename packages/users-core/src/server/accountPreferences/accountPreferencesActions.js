@@ -1,7 +1,7 @@
 import {
   resolveRequest
 } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { userSettingsResource } from "../../shared/resources/userSettingsResource.js";
+import { userSettingsContract } from "../../shared/resources/userSettingsResource.js";
 import { resolveActionUser } from "../common/support/resolveActionUser.js";
 import { ACCOUNT_SETTINGS_AND_BOOTSTRAP_EVENTS } from "../common/support/realtimeServiceEvents.js";
 
@@ -17,12 +17,12 @@ function createAccountPreferencesActions({ accountPreferencesService }) {
       permission: {
         require: "authenticated"
       },
-      input: userSettingsResource.operations.preferencesUpdate.body,
+      input: userSettingsContract.operations.preferencesUpdate.body,
       output: null,
       extensions: {
         assistant: {
           description: "Update the signed-in user’s display and regional preferences.",
-          output: userSettingsResource.operations.preferencesUpdate.output,
+          output: userSettingsContract.operations.preferencesUpdate.output,
           transformResult: (result) => result.value
         }
       },

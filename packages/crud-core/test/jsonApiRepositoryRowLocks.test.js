@@ -6,7 +6,7 @@ import {
   createJsonRestApiHost,
   createJsonRestResourceScopeOptions
 } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
-import { defineCrudResource } from "@jskit-ai/resource-crud-core/shared/crudResource";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { createCrudJsonApiRepository } from "../src/server/jsonApiModule/repository.js";
 import { createCrudJsonApiService } from "../src/server/jsonApiModule/service.js";
 
@@ -16,8 +16,8 @@ const TEST_DB_NAME = process.env.TEST_DB_NAME?.trim();
 const ON_POSTGRES_TEST_DATABASE = Boolean(TEST_DB_NAME) && process.env.DB_NAME === TEST_DB_NAME &&
   (!process.env.DB_CLIENT || process.env.DB_CLIENT === "pg");
 
-const counters = defineCrudResource({
-  namespace: "counters",
+const counters = defineTableResource({
+  name: "counters",
   tableName: "counters",
   schema: {
     name: { type: "string", required: true },
