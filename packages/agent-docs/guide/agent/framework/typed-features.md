@@ -802,8 +802,8 @@ paying a read policy for every row it writes.**
   not use its result passes `returning: "id"` or `"none"`, and a batch (a
   delivery, an import, a fan-out) goes through the many-row writes:
   `createMany(rows, options)` inserts one statement per chunk and reads
-  nothing back unless asked, and `patchMany`, `patchWhereIds` and
-  `patchWhere` update the same way, each checking access once for the whole
+  nothing back unless asked, and `patchMany` and `patchWhere` update the
+  same way, each checking access once for the whole
   set ([Layer 3](/guide/framework/data-access#layer-3-many-rows-at-once)).
 - Its test counts the queries of one read and one write for a subject with a
   short history and for one with a long one ([Query counts at realistic
