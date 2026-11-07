@@ -1,3 +1,4 @@
+import { deepFreeze } from "../../../shared/support/deepFreeze.js";
 import { isRecord, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { AppError } from "../../runtime/errors.js";
 import { applyRoutePolicy } from "../../support/routePolicyConfig.js";
@@ -8,6 +9,7 @@ import { attachDirectRequestActionExecutor } from "../directRequestActionExecuto
 import { resolveRouteLabel } from "./routeSupport.js";
 import { JSON_API_CONTENT_TYPE } from "./routeTransport.js";
 import { rateLimitRouteConfig } from "./routeRateLimits.js";
+import { schemaCacheKey } from "../responseSerializerFactory.js";
 
 /** @typedef {import("../../types.js").ActionCatalogue} ActionCatalogue */
 /** @typedef {import("../../types.js").RuntimeFastify} RuntimeFastify */
@@ -15,11 +17,32 @@ import { rateLimitRouteConfig } from "./routeRateLimits.js";
 const { structuredClone: cloneRouteSchema } = globalThis;
 const UNSAFE_BODY_METHODS = Object.freeze(["POST", "PUT", "PATCH"]);
 const REQUEST_INPUT_KEYS = Object.freeze(["body", "query", "params"]);
+const VALIDATION_SCHEMA_PARTS = Object.freeze(["body", "querystring", "params", "headers"]);
+// Fastify's Ajv compiles each schema object it has not seen before, and every route's schema is a fresh copy, so
+// routes sharing a schema (a record id, a list query) compiled it once each. One object per distinct JSON schema in
+// the process makes it once per server instead.
+const validationSchemas = new Map();
+
+function sharedValidationSchema(schema) {
+  const key = schemaCacheKey(schema);
+  if (key === undefined) {
+    return schema;
+  }
+  if (!validationSchemas.has(key)) {
+    validationSchemas.set(key, deepFreeze(schema));
+  }
+  return validationSchemas.get(key);
+}
 
 function toFastifyRouteOptions(route) {
   const schema = cloneRouteSchema(route.schema);
   if (shouldStripFastifyBodySchema(route, schema)) {
     delete schema.body;
+  }
+  for (const part of VALIDATION_SCHEMA_PARTS) {
+    if (isRecord(schema?.[part])) {
+      schema[part] = sharedValidationSchema(schema[part]);
+    }
   }
   return {
     method: route.method,

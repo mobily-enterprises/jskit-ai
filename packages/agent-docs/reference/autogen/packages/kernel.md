@@ -831,6 +831,7 @@ Exports
 - `type ActionCatalogue`
 - `type RuntimeFastify`
 Local functions
+- `sharedValidationSchema(schema)`
 - `toFastifyRouteOptions(route)`
 - `shouldStripFastifyBodySchema(route, schema)`
 - `normalizeHeaderValue(value)`
@@ -869,9 +870,9 @@ Local functions
 ### `server/http/responseSerializerFactory.js`
 Exports
 - `createCachedResponseSerializerFactory(buildSerializer)`
+- `schemaCacheKey(schema)`
 Local functions
 - `isJsonValue(value, ancestors = new Set())`
-- `schemaCacheKey(schema)`
 
 ### `server/http/securityHeaders.js`
 Exports

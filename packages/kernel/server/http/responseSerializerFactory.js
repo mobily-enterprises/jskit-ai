@@ -56,4 +56,4 @@ function createCachedResponseSerializerFactory(buildSerializer) {
   };
 }
 
-export { createCachedResponseSerializerFactory };
+export { createCachedResponseSerializerFactory, schemaCacheKey };
