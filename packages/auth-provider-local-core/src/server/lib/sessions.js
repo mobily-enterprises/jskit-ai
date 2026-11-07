@@ -124,7 +124,46 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
     });
   }
 
+  // One authentication per request: the route's auth policy and the handlers it runs (security status, a display
+  // name change, a password change, ...) share the first answer for the same request object instead of reading the
+  // session, the user and the profile again. A request that revokes sessions forgets its answer, so a later check in
+  // it reads them again, and every new request reads them afresh, so sign-out, revocation and disabling still apply
+  // from the next request on.
+  const requestAuthentications = new WeakMap();
+
   async function authenticateRequest(request, { syncProfile = true } = {}) {
+    // A check without profile synchronization does not answer for a synchronizing one, and only an object can be
+    // remembered.
+    if (!syncProfile || !request || typeof request !== "object") {
+      return authenticateFromCookies(request, { syncProfile });
+    }
+    if (!requestAuthentications.has(request)) {
+      const answer = authenticateFromCookies(request, { syncProfile });
+      requestAuthentications.set(request, answer);
+      // A failure is not remembered: a later check in the request tries again.
+      answer.catch(() => {
+        if (requestAuthentications.get(request) === answer) {
+          requestAuthentications.delete(request);
+        }
+      });
+    }
+    return requestAuthentications.get(request);
+  }
+
+  /** The request revoked sessions: a later authentication in it reads its session again. */
+  function forgetRequestAuthentication(request) {
+    requestAuthentications.delete(request);
+  }
+
+  /** The request changed its own user's profile: a later authentication in it answers the new `actor`. */
+  function updateRequestActor(request, actor) {
+    const answer = requestAuthentications.get(request);
+    if (answer) {
+      requestAuthentications.set(request, answer.then((result) => (result.authenticated ? { ...result, actor } : result)));
+    }
+  }
+
+  async function authenticateFromCookies(request, { syncProfile }) {
     const cookies = safeRequestCookies(request);
     const accessToken = String(cookies[ACCESS_TOKEN_COOKIE] || "").trim();
     const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "").trim();
@@ -284,6 +323,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
         await tx.sessions.revoke(session.id);
       }
     });
+    forgetRequestAuthentication(request);
     return {
       ok: true,
       clearSession: true
@@ -303,6 +343,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
         exceptSessionId: currentSession?.session?.id
       })
     );
+    forgetRequestAuthentication(request);
     return {
       ok: true,
       revokedSessions: count
@@ -312,6 +353,8 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
   return Object.freeze({
     createSessionForUser,
     authenticateRequest,
+    forgetRequestAuthentication,
+    updateRequestActor,
     requireNormalSessionUserId,
     readRecoveryAccessToken,
     hasAccessTokenCookie,

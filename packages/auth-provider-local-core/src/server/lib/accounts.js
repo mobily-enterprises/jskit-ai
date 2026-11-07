@@ -285,13 +285,15 @@ function createLocalAccounts({
     if (!displayName) {
       throw createAuthError(AUTH_TEXTS.displayNameRequired);
     }
-    return backend.withTransaction(async (tx) => {
+    const changed = await backend.withTransaction(async (tx) => {
       const user = await tx.users.updateProfile(authResult.actor.providerUserId, { displayName });
       if (!user) {
         throw createAuthError(AUTH_TEXTS.sessionRequired);
       }
       return buildProfileChangePayload({ user, profileProjector });
     });
+    sessions.updateRequestActor(request, changed.actor);
+    return changed;
   }
 
   return Object.freeze({

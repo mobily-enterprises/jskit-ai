@@ -117,6 +117,7 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
         await tx.signInFailures.clear(user.email);
       }
     });
+    sessions.forgetRequestAuthentication(request);
     return {
       ok: true,
       ...authMessageFields(AUTH_TEXTS.passwordUpdatedSignIn)
