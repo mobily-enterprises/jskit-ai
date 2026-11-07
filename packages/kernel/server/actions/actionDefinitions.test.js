@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
-import { __testables, normalizeActionDefinition } from "./actionDefinitions.js";
+import { __testables, normalizeActionDefinition, toRegisteredContributor } from "./actionDefinitions.js";
+import { noActionPolicy } from "./actionPolicy.js";
 
 function assertJsonRestSchemaDefinition(definition) {
   assert.equal(typeof definition?.schema?.patch, "function");
@@ -259,4 +260,81 @@ test("normalizeActionDefinition validates domains with the architecture id patte
   assert.throws(() => normalizeActionDefinition({ ...base, domain: "1demo" }), {
     message: /domain must match/
   });
+});
+
+test("normalizeActionDefinition refuses oneOf on an input field and names enum", () => {
+  const base = {
+    id: "demo.notes.list",
+    domain: "demo",
+    channels: ["api"],
+    surfaces: ["app"],
+    execute: async () => ({})
+  };
+
+  assert.throws(
+    () => normalizeActionDefinition({
+      ...base,
+      input: { schema: createSchema({ status: { type: "string", oneOf: ["open", "closed"] } }) }
+    }),
+    {
+      message: "Action definition input field \"status\" declares oneOf, which does not restrict its value; " +
+        "list the allowed values with enum."
+    }
+  );
+
+  const declared = { ...base, input: { schema: createSchema({ status: { type: "string", enum: ["open", "closed"] } }) } };
+  const definition = normalizeActionDefinition(declared);
+  assert.equal(definition.input.schema.create({ status: "other" }).errors.status?.code, "ENUM_VALUE");
+
+  // A policy's input is checked like a declared one.
+  const contributor = { contributorId: "demo.notes", domain: "demo", actions: [declared] };
+  const scopedPolicy = {
+    ...noActionPolicy,
+    input: () => ({ schema: createSchema({ scope: { type: "string", oneOf: ["mine"] } }) })
+  };
+  assert.throws(() => toRegisteredContributor(contributor, scopedPolicy), { message: /input field "scope" declares oneOf/ });
+});
+
+test("normalizeActionSchema refuses oneOf on nested input fields and leaves output alone", () => {
+  const refuse = { required: true, defaultMode: "create", refuseOneOf: true };
+
+  assert.throws(
+    () => __testables.normalizeActionSchema({
+      schema: createSchema({
+        filter: { type: "object", schema: createSchema({ status: { type: "string", oneOf: ["open"] } }) }
+      })
+    }, "input", refuse),
+    { message: /input field "filter\.status" declares oneOf.*with enum\.$/ }
+  );
+  assert.throws(
+    () => __testables.normalizeActionSchema({
+      schema: createSchema({
+        tags: { type: "array", items: { type: "string", oneOf: ["a"] } }
+      })
+    }, "input", refuse),
+    { message: /input field "tags\[\]" declares oneOf/ }
+  );
+  assert.throws(
+    () => __testables.normalizeActionSchema({
+      schema: createSchema({
+        lines: { type: "array", items: createSchema({ status: { type: "string", oneOf: ["open"] } }) }
+      })
+    }, "input", refuse),
+    { message: /input field "lines\[\]\.status" declares oneOf/ }
+  );
+  assert.throws(
+    () => __testables.normalizeActionSchema({
+      schema: createSchema({
+        labels: { type: "object", values: { type: "string", oneOf: ["red"] } }
+      })
+    }, "input", refuse),
+    { message: /input field "labels\.\*" declares oneOf/ }
+  );
+
+  const searchLike = { schema: createSchema({ q: { type: "string", oneOf: ["title", "author"] } }) };
+  assert.equal(__testables.normalizeActionSchema(searchLike, "output", { defaultMode: "replace" }).schema, searchLike.schema);
+  assert.equal(
+    __testables.normalizeActionSchema({ schema: createMockJsonRestSchema() }, "input", refuse).mode,
+    "create"
+  );
 });

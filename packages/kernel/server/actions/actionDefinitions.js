@@ -17,7 +17,11 @@ const ACTION_PERMISSION_REQUIRE_SET = new Set(ACTION_PERMISSION_REQUIRE_MODES);
  * updates part of a record declares `mode: "patch"`.
  */
 const ACTION_INPUT_DEFAULT_MODE = "create";
-const ACTION_INPUT_SCHEMA_OPTIONS = Object.freeze({ required: true, defaultMode: ACTION_INPUT_DEFAULT_MODE });
+const ACTION_INPUT_SCHEMA_OPTIONS = Object.freeze({
+  required: true,
+  defaultMode: ACTION_INPUT_DEFAULT_MODE,
+  refuseOneOf: true
+});
 
 class ActionRuntimeError extends Error {
   constructor(status, message, options = {}) {
@@ -58,7 +62,49 @@ function normalizeStringArray(value, fieldName) {
   return normalized;
 }
 
-function normalizeActionSchema(value, fieldName, { required = false, defaultMode = "" } = {}) {
+/** The field definitions of a json-rest-schema instance, or null for anything else. */
+function schemaFieldDefinitions(value) {
+  // readable-check: allow method-probe - input validation: a field's schema, items or values is a json-rest-schema instance or a field definition
+  return value && typeof value.getFieldDefinitions === "function" ? value.getFieldDefinitions() : null;
+}
+
+/**
+ * json-rest-schema validates no `oneOf`; json-rest-api reads it as the fields a
+ * search matches. On an action input it would pass for a list of allowed values
+ * while allowing any, so an input field that declares it, at any depth (a nested
+ * schema, array items, object values), is refused.
+ */
+function refuseOneOfFields(fields, fieldName, parentPath = "") {
+  for (const [name, definition] of Object.entries(fields)) {
+    refuseOneOfField(definition, fieldName, parentPath ? `${parentPath}.${name}` : name);
+  }
+}
+
+/** One field definition, or the schema instance a field's items or values give. */
+function refuseOneOfField(definition, fieldName, path) {
+  const fields = schemaFieldDefinitions(definition);
+  if (fields) {
+    refuseOneOfFields(fields, fieldName, path);
+    return;
+  }
+  if (!isPlainObject(definition)) {
+    return;
+  }
+  if (Object.hasOwn(definition, "oneOf")) {
+    throw new Error(
+      `Action definition ${fieldName} field "${path}" declares oneOf, which does not restrict its value; list the allowed values with enum.`
+    );
+  }
+  refuseOneOfFields(schemaFieldDefinitions(definition.schema) || {}, fieldName, path);
+  if (Object.hasOwn(definition, "items")) {
+    refuseOneOfField(definition.items, fieldName, `${path}[]`);
+  }
+  if (Object.hasOwn(definition, "values")) {
+    refuseOneOfField(definition.values, fieldName, `${path}.*`);
+  }
+}
+
+function normalizeActionSchema(value, fieldName, { required = false, defaultMode = "", refuseOneOf = false } = {}) {
   if (value == null) {
     if (!required) {
       return null;
@@ -75,14 +121,20 @@ function normalizeActionSchema(value, fieldName, { required = false, defaultMode
     throw new Error(`Action definition ${fieldName} must be a json-rest-schema schema definition.`);
   }
 
+  let definition;
   try {
-    return normalizeSingleSchemaDefinition(value, {
+    definition = normalizeSingleSchemaDefinition(value, {
       context: `Action definition ${fieldName}`,
       defaultMode
     });
   } catch (error) {
     throw new Error(error?.message || `Action definition ${fieldName} is invalid.`);
   }
+
+  if (refuseOneOf) {
+    refuseOneOfFields(schemaFieldDefinitions(definition.schema) || {}, fieldName);
+  }
+  return definition;
 }
 
 function normalizeActionPermission(permission, actionId) {
