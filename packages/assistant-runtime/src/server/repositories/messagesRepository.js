@@ -2,7 +2,6 @@ import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/suppor
 import {
   normalizeInputRecordId,
   parseJsonObject,
-  runInHandleTransaction,
   stringifyJsonObject,
   toIso,
   toWrittenDateTime
@@ -57,11 +56,11 @@ function createRepository({ messages, systemContext }) {
   }
 
   function withTransaction(options, work) {
-    return runInHandleTransaction(messages, options, work);
+    return messages.withTransaction(options, work, { asThrown: true });
   }
 
   function transaction(work) {
-    return runInHandleTransaction(messages, {}, work);
+    return messages.withTransaction({}, work, { asThrown: true });
   }
 
   async function findById(messageId, options = {}) {
