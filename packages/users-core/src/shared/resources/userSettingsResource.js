@@ -6,6 +6,7 @@ import {
   defineApiContract
 } from "@jskit-ai/resource-core/shared/apiContract";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../settings.js";
 import {
@@ -64,6 +65,48 @@ const USER_SETTINGS_BOOTSTRAP_KEYS = USER_SETTINGS_ALL_KEYS;
 function normalizePositiveInteger(value) {
   return Number(value);
 }
+
+// Every preference and notification setting at once: the CRUD contract's body.
+const userSettingsBodySchema = createSchema({
+  theme: { type: "string", required: true, minLength: 1, maxLength: 32 },
+  locale: { type: "string", required: true, minLength: 1, maxLength: 24 },
+  timeZone: { type: "string", required: true, minLength: 1, maxLength: 64 },
+  dateFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
+  numberFormat: { type: "string", required: true, minLength: 1, maxLength: 32 },
+  currencyCode: {
+    type: "string",
+    required: true,
+    minLength: 3,
+    maxLength: 3,
+    uppercase: true,
+    pattern: "^[A-Z]{3}$"
+  },
+  avatarSize: { type: "number", required: true, min: 1 },
+  productUpdates: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      default: USER_SETTINGS_FIELD_MESSAGES.productUpdatesInvalid
+    }
+  },
+  accountActivity: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      default: USER_SETTINGS_FIELD_MESSAGES.accountActivityInvalid
+    }
+  },
+  securityAlerts: {
+    type: "boolean",
+    required: true,
+    strictBoolean: true,
+    messages: {
+      default: USER_SETTINGS_FIELD_MESSAGES.securityAlertsInvalid
+    }
+  }
+});
 
 const userSettingsPreferencesSchema = createSchema({
   theme: { type: "string", required: true, minLength: 1, maxLength: 32 },
@@ -357,6 +400,18 @@ const userSettingsResource = defineTableResource({
   },
 });
 
+// The account settings' CRUD surface on the user_settings table: view, list,
+// create, replace and patch, each with the account settings output and every
+// setting as its body. No JSKIT route serves it; an application that offers
+// these operations serves this contract.
+const userSettingsCrud = defineCrudContract(userSettingsResource, {
+  namespace: "userSettings",
+  messages: OPERATION_MESSAGES,
+  operations: ["view", "list", "create", "replace", "patch"],
+  output: userSettingsOutputValidator,
+  body: userSettingsBodySchema
+});
+
 // The signed-in user's settings over HTTP.
 const userSettingsContract = defineApiContract({
   namespace: "userSettings",
@@ -412,6 +467,7 @@ export {
   USER_SETTINGS_PREFERENCE_KEYS,
   userSettingsOutputSchema,
   userSettingsContract,
+  userSettingsCrud,
   userSettingsOutputValidator,
   userSettingsResource
 };

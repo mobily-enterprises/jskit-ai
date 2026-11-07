@@ -3,6 +3,7 @@ import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { defineApiContract } from "@jskit-ai/resource-core/shared/apiContract";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { userProfileOutputSchema } from "./accountSettingsSchemas.js";
@@ -152,6 +153,18 @@ const userProfileResource = defineTableResource({
   },
 });
 
+// The account profile's CRUD surface on the users table: view, list, create,
+// replace and patch, each with the account profile's output and display name
+// body. No JSKIT route serves it; an application that offers these operations
+// serves this contract.
+const userProfileCrud = defineCrudContract(userProfileResource, {
+  namespace: "userProfile",
+  messages: OPERATION_MESSAGES,
+  operations: ["view", "list", "create", "replace", "patch"],
+  output: userProfileOutputSchema,
+  body: userProfileBodySchema
+});
+
 // The signed-in user's profile over HTTP.
 const userProfileContract = defineApiContract({
   namespace: "userProfile",
@@ -175,4 +188,4 @@ const userProfileContract = defineApiContract({
   }
 });
 
-export { userProfileContract, userProfileResource };
+export { userProfileContract, userProfileCrud, userProfileResource };
