@@ -39,6 +39,7 @@ Exports
 - `readMaterialStyles(page, probes)`
 Local functions
 - `comparePixels(page, actual, expected)`
+- `waitForStillPage(page)`
 
 ### `viteFixtureServer.mjs`
 Exports

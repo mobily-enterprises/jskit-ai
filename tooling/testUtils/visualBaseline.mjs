@@ -95,13 +95,34 @@ async function comparePixels(page, actual, expected) {
 }
 
 /**
+ * Waits until the page has stopped moving: its fonts are loaded and, for several frames in a row, no finite animation
+ * (a CSS transition or animation, or a Web Animation such as an overlay's enter) is running. A Vue transition starts on
+ * the second frame after its element appears, so a few quiet frames are needed, not one. An infinite animation, such
+ * as a progress spinner, never finishes and is ignored. A page that keeps starting new animations is read after two
+ * seconds, and its baseline comparison decides.
+ * @param {import("playwright").Page} page
+ */
+async function waitForStillPage(page) {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const moving = () => document.getAnimations().some((animation) =>
+      animation.playState === "running" && animation.effect?.getComputedTiming().endTime !== Infinity);
+    const frame = () => new Promise((resolve) => requestAnimationFrame(resolve));
+    const deadline = performance.now() + 2_000;
+    for (let quietFrames = 0; quietFrames < 4 && performance.now() < deadline;) {
+      await frame();
+      quietFrames = moving() ? 0 : quietFrames + 1;
+    }
+  });
+}
+
+/**
  * Checks the current page against its committed Material 3 baseline, or writes the baseline when accepting changes.
  * @param {import("playwright").Page} page
  * @param {{ directory: string, name: string, probes: Array<{ name: string, selector: string, width?: boolean }> }} options
  */
 async function expectMaterialBaseline(page, { directory, name, probes }) {
-  await page.evaluate(() => document.fonts.ready);
-  await page.waitForTimeout(450);
+  await waitForStillPage(page);
   const styles = await readMaterialStyles(page, probes);
   const screenshot = await page.screenshot({ animations: "disabled", caret: "hide" });
   const stylePath = path.join(directory, `${name}.json`);

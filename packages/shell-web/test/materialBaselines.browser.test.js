@@ -196,6 +196,8 @@ test("buttons and chips keep every state layer inside their shape, in light and 
             }
             await control.blur();
             await page.mouse.move(1, 300);
+            // A released press leaves its ripple fading out for a moment; the next state starts once it has gone.
+            await expect(page.locator(".v-ripple__container")).toHaveCount(0);
           }
         }
       } finally {
