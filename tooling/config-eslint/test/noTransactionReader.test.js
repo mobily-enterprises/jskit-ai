@@ -13,6 +13,9 @@ new RuleTester().run("jskit/no-transaction-reader", noTransactionReader, {
     "function save(row, options) { return records.create(row, options); }",
     "function settle(input, options) { return lots.withTransaction(options, (tx) => lots.patch(input.id, input.changes, tx)); }",
     "const next = { ...options, lockVersion: 2 };",
+    // Settings ride in the options the call received, spread with the setting.
+    "function once(options, work) { return lots.withTransaction({ ...options, retry: false }, work); }",
+    "function takeOne(options) { return queue.claim({ filters: { due: true }, take: 1 }, { ...options, missing: \"skip\" }); }",
     "const { context } = options;",
     "const reference = payment.transaction.id;",
     "function begin(trx) { return trx; }",
@@ -30,6 +33,10 @@ new RuleTester().run("jskit/no-transaction-reader", noTransactionReader, {
     },
     {
       code: "await repository.list(query, { trx: options.trx });",
+      errors: [{ messageId: "handRead", data: { text: "options.trx" } }]
+    },
+    {
+      code: "await lots.withTransaction({ context: options.context, trx: options.trx, retry: false }, work);",
       errors: [{ messageId: "handRead", data: { text: "options.trx" } }]
     },
     {
