@@ -48,8 +48,11 @@ in source or a questionnaire transcript.
 
 Use `AssistantSurfaceClientElement` and `AssistantSettingsClientElement` from
 `@jskit-ai/assistant-runtime/client`. Install the runtime package through the
-normal package-capability path. Configure `assistantSurfaces` in public config
-and `assistantServer` in server config.
+normal package-capability path. Install `@jskit-ai/resource-runtime` and
+register `AssistantStoreFeature` from `@jskit-ai/assistant-runtime/server` in
+the ordinary server feature list; it owns the assistant's tables and provides the
+repositories the database-backed surface uses. Configure `assistantSurfaces` in
+public config and `assistantServer` in server config.
 
 ## Example files
 

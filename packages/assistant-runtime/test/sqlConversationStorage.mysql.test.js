@@ -4,9 +4,8 @@ import knex from "knex";
 import { verifyConversationStorageContract } from "@jskit-ai/assistant-core/testing/conversation-storage";
 import transcriptsMigration from "../migrations/assistant_transcripts_initial.cjs";
 import summaryMigration from "../migrations/assistant_transcripts_summary.cjs";
-import { createRepository as createConversationsRepository } from "../src/server/repositories/conversationsRepository.js";
-import { createRepository as createMessagesRepository } from "../src/server/repositories/messagesRepository.js";
 import { createSqlConversationStorage } from "../src/server/sqlConversationStorage.js";
+import { createTestAssistantStore } from "./support/assistantStore.js";
 
 test("the SQL conversation storage keeps its contract, cache and summary on MySQL", {
   skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
@@ -17,16 +16,19 @@ test("the SQL conversation storage keeps its contract, cache and summary on MySQ
     password: environment.DB_PASSWORD };
   const admin = knex({ client: "mysql2", connection });
   const clients = [];
-  const connect = () => {
+  const stores = [];
+  const connect = async () => {
     const db = knex({ client: "mysql2", connection: { ...connection, database: databaseName } });
     clients.push(db);
-    const repositories = { conversationsRepository: createConversationsRepository(db), messagesRepository: createMessagesRepository(db) };
+    const store = await createTestAssistantStore(db);
+    stores.push(store);
+    const repositories = { conversationsRepository: store.conversations, messagesRepository: store.messages };
     return { db, ...repositories, storage: createSqlConversationStorage(repositories) };
   };
   try {
     await admin.raw("DROP DATABASE IF EXISTS ??", [databaseName]);
     await admin.raw("CREATE DATABASE ??", [databaseName]);
-    const f = connect();
+    const f = await connect();
     await transcriptsMigration.up(f.db);
     await summaryMigration.up(f.db);
     await summaryMigration.up(f.db);
@@ -49,7 +51,7 @@ test("the SQL conversation storage keeps its contract, cache and summary on MySQ
         await transaction.appendMessage(turnId, { role: "assistant", messageId: `answer-${index}`, text: `Answer ${index}`, at });
       }
     });
-    const servers = [connect(), connect()];
+    const servers = [await connect(), await connect()];
     for (const server of servers) await server.storage.read(long.id, transaction => transaction.listTurnIds());
     const queries = [];
     const listener = query => queries.push(query.sql);
@@ -82,6 +84,7 @@ test("the SQL conversation storage keeps its contract, cache and summary on MySQ
     await summaryMigration.up(f.db);
     assert.equal(await f.db.schema.hasColumn("assistant_conversations", "transcript_revision"), true);
   } finally {
+    for (const store of stores) await store.close();
     for (const client of clients) await client.destroy();
     await admin.raw("DROP DATABASE IF EXISTS ??", [databaseName]);
     await admin.destroy();

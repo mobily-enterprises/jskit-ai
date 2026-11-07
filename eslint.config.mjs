@@ -10,16 +10,6 @@ import {
   webConfig
 } from "./tooling/config-eslint/index.js";
 
-// The JSKIT server and shared files that still reach tables past their resources, which the data-access rules leave
-// alone until they are converted. The store-conversion step of the data-access redesign converts each one and deletes
-// this list.
-const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
-  "packages/assistant-runtime/src/server/AssistantProvider.js",
-  "packages/assistant-runtime/src/server/repositories/assistantConfigRepository.js",
-  "packages/assistant-runtime/src/server/repositories/conversationsRepository.js",
-  "packages/assistant-runtime/src/server/repositories/messagesRepository.js"
-]);
-
 export default [
   {
     ignores: [
@@ -106,7 +96,6 @@ export default [
     // The PostgreSQL dialect: its driver, table introspection and dialect SQL.
     "packages/database-runtime-postgres/**"
   ], "off"),
-  ...dataAccessConfig(DATA_ACCESS_CONVERTED_LATER, "off"),
   // Every other hand-written file stays under 750 lines and every function under 600.
   ...sizeLimitsConfig(["packages/**", "tooling/**", "scripts/**"]),
   ...webConfig,
