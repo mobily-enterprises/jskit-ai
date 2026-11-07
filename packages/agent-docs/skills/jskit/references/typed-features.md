@@ -532,6 +532,25 @@ const actorId = context?.actor?.id || options.context?.user?.id || null;
 
 ## Services and repositories
 
+### Resource first
+
+**Every table has one table resource, and only its owner feature reads or
+writes it, through the handle it lists in `owns`. A repository holds the
+owner's queries on its handles; a service calls repositories and other
+features' services, never Knex or a handle.** [Data access](data-access.md)
+gives the five layers, from one record to reports.
+
+Why: ownership, the row policy, validation and audits run only on the
+resource's path; Knex in a repository skips all of them.
+
+```js
+// good
+markArrived: (id, arrivedAt, options) => receivals.patch(id, { status: "arrived", arrivedAt }, options)
+
+// bad
+markArrived: (id, arrivedAt) => knex("receivals").where({ id }).update({ status: "arrived", arrived_at: arrivedAt })
+```
+
 ### Validated input as is
 
 **A method that receives an action's validated input takes it as it is: no
@@ -1428,6 +1447,7 @@ if (typeof buildSerializer !== "function") {
 | `filled by <repository>; convert with its supplier` | keeps a setter that another repository's code calls |
 | `cross-repository slot <token>` | keeps a probe for a token another repository supplies |
 | `shared resource:` | keeps client module state that every instance on the page shares on purpose ([client features](client-features.md#module-state)) |
+| `infrastructure: <what the module is>` | excuses a whole file whose job is data access itself from `jskit/no-direct-knex` or `jskit/no-transaction-reader`, one line per rule before its first line of code ([data access](data-access.md#exceptions)) |
 
 One kind of probe gets one prefix and one wording everywhere, and a bare
 `typeof x` guard of that kind carries the same comment even where no rule
