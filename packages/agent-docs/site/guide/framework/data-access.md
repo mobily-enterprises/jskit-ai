@@ -113,6 +113,7 @@ covers this layer in depth.
 
 ```js
 const receivalCrud = defineCrudContract(receivalResource, {
+  namespace: "receivals",
   apiAccess: "authenticated",
   operations: ["list", "view", "create", "patch"],
   fields: { arrivedAt: { output: "optional" } }

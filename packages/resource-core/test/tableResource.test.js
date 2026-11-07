@@ -65,7 +65,7 @@ test("the HTTP surface, field operations and server-only extras are refused with
   assert.throws(() => defineTableResource(receivals({ rowPolicy: () => true })), /does not take rowPolicy: it belongs to the owner feature's owns entry/u);
   assert.throws(
     () => defineTableResource(receivals({ schema: { status: { type: "string", operations: { output: { required: true } } } } })),
-    /schema\.status\.operations belongs to the CRUD contract: defineCrudContract\(resource, \{ fields: \{ status: \.\.\. \} \}\)/u
+    /schema\.status\.operations belongs to the CRUD contract: defineCrudContract\(resource, \{ namespace, fields: \{ status: \.\.\. \} \}\)/u
   );
 });
 
