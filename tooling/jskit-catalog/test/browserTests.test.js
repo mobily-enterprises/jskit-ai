@@ -57,6 +57,10 @@ test("each local worker reaches its own server's port, and the run is bounded an
   assert.equal(browserTestConfig({ environment: { PLAYWRIGHT_PORT: "4183", TEST_PARALLEL_INDEX: "1" } }).use.baseURL,
     "http://127.0.0.1:4184");
   assert.equal(browserTestConfig({ port: 4300, environment: {} }).use.baseURL, "http://127.0.0.1:4300");
+  // The host's login reaches every context unchanged, on a local run as on a managed target.
+  assert.equal(config.use.storageState, undefined);
+  assert.equal(browserTestConfig({ environment: { ...environment, PLAYWRIGHT_STORAGE_STATE: "/tmp/state.json" } }).use.storageState,
+    "/tmp/state.json");
   // A failed test keeps a trace without a screencast; a suite measured to need longer sets its own bound, never none.
   assert.deepEqual(config.use.trace, { mode: "retain-on-failure", screenshots: false, snapshots: true, sources: true });
   assert.equal(browserTestConfig({ globalTimeout: 45 * 60_000, environment }).globalTimeout, 45 * 60_000);

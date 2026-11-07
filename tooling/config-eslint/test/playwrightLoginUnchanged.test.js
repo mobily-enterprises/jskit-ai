@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
+import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import test, { describe, it } from "node:test";
+import { fileURLToPath } from "node:url";
+import { promisify } from "node:util";
 import { ESLint, RuleTester } from "eslint";
 import { baseConfig } from "../base.js";
 import { playwrightLoginUnchanged } from "../plugin/rules/playwrightLoginUnchanged.js";
@@ -103,6 +106,20 @@ test("the finding gives the host's own refusal sentences and is an error in ever
   assert.deepEqual(await findings(COOKIE_PATCH, "src/login.js"), []);
 });
 
+const execFileAsync = promisify(execFile);
+const SUPPLIED_LOGIN = "/run/host/playwright-storage-state.json";
+
+/** The use.storageState of a Playwright config as Playwright loads it, given the host's login and target. */
+async function composedStorageState(configPath, baseUrl) {
+  const env = { ...process.env, PLAYWRIGHT_BASE_URL: baseUrl, PLAYWRIGHT_STORAGE_STATE: SUPPLIED_LOGIN };
+  delete env.TEST_PARALLEL_INDEX;
+  const { stdout } = await execFileAsync(process.execPath, ["--input-type=module", "--eval", `
+    const { default: config } = await import(${JSON.stringify(configPath)});
+    console.log(JSON.stringify(config.use?.storageState ?? null));
+  `], { env });
+  return JSON.parse(stdout);
+}
+
 test("JSKIT's own example Playwright configs pass their login on unchanged", async () => {
   const eslint = new ESLint({ overrideConfigFile: true, overrideConfig: baseConfig });
   for (const example of [
@@ -112,9 +129,18 @@ test("JSKIT's own example Playwright configs pass their login on unchanged", asy
     "packages/agent-docs/skills/jskit/references/patterns/app/shell-foundation/example/playwright.config.mjs",
     "packages/connectors-web/test/playwright.config.js"
   ]) {
-    const code = await readFile(new URL(`../../../${example}`, import.meta.url), "utf8");
-    assert.match(code, /process\.env\.PLAYWRIGHT_STORAGE_STATE/u, `${example} reads the supplied login`);
+    const file = new URL(`../../../${example}`, import.meta.url);
+    const code = await readFile(file, "utf8");
     const [result] = await eslint.lintText(code, { filePath: "playwright.config.mjs" });
     assert.deepEqual(result.messages.filter((message) => message.ruleId === "jskit/playwright-login-unchanged"), [], example);
+    if (!/\bbrowserTestConfig\s*\(/u.test(code)) {
+      assert.match(code, /process\.env\.PLAYWRIGHT_STORAGE_STATE/u, `${example} reads the supplied login`);
+      continue;
+    }
+    // A config built by browserTestConfig() leaves reading the login to the harness: the composed config gives the
+    // supplied file to use.storageState unchanged, for a managed target and for a local run.
+    for (const baseUrl of ["http://127.0.0.1:4321", ""]) {
+      assert.equal(await composedStorageState(fileURLToPath(file), baseUrl), SUPPLIED_LOGIN, `${example} (${baseUrl || "local"})`);
+    }
   }
 });
