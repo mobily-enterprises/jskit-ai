@@ -21,14 +21,18 @@ Local functions
 - `normalizeOwnerKey(value)`
 - `readParentId(record)`
 - `passCallOptions({ callOptions = {} } = {})`
+- `explainForeignKeyFilterError(error, context, childForeignKey)`
 - `resolveListChildrenHandler(options = {}, { context = "createHooksToCollectChildren" } = {})`
 - `resolveGetChildOwnerId(options = {}, { context = "createHooksToCollectChildren" } = {})`
 - `resolveChildrenContainerKey(hookContext = {}, options = {})`
 
 ### `src/server/defineCrudFeature.js`
 Exports
-- `defineCrudFeature({ crud, id = "", capability = "", surface, owns = [], ownerRepository = "", visibility = "", systemScope = undefined, relativePath = "", internal = false, routes = true, listFilterQueryValidator = null, permissions = null, scope = {}, requires = {}, decorateRepository = null, decorateService = null, operationLifecycle = {}, operationInputs = {}, actions = {}, operations = undefined, realtimeAudience = "event_scope" })`
+- `defineCrudFeature(feature)`
 Local functions
+- `assertKnownOptions(options)`
+- `assertPermissionNames(permissions, actions)`
+- `assertServiceOperations(service, operations)`
 - `normalizeAccess(crud = {})`
 - `normalizeScope(scope = {})`
 - `routeOwnership(ownership)`
@@ -39,21 +43,6 @@ Local functions
 - `normalizeOperations(operations, resource)`
 - `resolveActionPermission(actionName, { access, workspaceScoped, permissions })`
 - `projectEnabledServiceOperations(service, operations)`
-
-### `src/server/fieldAccess.js`
-Exports
-- `createCrudFieldAccessRuntime(resource = {}, { context = "crudFieldAccess" } = {})`
-- `createFieldAccessForRoleMatrix(matrix = {}, { context = "crudFieldAccess" } = {})`
-Local functions
-- `normalizeFieldSet(value, { context = "crudFieldAccess", label = "field list" } = {})`
-- `resolveFieldSet(resolver, input = {}, { context = "crudFieldAccess", label = "field list" } = {})`
-- `resolveWriteMode(fieldAccess = {}, { context = "crudFieldAccess" } = {})`
-- `buildOutputFieldRules(resource)`
-- `resolveRoleFromFieldAccessInput(input)`
-- `resolveActionFromFieldAccessInput(input)`
-- `resolveOperationPolicyValue(operationPolicy, input = {}, action = "*")`
-- `resolveRoleMatrixPolicy(matrix = {}, operation = "readable", input = {})`
-- `applyReadableFieldPolicyToRecord(record, allowedFields, outputRules, { context = "crudFieldAccess" } = {})`
 
 ### `src/server/jsonApiModule/actions.js`
 Exports
@@ -97,8 +86,10 @@ Local functions
 
 ### `src/server/jsonApiModule/service.js`
 Exports
-- `createCrudService({ repository, resourceName })`
+- `createCrudService({ repository, resourceName, schema = {} })`
 Local functions
+- `storedDateTimeFields(schema, names)`
+- `stamps(fields)`
 - `documentNotFound()`
 - `requireDocument(document)`
 - `isNotFound(error)`
@@ -172,20 +163,16 @@ Local functions
 - `buildJsonApiFieldsetValueDefinition({ allowedFields = [] } = {})`
 - `resolveCrudListUsesOrderedCursor(list = {})`
 
-### `src/server/lookupPathSupport.js`
-Exports
-- `normalizeLookupOwnershipFilter(value, { context })`
-- `requireCrudLookupNamespace(value = "", { context = "crudLookup" } = {})`
-- `resolveCrudLookupToken(namespace = "", { context = "crudLookup" } = {})`
-
-### `src/server/lookups.js`
-Exports
-- `resolveCrudLookupToken`
-- `createCrudLookup(repository, { context = "crudLookup", ownershipFilter = "" } = {})`
-
 ### `src/server/normalizeOptionalText.js`
 Exports
 - `normalizeOptionalText(value)`
+
+### `src/server/removedApi.js`
+Exports
+- `LEGACY_REPOSITORY_METHODS`
+- `LEGACY_SERVICE_METHODS`
+- `rejectLegacyMethods(target, legacyMethods, label)`
+- `withRemovedProperties(target, removed, label)`
 
 ### `src/server/routeContracts.js`
 Exports
@@ -223,8 +210,6 @@ Exports
 - `type CrudLifecycleContext`
 - `type CrudLifecycleHooks`
 - `type CrudOperationLifecycle`
-- `type CrudLookupRepository`
-- `type CrudFieldAccess`
 
 ### patterns
 
