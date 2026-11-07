@@ -438,8 +438,19 @@ test("Reload recovers a failed initial subscription on the same connected socket
   const barrier = f.holdNextRead(f.ids[0]);
   const view = f.view(socket, f.ids[0]);
   await until(f.changes, () => barrier.started);
+  // A failed read is a server failure, so the client also retries by itself a second later. Here the person reloads
+  // within that second; on a loaded host the steps below can take longer, and the retry would then subscribe before
+  // the conversation is revoked. The test holds that retry so only Reload recovers.
+  const setTimer = globalThis.setTimeout;
+  let retry = null;
+  t.mock.method(globalThis, "setTimeout", (callback, delay, ...args) => {
+    if (retry || delay !== 1_000) return setTimer(callback, delay, ...args);
+    retry = callback;
+    return setTimer(() => {}, 0);
+  });
   barrier.reject(new Error("The initial history read failed."));
   await until(f.changes, () => view.errors.length === 1 && f.active() === 0);
+  assert.equal(typeof retry, "function", "The failed subscription scheduled its automatic retry");
   assert.equal(socket.connected, true);
   assert.equal(view.states.length, 0);
 
