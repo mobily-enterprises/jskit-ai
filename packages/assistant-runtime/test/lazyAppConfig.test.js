@@ -178,7 +178,7 @@ test("registerRoutes forwards the resolved host surface through every direct act
           params: {
             conversationId: "conversation_1",
             surfaceId: "admin",
-            workspaceSlug: "dogandgroom"
+            workspaceSlug: "acme"
           },
           query: {
             limit: 20
@@ -233,7 +233,7 @@ test("registerRoutes builds workspace action input from explicit config and scop
       },
       input: {
         params: {
-          workspaceSlug: "dogandgroom",
+          workspaceSlug: "acme",
           surfaceId: "admin"
         },
         query: {
@@ -259,7 +259,7 @@ test("registerRoutes builds workspace action input from explicit config and scop
   assert.equal(reply.statusCode, 200);
   assert.equal(capturedAction?.surface, "admin");
   assert.equal(capturedAction?.input?.targetSurfaceId, "admin");
-  assert.equal(capturedAction?.input?.workspaceSlug, "dogandgroom");
+  assert.equal(capturedAction?.input?.workspaceSlug, "acme");
 });
 
 test("registerRoutes returns clear AppError payload for pre-stream assistant failures", async () => {
@@ -306,7 +306,7 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
       },
       input: {
         params: {
-          workspaceSlug: "dogandgroom",
+          workspaceSlug: "acme",
           surfaceId: "admin"
         },
         body: {
@@ -330,7 +330,7 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
   });
   assert.deepEqual(capturedInput, {
     targetSurfaceId: "admin",
-    workspaceSlug: "dogandgroom",
+    workspaceSlug: "acme",
     messageId: "msg_1",
     input: "hello"
   });
@@ -349,7 +349,7 @@ test("registerRoutes returns clear AppError payload for pre-stream assistant fai
     await route.handler({
       raw: { on() {}, off() {} },
       headers: { "x-jskit-surface": "admin" },
-      input: { params: { workspaceSlug: "dogandgroom", surfaceId: "admin" }, body: { messageId: "msg_2", input: "hello" } },
+      input: { params: { workspaceSlug: "acme", surfaceId: "admin" }, body: { messageId: "msg_2", input: "hello" } },
       executeAction: async () => { throw failure; }
     }, reply);
     assert.equal(reply.statusCode, status);
@@ -389,7 +389,7 @@ test("chat service uses explicit app config when conversations are listed", asyn
     {
       input: {
         targetSurfaceId: "admin",
-        workspaceSlug: "dogandgroom"
+        workspaceSlug: "acme"
       },
       context: {
         actor: {
@@ -398,14 +398,14 @@ test("chat service uses explicit app config when conversations are listed", asyn
         },
         workspace: {
           id: 7,
-          slug: "dogandgroom"
+          slug: "acme"
         }
       }
     }
   );
 
   assert.equal(response.assistantSurface.targetSurfaceId, "admin");
-  assert.equal(response.workspace.slug, "dogandgroom");
+  assert.equal(response.workspace.slug, "acme");
 });
 
 test("chat service rejects workspace-scoped assistant surfaces when workspace support is unavailable", async () => {
@@ -435,7 +435,7 @@ test("chat service rejects workspace-scoped assistant surfaces when workspace su
         {
           input: {
             targetSurfaceId: "admin",
-            workspaceSlug: "dogandgroom"
+            workspaceSlug: "acme"
           },
           context: {
             actor: {

@@ -11,14 +11,12 @@
 ### Upgrading
 
 - json-rest-api 2.4.0 (from 2.1.0): `addResource` now rejects a field type json-rest-schema cannot cast, naming the field (JSKIT's own resources use only castable types); and a write's relationship targets are locked FOR SHARE (LOCK IN SHARE MODE on MySQL), so a lifecycle hook that then updates a referenced parent row in the same transaction should lock that row first, with `getDocumentById(parentId, {}, { trx, forUpdate: true })`, or two such writers can deadlock on the lock upgrade.
-- `getDocumentById(..., { forUpdate: true })` now locks: beepollen's `packages/driers/src/server/drierOperationLifecycle.js` (service, inside its transaction) gets the lock it asked for. A call that passes `forUpdate: true` without `trx` now throws; read inside `withTransaction`.
+- `getDocumentById(..., { forUpdate: true })` now locks: server code that already passes `forUpdate: true` inside its transaction gets the lock it asked for. A call that passes `forUpdate: true` without `trx` now throws; read inside `withTransaction`.
 - Give an internal resource explicit `permissions` when the assistant should keep reading it for the users who hold them.
-- Server code that calls a CRUD repository's or service's `queryDocuments` with a `limit` above 100 now throws. It already received only 100 records, so a read meant to return more was losing rows. Replace `queryDocuments({ ...filters, limit: N })` and any cursor loop around it with `queryEveryDocument({ ...filters }, options)`, sorting the records it returns in memory; a "too many rows" guard (`rows.length >= N`) then sees the true count. Calls found in the applications' main branches (canonical clones of 1-5 Nov 2026):
-  - beepollen: `packages/allowed-login-email-policy/src/server/accessRuntime.js` `listAllowedLoginEmailEntries` (limit 500, cursor loop); `packages/processing-lot-events/src/server/processingLotEventRepositoryExtensions.js` `listByProcessingLotId` (limit 500, no cursor: a lot's events past the 100th are dropped today).
-  - compas-next, `packages/owners-work/src/server`: `tariffWorkflowService.js` `listAllRows` (`WORKFLOW_PAGE_LIMIT` 500, cursor loop); `ownersChecklistAiWorkflowService.js` `loadContext` (`CHECKLIST_LIMIT` 500: a checklist past 100 rows is edited from its first 100 and the too-large guard never fires); `unappointedRequestWorkflowService.js` (`INVOICE_GROUP_LIMIT` 500, the same guard); `ownersWorkAiContext.js` (`CONTEXT_COLLECTION_QUERY_LIMIT` 501, the invoice and transaction reads and their too-large guards).
-  - dogandgroom: `packages/daycare-engine/src/server/serviceContext.js` `queryRecords` (limit 250, cursor loop).
-  - whs2: any server `queryDocuments` with a `limit` above 100 that has not yet moved to its every-row helpers.
-  - None in racing, vibe64, vibe64-online, daniela, mercbot or virtual-gp. Client pages that ask the list routes for 200 or 250 rows keep working: HTTP still caps them.
+- Server code that calls a CRUD repository's or service's `queryDocuments` with a `limit` above 100 now throws. It already received only 100 records, so a read meant to return more was losing rows. Replace `queryDocuments({ ...filters, limit: N })` and any cursor loop around it with `queryEveryDocument({ ...filters }, options)`, sorting the records it returns in memory; a "too many rows" guard (`rows.length >= N`) then sees the true count. Who is affected:
+  - Server code that asked for more than 100 records in a cursor loop around `queryDocuments`.
+  - Server code that asked for more than 100 records in one `queryDocuments` call with no cursor: the records past the 100th were dropped, and a "too many rows" guard on that read never fired.
+  - Client pages that ask the list routes for 200 or 250 rows are not: they keep working, since HTTP still caps them.
 
 ## 0.2.0 - 2026-10-29
 

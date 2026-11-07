@@ -22,34 +22,34 @@ function outline(blocks = []) {
 test("a question message keeps its intro paragraphs and nested lists apart from the question cards", () => {
   const prompt = parseNumberedQuestionPrompt(message);
   assert.deepEqual(prompt.questions.map((question) => [question.label, question.choices.length]), [
-    ["Shall I start Step 1 (the solo sweep and gap list) now?", 2],
+    ["Shall I start Step 1 (the solo check and gap list) now?", 2],
     ["For Step 2, how would you like to work?", 3]
   ]);
   assert.equal(prompt.outro, "");
 
   assert.deepEqual(outline(parseLongTextReviewBlocks(prompt.intro)), [
-    "paragraph: Here's how I'd run a final sweep in thre",
-    "paragraph: **Step 1: I sweep on my own (no need for",
+    "paragraph: Here's how I'd run a final check of the ",
+    "paragraph: **Step 1: I check on my own (no need for",
     {
       ul: [
-        "**Click everything.** I go through every",
+        "**Try every screen.** I open every scree",
         {
-          "**Gather the \"unverified\" lists.** Every": [
-            { ul: ["**I can observe it now:** for example, e", "**Needs you:** real accounts, audio, a s", "**Can't be observed at all.**"] }
+          "**Gather the \"open question\" lists.** Ev": [
+            { ul: ["**I can check it now:** for example, ren", "**Needs you:** real accounts, printing, ", "**Can't be checked at all.**"] }
           ]
         },
-        "**Output:** one gap list, saved to your "
+        "**Output:** one gap list, saved to the s"
       ]
     },
     "paragraph: **Step 2: a session with you, for the \"n",
     {
       ul: [
-        "**You drive the reference over VNC**, us",
-        "**I record the screen** at a low frame r",
-        "**Things outside the reference machine:*",
+        "**You use the planner on your own comput",
+        "**I take notes as you go** and capture s",
+        "**Things outside the planner itself:** p",
         {
           "**What I need from you:**": [
-            { ul: ["which features you know or suspect exist", "the test Google account, so I can see th", "your call on anything that sends real da"] }
+            { ul: ["which features you know or suspect exist", "the test account, so I can see the real ", "your call on anything that sends real da"] }
           ]
         }
       ]
@@ -58,14 +58,14 @@ test("a question message keeps its intro paragraphs and nested lists apart from 
     {
       ul: [
         {
-          "**For mercbot:**": [
-            { ul: ["Newly discovered areas go to mercbot as ", "Each one gets a spec, sent when you or m"] }
+          "**For the design notes:**": [
+            { ul: ["Newly found screens go into the notes as", "Each one gets a short note, written when"] }
           ]
         },
         "**For you:** a final coverage summary."
       ]
     },
-    "paragraph: **One thing to keep in mind:** you'll se"
+    "paragraph: **One thing to keep in mind:** some scre"
   ]);
 });
 

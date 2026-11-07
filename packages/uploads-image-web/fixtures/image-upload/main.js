@@ -70,8 +70,8 @@ const AvatarPage = {
   }
 };
 
-// The upload runtime as whs2 calls it: an endpoint and the four callbacks every application supplies, leaving
-// onSelectedFileNameChanged, onInvalidResponse and onUnavailable to their defaults.
+// The upload runtime as an application calls it: an endpoint and the four callbacks every application supplies,
+// leaving onSelectedFileNameChanged, onInvalidResponse and onUnavailable to their defaults.
 const SignaturePage = {
   setup() {
     const events = reactive([]);
