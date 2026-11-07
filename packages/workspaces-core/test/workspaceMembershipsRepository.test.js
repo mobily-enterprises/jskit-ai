@@ -283,7 +283,7 @@ test("workspaceMembershipsRepository.listActiveWorkspaceIdsByUserId returns norm
       },
       include: ["workspace"],
       sort: ["id"],
-      page: { size: 100 }
+      page: { size: 1000 }
     }
   ]);
 });

@@ -43,10 +43,11 @@ async function createContactsFixture(t) {
   };
   await api.addResource("contacts", createJsonRestResourceScopeOptions(resource));
   await api.addResource("smallPageContacts", createJsonRestResourceScopeOptions({ ...resource, queryMaxLimit: 30 }));
-  return api;
+  await api.addResource("largePageContacts", createJsonRestResourceScopeOptions({ ...resource, queryMaxLimit: 2000 }));
+  return { api, knex };
 }
 
-// The real resource, recording the page each query asks for.
+// The real resource, recording the page and page size limit each query asks for.
 function recordPages(resource) {
   const pages = [];
   return {
@@ -54,7 +55,7 @@ function recordPages(resource) {
     resource: {
       vars: resource.vars,
       query(params, context) {
-        pages.push(params.queryParams.page);
+        pages.push({ ...params.queryParams.page, pageSizeLimit: params.pageSizeLimit });
         return resource.query(params, context);
       }
     }
@@ -67,7 +68,7 @@ function teamA() {
 }
 
 test("a query without a page returns 20 rows, and queryAllJsonRestCollectionRows returns every match once in id order", async (t) => {
-  const api = await createContactsFixture(t);
+  const { api } = await createContactsFixture(t);
   const firstPage = extractJsonRestCollectionRows(await api.resources.contacts.query(teamA()));
   assert.equal(firstPage.length, 20);
 
@@ -79,25 +80,44 @@ test("a query without a page returns 20 rows, and queryAllJsonRestCollectionRows
   assert.equal(new Set(ids).size, 200);
   assert.deepEqual(ids, [...ids].sort((left, right) => left - right));
   assert.ok(rows.every((row) => row.team === "a"));
-  // 200 rows fill two pages of 100; json-rest-api reports that no third page follows.
-  assert.deepEqual(pages.map(({ size }) => size), [100, 100]);
   assert.equal(pages[0].after, undefined);
-  assert.equal(typeof pages[1].after, "string");
+  assert.ok(pages.slice(1).every(({ after }) => typeof after === "string"));
 });
 
-test("queryAllJsonRestCollectionRows reads pages of the resource's own maximum size", async (t) => {
-  const api = await createContactsFixture(t);
-  const { pages, resource } = recordPages(api.resources.smallPageContacts);
+test("queryAllJsonRestCollectionRows asks for 1,000-row pages, or the resource's larger maximum", async (t) => {
+  const { api } = await createContactsFixture(t);
+  for (const [name, size] of [["contacts", 1000], ["smallPageContacts", 1000], ["largePageContacts", 2000]]) {
+    const { pages, resource } = recordPages(api.resources[name]);
+
+    const rows = await queryAllJsonRestCollectionRows(resource, teamA(), null);
+
+    assert.equal(rows.length, 200, name);
+    assert.equal(new Set(rows.map((row) => row.id)).size, 200, name);
+    assert.ok(pages.every((page) => page.size === size && page.pageSizeLimit === size), name);
+  }
+});
+
+test("queryAllJsonRestCollectionRows returns every one of 1,100 matches across pages", async (t) => {
+  const { api, knex } = await createContactsFixture(t);
+  const extra = Array.from({ length: 900 }, (_, index) => ({ team: "a", name: `Extra ${String(index).padStart(3, "0")}` }));
+  for (let start = 0; start < extra.length; start += 100) {
+    await knex("contacts").insert(extra.slice(start, start + 100));
+  }
+  const { pages, resource } = recordPages(api.resources.contacts);
 
   const rows = await queryAllJsonRestCollectionRows(resource, teamA(), null);
 
-  assert.equal(rows.length, 200);
-  assert.equal(new Set(rows.map((row) => row.id)).size, 200);
-  assert.deepEqual(pages.map(({ size }) => size), [30, 30, 30, 30, 30, 30, 30]);
+  const ids = rows.map((row) => Number(row.id));
+  assert.equal(rows.length, 1100);
+  assert.equal(new Set(ids).size, 1100);
+  assert.deepEqual(ids, [...ids].sort((left, right) => left - right));
+  // More rows than one page of any size it asks for, so it follows the cursor.
+  assert.ok(pages.length >= 2);
+  assert.ok(pages.slice(1).every(({ after }) => typeof after === "string"));
 });
 
 test("queryAllJsonRestCollectionRows reads every page in the caller's transaction with a copy of its context", async (t) => {
-  const api = await createContactsFixture(t);
+  const { api } = await createContactsFixture(t);
   // json-rest-api writes its working state into the context it receives, so a frozen one must be copied.
   const context = Object.freeze({ scopeValues: Object.freeze({}) });
 
@@ -114,7 +134,7 @@ test("queryAllJsonRestCollectionRows reads every page in the caller's transactio
 });
 
 test("queryAllJsonRestCollectionRows refuses a page or sort, which it sets itself", async (t) => {
-  const api = await createContactsFixture(t);
+  const { api } = await createContactsFixture(t);
   for (const queryParams of [{ filters: { team: "a" }, page: { size: 5 } }, { sort: ["name"] }]) {
     await assert.rejects(
       () => queryAllJsonRestCollectionRows(api.resources.contacts, { queryParams, format: "plain" }, null),

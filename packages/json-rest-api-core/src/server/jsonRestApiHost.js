@@ -446,15 +446,22 @@ function extractJsonRestCollectionRows(payload) {
   return payload.data;
 }
 
+// Every-row reads ask for pages this large, so each page's row policy and
+// linkage checks run once per 1,000 rows instead of once per queryMaxLimit.
+const EVERY_ROW_PAGE_SIZE = 1000;
+
 /**
  * Every row a resource query matches, for server code that needs them all: a
  * query without a page returns only the resource's first page, 20 rows by
- * default. It reads cursor pages of the resource's largest size
- * (`queryMaxLimit`) in id order until json-rest-api reports no more, so no row
- * is skipped or repeated between pages; callers sort the rows themselves. Each
- * page runs with the caller's params, its transaction among them, and its own
- * copy of the context, since json-rest-api keeps an operation's working state
- * in the context it is given.
+ * default. It reads cursor pages in id order until json-rest-api reports no
+ * more, so no row is skipped or repeated between pages; callers sort the rows
+ * themselves. Pages are 1,000 rows, or the resource's `queryMaxLimit` when that
+ * is larger, through json-rest-api's server-only `pageSizeLimit` (2.4.0 and
+ * later); an earlier json-rest-api ignores it and caps each page at
+ * `queryMaxLimit`, and the loop still returns every row. Each page runs with
+ * the caller's params, its transaction among them, and its own copy of the
+ * context, since json-rest-api keeps an operation's working state in the
+ * context it is given.
  * @param {import("./types.js").JsonRestResource} resource One of `api.resources`.
  * @param {{ queryParams: object, transaction?: object | null, format?: "plain" | "jsonapi" }} params
  *   resource.query()'s params, with no `queryParams.page` or `queryParams.sort`.
@@ -466,13 +473,14 @@ async function queryAllJsonRestCollectionRows(resource, { queryParams, ...params
     throw new TypeError("queryAllJsonRestCollectionRows pages in id order itself, so queryParams cannot name a page or sort.");
   }
 
-  const size = resource.vars.queryMaxLimit;
+  const size = Math.max(EVERY_ROW_PAGE_SIZE, resource.vars.queryMaxLimit || 0);
   const rows = [];
   let after = null;
   do {
     const payload = await resource.query(
       {
         ...params,
+        pageSizeLimit: size,
         queryParams: {
           ...queryParams,
           sort: ["id"],
