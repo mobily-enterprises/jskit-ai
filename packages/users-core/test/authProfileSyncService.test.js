@@ -175,3 +175,55 @@ test("auth profile sync joins the supplied managed transaction and propagates co
   await assert.rejects(service.syncIdentityProfile(profile, { trx }), error => error === failure);
   assert.deepEqual(calls, [trx, trx, trx, trx]);
 });
+
+test("an ordinary request's profile check (onlyWhenChanged) reads a matching profile once and synchronizes only a changed or missing one", async () => {
+  const stored = { id: "7", authProvider: "local", authProviderUserSid: "u-7", email: "ada@example.com", displayName: "Ada" };
+  let row = stored;
+  const calls = [];
+  const service = createService({
+    userProfilesRepository: {
+      async findByIdentity(_identity, options = {}) {
+        calls.push(options.trx ? "find in transaction" : "find");
+        return row;
+      },
+      async upsert(payload) {
+        calls.push("upsert");
+        row = { id: row?.id || "8", ...payload };
+        return row;
+      },
+      async withTransaction(work) {
+        calls.push("transaction");
+        return work({ trxId: "tx" });
+      }
+    },
+    userSettingsRepository: {
+      async ensureForUserId(userId) {
+        calls.push("ensure settings");
+        return { userId };
+      }
+    },
+    resolveLifecycleContributors: () => [{
+      contributorId: "test.lifecycle",
+      async afterIdentityProfileSynced() {
+        calls.push("lifecycle");
+      }
+    }]
+  });
+  const identity = (displayName) => ({ authProvider: "local", authProviderUserSid: "u-7", email: "ada@example.com", displayName });
+
+  assert.equal(await service.syncIdentityProfile(identity("Ada"), { onlyWhenChanged: true }), stored);
+  assert.deepEqual(calls.splice(0), ["find"]);
+
+  const renamed = await service.syncIdentityProfile(identity("Ada Lovelace"), { onlyWhenChanged: true });
+  assert.equal(renamed.displayName, "Ada Lovelace");
+  assert.deepEqual(calls.splice(0), ["find", "transaction", "find in transaction", "upsert", "ensure settings", "lifecycle"]);
+
+  row = null;
+  const created = await service.syncIdentityProfile(identity("Ada Lovelace"), { onlyWhenChanged: true });
+  assert.equal(created.id, "8");
+  assert.deepEqual(calls.splice(0), ["find", "transaction", "find in transaction", "upsert", "ensure settings", "lifecycle"]);
+
+  // A sign-in or token refresh (no option) still synchronizes a matching profile in full.
+  await service.syncIdentityProfile(identity("Ada Lovelace"));
+  assert.deepEqual(calls.splice(0), ["transaction", "find in transaction", "ensure settings", "lifecycle"]);
+});

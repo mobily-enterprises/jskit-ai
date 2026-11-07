@@ -144,6 +144,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
           return { user, session };
         });
         if (resolved && isAuthenticatingSession(resolved.session)) {
+          // An ordinary request: its session and user are read above; the profile is synchronized only when it changed.
           const authPayload = await buildSessionAuthPayload({
             appProfileProjection,
             devAuth,
@@ -151,7 +152,8 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
             request,
             session: resolved.session,
             user: resolved.user,
-            syncProfile
+            syncProfile,
+            onlyWhenChanged: true
           });
           if (!authPayload) {
             return unauthenticatedAuthResult(true);

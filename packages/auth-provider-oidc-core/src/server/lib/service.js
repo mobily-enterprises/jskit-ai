@@ -115,9 +115,12 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     }
   });
 
-  async function syncedResult(identity, { session = null } = {}) {
+  async function syncedResult(identity, { session = null, onlyWhenChanged = false } = {}) {
     if (!appProfileProjection) return buildResult(identity, { session });
-    const appProfile = await profileProjector.syncIdentityProfile(buildProfile(identity));
+    const profile = buildProfile(identity);
+    const appProfile = await (onlyWhenChanged
+      ? profileProjector.syncIdentityProfile(profile, { onlyWhenChanged })
+      : profileProjector.syncIdentityProfile(profile));
     return buildResult(identity, { session, appProfile });
   }
 
@@ -276,7 +279,10 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
 
   /**
    * A dev session, or a caller that asks only who is signed in (syncProfile:
-   * false), reads the existing app profile instead of synchronizing it.
+   * false), reads the existing app profile instead of synchronizing it. Any
+   * other request synchronizes only a missing profile or one that no longer
+   * matches the identity the session keeps from its sign-in, which synchronized
+   * in full.
    */
   async function authenticateRequest(request, { syncProfile = true } = {}) {
     const session = await sessionFromRequest(request);
@@ -296,7 +302,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
       if (appProfileProjection && !appProfile) return unauthenticated(true);
       result = buildResult(identity, { appProfile });
     } else {
-      result = await syncedResult(identity);
+      result = await syncedResult(identity, { onlyWhenChanged: true });
     }
     return {
       authenticated: true,

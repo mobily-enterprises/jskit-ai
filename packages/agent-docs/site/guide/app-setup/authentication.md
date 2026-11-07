@@ -64,6 +64,23 @@ Protected server operations declare an auth policy; they do not trust a hidden
 button or a page-local session check. Other packages extend auth through the
 public extension capability rather than replacing the auth service.
 
+## When the app profile is synchronized
+
+With users-core, every signed-in identity has an app profile (a `users` row),
+and synchronizing it also ensures the user's settings and runs the profile-sync
+lifecycle, where workspaces-core provisions the personal workspace. The
+providers synchronize in full at sign-in, registration, account changes and
+each session refresh (local auth: when the 15-minute access token has expired).
+An ordinary request checks its session as always, then reads the
+profile once: it synchronizes in full only when the profile is missing or its
+email or display name no longer matches the identity the request carries.
+
+So a name or email changed at the provider shows at the next request, while a
+personal workspace, owner membership or settings row deleted while the person
+is signed in comes back at their next sign-in or session refresh, not at their
+next request. Authorization never rests on those rows: sign-out and revoked
+sessions take effect at the next request.
+
 ## Sign-in protection
 
 Two limits slow down password guessing, and both are on by default.

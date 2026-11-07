@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- An ordinary request synchronizes the app profile only when it is missing or no longer matches the identity its session keeps from sign-in (`onlyWhenChanged`); sign-in synchronizes in full. The session is still read on every request. Visible difference: a personal workspace, owner membership or settings row deleted while someone is signed in comes back at their next sign-in instead of their next request.
 - `confirmRegistration` answers `AUTH_OPERATION_UNSUPPORTED`: the hub confirms emails itself.
 
 ## 0.2.0 - 2026-10-29

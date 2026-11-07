@@ -85,15 +85,19 @@ function createSupabaseProfileMirror({ config, profiles }) {
 
   /**
    * With syncProfile: false the caller asks only who is signed in, so the
-   * existing profile is read instead of synchronized.
+   * existing profile is read instead of synchronized. An ordinary request
+   * (`onlyWhenChanged`) synchronizes only a missing profile or one that no longer
+   * matches the token's identity; a sign-in or a session refresh synchronizes in full.
    */
-  async function syncProfileMirror(nextProfile, { syncProfile = true } = {}) {
+  async function syncProfileMirror(nextProfile, { syncProfile = true, onlyWhenChanged = false } = {}) {
     if (!syncProfile) {
       return findProfileByIdentity(nextProfile);
     }
     try {
       const normalized = buildNormalizedIdentityProfile(nextProfile);
-      const synchronizedProfile = await projector.syncIdentityProfile(normalized);
+      const synchronizedProfile = await (onlyWhenChanged
+        ? projector.syncIdentityProfile(normalized, { onlyWhenChanged })
+        : projector.syncIdentityProfile(normalized));
       return requireSynchronizedProfile(synchronizedProfile);
     } catch (error) {
       if (String(error?.code || "") === USER_PROFILE_EMAIL_CONFLICT_CODE) {
@@ -169,28 +173,22 @@ function createSupabaseProfileMirror({ config, profiles }) {
       throw new AppError(401, "Token is missing subject claim.", { code: "auth.supabase.token.subjectMissing" });
     }
 
-    const existing = await findProfileByIdentity({
-      authProvider: SUPABASE_PROVIDER_ID,
-      authProviderUserSid: supabaseUserId
-    });
-    if (!syncProfile) {
-      return existing;
-    }
+    const identity = { authProvider: SUPABASE_PROVIDER_ID, authProviderUserSid: supabaseUserId };
     const emailFromToken = normalizeEmail(claims?.email || "");
-
-    if (!emailFromToken) {
-      if (existing) {
+    if (!syncProfile || !emailFromToken) {
+      const existing = await findProfileByIdentity(identity);
+      if (!syncProfile || existing) {
         return existing;
       }
       throw new AppError(401, "Token is missing email claim.", { code: "auth.supabase.token.emailMissing" });
     }
 
+    // An ordinary request: the token's identity is synchronized only when the profile is missing or differs.
     return syncProfileMirror({
-      authProvider: SUPABASE_PROVIDER_ID,
-      authProviderUserSid: supabaseUserId,
+      ...identity,
       email: emailFromToken,
       displayName: resolveDisplayName(claims, emailFromToken)
-    });
+    }, { onlyWhenChanged: true });
   }
 
   return Object.freeze({

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A request with a valid access token synchronizes the app profile only when it is missing or no longer matches the token's email and display name (`onlyWhenChanged`), after one read instead of two plus a transaction; sign-in, account changes and a session refresh synchronize in full. Visible difference: a personal workspace, owner membership or settings row deleted while someone is signed in comes back at their next session refresh or sign-in instead of their next request.
 - `confirmRegistration` answers `AUTH_OPERATION_UNSUPPORTED`: Supabase confirms an email through its own link.
 
 ## 0.2.0 - 2026-10-29

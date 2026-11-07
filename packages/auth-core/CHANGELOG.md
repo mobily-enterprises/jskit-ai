@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `AuthProfileProjector.syncIdentityProfile` documents `onlyWhenChanged`, which providers pass on an ordinary request so a profile that already matches is only read; sign-in and session refresh synchronize in full.
 - `normalizeAuthCapabilities` carries `features.password.selfRegister`: whether anyone may register, not only an invited person or the first account. A provider that doesn't say gets the value of `register`.
 - The register body takes `setupCode`, the first account's one-time setup code, and the capability `features.firstAccountSetupCode` says a provider is waiting for it. New message key: `jskit.auth.validation.setupCodeInvalid`.
 - Registration confirmation: the action and command `auth.register.confirm` (`POST /api/register/confirm`, body `{ token }`, answer `{ ok, email, username, message }` with a message code) confirm a registration's email from the code in its link, and `authApi.confirmRegistration()` calls it. `AuthService.confirmRegistration(input)` creates the waiting account and its session; a provider without it answers `AUTH_OPERATION_UNSUPPORTED`. The capability `features.emailConfirmationCode` says the provider takes a code that way. The register and resend answers may carry `confirmationUrl`, the link itself in development. New message keys: `jskit.auth.login.emailUnconfirmed` (refused sign-in, status 403) and `jskit.auth.validation.confirmationCodeRequired`.

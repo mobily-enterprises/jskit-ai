@@ -88,8 +88,19 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
     );
   }
 
-  async function syncIdentityProfile(profileLike, options = {}) {
+  /**
+   * Creates or updates the users row of a signed-in identity, ensures its settings and runs the lifecycle
+   * contributors (personal workspace provisioning). With `onlyWhenChanged`, an existing row that already
+   * matches the identity is answered after one read, without that work: an ordinary request's check.
+   * @param {object} profileLike
+   * @param {{ onlyWhenChanged?: boolean, trx?: object }} [options]
+   */
+  async function syncIdentityProfile(profileLike, { onlyWhenChanged = false, ...options } = {}) {
     const normalized = buildNormalizedIdentityProfile(profileLike);
+    if (onlyWhenChanged) {
+      const existing = await findByIdentity(normalized, options);
+      if (!profileNeedsUpdate(existing, normalized)) return requireSynchronizedProfile(existing);
+    }
     const lifecycleContributors = resolveLifecycleContributors();
 
     const runSync = async (trx) => {

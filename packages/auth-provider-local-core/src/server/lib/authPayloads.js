@@ -82,7 +82,10 @@ function findExistingAppProfile(user, profileProjector) {
 /**
  * A dev session, or a caller that asks only who is signed in (syncProfile:
  * false), reads the existing app profile instead of synchronizing it. When the
- * application keeps profiles, a user without one is not signed in.
+ * application keeps profiles, a user without one is not signed in. An ordinary
+ * request (`onlyWhenChanged`) synchronizes only a missing profile or one whose
+ * email or display name no longer matches the user; a sign-in or a session
+ * refresh synchronizes in full.
  * @param {object} input
  * @param {boolean} input.appProfileProjection True when the application keeps profiles.
  * @param {object} input.devAuth
@@ -91,11 +94,13 @@ function findExistingAppProfile(user, profileProjector) {
  * @param {object} input.session
  * @param {object} input.user
  * @param {boolean} [input.syncProfile]
+ * @param {boolean} [input.onlyWhenChanged]
  */
-async function buildSessionAuthPayload({ appProfileProjection, devAuth, profileProjector, request, session, user, syncProfile = true }) {
+async function buildSessionAuthPayload({ appProfileProjection, devAuth, profileProjector, request, session, user, syncProfile = true,
+  onlyWhenChanged = false }) {
   const devSession = isDevAuthSession(session);
   if (!devSession && syncProfile) {
-    return buildAuthPayload({ user, session: null, profileProjector });
+    return buildAuthPayload({ user, session: null, profileProjector, profileOptions: onlyWhenChanged ? { onlyWhenChanged } : {} });
   }
   if (devSession) {
     try {

@@ -56,8 +56,12 @@ config.tenancyPolicy = {
 ```
 
 Provisioning runs in the users profile-sync lifecycle after registration and
-sign-in. The first run creates the personal workspace, its owner membership and
-its settings; later runs reuse it. The default name is the user's display name,
+sign-in, at each session refresh, and on a request whose identity's email or
+display name changed. The first run creates the personal workspace, its owner
+membership and its settings; later runs reuse it. An ordinary request only reads
+the existing profile, so a personal workspace, owner membership or settings row
+deleted while the person is signed in comes back at their next sign-in or
+session refresh, not at their next request. The default name is the user's display name,
 or email, followed by "'s Workspace". To choose another, provide the
 `workspaces.personal-workspace-name` capability from an application feature. It
 receives the synchronized profile (`id`, `displayName`, `email`, `username`), and

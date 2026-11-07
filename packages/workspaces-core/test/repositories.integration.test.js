@@ -86,6 +86,8 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   let memberships;
   let invites;
   let settings;
+  let usersExtensions;
+  let profileProjector;
   let ownsTables = false;
 
   before(async () => {
@@ -111,11 +113,13 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       await migration.up(knex);
     }
     api = await createJsonRestApiHost({ knex, logger: { error() {}, warn() {}, info() {}, debug() {} } });
-    const { identity } = await UsersIdentityProvider.setup({
+    usersExtensions = createUsersExtensions();
+    const { identity, profileProjector: projector } = await UsersIdentityProvider.setup({
       authExtensions: createAuthExtensions(),
-      extensions: createUsersExtensions(),
+      extensions: usersExtensions,
       jsonRestApi: api
     });
+    profileProjector = projector;
     ({ userProfiles: profiles, userSettings } = identity.repositories);
     await installWorkspaceResources(api);
     workspaces = createWorkspacesRepository({ api });
@@ -423,6 +427,50 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal(many.result.value.slug, "globex-201");
     // A read per taken candidate would add about 190 statements.
     assert.equal(many.statements, few.statements, `${few.statements} statements after 10 namesakes, ${many.statements} after 200`);
+  });
+
+  test("an ordinary request reads its matching profile in one statement; sign-in and a changed identity synchronize in full", async () => {
+    const directory = createDirectoryService({
+      tenancyProfile: resolveTenancyProfile({ tenancyMode: "personal" }),
+      roleCatalog: createWorkspaceRoleCatalog(),
+      personalWorkspaceName: buildWorkspaceName,
+      workspacesRepository: workspaces,
+      workspaceMembershipsRepository: memberships,
+      workspaceSettingsRepository: settings
+    });
+    // What WorkspacesIntegrationsProvider registers: a synchronization provisions the personal workspace.
+    usersExtensions.registerProfileSyncLifecycleContributor({
+      contributorId: "workspaces.provisioning",
+      order: 100,
+      afterIdentityProfileSynced: ({ profile, options }) => directory.ensureProvisionedWorkspaceForAuthenticatedUser(profile, options)
+    });
+    const identity = (displayName) => ({ authProvider: "local", authProviderUserSid: "identity-ada", email: "ada@example.com", displayName });
+    const personalWorkspaces = (userId) => knex("workspaces").where({ owner_user_id: userId, is_personal: true }).count({ count: "*" })
+      .first().then((row) => Number(row.count));
+
+    const signIn = await statementsOf(() => profileProjector.syncIdentityProfile(identity("Ada")));
+    const userId = signIn.result.id;
+    assert.equal(await personalWorkspaces(userId), 1);
+    const read = await statementsOf(() => profiles.findByIdentity({ provider: "local", providerUserId: "identity-ada" }));
+
+    const request = await statementsOf(() => profileProjector.syncIdentityProfile(identity("Ada"), { onlyWhenChanged: true }));
+    assert.equal(request.result.id, userId);
+    assert.equal(request.statements, read.statements, "An ordinary request reads the profile and nothing else");
+    assert.ok(signIn.statements > read.statements, `sign-in ${signIn.statements} statements, a profile read ${read.statements}`);
+
+    // A deleted personal workspace is not provisioned again by an ordinary request, only by the next full synchronization.
+    await knex("workspace_settings").delete();
+    await knex("workspace_memberships").delete();
+    await knex("workspaces").delete();
+    await profileProjector.syncIdentityProfile(identity("Ada"), { onlyWhenChanged: true });
+    assert.equal(await personalWorkspaces(userId), 0);
+    await profileProjector.syncIdentityProfile(identity("Ada"));
+    assert.equal(await personalWorkspaces(userId), 1);
+
+    // An identity whose name changed outside the app is synchronized by the request that carries it.
+    const renamed = await statementsOf(() => profileProjector.syncIdentityProfile(identity("Ada Lovelace"), { onlyWhenChanged: true }));
+    assert.equal(renamed.result.displayName, "Ada Lovelace");
+    assert.ok(renamed.statements > read.statements);
   });
 
   test("a member of 130 workspaces has all of them listed", async () => {

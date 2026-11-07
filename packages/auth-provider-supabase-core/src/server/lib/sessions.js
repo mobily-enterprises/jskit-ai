@@ -349,7 +349,7 @@ function createSupabaseSessions({ config, clients, profileMirror, profiles }) {
       }
 
       if (verification.status === "invalid") {
-        const supabaseVerification = await verifyAccessTokenViaSupabase(accessToken, { syncProfile });
+        const supabaseVerification = await verifyAccessTokenViaSupabase(accessToken, { syncProfile, onlyWhenChanged: true });
         if (supabaseVerification.status === "valid") {
           return signedIn(supabaseVerification.profile);
         }

@@ -24,9 +24,12 @@
  * identities that sign in. An auth provider without one uses noAppProfiles
  * (`@jskit-ai/auth-core/server/noAppProfiles`), which keeps none.
  * @typedef {object} AuthProfileProjector
- * @property {(profile: object, options?: object) => Promise<object | null>} syncIdentityProfile
+ * @property {(profile: object, options?: { onlyWhenChanged?: boolean }) => Promise<object | null>} syncIdentityProfile
  *   Creates or updates the application's profile of a signed-in identity and answers it,
- *   or null when the application keeps no profiles.
+ *   or null when the application keeps no profiles. Providers synchronize in full at sign-in and
+ *   at each session refresh; an ordinary request passes `onlyWhenChanged`, which answers an
+ *   existing profile that already matches the identity after one read and synchronizes only a
+ *   missing or changed one.
  * @property {(identity: object, options?: object) => Promise<object | null>} findByIdentity
  *   Answers the existing profile without synchronizing it, or null when there is none.
  */
