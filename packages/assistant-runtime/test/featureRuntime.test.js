@@ -42,7 +42,7 @@ test("AssistantFeature composes chat, transcripts, settings, routes, and action 
     providers: [
       EventProvider, ActionProvider,
       valueProvider("test.config", "runtime.config", config),
-      valueProvider("test.database", "runtime.database", { knex: Object.assign(() => {}, {}) }),
+      valueProvider("test.repositories", "assistant.repositories", { config: {}, conversations: {}, messages: {}, turnRequests: {} }),
       valueProvider("test.env", "runtime.env", {}),
       valueProvider("test.http", "runtime.http", {
         router: {

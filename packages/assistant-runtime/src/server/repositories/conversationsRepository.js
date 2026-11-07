@@ -1,16 +1,16 @@
-import { applyForUpdate, createWithTransaction, normalizeDbRecordId, runInTransaction } from "@jskit-ai/database-runtime/shared/repositoryOptions";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
-  applyWorkspaceScope,
-  normalizeDbWorkspaceId,
   normalizeInputRecordId,
   parseJsonObject,
-  resolveInsertedId,
+  runInHandleTransaction,
   stringifyJsonObject,
-  toIso
+  toIso,
+  toWrittenDateTime
 } from "./repositoryPersistenceUtils.js";
-import { DEFAULT_CONVERSATION_TITLE, assistantRuntimeConfig } from "../../shared/assistantRuntimeConfig.js";
+import { DEFAULT_CONVERSATION_TITLE } from "../../shared/assistantRuntimeConfig.js";
+
+const TRANSCRIPT_FIELDS = Object.freeze(["summaryText", "summaryThroughTurnId", "transcriptRevision"]);
 
 function normalizeRequiredSurfaceId(value) {
   const normalizedSurfaceId = normalizeSurfaceId(value);
@@ -21,22 +21,22 @@ function normalizeRequiredSurfaceId(value) {
   return normalizedSurfaceId;
 }
 
-function mapConversationRow(row = {}) {
+function mapConversationRecord(record = {}) {
   return {
-    id: normalizeDbRecordId(row.id, { fallback: "" }),
-    workspaceId: normalizeDbWorkspaceId(row.workspace_id),
-    title: String(row.title || DEFAULT_CONVERSATION_TITLE),
-    createdByUserId: row.created_by_user_id == null ? null : normalizeDbRecordId(row.created_by_user_id, { fallback: null }),
-    status: String(row.status || "active"),
-    provider: String(row.provider || ""),
-    model: String(row.model || ""),
-    surfaceId: String(row.surface_id || ""),
-    startedAt: toIso(row.started_at),
-    endedAt: row.ended_at ? toIso(row.ended_at) : null,
-    messageCount: Number(row.message_count || 0),
-    metadata: parseJsonObject(row.metadata_json),
-    createdAt: toIso(row.created_at),
-    updatedAt: toIso(row.updated_at)
+    id: normalizeRecordId(record.id, { fallback: "" }),
+    workspaceId: normalizeInputRecordId(record.workspaceId),
+    title: String(record.title || DEFAULT_CONVERSATION_TITLE),
+    createdByUserId: record.userId == null ? null : normalizeInputRecordId(record.userId),
+    status: String(record.status || "active"),
+    provider: String(record.provider || ""),
+    model: String(record.model || ""),
+    surfaceId: String(record.surfaceId || ""),
+    startedAt: toIso(record.startedAt),
+    endedAt: record.endedAt ? toIso(record.endedAt) : null,
+    messageCount: Number(record.messageCount || 0),
+    metadata: parseJsonObject(record.metadataJson),
+    createdAt: toIso(record.createdAt),
+    updatedAt: toIso(record.updatedAt)
   };
 }
 
@@ -53,13 +53,43 @@ function normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimi
   };
 }
 
-function createConversationBaseQuery(client) {
-  return client(`${assistantRuntimeConfig.conversationsTable} as c`).select("c.*");
+// json-rest-api refuses a row lock outside a transaction; callers have always seen this TypeError.
+function rethrowLockError(error) {
+  if (error?.type === "rest_api_lock_outside_transaction") {
+    throw new TypeError("Locking a conversation requires its database transaction.");
+  }
+  throw error;
 }
 
-/** @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} knex */
-function createRepository(knex) {
-  const withTransaction = createWithTransaction(knex);
+/**
+ * The assistant's conversations, on the assistantConversations table. A
+ * conversation's actor reads it in that actor's user context; the transcript
+ * storage, which reaches a conversation by id after its caller's actor check,
+ * and creates without a valid creator use the system context.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.conversations
+ * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext
+ */
+function createRepository({ conversations, systemContext }) {
+  const conversationContext = systemContext("a conversation reached by id after its caller checked the actor scope, or created without a valid creator");
+
+  function withTransaction(options, work) {
+    return runInHandleTransaction(conversations, options, work);
+  }
+
+  function transaction(work, { retries } = {}) {
+    return runInHandleTransaction(conversations, {}, work, { retry: retries !== 0 });
+  }
+
+  // The record as `context` sees it, under a row lock when asked.
+  async function readRecord(id, { forUpdate = false, ...options }, context) {
+    const scoped = { ...options, context };
+    if (forUpdate !== true) {
+      return conversations.get(id, {}, scoped);
+    }
+    const [locked] = await conversations.lockMany([id], { ...scoped, missing: "skip" }).catch(rethrowLockError);
+    return locked || null;
+  }
 
   async function findById(conversationId, options = {}) {
     const normalizedConversationId = normalizeInputRecordId(conversationId);
@@ -67,18 +97,8 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options.trx || knex;
-    if (options.forUpdate === true) {
-      if (!options.trx) throw new TypeError("Locking a conversation requires its database transaction.");
-      // Acquire the write reservation before reading, including SQLite where
-      // SELECT FOR UPDATE is not supported. This does not change row contents.
-      await client(assistantRuntimeConfig.conversationsTable).where({ id: normalizedConversationId })
-        .update({ id: normalizedConversationId });
-    }
-    const query = createConversationBaseQuery(client).where("c.id", normalizedConversationId);
-    const row = await applyForUpdate(query, options).first();
-
-    return row ? mapConversationRow(row) : null;
+    const record = await readRecord(normalizedConversationId, options, conversationContext);
+    return record ? mapConversationRecord(record) : null;
   }
 
   async function findByIdForActorScope(
@@ -93,45 +113,39 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options.trx || knex;
-    if (options.forUpdate === true) await findById(normalizedConversationId, options);
-    const query = createConversationBaseQuery(client)
-      .where("c.id", normalizedConversationId)
-      .where("c.created_by_user_id", normalizedActorUserId)
-      .where("c.surface_id", normalizedSurfaceId);
-    applyWorkspaceScope(query, "c.workspace_id", workspaceId);
-    const row = await applyForUpdate(query, options).first();
+    const record = await readRecord(normalizedConversationId, options, conversationContext.forUser(normalizedActorUserId));
+    if (!record || record.surfaceId !== normalizedSurfaceId ||
+        normalizeInputRecordId(record.workspaceId) !== normalizeInputRecordId(workspaceId)) {
+      return null;
+    }
 
-    return row ? mapConversationRow(row) : null;
+    return mapConversationRecord(record);
   }
 
   async function create(payload = {}, options = {}) {
-    const client = options.trx || knex;
-    const now = new Date();
+    const now = toWrittenDateTime();
     const surfaceId = normalizeRequiredSurfaceId(payload.surfaceId);
-    const insertResult = await client(assistantRuntimeConfig.conversationsTable).insert({
-      workspace_id: normalizeInputRecordId(payload.workspaceId),
-      created_by_user_id: normalizeInputRecordId(payload.createdByUserId),
+    const createdByUserId = normalizeInputRecordId(payload.createdByUserId);
+    const attributes = {
+      workspaceId: normalizeInputRecordId(payload.workspaceId),
       title: normalizeText(payload.title) || DEFAULT_CONVERSATION_TITLE,
       status: normalizeText(payload.status).toLowerCase() || "active",
       provider: normalizeText(payload.provider),
       model: normalizeText(payload.model),
-      surface_id: surfaceId,
-      message_count: Math.max(0, Number(payload.messageCount || 0)),
-      metadata_json: stringifyJsonObject(payload.metadata),
-      started_at: payload.startedAt ? new Date(payload.startedAt) : now,
-      ended_at: payload.endedAt ? new Date(payload.endedAt) : null,
-      created_at: now,
-      updated_at: now
-    });
-    const id = resolveInsertedId(insertResult);
-    if (!id) {
-      throw new Error("conversationsRepository.create could not resolve inserted id.");
-    }
+      surfaceId,
+      messageCount: Math.max(0, Number(payload.messageCount || 0)),
+      metadataJson: stringifyJsonObject(payload.metadata),
+      startedAt: payload.startedAt ? toWrittenDateTime(payload.startedAt) : now,
+      endedAt: payload.endedAt ? toWrittenDateTime(payload.endedAt) : null,
+      createdAt: now,
+      updatedAt: now
+    };
+    // A conversation without a valid creator is stored with none, so it is created in the system context.
+    const created = createdByUserId
+      ? await conversations.create(attributes, { ...options, context: conversationContext.forUser(createdByUserId) })
+      : await conversations.create({ ...attributes, userId: null }, { ...options, context: conversationContext });
 
-    return findById(id, {
-      trx: client
-    });
+    return mapConversationRecord(created);
   }
 
   async function updateById(conversationId, patch = {}, options = {}) {
@@ -140,70 +154,66 @@ function createRepository(knex) {
       return null;
     }
 
-    const client = options.trx || knex;
-    const updatePatch = {};
+    const changes = {};
 
     if (Object.hasOwn(patch, "title")) {
-      updatePatch.title = normalizeText(patch.title) || DEFAULT_CONVERSATION_TITLE;
+      changes.title = normalizeText(patch.title) || DEFAULT_CONVERSATION_TITLE;
     }
     if (Object.hasOwn(patch, "status")) {
-      updatePatch.status = normalizeText(patch.status).toLowerCase() || "active";
+      changes.status = normalizeText(patch.status).toLowerCase() || "active";
     }
     if (Object.hasOwn(patch, "provider")) {
-      updatePatch.provider = normalizeText(patch.provider);
+      changes.provider = normalizeText(patch.provider);
     }
     if (Object.hasOwn(patch, "model")) {
-      updatePatch.model = normalizeText(patch.model);
+      changes.model = normalizeText(patch.model);
     }
     if (Object.hasOwn(patch, "surfaceId")) {
-      updatePatch.surface_id = normalizeRequiredSurfaceId(patch.surfaceId);
+      changes.surfaceId = normalizeRequiredSurfaceId(patch.surfaceId);
     }
     if (Object.hasOwn(patch, "messageCount")) {
-      updatePatch.message_count = Math.max(0, Number(patch.messageCount || 0));
+      changes.messageCount = Math.max(0, Number(patch.messageCount || 0));
     }
     if (Object.hasOwn(patch, "endedAt")) {
-      updatePatch.ended_at = patch.endedAt ? new Date(patch.endedAt) : null;
+      changes.endedAt = patch.endedAt ? toWrittenDateTime(patch.endedAt) : null;
     }
     if (Object.hasOwn(patch, "metadata")) {
-      updatePatch.metadata_json = stringifyJsonObject(patch.metadata);
+      changes.metadataJson = stringifyJsonObject(patch.metadata);
     }
 
-    if (Object.keys(updatePatch).length > 0) {
-      updatePatch.updated_at = new Date();
-      await client(assistantRuntimeConfig.conversationsTable)
-        .where({ id: normalizedConversationId })
-        .update(updatePatch);
+    if (Object.keys(changes).length > 0) {
+      changes.updatedAt = toWrittenDateTime();
+      await conversations.patchWhereIds([normalizedConversationId], changes, {
+        ...options,
+        context: conversationContext,
+        missing: "skip"
+      });
     }
 
-    return findById(normalizedConversationId, {
-      trx: client
-    });
+    return findById(normalizedConversationId, { ...options, forUpdate: false });
   }
 
   // The transcript's own state stays out of conversation records, which reach the browser.
   async function readTranscriptState(conversationId, options = {}) {
     const id = normalizeInputRecordId(conversationId);
     if (!id) return null;
-    const client = options.trx || knex;
-    const row = await client(assistantRuntimeConfig.conversationsTable).where({ id })
-      .first("summary_text", "summary_through_turn_id", "transcript_revision");
-    if (!row) return null;
+    const record = await conversations.get(id, { fields: [...TRANSCRIPT_FIELDS] }, { ...options, context: conversationContext });
+    if (!record) return null;
     return {
-      revision: row.transcript_revision || "",
-      summary: row.summary_text == null ? null
-        : { text: String(row.summary_text), throughTurnId: String(row.summary_through_turn_id || "") }
+      revision: record.transcriptRevision || "",
+      summary: record.summaryText == null ? null
+        : { text: String(record.summaryText), throughTurnId: String(record.summaryThroughTurnId || "") }
     };
   }
 
   async function writeTranscriptState(conversationId, { revision, summary }, options = {}) {
     const id = normalizeInputRecordId(conversationId);
     if (!id) throw new TypeError("writeTranscriptState requires conversationId.");
-    const client = options.trx || knex;
-    await client(assistantRuntimeConfig.conversationsTable).where({ id }).update({
-      transcript_revision: revision,
-      summary_text: summary ? summary.text : null,
-      summary_through_turn_id: summary ? summary.throughTurnId : null
-    });
+    await conversations.patchWhereIds([id], {
+      transcriptRevision: revision,
+      summaryText: summary ? summary.text : null,
+      summaryThroughTurnId: summary ? summary.throughTurnId : null
+    }, { ...options, context: conversationContext, missing: "skip" });
   }
 
   async function listForActorScope(
@@ -219,40 +229,26 @@ function createRepository(knex) {
       };
     }
 
-    const client = options.trx || knex;
     const { cursor, limit } = normalizeCursorPagination(pagination);
-    let query = createConversationBaseQuery(client)
-      .where("c.created_by_user_id", normalizedActorUserId)
-      .where("c.surface_id", normalizedSurfaceId);
-    query = applyWorkspaceScope(query, "c.workspace_id", workspaceId);
-
     const normalizedStatus = normalizeText(filters.status).toLowerCase();
-    if (normalizedStatus) {
-      query = query.where("c.status", normalizedStatus);
-    }
-    if (cursor) {
-      query = query.where("c.id", "<", cursor);
-    }
+    const { records, page } = await conversations.query({
+      filters: {
+        surfaceId: normalizedSurfaceId,
+        workspaceId: normalizeInputRecordId(workspaceId),
+        ...(normalizedStatus ? { status: normalizedStatus } : {}),
+        ...(cursor ? { beforeId: cursor } : {})
+      },
+      sort: ["-id"],
+      page: { size: limit }
+    }, { ...options, context: conversationContext.forUser(normalizedActorUserId) });
 
-    const rows = await query
-      .orderBy("c.id", "desc")
-      .limit(limit + 1);
-
-    const hasMore = rows.length > limit;
-    const pageRows = hasMore ? rows.slice(0, limit) : rows;
-    const items = pageRows.map(mapConversationRow);
-    const nextCursor = hasMore && pageRows.length > 0
-      ? normalizeDbRecordId(pageRows[pageRows.length - 1].id, { fallback: null })
-      : null;
+    const items = records.map(mapConversationRecord);
+    const nextCursor = page.hasMore && items.length > 0 ? items[items.length - 1].id : null;
 
     return {
       items,
       nextCursor
     };
-  }
-
-  async function transaction(callback, options) {
-    return runInTransaction(knex, callback, options);
   }
 
   return Object.freeze({
