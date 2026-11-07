@@ -210,10 +210,11 @@ Local functions
 ### `src/server/createAssistantRuntime.js`
 Exports
 - `createAssistantAiClientFactory(config = {})`
-- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, repositories, env, aiConnections, attachments, workspaces })`
+- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, repositories, env, aiConnections, attachments, personContext, logger, workspaces })`
 - `createAssistantConversationRuntime({ conversationsRepository, messagesRepository, aiClientFactory, toolCatalog, attachments })`
 - `type AssistantAttachments`
 - `type AssistantAiClientFactory`
+- `type AssistantPersonContext`
 - `type AssistantConfigRepository`
 - `type ConversationsRepository`
 - `type MessagesRepository`
@@ -244,6 +245,9 @@ Exports
 - `registerConversationSubscriptions`
 - `registerFastifyConversations`
 - `createSurfaceAwareToolCatalog`
+- `NO_PERSON_CONTEXT`
+- `PERSON_CONTEXT_MAX_CHARACTERS`
+- `createPersonContextPrompt`
 
 ### `src/server/inputSchemas.js`
 Exports
@@ -336,11 +340,12 @@ Exports
 
 ### `src/server/services/chatService.js`
 Exports
-- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, appConfig, workspaceScopeSupport })`
+- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, personContextPrompt, appConfig, workspaceScopeSupport })`
 - `type AssistantAiClientFactory`
 - `type AssistantAttachments`
 - `type AssistantConfigService`
 - `type ConversationRuntime`
+- `type PersonContextPrompt`
 - `type SurfaceAwareToolCatalog`
 - `type TranscriptService`
 - `type TurnRequestsRepository`
@@ -420,6 +425,14 @@ Local functions
 - `buildCatalogOptions(appConfig = {}, surfaceId = "")`
 - `requireContextSurfaceId(context)`
 
+### `src/server/support/personContext.js`
+Exports
+- `NO_PERSON_CONTEXT`
+- `PERSON_CONTEXT_MAX_CHARACTERS`
+- `createPersonContextPrompt({ personContext, logger })`
+Local functions
+- `truncateFacts(facts)`
+
 ### `src/server/types.js`
 Exports
 - `type HostedAssistant`
@@ -431,6 +444,7 @@ Exports
 - `type TranscriptService`
 - `type AssistantAiClientFactory`
 - `type SurfaceAwareToolCatalog`
+- `type PersonContextPrompt`
 - `type AssistantConfigRepository`
 - `type ConversationsRepository`
 - `type MessagesRepository`
@@ -438,6 +452,7 @@ Exports
 - `type WorkspaceScopeSupport`
 - `type ConversationAccess`
 - `type AssistantAttachments`
+- `type AssistantPersonContext`
 
 ### `src/shared/assistantRuntimeConfig.js`
 Exports

@@ -1,5 +1,7 @@
 import { createMemoryTurnRequests } from "../../test/support/memoryTurnRequests.js";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createChatService } from "../../src/server/services/chatService.js";
+import { NO_PERSON_CONTEXT, createPersonContextPrompt } from "../../src/server/support/personContext.js";
 import { ASSISTANT_STREAM_WRITER_METHODS } from "../../src/server/support/assistantStreamWriter.js";
 import { createAssistantConversationRuntime } from "../../src/server/createAssistantRuntime.js";
 import { createMemoryAssistantRows } from "../../test/support/memoryAssistantRows.js";
@@ -89,6 +91,7 @@ export default defineConfig({
               serviceToolCatalog: { limits: { maxToolArgumentBytes: 64 * 1024 }, resolveToolSet: () => ({ tools: [] }),
                 toOpenAiToolSchema: tool => ({ type: "function", function: tool }) },
               assistantConfigService: { resolveSystemPrompt: async () => "Answer the user." },
+              personContextPrompt: createPersonContextPrompt({ personContext: NO_PERSON_CONTEXT, logger: silentLogger }),
               appConfig: { surfaceDefinitions: { admin: { id: "admin", enabled: true, requiresWorkspace: false, accessPolicyId: "public" } },
                 assistantSurfaces: { admin: { settingsSurfaceId: "admin", configScope: "global" } } }
             };

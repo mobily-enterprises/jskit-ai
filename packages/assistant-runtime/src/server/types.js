@@ -11,6 +11,7 @@
 /** @typedef {ReturnType<typeof import("./services/transcriptService.js").createTranscriptService>} TranscriptService */
 /** @typedef {ReturnType<typeof import("./createAssistantRuntime.js").createAssistantAiClientFactory>} AssistantAiClientFactory */
 /** @typedef {ReturnType<typeof import("./support/createSurfaceAwareToolCatalog.js").createSurfaceAwareToolCatalog>} SurfaceAwareToolCatalog */
+/** @typedef {ReturnType<typeof import("./support/personContext.js").createPersonContextPrompt>} PersonContextPrompt A conversation's system prompt with the application's facts about the person. */
 /** @typedef {ReturnType<typeof import("./repositories/assistantConfigRepository.js").createRepository>} AssistantConfigRepository */
 /** @typedef {ReturnType<typeof import("./repositories/conversationsRepository.js").createRepository>} ConversationsRepository */
 /** @typedef {ReturnType<typeof import("./repositories/messagesRepository.js").createRepository>} MessagesRepository */
@@ -33,6 +34,25 @@
  * a message.
  * @typedef {object} AssistantAttachments
  * @property {(request: { attachmentIds: string[], context: object, workspace: object | null, conversation: object }) => Promise<unknown>} resolve
+ */
+
+/**
+ * The `assistant.personContext` capability: stable facts about the person the
+ * assistant is talking to (their profile, limitations, preferences), which the
+ * assistant always knows. They are part of the conversation's instructions, in
+ * their own section after the saved system prompt, never part of its messages.
+ *
+ * `resolve` must give the same text for the same person and data: a changed text
+ * reconfigures the open conversation and restarts the provider's prompt cache. A
+ * fact that belongs to one turn (today's readings, a page the person is on) goes
+ * into a tool or a message instead. An empty string adds nothing; text past
+ * 4000 characters is cut, with a warning logged once per conversation. A throw,
+ * or a value that is not a string, fails the turn: the assistant never answers
+ * without the facts. The text goes to the AI provider with every request, so it
+ * should hold only what the assistant needs.
+ * @typedef {object} AssistantPersonContext
+ * @property {(request: { targetSurfaceId: string, context: object, workspace: object | null }) => string | Promise<string>} resolve
+ *   The facts for the actor in `context` on that surface and workspace.
  */
 
 export {};

@@ -6,7 +6,9 @@ import path from "node:path";
 import knex from "knex";
 import migration from "../migrations/assistant_turn_requests.cjs";
 import { createRepository } from "../src/server/repositories/turnRequestsRepository.js";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createChatService } from "../src/server/services/chatService.js";
+import { NO_PERSON_CONTEXT, createPersonContextPrompt } from "../src/server/support/personContext.js";
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
 import { createMemoryAssistantRows } from "./support/memoryAssistantRows.js";
 import { createScriptedModel } from "./support/scriptedModel.js";
@@ -59,6 +61,7 @@ function service(repository, { provider, transcript = [] } = {}) {
     serviceToolCatalog: { limits: { maxToolArgumentBytes: 64 * 1024 }, resolveToolSet: () => ({ tools: [] }),
       toOpenAiToolSchema: tool => ({ type: "function", function: tool }) },
     assistantConfigService: { resolveSystemPrompt: async () => "Answer." },
+    personContextPrompt: createPersonContextPrompt({ personContext: NO_PERSON_CONTEXT, logger: silentLogger }),
     appConfig: {
       surfaceDefinitions: { assistant: { id: "assistant", enabled: true, requiresWorkspace: false, accessPolicyId: "public" } },
       assistantSurfaces: { assistant: { settingsSurfaceId: "assistant", configScope: "global" } }

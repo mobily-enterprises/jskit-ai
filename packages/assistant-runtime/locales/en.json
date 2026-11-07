@@ -21,6 +21,9 @@
         "provider": {
           "notConfigured": "Assistant provider is not configured."
         },
+        "personContext": {
+          "unavailable": "The assistant could not read what it needs to know about you, so it did not answer. Try again."
+        },
         "conversation": {
           "notFound": "Conversation not found.",
           "idInvalid": "conversationId must be a valid record id.",

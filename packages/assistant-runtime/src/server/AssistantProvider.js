@@ -4,6 +4,7 @@ import { createAssistantActions } from "./actions.js";
 import { createHostedAssistant } from "./hostedAssistant.js";
 import { registerRoutes } from "./registerRoutes.js";
 import { registerConversationSubscriptions } from "./registerConversationSubscriptions.js";
+import { NO_PERSON_CONTEXT } from "./support/personContext.js";
 
 /** @typedef {import("./types.js").AssistantRuntime} AssistantRuntime */
 /** @typedef {import("./types.js").ConversationAccess} ConversationAccess */
@@ -54,6 +55,7 @@ const AssistantFeature = defineFeature({
     realtime: "runtime.realtime",
     aiConnections: "integrations.ai",
     attachments: "assistant.attachments",
+    personContext: "assistant.personContext",
     consoleRuntime: "console.core",
     workspaces: "workspaces.core"
   },
@@ -71,6 +73,8 @@ const AssistantFeature = defineFeature({
       if (typeof conversationRuntime.open !== "function") {
         throw new TypeError("assistant.conversations requires createConversationRuntime().");
       }
+      // A host that supplies its conversations builds their instructions, so it
+      // composes assistant.personContext into them itself, with createPersonContextPrompt.
       assistant = createHostedAssistant({ conversationRuntime, assistantConfigService: assistantConfigService || null });
     } else {
       if (!dependencies.database?.knex) {
@@ -88,6 +92,8 @@ const AssistantFeature = defineFeature({
         env: dependencies.env,
         aiConnections: dependencies.aiConnections || null,
         attachments: dependencies.attachments || null,
+        personContext: dependencies.personContext ?? NO_PERSON_CONTEXT,
+        logger: dependencies.logger,
         workspaces: dependencies.workspaces || null,
         repositories: {
           config: createAssistantConfigRepository(dependencies.database.knex),

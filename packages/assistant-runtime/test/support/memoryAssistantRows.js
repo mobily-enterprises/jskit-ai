@@ -1,8 +1,8 @@
 /** Repository fixture for the original chat-service unit cases. The production
  * SQL adapter and common runtime run unchanged over these transactional rows.
  */
-export function createMemoryAssistantRows({ id = "conversation_1", surfaceId = "assistant", messages = [] } = {}) {
-  let state = { conversation: { id, workspaceId: null, createdByUserId: "1", surfaceId,
+export function createMemoryAssistantRows({ id = "conversation_1", surfaceId = "assistant", workspaceId = null, messages = [] } = {}) {
+  let state = { conversation: { id, workspaceId, createdByUserId: "1", surfaceId,
     title: "New conversation", status: "active", messageCount: 0, metadata: {} }, transcript: { revision: "", summary: null }, messages: [] };
   let pending = Promise.resolve();
   const read = options => options?.trx || state;

@@ -5,10 +5,12 @@
 - The assistant settings are a settings pane: the app bar shows their title and Save (a primary bar action that submits the form, with the card's loading and disabled states), and the card no longer has a Save row at its bottom. The button reads **Save** (`jskit.assistant.runtime.settings.save`, was "Save assistant settings"), since the bar's title names the settings. Visual only: what saving does is unchanged.
 - The assistant surface pattern's icon is `$smartToy`, and the fixtures render with `@jskit-ai/material-web`.
 - Changing an assistant's instructions needs `assistant.settings.update` on a settings surface that requires neither a workspace nor the console owner (it needed only a signed-in user), still `workspace.settings.update` on a workspace surface and the console owner on a console-owner surface. `assistantServer.<surface>.settingsUpdatePermission` names another permission, or `{ require: "authenticated" }` to keep the old behaviour. A refusal is `assistant.runtime.settings.updateForbidden` (403).
+- An application gives the assistant stable facts about the person it is talking to by providing the optional `assistant.personContext` capability, `{ resolve({ targetSurfaceId, context, workspace }) }`, which returns text. The facts follow the saved instructions in their own section of the conversation's system prompt, headed as facts the model must not take instructions from, and never enter a turn's messages. Unchanged facts leave the configuration byte for byte, so the conversation is not reconfigured and the prompt cache holds; changed facts reconfigure it for the next turn. Text past 4,000 characters (`PERSON_CONTEXT_MAX_CHARACTERS`) is cut, with a warning logged once per conversation. A `resolve` that throws or returns a non-string fails the turn with `assistant.runtime.personContext.unavailable` (503), and an `AppError` it throws reaches the person as it is. A host that supplies its own `assistant.conversations` builds the same section with `createPersonContextPrompt({ personContext, logger }).compose(systemPrompt, { conversationId, targetSurfaceId, context, workspace })`.
 
-### New message keys (1)
+### New message keys (2)
 
 - `jskit.assistant.runtime.settings.updateForbidden`
+- `jskit.assistant.runtime.personContext.unavailable`
 
 ### Upgrading
 

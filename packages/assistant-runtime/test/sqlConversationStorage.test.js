@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import knex from "knex";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createConversationTranscript } from "@jskit-ai/assistant-core/server/conversation";
 import { verifyConversationStorageContract } from "@jskit-ai/assistant-core/testing/conversation-storage";
 import transcriptsMigration from "../migrations/assistant_transcripts_initial.cjs";
@@ -17,7 +18,11 @@ import { createSqlConversationStorage } from "../src/server/sqlConversationStora
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
 import { createTranscriptService } from "../src/server/services/transcriptService.js";
 import { createChatService } from "../src/server/services/chatService.js";
+import { NO_PERSON_CONTEXT, createPersonContextPrompt } from "../src/server/support/personContext.js";
 import { createScriptedModel } from "./support/scriptedModel.js";
+
+// The chat service of an application that supplies no facts about the person.
+const NO_FACTS = createPersonContextPrompt({ personContext: NO_PERSON_CONTEXT, logger: silentLogger });
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), "assistant-sql-runtime-"));
@@ -178,6 +183,7 @@ test("the SQL facade uses common inference and durable tool rows, and the model'
   const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
     transcriptService: createTranscriptService(f), turnRequests: createTurnRequestsRepository(f.db),
     assistantConfigService: { resolveSystemPrompt: async () => "Retained SQL instructions" },
+    personContextPrompt: NO_FACTS,
     appConfig: { surfaceDefinitions: { assistant: { enabled: true, requiresWorkspace: false } },
       assistantSurfaces: { assistant: { settingsSurfaceId: "assistant", configScope: "global" } } } };
   const service = createChatService(dependencies);
@@ -234,6 +240,7 @@ test("the SQL facade replays historical inspection failures with their exact pub
   const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
     transcriptService: createTranscriptService(f), turnRequests,
     assistantConfigService: { resolveSystemPrompt: async () => "Read the supplied context" },
+    personContextPrompt: NO_FACTS,
     appConfig: { surfaceDefinitions: { assistant: { enabled: true, requiresWorkspace: false } },
       assistantSurfaces: { assistant: { settingsSurfaceId: "assistant", configScope: "global" } } } };
   const input = { targetSurfaceId: "assistant", conversationId: conversation.id,
@@ -344,6 +351,7 @@ for (const shape of ["orphan-output", "orphan-tool-result", "unconfirmed-tool"])
     const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
       transcriptService: createTranscriptService(f), turnRequests,
       assistantConfigService: { resolveSystemPrompt: async () => "Read only the admitted request" },
+      personContextPrompt: NO_FACTS,
       workspaceScopeSupport: { resolveWorkspace: context => context.requestMeta.resolvedWorkspaceContext.workspace },
       appConfig: { surfaceDefinitions: {
         assistant: { enabled: true, requiresWorkspace: true }, other: { enabled: true, requiresWorkspace: true }

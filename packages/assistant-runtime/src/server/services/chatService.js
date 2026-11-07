@@ -136,6 +136,7 @@ function buildAssistantActionContext(context = {}, assistantSurface = {}) {
 /** @typedef {import("../types.js").AssistantAttachments} AssistantAttachments */
 /** @typedef {import("../types.js").AssistantConfigService} AssistantConfigService */
 /** @typedef {import("../types.js").ConversationRuntime} ConversationRuntime */
+/** @typedef {import("../types.js").PersonContextPrompt} PersonContextPrompt */
 /** @typedef {import("../types.js").SurfaceAwareToolCatalog} SurfaceAwareToolCatalog */
 /** @typedef {import("../types.js").TranscriptService} TranscriptService */
 /** @typedef {import("../types.js").TurnRequestsRepository} TurnRequestsRepository */
@@ -152,6 +153,7 @@ function buildAssistantActionContext(context = {}, assistantSurface = {}) {
  * @param {TranscriptService} dependencies.transcriptService
  * @param {SurfaceAwareToolCatalog} dependencies.serviceToolCatalog
  * @param {AssistantConfigService} dependencies.assistantConfigService
+ * @param {PersonContextPrompt} dependencies.personContextPrompt
  * @param {Record<string, any>} dependencies.appConfig
  * @param {WorkspaceScopeSupport | null} [dependencies.workspaceScopeSupport]
  */
@@ -163,6 +165,7 @@ function createChatService({
   transcriptService,
   serviceToolCatalog,
   assistantConfigService,
+  personContextPrompt,
   appConfig,
   workspaceScopeSupport
 }) {
@@ -333,10 +336,14 @@ function createChatService({
         assistantSurface, workspace, { surface: assistantSurface.targetSurfaceId },
         { context: assistantContext, input: payload }
       );
-      const configuration = { systemPrompt: buildSystemPrompt({
+      // The facts about the person follow the saved prompt in the conversation's
+      // instructions. Unchanged facts give the same configuration, so only a real
+      // change reconfigures the conversation below.
+      const systemPrompt = await personContextPrompt.compose(buildSystemPrompt({
         targetSurfaceId: assistantSurface.targetSurfaceId, toolDescriptors: toolSet.tools,
         workspaceSlug: resolveWorkspaceSlug(assistantContext, payload), customSystemPrompt
-      }), ...(request.integrationId ? { integrationId: request.integrationId } : {}) };
+      }), { conversationId, targetSurfaceId: assistantSurface.targetSurfaceId, context: assistantContext, workspace });
+      const configuration = { systemPrompt, ...(request.integrationId ? { integrationId: request.integrationId } : {}) };
       const runtimeContext = { ...assistantContext, assistantRequest: {
         conversation, workspace, resolvedAttachments
       } };

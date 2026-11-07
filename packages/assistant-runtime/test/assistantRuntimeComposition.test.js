@@ -45,7 +45,9 @@ test("assistant services compose with supplied repositories without database imp
         surfaceDefinitions: { home: { enabled: true, requiresWorkspace: false } },
         assistantSurfaces: { home: { settingsSurfaceId: "home", configScope: "global" } }
       },
-      env: {}
+      env: {},
+      personContext: { resolve: () => "" },
+      logger: { debug() {}, info() {}, warn() {}, error() {} }
     });
 
     for (const [name, repository] of Object.entries(repositories)) {

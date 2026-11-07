@@ -10,9 +10,11 @@ import { createChatService } from "./services/chatService.js";
 import { createTranscriptService } from "./services/transcriptService.js";
 import { resolveAssistantAiConfig, resolveAssistantServerConfig } from "./support/assistantServerConfig.js";
 import { createSurfaceAwareToolCatalog } from "./support/createSurfaceAwareToolCatalog.js";
+import { createPersonContextPrompt } from "./support/personContext.js";
 
 /** @typedef {import("./types.js").AssistantAttachments} AssistantAttachments */
 /** @typedef {import("./types.js").AssistantAiClientFactory} AssistantAiClientFactory */
+/** @typedef {import("./types.js").AssistantPersonContext} AssistantPersonContext */
 /** @typedef {import("./types.js").AssistantConfigRepository} AssistantConfigRepository */
 /** @typedef {import("./types.js").ConversationsRepository} ConversationsRepository */
 /** @typedef {import("./types.js").MessagesRepository} MessagesRepository */
@@ -82,6 +84,8 @@ function createAssistantAiClientFactory(config = {}) {
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
  * @param {AiConnectionResolver | null} dependencies.aiConnections
  * @param {AssistantAttachments | null} dependencies.attachments
+ * @param {AssistantPersonContext} dependencies.personContext
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("@jskit-ai/workspaces-core/server/types").WorkspacesCore | null} dependencies.workspaces
  */
 function createAssistantRuntime({
@@ -92,6 +96,8 @@ function createAssistantRuntime({
   env,
   aiConnections,
   attachments,
+  personContext,
+  logger,
   workspaces
 }) {
   const {
@@ -121,6 +127,7 @@ function createAssistantRuntime({
     transcriptService,
     serviceToolCatalog: toolCatalog,
     assistantConfigService: configService,
+    personContextPrompt: createPersonContextPrompt({ personContext, logger }),
     appConfig: config,
     workspaceScopeSupport
   });
