@@ -47,7 +47,7 @@
         "runtime.database",
         "runtime.env",
         "runtime.http",
-        "runtime.json-rest-api",
+        "runtime.resources",
         "users.extensions",
         "users.profiles",
         "users.settings"

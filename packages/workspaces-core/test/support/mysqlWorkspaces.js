@@ -1,8 +1,7 @@
 import knexLib from "knex";
 import { after } from "node:test";
-import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
-import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
+import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
@@ -12,11 +11,13 @@ import usersUpdatedAt from "../../../users-core/migrations/users_core_profile_up
 import workspacesInitial from "../../migrations/workspaces_core_initial.cjs";
 import workspaceSettingsMigration from "../../migrations/workspaces_core_workspace_settings_single_name_source.cjs";
 import workspaceColorMigration from "../../migrations/workspaces_core_workspaces_drop_color.cjs";
-import { installWorkspaceResources } from "../../src/server/WorkspacesFeature.js";
-import { createRepository as createWorkspacesRepository } from "../../src/server/common/repositories/workspacesRepository.js";
-import { createRepository as createMembershipsRepository } from "../../src/server/common/repositories/workspaceMembershipsRepository.js";
+import { createWorkspaceRecords } from "../../src/server/WorkspacesFeature.js";
 import { createRepository as createInvitesRepository } from "../../src/server/common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createSettingsRepository } from "../../src/server/workspaceSettings/workspaceSettingsRepository.js";
+import { workspaceInvitesResource } from "../../src/shared/resources/workspaceInvitesResource.js";
+import { workspaceMembershipsResource } from "../../src/shared/resources/workspaceMembershipsResource.js";
+import { workspaceResource } from "../../src/shared/resources/workspaceResource.js";
+import { workspaceSettingsResource } from "../../src/shared/resources/workspaceSettingsResource.js";
 import { createWorkspaceRoleCatalog } from "../../src/shared/roles.js";
 
 // The migrated users and workspaces tables in a MariaDB/MySQL database of the test file's own, named after
@@ -63,27 +64,38 @@ async function openDatabase(suffix, cleanups) {
   await admin.raw("DROP DATABASE IF EXISTS ??", [name]);
   await admin.raw("CREATE DATABASE ??", [name]);
   for (const migration of MIGRATIONS) await migration.up(knex);
-  const api = await createResourceHost({ knex, logger: silentLogger });
+  // The users and workspaces tables, owned as UsersIdentityProvider and WorkspacesFeature own them.
+  const runtime = await createTestResourceRuntime({ knex, logger: silentLogger });
   const usersExtensions = createUsersExtensions();
   const { profiles, settings: userSettings, profileProjector } = await UsersIdentityProvider.setup({
-    authExtensions: createAuthExtensions(),
     extensions: usersExtensions,
-    jsonRestApi: api
-  });
-  await installWorkspaceResources(api);
+    actionCatalogue: { register() {} },
+    resourceRuntime: runtime
+  }, {});
+  const resources = await runtime.own("workspaces.core", [
+    workspaceResource,
+    workspaceMembershipsResource,
+    workspaceInvitesResource,
+    workspaceSettingsResource
+  ]);
+  const records = createWorkspaceRecords(resources);
   return Object.freeze({
     name,
     knex,
-    api,
+    runtime,
     profiles,
     userSettings,
     profileProjector,
     usersExtensions,
     roleCatalog: ROLE_CATALOG,
-    workspaces: createWorkspacesRepository({ api }),
-    memberships: createMembershipsRepository({ api }),
-    invites: createInvitesRepository({ api }),
-    settings: createSettingsRepository({ api, defaultInvitesEnabled: true, defaultColorSettings: {} }),
+    workspaces: records.workspaces,
+    memberships: records.memberships,
+    invites: createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces: records.workspaces }),
+    settings: createSettingsRepository({
+      workspaceSettings: resources.workspaceSettings,
+      defaultInvitesEnabled: true,
+      defaultColorSettings: {}
+    }),
     // A user whose email and identity carry `name`.
     createProfile: (name, options) => profiles.upsert({
       authProvider: "local",

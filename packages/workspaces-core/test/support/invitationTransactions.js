@@ -1,15 +1,19 @@
 import assert from "node:assert/strict";
-import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { encodeInviteTokenHash } from "@jskit-ai/auth-core/shared/inviteTokens";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { createResourceRuntime } from "@jskit-ai/resource-runtime/server";
 import { createResourceHost } from "@jskit-ai/resource-runtime/server/resourceHost";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
 import { createWorkspaceRoleCatalog } from "../../src/shared/roles.js";
-import { installWorkspaceResources } from "../../src/server/WorkspacesFeature.js";
+import { workspaceInvitesResource } from "../../src/shared/resources/workspaceInvitesResource.js";
+import { workspaceMembershipsResource } from "../../src/shared/resources/workspaceMembershipsResource.js";
+import { workspaceResource } from "../../src/shared/resources/workspaceResource.js";
+import { workspaceSettingsResource } from "../../src/shared/resources/workspaceSettingsResource.js";
+import { createWorkspaceRecords } from "../../src/server/WorkspacesFeature.js";
 import { createRepository as invitesRepository } from "../../src/server/common/repositories/workspaceInvitesRepository.js";
-import { createRepository as membershipsRepository } from "../../src/server/common/repositories/workspaceMembershipsRepository.js";
-import { createRepository as workspacesRepository } from "../../src/server/common/repositories/workspacesRepository.js";
 import { createService as membersService } from "../../src/server/workspaceMembers/workspaceMembersService.js";
 import { createWorkspacesServerI18n } from "../../src/server/i18n.js";
 import { createService as pendingService } from "../../src/server/workspacePendingInvitations/workspacePendingInvitationsService.js";
@@ -41,28 +45,32 @@ export async function verifyInvitationTransactions(t, db) {
       table.integer("draft_id").unsigned().notNullable().unique().references("id").inTable("test_invitation_drafts");
     });
   }
-  const api = await createResourceHost({ knex: db, logger: { error() {}, warn() {}, info() {}, debug() {} } });
+  // The resource runtime on a json-rest-api host of the test's own, whose afterCommit hook can fail on request.
+  const api = await createResourceHost({ knex: db, logger: silentLogger });
+  const runtime = createResourceRuntime({ api });
   const { profiles } = await UsersIdentityProvider.setup({
-    authExtensions: createAuthExtensions(), extensions: createUsersExtensions(), jsonRestApi: api
-  });
-  await installWorkspaceResources(api);
-  await api.addResource("invitationTestPeople", {
+    extensions: createUsersExtensions(), actionCatalogue: { register() {} }, resourceRuntime: runtime
+  }, {});
+  const resources = await runtime.own("workspaces.core", [
+    workspaceResource, workspaceMembershipsResource, workspaceInvitesResource, workspaceSettingsResource
+  ]);
+  // The application's identity and training owner: a table resource of its own.
+  const { invitationTestPeople: people } = await runtime.own("test.invitations", [defineTableResource({
+    name: "invitationTestPeople",
     tableName: "test_invitation_drafts",
     schema: {
-      id: { type: "id", primary: true },
       userId: { type: "id", nullable: true, storage: { column: "user_id" } },
       trainingUserId: { type: "id", nullable: true, storage: { column: "training_user_id" } }
     }
-  });
+  })]);
   let failCompletionForMethod = null;
   await api.customize({ hooks: { afterCommit: ({ context }) => {
     if (context.scopeName === "workspaceInvites" && context.method === failCompletionForMethod) {
       throw new Error("Controlled completion failure");
     }
   } } });
-  const invites = invitesRepository({ api });
-  const memberships = membershipsRepository({ api });
-  const workspaces = workspacesRepository({ api });
+  const { workspaces, memberships } = createWorkspaceRecords(resources);
+  const invites = invitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
   const roleCatalog = createWorkspaceRoleCatalog({ roleCatalog: {
     workspace: { defaultInviteRole: "member" },
     roles: { owner: { assignable: false, permissions: ["*"] }, member: { assignable: true, permissions: [] } }
@@ -117,11 +125,12 @@ export async function verifyInvitationTransactions(t, db) {
     });
     // Match acceptance's lock order: workspace, then application receipt.
     async function prepareOnce({ fail = false } = {}) {
-      return invites.withTransaction(async (trx) => {
-        assert.deepEqual(await workspaces.lock(workspace.id, { trx }), { id: workspace.id });
+      return invites.withTransaction(options, async (txOptions) => {
+        const { trx } = txOptions;
+        assert.deepEqual(await workspaces.lock(workspace.id, txOptions), { id: workspace.id });
         const draft = await trx("test_invitation_drafts").where({ id: draftId, workspace_id: workspace.id }).forUpdate().first();
         if (draft.invite_id) return { createdInviteId: String(draft.invite_id) };
-        const prepared = await members.prepareInvite(workspace, owner, payload, { ...options, trx });
+        const prepared = await members.prepareInvite(workspace, owner, payload, txOptions);
         await trx("test_invitation_drafts").where({ id: draftId }).update({ invite_id: prepared.createdInviteId });
         if (fail) throw new Error("Controlled association failure");
         return prepared;
@@ -142,10 +151,7 @@ export async function verifyInvitationTransactions(t, db) {
       assert.equal(draft.review_state, "reviewed", "Invalid reviewed association");
       assert.ok(!draft.user_id || String(draft.user_id) === acceptingUser.id, "Conflicting account");
       // Application identity/training owner uses actual managed resource writes.
-      await api.resources.invitationTestPeople.patch({
-        id: String(draft.id), data: { userId: acceptingUser.id, trainingUserId: acceptingUser.id },
-        transaction: trx, format: "plain", returning: "full"
-      });
+      await people.patch(String(draft.id), { userId: acceptingUser.id, trainingUserId: acceptingUser.id }, transactionOptions);
       await trx("test_invitation_scopes").insert({ draft_id: draft.id });
       await trx("test_invitation_audits").insert({ draft_id: draft.id });
     }
@@ -350,11 +356,11 @@ export async function verifyInvitationTransactions(t, db) {
     await assert.rejects(db.transaction((trx) => f.members.prepareInvite(f.workspace, f.owner, f.payload, { trx })));
     assert.equal((await db("workspace_invites").where({ workspace_id: f.workspace.id })).length, 0);
     const prepared = await f.prepareOnce();
-    await invites.withTransaction(async (trx) => {
-      await assert.rejects(f.members.createInvite(f.workspace, f.owner, f.payload, { trx }), /prepareInvite/);
-      await assert.rejects(f.members.sendInvite(f.workspace, f.owner, prepared, { trx }), /after.*commits/);
+    await invites.withTransaction({}, async (txOptions) => {
+      await assert.rejects(f.members.createInvite(f.workspace, f.owner, f.payload, txOptions), /prepareInvite/);
+      await assert.rejects(f.members.sendInvite(f.workspace, f.owner, prepared, txOptions), /after.*commits/);
       for (const method of ["acceptInviteByToken", "refuseInviteByToken"]) {
-        await assert.rejects(f.pending[method]({ user: f.user, token: prepared.inviteTokenPreview }, { trx }), /owns its transaction/);
+        await assert.rejects(f.pending[method]({ user: f.user, token: prepared.inviteTokenPreview }, txOptions), /owns its transaction/);
       }
     });
     await f.assertUnlinked(prepared);
@@ -405,8 +411,8 @@ export async function verifyInvitationTransactions(t, db) {
     skip: !native && "SQLite single-connection fixture is not native locking evidence"
   }, async () => {
     const f = await fixture();
-    await invites.withTransaction(async (trx) => {
-      const prepared = await f.members.prepareInvite(f.workspace, f.owner, f.payload, { trx });
+    await invites.withTransaction({}, async (txOptions) => {
+      const prepared = await f.members.prepareInvite(f.workspace, f.owner, f.payload, txOptions);
       await assert.rejects(f.members.sendInvite(f.workspace, f.owner, prepared), (error) => error.status === 404);
     });
     const [first, second] = await Promise.all([f.prepareOnce(), f.prepareOnce()]);
@@ -426,13 +432,14 @@ export async function verifyInvitationTransactions(t, db) {
         const release = Promise.withResolvers();
         let holdTransaction = false;
         const connections = [];
-        const repository = { ...invites, async withTransaction(work) {
-          return invites.withTransaction(async (trx) => {
+        const repository = { ...invites, async withTransaction(options, work) {
+          return invites.withTransaction(options, async (txOptions) => {
+            const { trx } = txOptions;
             const result = db.client.config.client === "pg"
               ? (await trx.raw("SELECT pg_backend_pid() AS id")).rows[0]
               : (await trx.raw("SELECT CONNECTION_ID() AS id"))[0][0];
             connections.push(result.id);
-            const value = await work(trx);
+            const value = await work(txOptions);
             if (holdTransaction) {
               holdTransaction = false;
               entered.resolve();

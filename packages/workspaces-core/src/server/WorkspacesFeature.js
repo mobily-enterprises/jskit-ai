@@ -12,18 +12,23 @@ import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWor
 import { noInviteAcceptanceParticipant } from "./workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { buildWorkspaceName } from "./common/services/workspaceDirectoryService.js";
 import { createWorkspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
-import { createWorkspaceRecords, createWorkspacesRuntime, installWorkspaceResources } from "./workspacesRuntime.js";
+import { createWorkspaceRecords, createWorkspacesRuntime } from "./workspacesRuntime.js";
+import { workspaceInvitesResource } from "../shared/resources/workspaceInvitesResource.js";
+import { workspaceMembershipsResource } from "../shared/resources/workspaceMembershipsResource.js";
+import { workspaceResource } from "../shared/resources/workspaceResource.js";
+import { workspaceSettingsResource } from "../shared/resources/workspaceSettingsResource.js";
 
 const WorkspacesFeature = defineFeature({
   id: "workspaces.core",
   domain: "workspace",
+  // The workspaces, workspace_memberships, workspace_invites and workspace_settings tables' one owner.
+  owns: [workspaceResource, workspaceMembershipsResource, workspaceInvitesResource, workspaceSettingsResource],
   requires: {
     appRoot: "runtime.app-root",
     bootstrap: "runtime.bootstrap",
     config: "runtime.config",
     env: "runtime.env",
     http: "runtime.http",
-    jsonRestApi: "runtime.json-rest-api",
     userProfiles: "users.profiles",
     userSettings: "users.settings"
   },
@@ -48,8 +53,8 @@ const WorkspacesFeature = defineFeature({
    * @param {import("./types.js").WorkspaceInviteAcceptanceParticipant | null} capabilities.inviteAcceptanceParticipant
    * @param {import("./types.js").WorkspaceInviteEmailTemplate | null} capabilities.inviteEmailTemplate
    * @param {import("./types.js").WorkspaceInviteMailer | null} capabilities.inviteMailer
-   * @param {import("@jskit-ai/resource-runtime/server/types").RuntimeJsonRestApi} capabilities.jsonRestApi
    * @param {import("./types.js").PersonalWorkspaceName | null} capabilities.personalWorkspaceName
+   * @param {import("./types.js").WorkspacesResources} capabilities.resources
    * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} capabilities.userProfiles
    * @param {import("@jskit-ai/users-core/server/types").UsersSettings} capabilities.userSettings
    */
@@ -62,13 +67,12 @@ const WorkspacesFeature = defineFeature({
     inviteAcceptanceParticipant,
     inviteEmailTemplate,
     inviteMailer,
-    jsonRestApi,
     personalWorkspaceName,
+    resources,
     userProfiles,
     userSettings
   }) {
-    await installWorkspaceResources(jsonRestApi);
-    const records = createWorkspaceRecords(jsonRestApi);
+    const records = createWorkspaceRecords(resources);
     const workspaces = createWorkspacesRuntime({
       appRoot,
       config,
@@ -76,8 +80,8 @@ const WorkspacesFeature = defineFeature({
       inviteAcceptanceParticipant: inviteAcceptanceParticipant ?? noInviteAcceptanceParticipant,
       inviteEmailTemplate: inviteEmailTemplate ?? renderDefaultWorkspaceInviteEmail,
       inviteMailer: inviteMailer ?? unconfiguredWorkspaceInviteMailer,
-      jsonRestApi,
       personalWorkspaceName: personalWorkspaceName ?? buildWorkspaceName,
+      resources,
       userProfiles,
       userSettings,
       workspaces: records.workspaces,
@@ -132,14 +136,13 @@ const WorkspacesFeature = defineFeature({
   }
 });
 
-// Applications' tests build the runtime and install its resources directly, from
-// this package's public feature path, with the optional tokens' defaults.
+// Applications' tests build the runtime directly, from this package's public
+// feature path, on handles of the four table resources, with the optional tokens' defaults.
 export {
   WorkspacesFeature,
   buildWorkspaceName,
   createWorkspaceRecords,
   createWorkspacesRuntime,
-  installWorkspaceResources,
   noInviteAcceptanceParticipant,
   renderDefaultWorkspaceInviteEmail,
   unconfiguredWorkspaceInviteMailer
