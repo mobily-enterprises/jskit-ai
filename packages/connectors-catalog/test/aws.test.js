@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { awsS3Provider } from "../src/server/aws-s3.js";
 import { awsAthenaProvider } from "../src/server/aws-athena.js";
 import { transferS3Object } from "../patterns/aws-storage-queries/example/s3-transfer.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "reports", subjectId: "owner" };
 const input = { context, integrationId: "aws" };
@@ -18,7 +18,7 @@ const query = { QueryExecution: { QueryExecutionId: "query-1", WorkGroup: "prima
 const results = { ResultSet: { ResultSetMetadata: { ColumnInfo: [{ Name: "id", Type: "bigint" }] }, Rows: [{ Data: [{ VarCharValue: "id" }] }, { Data: [{}] }] }, NextToken: "opaque +/=", UpdateCount: 0 };
 
 async function fixture(t, provider = awsS3Provider) {
-  const directory = await mkdtemp(path.join(tmpdir(), "aws-connector-"));
+  const directory = await makeTestDirectory("aws-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(5) }, activeKeyId: "current" });
   const requests = [], resolutions = [];

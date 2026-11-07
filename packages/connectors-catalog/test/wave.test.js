@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { waveProvider } from "../src/server/wave.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "app-one", subjectId: "person-one" };
 const input = { context, integrationId: "wave" };
@@ -22,7 +22,7 @@ const customer = { id: "Q3VzdG9tZXI6b25l", name: "Customer", email: null };
 const invoice = { id: "SW52b2ljZTpvbmU=", invoiceNumber: "001", invoiceDate: "2026-09-09", status: "DRAFT", currency: { code: "USD" } };
 
 async function fixture(t, requestedScopes = scopes) {
-  const directory = await mkdtemp(path.join(tmpdir(), "wave-connector-"));
+  const directory = await makeTestDirectory("wave-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(7) }, activeKeyId: "current" });
   const requests = [];

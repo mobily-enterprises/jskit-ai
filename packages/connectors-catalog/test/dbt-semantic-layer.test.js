@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { dbtSemanticLayerProvider } from "../src/server/dbt-semantic-layer.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "metrics-app", subjectId: "analytics-team" };
 const input = { context, integrationId: "metrics" };
@@ -14,7 +14,7 @@ const environmentId = "9007199254740993";
 const metric = { name: "order_total", description: null, type: "SIMPLE" };
 const page = (items, values = {}) => ({ items, pageNum: 1, pageSize: 20, totalItems: items.length, totalPages: items.length ? 1 : 0, ...values });
 async function fixture(t, host = "semantic-layer.cloud.getdbt.com") {
-  const directory = await mkdtemp(path.join(tmpdir(), "dbt-connector-"));
+  const directory = await makeTestDirectory("dbt-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { key: "fixture-dbt-token", status: 200, response: undefined, hang: false, resolutions: 0 };

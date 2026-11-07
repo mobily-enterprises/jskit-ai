@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { twilioProvider, verifyTwilioRequest } from "../src/server/twilio.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const accountSid = `AC${"a".repeat(32)}`;
 const apiKeySid = `SK${"b".repeat(32)}`;
@@ -86,7 +86,7 @@ test("Twilio rejects invalid or ambiguous sends before transport and preserves t
 });
 
 async function fixture(t, region = "us1") {
-  const directory = await mkdtemp(path.join(tmpdir(), "twilio-connector-"));
+  const directory = await makeTestDirectory("twilio-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(8) }, activeKeyId: "current" });
   const requests = [];

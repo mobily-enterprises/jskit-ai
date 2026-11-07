@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { hubspotProvider } from "../src/server/hubspot.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 for (const perUser of [false, true]) test(`HubSpot OAuth ${perUser ? "per-user" : "shared rotating"} grants preserve protocol and ownership`, async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), "hubspot-oauth-test-"));
+  const directory = await makeTestDirectory("hubspot-oauth-test-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const callback = "https://example.test/integrations/hubspot/callback";
   const context = { applicationId: "app", subjectId: "owner" };

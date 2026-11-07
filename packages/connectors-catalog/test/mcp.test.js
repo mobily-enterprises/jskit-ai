@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { n8nProvider } from "../src/server/n8n.js";
 import { sanityProvider } from "../src/server/sanity.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "editor", subjectId: "assistant-owner" };
 const input = { context, integrationId: "assistant" };
@@ -18,7 +18,7 @@ const cases = [
 ];
 
 async function fixture(t, spec) {
-  const directory = await mkdtemp(path.join(tmpdir(), "mcp-connectors-"));
+  const directory = await makeTestDirectory("mcp-connectors-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(4) }, activeKeyId: "current" });
   const requests = [];

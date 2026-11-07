@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { wordpressComProvider } from "../src/server/wordpress-com.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const callback = "https://app.example.test/connections/wordpress/callback";
 const context = { applicationId: "app-one", subjectId: "person-one" };
@@ -13,7 +13,7 @@ const input = { context, integrationId: "publishing" };
 const profile = { ID: 17, username: "editor", display_name: "Editor", token_client_id: 12345, token_site_id: 81, token_scope: ["users", "sites", "posts"] };
 
 async function fixture(t, scopes = profile.token_scope) {
-  const directory = await mkdtemp(path.join(tmpdir(), "wordpress-com-connector-"));
+  const directory = await makeTestDirectory("wordpress-com-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { time: Date.now(), token: {}, profile: { ...structuredClone(profile), token_scope: [...scopes] }, status: 200, response: null };

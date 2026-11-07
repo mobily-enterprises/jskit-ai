@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { getProviderScopes, parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { snowflakeProvider } from "../src/server/snowflake.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "app-one", subjectId: "owner-one" };
 const args = { context, integrationId: "warehouse" };
 const callback = "https://app.example.test/oauth/snowflake/callback";
 const database = { name: "INVENTORY", owner: "REPORTING_READER", kind: "PERMANENT", comment: "Stock", created_on: "2026-09-01T12:00:00Z" };
 async function fixture(t, { role = "REPORTING_READER", accountUrl = "https://myorg-myaccount.snowflakecomputing.com", basic = false, sqlContext = {} } = {}) {
-  const directory = await mkdtemp(path.join(tmpdir(), "snowflake-connector-"));
+  const directory = await makeTestDirectory("snowflake-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const settings = { accountUrl, ...(role ? { role } : {}), ...sqlContext };
   const scopes = getProviderScopes(snowflakeProvider, settings).map((scope) => scope.value);

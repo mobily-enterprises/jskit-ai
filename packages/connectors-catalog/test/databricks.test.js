@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { getProviderScopes, parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { databricksProvider } from "../src/server/databricks.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "app-one", subjectId: "owner-one" };
 const args = { context, integrationId: "warehouse" };
@@ -14,7 +14,7 @@ const callback = "https://app.example.test/oauth/databricks/callback";
 const job = { job_id: 123, settings: { name: "Weekly inventory", tasks: [] } };
 
 async function fixture(t, grantType = "authorization_code", workspaceUrl = "https://dbc-abc123.cloud.databricks.com") {
-  const directory = await mkdtemp(path.join(tmpdir(), "databricks-connector-"));
+  const directory = await makeTestDirectory("databricks-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const machine = grantType === "client_credentials";
   const scopes = machine ? ["jobs"] : ["all-apis", "offline_access"];

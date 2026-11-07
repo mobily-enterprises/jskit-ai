@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
@@ -9,6 +8,7 @@ import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/
 import { canvaProvider } from "../src/server/canva.js";
 
 import { createCanvaClientMetadata } from "../src/shared/canva.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "assistant-host", subjectId: "account-owner" };
 const input = { context, integrationId: "work" };
@@ -21,7 +21,7 @@ const scopes = ["profile:read", "design:meta:read"];
 const discovery = { tools: [{ name: "get-design", inputSchema: { type: "object", properties: { design_id: { type: "string" } } } }] };
 
 async function fixture(t, selectedScopes = scopes) {
-  const directory = await mkdtemp(path.join(tmpdir(), "canva-connector-"));
+  const directory = await makeTestDirectory("canva-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(3) }, activeKeyId: "current" });
   const state = { time: Date.now(), scopes: selectedScopes, status: 200, list: discovery, call: { content: [{ type: "text", text: "Project work" }] } };

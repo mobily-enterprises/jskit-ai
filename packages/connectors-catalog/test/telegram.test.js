@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { telegramProvider } from "../src/server/telegram.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Telegram sends plain messages and polls without hidden acknowledgement or retry", async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), "telegram-workflows-"));
+  const directory = await makeTestDirectory("telegram-workflows-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   let response = { ok: true, result: { id: 123, is_bot: true, first_name: "Fixture" } }, status = 200;

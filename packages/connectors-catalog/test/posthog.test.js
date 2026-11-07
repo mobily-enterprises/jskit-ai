@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { posthogProvider } from "../src/server/posthog.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "app-one", subjectId: "analytics-team" };
 const input = { context, integrationId: "analytics" };
@@ -16,7 +16,7 @@ const flags = { flags: { checkout: { key: "checkout", enabled: true, variant: "c
 errorsWhileComputingFlags: false, requestId: "fixture-request" };
 
 async function fixture(t, region = "eu") {
-  const directory = await mkdtemp(path.join(tmpdir(), "posthog-connector-"));
+  const directory = await makeTestDirectory("posthog-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(9) }, activeKeyId: "current" });
   const requests = [];

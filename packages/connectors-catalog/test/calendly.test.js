@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { calendlyProvider } from "../src/server/calendly.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Calendly web OAuth uses Basic and PKCE, persists rotating refresh tokens and retains personal-token access", async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), "calendly-test-"));
+  const directory = await makeTestDirectory("calendly-test-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const callback = "https://example.test/integrations/calendly/callback";
   const context = { applicationId: "app", subjectId: "owner" };
@@ -88,7 +87,7 @@ test("Calendly web OAuth uses Basic and PKCE, persists rotating refresh tokens a
 });
 
 test("Calendly scheduling retains booking details, scopes, pagination and explicit write outcomes", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "calendly-scheduling-")); t.after(() => rm(directory, { recursive: true, force: true }));
+  const directory = await makeTestDirectory("calendly-scheduling-"); t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; const state = { response: { resource: { uri: "https://api.calendly.com/users/u", name: "Owner" } }, status: 200, fail: false, deny: false };
   const identity = { context: { applicationId: "booking", subjectId: "owner" }, integrationId: "calendar" };
   const service = createConnectionService({ configuration: { schemaVersion: 1, registrations: {}, integrations: {

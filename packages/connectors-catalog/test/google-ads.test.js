@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
@@ -10,6 +9,7 @@ import { createGoogleAdsSearchService } from "../src/server/google-ads-search.js
 import { validateGoogleAdsSearchPlan } from "../src/shared/google-ads-search.js";
 import { dispatchAdsSetup } from "../patterns/google-ads-search/example/ads-setup.js";
 import { googleAdsProvider as provider } from "../src/server/google-ads.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "ads-app", subjectId: "user-one" };
 const input = { context, integrationId: "ads" };
@@ -21,7 +21,7 @@ const report = { results: [{ campaign: { id: "9007199254740993", name: "Fixture"
 const query = "SELECT campaign.id, campaign.name, metrics.impressions, metrics.cost_micros FROM campaign WHERE campaign.name = 'A + B & 😀' LIMIT 20";
 
 async function fixture(t, settings = { loginCustomerId: "9876543210" }) {
-  const directory = await mkdtemp(path.join(tmpdir(), "google-ads-connector-"));
+  const directory = await makeTestDirectory("google-ads-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(6) }, activeKeyId: "current" });
   const configuration = { schemaVersion: 1, integrations: { ads: { provider: "google-ads", accountMode: "per-user", settings,

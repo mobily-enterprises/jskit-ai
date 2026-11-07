@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { amplitudeProvider, registerAmplitudeClient } from "../src/server/amplitude.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "assistant-host", subjectId: "account-owner" };
 const input = { context, integrationId: "analytics" };
@@ -15,7 +15,7 @@ const scopes = ["mcp:read", "offline_access"];
 const discovery = { tools: [{ name: "get_amplitude_context", inputSchema: { type: "object", properties: { project_id: { type: "string" } } } }] };
 
 async function fixture(t, region = "us") {
-  const directory = await mkdtemp(path.join(tmpdir(), "amplitude-connector-"));
+  const directory = await makeTestDirectory("amplitude-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(3) }, activeKeyId: "current" });
   const origin = region === "eu" ? "https://mcp.eu.amplitude.com" : "https://mcp.amplitude.com";

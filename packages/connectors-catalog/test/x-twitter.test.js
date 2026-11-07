@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService, ConnectorError } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { xTwitterProvider } from "../src/server/x-twitter.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "research-app", subjectId: "research-team" };
 const input = { context, integrationId: "social" };
@@ -15,7 +15,7 @@ const profile = { data: { id: "1234567890123456789", name: "Example", username: 
 const page = { data: [{ id: "1934567890123456789", text: "A public post" }], meta: { result_count: 1, next_token: "opaque-cursor" } };
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "x-twitter-connector-"));
+  const directory = await makeTestDirectory("x-twitter-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(8) }, activeKeyId: "current" });
   const requests = [];

@@ -1,13 +1,13 @@
 import { createHmac } from "node:crypto";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { slackProvider, verifySlackRequest } from "../src/server/slack.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const callback = "https://app.example.test/slack/callback";
 const context = { applicationId: "app-one", subjectId: "user-one" };
@@ -16,7 +16,7 @@ const scopes = ["channels:read", "groups:read", "im:read", "mpim:read"];
 const page = { ok: true, channels: [{ id: "C123", name: "general" }], response_metadata: { next_cursor: "next +&/=" } };
 
 async function fixture(t, actor = "user", granted = scopes) {
-  const directory = await mkdtemp(path.join(tmpdir(), "slack-connector-"));
+  const directory = await makeTestDirectory("slack-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { time: Date.now(), tokenCount: 0, tokenScope: granted.join(","), tokenStatus: 200, apiStatus: 200, page, rotation: true };

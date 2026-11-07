@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { clickhouseProvider } from "../src/server/clickhouse.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "analytics-app", subjectId: "owner" };
 const input = { context, integrationId: "warehouse" };
 const checked = { meta: [{ name: "ok", type: "UInt8" }, { name: "user", type: "String" }], data: [{ ok: 1, user: "reader" }], rows: 1 };
 
 async function fixture(t, authentication = { method: "api-key", secretRef: "env:CLICKHOUSE_PASSWORD" }) {
-  const directory = await mkdtemp(path.join(tmpdir(), "clickhouse-connector-"));
+  const directory = await makeTestDirectory("clickhouse-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(5) }, activeKeyId: "current" });
   const requests = [];

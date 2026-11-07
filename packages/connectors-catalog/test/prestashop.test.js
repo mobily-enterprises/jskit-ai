@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { prestashopProvider } from "../src/server/prestashop.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "store-app", subjectId: "merchant" };
 const input = { context, integrationId: "store" };
@@ -15,7 +15,7 @@ const products = { products: [{ id: "42", reference: "SHIRT", price: "20.000000"
   associations: { images: [{ id: "7" }] } }] };
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "prestashop-connector-"));
+  const directory = await makeTestDirectory("prestashop-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(5) }, activeKeyId: "current" });
   const requests = [];

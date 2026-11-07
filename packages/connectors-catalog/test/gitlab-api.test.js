@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { gitlabApiProvider } from "../src/server/gitlab-api.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 for (const perUser of [false, true]) test(`GitLab OAuth ${perUser ? "per-user non-expiring" : "shared rotating"} grants preserve protocol and ownership`, async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), "gitlab-oauth-test-"));
+  const directory = await makeTestDirectory("gitlab-oauth-test-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const callback = "https://example.test/integrations/gitlab-api/callback";
   const context = { applicationId: "app", subjectId: "owner" };
@@ -102,7 +101,7 @@ for (const perUser of [false, true]) test(`GitLab OAuth ${perUser ? "per-user no
 
 
 test("GitLab project paths, content and issue/MR writes use the selected host without replaying writes", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "gitlab-content-test-"));
+  const directory = await makeTestDirectory("gitlab-content-test-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; let status = 200, fail = false;
   const service = createConnectionService({

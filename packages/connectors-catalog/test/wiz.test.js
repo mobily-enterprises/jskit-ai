@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, writeFile, readFile, rm, access, mkdir } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { writeFile, readFile, rm, access, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { validateIntegrationConfiguration, parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { createWizScanner } from "../src/server/wiz.js";
 import { wizDefinition } from "../src/shared/wiz.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "project-one", subjectId: "workspace-one" };
 const args = { context, integrationId: "security" };
@@ -16,7 +16,7 @@ const configuration = () => ({ schemaVersion: 1, registrations: {
   authentication: { method: "oauth2", registrationRef: "wiz" }, settings: {} } } });
 
 async function fixture(t, patch = {}) {
-  const root = await mkdtemp(path.join(tmpdir(), "wiz-fixture-"));
+  const root = await makeTestDirectory("wiz-fixture-");
   t.after(() => rm(root, { recursive: true, force: true }));
   const source = path.join(root, "source with spaces;$literal"); await mkdir(source);
   const executable = path.join(root, "fixture-cli");

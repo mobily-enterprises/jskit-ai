@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { getProviderScopes, parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { microsoftFabricProvider } from "../src/server/microsoft-fabric.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const tenantId = "11111111-2222-3333-4444-555555555555";
 const clientId = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
@@ -19,7 +19,7 @@ const callback = "https://app.example.test/oauth/fabric/callback";
 const schema = { __schema: { types: [{ name: "Query", kind: "OBJECT" }], queryType: { name: "Query" }, mutationType: null } };
 
 async function fixture(t, grantType = "authorization_code") {
-  const directory = await mkdtemp(path.join(tmpdir(), "fabric-connector-"));
+  const directory = await makeTestDirectory("fabric-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const machine = grantType === "client_credentials";
   const configuration = { schemaVersion: 1, registrations: { fabric: { source: "own", grantType, clientId,

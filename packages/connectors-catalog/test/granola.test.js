@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { granolaProvider, registerGranolaClient } from "../src/server/granola.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const noteId = "not_12345678901234";
 const folderId = "fol_12345678901234";
@@ -18,7 +18,7 @@ const context = { applicationId: "app-one", subjectId: "owner-one" };
 const args = { context, integrationId: "meetings" };
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "granola-connector-"));
+  const directory = await makeTestDirectory("granola-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const state = { key: "grn_private-fixture-key", status: 200, value: undefined, hang: false };
   const requests = [];

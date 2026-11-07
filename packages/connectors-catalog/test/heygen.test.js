@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import path from "node:path";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { heygenProvider, registerHeyGenClient } from "../src/server/heygen.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "app-one", subjectId: "owner-one" };
 const args = { context, integrationId: "meetings" };
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "heygen-oauth-"));
+  const directory = await makeTestDirectory("heygen-oauth-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const options = {

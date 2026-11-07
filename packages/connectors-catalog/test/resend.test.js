@@ -3,12 +3,12 @@ import test from "node:test";
 import { createHash } from "node:crypto";
 import { createLocalAuthService, createLocalFileBackend } from "../../auth-provider-local-core/src/server/lib/index.js";
 import { localServiceOptions } from "../../auth-provider-local-core/test-support/localService.js";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { resendProvider } from "../src/server/resend.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "mail-app", subjectId: "business-mail" };
 const input = { from: "Support <support@example.com>", to: ["person@example.com"],
@@ -16,7 +16,7 @@ const input = { from: "Support <support@example.com>", to: ["person@example.com"
   idempotencyKey: "recovery/fixture-event" };
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "resend-send-"));
+  const directory = await makeTestDirectory("resend-send-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { fail: false };

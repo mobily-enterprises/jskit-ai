@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { validateIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { xeroProvider } from "../src/server/xero.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const tenantId = "70784a63-d24b-46a9-a4db-0e70a274b056";
 const otherTenant = "e0da6937-de07-4a14-adee-37abfac298ce";
@@ -18,7 +18,7 @@ const connection = { id: recordId, tenantId, tenantType: "ORGANISATION", tenantN
 const defaults = xeroProvider.scopes.filter((scope) => scope.recommended).map((scope) => scope.value);
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "xero-connector-"));
+  const directory = await makeTestDirectory("xero-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { time: Date.now(), tokenCount: 0, tokenScope: defaults.join(" "), status: 200, connections: [connection],

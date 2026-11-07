@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { validateIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { wixProvider as provider } from "../src/server/wix.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const accountId = "01234567-89ab-cdef-0123-456789abcdef";
 const siteId = "12345678-9abc-def0-1234-56789abcdef0";
@@ -44,7 +44,7 @@ test("Wix retrieves service choices without converting native prices or crossing
 });
 
 async function fixture(t, settings = {}) {
-  const directory = await mkdtemp(path.join(tmpdir(), "wix-connector-"));
+  const directory = await makeTestDirectory("wix-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(7) }, activeKeyId: "current" });
   const requests = [];

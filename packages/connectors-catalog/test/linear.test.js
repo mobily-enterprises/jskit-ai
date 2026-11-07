@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { linearProvider } from "../src/server/linear.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 for (const perUser of [false, true]) test(`Linear OAuth ${perUser ? "per-user" : "shared rotating"} grants preserve protocol and ownership`, async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), "linear-oauth-test-"));
+  const directory = await makeTestDirectory("linear-oauth-test-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const callback = "https://example.test/integrations/linear/callback";
   const context = { applicationId: "app", subjectId: "owner" };

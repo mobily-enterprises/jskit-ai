@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { validateIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { salesforceProvider as provider } from "../src/server/salesforce.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "crm-app", subjectId: "user-one" };
 const input = { context, integrationId: "crm" };
@@ -17,7 +17,7 @@ const cursor = "/services/data/v66.0/query/0r82211CelDTLqEAEX-2000";
 const page = { totalSize: 1, done: true, records: [{ attributes: { type: "Account", url: "/services/data/v66.0/sobjects/Account/001000000000001AAA" }, Id: "001000000000001AAA", Name: "Fixture" }] };
 
 async function fixture(t, settings = { environment: "production", accountUrl }) {
-  const directory = await mkdtemp(path.join(tmpdir(), "salesforce-connector-"));
+  const directory = await makeTestDirectory("salesforce-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const origin = new URL(settings.accountUrl).origin;
   const state = { time: Date.now(), grants: 0, requests: [], tokenStatus: 200, status: 200, scope: "api refresh_token", refresh: true,

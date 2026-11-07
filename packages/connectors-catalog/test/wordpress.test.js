@@ -1,14 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHmac } from "node:crypto";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { woocommerceProvider, verifyWooCommerceWebhook } from "../src/server/woocommerce.js";
 import { wordpressSelfHostedProvider } from "../src/server/wordpress-self-hosted.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "site-app", subjectId: "site-owner" };
 const input = { context, integrationId: "site" };
@@ -24,7 +24,7 @@ const cases = [
 ];
 
 async function fixture(t, spec) {
-  const directory = await mkdtemp(path.join(tmpdir(), "wordpress-connectors-"));
+  const directory = await makeTestDirectory("wordpress-connectors-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(6) }, activeKeyId: "current" });
   const requests = [];

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { confidenceFlagsProvider, confidenceExpProvider, registerConfidenceClient } from "../src/server/confidence.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const scopes = ["openid", "profile", "email", "offline_access"];
 const context = { applicationId: "assistant", subjectId: "owner" };
@@ -18,7 +18,7 @@ const specs = [
   { provider: confidenceExpProvider, path: "experiments", name: "get_experiment", arguments: { name: "workflows/abtest/instances/approved" } }
 ];
 async function fixture(t, spec) {
-  const directory = await mkdtemp(path.join(tmpdir(), "confidence-connector-"));
+  const directory = await makeTestDirectory("confidence-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { time: Date.now(), scopes, status: 200,

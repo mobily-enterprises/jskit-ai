@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
@@ -9,13 +8,14 @@ import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/
 import { shopifyProvider } from "../src/server/shopify.js";
 import { catalogMessage } from "../../kernel/shared/i18n/index.js";
 import en from "../locales/en.json" with { type: "json" };
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "app-one", subjectId: "store-one" };
 const args = { context, integrationId: "shopify" };
 const product = { id: "gid://shopify/Product/123", title: "Fixture product", handle: "fixture-product", status: "DRAFT" };
 
 async function fixture(t, { method = "oauth2", scopes = ["read_products", "write_products"], assistantPolicy } = {}) {
-  const directory = await mkdtemp(path.join(tmpdir(), "shopify-connector-"));
+  const directory = await makeTestDirectory("shopify-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const configuration = { schemaVersion: 1, registrations: method === "oauth2" ? {
     own: { source: "own", grantType: "client_credentials", clientId: "fixture-client", clientSecretRef: "env:SHOPIFY_SECRET" }

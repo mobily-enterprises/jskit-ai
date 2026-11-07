@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { n8nProvider, discoverN8nOAuth, registerN8nClient } from "../src/server/n8n.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 function fixture(resource, issuer) {
   const calls = [];
@@ -110,14 +111,12 @@ test("n8n rejects unsupported registration scopes before POST and never retries 
 
 
 test("n8n saved discovery drives project-owned consent, encrypted grants and refresh without rediscovery", async (t) => {
-  const { mkdtemp, rm } = await import("node:fs/promises");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
+  const { rm } = await import("node:fs/promises");
   const { createConnectionService } = await import("../../connectors-core/src/server/index.js");
   const { createFileConnectionStore, createCredentialProtection } = await import("../../connectors-core/src/server/fileStorage.js");
   const f = fixture("https://tools.example/team/mcp-server/http", "https://login.example/n8n");
   const discovery = await discoverN8nOAuth({ serverUrl: f.protectedResource.resource }, f);
-  const directory = await mkdtemp(join(tmpdir(), "n8n-oauth-"));
+  const directory = await makeTestDirectory("n8n-oauth-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(3) }, activeKeyId: "current" });
   const callback = "https://app.example/integrations/n8n/callback";

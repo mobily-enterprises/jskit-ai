@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { mailgunProvider } from "../src/server/mailgun.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "mail-app", subjectId: "business-mail" };
 const domain = "mail.example.com";
@@ -14,7 +13,7 @@ const message = { domain, from: "Support <support@mail.example.com>", to: ["one@
 const dns = { domain: { name: domain, state: "unverified" },
   sending_dns_records: [{ record_type: "TXT", name: domain, value: "fixture-spf", valid: "unknown" }], receiving_dns_records: [] };
 async function fixture(t, region = "us") {
-  const directory = await mkdtemp(path.join(tmpdir(), "mailgun-repair-"));
+  const directory = await makeTestDirectory("mailgun-repair-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { fail: false, status: 200, malformed: false, deny: false };

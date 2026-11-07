@@ -1,16 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { ashbyProvider } from "../src/server/ashby.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const id = "11111111-1111-4111-8111-111111111111";
 const stage = "22222222-2222-4222-8222-222222222222";
 test("Ashby syncs candidates/applications, updates a profile and explicitly advances a sourced application", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "ashby-repair-"));
+  const directory = await makeTestDirectory("ashby-repair-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { status: 200, response: { success: true, results: [], moreDataAvailable: false }, fail: false, deny: false };

@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { brevoProvider } from "../src/server/brevo.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Brevo explicitly sends messages and campaigns, manages contacts and retains DNS and delivery state", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "brevo-repair-")); t.after(() => rm(directory, { recursive: true, force: true }));
+  const directory = await makeTestDirectory("brevo-repair-"); t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; const state = { response: { contacts: [], count: 0 }, status: 200, deny: false, fail: false };
   const identity = { context: { applicationId: "booking-app", subjectId: "owner" }, integrationId: "messaging" };
   const service = createConnectionService({ configuration: { schemaVersion: 1, registrations: {}, integrations: {

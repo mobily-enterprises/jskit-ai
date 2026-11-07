@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { zohoBooksProvider } from "../src/server/zoho-books.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "application-one", subjectId: "user-one" };
 const args = { context, integrationId: "books" };
@@ -25,7 +25,7 @@ const regions = {
 };
 
 async function fixture(t, settings = { region: "eu" }, selectedScopes = scopes) {
-  const directory = await mkdtemp(path.join(tmpdir(), "zoho-books-connector-"));
+  const directory = await makeTestDirectory("zoho-books-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const [accounts, suffix] = regions[settings.region || "eu"];
   const api = `https://www.zohoapis.${suffix}`;

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { geminiEnterpriseProvider } from "../src/server/gemini-enterprise.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const scope = "https://www.googleapis.com/auth/cloud-platform";
 const context = { applicationId: "app-one", subjectId: "owner-one" };
@@ -15,7 +15,7 @@ const callback = "https://app.example.test/oauth/gemini-enterprise/callback";
 const searchPage = { results: [{ id: "policy", document: { id: "policy", structData: { title: "Holiday policy" } } }], totalSize: 2, attributionToken: "search-reference", nextPageToken: "next+/=&" };
 
 async function fixture(t, { location = "global", accountMode = "shared" } = {}) {
-  const directory = await mkdtemp(path.join(tmpdir(), "gemini-enterprise-connector-"));
+  const directory = await makeTestDirectory("gemini-enterprise-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const configuration = { schemaVersion: 1, registrations: { google: { source: "own", clientId: "fixture-google-client",
     clientSecretRef: "env:GEMINI_SECRET", callbackUrlRef: "env:GEMINI_CALLBACK" } }, integrations: {

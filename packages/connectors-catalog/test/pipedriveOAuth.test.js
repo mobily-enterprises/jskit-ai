@@ -1,14 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import { pipedriveProvider } from "../src/server/pipedrive.js";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 async function fixture(t, fetchImpl) {
-  const directory = await mkdtemp(join(tmpdir(), "pipedrive-oauth-"));
+  const directory = await makeTestDirectory("pipedrive-oauth-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(7) }, activeKeyId: "current" });
   let now = Date.now();

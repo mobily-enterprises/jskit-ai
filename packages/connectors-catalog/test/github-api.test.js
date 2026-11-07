@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { githubApiProvider } from "../src/server/github-api.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 for (const perUser of [false, true]) test(`GitHub OAuth ${perUser ? "per-user non-expiring" : "shared rotating"} grants preserve protocol and ownership`, async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), "github-oauth-test-"));
+  const directory = await makeTestDirectory("github-oauth-test-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const callback = "https://example.test/integrations/github-api/callback";
   const context = { applicationId: "app", subjectId: "owner" };
@@ -104,7 +103,7 @@ test("GitHub token normalization rejects malformed grants and retains OAuth erro
 });
 
 test("GitHub repository reads and issue/PR writes preserve paths, pagination and uncertain outcomes", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "github-content-test-"));
+  const directory = await makeTestDirectory("github-content-test-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; let status = 200, malformed = false, fail = false;
   const service = createConnectionService({

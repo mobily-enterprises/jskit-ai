@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { generateKeyPair, exportPKCS8, jwtVerify } from "jose";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
@@ -10,6 +9,7 @@ import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/
 import { firebaseCloudMessagingProvider as provider } from "../src/server/firebase-cloud-messaging.js";
 import { firebaseMessagingScope } from "../src/shared/firebase-cloud-messaging.js";
 import { firebaseCloudMessagingWebConfiguration } from "../src/client/firebase-cloud-messaging.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const keys = await generateKeyPair("RS256", { extractable: true });
 const account = { type: "service_account", project_id: "sender-project", private_key_id: "a".repeat(40),
@@ -20,7 +20,7 @@ const context = { applicationId: "notifications-app", subjectId: "team" };
 const input = { context, integrationId: "push" };
 const message = { fid: "fixture-installation-id", notification: { title: "Order ready", body: "Your order is ready." }, data: { orderId: "42" } };
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "firebase-connector-"));
+  const directory = await makeTestDirectory("firebase-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const state = { now: Date.now(), credential: JSON.stringify(account, null, 2), grants: [], requests: [], status: 200, tokenStatus: 200 };
   const options = {

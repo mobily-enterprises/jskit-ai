@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { validateIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { tiktokProvider as provider } from "../src/server/tiktok.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "tiktok-app", subjectId: "creator-one" };
 const input = { context, integrationId: "tiktok" };
@@ -15,7 +15,7 @@ const scopes = ["user.info.basic", "user.info.stats", "user.info.profile", "vide
 const profile = { data: { user: { open_id: "creator-1", display_name: "Fixture Creator", avatar_url: "https://image.example/avatar" } }, error: { code: "ok" } };
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "tiktok-connector-"));
+  const directory = await makeTestDirectory("tiktok-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(7) }, activeKeyId: "current" });
   const configuration = { schemaVersion: 1, integrations: { tiktok: { provider: "tiktok", accountMode: "per-user", scopes: [...scopes],

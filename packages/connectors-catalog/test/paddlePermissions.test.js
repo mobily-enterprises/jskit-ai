@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { paddleProvider } from "../src/server/paddle.js";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Paddle maps reads to the captured permission and requires exact host approval without executing payments", async () => {
   let approved = false;
@@ -33,11 +34,9 @@ test("Paddle maps reads to the captured permission and requires exact host appro
 });
 
 test("Paddle product and recurring-price writes validate inputs and do not retry failures", async (t) => {
-  const { mkdtemp, rm } = await import("node:fs/promises");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
+  const { rm } = await import("node:fs/promises");
   const { createFileConnectionStore, createCredentialProtection } = await import("../../connectors-core/src/server/fileStorage.js");
-  const directory = await mkdtemp(join(tmpdir(), "paddle-writes-"));
+  const directory = await makeTestDirectory("paddle-writes-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const writes = [];
   let fail = false;

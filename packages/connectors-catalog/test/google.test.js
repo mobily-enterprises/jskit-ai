@@ -3,9 +3,7 @@ import { googleAnalyticsDefinition } from "../src/shared/google.js";
 import { validateIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import path from "node:path";
-import { tmpdir } from "node:os";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { gmailProvider } from "../src/server/gmail.js";
@@ -16,6 +14,7 @@ import { googleSlidesProvider } from "../src/server/google-slides.js";
 import { googleSearchConsoleProvider } from "../src/server/google-search-console.js";
 
 import { bigqueryProvider } from "../src/server/bigquery.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const owner = { applicationId: "application", subjectId: "user-one" };
 const callback = "https://application.example/connections/callback";
@@ -30,7 +29,7 @@ const cases = [
 ];
 
 async function fixture(t, entry) {
-  const directory = await mkdtemp(path.join(tmpdir(), "google-connector-"));
+  const directory = await makeTestDirectory("google-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const scopes = entry.provider.scopes.filter((scope) => scope.recommended).map((scope) => scope.value);
   const config = {

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { googleMapsPlatformProvider } from "../src/server/google-maps-platform.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "app-one", subjectId: "team-one" };
 const input = { context, integrationId: "maps" };
@@ -15,7 +15,7 @@ const places = { status: "OK", results: [{ formatted_address: "Perth WA, Austral
   geometry: { location: { lat: -31.95, lng: 115.86 } }, address_components: [], types: ["locality"], partial_match: true }] };
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "google-maps-connector-"));
+  const directory = await makeTestDirectory("google-maps-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(5) }, activeKeyId: "current" });
   const requests = [];

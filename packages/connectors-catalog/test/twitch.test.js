@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { twitchProvider, parseTwitchEventSubMessage } from "../src/server/twitch.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const callback = "https://app.example.test/twitch/callback";
 const context = { applicationId: "app-one", subjectId: "user-one" };
@@ -14,7 +14,7 @@ const scopes = ["user:read:email", "user:read:follows"];
 const followed = { total: 1, data: [{ broadcaster_id: "456", broadcaster_login: "channel", broadcaster_name: "Channel", followed_at: "2026-09-01T00:00:00Z" }], pagination: { cursor: "next +&2" } };
 
 async function fixture(t, granted = scopes) {
-  const directory = await mkdtemp(path.join(tmpdir(), "twitch-connector-"));
+  const directory = await makeTestDirectory("twitch-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = {

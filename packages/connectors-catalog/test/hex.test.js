@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { hexProvider, registerHexClient } from "../src/server/hex.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "assistant-host", subjectId: "account-owner" };
 const input = { context, integrationId: "analysis" };
@@ -15,7 +15,7 @@ const scopes = ["openid", "profile", "email", "offline_access"];
 const discovery = { tools: [{ name: "search_projects", inputSchema: { type: "object", properties: { query: { type: "string" } } } }] };
 
 async function fixture(t, endpoint = "standard") {
-  const directory = await mkdtemp(path.join(tmpdir(), "hex-connector-"));
+  const directory = await makeTestDirectory("hex-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(3) }, activeKeyId: "current" });
   const origin = { standard: "https://app.hex.tech", eu: "https://eu.hex.tech", hipaa: "https://hc.hex.tech" }[endpoint];

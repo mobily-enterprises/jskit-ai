@@ -1,9 +1,8 @@
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { airtableProvider } from "../src/server/airtable.js";
@@ -43,6 +42,7 @@ import { fireworksAiProvider } from "../src/server/fireworks-ai.js";
 import { gatewayApiProvider, verifyGatewayApiEvent } from "../src/server/gatewayapi.js";
 import { polarProvider } from "../src/server/polar.js";
 import { storyblokProvider } from "../src/server/storyblok.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const cases = [
   { provider: clayProvider, check: "/public/v0/me", header: "clay-api-key", prefix: "",
@@ -107,7 +107,7 @@ const cases = [
 ];
 
 async function fixture(t, entry) {
-  const directory = await mkdtemp(path.join(tmpdir(), "connector-token-"));
+  const directory = await makeTestDirectory("connector-token-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const state = { key: entry.key || "private-fixture-key", status: 200, response: entry.response };
   const requests = [];

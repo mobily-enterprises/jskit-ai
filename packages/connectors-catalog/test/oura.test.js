@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { ouraProvider } from "../src/server/oura.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const callback = "https://app.example.test/oura/callback";
 const context = { applicationId: "app-one", subjectId: "user-one" };
@@ -13,7 +13,7 @@ const input = { context, integrationId: "oura" };
 const daily = { data: [{ id: "sleep-1", day: "2026-09-01", score: 82 }], next_token: "next +&2" };
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "oura-connector-"));
+  const directory = await makeTestDirectory("oura-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { time: Date.now(), tokenCount: 0, tokenScope: undefined, status: 200, response: daily };

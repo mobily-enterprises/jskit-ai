@@ -1,11 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { airtableProvider } from "../src/server/airtable.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "records-app", subjectId: "workspace" };
 const baseId = "appFixture";
@@ -13,7 +12,7 @@ const tableId = "tblFixture";
 const recordId = "recFixture";
 
 test("Airtable discovers schema, changes tables/fields and completes a paged record lifecycle", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "airtable-repair-"));
+  const directory = await makeTestDirectory("airtable-repair-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   let fail = false;

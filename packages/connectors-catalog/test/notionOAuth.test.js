@@ -1,14 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { rm } from "node:fs/promises";
 import { notionProvider, registerNotionMcpClient } from "../src/server/notion.js";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Notion exchanges JSON with Basic auth and persists rotated refresh tokens across restart", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "notion-oauth-"));
+  const directory = await makeTestDirectory("notion-oauth-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(9) }, activeKeyId: "current" });
   const callback = "https://app.example/integrations/notion/callback";
@@ -66,7 +65,7 @@ test("Notion exchanges JSON with Basic auth and persists rotated refresh tokens 
 });
 
 test("Notion rejects failed or malformed token exchanges without replay or secret disclosure", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "notion-oauth-errors-"));
+  const directory = await makeTestDirectory("notion-oauth-errors-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(8) }, activeKeyId: "current" });
   const callback = "https://app.example/integrations/notion/callback";
@@ -103,7 +102,7 @@ test("Notion rejects failed or malformed token exchanges without replay or secre
 });
 
 test("Notion hosted MCP uses separate PKCE/form credentials and tool discovery", async (t) => {
-  const directory = await mkdtemp(join(tmpdir(), "notion-mcp-"));
+  const directory = await makeTestDirectory("notion-mcp-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(4) }, activeKeyId: "current" });
   const callback = "https://app.example/integrations/notion/callback";

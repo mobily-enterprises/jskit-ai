@@ -1,8 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
@@ -14,6 +13,7 @@ import { microsoftExcelProvider } from "../src/server/microsoft-excel.js";
 import { microsoftTeamsProvider } from "../src/server/microsoft-teams.js";
 import { microsoftOneNoteProvider } from "../src/server/microsoft-onenote.js";
 import { microsoftSharePointProvider } from "../src/server/microsoft-sharepoint.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const owner = { applicationId: "app-one", subjectId: "user-one" };
 const callback = "https://application.example/connectors/callback";
@@ -29,7 +29,7 @@ const cases = [
 ];
 
 async function fixture(t, entry) {
-  const directory = await mkdtemp(path.join(tmpdir(), "microsoft-connector-"));
+  const directory = await makeTestDirectory("microsoft-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { time: Date.now(), scope: (entry.scopes || [entry.scope]).join(" "), status: 200, tokenStatus: 200, tokenCount: 0, response: { value: [entry.item] } };

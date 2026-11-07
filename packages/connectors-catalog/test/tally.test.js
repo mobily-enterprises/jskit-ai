@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { tallyProvider } from "../src/server/tally.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Tally submission retrieval preserves answers and explicit paging with account credentials", async (t) => {
-  const directory = await mkdtemp(path.join(tmpdir(), "tally-workflows-"));
+  const directory = await makeTestDirectory("tally-workflows-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   let response = { items: [], total: 0, hasMore: false }, status = 200;

@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
+import { readFile, readdir, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { inngestProvider } from "../src/server/inngest.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "workflow-app", subjectId: "workspace" };
 const input = { context, integrationId: "jobs" };
@@ -14,7 +14,7 @@ const event = { name: "app/report.requested", data: { reportId: "42", filters: [
 const appPage = { data: [{ id: "reports", name: "Reports", method: "SERVE", isArchived: false }], page: { cursor: null, hasMore: false, limit: 20 } };
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "inngest-connectors-"));
+  const directory = await makeTestDirectory("inngest-connectors-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(8) }, activeKeyId: "current" });
   const requests = [];

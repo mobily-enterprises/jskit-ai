@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { elevenlabsProvider } from "../src/server/elevenlabs.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("ElevenLabs returns playable audio and creates a consented voice clone with verification status", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "elevenlabs-repair-")); t.after(() => rm(directory, { recursive: true, force: true }));
+  const directory = await makeTestDirectory("elevenlabs-repair-"); t.after(() => rm(directory, { recursive: true, force: true }));
   const context = { applicationId: "voice-app", subjectId: "workspace" }; const requests = [];
   let responseMode = "audio"; let status = 200; let deny = false; let fail = false;
   const service = createConnectionService({

@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { attentionProvider } from "../src/server/attention.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Attention preserves full call content and supports explicit coaching and organization workflows", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "attention-repair-"));
+  const directory = await makeTestDirectory("attention-repair-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { status: 200, response: { data: [] }, fail: false, deny: false };

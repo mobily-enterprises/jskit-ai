@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { apolloIoProvider } from "../src/server/apollo-io.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Apollo prospects, explicit enrichment and CRM changes run through the application-owned connection", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "apollo-repair-"));
+  const directory = await makeTestDirectory("apollo-repair-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { response: { accounts: [] }, status: 200, fail: false, deny: false, key: "fixture-apollo-key" };

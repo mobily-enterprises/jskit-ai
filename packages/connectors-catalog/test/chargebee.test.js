@@ -1,19 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
+import { readdir, readFile, rm } from "node:fs/promises";
 import path from "node:path";
-import { tmpdir } from "node:os";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { parseIntegrationConfiguration } from "../../connectors-core/src/shared/configuration.js";
 import { chargebeeProvider } from "../src/server/chargebee.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "billing-app", subjectId: "finance-team" };
 const input = { context, integrationId: "billing" };
 const customers = { list: [{ customer: { id: "customer-1", object: "customer", first_name: "Alex" } }] };
 
 async function fixture(t) {
-  const directory = await mkdtemp(path.join(tmpdir(), "chargebee-connector-"));
+  const directory = await makeTestDirectory("chargebee-connector-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(6) }, activeKeyId: "current" });
   const requests = [];

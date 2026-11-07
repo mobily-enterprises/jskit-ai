@@ -1,15 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { apifyProvider } from "../src/server/apify.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 const context = { applicationId: "scraping-app", subjectId: "workspace" };
 test("Apify submits a bounded run, observes terminal states, aborts and retrieves paged storage results", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "apify-repair-"));
+  const directory = await makeTestDirectory("apify-repair-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   let runStatus = "RUNNING";

@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { asanaProvider } from "../src/server/asana.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Asana creates a private project, explicitly shares it, tracks tasks and preserves sparse changes", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "asana-repair-"));
+  const directory = await makeTestDirectory("asana-repair-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { status: 200, response: { data: [{ gid: "123" }] }, fail: false, deny: false, key: "asana-fixture" };

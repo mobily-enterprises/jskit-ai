@@ -1,14 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
-import { tmpdir } from "node:os";
-import path from "node:path";
+import { rm } from "node:fs/promises";
 import { createConnectionService } from "../../connectors-core/src/server/index.js";
 import { createFileConnectionStore, createCredentialProtection } from "../../connectors-core/src/server/fileStorage.js";
 import { firecrawlProvider } from "../src/server/firecrawl.js";
+import { makeTestDirectory } from "../../../tooling/test-support/testDirectory.mjs";
 
 test("Firecrawl searches and imports bounded crawl pages without leaking the key or replaying paid work", async t => {
-  const directory = await mkdtemp(path.join(tmpdir(), "firecrawl-repair-"));
+  const directory = await makeTestDirectory("firecrawl-repair-");
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; let status = 200; let fail = false; let malformed = false; let deny = false; let key = "fixture-key";
   const service = createConnectionService({
