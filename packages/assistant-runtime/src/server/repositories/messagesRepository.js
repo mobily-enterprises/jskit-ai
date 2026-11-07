@@ -136,8 +136,7 @@ function createRepository({ messages, systemContext }) {
     return findById(id, options);
   }
 
-  // One page of the conversation's messages in seq order. A handle pages by
-  // cursor, so the pages before the requested one are read to reach it.
+  // One numbered page of the conversation's messages in seq order, in one statement.
   async function listByConversationScope(conversationId, { workspaceId = null } = {}, pagination = {}, options = {}) {
     const normalizedConversationId = normalizeInputRecordId(conversationId);
     if (!normalizedConversationId) {
@@ -146,21 +145,12 @@ function createRepository({ messages, systemContext }) {
 
     const { page, pageSize } = normalizePagination(pagination);
     const scope = scoped(normalizeInputRecordId(workspaceId), options);
-    let after = null;
-    for (let current = 1; ; current += 1) {
-      const result = await messages.query({
-        filters: { ...scope.filters, conversationId: normalizedConversationId },
-        sort: ["seq", "id"],
-        page: after ? { size: pageSize, after } : { size: pageSize }
-      }, scope.options);
-      if (current === page) {
-        return result.records.map(mapMessageRecord);
-      }
-      if (!result.page.hasMore) {
-        return [];
-      }
-      after = result.page.next;
-    }
+    const { records } = await messages.query({
+      filters: { ...scope.filters, conversationId: normalizedConversationId },
+      sort: ["seq", "id"],
+      page: { size: pageSize, number: page }
+    }, scope.options);
+    return records.map(mapMessageRecord);
   }
 
   async function lastSequence(conversationId, options = {}) {
