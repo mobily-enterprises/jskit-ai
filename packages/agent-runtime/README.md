@@ -41,6 +41,11 @@ const summaries = createSummaries({ ...agent, model, app: "the app", history, no
 const commands = createCommands({ ...agent, executor: gvisorExecutor() });
 ```
 
+Each factory checks what it is given before it builds anything: one called the earlier way, with a
+Knex (`knex`) and table names (`tables`), or without its handles or `systemContext`, throws a
+`TypeError` that names what to pass. `defaultTools`, `planningTools` and `planningNotes` likewise
+refuse `knex` and `tables` and check that `planning` has its four methods.
+
 `notices` is optional: `{ publish(channel, key, payload), subscribe(channel, key, listener) }`,
 where `subscribe` returns a function that stops listening (PostgreSQL LISTEN/NOTIFY, for example).
 With it, a new goal round or a queued summary wakes every server at once; without it, each server

@@ -5,6 +5,7 @@ import path from "node:path";
 import { z } from "zod";
 import { createTool, textPart } from "@jskit-ai/agent/server";
 import { createCommandsRepository } from "../repositories/commandsRepository.js";
+import { requireStoreDependencies } from "../arguments.js";
 
 // Commands in the workspace, through an executor (executors.js). One still running after
 // `foregroundSeconds` carries on in the background on this server, with a heartbeat, and the model
@@ -31,15 +32,17 @@ export const COMMAND_LIMITS = { foregroundSeconds: 120, maxSeconds: 1800, output
  * @param {typeof COMMAND_LIMITS} [dependencies.limits]
  * @param {string} [dependencies.server]
  */
-export function createCommands({
-  resources,
-  systemContext,
-  executor,
-  outputDir = path.join(os.tmpdir(), "agent-runs"),
-  onEnd = ignoreEnd,
-  limits = COMMAND_LIMITS,
-  server = `${os.hostname()}:${process.pid}`
-}) {
+export function createCommands(dependencies) {
+  requireStoreDependencies("createCommands", dependencies, ["agentCommands"]);
+  const {
+    resources,
+    systemContext,
+    executor,
+    outputDir = path.join(os.tmpdir(), "agent-runs"),
+    onEnd = ignoreEnd,
+    limits = COMMAND_LIMITS,
+    server = `${os.hostname()}:${process.pid}`
+  } = dependencies;
   const live = new Map();
   const store = createCommandsRepository({
     commands: resources.agentCommands,

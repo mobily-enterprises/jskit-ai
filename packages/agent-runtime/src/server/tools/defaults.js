@@ -1,3 +1,4 @@
+import { refusePlanningKnex, requirePlanning } from "../arguments.js";
 import { goalTools } from "../goals.js";
 import { planningTools } from "../planning.js";
 import { askInReplyTools, askTools } from "./ask.js";
@@ -18,7 +19,12 @@ import { fileTools } from "./files.js";
  * @param {((messages: object[]) => Promise<unknown>) | null} [options.post]
  * @param {import("../types.js").AgentGoalOperations | null} [options.goals]
  */
-export function defaultTools({ root, commands = null, planning = null, conversationId, post = null, goals = null }) {
+export function defaultTools(options) {
+  refusePlanningKnex("defaultTools", options);
+  const { root, commands = null, planning = null, conversationId, post = null, goals = null } = options;
+  if (planning) {
+    requirePlanning("defaultTools", planning);
+  }
   return {
     ...fileTools({ root }),
     ...(commands ? commandTools({ commands, conversationId, root }) : {}),

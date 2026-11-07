@@ -2,6 +2,7 @@ import { z } from "zod";
 import { assertCallbacks, createTool } from "@jskit-ai/agent/server";
 import { NO_NOTICES } from "./notices.js";
 import { createGoalsRepository } from "./repositories/goalsRepository.js";
+import { requireStoreDependencies } from "./arguments.js";
 
 // Goals and goal rounds, after DeepSeek Harness (MIT; P3–P5 in @jskit-ai/agent's
 // docs/deepseek-harness.md). For a job of several steps the model opens a goal; whenever its turn
@@ -88,23 +89,25 @@ export function goalTools(operations) {
  * @param {(goal: object, work: () => Promise<unknown>) => Promise<unknown>} [dependencies.track]
  * @param {(work: Promise<unknown>) => unknown} [dependencies.background]
  */
-export function createGoals({
-  resources,
-  systemContext,
-  runs,
-  channel = "agent-goals",
-  notices,
-  limits = GOAL_LIMITS,
-  find,
-  respond,
-  claim,
-  record,
-  notify = notifyNoPages,
-  owner = noOwnerColumns,
-  spent = nothingSpent,
-  track = runUnmetered,
-  background = leaveRunning
-}) {
+export function createGoals(dependencies) {
+  requireStoreDependencies("createGoals", dependencies, ["agentGoals"]);
+  const {
+    resources,
+    systemContext,
+    runs,
+    channel = "agent-goals",
+    notices,
+    limits = GOAL_LIMITS,
+    find,
+    respond,
+    claim,
+    record,
+    notify = notifyNoPages,
+    owner = noOwnerColumns,
+    spent = nothingSpent,
+    track = runUnmetered,
+    background = leaveRunning
+  } = dependencies;
   assertCallbacks("createGoals", { notify, owner, spent, track, background });
   const channelNotices = notices ?? NO_NOTICES;
   const wake = () => channelNotices.publish(channel, "all", {}).catch(() => {});
