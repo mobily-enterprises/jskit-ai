@@ -203,6 +203,28 @@ the `auth_local_registrations` table (run `npm run db:migrate`). A custom
 register and expect a session either confirm with the answer's
 `confirmationUrl` or set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
 
+## Local accounts from application code (database backend)
+
+Application code that works with local auth's records beside local auth, such
+as an emailed sign-in link or a job that removes old sessions, requires their
+owners' capabilities from `@jskit-ai/auth-provider-local-db-core` and never
+reads or writes the `auth_local_*` tables. Every method takes the call's
+`options` last and runs in `options.trx` when there is one.
+
+| Capability | Methods |
+| --- | --- |
+| `auth.local.accounts` | `create(account, options)`, `findByEmail(email, options)`, `updatePassword(userId, passwordRecord, options)`, `updateProfile(userId, { displayName }, options)`, `markEmailVerified(userId, options)` |
+| `auth.local.sessions` | `create(session, options)`, `revoke(sessionId, options)`, `revokeForUser(userId, { exceptSessionId, trx })`, `deleteExpired(now, options)` |
+| `auth.local.recovery` | `create(token, options)`, `findByTokenHash(tokenHash, options)`, `consume(tokenId, options)`, `consumeForUser(userId, options)` |
+
+`markEmailVerified` records that the account proved it owns its email address,
+for example by using an emailed link, in the `email_verified_at` column (run
+`npm run db:migrate`); the first proof is kept, and the account answers it as
+`emailVerifiedAt` (empty until then). `deleteExpired` deletes the sessions that
+expired by `now` and answers how many. Their types are `AuthLocalAccounts`,
+`AuthLocalSessions` and `AuthLocalRecovery` in
+`@jskit-ai/auth-provider-local-db-core/server/types`.
+
 ## The first account in production (local auth)
 
 The first account to register becomes the application's owner, so on a

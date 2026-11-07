@@ -34,7 +34,9 @@
     "kind": "runtime",
     "capabilities": {
       "provides": [
-        "workspaces.core"
+        "workspaces.core",
+        "workspaces",
+        "workspaces.memberships"
       ],
       "requires": [
         "auth.extensions",
@@ -46,8 +48,9 @@
         "runtime.env",
         "runtime.http",
         "runtime.json-rest-api",
-        "users.core",
-        "users.extensions"
+        "users.extensions",
+        "users.profiles",
+        "users.settings"
       ]
     },
     "runtime": {
@@ -90,7 +93,7 @@
         "surfaces": [
           {
             "subpath": "./server/WorkspacesFeature",
-            "summary": "Exports WorkspacesFeature, which provides workspaces.core (directory, members, pending invitations and settings services, their actions and routes), and the optional tokens' defaults."
+            "summary": "Exports WorkspacesFeature, which provides workspaces.core (directory, members, pending invitations and settings services, their actions and routes), workspaces (the workspaces' records, with findBySlug and lock) and workspaces.memberships (the memberships' records, with addMember and activeMemberIds), and the optional tokens' defaults."
           },
           {
             "subpath": "./server/WorkspacesIntegrationsProvider",
@@ -114,11 +117,13 @@
           },
           {
             "subpath": "./server/types",
-            "summary": "Type of the workspaces.core capability, for features that require it."
+            "summary": "Types of the workspaces.core, workspaces and workspaces.memberships capabilities, for features that require them."
           }
         ],
         "capabilities": [
-          "workspaces.core"
+          "workspaces.core",
+          "workspaces",
+          "workspaces.memberships"
         ]
       },
       "server": {

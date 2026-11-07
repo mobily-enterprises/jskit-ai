@@ -3,6 +3,7 @@ import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { defineApiContract } from "@jskit-ai/resource-core/shared/apiContract";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { userProfileOutputSchema } from "./accountSettingsSchemas.js";
 import { userSettingsOutputSchema } from "./userSettingsResource.js";
@@ -68,7 +69,9 @@ const userProfileResource = defineTableResource({
   tableName: "users",
   searchSchema: {
     id: { type: "id", actualField: "id" },
-    usernames: { type: "array", actualField: "username", filterOperator: "in", items: { type: "string" } }
+    ids: { type: "array", actualField: "id", filterOperator: "in", items: { type: "string", pattern: RECORD_ID_PATTERN } },
+    usernames: { type: "array", actualField: "username", filterOperator: "in", items: { type: "string" } },
+    createdSince: { type: "dateTime", actualField: "createdAt", filterOperator: ">=" }
   },
   schema: {
     authProvider: {

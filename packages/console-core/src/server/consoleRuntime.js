@@ -1,14 +1,12 @@
 import { createService as createConsoleService } from "./consoleSettings/consoleService.js";
-import { createRepository as createConsoleSettingsRepository } from "./consoleSettings/consoleSettingsRepository.js";
 import { createService as createConsoleSettingsService } from "./consoleSettings/consoleSettingsService.js";
 
 /**
- * The `console.core` capability: the console settings repository, the
- * console access service and the console settings service.
- * @param {{ database: import("@jskit-ai/database-runtime/server/types").RuntimeDatabase }} dependencies
+ * The `console.core` capability: the console access service and the console
+ * settings service, over the `console.settings` record.
+ * @param {{ consoleSettingsRepository: import("./types.js").ConsoleSettings }} dependencies
  */
-function createConsoleRuntime({ database }) {
-  const consoleSettingsRepository = createConsoleSettingsRepository({ knex: database.knex });
+function createConsoleRuntime({ consoleSettingsRepository }) {
   const consoleService = createConsoleService({ consoleSettingsRepository });
   const consoleSettingsService = createConsoleSettingsService({
     consoleService,
@@ -16,7 +14,6 @@ function createConsoleRuntime({ database }) {
   });
 
   return Object.freeze({
-    repositories: Object.freeze({ settings: consoleSettingsRepository }),
     services: Object.freeze({
       access: consoleService,
       settings: consoleSettingsService

@@ -3,6 +3,7 @@ import { before, beforeEach, after, describe, test } from "node:test";
 import knexLib from "knex";
 import { createAuthExtensions } from "@jskit-ai/auth-core/server/authExtensions";
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
+import { normalizeVisibilityContext } from "@jskit-ai/kernel/shared/support/visibility";
 import { createJsonRestApiHost } from "@jskit-ai/json-rest-api-core/server/jsonRestApiHost";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
@@ -114,13 +115,11 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     }
     api = await createJsonRestApiHost({ knex, logger: { error() {}, warn() {}, info() {}, debug() {} } });
     usersExtensions = createUsersExtensions();
-    const { identity, profileProjector: projector } = await UsersIdentityProvider.setup({
+    ({ profiles, settings: userSettings, profileProjector } = await UsersIdentityProvider.setup({
       authExtensions: createAuthExtensions(),
       extensions: usersExtensions,
       jsonRestApi: api
-    });
-    profileProjector = projector;
-    ({ userProfiles: profiles, userSettings } = identity.repositories);
+    }));
     await installWorkspaceResources(api);
     workspaces = createWorkspacesRepository({ api });
     memberships = createMembershipsRepository({ api });
@@ -210,6 +209,84 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal((await knex("users").where({ id: profile.id }).first()).email, "ada.new@example.com");
   });
 
+  test("createWithSettings writes a profile with its settings in one transaction; countUsers counts by creation and exclusion", async () => {
+    const { profile: staff, settings: staffSettings } = await profiles.createWithSettings({
+      profile: { authProvider: "local", authProviderUserSid: "identity-staff", email: "staff@example.com", displayName: "Staff" },
+      settings: { passwordSignInEnabled: false, locale: "en-AU", ignoredField: "must not reach storage" }
+    });
+    assert.equal(staff.email, "staff@example.com");
+    assert.equal(staffSettings.id, staff.id);
+    assert.equal(staffSettings.passwordSignInEnabled, false);
+    assert.equal(staffSettings.locale, "en-AU");
+    assert.equal(staffSettings.productUpdates, true);
+    await assert.rejects(profiles.withTransaction(async (trx) => {
+      await profiles.createWithSettings({
+        profile: { authProvider: "local", authProviderUserSid: "identity-gone", email: "gone@example.com", displayName: "Gone" }
+      }, { trx });
+      throw new Error("Abort sign-up");
+    }), /Abort sign-up/u);
+    assert.equal(await profiles.findByEmail("gone@example.com"), null);
+    assert.equal(Number((await knex("user_settings").count({ count: "*" }).first()).count), 1);
+
+    const old = await createProfile("Old");
+    await api.resources.userProfiles.patch({
+      id: old.id, data: { createdAt: "2001-01-01T00:00:00.000Z" }, format: "plain", returning: "full"
+    });
+    const ann = await createProfile("Ann");
+    await createProfile("Ben");
+    const dayAgo = new Date(Date.now() - 86400000);
+    assert.equal(await profiles.countUsers(), 4);
+    assert.equal(await profiles.countUsers({ createdSince: dayAgo }), 3);
+    assert.equal(await profiles.countUsers({ excludeIds: [ann.id, old.id] }), 2);
+    // Only the excluded users created since then are subtracted.
+    assert.equal(await profiles.countUsers({ excludeIds: [ann.id, old.id, "999999"], createdSince: dayAgo.toISOString() }), 2);
+    await profiles.withTransaction(async (trx) => {
+      await createProfile("Cat", { trx });
+      assert.equal(await profiles.countUsers({}, { trx }), 5);
+    });
+  });
+
+  test("workspace owner APIs: findBySlug leaves deleted workspaces out, addMember, activeMemberIds and lock", async (t) => {
+    const owner = await createProfile("Ada");
+    const member = await createProfile("Grace");
+    const workspace = await workspaces.insert({ slug: "kept", name: "Kept", ownerUserId: owner.id });
+    const deleted = await workspaces.insert({ slug: "deleted", name: "Deleted", ownerUserId: owner.id });
+    await workspaces.updateById(deleted.id, { deletedAt: new Date().toISOString() });
+    assert.equal((await workspaces.findBySlug(" KEPT ")).id, workspace.id);
+    assert.equal(await workspaces.findBySlug("deleted"), null);
+    assert.equal((await workspaces.findById(deleted.id)).slug, "deleted");
+    assert.deepEqual([...await workspaces.listSlugsIn(["deleted"])], ["deleted"], "A deleted workspace's slug stays taken");
+
+    await memberships.ensureOwnerMembership(workspace.id, owner.id);
+    const added = await memberships.addMember({ workspaceId: workspace.id, userId: member.id });
+    assert.equal(added.roleSid, "member");
+    assert.equal(added.status, "active");
+    assert.deepEqual([...await memberships.activeMemberIds(workspace.id)].sort(), [owner.id, member.id].sort());
+    await memberships.upsertMembership(workspace.id, member.id, { status: "removed" });
+    const one = await statementsOf(() => memberships.activeMemberIds(workspace.id));
+    assert.deepEqual(one.result, [owner.id]);
+    const others = [...(await insertUsers(Array.from({ length: 30 }, (_, index) => `active-${index}`))).entries()]
+      .filter(([username]) => username.startsWith("active-"))
+      .map(([, id]) => id);
+    for (const userId of others) await memberships.addMember({ workspaceId: workspace.id, userId });
+    const many = await statementsOf(() => memberships.activeMemberIds(workspace.id));
+    assert.deepEqual([...many.result].sort(), [owner.id, ...others].sort());
+    t.diagnostic(`activeMemberIds: ${one.statements} statements for 1 member, ${many.statements} for 31: ${many.sql.join(" | ")}`);
+    assert.equal(many.statements, one.statements, "The active member ids cost the same reads however many members there are");
+    assert.ok(many.sql.every((sql) => /^select\b/iu.test(sql.trim())), "Reading member ids writes nothing");
+    const readded = await memberships.addMember({ workspaceId: workspace.id, userId: member.id, roleSid: "admin" });
+    assert.equal(readded.id, added.id);
+    assert.equal(readded.roleSid, "admin");
+    assert.equal(readded.status, "active");
+    assert.deepEqual(await memberships.activeMemberIds("999999"), []);
+
+    await assert.rejects(workspaces.lock(workspace.id), /requires an active transaction/u);
+    await workspaces.withTransaction(async (trx) => {
+      assert.deepEqual(await workspaces.lock(workspace.id, { trx }), { id: workspace.id });
+      assert.equal(await workspaces.lock("999999", { trx }), null);
+    });
+  });
+
   test("workspace and membership repositories read mapped relationships through includes", async () => {
     const owner = await createProfile("Ada");
     const member = await createProfile("Grace");
@@ -290,11 +367,15 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   // The run's result and the SQL statements it issued.
   async function statementsOf(run) {
     let statements = 0;
-    const onQuery = () => { statements += 1; };
+    const sql = [];
+    const onQuery = (query) => {
+      statements += 1;
+      sql.push(String(query?.sql || ""));
+    };
     knex.on("query", onQuery);
     try {
       const result = await run();
-      return { result, statements };
+      return { result, statements, sql };
     } finally {
       knex.removeListener("query", onQuery);
     }
@@ -584,6 +665,24 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal(accepted.status, "accepted");
     assert.match(accepted.acceptedAt, /Z$/u);
     assert.equal(accepted.workspaceId, workspace.id);
+  });
+
+  test("an invite's realtime recipient is the user its email belongs to, in any status", async () => {
+    const owner = await createProfile("Ada");
+    const workspace = await workspaces.insert({ slug: "recipients", name: "Recipients", ownerUserId: owner.id });
+    const invite = await invites.insert({ workspaceId: workspace.id, email: "grace@example.com", tokenHash: "recipient-token" });
+    const membersService = createMembers();
+    assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id), [], "Nobody to reach before the person signs up");
+    const grace = await createProfile("Grace");
+    assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id), [grace.id]);
+    // Realtime reads with the event's own scope: the workspace the invite belongs to.
+    const eventScope = { context: { visibilityContext: normalizeVisibilityContext({
+      visibility: "workspace", scopeKind: "workspace", scopeOwnerId: workspace.id
+    }) } };
+    assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id, eventScope), [grace.id]);
+    await invites.revokeById(invite.id);
+    assert.deepEqual(await membersService.inviteRecipientUserIds(invite.id), [grace.id]);
+    assert.deepEqual(await membersService.inviteRecipientUserIds("999999"), []);
   });
 
   test("one managed transaction rolls back onboarding across all six repositories", async () => {

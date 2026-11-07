@@ -1,4 +1,5 @@
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
+import { resolveRepoClient } from "@jskit-ai/database-runtime/shared";
 
 const TABLES = Object.freeze({
   users: "auth_local_users",
@@ -66,6 +67,7 @@ function mapUser(row) {
     password: readPassword(row),
     createdAt: readDateTime(row.created_at),
     updatedAt: readDateTime(row.updated_at),
+    emailVerifiedAt: readDateTime(row.email_verified_at),
     disabled: row.disabled === true || row.disabled === 1 || row.disabled === "1"
   };
 }
@@ -211,6 +213,268 @@ function recoveryInsert(input = {}) {
   };
 }
 
+function table(client, tableName) {
+  return client(tableName);
+}
+
+/**
+ * Local auth's records read and written through one database client: the
+ * Knex instance or a transaction.
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex | import("@jskit-ai/database-runtime/server/types").RuntimeKnexTransaction} client
+ * @param {{ knex: import("@jskit-ai/database-runtime/server/types").RuntimeKnex }} dependencies
+ */
+function createTx(client, { knex }) {
+  return Object.freeze({
+    users: Object.freeze({
+      async create(input) {
+        const row = userInsert(input);
+        try {
+          await table(client, TABLES.users).insert(row);
+        } catch (error) {
+          if (isDuplicateEntryError(error, { client: knex })) {
+            throw new Error("Local auth user already exists.");
+          }
+          throw error;
+        }
+        return mapUser(row);
+      },
+      async findById(userId) {
+        return mapUser(await table(client, TABLES.users).where({ id: String(userId || "") }).first());
+      },
+      async findByEmail(email) {
+        return mapUser(await table(client, TABLES.users).where({ email: String(email || "") }).first());
+      },
+      async hasAny() {
+        return Boolean(await table(client, TABLES.users).first("id"));
+      },
+      async updatePassword(userId, passwordRecord) {
+        const updatedAt = requiredDateTime();
+        await table(client, TABLES.users)
+          .where({ id: String(userId || "") })
+          .update({
+            ...writePassword(passwordRecord),
+            updated_at: updatedAt
+          });
+        return mapUser(await table(client, TABLES.users).where({ id: String(userId || "") }).first());
+      },
+      async updateProfile(userId, updates = {}) {
+        const patch = {
+          updated_at: requiredDateTime()
+        };
+        if (typeof updates.displayName === "string") {
+          patch.display_name = updates.displayName;
+        }
+        await table(client, TABLES.users).where({ id: String(userId || "") }).update(patch);
+        return mapUser(await table(client, TABLES.users).where({ id: String(userId || "") }).first());
+      },
+      // Using an emailed link proves the account owns its email address; the first proof is kept.
+      async markEmailVerified(userId) {
+        const id = String(userId || "");
+        await table(client, TABLES.users).where({ id }).whereNull("email_verified_at").update({
+          email_verified_at: requiredDateTime()
+        });
+        return mapUser(await table(client, TABLES.users).where({ id }).first());
+      }
+    }),
+    sessions: Object.freeze({
+      async create(input) {
+        const row = sessionInsert(input);
+        await table(client, TABLES.sessions).insert(row);
+        return mapSession(row);
+      },
+      async findById(sessionId) {
+        return mapSession(await table(client, TABLES.sessions).where({ id: String(sessionId || "") }).first());
+      },
+      async findByTokenHash(tokenHash) {
+        return mapSession(await table(client, TABLES.sessions).where({ token_hash: String(tokenHash || "") }).first());
+      },
+      async revoke(sessionId) {
+        const existing = await table(client, TABLES.sessions).where({ id: String(sessionId || "") }).first();
+        if (!existing || existing.revoked_at) {
+          return mapSession(existing);
+        }
+        const updatedAt = requiredDateTime();
+        await table(client, TABLES.sessions)
+          .where({ id: String(sessionId || "") })
+          .update({
+            revoked_at: updatedAt,
+            updated_at: updatedAt
+          });
+        return mapSession(await table(client, TABLES.sessions).where({ id: String(sessionId || "") }).first());
+      },
+      async revokeForUser(userId, options = {}) {
+        const query = table(client, TABLES.sessions)
+          .where({ user_id: String(userId || "") })
+          .whereNull("revoked_at");
+        const exceptSessionId = String(options.exceptSessionId || "");
+        if (exceptSessionId) {
+          query.whereNot("id", exceptSessionId);
+        }
+        const updatedAt = requiredDateTime();
+        const count = await query.update({
+          revoked_at: updatedAt,
+          updated_at: updatedAt
+        });
+        return Number(count || 0);
+      },
+      async deleteExpired(now) {
+        const count = await table(client, TABLES.sessions)
+          .where("expires_at", "<=", requiredDateTime(now))
+          .delete();
+        return Number(count || 0);
+      }
+    }),
+    recovery: Object.freeze({
+      async create(input) {
+        const row = recoveryInsert(input);
+        await table(client, TABLES.recovery).insert(row);
+        return mapRecovery(row);
+      },
+      async findByTokenHash(tokenHash) {
+        return mapRecovery(await table(client, TABLES.recovery).where({ token_hash: String(tokenHash || "") }).first());
+      },
+      async consume(tokenId) {
+        const existing = await table(client, TABLES.recovery).where({ id: String(tokenId || "") }).first();
+        if (!existing || existing.used_at) {
+          return mapRecovery(existing);
+        }
+        const updatedAt = requiredDateTime();
+        await table(client, TABLES.recovery)
+          .where({ id: String(tokenId || "") })
+          .update({
+            used_at: updatedAt,
+            updated_at: updatedAt
+          });
+        return mapRecovery(await table(client, TABLES.recovery).where({ id: String(tokenId || "") }).first());
+      },
+      async consumeForUser(userId) {
+        const updatedAt = requiredDateTime();
+        const count = await table(client, TABLES.recovery)
+          .where({ user_id: String(userId || "") })
+          .whereNull("used_at")
+          .update({
+            used_at: updatedAt,
+            updated_at: updatedAt
+          });
+        return Number(count || 0);
+      }
+    }),
+    identities: Object.freeze({
+      async create(input) {
+        const row = {
+          user_id: String(input.userId || ""),
+          provider: String(input.provider || ""),
+          provider_subject: String(input.providerSubject || ""),
+          email: String(input.email || ""),
+          created_at: requiredDateTime(input.createdAt)
+        };
+        await table(client, TABLES.identities).insert(row);
+        return mapIdentity(row);
+      },
+      async findByProviderSubject(provider, providerSubject) {
+        return mapIdentity(await table(client, TABLES.identities)
+          .where({ provider: String(provider || ""), provider_subject: String(providerSubject || "") })
+          .first());
+      },
+      async listForUser(userId) {
+        const rows = await table(client, TABLES.identities).where({ user_id: String(userId || "") });
+        return rows.map(mapIdentity);
+      },
+      async deleteForUser(userId, provider) {
+        const count = await table(client, TABLES.identities)
+          .where({ user_id: String(userId || ""), provider: String(provider || "") })
+          .delete();
+        return Number(count || 0);
+      }
+    }),
+    oauthAttempts: Object.freeze({
+      async create(input) {
+        const row = {
+          browser_key_hash: String(input.browserKeyHash || ""),
+          provider: String(input.provider || ""),
+          intent: String(input.intent || ""),
+          user_id: input.userId ? String(input.userId) : null,
+          state: String(input.state || ""),
+          nonce: String(input.nonce || ""),
+          code_verifier: String(input.codeVerifier || ""),
+          return_to: String(input.returnTo || ""),
+          expires_at: requiredDateTime(input.expiresAt),
+          created_at: requiredDateTime(input.createdAt)
+        };
+        await table(client, TABLES.oauthAttempts).insert(row);
+        return mapOAuthAttempt(row);
+      },
+      // Only the request whose delete removes the row gets the attempt, so
+      // concurrent callbacks on several servers cannot both use it.
+      async take(browserKeyHash) {
+        const where = { browser_key_hash: String(browserKeyHash || "") };
+        const row = await table(client, TABLES.oauthAttempts).where(where).first();
+        if (!row) {
+          return null;
+        }
+        const count = await table(client, TABLES.oauthAttempts).where(where).delete();
+        return Number(count || 0) === 1 ? mapOAuthAttempt(row) : null;
+      },
+      async deleteExpired(now) {
+        const count = await table(client, TABLES.oauthAttempts)
+          .where("expires_at", "<=", requiredDateTime(now))
+          .delete();
+        return Number(count || 0);
+      }
+    }),
+    signInFailures: Object.freeze({
+      async find(email) {
+        return mapSignInFailures(await table(client, TABLES.signInFailures).where({ email: String(email || "") }).first());
+      },
+      async save(record) {
+        const row = {
+          email: String(record.email || ""),
+          failures: Number(record.failures || 0),
+          last_failed_at: requiredDateTime(record.lastFailedAt),
+          locked_until: optionalDateTime(record.lockedUntil)
+        };
+        await table(client, TABLES.signInFailures).insert(row).onConflict("email").merge();
+        return mapSignInFailures(row);
+      },
+      async clear(email) {
+        const count = await table(client, TABLES.signInFailures).where({ email: String(email || "") }).delete();
+        return Number(count || 0);
+      },
+      async deleteBefore(lastFailedAt) {
+        const count = await table(client, TABLES.signInFailures)
+          .where("last_failed_at", "<", requiredDateTime(lastFailedAt))
+          .delete();
+        return Number(count || 0);
+      }
+    }),
+    registrations: Object.freeze({
+      async save(record) {
+        const row = registrationRow(record);
+        await table(client, TABLES.registrations).insert(row).onConflict("email").merge();
+        return mapRegistration(row);
+      },
+      async findByEmail(email) {
+        return mapRegistration(await table(client, TABLES.registrations).where({ email: String(email || "") }).first());
+      },
+      async findByTokenHash(tokenHash) {
+        return mapRegistration(await table(client, TABLES.registrations)
+          .where({ token_hash: String(tokenHash || "") })
+          .first());
+      },
+      async delete(email) {
+        const count = await table(client, TABLES.registrations).where({ email: String(email || "") }).delete();
+        return Number(count || 0);
+      },
+      async deleteExpired(now) {
+        const count = await table(client, TABLES.registrations)
+          .where("expires_at", "<=", requiredDateTime(now))
+          .delete();
+        return Number(count || 0);
+      }
+    })
+  });
+}
+
 /**
  * The `auth.local.backend` that keeps local auth's records in the database.
  * @param {object} dependencies
@@ -218,250 +482,8 @@ function recoveryInsert(input = {}) {
  * @param {import("@jskit-ai/database-runtime/server/types").RuntimeTransactionManager} dependencies.transactionManager
  */
 function createLocalDbBackend({ knex, transactionManager }) {
-  function table(client, tableName) {
-    return client(tableName);
-  }
-
-  function createTx(client) {
-    return Object.freeze({
-      users: Object.freeze({
-        async create(input) {
-          const row = userInsert(input);
-          try {
-            await table(client, TABLES.users).insert(row);
-          } catch (error) {
-            if (isDuplicateEntryError(error, { client: knex })) {
-              throw new Error("Local auth user already exists.");
-            }
-            throw error;
-          }
-          return mapUser(row);
-        },
-        async findById(userId) {
-          return mapUser(await table(client, TABLES.users).where({ id: String(userId || "") }).first());
-        },
-        async findByEmail(email) {
-          return mapUser(await table(client, TABLES.users).where({ email: String(email || "") }).first());
-        },
-        async hasAny() {
-          return Boolean(await table(client, TABLES.users).first("id"));
-        },
-        async updatePassword(userId, passwordRecord) {
-          const updatedAt = requiredDateTime();
-          await table(client, TABLES.users)
-            .where({ id: String(userId || "") })
-            .update({
-              ...writePassword(passwordRecord),
-              updated_at: updatedAt
-            });
-          return mapUser(await table(client, TABLES.users).where({ id: String(userId || "") }).first());
-        },
-        async updateProfile(userId, updates = {}) {
-          const patch = {
-            updated_at: requiredDateTime()
-          };
-          if (typeof updates.displayName === "string") {
-            patch.display_name = updates.displayName;
-          }
-          await table(client, TABLES.users).where({ id: String(userId || "") }).update(patch);
-          return mapUser(await table(client, TABLES.users).where({ id: String(userId || "") }).first());
-        }
-      }),
-      sessions: Object.freeze({
-        async create(input) {
-          const row = sessionInsert(input);
-          await table(client, TABLES.sessions).insert(row);
-          return mapSession(row);
-        },
-        async findById(sessionId) {
-          return mapSession(await table(client, TABLES.sessions).where({ id: String(sessionId || "") }).first());
-        },
-        async findByTokenHash(tokenHash) {
-          return mapSession(await table(client, TABLES.sessions).where({ token_hash: String(tokenHash || "") }).first());
-        },
-        async revoke(sessionId) {
-          const existing = await table(client, TABLES.sessions).where({ id: String(sessionId || "") }).first();
-          if (!existing || existing.revoked_at) {
-            return mapSession(existing);
-          }
-          const updatedAt = requiredDateTime();
-          await table(client, TABLES.sessions)
-            .where({ id: String(sessionId || "") })
-            .update({
-              revoked_at: updatedAt,
-              updated_at: updatedAt
-            });
-          return mapSession(await table(client, TABLES.sessions).where({ id: String(sessionId || "") }).first());
-        },
-        async revokeForUser(userId, options = {}) {
-          const query = table(client, TABLES.sessions)
-            .where({ user_id: String(userId || "") })
-            .whereNull("revoked_at");
-          const exceptSessionId = String(options.exceptSessionId || "");
-          if (exceptSessionId) {
-            query.whereNot("id", exceptSessionId);
-          }
-          const updatedAt = requiredDateTime();
-          const count = await query.update({
-            revoked_at: updatedAt,
-            updated_at: updatedAt
-          });
-          return Number(count || 0);
-        }
-      }),
-      recovery: Object.freeze({
-        async create(input) {
-          const row = recoveryInsert(input);
-          await table(client, TABLES.recovery).insert(row);
-          return mapRecovery(row);
-        },
-        async findByTokenHash(tokenHash) {
-          return mapRecovery(await table(client, TABLES.recovery).where({ token_hash: String(tokenHash || "") }).first());
-        },
-        async consume(tokenId) {
-          const existing = await table(client, TABLES.recovery).where({ id: String(tokenId || "") }).first();
-          if (!existing || existing.used_at) {
-            return mapRecovery(existing);
-          }
-          const updatedAt = requiredDateTime();
-          await table(client, TABLES.recovery)
-            .where({ id: String(tokenId || "") })
-            .update({
-              used_at: updatedAt,
-              updated_at: updatedAt
-            });
-          return mapRecovery(await table(client, TABLES.recovery).where({ id: String(tokenId || "") }).first());
-        },
-        async consumeForUser(userId) {
-          const updatedAt = requiredDateTime();
-          const count = await table(client, TABLES.recovery)
-            .where({ user_id: String(userId || "") })
-            .whereNull("used_at")
-            .update({
-              used_at: updatedAt,
-              updated_at: updatedAt
-            });
-          return Number(count || 0);
-        }
-      }),
-      identities: Object.freeze({
-        async create(input) {
-          const row = {
-            user_id: String(input.userId || ""),
-            provider: String(input.provider || ""),
-            provider_subject: String(input.providerSubject || ""),
-            email: String(input.email || ""),
-            created_at: requiredDateTime(input.createdAt)
-          };
-          await table(client, TABLES.identities).insert(row);
-          return mapIdentity(row);
-        },
-        async findByProviderSubject(provider, providerSubject) {
-          return mapIdentity(await table(client, TABLES.identities)
-            .where({ provider: String(provider || ""), provider_subject: String(providerSubject || "") })
-            .first());
-        },
-        async listForUser(userId) {
-          const rows = await table(client, TABLES.identities).where({ user_id: String(userId || "") });
-          return rows.map(mapIdentity);
-        },
-        async deleteForUser(userId, provider) {
-          const count = await table(client, TABLES.identities)
-            .where({ user_id: String(userId || ""), provider: String(provider || "") })
-            .delete();
-          return Number(count || 0);
-        }
-      }),
-      oauthAttempts: Object.freeze({
-        async create(input) {
-          const row = {
-            browser_key_hash: String(input.browserKeyHash || ""),
-            provider: String(input.provider || ""),
-            intent: String(input.intent || ""),
-            user_id: input.userId ? String(input.userId) : null,
-            state: String(input.state || ""),
-            nonce: String(input.nonce || ""),
-            code_verifier: String(input.codeVerifier || ""),
-            return_to: String(input.returnTo || ""),
-            expires_at: requiredDateTime(input.expiresAt),
-            created_at: requiredDateTime(input.createdAt)
-          };
-          await table(client, TABLES.oauthAttempts).insert(row);
-          return mapOAuthAttempt(row);
-        },
-        // Only the request whose delete removes the row gets the attempt, so
-        // concurrent callbacks on several servers cannot both use it.
-        async take(browserKeyHash) {
-          const where = { browser_key_hash: String(browserKeyHash || "") };
-          const row = await table(client, TABLES.oauthAttempts).where(where).first();
-          if (!row) {
-            return null;
-          }
-          const count = await table(client, TABLES.oauthAttempts).where(where).delete();
-          return Number(count || 0) === 1 ? mapOAuthAttempt(row) : null;
-        },
-        async deleteExpired(now) {
-          const count = await table(client, TABLES.oauthAttempts)
-            .where("expires_at", "<=", requiredDateTime(now))
-            .delete();
-          return Number(count || 0);
-        }
-      }),
-      signInFailures: Object.freeze({
-        async find(email) {
-          return mapSignInFailures(await table(client, TABLES.signInFailures).where({ email: String(email || "") }).first());
-        },
-        async save(record) {
-          const row = {
-            email: String(record.email || ""),
-            failures: Number(record.failures || 0),
-            last_failed_at: requiredDateTime(record.lastFailedAt),
-            locked_until: optionalDateTime(record.lockedUntil)
-          };
-          await table(client, TABLES.signInFailures).insert(row).onConflict("email").merge();
-          return mapSignInFailures(row);
-        },
-        async clear(email) {
-          const count = await table(client, TABLES.signInFailures).where({ email: String(email || "") }).delete();
-          return Number(count || 0);
-        },
-        async deleteBefore(lastFailedAt) {
-          const count = await table(client, TABLES.signInFailures)
-            .where("last_failed_at", "<", requiredDateTime(lastFailedAt))
-            .delete();
-          return Number(count || 0);
-        }
-      }),
-      registrations: Object.freeze({
-        async save(record) {
-          const row = registrationRow(record);
-          await table(client, TABLES.registrations).insert(row).onConflict("email").merge();
-          return mapRegistration(row);
-        },
-        async findByEmail(email) {
-          return mapRegistration(await table(client, TABLES.registrations).where({ email: String(email || "") }).first());
-        },
-        async findByTokenHash(tokenHash) {
-          return mapRegistration(await table(client, TABLES.registrations)
-            .where({ token_hash: String(tokenHash || "") })
-            .first());
-        },
-        async delete(email) {
-          const count = await table(client, TABLES.registrations).where({ email: String(email || "") }).delete();
-          return Number(count || 0);
-        },
-        async deleteExpired(now) {
-          const count = await table(client, TABLES.registrations)
-            .where("expires_at", "<=", requiredDateTime(now))
-            .delete();
-          return Number(count || 0);
-        }
-      })
-    });
-  }
-
   async function withTransaction(callback) {
-    return transactionManager.inTransaction(async (trx) => callback(createTx(trx)));
+    return transactionManager.inTransaction(async (trx) => callback(createTx(trx, { knex })));
   }
 
   return Object.freeze({
@@ -470,4 +492,43 @@ function createLocalDbBackend({ knex, transactionManager }) {
   });
 }
 
-export { TABLES as LOCAL_AUTH_DB_TABLES, createLocalDbBackend };
+/**
+ * The owner APIs of local auth's accounts, sessions and recovery tokens, for
+ * application code that works with them beside local auth: the
+ * `auth.local.accounts`, `auth.local.sessions` and `auth.local.recovery`
+ * capabilities. Each call runs in the caller's `options.trx`, or on its own.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/database-runtime/server/types").RuntimeKnex} dependencies.knex
+ */
+function createLocalDbOwners({ knex }) {
+  const records = (options) => createTx(resolveRepoClient(knex, options), { knex });
+
+  const accounts = Object.freeze({
+    create: (input, options = {}) => records(options).users.create(input),
+    findByEmail: (email, options = {}) => records(options).users.findByEmail(email),
+    updatePassword: (userId, passwordRecord, options = {}) => records(options).users.updatePassword(userId, passwordRecord),
+    updateProfile: (userId, updates, options = {}) => records(options).users.updateProfile(userId, updates),
+    markEmailVerified: (userId, options = {}) => records(options).users.markEmailVerified(userId)
+  });
+  const sessions = Object.freeze({
+    create: (input, options = {}) => records(options).sessions.create(input),
+    revoke: (sessionId, options = {}) => records(options).sessions.revoke(sessionId),
+    // options.exceptSessionId keeps that session.
+    revokeForUser: (userId, options = {}) => records(options).sessions.revokeForUser(userId, options),
+    deleteExpired: (now, options = {}) => records(options).sessions.deleteExpired(now)
+  });
+  const recovery = Object.freeze({
+    create: (input, options = {}) => records(options).recovery.create(input),
+    findByTokenHash: (tokenHash, options = {}) => records(options).recovery.findByTokenHash(tokenHash),
+    consume: (tokenId, options = {}) => records(options).recovery.consume(tokenId),
+    consumeForUser: (userId, options = {}) => records(options).recovery.consumeForUser(userId)
+  });
+
+  return Object.freeze({
+    accounts,
+    sessions,
+    recovery
+  });
+}
+
+export { TABLES as LOCAL_AUTH_DB_TABLES, createLocalDbBackend, createLocalDbOwners };

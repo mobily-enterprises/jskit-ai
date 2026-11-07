@@ -26,7 +26,7 @@ const DATA_ACCESS_CONVERTED_LATER = Object.freeze([
   "packages/auth-provider-oidc-core/src/server/lib/store.js",
   "packages/auth-provider-oidc-core/src/server/providers/AuthOidcProvider.js",
   "packages/connectors-core/src/server/knexConnectionStore.js",
-  "packages/console-core/src/server/consoleRuntime.js",
+  "packages/console-core/src/server/ConsoleFeature.js",
   "packages/console-core/src/server/consoleSettings/consoleSettingsRepository.js",
   "packages/crud-core/src/server/createHooksToCollectChildren.js",
   "packages/crud-core/src/server/jsonApiModule/actions.js",

@@ -71,9 +71,8 @@ Exports
 - `realtimeAuthenticationRequired(authService)`
 - `revalidateSocket({ socket, authService, audiences, request, authenticateRequest })`
 - `registerSocketAudienceBootstrap({ io, logger, authService, audiences })`
-- `resolveAudienceTargets(audience, event, { database, logger })`
+- `resolveAudienceTargets(audience, event, { logger })`
 - `type AuthService`
-- `type RuntimeDatabase`
 - `type RuntimeLogger`
 - `type ActorRoomsResolver`
 - `type ActorsRoomsResolver`
@@ -88,7 +87,7 @@ Local functions
 - `roomForScope(scope)`
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`
 - `addAudienceRooms(selection, state)`
-- `collectUserIds(rows)`
+- `audienceReadOptions(scope)`
 - `parseCookieHeader(value = "")`
 - `authenticateWithoutRefresh(authService)`
 - `resolveSocketAuthentication(authService, socket, request = createSocketRequest(socket), authenticateRequest = authenticateWithoutRefresh(authService))`
@@ -99,16 +98,15 @@ Local functions
 
 ### `src/server/realtimeCapability.js`
 Exports
-- `createRealtimeCapability({ io, logger, authService, database, events, appRoot, redis })`
+- `createRealtimeCapability({ io, logger, authService, events, appRoot, redis })`
 - `type AuthService`
-- `type RuntimeDatabase`
 - `type RuntimeAppRoot`
 - `type RuntimeEvents`
 - `type RuntimeLogger`
 
 ### `src/server/realtimeDelivery.js`
 Exports
-- `createRealtimeDelivery({ io, database, logger, authService, audiences: { mayContribute, resolveActorsRooms } })`
+- `createRealtimeDelivery({ io, logger, authService, audiences: { mayContribute, resolveActorsRooms } })`
 - `matchesRealtimeEvent(event)`
 - `type AuthService`
 - `type ActorRoomsResolver`

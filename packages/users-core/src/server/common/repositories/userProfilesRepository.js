@@ -156,9 +156,27 @@ async function resolveUniqueUsername(api, baseUsername, { excludeUserId = null, 
   throw new Error("Unable to generate unique username.");
 }
 
-/** @param {{ api: import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi }} dependencies */
-function createRepository({ api }) {
+/**
+ * The `users.profiles` capability: the users table's records.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.api
+ * @param {import("../../types.js").UserSettingsRepository} dependencies.userSettings The settings that
+ *   createWithSettings writes beside a profile.
+ */
+function createRepository({ api, userSettings }) {
   const withTransaction = (work) => retryDeadlocks(() => api.transaction(work));
+
+  async function countProfiles(filters, options) {
+    const result = await api.resources.userProfiles.aggregate(
+      {
+        measures: { count: { count: "*" } },
+        queryParams: { filters },
+        transaction: resolveTransaction(options)
+      },
+      createJsonRestContext(options.context)
+    );
+    return Number(result?.data?.[0]?.count || 0);
+  }
 
   async function queryFirst(filters = {}, options = {}) {
     const rows = extractJsonRestCollectionRows(
@@ -384,6 +402,38 @@ function createRepository({ api }) {
     }
   }
 
+  /**
+   * Creates (or, for an identity that already has one, updates) a profile and
+   * gives it its settings, in one transaction: the caller's, or one it opens.
+   * Settings start from the defaults; the given fields replace them.
+   * @param {{ profile: object, settings?: object }} input
+   * @param {{ trx?: object | null, context?: object }} [options]
+   */
+  async function createWithSettings({ profile, settings = {} }, options = {}) {
+    return joinOrOpenTransaction(options, withTransaction, async (trx) => {
+      const txOptions = { ...options, trx };
+      const created = await upsert(profile, txOptions);
+      return {
+        profile: created,
+        settings: await userSettings.patchUserSettings(created.id, settings, txOptions)
+      };
+    });
+  }
+
+  /**
+   * The number of users, leaving out `excludeIds` and, with `createdSince`,
+   * those created before it.
+   * @param {{ excludeIds?: readonly unknown[], createdSince?: Date | string | null }} [criteria]
+   * @param {{ trx?: object | null, context?: object }} [options]
+   */
+  async function countUsers({ excludeIds = [], createdSince = null } = {}, options = {}) {
+    const filters = createdSince == null ? {} : { createdSince: toIsoString(createdSince) };
+    const ids = [...new Set(excludeIds.map((id) => normalizeDbRecordId(id, { fallback: null })).filter(Boolean))];
+    const total = await countProfiles(filters, options);
+    // json-rest-api 2.4 has no "not in" filter: the excluded users who match are subtracted.
+    return ids.length < 1 ? total : total - await countProfiles({ ...filters, ids }, options);
+  }
+
   return Object.freeze({
     withTransaction,
     findById,
@@ -392,7 +442,9 @@ function createRepository({ api }) {
     updateDisplayNameById,
     updateAvatarById,
     clearAvatarById,
-    upsert
+    upsert,
+    createWithSettings,
+    countUsers
   });
 }
 

@@ -64,8 +64,20 @@ async function installWorkspaceResources(jsonRestApi) {
 }
 
 /**
- * The `workspaces.core` capability: the workspace repositories and services,
- * built from the runtime config.
+ * The workspaces and their memberships, the `workspaces` and
+ * `workspaces.memberships` capabilities. The workspace services are built on them.
+ * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} jsonRestApi
+ */
+function createWorkspaceRecords(jsonRestApi) {
+  return Object.freeze({
+    workspaces: createWorkspacesRepository({ api: jsonRestApi }),
+    memberships: createWorkspaceMembershipsRepository({ api: jsonRestApi })
+  });
+}
+
+/**
+ * The `workspaces.core` capability: the workspace services and the invite and
+ * settings repositories, built from the runtime config.
  * @param {object} dependencies
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
  * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
@@ -75,7 +87,10 @@ async function installWorkspaceResources(jsonRestApi) {
  * @param {import("./types.js").WorkspaceInviteAcceptanceParticipant} dependencies.inviteAcceptanceParticipant
  * @param {import("./types.js").PersonalWorkspaceName} dependencies.personalWorkspaceName
  * @param {import("@jskit-ai/json-rest-api-core/server/types").RuntimeJsonRestApi} dependencies.jsonRestApi
- * @param {import("@jskit-ai/users-core/server/types").UsersCore} dependencies.users
+ * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} dependencies.userProfiles
+ * @param {import("@jskit-ai/users-core/server/types").UsersSettings} dependencies.userSettings
+ * @param {import("./types.js").Workspaces} dependencies.workspaces
+ * @param {import("./types.js").WorkspacesMemberships} dependencies.workspaceMemberships
  */
 function createWorkspacesRuntime({
   appRoot,
@@ -86,7 +101,10 @@ function createWorkspacesRuntime({
   inviteAcceptanceParticipant,
   personalWorkspaceName,
   jsonRestApi,
-  users
+  userProfiles,
+  userSettings,
+  workspaces: workspacesRepository,
+  workspaceMemberships: workspaceMembershipsRepository
 }) {
   const tenancyProfile = resolveTenancyProfile(config);
   const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ appConfig: config, tenancyProfile });
@@ -100,8 +118,6 @@ function createWorkspacesRuntime({
     ),
     defaultColorSettings: requireWorkspaceColorDefaults(config?.workspaceSettings?.defaults)
   });
-  const workspacesRepository = createWorkspacesRepository({ api: jsonRestApi });
-  const workspaceMembershipsRepository = createWorkspaceMembershipsRepository({ api: jsonRestApi });
   const workspaceInvitesRepository = createWorkspaceInvitesRepository({ api: jsonRestApi });
   const workspaceService = createWorkspaceService({
     tenancyProfile,
@@ -130,8 +146,8 @@ function createWorkspacesRuntime({
     workspaceInviteMailer: inviteMailer,
     workspaceInviteEmailTemplate: inviteEmailTemplate,
     i18n: createWorkspacesServerI18n({ appRoot }),
-    userProfilesRepository: users.repositories.userProfiles,
-    userSettingsRepository: users.repositories.userSettings
+    userProfilesRepository: userProfiles,
+    userSettingsRepository: userSettings
   });
   const workspaceSettingsService = createWorkspaceSettingsService({
     workspaceSettingsRepository,
@@ -152,9 +168,7 @@ function createWorkspacesRuntime({
     tenancyProfile,
     repositories: Object.freeze({
       workspaceInvites: workspaceInvitesRepository,
-      workspaceMemberships: workspaceMembershipsRepository,
-      workspaceSettings: workspaceSettingsRepository,
-      workspaces: workspacesRepository
+      workspaceSettings: workspaceSettingsRepository
     }),
     services: Object.freeze({
       directory: workspaceService,
@@ -165,4 +179,4 @@ function createWorkspacesRuntime({
   });
 }
 
-export { createWorkspacesRuntime, installWorkspaceResources };
+export { createWorkspaceRecords, createWorkspacesRuntime, installWorkspaceResources };

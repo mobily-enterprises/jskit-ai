@@ -413,6 +413,19 @@ function createService({
     });
   }
 
+  /**
+   * The user an invite's email belongs to, as a list of their id, or none
+   * before that person signs up: the users an invite's realtime change reaches.
+   * @param {unknown} inviteId
+   * @param {object} [options]
+   * @returns {Promise<string[]>}
+   */
+  async function inviteRecipientUserIds(inviteId, options = {}) {
+    const invite = await workspaceInvitesRepository.findById(inviteId, options);
+    const recipient = invite?.email ? await userProfilesRepository.findByEmail(invite.email, options) : null;
+    return recipient?.id ? [recipient.id] : [];
+  }
+
   return Object.freeze({
     listRoles,
     listRolesResponse,
@@ -425,7 +438,8 @@ function createService({
     createInvite,
     prepareInvite,
     sendInvite,
-    revokeInvite
+    revokeInvite,
+    inviteRecipientUserIds
   });
 }
 

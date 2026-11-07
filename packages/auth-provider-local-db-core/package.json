@@ -7,7 +7,8 @@
   },
   "exports": {
     "./server/providers/AuthLocalDatabaseBackendProvider": "./src/server/providers/AuthLocalDatabaseBackendProvider.js",
-    "./server/lib/index": "./src/server/lib/index.js"
+    "./server/lib/index": "./src/server/lib/index.js",
+    "./server/types": "./src/server/types.js"
   },
   "dependencies": {
     "@jskit-ai/auth-provider-local-core": "0.2.14",
@@ -21,7 +22,10 @@
     "kind": "runtime",
     "capabilities": {
       "provides": [
-        "auth.local.backend"
+        "auth.local.backend",
+        "auth.local.accounts",
+        "auth.local.sessions",
+        "auth.local.recovery"
       ],
       "requires": [
         "runtime.database"
@@ -72,14 +76,23 @@
         "surfaces": [
           {
             "subpath": "./server/providers/AuthLocalDatabaseBackendProvider",
-            "summary": "Provides the database-backed local authentication repository contract."
+            "summary": "Provides the database-backed local authentication repository contract (auth.local.backend) and the owner APIs of its accounts, sessions and recovery tokens (auth.local.accounts, auth.local.sessions, auth.local.recovery)."
           },
           {
             "subpath": "./server/lib/index",
-            "summary": "Exports the DB local auth backend factory."
+            "summary": "Exports the DB local auth backend and owner API factories."
+          },
+          {
+            "subpath": "./server/types",
+            "summary": "Types of the auth.local.accounts, auth.local.sessions and auth.local.recovery capabilities, for features that require them."
           }
         ],
-        "capability": "auth.local.backend"
+        "capabilities": [
+          "auth.local.backend",
+          "auth.local.accounts",
+          "auth.local.sessions",
+          "auth.local.recovery"
+        ]
       }
     },
     "migrations": {
