@@ -8,6 +8,9 @@ what to do, why in one line, and shows good and bad code. `npm run lint`
 reports the rules a machine can see ([checks](#checks)); the others are
 checked by reading. The `server/feature-package` pattern in the
 [bundled source pattern index](pattern-index.md) is the smallest complete feature to copy.
+Code that reads or writes a table starts from [data access](data-access.md):
+the table resource and its owner feature come first, and this page shapes the
+code around them.
 
 The [typed features heuristic](heuristics/typed-features.md)
 maps keywords and lint findings to the section that fixes them. Client code
@@ -39,11 +42,13 @@ it reports the call as exact instead of guessing from the method name.
 ### Feature files
 
 **A `defineFeature` lives in `<Name>Feature.js`, its keys in one order, one
-per line: `id, domain, requires, optional, provides, setup, actions, boot,
-shutdown`.** A `defineProvider` lives in `<Name>Provider.js`.
+per line: `id, domain, owns, systemScope, requires, optional, provides,
+setup, actions, boot, shutdown`.** A `defineProvider` lives in `<Name>Provider.js`.
 
 - `setup` builds each provided value with a named `create<Name>` factory from
-  a module of its own, never inline.
+  a module of its own, never inline. It returns exactly the keys `provides`
+  names, or boot refuses it; a value only `actions` needs is built in
+  `actions`, which receives the requires.
 - `actions` is a method that returns `create<Name>Actions({ … })`.
 - The hooks take `capabilities`, destructured and typed.
 
@@ -535,8 +540,9 @@ const actorId = context?.actor?.id || options.context?.user?.id || null;
 
 **Every table has one table resource, and only its owner feature reads or
 writes it, through the handle it lists in `owns`. A repository holds the
-owner's queries on its handles; a service calls repositories and other
-features' services, never Knex or a handle.** [Data access](data-access.md)
+owner's queries on its handles (a plain CRUD feature's repository is the
+handle itself); a service calls repositories and other features' services or
+capabilities, and never builds a query or reaches another feature's table.** [Data access](data-access.md)
 gives the five layers, from one record to reports.
 
 Why: ownership, the row policy, validation and audits run only on the
@@ -544,10 +550,28 @@ resource's path; Knex in a repository skips all of them.
 
 ```js
 // good
-markArrived: (id, arrivedAt, options) => receivals.patch(id, { status: "arrived", arrivedAt }, options)
+
+/**
+ * The owner's repository, on its handle.
+ * @param {{ receivals: import("@jskit-ai/resource-runtime/server/types").ResourceHandle }} handles
+ */
+function createReceivalsRepository({ receivals }) {
+  /**
+   * @param {string} id
+   * @param {string} arrivedAt
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options
+   */
+  function markArrived(id, arrivedAt, options) {
+    return receivals.patch(id, { status: "arrived", arrivedAt }, options);
+  }
+
+  return Object.freeze({ markArrived });
+}
 
 // bad
-markArrived: (id, arrivedAt) => knex("receivals").where({ id }).update({ status: "arrived", arrived_at: arrivedAt })
+function markArrived(id, arrivedAt) {
+  return knex("receivals").where({ id }).update({ status: "arrived", arrived_at: arrivedAt });
+}
 ```
 
 ### Validated input as is
@@ -685,7 +709,7 @@ helper, never by hand.**
 | a created record's id | `resolveCrudJsonApiEntityIdFromResult(result)` (`@jskit-ai/crud-core/server/serviceEvents`) |
 | a CRUD record change's event | `buildCrudRecordChangedEvent({ namespace, operation, entityId, audience })` (`@jskit-ai/crud-core/server/serviceEvents`) |
 | the workspace a request asks for, before any action context | `requestedWorkspaceScope(request)` (`@jskit-ai/workspaces-core/server/support/workspaceRouteInput`) |
-| a context's workspace id | `resolveWorkspaceScopeValue(context)` (`@jskit-ai/resource-runtime/server/resourceHost`) |
+| a context's workspace id | `resolveWorkspaceScopeValue(context)` (`@jskit-ai/resource-runtime/server`) |
 
 A call's transaction is not a fact to read: pass `options` on, and inside a
 transaction the `txOptions` that `withTransaction` hands its work
@@ -706,131 +730,24 @@ const actorId = context?.actor?.id || context?.auth?.userId || null;
 
 **A server-side read that needs every row it matches reads them with the
 handle's `queryAll(params, options)`. A `query()` names its page size, and
-answers one page.**
-
-- `query({ filters, page: { size } }, options)` answers `{ records, page }`:
-  one page of at most `pageLimits().request` rows (100 unless the resource
-  sets `queryMaxLimit`), with `page.next` for the next one. A `query()`
-  without `page.size` throws, and so does a larger size, because json-rest-api
-  would answer fewer rows than asked and say nothing.
-- `queryAll(params, options)` reads cursor pages of 1,000 rows in id order (or
-  the given `sort`) until none follows, keeping the call's transaction and
-  context, so no row is skipped or repeated. Each page pays the row policy and
-  linkage queries once, so 480 rows cost 3 statements, not 15. In a request it
-  throws past the request row limit (10,000 rows): work over more belongs in a
-  background job ([Background work](data-access.md#background-work)).
-- A lookup by a unique key (an id, a slug, a token hash, a unique pair such
-  as workspace and user) matches at most one row: `get(id)`, or a `query()`
-  of page size 1. A read of the newest or first few rows names its own `sort`
-  and page size.
-- HTTP list routes keep the caller's page: their default and maximum page
-  sizes are public behaviour, not a server-side limit to raise.
-
-Why: a list read that stops at one page looks complete until the page fills,
-then silently drops the rest from every person picker, scope and delivery
-built on it.
-
-```js
-// good
-const members = await memberships.queryAll({ filters: { workspaceId, status: "active" }, include: ["user"] }, options);
-
-// bad: the first page only, whatever its size
-const { records: members } = await memberships.query({ filters: { workspaceId, status: "active" }, page: { size: 20 } }, options);
-```
+answers one page.** [Reads shaped for the screen](data-access.md#reads-shaped-for-the-screen)
+gives the rules and examples.
 
 ### Lists read related rows in batches
 
 **A read that builds a list fetches its related rows in batches, an id-list
 query per related table, and groups them in memory, so its query count follows
-the tables and pages it reads, not the rows.**
-
-- Collect the ids from the first read, then read each related table with an
-  id-list filter (`filters: { invoiceId: ids }`) through `queryAll()`, or the
-  resource's `include`. Group the rows by id with `Map.groupBy()`.
-- A count that grows with the rows means something runs per row: a handle's
-  `get()` or `query()`, a service `get` or another owner's single-record read
-  inside a loop over the list, however the loop is spelled
-  (`for`, `map` with `Promise.all`, a helper called per item), or a
-  single-record helper reused for a list.
-- Work derived from a row (hashing, preparing a form, assembling a snapshot)
-  runs once per distinct input in the call, not once per row it appears in.
-- A JSON:API read also costs a few lookup and visibility queries per page and
-  relationship field, and pages hold the resource's `queryMaxLimit` (100 rows
-  unless it sets one). That cost follows pages, so three hundred invoices take
-  a few more queries than ten, not three hundred more ([Query counts at
-  realistic sizes](#query-counts-at-realistic-sizes)).
-
-Why: each JSKIT single-record read runs its lookups and row policy too, so a
-read per row repeats all of them.
-
-```js
-// good: a read per related table, however many invoices there are
-const invoiceRows = await invoices.queryAll({}, options);
-const lineRows = await invoiceLines.queryAll({ filters: { invoiceId: invoiceRows.map((invoice) => invoice.id) } }, options);
-const linesByInvoice = Map.groupBy(lineRows, (line) => line.invoiceId);
-return invoiceRows.map((invoice) => ({ ...invoice, lines: linesByInvoice.get(invoice.id) || [] }));
-
-// bad: one more query, and its lookups and row policy, for every invoice
-for (const invoice of invoiceRows) {
-  invoice.lines = await invoiceLines.queryAll({ filters: { invoiceId: invoice.id } }, options);
-}
-```
+the tables and pages it reads, not the rows.** [Reads shaped for the
+screen](data-access.md#reads-shaped-for-the-screen) shows how.
 
 ### Bounded access checks
 
 **A row policy costs what the rows its query reads cost, never what the
 subject's stored history costs, and a write decides access once instead of
-paying a read policy for every row it writes.**
-
-- A `rowPolicy` adds one predicate to the query it is given: a join, `EXISTS`
-  or subquery correlated with the row being read, on indexed columns. It never
-  loads everything the subject was ever linked to (every source, notice or
-  grant in their history) to build an `IN` list, and never calls another
-  owner's access check once per item of that history. The
-  [row policies heuristic](heuristics/row-policies.md)
-  has the policy contract and its package composition.
-- The policy runs on every single-record read, and a write includes one: a
-  handle's `create()` and `patch()` default to `returning: "record"`, which
-  reads the record back through the policy, and `patch` and `delete` first
-  look the record up through it.
-- A write path decides access once, inside its transaction. A write that does
-  not use its result passes `returning: "id"` or `"none"`, and a batch (a
-  delivery, an import, a fan-out) goes through the many-row writes:
-  `createMany(rows, options)` inserts one statement per chunk and reads
-  nothing back unless asked, and `patchMany` and `patchWhere` update the
-  same way, each checking access once for the whole
-  set ([Layer 3](data-access.md#layer-3-many-rows-at-once)).
-- Its test counts the queries of one read and one write for a subject with a
-  short history and for one with a long one ([Query counts at realistic
-  sizes](#query-counts-at-realistic-sizes)).
-
-Why: the row policy runs on every read, write read-back and lookup, so every
-request pays what it costs.
-
-```js
-// good: one predicate on the row being read
-function noticeVisibilityPolicy({ query, context, column, value, db }) {
-  const userId = resolveActorId(context);
-  if (!userId) return false;
-  query.where(column("recipientId"), value("recipientId", userId)).whereExists(
-    db("sources").select(1)
-      .whereColumn("sources.id", column("sourceId"))
-      .where("sources.status", "published")
-  );
-  return true;
-}
-
-// bad: every source the recipient was ever notified about, checked one by one
-async function noticeVisibilityPolicy({ query, context, column, value }) {
-  const sourceIds = await noticeHistory.listSourceIds(resolveActorId(context));
-  const readable = [];
-  for (const sourceId of sourceIds) {
-    if (await sources.canRead(sourceId, context)) readable.push(sourceId);
-  }
-  query.whereIn(column("sourceId"), readable.map((id) => value("sourceId", id)));
-  return true;
-}
-```
+paying a read policy for every row it writes.** [Layer
+1](data-access.md#layer-1-the-table-resource) has the policy's
+shape and [Layer 3](data-access.md#layer-3-many-rows-at-once)
+the batch writes.
 
 ### Routes
 
@@ -1021,87 +938,10 @@ export function resetInvoiceCacheForTests() {
 
 ### Query counts at realistic sizes
 
-**A list, batch or write path's database test counts its queries with
-`countQueries()` at a few rows and at a realistic number, and fails when the
-count grows with the rows instead of the pages.**
-
-- A data path's test is one line with `expectFlatQueries()` from
-  `@jskit-ai/resource-runtime/test`, which seeds growing sizes and fails when a
-  larger one sends more statements
-  ([Tests](data-access.md#tests)). The helpers below are what it
-  builds on, for a route or a comparison of your own.
-- `countQueries(knex, work)`, from
-  `@jskit-ai/database-runtime/server/testDatabases`, runs `work` and returns
-  its `result`, the `count` of statements the Knex instance or transaction
-  sent meanwhile (a transaction's `BEGIN` and `COMMIT` included) and their
-  SQL in `queries`. Pass the Knex the path runs on: the one the test built its
-  repository or service with.
-- A route is counted through the server the test boots in its own process
-  (`createServer()`, then `app.inject()`): `countRuntimeQueries(work)`, from
-  the same module, records what the app's own `runtime.database` sends while
-  `work` runs, and leaves out the test's own Knex. A server in another process
-  is out of its reach, so the route's guard boots it in the test.
-- Pages add a few queries; rows should add none. A path that pages nothing
-  (one read, one write) compares a short and a long history.
-- When the counts differ more than the pages explain, read `queries`: the
-  statement that repeats once per row is the one to batch. Judge the
-  comparison by what the path has to read; never tune a fixed ceiling until
-  it passes.
-- When it fails, fix the reads ([Lists read related rows in
-  batches](#lists-read-related-rows-in-batches), [Bounded access
-  checks](#bounded-access-checks)).
-
-Why: JSON:API reads add queries per page and relationship field, so comparing
-two sizes separates that cost from a read per row, where one fixed number
-cannot.
-
-```js
-// good: a data path, one line
-import { expectFlatQueries } from "@jskit-ai/resource-runtime/test";
-
-test("the invoice list is flat", () => expectFlatQueries({
-  environment: process.env,
-  knex,
-  seed: (count) => seedInvoices(knex, { count, linesEach: 5 }),
-  run: (workspace) => invoices.listWithLines(workspace, { context })
-}));
-
-// good: the helpers underneath, for a comparison of your own
-import { countQueries, countRuntimeQueries } from "@jskit-ai/database-runtime/server/testDatabases";
-
-test("the invoice list's queries follow its pages, not its invoices", async () => {
-  const listAt = async (count) => {
-    const workspace = await createWorkspace(knex);
-    await seedInvoices(knex, { workspace, count, linesEach: 5 });
-    return countQueries(knex, () => invoices.listWithLines(workspace, { context }));
-  };
-  const few = await listAt(10);
-  const many = await listAt(300);
-  // Thirty times the invoices may add pages; a read per invoice would add about 290 queries.
-  assert.ok(many.count <= few.count * 2,
-    `${few.count} queries for 10 invoices, ${many.count} for 300:\n${many.queries.join("\n")}`);
-});
-
-// good: the same comparison for the route, through the server this test booted
-test("GET /api/invoices reads per page, not per invoice", async () => {
-  const app = await createServer({ runtimeEnv });
-  const listAt = async (count) => {
-    const workspace = await createWorkspace(knex);
-    await seedInvoices(knex, { workspace, count, linesEach: 5 });
-    return countRuntimeQueries(() => app.inject({ url: invoicesUrl(workspace), headers: signedIn }));
-  };
-  const few = await listAt(10);
-  const many = await listAt(300);
-  assert.ok(many.count <= few.count * 2,
-    `${few.count} queries for 10 invoices, ${many.count} for 300:\n${many.queries.join("\n")}`);
-});
-
-// bad: three invoices, nothing counted, so a read per invoice passes
-test("the invoice list has its lines", async () => {
-  await seedInvoices(knex, { workspace, count: 3, linesEach: 1 });
-  assert.equal((await invoices.listWithLines(workspace, { context })).length, 3);
-});
-```
+**A list, batch or write path's database test proves with
+`expectFlatQueries()` that its statements follow the tables and pages it
+reads, not the rows.** [Tests](data-access.md#tests) gives the
+one-line test.
 
 ### Test files run in parallel
 
@@ -1319,7 +1159,8 @@ Why: a comment that narrates history is wrong the day after it is written.
 ### Running the checks
 
 `npm run lint` runs ESLint with `@jskit-ai/config-eslint`, and `npm run
-verify` runs `jskit check` (the package graph, navigation and [test
+verify` runs `jskit check` (the package graph, navigation, [data
+access](data-access.md#exceptions) and [test
 runs](#test-run-rules)), lint, the tests and the build. The foundations'
 `eslint.config.mjs` already holds a new
 application's code to every check:
@@ -1360,7 +1201,9 @@ export default [
 - `formatterConfig(globs)` is the formatter.
 - `baseConfig` reports the `jskit/*` rules as warnings on any
   `**/src/server/**`, so an existing application sees them before it lists a
-  package; it lists each package as it converts it.
+  package; it lists each package as it converts it. It makes the
+  [data-access rules](data-access.md#hard-rules) errors in all
+  code but the client's, tests, migrations and seeds.
 - `clientFeaturesConfig(globs)` holds client code to the same rules; see
   [client features](client-features.md#running-the-checks).
 

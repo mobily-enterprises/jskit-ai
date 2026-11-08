@@ -87,9 +87,9 @@ Exports
 
 ### `plugin/dataAccess.js`
 Exports
+- `INFRASTRUCTURE_HINT`
 - `KNEX_NAMES`
 - `calledMethod(node)`
-- `infrastructureHint(ruleName)`
 - `isAssignmentTarget(node)`
 - `isInfrastructureFile(context, ruleName)`
 - `isText(node)`
@@ -150,6 +150,7 @@ Exports
 - `isInfrastructureExcuse(line, ruleName)`
 - `reasonProblem(reason)`
 Local functions
+- `disabledDataAccessRules(text)`
 - `readAllow(text)`
 - `holdsFunction(node)`
 - `excusedNode(sourceCode, comment)`
@@ -264,6 +265,10 @@ Exports
 - `noFrozenVueState`
 Local functions
 - `holdsVueState(sourceCode, value)`
+
+### `plugin/rules/noHandContext.js`
+Exports
+- `noHandContext`
 
 ### `plugin/rules/noHandScope.js`
 Exports

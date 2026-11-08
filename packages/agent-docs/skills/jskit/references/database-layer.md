@@ -371,7 +371,7 @@ Endpoints and batch operations get their own database tests at realistic row
 counts that compare their query counts, counted with `countQueries()` from
 `@jskit-ai/database-runtime/server/testDatabases`, or `countRuntimeQueries()`
 for a route of the server the test boots; see the typed features guide's
-[query counts at realistic sizes](typed-features.md#query-counts-at-realistic-sizes).
+[data access tests](data-access.md#tests).
 
 ## Browser test preparation
 

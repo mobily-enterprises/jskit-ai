@@ -28,15 +28,18 @@ CRUD contract.
 
 Use `@jskit-ai/users-core` for profile persistence and policies,
 `defineCrudFeature()` from `@jskit-ai/crud-core` for standard mechanics,
-and the resource contracts from `@jskit-ai/resource-crud-core`.
+and `defineCrudContract()` from `@jskit-ai/resource-crud-core`.
 
 users-core is the `users` table's one owner, so an administration feature does
 not own it: `defineCrudFeature({ crud: userCrud, ownerRepository: "users.profiles", ... })`
 serves the CRUD contract through users-core's repository. The workspace
 variant also names `visibility: "workspace"`: its routes are a workspace's,
 so they resolve the caller's workspace and check its `crud.users.*`
-permissions, while the users it lists are every user, as the table's
-ownership says.
+permissions. The `users` table is public, every user's, so the variant also
+narrows the repository to the workspace's members with `decorateRepository`
+(`src/server/workspaceMembersOnly.js`): a list reads only the active members
+from `workspaces.memberships`' `activeMemberIds`, and anyone else is a missing
+record, so a workspace admin never learns who else has an account.
 
 The `users` table has one table resource, users-core's `userProfileTableResource`
 (`@jskit-ai/users-core/shared/resources/userProfileResource`). An
@@ -44,7 +47,7 @@ administration package never defines a second one; `jskit check` fails a table
 with two. It builds its CRUD contract on that resource,
 `defineCrudContract(userProfileTableResource, { namespace, operations, fields })`,
 which chooses the operations, their namespace and the fields each returns; a
-field the contract keeps out of every operation gets an empty entry (`{}`). The
+field it does not name, such as the sign-in identity, is never shown. The
 list searches with the resource's `q` filter: every word in the display name,
 email or username.
 
@@ -92,11 +95,12 @@ joins the caller's transaction: inside `withTransaction(options, async
 
 `example/packages/users/` is a global administration package.
 `example/packages/users-workspace/` demonstrates the workspace route/action
-boundary, with workspaces-core's `WORKSPACE_CRUD_SCOPE`, while reusing the same
-service contract. Each package's `src/shared/userCrud.js` builds its CRUD
+boundary, with workspaces-core's `WORKSPACE_CRUD_SCOPE`, and lists only the
+workspace's members through the same service contract. Each package's `src/shared/userCrud.js` builds its CRUD
 contract on users-core's `userProfileTableResource`, its `package.json` requires
 `users.profiles` (users-core, which owns the table, must be installed), and its
-`src/server/types.js` declares the type of the capability it provides. Copy only the composition
+`src/server/types.js` declares the type of the capability it provides; the
+workspace variant also requires `workspaces.memberships`. Copy only the composition
 that matches the product and adapt it as ordinary application source.
 
 ## Variation points

@@ -10,10 +10,12 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.2.12",
-    "@jskit-ai/resource-crud-core": "0.1.202",
-    "@jskit-ai/users-core": "0.2.13",
-    "@jskit-ai/workspaces-core": "0.2.13"
+    "@jskit-ai/crud-core": "0.2.13",
+    "@jskit-ai/kernel": "0.2.12",
+    "@jskit-ai/resource-crud-core": "0.1.203",
+    "@jskit-ai/resource-runtime": "0.2.12",
+    "@jskit-ai/users-core": "0.2.14",
+    "@jskit-ai/workspaces-core": "0.2.14"
   },
   "jskit": {
     "kind": "runtime",
@@ -22,9 +24,11 @@
         "app.users-workspace"
       ],
       "requires": [
+        "crud.contracts",
         "runtime.http",
         "runtime.actions",
-        "users.profiles"
+        "users.profiles",
+        "workspaces.memberships"
       ]
     },
     "runtime": {

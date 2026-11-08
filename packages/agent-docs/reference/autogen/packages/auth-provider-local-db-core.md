@@ -23,8 +23,8 @@ Exports
 Exports
 - `LOCAL_AUTH_DB_TABLES`
 - `LOCAL_AUTH_INFRASTRUCTURE_TABLES`
-- `createLocalDbBackend({ resources, identities })`
-- `createLocalDbOwners({ resources, identities })`
+- `createLocalDbBackend({ resources, identities, context })`
+- `createLocalDbOwners({ resources, identities, context })`
 - `type LocalAuthHandles`
 Local functions
 - `requiredDateTime(value, fallback = nowIso())`

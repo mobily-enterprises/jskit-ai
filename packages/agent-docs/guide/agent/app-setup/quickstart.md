@@ -58,7 +58,7 @@ questions and must not be copied into committed source.
 ## Build the first product operation
 
 Use the narrow relevant pattern and public APIs. For database CRUD, author an
-immutable migration and a normal shared resource contract; use framework APIs
+immutable migration, its table resource and, for screens, a CRUD contract; use framework APIs
 for standard mechanics and app code for product-specific behavior. Do not
 invoke a source generator or reconstruct one as prompt options.
 

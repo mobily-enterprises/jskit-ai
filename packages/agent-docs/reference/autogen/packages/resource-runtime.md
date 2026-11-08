@@ -16,6 +16,7 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/server/contexts.js`
 Exports
+- `callerOf(context)`
 - `createJsonRestContext(context = null)`
 - `createSystemContext({ feature, systemScope, reason })`
 - `isJobContext(context)`
@@ -38,6 +39,7 @@ Exports
 - `missingOf(name, caller, missing = "throw")`
 - `requireDefinedFilters(name, caller, filters, path = "filters")`
 - `requireOwners(name, ownership, context)`
+- `requirePatchConditions(name, lockVersionField, attributes, { lockVersion, onlyIf })`
 - `requireReadParams(name, params)`
 - `requireUpsertRows(name, rows, onConflict, idProperty)`
 - `valueOnly(name, expression)`
@@ -45,31 +47,39 @@ Exports
 
 ### `src/server/handleRecords.js`
 Exports
+- `aggregateMeasures(measures)`
 - `MANY_RETURNING`
 - `SINGLE_RETURNING`
-- `handleRecords(resource, records, include)`
-- `handleResult(resource, result, format, include)`
+- `handleRecords(resource, records, { include, fields } = {}, resourceNamed)`
+- `handleResult(resource, result, format, { include, fields } = {}, resourceNamed)`
 - `idOf(result, format)`
-- `inputData(resource, attributes, stamp)`
+- `inputData(resource, attributes, stamp, context)`
 - `manyResult(resource, result, returning)`
 - `matchesOnlyIf(record, onlyIf)`
 - `patchAnswer(id, record, returning)`
-- `upsertConflict(resource, rows, onConflict)`
+- `upsertConflict(resource, rows, onConflict, context, ownershipFields)`
 - `pickReturning(modes, value, fallback, label)`
-- `readQueryParams(name, params, { page, caller })`
+- `quietCollections(resource, flag)`
+- `readQueryParams(resource, params, { page, caller })`
+- `requestedFields(params, quiet, schemaInfo)`
+- `sparseFieldset(resource, fields)`
 - `textList(value)`
 Local functions
-- `storedTimestamps(schema, names)`
-- `timestampsFor(resource, stamp, attributes)`
+- `setsOwnTimestamps(context)`
+- `stampedAttributes(resource, attributes, stamp, context)`
 - `includedRelationships(include)`
-- `handleRecord(resource, record, included)`
+- `namedFields(resource, fields)`
+- `handleRecord(resource, record, included, named, resourceNamed)`
 
 ### `src/server/index.js`
 Exports
 - `ResourceRuntimeProvider`
-- `createResourceRuntime`
 - `DEFAULT_REQUEST_ROW_LIMIT`
 - `DEFAULT_SERVER_PAGE_SIZE`
+- `buildJsonRestQueryParams`
+- `resolveUserScopeValue`
+- `resolveWorkspaceScopeValue`
+- `createStandaloneResources`
 - `isSystemContext`
 - `DuplicateOwnerError`
 - `MissingScopeError`
@@ -81,6 +91,7 @@ Exports
 ### `src/server/jsonRestValues.js`
 Exports
 - `isPlainJsonRestObject(value)`
+- `resolveJsonRestCollectionRelationships(resource)`
 
 ### `src/server/lockOrCreate.js`
 Exports
@@ -89,7 +100,7 @@ Exports
 ### `src/server/resourceHandle.js`
 Exports
 - `MANY_ROW_CHANNEL`
-- `createResourceHandle({ api, resource, hooks, settings })`
+- `createResourceHandle({ api, resource, hooks, settings, resourceNamed })`
 Local functions
 - `reportManyRow(resource, operation, rows, chunkSize)`
 - `requireHandleTransaction(name, options)`
@@ -114,12 +125,12 @@ Local functions
 - `normalizeScopeValue(value)`
 - `normalizeJsonRestFilterValue(value)`
 - `normalizeJsonRestList(value)`
-- `resolveJsonRestCollectionRelationships(resource)`
 - `normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, projectionDefinition = null)`
 - `isJsonRestVirtualField(fieldDefinition = null)`
 - `applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {})`
 - `resolveJsonRestDefaultExcludedFields(resource)`
 - `applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {})`
+- `primaryField(scopeOptions)`
 - `workspaceScopeOwnerId(visibilityContext)`
 - `isJsonRestResourceMissingError(error = null)`
 - `isJsonRestSparseFieldError(error = null)`
@@ -136,6 +147,10 @@ Local functions
 ### `src/server/ResourceRuntimeProvider.js`
 Exports
 - `ResourceRuntimeProvider`
+
+### `src/server/standaloneResources.js`
+Exports
+- `createStandaloneResources({ knex, feature, owns, systemScope, logger = silentLogger })`
 
 ### `src/server/types.js`
 Exports

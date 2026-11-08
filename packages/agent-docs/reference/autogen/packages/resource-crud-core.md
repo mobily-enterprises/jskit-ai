@@ -30,6 +30,7 @@ Local functions
 - `resolveExplicitCrudSchemaDefinition(config, keys, { context, defaultMode })`
 - `buildCrudListOutputDefinition(resolveRecordOutputDefinition, config)`
 - `createCrudRecordOutputDefinitionResolver(source)`
+- `refuseStampedField(resourceName, where, field)`
 - `resolveCrudBodyDefinition(spec, source)`
 - `resolveCrudOutputDefinition(spec, resolveRecordOutputDefinition, config)`
 - `buildCrudOperations(source, namespace, operationNames)`
@@ -51,7 +52,7 @@ Exports
 Local functions
 - `cloneStructuredFieldMetadata(value = {})`
 - `mergeFieldContractEntry(target, source, { context = "crud field contract", fieldKey = "" } = {})`
-- `resolveCrudFieldOperations(fieldDefinition, fieldOperations)`
+- `resolveCrudFieldOperations(fieldOperations, stamped)`
 
 ### `src/shared/crudListFilters.js`
 Exports

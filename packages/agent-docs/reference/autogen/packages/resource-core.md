@@ -29,8 +29,10 @@ Local functions
 Exports
 - `OWNERSHIP_KINDS`
 - `defineTableResource(definition)`
+- `RECORD_TIMESTAMPS`
 - `isTableResource(value)`
 - `resourceNameFromNamespace(namespace = "")`
+- `storedTimestamps(schema, names = RECORD_TIMESTAMPS)`
 Local functions
 - `expandLookupField(fieldKey, fieldDefinition)`
 - `normalizeTableSchema(schema)`

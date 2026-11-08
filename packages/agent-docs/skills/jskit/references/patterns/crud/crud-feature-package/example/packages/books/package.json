@@ -9,9 +9,9 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.2.14",
-    "@jskit-ai/resource-core": "0.1.204",
-    "@jskit-ai/resource-crud-core": "0.1.204"
+    "@jskit-ai/crud-core": "0.2.12",
+    "@jskit-ai/resource-core": "0.1.202",
+    "@jskit-ai/resource-crud-core": "0.1.202"
   },
   "jskit": {
     "kind": "runtime",
@@ -20,6 +20,7 @@
         "app.books"
       ],
       "requires": [
+        "crud.contracts",
         "runtime.http",
         "runtime.actions",
         "runtime.resources"

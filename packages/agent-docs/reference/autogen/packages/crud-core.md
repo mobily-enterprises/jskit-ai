@@ -26,6 +26,11 @@ Local functions
 - `resolveGetChildOwnerId(options = {}, { context = "createHooksToCollectChildren" } = {})`
 - `resolveChildrenContainerKey(hookContext = {}, options = {})`
 
+### `src/server/crudContracts.js`
+Exports
+- `CrudContractsProvider`
+- `createCrudContracts()`
+
 ### `src/server/defineCrudFeature.js`
 Exports
 - `defineCrudFeature(feature)`
@@ -86,11 +91,15 @@ Local functions
 
 ### `src/server/jsonApiModule/service.js`
 Exports
-- `createCrudService({ repository, resourceName })`
+- `createCrudService({ repository, crud, contracts })`
 Local functions
 - `documentNotFound()`
 - `requireDocument(document)`
 - `isNotFound(error)`
+- `recordOutput(crud)`
+- `contractShape(crud)`
+- `intersection(sets)`
+- `documentShapes(crud, contracts)`
 
 ### `src/server/jsonApiResourceContract.js`
 Exports

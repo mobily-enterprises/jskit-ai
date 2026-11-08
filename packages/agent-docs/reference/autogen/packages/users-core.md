@@ -274,6 +274,10 @@ Exports
 Exports
 - `UsersWorkspaceFeature`
 
+### `patterns/user-administration-server/example/packages/users-workspace/src/server/workspaceMembersOnly.js`
+Exports
+- `workspaceMembersOnly(repository, memberships)`
+
 ### `patterns/user-administration-server/example/packages/users-workspace/src/shared/index.js`
 Exports
 - `userCrud`

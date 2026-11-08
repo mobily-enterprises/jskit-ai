@@ -22,7 +22,7 @@ How to use it:
   - [page-scaffolding.md](./page-scaffolding.md)
 - child crud, nested crud, embedded list, subroute, separate page, parent/child layout
   - [child-cruds.md](./child-cruds.md)
-- crud, crud server, crud ui, resource contract, table creation, migrations, ownership, JSON API, standard screens
+- crud, crud server, crud ui, table resource, CRUD contract, table creation, migrations, ownership, JSON API, standard screens
   - [crud-authoring.md](./crud-authoring.md)
 - CRUD links, record placeholders, `paths.page()`, `resolveViewUrl`, `resolveEditUrl`, `resolveParams`
   - [crud-links.md](./crud-links.md)

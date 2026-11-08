@@ -26,6 +26,39 @@ booking.
 Good: the owner's repository calls `bookings.patch(id, { version }, options)`,
 which changes the row only when the caller's scope owns it.
 
+## The handle's calls
+
+One table, one table resource, one owner feature. The owner reaches its table
+through its handle's calls, and every call takes the call's `options` last:
+
+| Call | Does |
+| --- | --- |
+| `query({ filters, sort, page, include }, options)` | one page: `{ records, page }` |
+| `queryAll({ filters, sort, include }, options)` | every matching row, for jobs, id lists and one parent's rows |
+| `get(id, params, options)` | one record |
+| `aggregate({ measures, groupBy, filters, sort }, options)` | totals, grouped by fields or date buckets |
+| `create(data, options)`, `findOrCreate({ id, ...data }, options)` | one record; a keyed one, created once |
+| `patch(id, changes, options)`, `delete(id, options)` | one record |
+| `createMany(rows, options)` | many records, or an upsert with `onConflict` |
+| `patchMany(rows, options)` | many records, each with its own changes |
+| `patchWhere(filters, changes, options)`, `deleteWhere(filters, options)` | every matching row |
+| `lock(id, txOptions)`, `lockMany(ids, txOptions)`, `lockWhere(filters, txOptions)` | rows locked until the transaction ends |
+| `lockOrCreate({ id, ...initial }, options, work)` | a keyed record locked, created first when missing, for `work` |
+| `claim({ filters, sort, take }, txOptions)` | the next rows no other worker holds |
+| `withTransaction(options, work)` | one transaction; `work` gets its `txOptions` |
+| `scopedQuery(params, options)` | a read-only builder for a report ([Layer 5](#layer-5-reports-the-resource-cannot-express)) |
+
+```js
+// How many invoices of each status the workspace issued each month, and their total.
+function totalsByMonth(options) {
+  return invoices.aggregate({
+    groupBy: ["status", { field: "issuedAt", bucket: "month", as: "month" }],
+    measures: { invoices: { count: "*" }, amount: { sum: "amount" } },
+    sort: ["month"]
+  }, options);
+}
+```
+
 ## Words
 
 | Word | Meaning |
@@ -33,30 +66,34 @@ which changes the row only when the caller's scope owns it.
 | table resource | The one description of one table: fields and their columns, ownership, relationships, search and lock version. `defineTableResource()`, shared with the client. |
 | owner feature | The feature whose `owns` lists the table resource. It is the only feature that reads or writes the table. |
 | handle | What the owner gets for each resource it owns. Every method applies the scope of the call's `options.context`. |
-| repository | The owner's module that holds every query, built on its handles. Its methods have domain names. |
-| service | Orchestration. It calls its own repository and other features' services or owner APIs, never handles. |
+| repository | The owner's module that holds every query, built on its handles. Its methods have domain names. A plain CRUD feature's repository is its table's handle itself. |
+| service | Orchestration. It calls repositories (its own, or another feature's through that feature's capability: an owner API, or a CRUD feature's `repository`) and other features' services. It never builds a query (no Knex, no `scopedQuery`) and never reaches another feature's table any other way. |
+| owner API | The capability through which a table's owner lets other features read and write its records, such as `users.profiles`. |
 | CRUD contract | The optional HTTP and screen surface on a table resource: `defineCrudContract()`. |
-| API contract | HTTP operations that are not a table: `defineApiContract()`. |
-| ownership | Who owns a row: `public`, `workspace`, `user`, `workspace_user`, or `workspace_or_shared` (a workspace's own rows, or rows shared with every workspace when the owner is empty). |
+| CRUD feature | The feature `defineCrudFeature()` builds from a CRUD contract: its repository, service, actions, routes and screens. |
+| ownership | Who owns a row, required in every table resource: `public`, `workspace`, `user`, `workspace_user`, or `workspace_or_shared` (a workspace's own rows, or rows shared with every workspace when the owner is empty). |
 | row policy | A server-only rule narrowing which rows a context sees, applied to every statement, joins, includes and locks included. |
 | scoped query | The read-only Knex builder `scopedQuery()` returns, with ownership and the row policy already applied. |
-| system scope | The context of work across every workspace and user, declared by a feature with its reason. |
+| system scope | Why a feature works across every workspace and user, declared with `systemScope`. |
+| system context | The context of that work, from `systemContext(reason)`; `forWorkspace`, `forUser` and `forWorkspaceUser` narrow it. |
+| `txOptions` | The options `withTransaction(options, work)` hands `work`: the call's options with its transaction, passed to every call inside. |
 | record | What a handle answers: `{ id, ...fields }`, relationships as ids, included records nested. |
 
 ## Layer 1: the table resource
 
 Every table your app owns has one table resource. The feature that owns the
 table lists it in `owns`, and only that feature's setup receives its handle.
-Every read and write goes through the handle: `query` for one page, `queryAll`
-for every matching row, `get`, `create`, `patch` and `delete` for one record,
-and `aggregate` for totals. On every statement the handle adds the ownership
-predicate and the row policy, validates what you write and stamps the workspace
-or user on new rows. A table whose schema stores `createdAt` and `updatedAt`
-as `dateTime` fields gets them stamped by every write that leaves them out:
-both on a create (`createMany` too), `updatedAt` on every change (`patch`,
-`patchMany`, `patchWhere`, an upsert merge, which keeps the stored
-`createdAt`). Pass the call's `options` (its context and transaction)
-to every handle call; a call without a context throws instead of guessing.
+Every read and write goes through the handle. On every statement the handle
+adds the ownership predicate and the row policy, validates what you write and
+stamps the workspace or user on new rows. A table whose schema stores
+`createdAt` and `updatedAt` as `dateTime` fields gets them stamped by every
+write: both on a create (`createMany` too), `updatedAt` on every change
+(`patch`, `patchMany`, `patchWhere`, an upsert merge, which keeps the stored
+`createdAt`). The stamps replace what any other caller sends, and a CRUD
+contract offers them as output only; only a system context (an import, a
+migration, a seed) sets its own. Pass the call's `options` (its context and
+transaction) to every handle call; a call without a context throws instead of
+guessing.
 
 ```js
 // shared/receivalResource.js: the table's facts, shared with the client
@@ -78,34 +115,128 @@ const ReceivalsFeature = defineFeature({
   setup: ({ resources }) => ({ receivals: createReceivalsService(createReceivalsRepository(resources)) })
 });
 
-// server/receivalsRepository.js: every query, by domain name
+/**
+ * server/receivalsRepository.js: every query, by domain name.
+ * @param {{ receivals: import("@jskit-ai/resource-runtime/server/types").ResourceHandle }} handles
+ */
 function createReceivalsRepository({ receivals }) {
+  /**
+   * One page of the open receivals.
+   * @param {{ size: number, after?: string }} page
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options
+   */
+  function listOpen(page, options) {
+    return receivals.query({ filters: { status: "open" }, page }, options);
+  }
+
+  /**
+   * @param {string} id
+   * @param {string} arrivedAt
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options
+   */
+  function markArrived(id, arrivedAt, options) {
+    return receivals.patch(id, { status: "arrived", arrivedAt }, options);
+  }
+
   return Object.freeze({
     withTransaction: receivals.withTransaction,
-    listOpen: (page, options) => receivals.query({ filters: { status: "open" }, page }, options),
-    markArrived: (id, arrivedAt, options) => receivals.patch(id, { status: "arrived", arrivedAt }, options)
+    listOpen,
+    markArrived
   });
 }
 ```
+
+A package whose features own tables or declare `systemScope` lists
+`runtime.resources` in its descriptor's `capabilities.requires`, or boot
+refuses it; the feature never requires it itself, since it receives its
+handles.
+
+Reads take `(params, options)` and writes `(data, options)`: `get(id, {},
+options)`. Every setting rides in options, spread from the call's own:
+`{ ...options, missing: "skip" }`, `{ ...options, returning: "id" }`. A filter
+key is one of the resource's `search: true` fields or a `searchSchema` entry;
+`id` takes one id or a list (an empty list matches no row), and another list
+of values needs an entry with `filterOperator: "in"`. The `id` filter is every
+handle's own: a resource never declares an `id` search entry. A `null` value
+matches the rows where the field is null: `filters: { archivedAt: null }`. A table keyed by
+a `uuid` or `string` primary key takes its ids as text; an `owns` entry's
+`normalizeId` is only for an id written some other way.
+
+A read answers every field unless `fields` names the ones it needs (a
+belongs-to field by its own key, such as `customerId`, or its relationship);
+`lock` and `lockMany` take it in their options, `{ ...txOptions, fields }`.
+Each belongs-to field a read answers costs a check that its related record is
+visible, so a hot path names its fields. A collection relation with
+`hydrateOnList: false` or `hydrateOnView: false` loads its rows on that kind of
+read only when the read includes it.
 
 `create` and `patch` answer the written record by default, read back through
 the row policy. Server code that does not use it passes `returning: "id"` or
 `"none"`, which skips that read; `delete` answers the id. One rule covers a
 record that is missing or outside the caller's scope: `get`, `patch`, `delete`
 and `lock` throw json-rest-api's not-found error (a 404), and with
-`{ ...options, missing: "skip" }` they answer `null` instead, without failing
-the caller's transaction. Reads take `(params, options)` and writes
-`(data, options)`: `get(id, {}, options)`, and every setting rides in options,
-as `{ ...options, missing: "skip" }`. A row keyed by an id the code
-computes (a fingerprint, a conversation id) is read or created once with
-`findOrCreate({ id, ...attributes }, options)`, outside the transaction that
-then locks it.
+`missing: "skip"` they answer `null` instead, without failing the caller's
+transaction. A row keyed by an id the code computes (a fingerprint, a
+conversation id) is read or created once with `findOrCreate({ id,
+...attributes }, options)`, outside the transaction that then locks it: inside
+one, losing the race to create it fails the whole transaction. Compute such an
+id from the owner too (the workspace or user id in the fingerprint): an id
+another scope's row holds answers a missing record.
 
 You never write `where workspace_id = ?`, so you cannot forget it. The row
 policy and write hooks go in the `owns` entry on the server, never in the
-shared definition, which ships to the browser. A row policy reads the owner's
-other tables through `ownTable(name)`, a read-only subquery, never by table
-name. Another feature's contribution to a row policy can only narrow it.
+shared definition, which ships to the browser. Another feature's contribution
+to a row policy can only narrow it. A row policy adds one predicate correlated
+with the row being read, on indexed columns, and reads the owner's other
+tables through `ownTable(name)`, a read-only subquery, never by table name. It
+never loads everything the subject was ever linked to into an `IN` list, and
+never calls another owner's check once per item: it runs on every read, write
+read-back and lookup, so every request pays what it costs. A policy is told
+who the call runs for as `caller`: `{ kind: "user", userId }` for a signed-in
+request, `{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
+`{ kind: "job" }` (a context `forWorkspace` and its kin derived), each with its
+`reason`, for background work. A job names no user, so never read a missing
+actor as an anonymous request.
+
+```js
+// good: one predicate on the row being read
+function noticeVisibilityPolicy({ query, caller, column, value, ownTable }) {
+  if (caller.kind !== "user") {
+    return caller.kind !== "anonymous";
+  }
+  query.where(column("recipientId"), value("recipientId", caller.userId)).whereExists(
+    ownTable("sources").select(1).whereColumn("sources.id", column("sourceId")).where("sources.status", "published")
+  );
+  return true;
+}
+
+// bad: every source the recipient was ever notified about, checked one by one
+async function noticeVisibilityPolicy({ query, caller, context, column, value }) {
+  const readable = [];
+  for (const sourceId of await noticeHistory.listSourceIds(caller.userId)) {
+    if (await sources.canRead(sourceId, context)) readable.push(sourceId);
+  }
+  query.whereIn(column("sourceId"), readable.map((id) => value("sourceId", id)));
+  return true;
+}
+```
+
+A row policy hides a row everywhere, also as the target of a visible record's
+link: an order whose supplier the reader cannot see reads `supplierId: null`,
+and a form that saves the order back sends that null. A row policy says who may
+see a row at all; narrowing what one screen lists is a filter on that screen's
+read.
+
+```js
+// bad: a row policy to list only the suppliers a user added; every order whose
+// supplier someone else added now reads supplierId: null for that user
+owns: [{ resource: supplierResource, rowPolicy: addedByActor }]
+
+// good: the screen's read filters; orders keep their suppliers
+function listAddedByMe(params, options) {
+  return suppliers.query({ ...params, filters: { ...params.filters, addedBy: resolveActorId(options.context) } }, options);
+}
+```
 
 ## Layer 2: the CRUD surface
 
@@ -122,98 +253,132 @@ const receivalCrud = defineCrudContract(receivalResource, {
   namespace: "receivals",
   apiAccess: "authenticated",
   operations: ["list", "view", "create", "patch"],
-  fields: { arrivedAt: { output: "optional" } }
+  fields: {
+    status: { output: "required", create: "required", patch: "optional" },
+    arrivedAt: { output: "optional" }
+  }
 });
 ```
+
+A contract shows and accepts only the fields it names, and an included record
+shows only what its own table's contract shows. When several contracts serve
+that table, an include shows the contract its relation names with
+`relation.namespace` (a `lookup` names its namespace), and otherwise only the
+fields they all show; `jskit check` lists the tables whose contracts differ.
+A second surface on the same table (a customer's view beside the staff's) is
+a second CRUD contract on the same resource, never a second resource. A field
+fragment several resources spread into their schemas carries only the field:
+each contract that shows it states its operations in its own `fields`.
 
 ## Layer 3: many rows at once
 
 When one action creates, changes or deletes many rows, use the handle's
 many-row operations: `createMany`, `patchMany`, `patchWhere` and `deleteWhere`.
-Every filter takes `id`, one id or a list, so `patchWhere({ id: ids }, changes)`
-and `deleteWhere({ id: ids })` change a known list. Each checks every row against the resource
-first, reads which of the rows the caller may touch, then writes each chunk
-with one statement, in one transaction. Audits and change events run once for
-the batch, so the statements are the same for 10 rows as for 200.
-`patchWhere` and `deleteWhere` put the scope and filters in the statement
-itself, so a row gone meanwhile is skipped, and they take no `missing`. A purge
-that needs only how many rows it removed passes `returning: "count"`, which
+Every filter takes `id`, one id or a list, so `patchWhere({ id: ids },
+changes, options)` and `deleteWhere({ id: ids }, options)` change a known
+list. Each checks every row against the resource first, reads which of the
+rows the caller may touch, then writes each chunk with one statement, in one
+transaction. Audits and change events run once for the batch, so the
+statements are the same for 10 rows as for 200. `patchWhere` and
+`deleteWhere` put the scope and filters in the statement itself, so a row gone
+meanwhile is skipped, and they take no `missing`. They change the rows that
+match, but they are not a guard: on MySQL and MariaDB two writers whose filters
+both matched a row can both change it. A change that must happen only while a
+row still holds a value (open to booked, once) is
+`patch(id, changes, { ...options, onlyIf: { status: "open" } })`, a `claim`, or
+a lock and a check (Layer 4). A many-row write answers
+nothing unless `returning` asks: `"ids"`, `"records"`, or `"count"`, which
 reads nothing back.
 
 Bad: a batch intake patched each record through the resource: 705 statements
 for 10 records, 11,915 for 200. Written with `patchMany`, it sends the same
 number at both sizes.
 
-An upsert (`createMany(rows, { onConflict })`) on an owned table names the
-ownership field among its conflict keys, or it throws: otherwise it could
-update or hide another workspace's row. `merge` is refused under a row policy;
-use `ignore`, then `patchMany`. A table with no owners and no row policy, keyed
-by a natural id such as an email, may key the upsert on the id alone:
-`onConflict: { keys: ["id"], action: "merge" }`, with an id on every row,
-creates the record or replaces the fields given in one statement. Of two
-upserts at once the later stays, so a counter that must count both is
-created plainly and its duplicate retried instead.
+An upsert (`createMany(rows, { ...options, onConflict })`) on an owned table
+names the ownership field among its conflict keys, or it throws: otherwise it
+could update or hide another workspace's row. `merge` is refused under a row
+policy; use `ignore`, then `patchMany`. A table with no owners and no row
+policy, keyed by a natural id such as an email, may key the upsert on the id
+alone: `onConflict: { keys: ["id"], action: "merge" }`, with an id on every
+row, creates the record or replaces the fields given in one statement. Of two
+upserts at once the later stays, so a counter that must count both is created
+plainly and its duplicate retried instead. Inserting and catching the
+duplicate works only outside a transaction: inside one, the failed insert
+fails the whole transaction, so use an upsert there.
 
 ## Layer 4: locks
 
 When two requests could change the same rows at once (allocating stock,
 numbering documents, moving items into a batch), lock the rows first, inside
-the transaction: `lock(id)`, `lockMany(ids)` or `lockWhere(filters)`. The
-handle reads which of those rows the caller may see and locks exactly those,
-in id order, so nobody locks another workspace's rows. On MySQL and MariaDB a
-locking read locks every row it examines, so two rules apply there. Lock ids
-taken from your own scoped reads, never a list straight from a request: every
-id listed is locked, a hidden one too, before it is left out. And `lockWhere`
-needs an index that starts with the ownership columns (on a table with no
-owners, with a column the filters compare); without one it refuses with
-`RestApiBulkWriteUnsupportedError` naming the index to add in a migration. A worker taking the
-next job uses `claim({ filters, sort, take }, options)`, which skips rows
-another worker holds. Take locks in
-the same order everywhere, parents before children, or two transactions can
-wait on each other.
+the transaction: `lock(id, txOptions)`, `lockMany(ids, txOptions)` or
+`lockWhere(filters, txOptions)`. The handle locks only rows the caller may
+see, in id order, so nobody locks another workspace's rows: a missing or
+hidden id throws not-found, as for `get`, or with `missing: "skip"` is left
+out. A check-then-write that must not race (is the drier empty? then load it)
+locks the record first, so another lock or write of it waits until the
+transaction ends. Locks cover existing rows only: number with a unique index
+or a counter row taken with `lock(id)`. Every lock needs a transaction; SQLite
+runs one transaction at a time, so there is no row lock to take. Take locks in
+one order on every path, a parent before its children.
 
-A check-then-write that must not race (is the drier empty? then load it)
-locks the record first: `lock(id, txOptions)` reads it and locks its row, so
-another lock or write of it waits until the transaction ends. A record that
-serializes work on a key and may not exist yet (an account's balance, a
-connection to a provider), on a table with no owners, takes
-`lockOrCreate({ id, ...initial }, options, work)`: it locks the record, creating
-it from the row first when it is missing, and runs `work(record, txOptions)` in
-the same transaction, so failed work leaves no record behind. On its own it
-runs work once, so work may call a provider: two first uses of one id at once
-can collide on the insert, and the loser runs again before its work starts. Every lock needs
-a transaction; SQLite runs one transaction at a time, so there is no row lock
-to take.
+On MySQL and MariaDB a locking read locks every row it examines, so two rules
+apply there. Lock ids taken from your own scoped reads, never a list straight
+from a request: every id listed is locked, a hidden one too, before it is left
+out. And `lockWhere` needs an index that starts with the ownership columns (on
+a table with no owners, with a column the filters compare); without one it
+refuses with `RestApiBulkWriteUnsupportedError` naming the index to add in a
+migration.
+
+A worker taking the next job uses `claim({ filters, sort, take }, txOptions)`,
+which skips rows another worker holds. A record that serializes work on a key
+and may not exist yet (an account's balance, a connection to a provider), on a
+table with no owners, takes `lockOrCreate({ id, ...initial }, options, work)`:
+it locks the record, creating it from the row first when it is missing, and
+runs `work(record, txOptions)` in the same transaction, so failed work leaves
+no record behind. On its own it runs work once, so work may call a provider:
+two first uses of one id at once can collide on the insert, and the loser runs
+again before its work starts.
 
 A record that a person edits from a form it read earlier carries a version
 number: the table resource names it with `lockVersionField`, an integer field
 over a non-null integer column with `defaultTo: 0`.
-`patch(id, changes, { lockVersion })` then locks the row, applies `changes`
-only while it still holds that version, and advances it. A record whose
-version moved on rejects with a 409 coded `crud.document.lockVersionConflict`
-("This record changed. Reload and try again.") and nothing is written; a
-missing or hidden record follows the missing-row rule. The changes leave the
-version field out. Every update advances the version, a plain `patch`,
-`patchMany`, `patchWhere` or upsert merge too, so a form that read version 3
-and saves after a background job's plain patch of the same record (now
-version 4) gets the 409 and reloads, even though the job changed other
-fields. `patch(id, changes, { ...options, onlyIf: { status: "open" } })`
-is the same check on stored values, answering `null` when they differ.
+`patch(id, changes, { ...options, lockVersion })` then locks the row, applies
+`changes` only while it still holds that version, and advances it. A record
+whose version moved on rejects with a 409 coded
+`crud.document.lockVersionConflict` ("This record changed. Reload and try
+again.") and nothing is written; a missing or hidden record follows the
+missing-row rule. The changes leave the version field out. Every update
+advances the version, a plain `patch`, `patchMany`, `patchWhere` or upsert
+merge too, so a form that read version 3 and saves after a background job's
+plain patch of the same record (now version 4) gets the 409 and reloads, even
+though the job changed other fields. `patch(id, changes, { ...options, onlyIf:
+{ status: "open" } })` is the same check on stored values, answering `null`
+when they differ.
 
 ## Layer 5: reports the resource cannot express
 
 Some reads are reports, not records: totals by status and month, the newest
 row per group, distinct active days. Try `aggregate` (counts, sums, buckets by
 day, week, month or year) and an include with `strategy: "window"` (newest per
-group) first. When neither can express it, the owner's repository builds it
-from `scopedQuery()`, the table's builder with ownership and the row policy
-already applied:
+group) first. A window include is declared on the table resource's
+relationship, never in the query, and read with `include: ["snapshots"]`:
+
+```js
+relationships: {
+  snapshots: { type: "hasMany", target: "snapshots", foreignKey: "booking_id", include: { strategy: "window", limit: 1, orderBy: ["-revision"] } }
+}
+```
+
+When neither can express it, the owner's repository builds it from
+`scopedQuery()`, the table's builder with ownership and the row policy already
+applied:
 
 ```js
 // Knex: report - the days each member was active, counted per member
-activeDays(memberIds, options) {
-  return visits.scopedQuery(options)
-    .select(visits.column("memberId", "memberId"))
+async function activeDays(memberIds, options) {
+  const { query } = await visits.scopedQuery({}, options);
+  return query
+    .select({ memberId: visits.column("memberId") })
     .countDistinct({ days: visits.raw("DATE(??)", [visits.column("visitedAt")]) })
     .whereIn(visits.column("memberId"), memberIds)
     .groupBy(visits.column("memberId"));
@@ -226,8 +391,7 @@ activeDays(memberIds, options) {
   <reason>`) and `runtime-tables`.
 - `column()` names columns; `raw` takes one expression as a string literal,
   with its values as bindings.
-- The builder only reads. Writes use Layers 1, 3 and 4, which JSKIT writes
-  once, set-based.
+- The builder only reads.
 - Give each report a scope test and a flat-query test (see [Tests](#tests)).
 
 ## Reads shaped for the screen
@@ -236,12 +400,37 @@ activeDays(memberIds, options) {
   resource's `queryMaxLimit`. A scrolling list passes the previous page's
   `page.next` as `page.after`; numbered pages, or restoring a known page, pass
   `page.number` (from 1) and answer `page: { size, number, hasMore, next }`.
-  Each page is one statement, with no count: never walk pages to reach one.
-- Related rows come by id list (`filters: { id: ids }`) or `include`, grouped
-  in memory. Never a query per row.
-- `queryAll` reads every matching row. Use it for id lists, one parent's rows
-  and jobs; in a request it stops past the request row limit (10,000 rows)
-  with a 400 coded `RESOURCE_ROW_LIMIT`.
+  `page.number` reads with OFFSET, which slows as the rows grow, so anything
+  that grows pages with `page.after`. Each page is one statement, with no
+  count: never walk pages to reach one.
+- A screen list never uses `queryAll`.
+- Related rows come by id list (`filters: { id: ids }`, or an `in` filter on
+  another field) or `include`, grouped in memory. Never a query per row, however
+  the loop is spelled (`for`, `map` with `Promise.all`, a helper called per
+  item).
+- `queryAll` reads every matching row, in cursor pages that skip and repeat
+  none. Use it for id lists, one parent's rows and jobs: a read its callers
+  treat as complete, which a `query` would silently cut at one page. In a
+  request it stops past the request row limit (10,000 rows) with a 400 coded
+  `RESOURCE_ROW_LIMIT`.
+
+```js
+// good: one page of invoices, then all of that page's lines in one read
+const { records, page: next } = await invoices.query({ sort: ["-issuedAt"], page }, options);
+const lines = await invoiceLines.queryAll({ filters: { invoiceIds: records.map((invoice) => invoice.id) } }, options);
+const linesByInvoice = Map.groupBy(lines, (line) => line.invoiceId);
+
+// bad: one more read, and its row policy, for every invoice
+for (const invoice of records) {
+  invoice.lines = await invoiceLines.queryAll({ filters: { invoiceIds: [invoice.id] } }, options);
+}
+
+// good: a delivery job reads every active subscriber
+const subscribers = await subscriptions.queryAll({ filters: { newsletterId, status: "active" } }, options);
+
+// bad: the first page only, whatever its size
+const { records: firstPage } = await subscriptions.query({ filters: { newsletterId, status: "active" }, page: { size: 20 } }, options);
+```
 
 Bad: a list read 100-row pages in a loop for each of 40 related sets.
 
@@ -261,13 +450,29 @@ const SettlementFeature = defineFeature({
 ```
 
 - Prefer `systemContext(reason).forWorkspace(id)`, `.forUser(id)` or
-  `.forWorkspaceUser(workspaceId, userId)`: the work for each workspace or user
-  is then scoped as usual.
-- A job loops over units of work, one transaction each, never over rows.
+  `.forWorkspaceUser(workspaceId, userId)`: each workspace or user is then one
+  unit of work, scoped as usual, in a transaction of its own.
+- A job finds its units with one `aggregate` grouped by the ownership field,
+  which a system context may group by even when the table hides it, then runs
+  each unit scoped to it:
+
+  ```js
+  async function settleDue(options) {
+    const due = await cohorts.aggregate({ measures: { cohorts: { count: "id" } }, groupBy: ["workspaceId"], filters: { status: "finished" } }, options);
+    for (const { workspaceId } of due) {
+      await settleWorkspace({ context: systemContext("settle finished weekly leagues for every user").forWorkspace(workspaceId) });
+    }
+  }
+  ```
 - A request uses its own context. The only exception is a console report
   behind a console permission, with bounded output.
 - `jskit check` lists every system scope and every `systemContext` call with
-  its reason.
+  its reason, read from the string literal at the call: a reason kept in a
+  constant reads as none.
+- A system context comes only from `systemScope`, and a context's scope only
+  from the request or from `forWorkspace`, `forUser` and `forWorkspaceUser`:
+  lint refuses `createSystemContext` and hand-written `scopeValues`, and a
+  context naming two workspaces or two users throws.
 
 Bad: a job read every record of every workspace inside a request path, every
 hour.
@@ -277,26 +482,22 @@ hour.
 Open a transaction with the repository's `withTransaction(options, work)` and
 pass the `txOptions` it gives `work` to every call inside. Never read the
 transaction out of `options` by hand. A handle refuses every other
-transaction, a raw Knex one or a savepoint, for reads as for writes. Inside an open transaction it joins it;
-otherwise it opens one and runs events and other after-effects after commit.
-Any failed write inside it fails the whole transaction.
+transaction, a raw Knex one or a savepoint, for reads as for writes. Inside an
+open transaction it joins it; otherwise it opens one and runs events and other
+after-effects after commit. Any failed write inside it fails the whole
+transaction.
 
-When the database aborts the transaction as a deadlock victim (MySQL and
-MariaDB errno 1213, PostgreSQL `40P01`), the transaction that opened it runs
-the whole work again, up to three more times with a short random pause, so the
-person sees one successful request instead of a 500. A single write given no
-transaction does the same. A call inside someone else's transaction fails at
-once and leaves the retry to its owner; a lock wait timeout is not retried.
-The work must therefore be safe to run again: HTTP calls, email and uploads go
-before or after the transaction, or into an outbox. Work that cannot be
-repeated passes `withTransaction({ ...options, retry: false }, work)`. Work
-that must commit before its caller goes on (it sends after commit) passes
-`{ ...options, outermost: true }`, which refuses a call inside a transaction.
+A deadlock victim's transaction (MySQL and MariaDB errno 1213, PostgreSQL
+`40P01`) runs its whole work again, up to three more times, so the work must
+be safe to repeat: an HTTP call or an email goes after commit, or into an
+outbox row written inside it. Work that cannot be repeated passes `{ ...options, retry: false }`, and work that must
+commit before its caller goes on passes `{ ...options, outermost: true }`.
 
 When the work throws, the transaction rolls back and the caller gets the
 work's own error. A failed write inside the work, or a failed commit, reaches
-the caller as json-rest-api's `RestApiWriteError` with the transaction's
-outcome.
+the caller as json-rest-api's `RestApiWriteError` (code `REST_API_WRITE`)
+with the transaction's outcome. Classify an error by its `code` or `status`,
+never with `instanceof`: a second copy of a package makes a second class.
 
 ```js
 const allocate = (input, options) => repository.withTransaction(options, async (txOptions) => {
@@ -315,23 +516,47 @@ Ask the owner: its service, or for a JSKIT table its owner API, with the same
 (`console.settings`). A realtime audience reaches its users the same way: its
 `audienceUsers({ event, options })` asks the owners and answers user ids.
 
+An app that had a table resource of its own over a JSKIT table (such as
+`users`) deletes it: its CRUD contract is built on the package's table resource
+(users-core's `userProfileTableResource`) and served through the owner with
+`defineCrudFeature({ crud, ownerRepository: "users.profiles" })` (the
+`users/user-administration-server` pattern).
+
 Bad: an app wrote sign-in sessions and memberships with Knex; the framework's
 own checks and audits never ran.
 
+## Two features that need each other
+
+When a parent's owner and its children's owners each need the other (the
+parent's service reads its children, and a child's write must advance the
+parent's version), split what both need into a feature of its own, so
+capabilities point one way:
+
+- The parent table's owner keeps the table and provides a small owner API,
+  such as `versions.advance(id, txOptions)`, and requires none of the
+  children.
+- Each child's owner requires that API and calls it in its own write's
+  transaction, from its repository's write method. An `owns` entry's
+  `afterWrite` hook cannot do it: it is declared with the table, before any
+  capability arrives.
+- The aggregate that reads or changes them together (the parent with its
+  children) is a third feature that requires both.
+
+A version that moves on with no field changed is the parent's
+`lockVersionField`: `lock(id, txOptions)` reads the record, and
+`patch(id, {}, { ...txOptions, lockVersion: record.lockVersion })` advances it
+by one. Several parents advance in one statement: `lockMany(ids, txOptions)`,
+then `patchMany(ids.map((id) => ({ id })), txOptions)`. An advance is an update,
+so it stamps the parent's `updatedAt` too: the parent as a whole changed, and a
+reader that compares either one sees it.
+
 ## Check and judge
 
-Before calling data work done, check:
-
-- Do its statements grow with its rows? `expectFlatQueries` answers.
-- Does any request read a whole table?
-- Does every read and write path have a scope test?
-- Does each `// Knex:` method fit its kind, or could `aggregate` or an include
-  do it?
-- Do write hooks and side effects stay in the caller's scope?
-- Do locks take rows in the same order everywhere?
-
-Clearly broken: a test that seeds for minutes, a request that takes seconds, a
-statement count in the thousands.
+Before calling data work done, apply the
+[sanity checks](/guide/framework/sanity-checks#query-counts-and-batches) with
+JSKIT's tools: `expectFlatQueries` for statements that grow with rows,
+`expectScoped` for every read and write path, and a look at each `// Knex:`
+method, which `aggregate` or an include might do instead.
 
 ## Tests
 
@@ -348,10 +573,15 @@ with the counts and the statements repeated most; the later chunks a many-row
 write reports are allowed. `expectScoped` seeds a second owner, runs the path as
 the first, and fails when the result holds the second owner's rows or the path
 changed them. A data test never skips: without `TEST_DB_NAME` it fails
-(`requireTestDatabase(process.env)`).
+(`requireTestDatabase(process.env)`). A route's statements are counted through
+the server the test boots, with `countRuntimeQueries(work)` from
+`@jskit-ai/database-runtime/server/testDatabases`.
 
-One more test proves every table has an owner. `createTestResourceRuntime({ knex })`
-gives a test the resource runtime its features own their tables through, and
+`createTestResourceRuntime({ knex })` gives a test the resource runtime its
+features own their tables through: `runtime.own(featureId, [resource])`
+answers the handles, and `runtime.declareSystemScope(featureId, reason)` the
+`systemContext` function a test reads every owner's rows with. One more test
+proves every table has an owner:
 `expectEveryTableOwned({ knex, runtime, infrastructureTables, environment })`
 fails, naming them, when the migrated test database holds a table no feature
 owns and no package keeps as infrastructure. JSKIT's packages export their
@@ -362,30 +592,42 @@ and `OIDC_ISSUER_INFRASTRUCTURE_TABLES` (`@jskit-ai/oidc-issuer-core/server`).
 
 ## Hard rules
 
-These are always wrong, and lint reports them as errors in server and shared
-code. Tests, migrations and seeds are outside them.
+These are always wrong, and lint reports them as errors in all code but the
+client's, wherever it sits; tests, migrations and seeds are outside them.
+`eslint-disable` cannot turn them off.
 
 ### Lint rules
 
 | Rule | Reports | Section |
 | --- | --- | --- |
-| `jskit/no-direct-knex` | a table reached by name with Knex, a `.knex` read, a transaction opened by hand | [The resource is the only door](#the-resource-is-the-only-door) |
+| `jskit/no-direct-knex` | a table reached by name with Knex, a `.knex` read or `knex` destructured, a transaction opened by hand | [The resource is the only door](#the-resource-is-the-only-door) |
 | `jskit/no-transaction-reader` | `options.trx`, `trx \|\| knex`, a `trx = knex` default, `trx` destructured from options | [Transactions](#transactions) |
 | `jskit/no-hand-scope` | a hand-written `where` on `workspace_id` or `workspaceId` | [Layer 1: the table resource](#layer-1-the-table-resource) |
 | `jskit/sql-literal` | raw SQL built from strings or templates instead of one literal with bindings | [Layer 5: reports the resource cannot express](#layer-5-reports-the-resource-cannot-express) |
+| `jskit/no-hand-context` | a system context made with `createSystemContext`, a context's `scopeValues` written by hand | [Background work](#background-work) |
 | `jskit/knex-reason` | a `scopedQuery()` report outside a named repository method under `// Knex: <kind> - <reason>` | [Layer 5: reports the resource cannot express](#layer-5-reports-the-resource-cannot-express) |
 
 ### Exceptions
 
-A file whose job is data access itself (a database runtime, test-database
-setup, a health check, session cleanup, platform provisioning) may opt out of
-`jskit/no-direct-knex` and `jskit/no-transaction-reader` as a whole, with one
-line per rule before its first line of code:
+A module whose job is data access itself (a database runtime, a migration
+runner, test-database setup) may opt out of `jskit/no-direct-knex` and
+`jskit/no-transaction-reader` as a whole, with one line per rule before its
+first line of code:
 
 ```js
 // readable-check: allow no-direct-knex - infrastructure: the test databases' snapshot and restore
 ```
 
-`jskit check` lists every such file for review. The other three rules take no
-exception. `jskit check` also fails a table with two table resources, and a
-system scope or `systemContext` call without a reason.
+`jskit check` lists every such file for review. The other four rules take no
+exception. `jskit check` also fails:
+
+- a table with two table resources;
+- a system scope or `systemContext` call without a reason;
+- an infrastructure exception or a feature's system scope that the app's
+  checked-in `jskit-data-access.json` does not list, so each new one is
+  reviewed: `{ "infrastructure": [{ "file", "rule" }], "systemScopes":
+  [{ "feature", "systemScope" }] }`;
+- a module that requires `runtime.database` or `runtime.resources` without
+  the infrastructure exception: features own their tables with `owns`;
+- an `eslint-disable` that names a data-access rule, or no rule, outside
+  client code.

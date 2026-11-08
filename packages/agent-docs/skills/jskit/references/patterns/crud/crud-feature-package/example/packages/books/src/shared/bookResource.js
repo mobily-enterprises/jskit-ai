@@ -57,6 +57,9 @@ const bookCrud = defineCrudContract(bookResource, {
   namespace: "books",
   apiAccess: "authenticated",
   fields: {
+    title: { output: "required", create: "required", patch: "optional" },
+    author: { output: "required", create: "required", patch: "optional" },
+    notes: { output: "required", create: "optional", patch: "optional" },
     createdAt: { output: "required" },
     updatedAt: { output: "required" }
   },

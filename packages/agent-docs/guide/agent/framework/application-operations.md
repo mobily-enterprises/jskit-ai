@@ -101,7 +101,7 @@ normal order is:
 
 1. confirm the product resource, ownership, operations, and fields
 2. author a migration as normal application source
-3. author the shared resource contract through `resource-crud-core`
+3. define the table resource (`defineTableResource`) and, for screens, its CRUD contract (`defineCrudContract`)
 4. use framework APIs for standard repository/service/action/route mechanics
 5. author product-specific screens from the relevant UI pattern
 6. run migrations and direct verification

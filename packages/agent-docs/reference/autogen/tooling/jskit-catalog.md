@@ -81,9 +81,20 @@ Local functions
 - `objectArgument(masked, callOffset, matchLength)`
 - `keyValue(code, masked, keys, key)`
 - `readSourceFile(source)`
+- `objectKeys(masked, start, end)`
+- `objectAt(masked, offset)`
+- `readSchemaFields(code, masked, keys, ownership)`
 - `readTableResources(file, { code, masked, position })`
+- `readCrudContracts({ code, masked })`
+- `outputFields(masked, keys)`
+- `unnamedFields(resources, contracts)`
+- `differingContracts(resources, contracts)`
 - `readSystemScopes(file, { code, masked, position })`
 - `readInfrastructureExcuses(file, source)`
+- `readLintDisables(file, source, position)`
+- `readRuntimeCapabilities(file, { code, masked, position })`
+- `readBaseline(root, report)`
+- `checkBaseline(baseline, excuses, scopes, report)`
 - `walk(root, directory, files)`
 - `frameworkPackages(root)`
 - `checkTables(resources, report)`
