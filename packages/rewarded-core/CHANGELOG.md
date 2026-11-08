@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The rewarded table resources no longer declare their own `id` search entry: their handles' `id` filter takes one id or a list.
 - The package requires `crud.contracts`, the registry of served CRUD contracts its CRUD features register with, so an application that installs it also loads crud-core's `CrudContractsProvider`.
 - The rewarded CRUD contracts name every field they show and accept, since a contract now shows only the fields it names; what each one shows and accepts is unchanged.
 - **Breaking (data-access redesign).** Each rewarded table is one table resource with a CRUD contract on it: `rewardedRuleTableResource`/`rewardedRuleCrud`, `rewardedProviderConfigTableResource`/`rewardedProviderConfigCrud`, `rewardedWatchSessionTableResource`/`rewardedWatchSessionCrud` and `rewardedUnlockReceiptTableResource`/`rewardedUnlockReceiptCrud`, exported from `./shared`. The HTTP routes, namespaces and fields are unchanged.

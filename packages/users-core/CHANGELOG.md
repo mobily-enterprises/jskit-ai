@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking.** The users table resource drops its scalar `id` search entry, which made `filters: { id: ids }` fail, and its `ids` entry: `filters: { id }` takes one id or a list. The settings table drops `search: true` on its `id` field. `countUsers` and the `users/user-administration-server` pattern's workspace narrowing filter by `id`. **Upgrading:** `filters: { ids }` on `users.profiles` becomes `filters: { id: ids }`.
 - The `users/user-administration-server` pattern's packages require `crud.contracts`, which every package with a CRUD feature now lists.
 - The `users/user-administration-server` pattern's users list and view answer only the display name, email, username and timestamps its CRUD contract names: before, the CRUD service also answered the sign-in identity and the avatar's storage, which the contract kept out of its output with `{}` entries. Applications that copied the pattern get the same by upgrading crud-core, and drop the `{}` entries.
 - The `users/user-administration-server` pattern's workspace variant lists only the workspace's active members: its `decorateRepository` (`src/server/workspaceMembersOnly.js`) narrows users-core's repository with `workspaces.memberships`' `activeMemberIds`, and anyone else is a missing record. Before, the `users` table being public, a workspace admin's list showed every user with an account. An application that copied the variant copies the narrowing.

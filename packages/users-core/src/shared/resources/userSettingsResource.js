@@ -286,15 +286,11 @@ const userSettingsTableResource = defineTableResource({
   tableName: "user_settings",
   ownership: "public",
   idProperty: "user_id",
-  searchSchema: {
-    id: { type: "id", actualField: "id" }
-  },
   schema: {
     id: {
       type: "id",
       primary: true,
       required: true,
-      search: true,
       storage: { column: "user_id" }
     },
     theme: {

@@ -471,8 +471,8 @@ function createRepository({ userProfiles, userSettings }) {
     };
     const ids = [...new Set(excludeIds.map((id) => normalizeDbRecordId(id, { fallback: null })).filter(Boolean))];
     const total = await countProfiles(filters, options);
-    // The ids filter has no "not in": the excluded users who match are subtracted.
-    return ids.length < 1 ? total : total - await countProfiles({ ...filters, ids }, options);
+    // The id filter has no "not in": the excluded users who match are subtracted.
+    return ids.length < 1 ? total : total - await countProfiles({ ...filters, id: ids }, options);
   }
 
   return Object.freeze({

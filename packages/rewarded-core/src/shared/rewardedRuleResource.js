@@ -65,7 +65,6 @@ const rewardedRuleTableResource = defineTableResource({
     }
   },
   searchSchema: {
-    id: { type: "id", actualField: "id" },
     q: { type: "string", oneOf: ["gateKey", "surface", "title", "description"], filterOperator: "like", splitBy: " ", matchAll: true }
   },
   defaultSort: ["-createdAt"]

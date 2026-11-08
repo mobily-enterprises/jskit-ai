@@ -8,7 +8,6 @@ const workspaceMembershipsResource = defineTableResource({
   tableName: "workspace_memberships",
   ownership: "public",
   searchSchema: {
-    id: { type: "id", actualField: "id" },
     workspace: { type: "id", actualField: "workspace_id", filterOperator: "=" },
     user: { type: "id", actualField: "user_id", filterOperator: "=" },
     users: {

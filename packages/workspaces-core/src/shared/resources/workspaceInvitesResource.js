@@ -7,7 +7,6 @@ const workspaceInvitesResource = defineTableResource({
   tableName: "workspace_invites",
   ownership: "public",
   searchSchema: {
-    id: { type: "id", actualField: "id" },
     workspace: { type: "id", actualField: "workspace_id", filterOperator: "=" },
     email: { type: "string", actualField: "email", filterOperator: "=" },
     status: { type: "string", actualField: "status", filterOperator: "=" },

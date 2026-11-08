@@ -71,7 +71,6 @@ const rewardedWatchSessionTableResource = defineTableResource({
     }
   },
   searchSchema: {
-    id: { type: "id", actualField: "id" },
     q: { type: "string", oneOf: ["gateKey", "status"], filterOperator: "like", splitBy: " ", matchAll: true }
   },
   defaultSort: ["-createdAt"]

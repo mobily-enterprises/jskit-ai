@@ -21,10 +21,10 @@ function workspaceMembersOnly(repository, memberships) {
    */
   async function query(params, options) {
     const members = await memberIds(options);
-    const requested = params.filters?.ids;
+    const requested = params.filters?.id;
     // An empty list matches no row: a workspace with no members lists nobody.
-    const ids = requested === undefined ? members : [requested].flat().map(String).filter((id) => members.includes(id));
-    return repository.query({ ...params, filters: { ...params.filters, ids } }, options);
+    const id = requested === undefined ? members : [requested].flat().map(String).filter((memberId) => members.includes(memberId));
+    return repository.query({ ...params, filters: { ...params.filters, id } }, options);
   }
 
   /**

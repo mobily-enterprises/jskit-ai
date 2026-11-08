@@ -246,15 +246,11 @@ const workspaceSettingsResource = defineTableResource({
   tableName: "workspace_settings",
   ownership: "public",
   idProperty: "workspace_id",
-  searchSchema: {
-    id: { type: "id", actualField: "id" }
-  },
   schema: {
     id: {
       type: "id",
       primary: true,
       required: true,
-      search: true,
       storage: { column: "workspace_id" }
     },
     lightPrimaryColor: {

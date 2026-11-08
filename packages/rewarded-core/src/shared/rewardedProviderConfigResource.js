@@ -44,7 +44,6 @@ const rewardedProviderConfigTableResource = defineTableResource({
     }
   },
   searchSchema: {
-    id: { type: "id", actualField: "id" },
     q: { type: "string", oneOf: ["surface", "placement", "provider"], filterOperator: "like", splitBy: " ", matchAll: true }
   },
   defaultSort: ["-createdAt"]

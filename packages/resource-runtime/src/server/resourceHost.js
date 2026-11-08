@@ -471,10 +471,15 @@ function resourceScopeOptions(
       ...searchSchema
     };
   }
-  // Every filtered call selects records by id: `filters: { id }` takes one id or a list.
-  if (!Object.hasOwn(normalizeObject(scopeOptions.searchSchema), "id") && !scopeOptions.schema?.id?.search) {
-    scopeOptions.searchSchema = { ...normalizeObject(scopeOptions.searchSchema), id: ID_FILTER };
+  // Every filtered call selects records by id: `filters: { id }` takes one id or a list. The handle owns that filter,
+  // so a resource's own scalar id entry cannot narrow it to one id.
+  if (Object.hasOwn(normalizeObject(scopeOptions.searchSchema), "id") || scopeOptions.schema?.id?.search) {
+    throw new TypeError(
+      `Table resource "${resource.name}" declares its own id filter: every handle filters by id, one id or a list ` +
+      "(filters: { id }), so remove its searchSchema id entry and any search: true on its id field."
+    );
   }
+  scopeOptions.searchSchema = { ...normalizeObject(scopeOptions.searchSchema), id: ID_FILTER };
   applyJsonRestQueryFields(scopeOptions, queryFields);
   applyJsonRestDefaultExclusions(scopeOptions, resource);
   const collectionRelationships = resolveJsonRestCollectionRelationships(scopeOptions);

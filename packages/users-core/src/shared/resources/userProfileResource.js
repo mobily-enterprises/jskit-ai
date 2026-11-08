@@ -4,7 +4,6 @@ import { normalizeLowerText, normalizeText } from "@jskit-ai/kernel/shared/suppo
 import { defineApiContract } from "@jskit-ai/resource-core/shared/apiContract";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
-import { RECORD_ID_PATTERN } from "@jskit-ai/kernel/shared/validators";
 import { OPERATION_MESSAGES } from "../operationMessages.js";
 import { userProfileOutputSchema } from "./accountSettingsSchemas.js";
 import { userSettingsOutputSchema } from "./userSettingsResource.js";
@@ -70,8 +69,6 @@ const userProfileTableResource = defineTableResource({
   tableName: "users",
   ownership: "public",
   searchSchema: {
-    id: { type: "id", actualField: "id" },
-    ids: { type: "array", actualField: "id", filterOperator: "in", items: { type: "string", pattern: RECORD_ID_PATTERN } },
     usernames: { type: "array", actualField: "username", filterOperator: "in", items: { type: "string" } },
     emails: { type: "array", actualField: "email", filterOperator: "in", items: { type: "string" } },
     createdSince: { type: "dateTime", actualField: "createdAt", filterOperator: ">=" },

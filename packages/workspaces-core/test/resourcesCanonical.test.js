@@ -58,20 +58,21 @@ test("each workspaces-core table is one table resource, and only workspaces and 
   assert.equal(workspaceSettingsCrud.resource, workspaceSettingsResource);
 });
 
+// Their id filter is every handle's own, which takes one id or a list.
 test("workspaces-core repository filters are declared on canonical resources", () => {
-  assert.deepEqual(Object.keys(workspaceResource.searchSchema), ["id", "slug", "slugs", "owner", "isPersonal"]);
+  assert.deepEqual(Object.keys(workspaceResource.searchSchema), ["slug", "slugs", "owner", "isPersonal"]);
   assert.equal(workspaceResource.searchSchema.slug.actualField, "slug");
   assert.equal(workspaceResource.searchSchema.slugs.actualField, "slug");
   assert.equal(workspaceResource.searchSchema.slugs.filterOperator, "in");
   assert.equal(workspaceResource.searchSchema.owner.actualField, "owner_user_id");
 
-  assert.deepEqual(Object.keys(workspaceMembershipsResource.searchSchema), ["id", "workspace", "user", "users", "status"]);
+  assert.deepEqual(Object.keys(workspaceMembershipsResource.searchSchema), ["workspace", "user", "users", "status"]);
   assert.equal(workspaceMembershipsResource.searchSchema.workspace.actualField, "workspace_id");
   assert.equal(workspaceMembershipsResource.searchSchema.user.actualField, "user_id");
   assert.equal(workspaceMembershipsResource.searchSchema.users.actualField, "user_id");
   assert.equal(workspaceMembershipsResource.searchSchema.users.filterOperator, "in");
 
-  assert.deepEqual(Object.keys(workspaceInvitesResource.searchSchema), ["id", "workspace", "email", "status", "tokenHash"]);
+  assert.deepEqual(Object.keys(workspaceInvitesResource.searchSchema), ["workspace", "email", "status", "tokenHash"]);
   assert.equal(workspaceInvitesResource.searchSchema.workspace.actualField, "workspace_id");
   assert.equal(workspaceInvitesResource.searchSchema.tokenHash.actualField, "token_hash");
 });

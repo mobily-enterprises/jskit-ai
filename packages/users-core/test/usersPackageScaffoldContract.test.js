@@ -107,14 +107,14 @@ test("the workspace variant lists and shows only the caller's workspace's active
   const options = { context: { workspace: { id: "7" } } };
 
   await users.query({ filters: { q: "ann" }, page: { size: 20 } }, options);
-  await users.query({ filters: { ids: ["2", "3"] } }, options);
-  await users.query({ filters: { ids: "3" } }, options);
+  await users.query({ filters: { id: ["2", "3"] } }, options);
+  await users.query({ filters: { id: "3" } }, options);
   await users.query({}, { context: { workspace: { id: "8" } } });
   assert.deepEqual(calls.splice(0), [
-    ["query", { q: "ann", ids: ["1", "2"] }],
-    ["query", { ids: ["2"] }],
-    ["query", { ids: [] }],
-    ["query", { ids: [] }]
+    ["query", { q: "ann", id: ["1", "2"] }],
+    ["query", { id: ["2"] }],
+    ["query", { id: [] }],
+    ["query", { id: [] }]
   ]);
   assert.deepEqual(await users.get("1", {}, options), { data: { id: "1" } });
   assert.equal(await users.get("3", {}, { ...options, missing: "skip" }), null);

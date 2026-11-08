@@ -420,6 +420,35 @@ test("resourceScopeOptions maps server query projections into json-rest-api quer
   assert.equal(resource.schema.remainingProcessableWeight.storage.virtual, true);
 });
 
+test("resourceScopeOptions refuses a resource's own id filter, since every handle filters by one id or a list", () => {
+  const declared = defineTableResource({
+    name: "tickets",
+    tableName: "tickets",
+    ownership: "public",
+    searchSchema: { id: { type: "id", actualField: "id" } },
+    schema: { title: { type: "string", required: true } }
+  });
+  const searchedId = defineTableResource({
+    name: "ticketSettings",
+    tableName: "ticket_settings",
+    ownership: "public",
+    idProperty: "ticket_id",
+    schema: { id: { type: "id", primary: true, required: true, search: true, storage: { column: "ticket_id" } } }
+  });
+  const plain = defineTableResource({
+    name: "notes",
+    tableName: "notes",
+    ownership: "public",
+    schema: { title: { type: "string", required: true } }
+  });
+  assert.throws(() => resourceScopeOptions(declared), /"tickets" declares its own id filter: every handle filters by id/u);
+  assert.throws(() => resourceScopeOptions(searchedId), /"ticketSettings" declares its own id filter/u);
+  assert.throws(
+    () => resourceScopeOptions(plain, { searchSchema: { id: { type: "id", actualField: "id" } } }),
+    /"notes" declares its own id filter/u
+  );
+});
+
 test("resourceScopeOptions applies resource-owned default response exclusions", () => {
   const source = defineTableResource({
     name: "contacts",

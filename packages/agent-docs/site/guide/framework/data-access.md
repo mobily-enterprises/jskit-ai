@@ -149,7 +149,8 @@ options)`. Every setting rides in options, spread from the call's own:
 `{ ...options, missing: "skip" }`, `{ ...options, returning: "id" }`. A filter
 key is one of the resource's `search: true` fields or a `searchSchema` entry;
 `id` takes one id or a list (an empty list matches no row), and another list
-of values needs an entry with `filterOperator: "in"`.
+of values needs an entry with `filterOperator: "in"`. The `id` filter is every
+handle's own: a resource never declares an `id` search entry.
 
 `create` and `patch` answer the written record by default, read back through
 the row policy. Server code that does not use it passes `returning: "id"` or

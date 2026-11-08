@@ -78,7 +78,6 @@ const workspaceResource = defineTableResource({
   tableName: "workspaces",
   ownership: "public",
   searchSchema: {
-    id: { type: "id", actualField: "id" },
     slug: { type: "string", actualField: "slug", filterOperator: "=" },
     slugs: { type: "array", actualField: "slug", filterOperator: "in", items: { type: "string" } },
     owner: { type: "id", actualField: "owner_user_id", filterOperator: "=" },
