@@ -485,7 +485,10 @@ capabilities point one way:
 A version that moves on with no field changed is the parent's
 `lockVersionField`: `lock(id, txOptions)` reads the record, and
 `patch(id, {}, { ...txOptions, lockVersion: record.lockVersion })` advances it
-by one.
+by one. Several parents advance in one statement: `lockMany(ids, txOptions)`,
+then `patchMany(ids.map((id) => ({ id })), txOptions)`. An advance is an update,
+so it stamps the parent's `updatedAt` too: the parent as a whole changed, and a
+reader that compares either one sees it.
 
 ## Check and judge
 

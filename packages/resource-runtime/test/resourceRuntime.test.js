@@ -430,6 +430,53 @@ test("patch() with lockVersion patches the version it read and refuses a stale o
   assert.equal(await notes.patch(note.id, { title: "x" }, { context: WORKSPACE_B, lockVersion: 2, missing: "skip" }), null);
 });
 
+test("advancing a lock version with no field changed is an update: it stamps updatedAt, one row or many in one statement", async (t) => {
+  const versioned = defineTableResource({
+    name: "versioned",
+    tableName: "versioned",
+    ownership: "public",
+    lockVersionField: "lockVersion",
+    schema: {
+      id: { type: "string", primary: true },
+      title: { type: "string", required: true },
+      lockVersion: { type: "integer", defaultTo: 0, storage: { column: "lock_version" } },
+      updatedAt: { type: "dateTime", storage: { column: "updated_at", writeSerializer: "datetime-utc" } }
+    }
+  });
+  const { knex, resources } = await createFixture(t, {
+    owns: [noteResource(), { normalizeId: normalizeOpaqueId, resource: versioned }]
+  });
+  await knex.schema.createTable("versioned", (table) => {
+    table.string("id").primary();
+    table.string("title").notNullable();
+    table.integer("lock_version").notNullable().defaultTo(0);
+    table.string("updated_at").notNullable();
+  });
+  const options = { context: {} };
+  const rows = async () => (await knex("versioned").orderBy("id").select("id", "lock_version", "updated_at"))
+    .map(({ id, lock_version: version, updated_at: stamp }) => [id, version, stamp]);
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-08T01:00:00.000Z") });
+  await resources.versioned.createMany([{ id: "a", title: "a" }, { id: "b", title: "b" }, { id: "c", title: "c" }], options);
+
+  t.mock.timers.setTime(Date.parse("2026-11-08T02:00:00.000Z"));
+  await resources.versioned.patch("a", {}, { ...options, lockVersion: 0 });
+  const statements = [];
+  const count = (query) => statements.push(query.sql);
+  knex.on("query", count);
+  await resources.versioned.patchMany([{ id: "b" }, { id: "c" }], options);
+  knex.off("query", count);
+  assert.deepEqual(await rows(), [
+    ["a", 1, "2026-11-08 02:00:00.000"],
+    ["b", 1, "2026-11-08 02:00:00.000"],
+    ["c", 1, "2026-11-08 02:00:00.000"]
+  ]);
+  assert.equal(statements.filter((sql) => /^update/iu.test(sql)).length, 1, "many rows advance in one UPDATE");
+  // A patch that changes nothing, and names no lock version, still writes nothing.
+  t.mock.timers.setTime(Date.parse("2026-11-08T03:00:00.000Z"));
+  await resources.versioned.patch("a", {}, options);
+  assert.deepEqual((await rows())[0], ["a", 1, "2026-11-08 02:00:00.000"]);
+});
+
 test("afterWrite runs once per write, in the write's transaction and scope", async (t) => {
   const events = [];
   const resource = noteResource();

@@ -80,15 +80,17 @@ function setsOwnTimestamps(context) {
 /**
  * A write's attributes with the table's timestamps (see storedTimestamps). The handle's stamps replace any the
  * caller sends, unless it may set its own (setsOwnTimestamps), so a request never sets them. A create stamps
- * createdAt and updatedAt, a change of a record updatedAt, and an empty change nothing.
- * @param {{ schema: Record<string, any> }} resource
+ * createdAt and updatedAt, a change of a record updatedAt, and an empty change nothing, except on a table with a lock
+ * version: there an empty change advances the version, which is an update like any other, so it stamps updatedAt and
+ * the two never disagree about whether the record changed.
+ * @param {{ schema: Record<string, any>, lockVersionField?: string }} resource
  * @param {Record<string, unknown>} attributes
  * @param {"create" | "update"} stamp
  * @param {unknown} context The call's context.
  */
 function stampedAttributes(resource, attributes, stamp, context) {
   const kept = storedTimestamps(resource.schema);
-  if (kept.length < 1 || (stamp === "update" && Object.keys(attributes).length < 1)) {
+  if (kept.length < 1 || (stamp === "update" && Object.keys(attributes).length < 1 && !resource.lockVersionField)) {
     return { ...attributes };
   }
   const callerSets = setsOwnTimestamps(context);
