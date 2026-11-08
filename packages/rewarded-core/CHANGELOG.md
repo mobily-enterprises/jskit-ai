@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `@jskit-ai/database-runtime` is a dependency again: the foreign-key migration (`migrations/constraints/rewarded_foreign_keys.cjs`) imports its `server/foreignKeyMigrations` in `up` and `down`, which resolved only through hoisting since the CRUD features moved to the resource runtime.
 - The rewarded table resources no longer declare their own `id` search entry: their handles' `id` filter takes one id or a list.
 - The package requires `crud.contracts`, the registry of served CRUD contracts its CRUD features register with, so an application that installs it also loads crud-core's `CrudContractsProvider`.
 - The rewarded CRUD contracts name every field they show and accept, since a contract now shows only the fields it names; what each one shows and accepts is unchanged.

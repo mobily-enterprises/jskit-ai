@@ -13,6 +13,8 @@ const FORBIDDEN_RUNTIME_DEPENDENCIES = new Set(["genesis-compiler"]);
 const STATIC_IMPORT_PATTERN = /^\s*import\s+[\s\S]*?\s+from\s+["']([^"']+)["']/gm;
 const EXPORT_FROM_PATTERN = /^\s*export\s+[\s\S]*?\s+from\s+["']([^"']+)["']/gm;
 const DYNAMIC_IMPORT_PATTERN = /\bimport\s*\(\s*["']([^"']+)["']\s*\)/gm;
+// A CommonJS file's require("package"), as a migration's .cjs file writes it.
+const REQUIRE_PATTERN = /\brequire\s*\(\s*["']([^"']+)["']\s*\)/gm;
 
 async function listWorkspacePackageDirs() {
   const entries = await readdir(PACKAGES_DIR, { withFileTypes: true });
@@ -147,7 +149,7 @@ function collectImportedPackages(source = "", { vue = false } = {}) {
     : source;
   const normalizedSource = maskComments(scriptSource);
   const importedPackages = [];
-  for (const pattern of [STATIC_IMPORT_PATTERN, EXPORT_FROM_PATTERN, DYNAMIC_IMPORT_PATTERN]) {
+  for (const pattern of [STATIC_IMPORT_PATTERN, EXPORT_FROM_PATTERN, DYNAMIC_IMPORT_PATTERN, REQUIRE_PATTERN]) {
     pattern.lastIndex = 0;
     for (const match of normalizedSource.matchAll(pattern)) {
       const specifier = match[1];
@@ -174,8 +176,11 @@ async function collectRuntimeDependencyProblems(packageDir) {
   ]);
   const declaredImports = new Set([packageJson.name, ...declaredRuntimeDependencies]);
 
+  // The source roots, and the migration directories the package declares: an app runs its migrations, so what they
+  // import is a runtime dependency too.
+  const migrationDirectories = packageJson.jskit?.migrations?.directories ?? [];
   const sourceFiles = [];
-  for (const rootName of SOURCE_ROOT_NAMES) {
+  for (const rootName of [...SOURCE_ROOT_NAMES, ...migrationDirectories]) {
     await walkSourceFiles(path.join(packageDir, rootName), sourceFiles);
   }
 
@@ -251,4 +256,4 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
   await main();
 }
 
-export { collectImportedPackages };
+export { collectImportedPackages, collectRuntimeDependencyProblems };
