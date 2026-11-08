@@ -10,16 +10,17 @@ genuinely chooses a driver at runtime.
 For MySQL or MariaDB:
 
 ```bash
-npm install @jskit-ai/database-runtime-mysql
+npm install @jskit-ai/database-runtime @jskit-ai/database-runtime-mysql
 ```
 
 For PostgreSQL:
 
 ```bash
-npm install @jskit-ai/database-runtime-postgres
+npm install @jskit-ai/database-runtime @jskit-ai/database-runtime-postgres
 ```
 
-Each driver brings `@jskit-ai/database-runtime` and the appropriate Knex
+The application declares `@jskit-ai/database-runtime` itself: each driver takes
+it as a peer, so the application holds its one copy, and brings its own Knex
 driver through ordinary npm dependencies. There is no JSKIT install wizard.
 
 ## Connection environment
@@ -266,7 +267,10 @@ mechanics. This does not make product CRUD behavior fixed.
 - `operationLifecycle` surrounds a standard operation with `before`, `execute`,
   `after`, and mutation-only `afterCommit` phases. Create, update, and delete
   phases before commit share one repository transaction, and `execute` receives
-  `standard(nextInput)` for retaining the normal framework write.
+  `standard(nextInput)` for retaining the normal framework write. A deadlock
+  runs that transaction again, so `before`, `execute` and `after` can run twice
+  and touch only the database; an outside effect (an email, an HTTP call) goes
+  in `afterCommit`, which runs once after commit, or in an outbox row.
 - Named `actions` expose non-CRUD service methods through normal input,
   permission, event, and optional HTTP route contracts.
 

@@ -7,7 +7,7 @@ hub shows its sign-in page, the app receives an ID token, and the app keeps its
 own session.
 
 ```bash
-npm install @jskit-ai/oidc-issuer-core @jskit-ai/database-runtime-mysql
+npm install @jskit-ai/oidc-issuer-core @jskit-ai/database-runtime @jskit-ai/database-runtime-mysql
 ```
 
 Start from the "JSKIT · Accounts hub" template (seed-jskit branch

@@ -38,7 +38,7 @@ portable architecture-inspection command contract. It reads
 one `jskit.architecture-inspection-input.v1` request on stdin and prints one
 `genesis.architecture-observations.v1` document: routed pages, the components
 their templates use, literal `fetch` and JSKIT CRUD screen operation uses,
-`defineFeature` and `defineCrudJsonApiFeature` entry operations, and source
+`defineFeature` and `defineCrudFeature` entry operations, and source
 imports. It parses only indexed, hash-matching project files, never imports
 application code or Genesis or Vibe64, and reports dynamic declarations as
 diagnostics instead of guessing. Filesystem-routed siblings are visited in

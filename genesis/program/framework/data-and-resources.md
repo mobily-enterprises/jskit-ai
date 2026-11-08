@@ -8,11 +8,11 @@ their owning package or application.
 
 - Main: `packages/database-runtime/src/server/databaseSetup.js`
 - `packages/database-runtime/src/shared/repositoryOptions.js`
-- `packages/crud-core/src/server/defineCrudJsonApiFeature.js`
+- `packages/crud-core/src/server/defineCrudFeature.js`
 - `packages/resource-runtime/src/server/resourceHost.js`
 - `packages/uploads-runtime/src/server/providers/UploadsProvider.js`
 - `packages/payments-core/src/server/service.js`
-- `packages/rewarded-core/src/server/actions.js`
+- `packages/rewarded-core/src/server/rewardedActions.js`
 
 ## Public contract
 

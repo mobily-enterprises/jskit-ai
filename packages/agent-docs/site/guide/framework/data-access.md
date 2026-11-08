@@ -159,11 +159,14 @@ another table gets only `{ context, trx }`: `passedOn(options)` from
 context and the transaction, and so does a handle to its hooks and its own
 nested calls.
 
-So a method that wraps a write on its own table in `withTransaction` passes
-that write `{ ...options, ...txOptions }`. With `txOptions` alone, the caller's
-`returning`, `missing` or `format` never reaches the write, and the method
-answers something its caller did not ask for. Another table's call still gets
-`txOptions`:
+`txOptions` is `{ context, trx }` and nothing else: every other key of the
+method's `options`, the application's own included (a flag that skips an
+email, a `limit`, a per-request cache), is gone inside the work. Read what the
+work needs from `options` itself, never from `txOptions`. A method that wraps
+a write on its own table in `withTransaction` passes that write `{ ...options,
+...txOptions }`, or the caller's `returning`, `missing` or `format` never
+reaches it and the method answers something its caller did not ask for.
+Another table's call still gets `txOptions`:
 
 ```js
 const addLines = (rows, options) => lines.withTransaction(options, async (txOptions) => {
@@ -738,8 +741,9 @@ be safe to repeat: an HTTP call or an email goes after commit, or into an
 outbox row written inside it. Work that cannot be repeated passes `{ ...options, retry: false }`, and work that must
 commit before its caller goes on passes `{ ...options, outermost: true }`.
 Code never asks whether it runs in a transaction: `withTransaction` joins the
-caller's, `outermost` refuses one, and `lock`, `lockMany`, `lockOrCreate` and
-`claim` refuse to run outside one.
+caller's, `outermost` refuses one, and `lock`, `lockMany`, `lockWhere` and
+`claim` refuse to run outside one; `lockOrCreate` opens its own (and retries a
+lost insert race only then).
 
 When the work throws, the transaction rolls back and the caller gets the
 work's own error, with its status and code, reporting `transactionOutcome:

@@ -74,7 +74,9 @@ or rewrite a historical baseline.
 - `operationLifecycle` wraps a standard operation with `before`, `execute`,
   `after`, and mutation-only `afterCommit` phases. Mutation phases before commit
   receive the same `options` (context and transaction) to pass on, and
-  `execute` receives `standard(nextInput)`.
+  `execute` receives `standard(nextInput)`. A deadlock reruns them, so they
+  touch only the database; an email or HTTP call goes in `afterCommit`, which
+  runs once.
 - `actions` exposes non-CRUD service methods through normal validated,
   permissioned, audited JSKIT actions and optional explicit HTTP routes.
 
