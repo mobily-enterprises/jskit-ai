@@ -114,7 +114,7 @@ test("withoutHiddenFields refuses another feature's read naming a hidden field, 
   assert.equal(withoutHiddenFields(cards, plain), cards);
 });
 
-test("withoutHiddenFields refuses another feature's scopedQuery, and any builder a method answers but a joinSource()'s, which carries no hidden column", async (t) => {
+test("withoutHiddenFields refuses another feature's scopedQuery, and any builder a method answers but a joinSource()'s, which carries no hidden column but the ownership fields", async (t) => {
   const { knex, cards, resource, system, options } = await createCardFixture(t);
   // Methods an owner's decorateRepository adds with the handle it receives, answering its scoped rows as scopedQuery()
   // gives them, every column with them: wrapped, and at once.
@@ -145,13 +145,20 @@ test("withoutHiddenFields refuses another feature's scopedQuery, and any builder
     [{ token: "t1" }, { token: "t2" }, { token: "t3" }]);
 
   // The cross-owner report pattern: the table's joinSource() answers the caller's scoped rows, which the report
-  // selects from, with the columns a read answers and no other.
+  // selects from, with the columns a read answers and the ownership fields, and no other.
   const source = await exposed.joinSource({ alias: "c" }, options);
   const rows = await source.query.select({ title: source.column("title") }).orderBy(source.column("id"));
   assert.deepEqual(rows, [{ title: "Rex" }, { title: "Bo" }]);
   const { query: rex } = await exposed.joinSource({ alias: "c", filters: { title: "Rex" } }, options);
-  assert.deepEqual((await rex).map((row) => Object.keys(row)), [["id", "title"]]);
-  assert.throws(() => source.column("publicToken"), /cards\.joinSource\(\) carries no hidden field, so it has no column for "publicToken"/u);
+  assert.deepEqual((await rex).map((row) => Object.keys(row)), [["id", "workspace_id", "title"]]);
+  assert.throws(() => source.column("publicToken"),
+    /cards\.joinSource\(\) carries no hidden field but its ownership fields, so it has no column for "publicToken"/u);
+  // The hidden workspaceId is a join key the source carries: a system report counts each workspace's cards on it.
+  const perWorkspace = await exposed.joinSource({ alias: "c" }, { context: system });
+  const workspaceId = perWorkspace.column("workspaceId");
+  const counts = await perWorkspace.query.select({ workspaceId }).count({ cards: perWorkspace.column("id") })
+    .groupBy(workspaceId).orderBy(workspaceId);
+  assert.deepEqual(counts.map((row) => [Number(row.workspaceId), Number(row.cards)]), [[1, 2], [2, 1]]);
   const again = await exposed.joinSource({ alias: "c" }, options);
   await assert.rejects(async () => again.query.select(cards.column("publicToken", "c")), /public_token/u);
   await assert.rejects(exposed.joinSource({}, options), /cards\.joinSource\(\) needs the alias the report joins the cards under/u);

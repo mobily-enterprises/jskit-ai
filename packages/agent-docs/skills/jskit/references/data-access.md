@@ -664,12 +664,13 @@ async function activeDays(memberIds, options) {
   options)` on the owner's handle, or on the repository a CRUD feature gives
   other features, answers `{ query, column }`: the caller's scoped rows under
   that alias (ownership, the row policy and the filters applied) with the
-  columns a read answers, never a hidden one, and `column(field)` naming each
-  under the alias. The builder comes wrapped, since a builder is thenable and
-  an async function would run it. The report shapes it (select, group), names
-  it with `.as()` and joins it, so every owner's scope and row policy stay
-  applied. The report lives with the main table's owner, or in a feature that
-  requires both. Never hand-build a join source on `scopedQuery()`: its
+  columns a read answers and the ownership fields (`workspaceId`, `userId`),
+  hidden or not, as join keys; never another hidden column. `column(field)`
+  names each under the alias. The builder comes wrapped, since a builder is
+  thenable and an async function would run it. The report shapes it (select,
+  group), names it with `.as()` and joins it, so every owner's scope and row
+  policy stay applied. The report lives with the main table's owner, or in a
+  feature that requires both. Never hand-build a join source on `scopedQuery()`: its
   builder carries every column, so a CRUD feature's repository refuses
   `scopedQuery()`, and any method answering a builder other than a
   `joinSource()`'s, outside a system context. A report that needs another

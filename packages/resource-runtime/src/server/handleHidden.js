@@ -134,8 +134,8 @@ const HANDLE_SCOPED_QUERIES = new WeakSet();
 const HANDLE_WORK_RUNNERS = new WeakSet();
 // The names an owner's own wrappers of those runners keep.
 const WORK_RUNNER_NAMES = Object.freeze(new Set(["withTransaction", "lockOrCreate"]));
-// The builders a handle's joinSource() answers, which carry the table's visible columns only: the one query builder
-// withoutHiddenFields hands another feature.
+// The builders a handle's joinSource() answers, which carry the table's visible columns and ownership fields only: the
+// one query builder withoutHiddenFields hands another feature.
 const JOIN_SOURCES = new WeakSet();
 
 /**
@@ -151,13 +151,14 @@ function markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate }) {
 /**
  * A handle's joinSource(): the table as a join source for another owner's report, which joins it in its own
  * statement. It answers `{ query, column }`: the rows scopedQuery() gives under `alias` (the caller's ownership, the
- * row policy and `filters` applied) with the stored columns a read answers only, never a hidden one, and
- * `column(field)` naming each under that alias. A CRUD feature's repository answers it to any feature, where it
+ * row policy and `filters` applied) with the stored columns a read answers and the ownership fields, hidden or not,
+ * since a report joins on them and they name the caller's own scope; never another hidden column. `column(field)`
+ * names each under that alias. A CRUD feature's repository answers it to any feature, where it
  * refuses scopedQuery(). The builder comes wrapped, since a builder is thenable.
  * @param {object} dependencies
  * @param {{ knex: { instance: any } }} dependencies.api
  * @param {{ name: string, schema: Record<string, any> }} dependencies.resource
- * @param {() => { vars: { schemaInfo: { schemaStructure: Record<string, any> } } }} dependencies.jsonRest
+ * @param {() => { vars: { schemaInfo: { schemaStructure: Record<string, any>, ownershipFields?: string[] } } }} dependencies.jsonRest
  * @param {(params: { alias: string, filters?: object }, options: object) => Promise<{ query: any }>} dependencies.scopedQuery
  * @param {(field: string, alias?: string) => string} dependencies.column
  */
@@ -173,22 +174,25 @@ function createJoinSource({ api, resource, jsonRest, scopedQuery, column }) {
       throw new TypeError(`${name}.joinSource() needs the alias the report joins the ${name} under.`);
     }
     const { query } = await scopedQuery({ alias, ...(filters === undefined ? {} : { filters }) }, options);
-    const { schemaStructure } = jsonRest().vars.schemaInfo;
-    const visible = Object.keys(schemaStructure).filter((field) => {
+    const { schemaStructure, ownershipFields = [] } = jsonRest().vars.schemaInfo;
+    const joinKeys = new Set(ownershipFields);
+    const carried = Object.keys(schemaStructure).filter((field) => {
       const definition = schemaStructure[field];
-      return field !== "id" && definition.hidden !== true && definition.virtual !== true && !definition.belongsToPolymorphic;
+      return field !== "id" && (definition.hidden !== true || joinKeys.has(field)) &&
+        definition.virtual !== true && !definition.belongsToPolymorphic;
     });
-    // The scoped rows' visible columns, as a derived table under the alias: nothing a caller adds reaches the others.
+    // The scoped rows' visible columns and ownership fields, as a derived table under the alias: nothing a caller adds
+    // reaches the others.
     const source = readOnlyQueryBuilder(
-      (options.trx || api.knex.instance).from(query.select(["id", ...visible].map((field) => column(field, alias))).as(alias)),
+      (options.trx || api.knex.instance).from(query.select(["id", ...carried].map((field) => column(field, alias))).as(alias)),
       { resourceType: name }
     );
     JOIN_SOURCES.add(source);
     return Object.freeze({
       query: source,
       column(field) {
-        if (resource.schema[field]?.hidden === true) {
-          throw new TypeError(`${name}.joinSource() carries no hidden field, so it has no column for "${field}".`);
+        if (resource.schema[field]?.hidden === true && !joinKeys.has(field)) {
+          throw new TypeError(`${name}.joinSource() carries no hidden field but its ownership fields, so it has no column for "${field}".`);
         }
         return column(field, alias);
       }
