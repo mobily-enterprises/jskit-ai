@@ -187,6 +187,43 @@ test("expectScoped() fails a report that joins another owner's table by name, th
   );
 });
 
+test("expectScoped() compares the other owner's stored rows, so a changed hidden column or one outside the schema fails", async (t) => {
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("keys", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.string("label");
+    table.string("secret");
+    table.string("note");
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const { keys } = await runtime.own("keys.feature", [defineTableResource({
+    name: "keys",
+    tableName: "keys",
+    ownership: "workspace",
+    schema: {
+      id: { type: "id", primary: true },
+      workspaceId: { type: "id", search: true, hidden: true, storage: { column: "workspace_id" } },
+      label: { type: "string", search: true },
+      secret: { type: "string", hidden: true }
+    }
+  })]);
+  const systemContext = runtime.declareSystemScope("keys.feature", "tests")("check scope");
+  const owners = [{ context: { workspace: { id: "1" } } }, { context: { workspace: { id: "2" } } }];
+  const seed = (owner) => keys.createMany([{ label: "a", secret: "s" }, { label: "b", secret: "s" }], { ...owner, returning: "none" });
+  const scoped = (run) => expectScoped({ environment, handles: [keys], systemContext, owners, seed, run });
+
+  const result = await scoped((owner) => keys.queryAll({}, owner));
+  assert.deepEqual(result.map(({ label }) => label).sort(), ["a", "b"]);
+  await assert.rejects(
+    scoped(() => keys.patchWhere({ label: "b" }, { secret: "rewritten" }, { context: systemContext, returning: "none" })),
+    /changed keys:\d+, a row of the other owner/u
+  );
+  // Knex: write - a column outside the table resource's schema, changed for every workspace
+  await assert.rejects(scoped(() => knex("keys").update({ note: "everyone's" })), /changed keys:\d+, a row of the other owner/u);
+});
+
 test("expectScoped() reads back only the other owner's rows, so a table past queryAll's row limit is checked too", async (t) => {
   const { knex, books, systemContext } = await createShelfFixture(t);
   await knex.batchInsert("books", Array.from({ length: 10_001 }, (_, index) => ({ workspace_id: 3, title: `Old ${index}` })), 500);

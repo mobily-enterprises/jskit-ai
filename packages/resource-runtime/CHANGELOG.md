@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `expectScoped` compares the other owner's stored rows, every column read through the system context's scoped query, where it compared the records a handle answers. A path that changed only a hidden or `defaultExclude` field of another owner's row (a `patchWhere` under a system context with `returning: "none"`), or a column outside the table resource's schema, passed.
 - `@jskit-ai/database-runtime` is a required peer dependency at the same version, where it was a dependency: the application holds one copy of the table runtime, since a nested copy brings its own error classes and transactions.
 - `./server` also exports `isSystemContext(context)` and the runtime's defaults, `DEFAULT_REQUEST_ROW_LIMIT` and `DEFAULT_SERVER_PAGE_SIZE`; `./test` re-exports database-runtime's `TestDatabaseMissingError` beside `requireTestDatabase`; `./server/types` holds the types of `runtime.resources`, its handles, call options and system contexts.
 - `expectFlatQueries` fails when the path sent no statement at any size. That is a test counting on a channel the path does not use, such as no `knex` in a test whose features run on one and that booted no server, which measured 0 at every size and passed.

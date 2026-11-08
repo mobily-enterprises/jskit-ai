@@ -15,15 +15,22 @@ async function idsOf(handles, systemContext) {
   return ids;
 }
 
-// The rows with these ids of each handle's table, read through the system context, by `${resource}:${id}`.
+// Every column of the handle's table, as its scoped query names the table.
+function everyColumn(handle) {
+  const id = handle.column("id");
+  return `${id.slice(0, id.length - handle.column("id", "").length - 1)}.*`;
+}
+
+// The rows with these ids of each handle's table, read through the system context, by `${resource}:${id}`. They are
+// the stored rows, not records, so a hidden or defaultExclude field, or a column outside the schema, is compared too.
 async function rowsOf(idsByHandle, systemContext) {
   const rows = new Map();
   for (const [handle, ids] of idsByHandle) {
     const list = [...ids];
     for (let start = 0; start < list.length; start += IDS_PER_READ) {
-      const filters = { id: list.slice(start, start + IDS_PER_READ) };
-      for (const record of await handle.queryAll({ filters }, { context: systemContext })) {
-        rows.set(`${handle.name}:${record.id}`, record);
+      const { query } = await handle.scopedQuery({ filters: { id: list.slice(start, start + IDS_PER_READ) } }, { context: systemContext });
+      for (const { __id: id, ...row } of await query.select({ __id: handle.column("id") }, everyColumn(handle))) {
+        rows.set(`${handle.name}:${id}`, row);
       }
     }
   }
@@ -36,7 +43,8 @@ async function rowsOf(idsByHandle, systemContext) {
  * the path removed or changed a row seeded for B, and when its second answer
  * differs from its first, so it catches a report that sums, counts or joins B's
  * rows, not only one that returns them. B's rows are read by id through the
- * system context, from the handles of the tables the path touches. The path
+ * system context, from the handles of the tables the path touches, as stored:
+ * every column, hidden and defaultExclude fields included. The path
  * runs twice, so it answers the same for the same rows: a write answers what
  * repeats, such as the ids it changed or each refusal, not a fresh id or time.
  * @template T
