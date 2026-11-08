@@ -1521,7 +1521,7 @@ test("a read whose list filter is an empty list answers nothing without a statem
   await assert.rejects(tickets.query({ filters: { id: [] } }, options), (error) => error.name === "UnpagedQueryError");
 });
 
-test("lock and lockMany read only the fields they name, so a relation left out costs no visibility check", async (t) => {
+test("lock, lockMany, lockWhere and claim read only the fields they name, so a relation left out costs no visibility check", async (t) => {
   const { visits, options, ids, selects } = await createVisitFixture(t);
   let locked;
   // Every field: the locking read, then one visibility check per related type.
@@ -1534,6 +1534,16 @@ test("lock and lockMany read only the fields they name, so a relation left out c
     locked = await visits.lockMany(ids, { ...tx, fields: ["stage", "customerId"] });
   })), ["visits", "customers"]);
   assert.deepEqual(locked, ids.map((id) => ({ id, stage: "new", customerId: "1" })));
+  assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.lockWhere({ id: ids }, tx))), ["visits", "customers", "vets"]);
+  assert.deepEqual(await selects(() => visits.withTransaction(options, async (tx) => {
+    locked = await visits.lockWhere({ id: ids }, { ...tx, fields: ["stage"] });
+  })), ["visits"]);
+  assert.deepEqual(locked, ids.map((id) => ({ id, stage: "new" })));
+  assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.claim({ filters: { id: ids } }, tx))), ["visits", "customers", "vets"]);
+  assert.deepEqual(await selects(() => visits.withTransaction(options, async (tx) => {
+    locked = await visits.claim({ filters: { id: ids }, take: 1 }, { ...tx, fields: ["stage", "vetId"] });
+  })), ["visits", "vets"]);
+  assert.deepEqual(locked, [{ id: ids[0], stage: "new", vetId: "1" }]);
 });
 
 test("a patch that compares a lock version or onlyIf locks only the fields it compares, hidden ones too", async (t) => {

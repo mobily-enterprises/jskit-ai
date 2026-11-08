@@ -3,6 +3,7 @@ import { RestApiRowLimitError } from "json-rest-api";
 import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
+import { createLockReads } from "./handleLocks.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
@@ -25,7 +26,6 @@ import {
   quietCollections,
   readQueryParams,
   requestedFields,
-  sparseFieldset,
   textList,
   upsertConflict
 } from "./handleRecords.js";
@@ -154,6 +154,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
 
   // The fields a list or a one-record read names (see requestedFields).
   const readFields = (params, kind) => requestedFields(params, quiet[kind], () => jsonRest().vars.schemaInfo);
+  // lock, lockMany, lockWhere and claim (see handleLocks.js).
+  const { lock, lockMany, lockWhere, claim } = createLockReads({ name, resource, jsonRest, readFields, contextOf });
 
   /**
    * Runs work in the caller's transaction (`options.trx`), or in one it opens,
@@ -592,78 +594,9 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     ));
   }
 
-  /**
-   * Locks the record's row until the transaction ends and answers it as the
-   * lock saw it. Needs options.trx. A missing or hidden record throws
-   * json-rest-api's not-found error, or answers null with `missing: "skip"`.
-   * `fields` reads only the fields the work needs (see lockMany).
-   * @param {unknown} id
-   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip", fields?: string[] }} options
-   */
-  async function lock(id, options) {
-    missingOf(name, "lock", options.missing);
-    const [record] = await lockMany([id], options);
-    return record ?? null;
-  }
-
-  /**
-   * Locks the visible rows among the ids, in id order, and answers them; hidden or missing ids throw, or are
-   * left out with `missing: "skip"`. MySQL locks every listed id, a hidden one too: take ids from scoped reads.
-   * `fields` names the fields the lock reads, so a belongs-to field left out costs no check that its related
-   * record is visible; without it every field is read.
-   * @param {unknown[]} ids
-   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip", fields?: string[] }} options
-   */
-  async function lockMany(ids, options) {
-    const fields = readFields({ fields: options.fields }, "view");
-    const read = { ids, transaction: options.trx, format: "plain", ...(options.missing ? { missing: options.missing } : {}) };
-    const { data } = await jsonRest().lockByIds(fields ? { ...read, queryParams: { fields: sparseFieldset(resource, fields) } } : read, contextOf(options));
-    return handleRecords(resource, data, { fields });
-  }
-
-  /**
-   * Locks the caller's rows the filters select until the transaction ends, in id
-   * order, and answers them; it waits for transactions holding them, so a row that
-   * starts to match meanwhile is locked too. At most 1,000 rows (RestApiRowLimitError
-   * past that). It does not lock rows inserted later: unique numbers take a unique
-   * index, or a counter row taken with lock(). On MySQL it needs an index starting
-   * with the ownership columns (no owners: with a filtered column), or it refuses.
-   * @param {object} filters
-   * @param {{ context?: object | null, trx: object }} options
-   */
-  async function lockWhere(filters, options) {
-    requireDefinedFilters(name, "lockWhere", filters);
-    const { data } = await jsonRest().lockWhere({ filters, transaction: options.trx, format: "plain" }, contextOf(options));
-    return handleRecords(resource, data);
-  }
-
   // Runs work on the record with row.id, locked, creating it first when missing (see lockOrCreate.js).
   function lockOrCreateRecord(row, options, work) {
     return lockOrCreate({ name, withTransaction, lock, createMany }, row, options, work);
-  }
-
-  /**
-   * Takes up to `take` (default 1) of the rows the filters select that no
-   * other transaction holds, in `sort` order, locked until the transaction ends.
-   * @param {{ filters: object, sort?: string | string[], take?: number }} params
-   * @param {{ context?: object | null, trx: object }} options
-   */
-  async function claim({ filters, sort, take } = {}, options, ...rest) {
-    if (rest.length > 0) {
-      throw new TypeError(`${name}.claim() takes ({ filters, sort, take }, options).`);
-    }
-    requireDefinedFilters(name, "claim", filters);
-    const { data } = await jsonRest().claim(
-      {
-        filters,
-        ...(take === undefined ? {} : { limit: take }),
-        ...(sort === undefined ? {} : { sort: textList(sort) }),
-        transaction: options.trx,
-        format: "plain"
-      },
-      contextOf(options)
-    );
-    return handleRecords(resource, data);
   }
 
   /**

@@ -173,7 +173,8 @@ A table keyed by a `uuid` or `string` primary key takes its ids as text; an
 
 A read answers every field unless `fields` names the ones it needs (a
 belongs-to field by its own key, such as `customerId`, or its relationship);
-`lock` and `lockMany` take it in their options, `{ ...txOptions, fields }`.
+the locks (`lock`, `lockMany`, `lockWhere` and `claim`) take it in their
+options, `{ ...txOptions, fields }`.
 Each belongs-to field a read answers costs a check that its related record is
 visible, so a hot path names its fields. A collection relation with
 `hydrateOnList: false` or `hydrateOnView: false` loads its rows on that kind of
