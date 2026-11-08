@@ -388,10 +388,40 @@ test("realtime delivery reaches an audience's users, read once per event in the 
   await delivery.handle({ type: "entity.changed", entityId: "91", realtime: { event: "users.bootstrap.changed", audience } });
   assert.deepEqual(reads.at(-1).options, {}, "An event without a scope reads with no context");
 
-  const unscoped = createRealtimeDelivery({ io, logger, audiences: createAudienceContributors(), audienceScope: null });
-  await unscoped.handle({ type: "entity.changed", entityId: "91", scope: { kind: "workspace", id: "11" },
-    realtime: { event: "users.bootstrap.changed", audience } });
-  assert.deepEqual(reads.at(-1).options, {}, "Without realtime.audience-scope an audience reads with no context");
+  // A customer's or a public surface's event is scoped globally: it reads in the workspace its payload names. A scope
+  // that names a workspace or a user keeps it.
+  const payloadScopes = [
+    [{ kind: "global", id: null }, { workspaceId: "12" }],
+    [null, { workspaceId: "12" }],
+    [{ kind: "workspace", id: "11" }, { workspaceId: "11" }],
+    [{ kind: "user", id: "7" }, { userId: "7" }]
+  ];
+  for (const [scope, scopeValues] of payloadScopes) {
+    await delivery.handle({ type: "entity.changed", entityId: "91", ...(scope ? { scope } : {}),
+      realtime: { event: "users.bootstrap.changed", audience, payload: { workspaceId: "12" } } });
+    assert.deepEqual(reads.at(-1).options.context.scopeValues, scopeValues);
+  }
+});
+
+test("without realtime.audience-scope an audience built when its action ran is refused at publish, and logged", async () => {
+  const io = createIoDouble();
+  const errors = [];
+  const delivery = createRealtimeDelivery({
+    io,
+    logger: { ...logger, error: (details, message) => errors.push({ details, message }) },
+    audiences: createAudienceContributors(),
+    audienceScope: null
+  });
+  let reads = 0;
+  const scoped = { preset: "event_scope", async audienceUsers() { reads += 1; return ["55"]; } };
+  const publicOnly = { publicTablesOnly: true, async audienceUsers() { reads += 1; return ["56"]; } };
+  await delivery.handle({ type: "entity.changed", entityId: "91", scope: { kind: "workspace", id: "11" },
+    realtime: { event: "users.bootstrap.changed", audience: [scoped, publicOnly] } });
+  assert.equal(reads, 1, "only the audience that reads public tables reads");
+  assert.deepEqual(io.emitted.map((entry) => entry.room), [["workspace:11", "user:56"]]);
+  assert.equal(errors.length, 1);
+  assert.deepEqual(errors[0].details, { socketEvent: "users.bootstrap.changed", entityId: "91" });
+  assert.match(errors[0].message, /needs realtime\.audience-scope: register RealtimeAudienceScopeFeature/u);
 });
 
 test("an audience entry whose read fails is logged as an error and skipped; the event still reaches the other rooms", async () => {
@@ -402,8 +432,8 @@ test("an audience entry whose read fails is logged as an error and skipped; the 
     logger: { ...logger, error: (details, message) => errors.push({ details, message }) },
     audiences: createAudienceContributors()
   });
-  const failing = { preset: "event_scope", async audienceUsers() { throw new Error("owner API down"); } };
-  const reading = { async audienceUsers() { return ["55"]; } };
+  const failing = { preset: "event_scope", publicTablesOnly: true, async audienceUsers() { throw new Error("owner API down"); } };
+  const reading = { publicTablesOnly: true, async audienceUsers() { return ["55"]; } };
   await delivery.handle({ type: "entity.changed", entityId: "91", scope: { kind: "workspace", id: "11" },
     realtime: { event: "users.bootstrap.changed", audience: [failing, reading, { userId: "56" }] } });
   assert.deepEqual(io.emitted.map((entry) => entry.room), [["workspace:11", "user:55", "user:56"]]);

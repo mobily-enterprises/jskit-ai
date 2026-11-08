@@ -639,7 +639,9 @@ Ask the owner: its service, or for a JSKIT table its owner API, with the same
 `workspaces.memberships`), local sign-in (`auth.local.accounts`,
 `auth.local.sessions`, `auth.local.recovery`) and the console
 (`console.settings`). A realtime audience reaches its users the same way: its
-`audienceUsers({ event, options })` asks the owners and answers user ids.
+`audienceUsers({ event, options })` asks the owners and answers user ids, in the
+event's scope or, for a customer's or a public surface's event, in the workspace
+its payload names (see [Realtime](/guide/app-extras/realtime)).
 
 An app that had a table resource of its own over a JSKIT table (such as
 `users`) deletes it: its CRUD contract is built on the package's table resource

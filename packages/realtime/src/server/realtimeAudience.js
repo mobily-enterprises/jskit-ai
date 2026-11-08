@@ -212,17 +212,23 @@ function addAudienceRooms(selection, state) {
 /**
  * The options an audience's audienceUsers reads with: a context scoped to the
  * event's own workspace, workspace user or user, so owner APIs answer for the
- * event's scope and never for a request's. An event without such a scope, or
- * an application without `realtime.audience-scope`, reads with no context.
- * @param {object | null | undefined} scope
+ * event's scope and never for a request's. An event whose scope names no
+ * workspace and no user (one written on a customer's or a public surface, or by
+ * a job) reads in the workspace its payload names as `workspaceId`, which the
+ * server builds from the write's execution. An event with neither, or an
+ * application without `realtime.audience-scope`, reads with no context.
+ * @param {object} event
  * @param {RealtimeAudienceScope | null | undefined} audienceScope
  */
-function audienceReadOptions(scope, audienceScope) {
+function audienceReadOptions(event, audienceScope) {
   if (!audienceScope) return Object.freeze({});
+  const scope = event?.scope;
   const kind = normalizeText(scope?.kind).toLowerCase();
-  const workspaceId = resolveScopeWorkspaceId(scope);
   const userId = resolveScopeUserId(scope);
-  if (workspaceId && kind !== "user") {
+  const scopeWorkspaceId = kind === "user" ? null : resolveScopeWorkspaceId(scope);
+  const payloadWorkspaceId = normalizeRecordId(event?.realtime?.payload?.workspaceId, { fallback: null });
+  const workspaceId = scopeWorkspaceId ?? (userId ? null : payloadWorkspaceId);
+  if (workspaceId) {
     return Object.freeze({
       context: userId ? audienceScope.forWorkspaceUser(workspaceId, userId) : audienceScope.forWorkspace(workspaceId)
     });
@@ -264,8 +270,9 @@ function actionsNeedingAudienceScope(actions) {
  * The rooms and flags an event's audience reaches. An audience entry's
  * `audienceUsers({ event, options })` answers user ids through the owners'
  * APIs, once for the event however many sockets receive it. An entry whose
- * read fails is logged as an error and skipped: the event still reaches the
- * other entries' rooms.
+ * read fails, or that reads in the event's scope when no feature provides
+ * `realtime.audience-scope`, is logged as an error and skipped: the event still
+ * reaches the other entries' rooms.
  * @param {unknown} audience
  * @param {object} event
  * @param {object} dependencies
@@ -287,9 +294,17 @@ async function resolveAudienceTargets(audience, event, { logger, audienceScope }
     addAudienceRooms(entry, state);
     // readable-check: allow method-probe - data: an event's audience entry may name audienceUsers()
     if (typeof entry.audienceUsers !== "function") continue;
+    if (!audienceScope && readsInScope(entry)) {
+      // The boot check sees only audiences declared as they are; this one was built when the action ran.
+      logger.error({ socketEvent: event?.realtime?.event ?? null, entityId: event?.entityId ?? null },
+        "Realtime audience reads its users in the event's scope, which needs realtime.audience-scope: register " +
+          "RealtimeAudienceScopeFeature, or mark an audience that reads public tables only with publicTablesOnly: true. " +
+          "The event still reaches the audience's other rooms.");
+      continue;
+    }
     let userIds;
     try {
-      userIds = await entry.audienceUsers({ event, options: audienceReadOptions(event?.scope, audienceScope) });
+      userIds = await entry.audienceUsers({ event, options: audienceReadOptions(event, audienceScope) });
     } catch (error) {
       logger.error({ socketEvent: event?.realtime?.event ?? null, entityId: event?.entityId ?? null, error: String(error?.message || error) },
         "Realtime audienceUsers failed; the event still reaches the audience's other rooms.");
