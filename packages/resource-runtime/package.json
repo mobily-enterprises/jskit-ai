@@ -17,7 +17,7 @@
   "dependencies": {
     "@jskit-ai/resource-core": "0.1.205",
     "@jskit-ai/resource-crud-core": "0.1.205",
-    "json-rest-api": "3.0.1"
+    "json-rest-api": "3.1.0"
   },
   "description": "The resource runtime: features own their tables through it and read and write them with scoped handles on json-rest-api.",
   "jskit": {

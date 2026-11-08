@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Depends on json-rest-api 3.1.0 exactly (from 3.0.1), from the registry with its published integrity: `lockMode: "noKeyUpdate"`, ON CONFLICT on the matching unique index's exact columns, the PostgreSQL merge race on an uncommitted insert, and the `xid8` field type the change horizon reads.
 - `defineCrudFeature` refuses a table resource with ownership `system`, which only a system context reaches: a CRUD surface serves requests, so the owner serves what a request may see through its own methods instead.
 - The package's data tests run on `createPackageTestKnex`, so CI's `DB_CLIENT=pg` run proves the CRUD paths on PostgreSQL too.
 - A CRUD feature builds its routes and its actions' definitions (their input schemas, channels, permissions and assistant extensions) once per `defineCrudFeature` definition, when a composition first needs them, and every later composition and boot reuses them; each CRUD contract's record and include shapes, which its services read, are worked out once per contract. They depend only on the definition and the frozen contract, so what a composition answers is unchanged, and a build that throws keeps nothing, so every composition that reaches it fails as the first did. Rebuilding them took most of each composition's time: an app of 24 CRUD features composed about six times faster after the first composition (around 84 ms each, from around 500 ms, on one host, back to back).
