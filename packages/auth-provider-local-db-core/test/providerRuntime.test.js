@@ -133,7 +133,7 @@ test("DB local auth backend rejects duplicate users by canonical email", async (
         displayName: "Duplicate Two",
         password
       })),
-    { message: "Local auth user already exists." }
+    { status: 409, code: "auth.local.accounts.exists", message: "An account with this id or email already exists." }
   );
   assert.equal((await backend.withTransaction((tx) => tx.users.findByEmail("duplicate@example.com"))).id, "usr_duplicate_1");
   assert.equal(await backend.withTransaction((tx) => tx.users.findById("usr_duplicate_2")), null);

@@ -48,7 +48,7 @@ test("accounts keep and find an email as local sign-in does, and are found by id
   assert.deepEqual(await accounts.findByEmail(" MIXED.case@example.com"), await accounts.findById("usr_mixed"));
   await assert.rejects(accounts.create({
     id: "usr_again", email: "mixed.case@example.com ", displayName: "Again", password: await hashPassword("again password value")
-  }), { message: "Local auth user already exists." });
+  }), { status: 409, code: "auth.local.accounts.exists", message: "An account with this id or email already exists." });
   assert.equal(await accounts.findById("usr_missing"), null);
 });
 

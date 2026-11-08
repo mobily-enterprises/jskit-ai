@@ -639,6 +639,15 @@ test("local auth password strategy supports partial overrides and rejects invali
   );
 });
 
+test("the file backend refuses a second account with an id or email with a coded conflict", async () => {
+  const backend = createLocalFileBackend({ storeDir: await temporaryStoreDir("jskit-auth-duplicate-") });
+  const account = (id, email) => backend.withTransaction((tx) => tx.users.create({ id, email, displayName: "Ada", password: "hash" }));
+  await account("usr_first", "ada@example.com");
+  const conflict = { status: 409, code: "auth.local.accounts.exists", message: "An account with this id or email already exists." };
+  await assert.rejects(account("usr_second", "ada@example.com"), conflict);
+  await assert.rejects(account("usr_first", "other@example.com"), conflict);
+});
+
 test("local auth login verifies password and creates session in one backend transaction", async () => {
   const password = await hashPassword("current password value");
   let transactions = 0;

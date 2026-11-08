@@ -1,5 +1,6 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { ConflictError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   parseIdentities,
   parseOAuthAttempts,
@@ -201,7 +202,7 @@ function createTx(state, touched) {
     users: Object.freeze({
       async create(input) {
         if (state.users.some((user) => user.id === input.id || user.email === input.email)) {
-          throw new Error("Local auth user already exists.");
+          throw new ConflictError("An account with this id or email already exists.", { code: "auth.local.accounts.exists" });
         }
         const user = {
           ...clone(input),

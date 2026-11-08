@@ -1,5 +1,6 @@
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
+import { ConflictError } from "@jskit-ai/kernel/server/runtime/errors";
 import { nowIso, toDate } from "./dateTimes.js";
 import { IDENTITIES_TABLE } from "./identityStore.js";
 
@@ -296,7 +297,7 @@ function userRecords(users, options) {
         await users.create(record, { ...options, returning: "none" });
       } catch (error) {
         if (isDuplicateEntryError(error)) {
-          throw new Error("Local auth user already exists.");
+          throw new ConflictError("An account with this id or email already exists.", { code: "auth.local.accounts.exists", cause: error });
         }
         throw error;
       }

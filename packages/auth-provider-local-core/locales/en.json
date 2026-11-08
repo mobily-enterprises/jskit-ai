@@ -10,6 +10,9 @@
           "currentInvalid": "Current password is invalid.",
           "changed": "Password updated."
         },
+        "accounts": {
+          "exists": "An account with this id or email already exists."
+        },
         "register": {
           "emailTaken": "An account already exists for this email.",
           "closed": "This app's accounts are by invitation only.",

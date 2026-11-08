@@ -86,8 +86,8 @@ test("accounts: create answers the account it wrote, reads find it by id and ema
   });
 
   const taken = (error) => {
-    assert.equal(error.constructor, Error);
-    assert.equal(error.message, "Local auth user already exists.");
+    assert.equal(error.code, "auth.local.accounts.exists");
+    assert.equal(error.status, 409);
     return true;
   };
   await assert.rejects(backend.withTransaction((tx) => tx.users.create(account("usr_other", "ada@example.com"))), taken);
@@ -416,7 +416,7 @@ test("the owner APIs answer as the backend does and join a caller's transaction,
   assert.deepEqual(created, await backend.withTransaction((tx) => tx.users.findById("usr_ada")));
   assert.deepEqual(await accounts.findByEmail("ada@example.com"), created);
   assert.equal(await accounts.findByEmail("nobody@example.com"), null);
-  await assert.rejects(accounts.create(account("usr_other", "ada@example.com")), { message: "Local auth user already exists." });
+  await assert.rejects(accounts.create(account("usr_other", "ada@example.com")), { status: 409, code: "auth.local.accounts.exists", message: "An account with this id or email already exists." });
 
   const failure = new Error("rolled back");
   await assert.rejects(inCallerTransaction(async (options) => {
