@@ -232,9 +232,12 @@ test("jskit test --databases gives each test file running at once its own restor
   ].join("\n"), { mode: 0o600 });
   await writeFile(path.join(appRoot, "test", "a.test.js"), FIXTURE_TEST("a", "b"));
   await writeFile(path.join(appRoot, "test", "b.test.js"), FIXTURE_TEST("b", "a"));
-  // The fixture's own node_modules (its snapshot cache goes there), resolving JSKIT's packages from this repository.
-  await mkdir(path.join(appRoot, "node_modules"));
-  await symlink(path.join(REPO_ROOT, "node_modules", "@jskit-ai"), path.join(appRoot, "node_modules", "@jskit-ai"), "dir");
+  // The fixture's own node_modules (its snapshot cache goes there), with the one JSKIT package it installs, the
+  // database runtime, resolved from this repository. The whole scope would install every package, whose declared
+  // foreign keys the run then checks against a database their migrations never ran on.
+  await mkdir(path.join(appRoot, "node_modules", "@jskit-ai"), { recursive: true });
+  await symlink(path.join(REPO_ROOT, "node_modules", "@jskit-ai", "database-runtime"),
+    path.join(appRoot, "node_modules", "@jskit-ai", "database-runtime"), "dir");
 
   const env = { ...process.env, V64_TEST_CONCURRENCY: "2", DB_NAME: `${process.env.TEST_DB_NAME}_cli_application`,
     TEST_DB_NAME: name, DATABASE_URL: "" };

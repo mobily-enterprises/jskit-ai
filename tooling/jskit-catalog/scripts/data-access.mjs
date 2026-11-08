@@ -692,7 +692,8 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
   const baseline = await readBaseline(root, report);
   checkBaseline(baseline, excuses, scopes, report);
   checkCapabilities(baseline, capabilities, report);
-  await checkLintConfig(root, appFiles.map(toPosixPath), baseline, report);
+  const appFiles = sources.filter((source) => !source.framework).map((source) => toPosixPath(source.file));
+  await checkLintConfig(root, appFiles, baseline, report);
   findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);
   return {
     ok: findings.length < 1,
