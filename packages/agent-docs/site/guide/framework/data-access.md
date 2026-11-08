@@ -878,8 +878,9 @@ request resolved, never one its payload names (see [Realtime](/guide/app-extras/
 Code that names people by id (a conversation's members, a group's
 participants) reads them with `users.profiles.listByIds(ids, options)`: every
 profile in one call, however many ids, never `query` pages of 100 walked by
-hand or one `findById` per person. `workspaces.listByIds(ids, options)` does
-the same for workspaces.
+hand or one `findById` per person. `users.settings.listByUserIds(ids, options)`
+does the same for their settings, and `workspaces.listByIds(ids, options)` for
+workspaces.
 
 An app that had a table resource of its own over a JSKIT table (such as
 `users`) deletes it: its CRUD contract is built on the package's table resource

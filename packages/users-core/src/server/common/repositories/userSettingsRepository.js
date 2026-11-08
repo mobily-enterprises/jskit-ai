@@ -1,6 +1,7 @@
 import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { DEFAULT_USER_SETTINGS, normalizeLocaleCode } from "../../../shared/settings.js";
+import { queryAllByIds } from "./recordsByIds.js";
 
 const USER_SETTINGS_PATCH_FIELDS = Object.freeze([
   "theme",
@@ -27,6 +28,11 @@ function pickPatchFields(source = {}) {
   }
 
   return patch;
+}
+
+// Rows saved before locales were canonical hold lowercased tags ("en-us").
+function withCanonicalLocale(row) {
+  return typeof row?.locale === "string" ? { ...row, locale: normalizeLocaleCode(row.locale) } : row;
 }
 
 function buildDefaultUserSettingsCreatePayload(userId) {
@@ -61,9 +67,19 @@ function createRepository({ userSettings }) {
     }
 
     const { records } = await userSettings.query({ filters: { id: normalizedUserId }, page: { size: 1 } }, options);
-    const row = records[0] || null;
-    // Rows saved before locales were canonical hold lowercased tags ("en-us").
-    return typeof row?.locale === "string" ? { ...row, locale: normalizeLocaleCode(row.locale) } : row;
+    return withCanonicalLocale(records[0] || null);
+  }
+
+  /**
+   * The settings of these users, all of them in one call however many, sorted
+   * by user id: one read per 1,000 distinct ids, each joining the caller's
+   * transaction. A user named twice answers once; a user without settings,
+   * or a value that is no id, is left out.
+   * @param {readonly unknown[]} userIds
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
+   */
+  async function listByUserIds(userIds, options = {}) {
+    return (await queryAllByIds(userSettings, "listByUserIds", userIds, options)).map(withCanonicalLocale);
   }
 
   async function ensureForUserId(userId, options = {}) {
@@ -143,6 +159,7 @@ function createRepository({ userSettings }) {
   return Object.freeze({
     withTransaction: userSettings.withTransaction,
     findByUserId,
+    listByUserIds,
     ensureForUserId,
     patchUserSettings,
     updatePreferences,

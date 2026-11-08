@@ -69,7 +69,9 @@ hook, a job) requires their owners' capabilities, never the `users` or
   `createManyIgnoringExisting(profiles, options)` (a re-runnable bulk import,
   system context only), `changeUsername(userId, username, options)` and
   `countUsers({ excludeIds, createdSince, authProvider }, options)`.
-- `users.settings`: `findByUserId`, `ensureForUserId` and the settings updates.
+- `users.settings`: `findByUserId`, `listByUserIds(userIds, options)` (the
+  settings of every listed user who has them, sorted by user id, one read per
+  1,000 ids), `ensureForUserId` and the settings updates.
 
 Their types are `UsersProfiles` and `UsersSettings` in
 `@jskit-ai/users-core/server/types`. Every method takes `options` last and

@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { countQueries, requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 
-// users.profiles.listByIds on a database of the test file's own (usersDatabases.js), run on MariaDB/MySQL and on
-// PostgreSQL alike: more ids than one page of query in one call, an id named twice, and ids the caller cannot see.
+// users.profiles.listByIds and users.settings.listByUserIds on a database of the test file's own (usersDatabases.js),
+// run on MariaDB/MySQL and on PostgreSQL alike: more ids than one page of query in one call, an id named twice, and
+// ids the caller cannot see.
 
 const identityOf = (tag, extra = {}) => ({
   authProvider: "local",
@@ -18,7 +19,7 @@ const identityOf = (tag, extra = {}) => ({
 const numerically = (left, right) => (BigInt(left) < BigInt(right) ? -1 : BigInt(left) > BigInt(right) ? 1 : 0);
 
 /**
- * Registers the listByIds tests on `database`.
+ * Registers the listByIds and listByUserIds tests on `database`.
  * @param {{ open: () => Promise<any> }} database
  * @param {{ skip?: string | false }} [options]
  */
@@ -86,6 +87,28 @@ function listByIdsCases(database, { skip = false } = {}) {
       throw abort;
     }), (error) => error === abort);
     assert.deepEqual((await db.profiles.listByIds([created.id, shown.id])).map(({ id }) => id), [shown.id]);
+  });
+
+  test("settings.listByUserIds answers each listed user's settings once, sorted by user id, as findByUserId reads them", { skip }, async () => {
+    requireTestDatabase(process.env);
+    const db = await database.open();
+    const one = await db.profiles.upsert(identityOf("settings-one"));
+    const two = await db.profiles.upsert(identityOf("settings-two"));
+    const unset = await db.profiles.upsert(identityOf("settings-unset"));
+    await db.settings.ensureForUserId(one.id);
+    await db.settings.ensureForUserId(two.id);
+    // A row saved before locales were canonical.
+    await db.knex("user_settings").where({ user_id: two.id }).update({ locale: "en-us" });
+
+    const { result, count } = await countQueries(db.knex, () => db.settings.listByUserIds([
+      two.id, unset.id, ` ${one.id} `, two.id, "not-an-id", null
+    ]));
+    assert.deepEqual(result, [await db.settings.findByUserId(one.id), await db.settings.findByUserId(two.id)]);
+    assert.equal(result[1].locale, "en-US");
+    assert.equal(count, 1, "one statement, never one per user");
+
+    assert.deepEqual(await countQueries(db.knex, () => db.settings.listByUserIds([])), { result: [], count: 0, queries: [] });
+    await assert.rejects(db.settings.listByUserIds(one.id), /listByUserIds takes an array of user ids/u);
   });
 }
 
