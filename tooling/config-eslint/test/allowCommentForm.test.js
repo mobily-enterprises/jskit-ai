@@ -23,6 +23,7 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
     "// The vocabulary: \"// readable-check: allow <rule> - <reason>\".\nconst x = 1;",
     "const source = \"// readable-check: allow method-probe - anything\";",
     "// readable-check: allow no-direct-knex - infrastructure: the migration runner keeps its own bookkeeping table\nimport { readFile } from \"node:fs/promises\";",
+    "// readable-check: allow no-hand-scope - infrastructure: the operator's cutover import, which names each workspace it loads\nimport { readFile } from \"node:fs/promises\";",
     "#!/usr/bin/env node\n/* readable-check: allow jskit/no-transaction-reader - infrastructure: the transaction manager every handle runs on */\n// readable-check: allow no-direct-knex - infrastructure: the transaction manager every handle runs on\nexport const run = () => {};",
     "// eslint-disable-next-line no-control-regex -- strips control characters\nconst text = value.replace(/[\\x00-\\x1f]/gu, \"\");"
   ],
@@ -105,7 +106,8 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
       code: "// readable-check: allow sql-literal - data: the report's column list\nquery.selectRaw(columns);\n// readable-check: allow jskit/no-hand-scope - infrastructure: protocol state\n// readable-check: allow knex-reason - safety invariant: a known report",
       errors: [
         { messageId: "dataAccessUnexcusable", data: { rule: "sql-literal" }, line: 1 },
-        { messageId: "dataAccessUnexcusable", data: { rule: "jskit/no-hand-scope" }, line: 3 },
+        // no-hand-scope takes the infrastructure exception, but only in the file's first lines, before any code.
+        { messageId: "infrastructureExcuse", line: 3 },
         { messageId: "dataAccessUnexcusable", data: { rule: "knex-reason" }, line: 4 }
       ]
     },

@@ -9,6 +9,8 @@ RuleTester.itOnly = it.only;
 new RuleTester().run("jskit/sql-literal", sqlLiteral, {
   valid: [
     "query.select(receivals.raw(\"count(*) as total\"));",
+    // A file on Knex itself, past no-direct-knex, may run a statement as one literal with its bindings.
+    "// readable-check: allow no-direct-knex - infrastructure: the operator's cutover import\nawait trx.raw(\"UPDATE pet_notes SET label = ? WHERE workspace_id = ?\", [label, workspaceId]);",
     "query.whereRaw(\"?? > ?\", [receivals.column(\"amount\"), 0]);",
     "query.orderByRaw(`position asc`);",
     "receivals.patchWhere(filters, { position: receivals.raw(\"COALESCE(??, 0) + ?\", [receivals.column(\"position\"), by]) }, options);",
@@ -69,6 +71,11 @@ new RuleTester().run("jskit/sql-literal", sqlLiteral, {
     {
       code: "// readable-check: allow sql-literal - infrastructure: the console's query runner\nquery.whereRaw(userSql);",
       errors: [{ messageId: "notLiteral" }]
+    },
+    {
+      // A file on Knex itself may run a statement, but still only as one literal with its bindings.
+      code: "// readable-check: allow no-direct-knex - infrastructure: the operator's cutover import\nawait trx.raw(`UPDATE ${table} SET label = ?`, [label]);\nawait trx.raw(\"DELETE FROM imported WHERE batch = ?\");",
+      errors: [{ messageId: "notLiteral", line: 2 }, { messageId: "noBindings", line: 3 }]
     }
   ]
 });

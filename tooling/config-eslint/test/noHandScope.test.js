@@ -11,11 +11,18 @@ new RuleTester().run("jskit/no-hand-scope", noHandScope, {
     "query.where(\"status\", \"open\").whereIn(\"lotId\", ids).whereNull(\"settledAt\");",
     "query.where({ status: \"open\", lotId });",
     "query.where(\"workspace_name\", name).where(\"r.previous_workspace_id\", id);",
+    // An operator's import tool on Knex itself names the workspace it loads on every row it reads.
+    "// readable-check: allow no-hand-scope - infrastructure: the operator's cutover import, which names each workspace it loads\ntrx(\"pets\").where(\"workspace_id\", workspaceId);",
     "export const receivalResource = defineTableResource({ name: \"receivals\", tableName: \"receivals\", ownership: \"workspace\" });",
     "const schema = { workspaceId: { type: \"id\", storage: { column: \"workspace_id\" } } };",
     "query.where({ [column]: value });"
   ],
   invalid: [
+    {
+      // The exception holds only before the first line of code.
+      code: "const x = 1;\n// readable-check: allow no-hand-scope - infrastructure: the operator's cutover import\nquery.where(\"workspace_id\", workspaceId);",
+      errors: [{ messageId: "handScope", line: 3 }]
+    },
     {
       code: "query.where(\"workspace_id\", workspaceId);",
       errors: [{ messageId: "handScope", data: { method: "where", column: "\"workspace_id\"" } }]

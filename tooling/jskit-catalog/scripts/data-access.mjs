@@ -70,7 +70,7 @@ const OWNERSHIP_FIELDS = Object.freeze({
 const STAMPED_FIELDS = Object.freeze(["createdAt", "updatedAt"]);
 const FEATURE_CALL = /\bdefine(?:Crud)?Feature\s*\(/gu;
 const SYSTEM_CONTEXT_CALL = /\bsystemContext\s*\(/gu;
-const INFRASTRUCTURE_EXCUSE = /readable-check: allow (?:jskit\/)?(no-direct-knex|no-transaction-reader) - (infrastructure:.*?)\s*(?:\*\/)?\s*$/u;
+const INFRASTRUCTURE_EXCUSE = /readable-check: allow (?:jskit\/)?(no-direct-knex|no-transaction-reader|no-hand-scope) - (infrastructure:.*?)\s*(?:\*\/)?\s*$/u;
 
 const blank = (text) => text.replace(/[^\n]/gu, " ");
 

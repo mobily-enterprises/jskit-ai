@@ -735,16 +735,34 @@ client's, wherever it sits; tests, migrations and seeds are outside them.
 ### Exceptions
 
 A module whose job is data access itself (a database runtime, a migration
-runner, test-database setup) may opt out of `jskit/no-direct-knex` and
-`jskit/no-transaction-reader` as a whole, with one line per rule before its
-first line of code:
+runner, test-database setup, an operator's data import or cutover tool) may
+opt out of `jskit/no-direct-knex`, `jskit/no-transaction-reader` and
+`jskit/no-hand-scope` as a whole, with one line per rule before its first line
+of code:
 
 ```js
 // readable-check: allow no-direct-knex - infrastructure: the test databases' snapshot and restore
 ```
 
-`jskit check` lists every such file for review. The other four rules take no
-exception. `jskit check` also fails:
+In such a file, raw SQL runs on Knex itself, so `jskit/sql-literal` lets it
+hold a statement; it is still one literal with its values as bindings.
+`jskit check` lists every such file for review. The other three rules take no
+exception.
+
+A data import or cutover tool (loading another system's records into the app's
+tables before go-live, say) is the one application module that commonly takes
+it. Check and judge, for each file:
+
+- it runs only as an operator's command; nothing a request can reach imports
+  it;
+- it bypasses ownership and row policies on purpose, so every read and write
+  names its workspace explicitly;
+- it writes in one transaction per batch, so a failed batch leaves nothing
+  half-loaded;
+- its statements per row are still measured, as any write path's are: a batch
+  of 200 rows costs about what a batch of 10 does.
+
+`jskit check` also fails:
 
 - a table with two table resources;
 - a system scope or `systemContext` call without a reason;

@@ -1,5 +1,5 @@
 import { DATA_ACCESS_GUIDE_URL, compactText, keyName, ruleMeta } from "../support.js";
-import { calledMethod, literalText } from "../dataAccess.js";
+import { calledMethod, isInfrastructureFile, literalText } from "../dataAccess.js";
 
 // The Knex filters a hand-written workspace predicate goes through.
 const WHERE_METHODS = new Set([
@@ -38,6 +38,9 @@ const noHandScope = Object.freeze({
   }, "layer-1-the-table-resource", DATA_ACCESS_GUIDE_URL),
   create(context) {
     const sourceCode = context.sourceCode;
+    if (isInfrastructureFile(context, "no-hand-scope")) {
+      return {};
+    }
     return {
       CallExpression(node) {
         const method = calledMethod(node);

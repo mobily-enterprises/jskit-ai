@@ -251,21 +251,27 @@ test("the files the infrastructure exception lifts past the lint rules are liste
     ].join("\n"),
     "packages/notes/src/server/notes.js": "// readable-check: allow method-probe - data: a note may lack a body\nexport const body = (note) => note.body;\n",
     "node_modules/@jskit-ai/oidc-issuer-core/src/server/store.js": "// readable-check: allow no-direct-knex - infrastructure: protocol state of the issuer\nexport const store = {};\n",
+    "data_import/stages/pets.js": "// readable-check: allow no-hand-scope - infrastructure: the operator's cutover import, which names each workspace it loads\nexport const stage = {};\n",
     "jskit-data-access.json": {
-      infrastructure: [{ file: "server/lib/migrate.js", rule: "no-direct-knex" }, { file: "server/lib/migrate.js", rule: "no-transaction-reader" }],
+      infrastructure: [
+        { file: "server/lib/migrate.js", rule: "no-direct-knex" },
+        { file: "server/lib/migrate.js", rule: "no-transaction-reader" },
+        { file: "data_import/stages/pets.js", rule: "no-hand-scope" }
+      ],
       systemScopes: []
     }
   }, async (root) => {
     const result = await checkDataAccess({ projectRoot: root });
     assert.equal(result.ok, true);
-    assert.deepEqual(result.excuses.map(({ file, line, rule, reason }) => `${file}:${line} ${rule} ${reason}`), [
+    assert.deepEqual(result.excuses.map(({ file, line, rule, reason }) => `${file}:${line} ${rule} ${reason}`).sort(), [
+      "data_import/stages/pets.js:1 no-hand-scope infrastructure: the operator's cutover import, which names each workspace it loads",
       "server/lib/migrate.js:2 no-direct-knex infrastructure: the migration runner keeps its own bookkeeping table",
       "server/lib/migrate.js:3 no-transaction-reader infrastructure: the migration runner's own transaction"
     ]);
     const report = formatDataAccessReport(result);
-    assert.match(report, /^Infrastructure exceptions \(2\), each a whole file past a data-access lint rule \(data\/infrastructure-excuses; https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access#hard-rules\):$/mu);
+    assert.match(report, /^Infrastructure exceptions \(3\), each a whole file past a data-access lint rule \(data\/infrastructure-excuses; https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access#hard-rules\):$/mu);
     assert.match(report, /^ {2}server\/lib\/migrate\.js:2 {2}no-direct-knex {2}infrastructure: the migration runner keeps its own bookkeeping table$/mu);
-    assert.match(report, /; 0 system scope\(s\) and 2 infrastructure exception\(s\) listed for review\.$/u);
+    assert.match(report, /; 0 system scope\(s\) and 3 infrastructure exception\(s\) listed for review\.$/u);
   });
 });
 

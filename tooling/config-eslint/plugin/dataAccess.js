@@ -1,8 +1,8 @@
 // Shared by the data-access rules: the resource is the only door to a table. Each rule reports one shape a reader can
 // see in the file's own syntax; aliasing Knex (`const q = knex; q("t")`) escapes them, and the guide's check-and-judge
-// list covers it. Only no-direct-knex and no-transaction-reader take an exception, and only for a whole file whose job
-// is data access itself: "// readable-check: allow <rule> - infrastructure: <what the module is>" before its first
-// line of code. jskit/allow-comment-form checks that comment's reason as it checks every other.
+// list covers it. Only no-direct-knex, no-transaction-reader and no-hand-scope take an exception, and only for a whole
+// file whose job is data access itself: "// readable-check: allow <rule> - infrastructure: <what the module is>" before
+// its first line of code. jskit/allow-comment-form checks that comment's reason as it checks every other.
 
 import { isInfrastructureExcuse } from "./rules/allowCommentForm.js";
 import { unwrapChain } from "./support.js";
@@ -75,6 +75,6 @@ function isInfrastructureFile(context, ruleName) {
 // The closing sentence of the two excusable rules' messages: which modules the infrastructure exception is for, the
 // same list as the guide's Exceptions.
 const INFRASTRUCTURE_HINT = "Only a module whose job is data access itself (a database runtime, a migration runner, " +
-  "test-database setup) takes the infrastructure exception, as a whole file.";
+  "test-database setup, an operator's data import or cutover tool) takes the infrastructure exception, as a whole file.";
 
 export { INFRASTRUCTURE_HINT, KNEX_NAMES, calledMethod, isAssignmentTarget, isInfrastructureFile, isText, lastName, literalText };
