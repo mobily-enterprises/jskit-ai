@@ -63,14 +63,17 @@ Exports
 ### `src/server/handleHidden.js`
 Exports
 - `createHiddenFieldReads({ resource, scopedQuery, column })`
+- `createJoinSource({ api, resource, jsonRest, scopedQuery, column })`
 - `markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate })`
 - `withoutHiddenFields(repository, resources)`
 Local functions
 - `namedHiddenFields(resource, fields)`
 - `storedValue(value, { type, precision, scale })`
+- `fieldNames(fields)`
 - `isKnexValue(value)`
+- `withoutFullBuilder(value, label)`
 - `isPlainRecord(value)`
-- `withoutHiddenValues(value, hidden, seen = new WeakMap())`
+- `withoutHiddenValues(value, hidden, label, seen = new WeakMap())`
 - `guardedRepository(repository, resource, hidden, guarded)`
 - `guardedFunction(repository, key, call, resource, hidden)`
 

@@ -3,7 +3,7 @@ import { RestApiRowLimitError } from "json-rest-api";
 import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
-import { createHiddenFieldReads, markHandleFunctions } from "./handleHidden.js";
+import { createHiddenFieldReads, createJoinSource, markHandleFunctions } from "./handleHidden.js";
 import { createLockReads, lockModeOf } from "./handleLocks.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
@@ -162,6 +162,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   const readFields = (params, kind) => requestedFields(params, quiet[kind], () => jsonRest().vars.schemaInfo);
   // The hidden fields a plain read names, which json-rest-api leaves out (see handleHidden.js).
   const hiddenFields = createHiddenFieldReads({ resource, scopedQuery, column });
+  // The table as a join source, with its visible columns only (see handleHidden.js).
+  const joinSource = createJoinSource({ api, resource, jsonRest, scopedQuery, column });
   // lock, lockMany, lockWhere and claim (see handleLocks.js).
   const { lock, lockMany, lockWhere, claim } = createLockReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields });
 
@@ -715,6 +717,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     lockOrCreate: lockOrCreateRecord,
     claim,
     scopedQuery,
+    joinSource,
     column,
     raw
   });

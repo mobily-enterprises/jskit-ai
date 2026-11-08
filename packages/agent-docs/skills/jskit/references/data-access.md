@@ -258,18 +258,21 @@ options)` or `{ ...txOptions, fields }` for a lock, which costs one more
 statement per 1,000 records, scoped as the read is; a read without `fields`
 never answers it. It may be an id, string, integer, number or boolean, and
 naming any other kind refuses the read. The repository a CRUD feature gives
-other features, and its own actions, refuses a read naming a hidden field, and
-any `scopedQuery()` (its builder carries every column), and every method it
-holds, `decorateRepository`'s included, answers without the hidden fields of the
-tables its owner owns, unless the call runs in a system context. So the owner
-checks a token in a method `decorateRepository` adds, with the handle it
+other features, and its own actions, refuses any call whose `fields` names a
+hidden field, whatever the method (`decorateRepository`'s included), and any
+`scopedQuery()` or answered builder other than a `joinSource()`'s (either can
+select every column), and every method it holds answers without the hidden
+fields of the tables its owner owns, unless the call runs in a system context.
+It tells hidden fields by name, so a feature whose tables hide a field in one
+and show it in another fails to start: hide it in both, or rename one. So the
+owner checks a token in a method `decorateRepository` adds, with the handle it
 receives, and answers only the outcome. Work in another feature that needs the
 value itself (a key it signs with, an address it sends to) calls a method the
 owner's `decorateService` adds: that receives the repository before the guard,
 so it reads the field, named in `fields`, in the caller's own context, with no
-system context. A test of such a path asserts the value the other feature
-uses, not only that the call succeeded: a hidden field left out of a record
-reads as `undefined`, not as an error. Never unhide a field to read it, and
+system context. A test of such a path asserts the value the other feature uses,
+not only that the call succeeded: a hidden field left out of a record reads as
+`undefined`, not as an error. Never unhide a field to read it, and
 never read it with `scopedQuery`.
 
 `create` and `patch` answer the written record by default, read back through
@@ -655,28 +658,26 @@ async function activeDays(memberIds, options) {
   `const { query } = await lots.scopedQuery(...)`), and `expectScoped` catches it
   only when the test seeds another owner's rows the join matches. Join another
   table only as that table's scoped subquery.
-- When a report needs another owner's rows side by side, that owner adds a
-  method answering its scoped rows as a subquery with its own column names,
-  and the report joins it in one statement. The method answers
-  `{ query, column }` from its `scopedQuery({ alias }, options)`, with
-  `column(field)` naming its columns under that alias, wrapped, since a
-  builder is thenable and an async function would run it. The report shapes
-  that builder (select, group), names it with `.as()` and joins it, so every
-  owner's scope and row policy stay applied. The report lives with the main
-  table's owner, or in a feature that requires both. A join source carries
-  every column, hidden ones too, so an owner answers one only to a feature
-  that may read them.
+- When a report needs another owner's rows side by side, it joins that
+  table's join source in one statement. `joinSource({ alias, filters },
+  options)` on the owner's handle, or on the repository a CRUD feature gives
+  other features, answers `{ query, column }`: the caller's scoped rows under
+  that alias (ownership, the row policy and the filters applied) with the
+  columns a read answers, never a hidden one, and `column(field)` naming each
+  under the alias. The builder comes wrapped, since a builder is thenable and
+  an async function would run it. The report shapes it (select, group), names
+  it with `.as()` and joins it, so every owner's scope and row policy stay
+  applied. The report lives with the main table's owner, or in a feature that
+  requires both. Never hand-build a join source on `scopedQuery()`: its
+  builder carries every column, so a CRUD feature's repository refuses
+  `scopedQuery()`, and any method answering a builder other than a
+  `joinSource()`'s, outside a system context. A report that needs another
+  owner's hidden value asks that owner for a method answering what it needs.
 
   ```js
-  // billing's owner API: its scoped invoices as a join source, with their column names
-  async function invoiceSource(alias, options) {
-    const { query } = await invoices.scopedQuery({ alias }, options);
-    return { query, column: (field) => invoices.column(field, alias) };
-  }
-
   // Knex: report - open tasks and billed totals per project, joined on billing's scoped invoices
   async function projectSummary(options) {
-    const source = await billing.invoiceSource("i", options);
+    const source = await billing.joinSource({ alias: "i" }, options);
     const billed = source.query
       .select({ projectId: source.column("projectId") })
       .sum({ billed: source.column("amount") })

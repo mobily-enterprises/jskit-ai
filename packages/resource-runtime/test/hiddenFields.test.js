@@ -48,7 +48,7 @@ async function createCardFixture(t) {
   const selects = async (work) => (await countQueries(knex, work)).queries
     .filter((sql) => /^select/iu.test(sql))
     .map((sql) => [...sql.matchAll(/from [`"](\w+)[`"]/gu)].map(([, table]) => table)[0]);
-  return { cards, resource, system, selects, options: { context: WORKSPACE_A } };
+  return { knex, cards, resource, system, selects, options: { context: WORKSPACE_A } };
 }
 
 test("a handle's plain read answers the hidden fields its fields names, in one more statement, and no read without them does", async (t) => {
@@ -114,43 +114,54 @@ test("withoutHiddenFields refuses another feature's read naming a hidden field, 
   assert.equal(withoutHiddenFields(cards, plain), cards);
 });
 
-test("withoutHiddenFields refuses another feature's scopedQuery, whose builder carries the hidden columns, and the owner's join source still joins", async (t) => {
-  const { cards, resource, system, options } = await createCardFixture(t);
-  // The owner's join source, a method its decorateRepository adds with the handle it receives.
+test("withoutHiddenFields refuses another feature's scopedQuery, and any builder a method answers but a joinSource()'s, which carries no hidden column", async (t) => {
+  const { knex, cards, resource, system, options } = await createCardFixture(t);
+  // Methods an owner's decorateRepository adds with the handle it receives, answering its scoped rows as scopedQuery()
+  // gives them, every column with them: wrapped, and at once.
   async function cardSource(alias, callOptions) {
     const { query } = await cards.scopedQuery({ alias }, callOptions);
     return { query, column: (field) => cards.column(field, alias) };
   }
-  const exposed = withoutHiddenFields(Object.freeze({ ...cards, cardSource }), resource);
+  const everyColumn = () => knex("cards");
+  const exposed = withoutHiddenFields(Object.freeze({ ...cards, cardSource, everyColumn }), resource);
 
   // Another feature's own builder would select the token: refused before it reads anything.
   await assert.rejects(
     (async () => (await exposed.scopedQuery({}, options)).query.select(exposed.column("publicToken")))(),
-    /cards\.scopedQuery\(\) answers every column, its hidden fields too, which only the table's owner, or a system context, reads/u
+    /cards\.scopedQuery\(\) answers every column, its hidden fields too, which only the table's owner, or a system context, reads: read the rows through the repository's reads, or join its joinSource\(\{ alias \}, options\)/u
   );
   await assert.rejects(exposed.withTransaction(options, (tx) => exposed.scopedQuery({ alias: "c" }, tx)), /cards\.scopedQuery\(\)/u);
+  await assert.rejects(exposed.cardSource("c", options),
+    /cards\.cardSource\(\) answers a query builder, which can select every column, the hidden fields too, which only the table's owner, or a system context, reads: answer the table's joinSource\(\{ alias \}, options\)/u);
+  assert.throws(() => exposed.everyColumn(), /cards\.everyColumn\(\) answers a query builder/u);
 
-  // A system context, and one it derived, still builds on it.
+  // A system context, and one it derived, still builds on them.
   const { query: everyWorkspace } = await exposed.scopedQuery({}, { context: system });
   assert.deepEqual(Number((await everyWorkspace.count({ cards: exposed.column("id") }))[0].cards), 3);
   const { query: workspaceTwo } = await exposed.scopedQuery({}, { context: system.forWorkspace("2") });
   assert.deepEqual(await workspaceTwo.select({ title: exposed.column("title") }), [{ title: "Kit" }]);
+  const everyCard = await exposed.cardSource("c", { context: system });
+  assert.deepEqual(await everyCard.query.select({ token: everyCard.column("publicToken") }).orderBy(everyCard.column("id")),
+    [{ token: "t1" }, { token: "t2" }, { token: "t3" }]);
 
-  // The cross-owner report pattern: the owner's method answers its scoped rows, which the report selects from.
-  const source = await exposed.cardSource("c", options);
+  // The cross-owner report pattern: the table's joinSource() answers the caller's scoped rows, which the report
+  // selects from, with the columns a read answers and no other.
+  const source = await exposed.joinSource({ alias: "c" }, options);
   const rows = await source.query.select({ title: source.column("title") }).orderBy(source.column("id"));
   assert.deepEqual(rows, [{ title: "Rex" }, { title: "Bo" }]);
+  const { query: rex } = await exposed.joinSource({ alias: "c", filters: { title: "Rex" } }, options);
+  assert.deepEqual((await rex).map((row) => Object.keys(row)), [["id", "title"]]);
+  assert.throws(() => source.column("publicToken"), /cards\.joinSource\(\) carries no hidden field, so it has no column for "publicToken"/u);
+  const again = await exposed.joinSource({ alias: "c" }, options);
+  await assert.rejects(async () => again.query.select(cards.column("publicToken", "c")), /public_token/u);
+  await assert.rejects(exposed.joinSource({}, options), /cards\.joinSource\(\) needs the alias the report joins the cards under/u);
 });
 
-test("withoutHiddenFields answers raw(), column() and an owner's Knex values as they are, so another feature builds on them in a scoped query and a subquery", async (t) => {
+test("withoutHiddenFields answers raw(), column(), joinSource() and an owner's Knex values as they are, so another feature builds on them in a scoped query and a subquery", async (t) => {
   const { cards, resource, options } = await createCardFixture(t);
-  async function cardSource(alias, callOptions) {
-    const { query } = await cards.scopedQuery({ alias }, callOptions);
-    return { query, column: (field) => cards.column(field, alias) };
-  }
   // An owner's method answering a Knex value at once: an expression over its own column.
   const lowerTitle = (alias) => cards.raw("LOWER(??)", [cards.column("title", alias)]);
-  const exposed = withoutHiddenFields(Object.freeze({ ...cards, cardSource, lowerTitle }), resource);
+  const exposed = withoutHiddenFields(Object.freeze({ ...cards, lowerTitle }), resource);
 
   assert.equal(exposed.column("title", "c"), cards.column("title", "c"));
   const shout = exposed.raw("UPPER(??)", [exposed.column("title", "c")]);
@@ -158,24 +169,25 @@ test("withoutHiddenFields answers raw(), column() and an owner's Knex values as 
   assert.equal(typeof exposed.lowerTitle("i").toSQL, "function");
 
   // In the owner's scoped rows, as a select.
-  const source = await exposed.cardSource("c", options);
+  const source = await exposed.joinSource({ alias: "c" }, options);
   assert.deepEqual(await source.query.select({ shout }).orderBy(source.column("id")), [{ shout: "REX" }, { shout: "BO" }]);
 
   // In a subquery: the cards of workspace 1 whose lower-cased title is "bo".
-  const outer = await exposed.cardSource("c", options);
-  const inner = await exposed.cardSource("i", options);
+  const outer = await exposed.joinSource({ alias: "c" }, options);
+  const inner = await exposed.joinSource({ alias: "i" }, options);
   const matching = inner.query.select(inner.column("id")).where(exposed.lowerTitle("i"), exposed.raw("?", ["bo"]));
   assert.deepEqual(await outer.query.whereIn(outer.column("id"), matching).select({ title: outer.column("title") }), [{ title: "Bo" }]);
 });
 
-test("withoutHiddenFields strips the hidden fields from every answer of a read the owner adds, unless it runs in a system context", async (t) => {
+test("withoutHiddenFields refuses a hidden field named through any method, and strips the hidden fields from every answer of a read the owner adds, unless it runs in a system context", async (t) => {
   const { cards, resource, system, options } = await createCardFixture(t);
   // The owner's decorateRepository reads: one forwarding the caller's params, the handle's own under another name, one
-  // answering a map, one in a sub-repository and one answering at once.
+  // taking its options first, one answering a map, one in a sub-repository and one answering at once.
   const owner = Object.freeze({
     ...cards,
     queryAllIncludingArchived: (params, callOptions) => cards.queryAll(params, callOptions),
     everyCard: cards.queryAll,
+    cardsTitled: (callOptions, { title }) => cards.queryAll({ filters: { title }, fields: ["title", "publicToken"] }, callOptions),
     async cardsByTitle(callOptions) {
       const records = await cards.queryAll({ fields: ["title", "publicToken"] }, callOptions);
       return new Map(records.map((record) => [record.title, record]));
@@ -185,10 +197,15 @@ test("withoutHiddenFields strips the hidden fields from every answer of a read t
   });
   const exposed = withoutHiddenFields(owner, resource);
 
-  // Another feature's calls: no hidden field leaves, whatever the method's name or depth.
-  assert.deepEqual(await exposed.queryAllIncludingArchived({ filters: { title: "Rex" }, fields: ["title", "publicToken", "workspaceId"] }, options),
-    [{ id: "1", title: "Rex" }]);
-  assert.deepEqual(await exposed.everyCard({ filters: { title: "Bo" }, fields: ["publicToken"] }, options), [{ id: "2" }]);
+  // Another feature's calls: a hidden field its fields names is refused before the method runs, whatever the method's
+  // name, as a list or a sparse fieldset, so a method forwarding the caller's fields never answers it as undefined.
+  await assert.rejects(exposed.queryAllIncludingArchived({ filters: { title: "Rex" }, fields: ["title", "publicToken", "workspaceId"] }, options),
+    /cards\.queryAllIncludingArchived\(\) fields names the hidden field "publicToken", "workspaceId", which only the table's owner, or a system context, reads/u);
+  await assert.rejects(exposed.everyCard({ filters: { title: "Bo" }, fields: { cards: "title, sent" } }, options),
+    /cards\.everyCard\(\) fields names the hidden field "sent"/u);
+  assert.deepEqual(await exposed.queryAllIncludingArchived({ filters: { title: "Rex" }, fields: ["title"] }, options), [{ id: "1", title: "Rex" }]);
+  // No hidden field the owner's own reads name leaves, whatever the method's name or depth.
+  assert.deepEqual(await exposed.cardsTitled(options, { title: "Rex" }), [{ id: "1", title: "Rex" }]);
   assert.deepEqual([...(await exposed.cardsByTitle(options)).values()], [{ id: "1", title: "Rex" }, { id: "2", title: "Bo" }]);
   assert.deepEqual(await exposed.archive.list(options), [{ id: "1", title: "Rex" }, { id: "2", title: "Bo" }]);
   // A method that answers at once still does, and withTransaction answers the caller's own work as it is.
@@ -201,4 +218,27 @@ test("withoutHiddenFields strips the hidden fields from every answer of a read t
   assert.deepEqual(await exposed.queryAllIncludingArchived({ filters: { title: "Kit" }, fields: ["publicToken", "workspaceId"] }, { context: system }),
     [{ id: "3", publicToken: "t3", workspaceId: "2" }]);
   assert.deepEqual(await exposed.archive.list({ context: system.forWorkspace("2") }), [{ id: "3", title: "Kit", views: 1 }]);
+  // The system context counts in whichever record carries it, not only the last.
+  assert.deepEqual(await exposed.cardsTitled({ context: system.forWorkspace("2") }, { title: "Kit" }), [{ id: "3", title: "Kit", publicToken: "t3" }]);
+});
+
+test("withoutHiddenFields refuses a field one owned table hides and another shows, since it strips hidden fields by name", () => {
+  const cards = defineTableResource({
+    name: "cards",
+    tableName: "cards",
+    ownership: "public",
+    schema: { title: { type: "string" }, publicToken: { type: "string", hidden: true } }
+  });
+  const links = (hidden) => defineTableResource({
+    name: "links",
+    tableName: "links",
+    ownership: "public",
+    schema: { publicToken: { type: "string", ...(hidden ? { hidden } : {}) } }
+  });
+  const repository = Object.freeze({ get: async () => ({ id: "1", publicToken: "t1" }) });
+  assert.throws(() => withoutHiddenFields(repository, [cards, links(false)]),
+    /links\.publicToken is a visible field, but cards, which the same feature owns, hides a field of that name; its repository strips hidden fields by name from every answer/u);
+  assert.throws(() => withoutHiddenFields(repository, [links(false), cards]), /links\.publicToken is a visible field, but cards/u);
+  // Hidden in both, it is one hidden field.
+  assert.equal(typeof withoutHiddenFields(repository, [cards, links(true)]).get, "function");
 });

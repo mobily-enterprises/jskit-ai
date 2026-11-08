@@ -1281,7 +1281,7 @@ test("an action a system context or a job runs reads as that system context or j
   }
 });
 
-test("a report joins another owner's scopedQuery as a subquery: one statement, each owner's scope and row policy kept", async (t) => {
+test("a report joins another owner's joinSource() as a subquery: one statement, each owner's scope and row policy kept", async (t) => {
   const knex = await testKnex(t);
   await knex.schema.createTable("tasks", (table) => {
     table.increments("id");
@@ -1325,18 +1325,9 @@ test("a report joins another owner's scopedQuery as a subquery: one statement, e
       return true;
     }
   }]);
-  // Billing's owner API: its scoped invoices as a join source, with their column names. It answers the builder wrapped,
-  // since a builder is thenable and an async function would run it.
-  const billing = {
-    async invoiceSource(alias, options) {
-      const { query } = await invoices.scopedQuery({ alias }, options);
-      return { query, column: (field) => invoices.column(field, alias) };
-    }
-  };
-
   // Knex: report - open tasks and billed totals per project, joined on billing's scoped invoices
   async function projectSummary(options) {
-    const source = await billing.invoiceSource("i", options);
+    const source = await invoices.joinSource({ alias: "i" }, options);
     const billed = source.query
       .select({ projectId: source.column("projectId") })
       .sum({ billed: source.column("amount") })

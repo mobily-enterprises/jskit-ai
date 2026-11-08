@@ -228,27 +228,12 @@ function createRepository({ workspaces, workspaceMemberships }) {
     return row ? { id: normalizeRecordId(row.id, { fallback: null }) } : null;
   }
 
-  /**
-   * The workspaces as a join source for another owner's report, so it reads them in its own statement: the scoped
-   * workspaces under `alias`, matching `filters` (this resource's search fields; a deleted workspace is in it unless
-   * the report filters on `column("deletedAt")`), and each field's column under that alias. It answers the builder
-   * wrapped, since a builder is thenable.
-   * @param {{ alias: string, filters?: object }} params
-   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
-   * @returns {Promise<{ query: object, column: (field: string) => string }>}
-   */
-  // Knex: subquery - another owner's report joins the workspaces it reads, in one statement
-  async function joinSource({ alias, filters }, options = {}) {
-    if (typeof alias !== "string" || !alias) {
-      throw new TypeError("workspaces.joinSource() needs the alias the report joins the workspaces under.");
-    }
-    const { query } = await workspaces.scopedQuery({ alias, ...(filters === undefined ? {} : { filters }) }, options);
-    return { query, column: (field) => workspaces.column(field, alias) };
-  }
-
   return Object.freeze({
     withTransaction: workspaces.withTransaction,
-    joinSource,
+    // The workspaces as a join source for another owner's report, which reads them in its own statement: the handle's
+    // joinSource, the scoped workspaces under `alias` matching `filters` (a deleted workspace is in it unless the
+    // report filters on `column("deletedAt")`).
+    joinSource: workspaces.joinSource,
     findById,
     listByIds,
     findBySlug,
