@@ -109,30 +109,85 @@ function hashScrollMargin(hash) {
   return target ? Number.parseFloat(browserWindow.getComputedStyle(target).scrollMarginTop) || 0 : 0;
 }
 
+// vue-router scrolls as soon as the new route has rendered, before a page has drawn the content it loads, so a
+// position past what is drawn would land at the page's end and a hash target not drawn yet would be skipped. A restored
+// position or a hash target therefore waits for the page to draw it, checked on every frame, for as long as the shell's
+// Up waits to focus the record it opened (1.5 s); then it scrolls to what the page has.
+const SCROLL_TARGET_WAIT_MS = 1500;
+// Input meaning the person has started to move the page themselves, which a late scroll must not take from them.
+const SCROLL_TAKEOVER_EVENTS = Object.freeze(["wheel", "touchstart", "keydown", "pointerdown"]);
+
+/** Whether the page is drawn far enough to scroll to the position. */
+function canReach(browserWindow, { left = 0, top = 0 }) {
+  const root = browserWindow.document.documentElement;
+  return root.scrollHeight - browserWindow.innerHeight >= top && root.scrollWidth - browserWindow.innerWidth >= left;
+}
+
+/**
+ * The scroll position, at once when the page already has what it needs (`isDrawn`), otherwise a promise of it once the
+ * page has drawn it or SCROLL_TARGET_WAIT_MS has passed; false, no scroll, when the person moves the page meanwhile.
+ * @param {(browserWindow: Window) => boolean} isDrawn
+ * @param {() => import("vue-router").ScrollPosition} position
+ */
+function whenDrawn(isDrawn, position) {
+  const browserWindow = pageWindow();
+  if (!browserWindow || isDrawn(browserWindow)) {
+    return position();
+  }
+  return new Promise((resolve) => {
+    const deadline = Date.now() + SCROLL_TARGET_WAIT_MS;
+    let frame = 0;
+    const finish = (result) => {
+      browserWindow.cancelAnimationFrame(frame);
+      for (const type of SCROLL_TAKEOVER_EVENTS) {
+        browserWindow.removeEventListener(type, takeOver, true);
+      }
+      resolve(result);
+    };
+    const takeOver = () => finish(false);
+    const check = () => {
+      if (isDrawn(browserWindow) || Date.now() >= deadline) {
+        finish(position());
+        return;
+      }
+      frame = browserWindow.requestAnimationFrame(check);
+    };
+    for (const type of SCROLL_TAKEOVER_EVENTS) {
+      browserWindow.addEventListener(type, takeOver, { capture: true, passive: true });
+    }
+    frame = browserWindow.requestAnimationFrame(check);
+  });
+}
+
 /**
  * JSKIT's default router scroll behaviour: Back/Forward restore the saved
  * position, a new screen opens at the top (or at its hash target, below the
  * target's scroll-margin-top), and tab, query or hash changes within the same
  * page keep the current position. A navigation that carries
  * `state: { restoreScroll: { left, top } }`, as the shell's Up does when it
- * returns to a page, opens at that position.
+ * returns to a page, opens at that position. A restored position and a hash
+ * target wait for the page to draw them (see whenDrawn).
  */
 function shellScrollBehavior(to, from, savedPosition) {
   if (savedPosition) {
-    return savedPosition;
+    return whenDrawn((browserWindow) => canReach(browserWindow, savedPosition), () => savedPosition);
   }
   if (staysOnSamePage(to, from)) {
     return false;
   }
   const restoreScroll = pageWindow()?.history?.state?.restoreScroll;
   if (isRecord(restoreScroll)) {
-    return {
+    const position = {
       left: Number(restoreScroll.left) || 0,
       top: Number(restoreScroll.top) || 0
     };
+    return whenDrawn((browserWindow) => canReach(browserWindow, position), () => position);
   }
   if (to.hash) {
-    return { el: to.hash, top: hashScrollMargin(to.hash) };
+    return whenDrawn(
+      (browserWindow) => Boolean(browserWindow.document.getElementById(to.hash.slice(1))),
+      () => ({ el: to.hash, top: hashScrollMargin(to.hash) })
+    );
   }
   return { top: 0 };
 }

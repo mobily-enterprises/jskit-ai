@@ -540,6 +540,8 @@ Local functions
 - `isSurfaceRootRecord(record)`
 - `hostsChildViews(record)`
 - `hashScrollMargin(hash)`
+- `canReach(browserWindow, { left = 0, top = 0 })`
+- `whenDrawn(isDrawn, position)`
 - `isLazyRouteComponent(component)`
 - `preloadOpeningRouteComponents(router, fallbackRoute)`
 

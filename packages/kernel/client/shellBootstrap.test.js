@@ -126,6 +126,35 @@ test("createSurfaceShellRouter installs an application's own guard function as i
   assert.deepEqual(guards, [ownGuard]);
 });
 
+// A page's window as shellScrollBehavior reads it: its history state, how far its document is drawn (an 800px-tall
+// window), its hash targets and their scroll-margin-top, and the frames and listeners it is given.
+function createPageWindow({ state = {}, scrollHeight = 10_000, targets = {} } = {}) {
+  const frames = [];
+  const listeners = new Map();
+  const page = {
+    history: { state },
+    innerHeight: 800,
+    innerWidth: 390,
+    document: {
+      documentElement: { scrollHeight, scrollWidth: 390 },
+      getElementById: (id) => (targets[id] ? { id } : null)
+    },
+    getComputedStyle: (element) => targets[element.id],
+    requestAnimationFrame(callback) {
+      frames.push(callback);
+      return frames.length;
+    },
+    cancelAnimationFrame() {},
+    addEventListener(type, listener) {
+      listeners.set(type, listener);
+    },
+    removeEventListener(type, listener) {
+      if (listeners.get(type) === listener) listeners.delete(type);
+    }
+  };
+  return { page, frames, listeners, nextFrame: () => frames.shift()() };
+}
+
 test("shellScrollBehavior opens new screens at the top and keeps in-page changes still", () => {
   const surface = { path: "/home", meta: { jskit: { surface: "home" } } };
   const settings = { path: "/home/settings", meta: {}, components: { default: {} } };
@@ -164,16 +193,78 @@ test("shellScrollBehavior opens a hash target below its scroll-margin-top", (t) 
     globalThis.window = previousWindow;
   });
   const targets = { recent: { scrollMarginTop: "72px" }, plain: { scrollMarginTop: "0px" } };
-  globalThis.window = {
-    history: { state: {} },
-    document: { getElementById: (id) => (targets[id] ? { id } : null) },
-    getComputedStyle: (element) => targets[element.id]
-  };
+  globalThis.window = createPageWindow({ targets }).page;
   const open = (hash) => shellScrollBehavior(at("/home/contacts", [surface, contacts], hash), at("/home", [surface]), null);
   assert.deepEqual(open("#recent"), { el: "#recent", top: 72 });
   assert.deepEqual(open("#plain"), { el: "#plain", top: 0 });
-  // A target not rendered yet is left to the router, as before.
-  assert.deepEqual(open("#missing"), { el: "#missing", top: 0 });
+});
+
+// vue-router scrolls once the new route renders, before a page draws the content it loads: a list fetching its rows is
+// still short then, and a position below its first screen would land at its end.
+test("shellScrollBehavior waits for the page to draw a position it restores or a hash target", async (t) => {
+  const surface = { path: "/home", meta: { jskit: { surface: "home" } } };
+  const contacts = { path: "/home/contacts", meta: {} };
+  const contact = { path: "/home/contacts/:id", meta: {} };
+  const at = (path, matched, hash = "") => ({ path, matched, hash });
+  const backToList = (saved = null) =>
+    shellScrollBehavior(at("/home/contacts", [surface, contacts]), at("/home/contacts/1", [surface, contact]), saved);
+  const previousWindow = globalThis.window;
+  t.after(() => {
+    globalThis.window = previousWindow;
+  });
+  let now = 0;
+  t.mock.method(Date, "now", () => now);
+
+  // Up returns to a list still drawing its rows: the position waits until the page reaches it.
+  const list = createPageWindow({ state: { restoreScroll: { left: 0, top: 1313 } }, scrollHeight: 900 });
+  globalThis.window = list.page;
+  const restored = backToList();
+  assert.ok(restored instanceof Promise, "a position the page cannot reach yet waits");
+  list.nextFrame();
+  assert.equal(list.frames.length, 1, "it checks again on the next frame");
+  list.page.document.documentElement.scrollHeight = 2400;
+  list.nextFrame();
+  assert.deepEqual(await restored, { left: 0, top: 1313 });
+  assert.equal(list.frames.length, 0);
+  assert.equal(list.listeners.size, 0, "it stops listening once it has scrolled");
+
+  // Back's saved position waits the same way, and a page that never gets that tall scrolls as far as it goes at 1.5 s.
+  const short = createPageWindow({ scrollHeight: 900 });
+  globalThis.window = short.page;
+  const saved = { left: 0, top: 640 };
+  const back = backToList(saved);
+  now = 1499;
+  short.nextFrame();
+  assert.equal(short.frames.length, 1);
+  now = 1500;
+  short.nextFrame();
+  assert.equal(await back, saved);
+
+  // Someone who moves the page meanwhile keeps it where they put it.
+  now = 0;
+  const moved = createPageWindow({ state: { restoreScroll: { left: 0, top: 1313 } }, scrollHeight: 900 });
+  globalThis.window = moved.page;
+  const taken = backToList();
+  assert.deepEqual([...moved.listeners.keys()], ["wheel", "touchstart", "keydown", "pointerdown"]);
+  moved.listeners.get("wheel")();
+  assert.equal(await taken, false);
+  assert.equal(moved.listeners.size, 0);
+
+  // A hash target waits until the page draws it, then opens below its scroll-margin-top.
+  const targets = {};
+  const hashed = createPageWindow({ targets });
+  globalThis.window = hashed.page;
+  const opened = shellScrollBehavior(at("/home/contacts", [surface, contacts], "#recent"), at("/home", [surface]), null);
+  assert.ok(opened instanceof Promise);
+  targets.recent = { scrollMarginTop: "72px" };
+  hashed.nextFrame();
+  assert.deepEqual(await opened, { el: "#recent", top: 72 });
+
+  // A position the page already reaches, and a new screen, scroll at once.
+  globalThis.window = createPageWindow({ state: { restoreScroll: { left: 0, top: 420 } } }).page;
+  assert.deepEqual(backToList(), { left: 0, top: 420 });
+  globalThis.window = createPageWindow({ scrollHeight: 0 }).page;
+  assert.deepEqual(backToList(), { top: 0 });
 });
 
 test("shellScrollBehavior opens a page Up returns to at the position its navigation state carries", (t) => {
@@ -185,7 +276,7 @@ test("shellScrollBehavior opens a page Up returns to at the position its navigat
   t.after(() => {
     globalThis.window = previousWindow;
   });
-  globalThis.window = { history: { state: { restoreScroll: { left: 0, top: 420 } } } };
+  globalThis.window = createPageWindow({ state: { restoreScroll: { left: 0, top: 420 } } }).page;
   assert.deepEqual(
     shellScrollBehavior(at("/home/contacts", [surface, contacts]), at("/home/contacts/1", [surface, contact]), null),
     { left: 0, top: 420 }
@@ -239,7 +330,7 @@ test("shellScrollBehavior opens a page in a route folder at the top and lets Up 
     shellScrollBehavior(at("/w/day/roster", [surface, day, roster]), at("/w/day/overview", [surface, day, overview]), null),
     { top: 0 }
   );
-  globalThis.window = { history: { state: { restoreScroll: { left: 0, top: 1313 } } } };
+  globalThis.window = createPageWindow({ state: { restoreScroll: { left: 0, top: 1313 } } }).page;
   assert.deepEqual(
     shellScrollBehavior(at("/w/day/overview", [surface, day, overview]), at("/w/day/roster", [surface, day, roster]), null),
     { left: 0, top: 1313 }

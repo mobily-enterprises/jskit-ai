@@ -502,6 +502,37 @@ test("a snackbar never covers the FAB, the navigation bar or a form's Save, so S
   }
 });
 
+// A list that fetches its rows is short when the router scrolls; Up and Back still return to where it was scrolled.
+test("Up and Back return to a list's position once the list has drawn its rows", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
+  const scrollY = () => page.evaluate(() => window.scrollY);
+  await page.goto("/home/contacts");
+  for (const back of [pressShellBack, (target) => target.goBack()]) {
+    const opener = page.getByRole("link", { name: "Contact 35", exact: true });
+    await opener.scrollIntoViewIfNeeded();
+    const scrolled = await scrollY();
+    assert.ok(scrolled > 400, "the contacts list did not scroll");
+    await opener.click();
+    await expect(page).toHaveURL(/\/home\/contacts\/contact-35$/u);
+    await page.evaluate(() => {
+      window.__fixtureRecordsDelayMs = 300;
+    });
+    await back(page);
+    await expect(page).toHaveURL(/\/home\/contacts$/u);
+    await expect(page.getByRole("link", { name: "Contact 35", exact: true })).toBeVisible();
+    await expect.poll(scrollY).toBeGreaterThan(scrolled - 3);
+    assert.ok(Math.abs(await scrollY() - scrolled) <= 2, `scrolled to ${await scrollY()}, not ${scrolled}`);
+    await page.evaluate(() => {
+      window.__fixtureRecordsDelayMs = 0;
+    });
+  }
+  await page.close();
+});
+
 test("shell-web's app bar fills with surface-container once the page scrolls under it", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
