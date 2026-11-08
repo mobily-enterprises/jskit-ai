@@ -5,7 +5,7 @@ import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
 import { createRepository as createUserProfilesRepository } from "../src/server/common/repositories/userProfilesRepository.js";
 import { createRepository as createUserSettingsRepository } from "../src/server/common/repositories/userSettingsRepository.js";
 import { DEFAULT_USER_SETTINGS } from "../src/shared/settings.js";
-import { usersDatabase } from "./support/mysqlUsers.js";
+import { usersDatabase } from "./support/usersDatabases.js";
 
 // users.profiles and users.settings on MariaDB/MySQL, on the users and user_settings table handles: the records
 // they answer, the username a new profile gets, transactions, and a standalone insert that loses a race.

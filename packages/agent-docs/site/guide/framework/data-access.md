@@ -860,6 +860,12 @@ so `jskit check` wants a reviewed reason for each module that requires one
 event's scope: for a customer's or a public surface's event, the workspace the
 request resolved, never one its payload names (see [Realtime](/guide/app-extras/realtime)).
 
+Code that names people by id (a conversation's members, a group's
+participants) reads them with `users.profiles.listByIds(ids, options)`: every
+profile in one call, however many ids, never `query` pages of 100 walked by
+hand or one `findById` per person. `workspaces.listByIds(ids, options)` does
+the same for workspaces.
+
 An app that had a table resource of its own over a JSKIT table (such as
 `users`) deletes it: its CRUD contract is built on the package's table resource
 (users-core's `userProfileTableResource`) and served through the owner with

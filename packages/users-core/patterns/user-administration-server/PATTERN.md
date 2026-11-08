@@ -60,7 +60,9 @@ hook, a job) requires their owners' capabilities, never the `users` or
 `user_settings` tables:
 
 - `users.profiles`: `findById`, `findByEmail`, `findByIdentity`,
-  `listByEmails(emails, options)` (one read), `upsert`,
+  `listByEmails(emails, options)` (one read),
+  `listByIds(ids, options)` (every profile of the ids, sorted by id, one read
+  per 1,000 ids), `upsert`,
   `createWithSettings({ profile, settings }, options)` (the profile and its
   settings in one transaction; settings start from the defaults),
   `createWithId(profile, options)` (a profile keeping an earlier table's id),

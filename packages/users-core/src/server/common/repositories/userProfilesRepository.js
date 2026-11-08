@@ -5,7 +5,7 @@ import {
   toIsoString
 } from "@jskit-ai/database-runtime/shared";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { isSystemContext } from "@jskit-ai/resource-runtime/server";
+import { isSystemContext, passedOn } from "@jskit-ai/resource-runtime/server";
 import { normalizeIdentity } from "../support/identity.js";
 import { USERNAME_MAX_LENGTH, normalizeNullableString, normalizeNullableVersion, normalizeUsername } from "../../../shared/resources/userProfileValues.js";
 
@@ -70,6 +70,14 @@ function usernameBaseFromEmail(email) {
 
 // The base, then base-2 to base-1000.
 const USERNAME_CANDIDATE_LIMIT = 1000;
+// The ids one read of listByIds binds: far under PostgreSQL's 65,535 parameters, and one page of the runtime's
+// every-row reads (1,000 rows), so each read is one statement.
+const IDS_PER_READ = 1000;
+
+// Canonical ids (digits, no leading zero) in numeric order: shorter first, then by their digits.
+function byNumericId(left, right) {
+  return left.length - right.length || (left < right ? -1 : left > right ? 1 : 0);
+}
 
 function buildUsernameCandidate(baseUsername, suffix) {
   const normalizedBase = normalizeUsername(baseUsername) || "user";
@@ -391,6 +399,31 @@ function createRepository({ userProfiles, userSettings }) {
   }
 
   /**
+   * The profiles with these ids, all of them in one call however many, sorted
+   * by id: one read per 1,000 distinct ids, each joining the caller's
+   * transaction and seeing what `query` sees for the caller's context. An id
+   * named twice answers its profile once; an id naming no profile the caller
+   * can see, or that is no id, is left out.
+   * @param {readonly unknown[]} userIds
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
+   */
+  async function listByIds(userIds, options = {}) {
+    if (!Array.isArray(userIds)) {
+      throw new TypeError("listByIds takes an array of user ids.");
+    }
+    const ids = [...new Set(userIds.map((id) => normalizeDbRecordId(id, { fallback: null })).filter(Boolean))].sort(byNumericId);
+    const profiles = [];
+    for (let start = 0; start < ids.length; start += IDS_PER_READ) {
+      const rows = await userProfiles.queryAll(
+        { filters: { id: ids.slice(start, start + IDS_PER_READ) }, sort: ["id"] },
+        passedOn(options)
+      );
+      profiles.push(...rows.map(normalizeProfileRecord));
+    }
+    return profiles;
+  }
+
+  /**
    * Creates the profiles whose identity (authProvider and authProviderUserSid)
    * has none yet, in one INSERT per chunk, and leaves those that have one as
    * they are: a bulk import that may run again. Only background work may call
@@ -488,6 +521,7 @@ function createRepository({ userProfiles, userSettings }) {
     createWithId,
     createManyIgnoringExisting,
     listByEmails,
+    listByIds,
     changeUsername,
     countUsers,
     // The CRUD surface's reads (a CRUD feature serving the users table names this repository as its ownerRepository).
