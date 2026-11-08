@@ -66,12 +66,18 @@ async function ownDatabase(context, suffix, { snapshotIsolation = false } = {}) 
 
 const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// InnoDB answers INNODB_TRX from a copy it refreshes only when nothing has read it for 0.1 s, so a poll more frequent
+// than that reads one copy for good: on MariaDB 11.4, polled every 25 ms, it still showed one writer waiting after
+// 4 s while PROCESSLIST showed both in their locking read.
+const TRX_POLL_MS = 150;
+
 /**
- * Waits until `count` transactions on this test's database wait for a row lock. A server that keeps INNODB_TRX from
- * the test user gets a fixed pause instead, long enough for both writers to reach the lock.
+ * Waits until `count` transactions on this test's database wait for a row lock, reading INNODB_TRX every
+ * TRX_POLL_MS so each read is fresh. A server that keeps INNODB_TRX from the test user (it needs PROCESS) gets a
+ * fixed pause instead, long enough for both writers to reach the lock.
  */
 async function bothWaiting(knex, count) {
-  for (let waited = 0; waited < 10_000; waited += 25) {
+  for (let waited = 0; waited < 10_000; waited += TRX_POLL_MS) {
     let waiting;
     try {
       const [[row]] = await knex.raw(
@@ -84,7 +90,7 @@ async function bothWaiting(knex, count) {
       return;
     }
     if (waiting >= count) return;
-    await pause(25);
+    await pause(TRX_POLL_MS);
   }
   assert.fail(`${count} writers did not reach the row's lock within 10 s`);
 }

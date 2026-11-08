@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The MariaDB many-row race tests read `INNODB_TRX` every 150 ms, where they polled it every 25 ms: InnoDB refreshes its copy of that table only when nothing has read it for 0.1 s, so the tests read the copy from before the writers reached the row's lock until their 10 s bound ran out, on any server whose test user may read it (CI's root).
 - Depends on json-rest-api 3.1.1 exactly (from 3.1.0), from the registry with its published integrity: a sort on the ID, or on a required attribute stored in its own table, carries no null placement, so PostgreSQL and MariaDB read a descending page from an index instead of sorting every matching row.
 - A handle's `joinSource()` carries the table's ownership fields (`workspaceId`, `userId`) as join keys, hidden or not, and `column()` names them: a report joining another owner's scoped rows on the workspace, such as a system job reading each workspace's settings beside its bookings, was refused (`contactRoles.joinSource() carries no hidden field, so it has no column for "workspaceId"`). They name the caller's own scope, so nothing secret leaves the owner; every other hidden column stays out, and `column()` still refuses it.
 - Depends on json-rest-api 3.1.0 exactly (from 3.0.1), from the registry with its published integrity: `lockMode: "noKeyUpdate"`, ON CONFLICT on the matching unique index's exact columns, the PostgreSQL merge race on an uncommitted insert, and the `xid8` field type the change horizon reads.
