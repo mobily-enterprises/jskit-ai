@@ -1149,6 +1149,20 @@ test("CRUD failures before acknowledged commit are not marked committed", async 
   }
 });
 
+test("a CRUD custom action name is lower case: cancelDay is refused with the rule, cancel-day is taken", () => {
+  const actionsNamed = (name) => createCrudJsonApiActions(crudJsonApiActionOptions({
+    namespace: "books",
+    resource: createBookResource(),
+    service: {},
+    surface: "app",
+    permissionForOperation: () => ({ require: "authenticated" }),
+    operations: [],
+    actions: { [name]: { input: schemaDefinition({}), execute: () => null } }
+  }));
+  assert.throws(() => actionsNamed("cancelDay"), /name "cancelDay" is invalid: an action name is lower case, starts with a letter/u);
+  assert.deepEqual(actionsNamed("cancel-day").map(({ id }) => id), ["crud.books.cancel-day"]);
+});
+
 test("defineCrudFeature exposes custom service methods as actions and optional routes", async () => {
   const routes = [];
   const calls = [];

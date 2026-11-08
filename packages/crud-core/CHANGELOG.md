@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A custom action whose name breaks the action-name rule is refused with the rule itself: lower case, starting with a letter, with only letters, digits, `_`, `.` and `-` (`cancel-day`, not `cancelDay`). The error said only that the name was invalid.
 - A CRUD feature's repository (`resourceApi.repository`), which other features and the feature's own actions call, refuses a read whose `fields` names a hidden field of the table unless it runs in a system context (resource-runtime's `withoutHiddenFields`). The handle `decorateRepository` receives answers hidden fields to the owner's own methods, and the CRUD service, the HTTP edge, answers JSON:API documents that never carry one. Before, no handle read answered a hidden field at all.
 - The CRUD service hands its repository, or a `decorateRepository` over it, exactly `{ context, trx, format: "jsonapi" }`: no `missing: "skip"` on view or delete, which a decorator passing its options to another table turned into a null for a missing record. View answers the same 404 for a missing record by catching the not-found error, and delete answers null for one.
 - A record a form saves back through the CRUD service as the service showed it keeps its link to a target the writer cannot see (json-rest-api 3.0.0): the `null` the read showed counts as unchanged.

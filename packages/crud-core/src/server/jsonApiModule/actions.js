@@ -121,7 +121,10 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
   return Object.freeze(Object.entries(definitions).map(([name, definition]) => {
     const actionName = String(name || "").trim();
     if (!ARCHITECTURE_ID_PATTERN.test(actionName)) {
-      throw new TypeError(`CRUD custom action name "${actionName}" is invalid.`);
+      throw new TypeError(
+        `CRUD custom action name "${actionName}" is invalid: an action name is lower case, starts with a letter and ` +
+          "holds only letters, digits, _, . and - (cancel-day, not cancelDay)."
+      );
     }
     if (CRUD_OPERATION_NAMES.includes(actionName)) {
       throw new TypeError(`CRUD custom action name "${actionName}" is reserved.`);
