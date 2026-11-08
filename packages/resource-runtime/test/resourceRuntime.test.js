@@ -1087,6 +1087,7 @@ async function createVisitFixture(t) {
     table.integer("vet_id");
     table.string("stage").notNullable();
     table.string("internal_code");
+    table.string("reviewer");
     table.integer("lock_version").notNullable().defaultTo(0);
   });
   await knex("customers").insert({ workspace_id: 1, name: "Ada" });
@@ -1110,6 +1111,7 @@ async function createVisitFixture(t) {
       vetId: { type: "id", nullable: true, belongsTo: "vets", as: "vet", storage: { column: "vet_id" } },
       stage: { type: "string", required: true },
       internalCode: { type: "string", nullable: true, storage: { column: "internal_code" } },
+      reviewer: { type: "string", nullable: true, hidden: true },
       lockVersion: { type: "integer", defaultTo: 0, storage: { column: "lock_version" } }
     }
   });
@@ -1117,7 +1119,7 @@ async function createVisitFixture(t) {
   const handles = await runtime.own("visits.feature", [customers, vets, visits]);
   const options = { context: WORKSPACE_A };
   const created = await handles.visits.createMany([
-    { customerId: "1", vetId: "1", stage: "new", internalCode: "k1" },
+    { customerId: "1", vetId: "1", stage: "new", internalCode: "k1", reviewer: "lee" },
     { customerId: "1", vetId: "1", stage: "new", internalCode: "k2" }
   ], { ...options, returning: "ids" });
   // The tables each SELECT reads, in order.
@@ -1152,6 +1154,11 @@ test("a patch that compares a lock version or onlyIf locks only the fields it co
   // onlyIf may compare a field reads hide by default.
   assert.equal((await visits.patch(ids[0], { stage: "done" }, { ...options, onlyIf: { internalCode: "k1" } })).stage, "done");
   assert.equal(await visits.patch(ids[0], { stage: "late" }, { ...options, onlyIf: { internalCode: "other" } }), null);
+  // A hidden field, which no read answers, is compared by the UPDATE itself.
+  assert.equal((await visits.patch(ids[0], { stage: "checked" }, { ...options, onlyIf: { reviewer: "lee" } })).stage, "checked");
+  assert.equal(await visits.patch(ids[0], { stage: "late" }, { ...options, onlyIf: { reviewer: "sam" } }), null);
+  assert.equal((await visits.patch(ids[1], { stage: "seen" }, { ...options, lockVersion: 1, onlyIf: { reviewer: null } })).stage, "seen");
+  await assert.rejects(visits.patch("999", { stage: "late" }, { ...options, onlyIf: { reviewer: "lee" } }), notFound);
 });
 
 test("a read with one include or two reads each included type once, whatever the rows, plus one visibility check per type", async (t) => {

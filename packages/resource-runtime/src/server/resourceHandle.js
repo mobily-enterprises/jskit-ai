@@ -459,8 +459,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (lockVersion === undefined && onlyIf === undefined) {
       return patchRecord(id, attributes, callOptions, returning);
     }
-    // A missing row throws, so telling it from a changed one (onlyIf) takes the row's lock first, reading only the
-    // fields it compares.
+    // A missing row throws, so the row's lock comes first, reading only the fields it compares; an UPDATE that changes
+    // fields compares onlyIf itself, so a hidden field, which no read answers, is compared too.
     const compared = [...(lockVersion === undefined ? [] : [lockVersionField]), ...Object.keys(onlyIf ?? {})];
     return withTransaction(callOptions, async (txOptions) => {
       const [current] = await lockMany([id], { ...txOptions, missing, fields: compared });
@@ -469,6 +469,9 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
       }
       if (lockVersion !== undefined && Number(current[lockVersionField]) !== lockVersion) {
         throw new StaleRecordError();
+      }
+      if (onlyIf !== undefined && Object.keys(attributes).length > 0) {
+        return patchIfPresent(id, attributes, txOptions, returning, onlyIf);
       }
       if (onlyIf !== undefined && !matchesOnlyIf(current, onlyIf)) {
         return null;

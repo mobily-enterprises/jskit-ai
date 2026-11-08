@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `patch(id, changes, { ...options, onlyIf })` compares a `hidden` field: the UPDATE compares the onlyIf values itself, after the lock that tells a missing record from a changed one, where the handle compared them with the locked record, which no read gives a hidden field, so such a patch never applied unless it also said `missing: "skip"`.
 - A row policy (and each contribution) receives `caller`, who the call runs for: `{ kind: "system", reason }` for a system context, `{ kind: "job", reason }` for a context `forWorkspace`, `forUser` or `forWorkspaceUser` derived from one, `{ kind: "user", userId }` for a signed-in request and `{ kind: "anonymous" }` otherwise. A derived job context names no user, so a policy that keyed on the actor treated it as an anonymous request; it now tells them apart by `caller.kind`. `system` is still passed.
 - A table whose primary key is a `uuid` or a `string` takes its ids as text without a `normalizeId` on its `owns` entry; json-rest-api's default normalizer takes numeric ids only and answered "Resource document id is invalid". An owner's own `normalizeId` still wins.
 - `createMany` with `onConflict: { action: "merge" }` and no `merge` list works on a table that stores `createdAt`: the merge list the handle builds from the rows' fields leaves out the conflict keys, the ownership fields and the lock version, which json-rest-api refused to merge ("onConflict.merge cannot change …"), as well as the id and `createdAt`.
