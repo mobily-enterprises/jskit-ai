@@ -155,6 +155,16 @@ function markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate }) {
   HANDLE_WORK_RUNNERS.add(lockOrCreate);
 }
 
+/**
+ * Whether a function answered a Knex value (a raw expression, a column's builder, a query builder an owner's join
+ * source answers) rather than rows: a value for the caller's own query, which it builds on and never awaits.
+ * @param {unknown} value
+ */
+function isKnexValue(value) {
+  // readable-check: allow method-probe - data: Knex raw expressions and query builders compile through toSQL()
+  return isRecord(value) && typeof value.toSQL === "function";
+}
+
 /** @param {unknown} value */
 function isPlainRecord(value) {
   if (!isRecord(value)) {
@@ -215,7 +225,8 @@ function withoutHiddenValues(value, hidden, seen = new WeakMap()) {
  * too), is refused, unless the call runs in a system context or one it derived (its options, the last record it
  * takes). So a read the owner adds in decorateRepository cannot hand a hidden field out either; the owner's own
  * code, its join sources included, reads with the repository itself. withTransaction and lockOrCreate answer the
- * caller's own work as it is. A repository whose tables have no hidden fields stays as it is.
+ * caller's own work as it is, and a function answering a Knex value (raw(), a join source's builder) answers it as
+ * it is, unawaited. A repository whose tables have no hidden fields stays as it is.
  * @template {object} T
  * @param {T} repository
  * @param {{ name: string, schema: Record<string, any> } | ReadonlyArray<{ name: string, schema: Record<string, any> }>} resources
@@ -283,7 +294,9 @@ function guardedFunction(repository, key, call, resource, hidden) {
       ));
     }
     const answer = call.apply(repository, args);
-    if (work) {
+    // A runner's answer is the caller's own work, and a Knex value (raw(), or an owner's join source answering a
+    // builder) carries no rows: both pass as they are, unawaited, so a builder never runs here.
+    if (work || isKnexValue(answer)) {
       return answer;
     }
     // readable-check: allow method-probe - data: a repository's method may answer at once or with a promise

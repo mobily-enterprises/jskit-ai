@@ -762,14 +762,16 @@ test("scopedQuery() answers a read-only builder over the caller's rows that orWh
   assert.throws(() => notes.raw("count(?)"), /needs the bindings/u);
 });
 
-test("raw() is a value only: awaiting it or running it any other way throws, and nothing runs", async (t) => {
+test("raw() is a value only: it is no promise, running it any other way throws, and nothing runs", async (t) => {
   const { notes, knex } = await createFixture(t);
   await notes.create({ title: "keep" }, { context: WORKSPACE_A });
   await notes.create({ title: "theirs" }, { context: WORKSPACE_B });
   const statement = notes.raw("DELETE FROM notes");
-  await assert.rejects(async () => await statement, /notes\.raw\(\) is a value inside a scoped query or a write/u);
-  for (const method of ["then", "catch", "finally", "asCallback", "stream", "pipe"]) {
-    assert.throws(() => statement[method](() => {}), /never runs as a statement of its own/u, method);
+  // Its then is undefined, so awaiting it answers the value itself, unrun, and nothing mistakes it for a promise.
+  assert.equal(statement.then, undefined);
+  assert.equal(await statement, statement);
+  for (const method of ["catch", "finally", "asCallback", "stream", "pipe"]) {
+    assert.throws(() => statement[method](() => {}), /notes\.raw\(\) is a value inside a scoped query or a write; it never runs as a statement of its own/u, method);
   }
   assert.equal((await knex("notes")).length, 2);
 

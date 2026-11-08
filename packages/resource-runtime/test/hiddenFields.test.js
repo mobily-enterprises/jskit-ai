@@ -141,6 +141,32 @@ test("withoutHiddenFields refuses another feature's scopedQuery, whose builder c
   assert.deepEqual(rows, [{ title: "Rex" }, { title: "Bo" }]);
 });
 
+test("withoutHiddenFields answers raw(), column() and an owner's Knex values as they are, so another feature builds on them in a scoped query and a subquery", async (t) => {
+  const { cards, resource, options } = await createCardFixture(t);
+  async function cardSource(alias, callOptions) {
+    const { query } = await cards.scopedQuery({ alias }, callOptions);
+    return { query, column: (field) => cards.column(field, alias) };
+  }
+  // An owner's method answering a Knex value at once: an expression over its own column.
+  const lowerTitle = (alias) => cards.raw("LOWER(??)", [cards.column("title", alias)]);
+  const exposed = withoutHiddenFields(Object.freeze({ ...cards, cardSource, lowerTitle }), resource);
+
+  assert.equal(exposed.column("title", "c"), cards.column("title", "c"));
+  const shout = exposed.raw("UPPER(??)", [exposed.column("title", "c")]);
+  assert.equal(shout.then, undefined);
+  assert.equal(typeof exposed.lowerTitle("i").toSQL, "function");
+
+  // In the owner's scoped rows, as a select.
+  const source = await exposed.cardSource("c", options);
+  assert.deepEqual(await source.query.select({ shout }).orderBy(source.column("id")), [{ shout: "REX" }, { shout: "BO" }]);
+
+  // In a subquery: the cards of workspace 1 whose lower-cased title is "bo".
+  const outer = await exposed.cardSource("c", options);
+  const inner = await exposed.cardSource("i", options);
+  const matching = inner.query.select(inner.column("id")).where(exposed.lowerTitle("i"), exposed.raw("?", ["bo"]));
+  assert.deepEqual(await outer.query.whereIn(outer.column("id"), matching).select({ title: outer.column("title") }), [{ title: "Bo" }]);
+});
+
 test("withoutHiddenFields strips the hidden fields from every answer of a read the owner adds, unless it runs in a system context", async (t) => {
   const { cards, resource, system, options } = await createCardFixture(t);
   // The owner's decorateRepository reads: one forwarding the caller's params, the handle's own under another name, one

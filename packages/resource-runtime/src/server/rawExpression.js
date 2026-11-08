@@ -1,16 +1,21 @@
 // The ways a Knex raw expression runs as a statement of its own. A raw expression the runtime hands out is a value for
-// a scoped query, a write or a query field's select, so each of these throws: an awaited raw expression would run its
-// SQL with no ownership scope at all.
-const STATEMENT_METHODS = Object.freeze(new Set(["then", "catch", "finally", "asCallback", "stream", "pipe"]));
+// a scoped query, a write or a query field's select, so each of these throws: a raw expression run on its own would run
+// its SQL with no ownership scope at all.
+const STATEMENT_METHODS = Object.freeze(new Set(["catch", "finally", "asCallback", "stream", "pipe"]));
 
 /**
- * A Knex raw expression that works only as a value: in a select, a where or a write.
+ * A Knex raw expression that works only as a value: in a select, a where or a write. It is no promise: its `then` is
+ * undefined, so awaiting it answers the value itself and runs nothing, and code that tells a promise by its `then` (a
+ * repository wrapper awaiting what a method answers) never mistakes it for one.
  * @param {string} label The call that made it, such as "notes.raw()".
  * @param {object} expression
  */
 function valueOnly(label, expression) {
   return new Proxy(expression, {
     get(target, property, receiver) {
+      if (property === "then") {
+        return undefined;
+      }
       if (STATEMENT_METHODS.has(property)) {
         return () => {
           throw new TypeError(`${label} is a value inside a scoped query or a write; it never runs as a statement of its own.`);
