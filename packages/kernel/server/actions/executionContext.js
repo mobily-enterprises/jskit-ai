@@ -45,13 +45,13 @@ const RESERVED_CONTEXT_KEYS = new Set([
   "timeMeta"
 ]);
 
+// Every entry but the reserved ones passes through, symbol-keyed ones too: background work's contexts carry private
+// symbol markers (a system context's, a job context's), and dropping them would leave an action a job runs reading
+// as an anonymous request. A marker passes on only what the caller's context already had.
 function copyPassthroughContextEntries(source = {}) {
-  const passthrough = {};
-  for (const [key, value] of Object.entries(source)) {
-    if (RESERVED_CONTEXT_KEYS.has(key)) {
-      continue;
-    }
-    passthrough[key] = value;
+  const passthrough = { ...source };
+  for (const key of RESERVED_CONTEXT_KEYS) {
+    delete passthrough[key];
   }
   return passthrough;
 }

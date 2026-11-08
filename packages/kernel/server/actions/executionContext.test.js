@@ -15,6 +15,17 @@ test("normalizeExecutionContext preserves non-core context fields", () => {
   assert.equal(context.tenant.ownerUserId, 42);
 });
 
+test("normalizeExecutionContext keeps a context's symbol-keyed markers and still normalizes its reserved fields", () => {
+  const marker = Symbol("work marker");
+  const context = normalizeExecutionContext({ [marker]: true, tenant: "a", actor: { id: 3 }, channel: "AUTOMATION" });
+
+  assert.equal(context[marker], true);
+  assert.equal(context.tenant, "a");
+  assert.deepEqual(context.actor, { id: 3 });
+  assert.equal(context.channel, "automation");
+  assert.deepEqual(normalizeExecutionContext({ [marker]: true }).actor, null);
+});
+
 test("normalizeExecutionContext keeps custom requestMeta fields", () => {
   const resolvedWorkspaceContext = {
     workspace: {

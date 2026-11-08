@@ -1002,6 +1002,60 @@ test("an event a job publishes carries the scope of the workspace or user it wor
   ]);
 });
 
+test("an action a system context or a job runs reads as that system context or job, and is still signed in as no one", async (t) => {
+  const seen = [];
+  const { notes, runtime } = await createFixture(t, {
+    owns: [{
+      resource: noteResource(),
+      rowPolicy: ({ caller }) => {
+        seen.push(caller);
+        return caller.kind !== "anonymous";
+      }
+    }]
+  });
+  const systemContext = runtime.declareSystemScope("digest.feature", "nightly digests")("send the digest");
+  await notes.createMany([{ title: "a" }, { title: "b" }], { context: WORKSPACE_A });
+  seen.length = 0;
+  const actions = createActionCatalogue();
+  const action = (id, require, execute) => ({
+    id,
+    kind: "command",
+    channels: ["automation"],
+    surfaces: ["app"],
+    permission: { require },
+    input: emptyInputValidator,
+    execute
+  });
+  actions.register({
+    contributorId: "digest",
+    domain: "digest",
+    actions: [
+      action("digest.count", "none", async (input, context) => ({
+        count: (await notes.queryAll({}, { context })).length,
+        actorId: resolveActorId(context)
+      })),
+      action("digest.send", "authenticated", () => ({ sent: true }))
+    ]
+  });
+  const run = (actionId, context) => actions.execute({ actionId, input: {}, context: { ...context, channel: "automation", surface: "app" } });
+
+  assert.deepEqual(await run("digest.count", systemContext), { count: 2, actorId: null });
+  assert.deepEqual(await run("digest.count", systemContext.forWorkspace("1")), { count: 2, actorId: null });
+  assert.deepEqual(await run("digest.count", systemContext.forWorkspace("2", { actorId: "9" })), { count: 0, actorId: null });
+  assert.deepEqual(seen, [
+    { kind: "system", reason: "digest.feature: send the digest" },
+    { kind: "job", reason: "digest.feature: send the digest" },
+    { kind: "job", reason: "digest.feature: send the digest", actorId: "9" }
+  ]);
+  // A request context with no one signed in is still anonymous, and the policy refuses it.
+  assert.deepEqual(await run("digest.count", WORKSPACE_A), { count: 0, actorId: null });
+  assert.deepEqual(seen.at(-1), { kind: "anonymous" });
+  // The person a job acts for is no one signed in: an authenticated action refuses every one of them.
+  for (const context of [systemContext, systemContext.forWorkspace("1"), systemContext.forWorkspace("1", { actorId: "9" })]) {
+    await assert.rejects(run("digest.send", context), (error) => error?.statusCode === 401 && error?.code === "ACTION_AUTHENTICATION_REQUIRED");
+  }
+});
+
 test("a job done for one person records that person in audit fields and is never signed in as them", async (t) => {
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
   t.after(() => knex.destroy());

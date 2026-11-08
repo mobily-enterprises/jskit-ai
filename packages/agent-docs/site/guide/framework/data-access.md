@@ -494,7 +494,9 @@ const SettlementFeature = defineFeature({
   `.forWorkspaceUser(workspaceId, userId)`: each workspace or user is then one
   unit of work, scoped as usual, in a transaction of its own. An event it
   publishes carries that workspace's or user's scope, as a request there would,
-  so it reaches that audience, never everyone.
+  so it reaches that audience, never everyone. An action it runs with
+  `actions.execute({ actionId, input, context })` keeps the context's kind:
+  inside it, a handle call still reads as the system context or job.
 - Work a job does for one person (a request it carries out later) passes
   `{ actorId }` last: `forWorkspace(id, { actorId: requestedBy })`. It is for
   attribution only: audit fields read it with `resolveAuditActorId(context)`
