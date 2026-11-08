@@ -96,5 +96,5 @@ test("sessions.deleteExpired deletes the sessions expired by then and keeps the 
   });
   assert.equal((await recovery.findByTokenHash("recovery-hash")).id, token.id);
   assert.notEqual((await recovery.consume("rec_owner")).usedAt, "");
-  assert.equal(await recovery.consumeForUser("usr_sessions"), 0);
+  assert.equal(await recovery.consumeForUser("usr_sessions", { idPrefix: "rec_" }), 0);
 });

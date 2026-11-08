@@ -987,12 +987,17 @@ test("local auth provider completes recovery through a recovery-scoped session",
   assert.equal(login.actor.email, "recovery@example.com");
 });
 
-test("local auth reset invalidates other outstanding recovery tokens for the user", async () => {
-  const { authService } = await createStartedApp();
+test("local auth reset invalidates the user's other password resets and leaves their other kinds of token open", async () => {
+  const { authService, backend } = await createStartedApp();
   await authService.register({
     email: "recovery-tokens@example.com",
     password: "correct horse battery staple",
     displayName: "Recovery Tokens"
+  });
+  // An application's own kind of recovery token, such as a sign-in link, told apart by its id's prefix.
+  await backend.withTransaction(async (tx) => {
+    const user = await tx.users.findByEmail("recovery-tokens@example.com");
+    await tx.recovery.create({ id: "magic_link", userId: user.id, tokenHash: "hash-magic-link", expiresAt: new Date(Date.now() + 3_600_000).toISOString() });
   });
 
   const firstResetRequest = await authService.requestPasswordReset({
@@ -1027,6 +1032,8 @@ test("local auth reset invalidates other outstanding recovery tokens for the use
       }),
     /Recovery token is invalid or expired/
   );
+  const link = await backend.withTransaction((tx) => tx.recovery.findByTokenHash("hash-magic-link"));
+  assert.equal(link.usedAt, "", "the reset leaves the sign-in link open");
 });
 
 test("local auth provider changes password through the account-security contract", async () => {

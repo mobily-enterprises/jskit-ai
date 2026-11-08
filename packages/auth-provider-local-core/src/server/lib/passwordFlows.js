@@ -6,6 +6,9 @@ import { createId, isExpiredIso, isoFromNow, randomToken, sha256Base64url, verif
 
 const RECOVERY_SESSION_TTL_SECONDS = 15 * 60;
 const RECOVERY_TOKEN_TTL_SECONDS = 60 * 60;
+// A password reset's recovery tokens have ids starting `rec_`, which tells them from an app's own kinds (such as a
+// sign-in link's): completing a reset consumes the user's other resets and leaves the other kinds open.
+const RESET_TOKEN_KIND = "rec";
 
 /**
  * The `auth.local.recovery-sender` default when no feature provides one: outside
@@ -49,7 +52,7 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
       const token = randomToken(32);
       recoveryUrl = `${config.appPublicUrl.replace(/\/$/, "")}/auth/reset-password?token=${encodeURIComponent(token)}&type=recovery`;
       await tx.recovery.create({
-        id: createId("rec"),
+        id: createId(RESET_TOKEN_KIND),
         userId: user.id,
         tokenHash: sha256Base64url(token),
         expiresAt: isoFromNow(RECOVERY_TOKEN_TTL_SECONDS)
@@ -115,7 +118,7 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
       }
       const user = await tx.users.updatePassword(String(payload.sub), password);
       await tx.sessions.revokeForUser(String(payload.sub));
-      await tx.recovery.consumeForUser(String(payload.sub));
+      await tx.recovery.consumeForUser(String(payload.sub), { idPrefix: `${RESET_TOKEN_KIND}_` });
       // Recovery is the way back in for an account that failed sign-ins keep waiting.
       if (user) {
         await tx.signInFailures.clear(user.email);

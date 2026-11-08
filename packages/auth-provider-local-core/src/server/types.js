@@ -3,7 +3,10 @@
 
 /**
  * One transaction of a local auth backend. A find answers null when nothing
- * matches; a bulk change answers how many records it changed.
+ * matches; a bulk change answers how many records it changed. A recovery
+ * token's kind is the start of its id (a password reset's is `rec_`), and
+ * `consumeForUser` consumes the user's unused tokens of the kind its idPrefix
+ * names, never their others.
  * @typedef {object} AuthLocalBackendTransaction
  * @property {{
  *   create(input: object): Promise<object>,
@@ -24,7 +27,7 @@
  *   create(input: object): Promise<object>,
  *   findByTokenHash(tokenHash: string): Promise<object | null>,
  *   consume(tokenId: string): Promise<object | null>, the consumed token, or null when it is missing or already used
- *   consumeForUser(userId: string): Promise<number>
+ *   consumeForUser(userId: string, options: { idPrefix: string }): Promise<number>
  * }} recovery
  * @property {{
  *   create(input: object): Promise<object>,

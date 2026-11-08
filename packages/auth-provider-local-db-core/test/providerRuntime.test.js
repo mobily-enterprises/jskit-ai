@@ -108,7 +108,7 @@ test("DB local auth backend implements the storage repository contract", async (
     assert.equal(recovery.usedAt, "");
     assert.equal((await tx.recovery.findByTokenHash("recovery-token-hash")).id, "rec_db_contract");
     assert.notEqual((await tx.recovery.consume("rec_db_contract")).usedAt, "");
-    assert.equal(await tx.recovery.consumeForUser("usr_db_contract"), 0);
+    assert.equal(await tx.recovery.consumeForUser("usr_db_contract", { idPrefix: "rec_" }), 0);
   });
 
   assert.equal(transactions.count, 1);

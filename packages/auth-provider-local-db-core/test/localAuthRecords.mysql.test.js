@@ -228,8 +228,8 @@ test("recovery: create, find by token hash, consume once, and consume a user's o
     await tx.recovery.create(token("rec_three", { usedAt: "2026-11-02T00:00:00.000Z" }));
   });
   assert.equal((await backend.withTransaction((tx) => tx.recovery.findByTokenHash("hash-rec_three"))).usedAt, "2026-11-02T00:00:00.000Z");
-  assert.equal(await backend.withTransaction((tx) => tx.recovery.consumeForUser("usr_ada")), 1, "only rec_two was open");
-  assert.equal(await backend.withTransaction((tx) => tx.recovery.consumeForUser("usr_ada")), 0);
+  assert.equal(await backend.withTransaction((tx) => tx.recovery.consumeForUser("usr_ada", { idPrefix: "rec_" })), 1, "only rec_two was open");
+  assert.equal(await backend.withTransaction((tx) => tx.recovery.consumeForUser("usr_ada", { idPrefix: "rec_" })), 0);
   assert.equal((await backend.withTransaction((tx) => tx.recovery.findByTokenHash("hash-rec_three"))).usedAt, "2026-11-02T00:00:00.000Z");
 });
 
@@ -445,7 +445,7 @@ test("the owner APIs answer as the backend does and join a caller's transaction,
   });
   assert.equal(await sessions.revokeForUser("usr_ada", { exceptSessionId: "ses_kept" }), 2, "ses_live and ses_old");
   assert.equal(await sessions.deleteExpired("2026-11-08T00:00:00.000Z"), 1);
-  assert.equal(await recovery.consumeForUser("usr_ada"), 1);
+  assert.equal(await recovery.consumeForUser("usr_ada", { idPrefix: "rec_" }), 1);
   const verified = await accounts.markEmailVerified("usr_ada");
   assert.equal((await accounts.markEmailVerified("usr_ada")).emailVerifiedAt, verified.emailVerifiedAt);
   assert.equal(await accounts.updatePassword("usr_missing", NEXT_PASSWORD), null);

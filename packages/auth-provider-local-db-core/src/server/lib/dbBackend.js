@@ -41,6 +41,24 @@ function text(value) {
   return String(value || "");
 }
 
+// A session's conditional update compares only whose session it is and where it stands.
+const SESSION_CONDITIONS = Object.freeze(["userId", "purpose", "revokedAt"]);
+
+function requireSessionConditions(onlyIf) {
+  if (!onlyIf || typeof onlyIf !== "object" || Array.isArray(onlyIf) || Object.keys(onlyIf).length < 1 ||
+    Object.keys(onlyIf).some((key) => !SESSION_CONDITIONS.includes(key))) {
+    throw new TypeError(`auth.local.sessions.update() takes onlyIf with ${SESSION_CONDITIONS.join(", ")} only.`);
+  }
+}
+
+// A user's recovery tokens are of a kind by the start of their ids: a password reset's are `rec_`, an app's own
+// kinds (such as a sign-in link) have prefixes of their own.
+function requireIdPrefix(idPrefix) {
+  if (typeof idPrefix !== "string" || !idPrefix) {
+    throw new TypeError("auth.local.recovery.consumeForUser() takes the idPrefix of the tokens it consumes, such as \"rec_\".");
+  }
+}
+
 function readPassword(record) {
   return {
     algorithm: text(record.passwordAlgorithm),
@@ -354,7 +372,9 @@ function sessionRecords(sessions, options) {
       return mapSession(await findOne(sessions, "tokenHash", tokenHash, options));
     },
     // Only a session's purpose and expiry change, as when a magic-link session becomes a normal one.
-    async update(sessionId, { purpose, expiresAt, ...rest } = {}) {
+    // updateOptions.onlyIf changes it only while it still has those values (userId, purpose, revokedAt: null), in
+    // the UPDATE itself: a session that is missing or no longer matches answers null, with nothing written.
+    async update(sessionId, { purpose, expiresAt, ...rest } = {}, { onlyIf } = {}) {
       if (Object.keys(rest).length > 0) {
         throw new TypeError("auth.local.sessions.update() changes a session's purpose and expiresAt only.");
       }
@@ -365,7 +385,11 @@ function sessionRecords(sessions, options) {
       if (expiresAt !== undefined) {
         changes.expiresAt = requiredDateTime(expiresAt);
       }
-      return mapSession(await patchExisting(sessions, sessionId, changes, options));
+      if (onlyIf === undefined) {
+        return mapSession(await patchExisting(sessions, sessionId, changes, options));
+      }
+      requireSessionConditions(onlyIf);
+      return mapSession(await patchExisting(sessions, sessionId, changes, { ...options, onlyIf }));
     },
     async revoke(sessionId) {
       const existing = await findById(sessions, sessionId, options);
@@ -424,13 +448,16 @@ function recoveryRecords(recovery, options) {
         missing: "skip"
       }));
     },
-    async consumeForUser(userId) {
+    // The user's unused tokens of one kind (consumeOptions.idPrefix), never their others: a new sign-in link leaves
+    // an open password reset usable, and the other way round.
+    async consumeForUser(userId, { idPrefix } = {}) {
+      requireIdPrefix(idPrefix);
       const owner = text(userId);
       if (!owner) {
         return 0;
       }
       const usedAt = requiredDateTime();
-      return recovery.patchWhere({ userId: owner }, { usedAt, updatedAt: usedAt }, {
+      return recovery.patchWhere({ userId: owner, idPrefix }, { usedAt, updatedAt: usedAt }, {
         ...options,
         onlyIf: { usedAt: null },
         returning: "count"
@@ -621,7 +648,8 @@ function createLocalDbOwners({ resources, identities, context }) {
   });
   const sessions = Object.freeze({
     create: (input, options = {}) => records(options).sessions.create(input),
-    update: (sessionId, changes, options = {}) => records(options).sessions.update(sessionId, changes),
+    // options.onlyIf (userId, purpose, revokedAt) changes the session only while it still matches, or answers null.
+    update: (sessionId, changes, { onlyIf, ...options } = {}) => records(options).sessions.update(sessionId, changes, { onlyIf }),
     revoke: (sessionId, options = {}) => records(options).sessions.revoke(sessionId),
     // options.exceptSessionId keeps that session.
     revokeForUser: (userId, { exceptSessionId, ...options } = {}) => records(options).sessions.revokeForUser(userId, { exceptSessionId }),
@@ -631,7 +659,8 @@ function createLocalDbOwners({ resources, identities, context }) {
     create: (input, options = {}) => records(options).recovery.create(input),
     findByTokenHash: (tokenHash, options = {}) => records(options).recovery.findByTokenHash(tokenHash),
     consume: (tokenId, options = {}) => records(options).recovery.consume(tokenId),
-    consumeForUser: (userId, options = {}) => records(options).recovery.consumeForUser(userId)
+    // options.idPrefix names the kind of token consumed, such as "rec_" for a password reset's.
+    consumeForUser: (userId, { idPrefix, ...options } = {}) => records(options).recovery.consumeForUser(userId, { idPrefix })
   });
 
   return Object.freeze({

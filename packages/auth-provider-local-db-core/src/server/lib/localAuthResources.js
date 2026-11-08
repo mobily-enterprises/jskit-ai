@@ -18,6 +18,12 @@ const password = Object.freeze({
 // Rows that expire by a time, inclusive.
 const expiresAtOrBefore = Object.freeze({ type: "dateTime", actualField: "expiresAt", filterOperator: "<=" });
 
+// Rows whose id starts with the text, compared as the column compares text and never as a LIKE pattern, which would
+// read the `_` of a prefix such as `rec_` as any character.
+function idStartsWith(query, prefix, { column }) {
+  query.whereRaw("substr(??, 1, ?) = ?", [column("id"), prefix.length, prefix]);
+}
+
 // auth_local_users: one row per local account, keyed by its text id.
 const localAuthUserResource = defineTableResource({
   name: "localAuthUsers",
@@ -67,6 +73,10 @@ const localAuthRecoveryResource = defineTableResource({
     usedAt: optionalDateTime,
     createdAt: dateTime,
     updatedAt: dateTime
+  },
+  searchSchema: {
+    // One kind of token, such as a password reset's (`rec_`).
+    idPrefix: { type: "string", applyFilter: idStartsWith }
   }
 });
 

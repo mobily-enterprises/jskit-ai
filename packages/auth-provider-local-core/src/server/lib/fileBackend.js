@@ -311,10 +311,13 @@ function createTx(state, touched) {
         mark("recovery");
         return clone(record);
       },
-      async consumeForUser(userId) {
+      async consumeForUser(userId, { idPrefix } = {}) {
+        if (typeof idPrefix !== "string" || !idPrefix) {
+          throw new TypeError("recovery.consumeForUser() takes the idPrefix of the tokens it consumes, such as \"rec_\".");
+        }
         let count = 0;
         for (const record of state.recovery) {
-          if (record.userId === userId && !record.usedAt) {
+          if (record.userId === userId && !record.usedAt && record.id.startsWith(idPrefix)) {
             record.usedAt = nowIso();
             count += 1;
           }

@@ -242,14 +242,26 @@ error.
 | Capability | Methods |
 | --- | --- |
 | `auth.local.accounts` | `create(account, options)`, `findById(userId, options)`, `findByEmail(email, options)`, `updatePassword(userId, passwordRecord, options)`, `updateProfile(userId, { displayName }, options)`, `markEmailVerified(userId, options)` |
-| `auth.local.sessions` | `create(session, options)`, `update(sessionId, { purpose, expiresAt }, options)`, `revoke(sessionId, options)`, `revokeForUser(userId, { ...options, exceptSessionId })`, `deleteExpired(now, options)` |
-| `auth.local.recovery` | `create(token, options)`, `findByTokenHash(tokenHash, options)`, `consume(tokenId, options)`, `consumeForUser(userId, options)` |
+| `auth.local.sessions` | `create(session, options)`, `update(sessionId, { purpose, expiresAt }, { ...options, onlyIf })`, `revoke(sessionId, options)`, `revokeForUser(userId, { ...options, exceptSessionId })`, `deleteExpired(now, options)` |
+| `auth.local.recovery` | `create(token, options)`, `findByTokenHash(tokenHash, options)`, `consume(tokenId, options)`, `consumeForUser(userId, { ...options, idPrefix })` |
 
 `markEmailVerified` records that the account proved it owns its email address,
 for example by using an emailed link, in the `email_verified_at` column (run
 `npm run db:migrate`); the first proof is kept, and the account answers it as
 `emailVerifiedAt` (empty until then). `deleteExpired` deletes the sessions that
-expired by `now` and answers how many. Their types are `AuthLocalAccounts`,
+expired by `now` and answers how many.
+
+A recovery token's kind is the start of its id: local sign-in's password resets
+are `rec_…`, and an app's own kind (a sign-in link, say) takes a prefix of its
+own, such as `magic_…`. `consumeForUser` consumes the user's open tokens of the
+kind `idPrefix` names and no others, so a new sign-in link leaves an open
+password reset usable, and a completed reset leaves sign-in links open.
+`update` with `onlyIf` (`userId`, `purpose`, `revokedAt`) changes the session
+only while it still has those values, compared in the UPDATE itself, and
+answers null, writing nothing, when it does not: promote a sign-in link's
+session with
+`update(sessionId, { purpose: "normal", expiresAt }, { ...options, onlyIf: { userId, purpose: "recovery", revokedAt: null } })`
+and treat null as a refused link. Their types are `AuthLocalAccounts`,
 `AuthLocalSessions` and `AuthLocalRecovery` in
 `@jskit-ai/auth-provider-local-db-core/server/types`.
 
