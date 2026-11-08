@@ -14,6 +14,9 @@ Default JSKIT pattern:
 4. A computed output field is `storage: { virtual: true }` in the shared schema, and its SQL goes in the owner's `owns` entry as `queryFields`, on the server.
 5. Handles apply those projections on every read; no repository method re-selects them.
 6. A field's default value is `defaultTo`; `default` is refused, since json-rest-api would ignore it.
+7. A field no request may see (an ownership id, a bearer token) is `hidden: true`, and stays hidden: the owner's code
+   reads it by naming it in a handle read's `fields`, and a system context may name it through another feature's
+   CRUD repository. Unhiding it puts it in every read's answer, other features' included; never read it with `scopedQuery`.
 
 Field metadata rules:
 
@@ -42,8 +45,8 @@ const ReceivalsFeature = defineFeature({
     queryFields: {
       remainingWeight: {
         type: "number",
-        select({ knex, column }) {
-          return knex.raw("?? - coalesce(??, 0)", [column("received_weight"), column("processed_weight")]);
+        select({ raw, column }) {
+          return raw("?? - coalesce(??, 0)", [column("receivedWeight"), column("processedWeight")]);
         }
       }
     }
@@ -53,6 +56,9 @@ const ReceivalsFeature = defineFeature({
 ```
 
 Keep projection SQL in the server feature that owns the table, never in the shared resource that ships to the browser.
+`select` receives `raw`, which builds one SQL expression from a string literal and its bindings (awaiting it throws),
+`column(field)`, which names a field's column, and the read's `filters`; never Knex. The expression is the field's value
+only, so it reads no other table.
 
 What the resource runtime does for you:
 - reads select only column-backed fields plus the registered query fields

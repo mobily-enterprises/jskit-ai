@@ -40,13 +40,26 @@ Exports
 - `formatOf(name, options)`
 - `matchesNoRow(filters, schemaInfo)`
 - `missingOf(name, caller, missing = "throw")`
+- `requireConditionValues(name, method, options, keys)`
 - `requireDefinedFilters(name, caller, filters, path = "filters")`
 - `requireOwners(name, ownership, context)`
-- `requirePatchConditions(name, lockVersionField, attributes, { lockVersion, onlyIf })`
+- `requirePatchConditions(name, lockVersionField, attributes, options)`
 - `requireReadParams(name, params)`
 - `requireUpsertRows(name, rows, onConflict, idProperty)`
-- `valueOnly(name, expression)`
+- `passedOn(options)`
 - `whereSelection(name, operation, filters, options)`
+
+### `src/server/handleHidden.js`
+Exports
+- `createHiddenFieldReads({ resource, scopedQuery, column })`
+- `withoutHiddenFields(repository, resource)`
+Local functions
+- `namedHiddenFields(resource, fields)`
+- `storedValue(value, { type, precision, scale })`
+
+### `src/server/handleLocks.js`
+Exports
+- `createLockReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields })`
 
 ### `src/server/handleRecords.js`
 Exports
@@ -59,6 +72,7 @@ Exports
 - `inputData(resource, attributes, stamp, context)`
 - `manyResult(resource, result, returning)`
 - `matchesOnlyIf(record, onlyIf)`
+- `namedFields(resource, fields)`
 - `noRowsAggregate(measures, groupBy)`
 - `patchAnswer(id, record, returning)`
 - `upsertConflict(resource, rows, onConflict, context, ownershipFields)`
@@ -70,9 +84,9 @@ Exports
 - `textList(value)`
 Local functions
 - `setsOwnTimestamps(context)`
+- `stampAt(field, now)`
 - `stampedAttributes(resource, attributes, stamp, context)`
 - `includedRelationships(include)`
-- `namedFields(resource, fields)`
 - `handleRecord(resource, record, included, named, resourceNamed)`
 
 ### `src/server/index.js`
@@ -85,6 +99,8 @@ Exports
 - `resolveWorkspaceScopeValue`
 - `createStandaloneResources`
 - `isSystemContext`
+- `withoutHiddenFields`
+- `passedOn`
 - `DuplicateOwnerError`
 - `MissingScopeError`
 - `PageSizeError`
@@ -102,6 +118,12 @@ Exports
 - `findOrCreateRecord({ get, create }, attributes, options)`
 - `lockOrCreate(handle, row, options, work)`
 
+### `src/server/rawExpression.js`
+Exports
+- `valueOnlyRaw(label, knex, args)`
+Local functions
+- `valueOnly(label, expression)`
+
 ### `src/server/resourceHandle.js`
 Exports
 - `MANY_ROW_CHANNEL`
@@ -110,6 +132,7 @@ Local functions
 - `reportManyRow(resource, operation, rows, chunkSize)`
 - `requireHandleTransaction(name, options)`
 - `openTransaction(api, options, work)`
+- `formatSetting(options)`
 - `inTransaction(options)`
 - `write(options, run)`
 
@@ -130,6 +153,7 @@ Local functions
 - `normalizeJsonRestFilterValue(value)`
 - `normalizeJsonRestList(value)`
 - `normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, projectionDefinition = null)`
+- `queryFieldSelect(fieldName, select)`
 - `isJsonRestVirtualField(fieldDefinition = null)`
 - `applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {})`
 - `resolveJsonRestDefaultExcludedFields(resource)`

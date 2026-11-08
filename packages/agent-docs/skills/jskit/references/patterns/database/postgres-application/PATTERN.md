@@ -50,8 +50,11 @@ Knex discovers package-owned migrations from the installed dependency graph.
 `example/package.json` contains the runtime dependency and database scripts.
 `example/knexfile.js` loads an optional local `.env` and fixes the PostgreSQL
 dialect. `example/scripts/prepare-database.js` is the portable
-migrate-then-seed entrypoint for managed sessions and deployments.
-`example/.env.example` names the five connection values without a secret.
+migrate-then-seed entrypoint for managed sessions and deployments. It loads
+the optional `.env` as the knexfile does, and migrates the database `DB_NAME`
+names without creating it: the hosting environment or a database
+administrator creates it first. `example/.env.example` names the five
+connection values without a secret.
 
 Tests get their own databases from
 `@jskit-ai/database-runtime/server/testDatabases`. The `test` script runs

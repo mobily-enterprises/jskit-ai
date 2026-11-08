@@ -226,6 +226,7 @@ Local functions
 - `namesKnex(node)`
 - `namesBuilder(node)`
 - `isReference(node)`
+- `isTableText(node)`
 - `namesTable(callee, first)`
 - `isOtherLibrary(method, object, args)`
 - `joinsNamedTable(method, first)`
@@ -368,6 +369,7 @@ Local functions
 Exports
 - `sqlLiteral`
 Local functions
+- `sqlMethod(node)`
 - `shortText(sourceCode, node)`
 
 ### `plugin/rules/typedDependencies.js`

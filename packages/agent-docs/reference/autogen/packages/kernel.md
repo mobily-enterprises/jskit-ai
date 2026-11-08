@@ -1005,6 +1005,7 @@ Exports
 ### `server/runtime/errors.js`
 Exports
 - `isAppError(error)`
+- `hideDatabaseError(error)`
 - `isDomainError(error)`
 - `createValidationError(fieldErrors)`
 - `AppError`
@@ -1012,6 +1013,9 @@ Exports
 - `DomainValidationError`
 - `ConflictError`
 - `NotFoundError`
+Local functions
+- `isDriverError(error)`
+- `findDatabaseError(error)`
 
 ### `server/runtime/EventProvider.js`
 Exports
@@ -1033,6 +1037,7 @@ Exports
 Exports
 - `AppError`
 - `createValidationError`
+- `hideDatabaseError`
 - `parsePositiveInteger`
 - `requireAuth`
 - `BootstrapProvider`

@@ -117,8 +117,10 @@ of copying it.
 
 For mutations, lifecycle phases before commit share one repository
 transaction. An `execute` hook that only normalizes input calls
-`standard(nextInput)` rather than reimplementing the write. Repositories own
-database access; services and hooks orchestrate repositories. External work
+`standard(nextInput)` rather than reimplementing the write. The feature that
+owns a table reads and writes it through the handles its `owns` entry gives
+its repository; services, hooks and other features call that repository or
+the owner's API, never the table. External work
 runs after commit, or a durable outbox record is written inside the transaction
 and delivered separately.
 
@@ -210,6 +212,9 @@ write goes through that table's handle
 | a hand-built `visibilityContext` or scope values, `applyVisibility()`, `applyVisibilityOwners()` | the caller's context, or `systemContext(reason).forWorkspace(id)` |
 | a field's `default:` | `defaultTo:` (`default` is refused, since json-rest-api never read it) |
 | a `createdAt` or `updatedAt` default of now | nothing: drop it, since every handle write stamps them |
+| a CRUD contract that showed every column | a contract shows only its `fields`, so list every field the API showed |
+| reading every row | `queryAll`, which refuses above 10,000 rows, so page with `query()` |
+| an app's own wrappers around old calls | the handle method they wrapped, then delete the wrapper |
 
 Handles answer records, `{ id, ...fields }`, with a belongs-to field as the
 related id; the CRUD service alone answers JSON:API documents. Every call takes
@@ -221,8 +226,9 @@ json-rest-api 3 changes what a failed write means: any failed write inside a
 managed transaction fails the whole transaction. "Insert, catch the duplicate,
 then read" inside a transaction no longer works; use
 `createMany(rows, { ...options, onConflict: { keys, action: "ignore" } })` and then read,
-or read first. A `patch` or `delete` of a missing record answers `null` on its
-own, and throws inside a transaction the caller opened. Upsert rows carry no
+or read first. A `get`, `patch`, `delete` or `lock` of a missing or hidden
+record throws json-rest-api's not-found error (a 404); with `missing: "skip"`
+it answers `null`, without failing the caller's transaction. Upsert rows carry no
 `id`, never repeat their conflict keys, and name the ownership field among
 those keys. `patchWhere` and `deleteWhere` need filters, or `all: true`.
 

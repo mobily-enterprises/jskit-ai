@@ -87,7 +87,8 @@ Local functions
 - `readTableResources(file, { code, masked, position })`
 - `readCrudContracts({ code, masked })`
 - `unnamedFields(resources, contracts)`
-- `readSystemScopes(file, { code, masked, position })`
+- `ownsSystemContextName(source, masked)`
+- `readSystemScopes(file, { source, code, masked, position })`
 - `readInfrastructureExcuses(file, source)`
 - `readLintDisables(file, source, position)`
 - `readRuntimeCapabilities(file, { code, masked, position })`

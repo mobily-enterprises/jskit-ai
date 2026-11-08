@@ -359,7 +359,7 @@ Exports
 
 ### `src/server/services/chatService.js`
 Exports
-- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, personContextPrompt, appConfig, workspaceScopeSupport })`
+- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, personContextPrompt, appConfig, workspaceScopeSupport, logger = silentLogger })`
 - `type AssistantAiClientFactory`
 - `type AssistantAttachments`
 - `type AssistantConfigService`

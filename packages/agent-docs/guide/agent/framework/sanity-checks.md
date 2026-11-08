@@ -82,7 +82,9 @@ expects the relationship id or an unselected field never gets it.
   realistic number; the count should follow tables and pages, not rows
   ([Tests](/guide/framework/data-access#tests)).
 - A JSON:API read adds a few lookup and visibility queries per page and per
-  relationship field. That follows pages, so it is expected.
+  relationship field, and json-rest-api reads each relationship's related ids
+  in one statement however many rows the page has. Both follow pages, not
+  rows, so `expectFlatQueries` passes them.
 - A handle's `get()` or `query()`, or a service `get`, inside a loop is the
   usual per-row read; batch it with an id-list filter through `queryAll()` or
   `include`, grouped with `Map.groupBy()`

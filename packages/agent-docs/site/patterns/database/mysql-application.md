@@ -49,8 +49,11 @@ Knex discovers package-owned migrations from the installed dependency graph.
 `example/package.json` contains the runtime dependency and database scripts.
 `example/knexfile.js` loads an optional local `.env` and fixes the MySQL dialect.
 `example/scripts/prepare-database.js` is the portable migrate-then-seed
-entrypoint for managed sessions and deployments. `example/.env.example` names
-the connection values and separate test databases without a secret.
+entrypoint for managed sessions and deployments. It loads the optional `.env`
+as the knexfile does, and migrates the database `DB_NAME` names without
+creating it: the hosting environment or a database administrator creates it
+first. `example/.env.example` names the connection values and separate test
+databases without a secret.
 
 `example/.github/workflows/verify.yml` is a normal app-owned CI workflow with
 exactly one database service: `mariadb` (`mariadb:11.4`, `MARIADB_*`

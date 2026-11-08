@@ -53,6 +53,22 @@ the **Your workspaces** page at `src/pages/home/workspaces/index.vue`, member
 and settings routes, not-found state, app-owned invitation widgets, and the
 components that an application's client provider registers.
 
+`example/src/surfaces/<surface>/` and `example/src/pages/admin/` are each
+surface's own pages; the app puts them under the surface's `pagesRoot`. With
+`pagesRoot: "w/[workspaceSlug]"` for `app` and `"w/[workspaceSlug]/admin"` for
+`admin`:
+
+| Example file | App file |
+| --- | --- |
+| `src/surfaces/app/root.vue` | `src/pages/w/[workspaceSlug].vue` |
+| `src/surfaces/app/index.vue` | `src/pages/w/[workspaceSlug]/index.vue` |
+| `src/surfaces/admin/root.vue` | `src/pages/w/[workspaceSlug]/admin.vue` |
+| `src/surfaces/admin/index.vue` | `src/pages/w/[workspaceSlug]/admin/index.vue` |
+| `src/pages/admin/...` | `src/pages/w/[workspaceSlug]/admin/...` |
+
+The surface definitions and access policies they need are in the human
+guide's **Workspace tenancy → Surfaces and where `/` lands**.
+
 ## Variation points
 
 Change surfaces, routes, section owners, labels, icons, placement order,

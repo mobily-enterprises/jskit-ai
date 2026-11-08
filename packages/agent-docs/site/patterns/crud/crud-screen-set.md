@@ -168,6 +168,21 @@ through to Vuetify.
 Here `lookups` is the page's `createCrudLookupFieldRuntime()` result for the
 same form fields.
 
+### Linked records in a list
+
+A list that shows a field of a linked record asks for it by relationship name
+in `useCrudListScreen({ ..., requestQueryParams: { include: "service" } })`,
+and each row reads it from its `lookups`: `record.lookups.service.name`. The
+contract decides which of the linked record's fields arrive: its id, its
+relation's `labelKey`, and what `fields.serviceId.output.includeFields` names.
+
+```vue
+<template #table-row="{ record }">
+  <td>{{ record.title }}</td>
+  <td>{{ record.lookups?.service?.name }}</td>
+</template>
+```
+
 ## Verification
 
 - Mount each route with a representative resource response.

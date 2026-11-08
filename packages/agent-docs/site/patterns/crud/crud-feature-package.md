@@ -184,7 +184,10 @@ service and repository its hooks call. Put durable external delivery behind an
 outbox written inside the transaction; do not make an email or webhook the
 arbiter of whether an already-committed request appears successful.
 
-Declare resource-related non-CRUD commands in `actions`. Each named action has
+Declare resource-related non-CRUD commands in `actions`. Each key is the
+action's name: lower case, starting with a letter, with only letters, digits,
+`_`, `.` and `-` (`cancel-day`, never `cancelDay`); its id is
+`crud.<namespace>.<name>`. Each named action has
 a normal JSKIT input, permission, audit, events, and `execute({ input, context,
 service, repository, ...dependencies })` contract. Type that argument with
 `CrudCustomActionInvocation` from `@jskit-ai/crud-core/server/types`. Its first
@@ -194,7 +197,7 @@ by local name; its third is the repository the action calls, when
 `decorateRepository` adds the method. Its optional `route`
 declares an HTTP method, path below the resource base, explicit route contract,
 status code, and optional request-to-action input mapper. This is the normal
-home for `confirm`, `publish`, `cancel`, `reorder`, or `sendReminder`. Move to a
+home for `confirm`, `publish`, `cancel`, `reorder`, or `send-reminder`. Move to a
 separate explicit feature only when the operation belongs to another domain or
 the resource is no longer principally CRUD.
 
@@ -277,6 +280,21 @@ const BookingsFeature = defineCrudFeature({
     }
   }
 });
+```
+
+An action's `input` is one schema definition, `{ schema, mode }`, for
+everything it validates; its route contract names each part of the request it
+reads, `params`, `query` or `body`, each a schema definition, and the route
+hands the action their fields merged. A workspace scope adds `workspaceSlug` to
+both itself.
+
+```js
+import { createSchema } from "json-rest-schema";
+import { composeSchemaDefinitions, recordIdParamsValidator } from "@jskit-ai/kernel/shared/validators";
+
+const confirmBookingBody = { schema: createSchema({ note: { type: "string", maxLength: 500 } }), mode: "patch" };
+const confirmBookingInput = composeSchemaDefinitions([recordIdParamsValidator, confirmBookingBody], { mode: "patch" });
+const confirmBookingRouteContract = { params: recordIdParamsValidator, body: confirmBookingBody };
 ```
 
 ## Verification

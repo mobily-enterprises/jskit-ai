@@ -22,7 +22,10 @@ Default JSKIT pattern:
 2. Keep direct user/workspace ownership and write stamping in the table resource's `ownership`.
 3. Put complex mandatory read visibility in a server-only row policy.
 4. Pass the policy in the owner's `owns` entry: `owns: [{ resource, rowPolicy }]`. It reads the owner's other tables through `ownTable(name)`, a read-only subquery, never by table name. Visibility rules live in the row policy, never in hand queries.
-5. Derive identity from trusted execution context.
+5. Derive identity from `caller` (`caller.kind`, then `caller.userId`), never from input. In a workspace request a role
+   rule reads `context.permissions`, which the server resolves from the membership before any handle runs, with
+   `hasPermission(context.permissions, "bookings.view-all")` from `@jskit-ai/kernel/shared/support`: `includes()`
+   misses wildcard grants, such as an owner role's `*` or a `bookings.*`.
 6. Group every policy-owned `OR` branch.
 7. Return `true` after adding the predicate, return `false` to deny all rows, or throw for invalid trusted context.
 8. Keep action permissions for writes; visibility is not mutation authorization.
@@ -42,19 +45,21 @@ Example, "your rooms or shared rooms":
 owns: [{
   resource: roomResource,
   acceptsContributions: true,
-  rowPolicy({ query, context, column, ownTable }) {
-    const userId = resolveActorId(context);
-    if (!userId) return false;
+  rowPolicy({ query, caller, column, ownTable }) {
+    if (caller.kind !== "user") return caller.kind !== "anonymous";
     query.where((rooms) => rooms
       .where(column("shared"), true)
-      .orWhereIn(column("id"), ownTable("roomMembers").select("room_id").where("user_id", userId)));
+      .orWhereIn(column("id"), ownTable("roomMembers").select("room_id").where("user_id", caller.userId)));
     return true;
   }
 }]
 ```
 
-A system context (`systemScope`, `systemContext(reason)`) reaches the policy as
-`system: true`; the policy decides what a job sees and says why.
+A policy is told who the call runs for as `caller`: `user`, `anonymous`,
+`system` or `job`. Background work is `system` or `job`, never a missing user,
+and a job names its person only as `caller.actorId`. A policy hides a row from
+every read, including other tables' links to it, so narrowing what one screen
+lists is a filter on that screen's read.
 
 Cost:
 

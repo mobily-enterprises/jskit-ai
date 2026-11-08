@@ -174,6 +174,7 @@ Exports
 - `toDbJson`
 - `isDeadlockError`
 - `retryDeadlocks`
+- `retryLostInsertRace`
 
 ### `src/shared/repositoryOptions.js`
 Exports
@@ -186,3 +187,4 @@ Exports
 - `toDbJson(value)`
 - `isDeadlockError(error)`
 - `retryDeadlocks(run, { retries = 3 } = {})`
+- `retryLostInsertRace(options, run, ...rest)`

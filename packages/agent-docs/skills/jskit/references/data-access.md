@@ -147,28 +147,52 @@ refuses it; the feature never requires it itself, since it receives its
 handles.
 
 Reads take `(params, options)` and writes `(data, options)`: `get(id, {},
-options)`. Every setting rides in options, spread from the call's own:
-`{ ...options, missing: "skip" }`, `{ ...options, returning: "id" }`. A filter
-key is one of the resource's `search: true` fields or a `searchSchema` entry;
-`id` takes one id or a list (an empty list matches no row), and another list
-of values needs an entry with `filterOperator: "in"`. The `id` filter is every
-handle's own: a resource never declares an `id` search entry. A `null` value
-matches the rows where the field is null: `filters: { archivedAt: null }`. A
-filter on another table's field (`searchSchema: { supplierName: { type:
+options)`. A call's settings ride in its options, added on the call they are
+for and spread from the options the method received: `{ ...options, missing:
+"skip" }`, `{ ...options, returning: "id" }`. A method passes on only the
+options it received, never a setting it added for one of its own calls, and
+another table gets only `{ context, trx }`: `passedOn(options)` from
+`@jskit-ai/resource-runtime/server`. `withTransaction` hands its work only the
+context and the transaction, and so does a handle to its hooks and its own
+nested calls.
+
+A filter key is one of the resource's `search: true` fields or a
+`searchSchema` entry. `id` is every handle's own filter (a resource never
+declares an `id` search entry) and takes one id or a list; an empty list
+matches no row. Another list of values needs an entry with `filterOperator:
+"in"`. A `null` value matches the rows where the field is null: `filters: {
+archivedAt: null }`.
+
+A filter on another table's field (`searchSchema: { supplierName: { type:
 "string", actualField: "suppliers.name" } }`) needs that field declared
 `indexed: true` on its own table resource, with a database index on its column,
 even when the join is on the other table's id; `own()` refuses it at startup
-otherwise, naming both. A table keyed by
-a `uuid` or `string` primary key takes its ids as text; an `owns` entry's
-`normalizeId` is only for an id written some other way.
+otherwise, naming both.
+
+A table keyed by a `uuid` or `string` primary key takes its ids as text; an
+`owns` entry's `normalizeId` is only for an id written some other way.
 
 A read answers every field unless `fields` names the ones it needs (a
 belongs-to field by its own key, such as `customerId`, or its relationship);
-`lock` and `lockMany` take it in their options, `{ ...txOptions, fields }`.
+the locks (`lock`, `lockMany`, `lockWhere` and `claim`) take it in their
+options, `{ ...txOptions, fields }`.
 Each belongs-to field a read answers costs a check that its related record is
 visible, so a hot path names its fields. A collection relation with
 `hydrateOnList: false` or `hydrateOnView: false` loads its rows on that kind of
 read only when the read includes it.
+
+A `hidden: true` field (an ownership id, a bearer token, a storage key) never
+reaches a request: no CRUD route or JSON:API document (`format: "jsonapi"`)
+carries it, even when `fields` names it. The owner's own code reads one by
+naming it in a handle read's `fields`, `get(id, { fields: ["publicToken"] },
+options)` or `{ ...txOptions, fields }` for a lock, which costs one more
+statement per 1,000 records, scoped as the read is; a read without `fields`
+never answers it. It may be an id, string, integer, number or boolean, and
+naming any other kind refuses the read. The repository a CRUD feature gives
+other features, and its own actions, refuses a read naming a hidden field
+unless it runs in a system context, so the owner checks a token in a method
+`decorateRepository` adds, with the handle it receives. Never unhide a field
+to read it, and never read it with `scopedQuery`.
 
 `create` and `patch` answer the written record by default, read back through
 the row policy. Server code that does not use it passes `returning: "id"` or
@@ -184,6 +208,14 @@ id from the owner too (the workspace or user id in the fingerprint): an id
 another scope's row holds answers a missing record. That answer still says the
 id is taken, so `findOrCreate` and `lockOrCreate` take only ids the server
 computes or generates, never an id a request supplies.
+
+A write that the caller's row policy then hides fails, because its read-back
+finds nothing. The `create` or `patch` answers json-rest-api's 404
+(`REST_API_RESOURCE`, "Resource not found") and its transaction rolls back. A
+staff member who sees only the bookings they run cannot book a colleague this
+way. Decide which way the rule goes. Either the policy lets the writer see
+what they may write, or the action refuses the write before it runs, with a
+403 or 422 that says why.
 
 You never write `where workspace_id = ?`, so you cannot forget it. The row
 policy and write hooks go in the `owns` entry on the server, never in the
@@ -223,6 +255,42 @@ async function noticeVisibilityPolicy({ query, caller, context, column, value })
   return true;
 }
 ```
+
+A rule that depends on the caller's role reads `context.permissions` with
+`hasPermission(context.permissions, "bookings.view-all")` from
+`@jskit-ai/kernel/shared/support`, never with `includes()`. A role may hold
+`*` (an owner does) or `bookings.*`, and `includes()` misses both, so the
+owner would see only the rows a narrower rule leaves.
+
+```js
+import { hasPermission } from "@jskit-ai/kernel/shared/support";
+
+// good: staff see the bookings they run; bookings.view-all, the owner's * included, sees them all
+function staffSeeTheirOwnBookings({ query, caller, context, column, value }) {
+  if (caller.kind !== "user") {
+    return caller.kind !== "anonymous";
+  }
+  if (hasPermission(context.permissions, "bookings.view-all")) {
+    return true;
+  }
+  query.where(column("staffUserId"), value("staffUserId", caller.userId));
+  return true;
+}
+
+// bad: an owner holding "*" sees only the bookings they run
+if (context.permissions.includes("bookings.view-all")) return true;
+```
+
+A policy trusts `caller`. In a workspace request it also trusts what the
+server resolved from the route's workspace slug and the caller's membership
+before any handle ran:
+- `context.workspace.id`;
+- `context.membership.roleSid`;
+- `context.permissions`, the role's permissions in that workspace.
+
+On a surface whose access policy sets `requireWorkspaceMembership: false`, a
+caller who is not a member has `context.membership` null and
+`context.permissions` empty. Never decide on a value from the request's input.
 
 A row policy hides a row everywhere, also as the target of a visible record's
 link: an order whose supplier the reader cannot see reads `supplierId: null`.
@@ -286,7 +354,40 @@ from `@jskit-ai/http-runtime/shared`, never with a second read; a relationship
 whose field key is not its name plus `Id` passes
 `{ lookupFieldMap: { owner: "ownerUserId" } }`.
 A second surface on the same table (a customer's view beside the staff's) is
-a second CRUD contract on the same resource, never a second resource. A field
+a second CRUD contract on the same resource, never a second resource, with
+its own namespace. One plain feature owns the table and provides its handle.
+Each surface is a `defineCrudFeature` that serves its contract through that
+handle with `ownerRepository`. A CRUD feature that owns the table provides
+`{ repository, crud, service }` rather than a handle, so it cannot be another
+one's `ownerRepository`.
+
+```js
+const ServicesFeature = defineFeature({
+  id: "app.services",
+  owns: [serviceResource],
+  provides: { services: "app.services" },
+  setup: ({ resources }) => ({ services: resources.services })
+});
+const ServiceAdminFeature = defineCrudFeature({
+  crud: serviceAdminCrud,
+  surface: "admin",
+  ownerRepository: "app.services",
+  scope: WORKSPACE_CRUD_SCOPE,
+  relativePath: "/services"
+});
+const ServiceCatalogFeature = defineCrudFeature({
+  crud: serviceCatalogCrud,
+  surface: "app",
+  ownerRepository: "app.services",
+  scope: WORKSPACE_CRUD_SCOPE,
+  relativePath: "/service-catalog"
+});
+```
+
+`WORKSPACE_CRUD_SCOPE` is from
+`@jskit-ai/workspaces-core/server/support/workspaceCrud`; the two contracts'
+namespaces differ because `crud.contracts` refuses two contracts under one
+namespace. A field
 fragment several resources spread into their schemas carries only the field:
 each contract that shows it states its operations in its own `fields`.
 
@@ -300,13 +401,25 @@ list. Each checks every row against the resource first, reads which of the
 rows the caller may touch, then writes each chunk with one statement, in one
 transaction. Audits and change events run once for the batch, so the
 statements are the same for 10 rows as for 200. `patchWhere` and
-`deleteWhere` put the scope and filters in the statement itself, so a row gone
-meanwhile is skipped, and they take no `missing`. They change the rows that
-match, but they are not a guard: on MySQL and MariaDB two writers whose filters
-both matched a row can both change it. A change that must happen only while a
-row still holds a value (open to booked, once) is
-`patch(id, changes, { ...options, onlyIf: { status: "open" } })`, a `claim`, or
-a lock and a check (Layer 4). A many-row write answers
+`deleteWhere` check the scope and filters on each row once they hold its lock,
+so a row gone meanwhile, or changed so that it no longer matches, is skipped,
+and they take no `missing`. That makes them a compare-and-set on their filters
+on every database: of two writers whose filters both matched a row (open to
+booked), only one writes it, and the other's answer says so
+(`returning: "ids"` lists only the rows it wrote). The one that waited for the
+other's lock leaves the row out; SQLite gets there by failing the second writer
+with `SQLITE_BUSY`, and MariaDB with `innodb_snapshot_isolation` fails the
+waiter with errno 1020 ("Record has changed since last read"), which a write
+that owns its transaction runs again. For one row,
+`patch(id, changes, { ...options, onlyIf: { status: "open" } })` does the same.
+A filter on another table (a search field whose `actualField` reaches a
+related table) is refused on MySQL and MariaDB (`RestApiValidationError`, rule
+`selection_cross_table`), even when it matches no row. A search entry's own
+`applyFilter` that reads another table through a subquery is not detected, and
+is no compare-and-set there either. Filter on the row's own columns instead, for example
+on the link after locking its targets with `lockMany` in the same transaction
+(Layer 4), or move the value onto the row itself for `onlyIf`, or use a
+`claim`. A many-row write answers
 nothing unless `returning` asks: `"ids"`, `"records"`, or `"count"`, which
 reads nothing back.
 
@@ -325,6 +438,23 @@ upserts at once the later stays, so a counter that must count both is created
 plainly and its duplicate retried instead. Inserting and catching the
 duplicate works only outside a transaction: inside one, the failed insert
 fails the whole transaction, so use an upsert there.
+
+A transaction whose insert loses a race for a unique key (another request with
+the same idempotency key committed first) runs once more:
+`retryLostInsertRace(options, () => repository.withTransaction(options, work))`
+from `@jskit-ai/database-runtime/shared`. The database reports the duplicate
+only once the winner has committed, so the second run's lookup by the key
+finds the winner's row. A second duplicate is final, and inside a caller's
+transaction nothing runs again: the caller's transaction has failed, and the
+caller's own retry runs the whole of it. Never write this retry by hand.
+
+```js
+// A repeated payment request answers the first one's record.
+const recordPayment = (input, options) => retryLostInsertRace(options, () => payments.withTransaction(options, async (txOptions) => {
+  const [paid] = await payments.queryAll({ filters: { requestKey: input.requestKey } }, txOptions);
+  return paid ?? payments.create(input, txOptions);
+}));
+```
 
 ## Layer 4: locks
 
@@ -405,32 +535,67 @@ async function activeDays(memberIds, options) {
 }
 ```
 
-- Each report is one named repository method under `// Knex: <kind> - <reason>`.
-  The kinds are a closed list: `totals`, `report`, `newest-per-group`,
-  `subquery`, `hot-path` (with its JSKIT ticket: `// Knex: hot-path #123 -
-  <reason>`) and `runtime-tables`.
+- Each report is one named method in its owner's repository file
+  (`*Repository.js`, `repository.js`, or a file under `repositories/`;
+  `jskit/knex-reason` refuses `scopedQuery()` anywhere else), under
+  `// Knex: <kind> - <reason>`. The kinds:
+  - `totals`: sums or counts `aggregate` cannot group;
+  - `report`: rows shaped across tables;
+  - `newest-per-group`: one row per group, such as each customer's latest
+    visit;
+  - `subquery`: a scoped set another query joins;
+  - `hot-path`: a measured path the handle makes too slow, with its JSKIT
+    ticket (`// Knex: hot-path #123 - <reason>`);
+  - `runtime-tables`: tables people define while the app runs, which no table
+    resource in the code describes.
 - `column()` names columns; `raw` takes one expression as a string literal,
   with its values as bindings.
-- The builder only reads, and only its own table is scoped. A `.join()` of
-  another table, or a table named inside `raw()`, reads that table's rows past
-  its owner and row policy, and nothing at run time stops it: only the
-  `jskit/no-direct-knex` and `jskit/sql-literal` lint rules do. Join only
-  another table's `scopedQuery()` as a subquery, or read it through its owner.
-- Give each report a scope test and a flat-query test (see [Tests](#tests)).
-- A report over tables with different owners is a feature of its own. It
-  requires a report method from each owner (keys in, grouped totals out) and
-  merges their answers in memory: one statement per owner, never a join across
-  owners or a call per row. When a measured report is too slow, the owner of
-  the main table adds a method that takes the other owner's keys.
+- The builder only reads, and only its own table is scoped. A `.join()` of a
+  table by name, or a table named inside `raw()`, reads that table's rows past
+  its owner and row policy. Nothing at run time stops it: `jskit/no-direct-knex`
+  and `jskit/sql-literal` flag it, and `expectScoped` catches it only when the
+  test seeds another owner's rows the join matches. Join another table only as
+  that table's scoped subquery.
+- When a report needs another owner's rows side by side, that owner adds a
+  method answering its scoped rows as a subquery with its own column names,
+  and the report joins it in one statement. The method answers
+  `{ query, column }` from its `scopedQuery({ alias }, options)`, with
+  `column(field)` naming its columns under that alias, wrapped, since a
+  builder is thenable and an async function would run it. The report shapes
+  that builder (select, group), names it with `.as()` and joins it, so every
+  owner's scope and row policy stay applied. The report lives with the main
+  table's owner, or in a feature that requires both.
 
   ```js
-  // tasks and invoices have different owners; the report feature requires both owner APIs
-  async function projectSummary(projectIds, options) {
-    const openTasks = await tasks.countOpenByProject(projectIds, options);
-    const billed = await invoices.totalsByProject(projectIds, options);
-    return projectIds.map((projectId) => ({ projectId, openTasks: openTasks.get(projectId) ?? 0, billed: billed.get(projectId) ?? 0 }));
+  // billing's owner API: its scoped invoices as a join source, with their column names
+  async function invoiceSource(alias, options) {
+    const { query } = await invoices.scopedQuery({ alias }, options);
+    return { query, column: (field) => invoices.column(field, alias) };
+  }
+
+  // Knex: report - open tasks and billed totals per project, joined on billing's scoped invoices
+  async function projectSummary(options) {
+    const source = await billing.invoiceSource("i", options);
+    const billed = source.query
+      .select({ projectId: source.column("projectId") })
+      .sum({ billed: source.column("amount") })
+      .groupBy(source.column("projectId"))
+      .as("b");
+    const { query } = await tasks.scopedQuery({ alias: "t" }, options);
+    const projectId = tasks.column("projectId", "t");
+    return query
+      .leftJoin(billed, "b.projectId", projectId)
+      .select({ projectId })
+      .count({ open: tasks.column("id", "t") })
+      .max({ billed: "b.billed" })
+      .groupBy(projectId);
   }
   ```
+
+- When each owner can answer on its own (keys in, grouped totals out), the
+  report is a feature of its own that calls each owner's method and merges the
+  answers in memory: one statement per owner, never a call per row.
+- Give each report a scope test and a flat-query test (see [Tests](#tests)).
 
 ## Reads shaped for the screen
 
@@ -515,6 +680,11 @@ const SettlementFeature = defineFeature({
     }
   }
   ```
+- A job that must learn each row's owner across workspaces names the hidden
+  ownership field in its read's `fields`, `queryAll({ filters, fields:
+  ["workspaceId", "email"] }, { context })`, as a system context may do through
+  another feature's CRUD repository too (see [Layer
+  1](#layer-1-the-table-resource)). Never unhide it for the job.
 - A request uses its own context. The only exception is a console report
   behind a console permission, with bounded output.
 - `jskit check` lists every system scope and every `systemContext` call with
@@ -524,6 +694,10 @@ const SettlementFeature = defineFeature({
   from the request or from `forWorkspace`, `forUser` and `forWorkspaceUser`:
   lint refuses `createSystemContext` and hand-written `scopeValues`, and a
   context naming two workspaces or two users throws.
+- A job that runs on a schedule is a feature whose `boot()` starts a timer and
+  whose `shutdown()` stops it; JSKIT ships no scheduler. See
+  [typed features, Owned state](typed-features.md#owned-state).
+  Every server runs the timer, so a run takes its rows with `claim()`.
 
 Bad: a job read every record of every workspace inside a request path, every
 hour.
@@ -539,7 +713,9 @@ after-effects after commit. Any failed write inside it fails the whole
 transaction.
 
 A deadlock victim's transaction (MySQL and MariaDB errno 1213, PostgreSQL
-`40P01`) runs its whole work again, up to three more times, so the work must
+`40P01`), and one MariaDB fails as "Record has changed since last read" (errno
+1020, with `innodb_snapshot_isolation` on), runs its whole work again, up to
+three more times, so the work must
 be safe to repeat: an HTTP call or an email goes after commit, or into an
 outbox row written inside it. Work that cannot be repeated passes `{ ...options, retry: false }`, and work that must
 commit before its caller goes on passes `{ ...options, outermost: true }`.
@@ -549,11 +725,24 @@ caller's, `outermost` refuses one, and `lock`, `lockMany`, `lockOrCreate` and
 
 When the work throws, the transaction rolls back and the caller gets the
 work's own error, with its status and code, reporting `transactionOutcome:
-"rolledBack"`, so a retry of a lost insert race (`isLostDuplicateInsertRace`)
-also sees a 409 the work made from the duplicate. A failed write inside the work, or a failed commit, reaches
-the caller as json-rest-api's `RestApiWriteError` (code `REST_API_WRITE`)
-with the transaction's outcome. Classify an error by its `code` or `status`,
+"rolledBack"`, so `retryLostInsertRace` (Layer 3) also runs again work that
+turned the duplicate into its own 409. A failed write inside the work, or a failed commit, reaches
+the caller as json-rest-api's `RestApiWriteError` with the transaction's
+outcome. It carries the failure's own `code` and `status` (a driver's
+`ER_CHECKREAD`, a not-found's 404), and `REST_API_WRITE` only when the failure
+has no code. Classify an error by its `code` or `status`,
 never with `instanceof`: a second copy of a package makes a second class.
+
+A database error never reaches a client. Its message carries the statement
+and its values, so JSKIT's HTTP handler and the assistant's stream answer one,
+thrown as it is or as a wrapper's cause, with a stand-in
+(`hideDatabaseError` in `@jskit-ai/kernel/server/runtime`) and log it in full:
+409 `kernel.database.concurrentWrite` when the database refused the transaction for a concurrent one
+(a deadlock or lock wait whose retries ran out, a row changed since the
+transaction's snapshot, a serialization failure), which the client may send
+again, else 500. To give a duplicate key or another database refusal its own
+answer, throw an `AppError` (a `ConflictError`) with the driver's error as its
+`cause`: an `AppError` keeps its answer whatever it wraps.
 
 ```js
 const allocate = (input, options) => repository.withTransaction(options, async (txOptions) => {
@@ -570,7 +759,9 @@ Ask the owner: its service, or for a JSKIT table its owner API, with the same
 `workspaces.memberships`), local sign-in (`auth.local.accounts`,
 `auth.local.sessions`, `auth.local.recovery`) and the console
 (`console.settings`). A realtime audience reaches its users the same way: its
-`audienceUsers({ event, options })` asks the owners and answers user ids.
+`audienceUsers({ event, options })` asks the owners and answers user ids, in the
+event's scope or, for a customer's or a public surface's event, in the workspace
+its payload names (see [Realtime](/guide/app-extras/realtime)).
 
 An app that had a table resource of its own over a JSKIT table (such as
 `users`) deletes it: its CRUD contract is built on the package's table resource
@@ -614,12 +805,14 @@ capabilities point one way:
   children) is a third feature that requires both.
 
 A version that moves on with no field changed is the parent's
-`lockVersionField`: `lock(id, txOptions)` reads the record, and
-`patch(id, {}, { ...txOptions, lockVersion: record.lockVersion })` advances it
-by one. Several parents advance in one statement: `lockMany(ids, txOptions)`,
-then `patchMany(ids.map((id) => ({ id })), txOptions)`. An advance is an update,
-so it stamps the parent's `updatedAt` too: the parent as a whole changed, and a
-reader that compares either one sees it.
+`lockVersionField`: `lockMany(ids, txOptions)` locks the parents, and
+`patchMany(ids.map((id) => ({ id })), { ...txOptions, returning: "none" })`
+advances each by one, in one statement, whatever the field is called. An
+advance is an update, so it stamps the parent's `updatedAt` too: the parent as
+a whole changed, and a reader that compares either one sees it. A condition
+named with no value, such as `lockVersion: record.lockVersion` on a field
+called `version`, is refused (`options.lockVersion is undefined`), never run
+without it.
 
 ## Check and judge
 
@@ -631,22 +824,41 @@ method, which `aggregate` or an include might do instead.
 
 ## Tests
 
-Each data path gets two one-line tests on the real test database:
+Each data path gets two one-line tests on the real test database, with the
+helpers from `@jskit-ai/resource-runtime/test`:
 
 ```js
+import { expectEveryTableOwned, expectFlatQueries, expectScoped, startTestFeatures } from "@jskit-ai/resource-runtime/test";
+
 test("allocation stays in its workspace", () => expectScoped({ environment: process.env, handles: [invoices, payments], systemContext, owners: [workspaceA, workspaceB], seed: seedInvoices, run: (owner) => billing.allocate(input, owner) }));
-test("allocation is flat", () => expectFlatQueries({ environment: process.env, seed: seedInvoices, run: (seeded) => billing.allocate(inputFor(seeded), seeded.options) }));
+test("allocation is flat", () => expectFlatQueries({ environment: process.env, knex, seed: seedInvoices, run: (seeded) => billing.allocate(inputFor(seeded), seeded.options) }));
 ```
 
 `expectFlatQueries` (from `@jskit-ai/resource-runtime/test`) seeds each size,
 counts the statements the path sends, and fails when a larger size sends more,
 with the counts and the statements repeated most; the later chunks a many-row
-write reports are allowed. `expectScoped` seeds a second owner, runs the path as
-the first, and fails when the result holds the second owner's rows or the path
-changed them. A data test never skips: without `TEST_DB_NAME` it fails
-(`requireTestDatabase(process.env)`). A route's statements are counted through
-the server the test boots, with `countRuntimeQueries(work)` from
-`@jskit-ai/database-runtime/server/testDatabases`.
+write reports are allowed. `expectScoped` runs the path as owner A before and
+after seeding owner B and fails when the answer changes, so it catches a report
+that sums, counts or joins B's rows, not only one that returns them; it also
+fails when the path changed or removed a row of B's. The path runs twice, so it
+answers the same for the same rows: a write answers what repeats, such as the
+ids it changed, not a fresh id or time.
+
+An owner is whatever `seed` and `run` receive. On a workspace path it is a
+signed-in member's options, built as the request pipeline builds them:
+`{ context: { actor: { id: userId }, workspace: { id: workspaceId }, permissions } }`,
+where `permissions` holds the member's role permissions. Seed with a job's
+context, `{ context: systemContext(reason).forWorkspace(workspaceId) }`. A row
+policy sees that context as `caller.kind` `"job"`, never as the member.
+
+A data test never skips: without `TEST_DB_NAME` it fails
+(`requireTestDatabase(process.env)`). Give `expectFlatQueries` the test's
+`knex` whenever the features run on it (`startTestFeatures`,
+`createTestResourceRuntime`). Without `knex` it counts through a server the
+test booted (`countRuntimeQueries(work)` from
+`@jskit-ai/database-runtime/server/testDatabases`). A check that measures
+nothing never passes: "The path sent no statement at any size" means pass
+`knex`, or the path never reached the database.
 
 `createTestResourceRuntime({ knex })` gives a test the resource runtime its
 features own their tables through: `runtime.own(featureId, [resource])`
@@ -660,6 +872,14 @@ infrastructure tables for it: `LOCAL_AUTH_INFRASTRUCTURE_TABLES`
 (`@jskit-ai/auth-provider-local-db-core/server/lib/index`),
 `OIDC_CLIENT_INFRASTRUCTURE_TABLES` (`@jskit-ai/auth-provider-oidc-core/server/lib/index`)
 and `OIDC_ISSUER_INFRASTRUCTURE_TABLES` (`@jskit-ai/oidc-issuer-core/server`).
+`runtime` knows only the features the test started, so start every owner of a
+migrated table, JSKIT's own included, and pass `runtime: resources` from
+`startTestFeatures`. Local sign-in's tables belong to
+`AuthLocalDatabaseBackendProvider`
+(`@jskit-ai/auth-provider-local-db-core/server/providers/AuthLocalDatabaseBackendProvider`,
+given `inputs: { "runtime.database": { knex } }`).
+`LOCAL_AUTH_INFRASTRUCTURE_TABLES` lists only the identities table it keeps
+outside resources.
 
 A test of a feature and the owner APIs it requires starts them as the server
 does, without HTTP: `startTestFeatures({ knex, features, requires, inputs,
@@ -672,6 +892,13 @@ beside yours: `UsersExtensionsProvider` and `UsersIdentityProvider` give
 and `workspaces.memberships` without the workspace routes. Never import another
 package's repositories to build its owner API by hand.
 
+A `defineCrudFeature` also requires `crud.contracts` and `runtime.http`, which
+an application's server supplies. In a test, add `CrudContractsProvider`
+(`@jskit-ai/crud-core/server/crudContracts`) to `features` and give
+`inputs: { "runtime.http": { router: { register() {} } } }`. The routes are
+then registered nowhere, and the test calls the feature's `service` and
+`repository` directly.
+
 ```js
 const { capabilities, stop } = await startTestFeatures({
   knex,
@@ -679,6 +906,33 @@ const { capabilities, stop } = await startTestFeatures({
   requires: { roster: "roster" }
 });
 t.after(stop);
+```
+
+A test of the routes themselves boots the application's server and signs
+people in over `app.inject`. Keep one cookie jar per person and send the
+session's `csrfToken` as `csrf-token` with every write. The session answer
+carries no user id, so the test finds each person by email
+(`users.profiles.findByEmail(email)`).
+
+```js
+const app = await createServer({ runtimeEnv: { ...resolveRuntimeEnv(), AUTH_LOCAL_EMAIL_CONFIRMATION: "false" } });
+
+async function signUp(email, password) {
+  const cookies = new Map();
+  const send = async (options) => {
+    const cookie = [...cookies].map(([name, value]) => `${name}=${value}`).join("; ");
+    const response = await app.inject({ ...options, headers: { ...options.headers, cookie } });
+    for (const header of [response.headers["set-cookie"] ?? []].flat()) {
+      const [name, ...value] = header.split(";")[0].split("=");
+      cookies.set(name.trim(), value.join("="));
+    }
+    return response;
+  };
+  const csrf = async () => (await send({ method: "GET", url: "/api/session" })).json().csrfToken;
+  await send({ method: "POST", url: "/api/register", headers: { "csrf-token": await csrf() }, payload: { email, password } });
+  await send({ method: "POST", url: "/api/login", headers: { "csrf-token": await csrf() }, payload: { email, password } });
+  return send;
+}
 ```
 
 ## Hard rules
@@ -701,16 +955,38 @@ client's, wherever it sits; tests, migrations and seeds are outside them.
 ### Exceptions
 
 A module whose job is data access itself (a database runtime, a migration
-runner, test-database setup) may opt out of `jskit/no-direct-knex` and
-`jskit/no-transaction-reader` as a whole, with one line per rule before its
-first line of code:
+runner, test-database setup, an operator's data import or cutover tool, a
+database console that runs the person's own SQL) may opt out of
+`jskit/no-direct-knex`, `jskit/no-transaction-reader`, `jskit/no-hand-scope`
+and `jskit/sql-literal` as a whole, with one line per rule before its first
+line of code:
 
 ```js
 // readable-check: allow no-direct-knex - infrastructure: the test databases' snapshot and restore
 ```
 
-`jskit check` lists every such file for review. The other four rules take no
-exception. `jskit check` also fails:
+In a file excused from `jskit/no-direct-knex`, raw SQL runs on Knex itself,
+so `jskit/sql-literal` lets it hold a statement; it is still one literal with
+its values as bindings. Only a module that runs SQL it is given by design (a
+console's query runner) opts out of `jskit/sql-literal` itself, in that one
+header line with its reason; never with a per-line disable. `jskit check`
+lists every such file for review. `jskit/no-hand-context` and
+`jskit/knex-reason` take no exception.
+
+A data import or cutover tool (loading another system's records into the app's
+tables before go-live, say) is the one application module that commonly takes
+it. Check and judge, for each file:
+
+- it runs only as an operator's command; nothing a request can reach imports
+  it;
+- it bypasses ownership and row policies on purpose, so every read and write
+  names its workspace explicitly;
+- it writes in one transaction per batch, so a failed batch leaves nothing
+  half-loaded;
+- its statements per row are still measured, as any write path's are: a batch
+  of 200 rows costs about what a batch of 10 does.
+
+`jskit check` also fails:
 
 - a table with two table resources;
 - a system scope or `systemContext` call without a reason;

@@ -39,7 +39,12 @@ example `activeMemberIds(workspaceId, options)` of `workspaces.memberships`, or
 the record owner's repository) and never the database directly. It runs once
 for the event, however many sockets receive it, and `options.context` is the
 event's own scope (its workspace, user, or user in a workspace), so the owners
-answer for that scope and not for a request's. Realtime needs no database, so
+answer for that scope and not for a request's. An event whose scope names no
+workspace and no user, such as one written on a customer's or a public surface,
+reads in the workspace its payload names as `workspaceId`: the action sets it
+from the execution it wrote in, as
+`payload: ({ context }) => ({ workspaceId: resolveWorkspaceScopeValue(context) })`
+(`@jskit-ai/resource-runtime/server`). Realtime needs no database, so
 those contexts come from `RealtimeAudienceScopeFeature`
 (`@jskit-ai/realtime/server/RealtimeAudienceScopeFeature`): an application whose
 action events declare such an audience registers it beside its other features,
@@ -47,8 +52,10 @@ or realtime refuses to boot and names the actions. An audience that reads only
 public tables (users, workspaces, memberships, invitations) says so with
 `publicTablesOnly: true` and reads with no context; an owned table would throw
 `MissingScopeError` there. An audience given as a function of the execution is
-not checked at boot. An `audienceUsers` that fails is logged as an error and
-skipped, and the event still reaches the audience's other rooms:
+not known at boot, so realtime checks it when the event is published: without
+the feature, an entry that reads in the event's scope is logged as an error and
+skipped. An `audienceUsers` that fails is logged as an error and skipped too,
+and the event still reaches the audience's other rooms:
 
 ```js
 realtime: {

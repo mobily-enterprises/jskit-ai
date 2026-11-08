@@ -162,7 +162,7 @@ pending migrations in this order, using the default `migrationsDirectory`:
 2. Application `migrations/`.
 3. The `constraints/` subdirectory of each discovered package migration
    directory that has one, in the same order.
-4. Application `migrations/constraints/`.
+4. Application `migrations/constraints/`, when it exists.
 
 Knex sorts filenames within each directory, not across the whole graph; see
 its [`sortDirsSeparately` option](https://knexjs.org/guide/migrations.html#migration-api).
@@ -272,8 +272,9 @@ mechanics. This does not make product CRUD behavior fixed.
 - Named `actions` expose non-CRUD service methods through normal input,
   permission, event, and optional HTTP route contracts.
 
-Repositories own database access. Services and lifecycle hooks orchestrate
-repositories. External delivery belongs after commit; when it must be durable,
+The feature that owns a table reads and writes it through the handles its
+`owns` entry gives its repository; services, hooks and other features call
+that repository or the owner's API, never the table. External delivery belongs after commit; when it must be durable,
 write an outbox record inside the transaction and deliver it separately.
 A separate Feature is warranted when an operation belongs to another domain,
 not merely because a useful resource has behavior beyond list and save. Write

@@ -89,7 +89,7 @@ Local functions
 - `roomForScope(scope)`
 - `applyAudiencePreset(preset, { event, rooms, flags, logger })`
 - `addAudienceRooms(selection, state)`
-- `audienceReadOptions(scope, audienceScope)`
+- `audienceReadOptions(event, audienceScope)`
 - `readsInScope(entry)`
 - `parseCookieHeader(value = "")`
 - `authenticateWithoutRefresh(authService)`

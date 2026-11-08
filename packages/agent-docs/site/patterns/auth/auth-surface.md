@@ -119,6 +119,21 @@ the standard app-owned managed-preview identity executable,
 surface and placement declarations into the application's ordinary config and
 placement files.
 
+The pages live under `src/pages/auth/`, so the app defines an `auth` surface
+open to everyone in `config/public.js`, under the foundations' `public` access
+policy (`surfaceAccessPolicies.public = {}`):
+
+```js
+config.surfaceDefinitions.auth = {
+  id: "auth",
+  label: "Sign in",
+  pagesRoot: "auth",
+  requiresAuth: false,
+  requiresWorkspace: false,
+  accessPolicyId: "public"
+};
+```
+
 ## Variation points
 
 Change provider, routes, labels, page wrappers, permitted login methods, profile

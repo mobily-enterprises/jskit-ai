@@ -41,7 +41,6 @@ const bookResource = defineTableResource({
     }
   },
   searchSchema: {
-    id: { type: "id", actualField: "id" },
     q: {
       type: "string",
       oneOf: ["title", "author", "notes"],

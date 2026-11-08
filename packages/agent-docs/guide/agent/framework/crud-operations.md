@@ -13,11 +13,15 @@ Take database, surface, access, ownership, operations, and fields from product
 intent and current source. Ask when a material choice is missing. Do not
 translate the work into generator options.
 
-Read the narrow package-owned pattern in the [source pattern
+Read the package-owned pattern in the [source pattern
 library](/patterns/): `database/table-resource` for the table,
 `crud/crud-contract` for its HTTP surface,
 `crud/crud-feature-package` for the server, and `crud/crud-screen-set`
-for routed UI. Child-resource and row-policy patterns own those variations.
+for routed UI; the [row
+policies](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/row-policies.md)
+and [child
+CRUDs](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/child-cruds.md)
+heuristics cover those variations.
 
 Normal CRUD tables use one non-null integer primary key. Foreign keys are
 single-column; composite unique indexes are business constraints, not
@@ -71,15 +75,14 @@ These controls answer different questions:
 | Feature route visibility | Server route/action scope: the table's `ownership` unless the feature names `visibility` | `"public"` | `"user"` |
 | Client `access` | Whether to require bootstrap permissions | Default `"auto"` with no permission requirements | Default `"auto"`; declare permissions when required |
 
-`access` accepts `auto`, `always`, or `never`, not `public`. With `auto`, a
-screen with no permission requirements does not require a permissions bootstrap.
-`always` does require it. Do not add authentication or workspace machinery to
-compensate for an unnecessary `always` override. Server access and ownership
+`access` accepts `auto`, `always`, or `never`, not `public`. `auto` requires a
+permissions bootstrap only for a screen with permission requirements; `always`
+always does. Do not add authentication or workspace machinery to
+make up for an unneeded `always` override. Server access and ownership
 remain authoritative.
 
-The Books source patterns demonstrate user ownership. For an intentionally
-public create/list resource, use the same patterns with this table resource and
-CRUD contract:
+The Books source patterns show user ownership. For a public create/list
+resource, use them with this table resource and CRUD contract:
 
 ```js
 const bookResource = defineTableResource({
@@ -116,7 +119,7 @@ const bookCrud = defineCrudContract(bookResource, {
 Import `defineTableResource` from `@jskit-ai/resource-core/shared/tableResource`
 and `defineCrudContract` from `@jskit-ai/resource-crud-core/shared/crudContract`.
 Its migration creates `books` with an integer `id` and non-null `title`; omit
-`userId` and its foreign key for this public variant.
+`userId` and its foreign key.
 `list` requires `view` in the CRUD contract, even when the UI has no detail
 page. A create response uses the CRUD contract's output. Keep operation names
 such as `list`, `view` and `create`; do not invent output-operation aliases.
