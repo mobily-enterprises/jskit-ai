@@ -1,3 +1,4 @@
+import { capabilityKey } from "../../../shared/capabilities/defineProvider.js";
 import { sortStrings } from "../../../shared/support/sorting.js";
 import { discoverInstalledPackages } from "../../../internal/node/installedPackages.js";
 import { isRecord } from "../../../shared/support/normalize.js";
@@ -117,7 +118,7 @@ function resolvePackageLoadOrder(packageEntries) {
 }
 
 function registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId) {
-  const normalizedCapabilityId = String(capabilityId || "").trim();
+  const normalizedCapabilityId = capabilityKey(capabilityId);
   const normalizedProviderPackageId = String(providerPackageId || "").trim();
   if (!normalizedCapabilityId || !normalizedProviderPackageId) {
     return;
@@ -151,7 +152,7 @@ function validatePackageCapabilities(packageEntries, { builtinProvidersByCapabil
     for (const capabilityId of Array.isArray(packageEntry.packageMetadata?.capabilities?.requires)
       ? packageEntry.packageMetadata.capabilities.requires
       : []) {
-      const normalizedCapabilityId = String(capabilityId || "").trim();
+      const normalizedCapabilityId = capabilityKey(capabilityId);
       if (!normalizedCapabilityId) {
         continue;
       }
@@ -175,11 +176,12 @@ function validatePackageCapabilities(packageEntries, { builtinProvidersByCapabil
 }
 
 /**
- * The capability ids a manifest list names, trimmed, without empty entries.
+ * The capability ids a manifest list names, as the runtime compares them (trimmed and lower-cased, as providers' are),
+ * without empty entries.
  * @param {unknown} list
  */
 function manifestCapabilityIds(list) {
-  return new Set((Array.isArray(list) ? list : []).map((id) => String(id || "").trim()).filter(Boolean));
+  return new Set((Array.isArray(list) ? list : []).map(capabilityKey).filter(Boolean));
 }
 
 /**

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { defineProvider } from "../../../shared/capabilities/defineProvider.js";
-import { assertManifestMatchesProviders } from "./packageCatalog.js";
+import { assertManifestMatchesProviders, validatePackageCapabilities } from "./packageCatalog.js";
 
 const BOOKS_PROVIDER = defineProvider({
   id: "feature.books",
@@ -107,4 +107,47 @@ test("a manifest requirement no provider has is logged as an install-time requir
       message: "Package manifest requires a capability its providers do not."
     }
   ]);
+});
+
+test("a manifest names its capabilities in any case and spacing the runtime resolves, as its providers do", () => {
+  const logger = recordingLogger();
+  // The runtime resolves provider ids trimmed and lower-cased, so assistant.personContext is assistant.personcontext.
+  const personContext = defineProvider({
+    id: "app.person-context",
+    requires: { books: "Feature.Books" },
+    provides: { personContext: "assistant.personContext" },
+    setup() {
+      return { personContext: {} };
+    }
+  });
+  const manifest = {
+    provides: ["assistant.personContext"],
+    requires: [" Feature.Books "]
+  };
+
+  assertManifestMatchesProviders(
+    { packageId: "@fixture/person-context", packageMetadata: { capabilities: manifest } },
+    [personContext],
+    { logger }
+  );
+
+  assert.deepEqual(logger.warnings, []);
+});
+
+test("installed packages provide and require a capability across spellings of its id", () => {
+  assert.doesNotThrow(() => validatePackageCapabilities([
+    { packageId: "@fixture/person-context", packageMetadata: { capabilities: { provides: ["assistant.personContext"] } } },
+    {
+      packageId: "@fixture/assistant",
+      packageMetadata: { capabilities: { requires: ["assistant.personcontext", "Runtime.Config"] } }
+    }
+  ], { builtinProvidersByCapability: { "runtime.config": ["application"] } }));
+
+  assert.throws(
+    () => validatePackageCapabilities([
+      { packageId: "@fixture/auth-one", packageMetadata: { capabilities: { provides: ["Auth.Service"] } } },
+      { packageId: "@fixture/auth-two", packageMetadata: { capabilities: { provides: ["auth.service"] } } }
+    ]),
+    { message: "Capability auth.service is exclusive, but multiple installed packages provide it: @fixture/auth-one, @fixture/auth-two." }
+  );
 });
