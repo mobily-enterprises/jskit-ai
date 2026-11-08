@@ -15,8 +15,8 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.260",
-    "@jskit-ai/resource-core": "0.1.202",
+    "@jskit-ai/database-runtime": "0.1.261",
+    "@jskit-ai/resource-core": "0.1.203",
     "@jskit-ai/resource-runtime": "0.2.12",
     "jose": "^6.1.3",
     "json-rest-schema": "^1.0.17",

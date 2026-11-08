@@ -23,8 +23,8 @@
     "test": "jskit test"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.260",
-    "@jskit-ai/resource-core": "0.1.202",
+    "@jskit-ai/database-runtime": "0.1.261",
+    "@jskit-ai/resource-core": "0.1.203",
     "@jskit-ai/resource-runtime": "0.2.12",
     "@paddle/paddle-node-sdk": "3.10.0",
     "ajv": "8.20.0",
@@ -71,6 +71,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.11"
+    "@jskit-ai/kernel": "0.2.12"
   }
 }
