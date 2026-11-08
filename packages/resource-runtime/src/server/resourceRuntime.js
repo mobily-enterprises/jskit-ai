@@ -139,12 +139,15 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
   }
 
   // The owner's policy, then every contribution, each in its own group ANDed with ownership: a policy only narrows.
-  // Each gets who the call runs for as `caller` (see callerOf).
+  // Each gets who the call runs for as `caller` (see callerOf), its one way to tell: json-rest-api's own `system` flag
+  // is left out.
   function composedRowPolicy(featureId, entry, contributions) {
     if (!entry.rowPolicy && !entry.acceptsContributions) {
       return undefined;
     }
-    return async function ownedRowPolicy(args) {
+    return async function ownedRowPolicy(jsonRestArgs) {
+      const args = { ...jsonRestArgs };
+      delete args.system;
       const caller = callerOf(args.context);
       if (entry.rowPolicy) {
         const result = await applyGrouped(entry.rowPolicy, { ...args, caller, ownTable: ownTableReader(featureId, args.db) });

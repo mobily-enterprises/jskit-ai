@@ -929,8 +929,10 @@ test("a row policy is told who the call runs for: a system context, a job it der
   const { notes, runtime } = await createFixture(t, {
     owns: [{
       resource: noteResource(),
-      rowPolicy: ({ query, column, caller }) => {
+      rowPolicy: ({ query, column, caller, ...rest }) => {
         seen.push(caller);
+        // caller is the one way to tell who the call runs for: json-rest-api's own system flag is not handed on.
+        assert.equal(Object.hasOwn(rest, "system"), false);
         // A job reads its workspace's notes; a request reads only the notes its user may see, and no one reads none.
         if (caller.kind === "anonymous") return false;
         if (caller.kind === "user") query.where(column("title"), "shared");

@@ -128,8 +128,8 @@ function requireScopeId(value, label, subject) {
 /**
  * The context of work across every workspace and user, for a feature that
  * declares `systemScope`. Ownership predicates are skipped for it, row
- * policies receive `system: true` and `caller.kind` "system" (a derived
- * context's `caller.kind` is "job"), and creates name their ownership values.
+ * policies receive `caller.kind` "system" (a derived context's `caller.kind`
+ * is "job"), and creates name their ownership values.
  * `forWorkspace(id)`, `forUser(id)` and `forWorkspaceUser(workspaceId, userId)`
  * derive ordinary contexts scoped to one workspace, one user, or one user in
  * one workspace, so the work for each is scoped as usual (and, as background
