@@ -73,7 +73,8 @@ export const theme = {
   every button size (small and x-small keep their look, and their state
   layers keep their corners) that stops at a neighbouring button, disabled container
   buttons in on-surface at 12% and 38%, a pagination's current page in the
-  activated layer, placeholders in on-surface-variant, one-line labels that
+  activated layer, placeholders, text field labels and supporting text in
+  on-surface-variant, one-line labels that
   end in an ellipsis, 12dp card corners, 28dp dialogs on
   `surface-container-high` at level 3 and bottom sheets with a square card on
   `surface-container-low`, square full-screen dialogs on `surface`, a 48dp touch target on clickable chips,

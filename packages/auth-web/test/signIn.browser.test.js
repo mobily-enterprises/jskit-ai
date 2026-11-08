@@ -620,6 +620,116 @@ test("every auth screen has its one h1, sign-in's included", options, async () =
   await finish(api);
 });
 
+// Every text the page draws that reads under WCAG's contrast minimum against the background behind it (4.5:1, or 3:1
+// for text of 24px, or 18.66px bold), as "text ratio:1, foreground on background". Disabled controls are exempt.
+function unreadableText(page) {
+  return page.evaluate(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    // Any computed colour (rgb(), color-mix(), oklch(), ...) as the sRGB pixel it paints.
+    const pixel = (color) => {
+      context.clearRect(0, 0, 1, 1);
+      context.fillStyle = color;
+      context.fillRect(0, 0, 1, 1);
+      const [r, g, b, a] = context.getImageData(0, 0, 1, 1).data;
+      return { r, g, b, a: a / 255 };
+    };
+    const over = (top, alpha, base) => ({
+      r: top.r * alpha + base.r * (1 - alpha),
+      g: top.g * alpha + base.g * (1 - alpha),
+      b: top.b * alpha + base.b * (1 - alpha),
+      a: 1
+    });
+    const luminance = ({ r, g, b }) => {
+      const [red, green, blue] = [r, g, b].map((channel) => {
+        const value = channel / 255;
+        return value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+    };
+    const hex = ({ r, g, b }) => `#${[r, g, b].map((channel) => Math.round(channel).toString(16).padStart(2, "0")).join("")}`;
+    const exempt = "[disabled], [aria-disabled='true'], .v-btn--disabled, .v-input--disabled, script, style, template";
+    const findings = new Map();
+    const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const text = String(node.textContent || "").replace(/\s+/gu, " ").trim();
+      const element = node.parentElement;
+      if (!text || !element || element.closest(exempt) || findings.has(text)) continue;
+      if (!element.checkVisibility({ checkVisibilityCSS: true, visibilityProperty: true })) continue;
+      const range = document.createRange();
+      range.selectNodeContents(node);
+      const box = range.getBoundingClientRect();
+      if (box.width < 1 || box.height < 1) continue;
+      // The text's opacity is every ancestor's; its background, the backgrounds behind it down to the first opaque one.
+      let opacity = 1;
+      let opaque = false;
+      const layers = [];
+      for (let current = element; current; current = current.parentElement) {
+        const style = window.getComputedStyle(current);
+        opacity *= Number(style.opacity);
+        if (opaque) continue;
+        const background = pixel(style.backgroundColor);
+        if (background.a > 0) layers.push(background);
+        opaque = background.a >= 1;
+      }
+      if (opacity < 0.01) continue;
+      let background = { r: 255, g: 255, b: 255, a: 1 };
+      for (const layer of layers.reverse()) background = over(layer, layer.a, background);
+      const style = window.getComputedStyle(element);
+      const color = pixel(style.color);
+      const foreground = over(color, color.a * opacity, background);
+      const [lighter, darker] = [luminance(foreground), luminance(background)].sort((left, right) => right - left);
+      const ratio = (lighter + 0.05) / (darker + 0.05);
+      const size = Number.parseFloat(style.fontSize);
+      const large = size >= 24 || (size >= 18.66 && Number(style.fontWeight) >= 700);
+      if (ratio < (large ? 3 : 4.5)) {
+        findings.set(text, `"${text.slice(0, 60)}" ${ratio.toFixed(2)}:1, ${hex(foreground)} on ${hex(background)}`);
+      }
+    }
+    return [...findings.values()];
+  });
+}
+
+test("every auth screen's text, its field labels and hints included, reads at WCAG contrast in light and dark", options, async () => {
+  const api = await openApp({
+    routes: { "POST /api/register": { json: { requiresEmailConfirmation: true, username: "Ada" } } }
+  });
+  const { page } = api;
+  const failures = [];
+  const readable = async (where) => {
+    // The modes fade and move their labels in; a text that stays under the minimum is a finding.
+    await expect.poll(() => unreadableText(page), { timeout: 5_000 }).toEqual([]).catch(() => undefined);
+    failures.push(...(await unreadableText(page)).map((finding) => `${where}: ${finding}`));
+  };
+  for (const colorScheme of ["light", "dark"]) {
+    await page.emulateMedia({ colorScheme });
+    await page.goto("/auth/login");
+    await expect(page.getByRole("heading", { level: 1, name: "Sign in" })).toBeVisible();
+    await readable(`${colorScheme} sign in`);
+    await page.getByLabel("Email").fill("ada@example.com");
+    await readable(`${colorScheme} sign in with an email`);
+    await page.getByRole("button", { name: "Forgot password?" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Reset your password" })).toBeVisible();
+    await readable(`${colorScheme} reset`);
+    await page.getByRole("button", { name: "Back to sign in" }).click();
+    await page.getByRole("button", { name: "Use one-time code" }).click();
+    await readable(`${colorScheme} one-time code`);
+    await page.goto("/auth/login?mode=register");
+    await expect(page.getByRole("heading", { level: 1, name: "Create your account" })).toBeVisible();
+    await readable(`${colorScheme} register`);
+    await page.getByLabel("Email").fill("ada@example.com");
+    await page.getByLabel("Password", { exact: true }).fill("Correct-horse-1");
+    await page.getByLabel("Confirm password", { exact: true }).fill("Correct-horse-1");
+    await page.getByTestId("auth-submit").click();
+    await expect(page.getByRole("heading", { level: 1, name: "Confirm your email" })).toBeVisible();
+    await readable(`${colorScheme} confirm email`);
+  }
+  assert.deepEqual(failures, []);
+  await finish(api);
+});
+
 test("an app's brand shows in a pane beside the card on wide windows and in a row above it on phones", options, async () => {
   for (const viewport of [{ width: 1280, height: 900 }, { width: 390, height: 844 }]) {
     const at = `${viewport.width}px`;

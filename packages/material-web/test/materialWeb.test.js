@@ -280,6 +280,16 @@ test("material.css draws segmented buttons, filter chips, fixed tabs and dialog 
     css,
     /\.v-field:is\(\.v-field--active, \.v-field--no-label\) :is\(input, textarea\)::placeholder \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
   );
+  // A resting field's label and a valid field's supporting text are on-surface-variant at full strength, not on-surface
+  // at the medium-emphasis opacity.
+  assert.match(
+    css,
+    /\.v-field:not\(\.v-field--focused, \.v-field--error\) \.v-label\.v-field-label \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
+  );
+  assert.match(
+    css,
+    /\.v-input:not\(\.v-input--error, \.v-input--disabled\) > \.v-input__details \.v-messages \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
+  );
   // A disabled container button is on-surface 12% and 38%, unlayered over its colour class.
   assert.match(
     css,

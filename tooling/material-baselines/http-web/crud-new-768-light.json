@@ -147,11 +147,11 @@
   "fieldLabel": {
     "height": 24,
     "backgroundColor": "rgba(0, 0, 0, 0)",
-    "color": "rgb(29, 27, 32)",
+    "color": "rgb(73, 69, 78)",
     "borderTopLeftRadius": "0px",
     "borderTopRightRadius": "0px",
     "borderTopWidth": "0px",
-    "borderTopColor": "rgb(29, 27, 32)",
+    "borderTopColor": "rgb(73, 69, 78)",
     "boxShadow": "none",
     "fontFamily": "\"Roboto Flex Variable\", \"Roboto Flex\", Roboto, system-ui, sans-serif",
     "fontSize": "16px",
