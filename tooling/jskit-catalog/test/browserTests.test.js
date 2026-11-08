@@ -86,6 +86,18 @@ test("each local worker reaches its own server's port, and the run is bounded an
   for (const globalTimeout of [0, -1, 1.5, "600000"]) {
     assert.throws(() => browserTestConfig({ globalTimeout, environment }), /globalTimeout of at least 1 ms/u, String(globalTimeout));
   }
+  // A stale locator or a page that never loads fails in seconds, not at the test's 60 s; an app's measured need sets
+  // its own bound, never none.
+  assert.equal(config.use.actionTimeout, 15_000);
+  assert.equal(config.use.navigationTimeout, 30_000);
+  const slower = browserTestConfig({ actionTimeout: 25_000, navigationTimeout: 45_000, environment });
+  assert.deepEqual([slower.use.actionTimeout, slower.use.navigationTimeout], [25_000, 45_000]);
+  for (const name of ["actionTimeout", "navigationTimeout"]) {
+    for (const value of [0, -1, 1.5, "15000"]) {
+      assert.throws(() => browserTestConfig({ [name]: value, environment }), new RegExp(`an ${name} of at least 1 ms`, "u"),
+        `${name} ${String(value)}`);
+    }
+  }
 });
 
 test("a managed target starts no server and runs one worker unless the runner sets PLAYWRIGHT_WORKERS", () => {

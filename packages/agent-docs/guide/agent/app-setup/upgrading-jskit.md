@@ -210,8 +210,10 @@ application:
    `defineConfig(browserTestConfig({ testDir: "./tests/e2e", prepare: "tests/e2e/databases.js" }))`
    from `@jskit-ai/jskit-catalog/browser-tests`, with `server`, `build`, `env`
    or `port` only where its own differ from `node ./bin/server.js`,
-   `npm run build` and 4173, and `globalTimeout` only for a suite measured to
-   need more than 20 minutes. Settings a config adds (projects, a globalSetup
+   `npm run build` and 4173, `globalTimeout` only for a suite measured to
+   need more than 20 minutes, and `actionTimeout` or `navigationTimeout` only
+   for an action or page measured to need more than 15 or 30 seconds (a stale
+   locator should fail in seconds, not minutes). Settings a config adds (projects, a globalSetup
    that proves the server's identity, `timezoneId`) spread over the result:
    `defineConfig({ ...base, projects, use: { ...base.use, timezoneId } })`. A
    second local Playwright config and any `npm run develop` or `vite`

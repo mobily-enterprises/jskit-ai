@@ -21,6 +21,11 @@ const DEFAULT_PORT = 4173;
 // A whole run's default bound: a suite that would take hours stops instead, and says so. A suite measured to need
 // longer passes its own globalTimeout, with the measurement beside it.
 const GLOBAL_TIMEOUT_MS = 20 * 60_000;
+// A click, fill or navigation waiting on something that never comes (a stale locator) fails in seconds, with its own
+// error, instead of holding the test until its 60 s timeout. Over 652 passing app tests the slowest action or page
+// load took 9.0 s, and expect already waits 10 s.
+const ACTION_TIMEOUT_MS = 15_000;
+const NAVIGATION_TIMEOUT_MS = 30_000;
 // Building the frontend when its sources changed, preparing the databases and starting every server.
 const SERVERS_TIMEOUT_MS = 180_000;
 // Where the servers' launcher leaves each worker's server environment, for that worker's own process.
@@ -90,6 +95,8 @@ function preparedWorkerEnvironment(file, index) {
  * @param {Record<string, string>} [options.env] Environment every server gets, such as its test-only drivers.
  * @param {string} [options.health] The path that answers 200 once a server is ready.
  * @param {number} [options.globalTimeout] The whole run's bound in milliseconds (20 minutes); never 0.
+ * @param {number} [options.actionTimeout] One click, fill or other action's bound in milliseconds (15 s); never 0.
+ * @param {number} [options.navigationTimeout] One navigation's bound in milliseconds (30 s); never 0.
  * @param {Record<string, string | undefined>} [options.environment] Read, and given a worker's prepared environment,
  *   instead of process.env (tests).
  * @param {string} [options.cwd] The directory Playwright runs in (tests).
@@ -104,11 +111,18 @@ function browserTestConfig({
   env = {},
   health = "/api/health",
   globalTimeout = GLOBAL_TIMEOUT_MS,
+  actionTimeout = ACTION_TIMEOUT_MS,
+  navigationTimeout = NAVIGATION_TIMEOUT_MS,
   environment = process.env,
   cwd = process.cwd()
 } = {}) {
   if (!Number.isInteger(globalTimeout) || globalTimeout < 1) {
     throw new Error("browserTestConfig() needs a globalTimeout of at least 1 ms; a run is always bounded.");
+  }
+  for (const [name, value] of Object.entries({ actionTimeout, navigationTimeout })) {
+    if (!Number.isInteger(value) || value < 1) {
+      throw new Error(`browserTestConfig() needs an ${name} of at least 1 ms; a stale locator fails in seconds, not minutes.`);
+    }
   }
   const managed = managedBaseUrl(environment);
   const workers = browserTestWorkers({ env: environment });
@@ -145,9 +159,8 @@ function browserTestConfig({
     use: {
       baseURL: managed || `http://${HOST}:${basePort + workerIndex}`,
       headless: true,
-      // A click, fill or navigation waiting on something that never comes fails in seconds, with its own error.
-      actionTimeout: 15_000,
-      navigationTimeout: 30_000,
+      actionTimeout,
+      navigationTimeout,
       // A failed test keeps its trace to read; no screencast is recorded while tests run.
       trace: { mode: "retain-on-failure", screenshots: false, snapshots: true, sources: true },
       ...(storageState ? { storageState } : {})
