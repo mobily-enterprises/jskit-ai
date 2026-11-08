@@ -311,6 +311,7 @@ Local functions
 - `removeJskitDependencyRecords(dependencies = {}, localPackageNames = new Set())`
 - `alignLockManifestRecord(lockRecord, manifest, localPackageNames)`
 - `preparePackageLockForInstall(projectRoot, manifests, packageLockPath)`
+- `findImports(root, packageIds)`
 
 ### `scripts/test-budget.mjs`
 Exports
