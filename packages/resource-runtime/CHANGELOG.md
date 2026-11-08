@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Runs on json-rest-api 3.0.1 (from 3.0.0), exactly. A handle's `createMany` with `onConflict: { action: "merge" }` inside a transaction that read before another transaction committed the same key no longer fails as forbidden ("the record these conflict keys match cannot be changed by the caller") on MySQL and MariaDB, so two first registrations of one email at once both land; and a merge whose late matched row it left unchanged answers that row instead of empty data. PostgreSQL and SQLite behave as before.
 - `expectScoped` compares the other owner's stored rows, every column read through the system context's scoped query, where it compared the records a handle answers. A path that changed only a hidden or `defaultExclude` field of another owner's row (a `patchWhere` under a system context with `returning: "none"`), or a column outside the table resource's schema, passed.
 - `@jskit-ai/database-runtime` is a required peer dependency at the same version, where it was a dependency: the application holds one copy of the table runtime, since a nested copy brings its own error classes and transactions.
 - `./server` also exports `isSystemContext(context)` and the runtime's defaults, `DEFAULT_REQUEST_ROW_LIMIT` and `DEFAULT_SERVER_PAGE_SIZE`; `./test` re-exports database-runtime's `TestDatabaseMissingError` beside `requireTestDatabase`; `./server/types` holds the types of `runtime.resources`, its handles, call options and system contexts.
