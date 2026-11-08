@@ -146,9 +146,11 @@ upgrading JSKIT and declaring the directly used
 ```js
 import Fastify from "fastify";
 import SerializerSelector from "@fastify/fast-json-stringify-compiler";
-import { createCachedResponseSerializerFactory } from "@jskit-ai/kernel/server/http";
+import { createCachedResponseSerializerFactory, resolveTrustedProxies } from "@jskit-ai/kernel/server/http";
 
 const app = Fastify({
+  // TRUSTED_PROXIES: the proxies whose X-Forwarded-For is believed (loopback without it).
+  trustProxy: resolveTrustedProxies(runtimeEnv),
   schemaController: {
     compilersFactory: {
       buildSerializer: createCachedResponseSerializerFactory(SerializerSelector())
@@ -158,7 +160,12 @@ const app = Fastify({
 ```
 
 Keep the application's other Fastify options, including serializer options and
-validator configuration. This setup wraps the native default serializer builder;
+validator configuration, but replace an application's own `trustProxy` setting
+with `resolveTrustedProxies(runtimeEnv)` (`runtimeEnv` is the environment the
+server starts with, `process.env` if it has no other), and its environment
+variable with `TRUSTED_PROXIES`; see
+[sign-in protection](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/authentication#sign-in-protection)
+for the setting. This setup wraps the native default serializer builder;
 retain any deliberately chosen custom compiler instead of replacing or wrapping
 it. Native route-level compiler overrides continue to apply. Update the lockfile
 through the application's normal installation flow and restart the backend to

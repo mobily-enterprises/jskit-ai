@@ -4,3 +4,4 @@ export { attachDirectRequestActionExecutor } from "./directRequestActionExecutor
 export { createCachedResponseSerializerFactory } from "./responseSerializerFactory.js";
 export { createActionRouteScope } from "./lib/actionRouteScope.js";
 export { registerSecurityHeaders } from "./securityHeaders.js";
+export { resolveTrustedProxies } from "./trustedProxies.js";

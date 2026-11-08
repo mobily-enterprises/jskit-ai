@@ -14,16 +14,9 @@ export function safePathnameFromRequest(request) {
   return safeRequestUrl(request).pathname;
 }
 
+// The client's address: Fastify's request.ip, which reads X-Forwarded-For only from the proxies TRUSTED_PROXIES names
+// (resolveTrustedProxies), so a client cannot choose it by sending the header itself.
 export function resolveClientIpAddress(request) {
-  const forwardedFor = String(request?.headers?.["x-forwarded-for"] || "").trim();
-  if (forwardedFor) {
-    const [firstHop] = forwardedFor.split(",");
-    const candidate = String(firstHop || "").trim();
-    if (candidate) {
-      return candidate;
-    }
-  }
-
   const requestIp = String(request?.ip || "").trim();
   if (requestIp) {
     return requestIp;

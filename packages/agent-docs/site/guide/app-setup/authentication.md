@@ -112,10 +112,20 @@ A route name auth does not have, or a value that is neither
 or text such as `"30 seconds"` or `"1 hour"`.
 
 The address is Fastify's `request.ip`. Behind a reverse proxy every request
-comes from the proxy, so all clients would share one count: create Fastify with
-`trustProxy` set to the proxy's address (for example
-`Fastify({ trustProxy: "127.0.0.1" })`), and never to `true` when clients can
-also reach the server directly.
+comes from the proxy, so all clients would share one count. The app's
+`server.js` creates Fastify with
+`trustProxy: resolveTrustedProxies(runtimeEnv)` (from
+`@jskit-ai/kernel/server/http`), which reads one setting, `TRUSTED_PROXIES`:
+the addresses or ranges of the proxies in front of the server, comma-separated,
+in Fastify's `trustProxy` syntax (`10.0.0.5`, `10.0.0.0/24`, `fd00::/8`, or
+`loopback`, `linklocal` or `uniquelocal`), for example
+`TRUSTED_PROXIES=loopback,10.0.0.5`. Only those proxies' `X-Forwarded-For` (and
+`-Host` and `-Proto`) is believed, so each client behind them has its own count
+and a client that sends the header itself changes nothing. Without the setting
+only a proxy on the same machine (`loopback`) is believed. `true` and hop counts
+stop startup, because they believe a header any client can send. Name the
+narrowest addresses that are only your proxies: a private range shared with
+other machines lets each of them choose its address.
 
 **Per account (local auth).** After 5 failed sign-ins in a row for one email,
 that email must wait 30 seconds before its next attempt; each further failure

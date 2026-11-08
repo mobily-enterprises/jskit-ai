@@ -1,6 +1,6 @@
 import Fastify from "fastify";
 import SerializerSelector from "@fastify/fast-json-stringify-compiler";
-import { createCachedResponseSerializerFactory } from "@jskit-ai/kernel/server/http";
+import { createCachedResponseSerializerFactory, resolveTrustedProxies } from "@jskit-ai/kernel/server/http";
 import fastifyStatic from "@fastify/static";
 import { buildLoggerOptions } from "./server/lib/loggerOptions.js";
 import { resolveRuntimeEnv } from "./server/lib/runtimeEnv.js";
@@ -94,6 +94,9 @@ function canServeStaticFile(distRoot, relativePath) {
 async function createServer({ runtimeEnv }) {
   const app = Fastify({
     logger: buildLoggerOptions(),
+    // The proxies in front of the server (TRUSTED_PROXIES; loopback without it), so request.ip and the rate limits
+    // counted by it are each client's address behind them.
+    trustProxy: resolveTrustedProxies(runtimeEnv),
     schemaController: {
       compilersFactory: {
         buildSerializer: createCachedResponseSerializerFactory(SerializerSelector())

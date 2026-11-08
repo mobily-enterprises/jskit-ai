@@ -800,6 +800,7 @@ Exports
 - `createCachedResponseSerializerFactory`
 - `createActionRouteScope`
 - `registerSecurityHeaders`
+- `resolveTrustedProxies`
 
 ### `server/http/lib/actionRouteScope.js`
 Exports
@@ -913,6 +914,14 @@ Local functions
 - `toPolicyText(directives)`
 - `resolveContentSecurityPolicyHeaders(settings)`
 - `resolveSecurityHeaders({ config, env })`
+
+### `server/http/trustedProxies.js`
+Exports
+- `DEFAULT_TRUSTED_PROXIES`
+- `resolveTrustedProxies(env)`
+- `type RuntimeEnv`
+Local functions
+- `isProxyRange(entry)`
 
 ### `server/i18n.js`
 Exports
