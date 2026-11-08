@@ -3,6 +3,7 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import { readTableResourceSources } from "./data-access.mjs";
 
 // `jskit test --databases`: each test file running at once gets a database of its own, a copy of TEST_DB_NAME restored
 // from a schema snapshot, from the application's installed @jskit-ai/database-runtime and its knexfile.js, which loads
@@ -13,6 +14,9 @@ import { pathToFileURL } from "node:url";
 const OPTION = "--databases";
 const KNEXFILES = Object.freeze(["knexfile.js", "knexfile.mjs", "knexfile.cjs"]);
 const TEST_DATABASES = "@jskit-ai/database-runtime/server/testDatabases";
+const RESOURCE_RUNTIME = "@jskit-ai/resource-runtime/server";
+const TABLE_RESOURCES = "@jskit-ai/resource-core/shared/tableResource";
+const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access#layer-1-the-table-resource";
 
 /** Runs `load` and puts process.env back as it was, returning what `load` returned and the environment it saw. */
 async function withOwnEnvironment(load) {
@@ -24,6 +28,67 @@ async function withOwnEnvironment(load) {
     for (const name of Object.keys(process.env)) if (!Object.hasOwn(before, name)) delete process.env[name];
     Object.assign(process.env, before);
   }
+}
+
+// A module's exported table resources: each export, or each item of an exported list or object.
+function exportedTableResources(namespace, isTableResource) {
+  return Object.values(namespace).flatMap((value) => {
+    if (isTableResource(value)) return [value];
+    const items = Array.isArray(value) ? value : value && typeof value === "object" ? Object.values(value) : [];
+    return items.filter((item) => isTableResource(item));
+  });
+}
+
+const keyText = ({ tableName, columns, referencedTableName, referencedColumns }) =>
+  `${tableName} (${columns.join(", ")}) -> ${referencedTableName} (${referencedColumns.join(", ")})`;
+
+/**
+ * Compares the foreignKeys the app's table resources and its @jskit-ai packages' declare with the keys TEST_DB_NAME
+ * holds, once a run's databases are ready: json-rest-api relies on a declaration to skip work, so a declared key the
+ * database lacks fails the run. A key of one of the app's own tables that nothing declares is reported, as work
+ * json-rest-api could skip. It imports only the modules that declare foreignKeys; an app without the resource runtime
+ * has nothing to check.
+ * @param {string} cwd
+ * @returns {(knex: object) => Promise<string>}
+ */
+function foreignKeyCheckFor(cwd) {
+  return async (knex) => {
+    const appRequire = createRequire(path.join(cwd, "package.json"));
+    let runtime;
+    let tableResources;
+    try {
+      [runtime, tableResources] = [appRequire.resolve(RESOURCE_RUNTIME), appRequire.resolve(TABLE_RESOURCES)];
+    } catch {
+      return "";
+    }
+    const sources = await readTableResourceSources({ projectRoot: cwd });
+    const tables = sources.filter((source) => !source.framework && source.tableName).map((source) => source.tableName);
+    const declaringFiles = [...new Set(sources.filter((source) => source.foreignKeys).map((source) => source.absolute))];
+    if (tables.length < 1 && declaringFiles.length < 1) return "";
+    const { isTableResource } = await import(pathToFileURL(tableResources).href);
+    const resources = [];
+    for (const file of declaringFiles) {
+      const exported = exportedTableResources(await import(pathToFileURL(file).href), isTableResource);
+      for (const source of sources.filter((entry) => entry.absolute === file && entry.foreignKeys)) {
+        if (!exported.some((resource) => resource.foreignKeys && resource.name === source.name)) {
+          throw new Error(`${source.file}:${source.line} declares foreignKeys on a table resource the module does not export, so ` +
+            `jskit test ${OPTION} cannot check them against the database: export the resource.`);
+        }
+      }
+      resources.push(...exported.filter((resource) => resource.foreignKeys));
+    }
+    const { checkForeignKeys } = await import(pathToFileURL(runtime).href);
+    const { missing, undeclared } = await checkForeignKeys({ knex, resources: [...new Set(resources)], tables });
+    if (missing.length > 0) {
+      throw new Error(`jskit test ${OPTION}: ${missing.length} declared foreign key(s) the test database does not hold. ` +
+        `json-rest-api relies on a declared key, so a wrong one changes results: fix the declaration or add the key ` +
+        `with a migration (${GUIDE}).\n` + missing.map((key) => `  ${key.resource}: ${keyText(key)}`).join("\n"));
+    }
+    const checked = `foreign keys: ${resources.reduce((count, resource) => count + resource.foreignKeys.length, 0)} declared, all in the database`;
+    if (undeclared.length < 1) return checked;
+    return `${checked}; ${undeclared.length} database key(s) on the app's tables are not declared, so json-rest-api cannot ` +
+      `skip the work they would save (declare each on its table resource's foreignKeys): ${undeclared.map(keyText).join("; ")}`;
+  };
 }
 
 /**
@@ -44,7 +109,7 @@ async function testDatabaseRunFor(count, cwd = process.cwd()) {
   const { result: { default: knexConfig, testDatabaseSchema: schema }, environment } = await withOwnEnvironment(async () =>
     import(pathToFileURL(knexfile).href));
   const { testDatabaseRun } = await import(pathToFileURL(testDatabases).href);
-  return testDatabaseRun({ knexConfig, environment, count, schema, appRoot: cwd });
+  return testDatabaseRun({ knexConfig, environment, count, schema, appRoot: cwd, checkDatabase: foreignKeyCheckFor(cwd) });
 }
 
-export { OPTION as DATABASES_OPTION, testDatabaseRunFor };
+export { OPTION as DATABASES_OPTION, foreignKeyCheckFor, testDatabaseRunFor };

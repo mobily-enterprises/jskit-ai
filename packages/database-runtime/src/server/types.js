@@ -12,8 +12,6 @@
  * contract; `runtime.database` reads its dialect from it.
  * @typedef {object} RuntimeDatabaseDriver
  * @property {string} DIALECT_ID The dialect id: "mysql2" or "pg".
- * @property {(knex: RuntimeKnex, options?: { tableName?: string, idColumn?: string }) => Promise<object>} [introspectCrudTableSnapshot]
- *   Reads a table's columns for CRUD generation; the MySQL driver has it.
  */
 
 export {};

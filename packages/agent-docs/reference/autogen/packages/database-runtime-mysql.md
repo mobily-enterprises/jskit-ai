@@ -29,32 +29,6 @@ Exports
 ### `src/shared/index.js`
 Exports
 - `DIALECT_ID`
-- `introspectCrudTableSnapshot`
-
-### `src/shared/introspectCrudTable.js`
-Exports
-- `introspectCrudTableSnapshot(knex, { tableName = "", idColumn = "id" } = {})`
-Local functions
-- `requireKnexRaw(knex)`
-- `requireTableName(value)`
-- `normalizeRows(rawResult)`
-- `normalizeDbSchemaName(rows = [])`
-- `toBoolean(value)`
-- `toNullableNumber(value)`
-- `normalizeColumnDefault(value)`
-- `normalizeCurrentTimestampExpression(value)`
-- `normalizeOnUpdateExpression(value)`
-- `parseEnumValues(columnType = "")`
-- `resolveTypeKind(column)`
-- `normalizeColumn(row = {})`
-- `normalizePrimaryKeyColumns(rows = [])`
-- `normalizePrimaryKeyColumnsByTable(rows = [])`
-- `normalizeIndexes(rows = [])`
-- `normalizeForeignKeys(rows = [])`
-- `normalizeCheckConstraints(rows = [])`
-- `requireIdColumn(columns, idColumn)`
-- `requirePrimaryKeyContainsId(primaryKeyColumns, idColumn)`
-- `requireSupportedForeignKeys(foreignKeys, primaryKeyColumnsByTable)`
 
 ### patterns
 

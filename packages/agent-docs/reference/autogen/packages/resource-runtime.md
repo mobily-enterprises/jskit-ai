@@ -36,6 +36,15 @@ Exports
 - `SystemContextRequiredError`
 - `UnpagedQueryError`
 
+### `src/server/foreignKeyCheck.js`
+Exports
+- `checkForeignKeys({ knex, resources, tables = [] })`
+- `type ForeignKeyColumns`
+Local functions
+- `sameNames(left, right)`
+- `sameKey(left, right)`
+- `declaredForeignKeys(knex, resources)`
+
 ### `src/server/handleGuards.js`
 Exports
 - `formatOf(name, options)`
@@ -105,6 +114,7 @@ Exports
 - `buildJsonRestQueryParams`
 - `resolveUserScopeValue`
 - `resolveWorkspaceScopeValue`
+- `checkForeignKeys`
 - `createStandaloneResources`
 - `isSystemContext`
 - `withoutHiddenFields`

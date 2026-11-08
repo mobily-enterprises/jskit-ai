@@ -159,6 +159,57 @@ function requireLockVersionField(lockVersionField, schema) {
   }
 }
 
+// The keys of a foreignKeys entry, in json-rest-api's documented shape.
+const FOREIGN_KEY_KEYS = new Set(["name", "columns", "referencedTableName", "referencedColumns", "deleteRule", "updateRule"]);
+
+function requireNames(value, label) {
+  if (!Array.isArray(value) || value.length < 1 || !value.every((name) => typeof name === "string" && name.trim())) {
+    throw new TypeError(`defineTableResource ${label} must be a non-empty list of names.`);
+  }
+  return value;
+}
+
+/**
+ * `foreignKeys` declares the table's real database foreign keys, which json-rest-api relies on to skip work: each
+ * names the schema fields it covers (`columns`), the table it references and, unless that is one column referencing
+ * the table's `id`, the referenced columns. `jskit test --databases` compares them with the database's keys.
+ * @param {unknown} foreignKeys
+ * @param {Record<string, any>} schema
+ */
+function requireForeignKeys(foreignKeys, schema) {
+  if (foreignKeys === undefined) {
+    return;
+  }
+  if (!Array.isArray(foreignKeys) || foreignKeys.length < 1) {
+    throw new TypeError("defineTableResource foreignKeys must be a non-empty list; leave it out for a table without one.");
+  }
+  foreignKeys.forEach((foreignKey, index) => {
+    const label = `foreignKeys[${index}]`;
+    if (!isRecord(foreignKey)) {
+      throw new TypeError(`defineTableResource ${label} must be an object.`);
+    }
+    const unknown = Object.keys(foreignKey).find((key) => !FOREIGN_KEY_KEYS.has(key));
+    if (unknown) {
+      throw new TypeError(`defineTableResource ${label} does not take ${unknown}. Its keys are ${[...FOREIGN_KEY_KEYS].join(", ")}.`);
+    }
+    const columns = requireNames(foreignKey.columns, `${label}.columns`);
+    const notField = columns.find((field) => field !== "id" && !Object.hasOwn(schema, field));
+    if (notField) {
+      throw new TypeError(`defineTableResource ${label}.columns names "${notField}", which is not a schema field.`);
+    }
+    requireText(foreignKey.referencedTableName, `${label}.referencedTableName`);
+    if (foreignKey.referencedColumns === undefined ? columns.length > 1
+      : requireNames(foreignKey.referencedColumns, `${label}.referencedColumns`).length !== columns.length) {
+      throw new TypeError(`defineTableResource ${label}.referencedColumns must name one referenced column for each of its columns.`);
+    }
+    for (const key of ["name", "deleteRule", "updateRule"]) {
+      if (foreignKey[key] !== undefined && (typeof foreignKey[key] !== "string" || !foreignKey[key].trim())) {
+        throw new TypeError(`defineTableResource ${label}.${key} must be text.`);
+      }
+    }
+  });
+}
+
 /**
  * The one description of one table: its name, its fields and the columns they
  * map to, who owns each row, and how it is searched and sorted. It is shared
@@ -186,6 +237,7 @@ function defineTableResource(definition) {
   }
   const schema = normalizeTableSchema(definition.schema);
   requireLockVersionField(definition.lockVersionField, schema);
+  requireForeignKeys(definition.foreignKeys, schema);
   const resource = deepFreeze({
     ...definition,
     name,

@@ -1699,7 +1699,7 @@
               },
               {
                 "subpath": "./server/foreignKeyMigrations",
-                "summary": "Adds a single-column foreign key only when it is missing, refusing rows without a parent, for constraints migrations on fresh and already-migrated databases."
+                "summary": "Adds a single-column foreign key only when it is missing, refusing rows without a parent, for constraints migrations on fresh and already-migrated databases, and lists every foreign key the connected database holds."
               },
               {
                 "subpath": "./server/testDatabases",

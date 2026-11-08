@@ -126,3 +126,30 @@ test("a namespace's resource name is its camel case", () => {
   assert.equal(resourceNameFromNamespace("users"), "users");
   assert.equal(resourceNameFromNamespace(""), "");
 });
+
+test("foreignKeys declares the table's database keys on its schema fields, in json-rest-api's shape", () => {
+  const keys = [
+    { columns: ["workspaceId"], referencedTableName: "workspaces", deleteRule: "CASCADE" },
+    { name: "fk_receivals_status", columns: ["workspaceId", "status"], referencedTableName: "statuses", referencedColumns: ["workspace_id", "code"] }
+  ];
+  const resource = defineTableResource(receivals({ foreignKeys: keys }));
+  assert.deepEqual(resource.foreignKeys, keys);
+  assert.equal(Object.isFrozen(resource.foreignKeys[0]), true);
+  assert.equal(Object.hasOwn(defineTableResource(receivals()), "foreignKeys"), false);
+
+  const declaring = (foreignKeys) => () => defineTableResource(receivals({ foreignKeys }));
+  assert.throws(declaring([]), /foreignKeys must be a non-empty list; leave it out/u);
+  assert.throws(declaring([{ columns: ["lotId"], referencedTableName: "lots" }]), /foreignKeys\[0\]\.columns names "lotId", which is not a schema field/u);
+  assert.throws(declaring([{ columns: [], referencedTableName: "lots" }]), /foreignKeys\[0\]\.columns must be a non-empty list of names/u);
+  assert.throws(declaring([{ columns: ["status"] }]), /requires foreignKeys\[0\]\.referencedTableName/u);
+  assert.throws(declaring([{ columns: ["status"], table: "statuses" }]), /foreignKeys\[0\] does not take table\. Its keys are name, columns/u);
+  assert.throws(
+    declaring([{ columns: ["workspaceId", "status"], referencedTableName: "statuses" }]),
+    /foreignKeys\[0\]\.referencedColumns must name one referenced column for each of its columns/u
+  );
+  assert.throws(
+    declaring([{ columns: ["status"], referencedTableName: "statuses", referencedColumns: ["code", "kind"] }]),
+    /referencedColumns must name one referenced column for each/u
+  );
+  assert.throws(declaring([{ columns: ["status"], referencedTableName: "statuses", deleteRule: 1 }]), /foreignKeys\[0\]\.deleteRule must be text/u);
+});

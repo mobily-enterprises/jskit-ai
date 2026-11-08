@@ -70,6 +70,7 @@ Local functions
 Exports
 - `checkDataAccess({ projectRoot = process.cwd() } = {})`
 - `formatDataAccessReport(result)`
+- `readTableResourceSources({ projectRoot = process.cwd() } = {})`
 Local functions
 - `escapeRegExp(text)`
 - `skipsDirectory(name)`
@@ -106,6 +107,7 @@ Local functions
 - `frameworkPackages(root)`
 - `checkTables(resources, report)`
 - `checkSystemScopes(scopes, report)`
+- `sourceFiles(root)`
 
 ### `scripts/files.mjs`
 Exports
@@ -342,9 +344,12 @@ Local functions
 ### `scripts/test-databases.mjs`
 Exports
 - `DATABASES_OPTION`
+- `foreignKeyCheckFor(cwd)`
 - `testDatabaseRunFor(count, cwd = process.cwd())`
 Local functions
 - `withOwnEnvironment(load)`
+- `exportedTableResources(namespace, isTableResource)`
+- `keyText({ tableName, columns, referencedTableName, referencedColumns })`
 
 ### `scripts/test-file-stop.mjs`
 Exports

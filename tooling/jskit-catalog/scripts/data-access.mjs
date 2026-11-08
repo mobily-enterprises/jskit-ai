@@ -97,6 +97,7 @@ const skipsDirectory = (name) => path.posix.basename(name) === "node_modules" ||
   SKIPPED_ROOT_DIRECTORIES.has(PACKAGE_DIRECTORY.exec(name)?.[1] ?? name);
 const MARKERS = new RegExp(`defineTableResource|defineCrudContract|systemScope|systemContext|readable-check: allow|eslint|${CAPABILITY_NAMES}`, "iu");
 const TABLE_RESOURCE_CALL = /\bdefineTableResource\s*\(/gu;
+const TABLE_RESOURCE_MARKER = /\bdefineTableResource\s*\(/u;
 // A CRUD contract on a table resource named by its variable: `defineCrudContract(receivalResource, { ... })`.
 const CRUD_CONTRACT_CALL = /\bdefineCrudContract\s*\(\s*([A-Za-z_$][\w$]*)\s*,\s*/gu;
 // The fields an ownership kind keeps for itself: json-rest-api fills them from the context.
@@ -265,7 +266,7 @@ function readTableResources(file, { code, masked, position }) {
   for (const match of masked.matchAll(TABLE_RESOURCE_CALL)) {
     const object = objectArgument(masked, match.index, match[0].length);
     if (!object) continue;
-    const keys = topLevelKeys(masked, object.start, object.end, ["name", "tableName", "ownership", "schema"]);
+    const keys = topLevelKeys(masked, object.start, object.end, ["name", "tableName", "ownership", "schema", "foreignKeys"]);
     const ownership = keyValue(code, masked, keys, "ownership")?.text ?? null;
     resources.push({
       file,
@@ -273,7 +274,8 @@ function readTableResources(file, { code, masked, position }) {
       name: keyValue(code, masked, keys, "name")?.text ?? null,
       tableName: keyValue(code, masked, keys, "tableName")?.text ?? null,
       variable: /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*$/u.exec(masked.slice(Math.max(0, match.index - 120), match.index))?.[1] ?? null,
-      fields: readSchemaFields(code, masked, keys, ownership)
+      fields: readSchemaFields(code, masked, keys, ownership),
+      foreignKeys: keys.has("foreignKeys")
     });
   }
   return resources;
@@ -620,6 +622,37 @@ function checkSystemScopes(scopes, report) {
   }
 }
 
+// The app's source files and those of its installed @jskit-ai packages (framework: true), each { file, absolute }.
+async function sourceFiles(root) {
+  const appFiles = [];
+  await walk(root, "", appFiles);
+  const sources = appFiles.map((file) => ({ file, absolute: path.join(root, file), framework: false }));
+  for (const { directory, real } of await frameworkPackages(root)) {
+    const files = [];
+    await walk(real, "", files);
+    sources.push(...files.map((file) => ({ file: path.join(directory, file), absolute: path.join(real, file), framework: true })));
+  }
+  return sources;
+}
+
+/**
+ * The table resources the app and its installed @jskit-ai packages define, read from source as checkDataAccess reads
+ * them: each { file, absolute, framework, name, tableName, foreignKeys }, `foreignKeys` true when the definition
+ * declares them. `jskit test --databases` checks the declared keys against the database.
+ * @param {{ projectRoot?: string }} options
+ */
+async function readTableResourceSources({ projectRoot = process.cwd() } = {}) {
+  const resources = [];
+  for (const { file, absolute, framework } of await sourceFiles(path.resolve(projectRoot))) {
+    const source = await readFile(absolute, "utf8");
+    if (!TABLE_RESOURCE_MARKER.test(source)) continue;
+    const read = readSourceFile(source);
+    resources.push(...readTableResources(toPosixPath(file), read).map(({ file: name, line, name: resourceName, tableName, foreignKeys }) =>
+      ({ file: name, line, absolute, framework, name: resourceName, tableName, foreignKeys })));
+  }
+  return resources;
+}
+
 /**
  * Reads the app's source and its installed @jskit-ai packages for table resources, system scopes and infrastructure
  * exceptions.
@@ -627,15 +660,7 @@ function checkSystemScopes(scopes, report) {
  */
 async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
   const root = path.resolve(projectRoot);
-  const sources = [];
-  const appFiles = [];
-  await walk(root, "", appFiles);
-  sources.push(...appFiles.map((file) => ({ file, absolute: path.join(root, file), framework: false })));
-  for (const { directory, real } of await frameworkPackages(root)) {
-    const files = [];
-    await walk(real, "", files);
-    sources.push(...files.map((file) => ({ file: path.join(directory, file), absolute: path.join(real, file), framework: true })));
-  }
+  const sources = await sourceFiles(root);
   const resources = [];
   const contracts = [];
   const scopes = [];
@@ -709,4 +734,4 @@ function formatDataAccessReport(result) {
   return lines.join("\n");
 }
 
-export { checkDataAccess, formatDataAccessReport };
+export { checkDataAccess, formatDataAccessReport, readTableResourceSources };

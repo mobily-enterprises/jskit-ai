@@ -4,7 +4,8 @@ import knex from "knex";
 import {
   addMissingForeignKey,
   dropForeignKeyIfPresent,
-  hasForeignKey
+  hasForeignKey,
+  listForeignKeys
 } from "@jskit-ai/database-runtime/server/foreignKeyMigrations";
 
 const KEY = { tableName: "children", columnName: "parent_id", parentTable: "parents" };
@@ -28,6 +29,21 @@ test("dropForeignKeyIfPresent drops a MySQL key by the name the database holds",
       table.integer("parent_id").unsigned().nullable();
       table.foreign("parent_id", "children_parent_custom_fk").references("id").inTable("parents");
     });
+
+    await db.schema.createTable("pairs", (table) => {
+      table.integer("a").unsigned();
+      table.integer("b").unsigned();
+      table.primary(["a", "b"]);
+    });
+    await db.schema.createTable("pair_links", (table) => {
+      table.integer("pair_b").unsigned();
+      table.integer("pair_a").unsigned();
+      table.foreign(["pair_b", "pair_a"], "pair_links_pair_fk").references(["a", "b"]).inTable("pairs");
+    });
+    assert.deepEqual(await listForeignKeys(db), [
+      { name: "children_parent_custom_fk", tableName: "children", columns: ["parent_id"], referencedTableName: "parents", referencedColumns: ["id"] },
+      { name: "pair_links_pair_fk", tableName: "pair_links", columns: ["pair_b", "pair_a"], referencedTableName: "pairs", referencedColumns: ["a", "b"] }
+    ]);
 
     assert.equal(await hasForeignKey(db, KEY), true);
     assert.equal(await addMissingForeignKey(db, KEY), false);

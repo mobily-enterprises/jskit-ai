@@ -33,6 +33,7 @@ Exports
 - `addMissingForeignKey(knex, key)`
 - `dropForeignKeyIfPresent(knex, key)`
 - `hasForeignKey(knex, key)`
+- `listForeignKeys(knex)`
 - `type ForeignKey`
 Local functions
 - `findForeignKeyName(knex, { tableName, columnName, parentTable, parentColumn = "id" })`
@@ -77,7 +78,7 @@ Exports
 - `restoreTestDatabase(knexConfig, database, snapshot)`
 - `tableNames(knex)`
 - `testDatabaseNames(name, count)`
-- `testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd() })`
+- `testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase })`
 - `testDatabaseSnapshotKey(knexConfig, { appRoot = process.cwd(), schemaFiles = [] } = {})`
 - `type TestDatabaseSchema`
 Local functions

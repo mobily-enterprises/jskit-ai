@@ -4,7 +4,8 @@ import knexFactory from "knex";
 import {
   addMissingForeignKey,
   dropForeignKeyIfPresent,
-  hasForeignKey
+  hasForeignKey,
+  listForeignKeys
 } from "../src/server/foreignKeyMigrations.js";
 
 // Runs in a disposable PostgreSQL schema of the test database: run with DB_NAME set to TEST_DB_NAME
@@ -89,4 +90,24 @@ test("PostgreSQL foreign key helpers find and drop a key by the name the databas
   assert.equal(await dropForeignKeyIfPresent(knex, KEY), true);
   assert.equal(await keyCount(knex), 0);
   assert.equal(await hasForeignKey(knex, KEY), false);
+});
+
+test("listForeignKeys on PostgreSQL answers the schema's keys, each column of a key in order", { skip: SKIP }, async (t) => {
+  const knex = await testDatabase(t);
+  await knex.raw("ALTER TABLE children ADD CONSTRAINT children_parent_link FOREIGN KEY (parent_id) REFERENCES parents (id)");
+  await knex.schema.createTable("pairs", (table) => {
+    table.integer("a");
+    table.integer("b");
+    table.primary(["a", "b"]);
+  });
+  await knex.schema.createTable("pair_links", (table) => {
+    table.integer("pair_b");
+    table.integer("pair_a");
+    table.foreign(["pair_b", "pair_a"], "pair_links_pair_fk").references(["b", "a"]).inTable("pairs");
+  });
+
+  assert.deepEqual(await listForeignKeys(knex), [
+    { name: "children_parent_link", tableName: "children", columns: ["parent_id"], referencedTableName: "parents", referencedColumns: ["id"] },
+    { name: "pair_links_pair_fk", tableName: "pair_links", columns: ["pair_b", "pair_a"], referencedTableName: "pairs", referencedColumns: ["b", "a"] }
+  ]);
 });

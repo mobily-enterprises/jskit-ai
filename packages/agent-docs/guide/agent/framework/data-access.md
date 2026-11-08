@@ -246,6 +246,15 @@ visible, so a hot path names its fields. A collection relation with
 `hydrateOnList: false` or `hydrateOnView: false` loads its rows on that kind of
 read only when the read includes it.
 
+`foreignKeys` declares the table's real database foreign keys, in json-rest-api's
+shape: `foreignKeys: [{ columns: ["customerId"], referencedTableName: "customers" }]`,
+`columns` naming schema fields and `referencedColumns` the other table's columns
+when they are not its `id`. json-rest-api relies on a declared key to skip work,
+so a declaration the database lacks changes results: before any test runs,
+`jskit test --databases` compares every declaration with the test database's keys,
+fails on one the database lacks and lists the keys of your tables that nothing
+declares.
+
 A `hidden: true` field (an ownership id, a bearer token, a storage key) never
 reaches a request: no CRUD route or JSON:API document (`format: "jsonapi"`)
 carries it, even when `fields` names it. The owner's own code reads one by

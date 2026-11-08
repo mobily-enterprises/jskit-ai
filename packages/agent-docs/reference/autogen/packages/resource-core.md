@@ -43,6 +43,8 @@ Local functions
 - `requireText(value, label)`
 - `requireOwnership(value)`
 - `requireLockVersionField(lockVersionField, schema)`
+- `requireNames(value, label)`
+- `requireForeignKeys(foreignKeys, schema)`
 
 ### patterns
 

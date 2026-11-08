@@ -119,4 +119,67 @@ async function dropForeignKeyIfPresent(knex, key) {
   return true;
 }
 
-export { addMissingForeignKey, dropForeignKeyIfPresent, hasForeignKey };
+// Every foreign key of the connected database's tables, one row per column: the key's name, its table and column,
+// the referenced table and column, and the column's place in the key. Keys to another schema are left out.
+const FOREIGN_KEY_COLUMNS = Object.freeze({
+  mysql: `SELECT CONSTRAINT_NAME AS name, TABLE_NAME AS tableName, COLUMN_NAME AS columnName,
+      REFERENCED_TABLE_NAME AS referencedTableName, REFERENCED_COLUMN_NAME AS referencedColumnName
+    FROM information_schema.KEY_COLUMN_USAGE
+    WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_SCHEMA = DATABASE()
+    ORDER BY TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION`,
+  postgres: `SELECT c.conname AS name, t.relname AS "tableName", a.attname AS "columnName",
+      r.relname AS "referencedTableName", p.attname AS "referencedColumnName"
+    FROM pg_constraint c
+    JOIN pg_class t ON t.oid = c.conrelid
+    JOIN pg_class r ON r.oid = c.confrelid
+    CROSS JOIN LATERAL unnest(c.conkey, c.confkey) WITH ORDINALITY AS k(attnum, refnum, position)
+    JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+    JOIN pg_attribute p ON p.attrelid = c.confrelid AND p.attnum = k.refnum
+    WHERE c.contype = 'f' AND t.relnamespace = to_regnamespace(current_schema()) AND r.relnamespace = t.relnamespace
+    ORDER BY t.relname, c.conname, k.position`,
+  // SQLite keys have no name: each is told apart by its table and id.
+  sqlite: `SELECT m.name || '#' || k.id AS name, m.name AS tableName, k."from" AS columnName,
+      k."table" AS referencedTableName, k."to" AS referencedColumnName
+    FROM sqlite_master m JOIN pragma_foreign_key_list(m.name) k
+    WHERE m.type = 'table'
+    ORDER BY m.name, k.id, k.seq`
+});
+
+// The rows of a raw statement, as each driver answers them.
+const RAW_ROWS = Object.freeze({
+  mysql: ([rows]) => rows,
+  postgres: ({ rows }) => rows,
+  sqlite: (rows) => rows
+});
+
+/**
+ * The foreign keys the connected database holds, each with its table, its columns in order, and the table and
+ * columns it references. A SQLite key's name is "", since SQLite keeps none.
+ * @param {import("./types.js").RuntimeKnex} knex
+ * @returns {Promise<Array<{ name: string, tableName: string, columns: string[], referencedTableName: string, referencedColumns: string[] }>>}
+ */
+async function listForeignKeys(knex) {
+  const detected = detectDialectFromClient(knex);
+  const dialect = detected.includes("sqlite") ? "sqlite" : detected;
+  if (!Object.hasOwn(FOREIGN_KEY_COLUMNS, dialect)) {
+    throw new Error(`Listing foreign keys does not support the ${detected || "unknown"} dialect.`);
+  }
+  const keys = new Map();
+  for (const row of RAW_ROWS[dialect](await knex.raw(FOREIGN_KEY_COLUMNS[dialect]))) {
+    const id = `${row.tableName}\u0000${row.name}`;
+    if (!keys.has(id)) {
+      keys.set(id, {
+        name: dialect === "sqlite" ? "" : row.name,
+        tableName: row.tableName,
+        columns: [],
+        referencedTableName: row.referencedTableName,
+        referencedColumns: []
+      });
+    }
+    keys.get(id).columns.push(row.columnName);
+    keys.get(id).referencedColumns.push(row.referencedColumnName);
+  }
+  return [...keys.values()];
+}
+
+export { addMissingForeignKey, dropForeignKeyIfPresent, hasForeignKey, listForeignKeys };

@@ -482,8 +482,10 @@ function refusedPrivilege(error) {
  * @param {number} options.count How many test files run at once: at most the run's test budget.
  * @param {TestDatabaseSchema} [options.schema]
  * @param {string} [options.appRoot]
+ * @param {(knex: import("knex").Knex) => Promise<string>} [options.checkDatabase] Runs once on the prepared TEST_DB_NAME,
+ *   before any test file: what it answers joins the summary, and a throw fails the run.
  */
-async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd() }) {
+async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase }) {
   const oneAtATime = (reason) => ({
     concurrency: 1,
     env: {},
@@ -503,6 +505,7 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
     if (!refusedPrivilege(error)) throw error;
     return oneAtATime(`the database user may not prepare ${testDatabase} (${error.code})`);
   }
+  const checked = checkDatabase ? await withKnex(knexConfig, prepared.databases[0], checkDatabase) : "";
   // mkdtemp makes the directory for this user alone; the settings file holds the connection password.
   const directory = mkdtempSync(path.join(os.tmpdir(), "jskit-test-databases-"));
   const { client, connection, migrations } = knexConfig;
@@ -516,7 +519,7 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
     concurrency: prepared.databases.length,
     env: { JSKIT_TEST_DATABASES: directory },
     preload: TEST_DATABASE_FILE,
-    summary: prepared.summary,
+    summary: `${prepared.summary}${checked ? `; ${checked}` : ""}`,
     cleanup: () => rmSync(directory, { recursive: true, force: true })
   };
 }

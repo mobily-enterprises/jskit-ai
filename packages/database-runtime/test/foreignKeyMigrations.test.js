@@ -4,7 +4,8 @@ import knexFactory from "knex";
 import {
   addMissingForeignKey,
   dropForeignKeyIfPresent,
-  hasForeignKey
+  hasForeignKey,
+  listForeignKeys
 } from "../src/server/foreignKeyMigrations.js";
 
 const KEY = { tableName: "children", columnName: "parent_id", parentTable: "parents", onDelete: "SET NULL" };
@@ -45,4 +46,27 @@ test("addMissingForeignKey adds a missing key once, refuses rows without a paren
     addMissingForeignKey(knex, { ...KEY, parentTable: "guardians" }),
     /children\.parent_id foreign key: the guardians table does not exist/u
   );
+});
+
+test("listForeignKeys answers every key of the database, each column of a key in order", async (t) => {
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("parents", (table) => table.integer("id").primary());
+  await knex.schema.createTable("pairs", (table) => {
+    table.integer("a");
+    table.integer("b");
+    table.primary(["a", "b"]);
+  });
+  await knex.schema.createTable("children", (table) => {
+    table.increments("id");
+    table.integer("parent_id").references("id").inTable("parents");
+    table.integer("pair_b");
+    table.integer("pair_a");
+    table.foreign(["pair_b", "pair_a"]).references(["b", "a"]).inTable("pairs");
+  });
+
+  assert.deepEqual((await listForeignKeys(knex)).sort((left, right) => left.columns[0].localeCompare(right.columns[0])), [
+    { name: "", tableName: "children", columns: ["pair_b", "pair_a"], referencedTableName: "pairs", referencedColumns: ["b", "a"] },
+    { name: "", tableName: "children", columns: ["parent_id"], referencedTableName: "parents", referencedColumns: ["id"] }
+  ]);
 });
