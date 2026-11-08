@@ -81,7 +81,7 @@
   "rail": null,
   "drawer": {
     "height": 836,
-    "width": 360,
+    "width": 130,
     "backgroundColor": "rgb(20, 18, 24)",
     "color": "rgb(230, 224, 233)",
     "borderTopLeftRadius": "0px",
@@ -97,7 +97,7 @@
   },
   "content": {
     "height": 224,
-    "width": 920,
+    "width": 1150,
     "backgroundColor": "rgba(0, 0, 0, 0)",
     "color": "rgb(230, 224, 233)",
     "borderTopLeftRadius": "0px",

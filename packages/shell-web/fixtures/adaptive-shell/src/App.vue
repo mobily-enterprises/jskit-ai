@@ -19,7 +19,8 @@ const surfaceLabel = computed(() => ({ admin: "Admin", account: "Account" })[sur
 const themeMode = computed(() => route.query.theme === "dark" ? "dark" : "light");
 const railWidth = computed(() => Number(route.query.railWidth) || undefined);
 const navigationItemSpacing = computed(() => Number(route.query.navigationItemSpacing) || undefined);
-const drawerWidth = computed(() => (route.query.drawerWidth === "content" ? "content" : undefined));
+// ?drawerWidth=material asks for Material 3's full drawer width; unset, the drawer fits its labels.
+const drawerWidth = computed(() => (route.query.drawerWidth === "material" ? "material" : undefined));
 // ?identity=<name> puts an identity at the top of the drawer, as a workspace switcher does.
 const identity = computed(() => String(route.query.identity || ""));
 

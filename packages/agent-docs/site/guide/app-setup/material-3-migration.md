@@ -234,8 +234,10 @@ changes:
 
 ## 8. The navigation drawer and app tests
 
-The drawer is 360dp wide; `drawerWidth="content"` on `ShellLayout` sizes it to
-its items instead. Medium windows show the navigation rail, whose menu control
+The drawer fits its labels and identity, within Material 3's 360dp, so a layout
+that wraps `ShellLayout` only to narrow the drawer can go; `drawerWidth="material"`
+gives it the full 360dp and a number fixes its width. Medium windows show the
+navigation rail, whose menu control
 opens the drawer over the page. A modal drawer opens over the app bar, as
 Material 3 draws it, so a browser test that clicked the menu control again to
 close it taps the scrim or presses Escape instead.

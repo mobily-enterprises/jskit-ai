@@ -52,10 +52,11 @@ const props = defineProps({
     type: String,
     default: "rail"
   },
-  // Material 3's 360dp when unset; a number fixes the width, "content" fits the drawer to its labels.
+  // "content" fits the drawer to its labels and identity, up to Material 3's 360dp; "material" is that full width and a
+  // number fixes it.
   drawerWidth: {
     type: [Number, String],
-    default: null
+    default: "content"
   },
   railWidth: {
     type: Number,

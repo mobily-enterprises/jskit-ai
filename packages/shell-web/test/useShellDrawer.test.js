@@ -163,8 +163,25 @@ test("Escape closes the compact drawer and returns focus to its toggle", async (
   app.unmount();
 });
 
-test("the drawer is Material 3's 360dp wide and a modal one leaves 56dp of the page", async (t) => {
-  const { app, frames, isCompactLayout, result, viewportWidth } = mountDrawer(t);
+test("without a drawerWidth the drawer fits its labels, and a modal one leaves 56dp of the page", async (t) => {
+  const { app, frames, isCompactLayout, observers, result, viewportWidth } = mountDrawer(t);
+  assert.equal(result.fixedDrawerWidth.value, false);
+
+  await runFrames(frames);
+  const fitted = 16 + LABEL_TEXT_WIDTH + 12 + 1;
+  assert.equal(result.resolvedDrawerWidth.value, fitted);
+  assert.equal(observers[0].connected, true);
+
+  isCompactLayout.value = true;
+  viewportWidth.value = 390;
+  assert.equal(result.resolvedDrawerWidth.value, fitted);
+  viewportWidth.value = 200;
+  assert.equal(result.resolvedDrawerWidth.value, 200 - 56);
+  app.unmount();
+});
+
+test("drawerWidth=\"material\" is Material 3's 360dp and a modal one leaves 56dp of the page", async (t) => {
+  const { app, frames, isCompactLayout, result, viewportWidth } = mountDrawer(t, { props: { drawerWidth: "material" } });
   assert.equal(result.fixedDrawerWidth.value, true);
   assert.equal(result.resolvedDrawerWidth.value, 360);
   await runFrames(frames);

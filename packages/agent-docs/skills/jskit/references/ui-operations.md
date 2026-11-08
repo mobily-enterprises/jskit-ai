@@ -63,7 +63,9 @@ when another navigation affordance remains.
 The drawer omits the app bar's surface label. Open and rail icons share a
 centreline. It uses a 12px outer item inset; `navigationItemSpacing` controls
 icon/label and label/end gaps. The normal 80px rail centres 48px targets;
-`railWidth` and `drawerWidth` are public density/width controls. Restyle shell
+`railWidth` and `drawerWidth` are public density/width controls: the drawer fits
+its labels up to 360dp unless `drawerWidth` is `"material"` (the full 360dp) or a
+number. Restyle shell
 chrome only through the `--shell-*` tokens in the `shell/application-shell`
 pattern, never its private CSS.
 

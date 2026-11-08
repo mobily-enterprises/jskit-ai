@@ -269,15 +269,18 @@ test("shell-web adaptive navigation passes package-owned browser contracts", {
 
     const railPage = await context.newPage();
     await railPage.setViewportSize({ width: 1280, height: 900 });
-    await railPage.goto("/w/acme/admin/bookings?theme=light");
+    // drawerWidth="material" asks for Material 3's full width in place of the fitted one.
+    await railPage.goto("/w/acme/admin/bookings?theme=light&drawerWidth=material");
+    await expect(railPage.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-drawer-width-mode", "fixed");
     await expect(railPage.getByTestId("jskit-shell-drawer")).toHaveAttribute("data-drawer-width", "360");
     await assertRailKeyboardAndSelection(railPage);
     await railPage.close();
 
+    // Without a drawerWidth the drawer fits its labels.
     const configuredPage = await context.newPage();
     await configuredPage.setViewportSize({ width: 1280, height: 900 });
     await configuredPage.goto(
-      "/w/acme/admin/bookings?theme=light&railWidth=64&navigationItemSpacing=8&drawerWidth=content"
+      "/w/acme/admin/bookings?theme=light&railWidth=64&navigationItemSpacing=8"
     );
     const configuredDrawer = configuredPage.getByTestId("jskit-shell-drawer");
     await expect(configuredDrawer).toHaveAttribute("data-navigation-item-spacing", "8");
@@ -502,15 +505,15 @@ test("a snackbar never covers the FAB, the navigation bar or a form's Save, so S
   }
 });
 
-// A content-sized drawer fits a long name in its identity (a workspace switcher, say) as well as its labels.
-test("a content-sized drawer is wide enough for its identity's name", {
+// The drawer fits a long name in its identity (a workspace switcher, say) as well as its labels.
+test("the drawer is wide enough for its identity's name", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
 }, async (t) => {
   const { vite, browser } = await startFixture(t);
   const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
   const name = "Northwind Regional Distribution";
-  await page.goto(`/home?drawerWidth=content&identity=${encodeURIComponent(name)}`);
+  await page.goto(`/home?identity=${encodeURIComponent(name)}`);
   const drawer = page.getByTestId("jskit-shell-drawer");
   await expect(drawer).toHaveAttribute("data-presentation", "drawer");
   await expect(drawer.getByRole("button", { name })).toBeVisible();
@@ -546,7 +549,7 @@ test("a content-sized drawer is wide enough for its identity's name", {
   await settle();
   assert.equal((await fit()).width, settled);
   // Without the long name the drawer fits its labels again.
-  await page.goto("/home?drawerWidth=content");
+  await page.goto("/home");
   await expect.poll(async () => Math.round((await drawer.boundingBox())?.width || 0)).toBeLessThan(settled);
   await page.close();
 });

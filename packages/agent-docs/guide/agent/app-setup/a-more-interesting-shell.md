@@ -58,7 +58,9 @@ Use Vuetify Material navigation. On compact/mobile layouts, close dismisses the
 temporary drawer. Wide layouts normally use
 `desktopDrawerClosedMode="rail"`; choose `hidden` only when another navigation
 affordance remains. The public `drawerWidth`, `railWidth`, and
-`navigationItemSpacing` controls own density and spacing. The standard 80px
+`navigationItemSpacing` controls own density and spacing. The drawer fits its
+labels by default, up to Material 3's 360dp; `drawerWidth="material"` gives the
+full 360dp and a number fixes the width. The standard 80px
 rail centres 48px targets, and drawer items keep an outer inset of 12 CSS pixels.
 Do not override private shell CSS to imitate these states.
 

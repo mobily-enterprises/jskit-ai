@@ -70,7 +70,7 @@
   "railLabel": null,
   "drawer": {
     "height": 836,
-    "width": 360,
+    "width": 187,
     "backgroundColor": "rgb(15, 21, 18)",
     "color": "rgb(222, 228, 223)",
     "borderTopLeftRadius": "0px",
@@ -120,7 +120,7 @@
   "listPane": null,
   "sectionTabs": {
     "height": 49,
-    "width": 872,
+    "width": 1045,
     "backgroundColor": "rgba(0, 0, 0, 0)",
     "color": "rgb(222, 228, 223)",
     "borderTopLeftRadius": "0px",

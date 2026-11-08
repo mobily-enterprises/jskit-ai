@@ -26,8 +26,9 @@ function navigationDrawerElement() {
 
 /**
  * The shell's navigation drawer: what opens it on each layout, how it presents, and how wide it is. The drawer is
- * modal on compact and medium windows and a standard drawer, collapsing to a rail, on expanded ones. It is Material 3's
- * 360dp wide unless `drawerWidth` fixes a width or is "content", which fits the drawer to its labels.
+ * modal on compact and medium windows and a standard drawer, collapsing to a rail, on expanded ones. It fits its labels
+ * and identity, within Material 3's 360dp and leaving a modal drawer's 56dp of the page, unless `drawerWidth` is
+ * "material" (Material 3's full width) or a number, which fixes it.
  * @param {object} options
  * @param {{ desktopDrawerClosedMode: string, drawerWidth: number | string | null, railWidth: number, navigationItemSpacing: number }} options.props
  * @param {import("vue").Ref<boolean>} options.modalLayout
@@ -57,13 +58,14 @@ function useShellDrawer({ props, modalLayout, viewportWidth, navigationToggle, l
     modal: modalLayout.value,
     open: drawerOpen.value
   }));
-  const fixedDrawerWidth = computed(() => props.drawerWidth !== "content");
+  const fixedDrawerWidth = computed(() => !["content", null, undefined].includes(props.drawerWidth));
   const resolvedDrawerWidth = computed(() => {
+    const materialWidth = resolveMaterialDrawerWidth({ modal: modalLayout.value, viewportWidth: viewportWidth.value });
     if (!fixedDrawerWidth.value) {
-      return normalizeShellDrawerWidth(measuredDrawerWidth.value);
+      return Math.min(normalizeShellDrawerWidth(measuredDrawerWidth.value), materialWidth);
     }
-    if (props.drawerWidth === null || props.drawerWidth === undefined) {
-      return resolveMaterialDrawerWidth({ modal: modalLayout.value, viewportWidth: viewportWidth.value });
+    if (props.drawerWidth === "material") {
+      return materialWidth;
     }
     return normalizeShellDrawerWidth(props.drawerWidth);
   });

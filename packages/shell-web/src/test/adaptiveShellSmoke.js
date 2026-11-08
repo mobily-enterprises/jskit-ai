@@ -1,3 +1,5 @@
+import { MAXIMUM_SHELL_DRAWER_WIDTH, MINIMUM_SHELL_DRAWER_WIDTH } from "../client/support/drawerWidth.js";
+
 const DEFAULT_SMOKE_PATH = String(process.env.JSKIT_PLAYWRIGHT_SMOKE_PATH || "/home");
 const DEFAULT_VIEWPORTS = Object.freeze([
   Object.freeze({ name: "compact", width: 390, height: 844 }),
@@ -94,12 +96,14 @@ async function readConfiguredWidth(drawer, attribute) {
   return width;
 }
 
-async function expectDrawerWidth(drawer, expect, expectedWidth) {
+// The element settles at the width the drawer reports in `attribute`, read again on each poll: a drawer that fits its
+// labels measures them once it shows, and again once the fonts load, so the width it reports can change as it opens.
+async function expectDrawerWidth(element, expect, drawer, attribute) {
   await expect.poll(async () => {
-    const box = await drawer.boundingBox();
-    return box ? Math.abs(box.width - expectedWidth) : Number.POSITIVE_INFINITY;
+    const box = await element.boundingBox();
+    return box ? Math.abs(box.width - await readConfiguredWidth(drawer, attribute)) : Number.POSITIVE_INFINITY;
   }, {
-    message: `Shell drawer did not settle at ${expectedWidth}px.`
+    message: `Shell drawer did not settle at its ${attribute}.`
   }).toBeLessThanOrEqual(1);
 }
 
@@ -120,6 +124,18 @@ async function expectContentAwareDrawerFit(drawer, expect) {
     const innerEnd = rightToLeft
       ? drawerRect.left + endBorderWidth
       : drawerRect.right - endBorderWidth;
+    // The identity at the drawer's top (a workspace switcher) at the width its content wants, as the shell measures it.
+    const identity = element.querySelector(".shell-layout__identity");
+    let identityEndGap = null;
+    if (identity && window.getComputedStyle(identity).display !== "none") {
+      const { width, maxWidth } = identity.style;
+      identity.style.width = "max-content";
+      identity.style.maxWidth = "none";
+      const identityRect = identity.getBoundingClientRect();
+      identity.style.width = width;
+      identity.style.maxWidth = maxWidth;
+      identityEndGap = rightToLeft ? identityRect.left - innerEnd : innerEnd - identityRect.right;
+    }
     const labels = Array.from(element.querySelectorAll(".v-list-item-title"))
       .filter((label) => {
         const style = window.getComputedStyle(label);
@@ -162,6 +178,8 @@ async function expectContentAwareDrawerFit(drawer, expect) {
     }, null);
     return {
       clipped: labels.some((label) => label.clipped),
+      drawerWidth: drawerRect.width,
+      identityEndGap,
       endGap: rightToLeft
         ? furthestLabel.logicalEnd - innerEnd
         : innerEnd - furthestLabel.logicalEnd,
@@ -173,7 +191,19 @@ async function expectContentAwareDrawerFit(drawer, expect) {
 
   expect(fit).not.toBeNull();
   expect(fit.clipped).toBe(false);
-  expect(Math.abs(fit.endGap - configuredSpacing)).toBeLessThanOrEqual(1.1);
+  expect(fit.endGap).toBeGreaterThanOrEqual(configuredSpacing - 1.1);
+  // The widest label ends the spacing from the drawer's end, unless the drawer is at its narrowest or the identity at its
+  // top is wider than the labels: it then ends at the drawer's end, or is cut there by the widest drawer.
+  const fittedToLabels = Math.abs(fit.endGap - configuredSpacing) <= 1.1;
+  const fittedToIdentity = fit.identityEndGap !== null && (
+    Math.abs(fit.identityEndGap) <= 1.1 ||
+    (fit.identityEndGap < 0 && fit.drawerWidth >= MAXIMUM_SHELL_DRAWER_WIDTH - 1)
+  );
+  const atMinimum = fit.drawerWidth <= MINIMUM_SHELL_DRAWER_WIDTH + 1;
+  expect(
+    fittedToLabels || fittedToIdentity || atMinimum,
+    `The drawer is ${fit.drawerWidth}px wide, its widest label ${fit.endGap}px from its end and its identity ${fit.identityEndGap}px.`
+  ).toBe(true);
   expect(fit.iconLabelGaps.length).toBeGreaterThan(0);
   for (const gap of fit.iconLabelGaps) {
     expect(Math.abs(gap - configuredSpacing)).toBeLessThanOrEqual(1);
@@ -345,11 +375,11 @@ async function runAdaptiveShellSmokeCase({
     const rail = page.getByTestId("jskit-shell-rail");
     await expect(rail).toBeVisible();
     await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
-    await expectDrawerWidth(rail, expect, await readConfiguredWidth(drawer, "data-rail-width"));
+    await expectDrawerWidth(rail, expect, drawer, "data-rail-width");
     await toggle.click();
     await expect(drawer).toHaveAttribute("data-presentation", "modal");
     await expectElementVisibility(page, expect, "jskit-shell-drawer", true);
-    await expectDrawerWidth(drawer, expect, await readConfiguredWidth(drawer, "data-drawer-width"));
+    await expectDrawerWidth(drawer, expect, drawer, "data-drawer-width");
     const drawerIconCenters = await readNavigationIconCenters(drawer, expect);
     await page.keyboard.press("Escape");
     await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
@@ -362,7 +392,7 @@ async function runAdaptiveShellSmokeCase({
       await toggle.click();
     }
     await expect(drawer).toHaveAttribute("data-presentation", "drawer");
-    await expectDrawerWidth(drawer, expect, await readConfiguredWidth(drawer, "data-drawer-width"));
+    await expectDrawerWidth(drawer, expect, drawer, "data-drawer-width");
     await expectContentAwareDrawerFit(drawer, expect);
     const expandedIconCenters = await readNavigationIconCenters(drawer, expect);
     await page.keyboard.press("Escape");
@@ -370,7 +400,7 @@ async function runAdaptiveShellSmokeCase({
 
     await toggle.click();
     await expect(drawer).toHaveAttribute("data-presentation", "rail");
-    await expectDrawerWidth(drawer, expect, await readConfiguredWidth(drawer, "data-rail-width"));
+    await expectDrawerWidth(drawer, expect, drawer, "data-rail-width");
     await expectCentredRailNavigation(page, drawer, expect, expandedIconCenters);
     await expectNoHorizontalOverflow(page, expect);
   }
