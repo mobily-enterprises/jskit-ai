@@ -12,5 +12,5 @@ Pick the layer ([Data access](../site/guide/framework/data-access.md)):
 - A change only while a row still holds a value (open to booked, once): `patch` with `onlyIf`, or `patchWhere` with that value in its filters (both check it on the locked row, so of two concurrent writers one wins); `claim`, or a lock and a check, when the decision needs more than the row's own values.
 - Counts, sums, buckets: `aggregate`; newest per group: a window include; anything else: one `scopedQuery()` method under `// Knex: <kind> - <reason>`.
 - Every workspace or user at once: a job with `systemScope`, finding its units with an `aggregate` grouped by the ownership field and looping over them, never rows.
-- A table another feature owns: its service or owner API, never its table.
+- A table another feature owns: its service or owner API, never its table. A report that joins it joins the `{ query, column }` its owner API answers from `scopedQuery({ alias })`, as a subquery: one statement, both scopes kept.
 - Every path: a scope test and `expectFlatQueries`; a data test fails without `TEST_DB_NAME`.

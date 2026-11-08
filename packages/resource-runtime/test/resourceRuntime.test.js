@@ -1056,6 +1056,86 @@ test("an action a system context or a job runs reads as that system context or j
   }
 });
 
+test("a report joins another owner's scopedQuery as a subquery: one statement, each owner's scope and row policy kept", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("tasks", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.integer("project_id");
+  });
+  await knex.schema.createTable("invoices", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.integer("project_id");
+    table.integer("amount");
+    table.string("status");
+  });
+  await knex("tasks").insert([
+    { workspace_id: 1, project_id: 1 }, { workspace_id: 1, project_id: 1 }, { workspace_id: 1, project_id: 2 }, { workspace_id: 2, project_id: 1 }
+  ]);
+  await knex("invoices").insert([
+    { workspace_id: 1, project_id: 1, amount: 100, status: "sent" },
+    { workspace_id: 1, project_id: 1, amount: 50, status: "void" },
+    { workspace_id: 1, project_id: 2, amount: 30, status: "sent" },
+    { workspace_id: 2, project_id: 1, amount: 999, status: "sent" }
+  ]);
+  const owned = (name, fields) => defineTableResource({
+    name,
+    tableName: name,
+    ownership: "workspace",
+    schema: {
+      id: { type: "id", primary: true },
+      workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+      projectId: { type: "integer", storage: { column: "project_id" } },
+      ...fields
+    }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const { tasks } = await runtime.own("tasks.feature", [owned("tasks", {})]);
+  const { invoices } = await runtime.own("billing.feature", [{
+    resource: owned("invoices", { amount: { type: "integer" }, status: { type: "string" } }),
+    // Billing never shows a void invoice.
+    rowPolicy: ({ query, column }) => {
+      query.whereNot(column("status"), "void");
+      return true;
+    }
+  }]);
+  // Billing's owner API: its scoped invoices as a join source, with their column names. It answers the builder wrapped,
+  // since a builder is thenable and an async function would run it.
+  const billing = {
+    async invoiceSource(alias, options) {
+      const { query } = await invoices.scopedQuery({ alias }, options);
+      return { query, column: (field) => invoices.column(field, alias) };
+    }
+  };
+
+  // Knex: report - open tasks and billed totals per project, joined on billing's scoped invoices
+  async function projectSummary(options) {
+    const source = await billing.invoiceSource("i", options);
+    const billed = source.query
+      .select({ projectId: source.column("projectId") })
+      .sum({ billed: source.column("amount") })
+      .groupBy(source.column("projectId"))
+      .as("b");
+    const { query } = await tasks.scopedQuery({ alias: "t" }, options);
+    const projectId = tasks.column("projectId", "t");
+    const rows = await query
+      .leftJoin(billed, "b.projectId", projectId)
+      .select({ projectId })
+      .count({ open: tasks.column("id", "t") })
+      .max({ billed: "b.billed" })
+      .groupBy(projectId)
+      .orderBy(projectId);
+    return rows.map((row) => ({ projectId: Number(row.projectId), open: Number(row.open), billed: Number(row.billed ?? 0) }));
+  }
+
+  const { result, count } = await countQueries(knex, () => projectSummary({ context: WORKSPACE_A }));
+  assert.deepEqual(result, [{ projectId: 1, open: 2, billed: 100 }, { projectId: 2, open: 1, billed: 30 }]);
+  assert.equal(count, 1);
+  assert.deepEqual(await projectSummary({ context: WORKSPACE_B }), [{ projectId: 1, open: 1, billed: 999 }]);
+});
+
 test("a job done for one person records that person in audit fields and is never signed in as them", async (t) => {
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
   t.after(() => knex.destroy());

@@ -422,18 +422,40 @@ async function activeDays(memberIds, options) {
   `jskit/no-direct-knex` and `jskit/sql-literal` lint rules do. Join only
   another table's `scopedQuery()` as a subquery, or read it through its owner.
 - Give each report a scope test and a flat-query test (see [Tests](#tests)).
-- A report over tables with different owners is a feature of its own. It
-  requires a report method from each owner (keys in, grouped totals out) and
-  merges their answers in memory: one statement per owner, never a join across
-  owners or a call per row. When a measured report is too slow, the owner of
-  the main table adds a method that takes the other owner's keys.
+- A report over tables with different owners joins them in one statement
+  through their owners. Each other owner adds an API method that answers its
+  rows as a join source: `{ query, column }` from its
+  `scopedQuery({ alias }, options)`, with `column(field)` naming its columns
+  under that alias. It answers the builder wrapped, since a builder is thenable
+  and an async function would run it. The report shapes that builder (select,
+  group), names it with `.as()` and joins it as a subquery, so every owner's
+  scope and row policy stay applied. The report lives with the main table's
+  owner, or in a feature that requires both. Never join the other table
+  itself, and never read it once per row.
 
   ```js
-  // tasks and invoices have different owners; the report feature requires both owner APIs
-  async function projectSummary(projectIds, options) {
-    const openTasks = await tasks.countOpenByProject(projectIds, options);
-    const billed = await invoices.totalsByProject(projectIds, options);
-    return projectIds.map((projectId) => ({ projectId, openTasks: openTasks.get(projectId) ?? 0, billed: billed.get(projectId) ?? 0 }));
+  // billing's owner API: its scoped invoices as a join source, with their column names
+  async function invoiceSource(alias, options) {
+    const { query } = await invoices.scopedQuery({ alias }, options);
+    return { query, column: (field) => invoices.column(field, alias) };
+  }
+
+  // Knex: report - open tasks and billed totals per project, joined on billing's scoped invoices
+  async function projectSummary(options) {
+    const source = await billing.invoiceSource("i", options);
+    const billed = source.query
+      .select({ projectId: source.column("projectId") })
+      .sum({ billed: source.column("amount") })
+      .groupBy(source.column("projectId"))
+      .as("b");
+    const { query } = await tasks.scopedQuery({ alias: "t" }, options);
+    const projectId = tasks.column("projectId", "t");
+    return query
+      .leftJoin(billed, "b.projectId", projectId)
+      .select({ projectId })
+      .count({ open: tasks.column("id", "t") })
+      .max({ billed: "b.billed" })
+      .groupBy(projectId);
   }
   ```
 
