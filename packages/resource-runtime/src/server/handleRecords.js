@@ -15,12 +15,74 @@ function textList(value) {
 }
 
 /**
+ * A sparse fieldset as json-rest-api takes it: a list of the resource's own fields, or `{ [type]: "a,b" }`. json-rest-api
+ * names a belongs-to field by its relationship (`as`), while a handle's records answer it under the field's own key,
+ * so the resource's own fields may be named either way; the field's key would otherwise select no relationship and
+ * answer null.
+ * @param {{ name: string, schema: Record<string, any> }} resource
+ * @param {string[] | Record<string, string>} fields
+ */
+function sparseFieldset(resource, fields) {
+  const own = (names) => [...new Set(names.map((field) => {
+    const definition = resource.schema[field];
+    return definition?.belongsTo && definition.as ? definition.as : field;
+  }))].join(",");
+  if (Array.isArray(fields)) {
+    return { [resource.name]: own(fields) };
+  }
+  if (!isRecord(fields) || typeof fields[resource.name] !== "string") {
+    return fields;
+  }
+  return { ...fields, [resource.name]: own(fields[resource.name].split(",").map((field) => field.trim()).filter(Boolean)) };
+}
+
+/**
+ * The collection relations a kind of read loads only when it includes them: those whose `hydrateOnList` (lists) or
+ * `hydrateOnView` (one record) is false.
+ * @param {{ schema: Record<string, any> }} resource
+ * @param {"hydrateOnList" | "hydrateOnView"} flag
+ */
+function quietCollections(resource, flag) {
+  return Object.entries(resource.schema).flatMap(([fieldName, definition]) => {
+    const relation = definition?.relation;
+    return relation?.kind === "collection" && relation[flag] === false
+      ? [{ fieldName, relationshipName: relation.as || definition.as || fieldName }]
+      : [];
+  });
+}
+
+/**
+ * The fields a read names: the caller's own, or, when it names none and leaves out one of its quiet collections (see
+ * quietCollections), every field json-rest-api would answer but those, so their rows are not read.
+ * @param {{ fields?: unknown, include?: unknown }} params
+ * @param {Array<{ fieldName: string, relationshipName: string }>} quiet
+ * @param {() => { outputFields: Record<string, any>, outputRelationships: Record<string, any>, idProperty?: string }} schemaInfo
+ *   json-rest-api's compiled schema of the resource.
+ */
+function requestedFields(params, quiet, schemaInfo) {
+  const included = includedRelationships(params.include);
+  const skipped = quiet.filter(({ relationshipName }) => !included.has(relationshipName));
+  if (params.fields !== undefined || skipped.length < 1) {
+    return params.fields;
+  }
+  const left = new Set(skipped.flatMap(({ fieldName, relationshipName }) => [fieldName, relationshipName]));
+  const { outputFields, outputRelationships, idProperty } = schemaInfo();
+  return [
+    ...Object.entries(outputFields)
+      .filter(([field, definition]) => field !== "id" && field !== idProperty && !definition?.hidden && !definition?.normallyHidden)
+      .map(([field]) => field),
+    ...Object.keys(outputRelationships)
+  ].filter((field) => !left.has(field));
+}
+
+/**
  * The read parameters of a handle call as json-rest-api's queryParams.
- * @param {string} name
+ * @param {{ name: string, schema: Record<string, any> }} resource
  * @param {Record<string, any>} params
  * @param {{ page: boolean, caller: string }} allowed
  */
-function readQueryParams(name, params, { page, caller }) {
+function readQueryParams(resource, params, { page, caller }) {
+  const { name } = resource;
   if (!isRecord(params)) {
     throw new TypeError(`${name}.${caller}() params must be an object.`);
   }
@@ -40,7 +102,7 @@ function readQueryParams(name, params, { page, caller }) {
     queryParams.include = textList(params.include);
   }
   if (params.fields !== undefined) {
-    queryParams.fields = Array.isArray(params.fields) ? { [name]: params.fields.join(",") } : params.fields;
+    queryParams.fields = sparseFieldset(resource, params.fields);
   }
   if (page && params.page !== undefined) {
     const { after, number } = params.page;
@@ -176,14 +238,27 @@ function includedRelationships(include) {
 }
 
 /**
+ * The resource's own fields a sparse read names (by relationship for a belongs-to field), or null when it reads all.
+ * @param {{ name: string, schema: Record<string, any> }} resource
+ * @param {unknown} fields
+ */
+function namedFields(resource, fields) {
+  const own = fields === undefined ? undefined : sparseFieldset(resource, fields)?.[resource.name];
+  return typeof own === "string" ? new Set(own.split(",")) : null;
+}
+
+/**
  * A json-rest-api plain record as a handle's record: each belongs-to field
  * carries the related id under its own name (null when unset), and the related
  * record stays nested under its relationship only when the read included it.
+ * A sparse read leaves out a belongs-to field it did not name, so an unread
+ * relation is never answered as null.
  * @param {{ schema: Record<string, any> }} resource
  * @param {unknown} record
  * @param {Set<string>} included
+ * @param {Set<string> | null} named
  */
-function handleRecord(resource, record, included) {
+function handleRecord(resource, record, included, named) {
   if (!isRecord(record)) {
     return record;
   }
@@ -193,6 +268,11 @@ function handleRecord(resource, record, included) {
       continue;
     }
     const relationshipName = definition.as || fieldName;
+    if (named && !named.has(relationshipName) && !included.has(relationshipName)) {
+      delete shaped[fieldName];
+      delete shaped[relationshipName];
+      continue;
+    }
     const related = record[relationshipName];
     if (relationshipName === fieldName && included.has(relationshipName)) {
       continue;
@@ -207,25 +287,26 @@ function handleRecord(resource, record, included) {
 
 /**
  * Plain records as a handle answers them.
- * @param {{ schema: Record<string, any> }} resource
+ * @param {{ name: string, schema: Record<string, any> }} resource
  * @param {unknown[]} records
- * @param {unknown} [include]
+ * @param {{ include?: unknown, fields?: unknown }} [read] What the read included and the fields it named.
  */
-function handleRecords(resource, records, include) {
+function handleRecords(resource, records, { include, fields } = {}) {
   const included = includedRelationships(include);
-  return records.map((record) => handleRecord(resource, record, included));
+  const named = namedFields(resource, fields);
+  return records.map((record) => handleRecord(resource, record, included, named));
 }
 
 /**
  * One single-record answer: a plain record as a handle answers it, or a
  * JSON:API document left as it is.
- * @param {{ schema: Record<string, any> }} resource
+ * @param {{ name: string, schema: Record<string, any> }} resource
  * @param {unknown} result
  * @param {string} format
- * @param {unknown} [include]
+ * @param {{ include?: unknown, fields?: unknown }} [read] What the read included and the fields it named.
  */
-function handleResult(resource, result, format, include) {
-  return format === "jsonapi" ? result : handleRecord(resource, result, includedRelationships(include));
+function handleResult(resource, result, format, { include, fields } = {}) {
+  return format === "jsonapi" ? result : handleRecord(resource, result, includedRelationships(include), namedFields(resource, fields));
 }
 
 // A single write's `returning`, as json-rest-api names it.
@@ -284,6 +365,9 @@ export {
   patchAnswer,
   upsertConflict,
   pickReturning,
+  quietCollections,
   readQueryParams,
+  requestedFields,
+  sparseFieldset,
   textList
 };

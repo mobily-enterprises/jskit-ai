@@ -152,6 +152,14 @@ key is one of the resource's `search: true` fields or a `searchSchema` entry;
 of values needs an entry with `filterOperator: "in"`. The `id` filter is every
 handle's own: a resource never declares an `id` search entry.
 
+A read answers every field unless `fields` names the ones it needs (a
+belongs-to field by its own key, such as `customerId`, or its relationship);
+`lock` and `lockMany` take it in their options, `{ ...txOptions, fields }`.
+Each belongs-to field a read answers costs a check that its related record is
+visible, so a hot path names its fields. A collection relation with
+`hydrateOnList: false` or `hydrateOnView: false` loads its rows on that kind of
+read only when the read includes it.
+
 `create` and `patch` answer the written record by default, read back through
 the row policy. Server code that does not use it passes `returning: "id"` or
 `"none"`, which skips that read; `delete` answers the id. One rule covers a

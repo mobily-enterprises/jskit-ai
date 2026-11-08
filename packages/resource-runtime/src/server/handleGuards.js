@@ -153,4 +153,29 @@ function requireReadParams(name, params) {
   }
 }
 
-export { missingOf, requireDefinedFilters, requireOwners, requireReadParams, requireUpsertRows, valueOnly, whereSelection };
+/**
+ * Refuses a patch's lockVersion without a lockVersionField, or one that is not a version, or changes that write the
+ * version the patch advances itself; and an onlyIf that is not an object of field values.
+ * @param {string} name
+ * @param {string} lockVersionField
+ * @param {Record<string, unknown>} attributes
+ * @param {{ lockVersion?: unknown, onlyIf?: unknown }} conditions
+ */
+function requirePatchConditions(name, lockVersionField, attributes, { lockVersion, onlyIf }) {
+  if (lockVersion !== undefined) {
+    if (!lockVersionField) {
+      throw new TypeError(`${name}.patch() lockVersion needs the resource to name its lockVersionField.`);
+    }
+    if (!Number.isSafeInteger(lockVersion) || Number(lockVersion) < 0) {
+      throw new TypeError(`${name}.patch() lockVersion must be a non-negative integer. Received: ${lockVersion}`);
+    }
+    if (Object.hasOwn(attributes, lockVersionField)) {
+      throw new TypeError(`${name}.patch() advances ${lockVersionField} itself, so the attributes must leave it out.`);
+    }
+  }
+  if (onlyIf !== undefined && !isRecord(onlyIf)) {
+    throw new TypeError(`${name}.patch() onlyIf must be an object of field values.`);
+  }
+}
+
+export { missingOf, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, valueOnly, whereSelection };

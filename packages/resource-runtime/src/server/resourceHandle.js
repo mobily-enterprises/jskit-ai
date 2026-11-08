@@ -6,7 +6,7 @@ import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { lockOrCreate } from "./lockOrCreate.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
-  missingOf, requireDefinedFilters, requireOwners, requireReadParams, requireUpsertRows, valueOnly, whereSelection
+  missingOf, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, valueOnly, whereSelection
 } from "./handleGuards.js";
 import {
   MANY_RETURNING,
@@ -19,7 +19,10 @@ import {
   matchesOnlyIf,
   patchAnswer,
   pickReturning,
+  quietCollections,
   readQueryParams,
+  requestedFields,
+  sparseFieldset,
   textList,
   upsertConflict
 } from "./handleRecords.js";
@@ -141,6 +144,7 @@ function write(options, run) {
 function createResourceHandle({ api, resource, hooks, settings }) {
   const name = resource.name;
   const lockVersionField = resource.lockVersionField || "";
+  const quiet = { list: quietCollections(resource, "hydrateOnList"), view: quietCollections(resource, "hydrateOnView") };
 
   function jsonRest() {
     return api.resources[name];
@@ -159,6 +163,9 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     requireOwners(name, resource.ownership, options.context);
     return createJsonRestContext(options.context);
   }
+
+  // The fields a list or a one-record read names (see requestedFields).
+  const readFields = (params, kind) => requestedFields(params, quiet[kind], () => jsonRest().vars.schemaInfo);
 
   /** @param {{ format?: string }} options */
   function formatOf(options) {
@@ -231,7 +238,8 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    */
   async function query(params = {}, options = {}) {
     const format = formatOf(options);
-    const queryParams = readQueryParams(name, params, { page: true, caller: "query" });
+    const read = { ...params, fields: readFields(params, "list") };
+    const queryParams = readQueryParams(resource, read, { page: true, caller: "query" });
     const size = params.page?.size;
     if (size == null && format !== "jsonapi") {
       throw new UnpagedQueryError(name);
@@ -254,7 +262,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     const hasMore = pagination?.hasMore === true;
     const number = params.page?.number;
     return Object.freeze({
-      records: handleRecords(resource, payload.data, params.include),
+      records: handleRecords(resource, payload.data, read),
       page: Object.freeze(number === undefined
         ? { size: Number(size), hasMore, next: hasMore ? pagination.cursor?.next ?? null : null }
         : { size: Number(size), number, hasMore, next: hasMore ? number + 1 : null })
@@ -272,10 +280,11 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   async function queryAll(params = {}, options = {}) {
     const context = contextOf(options);
     const rowLimit = isJobContext(options.context) ? undefined : settings.requestRowLimit;
+    const read = { ...params, fields: readFields(params, "list") };
     try {
       const payload = await returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().queryAll(
         {
-          queryParams: readQueryParams(name, params, { page: false, caller: "queryAll" }),
+          queryParams: readQueryParams(resource, read, { page: false, caller: "queryAll" }),
           pageSize: settings.serverPageSize,
           ...(rowLimit === undefined ? {} : { rowLimit }),
           transaction: options.trx || undefined,
@@ -283,7 +292,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
         },
         context
       ));
-      return handleRecords(resource, payload.data, params.include);
+      return handleRecords(resource, payload.data, read);
     } catch (error) {
       if (error instanceof RestApiRowLimitError && rowLimit !== undefined) {
         throw new RowLimitError(name, rowLimit, error);
@@ -302,17 +311,18 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   async function get(id, params = {}, options = {}) {
     requireReadParams(name, params);
     const format = formatOf(options);
+    const named = { ...params, fields: readFields(params, "view") };
     const read = () => returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().get(
       {
         id,
-        queryParams: readQueryParams(name, params, { page: false, caller: "get" }),
+        queryParams: readQueryParams(resource, named, { page: false, caller: "get" }),
         transaction: options.trx || undefined,
         format
       },
       contextOf(options)
     ));
     const result = missingOf(name, "get", options.missing) === "skip" ? await returnNullWhenJsonRestResourceMissing(read) : await read();
-    return result === null ? null : handleResult(resource, result, format, params.include);
+    return result === null ? null : handleResult(resource, result, format, named);
   }
 
   /**
@@ -439,29 +449,18 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     const { lockVersion, onlyIf, missing: missingOption, ...callOptions } = options;
     const missing = missingOf(name, "patch", missingOption);
     const returning = pickReturning(SINGLE_RETURNING, callOptions.returning, "record", `${name}.patch()`);
-    if (lockVersion !== undefined) {
-      if (!lockVersionField) {
-        throw new TypeError(`${name}.patch() lockVersion needs the resource to name its lockVersionField.`);
-      }
-      if (!Number.isSafeInteger(lockVersion) || lockVersion < 0) {
-        throw new TypeError(`${name}.patch() lockVersion must be a non-negative integer. Received: ${lockVersion}`);
-      }
-      if (Object.hasOwn(attributes, lockVersionField)) {
-        throw new TypeError(`${name}.patch() advances ${lockVersionField} itself, so the attributes must leave it out.`);
-      }
-    }
-    if (onlyIf !== undefined && !isRecord(onlyIf)) {
-      throw new TypeError(`${name}.patch() onlyIf must be an object of field values.`);
-    }
+    requirePatchConditions(name, lockVersionField, attributes, { lockVersion, onlyIf });
     if (lockVersion === undefined && missing === "skip") {
       return patchIfPresent(id, attributes, callOptions, returning, onlyIf);
     }
     if (lockVersion === undefined && onlyIf === undefined) {
       return patchRecord(id, attributes, callOptions, returning);
     }
-    // A missing row throws, so telling it from a changed one (onlyIf) takes the row's lock first.
+    // A missing row throws, so telling it from a changed one (onlyIf) takes the row's lock first, reading only the
+    // fields it compares.
+    const compared = [...(lockVersion === undefined ? [] : [lockVersionField]), ...Object.keys(onlyIf ?? {})];
     return withTransaction(callOptions, async (txOptions) => {
-      const [current] = await lockMany([id], { ...txOptions, missing });
+      const [current] = await lockMany([id], { ...txOptions, missing, fields: compared });
       if (!current) {
         return null;
       }
@@ -602,8 +601,9 @@ function createResourceHandle({ api, resource, hooks, settings }) {
    * Locks the record's row until the transaction ends and answers it as the
    * lock saw it. Needs options.trx. A missing or hidden record throws
    * json-rest-api's not-found error, or answers null with `missing: "skip"`.
+   * `fields` reads only the fields the work needs (see lockMany).
    * @param {unknown} id
-   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip" }} options
+   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip", fields?: string[] }} options
    */
   async function lock(id, options) {
     missingOf(name, "lock", options.missing);
@@ -614,15 +614,16 @@ function createResourceHandle({ api, resource, hooks, settings }) {
   /**
    * Locks the visible rows among the ids, in id order, and answers them; hidden or missing ids throw, or are
    * left out with `missing: "skip"`. MySQL locks every listed id, a hidden one too: take ids from scoped reads.
+   * `fields` names the fields the lock reads, so a belongs-to field left out costs no check that its related
+   * record is visible; without it every field is read.
    * @param {unknown[]} ids
-   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip" }} options
+   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip", fields?: string[] }} options
    */
   async function lockMany(ids, options) {
-    const { data } = await jsonRest().lockByIds(
-      { ids, transaction: options.trx, format: "plain", ...(options.missing ? { missing: options.missing } : {}) },
-      contextOf(options)
-    );
-    return handleRecords(resource, data);
+    const fields = readFields({ fields: options.fields }, "view");
+    const read = { ids, transaction: options.trx, format: "plain", ...(options.missing ? { missing: options.missing } : {}) };
+    const { data } = await jsonRest().lockByIds(fields ? { ...read, queryParams: { fields: sparseFieldset(resource, fields) } } : read, contextOf(options));
+    return handleRecords(resource, data, { fields });
   }
 
   /**

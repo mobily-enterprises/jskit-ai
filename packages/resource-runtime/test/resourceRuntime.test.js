@@ -967,3 +967,148 @@ test("a belongs-to field is written under its relationship, and naming both is r
   assert.equal((await handle.patch(book.id, { authorId: null })).authorId, null);
   await assert.rejects(handle.create({ title: "Dune", authorId: "1", author: "2" }), /Provide either "authorId" or "author", not both/u);
 });
+
+// Visits each belong to a workspace's customer and to a vet; customers are workspace rows, vets public ones.
+async function createVisitFixture(t) {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("customers", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.string("name");
+  });
+  await knex.schema.createTable("vets", (table) => {
+    table.increments("id");
+    table.string("name");
+  });
+  await knex.schema.createTable("visits", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.integer("customer_id");
+    table.integer("vet_id");
+    table.string("stage").notNullable();
+    table.string("internal_code");
+    table.integer("lock_version").notNullable().defaultTo(0);
+  });
+  await knex("customers").insert({ workspace_id: 1, name: "Ada" });
+  await knex("vets").insert({ name: "Grace" });
+  const customers = defineTableResource({
+    name: "customers",
+    tableName: "customers",
+    ownership: "workspace",
+    schema: { workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } }, name: { type: "string" } }
+  });
+  const vets = defineTableResource({ name: "vets", tableName: "vets", ownership: "public", schema: { name: { type: "string" } } });
+  const visits = defineTableResource({
+    name: "visits",
+    tableName: "visits",
+    ownership: "workspace",
+    lockVersionField: "lockVersion",
+    defaultExclude: ["internalCode"],
+    schema: {
+      workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+      customerId: { type: "id", nullable: true, belongsTo: "customers", as: "customer", storage: { column: "customer_id" } },
+      vetId: { type: "id", nullable: true, belongsTo: "vets", as: "vet", storage: { column: "vet_id" } },
+      stage: { type: "string", required: true },
+      internalCode: { type: "string", nullable: true, storage: { column: "internal_code" } },
+      lockVersion: { type: "integer", defaultTo: 0, storage: { column: "lock_version" } }
+    }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const handles = await runtime.own("visits.feature", [customers, vets, visits]);
+  const options = { context: WORKSPACE_A };
+  const created = await handles.visits.createMany([
+    { customerId: "1", vetId: "1", stage: "new", internalCode: "k1" },
+    { customerId: "1", vetId: "1", stage: "new", internalCode: "k2" }
+  ], { ...options, returning: "ids" });
+  // The tables each SELECT reads, in order.
+  const selects = async (work) => (await countQueries(knex, work)).queries
+    .filter((sql) => /^select/iu.test(sql))
+    .map((sql) => [...sql.matchAll(/from `(\w+)`/gu)].map(([, table]) => table)[0]);
+  return { visits: handles.visits, options, ids: created, selects };
+}
+
+test("lock and lockMany read only the fields they name, so a relation left out costs no visibility check", async (t) => {
+  const { visits, options, ids, selects } = await createVisitFixture(t);
+  let locked;
+  // Every field: the locking read, then one visibility check per related type.
+  assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.lock(ids[0], tx))), ["visits", "customers", "vets"]);
+  assert.deepEqual(await selects(() => visits.withTransaction(options, async (tx) => {
+    locked = await visits.lock(ids[0], { ...tx, fields: ["stage", "lockVersion"] });
+  })), ["visits"]);
+  assert.deepEqual(locked, { id: ids[0], stage: "new", lockVersion: 0 });
+  assert.deepEqual(await selects(() => visits.withTransaction(options, async (tx) => {
+    locked = await visits.lockMany(ids, { ...tx, fields: ["stage", "customerId"] });
+  })), ["visits", "customers"]);
+  assert.deepEqual(locked, ids.map((id) => ({ id, stage: "new", customerId: "1" })));
+});
+
+test("a patch that compares a lock version or onlyIf locks only the fields it compares, hidden ones too", async (t) => {
+  const { visits, options, ids, selects } = await createVisitFixture(t);
+  // The patch's own locking read checks no relation: the customer it writes unchanged is checked by the write alone.
+  const statements = await selects(() => visits.patch(ids[0], { stage: "seen", customerId: "1" }, { ...options, lockVersion: 0, returning: "none" }));
+  assert.equal(statements[0], "visits");
+  assert.equal(statements.filter((table) => table === "vets").length, 0);
+  assert.deepEqual(await selects(() => visits.patch(ids[1], { stage: "seen" }, { ...options, lockVersion: 0, returning: "none" })).then((tables) => tables[0]), "visits");
+  // onlyIf may compare a field reads hide by default.
+  assert.equal((await visits.patch(ids[0], { stage: "done" }, { ...options, onlyIf: { internalCode: "k1" } })).stage, "done");
+  assert.equal(await visits.patch(ids[0], { stage: "late" }, { ...options, onlyIf: { internalCode: "other" } }), null);
+});
+
+test("a sparse read names a belongs-to field by its own key or its relationship, and leaves out the ones it does not name", async (t) => {
+  const { visits, options, ids } = await createVisitFixture(t);
+  const expected = { id: ids[0], customerId: "1" };
+  assert.deepEqual(await visits.get(ids[0], { fields: ["customerId"] }, options), expected);
+  assert.deepEqual(await visits.get(ids[0], { fields: ["customer"] }, options), expected);
+  assert.deepEqual(await visits.get(ids[0], { fields: { visits: "customerId" } }, options), expected);
+  assert.deepEqual(await visits.queryAll({ filters: { id: ids[0] }, fields: ["stage", "vetId"] }, options), [{ id: ids[0], stage: "new", vetId: "1" }]);
+});
+
+test("a collection relation with hydrateOnList or hydrateOnView false loads its rows only when the read includes it", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("contacts", (table) => {
+    table.increments("id");
+    table.string("name").notNullable();
+  });
+  await knex.schema.createTable("pets", (table) => {
+    table.increments("id");
+    table.integer("contact_id");
+    table.string("name").notNullable();
+  });
+  await knex("contacts").insert([{ name: "Ada" }, { name: "Grace" }]);
+  await knex("pets").insert([{ contact_id: 1, name: "Rex" }, { contact_id: 2, name: "Tom" }]);
+  const contacts = (flags) => defineTableResource({
+    name: "contacts",
+    tableName: "contacts",
+    ownership: "public",
+    schema: {
+      name: { type: "string", required: true },
+      pets: { type: "array", storage: { virtual: true }, relation: { kind: "collection", namespace: "pets", foreignKey: "contactId", ...flags } }
+    }
+  });
+  const pets = defineTableResource({
+    name: "pets",
+    tableName: "pets",
+    ownership: "public",
+    schema: {
+      contactId: { type: "id", nullable: true, belongsTo: "contacts", as: "contact", storage: { column: "contact_id" } },
+      name: { type: "string", required: true }
+    }
+  });
+  const reads = async (work) => (await countQueries(knex, work)).queries.filter((sql) => /^select/iu.test(sql)).length;
+  const quietRuntime = await createTestResourceRuntime({ knex });
+  const quiet = (await quietRuntime.own("contacts.feature", [contacts({ hydrateOnList: false, hydrateOnView: false }), pets])).contacts;
+
+  assert.equal(await reads(() => quiet.queryAll({}, {})), 1);
+  assert.deepEqual(await quiet.queryAll({}, {}), [{ id: "1", name: "Ada" }, { id: "2", name: "Grace" }]);
+  assert.deepEqual(await quiet.get("1", {}, {}), { id: "1", name: "Ada" });
+  assert.equal(await reads(() => quiet.withTransaction({}, (tx) => quiet.lock("1", tx))), 1);
+  // An include still loads it.
+  assert.deepEqual((await quiet.get("1", { include: "pets" }, {})).pets.map(({ name }) => name), ["Rex"]);
+
+  const loudRuntime = await createTestResourceRuntime({ knex });
+  const loud = (await loudRuntime.own("contacts.feature", [contacts({}), pets])).contacts;
+  assert.equal(await reads(() => loud.queryAll({}, {})), 2, "without the flags a read loads the collection's linkage");
+  assert.deepEqual((await loud.get("1", {}, {})).pets.map(({ id }) => id), ["1"]);
+});
