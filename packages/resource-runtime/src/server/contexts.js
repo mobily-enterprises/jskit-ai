@@ -82,7 +82,12 @@ function callerOf(context) {
  */
 function eventScopeOf({ workspaceId, userId }) {
   if (workspaceId && userId) {
-    return Object.freeze({ kind: "workspace_user", id: workspaceId, scopeId: workspaceId, userId });
+    return Object.freeze({
+      kind: "workspace_user",
+      id: workspaceId,
+      scopeId: workspaceId,
+      userId
+    });
   }
   return Object.freeze(workspaceId ? { kind: "workspace", id: workspaceId } : { kind: "user", id: userId });
 }

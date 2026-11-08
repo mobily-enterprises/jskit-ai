@@ -1,12 +1,13 @@
 import diagnosticsChannel from "node:diagnostics_channel";
 import { RestApiRowLimitError } from "json-rest-api";
-import { isLostDuplicateInsertRace, retryDeadlocks } from "@jskit-ai/database-runtime/shared";
+import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
-import { lockOrCreate } from "./lockOrCreate.js";
+import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
-  missingOf, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, valueOnly, whereSelection
+  formatOf, matchesNoRow, missingOf, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows,
+  valueOnly, whereSelection
 } from "./handleGuards.js";
 import {
   aggregateMeasures,
@@ -18,6 +19,7 @@ import {
   inputData,
   manyResult,
   matchesOnlyIf,
+  noRowsAggregate,
   patchAnswer,
   pickReturning,
   quietCollections,
@@ -106,35 +108,6 @@ async function openTransaction(api, options, work) {
   }
 }
 
-/**
- * The record with `attributes.id`, created from `attributes` when it is
- * missing. Outside a transaction, of two concurrent creations one wins and
- * the other answers the winner's record; inside one, a lost race fails the
- * transaction as any failed write does. An id another scope's row holds
- * answers a missing record, as get() of it does, never null or that row: the
- * caller learns only that the id is not its to have. That still tells it the
- * id is taken, so the id is one the server computes or generates, never one
- * a request supplies.
- * @param {{ get: Function, create: Function }} handle
- * @param {{ id: unknown } & Record<string, unknown>} attributes
- * @param {{ context?: object | null, trx?: object | null }} options
- */
-async function findOrCreateRecord({ get, create }, attributes, options) {
-  const lookup = { ...options, missing: "skip" };
-  const existing = await get(attributes.id, {}, lookup);
-  if (existing) {
-    return existing;
-  }
-  try {
-    return await create(attributes, options);
-  } catch (error) {
-    if (!isLostDuplicateInsertRace(error, options)) {
-      throw error;
-    }
-    return get(attributes.id, {}, { ...options, missing: "throw" });
-  }
-}
-
 // Whether the call runs inside a transaction (`options.trx` is set): the handle's own reader, never handed out.
 function inTransaction(options) {
   return Boolean(options.trx);
@@ -160,23 +133,6 @@ function write(options, run) {
  * @param {(name: string) => (import("@jskit-ai/resource-core/shared/tableResource").TableResource | null)} dependencies.resourceNamed
  *   The application's table resources by name, which shape included records.
  */
-/**
- * What aggregate() answers over no rows: no groups, or, without groupBy, one row of totals (each count 0, every other
- * measure null), as json-rest-api answers it.
- * @param {Record<string, Record<string, unknown>>} measures
- * @param {unknown[] | undefined} groupBy
- */
-function noRowsAggregate(measures, groupBy) {
-  if (Array.isArray(groupBy) && groupBy.length > 0) {
-    return Object.freeze([]);
-  }
-  const totals = Object.entries(measures || {}).map(([measureName, spec]) => [
-    measureName,
-    isRecord(spec) && (Object.hasOwn(spec, "count") || Object.hasOwn(spec, "countDistinct")) ? 0 : null
-  ]);
-  return Object.freeze([Object.freeze(Object.fromEntries(totals))]);
-}
-
 function createResourceHandle({ api, resource, hooks, settings, resourceNamed }) {
   const name = resource.name;
   const lockVersionField = resource.lockVersionField || "";
@@ -184,10 +140,6 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
 
   function jsonRest() {
     return api.resources[name];
-  }
-
-  function storage() {
-    return api.knex.helpers.getStorageAdapter(name);
   }
 
   /** @param {{ context?: object | null }} options */
@@ -200,30 +152,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     return createJsonRestContext(options.context);
   }
 
-  /**
-   * Whether the filters give an empty list to a filter that matches one of a list (the id filter, or any filter whose
-   * search entry says `filterOperator: "in"`): such a read matches no row, so the handle answers it without a
-   * statement.
-   * @param {unknown} filters
-   */
-  function matchesNothing(filters) {
-    if (!isRecord(filters)) {
-      return false;
-    }
-    const search = jsonRest().vars.schemaInfo.searchSchemaStructure || {};
-    return Object.entries(filters).some(([key, value]) => Array.isArray(value) && value.length === 0 && search[key]?.filterOperator === "in");
-  }
-
   // The fields a list or a one-record read names (see requestedFields).
   const readFields = (params, kind) => requestedFields(params, quiet[kind], () => jsonRest().vars.schemaInfo);
-
-  /** @param {{ format?: string }} options */
-  function formatOf(options) {
-    if (options.format !== undefined && options.format !== "jsonapi") {
-      throw new TypeError(`${name} options.format is "jsonapi" (the CRUD service's documents) or absent (records).`);
-    }
-    return options.format === "jsonapi" ? "jsonapi" : "plain";
-  }
 
   /**
    * Runs work in the caller's transaction (`options.trx`), or in one it opens,
@@ -287,7 +217,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * @param {{ context?: object | null, trx?: object | null, format?: "jsonapi" }} [options]
    */
   async function query(params = {}, options = {}) {
-    const format = formatOf(options);
+    const format = formatOf(name, options);
     const read = { ...params, fields: readFields(params, "list") };
     const queryParams = readQueryParams(resource, read, { page: true, caller: "query" });
     const size = params.page?.size;
@@ -297,27 +227,23 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (size != null && Number(size) > pageLimits().request) {
       throw new PageSizeError(name, size, pageLimits().request);
     }
-    const number = params.page?.number;
-    if (format !== "jsonapi" && matchesNothing(params.filters)) {
-      contextOf(options);
-      return Object.freeze({
-        records: Object.freeze([]),
-        page: Object.freeze(number === undefined ? { size: Number(size), hasMore: false, next: null } : { size: Number(size), number, hasMore: false, next: null })
-      });
-    }
-    const payload = await returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().query(
-      {
-        queryParams,
-        transaction: options.trx || undefined,
-        format
-      },
-      contextOf(options)
-    ));
+    const context = contextOf(options);
+    const payload = format !== "jsonapi" && matchesNoRow(params.filters, jsonRest().vars.schemaInfo)
+      ? { data: [] }
+      : await returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().query(
+        {
+          queryParams,
+          transaction: options.trx || undefined,
+          format
+        },
+        context
+      ));
     if (format === "jsonapi") {
       return payload;
     }
     const pagination = payload.meta?.pagination;
     const hasMore = pagination?.hasMore === true;
+    const number = params.page?.number;
     return Object.freeze({
       records: handleRecords(resource, payload.data, read, resourceNamed),
       page: Object.freeze(number === undefined
@@ -339,20 +265,19 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     const rowLimit = isJobContext(options.context) ? undefined : settings.requestRowLimit;
     const read = { ...params, fields: readFields(params, "list") };
     const queryParams = readQueryParams(resource, read, { page: false, caller: "queryAll" });
-    if (matchesNothing(params.filters)) {
-      return Object.freeze([]);
-    }
     try {
-      const payload = await returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().queryAll(
-        {
-          queryParams,
-          pageSize: settings.serverPageSize,
-          ...(rowLimit === undefined ? {} : { rowLimit }),
-          transaction: options.trx || undefined,
-          format: "plain"
-        },
-        context
-      ));
+      const payload = matchesNoRow(params.filters, jsonRest().vars.schemaInfo)
+        ? { data: [] }
+        : await returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().queryAll(
+          {
+            queryParams,
+            pageSize: settings.serverPageSize,
+            ...(rowLimit === undefined ? {} : { rowLimit }),
+            transaction: options.trx || undefined,
+            format: "plain"
+          },
+          context
+        ));
       return handleRecords(resource, payload.data, read, resourceNamed);
     } catch (error) {
       if (error instanceof RestApiRowLimitError && rowLimit !== undefined) {
@@ -371,7 +296,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    */
   async function get(id, params = {}, options = {}) {
     requireReadParams(name, params);
-    const format = formatOf(options);
+    const format = formatOf(name, options);
     const named = { ...params, fields: readFields(params, "view") };
     const read = () => returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().get(
       {
@@ -394,8 +319,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    */
   async function aggregate({ measures, groupBy, filters, sort, page }, options = {}) {
     requireDefinedFilters(name, "aggregate", filters);
-    if (matchesNothing(filters)) {
-      contextOf(options);
+    const context = contextOf(options);
+    if (matchesNoRow(filters, jsonRest().vars.schemaInfo)) {
       return noRowsAggregate(measures, groupBy);
     }
     const result = await jsonRest().aggregate(
@@ -409,7 +334,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
         },
         transaction: options.trx || undefined
       },
-      contextOf(options)
+      context
     );
     return result.data;
   }
@@ -422,7 +347,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    */
   async function create(attributes, options = {}) {
     const returning = pickReturning(SINGLE_RETURNING, options.returning, "record", `${name}.create()`);
-    const format = formatOf(options);
+    const format = formatOf(name, options);
     // An afterWrite hook needs the new id, so a create returning nothing still asks for it.
     const askFor = hooks.afterWrite && returning === "none" ? "id" : returning;
     const result = await hooked("create", options, (callOptions) => jsonRest().post(
@@ -461,17 +386,17 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
         data: inputData(resource, attributes, "update", options.context),
         returning: SINGLE_RETURNING[returning],
         transaction: callOptions.trx || undefined,
-        format: formatOf(callOptions)
+        format: formatOf(name, callOptions)
       },
       contextOf(callOptions)
     ), () => [String(id)]);
-    return patchAnswer(id, returning === "record" ? handleResult(resource, result, formatOf(options)) : undefined, returning);
+    return patchAnswer(id, returning === "record" ? handleResult(resource, result, formatOf(name, options)) : undefined, returning);
   }
 
   // patch() with missing: "skip": one UPDATE that carries the scope (and onlyIf), so a missing, hidden or changed row
   // is left alone, answers null and fails no transaction.
   async function patchIfPresent(id, attributes, options, returning, onlyIf) {
-    if (formatOf(options) === "jsonapi") {
+    if (formatOf(name, options) === "jsonapi") {
       throw new TypeError(`${name}.patch() with missing: "skip" answers records, not JSON:API documents.`);
     }
     if (Object.keys(attributes).length < 1) {
@@ -563,7 +488,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
         id,
         returning: "none",
         transaction: txOptions.trx || undefined,
-        format: formatOf(txOptions)
+        format: formatOf(name, txOptions)
       },
       contextOf(txOptions)
     ), () => [String(id)]);
@@ -758,7 +683,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * @param {string} [alias]
    */
   function column(field, alias = resource.tableName) {
-    const adapter = storage();
+    const adapter = api.knex.helpers.getStorageAdapter(name);
     const storageColumn = field === "id" ? adapter.getIdColumn() : adapter.translateColumn(field);
     return alias ? `${alias}.${storageColumn}` : storageColumn;
   }

@@ -178,4 +178,31 @@ function requirePatchConditions(name, lockVersionField, attributes, { lockVersio
   }
 }
 
-export { missingOf, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, valueOnly, whereSelection };
+/**
+ * The answer format a handle call asks for: "jsonapi" (the CRUD service's documents) or, by default, "plain" (records).
+ * @param {string} name The resource's name.
+ * @param {{ format?: string }} options
+ */
+function formatOf(name, options) {
+  if (options.format !== undefined && options.format !== "jsonapi") {
+    throw new TypeError(`${name} options.format is "jsonapi" (the CRUD service's documents) or absent (records).`);
+  }
+  return options.format === "jsonapi" ? "jsonapi" : "plain";
+}
+
+/**
+ * Whether the filters give an empty list to a filter that matches one of a list (the id filter, or any filter whose
+ * search entry says `filterOperator: "in"`): such a read matches no row, so the handle answers it without a statement.
+ * @param {unknown} filters
+ * @param {{ searchSchemaStructure?: Record<string, { filterOperator?: string }> }} schemaInfo The table's compiled
+ *   json-rest-api schema (`vars.schemaInfo`).
+ */
+function matchesNoRow(filters, schemaInfo) {
+  if (!isRecord(filters)) {
+    return false;
+  }
+  const search = schemaInfo.searchSchemaStructure || {};
+  return Object.entries(filters).some(([key, value]) => Array.isArray(value) && value.length === 0 && search[key]?.filterOperator === "in");
+}
+
+export { formatOf, matchesNoRow, missingOf, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, valueOnly, whereSelection };

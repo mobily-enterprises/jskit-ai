@@ -95,6 +95,23 @@ function aggregateMeasures(measures) {
 }
 
 /**
+ * What aggregate() answers over no rows: no groups, or, without groupBy, one row of totals (each count 0, every other
+ * measure null), as json-rest-api answers it.
+ * @param {Record<string, Record<string, unknown>>} measures
+ * @param {unknown[] | undefined} groupBy
+ */
+function noRowsAggregate(measures, groupBy) {
+  if (Array.isArray(groupBy) && groupBy.length > 0) {
+    return Object.freeze([]);
+  }
+  const totals = Object.entries(measures || {}).map(([measureName, spec]) => [
+    measureName,
+    isRecord(spec) && (Object.hasOwn(spec, "count") || Object.hasOwn(spec, "countDistinct")) ? 0 : null
+  ]);
+  return Object.freeze([Object.freeze(Object.fromEntries(totals))]);
+}
+
+/**
  * The read parameters of a handle call as json-rest-api's queryParams.
  * @param {{ name: string, schema: Record<string, any> }} resource
  * @param {Record<string, any>} params
@@ -427,6 +444,7 @@ export {
   inputData,
   manyResult,
   matchesOnlyIf,
+  noRowsAggregate,
   patchAnswer,
   upsertConflict,
   pickReturning,

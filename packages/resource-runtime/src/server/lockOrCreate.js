@@ -1,4 +1,4 @@
-import { isDeadlockError, isDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
+import { isDeadlockError, isDuplicateEntryError, isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 // First uses of one id at once can collide on its insert before any work runs (on MySQL and MariaDB, first uses of
@@ -54,4 +54,33 @@ async function lockOrCreate(handle, row, options, work) {
   }
 }
 
-export { lockOrCreate };
+/**
+ * The record with `attributes.id`, created from `attributes` when it is
+ * missing. Outside a transaction, of two concurrent creations one wins and
+ * the other answers the winner's record; inside one, a lost race fails the
+ * transaction as any failed write does. An id another scope's row holds
+ * answers a missing record, as get() of it does, never null or that row: the
+ * caller learns only that the id is not its to have. That still tells it the
+ * id is taken, so the id is one the server computes or generates, never one
+ * a request supplies.
+ * @param {{ get: Function, create: Function }} handle
+ * @param {{ id: unknown } & Record<string, unknown>} attributes
+ * @param {{ context?: object | null, trx?: object | null }} options
+ */
+async function findOrCreateRecord({ get, create }, attributes, options) {
+  const lookup = { ...options, missing: "skip" };
+  const existing = await get(attributes.id, {}, lookup);
+  if (existing) {
+    return existing;
+  }
+  try {
+    return await create(attributes, options);
+  } catch (error) {
+    if (!isLostDuplicateInsertRace(error, options)) {
+      throw error;
+    }
+    return get(attributes.id, {}, { ...options, missing: "throw" });
+  }
+}
+
+export { findOrCreateRecord, lockOrCreate };

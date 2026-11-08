@@ -9,8 +9,9 @@ const serverRuntimes = new WeakMap();
 /**
  * Records the resource runtime a JSKIT server built on its Knex client.
  * @param {object} knex
- * @param {ReturnType<typeof createResourceRuntime>} runtime
+ * @param {import("./types.js").ResourceRuntime} runtime
  */
+// readable-check: allow module-registry - safety invariant: each table has one owner; standalone resources run outside any container, so they find the server's runtime by the Knex client both use, held weakly
 function registerServerRuntime(knex, runtime) {
   serverRuntimes.set(knex, runtime);
 }

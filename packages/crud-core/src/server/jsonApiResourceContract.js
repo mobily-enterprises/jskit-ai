@@ -44,7 +44,10 @@ function includeFieldsOf(label, names) {
       );
     }
   }
-  return Object.freeze({ attributes: Object.freeze(attributes), relationships: Object.freeze(relationships) });
+  return Object.freeze({
+    attributes: Object.freeze(attributes),
+    relationships: Object.freeze(relationships)
+  });
 }
 
 function resolveJsonApiRelationshipEntries(definition = null) {
