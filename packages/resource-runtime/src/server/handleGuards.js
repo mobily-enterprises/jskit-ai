@@ -1,5 +1,5 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
-import { passedOn } from "./callOptions.js";
+import { passedOn } from "@jskit-ai/resource-core/shared/callOptions";
 import { isSystemContext } from "./contexts.js";
 import { MissingScopeError } from "./errors.js";
 import { resolveUserScopeValue, resolveWorkspaceScopeValue } from "./resourceHost.js";

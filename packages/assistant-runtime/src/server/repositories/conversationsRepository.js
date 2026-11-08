@@ -1,6 +1,6 @@
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { passedOn } from "@jskit-ai/resource-runtime/server/callOptions";
+import { passedOn } from "@jskit-ai/resource-core/shared/callOptions";
 import {
   normalizeInputRecordId,
   parseJsonObject,

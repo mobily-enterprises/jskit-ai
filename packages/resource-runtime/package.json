@@ -10,7 +10,6 @@
   },
   "exports": {
     "./server": "./src/server/index.js",
-    "./server/callOptions": "./src/server/callOptions.js",
     "./server/types": "./src/server/types.js",
     "./test": "./src/test/index.js",
     "./locales/en.json": "./locales/en.json"
@@ -51,10 +50,6 @@
           {
             "subpath": "./server",
             "summary": "Provides runtime.resources (ResourceRuntimeProvider): own(featureId, owns) registers a feature's tables and answers their scoped handles, and declareSystemScope(featureId, systemScope) answers the feature's systemContext(reason) for work across every workspace and user. Exports createStandaloneResources, passedOn, withoutHiddenFields, isSystemContext, buildJsonRestQueryParams, the workspace and user scope resolvers, the default row limit and page size, and the runtime's error classes."
-          },
-          {
-            "subpath": "./server/callOptions",
-            "summary": "passedOn(options), what a call hands on (its context and transaction), alone, for code that loads without the table runtime."
           },
           {
             "subpath": "./server/types",

@@ -92,13 +92,13 @@ test("AssistantFeature uses a supplied file runtime without loading database or 
     import { tmpdir } from "node:os";
     import { join } from "node:path";
     registerHooks({ resolve(specifier, context, nextResolve) {
-      if (["@jskit-ai/database-runtime", "knex"].some(name => specifier === name || specifier.startsWith(name + "/")) ||
+      if (["@jskit-ai/database-runtime", "@jskit-ai/resource-runtime", "knex"].some(name => specifier === name || specifier.startsWith(name + "/")) ||
           specifier.endsWith("/chatService.js") || specifier.endsWith("/createAssistantRuntime.js")) {
         throw new Error("Unexpected database/legacy import: " + specifier);
       }
       return nextResolve(specifier, context);
     } });
-    for (const name of ["@jskit-ai/database-runtime", "knex"]) {
+    for (const name of ["@jskit-ai/database-runtime", "@jskit-ai/resource-runtime", "knex"]) {
       await assert.rejects(() => import(name), /Unexpected database/);
     }
     const { AssistantFeature } = await import("@jskit-ai/assistant-runtime/server");

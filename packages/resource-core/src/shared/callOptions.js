@@ -1,5 +1,8 @@
-// What a call's options hand on, in a module of its own that loads nothing else, so code that must load without the
-// table runtime (an assistant on file storage, say) passes options on as every handle does.
+// readable-check: allow no-transaction-reader - infrastructure: passedOn is the data-access runtime's own reader of a call's transaction, the one every handle and withTransaction use
+
+// What a call's options hand on, in a module that imports nothing, so code that loads without the table runtime (an
+// assistant on file storage, where @jskit-ai/resource-runtime is not installed) passes options on as every handle does.
+// @jskit-ai/resource-runtime/server re-exports it.
 
 /**
  * What a call hands on to the work it runs (withTransaction's work, an afterWrite hook, a handle's own nested calls):

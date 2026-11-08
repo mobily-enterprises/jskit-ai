@@ -7,6 +7,7 @@
   },
   "exports": {
     "./shared/apiContract": "./src/shared/apiContract.js",
+    "./shared/callOptions": "./src/shared/callOptions.js",
     "./shared/tableResource": "./src/shared/tableResource.js"
   },
   "description": "Table resources (one per table: fields, columns, ownership) and API contracts (HTTP operations), with schema-definition normalization.",
