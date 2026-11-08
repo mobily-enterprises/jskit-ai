@@ -120,6 +120,6 @@ columns support, add search entries and sorts. A computed output field is
 
 ## Packaged source
 
-- Owner: `@jskit-ai/resource-core@0.1.205`
+- Owner: `@jskit-ai/resource-core@0.1.206`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/resource-core/patterns/table-resource/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/resource-core/patterns/table-resource/example)

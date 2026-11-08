@@ -10,9 +10,9 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.2.15",
-    "@jskit-ai/resource-crud-core": "0.1.205",
-    "@jskit-ai/users-core": "0.2.16"
+    "@jskit-ai/crud-core": "0.2.16",
+    "@jskit-ai/resource-crud-core": "0.1.206",
+    "@jskit-ai/users-core": "0.2.17"
   },
   "jskit": {
     "kind": "runtime",

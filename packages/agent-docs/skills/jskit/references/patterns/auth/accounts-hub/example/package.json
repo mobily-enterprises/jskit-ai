@@ -2,8 +2,8 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.263",
-    "@jskit-ai/database-runtime-mysql": "0.1.261",
-    "@jskit-ai/oidc-issuer-core": "0.1.22"
+    "@jskit-ai/database-runtime": "0.1.264",
+    "@jskit-ai/database-runtime-mysql": "0.1.262",
+    "@jskit-ai/oidc-issuer-core": "0.1.23"
   }
 }
