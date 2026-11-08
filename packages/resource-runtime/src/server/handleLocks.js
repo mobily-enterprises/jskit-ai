@@ -14,10 +14,13 @@ import { handleRecords, sparseFieldset, textList } from "./handleRecords.js";
  *   The table's json-rest-api resource.
  * @param {(params: { fields?: unknown }, kind: "view") => unknown} dependencies.readFields The fields a read names.
  * @param {(options: object) => object} dependencies.contextOf The call's json-rest-api context, after its scope checks.
+ * @param {ReturnType<typeof import("./handleHidden.js").createHiddenFieldReads>} dependencies.hiddenFields The hidden
+ *   fields `options.fields` names, read after the lock.
  */
-function createLockReads({ name, resource, jsonRest, readFields, contextOf }) {
+function createLockReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields }) {
   // A locking read (json-rest-api's lockByIds, lockWhere or claim) of the fields options.fields names, as records.
   async function lockRead(method, read, options) {
+    const hidden = hiddenFields.named(options.fields, "plain");
     const fields = readFields({ fields: options.fields }, "view");
     const { data } = await jsonRest()[method]({
       ...read,
@@ -25,7 +28,7 @@ function createLockReads({ name, resource, jsonRest, readFields, contextOf }) {
       format: "plain",
       ...(fields ? { queryParams: { fields: sparseFieldset(resource, fields) } } : {})
     }, contextOf(options));
-    return handleRecords(resource, data, { fields });
+    return hiddenFields.add(handleRecords(resource, data, { fields }), hidden, options);
   }
 
   /**

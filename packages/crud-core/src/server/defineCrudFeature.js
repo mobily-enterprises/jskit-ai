@@ -2,6 +2,7 @@ import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { isWorkspaceRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { isTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { withoutHiddenFields } from "@jskit-ai/resource-runtime/server";
 import { isCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import {
   assertCrudOperationName,
@@ -300,7 +301,9 @@ function projectEnabledServiceOperations(service, operations) {
  * the contract's table resource (and the tables in `owns`): its repository is
  * that table's handle, which `decorateRepository` may wrap, and its CRUD service
  * (list, view, create, patch, delete) is the HTTP edge, answering JSON:API
- * documents.
+ * documents. The capability's repository refuses a read whose `fields` names a
+ * hidden field of the table unless it runs in a system context: the methods
+ * decorateRepository adds read them with the handle itself.
  * @param {object} feature
  * @param {import("./types.js").CrudContract} feature.crud The CRUD contract the feature serves, on its table resource.
  * @param {string} feature.surface The surface whose routes serve it.
@@ -463,8 +466,11 @@ function defineCrudFeature(feature) {
           scopeInput: normalizedScope.input
         });
       }
+      // The handle decorateRepository receives answers hidden fields to the owner's own methods; other features,
+      // and this feature's actions, read them only in a system context.
+      const exposed = withoutHiddenFields(repository, tableResource);
       return {
-        resourceApi: Object.freeze(withRemovedProperties({ repository, crud, service }, REMOVED_RESOURCE_API, "A CRUD feature's capability"))
+        resourceApi: Object.freeze(withRemovedProperties({ repository: exposed, crud, service }, REMOVED_RESOURCE_API, "A CRUD feature's capability"))
       };
     },
     actions({ resourceApi, ...required }) {

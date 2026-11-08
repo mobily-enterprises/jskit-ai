@@ -444,6 +444,7 @@ export {
   inputData,
   manyResult,
   matchesOnlyIf,
+  namedFields,
   noRowsAggregate,
   patchAnswer,
   upsertConflict,

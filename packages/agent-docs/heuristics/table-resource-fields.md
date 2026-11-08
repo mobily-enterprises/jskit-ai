@@ -12,6 +12,9 @@ Default JSKIT pattern:
 4. A computed output field is `storage: { virtual: true }` in the shared schema, and its SQL goes in the owner's `owns` entry as `queryFields`, on the server.
 5. Handles apply those projections on every read; no repository method re-selects them.
 6. A field's default value is `defaultTo`; `default` is refused, since json-rest-api would ignore it.
+7. A field no request may see (an ownership id, a bearer token) is `hidden: true`, and stays hidden: the owner's code
+   reads it by naming it in a handle read's `fields`, and a system context may name it through another feature's
+   CRUD repository. Unhiding it puts it in every read's answer, other features' included; never read it with `scopedQuery`.
 
 Field metadata rules:
 

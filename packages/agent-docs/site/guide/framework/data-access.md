@@ -180,6 +180,19 @@ visible, so a hot path names its fields. A collection relation with
 `hydrateOnList: false` or `hydrateOnView: false` loads its rows on that kind of
 read only when the read includes it.
 
+A `hidden: true` field (an ownership id, a bearer token, a storage key) never
+reaches a request: no CRUD route or JSON:API document (`format: "jsonapi"`)
+carries it, even when `fields` names it. The owner's own code reads one by
+naming it in a handle read's `fields`, `get(id, { fields: ["publicToken"] },
+options)` or `{ ...txOptions, fields }` for a lock, which costs one more
+statement per 1,000 records, scoped as the read is; a read without `fields`
+never answers it. It may be an id, string, integer, number or boolean, and
+naming any other kind refuses the read. The repository a CRUD feature gives
+other features, and its own actions, refuses a read naming a hidden field
+unless it runs in a system context, so the owner checks a token in a method
+`decorateRepository` adds, with the handle it receives. Never unhide a field
+to read it, and never read it with `scopedQuery`.
+
 `create` and `patch` answer the written record by default, read back through
 the row policy. Server code that does not use it passes `returning: "id"` or
 `"none"`, which skips that read; `delete` answers the id. One rule covers a
@@ -582,6 +595,11 @@ const SettlementFeature = defineFeature({
     }
   }
   ```
+- A job that must learn each row's owner across workspaces names the hidden
+  ownership field in its read's `fields`, `queryAll({ filters, fields:
+  ["workspaceId", "email"] }, { context })`, as a system context may do through
+  another feature's CRUD repository too (see [Layer
+  1](#layer-1-the-table-resource)). Never unhide it for the job.
 - A request uses its own context. The only exception is a console report
   behind a console permission, with bounded output.
 - `jskit check` lists every system scope and every `systemContext` call with

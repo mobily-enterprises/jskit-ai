@@ -3,6 +3,7 @@ import { RestApiRowLimitError } from "json-rest-api";
 import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
+import { createHiddenFieldReads } from "./handleHidden.js";
 import { createLockReads } from "./handleLocks.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
@@ -155,8 +156,10 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
 
   // The fields a list or a one-record read names (see requestedFields).
   const readFields = (params, kind) => requestedFields(params, quiet[kind], () => jsonRest().vars.schemaInfo);
+  // The hidden fields a plain read names, which json-rest-api leaves out (see handleHidden.js).
+  const hiddenFields = createHiddenFieldReads({ resource, scopedQuery, column });
   // lock, lockMany, lockWhere and claim (see handleLocks.js).
-  const { lock, lockMany, lockWhere, claim } = createLockReads({ name, resource, jsonRest, readFields, contextOf });
+  const { lock, lockMany, lockWhere, claim } = createLockReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields });
 
   /**
    * Runs work in the caller's transaction (`options.trx`), or in one it opens,
@@ -223,6 +226,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     const format = formatOf(name, options);
     const read = { ...params, fields: readFields(params, "list") };
     const queryParams = readQueryParams(resource, read, { page: true, caller: "query" });
+    const hidden = hiddenFields.named(params.fields, format);
     const size = params.page?.size;
     if (size == null && format !== "jsonapi") {
       throw new UnpagedQueryError(name);
@@ -248,7 +252,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     const hasMore = pagination?.hasMore === true;
     const number = params.page?.number;
     return Object.freeze({
-      records: handleRecords(resource, payload.data, read, resourceNamed),
+      records: await hiddenFields.add(handleRecords(resource, payload.data, read, resourceNamed), hidden, options),
       page: Object.freeze(number === undefined
         ? { size: Number(size), hasMore, next: hasMore ? pagination.cursor?.next ?? null : null }
         : { size: Number(size), number, hasMore, next: hasMore ? number + 1 : null })
@@ -268,6 +272,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     const rowLimit = isJobContext(options.context) ? undefined : settings.requestRowLimit;
     const read = { ...params, fields: readFields(params, "list") };
     const queryParams = readQueryParams(resource, read, { page: false, caller: "queryAll" });
+    const hidden = hiddenFields.named(params.fields, "plain");
     try {
       const payload = matchesNoRow(params.filters, jsonRest().vars.schemaInfo)
         ? { data: [] }
@@ -281,7 +286,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
           },
           context
         ));
-      return handleRecords(resource, payload.data, read, resourceNamed);
+      return await hiddenFields.add(handleRecords(resource, payload.data, read, resourceNamed), hidden, options);
     } catch (error) {
       if (error instanceof RestApiRowLimitError && rowLimit !== undefined) {
         throw new RowLimitError(name, rowLimit, error);
@@ -301,6 +306,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     requireReadParams(name, params);
     const format = formatOf(name, options);
     const named = { ...params, fields: readFields(params, "view") };
+    const hidden = hiddenFields.named(params.fields, format);
     const read = () => returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().get(
       {
         id,
@@ -311,7 +317,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
       contextOf(options)
     ));
     const result = missingOf(name, "get", options.missing) === "skip" ? await returnNullWhenJsonRestResourceMissing(read) : await read();
-    return result === null ? null : handleResult(resource, result, format, named, resourceNamed);
+    return result === null ? null : hiddenFields.addOne(handleResult(resource, result, format, named, resourceNamed), hidden, options);
   }
 
   /**
