@@ -100,7 +100,11 @@ test("the workspace variant lists and shows only the caller's workspace's active
   const repository = {
     query: async (params) => (calls.push(["query", params.filters]), { data: [] }),
     get: async (id) => (calls.push(["get", id]), { data: { id } }),
-    pageLimits: () => ({})
+    pageLimits: () => ({}),
+    // users.profiles' other methods read and write every user.
+    findByEmail: async () => ({ id: "3" }),
+    countUsers: async () => 3,
+    upsert: async () => ({ id: "3" })
   };
   const memberships = { activeMemberIds: async (workspaceId) => (workspaceId === "7" ? ["1", "2"] : []) };
   const users = workspaceMembersOnly(repository, memberships);
@@ -121,4 +125,6 @@ test("the workspace variant lists and shows only the caller's workspace's active
   await assert.rejects(users.get("3", {}, options), (error) => error.status === 404 && error.code === "crud.document.notFound");
   assert.deepEqual(calls, [["get", "1"]]);
   assert.equal(users.pageLimits, repository.pageLimits);
+  // Only the narrowed reads pass through: nothing else of users.profiles reaches users past the workspace.
+  assert.deepEqual(Object.keys(users).sort(), ["get", "pageLimits", "query"]);
 });
