@@ -56,7 +56,7 @@ const ReceivalsFeature = defineFeature({
 ```
 
 Keep projection SQL in the server feature that owns the table, never in the shared resource that ships to the browser.
-`select` receives `raw`, which builds one SQL expression from a string literal and its bindings (awaiting it throws),
+`select` receives `raw`, which builds one SQL expression from a string literal and its bindings (a value only: it never runs on its own),
 `column(field)`, which names a field's column, and the read's `filters`; never Knex. The expression is the field's value
 only, so it reads no other table.
 

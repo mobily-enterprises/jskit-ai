@@ -58,6 +58,7 @@ Exports
 Local functions
 - `namedHiddenFields(resource, fields)`
 - `storedValue(value, { type, precision, scale })`
+- `isKnexValue(value)`
 - `isPlainRecord(value)`
 - `withoutHiddenValues(value, hidden, seen = new WeakMap())`
 - `guardedRepository(repository, resource, hidden, guarded)`

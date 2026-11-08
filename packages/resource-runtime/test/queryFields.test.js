@@ -55,11 +55,14 @@ test("a query field's select gets a value-only raw, column() and the read's filt
   assert.equal(tools.filters.status, "open");
   assert.equal(Object.isFrozen(tools.filters), true);
 
-  // raw takes one SQL string and its bindings as an array, and is a value only: awaited, it throws and runs nothing.
+  // raw takes one SQL string and its bindings as an array, and is a value only: awaited, it answers itself and runs
+  // nothing; run as a statement, it throws.
   assert.throws(() => tools.raw(42), /Query field "remainingWeight" raw\(\) takes one SQL expression as a string/u);
   assert.throws(() => tools.raw("?? + 1"), /needs the bindings of its placeholders/u);
   assert.throws(() => tools.raw("? + 1", { value: 1 }), /takes \(sql, bindings\)/u);
   assert.throws(() => tools.raw("? + 1", [1], "extra"), /takes \(sql, bindings\)/u);
-  await assert.rejects(async () => await tools.raw("DELETE FROM receivals"), /is a value inside a scoped query or a write/u);
+  const statement = tools.raw("DELETE FROM receivals");
+  assert.equal(await statement, statement);
+  assert.throws(() => statement.asCallback(() => {}), /is a value inside a scoped query or a write/u);
   assert.equal((await knex("receivals")).length, 3);
 });
