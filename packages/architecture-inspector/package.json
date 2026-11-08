@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/architecture-inspector",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "description": "Static Vue architecture inspector for the portable architecture-inspection command contract.",
   "type": "module",
   "files": [
@@ -18,7 +18,7 @@
   },
   "dependencies": {
     "@babel/parser": "^7.29.9",
-    "@jskit-ai/kernel": "0.2.12",
+    "@jskit-ai/kernel": "0.2.13",
     "@vue/compiler-sfc": "^3.5.44",
     "typescript": "^6.0.3"
   },

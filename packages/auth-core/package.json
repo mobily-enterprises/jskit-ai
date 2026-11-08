@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-core",
-  "version": "0.2.12",
+  "version": "0.2.13",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -143,6 +143,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.12"
+    "@jskit-ai/kernel": "0.2.13"
   }
 }

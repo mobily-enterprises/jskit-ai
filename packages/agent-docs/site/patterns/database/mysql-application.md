@@ -128,6 +128,6 @@ it as `seed` to `prepareDatabaseFromApp()`.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/database-runtime-mysql@0.1.259`
+- Owner: `@jskit-ai/database-runtime-mysql@0.1.260`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/database-runtime-mysql/patterns/mysql-application/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/database-runtime-mysql/patterns/mysql-application/example)
