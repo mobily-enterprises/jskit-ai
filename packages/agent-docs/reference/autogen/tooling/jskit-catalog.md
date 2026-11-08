@@ -387,4 +387,5 @@ Local functions
 - `validateMigrationsAfter(packageJson)`
 - `validateMigrationDirectory(packageName, absoluteDirectory, relativeDirectory, migrationOwners)`
 - `validatePackage(packageRecord, localVersions, migrationOwners)`
+- `isTableRuntimePart(packageName, dependencyId)`
 - `verifyTestRuns()`
