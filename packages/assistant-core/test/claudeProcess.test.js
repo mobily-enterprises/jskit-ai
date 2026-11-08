@@ -814,6 +814,45 @@ test("Claude model list starts a Claude only after its account, credentials or C
   assert.equal(await model(), "read-5");
 });
 
+test("Claude model list is read once per account for every owner the host creates again", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "jskit-claude-catalogue-owners-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const configRoot = join(root, ".claude");
+  const otherConfigRoot = join(root, "other", ".claude");
+  await mkdir(otherConfigRoot, { recursive: true });
+  await mkdir(configRoot);
+  const credentials = join(configRoot, ".credentials.json");
+  const command = join(root, "claude");
+  await writeFile(credentials, "signed in");
+  await writeFile(command, "2.1.1");
+  const starts = [];
+  // A restarted service or a reopened project creates its account queries again.
+  const owner = (account = "account", accountConfigRoot = configRoot) => createClaudeAccountQueries({
+    accountIdentity: async () => account, configRoot: accountConfigRoot,
+    createProcess({ purpose }) {
+      starts.push(purpose);
+      return { command, initialization: { models: [{ value: `read-${starts.length}` }] }, async stop() { return { scopeEmpty: true }; } };
+    } });
+  const model = async (queries) => (await queries.readCatalogue({})).models[0].value;
+  const first = owner();
+  assert.equal(await model(first), "read-1");
+  const restarted = owner();
+  assert.equal(await model(restarted), "read-1");
+  // Another account, or the same name in another Claude configuration, reads its own.
+  assert.equal(await model(owner("other account")), "read-2");
+  assert.equal(await model(owner("account", otherConfigRoot)), "read-3");
+  // A token refresh replaces the credentials, so the next read of any owner starts a Claude.
+  await writeFile(`${credentials}.next`, "refreshed");
+  await rename(`${credentials}.next`, credentials);
+  assert.equal(await model(owner()), "read-4");
+  assert.equal(await model(restarted), "read-4");
+  // One owner's reconnection drops the account's list for every owner.
+  await restarted.invalidate();
+  assert.equal(await model(first), "read-5");
+  assert.deepEqual(starts, Array(5).fill("catalogue"));
+  await first.invalidate();
+});
+
 test("Claude account queries label temporary startup and reuse each account's recent reading", async () => {
   const starts = [];
   let stops = 0;

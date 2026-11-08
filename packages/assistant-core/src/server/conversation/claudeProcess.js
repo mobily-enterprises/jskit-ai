@@ -290,6 +290,10 @@ const PLAN_USAGE_CURRENT_MS = 420_000;
 // for the account shares it, so however many ask, the account's one-shot Claude
 // starts at most once per idle interval.
 const planUsageReads = new Map();
+// One model list per Claude account in this server process, with the credentials
+// and Claude Code revision it answered for. An owner the host creates again (a
+// restarted service, a reopened project) reads it without starting a Claude.
+const catalogueReads = new Map();
 
 /**
  * Claude Code answers `get_usage` from the usage endpoint, or from its saved copy
@@ -320,9 +324,10 @@ export function claudeCatalogueModels(initialization) {
 
 /**
  * Native account queries share process reuse, caches and retryable cleanup. Plan
- * usage is shared by `accountIdentity` with every other owner in the process, so
- * that identity names exactly one Claude account. `configRoot` is the account's
- * Claude configuration directory, whose credentials the model list follows.
+ * usage and the model list are shared by `accountIdentity` with every other owner
+ * in the process, so that identity names exactly one Claude account. `configRoot`
+ * is the account's Claude configuration directory, whose credentials the model
+ * list follows.
  * @param {object} options
  * @param {(request: { signal: AbortSignal, purpose: string }) => Promise<ClaudeCodeProcess>} options.createProcess
  * @param {(context: Record<string, any>) => Promise<string>} options.accountIdentity
@@ -342,7 +347,8 @@ export function createClaudeAccountQueries({
   });
   const accountProcessStops = new Set();
   const accountReads = new Set();
-  let catalog;
+  // Accounts whose shared model list this owner used, and the reads it started.
+  const catalogueAccounts = new Set();
   const catalogStarts = new Map();
   // Accounts whose shared plan-usage reading this owner used, and the reads it started.
   const usageAccounts = new Set();
@@ -409,8 +415,10 @@ export function createClaudeAccountQueries({
     const identity = await accountIdentity(context);
     assertCurrent(expectedRevision);
     // An answer is kept until its account, credentials or executable change, so
-    // reading it again starts no Claude.
-    const kept = catalog?.identity === identity ? catalog : null;
+    // reading it again, from this owner or any other, starts no Claude.
+    const catalogueKey = JSON.stringify([configRoot, identity]);
+    catalogueAccounts.add(catalogueKey);
+    const kept = catalogueReads.get(catalogueKey);
     if (kept && kept.revision === await catalogueRevision(kept.command)) {
       assertCurrent(expectedRevision);
       return kept.value;
@@ -425,7 +433,7 @@ export function createClaudeAccountQueries({
         messageCode: "assistant.claude.accountChangedRefreshModels"
       });
       assertCurrent(expectedRevision);
-      catalog = { identity, command, revision: answered, value };
+      catalogueReads.set(catalogueKey, { command, revision: answered, value });
       return value;
     })().finally(() => { catalogStarts.delete(identity); }));
     return catalogStarts.get(identity);
@@ -495,8 +503,10 @@ export function createClaudeAccountQueries({
 
   async function invalidate() {
     revision++;
-    // Dropped at once: a read started before this cannot store its answer.
-    catalog = null;
+    // Dropped at once: a read started before this cannot store its answer, and
+    // the next request for an account this owner used reads its model list again.
+    for (const catalogueKey of catalogueAccounts) catalogueReads.delete(catalogueKey);
+    catalogueAccounts.clear();
     for (const controller of accountReads) {
       controller.abort(error("Claude account query was cancelled for reconnection.", { messageCode: "assistant.claude.accountQueryCancelled" }));
     }

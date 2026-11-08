@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Claude's model list is kept once per account in the server process instead of once per account-query owner, as plan usage already is: an owner the host creates again (a restarted service, a reopened project) answers `readCatalogue` from the list another owner read, without starting a tool-free Claude, while the account's credentials and Claude Code are unchanged. A credentials change (sign-in, sign-out, token refresh) or a Claude Code update still reads it again, and an owner's `invalidate()` drops the list of every account it used, for every owner.
 - Test fixture only: the responsive assistant fixture's avatar is drawn in the theme's `primary` and `on-primary` roles instead of a raw `#6750a4` and `white`, so it follows the dark scheme like the rest of the conversation. A package test runs `jskit check m3`'s raw-colour rule over the fixture, which the check itself skips with every `fixtures/` folder.
 - The assistant settings resource (`assistantConfigResource`) has a required boolean `canUpdate` attribute: whether the signed-in person may change the settings, as the server decides (`@jskit-ai/assistant-runtime`'s settings pane shows Save only when it is true).
 - **Breaking (data-access redesign).** The assistant operations are API contracts: `assistantContract` and `assistantConfigContract` (view and patch, the two its routes serve), which replace `assistantResource` and `assistantConfigResource`.
