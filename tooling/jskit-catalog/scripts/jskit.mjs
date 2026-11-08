@@ -236,6 +236,9 @@ async function main(argv = process.argv.slice(2)) {
       additionalManifests: options.additionalManifests,
       install: options.install
     });
+    for (const { packageId, replacedBy } of result.retiredPackages) {
+      process.stdout.write(`Removed ${packageId}, which this release retired: ${replacedBy} replaced it.\n`);
+    }
     if (result.changedFiles.length < 1) {
       process.stdout.write(`JSKIT manifests already match catalog ${result.catalogVersion}.\n`);
     } else {

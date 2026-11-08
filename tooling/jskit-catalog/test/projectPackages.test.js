@@ -487,6 +487,37 @@ test("project updates reject unknown JSKIT declarations before changing any mani
   });
 });
 
+test("project updates remove a retired JSKIT declaration, and refuse while the application imports the package", async () => {
+  await withProject(async (projectRoot) => {
+    const manifestPath = path.join(projectRoot, "package.json");
+    await writeJson(manifestPath, {
+      name: "example-app",
+      private: true,
+      dependencies: { "@jskit-ai/json-rest-api-core": "0.2.13", "@jskit-ai/shell-web": "0.1.2" }
+    });
+    const featurePath = path.join(projectRoot, "src/server/notes.js");
+    await mkdir(path.dirname(featurePath), { recursive: true });
+    await writeFile(featurePath, "import { createJsonRestApiHost } from \"@jskit-ai/json-rest-api-core/server/jsonRestApiHost\";\n");
+    // An installed package's own import is not the application's.
+    const installedPath = path.join(projectRoot, "node_modules/@jskit-ai/example/index.js");
+    await mkdir(path.dirname(installedPath), { recursive: true });
+    await writeFile(installedPath, "import \"@jskit-ai/json-rest-api-core\";\n");
+    const before = await readFile(manifestPath, "utf8");
+
+    await assert.rejects(
+      updateProject({ projectRoot, catalog: CATALOG, install: false }),
+      new RegExp("imports retired JSKIT packages:\\n- @jskit-ai/json-rest-api-core \\(in src/server/notes\\.js\\): " +
+        "@jskit-ai/resource-runtime replaced it; import from @jskit-ai/resource-runtime/server", "u")
+    );
+    assert.equal(await readFile(manifestPath, "utf8"), before);
+
+    await writeFile(featurePath, "import { createStandaloneResources } from \"@jskit-ai/resource-runtime/server\";\n");
+    const result = await updateProject({ projectRoot, catalog: CATALOG, install: false });
+    assert.deepEqual(result.retiredPackages, [{ packageId: "@jskit-ai/json-rest-api-core", replacedBy: "@jskit-ai/resource-runtime" }]);
+    assert.deepEqual((await readJson(manifestPath)).dependencies, { "@jskit-ai/shell-web": "0.1.4" });
+  });
+});
+
 test("project updates reject private JSKIT overrides before changing manifests or installing", async () => {
   await withProject(async (projectRoot) => {
     const manifestPath = path.join(projectRoot, "package.json");

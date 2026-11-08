@@ -62,7 +62,10 @@ npm run jskit:update
 ```
 
 The updater rejects unknown JSKIT packages and private JSKIT overrides during
-preflight, before changing any manifest.
+preflight, before changing any manifest. It removes a package a release retired
+(`@jskit-ai/json-rest-api-core`, replaced by `@jskit-ai/resource-runtime`) and
+says what replaced it; while the application's code still imports a retired
+package, it refuses and names the import to use instead.
 
 `jskit:update` reads the latest published catalog, discovers the root manifest
 and npm workspaces, and preflights every declared `@jskit-ai/*` package. It then

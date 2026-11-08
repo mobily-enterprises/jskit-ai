@@ -1,4 +1,4 @@
-import { realpath, rename, rm, writeFile } from "node:fs/promises";
+import { readdir, readFile, realpath, rename, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileExists, toPosixPath } from "./files.mjs";
 import { readOptionalFile, restoreProjectFiles, runNpmInstall, writeManifestUpdates } from "./project-install.mjs";
@@ -13,6 +13,16 @@ const DEPENDENCY_FIELDS = Object.freeze([
   "optionalDependencies"
 ]);
 const UPDATE_SCRIPT = "npx --yes @jskit-ai/jskit-catalog@latest update";
+// JSKIT packages a release retired, each with what replaced it. The updater removes their declarations itself, and
+// refuses while the application's own code still imports one, naming the import to use instead.
+const RETIRED_PACKAGES = Object.freeze({
+  "@jskit-ai/json-rest-api-core": Object.freeze({
+    packageId: "@jskit-ai/resource-runtime",
+    importFrom: "@jskit-ai/resource-runtime/server (its types from @jskit-ai/resource-runtime/server/types)"
+  })
+});
+const SOURCE_FILE_PATTERN = /\.(?:[cm]?[jt]s|vue)$/u;
+const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "build", "coverage"]);
 const CHECK_SCRIPT = "jskit check";
 
 function normalizeCatalog(catalog = {}) {
@@ -396,6 +406,39 @@ async function preparePackageLockForInstall(projectRoot, manifests, packageLockP
 }
 
 /**
+ * The application's files, outside node_modules and build output, that import one of the packages.
+ * @param {string} root
+ * @param {string[]} packageIds
+ * @returns {Promise<Map<string, string[]>>} The importing files, relative to root, by package.
+ */
+async function findImports(root, packageIds) {
+  const imports = new Map();
+  const patterns = packageIds.map((packageId) => {
+    const name = packageId.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+    return [packageId, new RegExp(`["']${name}(?:/[^"']*)?["']`, "u")];
+  });
+  const visit = async (directory) => {
+    for (const entry of await readdir(directory, { withFileTypes: true })) {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (!entry.name.startsWith(".") && !SKIPPED_DIRECTORIES.has(entry.name)) {
+          await visit(absolutePath);
+        }
+      } else if (entry.isFile() && SOURCE_FILE_PATTERN.test(entry.name)) {
+        const source = await readFile(absolutePath, "utf8");
+        for (const [packageId, pattern] of patterns) {
+          if (pattern.test(source)) {
+            imports.set(packageId, [...(imports.get(packageId) || []), toPosixPath(path.relative(root, absolutePath))]);
+          }
+        }
+      }
+    }
+  };
+  await visit(root);
+  return imports;
+}
+
+/**
  * Pins a project's JSKIT dependencies to the catalog and installs them; a
  * failed install or check restores the manifests, lockfile and node_modules.
  * @param {object} options
@@ -414,10 +457,20 @@ async function updateProject({
   const localPackageNames = collectLocalPackageNames(manifests);
   const declarations = collectManifestDeclarations(manifests, root)
     .filter((entry) => !localPackageNames.has(entry.packageId));
+  const retiredPackageIds = [...new Set(
+    declarations.map((entry) => entry.packageId).filter((packageId) => Object.hasOwn(RETIRED_PACKAGES, packageId))
+  )].sort();
+  const retiredImports = retiredPackageIds.length > 0 ? await findImports(root, retiredPackageIds) : new Map();
+  if (retiredImports.size > 0) {
+    throw new Error(`Cannot update while the application imports retired JSKIT packages:\n${[...retiredImports]
+      .map(([packageId, files]) => `- ${packageId} (in ${files.sort().join(", ")}): ${RETIRED_PACKAGES[packageId].packageId} ` +
+        `replaced it; import from ${RETIRED_PACKAGES[packageId].importFrom} instead.`)
+      .join("\n")}`);
+  }
   const unknownPackageIds = [...new Set(
     declarations
       .map((entry) => entry.packageId)
-      .filter((packageId) => !normalizedCatalog.versions.has(packageId))
+      .filter((packageId) => !normalizedCatalog.versions.has(packageId) && !retiredPackageIds.includes(packageId))
   )].sort();
   if (unknownPackageIds.length > 0) {
     throw new Error(`Cannot update JSKIT packages missing from the coordinated catalog: ${unknownPackageIds.join(", ")}.`);
@@ -447,6 +500,11 @@ async function updateProject({
     for (const field of DEPENDENCY_FIELDS) {
       for (const packageId of Object.keys(next?.[field] || {})) {
         if (!packageId.startsWith(JSKIT_SCOPE_PREFIX) || localPackageNames.has(packageId)) {
+          continue;
+        }
+        if (retiredPackageIds.includes(packageId)) {
+          delete next[field][packageId];
+          changed = true;
           continue;
         }
         const expectedVersion = normalizedCatalog.versions.get(packageId);
@@ -527,7 +585,11 @@ async function updateProject({
     changedFiles: Object.freeze(
       updates.map((update) => toPosixPath(path.relative(root, update.manifest.absolutePath)))
     ),
-    catalogVersion
+    catalogVersion,
+    retiredPackages: Object.freeze(retiredPackageIds.map((packageId) => Object.freeze({
+      packageId,
+      replacedBy: RETIRED_PACKAGES[packageId].packageId
+    })))
   });
 }
 

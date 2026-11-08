@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `jskit update` removes a declaration of a package this release retired, `@jskit-ai/json-rest-api-core` (replaced by `@jskit-ai/resource-runtime`), and prints what replaced it, where it refused the whole update as a package missing from the coordinated catalog. While the application's own code (outside `node_modules` and build output) still imports a retired package, it refuses before changing anything, naming the files and the import to use instead. `updateProject` answers the removed packages as `retiredPackages`.
 - `lint:packages` refuses any package that takes `@jskit-ai/database-runtime` or `@jskit-ai/resource-runtime` as a dependency or optional dependency instead of a peer, the runtime's own packages and drivers included, since that can install a second copy of the application's table runtime, with its own error classes, beside its own.
 - `lint:packages` refuses an `apiSummary` surface the package does not export, so the catalog never describes an import that fails.
 - The data check's `data/system-scope` reads JSKIT's `systemContext`, not every function of that name: a file that declares its own `systemContext` (`function systemContext(`, `const systemContext =`), or is handed one under a JSDoc type that is not JSKIT's `SystemContext` factory, has its calls neither listed nor failed. An untyped binding still counts as JSKIT's.
