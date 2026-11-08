@@ -117,6 +117,16 @@ owners' capabilities (`workspaces`, `workspaces.memberships` and
 Use `workspaces/workspace-server` for role vocabulary, creation policy,
 invitations, settings, and app-owned invitation email rendering.
 
+Two server settings are required, and the server refuses to start without
+them: whether new workspaces accept invitations, and how long an invitation
+lasts.
+
+```js
+// config/server.js
+config.workspaceSettings = { defaults: { invitesEnabled: true } };
+config.workspaceMembers = { defaults: { inviteExpiresInMs: 7 * 24 * 60 * 60 * 1000 } };
+```
+
 Workspace scope must reach repository queries. Parsing a workspace slug or
 hiding an admin link is not authorization. Membership and role checks happen
 before an operation discloses records or record existence.
@@ -176,8 +186,10 @@ capability provides:
 | `workspaces.tenancyProfile` | The resolved tenancy mode and workspace policy |
 
 The workspaces and their memberships are their own capabilities, for code that
-reads or changes them inside its own transactions. Every method takes the
-call's `options` last and joins `options.trx` when there is one.
+reads or changes them inside its own transactions, typed `Workspaces` and
+`WorkspacesMemberships` in `@jskit-ai/workspaces-core/server/types`. Every
+method takes the call's `options` last and joins the transaction of the
+`txOptions` it is given.
 
 | Capability | Methods |
 | --- | --- |
@@ -189,8 +201,9 @@ is given), adding the membership or reactivating it. `activeMemberIds` answers
 the active members' user ids at the same cost however many members there
 are, without including their profiles. `lock` takes
 the workspace's row lock until the caller's transaction ends, so work that must
-not interleave for one workspace takes turns; it needs an active `options.trx`,
-and answers `{ id }`, or `null` when there is no such workspace.
+not interleave for one workspace takes turns; it runs only inside a
+transaction, given its `txOptions`, and answers `{ id }`, or `null` when there
+is no such workspace.
 
 To check one person's membership, for example a notification recipient, call
 `workspaces.services.members.getMember(workspace, userId, options)`. It answers
@@ -239,8 +252,8 @@ workspace routes, `workspaces-web` switches Vuetify to the `workspace-light` or
 colours. Other routes use the application's themes.
 
 New workspaces start from JSKIT's blue palette unless `config/server.js` sets
-the application's own. Missing fields keep JSKIT's values; an invalid colour
-stops the server at startup:
+the application's own beside the required `invitesEnabled`. Missing colours
+keep JSKIT's values; an invalid colour stops the server at startup:
 
 ```js
 // config/server.js
@@ -315,11 +328,11 @@ authorization and role checks. Do not pass arbitrary HTTP input as options.
 
 | Capability method | Contract |
 | --- | --- |
-| `workspaces.repositories.workspaceInvites.withTransaction(options, (txOptions) => …)` | The invitations handle's `withTransaction`: joins `options.trx` or opens one managed transaction and hands `work` the `txOptions` to pass on; awaits commit and completion hooks before resolving. Runs `work` again when the database aborts it as a deadlock victim (see [data access](https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access#transactions)). `{ ...options, outermost: true }` refuses a call that already runs inside one. |
+| `workspaces.repositories.workspaceInvites.withTransaction(options, (txOptions) => …)` | The invitations handle's `withTransaction`: joins the caller's transaction or opens one and hands `work` the `txOptions` to pass on; awaits commit and completion hooks before resolving. Runs `work` again when the database aborts it as a deadlock victim (see [data access](https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access#transactions)). `{ ...options, outermost: true }` refuses a call that already runs inside one. |
 | `workspaces.lock(workspaceId, txOptions)` (capability `workspaces`) | Locks the workspace before application receipt/draft rows when composing preparation. Requires an active transaction. |
-| `workspaces.services.members.prepareInvite(workspace, actor, payload, options)` | Requires a managed `options.trx`. Validates the invitation role, replaces pending invitations for that workspace/email, and returns `{ createdInviteId, inviteTokenPreview }`. Never sends. |
-| `workspaces.services.members.sendInvite(workspace, actor, prepared, options)` | Requires no `options.trx`. Reloads the committed pending invitation and workspace display data, validates expiry and token correspondence, and sends that invitation without replacement. |
-| `workspaces.services.members.createInvite(workspace, actor, payload, options)` | Owns preparation and commit, then calls `sendInvite`, and answers with `sendInvite`'s result as JSON:API data (`returnJsonApiData`, read it from `.value`), as the invite action sends it. Rejects `options.trx`. |
+| `workspaces.services.members.prepareInvite(workspace, actor, payload, txOptions)` | Runs only inside a transaction, given its `txOptions`. Validates the invitation role, replaces pending invitations for that workspace/email, and returns `{ createdInviteId, inviteTokenPreview }`. Never sends. |
+| `workspaces.services.members.sendInvite(workspace, actor, prepared, options)` | Refuses to run inside a transaction: it delivers after the preparation's transaction commits. Reloads the committed pending invitation and workspace display data, validates expiry and token correspondence, and sends that invitation without replacement. |
+| `workspaces.services.members.createInvite(workspace, actor, payload, options)` | Owns preparation and commit, then calls `sendInvite`, and answers with `sendInvite`'s result as JSON:API data (`returnJsonApiData`, read it from `.value`), as the invite action sends it. Refuses to run inside a transaction. |
 | `workspaces.invite-acceptance-participant` (optional capability) | One application function receiving `({ invite, user }, options)` inside the acceptance transaction. Without it, acceptance activates the membership only. |
 
 `sendInvite` accepts `{ createdInviteId, inviteTokenPreview }` from preparation or
@@ -361,18 +374,17 @@ setup: ({ reviewedPeople, people, scopes, audit }) => ({
 // workspaces: "workspaces.core" and workspaceRecords: "workspaces":
 const { members } = workspaces.services;
 const invites = workspaces.repositories.workspaceInvites;
-const prepared = await invites.withTransaction(async (trx) => {
-  const options = { trx, context };
+const prepared = await invites.withTransaction({ context }, async (txOptions) => {
   // Match acceptance's order: workspace, then application draft/receipt rows.
-  await workspaceRecords.lock(workspace.id, options);
-  const reviewed = await reviewedPeople.lockAuthorizedDraft(draftId, workspace.id, actor, options);
-  const receipt = await reviewedPeople.findMatchingReceipt(reviewed, requestId, options);
+  await workspaceRecords.lock(workspace.id, txOptions);
+  const reviewed = await reviewedPeople.lockAuthorizedDraft(draftId, workspace.id, actor, txOptions);
+  const receipt = await reviewedPeople.findMatchingReceipt(reviewed, requestId, txOptions);
   if (receipt) return { createdInviteId: receipt.inviteId };
   const created = await members.prepareInvite(workspace, actor, {
     email: reviewed.email,
     roleSid: reviewed.roleSid
-  }, options);
-  await reviewedPeople.associateInvitationAndSaveReceipt(reviewed, requestId, created.createdInviteId, options);
+  }, txOptions);
+  await reviewedPeople.associateInvitationAndSaveReceipt(reviewed, requestId, created.createdInviteId, txOptions);
   return { createdInviteId: created.createdInviteId };
 });
 
@@ -415,8 +427,8 @@ exactly once. Revocation after sending starts cannot recall a message.
 Register one callback during feature setup to call the required application
 services. Non-functions throw `TypeError`; duplicate registration throws, and
 registration closes when acceptance/refusal first begins. The callback's invite,
-user and options are shallow frozen. JSKIT owns the transaction and passes its
-`trx` and request `context` to the callback.
+user and options are shallow frozen. JSKIT owns the transaction and passes the
+callback the `txOptions` that carry it and the request's `context`.
 
 Acceptance checks authentication, recipient email, pending state and expiry under
 workspace/invitation locks. Before calling the participant, it activates membership
@@ -434,8 +446,8 @@ callback must not commit, roll back, create transactions/savepoints or perform
 external effects. Participant and later invitation-status failures roll back
 membership (including its previous role/status), person/training links, scopes,
 audit and accepted status. Invalid invitations and refusals do not call the
-participant. Acceptance/refusal reject borrowed `options.trx`; revocation can
-join a managed transaction or create one.
+participant. Acceptance and refusal refuse to run inside the caller's
+transaction; revocation can join one or open its own.
 
 Acceptance/refusal return 401 for unauthenticated access, 403 for a recipient
 email mismatch and 404 for a missing or handled invitation. A matching recipient's
@@ -508,7 +520,41 @@ Workspace surfaces put the slug in their pages root, such as
 `w/[workspaceSlug]/admin` for administration. Keep the default surface
 (`surfaceDefaultId`, usually `home`) free of a workspace requirement: `/`,
 invitation links and other unscoped pages belong to it. With
-`webRootAllowed: "no"`, `/` opens that surface's root.
+`webRootAllowed: "no"`, `/` opens that surface's root. The foundation
+defines `home` and its `public` access policy, and the `auth/auth-surface`
+pattern the `auth` surface; the workspace surfaces add a policy and two
+definitions:
+
+```js
+// config/surfaceAccessPolicies.js
+surfaceAccessPolicies.workspace_member = { requireAuth: true, requireWorkspaceMembership: true };
+
+// config/public.js
+config.surfaceDefinitions.app = {
+  id: "app",
+  label: "App",
+  pagesRoot: "w/[workspaceSlug]",
+  requiresAuth: true,
+  requiresWorkspace: true,
+  accessPolicyId: "workspace_member"
+};
+config.surfaceDefinitions.admin = {
+  id: "admin",
+  label: "Admin",
+  pagesRoot: "w/[workspaceSlug]/admin",
+  requiresAuth: true,
+  requiresWorkspace: true,
+  accessPolicyId: "workspace_member"
+};
+```
+
+An access policy takes `requireAuth`, `requireWorkspaceMembership`,
+`requireAnyPermissions` and `requireAllPermissions` (permission lists), and
+`requireFlagsAny` and `requireFlagsAll` (flags the server's bootstrap sets in
+`surfaceAccess`). Without `requireAuth` or `requireWorkspaceMembership` it
+takes the surface's `requiresAuth` or `requiresWorkspace`. The browser applies
+the whole policy; the server reads only `requireWorkspaceMembership: false`
+from it, and a route's own `auth` and `permission` authorize it there.
 
 `workspaces-web` remembers the last workspace each person opened in this
 browser. The **Your workspaces** page, `WorkspacesClientElement` from
