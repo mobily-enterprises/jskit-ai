@@ -49,7 +49,9 @@ per line: `id, domain, owns, systemScope, requires, optional, provides,
 setup, actions, boot, shutdown`.** A `defineProvider` lives in `<Name>Provider.js`.
 
 - `setup` builds each provided value with a named `create<Name>` factory from
-  a module of its own, never inline.
+  a module of its own, never inline. It returns exactly the keys `provides`
+  names, or boot refuses it; a value only `actions` needs is built in
+  `actions`, which receives the requires.
 - `actions` is a method that returns `create<Name>Actions({ … })`.
 - The hooks take `capabilities`, destructured and typed.
 

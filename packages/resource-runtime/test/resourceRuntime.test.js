@@ -278,6 +278,25 @@ test("a table keyed by a uuid or a string takes its ids as text without its own 
   assert.equal((await resources.tokens.patch(id, { label: "second" }, options)).label, "second");
 });
 
+test("a null filter value matches the rows where the field is null", async (t) => {
+  const tasks = defineTableResource({
+    name: "tasks",
+    tableName: "tasks",
+    ownership: "public",
+    defaultSort: ["id"],
+    schema: { id: { type: "id", primary: true }, title: { type: "string", required: true }, archivedAt: { type: "dateTime", nullable: true, search: true, storage: { column: "archived_at" } } }
+  });
+  const { knex, resources, systemContext } = await createFixture(t, { owns: [noteResource(), tasks] });
+  await knex.schema.createTable("tasks", (table) => {
+    table.increments("id");
+    table.string("title").notNullable();
+    table.string("archived_at");
+  });
+  await knex("tasks").insert([{ title: "open" }, { title: "archived", archived_at: "2026-11-08 01:00:00.000" }]);
+  const open = await resources.tasks.queryAll({ filters: { archivedAt: null } }, { context: systemContext });
+  assert.deepEqual(open.map(({ title }) => title), ["open"]);
+});
+
 test("an upsert on a table with no owners may key on the id alone; an owned table's may not", async (t) => {
   const settings = defineTableResource({
     name: "settings",

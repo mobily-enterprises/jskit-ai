@@ -144,13 +144,19 @@ function createReceivalsRepository({ receivals }) {
 }
 ```
 
+A package whose features own tables or declare `systemScope` lists
+`runtime.resources` in its descriptor's `capabilities.requires`, or boot
+refuses it; the feature never requires it itself, since it receives its
+handles.
+
 Reads take `(params, options)` and writes `(data, options)`: `get(id, {},
 options)`. Every setting rides in options, spread from the call's own:
 `{ ...options, missing: "skip" }`, `{ ...options, returning: "id" }`. A filter
 key is one of the resource's `search: true` fields or a `searchSchema` entry;
 `id` takes one id or a list (an empty list matches no row), and another list
 of values needs an entry with `filterOperator: "in"`. The `id` filter is every
-handle's own: a resource never declares an `id` search entry. A table keyed by
+handle's own: a resource never declares an `id` search entry. A `null` value
+matches the rows where the field is null: `filters: { archivedAt: null }`. A table keyed by
 a `uuid` or `string` primary key takes its ids as text; an `owns` entry's
 `normalizeId` is only for an id written some other way.
 
@@ -459,7 +465,8 @@ const SettlementFeature = defineFeature({
 - A request uses its own context. The only exception is a console report
   behind a console permission, with bounded output.
 - `jskit check` lists every system scope and every `systemContext` call with
-  its reason.
+  its reason, read from the string literal at the call: a reason kept in a
+  constant reads as none.
 - A system context comes only from `systemScope`, and a context's scope only
   from the request or from `forWorkspace`, `forUser` and `forWorkspaceUser`:
   lint refuses `createSystemContext` and hand-written `scopeValues`, and a
