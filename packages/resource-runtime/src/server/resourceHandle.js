@@ -73,8 +73,15 @@ function requireHandleTransaction(name, options) {
 }
 
 // Opens a transaction for work. When work throws, json-rest-api rolls the transaction back and the caller gets the
-// error work threw. A failed write inside work (an error that reports a transactionOutcome, which said "pending")
-// arrives as json-rest-api's RestApiWriteError, which reports the outcome after the rollback, as a failed commit does.
+// error work threw, with its status and code, reporting the transaction's outcome ("rolledBack") as transactionOutcome
+// (not enumerable, so its serialized form is unchanged; a frozen error cannot carry it): a caller that retries a lost
+// race, such as one that turned a duplicate key into its own 409, sees that nothing was written. A failed write inside
+// work (an error that reports a transactionOutcome, which said "pending") arrives as json-rest-api's RestApiWriteError,
+// which reports the outcome after the rollback, as a failed commit does.
+// Errors work threw that a transaction marked with its outcome: an enclosing transaction still passes them on as work's
+// own, not as a failed write's.
+const outcomeMarked = new WeakSet();
+
 async function openTransaction(api, options, work) {
   let own = null;
   try {
@@ -88,7 +95,14 @@ async function openTransaction(api, options, work) {
       }
     });
   } catch (error) {
-    throw own && error?.cause === own.error && own.error?.transactionOutcome === undefined ? own.error : error;
+    if (!own || error?.cause !== own.error || (own.error?.transactionOutcome !== undefined && !outcomeMarked.has(own.error))) {
+      throw error;
+    }
+    if (Object.isExtensible(own.error)) {
+      Object.defineProperty(own.error, "transactionOutcome", { value: error.transactionOutcome, configurable: true });
+      outcomeMarked.add(own.error);
+    }
+    throw own.error;
   }
 }
 

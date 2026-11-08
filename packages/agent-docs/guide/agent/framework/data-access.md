@@ -551,7 +551,9 @@ caller's, `outermost` refuses one, and `lock`, `lockMany`, `lockOrCreate` and
 `claim` refuse to run outside one.
 
 When the work throws, the transaction rolls back and the caller gets the
-work's own error. A failed write inside the work, or a failed commit, reaches
+work's own error, with its status and code, reporting `transactionOutcome:
+"rolledBack"`, so a retry of a lost insert race (`isLostDuplicateInsertRace`)
+also sees a 409 the work made from the duplicate. A failed write inside the work, or a failed commit, reaches
 the caller as json-rest-api's `RestApiWriteError` (code `REST_API_WRITE`)
 with the transaction's outcome. Classify an error by its `code` or `status`,
 never with `instanceof`: a second copy of a package makes a second class.

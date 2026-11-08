@@ -16,6 +16,8 @@ import { emptyInputValidator, resolveActorId, resolveAuditActorId } from "@jskit
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeOpaqueId } from "@jskit-ai/kernel/shared/support/normalize";
 import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
+import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createTestResourceRuntime } from "../src/test/index.js";
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
@@ -618,6 +620,17 @@ test("withTransaction() rethrows its work's own error, and takes its settings in
     }),
     (error) => error === failure
   );
+  assert.equal((await notes.queryAll({}, { context: WORKSPACE_A })).length, 0);
+  // The work's own error says it rolled back, keeping its status and code and its serialized form, so a retry of a
+  // lost insert race sees the 409 the work made from the duplicate as one.
+  const duplicate = Object.assign(new Error("UNIQUE constraint failed: notes.title"), { code: "SQLITE_CONSTRAINT_UNIQUE" });
+  const taken = await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    await notes.create({ title: "undone" }, txOptions);
+    throw new AppError(409, "That title is taken.", { code: "notes.title.taken", cause: duplicate });
+  }).catch((error) => error);
+  assert.deepEqual([taken.status, taken.code, taken.transactionOutcome], [409, "notes.title.taken", "rolledBack"]);
+  assert.equal(Object.keys(taken).includes("transactionOutcome"), false);
+  assert.equal(isLostDuplicateInsertRace(taken, { context: WORKSPACE_A }), true);
   assert.equal((await notes.queryAll({}, { context: WORKSPACE_A })).length, 0);
   // A failed write inside the work reports the outcome after the rollback, not the "pending" it saw.
   await assert.rejects(
