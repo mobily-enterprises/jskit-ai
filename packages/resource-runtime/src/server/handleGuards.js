@@ -154,14 +154,34 @@ function requireReadParams(name, params) {
 }
 
 /**
- * Refuses a patch's lockVersion without a lockVersionField, or one that is not a version, or changes that write the
- * version the patch advances itself; and an onlyIf that is not an object of field values.
+ * Refuses a write condition that the options name with no value (`{ lockVersion: undefined }`, `{ onlyIf: undefined }`,
+ * often a field read under the wrong name): run without it, the write would drop the condition it was meant to carry,
+ * and a patch with no changes would only read. A call without the condition leaves the key out.
+ * @param {string} name The resource's name.
+ * @param {string} method The handle method, such as "patch".
+ * @param {Record<string, unknown>} options
+ * @param {string[]} keys The condition keys the method takes.
+ */
+function requireConditionValues(name, method, options, keys) {
+  for (const key of keys) {
+    if (Object.hasOwn(options, key) && options[key] === undefined) {
+      throw new TypeError(`${name}.${method}() options.${key} is undefined. Give it a value, or leave the key out for a ${method} without it.`);
+    }
+  }
+}
+
+/**
+ * Refuses a patch's lockVersion or onlyIf named with no value (see requireConditionValues); a lockVersion without a
+ * lockVersionField, or one that is not a version, or changes that write the version the patch advances itself; and an
+ * onlyIf that is not an object of field values.
  * @param {string} name
  * @param {string} lockVersionField
  * @param {Record<string, unknown>} attributes
- * @param {{ lockVersion?: unknown, onlyIf?: unknown }} conditions
+ * @param {{ lockVersion?: unknown, onlyIf?: unknown }} options The patch's options.
  */
-function requirePatchConditions(name, lockVersionField, attributes, { lockVersion, onlyIf }) {
+function requirePatchConditions(name, lockVersionField, attributes, options) {
+  requireConditionValues(name, "patch", options, ["lockVersion", "onlyIf"]);
+  const { lockVersion, onlyIf } = options;
   if (lockVersion !== undefined) {
     if (!lockVersionField) {
       throw new TypeError(`${name}.patch() lockVersion needs the resource to name its lockVersionField.`);
@@ -205,4 +225,4 @@ function matchesNoRow(filters, schemaInfo) {
   return Object.entries(filters).some(([key, value]) => Array.isArray(value) && value.length === 0 && search[key]?.filterOperator === "in");
 }
 
-export { formatOf, matchesNoRow, missingOf, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, valueOnly, whereSelection };
+export { formatOf, matchesNoRow, missingOf, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, valueOnly, whereSelection };

@@ -1285,6 +1285,12 @@ test("a lockVersion patch moves the version on by one, also with no attributes, 
     throw new Error("Abandon the rename");
   }), /Abandon the rename/u);
   assert.deepEqual(await knex("notes").where({ id: note.id }).first("title", "lock_version"), { title: "draft", lock_version: 1 });
+  // A condition named with no value (a version read under the wrong field name) is refused, never run without it.
+  await assert.rejects(notes.patch(note.id, {}, { context: WORKSPACE_A, lockVersion: undefined }), /notes\.patch\(\) options\.lockVersion is undefined/u);
+  await assert.rejects(notes.patch(note.id, { title: "x" }, { context: WORKSPACE_A, onlyIf: undefined }), /notes\.patch\(\) options\.onlyIf is undefined/u);
+  await assert.rejects(notes.patchMany([{ id: note.id }], { context: WORKSPACE_A, onlyIf: undefined }), /notes\.patchMany\(\) options\.onlyIf is undefined/u);
+  await assert.rejects(notes.patchWhere({ id: note.id }, { title: "x" }, { context: WORKSPACE_A, onlyIf: undefined }), /notes\.patchWhere\(\) options\.onlyIf is undefined/u);
+  assert.deepEqual(await knex("notes").where({ id: note.id }).first("title", "lock_version"), { title: "draft", lock_version: 1 });
   await assert.rejects(notes.patch(note.id, {}, { context: WORKSPACE_A, lockVersion: -1 }), /must be a non-negative integer/u);
   await assert.rejects(notes.patch(note.id, {}, { context: WORKSPACE_A, lockVersion: "1" }), /must be a non-negative integer/u);
   await assert.rejects(

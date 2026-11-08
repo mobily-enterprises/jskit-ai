@@ -6,7 +6,7 @@ import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
-  formatOf, matchesNoRow, missingOf, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows,
+  formatOf, matchesNoRow, missingOf, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows,
   valueOnly, whereSelection
 } from "./handleGuards.js";
 import {
@@ -436,10 +436,10 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (!isRecord(attributes)) {
       throw new TypeError(`${name}.patch() takes attributes as an object.`);
     }
+    requirePatchConditions(name, lockVersionField, attributes, options);
     const { lockVersion, onlyIf, missing: missingOption, ...callOptions } = options;
     const missing = missingOf(name, "patch", missingOption);
     const returning = pickReturning(SINGLE_RETURNING, callOptions.returning, "record", `${name}.patch()`);
-    requirePatchConditions(name, lockVersionField, attributes, { lockVersion, onlyIf });
     if (lockVersion === undefined && missing === "skip") {
       return patchIfPresent(id, attributes, callOptions, returning, onlyIf);
     }
@@ -544,6 +544,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (!Array.isArray(rows)) {
       throw new TypeError(`${name}.patchMany() takes an array of { id, ...changes } rows.`);
     }
+    requireConditionValues(name, "patchMany", options, ["onlyIf"]);
     return manyRowWrite("patchMany", rows.length, options, (params, context) => jsonRest().patchMany(
       {
         ...params,
@@ -564,6 +565,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records" | "count", onlyIf?: object, all?: boolean, chunkSize?: number }} [options]
    */
   async function patchWhere(filters, attributes, options = {}) {
+    requireConditionValues(name, "patchWhere", options, ["onlyIf"]);
     const selection = whereSelection(name, "patchWhere", filters, options);
     return manyRowWrite("patchWhere", 0, options, (params, context) => jsonRest().patchWhere(
       { ...params, ...selection, data: inputData(resource, attributes, "update", options.context),
