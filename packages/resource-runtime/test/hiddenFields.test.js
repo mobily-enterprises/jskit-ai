@@ -106,7 +106,7 @@ test("withoutHiddenFields refuses another feature's read naming a hidden field, 
   assert.deepEqual(await exposed.queryAll({ filters: { title: "Kit" }, fields: ["publicToken"] }, { context: system.forWorkspace("2") }),
     [{ id: "3", publicToken: "t3" }]);
   // Everything else is the repository's own, and a resource without hidden fields keeps its repository.
-  assert.equal(exposed.column, cards.column);
+  assert.equal(exposed.column("title"), cards.column("title"));
   assert.equal(exposed.name, "cards");
   assert.equal(Object.isFrozen(exposed), true);
   const plain = defineTableResource({ name: "notes", tableName: "notes", ownership: "public", schema: { body: { type: "string" } } });
@@ -139,4 +139,39 @@ test("withoutHiddenFields refuses another feature's scopedQuery, whose builder c
   const source = await exposed.cardSource("c", options);
   const rows = await source.query.select({ title: source.column("title") }).orderBy(source.column("id"));
   assert.deepEqual(rows, [{ title: "Rex" }, { title: "Bo" }]);
+});
+
+test("withoutHiddenFields strips the hidden fields from every answer of a read the owner adds, unless it runs in a system context", async (t) => {
+  const { cards, resource, system, options } = await createCardFixture(t);
+  // The owner's decorateRepository reads: one forwarding the caller's params, the handle's own under another name, one
+  // answering a map, one in a sub-repository and one answering at once.
+  const owner = Object.freeze({
+    ...cards,
+    queryAllIncludingArchived: (params, callOptions) => cards.queryAll(params, callOptions),
+    everyCard: cards.queryAll,
+    async cardsByTitle(callOptions) {
+      const records = await cards.queryAll({ fields: ["title", "publicToken"] }, callOptions);
+      return new Map(records.map((record) => [record.title, record]));
+    },
+    archive: Object.freeze({ list: (callOptions) => cards.queryAll({ fields: ["title", "views"] }, callOptions) }),
+    tokenLength: (card) => String(card.publicToken).length
+  });
+  const exposed = withoutHiddenFields(owner, resource);
+
+  // Another feature's calls: no hidden field leaves, whatever the method's name or depth.
+  assert.deepEqual(await exposed.queryAllIncludingArchived({ filters: { title: "Rex" }, fields: ["title", "publicToken", "workspaceId"] }, options),
+    [{ id: "1", title: "Rex" }]);
+  assert.deepEqual(await exposed.everyCard({ filters: { title: "Bo" }, fields: ["publicToken"] }, options), [{ id: "2" }]);
+  assert.deepEqual([...(await exposed.cardsByTitle(options)).values()], [{ id: "1", title: "Rex" }, { id: "2", title: "Bo" }]);
+  assert.deepEqual(await exposed.archive.list(options), [{ id: "1", title: "Rex" }, { id: "2", title: "Bo" }]);
+  // A method that answers at once still does, and withTransaction answers the caller's own work as it is.
+  assert.equal(exposed.tokenLength({ publicToken: "abc" }), 3);
+  assert.deepEqual(await exposed.withTransaction(options, async () => ({ publicToken: "the caller's own" })), { publicToken: "the caller's own" });
+
+  // The owner, with its own repository, and a system context, or one it derived, still read them when named.
+  assert.deepEqual(await owner.queryAllIncludingArchived({ filters: { title: "Rex" }, fields: ["publicToken"] }, options),
+    [{ id: "1", publicToken: "t1" }]);
+  assert.deepEqual(await exposed.queryAllIncludingArchived({ filters: { title: "Kit" }, fields: ["publicToken", "workspaceId"] }, { context: system }),
+    [{ id: "3", publicToken: "t3", workspaceId: "2" }]);
+  assert.deepEqual(await exposed.archive.list({ context: system.forWorkspace("2") }), [{ id: "3", title: "Kit", views: 1 }]);
 });

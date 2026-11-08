@@ -3,7 +3,7 @@ import { RestApiRowLimitError } from "json-rest-api";
 import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
-import { createHiddenFieldReads } from "./handleHidden.js";
+import { createHiddenFieldReads, markHandleFunctions } from "./handleHidden.js";
 import { createLockReads } from "./handleLocks.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
@@ -693,6 +693,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     return valueOnlyRaw(`${name}.raw()`, api.knex.instance, [sql, bindings, ...rest]);
   }
 
+  markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate: lockOrCreateRecord });
   return Object.freeze({
     name,
     pageLimits,

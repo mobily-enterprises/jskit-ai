@@ -467,8 +467,11 @@ function defineCrudFeature(feature) {
         });
       }
       // The handle decorateRepository receives answers hidden fields to the owner's own methods; other features,
-      // and this feature's actions, read them only in a system context.
-      const exposed = withoutHiddenFields(repository, tableResource);
+      // and this feature's actions, read them only in a system context, through any method the repository holds.
+      const exposed = withoutHiddenFields(repository, [
+        tableResource,
+        ...(featureOwns ?? []).map((entry) => (isTableResource(entry) ? entry : entry.resource))
+      ]);
       return {
         resourceApi: Object.freeze(withRemovedProperties({ repository: exposed, crud, service }, REMOVED_RESOURCE_API, "A CRUD feature's capability"))
       };

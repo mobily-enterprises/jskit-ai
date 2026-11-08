@@ -214,10 +214,12 @@ statement per 1,000 records, scoped as the read is; a read without `fields`
 never answers it. It may be an id, string, integer, number or boolean, and
 naming any other kind refuses the read. The repository a CRUD feature gives
 other features, and its own actions, refuses a read naming a hidden field, and
-any `scopedQuery()` (its builder carries every column), unless it runs in a
-system context, so the owner checks a token in a method `decorateRepository`
-adds, with the handle it receives. Never unhide a field to read it, and never
-read it with `scopedQuery`.
+any `scopedQuery()` (its builder carries every column), and every method it
+holds, `decorateRepository`'s included, answers without the hidden fields of the
+tables its owner owns, unless the call runs in a system context. So the owner
+checks a token in a method `decorateRepository` adds, with the handle it
+receives, and answers only the outcome. Never unhide a field to read it, and
+never read it with `scopedQuery`.
 
 `create` and `patch` answer the written record by default, read back through
 the row policy. Server code that does not use it passes `returning: "id"` or

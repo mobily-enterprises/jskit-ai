@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Security.** A CRUD feature's capability repository answers without hidden fields through every method it holds, the ones `decorateRepository` adds included, for every table the feature owns, unless the call runs in a system context: a custom read that forwarded the caller's `fields` handed hidden values to other features.
 - **Security.** A CRUD feature's capability repository (`resourceApi.repository`) on a table with hidden fields refuses another feature's `scopedQuery()` unless it runs in a system context, as it refuses a read naming a hidden field: the builder carries every column. An owner answers its rows to another owner's report through a join source method of its own.
 - A custom action whose name breaks the action-name rule is refused with the rule itself: lower case, starting with a letter, with only letters, digits, `_`, `.` and `-` (`cancel-day`, not `cancelDay`). The error said only that the name was invalid.
 - `@jskit-ai/resource-runtime` is a peer dependency, required and at the same version, where it was a dependency: every CRUD feature owns its table through it, and the app holds one copy of the table runtime that every package shares, as it does the kernel. npm installs a required peer as it installed the dependency, so an app installs the same packages and versions; a release whose versions disagree now fails the install with ERESOLVE instead of nesting a second copy.

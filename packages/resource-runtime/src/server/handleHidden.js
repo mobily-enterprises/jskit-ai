@@ -138,59 +138,159 @@ function createHiddenFieldReads({ resource, scopedQuery, column }) {
   });
 }
 
+// Every resource handle's scopedQuery, whose builder carries every column, and its withTransaction and lockOrCreate,
+// which answer the caller's own work: withoutHiddenFields tells them by identity, under any name.
+const HANDLE_SCOPED_QUERIES = new WeakSet();
+const HANDLE_WORK_RUNNERS = new WeakSet();
+// The names an owner's own wrappers of those runners keep.
+const WORK_RUNNER_NAMES = Object.freeze(new Set(["withTransaction", "lockOrCreate"]));
+
 /**
- * The repository an owner gives other features (a CRUD feature's `resourceApi.repository`): the same repository,
- * except that a read whose `fields` names a hidden field of the resource, and any scopedQuery() (its builder carries
- * every column, hidden ones too), is refused unless it runs in a system context or one it derived. The owner's own
- * code, its join sources included, reads with the repository itself. A resource without hidden fields keeps its
- * repository as it is.
+ * Records a new handle's scopedQuery, withTransaction and lockOrCreate for withoutHiddenFields.
+ * @param {{ scopedQuery: Function, withTransaction: Function, lockOrCreate: Function }} handle
+ */
+function markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate }) {
+  HANDLE_SCOPED_QUERIES.add(scopedQuery);
+  HANDLE_WORK_RUNNERS.add(withTransaction);
+  HANDLE_WORK_RUNNERS.add(lockOrCreate);
+}
+
+/** @param {unknown} value */
+function isPlainRecord(value) {
+  if (!isRecord(value)) {
+    return false;
+  }
+  const prototype = Object.getPrototypeOf(value);
+  return prototype === Object.prototype || prototype === null;
+}
+
+/**
+ * The value without the hidden fields, wherever a plain record in it, or in its arrays and maps, carries one: a copy
+ * of what changed (frozen when the original was), the value itself when nothing did. Builders, dates and other
+ * instances are left as they are.
+ * @param {unknown} value
+ * @param {Set<string>} hidden
+ * @param {WeakMap<object, unknown>} [seen]
+ */
+function withoutHiddenValues(value, hidden, seen = new WeakMap()) {
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+  if (seen.has(value)) {
+    return seen.get(value);
+  }
+  seen.set(value, value);
+  let changed = false;
+  const strip = (entry) => {
+    const next = withoutHiddenValues(entry, hidden, seen);
+    changed ||= next !== entry;
+    return next;
+  };
+  let copy;
+  if (Array.isArray(value)) {
+    copy = value.map(strip);
+  } else if (value instanceof Map) {
+    copy = new Map([...value].map(([key, entry]) => [key, strip(entry)]));
+  } else if (isPlainRecord(value)) {
+    copy = Object.create(Object.getPrototypeOf(value));
+    for (const [key, entry] of Object.entries(value)) {
+      if (hidden.has(key)) {
+        changed = true;
+      } else {
+        copy[key] = strip(entry);
+      }
+    }
+  } else {
+    return value;
+  }
+  const result = !changed ? value : Object.isFrozen(value) && !(value instanceof Map) ? Object.freeze(copy) : copy;
+  seen.set(value, result);
+  return result;
+}
+
+/**
+ * The repository an owner gives other features (a CRUD feature's `resourceApi.repository`): every function it holds,
+ * its sub-repositories' included, answers without the hidden fields of the tables the owner owns, and a read whose
+ * `fields` names a hidden field of the resource, or any scopedQuery() (its builder carries every column, hidden ones
+ * too), is refused, unless the call runs in a system context or one it derived (its options, the last record it
+ * takes). So a read the owner adds in decorateRepository cannot hand a hidden field out either; the owner's own
+ * code, its join sources included, reads with the repository itself. withTransaction and lockOrCreate answer the
+ * caller's own work as it is. A repository whose tables have no hidden fields stays as it is.
  * @template {object} T
  * @param {T} repository
- * @param {{ name: string, schema: Record<string, any> }} resource
+ * @param {{ name: string, schema: Record<string, any> } | ReadonlyArray<{ name: string, schema: Record<string, any> }>} resources
+ *   The resource the repository serves, or it first and the other tables its owner owns.
  * @returns {T}
  */
-function withoutHiddenFields(repository, resource) {
-  if (!isRecord(repository) || !Object.values(resource.schema).some((definition) => definition?.hidden === true)) {
+function withoutHiddenFields(repository, resources) {
+  const owned = [resources].flat();
+  const hidden = new Set(owned.flatMap(({ schema }) => Object.keys(schema).filter((field) => schema[field]?.hidden === true)));
+  if (!isRecord(repository) || hidden.size < 1) {
     return repository;
   }
+  return guardedRepository(repository, owned[0], hidden, new WeakSet());
+}
+
+/**
+ * @param {object} repository
+ * @param {{ name: string, schema: Record<string, any> } | null} resource The resource whose reads it refuses by name; none for a sub-repository.
+ * @param {Set<string>} hidden
+ * @param {WeakSet<object>} guarded
+ */
+function guardedRepository(repository, resource, hidden, guarded) {
+  guarded.add(repository);
   const descriptors = Object.getOwnPropertyDescriptors(repository);
-  const { scopedQuery } = repository;
-  // readable-check: allow method-probe - data: an owner's repository may leave out scopedQuery
-  if (typeof scopedQuery === "function") {
-    descriptors.scopedQuery = {
-      enumerable: true,
-      value: async function scopedQueryWithoutHiddenFields(params, options) {
-        if (!isJobContext(options?.context)) {
-          throw new TypeError(
-            `${resource.name}.scopedQuery() answers every column, its hidden fields too, which only the table's owner, ` +
-              "or a system context, reads: ask the owner for a method answering the rows or a join source."
-          );
-        }
-        return scopedQuery.call(repository, params, options);
-      }
-    };
-  }
-  for (const [method, { fieldsAt, optionsAt }] of Object.entries(FIELD_READS)) {
-    const read = repository[method];
-    // readable-check: allow method-probe - data: an owner's repository may leave out any of the reads
-    if (typeof read !== "function") {
-      continue;
+  for (const [key, descriptor] of Object.entries(descriptors)) {
+    const { value } = descriptor;
+    // readable-check: allow method-probe - data: every function a repository holds is guarded, whatever its name
+    if (typeof value === "function") {
+      descriptors[key] = { ...descriptor, value: guardedFunction(repository, key, value, resource, hidden) };
+    } else if (isPlainRecord(value) && !guarded.has(value)) {
+      descriptors[key] = { ...descriptor, value: guardedRepository(value, null, hidden, guarded) };
     }
-    descriptors[method] = {
-      enumerable: true,
-      value: async function readWithoutHiddenFields(...args) {
-        const hidden = isJobContext(args[optionsAt]?.context) ? [] : namedHiddenFields(resource, args[fieldsAt]?.fields);
-        if (hidden.length > 0) {
-          throw new TypeError(
-            `${resource.name}.${method}() fields names the hidden field ${hidden.map((field) => `"${field}"`).join(", ")}, ` +
-              "which only the table's owner, or a system context, reads."
-          );
-        }
-        return read.apply(repository, args);
-      }
-    };
   }
   return Object.freeze(Object.create(Object.getPrototypeOf(repository), descriptors));
 }
 
-export { createHiddenFieldReads, withoutHiddenFields };
+/**
+ * @param {object} repository
+ * @param {string} key
+ * @param {Function} call
+ * @param {{ name: string, schema: Record<string, any> } | null} resource
+ * @param {Set<string>} hidden
+ */
+function guardedFunction(repository, key, call, resource, hidden) {
+  const label = `${resource?.name ?? "repository"}.${key}()`;
+  const fieldRead = resource && Object.hasOwn(FIELD_READS, key) ? FIELD_READS[key] : null;
+  const builder = HANDLE_SCOPED_QUERIES.has(call) || (resource !== null && key === "scopedQuery");
+  const work = HANDLE_WORK_RUNNERS.has(call) || WORK_RUNNER_NAMES.has(key);
+  return function callWithoutHiddenFields(...args) {
+    const options = fieldRead ? args[fieldRead.optionsAt] : args.findLast(isRecord);
+    if (isJobContext(options?.context)) {
+      return call.apply(repository, args);
+    }
+    if (builder) {
+      return Promise.reject(new TypeError(
+        `${label} answers every column, its hidden fields too, which only the table's owner, or a system context, ` +
+          "reads: ask the owner for a method answering the rows or a join source."
+      ));
+    }
+    const named = fieldRead ? namedHiddenFields(resource, args[fieldRead.fieldsAt]?.fields) : [];
+    if (named.length > 0) {
+      return Promise.reject(new TypeError(
+        `${label} fields names the hidden field ${named.map((field) => `"${field}"`).join(", ")}, ` +
+          "which only the table's owner, or a system context, reads."
+      ));
+    }
+    const answer = call.apply(repository, args);
+    if (work) {
+      return answer;
+    }
+    // readable-check: allow method-probe - data: a repository's method may answer at once or with a promise
+    return typeof answer?.then === "function"
+      ? answer.then((value) => withoutHiddenValues(value, hidden))
+      : withoutHiddenValues(answer, hidden);
+  };
+}
+
+export { createHiddenFieldReads, markHandleFunctions, withoutHiddenFields };
