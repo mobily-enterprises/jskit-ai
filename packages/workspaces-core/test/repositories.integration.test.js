@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { before, beforeEach, after, describe, test } from "node:test";
 import knexLib from "knex";
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
+import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
 import { UsersExtensionsProvider } from "@jskit-ai/users-core/server/UsersExtensionsProvider";
@@ -291,6 +292,83 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       workspaces.withTransaction({}, (txOptions) => workspaces.lock("999999", txOptions)),
       (error) => error.code === "REST_API_RESOURCE" && error.subtype === "not_found"
     );
+  });
+
+  test("another owner's report joins the workspaces' and memberships' join sources in one statement, each keeping its filters and the report its scope", async (t) => {
+    // Another feature's workspace-owned table, whose report reads each row's workspace slug and active membership.
+    await knex.schema.createTable("test_reminders", (table) => {
+      table.increments("id");
+      table.bigInteger("workspace_id").unsigned().nullable();
+      table.bigInteger("user_id").unsigned().nullable();
+      table.string("note").notNullable();
+    });
+    t.after(() => knex.schema.dropTableIfExists("test_reminders"));
+    const { reminders } = await runtime.own("test.reminders", [defineTableResource({
+      name: "reminders",
+      tableName: "test_reminders",
+      ownership: "workspace",
+      defaultSort: ["id"],
+      schema: {
+        workspaceId: { type: "id", nullable: true, search: true, storage: { column: "workspace_id" } },
+        userId: { type: "id", nullable: true, storage: { column: "user_id" } },
+        note: { type: "string", required: true }
+      }
+    })]);
+
+    // Knex: report - each reminder with its workspace's slug and whether its person is still an active member
+    async function remindersWithMembers(options, workspaceFilters) {
+      const workspaceSource = await workspaces.joinSource({ alias: "w", filters: workspaceFilters }, options);
+      const membershipSource = await memberships.joinSource({ alias: "m", filters: { status: "active" } }, options);
+      const kept = workspaceSource.query.select({ id: workspaceSource.column("id"), slug: workspaceSource.column("slug") }).as("ws");
+      const active = membershipSource.query
+        .select({ workspaceId: membershipSource.column("workspaceId"), userId: membershipSource.column("userId") })
+        .as("ms");
+      const { query } = await reminders.scopedQuery({ alias: "r" }, options);
+      const workspaceId = reminders.column("workspaceId", "r");
+      const userId = reminders.column("userId", "r");
+      const rows = await query
+        .join(kept, "ws.id", workspaceId)
+        .leftJoin(active, function onMembership() {
+          this.on("ms.workspaceId", "=", workspaceId).andOn("ms.userId", "=", userId);
+        })
+        .select({ note: reminders.column("note", "r"), slug: "ws.slug", member: "ms.userId" })
+        .orderBy(reminders.column("id", "r"));
+      return rows.map(({ note, slug, member }) => ({ note, slug, member: member == null ? null : String(member) }));
+    }
+
+    const owner = await createProfile("Ada");
+    const member = await createProfile("Grace");
+    const first = await workspaces.insert({ slug: "first", name: "First", ownerUserId: owner.id });
+    const second = await workspaces.insert({ slug: "second", name: "Second", ownerUserId: owner.id });
+    const closed = await workspaces.insert({ slug: "closed", name: "Closed", ownerUserId: owner.id });
+    await workspaces.updateById(closed.id, { deletedAt: new Date().toISOString() });
+    await memberships.ensureOwnerMembership(first.id, owner.id);
+    await memberships.addMember({ workspaceId: first.id, userId: member.id });
+    await memberships.upsertMembership(first.id, member.id, { status: "removed" });
+    await memberships.ensureOwnerMembership(closed.id, owner.id);
+    const inWorkspace = (workspace) => ({ context: { workspace: { id: workspace.id } } });
+    await reminders.createMany([
+      { userId: owner.id, note: "owner's" },
+      { userId: member.id, note: "former member's" }
+    ], { ...inWorkspace(first), returning: "none" });
+    await reminders.create({ userId: owner.id, note: "second's" }, { ...inWorkspace(second), returning: "none" });
+    await reminders.create({ userId: owner.id, note: "closed's" }, { ...inWorkspace(closed), returning: "none" });
+
+    const report = await statementsOf(() => remindersWithMembers(inWorkspace(first), { deletedAt: null }));
+    assert.deepEqual(report.result, [
+      { note: "owner's", slug: "first", member: owner.id },
+      { note: "former member's", slug: "first", member: null }
+    ], "The report keeps to its own workspace, and a removed membership is not an active one");
+    assert.equal(report.statements, 1, `One statement: ${report.sql.join(" | ")}`);
+    assert.deepEqual(await remindersWithMembers(inWorkspace(second), { deletedAt: null }), [
+      { note: "second's", slug: "second", member: null }
+    ], "No membership in that workspace answers no member");
+    assert.deepEqual(await remindersWithMembers(inWorkspace(closed), { deletedAt: null }), [], "A deleted workspace is left out by its filter");
+    assert.deepEqual(await remindersWithMembers(inWorkspace(closed), undefined), [
+      { note: "closed's", slug: "closed", member: owner.id }
+    ], "Without the filter the source answers every workspace the handle reads");
+    await assert.rejects(workspaces.joinSource({ filters: {} }), /needs the alias/u);
+    await assert.rejects(memberships.joinSource({ alias: "" }), /needs the alias/u);
   });
 
   test("workspace and membership repositories read mapped relationships through includes", async () => {
