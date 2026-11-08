@@ -865,6 +865,22 @@ test("changeHorizon() answers PostgreSQL's snapshot horizon as decimal text; els
   assert.deepEqual(statements, []);
 });
 
+test("an xid8 field, PostgreSQL's transaction id, is refused where the table is on another database", async (t) => {
+  const knex = await testKnex(t);
+  if (knex.client.config.client === "pg") {
+    t.skip("PostgreSQL has xid8: changes.postgres.test.js reads it");
+    return;
+  }
+  const stamped = defineTableResource({
+    name: "stamped",
+    tableName: "stamped",
+    ownership: "public",
+    schema: { id: { type: "id", primary: true }, changed: { type: "xid8", nullable: true } }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  await assert.rejects(runtime.own("stamped.feature", [stamped]), /Field 'changed' in resource 'stamped' has type 'xid8', PostgreSQL's transaction id, which only Knex storage on PostgreSQL has/u);
+});
+
 test("scopedQuery() answers a read-only builder over the caller's rows that orWhere cannot widen", async (t) => {
   const { notes } = await createFixture(t);
   await notes.createMany([{ title: "a" }, { title: "b" }], { context: WORKSPACE_A });

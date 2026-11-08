@@ -4,7 +4,8 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
 
 // What changed since a horizon, on PostgreSQL, with real concurrent transactions. Each row carries the transaction
-// that last wrote it, an xid8 change stamp that a trigger sets on every insert and update, whatever the write sent. A reader takes
+// that last wrote it, an xid8 change stamp that a trigger sets on every insert and update, whatever the write sent, read
+// through an xid8 field with changedSince (>=) and changedBefore (<) filters. A reader takes
 // changeHorizon() before it reads; every transaction below the horizon had finished, so a later read of the rows
 // stamped at or above it finds everything the first read could not see. Each test works in a schema of its own in
 // TEST_DB_NAME (createPackageTestKnex); other sessions on the server may hold the horizon lower, never higher, so the
@@ -23,11 +24,11 @@ const messageResource = defineTableResource({
     workspaceId: { type: "id", nullable: true, search: true, storage: { column: "workspace_id" } },
     body: { type: "string", required: true, search: true },
     // The database stamps it; nothing writes it.
-    changed: { type: "string", nullable: true }
+    changed: { type: "xid8", nullable: true }
   },
   searchSchema: {
-    changedSince: { type: "string", actualField: "changed", filterOperator: ">=" },
-    changedBefore: { type: "string", actualField: "changed", filterOperator: "<" }
+    changedSince: { type: "xid8", actualField: "changed", filterOperator: ">=" },
+    changedBefore: { type: "xid8", actualField: "changed", filterOperator: "<" }
   }
 });
 
@@ -98,7 +99,7 @@ test("changedSince and changedBefore read the window between two horizons; what 
   assert.ok(BigInt(start) <= BigInt(end), "the horizon never moves back");
 });
 
-test("a stamp compares as a transaction id: from a row's own stamp it is found, from the next one not, and a patch moves it on", { skip }, async (t) => {
+test("a stamp compares as a transaction id: from a row's own stamp it is found, from the next one not, a malformed cursor is refused, and a patch moves the stamp on", { skip }, async (t) => {
   const { knex, messages } = await database(t);
   // The trigger stamps the writing transaction whatever the write sends.
   const [created] = await messages.createMany([{ body: "one", changed: "1" }], { ...WORKSPACE, returning: "records" });
@@ -113,6 +114,16 @@ test("a stamp compares as a transaction id: from a row's own stamp it is found, 
   // They compare as numbers, not as text, where "9" would sort above a stamp starting with a lower digit.
   assert.deepEqual([await found({ changedSince: "9" }), await found({ changedBefore: "9" })], [["one"], []]);
   assert.deepEqual(await found({ changedSince: "18446744073709551615" }), []);
+  // A cursor is decimal text below 2^64, leading zeros allowed; anything else is refused before any statement.
+  assert.deepEqual(await found({ changedSince: `000${created.changed}` }), ["one"]);
+  const statements = [];
+  const counted = ({ sql }) => statements.push(sql);
+  knex.on("query", counted);
+  for (const cursor of ["not a position", "-1", "18446744073709551616", "1.5"]) {
+    await assert.rejects(found({ changedSince: cursor }), { code: "REST_API_VALIDATION" }, cursor);
+  }
+  knex.off("query", counted);
+  assert.deepEqual(statements, []);
   await messages.patch(created.id, { body: "one, edited" }, { ...WORKSPACE, returning: "none" });
   const [{ changed: moved }] = await knex("messages").where({ id: created.id }).select(knex.raw("changed::text as changed"));
   assert.ok(BigInt(moved) > stamp, "a patch stamps its own transaction");
