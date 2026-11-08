@@ -58,11 +58,11 @@ Prefer `useCrudListScreen()`, `useCrudViewScreen()`, and
 non-standard operations.
 
 Add resource service methods with `decorateService`; expose commands such as
-`confirm`, `publish`, or `cancel` through named `actions`. With `operationLifecycle`, mutation `before`,
-`execute`, and `after` share one repository transaction, `execute` receives
-`standard(nextInput)`, and `afterCommit` follows commit. Repositories persist;
-services and hooks orchestrate. Use a transactional outbox for durable
-external work.
+`confirm` or `cancel` through named `actions`. With `operationLifecycle`, mutation `before`,
+`execute`, and `after` share one transaction, rerun on deadlock, so they touch
+only the database; `execute` receives `standard(nextInput)`. Outside effects go
+in `afterCommit`, run once after commit, or an outbox when durable.
+Repositories persist; services and hooks orchestrate.
 
 ## Choose ownership, API access and client access independently
 

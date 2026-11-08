@@ -225,7 +225,8 @@ or read first. A `get`, `patch`, `delete` or `lock` of a missing or hidden
 record throws json-rest-api's not-found error (a 404); with `missing: "skip"`
 it answers `null`, without failing the caller's transaction. Upsert rows carry no
 `id`, never repeat their conflict keys, and name the ownership field among
-those keys. `patchWhere` and `deleteWhere` need filters, or `all: true`.
+those keys; only a table with no owners and no row policy may key the upsert on
+the id alone, `onConflict: { keys: ["id"] }`, with an id on every row. `patchWhere` and `deleteWhere` need filters, or `all: true`.
 
 Preserve `error.transactionOutcome` and its cause when translating failures:
 `none` means no transaction was acquired or accepted, `pending` leaves

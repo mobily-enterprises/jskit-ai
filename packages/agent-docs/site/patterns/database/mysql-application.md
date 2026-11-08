@@ -10,8 +10,10 @@ description: "Configure a JSKIT application for MySQL with a fixed driver, ordin
 ## Use when
 
 Use this pattern when an application deliberately chooses MySQL or MariaDB.
-Install `@jskit-ai/database-runtime-mysql`; its normal npm dependencies provide
-the database runtime, Knex, and `mysql2` without a package-setup wizard.
+Install `@jskit-ai/database-runtime` and `@jskit-ai/database-runtime-mysql`
+without a package-setup wizard: the runtime brings Knex and the driver brings
+`mysql2`. The driver takes the runtime as a peer, so the application holds its
+one copy.
 
 ## Do not use when
 

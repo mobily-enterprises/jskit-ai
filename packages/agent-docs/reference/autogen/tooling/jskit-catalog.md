@@ -374,6 +374,7 @@ Local functions
 ### `scripts/verify-packages.mjs`
 Exports
 - `main()`
+- `validateApiSummarySurfaces(packageJson)`
 - `validateCapabilityClosure(packages, { builtinCapabilities = BUILTIN_CAPABILITIES } = {})`
 - `validateMigrations(packageRecord, migrationOwners)`
 - `validateProviderExport(value, label)`
@@ -387,5 +388,4 @@ Local functions
 - `validateMigrationsAfter(packageJson)`
 - `validateMigrationDirectory(packageName, absoluteDirectory, relativeDirectory, migrationOwners)`
 - `validatePackage(packageRecord, localVersions, migrationOwners)`
-- `isTableRuntimePart(packageName, dependencyId)`
 - `verifyTestRuns()`
