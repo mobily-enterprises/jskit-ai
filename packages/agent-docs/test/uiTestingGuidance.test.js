@@ -191,8 +191,9 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // in its own reference. Guidance stays clear rather than squeezed: when the rules grow, the budget grows with them
   // (60 and 40 KiB since app-owned top app bars, in-page steps and unblended theme colours; 62 KiB since section tabs,
   // two-destination navigation, snackbar placement, global page paths and brand marks; 63 and 41 KiB since the skill
-  // routes table work to the data-access and database-layer references and CRUD names the table resource).
-  assert.ok(Buffer.byteLength(operationalSource) <= 63 * 1024);
+  // routes table work to the data-access and database-layer references and CRUD names the table resource; 64 KiB since
+  // CRUD points at the row-policy and child-CRUD heuristics in place of patterns that never existed).
+  assert.ok(Buffer.byteLength(operationalSource) <= 64 * 1024);
   assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 41 * 1024);
 });
 

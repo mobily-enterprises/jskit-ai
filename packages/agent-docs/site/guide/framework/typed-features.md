@@ -275,6 +275,14 @@ filled after construction.**
   saying so.
 - No late-bound closures between two tokens of one feature: the consumer
   requires the other token.
+- `boot()` and `shutdown()` receive what the feature requires, as `setup()`
+  does, and its own setup's values second, as `outputs`:
+  `boot(capabilities, { outputs })`.
+- A periodic job is such a capability; JSKIT ships no scheduler. `setup()`
+  builds the job, `boot()` starts its timer (`setInterval(runOnce,
+  everyMs).unref()`), `shutdown()` clears it and awaits a run in progress, and
+  tests call `runOnce()` itself. Every server runs the timer, so a run takes
+  its rows with `claim()` ([data access, Layer 4](/guide/framework/data-access#layer-4-locks)).
 
 Why: module state is shared by every runtime in the process and outlives
 `shutdown()`.
@@ -284,8 +292,8 @@ Why: module state is shared by every runtime in the process and outlives
 setup() {
   return { jobs: createJobQueue() };
 },
-boot({ jobs }) {
-  jobs.start();
+boot(_capabilities, { outputs }) {
+  outputs.jobs.start();
 },
 
 // bad
@@ -310,14 +318,14 @@ setup({ events }) {
   if (!config.remindersEnabled) return {};
   return { reminders: createReminders({ events }) };
 },
-shutdown({ reminders }) {
+shutdown(_capabilities, { outputs }) {
   if (!config.remindersEnabled) return;
-  return reminders.stop();
+  return outputs.reminders.stop();
 }
 
 // bad
-shutdown({ reminders }) {
-  return reminders?.stop?.();
+shutdown(_capabilities, { outputs }) {
+  return outputs.reminders?.stop?.();
 }
 ```
 

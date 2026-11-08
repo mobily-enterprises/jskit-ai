@@ -15,7 +15,11 @@ Read the narrow package-owned pattern in the [source pattern
 library](/patterns/): `database/table-resource` for the table,
 `crud/crud-contract` for its HTTP surface,
 `crud/crud-feature-package` for the server, and `crud/crud-screen-set`
-for routed UI. Child-resource and row-policy patterns own those variations.
+for routed UI; the [row
+policies](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/row-policies.md)
+and [child
+CRUDs](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/agent-docs/heuristics/child-cruds.md)
+heuristics cover those variations.
 
 Normal CRUD tables use one non-null integer primary key. Foreign keys are
 single-column; composite unique indexes are business constraints, not

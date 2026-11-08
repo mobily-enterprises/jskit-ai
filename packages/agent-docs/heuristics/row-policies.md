@@ -20,7 +20,10 @@ Default JSKIT pattern:
 2. Keep direct user/workspace ownership and write stamping in the table resource's `ownership`.
 3. Put complex mandatory read visibility in a server-only row policy.
 4. Pass the policy in the owner's `owns` entry: `owns: [{ resource, rowPolicy }]`. It reads the owner's other tables through `ownTable(name)`, a read-only subquery, never by table name. Visibility rules live in the row policy, never in hand queries.
-5. Derive identity from trusted execution context.
+5. Derive identity from `caller` (`caller.kind`, then `caller.userId`), never from input. In a workspace request a role
+   rule reads `context.permissions`, which the server resolves from the membership before any handle runs, with
+   `hasPermission(context.permissions, "bookings.view-all")` from `@jskit-ai/kernel/shared/support`: `includes()`
+   misses wildcard grants, such as an owner role's `*` or a `bookings.*`.
 6. Group every policy-owned `OR` branch.
 7. Return `true` after adding the predicate, return `false` to deny all rows, or throw for invalid trusted context.
 8. Keep action permissions for writes; visibility is not mutation authorization.
