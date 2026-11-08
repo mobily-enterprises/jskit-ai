@@ -6,8 +6,8 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 // are named as their columns, so the stores answer the rows they always answered.
 
 // A table whose key is the conversation's id: the resource's id is that column.
-const CONVERSATION_KEY = Object.freeze({ type: "id", primary: true, required: true, search: true, storage: Object.freeze({ column: "conversation_id" }) });
-const ID_FILTER = Object.freeze({ type: "id", actualField: "id" });
+// Every handle filters it by id (filters: { id }), one id or a list.
+const CONVERSATION_KEY = Object.freeze({ type: "id", primary: true, required: true, storage: Object.freeze({ column: "conversation_id" }) });
 const TEXT = Object.freeze({ type: "string", noTrim: true });
 const OPTIONAL_TEXT = Object.freeze({ type: "string", noTrim: true, nullable: true });
 const TIME = Object.freeze({ type: "dateTime" });
@@ -118,7 +118,6 @@ export function agentResources({ columns = {} } = {}) {
       idProperty: "conversation_id",
       schema: { ...RUN_FIELDS, ...columns.runs },
       searchSchema: {
-        id: ID_FILTER,
         staleFor: { type: "number", applyFilter: staleFor },
         withSteps: { type: "boolean", applyFilter: withSteps }
       }
@@ -146,7 +145,6 @@ export function agentResources({ columns = {} } = {}) {
       idProperty: "conversation_id",
       schema: { ...SUMMARY_QUEUE_FIELDS, ...columns.summaryQueue },
       searchSchema: {
-        id: ID_FILTER,
         summaryDue: { type: "boolean", applyFilter: summaryDue }
       }
     }),
@@ -154,10 +152,7 @@ export function agentResources({ columns = {} } = {}) {
       name: "agentCommands",
       tableName: "agent_commands",
       ownership: "public",
-      schema: { ...COMMAND_FIELDS, ...columns.commands },
-      searchSchema: {
-        id: ID_FILTER
-      }
+      schema: { ...COMMAND_FIELDS, ...columns.commands }
     })
   });
 }
