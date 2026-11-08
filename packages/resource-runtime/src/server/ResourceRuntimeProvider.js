@@ -1,6 +1,7 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createResourceHost } from "./resourceHost.js";
 import { createResourceRuntime } from "./resourceRuntime.js";
+import { registerServerRuntime } from "./standaloneResources.js";
 
 const ResourceRuntimeProvider = defineProvider({
   id: "runtime.resources",
@@ -20,9 +21,9 @@ const ResourceRuntimeProvider = defineProvider({
    */
   async setup({ database, logger }) {
     const api = await createResourceHost({ knex: database.knex, logger });
-    return {
-      resources: createResourceRuntime({ api })
-    };
+    const resources = createResourceRuntime({ api });
+    registerServerRuntime(database.knex, resources);
+    return { resources };
   }
 });
 

@@ -38,6 +38,23 @@ test("package exports its provider and helpers, its types and its test helpers, 
   assert.equal(typeof server.resolveWorkspaceScopeValue, "function");
 });
 
+test("standalone resources on a server's Knex client never own a table one of the server's features owns", async (t) => {
+  const { createStandaloneResources } = await import("../src/server/index.js");
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  const other = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => Promise.all([knex.destroy(), other.destroy()]));
+  const table = (name) => defineTableResource({ name, tableName: name, ownership: "public", schema: { title: { type: "string" } } });
+  const { resources: runtime } = await ResourceRuntimeProvider.setup({ database: { knex }, logger: silentLogger });
+  await runtime.own("notes.feature", [table("notes")]);
+  await assert.rejects(
+    createStandaloneResources({ knex, feature: "notes.script", owns: [table("notes")], systemScope: "every note" }),
+    /Standalone resources "notes\.script" own table "notes", which feature "notes\.feature" of this server already owns/u
+  );
+  // A table no feature owns, or the same table on a Knex client no server uses, is the script's own.
+  assert.ok((await createStandaloneResources({ knex, feature: "memos.script", owns: [table("memos")] })).resources.memos);
+  assert.ok((await createStandaloneResources({ knex: other, feature: "notes.script", owns: [table("notes")] })).resources.notes);
+});
+
 test("server resourceHost entrypoint exposes only the focused host API", async () => {
   const hostModule = await import("../src/server/resourceHost.js");
   assert.equal(Object.hasOwn(hostModule, "simplifyJsonApiDocument"), false);
