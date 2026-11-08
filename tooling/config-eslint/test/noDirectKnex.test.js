@@ -20,6 +20,9 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
     "const bytes = Buffer.from(\"text\", \"utf8\");\nconst letters = Array.from(\"abc\");",
     "const file = path.join(\"migrations\", name);\nconst other = nodePath.posix.join(\"a\", \"b\");",
     "const label = names.join(\", \");\nconsole.table(\"rows\");",
+    // A template or a concatenation outside a table's place: an array's join, a static from, a path, a subquery's alias.
+    "const line = cells.join(`${separator} `);\nconst chars = Array.from(`${word}!`);\nconst file = path.join(`${root}/data`, name);",
+    "query.join(events.scopedQuery(options).as(`e_${index}`), `e_${index}.receivalId`, \"r.id\");\nconst title = \"Lot \" + number;",
     "runtime.knex = connection;",
     "const reply = await client(model);\nconst draft = transaction(saved);\nconst view = db(record).view;",
     `${EXCUSE}\nimport { readFile } from "node:fs/promises";\nexport const applied = (knex) => knex("knex_migrations").select("name");`,
@@ -81,6 +84,26 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
         { messageId: "literalTable", data: { method: "leftJoin", table: "PETS_TABLE" }, line: 1 },
         { messageId: "literalTable", data: { method: "join", table: "tables.lots" }, line: 2 },
         { messageId: "literalTable", data: { method: "innerJoin", table: "owners.tableName" }, line: 3 }
+      ]
+    },
+    {
+      // A table name built from an expression, in a template or by concatenation, reaches that table as a literal does.
+      code: [
+        "query.join(`${table} as x`, \"x.id\", \"r.x_id\");",
+        "query.leftJoin(`${prefix}_items`, \"i.id\", \"r.item_id\");",
+        "query.from(`${schema}.events`);",
+        "query.innerJoin(prefix + \"_lots\", \"l.id\", \"r.lot_id\");",
+        "query.from(\"archived_\" + name).insert(row).into(base + \"_copy\");",
+        "await knex(prefix + \"_rows\").select();"
+      ].join("\n"),
+      errors: [
+        { messageId: "literalTable", data: { method: "join", table: "`${table} as x`" }, line: 1 },
+        { messageId: "literalTable", data: { method: "leftJoin", table: "`${prefix}_items`" }, line: 2 },
+        { messageId: "literalTable", data: { method: "from", table: "`${schema}.events`" }, line: 3 },
+        { messageId: "literalTable", data: { method: "innerJoin", table: "prefix + \"_lots\"" }, line: 4 },
+        { messageId: "literalTable", data: { method: "from", table: "\"archived_\" + name" }, line: 5 },
+        { messageId: "literalTable", data: { method: "into", table: "base + \"_copy\"" }, line: 5 },
+        { messageId: "tableBuilder", data: { text: "knex" }, line: 6 }
       ]
     },
     {

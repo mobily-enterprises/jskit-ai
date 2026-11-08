@@ -66,15 +66,24 @@ function isReference(node) {
   return node?.type === "Identifier" || node?.type === "MemberExpression" || node?.type === "TemplateLiteral";
 }
 
+// A table name written as text: a literal, a template (one with `${}` builds the name from an expression, which reaches
+// whatever table it names as much as a literal does), or text joined to an expression with `+` (`prefix + "_items"`).
+function isTableText(node) {
+  if (isText(node)) {
+    return true;
+  }
+  return node?.type === "BinaryExpression" && node.operator === "+" && (isTableText(node.left) || isTableText(node.right));
+}
+
 /**
- * Whether the first argument of a Knex-named call names a table: a literal; for `knex(...)` and `trx(...)` any
+ * Whether the first argument of a Knex-named call names a table: text (see isTableText); for `knex(...)` and `trx(...)` any
  * variable, property or template; for the other Knex names (db, client, ...) a variable or property whose name says
  * table, since `client(model)` and `transaction(saved)` are other libraries' calls.
  * @param {import("estree").Node} callee
  * @param {import("estree").Node | undefined} first
  */
 function namesTable(callee, first) {
-  if (isText(first)) {
+  if (isTableText(first)) {
     return true;
   }
   if (!isReference(first)) {
@@ -105,8 +114,9 @@ function joinsNamedTable(method, first) {
 
 // Knex reached past the resource: a table builder called with a table name (`knex("t")`, `(trx || knex)("t")`,
 // `knex(tables.messages)`, `client(MODELS_TABLE)`), a `.knex` read or a `knex` destructured
-// (`const { knex: q } = database`), a transaction opened by hand, a literal table name given to from, table, into
-// or a join, and a join of a table named through a variable or property whose name says table.
+// (`const { knex: q } = database`), a transaction opened by hand, a table name written as text (a literal, a template
+// or a concatenation) given to from, table, into or a join, and a join of a table named through a variable or property
+// whose name says table.
 const noDirectKnex = Object.freeze({
   meta: ruleMeta("Disallow reaching a table with Knex past its resource.", {
     tableBuilder: `{{text}}(...) starts a query on a table by name, outside its resource. ${DOOR} ${HINT}`,
@@ -135,7 +145,7 @@ const noDirectKnex = Object.freeze({
         const ownerIsKnexRead = owner === "knex" && unwrapChain(method.object).type === "MemberExpression";
         if (method.name === "transaction" && TRANSACTION_OWNERS.has(owner) && !ownerIsKnexRead) {
           context.report({ node, messageId: "handTransaction", data: { text: compactText(sourceCode, node.callee) } });
-        } else if (TABLE_METHODS.has(method.name) && (isText(first) || joinsNamedTable(method.name, first)) &&
+        } else if (TABLE_METHODS.has(method.name) && (isTableText(first) || joinsNamedTable(method.name, first)) &&
           !isOtherLibrary(method.name, method.object, node.arguments)) {
           context.report({ node: first, messageId: "literalTable", data: { method: method.name, table: compactText(sourceCode, first) } });
         }

@@ -119,8 +119,9 @@ the [data-access guide](https://mobily-enterprises.github.io/jskit-ai/guide/fram
 - `jskit/no-direct-knex`: a Knex-named builder called with a table name
   (`knex("users")`, `(trx || knex)("users")`), any `.knex` read or `knex`
   destructured (`const { knex: q } = database`), a transaction
-  opened on `knex`, `db` or `database`, and a literal table name given to
-  `from`, `table`, `into` or a join.
+  opened on `knex`, `db` or `database`, and a table name written as text given
+  to `from`, `table`, `into` or a join: a literal, a template (one with `${}`
+  too) or text joined with `+` (`prefix + "_items"`).
 - `jskit/no-transaction-reader`: a `.trx` read, `trx` destructured, a
   `trx = knex` default, and `options.transaction`.
 - `jskit/sql-literal`: raw SQL (`raw`, `whereRaw`, `orderByRaw`, ...) that is
