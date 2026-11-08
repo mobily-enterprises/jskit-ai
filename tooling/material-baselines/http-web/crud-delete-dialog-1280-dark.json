@@ -173,11 +173,11 @@
   "viewItemSubtitle": {
     "height": 16,
     "backgroundColor": "rgba(0, 0, 0, 0)",
-    "color": "rgb(230, 224, 233)",
+    "color": "rgb(202, 196, 207)",
     "borderTopLeftRadius": "0px",
     "borderTopRightRadius": "0px",
     "borderTopWidth": "0px",
-    "borderTopColor": "rgb(230, 224, 233)",
+    "borderTopColor": "rgb(202, 196, 207)",
     "boxShadow": "none",
     "fontFamily": "\"Roboto Flex Variable\", \"Roboto Flex\", Roboto, system-ui, sans-serif",
     "fontSize": "14px",
