@@ -165,6 +165,62 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
 }
 
 /**
+ * What a CRUD feature's actions take from its definition alone, so a feature builds it once and every composition
+ * reuses it: each enabled standard operation's id, channels, permission, input and assistant extension, and the
+ * feature's custom actions, checked and with the scope's input composed in.
+ * @param {object} definition
+ * @param {string} definition.namespace
+ * @param {import("../types.js").CrudContract} definition.resource
+ * @param {string} definition.surface
+ * @param {(operation: string) => object} definition.permissionForOperation Also answers for each custom action's name.
+ * @param {readonly string[]} definition.operations
+ * @param {object | null} definition.scopeInputValidator
+ * @param {object | null} definition.listFilterQueryValidator
+ * @param {{ create?: object, update?: object }} definition.operationInputs
+ * @param {Record<string, object>} definition.actions The feature's custom actions, by name.
+ * @param {boolean} definition.servedOverHttp False when the feature is internal or registers no routes.
+ */
+function createCrudJsonApiActionDefinitions({
+  namespace,
+  resource,
+  surface,
+  permissionForOperation,
+  operations,
+  scopeInputValidator,
+  listFilterQueryValidator,
+  operationInputs,
+  actions,
+  servedOverHttp
+}) {
+  const additional = normalizeAdditionalActions(actions, {
+    namespace,
+    surface,
+    permissionForAction: permissionForOperation,
+    scopeInputValidator,
+    servedOverHttp
+  });
+  const enabledOperations = new Set(operations);
+  const standard = CRUD_OPERATION_NAMES.filter((operation) => enabledOperations.has(operation)).map((operation) => {
+    const permission = permissionForOperation(operation);
+    return Object.freeze({
+      operation,
+      id: `crud.${namespace}.${operation}`,
+      channels: resolveCrudActionChannels(permission, servedOverHttp),
+      surfaces: [surface],
+      permission,
+      input: buildActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs),
+      extensions: Object.freeze({
+        assistant: createCrudAssistantExtension(resource, namespace, operation)
+      })
+    });
+  });
+  return Object.freeze({
+    standard: Object.freeze(standard),
+    additional
+  });
+}
+
+/**
  * The standard and custom actions of one CRUD feature, from the options
  * defineCrudFeature resolved.
  * @param {object} dependencies
@@ -184,37 +240,27 @@ function normalizeAdditionalActions(definitions, { namespace, surface, permissio
  * @param {Record<string, unknown>} dependencies.dependencies The capabilities in the feature's `requires`, by local name.
  * @param {string} dependencies.realtimeAudience
  * @param {boolean} dependencies.servedOverHttp False when the feature is internal or registers no routes.
+ * @param {ReturnType<typeof createCrudJsonApiActionDefinitions>} [dependencies.definitions] What
+ *   createCrudJsonApiActionDefinitions built from the same options, when the caller keeps it; built here otherwise.
  */
 function createCrudJsonApiActions({
   namespace,
   resource,
   repository,
   service,
-  surface,
-  permissionForOperation,
-  operations,
-  scopeInputValidator,
   scopeInputKeys,
-  listFilterQueryValidator,
   operationLifecycle,
-  operationInputs,
-  actions,
-  dependencies,
+  dependencies: actionDependencies,
   realtimeAudience,
-  servedOverHttp
+  definitions: builtDefinitions,
+  ...definitionOptions
 }) {
+  const definitions = builtDefinitions ?? createCrudJsonApiActionDefinitions({ namespace, resource, ...definitionOptions });
   const mutationEvent = (operation, entityId) => buildCrudRecordChangedEvent({
     namespace,
     operation,
     entityId,
     audience: realtimeAudience
-  });
-  const additionalActions = normalizeAdditionalActions(actions, {
-    namespace,
-    surface,
-    permissionForAction: permissionForOperation,
-    scopeInputValidator,
-    servedOverHttp
   });
 
   // HTTP and automation callers keep the resource's page cap: a larger limit answers
@@ -352,26 +398,23 @@ function createCrudJsonApiActions({
     }
   ];
 
-  const enabledOperations = new Set(operations);
-  const standardActions = standardDefinitions.filter((definition) => enabledOperations.has(definition.operation)).map((definition) => {
-    const permission = permissionForOperation(definition.operation);
+  const standardActions = definitions.standard.map((built) => {
+    const definition = standardDefinitions.find(({ operation }) => operation === built.operation);
     return Object.freeze({
-      id: `crud.${namespace}.${definition.operation}`,
+      id: built.id,
       version: 1,
       kind: definition.kind,
-      channels: resolveCrudActionChannels(permission, servedOverHttp),
-      surfaces: [surface],
-      permission,
-      input: buildActionInput(resource, definition.operation, scopeInputValidator, listFilterQueryValidator, operationInputs),
+      channels: built.channels,
+      surfaces: [...built.surfaces],
+      permission: built.permission,
+      input: built.input,
       output: null,
-      extensions: Object.freeze({
-        assistant: createCrudAssistantExtension(resource, namespace, definition.operation)
-      }),
+      extensions: built.extensions,
       events: definition.events,
       execute: definition.execute
     });
   });
-  const productActions = additionalActions.map((definition) => Object.freeze({
+  const productActions = definitions.additional.map((definition) => Object.freeze({
     id: definition.id,
     version: definition.version,
     kind: definition.kind,
@@ -382,7 +425,7 @@ function createCrudJsonApiActions({
     permission: definition.permission,
     extensions: definition.extensions || {},
     events: definition.events,
-    execute: (input, context) => definition.execute(Object.freeze({ ...dependencies, input, context, resource, repository, service }))
+    execute: (input, context) => definition.execute(Object.freeze({ ...actionDependencies, input, context, resource, repository, service }))
   }));
   return Object.freeze([...standardActions, ...productActions]);
 }
@@ -396,6 +439,7 @@ function assertCrudOperationName(operation = "") {
 
 export {
   assertCrudOperationName,
+  createCrudJsonApiActionDefinitions,
   createCrudJsonApiActions,
   normalizeCrudOperationLifecycle
 };

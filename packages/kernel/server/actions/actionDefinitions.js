@@ -2,6 +2,7 @@ import { normalizeSingleSchemaDefinition } from "../../shared/validators/index.j
 import { isRecord as isPlainObject, normalizePositiveInteger, normalizeText } from "../../shared/support/normalize.js";
 import { normalizePermissionList } from "../../shared/support/permissions.js";
 import { ARCHITECTURE_ID_PATTERN } from "../../shared/capabilities/defineProvider.js";
+import { isDeepFrozen } from "../http/lib/deepFrozen.js";
 
 /** @typedef {import("../types.js").ActionDefinition} ActionDefinition */
 /** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
@@ -68,6 +69,10 @@ function schemaFieldDefinitions(value) {
   return value && typeof value.getFieldDefinitions === "function" ? value.getFieldDefinitions() : null;
 }
 
+// Schemas frozen throughout whose fields declare no oneOf. They can never change, so a definition every composition
+// registers again is checked once.
+const oneOfFreeSchemas = new WeakSet();
+
 /**
  * json-rest-schema validates no `oneOf`; json-rest-api reads it as the fields a
  * search matches. On an action input it would pass for a list of allowed values
@@ -131,8 +136,11 @@ function normalizeActionSchema(value, fieldName, { required = false, defaultMode
     throw new Error(error?.message || `Action definition ${fieldName} is invalid.`);
   }
 
-  if (refuseOneOf) {
+  if (refuseOneOf && !oneOfFreeSchemas.has(definition.schema)) {
     refuseOneOfFields(schemaFieldDefinitions(definition.schema) || {}, fieldName);
+    if (isDeepFrozen(definition.schema)) {
+      oneOfFreeSchemas.add(definition.schema);
+    }
   }
   return definition;
 }

@@ -6,10 +6,11 @@ import { withoutHiddenFields } from "@jskit-ai/resource-runtime/server";
 import { isCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import {
   assertCrudOperationName,
+  createCrudJsonApiActionDefinitions,
   createCrudJsonApiActions,
   normalizeCrudOperationLifecycle
 } from "./jsonApiModule/actions.js";
-import { registerCrudJsonApiRoutes } from "./jsonApiModule/routes.js";
+import { createCrudJsonApiRoutes, registerCrudRoutes } from "./jsonApiModule/routes.js";
 import { createCrudService } from "./jsonApiModule/service.js";
 import {
   LEGACY_REPOSITORY_METHODS,
@@ -87,6 +88,19 @@ const REMOVED_REPOSITORY_DEPENDENCIES = Object.freeze({
 });
 const REMOVED_SERVICE_DEPENDENCIES = Object.freeze({ resource: RESOURCE_RENAMED });
 const REMOVED_RESOURCE_API = Object.freeze({ resource: RESOURCE_RENAMED });
+
+/**
+ * What `build` answers, built on first use and then kept: the contracts a feature builds from its definition alone,
+ * which every composition and boot reuses. A build that throws keeps nothing, so each composition that reaches it
+ * fails as the first did.
+ * @template T
+ * @param {() => T} build
+ * @returns {() => T}
+ */
+function builtOnce(build) {
+  let built;
+  return () => (built ??= build());
+}
 
 /**
  * Refuses an option defineCrudFeature does not take, naming where an earlier
@@ -416,6 +430,41 @@ function defineCrudFeature(feature) {
   const permissionOptions = permissions && typeof permissions === "object" && !Array.isArray(permissions)
     ? { ...permissions, namespace }
     : { namespace };
+  const servedOverHttp = routes && !internal;
+  // The routes and the actions' inputs, permissions and assistant extensions depend on the definition alone (the
+  // CRUD contract, the operations, the scope and the options above), never on what a composition provides.
+  const crudRoutes = builtOnce(() => createCrudJsonApiRoutes({
+    namespace,
+    resource: crud,
+    routeBase: normalizedScope.routeBase,
+    relativePath: normalizedRelativePath,
+    surface: normalizedSurface,
+    ownershipFilter,
+    access,
+    internal,
+    operations: enabledOperations,
+    actions,
+    listFilterQueryValidator,
+    operationInputs,
+    routeParamsValidator: normalizedScope.routeParamsValidator,
+    scopeInput: normalizedScope.input
+  }));
+  const actionDefinitions = builtOnce(() => createCrudJsonApiActionDefinitions({
+    namespace,
+    resource: crud,
+    surface: normalizedSurface,
+    operations: enabledOperations,
+    listFilterQueryValidator,
+    operationInputs,
+    actions,
+    permissionForOperation: (operation) => resolveActionPermission(operation, {
+      access,
+      workspaceScoped,
+      permissions: permissionOptions
+    }),
+    scopeInputValidator: normalizedScope.actionInputValidator,
+    servedOverHttp
+  }));
 
   return defineFeature({
     id: featureId,
@@ -455,22 +504,7 @@ function defineCrudFeature(feature) {
       const service = projectEnabledServiceOperations(decoratedService, enabledOperations);
       assertServiceOperations(service, enabledOperations);
       if (routes) {
-        registerCrudJsonApiRoutes(http.router, {
-          namespace,
-          resource: crud,
-          routeBase: normalizedScope.routeBase,
-          relativePath: normalizedRelativePath,
-          surface: normalizedSurface,
-          ownershipFilter,
-          access,
-          internal,
-          operations: enabledOperations,
-          actions,
-          listFilterQueryValidator,
-          operationInputs,
-          routeParamsValidator: normalizedScope.routeParamsValidator,
-          scopeInput: normalizedScope.input
-        });
+        registerCrudRoutes(http.router, crudRoutes());
       }
       // The handle decorateRepository receives answers hidden fields to the owner's own methods; other features,
       // and this feature's actions, read them only in a system context, through any method the repository holds.
@@ -491,22 +525,11 @@ function defineCrudFeature(feature) {
         resource: crud,
         repository: resourceApi.repository,
         service: resourceApi.service,
-        surface: normalizedSurface,
-        operations: enabledOperations,
-        listFilterQueryValidator,
         operationLifecycle: normalizedOperationLifecycle,
-        operationInputs,
-        actions,
         dependencies: actionDependencies,
-        permissionForOperation: (operation) => resolveActionPermission(operation, {
-          access,
-          workspaceScoped,
-          permissions: permissionOptions
-        }),
-        scopeInputValidator: normalizedScope.actionInputValidator,
         scopeInputKeys: normalizedScope.inputKeys,
         realtimeAudience,
-        servedOverHttp: routes && !internal
+        definitions: actionDefinitions()
       });
     }
   });

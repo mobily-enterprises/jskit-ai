@@ -75,6 +75,21 @@ function documentShapes(crud) {
   return new Map(contractShape(crud).relationships.map((entry) => [entry.relationshipName, includedShape(entry.include, entry.labelKey)]));
 }
 
+// What each CRUD contract shows, by contract. defineCrudContract deep-freezes a contract, so what it shows is worked
+// out once and every service on it reads the same shapes; a contract whose shapes throw keeps nothing.
+const shapesByContract = new WeakMap();
+
+/**
+ * What a contract's documents show: its own records' shape and its includes' shapes.
+ * @param {import("../types.js").CrudContract} crud
+ */
+function contractShapes(crud) {
+  if (!shapesByContract.has(crud)) {
+    shapesByContract.set(crud, Object.freeze({ own: contractShape(crud), linked: documentShapes(crud) }));
+  }
+  return shapesByContract.get(crud);
+}
+
 /**
  * The CRUD service: the HTTP edge of a CRUD feature. It takes an operation's
  * HTTP query and body, calls the feature's repository (its table's handle, as
@@ -91,8 +106,7 @@ function documentShapes(crud) {
  */
 function createCrudService({ repository, crud }) {
   const resourceName = crud.resource.name;
-  const own = contractShape(crud);
-  const shapes = documentShapes(crud);
+  const { own, linked: shapes } = contractShapes(crud);
 
   /**
    * @param {Record<string, any>} record A JSON:API resource object.

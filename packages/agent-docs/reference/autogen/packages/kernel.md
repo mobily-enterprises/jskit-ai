@@ -726,6 +726,7 @@ Local functions
 
 ### `server/actions/registry.js`
 Exports
+- `contributedVersionKeys(taken, contributor)`
 - `createActionRegistry({ contributors, events, logger, policy })`
 - `type ActionPolicy`
 - `type RuntimeEvents`

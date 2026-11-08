@@ -75,8 +75,8 @@ function normalizeCustomActionRoutes(actions, namespace) {
 }
 
 /**
- * Registers the routes of one CRUD feature, from the options defineCrudFeature resolved.
- * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
+ * The routes of one CRUD feature, from the options defineCrudFeature resolved: each `{ method, path, contract,
+ * handler }`, built from the definition alone, so a feature builds them once and registers them on every router.
  * @param {object} options
  * @param {string} options.namespace
  * @param {import("../types.js").CrudContract} options.resource
@@ -93,7 +93,7 @@ function normalizeCustomActionRoutes(actions, namespace) {
  * @param {object | null} options.routeParamsValidator
  * @param {((request: object) => object) | null} options.scopeInput
  */
-function registerCrudJsonApiRoutes(router, {
+function createCrudJsonApiRoutes({
   namespace,
   resource,
   routeBase,
@@ -133,6 +133,9 @@ function registerCrudJsonApiRoutes(router, {
   const enabledOperations = new Set(operations);
   const customActionRoutes = normalizeCustomActionRoutes(actions, namespace);
 
+  const routes = [];
+  const route = (method, path, contract, handler) => routes.push(Object.freeze({ method, path, contract, handler }));
+
   function paramsContract({ record = false } = {}) {
     if (record) {
       return { params: routeContracts.recordRouteParamsValidator };
@@ -140,7 +143,7 @@ function registerCrudJsonApiRoutes(router, {
     return routeParamsValidator ? { params: routeParamsValidator } : {};
   }
 
-  if (enabledOperations.has("list")) router.register(
+  if (enabledOperations.has("list")) route(
     "GET",
     basePath,
     {
@@ -161,7 +164,7 @@ function registerCrudJsonApiRoutes(router, {
     }
   );
 
-  if (enabledOperations.has("view")) router.register(
+  if (enabledOperations.has("view")) route(
     "GET",
     `${basePath}/:recordId`,
     {
@@ -183,7 +186,7 @@ function registerCrudJsonApiRoutes(router, {
     }
   );
 
-  if (enabledOperations.has("create")) router.register(
+  if (enabledOperations.has("create")) route(
     "POST",
     basePath,
     {
@@ -204,7 +207,7 @@ function registerCrudJsonApiRoutes(router, {
     }
   );
 
-  if (enabledOperations.has("update")) router.register(
+  if (enabledOperations.has("update")) route(
     "PATCH",
     `${basePath}/:recordId`,
     {
@@ -226,7 +229,7 @@ function registerCrudJsonApiRoutes(router, {
     }
   );
 
-  if (enabledOperations.has("delete")) router.register(
+  if (enabledOperations.has("delete")) route(
     "DELETE",
     `${basePath}/:recordId`,
     {
@@ -258,7 +261,7 @@ function registerCrudJsonApiRoutes(router, {
           }
         : {})
     };
-    router.register(
+    route(
       actionRoute.method,
       `${basePath}${actionRoute.path}`,
       {
@@ -284,6 +287,27 @@ function registerCrudJsonApiRoutes(router, {
       }
     );
   }
+  return Object.freeze(routes);
 }
 
-export { registerCrudJsonApiRoutes };
+/**
+ * Registers routes createCrudJsonApiRoutes built, each with its own copy of its contract.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
+ * @param {ReadonlyArray<{ method: string, path: string, contract: object, handler: Function }>} routes
+ */
+function registerCrudRoutes(router, routes) {
+  for (const { method, path, contract, handler } of routes) {
+    router.register(method, path, { ...contract }, handler);
+  }
+}
+
+/**
+ * Registers the routes of one CRUD feature, from the options defineCrudFeature resolved.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
+ * @param {Parameters<typeof createCrudJsonApiRoutes>[0]} options
+ */
+function registerCrudJsonApiRoutes(router, options) {
+  registerCrudRoutes(router, createCrudJsonApiRoutes(options));
+}
+
+export { createCrudJsonApiRoutes, registerCrudJsonApiRoutes, registerCrudRoutes };

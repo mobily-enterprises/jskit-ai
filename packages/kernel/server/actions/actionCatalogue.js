@@ -1,4 +1,4 @@
-import { createActionRegistry } from "./registry.js";
+import { contributedVersionKeys, createActionRegistry } from "./registry.js";
 import { toRegisteredContributor } from "./actionDefinitions.js";
 import { noActionPolicy } from "./actionPolicy.js";
 import { normalizeExecutionContext } from "./executionContext.js";
@@ -30,12 +30,10 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
   const contributors = [];
   const contextContributors = [];
   const contextContributorIds = new Set();
-  let registry = createActionRegistry({
-    contributors,
-    events,
-    logger,
-    policy
-  });
+  // The registered definitions by version key, so each registration is refused at once when it repeats one.
+  const versionKeys = new Map();
+  // Built when discovery or execution first needs it, which closes registration: one index for every contributor.
+  let registry = null;
   let sealed = false;
 
   function register(contributor) {
@@ -43,15 +41,11 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
       throw new Error("Action catalogue registration is closed after discovery or execution begins.");
     }
     const registered = toRegisteredContributor(normalizeRegistration(contributor), policy);
-    const nextRegistry = createActionRegistry({
-      contributors: [...contributors, registered],
-      events,
-      logger,
-      policy
-    });
+    for (const [versionKey, definition] of contributedVersionKeys(versionKeys, registered)) {
+      versionKeys.set(versionKey, definition);
+    }
 
     contributors.push(registered);
-    registry = nextRegistry;
     return api;
   }
 
@@ -77,6 +71,7 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
 
   function currentRegistry() {
     sealed = true;
+    registry ??= createActionRegistry({ contributors, events, logger, policy });
     return registry;
   }
 

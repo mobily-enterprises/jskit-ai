@@ -7,6 +7,25 @@ import { executeActionPipeline } from "./pipeline.js";
 /** @typedef {ReturnType<typeof import("./actionDefinitions.js").toRegisteredContributor>} RegisteredActionContributor */
 
 /**
+ * The contributor's definitions by version key, refusing a key `taken` holds or the contributor gives twice.
+ * @param {ReadonlyMap<string, any>} taken The definitions already registered, by version key.
+ * @param {RegisteredActionContributor} contributor
+ * @returns {Map<string, any>}
+ */
+function contributedVersionKeys(taken, contributor) {
+  const contributed = new Map();
+  for (const { definition } of contributor.actions) {
+    const versionKey = toActionVersionKey(definition.id, definition.version);
+    const existing = taken.get(versionKey) ?? contributed.get(versionKey);
+    if (existing) {
+      throw new Error(`Action definition \"${versionKey}\" is duplicated between contributors \"${existing.contributorId}\" and \"${contributor.contributorId}\".`);
+    }
+    contributed.set(versionKey, definition);
+  }
+  return contributed;
+}
+
+/**
  * @param {ReadonlyArray<RegisteredActionContributor>} contributors
  */
 function buildDefinitionIndex(contributors) {
@@ -16,14 +35,10 @@ function buildDefinitionIndex(contributors) {
   const declaredByDefinition = new Map();
 
   for (const contributor of contributors) {
-    for (const { definition, declared } of contributor.actions) {
-      const versionKey = toActionVersionKey(definition.id, definition.version);
-      if (byVersionKey.has(versionKey)) {
-        const existing = byVersionKey.get(versionKey);
-        throw new Error(`Action definition \"${versionKey}\" is duplicated between contributors \"${existing.contributorId}\" and \"${contributor.contributorId}\".`);
-      }
-
+    for (const [versionKey, definition] of contributedVersionKeys(byVersionKey, contributor)) {
       byVersionKey.set(versionKey, definition);
+    }
+    for (const { definition, declared } of contributor.actions) {
       declaredByDefinition.set(definition, declared);
       definitions.push(definition);
 
@@ -181,4 +196,4 @@ function createActionRegistry({
   });
 }
 
-export { createActionRegistry };
+export { contributedVersionKeys, createActionRegistry };

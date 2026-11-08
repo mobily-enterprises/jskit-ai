@@ -35,6 +35,7 @@ Exports
 Exports
 - `defineCrudFeature(feature)`
 Local functions
+- `builtOnce(build)`
 - `assertKnownOptions(options)`
 - `assertPermissionNames(permissions, actions)`
 - `assertServiceOperations(service, operations)`
@@ -52,7 +53,8 @@ Local functions
 ### `src/server/jsonApiModule/actions.js`
 Exports
 - `assertCrudOperationName(operation = "")`
-- `createCrudJsonApiActions({ namespace, resource, repository, service, surface, permissionForOperation, operations, scopeInputValidator, scopeInputKeys, listFilterQueryValidator, operationLifecycle, operationInputs, actions, dependencies, realtimeAudience, servedOverHttp })`
+- `createCrudJsonApiActionDefinitions({ namespace, resource, surface, permissionForOperation, operations, scopeInputValidator, listFilterQueryValidator, operationInputs, actions, servedOverHttp })`
+- `createCrudJsonApiActions({ namespace, resource, repository, service, scopeInputKeys, operationLifecycle, dependencies: actionDependencies, realtimeAudience, definitions: builtDefinitions, ...definitionOptions })`
 - `normalizeCrudOperationLifecycle(value)`
 Local functions
 - `resolveCrudActionChannels(permission, servedOverHttp)`
@@ -83,7 +85,9 @@ Exports
 
 ### `src/server/jsonApiModule/routes.js`
 Exports
-- `registerCrudJsonApiRoutes(router, { namespace, resource, routeBase, relativePath, surface, ownershipFilter, access, internal, operations, actions, operationInputs, listFilterQueryValidator, routeParamsValidator, scopeInput })`
+- `createCrudJsonApiRoutes({ namespace, resource, routeBase, relativePath, surface, ownershipFilter, access, internal, operations, actions, operationInputs, listFilterQueryValidator, routeParamsValidator, scopeInput })`
+- `registerCrudJsonApiRoutes(router, options)`
+- `registerCrudRoutes(router, routes)`
 Local functions
 - `buildScopeInput(scopeInput, request)`
 - `buildCustomActionInput(scopeInput, route, request)`
@@ -100,6 +104,7 @@ Local functions
 - `contractShape(crud)`
 - `includedShape({ attributes, relationships }, labelKey = "")`
 - `documentShapes(crud)`
+- `contractShapes(crud)`
 
 ### `src/server/jsonApiResourceContract.js`
 Exports
