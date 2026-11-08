@@ -481,6 +481,18 @@ test("lockOrCreate() runs work on the locked record, creating it first when miss
   const bump = (record, txOptions) => resources.counters.patch(record.id, { value: record.value + 1 }, txOptions);
   assert.deepEqual(await resources.counters.lockOrCreate({ id: "visits", value: 0 }, options, bump), { id: "visits", value: 1 });
   assert.deepEqual(await resources.counters.lockOrCreate({ id: "visits", value: 0 }, options, bump), { id: "visits", value: 2 });
+  // lockMode picks the record's lock, as lock() takes it; another is refused before any transaction opens.
+  assert.deepEqual(await resources.counters.lockOrCreate({ id: "visits", value: 0 }, { ...options, lockMode: "noKeyUpdate" }, bump), { id: "visits", value: 3 });
+  assert.deepEqual(await resources.counters.lockOrCreate({ id: "fresh", value: 0 }, { ...options, lockMode: "noKeyUpdate" }, bump), { id: "fresh", value: 1 });
+  const statements = [];
+  const counted = ({ sql }) => statements.push(sql);
+  knex.on("query", counted);
+  await assert.rejects(resources.counters.lockOrCreate({ id: "moded", value: 0 }, { ...options, lockMode: "share" }, bump), {
+    name: "TypeError",
+    message: 'counters.lockOrCreate() lockMode is "update" (the default) or "noKeyUpdate". Received: "share"'
+  });
+  knex.off("query", counted);
+  assert.deepEqual(statements, []);
   // Work that fails leaves no new record behind, and runs once.
   let runs = 0;
   await assert.rejects(resources.counters.lockOrCreate({ id: "failed", value: 0 }, options, () => {
@@ -804,6 +816,35 @@ test("locks need a transaction and take only the caller's rows", async (t) => {
     await assert.rejects(notes.claim({ status: "queued" }, { limit: 5 }, txOptions), /takes \(\{ filters, sort, take \}, options\)/u);
   });
   await assert.rejects(notes.withTransaction({ context: WORKSPACE_A }, (txOptions) => notes.lock(other.id, txOptions)), notFound);
+});
+
+test("every lock and patchWhere take lockMode \"update\" or \"noKeyUpdate\" and reach the same rows; another is refused before any statement", async (t) => {
+  const { knex, notes } = await createFixture(t);
+  const [a] = await notes.createMany([{ title: "a", status: "queued" }], { context: WORKSPACE_A, returning: "ids" });
+  const statements = [];
+  const counted = ({ sql }) => statements.push(sql);
+  await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    for (const lockMode of ["update", "noKeyUpdate"]) {
+      const options = { ...txOptions, lockMode };
+      assert.equal((await notes.lock(a, options)).title, "a", lockMode);
+      assert.deepEqual((await notes.lockMany([a], options)).map(({ title }) => title), ["a"], lockMode);
+      assert.deepEqual((await notes.lockWhere({ status: "queued" }, options)).map(({ title }) => title), ["a"], lockMode);
+      assert.deepEqual((await notes.claim({ filters: { status: "queued" } }, options)).map(({ title }) => title), ["a"], lockMode);
+      assert.equal(await notes.patchWhere({ status: "queued" }, { title: "a" }, { ...options, returning: "count" }), 1, lockMode);
+    }
+    knex.on("query", counted);
+    const options = { ...txOptions, lockMode: "share" };
+    const refused = (method) => ({ name: "TypeError", message: `notes.${method}() lockMode is "update" (the default) or "noKeyUpdate". Received: "share"` });
+    await assert.rejects(notes.lock(a, options), refused("lock"));
+    await assert.rejects(notes.lockMany([a], options), refused("lockMany"));
+    await assert.rejects(notes.lockWhere({ status: "queued" }, options), refused("lockWhere"));
+    await assert.rejects(notes.claim({ filters: { status: "queued" } }, options), refused("claim"));
+    await assert.rejects(notes.patchWhere({ status: "queued" }, { title: "b" }, options), refused("patchWhere"));
+    knex.off("query", counted);
+    // Nothing reached the database, so the transaction goes on (on PostgreSQL a failed statement would end it).
+    assert.equal((await notes.lock(a, txOptions)).title, "a");
+  });
+  assert.deepEqual(statements, []);
 });
 
 test("scopedQuery() answers a read-only builder over the caller's rows that orWhere cannot widen", async (t) => {

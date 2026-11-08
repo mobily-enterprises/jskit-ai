@@ -299,3 +299,47 @@ test("first uses of one id at once through lockOrCreate create one record and ru
   assert.equal((await balances.get("acct-2", {}, WORKSPACE)).amount, 4);
 });
 
+test("a lock or patchWhere with lockMode noKeyUpdate lets another transaction add a row that references the locked one; the default lock does not", { skip }, async (t) => {
+  const { knex, slots, balances } = await database(t);
+  await knex.schema.createTable("entries", (table) => {
+    table.increments("id");
+    table.integer("slot_id").nullable().references("id").inTable("slots");
+    table.string("balance_id").nullable().references("id").inTable("balances");
+  });
+  const [slot] = await slots.createMany([{ status: "open" }], { ...WORKSPACE, returning: "ids" });
+  await balances.createMany([{ id: "acct-3", amount: 0 }], { ...WORKSPACE, returning: "none" });
+  // Another transaction adds a row that references the locked one. Its foreign key check takes FOR KEY SHARE on the
+  // locked row, which FOR NO KEY UPDATE lets through and FOR UPDATE does not; it gives up after 500 ms (55P03).
+  const addEntry = async (entry) => {
+    const { error } = await settle(() => knex.transaction(async (trx) => {
+      await trx.raw("SET LOCAL lock_timeout = '500ms'");
+      await trx("entries").insert(entry);
+    }));
+    return error ? error.code : "added";
+  };
+  const lockers = {
+    lock: (txOptions) => slots.lock(slot, txOptions),
+    lockMany: (txOptions) => slots.lockMany([slot], txOptions),
+    lockWhere: (txOptions) => slots.lockWhere({ status: "open" }, txOptions),
+    claim: (txOptions) => slots.claim({ filters: { status: "open" } }, txOptions),
+    patchWhere: (txOptions) => slots.patchWhere({ status: "open" }, { takenBy: "worker" }, txOptions)
+  };
+  const outcomes = {};
+  for (const [name, locker] of Object.entries(lockers)) {
+    for (const mode of ["noKeyUpdate", "update"]) {
+      outcomes[`${name} ${mode}`] = await slots.withTransaction(WORKSPACE, async (txOptions) => {
+        await locker(mode === "update" ? txOptions : { ...txOptions, lockMode: mode });
+        return addEntry({ slot_id: slot });
+      });
+    }
+  }
+  for (const mode of ["noKeyUpdate", "update"]) {
+    const options = mode === "update" ? WORKSPACE : { ...WORKSPACE, lockMode: mode };
+    outcomes[`lockOrCreate ${mode}`] = await balances.lockOrCreate({ id: "acct-3", amount: 0 }, options, () => addEntry({ balance_id: "acct-3" }));
+  }
+  assert.deepEqual(outcomes, Object.fromEntries([...Object.keys(lockers), "lockOrCreate"].flatMap((name) => [
+    [`${name} noKeyUpdate`, "added"],
+    [`${name} update`, "55P03"]
+  ])));
+  assert.equal(Number((await knex("entries").count({ count: "*" }).first()).count), 6);
+});

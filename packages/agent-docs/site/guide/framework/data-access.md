@@ -551,6 +551,16 @@ no record behind. On its own it runs work once, so work may call a provider:
 two first uses of one id at once can collide on the insert, and the loser runs
 again before its work starts.
 
+Every lock takes `FOR UPDATE`, as `patchWhere` does for the rows it selects,
+which also keeps out another transaction's insert of a row that references the
+locked one (a foreign key's check). Where work locks a parent only to change
+its own fields while children may be added meanwhile (a balance others post
+entries to), pass `lockMode: "noKeyUpdate"` to `lock`, `lockMany`,
+`lockWhere`, `claim`, `lockOrCreate` or `patchWhere`: on PostgreSQL it
+is `FOR NO KEY UPDATE`, which still keeps every other lock and write of the row
+out but lets those inserts through; MySQL, MariaDB and SQLite lock as for the
+default `"update"`. Any other value throws a `TypeError` before anything runs.
+
 A record that a person edits from a form it read earlier carries a version
 number: the table resource names it with `lockVersionField`, an integer field
 over a non-null integer column with `defaultTo: 0`.

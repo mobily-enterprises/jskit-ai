@@ -1,6 +1,7 @@
 import { isDeadlockError, isDuplicateEntryError, isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { passedOn } from "./handleGuards.js";
+import { lockModeOf } from "./handleLocks.js";
 
 // First uses of one id at once can collide on its insert before any work runs (on MySQL and MariaDB, first uses of
 // neighbouring ids too, through their gap locks): each collision runs the loser again after a short random wait.
@@ -19,7 +20,8 @@ const CREATE_IF_MISSING = Object.freeze({ keys: ["id"], action: "ignore" });
  * @template T
  * @param {Pick<import("./types.js").ResourceHandle, "name" | "withTransaction" | "lock" | "createMany">} handle
  * @param {{ id: unknown } & Record<string, unknown>} row
- * @param {{ context?: object | null, trx?: object | null }} options
+ * @param {{ context?: object | null, trx?: object | null, lockMode?: "update" | "noKeyUpdate" }} options `lockMode` is the
+ *   record's lock, as lock() takes it.
  * @param {(record: Record<string, any>, txOptions: Readonly<Record<string, any>>) => Promise<T> | T} work
  * @returns {Promise<T>}
  */
@@ -27,13 +29,15 @@ async function lockOrCreate(handle, row, options, work) {
   if (!isRecord(row) || row.id == null) {
     throw new TypeError(`${handle.name}.lockOrCreate() takes (row, options, work), the row to create holding its id.`);
   }
+  // The lock mode the caller names, for both locks of the record, refused before any transaction opens.
+  const mode = lockModeOf(handle.name, "lockOrCreate", options.lockMode);
   const locked = async (txOptions) => {
-    const existing = await handle.lock(row.id, { ...txOptions, missing: "skip" });
+    const existing = await handle.lock(row.id, { ...txOptions, ...mode, missing: "skip" });
     if (existing) {
       return existing;
     }
     await handle.createMany([row], { ...txOptions, onConflict: CREATE_IF_MISSING, returning: "none" });
-    return handle.lock(row.id, txOptions);
+    return handle.lock(row.id, { ...txOptions, ...mode });
   };
   if (options.trx) {
     const txOptions = passedOn(options);

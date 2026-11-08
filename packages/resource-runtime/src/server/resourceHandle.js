@@ -4,7 +4,7 @@ import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { createHiddenFieldReads, markHandleFunctions } from "./handleHidden.js";
-import { createLockReads } from "./handleLocks.js";
+import { createLockReads, lockModeOf } from "./handleLocks.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
 import { PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
@@ -587,17 +587,19 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * The same changes to every record the filters select (the caller's own rows only), in one statement
    * that carries the scope and filters, so a row gone meanwhile is skipped. Empty filters change every
    * row the caller owns, so they need `all: true`. `returning: "count"` answers how many changed. lockVersion is
-   * refused (see ONE_VERSION).
+   * refused (see ONE_VERSION). `lockMode` is the row lock its selection takes before the write, as the locks take it
+   * (see handleLocks.js).
    * @param {object} filters
    * @param {Record<string, unknown>} attributes
-   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records" | "count", onlyIf?: object, all?: boolean, chunkSize?: number }} [options]
+   * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records" | "count", onlyIf?: object, all?: boolean, chunkSize?: number, lockMode?: "update" | "noKeyUpdate" }} [options]
    */
   async function patchWhere(filters, attributes, options = {}) {
     refuseConditions(name, "patchWhere", options, ["lockVersion"], ONE_VERSION);
     requireConditionValues(name, "patchWhere", options, ["onlyIf"]);
     const selection = whereSelection(name, "patchWhere", filters, options);
+    const mode = lockModeOf(name, "patchWhere", options.lockMode);
     return manyRowWrite("patchWhere", 0, options, (params, context) => jsonRest().patchWhere(
-      { ...params, ...selection, data: inputData(resource, attributes, "update", options.context),
+      { ...params, ...selection, ...mode, data: inputData(resource, attributes, "update", options.context),
         ...(options.onlyIf ? { onlyIf: options.onlyIf } : {}) },
       context
     ));
