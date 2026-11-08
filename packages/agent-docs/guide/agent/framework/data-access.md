@@ -71,7 +71,7 @@ function totalsByMonth(options) {
 | owner API | The capability through which a table's owner lets other features read and write its records, such as `users.profiles`. |
 | CRUD contract | The optional HTTP and screen surface on a table resource: `defineCrudContract()`. |
 | CRUD feature | The feature `defineCrudFeature()` builds from a CRUD contract: its repository, service, actions, routes and screens. |
-| ownership | Who owns a row, required in every table resource: `public`, `workspace`, `user`, `workspace_user`, or `workspace_or_shared` (a workspace's own rows, or rows shared with every workspace when the owner is empty). |
+| ownership | Who owns a row, required in every table resource: `public`, `workspace`, `user`, `workspace_user`, `workspace_or_shared` (a workspace's own rows, or rows shared with every workspace when the owner is empty), or `system` (rows of no workspace or user, which only the owning feature's system context reaches). |
 | row policy | A server-only rule narrowing which rows a context sees, applied to every statement, joins, includes and locks included. |
 | scoped query | The read-only Knex builder `scopedQuery()` returns, with ownership and the row policy already applied. |
 | system scope | Why a feature works across every workspace and user, declared with `systemScope`. |
@@ -553,6 +553,16 @@ no record behind. On its own it runs work once, so work may call a provider:
 two first uses of one id at once can collide on the insert, and the loser runs
 again before its work starts.
 
+Every lock takes `FOR UPDATE`, as `patchWhere` does for the rows it selects,
+which also keeps out another transaction's insert of a row that references the
+locked one (a foreign key's check). Where work locks a parent only to change
+its own fields while children may be added meanwhile (a balance others post
+entries to), pass `lockMode: "noKeyUpdate"` to `lock`, `lockMany`,
+`lockWhere`, `claim`, `lockOrCreate` or `patchWhere`: on PostgreSQL it
+is `FOR NO KEY UPDATE`, which still keeps every other lock and write of the row
+out but lets those inserts through; MySQL, MariaDB and SQLite lock as for the
+default `"update"`. Any other value throws a `TypeError` before anything runs.
+
 A record that a person edits from a form it read earlier carries a version
 number: the table resource names it with `lockVersionField`, an integer field
 over a non-null integer column with `defaultTo: 0`.
@@ -769,6 +779,16 @@ const SettlementFeature = defineFeature({
   from the request or from `forWorkspace`, `forUser` and `forWorkspaceUser`:
   lint refuses `createSystemContext` and hand-written `scopeValues`, and a
   context naming two workspaces or two users throws.
+- A table only the feature's own background work reads and writes, whose rows
+  belong to no workspace or user (an agent's runs, a server's leases, a queue
+  keyed by something other than an owner), takes ownership `system`. Every call
+  then needs the owner's `systemContext(reason)`: a request's context, a
+  `forWorkspace`, `forUser` or `forWorkspaceUser` job and no context at all
+  throw `SystemContextRequiredError` before any statement, since on such a
+  table they would reach every workspace's rows. Requests
+  reach the rows only through the owner's own methods, which decide what each
+  caller may see, and `defineCrudFeature` refuses a `system` table. A table
+  whose rows do belong to a workspace or user names that ownership instead.
 - A job that runs on a schedule is a feature whose `boot()` starts a timer and
   whose `shutdown()` stops it; JSKIT ships no scheduler. See
   [typed features, Owned state](/guide/framework/typed-features#owned-state).
@@ -938,6 +958,14 @@ test booted (`countRuntimeQueries(work)` from
 `@jskit-ai/database-runtime/server/testDatabases`). A check that measures
 nothing never passes: "The path sent no statement at any size" means pass
 `knex`, or the path never reached the database.
+
+A package's own data test that creates its tables in the test takes its Knex
+from `createPackageTestKnex(t, { environment: process.env })` (from
+`@jskit-ai/resource-runtime/test`): an in-memory SQLite database, or on a
+`DB_CLIENT=pg` run a schema of the test's own in `TEST_DB_NAME`, dropped after
+it. The same file then proves its locks, many-row writes and upserts on
+PostgreSQL too; compare counts with `Number()` (PostgreSQL answers them as
+strings) and ids with `String()`.
 
 `createTestResourceRuntime({ knex })` gives a test the resource runtime its
 features own their tables through: `runtime.own(featureId, [resource])`

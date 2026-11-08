@@ -257,7 +257,7 @@ Configure a JSKIT application for PostgreSQL with a fixed driver, ordinary envir
 Describe one database table once (its fields, columns, ownership, search and sort) so its owner feature reads and writes it through a scoped handle.
 
 - Id: `database/table-resource`
-- Keywords: `database`, `defaultTo`, `defineTableResource`, `lockVersionField`, `lookup`, `ownership`, `owns`, `resource`, `table`, `workspace_or_shared`
+- Keywords: `database`, `defaultTo`, `defineTableResource`, `lockVersionField`, `lookup`, `ownership`, `owns`, `resource`, `system`, `table`, `workspace_or_shared`
 - Owner: `@jskit-ai/resource-core@0.1.205`
 - Requires: `@jskit-ai/resource-core`
 

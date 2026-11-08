@@ -33,6 +33,7 @@ Exports
 - `PageSizeError`
 - `RowLimitError`
 - `StaleRecordError`
+- `SystemContextRequiredError`
 - `UnpagedQueryError`
 
 ### `src/server/handleGuards.js`
@@ -67,6 +68,7 @@ Local functions
 ### `src/server/handleLocks.js`
 Exports
 - `createLockReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields })`
+- `lockModeOf(name, caller, lockMode)`
 
 ### `src/server/handleRecords.js`
 Exports
@@ -112,6 +114,7 @@ Exports
 - `PageSizeError`
 - `RowLimitError`
 - `StaleRecordError`
+- `SystemContextRequiredError`
 - `UnpagedQueryError`
 
 ### `src/server/jsonRestValues.js`

@@ -24,8 +24,8 @@ this resource (`crud/crud-contract`), not a second resource.
 ## Product decisions
 
 - who owns a row, always stated: nobody (`public`), a workspace, a user, a
-  user inside a workspace, or a workspace with rows shared with every
-  workspace
+  user inside a workspace, a workspace with rows shared with every
+  workspace, or no one any request may reach (`system`)
 - the fields, which are required, searchable or hidden, and their defaults
 - whether people edit records from forms read earlier (a version number)
 - the default order of lists
@@ -37,7 +37,10 @@ this resource (`crud/crud-contract`), not a second resource.
   `workspaceId` field, `user` on `userId`, `workspace_user` on both, and
   `workspace_or_shared` reads a workspace's rows plus the rows whose
   `workspaceId` is null. The handle adds that predicate to every statement and
-  stamps new rows from the caller's context.
+  stamps new rows from the caller's context. A `system` table has no owner
+  columns, and its handle refuses every call whose context is not a system
+  context, before any statement: it is for rows that only the owner's
+  background work keeps (queues, leases, run state), never served to a request.
 - A field's default value is `defaultTo`; `default` is refused, since
   json-rest-api never read it.
 - A field with `defaultTo` is not `required`: a create is checked for

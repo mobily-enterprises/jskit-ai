@@ -68,6 +68,7 @@ Exports
 - `RUN_SETTINGS_FILE`
 - `TestDatabaseMissingError`
 - `countQueries(knex, work)`
+- `createPackageTestKnex(context, { environment })`
 - `countRuntimeQueries(work)`
 - `matchesSnapshot(knexConfig, database, snapshot)`
 - `prepareTestDatabases({ knexConfig, environment, variable = "TEST_DB_NAME", count = 1, seed, schema = {}, appRoot = process.cwd() })`
