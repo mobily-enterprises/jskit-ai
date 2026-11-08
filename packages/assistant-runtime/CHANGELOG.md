@@ -25,6 +25,7 @@
 
 ### Upgrading
 
+- Register `AssistantStoreFeature` from `@jskit-ai/assistant-runtime/server` in the server providers beside `AssistantFeature`, unless the app provides `assistant.conversations` itself: the assistant's four tables are table resources that `AssistantStoreFeature` owns, and it provides the `assistant.repositories` the database-backed assistant keeps its conversations in, so `AssistantFeature` without it refuses to start, naming it.
 - Grant `assistant.settings.update` to the people who configure the assistant, or set `settingsUpdatePermission` to a permission they already hold.
 
 ## 0.2.0 - 2026-10-29
