@@ -1,10 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import knexLib from "knex";
 import { simplifyJsonApiResult } from "@jskit-ai/http-runtime/shared";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { passedOn } from "@jskit-ai/resource-runtime/server";
-import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
+import { createPackageTestKnex, createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
@@ -12,12 +11,14 @@ import { createCrudService } from "../src/server/jsonApiModule/service.js";
 import { createCrudContracts } from "../src/server/crudContracts.js";
 import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 
+// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
+
 const WORKSPACE_ONE = Object.freeze({ scopeValues: Object.freeze({ workspaceId: "1" }) });
 
 // 250 notes in workspace 1, read through json-rest-api's default page cap (100), with an audit table beside them.
 async function createFixture(t) {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("notes", (table) => {
     table.increments("id");
     table.integer("workspace_id").notNullable();
@@ -113,8 +114,7 @@ test("a column the contract does not name is neither returned nor accepted", asy
 
 // Notes, each by an author and with an editor, both authors; the authors table keeps a column no contract names.
 async function createIncludeFixture(t, { authorOutput = "optional", authorsShow = { name: { output: "required" } } } = {}) {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("authors", (table) => {
     table.increments("id");
     table.string("name").notNullable();
@@ -164,8 +164,7 @@ async function createIncludeFixture(t, { authorOutput = "optional", authorsShow 
 }
 
 test("a record a form saves back as the CRUD service showed it keeps its link to an author the writer cannot see", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("authors", (table) => {
     table.increments("id");
     table.string("name").notNullable();
@@ -260,8 +259,7 @@ test("an included record shows its lookup's label and the fields the including c
 });
 
 test("an include shows the records it links to only as deep, and only with the fields, as the including contract lists", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("publishers", (table) => {
     table.increments("id");
     table.string("name").notNullable();
@@ -408,8 +406,7 @@ test("a failing CRUD afterCommit hook reports committed and leaves the actual wr
 });
 
 test("the CRUD service's writes are stamped with createdAt and updatedAt when the table stores them", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("memos", (table) => {
     table.increments("id");
     table.string("title").notNullable();

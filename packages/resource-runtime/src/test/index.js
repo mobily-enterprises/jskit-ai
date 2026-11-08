@@ -3,7 +3,7 @@ import { ActionProvider } from "@jskit-ai/kernel/server/actions";
 import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { requireTestDatabase, tableNames, TestDatabaseMissingError } from "@jskit-ai/database-runtime/server/testDatabases";
+import { createPackageTestKnex, requireTestDatabase, tableNames, TestDatabaseMissingError } from "@jskit-ai/database-runtime/server/testDatabases";
 import { createResourceHost } from "../server/resourceHost.js";
 import { createResourceRuntime } from "../server/resourceRuntime.js";
 import { expectFlatQueries } from "./expectFlatQueries.js";
@@ -113,6 +113,7 @@ async function expectEveryTableOwned({ knex, runtime, infrastructureTables = [],
 
 export {
   TestDatabaseMissingError,
+  createPackageTestKnex,
   createTestResourceRuntime,
   expectEveryTableOwned,
   expectFlatQueries,

@@ -1,15 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import knexLib from "knex";
-import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
+import { createPackageTestKnex, startTestFeatures } from "@jskit-ai/resource-runtime/test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { defineCrudFeature } from "../src/server/defineCrudFeature.js";
 import { CrudContractsProvider } from "../src/server/crudContracts.js";
 
+// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
+
 test("a CRUD feature's repository reads a hidden field of its table only in a system context; its owner's methods read it", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("tickets", (table) => {
     table.increments("id");
     table.string("title").notNullable();

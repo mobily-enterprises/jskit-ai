@@ -1,16 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import knexLib from "knex";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { isDuplicateEntryError, retryLostInsertRace } from "@jskit-ai/database-runtime/shared";
-import { createTestResourceRuntime } from "../src/test/index.js";
+import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
+
+// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
 
 // Requests keyed by a request key, unique in each workspace: a repeated request finds its first answer by the key.
 async function createRequestFixture(t) {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("requests", (table) => {
     table.increments("id");
     table.integer("workspace_id").notNullable();

@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import knexLib from "knex";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { passedOn } from "../src/server/index.js";
-import { createTestResourceRuntime } from "../src/test/index.js";
+import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
+
+// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 // A call's settings (returning, missing, format, lockVersion...) are for that one call. What it hands on, to the work
 // of a transaction, to an afterWrite hook or to the handle's own nested calls, is its context and transaction only.
@@ -14,8 +16,7 @@ const SETTINGS = Object.freeze({ returning: "none", missing: "skip", format: "js
 const notFound = (error) => error.code === "REST_API_RESOURCE" && error.subtype === "not_found";
 
 async function createNotes(t, hooks) {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("notes", (table) => {
     table.increments("id");
     table.integer("workspace_id").nullable();

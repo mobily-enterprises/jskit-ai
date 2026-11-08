@@ -937,6 +937,14 @@ test booted (`countRuntimeQueries(work)` from
 nothing never passes: "The path sent no statement at any size" means pass
 `knex`, or the path never reached the database.
 
+A package's own data test that creates its tables in the test takes its Knex
+from `createPackageTestKnex(t, { environment: process.env })` (from
+`@jskit-ai/resource-runtime/test`): an in-memory SQLite database, or on a
+`DB_CLIENT=pg` run a schema of the test's own in `TEST_DB_NAME`, dropped after
+it. The same file then proves its locks, many-row writes and upserts on
+PostgreSQL too; compare counts with `Number()` (PostgreSQL answers them as
+strings) and ids with `String()`.
+
 `createTestResourceRuntime({ knex })` gives a test the resource runtime its
 features own their tables through: `runtime.own(featureId, [resource])`
 answers the handles, and `runtime.declareSystemScope(featureId, reason)` the

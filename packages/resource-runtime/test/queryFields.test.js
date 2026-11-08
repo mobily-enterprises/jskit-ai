@@ -1,14 +1,15 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import knexLib from "knex";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
-import { createTestResourceRuntime } from "../src/test/index.js";
+import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
+
+// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
 
 test("a query field's select gets a value-only raw, column() and the read's filters, never Knex or its context", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("receivals", (table) => {
     table.increments("id");
     table.integer("workspace_id");

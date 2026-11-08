@@ -1,18 +1,19 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import knexLib from "knex";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 import { withoutHiddenFields } from "../src/server/index.js";
-import { createTestResourceRuntime } from "../src/test/index.js";
+import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
+
+// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
 
 // Cards with a hidden owner, a hidden bearer token, a hidden flag, a hidden count and a hidden time: two in workspace
 // 1 and one in workspace 2.
 async function createCardFixture(t) {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("cards", (table) => {
     table.increments("id");
     table.integer("workspace_id").notNullable();
@@ -46,7 +47,7 @@ async function createCardFixture(t) {
   // The tables each SELECT reads, in order.
   const selects = async (work) => (await countQueries(knex, work)).queries
     .filter((sql) => /^select/iu.test(sql))
-    .map((sql) => [...sql.matchAll(/from `(\w+)`/gu)].map(([, table]) => table)[0]);
+    .map((sql) => [...sql.matchAll(/from [`"](\w+)[`"]/gu)].map(([, table]) => table)[0]);
   return { cards, resource, system, selects, options: { context: WORKSPACE_A } };
 }
 
@@ -131,7 +132,7 @@ test("withoutHiddenFields refuses another feature's scopedQuery, whose builder c
 
   // A system context, and one it derived, still builds on it.
   const { query: everyWorkspace } = await exposed.scopedQuery({}, { context: system });
-  assert.deepEqual((await everyWorkspace.count({ cards: exposed.column("id") }))[0].cards, 3);
+  assert.deepEqual(Number((await everyWorkspace.count({ cards: exposed.column("id") }))[0].cards), 3);
   const { query: workspaceTwo } = await exposed.scopedQuery({}, { context: system.forWorkspace("2") });
   assert.deepEqual(await workspaceTwo.select({ title: exposed.column("title") }), [{ title: "Kit" }]);
 

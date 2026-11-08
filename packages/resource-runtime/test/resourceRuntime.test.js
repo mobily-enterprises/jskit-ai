@@ -1,6 +1,5 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import knexLib from "knex";
 import { RestApiLockOutsideTransactionError, RestApiScopedQueryReadOnlyError } from "json-rest-api";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import {
@@ -18,7 +17,10 @@ import { normalizeOpaqueId } from "@jskit-ai/kernel/shared/support/normalize";
 import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { createTestResourceRuntime } from "../src/test/index.js";
+import { createPackageTestKnex, createTestResourceRuntime } from "../src/test/index.js";
+
+// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const WORKSPACE_A = Object.freeze({ workspace: { id: "1" } });
 const WORKSPACE_B = Object.freeze({ workspace: { id: "2" } });
@@ -45,8 +47,7 @@ function noteResource(extra = {}) {
 }
 
 async function createFixture(t, { requestRowLimit, owns = [noteResource()] } = {}) {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("notes", (table) => {
     table.increments("id");
     table.integer("workspace_id").nullable();
@@ -181,8 +182,7 @@ test("a system context comes only from a declared system scope, one per feature,
 });
 
 test("forWorkspaceUser() reaches one user's rows in one workspace, of a workspace_user table and of a user table", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("drafts", (table) => {
     table.increments("id");
     table.integer("workspace_id").notNullable();
@@ -334,7 +334,7 @@ test("an upsert on a table with no owners may key on the id alone; an owned tabl
   );
   // On a workspace table the conflict keys must hold the owner, so json-rest-api refuses the id alone.
   await assert.rejects(notes.createMany([{ id: 1, title: "a" }], { context: WORKSPACE_A, onConflict: { keys: ["id"], action: "merge" } }));
-  assert.equal((await knex("notes").count({ count: "*" }).first()).count, 0);
+  assert.equal(Number((await knex("notes").count({ count: "*" }).first()).count), 0);
 });
 
 test("an upsert finds rows by its conflict keys alone, never by an id, and stays in the caller's workspace", async (t) => {
@@ -630,7 +630,7 @@ test("withTransaction() commits together and rolls back together", async (t) => 
     await notes.createMany([{ title: "b" }], txOptions);
     throw new Error("undo");
   }), /undo/u);
-  assert.equal((await knex("notes").count({ count: "*" }).first()).count, 0);
+  assert.equal(Number((await knex("notes").count({ count: "*" }).first()).count), 0);
   await notes.withTransaction({ context: WORKSPACE_A }, (txOptions) => notes.create({ title: "kept" }, txOptions));
   assert.deepEqual(await knex("notes").pluck("title"), ["kept"]);
 });
@@ -678,8 +678,7 @@ test("withTransaction() rethrows its work's own error, and takes its settings in
 });
 
 test("findOrCreate() answers the record with the id, creating it only when it is missing", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("counters", (table) => {
     table.string("counter_key").primary();
     table.integer("value").notNullable();
@@ -829,8 +828,7 @@ test("workspace_or_shared reads a workspace's rows and the shared ones, and writ
 });
 
 test("a context naming no owner the table needs is refused, never read as the rows with no owner", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("notes", (table) => {
     table.increments("id");
     table.integer("workspace_id").nullable();
@@ -924,8 +922,7 @@ test("a shared row is written in the owner's system context, naming its empty ow
 });
 
 test("row policies read their own tables read-only, and contributions only narrow", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("rooms", (table) => {
     table.increments("id");
     table.string("name");
@@ -1096,8 +1093,7 @@ test("a job's actorId never moves its scope; a row policy that keys on the perso
 });
 
 test("an event a job publishes carries the scope of the workspace or user it works on, as a request there would", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   const runtime = await createTestResourceRuntime({ knex });
   const system = runtime.declareSystemScope("journal.feature", "announce the entries people asked for")("announce an entry");
   const published = [];
@@ -1183,8 +1179,7 @@ test("an action a system context or a job runs reads as that system context or j
 });
 
 test("a report joins another owner's scopedQuery as a subquery: one statement, each owner's scope and row policy kept", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("tasks", (table) => {
     table.increments("id");
     table.integer("workspace_id");
@@ -1263,8 +1258,7 @@ test("a report joins another owner's scopedQuery as a subquery: one statement, e
 });
 
 test("a job done for one person records that person in audit fields and is never signed in as them", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("entries", (table) => {
     table.increments("id");
     table.integer("workspace_id");
@@ -1315,8 +1309,7 @@ test("a job done for one person records that person in audit fields and is never
 });
 
 test("a context that names no owner a linked table needs is refused there too, never shown the rows whose owner is NULL", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("profiles", (table) => {
     table.increments("id");
     table.integer("user_id");
@@ -1506,8 +1499,7 @@ test("a lockVersion patch moves the version on by one, also with no attributes, 
 });
 
 test("a belongs-to field is written under its relationship, and naming both is refused", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("authors", (table) => {
     table.increments("id");
     table.string("name").notNullable();
@@ -1539,8 +1531,7 @@ test("a belongs-to field is written under its relationship, and naming both is r
 
 // Visits each belong to a workspace's customer and to a vet; customers are workspace rows, vets public ones.
 async function createVisitFixture(t) {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("customers", (table) => {
     table.increments("id");
     table.integer("workspace_id");
@@ -1595,13 +1586,12 @@ async function createVisitFixture(t) {
   // The tables each SELECT reads, in order.
   const selects = async (work) => (await countQueries(knex, work)).queries
     .filter((sql) => /^select/iu.test(sql))
-    .map((sql) => [...sql.matchAll(/from `(\w+)`/gu)].map(([, table]) => table)[0]);
-  return { visits: handles.visits, options, ids: created, selects };
+    .map((sql) => [...sql.matchAll(/from [`"](\w+)[`"]/gu)].map(([, table]) => table)[0]);
+  return { visits: handles.visits, options, ids: created, selects, postgres: knex.client.config.client === "pg" };
 }
 
 test("a read whose list filter is an empty list answers nothing without a statement, as a read that matches no row does", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("tickets", (table) => {
     table.increments("id");
     table.integer("workspace_id");
@@ -1646,8 +1636,10 @@ test("a read whose list filter is an empty list answers nothing without a statem
 });
 
 test("lock, lockMany, lockWhere and claim read only the fields they name, so a relation left out costs no visibility check", async (t) => {
-  const { visits, options, ids, selects } = await createVisitFixture(t);
+  const { visits, options, ids, selects, postgres } = await createVisitFixture(t);
   let locked;
+  // PostgreSQL's lockWhere reads once more under the locks it took, for rows that started to match while it waited.
+  const lockWhereReads = postgres ? ["visits", "visits"] : ["visits"];
   // Every field: the locking read, then one visibility check per related type.
   assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.lock(ids[0], tx))), ["visits", "customers", "vets"]);
   assert.deepEqual(await selects(() => visits.withTransaction(options, async (tx) => {
@@ -1658,10 +1650,10 @@ test("lock, lockMany, lockWhere and claim read only the fields they name, so a r
     locked = await visits.lockMany(ids, { ...tx, fields: ["stage", "customerId"] });
   })), ["visits", "customers"]);
   assert.deepEqual(locked, ids.map((id) => ({ id, stage: "new", customerId: "1" })));
-  assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.lockWhere({ id: ids }, tx))), ["visits", "customers", "vets"]);
+  assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.lockWhere({ id: ids }, tx))), [...lockWhereReads, "customers", "vets"]);
   assert.deepEqual(await selects(() => visits.withTransaction(options, async (tx) => {
     locked = await visits.lockWhere({ id: ids }, { ...tx, fields: ["stage"] });
-  })), ["visits"]);
+  })), lockWhereReads);
   assert.deepEqual(locked, ids.map((id) => ({ id, stage: "new" })));
   assert.deepEqual(await selects(() => visits.withTransaction(options, (tx) => visits.claim({ filters: { id: ids } }, tx))), ["visits", "customers", "vets"]);
   assert.deepEqual(await selects(() => visits.withTransaction(options, async (tx) => {
@@ -1740,8 +1732,7 @@ test("a read with one include or two reads each included type once, whatever the
 });
 
 test("a record written back as it was read keeps a link to a target the writer cannot see", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("suppliers", (table) => {
     table.increments("id");
     table.string("name");
@@ -1796,8 +1787,7 @@ test("a record written back as it was read keeps a link to a target the writer c
 });
 
 test("own() refuses a cross-table filter whose target field is not indexed, whichever table is owned first", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("suppliers", (table) => {
     table.increments("id");
     table.string("name").index();
@@ -1872,8 +1862,7 @@ test("a sparse read names a belongs-to field by its own key or its relationship,
 });
 
 test("a collection relation with hydrateOnList or hydrateOnView false loads its rows only when the read includes it", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("contacts", (table) => {
     table.increments("id");
     table.string("name").notNullable();
@@ -1921,8 +1910,7 @@ test("a collection relation with hydrateOnList or hydrateOnView false loads its 
 });
 
 test("an included record reads as a read of its own resource answers it, at every depth and in a collection", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("contacts", (table) => {
     table.increments("id");
     table.string("name").notNullable();

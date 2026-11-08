@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
-import knexLib from "knex";
-import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
+import { createPackageTestKnex, createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { bookCrud, bookResource } from "../patterns/crud-feature-package/example/packages/books/src/shared/bookResource.js";
+
+// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const providerPath = new URL(
   "../patterns/crud-feature-package/example/packages/books/src/server/BooksFeature.js",
@@ -23,8 +25,7 @@ test("CRUD feature package pattern leaves repetition in the framework", async ()
 });
 
 test("the pattern's books resource is owned and creates a book, its timestamps in whole seconds as declared", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("books", (table) => {
     table.increments("id");
     table.integer("user_id").notNullable();

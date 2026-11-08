@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The package's data tests run on `createPackageTestKnex`, so CI's `DB_CLIENT=pg` run proves the CRUD paths on PostgreSQL too.
 - Depends on json-rest-api 3.0.1 (from 3.0.0), exactly, as `@jskit-ai/resource-runtime` does: see its CHANGELOG for the concurrent-merge fix.
 - **Security.** A CRUD feature's capability repository answers without hidden fields through every method it holds, the ones `decorateRepository` adds included, for every table the feature owns, unless the call runs in a system context: a custom read that forwarded the caller's `fields` handed hidden values to other features.
 - **Security.** A CRUD feature's capability repository (`resourceApi.repository`) on a table with hidden fields refuses another feature's `scopedQuery()` unless it runs in a system context, as it refuses a read naming a hidden field: the builder carries every column. An owner answers its rows to another owner's report through a join source method of its own.

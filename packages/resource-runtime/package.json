@@ -57,7 +57,7 @@
           },
           {
             "subpath": "./test",
-            "summary": "Data test helpers on a real test database: createTestResourceRuntime, startTestFeatures, expectScoped, expectFlatQueries, expectEveryTableOwned, requireTestDatabase and TestDatabaseMissingError."
+            "summary": "Data test helpers on a real test database: createTestResourceRuntime, startTestFeatures, expectScoped, expectFlatQueries, expectEveryTableOwned, createPackageTestKnex, requireTestDatabase and TestDatabaseMissingError."
           }
         ]
       }

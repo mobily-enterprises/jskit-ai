@@ -67,7 +67,7 @@
           },
           {
             "subpath": "./server/testDatabases",
-            "summary": "Gives each test file or browser worker running at once its own disposable copy of TEST_DB_NAME or BROWSER_TEST_DB_NAME, restored from a schema snapshot keyed by the migrations' names and contents (MySQL, MariaDB and PostgreSQL), and counts the statements a piece of work sends, for query-count guards."
+            "summary": "Gives each test file or browser worker running at once its own disposable copy of TEST_DB_NAME or BROWSER_TEST_DB_NAME, restored from a schema snapshot keyed by the migrations' names and contents (MySQL, MariaDB and PostgreSQL), counts the statements a piece of work sends, for query-count guards, and gives a package's own data test its Knex: SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (createPackageTestKnex)."
           },
           {
             "subpath": "./shared",

@@ -4,14 +4,10 @@ import knexFactory from "knex";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import {
-  TestDatabaseMissingError,
-  createTestResourceRuntime,
-  expectEveryTableOwned,
-  expectFlatQueries,
-  expectScoped,
-  startTestFeatures
-} from "../src/test/index.js";
+import { createPackageTestKnex, createTestResourceRuntime, expectEveryTableOwned, expectFlatQueries, expectScoped, startTestFeatures, TestDatabaseMissingError } from "../src/test/index.js";
+
+// SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+const testKnex = (t) => createPackageTestKnex(t, { environment: process.env });
 
 const environment = Object.freeze({ TEST_DB_NAME: "catalogue_test" });
 
@@ -70,8 +66,7 @@ test("expectFlatQueries() passes a path that reads its rows at once and fails on
 });
 
 async function createShelfFixture(t) {
-  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("books", (table) => {
     table.increments("id");
     table.integer("workspace_id");
@@ -147,8 +142,7 @@ test("expectScoped() passes a path that keeps to its workspace and fails one tha
 });
 
 test("expectScoped() fails a report that joins another owner's table by name, though no row of it is in the answer", async (t) => {
-  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("visits", (table) => { table.increments("id"); table.integer("workspace_id"); table.string("person"); });
   await knex.schema.createTable("people", (table) => { table.increments("id"); table.integer("workspace_id"); table.string("name"); table.string("business"); });
   const owned = (name, schema) => defineTableResource({
@@ -188,8 +182,7 @@ test("expectScoped() fails a report that joins another owner's table by name, th
 });
 
 test("expectScoped() compares the other owner's stored rows, so a changed hidden column or one outside the schema fails", async (t) => {
-  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("keys", (table) => {
     table.increments("id");
     table.integer("workspace_id");
@@ -248,8 +241,7 @@ test("expectEveryTableOwned() names each table no feature owns", async (t) => {
 });
 
 test("startTestFeatures() starts features in the order their requires give, on tables it creates, and boots them", async (t) => {
-  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   const shelves = defineTableResource({
     name: "shelves",
     tableName: "shelves",

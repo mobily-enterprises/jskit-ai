@@ -22,13 +22,13 @@
 // of a server the test booted, countRuntimeQueries(); expectFlatQueries() in @jskit-ai/resource-runtime/test compares
 // those counts at a few rows and at many. A data test never skips: requireTestDatabase() fails it when TEST_DB_NAME is
 // not set.
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import diagnosticsChannel from "node:diagnostics_channel";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { parseDatabaseUrl } from "../shared/databaseConnection.js";
+import { parseDatabaseUrl, resolveKnexConnectionFromEnvironment, resolveKnexPool } from "../shared/databaseConnection.js";
 import { detectDialectFromClient } from "../shared/dialect.js";
 import { RUNTIME_QUERY_CHANNEL } from "./database.js";
 import { loadKnexFactory } from "./knexFactory.js";
@@ -597,6 +597,55 @@ function requireTestDatabase(environment) {
   return name;
 }
 
+// A package test's PostgreSQL connections: enough for the concurrent transactions a lock or race test opens at once.
+const PACKAGE_TEST_POOL = Object.freeze({ min: 0, max: 8 });
+
+/**
+ * The Knex a package's own data test runs on, for a test that creates its own tables: an in-memory SQLite database,
+ * or, on a run whose DB_CLIENT is pg, a schema of the test's own in TEST_DB_NAME on the server DB_HOST, DB_PORT,
+ * DB_USER and DB_PASSWORD name, its sessions in UTC as an application's are. So one test file proves its data paths on
+ * both: the PostgreSQL run of the same files is the proof of the row locks, the many-row writes and the upserts there.
+ * The Knex is destroyed after the test, and the schema dropped with everything in it. A pg run without TEST_DB_NAME
+ * fails (TestDatabaseMissingError), as every data test does; `knex.client.config.client` tells a test which it got.
+ * @param {{ after(cleanup: () => unknown): unknown }} context The test's context (node:test's `t`).
+ * @param {{ environment: import("@jskit-ai/kernel/server/types").RuntimeEnv }} options The test's environment, such as
+ *   `process.env`.
+ * @returns {Promise<import("knex").Knex>}
+ */
+async function createPackageTestKnex(context, { environment }) {
+  const knexFactory = loadKnexFactory();
+  if (String(environment.DB_CLIENT || "").trim() !== "pg") {
+    const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+    context.after(() => knex.destroy());
+    return knex;
+  }
+  if (environment.NODE_ENV === "production") {
+    throw new Error("Package data tests never run with NODE_ENV=production.");
+  }
+  const connection = {
+    ...resolveKnexConnectionFromEnvironment(environment, { client: "pg", defaultPort: 5432 }),
+    database: requireTestDatabase(environment)
+  };
+  const schema = `jskit_test_${process.pid}_${randomBytes(6).toString("hex")}`;
+  const admin = knexFactory({ client: "pg", connection, pool: { min: 0, max: 1 } });
+  try {
+    await admin.raw("CREATE SCHEMA ??", [schema]);
+  } catch (error) {
+    await admin.destroy();
+    throw error;
+  }
+  const knex = knexFactory({ client: "pg", connection, searchPath: [schema], pool: { ...resolveKnexPool("pg"), ...PACKAGE_TEST_POOL } });
+  context.after(async () => {
+    try {
+      await knex.destroy();
+      await admin.raw("DROP SCHEMA IF EXISTS ?? CASCADE", [schema]);
+    } finally {
+      await admin.destroy();
+    }
+  });
+  return knex;
+}
+
 /**
  * The tables of the database `knex` is connected to, sorted: MySQL's and MariaDB's base tables, PostgreSQL's in the
  * current schema, SQLite's own tables (its internal ones aside).
@@ -621,6 +670,7 @@ export {
   RUN_SETTINGS_FILE,
   TestDatabaseMissingError,
   countQueries,
+  createPackageTestKnex,
   countRuntimeQueries,
   matchesSnapshot,
   prepareTestDatabases,
