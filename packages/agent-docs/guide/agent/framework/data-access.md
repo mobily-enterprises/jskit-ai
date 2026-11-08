@@ -146,6 +146,16 @@ function createReceivalsRepository({ receivals }) {
 }
 ```
 
+A field's type says what its column holds, not the column's SQL type. A
+whole-number column that is not an id (a counter, a byte count, a position),
+BIGINT included, is `type: "integer"`. Every handle read answers it as a
+number on MySQL, MariaDB and PostgreSQL alike, although both drivers read
+BIGINT as text. A column that holds another row's id is `type: "id"` and
+reads as text, as ids do. Past 2^53 − 1 a JavaScript number cannot hold a
+whole number exactly, so json-rest-api answers those digits as text rather
+than a rounded number. A value that can grow that large gets a decimal field
+(`precision` and `scale`), whose digits stay text.
+
 A package whose features own tables or declare `systemScope` lists
 `runtime.resources` in its descriptor's `capabilities.requires`, or boot
 refuses it; the feature never requires it itself, since it receives its
@@ -624,6 +634,11 @@ async function activeDays(memberIds, options) {
     resource in the code describes.
 - `column()` names columns; `raw` takes one expression as a string literal,
   with its values as bindings.
+- Its rows are the driver's, with no field types applied: a BIGINT column
+  (ids and counters alike) and a `COUNT` read as text on MySQL and MariaDB
+  (the runtime's `bigNumberStrings`) and on PostgreSQL (int8). The method
+  turns the counts and totals it answers into numbers, such as `Number(days)`
+  for `activeDays` above.
 - The builder only reads, and only its own table is scoped. A `.join()` or
   `.from()` of a table by name, or a table named inside `raw()`, reads that
   table's rows past its owner and row policy, and so does a subquery callback
@@ -861,6 +876,13 @@ so `jskit check` wants a reviewed reason for each module that requires one
 `audienceUsers({ event, options })` asks the owners and answers user ids, in the
 event's scope: for a customer's or a public surface's event, the workspace the
 request resolved, never one its payload names (see [Realtime](/guide/app-extras/realtime)).
+
+Code that names people by id (a conversation's members, a group's
+participants) reads them with `users.profiles.listByIds(ids, options)`: every
+profile in one call, however many ids, never `query` pages of 100 walked by
+hand or one `findById` per person. `users.settings.listByUserIds(ids, options)`
+does the same for their settings, and `workspaces.listByIds(ids, options)` for
+workspaces.
 
 An app that had a table resource of its own over a JSKIT table (such as
 `users`) deletes it: its CRUD contract is built on the package's table resource

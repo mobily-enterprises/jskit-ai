@@ -31,6 +31,8 @@ Local functions
 - `optionalDateTime(value)`
 - `readDateTime(value, fallback = "")`
 - `text(value)`
+- `requireSessionConditions(onlyIf)`
+- `requireIdPrefix(idPrefix)`
 - `readPassword(record)`
 - `writePassword(password = {})`
 - `mapUser(record)`
@@ -81,6 +83,8 @@ Exports
 - `localAuthSessionResource`
 - `localAuthSignInFailureResource`
 - `localAuthUserResource`
+Local functions
+- `idStartsWith(query, prefix, { column })`
 
 ### `src/server/providers/AuthLocalDatabaseBackendProvider.js`
 Exports

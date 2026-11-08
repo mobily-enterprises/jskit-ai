@@ -59,14 +59,18 @@ hook, a job) requires their owners' capabilities, never the `users` or
 `user_settings` tables:
 
 - `users.profiles`: `findById`, `findByEmail`, `findByIdentity`,
-  `listByEmails(emails, options)` (one read), `upsert`,
+  `listByEmails(emails, options)` (one read),
+  `listByIds(ids, options)` (every profile of the ids, sorted by id, one read
+  per 1,000 ids), `upsert`,
   `createWithSettings({ profile, settings }, options)` (the profile and its
   settings in one transaction; settings start from the defaults),
   `createWithId(profile, options)` (a profile keeping an earlier table's id),
   `createManyIgnoringExisting(profiles, options)` (a re-runnable bulk import,
   system context only), `changeUsername(userId, username, options)` and
   `countUsers({ excludeIds, createdSince, authProvider }, options)`.
-- `users.settings`: `findByUserId`, `ensureForUserId` and the settings updates.
+- `users.settings`: `findByUserId`, `listByUserIds(userIds, options)` (the
+  settings of every listed user who has them, sorted by user id, one read per
+  1,000 ids), `ensureForUserId` and the settings updates.
 
 Their types are `UsersProfiles` and `UsersSettings` in
 `@jskit-ai/users-core/server/types`. Every method takes `options` last and

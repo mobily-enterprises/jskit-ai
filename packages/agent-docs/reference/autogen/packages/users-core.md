@@ -94,6 +94,12 @@ Exports
 Local functions
 - `resolveAuthProfileSettings(authService)`
 
+### `src/server/common/repositories/recordsByIds.js`
+Exports
+- `queryAllByIds(handle, method, userIds, options)`
+Local functions
+- `byNumericId(left, right)`
+
 ### `src/server/common/repositories/userProfilesRepository.js`
 Exports
 - `createRepository({ userProfiles, userSettings })`
@@ -114,6 +120,7 @@ Exports
 - `createRepository({ userSettings })`
 Local functions
 - `pickPatchFields(source = {})`
+- `withCanonicalLocale(row)`
 - `buildDefaultUserSettingsCreatePayload(userId)`
 
 ### `src/server/common/services/accountContextService.js`
