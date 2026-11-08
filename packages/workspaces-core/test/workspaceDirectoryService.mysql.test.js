@@ -199,6 +199,19 @@ test("the workspace context answers a member's workspace, membership, permission
     errorWith(400, "workspaces.workspace.slugRequired", "workspaceSlug is required."));
   await assert.rejects(directory.resolveWorkspaceContextForUserBySlug(null, "context-team"),
     errorWith(401, "workspaces.auth.required"));
+  // An anonymous visitor on a surface that does not require membership (a public payment link) gets the workspace
+  // with no membership and no permissions; on one that does, and for an unknown slug there, still 401.
+  const anonymous = await directory.resolveWorkspaceContextForUserBySlug(null, "context-team", { requireMembership: false });
+  assert.equal(anonymous.workspace.id, workspace.id);
+  assert.equal(anonymous.membership, null);
+  assert.deepEqual(anonymous.permissions, []);
+  assert.equal(anonymous.workspaceSettings.id, workspace.id);
+  await assert.rejects(directory.resolveWorkspaceContextForUserBySlug({}, "context-team", { requireMembership: true }),
+    errorWith(401, "workspaces.auth.required"));
+  await assert.rejects(directory.resolveWorkspaceContextForUserBySlug(null, "context-missing"),
+    errorWith(401, "workspaces.auth.required"));
+  await assert.rejects(directory.resolveWorkspaceContextForUserBySlug(null, "context-missing", { requireMembership: false }),
+    errorWith(404, "workspaces.workspace.notFound"));
   await assert.rejects(directoryOf(db, { tenancyMode: "none" }).resolveWorkspaceContextForUserBySlug(owner, "context-team"),
     errorWith(403, "workspaces.workspace.contextDisabled", "Workspace context is disabled."));
 

@@ -266,10 +266,12 @@ function createService({
     return resolutions.get(key);
   }
 
+  // A surface that requires membership refuses an anonymous visitor (401); one that does not (a public payment link)
+  // resolves the workspace for them with no membership and no permissions, as it does for a signed-in non-member.
   async function readWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
     const requireMembership = options.requireMembership !== false;
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
-    if (!normalizedUserId) {
+    if (!normalizedUserId && requireMembership) {
       throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });
     }
 
@@ -288,14 +290,11 @@ function createService({
       throw new AppError(404, "Workspace not found.", { code: "workspaces.workspace.notFound" });
     }
 
-    let membership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(
-      workspace.id,
-      normalizedUserId,
-      options
-    );
-    const actorOwnsWorkspace =
-      normalizeRecordId(workspace.ownerUserId, { fallback: null }) ===
-      normalizedUserId;
+    let membership = normalizedUserId
+      ? await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, normalizedUserId, options)
+      : null;
+    const actorOwnsWorkspace = normalizedUserId !== null &&
+      normalizeRecordId(workspace.ownerUserId, { fallback: null }) === normalizedUserId;
     const membershipIsActive = normalizeLowerText(membership?.status) === "active";
 
     if (!membershipIsActive && actorOwnsWorkspace) {
