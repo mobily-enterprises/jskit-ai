@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `@jskit-ai/database-runtime` and `@jskit-ai/resource-runtime` are peer dependencies, required and at the same versions, where they were dependencies: its rules, provider settings, watch sessions and unlock receipts are table resources, and the app holds one copy of the table runtime that every package shares, as it does the kernel. npm installs a required peer as it installed the dependency, so an app installs the same packages and versions; a release whose versions disagree now fails the install with ERESOLVE instead of nesting a second copy.
 - `@jskit-ai/database-runtime` is a dependency again: the foreign-key migration (`migrations/constraints/rewarded_foreign_keys.cjs`) imports its `server/foreignKeyMigrations` in `up` and `down`, which resolved only through hoisting since the CRUD features moved to the resource runtime.
 - The rewarded table resources no longer declare their own `id` search entry: their handles' `id` filter takes one id or a list.
 - The package requires `crud.contracts`, the registry of served CRUD contracts its CRUD features register with, so an application that installs it also loads crud-core's `CrudContractsProvider`.
