@@ -6,7 +6,8 @@ import { shellScrollBehavior } from "@jskit-ai/kernel/client";
 import { createShellNavigationRuntime } from "../src/client/navigation/shellNavigationRuntime.js";
 
 // A window whose history state behaves as the browser's under vue-router: a push starts an entry with fresh state, a
-// replacement keeps the entry's state.
+// replacement keeps the entry's state. Its page is drawn (10,000px tall in an 800px window), so the kernel's scroll
+// behaviour reaches a restored position at once.
 function browserLikeRouter(routes) {
   let state = null;
   let position = 0;
@@ -20,6 +21,9 @@ function browserLikeRouter(routes) {
         state = next;
       }
     },
+    document: { documentElement: { scrollHeight: 10_000, scrollWidth: 390 } },
+    innerHeight: 800,
+    innerWidth: 390,
     scrollX: 0,
     scrollY: 0,
     setTimeout: () => 0,
