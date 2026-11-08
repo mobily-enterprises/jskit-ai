@@ -438,6 +438,32 @@ async function findImports(root, packageIds) {
   return imports;
 }
 
+// The migration files the installed @jskit-ai packages ship (jskit.migrations.directories and their constraints/),
+// each "<package>: <path in the package>", as the app's migrations read them from node_modules.
+async function installedPackageMigrations(root) {
+  const scope = path.join(root, "node_modules", JSKIT_SCOPE_PREFIX);
+  const names = await readdir(scope).catch((error) => {
+    if (error?.code === "ENOENT") return [];
+    throw error;
+  });
+  const migrations = new Set();
+  for (const name of names) {
+    const packageRoot = path.join(scope, name);
+    const manifestPath = path.join(packageRoot, "package.json");
+    if (!(await fileExists(manifestPath))) continue;
+    const directories = (await readJsonRecord(manifestPath)).value.jskit?.migrations?.directories;
+    for (const directory of Array.isArray(directories) ? directories : []) {
+      for (const folder of [directory, path.join(directory, "constraints")]) {
+        const files = await readdir(path.join(packageRoot, folder)).catch(() => []);
+        for (const file of files.filter((entry) => entry.endsWith(".cjs"))) {
+          migrations.add(`${JSKIT_SCOPE_PREFIX}${name}: ${toPosixPath(path.join(folder, file))}`);
+        }
+      }
+    }
+  }
+  return migrations;
+}
+
 /**
  * Pins a project's JSKIT dependencies to the catalog and installs them; a
  * failed install or check restores the manifests, lockfile and node_modules.
@@ -544,8 +570,11 @@ async function updateProject({
 
   const packageLockPath = path.join(root, "package-lock.json");
   const packageLockSnapshot = install ? await readOptionalFile(packageLockPath) : null;
+  // npm install replaces node_modules, so the migrations the packages shipped are read before it.
+  const migrationsBefore = install ? await installedPackageMigrations(root) : new Set();
   await writeManifestUpdates(updates);
   let installTransaction = null;
+  let addedMigrations = [];
   try {
     if (install) {
       const updatedManifests = await discoverProjectManifests(root, additionalManifests);
@@ -555,6 +584,7 @@ async function updateProject({
       if (!result.ok) {
         throw new Error(`JSKIT graph remains inconsistent after npm install:\n- ${result.issues.join("\n- ")}`);
       }
+      addedMigrations = [...await installedPackageMigrations(root)].filter((entry) => !migrationsBefore.has(entry)).sort();
       await installTransaction.commit();
     }
   } catch (error) {
@@ -586,6 +616,7 @@ async function updateProject({
       updates.map((update) => toPosixPath(path.relative(root, update.manifest.absolutePath)))
     ),
     catalogVersion,
+    addedMigrations: Object.freeze(addedMigrations),
     retiredPackages: Object.freeze(retiredPackageIds.map((packageId) => Object.freeze({
       packageId,
       replacedBy: RETIRED_PACKAGES[packageId].packageId

@@ -222,6 +222,61 @@ test("project updates align root and workspace declarations without changing non
   });
 });
 
+test("a project update lists the package migrations its install added, which the app must run before it serves requests", async () => {
+  await withProject(async (projectRoot) => {
+    await writeJson(path.join(projectRoot, "package.json"), {
+      name: "example-app",
+      private: true,
+      dependencies: { "@jskit-ai/assistant-runtime": "0.1.3" }
+    });
+    const installed = path.join(projectRoot, "node_modules", "@jskit-ai", "assistant-runtime");
+    const writeInstalled = async (version, migrations) => {
+      await writeJson(path.join(installed, "package.json"), {
+        name: "@jskit-ai/assistant-runtime",
+        version,
+        jskit: { migrations: { directories: ["migrations"] } }
+      });
+      for (const file of migrations) {
+        await mkdir(path.dirname(path.join(installed, file)), { recursive: true });
+        await writeFile(path.join(installed, file), "module.exports = {};\n", "utf8");
+      }
+    };
+    await writeInstalled("0.1.3", ["migrations/assistant_initial.cjs"]);
+    // A package without migrations, and a folder that is no package, add none.
+    await writeJson(path.join(projectRoot, "node_modules", "@jskit-ai", "jskit-catalog", "package.json"), {
+      name: "@jskit-ai/jskit-catalog",
+      version: "0.1.9"
+    });
+    await mkdir(path.join(projectRoot, "node_modules", "@jskit-ai", ".cache"), { recursive: true });
+
+    const result = await updateProject({
+      projectRoot,
+      catalog: CATALOG,
+      async installProject() {
+        await writeInstalled("0.1.7", ["migrations/assistant_settings.cjs", "migrations/constraints/assistant_keys.cjs"]);
+        await writeJson(path.join(projectRoot, "package-lock.json"), {
+          name: "example-app",
+          lockfileVersion: 3,
+          packages: {
+            "": { name: "example-app" },
+            "node_modules/@jskit-ai/assistant-runtime": { version: "0.1.7" },
+            "node_modules/@jskit-ai/jskit-catalog": { version: "0.1.9" }
+          }
+        });
+        return { async commit() {}, async rollback() {} };
+      }
+    });
+
+    assert.deepEqual(result.addedMigrations, [
+      "@jskit-ai/assistant-runtime: migrations/assistant_settings.cjs",
+      "@jskit-ai/assistant-runtime: migrations/constraints/assistant_keys.cjs"
+    ]);
+    // Without an install nothing new is installed, so nothing is listed.
+    const again = await updateProject({ projectRoot, catalog: CATALOG, install: false });
+    assert.deepEqual(again.addedMigrations, []);
+  });
+});
+
 test("default project update isolates a stale installed cohort before npm resolves the new graph", async () => {
   await withProject(async (projectRoot) => {
     await writeStaleInstalledProject(projectRoot);
@@ -626,6 +681,7 @@ test("jskit CLI updates a project through its npm-style executable symlink", asy
     assert.equal(manifest.scripts["jskit:update"], UPDATE_SCRIPT);
     assert.equal(manifest.scripts["jskit:check"], CHECK_SCRIPT);
     assert.match(stdout, /Skipped npm install; run it before jskit check\./u);
+    assert.match(stdout, /If it installs new package migrations, run npm run db:migrate before the app serves requests\./u);
   });
 });
 

@@ -322,6 +322,7 @@ Local functions
 - `alignLockManifestRecord(lockRecord, manifest, localPackageNames)`
 - `preparePackageLockForInstall(projectRoot, manifests, packageLockPath)`
 - `findImports(root, packageIds)`
+- `installedPackageMigrations(root)`
 
 ### `scripts/test-budget.mjs`
 Exports

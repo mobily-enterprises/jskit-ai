@@ -81,6 +81,15 @@ installation, or validation fails, it restores the previous manifests,
 lockfile, and installed tree before reporting the failure. Resolve the reported
 registry or real peer problem and rerun `npm run jskit:update`.
 
+When the install brings package migrations the application has not had, the
+updater lists each one (`<package>: <file>`) and says to run
+`npm run db:migrate`. Run it, on every database the application uses, before
+the new version serves requests: a package's new version reads what its
+migration creates, so until then those reads fail, such as every local sign-in
+with an unknown `email_verified_at` column. Read each package's CHANGELOG
+**Upgrading** section too, for the changes the application itself must make,
+such as a feature to register.
+
 ## Separately composed packages
 
 Pass each additional manifest explicitly to both commands:

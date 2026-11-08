@@ -247,8 +247,18 @@ async function main(argv = process.argv.slice(2)) {
         `${result.changedFiles.map((file) => `- ${file}`).join("\n")}\n`
       );
     }
+    if (result.addedMigrations.length > 0) {
+      process.stdout.write(
+        `The update installed ${result.addedMigrations.length} new package migration(s); run npm run db:migrate before ` +
+        `the app serves requests, since the new packages read what they create:\n` +
+        `${result.addedMigrations.map((entry) => `- ${entry}`).join("\n")}\n`
+      );
+    }
     if (!options.install) {
-      process.stdout.write("Skipped npm install; run it before jskit check.\n");
+      process.stdout.write(
+        "Skipped npm install; run it before jskit check. If it installs new package migrations, run npm run db:migrate " +
+        "before the app serves requests.\n"
+      );
     }
     return;
   }
