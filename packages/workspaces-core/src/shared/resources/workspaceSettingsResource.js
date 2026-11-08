@@ -255,7 +255,6 @@ const workspaceSettingsResource = defineTableResource({
     },
     lightPrimaryColor: {
       type: "string",
-      required: true,
       minLength: 7,
       maxLength: 7,
       defaultTo: DEFAULT_WORKSPACE_LIGHT_PALETTE.color,
@@ -264,7 +263,6 @@ const workspaceSettingsResource = defineTableResource({
     },
     lightSecondaryColor: {
       type: "string",
-      required: true,
       minLength: 7,
       maxLength: 7,
       defaultTo: DEFAULT_WORKSPACE_LIGHT_PALETTE.secondaryColor,
@@ -273,7 +271,6 @@ const workspaceSettingsResource = defineTableResource({
     },
     lightSurfaceColor: {
       type: "string",
-      required: true,
       minLength: 7,
       maxLength: 7,
       defaultTo: DEFAULT_WORKSPACE_LIGHT_PALETTE.surfaceColor,
@@ -282,7 +279,6 @@ const workspaceSettingsResource = defineTableResource({
     },
     lightSurfaceVariantColor: {
       type: "string",
-      required: true,
       minLength: 7,
       maxLength: 7,
       defaultTo: DEFAULT_WORKSPACE_LIGHT_PALETTE.surfaceVariantColor,
@@ -291,7 +287,6 @@ const workspaceSettingsResource = defineTableResource({
     },
     darkPrimaryColor: {
       type: "string",
-      required: true,
       minLength: 7,
       maxLength: 7,
       defaultTo: DEFAULT_WORKSPACE_DARK_PALETTE.color,
@@ -300,7 +295,6 @@ const workspaceSettingsResource = defineTableResource({
     },
     darkSecondaryColor: {
       type: "string",
-      required: true,
       minLength: 7,
       maxLength: 7,
       defaultTo: DEFAULT_WORKSPACE_DARK_PALETTE.secondaryColor,
@@ -309,7 +303,6 @@ const workspaceSettingsResource = defineTableResource({
     },
     darkSurfaceColor: {
       type: "string",
-      required: true,
       minLength: 7,
       maxLength: 7,
       defaultTo: DEFAULT_WORKSPACE_DARK_PALETTE.surfaceColor,
@@ -318,7 +311,6 @@ const workspaceSettingsResource = defineTableResource({
     },
     darkSurfaceVariantColor: {
       type: "string",
-      required: true,
       minLength: 7,
       maxLength: 7,
       defaultTo: DEFAULT_WORKSPACE_DARK_PALETTE.surfaceVariantColor,
@@ -327,7 +319,6 @@ const workspaceSettingsResource = defineTableResource({
     },
     invitesEnabled: {
       type: "boolean",
-      required: true,
       defaultTo: true,
       storage: { column: "invites_enabled" }
     },

@@ -295,21 +295,18 @@ const userSettingsTableResource = defineTableResource({
     },
     theme: {
       type: "string",
-      required: true,
       max: 32,
       defaultTo: DEFAULT_USER_SETTINGS.theme,
       setter: (value) => normalizeText(value)
     },
     locale: {
       type: "string",
-      required: true,
       max: 24,
       defaultTo: DEFAULT_USER_SETTINGS.locale,
       setter: (value) => normalizeLocaleCode(value)
     },
     timeZone: {
       type: "string",
-      required: true,
       max: 64,
       defaultTo: DEFAULT_USER_SETTINGS.timeZone,
       storage: { column: "time_zone" },
@@ -317,7 +314,6 @@ const userSettingsTableResource = defineTableResource({
     },
     dateFormat: {
       type: "string",
-      required: true,
       max: 32,
       defaultTo: DEFAULT_USER_SETTINGS.dateFormat,
       storage: { column: "date_format" },
@@ -325,7 +321,6 @@ const userSettingsTableResource = defineTableResource({
     },
     numberFormat: {
       type: "string",
-      required: true,
       max: 32,
       defaultTo: DEFAULT_USER_SETTINGS.numberFormat,
       storage: { column: "number_format" },
@@ -333,7 +328,6 @@ const userSettingsTableResource = defineTableResource({
     },
     currencyCode: {
       type: "string",
-      required: true,
       minLength: 3,
       maxLength: 3,
       defaultTo: DEFAULT_USER_SETTINGS.currencyCode,
@@ -342,7 +336,6 @@ const userSettingsTableResource = defineTableResource({
     },
     avatarSize: {
       type: "number",
-      required: true,
       min: 1,
       defaultTo: DEFAULT_USER_SETTINGS.avatarSize,
       storage: { column: "avatar_size" },
@@ -350,31 +343,26 @@ const userSettingsTableResource = defineTableResource({
     },
     passwordSignInEnabled: {
       type: "boolean",
-      required: true,
       defaultTo: DEFAULT_USER_SETTINGS.passwordSignInEnabled,
       storage: { column: "password_sign_in_enabled" }
     },
     passwordSetupRequired: {
       type: "boolean",
-      required: true,
       defaultTo: DEFAULT_USER_SETTINGS.passwordSetupRequired,
       storage: { column: "password_setup_required" }
     },
     productUpdates: {
       type: "boolean",
-      required: true,
       defaultTo: DEFAULT_USER_SETTINGS.productUpdates,
       storage: { column: "notify_product_updates" }
     },
     accountActivity: {
       type: "boolean",
-      required: true,
       defaultTo: DEFAULT_USER_SETTINGS.accountActivity,
       storage: { column: "notify_account_activity" }
     },
     securityAlerts: {
       type: "boolean",
-      required: true,
       defaultTo: DEFAULT_USER_SETTINGS.securityAlerts,
       storage: { column: "notify_security_alerts" }
     },

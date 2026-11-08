@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The user settings table's fields with a default (theme, locale, time zone, date and number formats, currency, avatar size, and the password and notification flags) are no longer `required`, which `defineTableResource` now refuses beside `defaultTo`: a create that leaves one out gets its default where it failed REQUIRED. The CRUD and API contracts keep their own body and output schemas, so requests are unchanged.
 - **Security.** The `users/user-administration-server` pattern's workspace variant narrows its repository to the reads it narrows: `workspaceMembersOnly` answers only `query`, `get` and `pageLimits`, where it passed users.profiles' other methods (`findByEmail`, `countUsers`, the writes) through un-narrowed to anything that required the feature's capability.
 - `@jskit-ai/users-core/server/UsersExtensionsProvider` exports `UsersExtensionsProvider`, which provides `users.extensions`, so a test can start `UsersIdentityProvider` (`users.profiles`, `users.settings`) beside its own features with `startTestFeatures`.
 - **Breaking.** The users table resource drops its scalar `id` search entry, which made `filters: { id: ids }` fail, and its `ids` entry: `filters: { id }` takes one id or a list. The settings table drops `search: true` on its `id` field. `countUsers` and the `users/user-administration-server` pattern's workspace narrowing filter by `id`. **Upgrading:** `filters: { ids }` on `users.profiles` becomes `filters: { id: ids }`.

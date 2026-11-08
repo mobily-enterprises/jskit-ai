@@ -29,7 +29,6 @@ const workspaceInvitesResource = defineTableResource({
     },
     roleSid: {
       type: "string",
-      required: true,
       max: 64,
       defaultTo: "member",
       search: true,
@@ -38,7 +37,6 @@ const workspaceInvitesResource = defineTableResource({
     },
     status: {
       type: "string",
-      required: true,
       max: 64,
       defaultTo: "pending",
       search: true,

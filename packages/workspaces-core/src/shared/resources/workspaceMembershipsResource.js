@@ -35,7 +35,6 @@ const workspaceMembershipsResource = defineTableResource({
     },
     roleSid: {
       type: "string",
-      required: true,
       max: 64,
       defaultTo: "member",
       search: true,
@@ -44,7 +43,6 @@ const workspaceMembershipsResource = defineTableResource({
     },
     status: {
       type: "string",
-      required: true,
       max: 32,
       defaultTo: "active",
       search: true,

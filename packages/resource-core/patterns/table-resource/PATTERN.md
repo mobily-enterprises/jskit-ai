@@ -41,6 +41,9 @@ this resource (`crud/crud-contract`), not a second resource.
   stamps new rows from the caller's context.
 - A field's default value is `defaultTo`; `default` is refused, since
   json-rest-api never read it.
+- A field with `defaultTo` is not `required`: a create is checked for
+  required fields before defaults apply, so `defineTableResource` refuses the
+  two together.
 - `lockVersionField` names an integer field over a non-null integer column
   with a starting value; `patch(id, changes, { ...options, lockVersion })` then refuses
   stale edits with a 409.
@@ -111,3 +114,4 @@ columns support, add search entries and sorts. A computed output field is
 - `where workspace_id = ?` written by hand: ownership adds it
 - a row policy, hooks or SQL in the shared definition
 - `default:` instead of `defaultTo:`
+- `required: true` beside `defaultTo`

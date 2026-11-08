@@ -103,6 +103,12 @@ function normalizeTableSchema(schema) {
     if (Object.hasOwn(fieldDefinition, "default")) {
       throw new TypeError(`defineTableResource schema.${fieldKey}.default would be ignored: a field's default value is defaultTo.`);
     }
+    if (fieldDefinition.required === true && fieldDefinition.defaultTo !== undefined) {
+      throw new TypeError(
+        `defineTableResource schema.${fieldKey} is required and has defaultTo: a field with defaultTo is not required. ` +
+          "A create is checked for required fields before defaults apply, so one without the field would fail REQUIRED."
+      );
+    }
     if (Object.hasOwn(fieldDefinition, "operations")) {
       throw new TypeError(
         `defineTableResource schema.${fieldKey}.operations belongs to the CRUD contract: ` +

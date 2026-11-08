@@ -77,6 +77,17 @@ test("a field's default value is defaultTo: default, which json-rest-api would i
   assert.equal(defineTableResource(receivals({ lockVersionField: undefined, schema: { status: { type: "string", defaultTo: "open" } } })).schema.status.defaultTo, "open");
 });
 
+test("a field with defaultTo is not required: a create is checked for required fields before defaults apply", () => {
+  assert.throws(
+    () => defineTableResource(receivals({ lockVersionField: undefined, schema: { status: { type: "string", required: true, defaultTo: "open" } } })),
+    /schema\.status is required and has defaultTo: a field with defaultTo is not required/u
+  );
+  assert.equal(defineTableResource(receivals({
+    lockVersionField: undefined,
+    schema: { status: { type: "string", required: false, defaultTo: "open" }, title: { type: "string", required: true } }
+  })).schema.status.defaultTo, "open");
+});
+
 test("lockVersionField names an integer field", () => {
   assert.throws(() => defineTableResource(receivals({ lockVersionField: "status" })), /lockVersionField must name an integer schema field/u);
   assert.throws(() => defineTableResource(receivals({ lockVersionField: "missing" })), /lockVersionField must name an integer schema field/u);
