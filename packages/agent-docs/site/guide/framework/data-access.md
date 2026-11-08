@@ -675,9 +675,12 @@ test("allocation is flat", () => expectFlatQueries({ environment: process.env, s
 `expectFlatQueries` (from `@jskit-ai/resource-runtime/test`) seeds each size,
 counts the statements the path sends, and fails when a larger size sends more,
 with the counts and the statements repeated most; the later chunks a many-row
-write reports are allowed. `expectScoped` seeds a second owner, runs the path as
-the first, and fails when the result holds the second owner's rows or the path
-changed them. A data test never skips: without `TEST_DB_NAME` it fails
+write reports are allowed. `expectScoped` runs the path as owner A before and
+after seeding owner B and fails when the answer changes, so it catches a report
+that sums, counts or joins B's rows, not only one that returns them; it also
+fails when the path changed or removed a row of B's. The path runs twice, so it
+answers the same for the same rows: a write answers what repeats, such as the
+ids it changed, not a fresh id or time. A data test never skips: without `TEST_DB_NAME` it fails
 (`requireTestDatabase(process.env)`). A route's statements are counted through
 the server the test boots, with `countRuntimeQueries(work)` from
 `@jskit-ai/database-runtime/server/testDatabases`.

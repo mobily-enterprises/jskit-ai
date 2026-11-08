@@ -126,13 +126,73 @@ test("expectScoped() passes a path that keeps to its workspace and fails one tha
 
   await assert.rejects(
     expectScoped({ environment, handles, systemContext, owners, seed, run: () => books.queryAll({}, { context: systemContext }) }),
-    /holds books:\d+, a row of the other owner/u
+    /answered differently once the other owner's rows were seeded/u
   );
   await assert.rejects(
     expectScoped({ environment, handles, systemContext, owners, seed, run: () => books.patchWhere({}, { title: "every" }, { context: systemContext, all: true }) }),
     /changed books:\d+, a row of the other owner/u
   );
+  await assert.rejects(
+    expectScoped({ environment, handles, systemContext, owners, seed, run: () => books.deleteWhere({ title: "b" }, { context: systemContext }) }),
+    /removed books:\d+, a row of the other owner/u
+  );
   await assert.rejects(expectScoped({ environment: {}, handles, systemContext, owners, seed, run: seed }), TestDatabaseMissingError);
+});
+
+test("expectScoped() fails a report that joins another owner's table by name, though no row of it is in the answer", async (t) => {
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("visits", (table) => { table.increments("id"); table.integer("workspace_id"); table.string("person"); });
+  await knex.schema.createTable("people", (table) => { table.increments("id"); table.integer("workspace_id"); table.string("name"); table.string("business"); });
+  const owned = (name, schema) => defineTableResource({
+    name,
+    tableName: name,
+    ownership: "workspace",
+    schema: { id: { type: "id", primary: true }, workspaceId: { type: "id", search: true, storage: { column: "workspace_id" } }, ...schema }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const { visits } = await runtime.own("visits.feature", [owned("visits", { person: { type: "string" } })]);
+  const { people } = await runtime.own("people.feature", [owned("people", { name: { type: "string" }, business: { type: "string" } })]);
+  const systemContext = runtime.declareSystemScope("visits.feature", "tests")("check scope");
+  const owners = [{ context: { workspace: { id: "1" } }, business: "business A" }, { context: { workspace: { id: "2" } }, business: "business B" }];
+  const seed = async ({ context, business }) => {
+    await visits.create({ person: "Pat" }, { context, returning: "none" });
+    await people.create({ name: "Pat", business }, { context, returning: "none" });
+  };
+
+  // Knex: report - each visit with where its person works, joining the people table by name: it reads every owner's people
+  async function visitLabels(options) {
+    const { query } = await visits.scopedQuery({ alias: "v" }, options);
+    const rows = await query.join("people", "people.name", visits.column("person", "v")).select("people.name", "people.business").orderBy("people.id");
+    return rows.map((row) => `${row.name} at ${row.business}`);
+  }
+
+  // Each answer is text, so no row of the other owner's is in it by id; the second answer gained one.
+  await assert.rejects(
+    expectScoped({ environment, handles: [visits, people], systemContext, owners, seed, run: (owner) => visitLabels(owner) }),
+    (error) => {
+      assert.equal(error.name, "AssertionError");
+      assert.match(error.message, /answered differently once the other owner's rows were seeded/u);
+      assert.deepEqual(error.expected, ["Pat at business A"]);
+      assert.deepEqual(error.actual, ["Pat at business A", "Pat at business B"]);
+      return true;
+    }
+  );
+});
+
+test("expectScoped() reads back only the other owner's rows, so a table past queryAll's row limit is checked too", async (t) => {
+  const { knex, books, systemContext } = await createShelfFixture(t);
+  await knex.batchInsert("books", Array.from({ length: 10_001 }, (_, index) => ({ workspace_id: 3, title: `Old ${index}` })), 500);
+  const owners = [{ context: { workspace: { id: "1" } } }, { context: { workspace: { id: "2" } } }];
+  const result = await expectScoped({
+    environment,
+    handles: [books],
+    systemContext,
+    owners,
+    seed: (owner) => books.createMany([{ title: "a" }, { title: "b" }], owner),
+    run: (owner) => books.queryAll({}, owner)
+  });
+  assert.deepEqual(result.map(({ title }) => title).sort(), ["a", "b"]);
 });
 
 test("expectEveryTableOwned() names each table no feature owns", async (t) => {
