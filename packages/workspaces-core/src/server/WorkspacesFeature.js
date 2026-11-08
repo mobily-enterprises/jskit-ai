@@ -12,17 +12,12 @@ import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWor
 import { noInviteAcceptanceParticipant } from "./workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { buildWorkspaceName } from "./common/services/workspaceDirectoryService.js";
 import { createWorkspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
-import { createWorkspaceRecords, createWorkspacesRuntime } from "./workspacesRuntime.js";
-import { workspaceInvitesResource } from "../shared/resources/workspaceInvitesResource.js";
-import { workspaceMembershipsResource } from "../shared/resources/workspaceMembershipsResource.js";
-import { workspaceResource } from "../shared/resources/workspaceResource.js";
-import { workspaceSettingsResource } from "../shared/resources/workspaceSettingsResource.js";
+import { WORKSPACES_TABLES, createWorkspaceRecords, createWorkspacesRuntime } from "./workspacesRuntime.js";
 
 const WorkspacesFeature = defineFeature({
   id: "workspaces.core",
   domain: "workspace",
-  // The workspaces, workspace_memberships, workspace_invites and workspace_settings tables' one owner.
-  owns: [workspaceResource, workspaceMembershipsResource, workspaceInvitesResource, workspaceSettingsResource],
+  owns: WORKSPACES_TABLES,
   requires: {
     appRoot: "runtime.app-root",
     bootstrap: "runtime.bootstrap",

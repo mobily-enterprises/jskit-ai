@@ -588,6 +588,26 @@ infrastructure tables for it: `LOCAL_AUTH_INFRASTRUCTURE_TABLES`
 `OIDC_CLIENT_INFRASTRUCTURE_TABLES` (`@jskit-ai/auth-provider-oidc-core/server/lib/index`)
 and `OIDC_ISSUER_INFRASTRUCTURE_TABLES` (`@jskit-ai/oidc-issuer-core/server`).
 
+A test of a feature and the owner APIs it requires starts them as the server
+does, without HTTP: `startTestFeatures({ knex, features, requires, inputs,
+createTables })` orders the features by their requires, owns their tables
+through a test resource runtime, runs every boot (so `crud.contracts` is
+sealed) and answers `{ capabilities, resources, stop }`. JSKIT's owners start
+beside yours: `UsersExtensionsProvider` and `UsersIdentityProvider` give
+`users.profiles`, and `WorkspaceRecordsFeature`
+(`@jskit-ai/workspaces-core/test/WorkspaceRecordsFeature`) gives `workspaces`
+and `workspaces.memberships` without the workspace routes. Never import another
+package's repositories to build its owner API by hand.
+
+```js
+const { capabilities, stop } = await startTestFeatures({
+  knex,
+  features: [RosterFeature, WorkspaceRecordsFeature, UsersIdentityProvider, UsersExtensionsProvider],
+  requires: { roster: "roster" }
+});
+t.after(stop);
+```
+
 ## Hard rules
 
 These are always wrong, and lint reports them as errors in all code but the

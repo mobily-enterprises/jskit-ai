@@ -14,6 +14,8 @@ test("users-core exports are explicit and aligned with production/template usage
     packageDir: PACKAGE_DIR,
     packageId: "@jskit-ai/users-core",
     requiredExports: [
+      // An application's tests start it with UsersIdentityProvider for users.profiles.
+      "./server/UsersExtensionsProvider",
       "./server/UsersFeature",
       "./server/UsersIdentityProvider",
       "./server/usersExtensions",

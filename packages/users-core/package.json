@@ -14,6 +14,7 @@
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
     "./shared/resources/userSettingsResource": "./src/shared/resources/userSettingsResource.js",
     "./shared/settings": "./src/shared/settings.js",
+    "./server/UsersExtensionsProvider": "./src/server/UsersExtensionsProvider.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
@@ -111,6 +112,10 @@
           {
             "subpath": "./server/types",
             "summary": "Types of the users.core, users.profiles, users.settings and users.extensions capabilities, for features that require them."
+          },
+          {
+            "subpath": "./server/UsersExtensionsProvider",
+            "summary": "Exports UsersExtensionsProvider, which provides users.extensions, for a test that starts UsersIdentityProvider."
           }
         ],
         "capabilities": [

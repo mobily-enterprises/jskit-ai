@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `@jskit-ai/users-core/server/UsersExtensionsProvider` exports `UsersExtensionsProvider`, which provides `users.extensions`, so a test can start `UsersIdentityProvider` (`users.profiles`, `users.settings`) beside its own features with `startTestFeatures`.
 - **Breaking.** The users table resource drops its scalar `id` search entry, which made `filters: { id: ids }` fail, and its `ids` entry: `filters: { id }` takes one id or a list. The settings table drops `search: true` on its `id` field. `countUsers` and the `users/user-administration-server` pattern's workspace narrowing filter by `id`. **Upgrading:** `filters: { ids }` on `users.profiles` becomes `filters: { id: ids }`.
 - The `users/user-administration-server` pattern's packages require `crud.contracts`, which every package with a CRUD feature now lists.
 - The `users/user-administration-server` pattern's users list and view answer only the display name, email, username and timestamps its CRUD contract names: before, the CRUD service also answered the sign-in identity and the avatar's storage, which the contract kept out of its output with `{}` entries. Applications that copied the pattern get the same by upgrading crud-core, and drop the `{}` entries.

@@ -19,6 +19,7 @@
     "./shared/support/workspacePathModel": "./src/shared/support/workspacePathModel.js",
     "./shared/resources/workspaceResource": "./src/shared/resources/workspaceResource.js",
     "./shared/resources/workspaceSettingsResource": "./src/shared/resources/workspaceSettingsResource.js",
+    "./test/WorkspaceRecordsFeature": "./src/test/WorkspaceRecordsFeature.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
@@ -118,6 +119,10 @@
           {
             "subpath": "./server/types",
             "summary": "Types of the workspaces.core, workspaces and workspaces.memberships capabilities, for features that require them."
+          },
+          {
+            "subpath": "./test/WorkspaceRecordsFeature",
+            "summary": "For an application's tests: WorkspaceRecordsFeature owns the workspaces tables and provides only workspaces and workspaces.memberships, the records workspaces.core provides, without its routes, settings or invitations."
           }
         ],
         "capabilities": [

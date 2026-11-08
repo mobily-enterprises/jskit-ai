@@ -1,5 +1,8 @@
 import { AssertionError } from "node:assert";
+import { ActionProvider } from "@jskit-ai/kernel/server/actions";
+import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { requireTestDatabase, tableNames, TestDatabaseMissingError } from "@jskit-ai/database-runtime/server/testDatabases";
 import { createResourceHost } from "../server/resourceHost.js";
 import { createResourceRuntime } from "../server/resourceRuntime.js";
@@ -46,6 +49,49 @@ async function createTestResourceRuntime({ knex, logger = silentLogger, requestR
 }
 
 /**
+ * Starts features as an application's server does, on the test's own Knex and
+ * without HTTP: the kernel orders them by what they require, the resource
+ * runtime gives each owner its handles and system context (with `createTables`,
+ * it also creates each owned table from its resource), and every boot runs, so
+ * a registry that seals at boot, such as `crud.contracts`, is sealed. The
+ * runtime's events and actions are started with them; `inputs` give anything
+ * else the features require, by capability id, and `requires` names what the
+ * test reads, as a feature's own requires do. `stop()` shuts them down.
+ * @template {Record<string, string>} R
+ * @param {object} options
+ * @param {import("knex").Knex} options.knex
+ * @param {ReadonlyArray<ReturnType<typeof defineProvider>>} options.features The features and providers under test.
+ * @param {R} [options.requires] What the test reads: local name to capability id.
+ * @param {Record<string, unknown>} [options.inputs] Capability values given as they are, by capability id.
+ * @param {boolean} [options.createTables]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} [options.logger]
+ * @returns {Promise<{ capabilities: { [K in keyof R]: any }, resources: ReturnType<typeof createResourceRuntime>, stop: () => Promise<unknown> }>}
+ */
+async function startTestFeatures({ knex, features, requires = {}, inputs = {}, createTables = false, logger = silentLogger }) {
+  const resources = await createTestResourceRuntime({ knex, logger, createTables });
+  let capabilities = {};
+  const reader = defineProvider({
+    id: "test.features.reader",
+    requires,
+    /** @param {Record<string, unknown>} values The capabilities the test reads. */
+    setup(values) {
+      capabilities = Object.freeze({ ...values });
+      return {};
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": logger, ...inputs, "runtime.resources": resources },
+    providers: [EventProvider, ActionProvider, ...features, reader]
+  });
+  await runtime.start();
+  return Object.freeze({
+    capabilities,
+    resources,
+    stop: () => runtime.shutdown()
+  });
+}
+
+/**
  * Fails when the migrated test database holds a table no feature owns and no
  * package declares as infrastructure (the migration ledger always is).
  * @param {object} options
@@ -71,5 +117,6 @@ export {
   expectEveryTableOwned,
   expectFlatQueries,
   expectScoped,
-  requireTestDatabase
+  requireTestDatabase,
+  startTestFeatures
 };

@@ -1,6 +1,10 @@
 import { createWorkspaceRoleCatalog } from "../shared/roles.js";
 import { WORKSPACE_SETTINGS_COLOR_FIELDS, normalizeWorkspaceHexColor } from "../shared/settings.js";
 import { resolveTenancyProfile } from "../shared/tenancyProfile.js";
+import { workspaceInvitesResource } from "../shared/resources/workspaceInvitesResource.js";
+import { workspaceMembershipsResource } from "../shared/resources/workspaceMembershipsResource.js";
+import { workspaceResource } from "../shared/resources/workspaceResource.js";
+import { workspaceSettingsResource } from "../shared/resources/workspaceSettingsResource.js";
 import { createRepository as createWorkspaceInvitesRepository } from "./common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createWorkspaceMembershipsRepository } from "./common/repositories/workspaceMembershipsRepository.js";
 import { createRepository as createWorkspacesRepository } from "./common/repositories/workspacesRepository.js";
@@ -45,6 +49,9 @@ function requireWorkspaceColorDefaults(defaults) {
   }
   return colors;
 }
+
+// The workspaces, workspace_memberships, workspace_invites and workspace_settings tables, which workspaces.core owns.
+const WORKSPACES_TABLES = Object.freeze([workspaceResource, workspaceMembershipsResource, workspaceInvitesResource, workspaceSettingsResource]);
 
 /**
  * The workspaces and their memberships, the `workspaces` and
@@ -168,4 +175,4 @@ function createWorkspacesRuntime({
   });
 }
 
-export { createWorkspaceRecords, createWorkspacesRuntime };
+export { WORKSPACES_TABLES, createWorkspaceRecords, createWorkspacesRuntime };

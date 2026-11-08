@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import knexFactory from "knex";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { defineFeature } from "@jskit-ai/kernel/server/features";
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import {
   TestDatabaseMissingError,
   createTestResourceRuntime,
   expectEveryTableOwned,
   expectFlatQueries,
-  expectScoped
+  expectScoped,
+  startTestFeatures
 } from "../src/test/index.js";
 
 const environment = Object.freeze({ TEST_DB_NAME: "catalogue_test" });
@@ -138,4 +141,54 @@ test("expectEveryTableOwned() names each table no feature owns", async (t) => {
   await knex.schema.createTable("loose_notes", (table) => table.increments("id"));
   await assert.rejects(expectEveryTableOwned({ knex, runtime, environment }), /Tables no feature owns: loose_notes\./u);
   await expectEveryTableOwned({ knex, runtime, infrastructureTables: ["loose_notes"], environment });
+});
+
+test("startTestFeatures() starts features in the order their requires give, on tables it creates, and boots them", async (t) => {
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  const shelves = defineTableResource({
+    name: "shelves",
+    tableName: "shelves",
+    ownership: "workspace",
+    schema: { workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } }, label: { type: "string", required: true } }
+  });
+  const order = [];
+  const ShelvesFeature = defineFeature({
+    id: "shelves",
+    owns: [shelves],
+    systemScope: "count every workspace's shelves",
+    provides: { shelfRecords: "shelves.records" },
+    setup: ({ resources, systemContext }) => {
+      order.push("shelves");
+      return {
+        shelfRecords: Object.freeze({
+          add: (label, options) => resources.shelves.create({ label }, options),
+          countAll: () => resources.shelves.aggregate({ measures: { shelves: { count: "id" } } }, { context: systemContext("count every shelf") })
+        })
+      };
+    }
+  });
+  // Listed first, it still starts after the feature whose records it requires, and its boot runs after every setup.
+  const ReportsFeature = defineFeature({
+    id: "reports",
+    requires: { shelfRecords: "shelves.records" },
+    provides: { reports: "reports" },
+    setup: ({ shelfRecords }) => {
+      order.push("reports");
+      return { reports: Object.freeze({ shelfCount: async () => (await shelfRecords.countAll())[0].shelves }) };
+    }
+  });
+  const Sealer = defineProvider({ id: "test.sealer", setup: () => ({}), boot: () => { order.push("boot"); } });
+  const { capabilities, resources, stop } = await startTestFeatures({
+    knex,
+    features: [ReportsFeature, Sealer, ShelvesFeature],
+    requires: { reports: "reports", shelfRecords: "shelves.records" },
+    createTables: true
+  });
+  t.after(stop);
+  await capabilities.shelfRecords.add("fiction", { context: { workspace: { id: "1" } } });
+  await capabilities.shelfRecords.add("poetry", { context: { workspace: { id: "2" } } });
+  assert.equal(await capabilities.reports.shelfCount(), 2);
+  assert.deepEqual(order, ["shelves", "reports", "boot"]);
+  assert.deepEqual(resources.ownedTables(), [{ name: "shelves", tableName: "shelves", featureId: "shelves" }]);
 });

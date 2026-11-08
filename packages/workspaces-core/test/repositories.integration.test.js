@@ -3,9 +3,9 @@ import { before, beforeEach, after, describe, test } from "node:test";
 import knexLib from "knex";
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
-import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
+import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
+import { UsersExtensionsProvider } from "@jskit-ai/users-core/server/UsersExtensionsProvider";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
-import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
 import usersInitial from "../../users-core/migrations/users_core_generic_initial.cjs";
 import usersUsername from "../../users-core/migrations/users_core_profile_username.cjs";
 import usersUpdatedAt from "../../users-core/migrations/users_core_profile_updated_at.cjs";
@@ -13,6 +13,7 @@ import workspacesInitial from "../migrations/workspaces_core_initial.cjs";
 import workspaceSettingsMigration from "../migrations/workspaces_core_workspace_settings_single_name_source.cjs";
 import workspaceColorMigration from "../migrations/workspaces_core_workspaces_drop_color.cjs";
 import { createWorkspaceRecords } from "../src/server/WorkspacesFeature.js";
+import { WORKSPACES_TABLES } from "../src/server/workspacesRuntime.js";
 import { createRepository as createInvitesRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createSettingsRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 import { renderDefaultWorkspaceInviteEmail } from "../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
@@ -23,10 +24,6 @@ import { buildWorkspaceName, createService as createDirectoryService } from "../
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 import { createWorkspacesServerI18n } from "../src/server/i18n.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
-import { workspaceInvitesResource } from "../src/shared/resources/workspaceInvitesResource.js";
-import { workspaceMembershipsResource } from "../src/shared/resources/workspaceMembershipsResource.js";
-import { workspaceResource } from "../src/shared/resources/workspaceResource.js";
-import { workspaceSettingsResource } from "../src/shared/resources/workspaceSettingsResource.js";
 import { verifyInvitationTransactions } from "./support/invitationTransactions.js";
 
 const TABLES = [
@@ -91,6 +88,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   let usersExtensions;
   let profileProjector;
   let ownsTables = false;
+  let stopFeatures = async () => {};
 
   before(async () => {
     knex = knexLib(configuration);
@@ -115,16 +113,15 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       await migration.up(knex);
     }
     // The tables owned as UsersIdentityProvider and WorkspacesFeature own them.
-    runtime = await createTestResourceRuntime({ knex, logger: silentLogger });
-    usersExtensions = createUsersExtensions();
-    ({ profiles, settings: userSettings, profileProjector } = await UsersIdentityProvider.setup({
-      extensions: usersExtensions,
-      actionCatalogue: { register() {} },
-      resourceRuntime: runtime
-    }, {}));
-    const resources = await runtime.own("workspaces.core", [
-      workspaceResource, workspaceMembershipsResource, workspaceInvitesResource, workspaceSettingsResource
-    ]);
+    let capabilities;
+    ({ capabilities, resources: runtime, stop: stopFeatures } = await startTestFeatures({
+      knex,
+      logger: silentLogger,
+      features: [UsersExtensionsProvider, UsersIdentityProvider],
+      requires: { profiles: "users.profiles", userSettings: "users.settings", profileProjector: "auth.profile.projector", usersExtensions: "users.extensions" }
+    }));
+    ({ profiles, userSettings, profileProjector, usersExtensions } = capabilities);
+    const resources = await runtime.own("workspaces.core", WORKSPACES_TABLES);
     ({ workspaces, memberships } = createWorkspaceRecords(resources));
     invites = createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
     settings = createSettingsRepository({
@@ -144,6 +141,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   after(async () => {
     if (!knex) return;
     try {
+      await stopFeatures();
       if (ownsTables) {
         for (const table of TABLES) await knex.schema.dropTableIfExists(table);
       }

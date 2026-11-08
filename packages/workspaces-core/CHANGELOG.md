@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `@jskit-ai/workspaces-core/test/WorkspaceRecordsFeature` exports `WorkspaceRecordsFeature`, for an application's tests. It owns the workspaces tables as `workspaces.core` does and provides only its records, `workspaces` and `workspaces.memberships`, without the routes, settings and invitations, so a test can start it beside the feature it tests with `startTestFeatures`. `WorkspacesFeature` and it name the four tables once, as `WORKSPACES_TABLES`.
 - The workspaces, memberships, invites and settings table resources no longer declare their own `id` search entry (nor `search: true` on the settings' `id` field): their handles' `id` filter takes one id or a list.
 - Security: a new workspace that loses its slug to a concurrent create answers the workspace already there only when that one has the same owner and the same personal flag (a personal workspace made twice at a first sign-in). It never answers another owner's workspace, which it used to; the directory then picks the next free slug and creates the caller's own, up to three times, and a duplicate inside the caller's transaction fails it as before.
 - The invitation bootstrap audience says `publicTablesOnly: true`: it reads the invite and the recipient's profile, both public tables, so an app needs no `RealtimeAudienceScopeFeature` for it, now that realtime refuses to boot without one for any other `audienceUsers` audience.

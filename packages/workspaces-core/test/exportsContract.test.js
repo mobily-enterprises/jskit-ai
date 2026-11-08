@@ -25,6 +25,8 @@ test("workspaces-core exports are explicit and aligned with production usage", (
       "./shared/resources/workspaceSettingsResource",
       // Features that require this package's capabilities take their types from it.
       "./server/types",
+      // An application's tests start it beside their features for workspaces and workspaces.memberships.
+      "./test/WorkspaceRecordsFeature",
       // The generated client bootstrap registers it so clients render these server codes.
       "./locales/en.json"
     ]
