@@ -83,11 +83,15 @@ test("shell-web shell layout registers navigation at the app layout level", asyn
   assert.match(layoutSource, /const \{ pageActions \} = useShellAppBar\(\);/u);
   assert.match(layoutSource, /<ShellUpButton v-if="canGoUp" class="shell-layout__leading" \/>/u);
   assert.match(layoutSource, /<ShellPageTitle :title="fallbackTitle" \/>/u);
+  // Each top-right item renders once, in the bar or teleported into the overflow menu, which keeps it mounted.
   assert.match(
     layoutSource,
-    /<ShellPageActionsTarget>\s*<template v-if="topRightInMenu > 0" #menu>\s*<ShellOutlet target="shell-layout:top-right" :end="topRightInMenu" \/>/u
+    /<ShellPageActionsTarget :menu-items="topRightInMenu > 0">\s*<template v-if="topRight\.length > 0 && !slots\['top-right'\]" #menu>\s*<div :id="TOP_RIGHT_MENU_ID"/u
   );
-  assert.match(layoutSource, /<ShellOutlet target="shell-layout:top-right" :start="topRightInMenu" \/>/u);
+  assert.match(
+    layoutSource,
+    /<Teleport\s+v-for="\(entry, index\) in topRight"[\s\S]*?:to="`#\$\{TOP_RIGHT_MENU_ID\}`"\s+:disabled="index >= topRightInMenu"\s*>[\s\S]*?<ShellOutlet target="shell-layout:top-right" :start="index" :end="index \+ 1" \/>/u
+  );
   assert.doesNotMatch(layoutSource, /\$arrowBack|PAGE_TITLE_ID|SHELL_PAGE_ACTIONS_ID|attachShell/u);
 
   assert.doesNotMatch(source, /<v-layout\b/);

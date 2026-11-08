@@ -126,6 +126,8 @@ Exports
 Exports
 - None
 Local functions
+- `showsItems()`
+- `showsMenu()`
 - `itemProps(entry)`
 
 ### `src/client/components/ShellPageTitle.vue`
@@ -213,6 +215,12 @@ Local functions
 ### `src/client/composables/useShellRouteTransition.js`
 Exports
 - `useShellRouteTransition(props)`
+
+### `src/client/composables/useShellTopRightOverflow.js`
+Exports
+- `useShellTopRightOverflow({ enabled, placements, pageActions, row, headline, items, menuId })`
+Local functions
+- `wholeTitleWidth(title)`
 
 ### `src/client/composables/useShellWindowSizeClass.js`
 Exports
@@ -663,6 +671,10 @@ Exports
 Exports
 - `resolveShellLayoutClass(viewportWidth = pageViewportWidth())`
 
+### `src/client/support/topRightOverflow.js`
+Exports
+- `resolveTopRightItemsInMenu({ room, title, items, menuButton, menuShown, keepLast })`
+
 ### `src/client/support/windowSizeClass.js`
 Exports
 - `EXPANDED_MIN_WIDTH`
@@ -757,6 +769,8 @@ Exports
 ### `fixtures/adaptive-shell/src/StatusButton.vue`
 Exports
 - None
+Local functions
+- `count(event)`
 
 ### `fixtures/adaptive-shell/src/StudioPage.vue`
 Exports

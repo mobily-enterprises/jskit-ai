@@ -208,19 +208,20 @@ const placements = [
   }
 ];
 
-// `?topRight=3` gives the top app bar three items of its own, as an app's tools, status and avatar.
+// `?topRight=3` gives the top app bar three items of its own, as an app's tools, status and avatar; the status draws a
+// surface of its own on the page too.
 const statusPlacements = [
   ["$settings", "Tools"],
-  ["$notifications", "Status"],
+  ["$notifications", "Status", true],
   ["$accountCircle", "Account"]
-].slice(0, Number(new URLSearchParams(window.location.search).get("topRight")) || 0).map(([icon, label], index) => ({
+].slice(0, Number(new URLSearchParams(window.location.search).get("topRight")) || 0).map(([icon, label, surface], index) => ({
   id: `fixture.status.${index}`,
   target: "shell.status",
   kind: "component",
   componentToken: "fixture.status-button",
   surfaces: ["home", "admin"],
   order: 10 + index,
-  props: { icon, label }
+  props: { icon, label, surface: Boolean(surface) }
 }));
 
 const menuRenderers = Object.freeze({ link: "fixture.surface-menu-link" });

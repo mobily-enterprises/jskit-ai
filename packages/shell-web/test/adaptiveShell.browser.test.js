@@ -1174,72 +1174,95 @@ test("a nested component's title gives the page's own title back, and Save retur
   }
 });
 
-test("on a phone, the bar keeps one trailing item and moves the page actions and its other items into one menu", {
+test("on a phone, the bar keeps the items that fit beside the whole title, moves the rest into its menu and keeps each one mounted", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
-}, async () => {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
-    // Tools, status and the account avatar: the list keeps the avatar, nearest the corner, and the overflow menu holds
-    // every page action, then the tools and the status.
-    await page.goto("/home/actions?topRight=3");
-    const bar = page.getByTestId("jskit-shell-app-bar");
-    const overflow = bar.getByTestId("jskit-shell-page-actions-overflow");
-    const barItems = () =>
-      bar.locator(".shell-layout__top-right [data-testid=fixture-status]").evaluateAll((items) =>
-        items.map((item) => item.getAttribute("aria-label"))
-      );
-    assert.deepEqual(await barItems(), ["Account"]);
-    await expect(bar.locator(".shell-page-action")).toHaveCount(0);
-    await overflow.click();
-    await expect(page.getByRole("menu")).toBeVisible();
-    await expect(page.getByRole("menuitem")).toHaveText(["Edit", "Export", "Open site", "Delete", "Duplicate"]);
-    const items = page.getByTestId("jskit-shell-page-actions-overflow-items");
-    await expect(items.getByTestId("fixture-status")).toHaveCount(2);
-    await expect(items.getByRole("button", { name: "Tools", exact: true })).toBeVisible();
-    await expect(items.getByRole("button", { name: "Status", exact: true })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(page.getByRole("menu")).toBeHidden();
-    const room = () =>
-      page.evaluate(() => {
-        const title = document.querySelector("[data-testid=jskit-shell-page-title]");
-        const trailing = Array.from(document.querySelectorAll("[data-testid=jskit-shell-app-bar] .v-btn")).at(-1);
-        return {
-          title: Math.round(title.getBoundingClientRect().width),
-          clipped: title.scrollWidth > title.clientWidth + 1,
-          right: Math.round(trailing.getBoundingClientRect().right)
-        };
-      });
-    const list = await room();
-    assert.ok(list.title >= 96 && !list.clipped, `the list's title keeps its room (${list.title}px)`);
-    assert.ok(list.right <= 390, `the avatar is in the window (${list.right}px)`);
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
+  const bar = page.getByTestId("jskit-shell-app-bar");
+  const overflow = bar.getByTestId("jskit-shell-page-actions-overflow");
+  const items = page.getByTestId("jskit-shell-page-actions-overflow-items");
+  const barItems = () =>
+    bar.locator(".shell-layout__top-right [data-testid=fixture-status]").evaluateAll((elements) =>
+      elements.map((element) => element.getAttribute("aria-label"))
+    );
+  const room = () =>
+    page.evaluate(() => {
+      const title = document.querySelector("[data-testid=jskit-shell-page-title]");
+      const trailing = Array.from(document.querySelectorAll("[data-testid=jskit-shell-app-bar] .v-btn")).at(-1);
+      return {
+        title: Math.round(title.getBoundingClientRect().width),
+        clipped: title.scrollWidth > title.clientWidth + 1,
+        right: Math.round(trailing.getBoundingClientRect().right)
+      };
+    });
+  // Every item, in the bar or the menu, mounted once and never unmounted.
+  const lifecycle = () => page.evaluate(() => window.__fixtureStatusLifecycle);
+  const mountedOnce = { "Tools mounted": 1, "Status mounted": 1, "Account mounted": 1 };
 
-    // A form's Save is its one trailing item, so the avatar joins the tools and the status in the menu.
-    await page.getByRole("link", { name: "New entry", exact: true }).click();
-    await expect(bar.getByRole("button", { name: "Save", exact: true })).toBeVisible();
-    await expect(page.getByTestId("jskit-shell-back")).toHaveAttribute("data-action", "close");
-    assert.deepEqual(await barItems(), []);
-    await overflow.click();
-    await expect(items.getByTestId("fixture-status")).toHaveCount(3);
-    await expect(page.getByRole("menuitem")).toHaveCount(0);
-    await expect(items.getByRole("button", { name: "Account", exact: true })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(items).toBeHidden();
-    const form = await room();
-    assert.ok(form.title >= 96 && !form.clipped, `the form's title keeps its room (${form.title}px)`);
-    assert.ok(form.right <= 390, `Save is in the window (${form.right}px)`);
+  // Tools, status and the account avatar beside a short title and the page actions' menu: all three fit, so all three
+  // stay in the bar, and the menu holds only the page actions.
+  await page.goto("/home/actions?topRight=3&title=Actions");
+  await expect(shellPageTitle(page)).toHaveText("Actions");
+  await expect.poll(barItems).toEqual(["Tools", "Status", "Account"]);
+  await expect(bar.locator(".shell-page-action")).toHaveCount(0);
+  const short = await room();
+  assert.ok(!short.clipped, `the short title is whole (${short.title}px)`);
+  assert.ok(short.right <= 390, `the avatar is in the window (${short.right}px)`);
+  await overflow.click();
+  await expect(page.getByRole("menu")).toBeVisible();
+  await expect(page.getByRole("menuitem")).toHaveText(["Edit", "Export", "Open site", "Delete", "Duplicate"]);
+  await expect(items).toBeHidden();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("menu")).toBeHidden();
 
-    // Wider windows keep every item in the bar.
-    await page.setViewportSize({ width: 1280, height: 900 });
-    await expect(bar.getByTestId("fixture-status")).toHaveCount(3);
-    await page.close();
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
-  }
+  // A title too long for the bar: the items farthest from the corner move into the menu, after the page actions, and
+  // the avatar stays. The status's own surface stays on the page while its button is in the closed menu.
+  await page.getByTestId("fixture-toggle-long-title").click();
+  await expect(shellPageTitle(page)).toHaveText("Quarterly statements for every supplier");
+  await expect.poll(barItems).toEqual(["Account"]);
+  await expect(page.getByTestId("fixture-status")).toHaveCount(3);
+  await expect(page.getByTestId("fixture-status-surface")).toBeVisible();
+  const long = await room();
+  assert.ok(long.right <= 390, `the avatar is in the window (${long.right}px)`);
+  await overflow.click();
+  await expect(page.getByRole("menuitem")).toHaveText(["Edit", "Export", "Open site", "Delete", "Duplicate"]);
+  await expect(items.getByTestId("fixture-status")).toHaveCount(2);
+  await expect(items.getByRole("button", { name: "Tools", exact: true })).toBeVisible();
+  await expect(items.getByRole("button", { name: "Status", exact: true })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(items).toBeHidden();
+  await expect(page.getByTestId("fixture-status-surface")).toBeVisible();
+
+  // The short title again: the items come back to the bar.
+  await page.getByTestId("fixture-toggle-long-title").click();
+  await expect(shellPageTitle(page)).toHaveText("Actions");
+  await expect.poll(barItems).toEqual(["Tools", "Status", "Account"]);
+  assert.deepEqual(await lifecycle(), mountedOnce);
+
+  // A form's Save is a trailing item too: whatever does not fit beside it and the whole title, the avatar included,
+  // is in the menu, and nothing remounts.
+  await page.getByRole("link", { name: "New entry", exact: true }).click();
+  await expect(bar.getByRole("button", { name: "Save", exact: true })).toBeVisible();
+  await expect(page.getByTestId("jskit-shell-back")).toHaveAttribute("data-action", "close");
+  await expect(page.getByTestId("fixture-status")).toHaveCount(3);
+  const form = await room();
+  const formItems = await barItems();
+  assert.ok(!form.clipped || formItems.length === 0, `the form's title is whole, or the bar holds none of its items (${formItems})`);
+  assert.ok(form.right <= 390, `the bar's trailing item is in the window (${form.right}px)`);
+  assert.deepEqual(formItems, ["Tools", "Status", "Account"].slice(3 - formItems.length), "the bar keeps the items nearest the corner");
+  await page.getByTestId("jskit-shell-back").click();
+  await expect(shellPageTitle(page)).toHaveText("Actions");
+  await expect.poll(barItems).toEqual(["Tools", "Status", "Account"]);
+
+  // Wider windows keep every item in the bar, the same instances.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await expect(bar.getByTestId("fixture-status")).toHaveCount(3);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(barItems).toEqual(["Tools", "Status", "Account"]);
+  assert.deepEqual(await lifecycle(), mountedOnce);
+  await page.close();
 });
 
 function shellPageActionButton(page, name) {

@@ -259,12 +259,15 @@ dialog, chip or FAB.
   tooltip), and `primary`, `to`, `replace`, `href` (with `download` for a
   file, such as a CSV export), `disabled`, `loading` or `color` (`error` for a
   destructive one); attributes such as `target` reach its button. On compact
-  widths the bar keeps one trailing item after the title: the single
-  `primary` action when the page has one (a form's Save), otherwise its own
-  item nearest the corner (a top-right placement such as the account avatar).
-  Every other action and the bar's other items (a notification bell, tools)
-  go to its "More actions" menu, where `overflow` actions always are. Medium
-  and wider bars show them all.
+  widths the bar shows the single `primary` action (a form's Save) and puts
+  every other action in its "More actions" menu, where `overflow` actions
+  always are. The bar's own items (top-right placements such as tools, a
+  notification bell and the account avatar) stay while they fit beside the
+  whole title; those that don't follow the actions into the menu, farthest
+  from the corner first, and the item nearest the corner stays unless the
+  `primary` action takes its place. An item keeps running while it is in the
+  menu, closed or open, so its live count, its panel or a floating button it
+  shows elsewhere on the page stay. Medium and wider bars show them all.
 - **Window size classes:** compact under 600 (navigation bar), medium 600–839
   (navigation rail), expanded 840–1199 and large from 1200 (drawer), read from
   `useShellWindowSizeClass()`

@@ -181,8 +181,9 @@ actions behave as in `ShellLayout`:
 <script setup>
 import { ShellPageActionsTarget, ShellPageTitle, ShellUpButton, useShellAppBar } from "@jskit-ai/shell-web/client";
 
-// On a phone the bar keeps one trailing item: the page's primary action when pageActions.hasPrimary is true,
-// otherwise the app's own control nearest the corner; put the others in ShellPageActionsTarget's #menu slot.
+// On a phone the page's actions are in the bar's menu, apart from a primary one (pageActions.hasPrimary). Put the
+// app's own controls that don't fit beside the title in ShellPageActionsTarget's #menu slot: the menu keeps it
+// mounted while it is closed, and :menu-items="false" leaves its items out while the slot holds none.
 const { pageActions } = useShellAppBar();
 </script>
 

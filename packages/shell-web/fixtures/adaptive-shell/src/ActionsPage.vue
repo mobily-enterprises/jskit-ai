@@ -1,6 +1,6 @@
 <script setup>
 import { ref } from "vue";
-import { RouterLink } from "vue-router";
+import { RouterLink, useRoute } from "vue-router";
 import ShellPageAction from "../../../src/client/components/ShellPageAction.vue";
 import ShellPageActions from "../../../src/client/components/ShellPageActions.vue";
 import ShellPrimaryAction from "../../../src/client/components/ShellPrimaryAction.vue";
@@ -10,13 +10,16 @@ import TitleClaim from "./TitleClaim.vue";
 
 // Page actions in every form: icon-only and labelled, links that leave the app or download a file, a destructive one,
 // an overflow one and, on compact windows, more than the bar holds; the adaptive primary action opening a dialog; and
-// a nested component that claims the title for a while.
+// a nested component that claims the title for a while, or a title too long for a phone's bar. `?title=` sets the
+// page's own title.
 const paths = usePaths();
+const route = useRoute();
 const log = ref([]);
 const dialog = ref(false);
 const panel = ref(false);
+const longTitle = ref(false);
 
-useShellPageTitle("Page actions");
+useShellPageTitle(() => String(route.query.title || "Page actions"));
 </script>
 
 <template>
@@ -60,6 +63,8 @@ useShellPageTitle("Page actions");
     </p>
     <v-btn variant="text" data-testid="fixture-toggle-panel" @click="panel = !panel">Toggle panel</v-btn>
     <TitleClaim v-if="panel" title="Panel title" />
+    <v-btn variant="text" data-testid="fixture-toggle-long-title" @click="longTitle = !longTitle">Toggle long title</v-btn>
+    <TitleClaim v-if="longTitle" title="Quarterly statements for every supplier" />
 
     <v-dialog v-model="dialog" max-width="400">
       <v-card title="New record" data-testid="fixture-new-dialog">

@@ -6,6 +6,7 @@ import { useShellDrawer } from "../composables/useShellDrawer.js";
 import { useShellOutletPlacements } from "../composables/useShellOutletPlacements.js";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
 import { useShellPullToRefresh } from "../composables/useShellPullToRefresh.js";
+import { useShellTopRightOverflow } from "../composables/useShellTopRightOverflow.js";
 import {
   DEFAULT_SHELL_NAVIGATION_ITEM_SPACING,
   DEFAULT_SHELL_RAIL_WIDTH
@@ -145,16 +146,25 @@ const navigationStyle = computed(() => ({
   "--shell-navigation-rail-width": `${resolvedRailWidth.value}px`
 }));
 
-// A compact bar keeps one trailing item so the title keeps its room: the page's primary action when it has one (a
-// form's Save), otherwise the top-right item nearest the corner (the account menu). The other top-right items follow
-// the page actions in the overflow menu. A layout's own top-right slot stays as it is.
+// A compact bar moves the top-right items it has no room for beside the whole title into its overflow menu, after the
+// page actions, farthest from the corner first; the one nearest the corner (the account menu) stays unless the page's
+// primary action takes its place. Each item renders once and moves there and back mounted, so an item that does more
+// than draw a button (a live count, a panel or a button it teleports elsewhere) keeps working while it is in the menu.
+// A layout's own top-right slot stays as it is.
+const TOP_RIGHT_MENU_ID = "jskit-shell-top-right-menu";
 const { pageActions } = useShellAppBar();
 const topRight = useShellOutletPlacements("shell-layout:top-right");
-const topRightInMenu = computed(() => {
-  if (!isCompactLayout.value || slots["top-right"]) {
-    return 0;
-  }
-  return Math.max(topRight.value.length - (pageActions.hasPrimary.value ? 0 : 1), 0);
+const appBarRow = ref(null);
+const appBarHeadline = ref(null);
+const topRightItems = ref(null);
+const { inMenu: topRightInMenu } = useShellTopRightOverflow({
+  enabled: computed(() => isCompactLayout.value && !slots["top-right"]),
+  placements: topRight,
+  pageActions,
+  row: appBarRow,
+  headline: appBarHeadline,
+  items: topRightItems,
+  menuId: TOP_RIGHT_MENU_ID
 });
 
 function updateScrolled() {
@@ -181,7 +191,7 @@ onBeforeUnmount(() => {
     data-testid="jskit-shell-app-bar"
     :data-size-class="sizeClass"
   >
-    <div class="shell-layout__app-bar-row">
+    <div ref="appBarRow" class="shell-layout__app-bar-row">
       <ShellUpButton v-if="canGoUp" class="shell-layout__leading" />
       <v-btn
         v-else-if="toggleInAppBar"
@@ -197,20 +207,35 @@ onBeforeUnmount(() => {
         @click="toggleDrawer"
       />
 
-      <div class="shell-layout__headline" :class="{ 'shell-layout__headline--leading': canGoUp || toggleInAppBar }">
+      <div
+        ref="appBarHeadline"
+        class="shell-layout__headline"
+        :class="{ 'shell-layout__headline--leading': canGoUp || toggleInAppBar }"
+      >
         <ShellPageTitle :title="fallbackTitle" />
         <p v-if="props.subtitle" class="shell-layout__page-subtitle">{{ text(props.subtitle) }}</p>
       </div>
 
-      <ShellPageActionsTarget>
-        <template v-if="topRightInMenu > 0" #menu>
-          <ShellOutlet target="shell-layout:top-right" :end="topRightInMenu" />
+      <ShellPageActionsTarget :menu-items="topRightInMenu > 0">
+        <template v-if="topRight.length > 0 && !slots['top-right']" #menu>
+          <div :id="TOP_RIGHT_MENU_ID" class="shell-layout__top-right-menu" />
         </template>
       </ShellPageActionsTarget>
 
       <slot name="top-right" :surface="resolvedSurface">
-        <div class="shell-layout__top-right">
-          <ShellOutlet target="shell-layout:top-right" :start="topRightInMenu" />
+        <div ref="topRightItems" class="shell-layout__top-right">
+          <!-- One instance per item, in the bar or moved into the menu; `order` keeps the bar's order in both. -->
+          <Teleport
+            v-for="(entry, index) in topRight"
+            :key="entry.id"
+            defer
+            :to="`#${TOP_RIGHT_MENU_ID}`"
+            :disabled="index >= topRightInMenu"
+          >
+            <div class="shell-layout__top-right-item" :data-placement-id="entry.id" :style="{ order: index }">
+              <ShellOutlet target="shell-layout:top-right" :start="index" :end="index + 1" />
+            </div>
+          </Teleport>
         </div>
       </slot>
     </div>
@@ -421,6 +446,12 @@ onBeforeUnmount(() => {
   padding-inline-start: 4px;
 }
 
+/* The title's box is its text, up to the room it has, so the bar can tell how wide the whole title is. */
+.shell-layout__headline :deep(.shell-page-title) {
+  inline-size: fit-content;
+  max-inline-size: 100%;
+}
+
 .shell-layout__page-subtitle {
   color: rgb(var(--v-theme-on-surface-variant));
   font-size: 0.75rem;
@@ -439,6 +470,17 @@ onBeforeUnmount(() => {
   display: flex;
   flex: 0 0 auto;
   min-width: 0;
+}
+
+.shell-layout__top-right-item {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+}
+
+/* The items in the menu are the menu panel's own, laid out by it. */
+.shell-layout__top-right-menu {
+  display: contents;
 }
 
 /* Navigation rail (medium windows, and expanded ones with the drawer collapsed): 80dp, menu control on top. */
