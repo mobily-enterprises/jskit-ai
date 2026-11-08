@@ -426,6 +426,14 @@ Import `createKnexConnectionStore` and `createCredentialProtection` from
 `@jskit-ai/connectors-core/server/storage`. Use the application's existing Knex
 client, with its selected JSKIT MySQL or PostgreSQL driver.
 
+`./server/storage` imports `@jskit-ai/resource-runtime`, which this package
+takes as an optional peer, so npm does not install it. An application using the
+database-backed store declares `@jskit-ai/resource-runtime` and
+`@jskit-ai/database-runtime` itself, at the catalog's versions, as a JSKIT
+application on a database already does; without them, importing
+`./server/storage` fails with `ERR_MODULE_NOT_FOUND`. An application on file
+storage imports `./server/file-storage` and needs neither.
+
 ```js
 const protection = createCredentialProtection({
   keys: { current: decoded32ByteSecretKey },
