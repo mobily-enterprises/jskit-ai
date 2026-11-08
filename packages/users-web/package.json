@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -13,15 +13,15 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/uploads-image-web": "0.2.13",
-    "@jskit-ai/users-core": "0.2.15"
+    "@jskit-ai/uploads-image-web": "0.2.14",
+    "@jskit-ai/users-core": "0.2.16"
   },
   "peerDependencies": {
-    "@jskit-ai/auth-web": "0.2.18",
-    "@jskit-ai/http-runtime": "0.2.13",
-    "@jskit-ai/http-web": "0.2.21",
-    "@jskit-ai/kernel": "0.2.13",
-    "@jskit-ai/shell-web": "0.2.16",
+    "@jskit-ai/auth-web": "0.2.19",
+    "@jskit-ai/http-runtime": "0.2.14",
+    "@jskit-ai/http-web": "0.2.22",
+    "@jskit-ai/kernel": "0.2.14",
+    "@jskit-ai/shell-web": "0.2.17",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",

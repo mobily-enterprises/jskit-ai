@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/connectors-web",
-  "version": "0.2.14",
+  "version": "0.2.15",
   "description": "Shared Vue fields for portable application integration configuration.",
   "type": "module",
   "scripts": {
@@ -15,10 +15,10 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/connectors-core": "0.2.14"
+    "@jskit-ai/connectors-core": "0.2.15"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.13",
+    "@jskit-ai/kernel": "0.2.14",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0"
   },

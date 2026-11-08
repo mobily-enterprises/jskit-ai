@@ -327,6 +327,6 @@ const confirmBookingRouteContract = { params: recordIdParamsValidator, body: con
 
 ## Packaged source
 
-- Owner: `@jskit-ai/crud-core@0.2.14`
+- Owner: `@jskit-ai/crud-core@0.2.15`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/crud-core/patterns/crud-feature-package/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/crud-core/patterns/crud-feature-package/example)
