@@ -4,7 +4,7 @@ Use when:
 
 - mandatory record visibility needs `OR`, `EXISTS`, joins, memberships, or hierarchy traversal
 - filtering after pagination produces empty or incomplete pages
-- another package grants access to a resource but a reverse dependency would create a cycle
+- another package must narrow who sees a resource's rows but a reverse dependency would create a cycle
 - the user mentions `RowPolicyPlugin`, recursive CTEs, descendants, or permission-filtered counts
 - reads or writes of a resource with a policy get slower as records or a person's history grow
 
@@ -29,8 +29,9 @@ Package composition:
 
 - the feature that owns the resource also owns the row policy
 - the owner accepts contributions with `{ resource, rowPolicy, acceptsContributions: true }` in `owns`
-- a package that grants extra visibility depends on the resource owner and calls `resources.contributeRowPolicy(name, policy)` on the handles its own `owns` gave it; a contribution is ANDed with the owner's policy inside its own group, so it can only narrow
-- the resource owner does not import grant packages
+- a package that narrows visibility further depends on the resource owner and calls `resources.contributeRowPolicy(name, policy)` on the handles its own `owns` gave it; a contribution is ANDed with the owner's policy inside its own group, so it can only narrow
+- a contribution never grants visibility: wider visibility (shared rows, grants another package records) is a rule in the owner's own policy over its own tables, and a contribution narrows every read of the table, every feature's included, so a rule for one surface is an owner API method instead
+- the resource owner does not import contributing packages
 - do not use module-global mutable registries
 
 Example, "your rooms or shared rooms":
@@ -56,7 +57,7 @@ A system context (`systemScope`, `systemContext(reason)`) reaches the policy as
 Cost:
 
 - a policy's cost follows the rows its query reads: add a join, `EXISTS` or subquery correlated with the row through `column()` and `value()`, on indexed columns; look at its SQL too, since a statement that runs to kilobytes is planned again on every read that carries it
-- never load the subject's whole history (every source, notice or grant they were ever linked to) to build an `IN` list, and never call another owner's access check per item of it; another package's grant is a predicate contribution
+- never load the subject's whole history (every source, notice or grant they were ever linked to) to build an `IN` list, and never call another owner's access check per item of it; another package's restriction is a predicate contribution, and another package's grant is a predicate in the owner's policy over facts the owner keeps
 - the policy runs on every single-record read, including the read-back after a handle's `create()` and `patch()` (`returning: "record"`, their default) and the lookup before `patch` and `delete`, so a write pays it once per row it writes; the many-row writes check access once per statement
 - a write decides access once, inside its transaction; a batch write that would pay an expensive read-back per row follows the data access guide's [Layer 3](../site/guide/framework/data-access.md#layer-3-many-rows-at-once)
 
