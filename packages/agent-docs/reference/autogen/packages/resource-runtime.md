@@ -142,6 +142,7 @@ Exports
 - `createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMIT, serverPageSize = DEFAULT_SERVER_PAGE_SIZE })`
 Local functions
 - `ownedEntry(entry, featureId)`
+- `crossTableFilters(scopeOptions)`
 - `applyGrouped(policy, args)`
 
 ### `src/server/ResourceRuntimeProvider.js`

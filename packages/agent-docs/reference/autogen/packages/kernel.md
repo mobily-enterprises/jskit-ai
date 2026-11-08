@@ -638,6 +638,7 @@ Local functions
 Exports
 - `resolveActor(context, request)`
 - `resolveActorId(context, request)`
+- `resolveAuditActorId(context, request)`
 - `resolveRequest(context)`
 - `emptyInputValidator`
 
