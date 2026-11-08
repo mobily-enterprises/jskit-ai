@@ -228,6 +228,7 @@ Local functions
 - `isReference(node)`
 - `namesTable(callee, first)`
 - `isOtherLibrary(method, object, args)`
+- `joinsNamedTable(method, first)`
 
 ### `plugin/rules/noDualShape.js`
 Exports

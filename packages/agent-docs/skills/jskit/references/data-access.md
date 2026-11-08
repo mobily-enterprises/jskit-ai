@@ -181,7 +181,9 @@ conversation id) is read or created once with `findOrCreate({ id,
 ...attributes }, options)`, outside the transaction that then locks it: inside
 one, losing the race to create it fails the whole transaction. Compute such an
 id from the owner too (the workspace or user id in the fingerprint): an id
-another scope's row holds answers a missing record.
+another scope's row holds answers a missing record. That answer still says the
+id is taken, so `findOrCreate` and `lockOrCreate` take only ids the server
+computes or generates, never an id a request supplies.
 
 You never write `where workspace_id = ?`, so you cannot forget it. The row
 policy and write hooks go in the `owns` entry on the server, never in the
@@ -265,11 +267,19 @@ const receivalCrud = defineCrudContract(receivalResource, {
 });
 ```
 
-A contract shows and accepts only the fields it names, and an included record
-shows only what its own table's contract shows. When several contracts serve
-that table, an include shows the contract its relation names with
-`relation.namespace` (a `lookup` names its namespace), and otherwise only the
-fields they all show; `jskit check` lists the tables whose contracts differ.
+A contract shows and accepts only the fields it names, and so does an included
+record: it shows its id, its relation's `labelKey`, and only what the including
+contract lists, a record it links to only when the list names that
+relationship, at any depth. Another table's contract never shapes it, since
+that contract may be served to another surface or behind another permission:
+
+```js
+fields: {
+  ownerId: { output: { required: false, includeFields: ["displayName"] } },
+  // ?include=pet,pet.breed shows the pet's name and its breed's name
+  petId: { output: { required: false, includeFields: ["name", { breed: ["name"] }] } }
+}
+```
 A `decorateService` that also needs the record it wrote (for an audit or a
 history row) reads it from its own answer, `simplifyJsonApiResult(answer)`
 from `@jskit-ai/http-runtime/shared`, never with a second read; a relationship
@@ -401,7 +411,11 @@ async function activeDays(memberIds, options) {
   <reason>`) and `runtime-tables`.
 - `column()` names columns; `raw` takes one expression as a string literal,
   with its values as bindings.
-- The builder only reads.
+- The builder only reads, and only its own table is scoped. A `.join()` of
+  another table, or a table named inside `raw()`, reads that table's rows past
+  its owner and row policy, and nothing at run time stops it: only the
+  `jskit/no-direct-knex` and `jskit/sql-literal` lint rules do. Join only
+  another table's `scopedQuery()` as a subquery, or read it through its owner.
 - Give each report a scope test and a flat-query test (see [Tests](#tests)).
 - A report over tables with different owners is a feature of its own. It
   requires a report method from each owner (keys in, grouped totals out) and
@@ -475,7 +489,9 @@ const SettlementFeature = defineFeature({
 
 - Prefer `systemContext(reason).forWorkspace(id)`, `.forUser(id)` or
   `.forWorkspaceUser(workspaceId, userId)`: each workspace or user is then one
-  unit of work, scoped as usual, in a transaction of its own.
+  unit of work, scoped as usual, in a transaction of its own. An event it
+  publishes carries that workspace's or user's scope, as a request there would,
+  so it reaches that audience, never everyone.
 - Work a job does for one person (a request it carries out later) passes
   `{ actorId }` last: `forWorkspace(id, { actorId: requestedBy })`. It is for
   attribution only: audit fields read it with `resolveAuditActorId(context)`
@@ -530,7 +546,9 @@ caller's, `outermost` refuses one, and `lock`, `lockMany`, `lockOrCreate` and
 `claim` refuse to run outside one.
 
 When the work throws, the transaction rolls back and the caller gets the
-work's own error. A failed write inside the work, or a failed commit, reaches
+work's own error, with its status and code, reporting `transactionOutcome:
+"rolledBack"`, so a retry of a lost insert race (`isLostDuplicateInsertRace`)
+also sees a 409 the work made from the duplicate. A failed write inside the work, or a failed commit, reaches
 the caller as json-rest-api's `RestApiWriteError` (code `REST_API_WRITE`)
 with the transaction's outcome. Classify an error by its `code` or `status`,
 never with `instanceof`: a second copy of a package makes a second class.

@@ -22,6 +22,7 @@ Exports
 - `isJobContext(context)`
 - `isSystemContext`
 Local functions
+- `eventScopeOf({ workspaceId, userId })`
 - `jobContext(reason, scopeValues, options, label)`
 - `requireScopeId(value, label, subject)`
 
@@ -36,6 +37,8 @@ Exports
 
 ### `src/server/handleGuards.js`
 Exports
+- `formatOf(name, options)`
+- `matchesNoRow(filters, schemaInfo)`
 - `missingOf(name, caller, missing = "throw")`
 - `requireDefinedFilters(name, caller, filters, path = "filters")`
 - `requireOwners(name, ownership, context)`
@@ -56,6 +59,7 @@ Exports
 - `inputData(resource, attributes, stamp, context)`
 - `manyResult(resource, result, returning)`
 - `matchesOnlyIf(record, onlyIf)`
+- `noRowsAggregate(measures, groupBy)`
 - `patchAnswer(id, record, returning)`
 - `upsertConflict(resource, rows, onConflict, context, ownershipFields)`
 - `pickReturning(modes, value, fallback, label)`
@@ -95,6 +99,7 @@ Exports
 
 ### `src/server/lockOrCreate.js`
 Exports
+- `findOrCreateRecord({ get, create }, attributes, options)`
 - `lockOrCreate(handle, row, options, work)`
 
 ### `src/server/resourceHandle.js`
@@ -105,7 +110,6 @@ Local functions
 - `reportManyRow(resource, operation, rows, chunkSize)`
 - `requireHandleTransaction(name, options)`
 - `openTransaction(api, options, work)`
-- `findOrCreateRecord({ get, create }, attributes, options)`
 - `inTransaction(options)`
 - `write(options, run)`
 
@@ -152,6 +156,7 @@ Exports
 ### `src/server/standaloneResources.js`
 Exports
 - `createStandaloneResources({ knex, feature, owns, systemScope, logger = silentLogger })`
+- `registerServerRuntime(knex, runtime)`
 
 ### `src/server/types.js`
 Exports

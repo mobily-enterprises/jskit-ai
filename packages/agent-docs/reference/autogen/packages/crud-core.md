@@ -91,15 +91,15 @@ Local functions
 
 ### `src/server/jsonApiModule/service.js`
 Exports
-- `createCrudService({ repository, crud, contracts })`
+- `createCrudService({ repository, crud })`
 Local functions
 - `documentNotFound()`
 - `requireDocument(document)`
 - `isNotFound(error)`
 - `recordOutput(crud)`
 - `contractShape(crud)`
-- `intersection(sets)`
-- `documentShapes(crud, contracts)`
+- `includedShape({ attributes, relationships }, labelKey = "")`
+- `documentShapes(crud)`
 
 ### `src/server/jsonApiResourceContract.js`
 Exports
@@ -107,6 +107,8 @@ Exports
 - `resolveJsonApiFieldsetContract(resource)`
 - `resolveJsonApiRelationshipEntries(definition = null)`
 - `resolveSchemaFieldDefinitions(definition = null)`
+Local functions
+- `includeFieldsOf(label, names)`
 
 ### `src/server/listFilterJsonRest.js`
 Exports

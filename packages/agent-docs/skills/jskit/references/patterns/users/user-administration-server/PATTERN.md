@@ -40,7 +40,10 @@ permissions. The `users` table is public, every user's, so the variant also
 narrows the repository to the workspace's members with `decorateRepository`
 (`src/server/workspaceMembersOnly.js`): a list reads only the active members
 from `workspaces.memberships`' `activeMemberIds`, and anyone else is a missing
-record, so a workspace admin never learns who else has an account.
+record, so a workspace admin never learns who else has an account. The narrowed
+repository answers only `query`, `get` and `pageLimits`: users.profiles' other
+methods (`findByEmail`, `countUsers`, the writes) read or write every user, so
+they never pass through it.
 
 The `users` table has one table resource, users-core's `userProfileTableResource`
 (`@jskit-ai/users-core/shared/resources/userProfileResource`). An

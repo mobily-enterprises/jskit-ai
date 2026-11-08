@@ -86,9 +86,7 @@ Local functions
 - `readSchemaFields(code, masked, keys, ownership)`
 - `readTableResources(file, { code, masked, position })`
 - `readCrudContracts({ code, masked })`
-- `outputFields(masked, keys)`
 - `unnamedFields(resources, contracts)`
-- `differingContracts(resources, contracts)`
 - `readSystemScopes(file, { code, masked, position })`
 - `readInfrastructureExcuses(file, source)`
 - `readLintDisables(file, source, position)`
