@@ -404,11 +404,15 @@ function normalizeCheckConstraints(rows = []) {
   );
 }
 
+// What a table keyed some other way does: a table resource finds every row by one integer id.
+const SURROGATE_ID = "A table keyed by several columns, or by its owner's id, gets an integer id primary key in a migration " +
+  "and keeps its key as a unique index (JSKIT's data-access guide, Layer 1).";
+
 function requireIdColumn(columns, idColumn) {
   const normalizedIdColumn = normalizeText(idColumn) || "id";
   const idSpec = columns.find((column) => column.name === normalizedIdColumn) || null;
   if (!idSpec) {
-    throw new Error(`Could not find id column "${normalizedIdColumn}" in table.`);
+    throw new Error(`Could not find id column "${normalizedIdColumn}" in table. ${SURROGATE_ID}`);
   }
   if (idSpec.typeKind !== "integer") {
     throw new Error(`Id column "${normalizedIdColumn}" must use an integer type.`);
@@ -427,11 +431,11 @@ function requireIdColumn(columns, idColumn) {
 
 function requirePrimaryKeyContainsId(primaryKeyColumns, idColumn) {
   if (!Array.isArray(primaryKeyColumns) || !primaryKeyColumns.includes(idColumn)) {
-    throw new Error(`Primary key must include id column "${idColumn}".`);
+    throw new Error(`Primary key must include id column "${idColumn}". ${SURROGATE_ID}`);
   }
   if (primaryKeyColumns.length !== 1 || primaryKeyColumns[0] !== idColumn) {
     throw new Error(
-      `Composite primary keys are not supported for CRUD generation. Primary key must be only "${idColumn}".`
+      `Composite primary keys are not supported for CRUD generation. Primary key must be only "${idColumn}". ${SURROGATE_ID}`
     );
   }
 }

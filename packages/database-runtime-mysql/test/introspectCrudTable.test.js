@@ -386,6 +386,37 @@ test("introspectCrudTableSnapshot rejects when primary key does not include id c
   );
 });
 
+test("introspectCrudTableSnapshot says what a table keyed by several columns or by its owner's id needs", async () => {
+  const integerColumn = (columnName, ordinalPosition) => ({
+    columnName,
+    dataType: "int",
+    columnType: "int unsigned",
+    isNullable: "NO",
+    columnDefault: null,
+    extra: "",
+    characterMaximumLength: null,
+    characterSetName: null,
+    collationName: null,
+    numericPrecision: 10,
+    numericScale: 0,
+    datetimePrecision: null,
+    ordinalPosition
+  });
+  const surrogate = /gets an integer id primary key in a migration and keeps its key as a unique index/u;
+  // Keyed by its owner's id: no id column at all.
+  const ownerKeyed = createKnexRawDouble({ columns: [integerColumn("user_id", 1)], primaryKeyColumns: [{ columnName: "user_id" }] });
+  await assert.rejects(() => introspectCrudTableSnapshot(ownerKeyed.knex, { tableName: "user_themes" }), surrogate);
+  // Keyed by an id and another column.
+  const composite = createKnexRawDouble({
+    columns: [{ ...integerColumn("id", 1), extra: "auto_increment" }, integerColumn("workspace_id", 2)],
+    primaryKeyColumns: [{ columnName: "id" }, { columnName: "workspace_id" }]
+  });
+  await assert.rejects(
+    () => introspectCrudTableSnapshot(composite.knex, { tableName: "day_slots" }),
+    (error) => /Composite primary keys are not supported/u.test(error.message) && surrogate.test(error.message)
+  );
+});
+
 test("introspectCrudTableSnapshot classifies only allowlisted temporal defaults as SQL expressions", async () => {
   const { knex } = createKnexRawDouble({
     columns: [

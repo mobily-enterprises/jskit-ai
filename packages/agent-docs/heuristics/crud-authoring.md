@@ -52,7 +52,10 @@ The `crud/crud-contract` and `database/table-resource` patterns list what each e
 
 Normal CRUD tables use one non-null single-column primary key. Foreign keys are
 single-column and target compatible keys. Composite unique indexes may enforce
-business rules but do not become framework identities.
+business rules but do not become framework identities: a table keyed by several
+columns, or by its owner's id, gets an integer `id` and keeps that key as a
+unique index, read with a filter and written with an upsert
+([Layer 1](../site/guide/framework/data-access.md#layer-1-the-table-resource)).
 
 ## Schema evolution
 

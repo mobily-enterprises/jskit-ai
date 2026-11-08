@@ -1,6 +1,7 @@
 import { createActionRegistry } from "./registry.js";
 import { toRegisteredContributor } from "./actionDefinitions.js";
 import { noActionPolicy } from "./actionPolicy.js";
+import { normalizeExecutionContext } from "./executionContext.js";
 import { isRecord } from "../../shared/support/normalize.js";
 import { createEventRuntime } from "../runtime/eventRuntime.js";
 import { silentLogger } from "../../shared/support/silentLogger.js";
@@ -94,14 +95,13 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
     return next;
   }
 
-  async function buildExecutionContext({ actionId, version, input, context }) {
-    const registryInstance = currentRegistry();
-    const definition = registryInstance.getDefinition(actionId, version);
+  // The context with every contributor's additions. `definition` is the action's, or null for work that runs none.
+  async function contributeContext({ definition, input, context }) {
     let enriched = { ...(isRecord(context) ? context : {}) };
     for (const contributor of contextContributors) {
       const patch = await contributor.contribute(Object.freeze({
-        actionId: definition.id,
-        version: definition.version,
+        actionId: definition?.id ?? null,
+        version: definition?.version ?? null,
         definition,
         input: Object.freeze({ ...(isRecord(input) ? input : {}) }),
         context: Object.freeze({ ...enriched })
@@ -109,6 +109,22 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
       enriched = applyContextDefaults(enriched, patch);
     }
     return Object.freeze(enriched);
+  }
+
+  function buildExecutionContext({ actionId, version, input, context }) {
+    return contributeContext({ definition: currentRegistry().getDefinition(actionId, version), input, context });
+  }
+
+  /**
+   * The context an action would run in, for work that runs no action, such as a route that reads its own tables: the
+   * given context with every context contributor's additions, normalized as the action pipeline normalizes an
+   * action's. Contributors are told no action (`actionId`, `version` and `definition` are null), and no action's
+   * channel, surface or permission is checked.
+   * @param {{ input?: Record<string, unknown>, context?: Record<string, unknown> }} [work]
+   */
+  async function contextFor({ input, context } = {}) {
+    sealed = true;
+    return normalizeExecutionContext(await contributeContext({ definition: null, input, context }));
   }
 
   async function run(method, payload = {}) {
@@ -151,6 +167,7 @@ function createActionCatalogue({ events = createEventRuntime(), logger = silentL
     registerContextContributor,
     execute,
     executeStream,
+    contextFor,
     listDefinitions,
     getDefinition
   });

@@ -882,6 +882,47 @@ test("workspace_or_shared without a workspace reads only the shared rows and wri
   assert.equal((await knex("notes").where({ title: "stray" })).length, 0);
 });
 
+test("a shared row is written in the owner's system context, naming its empty owner, also inside a request's transaction", async (t) => {
+  const { notes, knex, systemContext } = await createFixture(t, { owns: [noteResource({ ownership: "workspace_or_shared" })] });
+  const forbidden = (error) => error.code === "REST_API_RESOURCE" && error.subtype === "forbidden";
+  // A job derived for a user is no system context: with no workspace to stamp, it may not create a shared row.
+  await assert.rejects(notes.create({ title: "stray" }, { context: systemContext.forUser("7") }), forbidden);
+  await assert.rejects(notes.create({ title: "stray", workspaceId: null }, { context: systemContext.forUser("7") }), forbidden);
+  // A workspace request stamps its own workspace and refuses another owner, the empty one included.
+  await assert.rejects(notes.create({ title: "stray", workspaceId: null }, { context: WORKSPACE_A }));
+  assert.equal((await knex("notes").where({ title: "stray" })).length, 0);
+  // The system context names the owner: an empty one is the shared row, and leaving it out is refused.
+  await assert.rejects(notes.create({ title: "stray" }, { context: systemContext }), /needs explicit ownership values/u);
+
+  const shared = await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    await notes.create({ title: "mine" }, { ...txOptions, returning: "none" });
+    return notes.create({ title: "house rules", workspaceId: null }, { ...txOptions, context: systemContext });
+  });
+  assert.equal((await knex("notes").where({ id: shared.id }).first()).workspace_id, null);
+  for (const [context, titles] of [[WORKSPACE_A, ["house rules", "mine"]], [WORKSPACE_B, ["house rules"]]]) {
+    assert.deepEqual((await notes.queryAll({}, { context })).map(({ title }) => title).sort(), titles);
+  }
+  // A request or a job may not change or delete it, and its many-row writes leave shared rows out.
+  await assert.rejects(notes.patch(shared.id, { title: "taken" }, { context: WORKSPACE_A }), /only be changed in a system context/u);
+  await assert.rejects(notes.delete(shared.id, { context: systemContext.forWorkspace("1") }), /only be changed in a system context/u);
+  assert.deepEqual(await notes.patchWhere({ id: [shared.id] }, { title: "taken" }, { context: WORKSPACE_A, returning: "ids" }), []);
+
+  // The owner changes it in its system context once the request has read it in its own (it reaches the row), with
+  // the empty owner among the filters: a compare-and-set that never reaches a workspace's row, whatever id it names.
+  const { id: mine } = await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    const reached = await notes.get(shared.id, {}, txOptions);
+    const changed = await notes.patchWhere({ id: [reached.id], workspaceId: null }, { title: "house rules, revised" }, {
+      ...txOptions, context: systemContext, returning: "ids"
+    });
+    assert.deepEqual(changed.map(String), [String(shared.id)]);
+    return (await notes.queryAll({ filters: { title: "mine" } }, txOptions))[0];
+  });
+  assert.deepEqual(await notes.patchWhere({ id: [mine], workspaceId: null }, { title: "taken" }, { context: systemContext, returning: "ids" }), []);
+  assert.equal((await knex("notes").where({ id: mine }).first()).title, "mine");
+  assert.deepEqual((await notes.deleteWhere({ id: [shared.id], workspaceId: null }, { context: systemContext, returning: "ids" })).map(String), [String(shared.id)]);
+  assert.equal(await knex("notes").where({ id: shared.id }).first(), undefined);
+});
+
 test("row policies read their own tables read-only, and contributions only narrow", async (t) => {
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
   t.after(() => knex.destroy());
@@ -1003,6 +1044,55 @@ test("a row policy is told who the call runs for: a system context, a job it der
   ]);
   assert.throws(() => systemContext.forUser("4", { actor: "9" }), /forUser takes \{ actorId \} as its last argument/u);
   assert.throws(() => systemContext.forWorkspace("1", { actorId: " " }), /forWorkspace needs the id of the user it acts for/u);
+});
+
+test("a job's actorId never moves its scope; a row policy that keys on the person holds a job done for them to their rows", async (t) => {
+  const drafts = defineTableResource({
+    name: "drafts",
+    tableName: "drafts",
+    ownership: "workspace",
+    defaultSort: ["id"],
+    schema: {
+      workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+      authorId: { type: "id", search: true, storage: { column: "author_id" } },
+      title: { type: "string", required: true }
+    }
+  });
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("drafts", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.integer("author_id");
+    table.string("title");
+  });
+  await knex("drafts").insert([
+    { workspace_id: 1, author_id: 9, title: "first author's" },
+    { workspace_id: 1, author_id: 8, title: "second author's" },
+    { workspace_id: 2, author_id: 9, title: "first author's elsewhere" }
+  ]);
+  const runtime = await createTestResourceRuntime({ knex });
+  const handles = await runtime.own("drafts.feature", [{
+    resource: drafts,
+    // A person sees their own drafts, whether they ask or a job asks for them; a job for no one sees its whole scope.
+    rowPolicy: ({ query, caller, column, value }) => {
+      if (caller.kind === "anonymous") return false;
+      const personId = caller.kind === "user" ? caller.userId : caller.actorId;
+      if (personId) query.where(column("authorId"), value("authorId", personId));
+      return true;
+    }
+  }]);
+  const jobs = runtime.declareSystemScope("drafts.feature", "publish drafts people scheduled")("publish a scheduled draft");
+  const titles = async (context) => (await handles.drafts.queryAll({}, { context })).map(({ title }) => title);
+
+  assert.deepEqual(await titles(jobs.forWorkspace("1")), ["first author's", "second author's"]);
+  assert.deepEqual(await titles(jobs.forWorkspace("1", { actorId: "9" })), ["first author's"]);
+  assert.deepEqual(await titles({ ...WORKSPACE_A, actor: { id: "9" } }), ["first author's"]);
+  // The person's rows in another workspace stay out: the scope comes from the workspace the job was derived for.
+  assert.deepEqual(await titles(jobs.forWorkspace("2", { actorId: "8" })), []);
+  // The policy holds the job's writes too: another person's draft is missing to it.
+  await assert.rejects(handles.drafts.patch("2", { title: "taken" }, { context: jobs.forWorkspace("1", { actorId: "9" }) }), notFound);
+  assert.equal((await knex("drafts").where({ id: 2 }).first()).title, "second author's");
 });
 
 test("an event a job publishes carries the scope of the workspace or user it works on, as a request there would", async (t) => {

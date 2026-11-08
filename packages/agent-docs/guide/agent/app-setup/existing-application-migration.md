@@ -272,6 +272,35 @@ one table at a time:
 Keep each move behaviour-preserving
 ([refactors](/guide/framework/sanity-checks#refactors)).
 
+A table keyed by several columns, or by its owner's id, gets an integer `id`
+first ([Layer 1](/guide/framework/data-access#layer-1-the-table-resource)).
+One new migration does it on MySQL, MariaDB and PostgreSQL: the key becomes a
+unique index before the primary key goes, so a foreign key on its first column
+keeps an index, and adding the `id` numbers the existing rows. `down` undoes it
+in reverse.
+
+```js
+const KEY = ["workspace_id", "day"];
+
+export async function up(knex) {
+  await knex.schema.alterTable("day_slots", (table) => table.unique(KEY, { indexName: "day_slots_key" }));
+  await knex.schema.alterTable("day_slots", (table) => table.dropPrimary());
+  await knex.schema.alterTable("day_slots", (table) => table.increments("id"));
+}
+
+export async function down(knex) {
+  await knex.schema.alterTable("day_slots", (table) => table.dropColumn("id"));
+  await knex.schema.alterTable("day_slots", (table) => table.primary(KEY));
+  await knex.schema.alterTable("day_slots", (table) => table.dropUnique(KEY, "day_slots_key"));
+}
+```
+
+MySQL and MariaDB commit each statement on its own, so a run that fails
+part-way resumes as the [partial-failure
+rules](https://mobily-enterprises.github.io/jskit-ai/guide/app-setup/database-layer#directory-order-comes-before-filenames)
+say. Code that wrote by the old key now upserts on it, with the ownership
+column among the keys.
+
 ### Workspace invitation transaction compatibility (workspaces-core 0.1.198)
 
 Invitation creation, acceptance and refusal now own their managed transactions:

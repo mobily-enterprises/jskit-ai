@@ -767,7 +767,9 @@ for anything that reads or writes the domain.**
 - One handler shape: a named async function that sends what
   `request.executeAction({ actionId: ACTION_X, input })` returns.
 - A route that bypasses actions (a provider's callback) gets its own named
-  registrar. Summaries are sentences.
+  registrar and reads with `await request.callOptions()`
+  ([data access](data-access.md#layer-1-the-table-resource)).
+  Summaries are sentences.
 - A route that repetition can abuse (sign-in, codes, sending email) declares
   `rateLimit: { max, timeWindow }`, which the kernel enforces per client
   address and refuses with 429, `kernel.http.rateLimited` and `Retry-After`.

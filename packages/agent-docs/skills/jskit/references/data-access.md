@@ -191,6 +191,37 @@ otherwise, naming both.
 A table keyed by a `uuid` or `string` primary key takes its ids as text; an
 `owns` entry's `normalizeId` is only for an id written some other way.
 
+A handle finds every row by one `id`. A table whose rows another key
+identifies (a workspace and a day, or one row per user keyed by the user's id)
+still gets an integer `id` primary key, and keeps that key as a unique index
+on exactly the columns its upsert names, the ownership column among them. The
+code reads by the key with a filter and writes by it with an upsert,
+`onConflict: { keys: ["workspaceId", "day"] }`
+([Layer 3](#layer-3-many-rows-at-once)). The [port
+guide](existing-application-migration.md#moving-hand-written-sql-behind-resources)
+has the migration for a table that exists already.
+
+A route that reads or writes without an action (a provider's callback, a
+download it streams) takes its options from `await request.callOptions()`: the
+context the same request's action would get, its user, workspace and route
+scope resolved by the same contributors. No action's permission runs, so the
+route's own `auth` and `permission` are its gate. Never build a request's
+context by hand.
+
+A `workspace_or_shared` table's shared rows (no workspace) belong to every
+workspace, so no request or job writes one: a create stamps the caller's
+workspace, a patch or delete of a shared row is refused, and many-row writes
+and locks leave shared rows out. When a request may change one (a permission
+says so, or the row is the person's own), the owner reads the row in the
+request's own context, which proves the caller reaches it, decides in code
+whether this caller may change it, and only then writes it in a system
+context, `systemContext(reason)` itself (one `forUser` or its kin derived is
+not a system context), naming the empty owner: `create({ ...fields,
+workspaceId: null }, …)`, or `patchWhere({ id: [id], workspaceId: null },
+changes, …)` and `deleteWhere` with the same filters, which never reach a
+workspace's row. `{ ...txOptions, context: systemContext(reason) }` joins
+the request's transaction.
+
 A read answers every field unless `fields` names the ones it needs (a
 belongs-to field by its own key, such as `customerId`, or its relationship);
 the locks (`lock`, `lockMany`, `lockWhere` and `claim`) take it in their
@@ -213,7 +244,13 @@ any `scopedQuery()` (its builder carries every column), and every method it
 holds, `decorateRepository`'s included, answers without the hidden fields of the
 tables its owner owns, unless the call runs in a system context. So the owner
 checks a token in a method `decorateRepository` adds, with the handle it
-receives, and answers only the outcome. Never unhide a field to read it, and
+receives, and answers only the outcome. Work in another feature that needs the
+value itself (a key it signs with, an address it sends to) calls a method the
+owner's `decorateService` adds: that receives the repository before the guard,
+so it reads the field, named in `fields`, in the caller's own context, with no
+system context. A test of such a path asserts the value the other feature
+uses, not only that the call succeeded: a hidden field left out of a record
+reads as `undefined`, not as an error. Never unhide a field to read it, and
 never read it with `scopedQuery`.
 
 `create` and `patch` answer the written record by default, read back through
@@ -252,8 +289,8 @@ who the call runs for as `caller`: `{ kind: "user", userId }` for a signed-in
 request, `{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
 `{ kind: "job" }` (a context `forWorkspace` and its kin derived), each with its
 `reason`, for background work. A job names a user only as `actorId`, the
-person it was derived for (below), so never read a missing actor as an
-anonymous request.
+person it works for ([below](#background-work)), so never read a missing actor
+as an anonymous request.
 
 ```js
 // good: one predicate on the row being read
@@ -684,13 +721,15 @@ const SettlementFeature = defineFeature({
   `actions.execute({ actionId, input, context })` keeps the context's kind:
   inside it, a handle call still reads as the system context or job.
 - Work a job does for one person (a request it carries out later) passes
-  `{ actorId }` last: `forWorkspace(id, { actorId: requestedBy })`. It is for
-  attribution only: audit fields read it with `resolveAuditActorId(context)`
-  (the signed-in user, else the person a job acts for) and the row policy as
-  `caller.actorId`. It never changes which rows the job reaches and signs no
-  one in: `resolveActorId` and every `authenticated` check still see no one.
-  Write audit fields with `resolveAuditActorId`, and decide access with
-  `resolveActorId`.
+  `{ actorId }` last: `forWorkspace(id, { actorId: requestedBy })`. It says
+  whom the work is for and never sets the scope, which stays the workspace or
+  user the job was derived for, and it signs no one in: `resolveActorId` and
+  every `authenticated` check still see no one. Audit fields read it with
+  `resolveAuditActorId(context)`. A row policy is told it as `caller.actorId`,
+  and one that holds people to their own rows reads it as it reads a
+  request's `caller.userId`, so a job for a person sees what that person may
+  see, and a job for no one its whole scope. Work on one person's rows only
+  takes their scope (`forUser`, `forWorkspaceUser`) or filters its reads.
 - A job finds its units with one `aggregate` grouped by the ownership field,
   which a system context may group by (and count distinct) even when the table
   hides it, then runs each unit scoped to it. A request's aggregate still
@@ -709,8 +748,9 @@ const SettlementFeature = defineFeature({
   ["workspaceId", "email"] }, { context })`, as a system context may do through
   another feature's CRUD repository too (see [Layer
   1](#layer-1-the-table-resource)). Never unhide it for the job.
-- A request uses its own context. The only exception is a console report
-  behind a console permission, with bounded output.
+- A request uses its own context. The exceptions are a console report
+  behind a console permission, with bounded output, and the write of a shared
+  row it has proved it reaches ([Layer 1](#layer-1-the-table-resource)).
 - `jskit check` lists every system scope and every `systemContext` call with
   its reason, read from the string literal at the call: a reason kept in a
   constant reads as none.
