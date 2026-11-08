@@ -157,3 +157,37 @@ test("prepare and publish refuse a publishable package pinned to a local build, 
   assert.deepEqual(await snapshotFiles(f.repo), before);
   assert.deepEqual(await f.calls(), []);
 });
+
+// The fixture's two packages and the catalog that pins them, committed and pushed, none of them published yet.
+async function catalogFixture(t) {
+  const f = await publicationFixture(t, "jskit");
+  await f.addPackage("@jskit-ai/jskit-catalog", { files: ["catalog", "scripts"] });
+  f.regenerate();
+  await f.syncLockfile();
+  f.git("add", ".");
+  f.git("commit", "-m", "Add the catalog");
+  f.git("push", "origin", "main");
+  return f;
+}
+
+test("publish uploads the catalog last, once npm serves every version it pins as latest", async t => {
+  const f = await catalogFixture(t);
+  const result = f.run(["publish"], { JSKIT_RELEASE_RETRY_DELAY_MS: "0" });
+  assert.equal(result.status, 0, result.stderr);
+  const calls = await f.calls();
+  const uploads = calls.flatMap((call, index) => call.args[0] === "publish" ? [{ file: path.basename(call.args[1]), index }] : []);
+  assert.deepEqual(uploads.map(({ file }) => file), ["jskit-ai-a-1.0.0.tgz", "jskit-ai-b-1.0.0.tgz", "jskit-ai-jskit-catalog-1.0.0.tgz"]);
+  // Between the last package's upload and the catalog's, it read what npm serves for each package the catalog pins.
+  const reads = calls.slice(uploads[1].index + 1, uploads[2].index).filter(call => call.args[0] === "view").map(call => call.args[1]);
+  assert.deepEqual(reads.sort(), ["@jskit-ai/a", "@jskit-ai/b"]);
+});
+
+test("publish leaves the catalog unpublished while npm does not serve a version it pins as latest", async t => {
+  const f = await catalogFixture(t);
+  const result = f.run(["publish"], { JSKIT_RELEASE_RETRY_DELAY_MS: "0", JSKIT_RELEASE_SERVE_ATTEMPTS: "2", RELEASE_TEST_HIDE_VERSION: "1.0.0" });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /The catalog is not published: the registry does not serve these pinned versions as latest yet:\n- @jskit-ai\/a@1\.0\.0 \(not served, latest none\)\n- @jskit-ai\/b@1\.0\.0/u);
+  assert.match(result.stdout, /npm does not serve 2 pinned version\(s\) as latest yet; retrying in 0 s \(1\/2\)/u);
+  const uploads = (await f.calls()).filter(call => call.args[0] === "publish").map(call => path.basename(call.args[1]));
+  assert.deepEqual(uploads, ["jskit-ai-a-1.0.0.tgz", "jskit-ai-b-1.0.0.tgz"]);
+});

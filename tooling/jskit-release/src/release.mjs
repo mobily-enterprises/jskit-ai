@@ -409,6 +409,39 @@ function releaseCommitMessage(entries) {
   return `Release ${subject}${names.length > 4 ? `\n\n${names.join("\n")}` : ""}`;
 }
 
+const CATALOG_PACKAGE = "@jskit-ai/jskit-catalog";
+
+// The versions the catalog being published pins (its catalog/packages.json release), but its own.
+async function catalogPins(record, entry) {
+  const catalog = JSON.parse(await readFile(path.join(record.dir, "catalog", "packages.json"), "utf8"));
+  return Object.entries(catalog?.release?.packages || {}).filter(([name]) => name !== entry.name);
+}
+
+// Waits until the registry serves every pinned version as its package's latest, as installReleasedPins waits for npm,
+// and refuses, naming each one, if it still does not.
+async function waitUntilServedAsLatest(pins, inspection, {
+  attempts = Number(process.env.JSKIT_RELEASE_SERVE_ATTEMPTS || 20),
+  delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000)
+} = {}) {
+  let pending = pins;
+  for (let attempt = 1; ; attempt++) {
+    const unserved = [];
+    for (const [name, version] of pending) {
+      const { versions, latest } = await inspection.serving(name);
+      if (!versions.includes(version) || latest !== version) unserved.push([name, version, versions.includes(version), latest]);
+    }
+    if (unserved.length === 0) return;
+    if (attempt >= attempts) {
+      throw new Error(`The catalog is not published: the registry does not serve these pinned versions as latest yet:\n${
+        unserved.map(([name, version, served, latest]) => `- ${name}@${version} (${served ? "served" : "not served"}, latest ${latest ?? "none"})`)
+          .join("\n")}\nRerun the publish once npm serves them; the published packages are skipped.`);
+    }
+    process.stdout.write(`npm does not serve ${unserved.length} pinned version(s) as latest yet; retrying in ${Math.round(delayMs / 1000)} s (${attempt}/${attempts})\n`);
+    pending = unserved.map(([name, version]) => [name, version]);
+    await new Promise(resolve => setTimeout(resolve, delayMs));
+  }
+}
+
 async function publishRelease(records, { cwd: repoRoot, registry }) {
   assertReleaseCheckout(repoRoot);
   assertNoOutsidePathDependencies(records, repoRoot);
@@ -422,21 +455,20 @@ async function publishRelease(records, { cwd: repoRoot, registry }) {
     const inspection = createPublicationInspection({ directory, registry, configPath });
     await assertNoNewerVersions(records, inspection);
     const plan = await planPublication(order.map(name => recordsByName.get(name)), { inspection });
+    const upload = entry => runCommand("npm", [
+      "publish", entry.tarball, "--access", "public", "--tag", "latest", "--registry", registry, "--workspaces=false",
+      "--userconfig", configPath
+    ]);
+    // The catalog is what `jskit update` installs as latest, so it goes last, once the registry serves every version
+    // it pins as that package's latest: published before them, an update in between installs versions npm does not
+    // serve yet, or a package whose latest still names something else (a placeholder its creator published).
+    const catalog = plan.find(entry => entry.name === CATALOG_PACKAGE && entry.state !== "skip");
     for (const entry of plan) {
-      if (entry.state === "skip") continue;
-      const args = [
-        "publish",
-        entry.tarball,
-        "--access",
-        "public",
-        "--tag",
-        "latest",
-        "--registry",
-        registry,
-        "--workspaces=false",
-        "--userconfig", configPath
-      ];
-      await runCommand("npm", args);
+      if (entry.state !== "skip" && entry !== catalog) await upload(entry);
+    }
+    if (catalog) {
+      await waitUntilServedAsLatest(await catalogPins(recordsByName.get(CATALOG_PACKAGE), catalog), inspection);
+      await upload(catalog);
     }
   } finally {
     await rm(directory, { recursive: true, force: true });

@@ -108,7 +108,7 @@ if(args[0]==='view'){
     const versions=entries.map(record=>record.version).filter(version=>version!==process.env.RELEASE_TEST_HIDE_VERSION);
     if(!versions.length){console.log(JSON.stringify({error:{code:'E404'}}));process.exit(1);}
     const record=entries.at(-1);
-    console.log(JSON.stringify({name:record.name,version:record.version,versions,dist:{integrity:record.integrity,tarball:record.tarball}}));
+    console.log(JSON.stringify({name:record.name,version:record.version,versions,'dist-tags':{latest:record.version},dist:{integrity:record.integrity,tarball:record.tarball}}));
   }else{
     const record=registry[args[1]];
     if(!record){console.log(JSON.stringify({error:{code:'E404'}}));process.exit(1);}

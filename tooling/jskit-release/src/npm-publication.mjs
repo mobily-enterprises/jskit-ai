@@ -266,7 +266,16 @@ function createPublicationInspection({ directory, registry, configPath = "", env
     return { state: difference ? "conflict" : "skip", difference };
   }
 
-  return { version, versions, pack, packAll, compare, stats };
+  // What the registry serves for a package now: its versions and the version its latest tag names, read through a new
+  // cache each time, since a cached package list can predate a release.
+  async function serving(name) {
+    const fresh = registryArgs.map((arg, index) => registryArgs[index - 1] === "--cache" ? `${arg}-${++servingReads}` : arg);
+    const value = await npmJson(["view", name, "--json", "--prefer-online", ...fresh], { cwd: directory, env, allowMissing: true });
+    return { versions: Array.isArray(value?.versions) ? value.versions : [], latest: value?.["dist-tags"]?.latest ?? null };
+  }
+  let servingReads = 0;
+
+  return { version, versions, pack, packAll, compare, serving, stats };
 }
 
 async function planPublication(records, options) {
