@@ -222,6 +222,30 @@ test("packages consume shared client runtimes through peer dependencies", () => 
   );
 });
 
+test("packages take the table runtime as a peer, except the runtime itself and its drivers", () => {
+  const consumer = (section) => [{
+    packageJson: { name: "@jskit-ai/example-core", [section]: { "@jskit-ai/resource-runtime": "0.2.12" }, jskit: {} }
+  }];
+  assert.doesNotThrow(() => validateSingletonPeerDependencies(consumer("peerDependencies")));
+  for (const section of ["dependencies", "optionalDependencies"]) {
+    assert.throws(
+      () => validateSingletonPeerDependencies(consumer(section)),
+      new RegExp(`example-core#${section}\\.@jskit-ai/resource-runtime must be declared in peerDependencies because ` +
+        "@jskit-ai/resource-runtime is the application's one table runtime", "u")
+    );
+  }
+  assert.doesNotThrow(() => validateSingletonPeerDependencies([
+    { packageJson: { name: "@jskit-ai/resource-runtime", dependencies: { "@jskit-ai/database-runtime": "0.1.262" }, jskit: {} } },
+    { packageJson: { name: "@jskit-ai/database-runtime-mysql", dependencies: { "@jskit-ai/database-runtime": "0.1.262" }, jskit: {} } }
+  ]));
+  assert.throws(
+    () => validateSingletonPeerDependencies([{
+      packageJson: { name: "@jskit-ai/database-runtime-mysql", dependencies: { "@jskit-ai/resource-runtime": "0.2.12" }, jskit: {} }
+    }]),
+    /database-runtime-mysql#dependencies\.@jskit-ai\/resource-runtime must be declared in peerDependencies/u
+  );
+});
+
 test("kernel is always treated as shared client infrastructure", () => {
   assert.throws(
     () => validateSingletonPeerDependencies([{

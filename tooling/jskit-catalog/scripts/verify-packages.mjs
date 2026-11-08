@@ -337,12 +337,28 @@ function validateCapabilityClosure(packages, { builtinCapabilities = BUILTIN_CAP
   }
 }
 
+// The application's one table runtime: a package that takes it as a dependency can install a second copy of it beside
+// the application's, with tables and transactions the application's never sees. Only the runtime itself
+// (resource-runtime on database-runtime) and its drivers (database-runtime-mysql, database-runtime-postgres) depend on it
+// directly.
+const TABLE_RUNTIME_PACKAGE_IDS = Object.freeze(["@jskit-ai/database-runtime", "@jskit-ai/resource-runtime"]);
+
+function isTableRuntimePart(packageName, dependencyId) {
+  return TABLE_RUNTIME_PACKAGE_IDS.includes(packageName) || String(packageName).startsWith(`${dependencyId}-`);
+}
+
 function validateSingletonPeerDependencies(packages) {
   const singletonPackageIds = new Set(collectSingletonPackageIds(packages.map(({ packageJson }) => packageJson)));
 
   for (const { packageJson } of packages) {
     for (const section of ["dependencies", "optionalDependencies"]) {
       for (const dependencyId of Object.keys(packageJson[section] || {})) {
+        if (TABLE_RUNTIME_PACKAGE_IDS.includes(dependencyId) && !isTableRuntimePart(packageJson.name, dependencyId)) {
+          throw new Error(
+            `${packageJson.name}#${section}.${dependencyId} must be declared in peerDependencies because ` +
+            `${dependencyId} is the application's one table runtime.`
+          );
+        }
         if (!singletonPackageIds.has(dependencyId)) {
           continue;
         }
