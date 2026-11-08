@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { mkdir, mkdtemp, readFile, rm, stat, symlink, utimes, writeFile } from "node:fs/promises";
+import http from "node:http";
 import { createRequire } from "node:module";
 import net from "node:net";
 import os from "node:os";
@@ -290,6 +292,83 @@ test("a local run starts one server per worker, each on its own port and with it
         `${settings.signedInStates}-2.json`);
     } finally {
       child.kill("SIGTERM");
+    }
+  });
+});
+
+const LAUNCHER_APP = {
+  "package.json": { name: "app", type: "module" },
+  "server.mjs": APP_SERVER,
+  "build.mjs": BUILD,
+  "tests/e2e/databases.mjs": PREPARE
+};
+
+/** The launcher with `workers` servers from `basePort`, in its own process group, with its stderr kept. */
+function launchServers(root, basePort, workers, stdin = "ignore") {
+  const cache = path.join(root, "node_modules", ".cache", "jskit-browser-tests");
+  const settings = {
+    workers, host: "127.0.0.1", basePort, server: "node ./server.mjs", build: "node ./build.mjs",
+    prepare: "tests/e2e/databases.mjs", env: {}, health: "/api/health",
+    workerEnvironments: path.join(cache, `workers-${basePort}.json`)
+  };
+  const child = spawn(process.execPath, [SERVERS], {
+    cwd: root,
+    env: { ...process.env, [SETTINGS_VARIABLE]: JSON.stringify(settings) },
+    stdio: [stdin, "pipe", "pipe"],
+    detached: true
+  });
+  const launcher = { child, errors: "" };
+  child.stderr.on("data", (chunk) => { launcher.errors += chunk; });
+  return launcher;
+}
+
+/** The launcher's exit code; one still running after `ms` is killed with its servers, and that is the answer. */
+async function exitOf(child, ms = 15_000) {
+  const timer = setTimeout(() => process.kill(-child.pid, "SIGKILL"), ms);
+  const [code, signal] = await once(child, "exit");
+  clearTimeout(timer);
+  return code ?? signal;
+}
+
+function answers(port) {
+  return new Promise((resolve) => {
+    const socket = net.connect(port, "127.0.0.1");
+    socket.once("connect", () => { socket.destroy(); resolve(true); });
+    socket.once("error", () => resolve(false));
+  });
+}
+
+test("a local run refuses a port that already answers before it builds, prepares or starts anything", async () => {
+  await withProject(LAUNCHER_APP, async (root) => {
+    const basePort = await freeConsecutivePorts(2);
+    // A server an earlier run left on worker 1's port, answering as the app's server would.
+    const occupant = http.createServer((request, response) => response.end("{}"));
+    await new Promise((resolve) => occupant.listen(basePort + 1, "127.0.0.1", resolve));
+    try {
+      const launcher = launchServers(root, basePort, 2);
+      assert.equal(await exitOf(launcher.child), 1);
+      assert.match(launcher.errors, new RegExp(`Port ${basePort + 1} on 127\\.0\\.0\\.1 already answers`, "u"));
+      await assert.rejects(readFile(path.join(root, "dist", "index.html")), { code: "ENOENT" });
+      assert.equal(await answers(basePort), false);
+    } finally {
+      occupant.closeAllConnections();
+      await new Promise((resolve) => occupant.close(resolve));
+    }
+  });
+});
+
+test("a local run's servers have stopped when the launcher exits, whether Playwright stops it or its stdin pipe ends", async () => {
+  await withProject(LAUNCHER_APP, async (root) => {
+    // A Playwright that ends without stopping its webServer leaves only the end of that stdin pipe.
+    for (const [stop, exitCode] of [["stdin", 1], ["SIGTERM", 143]]) {
+      const basePort = await freeConsecutivePorts(2);
+      const { child } = launchServers(root, basePort, 2, "pipe");
+      await waitForReady(child);
+      assert.deepEqual(await Promise.all([answers(basePort), answers(basePort + 1)]), [true, true], stop);
+      if (stop === "stdin") child.stdin.end();
+      else child.kill("SIGTERM");
+      assert.equal(await exitOf(child), exitCode, stop);
+      assert.deepEqual(await Promise.all([answers(basePort), answers(basePort + 1)]), [false, false], stop);
     }
   });
 });

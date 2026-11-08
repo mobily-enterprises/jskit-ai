@@ -35,8 +35,12 @@ Local functions
 - `words(command)`
 - `prepareWorkers(appRoot, prepare, workers, baseUrls)`
 - `signInWorkers(appRoot, signIn, baseUrls, environments, signedInStates)`
+- `answers(host, port)`
+- `refuseBusyPorts(host, ports)`
 - `waitUntilReady(url, server, name)`
+- `running(server)`
 - `stopServers()`
+- `stopAndExit(code)`
 
 ### `scripts/browser-test-times.mjs`
 Exports

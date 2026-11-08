@@ -4,10 +4,15 @@
 // Each worker's server environment is also left, readable only by this user, where the worker's own process takes it
 // (browser-tests.mjs). With the app's `signIn` module, each server is then signed in once, and its storage state left
 // for its worker. Each server's output goes to test-results/browser-test-servers/worker-<n>.log; a server that stops
-// ends the run.
+// ends the run. A port that already answers is refused before anything is built or started: a server left there by an
+// earlier run would answer for this run's. Stopped by Playwright (SIGTERM), by Ctrl-C, or by the end of the stdin pipe
+// Playwright gives its webServer (a Playwright that ended without stopping it), the launcher stops its servers and
+// waits for them, within Playwright's grace, before it exits.
 import { spawn } from "node:child_process";
-import { createWriteStream, mkdirSync, writeFileSync } from "node:fs";
+import { once } from "node:events";
+import { createWriteStream, fstatSync, mkdirSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import net from "node:net";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
@@ -16,6 +21,8 @@ import { buildFrontend } from "./browser-test-build.mjs";
 const SETTINGS_VARIABLE = "JSKIT_BROWSER_TESTS";
 const LOG_DIRECTORY = path.join("test-results", "browser-test-servers");
 const READY_TIMEOUT_MS = 60_000;
+// Within the 10 s gracefulShutdown browser-tests.mjs gives Playwright's webServer; a server still running then is killed.
+const STOP_WAIT_MS = 9_000;
 
 const seconds = (since) => `${((performance.now() - since) / 1000).toFixed(1)}s`;
 const words = (command) => String(command).trim().split(/\s+/u).filter(Boolean);
@@ -51,6 +58,21 @@ async function signInWorkers(appRoot, signIn, baseUrls, environments, signedInSt
   console.log(`[browser-tests] ${baseUrls.length} worker(s) signed in in ${seconds(started)}.`);
 }
 
+const answers = (host, port) => new Promise((resolve) => {
+  const socket = net.connect(port, host);
+  socket.once("connect", () => { socket.destroy(); resolve(true); });
+  socket.once("error", () => resolve(false));
+});
+
+async function refuseBusyPorts(host, ports) {
+  const taken = await Promise.all(ports.map((port) => answers(host, port)));
+  const busy = ports.filter((_, index) => taken[index]);
+  if (busy.length > 0) {
+    throw new Error(`Port ${busy.join(", ")} on ${host} already answers: a server left there would answer for this run's. ` +
+      "Stop it, or set PLAYWRIGHT_PORT to free ports.");
+  }
+}
+
 async function waitUntilReady(url, server, name) {
   const started = performance.now();
   const deadline = Date.now() + READY_TIMEOUT_MS;
@@ -72,12 +94,27 @@ async function waitUntilReady(url, server, name) {
 
 const servers = [];
 let stopping = false;
+const running = (server) => server.exitCode === null && server.signalCode === null;
 function stopServers() {
   stopping = true;
-  for (const server of servers) server.kill("SIGTERM");
+  for (const server of servers) if (running(server)) server.kill("SIGTERM");
 }
-process.once("SIGINT", () => { stopServers(); process.exit(130); });
-process.once("SIGTERM", () => { stopServers(); process.exit(143); });
+async function stopAndExit(code) {
+  if (stopping) return;
+  stopServers();
+  const stopped = Promise.all(servers.filter(running).map((server) => once(server, "exit")));
+  await Promise.race([stopped, new Promise((resolve) => setTimeout(resolve, STOP_WAIT_MS))]);
+  for (const server of servers) if (running(server)) server.kill("SIGKILL");
+  process.exit(code);
+}
+process.once("SIGINT", () => stopAndExit(130));
+process.once("SIGTERM", () => stopAndExit(143));
+// Only a pipe ends when Playwright does; a launcher started without one (stdin ignored, /dev/null) would end at once.
+const input = fstatSync(0);
+if (input.isFIFO() || input.isSocket()) {
+  process.stdin.once("end", () => stopAndExit(1));
+  process.stdin.resume();
+}
 process.once("exit", stopServers);
 
 const started = performance.now();
@@ -90,6 +127,7 @@ const baseEnvironment = { ...process.env };
 delete baseEnvironment[SETTINGS_VARIABLE];
 const baseUrls = Array.from({ length: workers }, (_, index) => `http://${host}:${basePort + index}`);
 try {
+  await refuseBusyPorts(host, baseUrls.map((_, index) => basePort + index));
   const [, workerEnvironments] = await Promise.all([
     buildFrontend({ appRoot, build }),
     prepareWorkers(appRoot, prepare, workers, baseUrls)
@@ -117,8 +155,7 @@ try {
     child.once("exit", (code, signal) => {
       if (stopping) return;
       console.error(`[browser-tests] ${name} stopped (${signal || `exit ${code}`}); log: ${log}`);
-      stopServers();
-      process.exit(1);
+      stopAndExit(1);
     });
     servers.push(child);
     return waitUntilReady(new URL(health, baseUrl), child, name);
@@ -127,6 +164,5 @@ try {
   console.log(`jskit browser tests: ${workers} server(s) ready in ${seconds(started)}; logs in ${LOG_DIRECTORY}.`);
 } catch (error) {
   console.error(`[browser-tests] ${error.message}`);
-  stopServers();
-  process.exit(1);
+  await stopAndExit(1);
 }
