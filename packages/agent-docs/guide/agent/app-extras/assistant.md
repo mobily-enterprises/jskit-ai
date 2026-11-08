@@ -205,6 +205,13 @@ user change the instructions; choose it only deliberately. A malformed value
 stops the server from starting. Anyone else is refused with
 `assistant.runtime.settings.updateForbidden` (403).
 
+The settings the server returns say whether the signed-in person may change
+them (`canUpdate`, from the same check that refuses the change), and the
+settings pane follows it: people who may change them get **Save** in the app
+bar, anyone else sees the instructions read-only, without Save. The browser
+never guesses the permission, so a `settingsUpdatePermission` in server config
+needs nothing on the client.
+
 ### Existing SQL conversations
 
 The optional database integration uses the common conversation runtime for

@@ -221,7 +221,9 @@ async function submit() {
 
 const addEdit = computed(() => ({
   canView: Boolean(assistantSurface.value) && hasScope.value,
-  canSave: Boolean(assistantSurface.value) && hasScope.value,
+  // The server says whether this person may change the settings (it checks the same permission when they save); anyone
+  // else sees them read-only, without Save.
+  canSave: Boolean(assistantSurface.value) && hasScope.value && settingsQuery.data.value?.canUpdate === true,
   loadError: loadError.value,
   isInitialLoading: Boolean(settingsQuery.isLoading.value),
   isRefetching: Boolean(settingsQuery.isFetching.value && !settingsQuery.isLoading.value),

@@ -30,27 +30,35 @@ const settingsUpdateInputValidator = composeSchemaDefinitions(
 );
 
 /**
- * The JSON:API document of a surface's assistant settings.
+ * The JSON:API document of a surface's assistant settings, with whether the reader may change them (`canUpdate`).
  * @param {AssistantConfigService} assistantConfigService
  * @param {object} input
  * @param {object} context
  */
 async function readSettingsDocument(assistantConfigService, input, context) {
-  return returnJsonApiData(await assistantConfigService.getSettings(input, {
+  const settings = await assistantConfigService.getSettings(input, {
     context
-  }));
+  });
+  const canUpdate = await assistantConfigService.canUpdateSettings(input, {
+    context
+  });
+  return returnJsonApiData({ ...settings, canUpdate });
 }
 
 /**
- * The JSON:API document of a surface's assistant settings after the input's patch.
+ * The JSON:API document of a surface's assistant settings after the input's patch, which only someone who may change
+ * them gets.
  * @param {AssistantConfigService} assistantConfigService
  * @param {object} input
  * @param {object} context
  */
 async function updateSettingsDocument(assistantConfigService, input, context) {
-  return returnJsonApiData(await assistantConfigService.updateSettings(input, input.patch, {
-    context
-  }));
+  return returnJsonApiData({
+    ...(await assistantConfigService.updateSettings(input, input.patch, {
+      context
+    })),
+    canUpdate: true
+  });
 }
 
 /**

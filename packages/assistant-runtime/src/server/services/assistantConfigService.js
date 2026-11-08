@@ -8,6 +8,8 @@ import { resolveAssistantServerConfig, resolveAssistantServerConfigMap } from ".
 
 const WORKSPACE_SETTINGS_UPDATE_POLICY = Object.freeze({ require: "all", permissions: Object.freeze(["workspace.settings.update"]) });
 const ASSISTANT_SETTINGS_UPDATE_POLICY = Object.freeze({ require: "all", permissions: Object.freeze(["assistant.settings.update"]) });
+// The statuses of an access check's refusal (not signed in, not allowed), as against a failure.
+const ACCESS_REFUSED_STATUSES = Object.freeze([401, 403]);
 
 /**
  * An assistant surface's saved settings: who may read and change them, and the
@@ -111,6 +113,25 @@ function createService({
     });
   }
 
+  /**
+   * Whether the context may change a surface's settings: the check updateSettings makes, answered instead of thrown,
+   * so the settings screen offers Save only to the people the server lets save.
+   */
+  async function canUpdateSettings(input = {}, options = {}) {
+    const assistantSurface = requireAssistantSurface(appConfig, input.targetSurfaceId);
+    try {
+      await requireSettingsAccess(assistantSurface, options.context, {
+        mode: "write"
+      });
+      return true;
+    } catch (error) {
+      if (ACCESS_REFUSED_STATUSES.includes(Number(error?.status))) {
+        return false;
+      }
+      throw error;
+    }
+  }
+
   async function updateSettings(input = {}, patch = {}, options = {}) {
     const assistantSurface = requireAssistantSurface(appConfig, input.targetSurfaceId);
     await requireSettingsAccess(assistantSurface, options.context, {
@@ -145,6 +166,7 @@ function createService({
 
   return Object.freeze({
     getSettings,
+    canUpdateSettings,
     updateSettings,
     resolveSystemPrompt
   });

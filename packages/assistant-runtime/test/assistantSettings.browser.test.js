@@ -11,14 +11,15 @@ const RUN = process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION === "1";
 const FIXTURE_ROOT = fileURLToPath(new URL("../fixtures/settings/", import.meta.url));
 const options = { skip: RUN ? false : "set JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION=1 to run it", timeout: 120_000 };
 
-function settingsDocument(targetSurfaceId, systemPrompt, workspaceId = null) {
+// canUpdate is the server's answer to whether the signed-in person may change the settings.
+function settingsDocument(targetSurfaceId, systemPrompt, workspaceId = null, { canUpdate = true } = {}) {
   return {
     contentType: "application/vnd.api+json",
     json: {
       data: {
         type: "assistant-settings",
         id: targetSurfaceId,
-        attributes: { targetSurfaceId, scopeKey: targetSurfaceId, workspaceId, settings: { systemPrompt } }
+        attributes: { targetSurfaceId, scopeKey: targetSurfaceId, workspaceId, settings: { systemPrompt }, canUpdate }
       }
     }
   };
@@ -115,6 +116,26 @@ test("the app bar's Save submits the assistant settings, on phones and wide wind
     await expect(save).not.toHaveClass(/v-btn--loading/u);
     await expect(prompt(page)).toHaveValue("Answer in two sentences.");
     assert.deepEqual(await page.evaluate(() => window.settingsFixture.reports), []);
+    await finish(api);
+  }
+});
+
+test("someone the server does not let change the settings sees them read-only, without Save", options, async (t) => {
+  const fixture = await startFixture(t);
+  for (const viewport of [{ width: 390, height: 844 }, { width: 1280, height: 900 }]) {
+    const api = await openPage(fixture, {
+      viewport,
+      routes: { "GET /api/assistant/console/settings": settingsDocument("console", "Answer briefly.", null, { canUpdate: false }) }
+    });
+    const { page } = api;
+    await page.goto("/settings/console");
+    await expect(prompt(page)).toHaveValue("Answer briefly.");
+    await expect(prompt(page)).toHaveAttribute("readonly", "");
+    await expect(page.getByText("Read-only", { exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Save", exact: true })).toHaveCount(0);
+    // Enter in the read-only form sends nothing.
+    await prompt(page).press("Enter");
+    assert.deepEqual(api.requests.map(({ key }) => key), ["GET /api/assistant/console/settings"]);
     await finish(api);
   }
 });

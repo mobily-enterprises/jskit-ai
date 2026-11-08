@@ -46,6 +46,12 @@ const assistantConfigRecordSchema = createSchema({
         maxLength: MAX_SYSTEM_PROMPT_CHARS
       }
     })
+  },
+  // Whether the signed-in person may change these settings, as the server decides; the settings screen shows Save
+  // only when it is true.
+  canUpdate: {
+    type: "boolean",
+    required: true
   }
 });
 

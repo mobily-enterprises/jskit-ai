@@ -71,6 +71,7 @@ test("settings routes and actions compose independently of the chat service", as
     settingsSurfaces: ["console"],
     assistantConfigService: {
       getSettings(input, options) { calls.push({ input, options }); return {}; },
+      canUpdateSettings(input, options) { calls.push({ canUpdate: input, options }); return true; },
       updateSettings(input, patch, options) { calls.push({ input, patch, options }); return {}; }
     }
   });
@@ -98,6 +99,7 @@ test("settings routes and actions compose independently of the chat service", as
   }
   assert.deepEqual(calls, [
     { input: { targetSurfaceId: "home" }, options: { context } },
+    { canUpdate: { targetSurfaceId: "home" }, options: { context } },
     { input: { targetSurfaceId: "home", patch }, patch, options: { context } }
   ]);
 });

@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { createService } from "../src/server/services/assistantConfigService.js";
+import { createAssistantSettingsActions } from "../src/server/createAssistantSettingsActions.js";
+import { actionIds } from "../src/server/actionIds.js";
 
 function createSettingsRows() {
   const rows = new Map();
@@ -43,7 +46,8 @@ function createSettings(assistantServer, { consoleOwnerIds = [] } = {}) {
     consoleService: {
       async requireConsoleOwner(context) {
         if (!consoleOwnerIds.includes(context.actor.id)) {
-          throw Object.assign(new Error("Console owner required."), { code: "console.ownerRequired" });
+          // As console-core's consoleService refuses: a 403.
+          throw new AppError(403, "Console owner required.", { code: "console.ownerRequired" });
         }
       }
     },
@@ -93,6 +97,47 @@ test("a workspace assistant still needs workspace.settings.update, and a console
 
   await assert.rejects(update(settings, "ops", employee), { code: "console.ownerRequired" });
   assert.equal((await update(settings, "ops", { actor: { id: "1" }, permissions: [] })).settings.systemPrompt, "Set by 1");
+});
+
+test("the settings say whether the reader may change them, by the check that refuses the change", async () => {
+  const can = (settings, targetSurfaceId, context) => settings.canUpdateSettings({ targetSurfaceId }, { context });
+  const admin = { actor: { id: "1" }, permissions: ["assistant.settings.update"] };
+  const settings = createSettings({}, { consoleOwnerIds: ["1"] });
+  assert.equal(await can(settings, "home", employee), false);
+  assert.equal(await can(settings, "home", admin), true);
+  assert.equal(await can(settings, "admin", { actor: { id: "7" }, permissions: ["workspace.settings.view"] }), false);
+  assert.equal(await can(settings, "admin", { actor: { id: "1" }, permissions: ["workspace.settings.update"] }), true);
+  assert.equal(await can(settings, "ops", employee), false);
+  assert.equal(await can(settings, "ops", { actor: { id: "1" }, permissions: [] }), true);
+
+  // An app's settingsUpdatePermission decides, as it does for the change itself.
+  const configured = createSettings({ home: { settingsUpdatePermission: "app.admin" } });
+  assert.equal(await can(configured, "home", admin), false);
+  assert.equal(await can(configured, "home", { actor: { id: "1" }, permissions: ["app.admin"] }), true);
+  assert.equal(await can(createSettings({ home: { settingsUpdatePermission: { require: "authenticated" } } }), "home", employee), true);
+
+  // A failure that is not a refusal still fails.
+  const noConsole = createService({
+    assistantConfigRepository: createSettingsRows(),
+    consoleService: null,
+    appConfig: createAppConfig({}),
+    workspaceScopeSupport: null
+  });
+  await assert.rejects(can(noConsole, "ops", admin), /requires consoleService\.requireConsoleOwner\(\)/u);
+
+  // The settings read carries the answer, and a successful change says the person may change them.
+  const definitions = createAssistantSettingsActions({ assistantConfigService: configured, settingsSurfaces: ["home"] });
+  const execute = (id, input, context) => definitions.find((definition) => definition.id === id).execute(input, context);
+  const read = async (context) => (await execute(actionIds.settingsRead, { targetSurfaceId: "home" }, context)).value;
+  assert.deepEqual(await read(admin), {
+    targetSurfaceId: "home", workspaceId: null, scopeKey: "home:", settings: { systemPrompt: "" }, canUpdate: false
+  });
+  const appAdmin = { actor: { id: "1" }, permissions: ["app.admin"] };
+  assert.equal((await read(appAdmin)).canUpdate, true);
+  const changed = await execute(actionIds.settingsUpdate, { targetSurfaceId: "home", patch: { systemPrompt: "Be brief." } }, appAdmin);
+  assert.deepEqual(changed.value, {
+    targetSurfaceId: "home", workspaceId: null, scopeKey: "home:", settings: { systemPrompt: "Be brief." }, canUpdate: true
+  });
 });
 
 test("a malformed settingsUpdatePermission stops the settings service from starting", () => {
