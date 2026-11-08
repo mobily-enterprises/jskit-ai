@@ -5,8 +5,13 @@ import { isRecord } from "../support/normalize.js";
 const ARCHITECTURE_ID_PATTERN = /^[a-z][a-z0-9_.-]*$/u;
 const LOCAL_NAME_PATTERN = /^[A-Za-z_$][A-Za-z0-9_$]*$/u;
 
+// A capability or provider id as the runtime compares it: trimmed and lower-cased.
+function capabilityKey(value) {
+  return String(value || "").trim().toLowerCase();
+}
+
 function normalizeArchitectureId(value, label) {
-  const normalized = String(value || "").trim().toLowerCase();
+  const normalized = capabilityKey(value);
   if (!ARCHITECTURE_ID_PATTERN.test(normalized)) {
     throw new TypeError(`${label} must match ${ARCHITECTURE_ID_PATTERN.toString()}.`);
   }
@@ -134,4 +139,4 @@ function defineProvider({
   });
 }
 
-export { ARCHITECTURE_ID_PATTERN, defineProvider, normalizeArchitectureId };
+export { ARCHITECTURE_ID_PATTERN, capabilityKey, defineProvider, normalizeArchitectureId };

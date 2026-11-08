@@ -17,6 +17,7 @@ Use this on demand; do not load the full index at startup.
 ### `shared/capabilities/defineProvider.js`
 Exports
 - `ARCHITECTURE_ID_PATTERN`
+- `capabilityKey(value)`
 - `defineProvider({ id, requires = {}, optional = {}, provides = {}, hints = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
 - `type ProviderDefinition`

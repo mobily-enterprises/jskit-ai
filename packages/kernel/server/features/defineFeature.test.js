@@ -350,10 +350,17 @@ test("owns, systemScope and the reserved names are checked when the feature is d
   assert.throws(() => defineFeature({ id: "feature.x", owns: ["receivals"] }), /owns must be a non-empty array/u);
   assert.throws(() => defineFeature({ id: "feature.x", systemScope: " " }), /systemScope must say why/u);
   assert.throws(() => defineFeature({ id: "feature.x", systemScope: true }), /systemScope must say why/u);
-  assert.throws(
-    () => defineFeature({ id: "feature.x", requires: { store: "runtime.resources" } }),
-    /must not require runtime\.resources: it receives handles for the resources it owns/u
-  );
+  // Capability ids resolve trimmed and lower-cased, so every spelling of runtime.resources is refused.
+  for (const spelling of ["runtime.resources", "Runtime.Resources", " RUNTIME.RESOURCES "]) {
+    assert.throws(
+      () => defineFeature({ id: "feature.x", requires: { store: spelling } }),
+      /must not require runtime\.resources: it receives handles for the resources it owns/u
+    );
+    assert.throws(
+      () => defineFeature({ id: "feature.x", optional: { store: spelling } }),
+      /must not require runtime\.resources: it receives handles for the resources it owns/u
+    );
+  }
   for (const localName of ["actionCatalogue", "resourceRuntime", "resources", "systemContext"]) {
     assert.throws(
       () => defineFeature({ id: "feature.x", optional: { [localName]: "app.thing" } }),

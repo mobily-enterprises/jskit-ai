@@ -1,5 +1,5 @@
 import { isRecord } from "../../shared/support/normalize.js";
-import { defineProvider } from "../../shared/capabilities/defineProvider.js";
+import { capabilityKey, defineProvider } from "../../shared/capabilities/defineProvider.js";
 import { normalizeProviderOutputs } from "../../shared/capabilities/runtime.js";
 
 /** @typedef {import("../types.js").FeatureDefinition} FeatureDefinition */
@@ -113,7 +113,8 @@ function defineFeature({
     }
   }
   const featureId = String(id || "");
-  if ([...Object.values(requires), ...Object.values(optional)].includes(RESOURCE_RUNTIME)) {
+  // Compared as the runtime resolves it, so "Runtime.Resources" or " runtime.resources" is refused as well.
+  if ([...Object.values(requires), ...Object.values(optional)].some((capability) => capabilityKey(capability) === RESOURCE_RUNTIME)) {
     throw new TypeError(
       `Feature "${featureId}" must not require ${RESOURCE_RUNTIME}: it receives handles for the resources it owns, and a system context with systemScope.`
     );
