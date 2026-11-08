@@ -91,7 +91,7 @@ function createRecordingLogger() {
 }
 
 function createHarness(completions, { executeToolCall = null, tools: configuredTools = null, attachments, supportsAttachments = true, wrapRuntime = (runtime) => runtime,
-  once, personContext = NO_PERSON_CONTEXT, savedSystemPrompt = "", workspace = null } = {}) {
+  once, personContext = NO_PERSON_CONTEXT, savedSystemPrompt = "", workspace = null, transcriptFailures = {} } = {}) {
   const pendingCompletions = [...completions];
   const completionRequests = [];
   const transcriptMessages = [];
@@ -135,6 +135,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
     },
     transcriptService: {
       async createConversationForTurn() {
+        if (transcriptFailures.create) throw transcriptFailures.create;
         return {
           conversation: {
             id: "conversation_1"
@@ -142,6 +143,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
         };
       },
       async completeConversation(_surface, _conversationId, completion) {
+        if (transcriptFailures.complete && completion.status === "completed") throw transcriptFailures.complete;
         completedConversations.push(structuredClone(completion));
       }
     },
@@ -180,6 +182,7 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
     },
     personContextPrompt: createPersonContextPrompt({ personContext, logger: logged.logger }),
     appConfig: workspace ? WORKSPACE_APP_CONFIG : APP_CONFIG,
+    logger: logged.logger,
     ...(workspace ? { workspaceScopeSupport: { resolveWorkspace: () => workspace } } : {})
   };
   const conversationRuntime = createAssistantConversationRuntime({
@@ -400,6 +403,34 @@ test("a failed action's error goes back to the model, and the action stays avail
   assert.deepEqual(assistantMessages(harness.streamEvents), ["The second search found it."]);
 });
 
+// MariaDB's errno 1020 as the mysql2 driver reports it, its message starting with the statement and its values.
+function databaseError() {
+  return Object.assign(new Error("UPDATE `conversations` SET `title` = 'secret-value' - Record has changed since last read"), {
+    code: "ER_CHECKREAD",
+    errno: 1020,
+    sqlMessage: "Record has changed since last read in table 'conversations'",
+    sql: "UPDATE `conversations` SET `title` = 'secret-value'"
+  });
+}
+
+test("a database error streams, saves and replays only as the kernel's generic answer, and its detail goes to the log", async () => {
+  const streamedFailure = databaseError();
+  const streamed = createHarness([textCompletion("Done.")], { transcriptFailures: { complete: streamedFailure } });
+  const result = await streamed.run();
+  assert.equal(result.status, "failed");
+  const sent = streamed.streamEvents.find(event => event.method === "sendError").payload;
+  assert.deepEqual({ code: sent.code, message: sent.message, status: sent.status }, { code: "kernel.database.concurrentWrite", message: "Another request changed the same data at the same time. Try again.", status: 409 });
+  assert.equal(JSON.stringify(streamed.streamEvents).includes("secret-value"), false);
+  assert.deepEqual(streamed.logged.filter(entry => entry.level === "error"),
+    [{ level: "error", fields: { err: streamedFailure }, message: "Assistant turn failed on a database error." }]);
+
+  // Before the stream starts, the error reaches the route as it was thrown; the saved failure a replay answers is the stand-in.
+  const earlyFailure = databaseError();
+  const early = createHarness([], { transcriptFailures: { create: earlyFailure } });
+  await assert.rejects(early.run(), error => error === earlyFailure);
+  await assert.rejects(early.run(), error => error instanceof AppError && error.status === 409 &&
+    error.code === "kernel.database.concurrentWrite");
+});
 
 test("answer text reaches the client before the provider finishes, then persists once", async () => {
   const firstChunk = Promise.withResolvers();

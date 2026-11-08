@@ -732,6 +732,17 @@ the caller as json-rest-api's `RestApiWriteError` (code `REST_API_WRITE`)
 with the transaction's outcome. Classify an error by its `code` or `status`,
 never with `instanceof`: a second copy of a package makes a second class.
 
+A database error never reaches a client. Its message carries the statement
+and its values, so JSKIT's HTTP handler and the assistant's stream answer one,
+thrown as it is or as a wrapper's cause, with a stand-in
+(`hideDatabaseError` in `@jskit-ai/kernel/server/runtime`) and log it in full:
+409 `kernel.database.concurrentWrite` when the database refused the transaction for a concurrent one
+(a deadlock or lock wait whose retries ran out, a row changed since the
+transaction's snapshot, a serialization failure), which the client may send
+again, else 500. To give a duplicate key or another database refusal its own
+answer, throw an `AppError` (a `ConflictError`) with the driver's error as its
+`cause`: an `AppError` keeps its answer whatever it wraps.
+
 ```js
 const allocate = (input, options) => repository.withTransaction(options, async (txOptions) => {
   const invoices = await repository.lockOpenInvoices(input.invoiceIds, txOptions);

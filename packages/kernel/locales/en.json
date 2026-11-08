@@ -22,6 +22,9 @@
       "unsupported_media_type": "Content-Type must be {contentType}."
     },
     "kernel": {
+      "database": {
+        "concurrentWrite": "Another request changed the same data at the same time. Try again."
+      },
       "http": {
         "rateLimited": "Too many requests. Try again in {count} second. | Too many requests. Try again in {count} seconds."
       },

@@ -3,7 +3,7 @@ import { isRecord, normalizeTransactionOutcome } from "../../shared/support/norm
 import { errorFieldErrors } from "../../shared/validators/schemaPayloadValidation.js";
 import { resolveValidationIssueCode } from "../../shared/validators/validationIssueCodes.js";
 import { JSON_API_CONTENT_TYPE } from "./lib/routeTransport.js";
-import { isAppError } from "../runtime/errors.js";
+import { hideDatabaseError, isAppError } from "../runtime/errors.js";
 
 /** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
 
@@ -220,7 +220,12 @@ function registerApiErrorHandler(app) {
     return String(errorCode || "").trim() !== "ACTION_PERMISSION_DENIED";
   }
 
-  app.setErrorHandler(/** @param {any} error Whatever the route threw. */ (error, request, reply) => {
+  app.setErrorHandler(/** @param {any} thrown Whatever the route threw. */ (thrown, request, reply) => {
+    /** @type {any} A database error is answered by its stand-in; its message, statement and values are logged only. */
+    const error = thrown instanceof ActionRuntimeError ? thrown : hideDatabaseError(thrown);
+    if (error !== thrown) {
+      app.log.error({ err: thrown, statusCode: error.status }, "Database error");
+    }
     const normalizedErrorCode = String(error?.code || "").trim();
     const transactionOutcome = normalizeTransactionOutcome(error?.transactionOutcome);
     const outcomeFields = transactionOutcome ? { transactionOutcome } : {};
@@ -249,7 +254,7 @@ function registerApiErrorHandler(app) {
     applyErrorHeaders(reply, error);
 
     if (isAppError(error) || error instanceof ActionRuntimeError) {
-      if (error.status >= 500) {
+      if (error.status >= 500 && error === thrown) {
         app.log.error({ err: error }, "AppError 5xx");
       }
       const appErrorCode = normalizedErrorCode || "app_error";

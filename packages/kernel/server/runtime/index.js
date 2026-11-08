@@ -1,4 +1,4 @@
-export { AppError, createValidationError } from "./errors.js";
+export { AppError, createValidationError, hideDatabaseError } from "./errors.js";
 export { parsePositiveInteger } from "./integers.js";
 export { requireAuth } from "./serviceAuthorization.js";
 export { BootstrapProvider } from "./BootstrapProvider.js";

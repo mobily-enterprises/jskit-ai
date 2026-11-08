@@ -129,7 +129,8 @@ function createAssistantRuntime({
     assistantConfigService: configService,
     personContextPrompt: createPersonContextPrompt({ personContext, logger }),
     appConfig: config,
-    workspaceScopeSupport
+    workspaceScopeSupport,
+    logger
   });
 
   return Object.freeze({

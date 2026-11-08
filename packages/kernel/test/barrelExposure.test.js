@@ -48,6 +48,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "createBootstrapRuntime",
       "createEventRuntime",
       "createValidationError",
+      "hideDatabaseError",
       "parsePositiveInteger",
       "requireAuth"
     ])

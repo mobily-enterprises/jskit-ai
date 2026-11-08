@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { attachDirectRequestActionExecutor } from "@jskit-ai/kernel/server/http";
-import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { AppError, hideDatabaseError } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { actionIds } from "./actionIds.js";
 import { resolveRouteRequestState } from "./support/assistantRouteContext.js";
@@ -210,7 +210,10 @@ function registerConversationSubscriptions({ realtime, events, actions, config =
         acknowledge({ ok: true, subscriptionId, streamEpoch: subscription.epoch, state });
         // Sending an acknowledgement does not prove that a timed-out client received it.
         onStage("acknowledgement-sent");
-      } catch (error) {
+      } catch (thrown) {
+        // A database error is acknowledged as its stand-in (a generic 409 or 500), and its detail goes to the log.
+        const error = hideDatabaseError(thrown);
+        if (error !== thrown) logger.error({ err: thrown }, "Assistant conversation subscription failed on a database error.");
         onStage("failed", { code: String(error?.code || "assistant_subscription_failed"),
           status: errorStatus(error) });
         if (subscriptions.get(subscriptionId) === subscription) release(subscriptionId);

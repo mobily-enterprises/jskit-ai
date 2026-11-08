@@ -1,6 +1,7 @@
 import { isDeepStrictEqual } from "node:util";
 import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { AppError, createValidationError } from "@jskit-ai/kernel/server/runtime";
+import { AppError, createValidationError, hideDatabaseError } from "@jskit-ai/kernel/server/runtime";
+import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { normalizeObject, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveWorkspaceSlug } from "@jskit-ai/assistant-core/server";
 import { conversationAttachmentIds } from "@jskit-ai/assistant-core/server/conversation";
@@ -156,6 +157,7 @@ function buildAssistantActionContext(context = {}, assistantSurface = {}) {
  * @param {PersonContextPrompt} dependencies.personContextPrompt
  * @param {Record<string, any>} dependencies.appConfig
  * @param {WorkspaceScopeSupport | null} [dependencies.workspaceScopeSupport]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} [dependencies.logger]
  */
 function createChatService({
   conversationRuntime,
@@ -167,7 +169,8 @@ function createChatService({
   assistantConfigService,
   personContextPrompt,
   appConfig,
-  workspaceScopeSupport
+  workspaceScopeSupport,
+  logger = silentLogger
 }) {
   function resolveRuntimeWorkspace(assistantSurface, context = {}, input = {}) {
     if (assistantSurface?.runtimeSurfaceRequiresWorkspace !== true) {
@@ -279,14 +282,16 @@ function createChatService({
     let result;
     try {
       result = await executeTurn();
-    } catch (error) {
+    } catch (thrown) {
+      // A database error is saved, so replayed, only as its stand-in; the route answers and logs the error itself.
+      const error = hideDatabaseError(thrown);
       response.failure = { message: String(error?.message || "Assistant request failed."),
         status: errorStatus(error),
         ...(error instanceof AppError ? { code: error.code,
           ...(exposedAppErrorDetails(error) ? { details: error.details } : {}) } : {}),
         ...savedMessageFields(error) };
       await turnRequests.update(claim, response, "failed");
-      throw error;
+      throw thrown;
     }
     await turnRequests.update(claim, response, result.status);
     if (response.done) output.sendDone(response.done);
@@ -413,10 +418,13 @@ function createChatService({
           streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text });
           streamWriter.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: source.messageId, status: "completed" });
           return { conversationId, messageId: source.messageId, status: "completed" };
-        } catch (error) {
-          const aborted = isAbortError(error) || options.abortSignal?.aborted;
+        } catch (thrown) {
+          const aborted = isAbortError(thrown) || options.abortSignal?.aborted;
           const status = aborted ? "aborted" : "failed";
-          if (!streamed) throw error;
+          if (!streamed) throw thrown;
+          // A database error streams only as its stand-in (a generic 409 or 500), and its detail goes to the log.
+          const error = hideDatabaseError(thrown);
+          if (error !== thrown) logger.error({ err: thrown }, "Assistant turn failed on a database error.");
           await transcriptService.completeConversation(assistantSurface, conversationId, { status }, { context: assistantContext, workspace });
           streamWriter.sendError({ type: ASSISTANT_STREAM_EVENT_TYPES.ERROR, messageId: source.messageId,
             code: aborted ? "assistant_stream_aborted" : String(error?.code || "assistant_stream_failed"),

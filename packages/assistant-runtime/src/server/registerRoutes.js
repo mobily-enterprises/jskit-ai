@@ -1,4 +1,4 @@
-import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { AppError, hideDatabaseError } from "@jskit-ai/kernel/server/runtime";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import {
@@ -188,7 +188,10 @@ function registerRuntimeRoutes(
         }
 
         reply.code(204).send();
-      } catch (error) {
+      } catch (thrown) {
+        // A database error is answered by its stand-in (a generic 409 or 500), and its detail goes to the log.
+        const error = hideDatabaseError(thrown);
+        if (error !== thrown) request.log.error({ err: thrown }, "Assistant chat stream failed on a database error.");
         if (!streamStarted) {
           sendPreStreamErrorResponse(reply, error);
           return;

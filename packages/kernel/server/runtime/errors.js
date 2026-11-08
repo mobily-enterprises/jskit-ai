@@ -64,6 +64,58 @@ export function isAppError(error) {
   return error instanceof AppError;
 }
 
+// The refusals a database makes of a transaction for a concurrent one, after which the same request can be tried
+// again: a deadlock, a lock wait that timed out, a row changed since the transaction's snapshot (MariaDB's
+// "Record has changed since last read"), a serialization failure, a locked SQLite database.
+const CONCURRENCY_CODES = new Set(["ER_CHECKREAD", "ER_LOCK_DEADLOCK", "ER_LOCK_WAIT_TIMEOUT", "40001", "40P01", "55P03", "SQLITE_BUSY"]);
+const CONCURRENCY_ERRNOS = new Set([1020, 1205, 1213]);
+
+// A database driver's own error: MySQL's and MariaDB's (sqlMessage, sqlState, sql, ER_ codes), Postgres's (severity
+// and routine) and SQLite's (SQLITE_ codes).
+function isDriverError(error) {
+  const code = String(error.code ?? "");
+  return typeof error.sqlMessage === "string" || typeof error.sqlState === "string" || typeof error.sql === "string" ||
+    /^(ER_|SQLITE_)/u.test(code) || (typeof error.severity === "string" && typeof error.routine === "string");
+}
+
+function findDatabaseError(error) {
+  const seen = new Set();
+  // An AppError is an answer the code chose for a client, such as a ConflictError for a duplicate key, whatever it wraps.
+  while (error && typeof error === "object" && !seen.has(error) && !(error instanceof AppError)) {
+    seen.add(error);
+    if (isDriverError(error)) {
+      return error;
+    }
+    error = error.cause;
+  }
+  return null;
+}
+
+/**
+ * What a client may be told of an error. A database error, thrown as it is or as the cause of a wrapper that copies
+ * its message and code (json-rest-api's RestApiWriteError), carries the statement, its values and the driver's codes,
+ * which belong in the server log only: it is answered by a stand-in, a 409 ConflictError coded kernel.database.concurrentWrite
+ * when the database refused the transaction for a concurrent one, so the request can be sent again, else a 500
+ * AppError coded internal_server_error, with the wrapper's transactionOutcome. Any other error, and an AppError whatever its cause, comes back
+ * unchanged.
+ * @param {any} error
+ * @returns {any}
+ */
+export function hideDatabaseError(error) {
+  const found = findDatabaseError(error);
+  if (!found) {
+    return error;
+  }
+  const conflict = CONCURRENCY_CODES.has(String(found.code ?? "").toUpperCase()) || CONCURRENCY_ERRNOS.has(Number(found.errno));
+  const shown = conflict
+    ? new ConflictError("Another request changed the same data at the same time. Try again.", { code: "kernel.database.concurrentWrite" })
+    : new AppError(500, "Internal server error.", { code: "internal_server_error" });
+  if (error.transactionOutcome !== undefined) {
+    shown.transactionOutcome = error.transactionOutcome;
+  }
+  return shown;
+}
+
 export function isDomainError(error) {
   return error instanceof DomainError;
 }
