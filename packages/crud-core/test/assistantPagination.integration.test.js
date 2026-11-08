@@ -9,7 +9,6 @@ import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudCont
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 import { createCrudService } from "../src/server/jsonApiModule/service.js";
-import { createCrudContracts } from "../src/server/crudContracts.js";
 
 test("assistant list traverses real SQL pages with sparse fields and capped limits", async (t) => {
   const knex = knexLib({
@@ -47,10 +46,7 @@ test("assistant list traverses real SQL pages with sparse fields and capped limi
   const crud = defineCrudContract(resource, { namespace: "books", operations: ["list"], fields: { name: { output: "required" } } });
   const runtime = await createTestResourceRuntime({ knex });
   const { books: repository } = await runtime.own("test.books", [resource]);
-  const contracts = createCrudContracts();
-  contracts.register(crud);
-  contracts.seal();
-  const service = createCrudService({ repository, crud, contracts });
+  const service = createCrudService({ repository, crud });
   const actions = createActionCatalogue();
   actions.register({
     contributorId: "test.books",

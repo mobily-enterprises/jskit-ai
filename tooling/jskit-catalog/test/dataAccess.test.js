@@ -114,36 +114,6 @@ test("the fields of an app table resource that its CRUD contracts never name are
     const report = formatDataAccessReport(result);
     assert.match(report, /^Fields no CRUD contract names \(1 table resource\(s\)\), so no API shows or accepts them; name one in a contract's fields to offer it \(data\/unnamed-fields; https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access#layer-2-the-crud-surface\):$/mu);
     assert.match(report, /^ {2}packages\/notes\/src\/shared\/noteResource\.js:1 {2}notes: internalNote$/mu);
-    // Two contracts on notes show different fields, so an include that names neither shows what both show.
-    assert.deepEqual(result.differingContracts, [{
-      file: "packages/notes/src/shared/noteResource.js",
-      line: 1,
-      name: "notes",
-      contracts: [{ namespace: "notes", output: ["title"] }, { namespace: "note-summaries", output: ["body"] }]
-    }]);
-    assert.match(report, /^Tables several CRUD contracts serve with different outputs \(1 table resource\(s\)\); an include that names none of their namespaces shows only the fields they all show \(data\/differing-contracts; [^)]+#layer-2-the-crud-surface\):$/mu);
-    assert.match(report, /^ {2}packages\/notes\/src\/shared\/noteResource\.js:1 {2}notes: notes \(title\); note-summaries \(body\)$/mu);
-  });
-});
-
-test("CRUD contracts with the same output, or a timestamp kept out, read as written", async () => {
-  await withProject({
-    "packages/memos/src/shared/memoResource.js": [
-      "export const memoResource = defineTableResource({ name: \"memos\", tableName: \"memos\", ownership: \"public\", schema: {",
-      "  text: { type: \"string\" },",
-      "  createdAt: { type: \"dateTime\" }",
-      "} });",
-      ""
-    ].join("\n"),
-    "packages/memos/src/shared/memoCrud.js": [
-      "export const memoCrud = defineCrudContract(memoResource, { namespace: \"memos\", fields: { text: { output: \"required\", create: \"required\" } } });",
-      "export const memoListCrud = defineCrudContract(memoResource, { namespace: \"memo-list\", fields: { text: { output: true } } });",
-      "export const memoBareCrud = defineCrudContract(memoResource, { namespace: \"memo-bare\", fields: { text: { output: true }, createdAt: { output: false } } });",
-      ""
-    ].join("\n")
-  }, async (root) => {
-    const result = await checkDataAccess({ projectRoot: root });
-    assert.deepEqual(result.differingContracts.map(({ contracts }) => contracts.map(({ output }) => output)), [[["text"], ["text"], ["-createdAt", "text"]]]);
   });
 });
 

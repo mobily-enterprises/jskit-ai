@@ -270,11 +270,17 @@ const receivalCrud = defineCrudContract(receivalResource, {
 });
 ```
 
-A contract shows and accepts only the fields it names, and an included record
-shows only what its own table's contract shows. When several contracts serve
-that table, an include shows the contract its relation names with
-`relation.namespace` (a `lookup` names its namespace), and otherwise only the
-fields they all show; `jskit check` lists the tables whose contracts differ.
+A contract shows and accepts only the fields it names, and so does an included
+record: it shows its id, its relation's `labelKey`, and only the fields the
+including contract lists, with no relationships. Another table's contract never
+shapes it, since that contract may be served to another surface or behind
+another permission:
+
+```js
+fields: {
+  ownerId: { output: { required: false, includeFields: ["displayName"] } }
+}
+```
 A `decorateService` that also needs the record it wrote (for an audit or a
 history row) reads it from its own answer, `simplifyJsonApiResult(answer)`
 from `@jskit-ai/http-runtime/shared`, never with a second read; a relationship

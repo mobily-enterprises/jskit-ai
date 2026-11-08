@@ -12,6 +12,24 @@ function resolveSchemaFieldDefinitions(definition = null) {
   return isRecord(definitions) ? definitions : {};
 }
 
+/**
+ * The fields of a related record a CRUD contract shows when it includes that record, beyond its id and label: its
+ * output entry's `includeFields`, such as `fields: { ownerId: { output: { required: false, includeFields: ["name"] } } }`.
+ * @param {string} fieldKey
+ * @param {Record<string, any>} definition The relation field's output definition.
+ * @returns {ReadonlyArray<string>}
+ */
+function includeFieldsOf(fieldKey, definition) {
+  const names = definition.includeFields;
+  if (names === undefined) {
+    return Object.freeze([]);
+  }
+  if (!Array.isArray(names) || names.some((name) => !normalizeText(name))) {
+    throw new TypeError(`A CRUD contract's ${fieldKey}.includeFields must list the fields an included record shows.`);
+  }
+  return Object.freeze(names.map((name) => normalizeText(name)));
+}
+
 function resolveJsonApiRelationshipEntries(definition = null) {
   const entries = [];
 
@@ -29,7 +47,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
         relationshipName,
         relationshipType,
         labelKey: normalizeText(normalizedFieldDefinition.relation?.labelKey),
-        contractNamespace: normalizeText(normalizedFieldDefinition.relation?.namespace),
+        includeFields: includeFieldsOf(fieldKey, normalizedFieldDefinition),
         required: normalizedFieldDefinition.required === true,
         nullable: normalizedFieldDefinition.nullable === true
       }));
@@ -60,7 +78,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
       relationshipName: collectionRelationshipName,
       relationshipType: collectionRelationshipType,
       labelKey: normalizeText(relation.labelKey),
-      contractNamespace: normalizeText(relation.namespace),
+      includeFields: includeFieldsOf(fieldKey, normalizedFieldDefinition),
       many: true,
       required: normalizedFieldDefinition.required === true,
       nullable: normalizedFieldDefinition.nullable === true

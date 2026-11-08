@@ -49,37 +49,22 @@ function contractShape(crud) {
   };
 }
 
-const intersection = (sets) => sets.length < 1 ? new Set() : sets.reduce((kept, set) => new Set([...kept].filter((key) => set.has(key))));
-
 /**
- * What the documents of a contract show of each JSON:API type its includes reach, each as that type shows it. A lookup that declares its label shows the label; one
- * that names its contract's namespace shows that contract's output; otherwise the type's contracts show what they all
- * show, and a type no contract serves shows only its id. Built once, from the registry sealed at boot.
+ * What the documents of a contract show of each JSON:API type its includes reach. An included record shows only its
+ * id, its lookup's `labelKey` and the fields this contract's relation lists in `includeFields`, and no relationships;
+ * it never takes another contract's output, so a contract served to another surface or behind another permission
+ * shapes nothing here. A type no relation of this contract reaches shows only its id.
  * @param {import("../types.js").CrudContract} crud
- * @param {ReturnType<typeof import("../crudContracts.js").createCrudContracts>} contracts
  */
-function documentShapes(crud, contracts) {
-  const own = contractShape(crud);
+function documentShapes(crud) {
   /** @type {Map<string, { attributes: Set<string>, relationshipNames: Set<string> }>} */
   const shapes = new Map();
-  const pending = [own.relationships];
-  const visited = new Set([crud.resource.name]);
-  while (pending.length > 0) {
-    for (const entry of pending.pop()) {
-      const type = entry.relationshipType;
-      const named = entry.contractNamespace ? contracts.forNamespace(entry.contractNamespace) : null;
-      const served = (named ? [named] : contracts.forType(type)).map(contractShape);
-      const attributes = entry.labelKey ? new Set([entry.labelKey]) : intersection(served.map((shape) => shape.attributes));
-      const relationshipNames = entry.labelKey ? new Set() : intersection(served.map((shape) => shape.relationshipNames));
-      const shape = shapes.get(type);
-      shapes.set(type, shape
-        ? { attributes: new Set([...shape.attributes, ...attributes]), relationshipNames: new Set([...shape.relationshipNames, ...relationshipNames]) }
-        : { attributes, relationshipNames });
-      if (!visited.has(type)) {
-        visited.add(type);
-        pending.push(served.flatMap((shape) => shape.relationships.filter(({ relationshipName }) => relationshipNames.has(relationshipName))));
-      }
+  for (const entry of contractShape(crud).relationships) {
+    const attributes = shapes.get(entry.relationshipType)?.attributes ?? new Set();
+    for (const key of [entry.labelKey, ...entry.includeFields]) {
+      if (key) attributes.add(key);
     }
+    shapes.set(entry.relationshipType, { attributes, relationshipNames: new Set() });
   }
   return shapes;
 }
@@ -91,22 +76,19 @@ const NOTHING_SHOWN = Object.freeze({ attributes: new Set(), relationshipNames: 
  * HTTP query and body, calls the feature's repository (its table's handle, as
  * decorated) with the call's options and `format: "jsonapi"`, and answers
  * JSON:API documents that show only what the CRUD contract names: its records'
- * attributes and relationships, and each included record as its own type's
- * contract shows it (see documentShapes), so a column or relationship no
- * contract names is never answered.
+ * attributes and relationships, and each included record with only what its
+ * relation names (see documentShapes), so a column or relationship the
+ * contract does not name is never answered.
  * Server code calls the repository instead. The handle stamps the table's
  * createdAt and updatedAt, as it does for every write.
  * @param {object} dependencies
  * @param {import("../types.js").CrudRepository} dependencies.repository
  * @param {import("../types.js").CrudContract} dependencies.crud The CRUD contract the service answers for.
- * @param {ReturnType<typeof import("../crudContracts.js").createCrudContracts>} dependencies.contracts The
- *   application's CRUD contracts, read after boot.
  */
-function createCrudService({ repository, crud, contracts }) {
+function createCrudService({ repository, crud }) {
   const resourceName = crud.resource.name;
   const own = contractShape(crud);
-  /** @type {Map<string, { attributes: Set<string>, relationshipNames: Set<string> }> | null} */
-  let shapes = null;
+  const shapes = documentShapes(crud);
 
   /**
    * @param {Record<string, any>} record A JSON:API resource object.
@@ -141,7 +123,6 @@ function createCrudService({ repository, crud, contracts }) {
     if (!document?.data) {
       return returnJsonApiDocument(document);
     }
-    shapes ??= documentShapes(crud, contracts);
     const records = (Array.isArray(document.data) ? document.data : [document.data]).map((record) => shownRecord(record, own));
     const shown = { ...document, data: Array.isArray(document.data) ? records : records[0] };
     if (document.included) {
