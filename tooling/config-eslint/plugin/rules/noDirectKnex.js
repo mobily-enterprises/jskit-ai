@@ -24,6 +24,10 @@ const TABLE_METHODS = new Set([
   "outerJoin",
   "crossJoin"
 ]);
+// The joins among them: a join of a table named through a variable or property whose name says table (`petsTable`,
+// `tables.pets`, `resource.tableName`) reads that table as much as a literal does, past its owner's scope. A join of
+// another table's scopedQuery() subquery is scoped.
+const JOIN_METHODS = new Set([...TABLE_METHODS].filter((name) => /join$/iu.test(name)));
 // What a transaction is opened on by hand: `knex.transaction(`, `db.transaction(`, `database.transaction(`.
 const TRANSACTION_OWNERS = new Set(["knex", "db", "database"]);
 const DOOR = "Every read and write goes through the table owner's resource handle; a report the resource cannot express starts from the owner's scopedQuery().";
@@ -89,10 +93,20 @@ function isOtherLibrary(method, object, args) {
   return method === "join" && (args.length < 2 || /path|^posix$|^win32$/iu.test(name));
 }
 
+// Whether a join's first argument is a variable or property whose name, or whose object's name, says it holds a table
+// name: `PETS_TABLE`, `owners.tableName`, `tables.lots`.
+function joinsNamedTable(method, first) {
+  const value = unwrapChain(first);
+  if (!JOIN_METHODS.has(method) || (value?.type !== "Identifier" && value?.type !== "MemberExpression")) {
+    return false;
+  }
+  return TABLE_NAME.test(lastName(value)) || (value.type === "MemberExpression" && TABLE_NAME.test(lastName(value.object)));
+}
+
 // Knex reached past the resource: a table builder called with a table name (`knex("t")`, `(trx || knex)("t")`,
 // `knex(tables.messages)`, `client(MODELS_TABLE)`), a `.knex` read or a `knex` destructured
-// (`const { knex: q } = database`), a transaction opened by hand, and a literal table name given to from, table, into
-// or a join.
+// (`const { knex: q } = database`), a transaction opened by hand, a literal table name given to from, table, into
+// or a join, and a join of a table named through a variable or property whose name says table.
 const noDirectKnex = Object.freeze({
   meta: ruleMeta("Disallow reaching a table with Knex past its resource.", {
     tableBuilder: `{{text}}(...) starts a query on a table by name, outside its resource. ${DOOR} ${HINT}`,
@@ -121,7 +135,8 @@ const noDirectKnex = Object.freeze({
         const ownerIsKnexRead = owner === "knex" && unwrapChain(method.object).type === "MemberExpression";
         if (method.name === "transaction" && TRANSACTION_OWNERS.has(owner) && !ownerIsKnexRead) {
           context.report({ node, messageId: "handTransaction", data: { text: compactText(sourceCode, node.callee) } });
-        } else if (TABLE_METHODS.has(method.name) && isText(first) && !isOtherLibrary(method.name, method.object, node.arguments)) {
+        } else if (TABLE_METHODS.has(method.name) && (isText(first) || joinsNamedTable(method.name, first)) &&
+          !isOtherLibrary(method.name, method.object, node.arguments)) {
           context.report({ node: first, messageId: "literalTable", data: { method: method.name, table: compactText(sourceCode, first) } });
         }
       },

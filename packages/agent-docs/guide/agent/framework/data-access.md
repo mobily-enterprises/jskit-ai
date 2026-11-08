@@ -412,7 +412,11 @@ async function activeDays(memberIds, options) {
   <reason>`) and `runtime-tables`.
 - `column()` names columns; `raw` takes one expression as a string literal,
   with its values as bindings.
-- The builder only reads.
+- The builder only reads, and only its own table is scoped. A `.join()` of
+  another table, or a table named inside `raw()`, reads that table's rows past
+  its owner and row policy, and nothing at run time stops it: only the
+  `jskit/no-direct-knex` and `jskit/sql-literal` lint rules do. Join only
+  another table's `scopedQuery()` as a subquery, or read it through its owner.
 - Give each report a scope test and a flat-query test (see [Tests](#tests)).
 - A report over tables with different owners is a feature of its own. It
   requires a report method from each owner (keys in, grouped totals out) and

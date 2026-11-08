@@ -14,6 +14,7 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
     "const connection = knex({ client: \"mysql2\", connection: settings });",
     "const pending = lots.scopedQuery(options).select(\"id\");\nquery.whereIn(\"lotId\", pending);",
     "query.join(events.scopedQuery(options).as(\"e\"), \"e.receivalId\", \"r.id\");",
+    "const recent = events.scopedQuery(options).as(\"e\");\nquery.leftJoin(recent, \"e.receivalId\", \"r.id\");",
     "query.from(receivals.scopedQuery(options).as(\"r\"));",
     "repository.withTransaction(options, (tx) => receivals.create(row, tx));",
     "const bytes = Buffer.from(\"text\", \"utf8\");\nconst letters = Array.from(\"abc\");",
@@ -72,6 +73,15 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
     {
       code: "query.join(\"room_members\", \"room_members.room_id\", \"r.id\");\nquery.leftJoin(`lots as l`, \"l.id\", \"r.lot_id\");\nquery.innerJoin(\"pets\", function () { this.on(\"pets.id\", \"=\", \"r.pet_id\"); });",
       errors: [{ messageId: "literalTable", line: 1 }, { messageId: "literalTable", line: 2 }, { messageId: "literalTable", line: 3 }]
+    },
+    {
+      // A table named through a variable or property is joined past its owner's scope as much as a literal one.
+      code: "query.leftJoin(PETS_TABLE, \"pets.id\", \"r.pet_id\");\nquery.join(tables.lots, \"lots.id\", \"r.lot_id\");\nquery.innerJoin(owners.tableName, \"owners.id\", \"r.owner_id\");",
+      errors: [
+        { messageId: "literalTable", data: { method: "leftJoin", table: "PETS_TABLE" }, line: 1 },
+        { messageId: "literalTable", data: { method: "join", table: "tables.lots" }, line: 2 },
+        { messageId: "literalTable", data: { method: "innerJoin", table: "owners.tableName" }, line: 3 }
+      ]
     },
     {
       code: "const sub = function () { this.select(\"id\").from(\"room_members\"); };",
