@@ -21,7 +21,9 @@ new RuleTester().run("jskit/sql-literal", sqlLiteral, {
     "const text = String.raw({ raw: [\"a\", \"b\"] }, 1);",
     "const label = String.raw`a${name}`;",
     "query.select({ year: visits.raw(\"EXTRACT(YEAR FROM ??)\", [visits.column(\"visitedAt\")]) });",
-    "query.select({ fromDate: visits.raw(\"DATE(??)\", [visits.column(\"from_date\")]) });"
+    "query.select({ fromDate: visits.raw(\"DATE(??)\", [visits.column(\"from_date\")]) });",
+    // A query field's select destructures raw.
+    "const field = { select({ raw, column }) { return raw(\"?? - coalesce(??, 0)\", [column(\"receivedWeight\"), column(\"processedWeight\")]); } };"
   ],
   invalid: [
     {
@@ -64,6 +66,15 @@ new RuleTester().run("jskit/sql-literal", sqlLiteral, {
         { messageId: "statement", data: { method: "joinRaw", word: "JOIN" }, line: 4 },
         { messageId: "statement", data: { method: "raw", word: "UPDATE" }, line: 5 },
         { messageId: "statement", data: { method: "raw", word: "INTO" }, line: 6 }
+      ]
+    },
+    {
+      // A query field's raw, destructured, is held to the same rules.
+      code: "const field = { select({ raw, column }) { return raw(`${column(\"a\")} + 1`); } };\nraw(\"?? + 1\");\nraw(\"(select max(id) from other_table)\", []);",
+      errors: [
+        { messageId: "notLiteral", data: { method: "raw", text: "`${column(\"a\")} + 1`" }, line: 1 },
+        { messageId: "noBindings", data: { method: "raw" }, line: 2 },
+        { messageId: "statement", data: { method: "raw", word: "FROM" }, line: 3 }
       ]
     },
     {

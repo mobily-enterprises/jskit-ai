@@ -5,10 +5,11 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { createLockReads } from "./handleLocks.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
+import { valueOnlyRaw } from "./rawExpression.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
   formatOf, matchesNoRow, missingOf, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows,
-  valueOnly, whereSelection
+  whereSelection
 } from "./handleGuards.js";
 import {
   aggregateMeasures,
@@ -630,14 +631,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * @param {string} sql
    * @param {unknown[]} [bindings]
    */
-  function raw(sql, bindings) {
-    if (typeof sql !== "string" || !sql.trim()) {
-      throw new TypeError(`${name}.raw() takes one SQL expression as a string.`);
-    }
-    if (/\?/u.test(sql) && !Array.isArray(bindings)) {
-      throw new TypeError(`${name}.raw() needs the bindings of its placeholders.`);
-    }
-    return valueOnly(name, api.knex.instance.raw(sql, bindings || []));
+  function raw(sql, bindings, ...rest) {
+    return valueOnlyRaw(`${name}.raw()`, api.knex.instance, [sql, bindings, ...rest]);
   }
 
   return Object.freeze({

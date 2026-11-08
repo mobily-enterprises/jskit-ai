@@ -40,8 +40,8 @@ const ReceivalsFeature = defineFeature({
     queryFields: {
       remainingWeight: {
         type: "number",
-        select({ knex, column }) {
-          return knex.raw("?? - coalesce(??, 0)", [column("received_weight"), column("processed_weight")]);
+        select({ raw, column }) {
+          return raw("?? - coalesce(??, 0)", [column("receivedWeight"), column("processedWeight")]);
         }
       }
     }
@@ -51,6 +51,9 @@ const ReceivalsFeature = defineFeature({
 ```
 
 Keep projection SQL in the server feature that owns the table, never in the shared resource that ships to the browser.
+`select` receives `raw`, which builds one SQL expression from a string literal and its bindings (awaiting it throws),
+`column(field)`, which names a field's column, and the read's `filters`; never Knex. The expression is the field's value
+only, so it reads no other table.
 
 What the resource runtime does for you:
 - reads select only column-backed fields plus the registered query fields

@@ -33,28 +33,6 @@ function requireOwners(name, ownership, context) {
   }
 }
 
-// The ways a Knex raw expression runs as a statement of its own. raw() answers a value for a scoped query, so each of
-// these throws: an awaited raw expression would run its SQL with no ownership scope at all.
-const STATEMENT_METHODS = Object.freeze(new Set(["then", "catch", "finally", "asCallback", "stream", "pipe"]));
-
-/**
- * A Knex raw expression that works only as a value: in a select, a where or a write.
- * @param {string} name The resource's name.
- * @param {object} expression
- */
-function valueOnly(name, expression) {
-  return new Proxy(expression, {
-    get(target, property, receiver) {
-      if (STATEMENT_METHODS.has(property)) {
-        return () => {
-          throw new TypeError(`${name}.raw() is a value inside a scoped query or a write; it never runs as a statement of its own.`);
-        };
-      }
-      return Reflect.get(target, property, receiver);
-    }
-  });
-}
-
 /**
  * Refuses a filter whose value is undefined, at any depth. json-rest-api drops such a filter, so a caller's missing
  * value would widen the selection to every row it owns instead of none.
@@ -225,4 +203,4 @@ function matchesNoRow(filters, schemaInfo) {
   return Object.entries(filters).some(([key, value]) => Array.isArray(value) && value.length === 0 && search[key]?.filterOperator === "in");
 }
 
-export { formatOf, matchesNoRow, missingOf, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, valueOnly, whereSelection };
+export { formatOf, matchesNoRow, missingOf, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, whereSelection };

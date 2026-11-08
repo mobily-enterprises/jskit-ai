@@ -10,6 +10,13 @@ const PLACEHOLDER = /(?<!\\)\?/u;
 const STATEMENT_WORD = /\b(?:FROM|JOIN|INTO|UPDATE|DELETE|INSERT)\b/iu;
 const FROM_FUNCTION = /\b(?:EXTRACT|TRIM|SUBSTRING|OVERLAY|POSITION)\s*\([^()]*\)/giu;
 
+// The SQL method a call names: a Knex method (`query.whereRaw(...)`, `handle.raw(...)`), or `raw(...)` itself, which a
+// query field's select destructures from what it receives (`select({ raw, column })`).
+function sqlMethod(node) {
+  const callee = node.callee;
+  return calledMethod(node) ?? (callee.type === "Identifier" && callee.name === "raw" ? { name: "raw", object: null } : null);
+}
+
 function shortText(sourceCode, node) {
   const text = compactText(sourceCode, node);
   return text.length > 60 ? `${text.slice(0, 57)}...` : text;
@@ -34,7 +41,7 @@ const sqlLiteral = Object.freeze({
     const onKnex = isInfrastructureFile(context, "no-direct-knex");
     return {
       CallExpression(node) {
-        const method = calledMethod(node);
+        const method = sqlMethod(node);
         const [sql, bindings] = node.arguments;
         // String.raw is the template tag, not SQL.
         if (!method || !RAW_METHODS.has(method.name) || lastName(method.object) === "String" || !sql) {

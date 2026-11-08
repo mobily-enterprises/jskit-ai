@@ -386,7 +386,7 @@ test("resourceScopeOptions clones canonical resource metadata and resolves symbo
 });
 
 test("resourceScopeOptions maps server query projections into json-rest-api queryFields", () => {
-  const select = ({ knex }) => knex.raw("1");
+  const select = ({ raw }) => raw("1");
   const resource = defineTableResource({
     name: "receivals",
     tableName: "receivals",
@@ -427,8 +427,11 @@ test("resourceScopeOptions maps server query projections into json-rest-api quer
   assert.deepEqual(Object.keys(result.schema), ["id"]);
   assert.equal(result.queryFields.remainingProcessableWeight.type, "number");
   assert.equal(result.queryFields.remainingProcessableWeight.sortable, true);
-  assert.equal(result.queryFields.remainingProcessableWeight.select, select);
-  assert.equal(result.queryFields.availableCapacityWeight.select, select);
+  // Each select is called with a value-only raw, column() and the read's filters, never json-rest-api's Knex.
+  const db = { raw: (sql, bindings) => ({ sql, bindings, toSQL: () => ({ sql, bindings }) }) };
+  for (const field of ["remainingProcessableWeight", "availableCapacityWeight"]) {
+    assert.equal(result.queryFields[field].select({ db, column: (name) => name, context: {} }).sql, "1");
+  }
   // Every resource's filters also take `id`, one id or a list of them.
   assert.deepEqual(result.searchSchema, {
     status: { type: "string", filterOperator: "=" },

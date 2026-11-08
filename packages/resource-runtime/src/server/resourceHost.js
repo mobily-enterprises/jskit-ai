@@ -25,6 +25,7 @@ import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributo
 import { ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER } from "@jskit-ai/kernel/shared/support/visibility";
 import { createJsonRestContext } from "./contexts.js";
 import { isPlainJsonRestObject, resolveJsonRestCollectionRelationships } from "./jsonRestValues.js";
+import { valueOnlyRaw } from "./rawExpression.js";
 
 const JSON_REST_AUTOFILTER_PRESETS = Object.freeze({
   public: Object.freeze([]),
@@ -209,11 +210,27 @@ function normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, proje
       ? sourceProjection.project
       : null;
   const type = normalizeText(sourceProjection.type || sourceFieldDefinition.type);
+  const { project: _project, ...projection } = sourceProjection;
   return {
-    ...sourceProjection,
+    ...projection,
     ...(type ? { type } : {}),
-    ...(select ? { select } : {})
+    ...(select ? { select: queryFieldSelect(normalizedFieldName, select) } : {})
   };
+}
+
+/**
+ * A query field's select() as json-rest-api calls it. The owner's select receives `raw`, which builds one SQL expression
+ * as a value only (a string with its bindings; awaiting it throws), `column(field)`, which names a field's column, and
+ * the read's `filters`, never json-rest-api's Knex, transaction or context, so its SQL can only be the field's value.
+ * @param {string} fieldName
+ * @param {(tools: { raw: Function, column: (field: string) => string, filters: Readonly<Record<string, unknown>> }) => unknown} select
+ */
+function queryFieldSelect(fieldName, select) {
+  return ({ db, column, context }) => select(Object.freeze({
+    raw: (sql, bindings, ...rest) => valueOnlyRaw(`Query field "${fieldName}" raw()`, db, [sql, bindings, ...rest]),
+    column,
+    filters: Object.freeze({ ...normalizeObject(context?.queryParams?.filters) })
+  }));
 }
 
 function isJsonRestVirtualField(fieldDefinition = null) {
