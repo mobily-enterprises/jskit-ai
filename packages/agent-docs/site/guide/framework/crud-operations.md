@@ -37,18 +37,15 @@ Match visibility to real ownership and test allowed plus cross-owner cases.
 
 The table resource is canonical for fields, columns, ownership and search; the
 CRUD contract for operations, validation, transport, messages and route
-parameters. A contract shows and accepts only the fields its `fields` names
-(a stored `createdAt` and `updatedAt` are shown without an entry, and
-`createdAt: { output: false }` keeps one out), so a column
-added later stays out of every API until a contract names it. The same holds
-for what a CRUD feature answers: a relationship the contract does not name is
-left out, and an included record shows only what its own table's contract
-shows (a lookup that declares its `labelKey` shows only that label, a relation
-that names a contract's namespace shows that contract, and a table no contract
-serves shows only the record's id). A package with a CRUD
-feature lists `crud.contracts`, the registry of the served contracts, in its
-descriptor's `capabilities.requires`. Do not duplicate their schema or
-serializers.
+parameters. A contract shows and accepts only the fields its `fields` names (stored
+`createdAt` and `updatedAt` show without an entry; `createdAt: { output:
+false }` hides one), so a column added later stays out of every API until a
+contract names it. A CRUD feature's answers follow the same rule: an unnamed
+relationship is left out, and an included record shows what its table's
+contract shows (a lookup's `labelKey` only that label, a relation naming a
+contract's namespace that contract, a table no contract serves only the id).
+A package with a CRUD feature lists `crud.contracts` in its descriptor's
+`capabilities.requires`. Do not duplicate their schema or serializers.
 Prefer `useCrudListScreen()`, `useCrudViewScreen()`, and
 `useCrudAddEditScreen()`; use `useCommand()` or `useEndpointResource()` for
 non-standard operations.
@@ -68,7 +65,7 @@ These controls answer different questions:
 | --- | --- | --- | --- |
 | Table resource `ownership` | Which rows belong to the request scope | `"public"`; no ownership column | `"user"`; real non-null `userId` column |
 | CRUD contract `apiAccess` | Who may call the API | `"public"` | `"authenticated"` |
-| Feature route visibility | Server route/action ownership scope; follows the table's `ownership` unless the feature names `visibility` | `"public"` | `"user"` |
+| Feature route visibility | Server route/action scope: the table's `ownership` unless the feature names `visibility` | `"public"` | `"user"` |
 | Client `access` | Whether to require bootstrap permissions | Default `"auto"` with no permission requirements | Default `"auto"`; declare permissions when required |
 
 `access` accepts `auto`, `always`, or `never`, not `public`. With `auto`, a
@@ -115,8 +112,8 @@ const bookCrud = defineCrudContract(bookResource, {
 
 Import `defineTableResource` from `@jskit-ai/resource-core/shared/tableResource`
 and `defineCrudContract` from `@jskit-ai/resource-crud-core/shared/crudContract`.
-Its app-owned migration creates `books` with an integer primary key `id` and
-non-null `title`; omit `userId` and its foreign key for this public variant.
+Its migration creates `books` with an integer `id` and non-null `title`; omit
+`userId` and its foreign key for this public variant.
 `list` requires `view` in the CRUD contract, even when the UI has no detail
 page. A create response uses the CRUD contract's output. Keep operation names
 such as `list`, `view` and `create`; do not invent output-operation aliases.
