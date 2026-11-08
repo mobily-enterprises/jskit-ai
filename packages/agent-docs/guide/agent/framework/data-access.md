@@ -273,14 +273,16 @@ const receivalCrud = defineCrudContract(receivalResource, {
 ```
 
 A contract shows and accepts only the fields it names, and so does an included
-record: it shows its id, its relation's `labelKey`, and only the fields the
-including contract lists, with no relationships. Another table's contract never
-shapes it, since that contract may be served to another surface or behind
-another permission:
+record: it shows its id, its relation's `labelKey`, and only what the including
+contract lists, a record it links to only when the list names that
+relationship, at any depth. Another table's contract never shapes it, since
+that contract may be served to another surface or behind another permission:
 
 ```js
 fields: {
-  ownerId: { output: { required: false, includeFields: ["displayName"] } }
+  ownerId: { output: { required: false, includeFields: ["displayName"] } },
+  // ?include=pet,pet.breed shows the pet's name and its breed's name
+  petId: { output: { required: false, includeFields: ["name", { breed: ["name"] }] } }
 }
 ```
 A `decorateService` that also needs the record it wrote (for an audit or a

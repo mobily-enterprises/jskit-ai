@@ -258,6 +258,68 @@ test("an included record shows its lookup's label and the fields the including c
   );
 });
 
+test("an include shows the records it links to only as deep, and only with the fields, as the including contract lists", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("publishers", (table) => {
+    table.increments("id");
+    table.string("name").notNullable();
+    table.string("secret");
+  });
+  await knex.schema.createTable("authors", (table) => {
+    table.increments("id");
+    table.string("name").notNullable();
+    table.string("secret_note");
+    table.integer("publisher_id");
+  });
+  await knex.schema.createTable("notes", (table) => {
+    table.increments("id");
+    table.string("title").notNullable();
+    table.integer("author_id");
+  });
+  await knex("publishers").insert({ name: "Acme", secret: "private" });
+  await knex("authors").insert({ name: "Ada", secret_note: "private", publisher_id: 1 });
+  await knex("notes").insert({ title: "First", author_id: 1 });
+  const publishers = defineTableResource({
+    name: "publishers",
+    tableName: "publishers",
+    ownership: "public",
+    schema: { name: { type: "string", required: true }, secret: { type: "string", nullable: true } }
+  });
+  const authors = defineTableResource({
+    name: "authors",
+    tableName: "authors",
+    ownership: "public",
+    schema: {
+      name: { type: "string", required: true },
+      secretNote: { type: "string", nullable: true, storage: { column: "secret_note" } },
+      publisherId: { type: "id", nullable: true, lookup: "publishers", storage: { column: "publisher_id" } }
+    }
+  });
+  const notes = defineTableResource({
+    name: "notes",
+    tableName: "notes",
+    ownership: "public",
+    schema: { title: { type: "string", required: true }, authorId: { type: "id", nullable: true, lookup: "authors", storage: { column: "author_id" } } }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const resources = await runtime.own("test.notes", [notes, authors, publishers]);
+  const serve = (includeFields) => createCrudService({
+    repository: resources.notes,
+    crud: defineCrudContract(notes, { namespace: "notes", operations: ["view"], fields: { title: { output: "required" }, authorId: { output: { required: false, includeFields } } } })
+  });
+  const shown = async (includeFields) => (await serve(includeFields).view("1", { include: "author,author.publisher" }, {})).value.included
+    .map(({ type, attributes, relationships }) => [type, attributes, Object.keys(relationships ?? {})]);
+
+  assert.deepEqual(await shown(["name", { publisher: ["name"] }]), [["authors", { name: "Ada" }, ["publisher"]], ["publishers", { name: "Acme" }, []]]);
+  // A nested record the contract does not list is not answered, and the link to it is left out.
+  assert.deepEqual(await shown(["name"]), [["authors", { name: "Ada" }, []]]);
+  assert.deepEqual(await shown([{ publisher: [] }]), [["authors", {}, ["publisher"]], ["publishers", {}, []]]);
+  for (const malformed of [[{ publisher: "name" }], [""], [{}]]) {
+    assert.throws(() => serve(malformed), /authorId\.includeFields(\.publisher)? must list the fields an included record shows/u);
+  }
+});
+
 test("the CRUD service answers documents, and 404 for a record that is missing or out of scope", async (t) => {
   const { service } = await createFixture(t);
   const page = await service.list({ title: "Note 7", fields: { notes: ["title"] } }, { context: WORKSPACE_ONE });

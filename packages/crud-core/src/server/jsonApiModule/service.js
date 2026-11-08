@@ -50,26 +50,30 @@ function contractShape(crud) {
 }
 
 /**
- * What the documents of a contract show of each JSON:API type its includes reach. An included record shows only its
- * id, its lookup's `labelKey` and the fields this contract's relation lists in `includeFields`, and no relationships;
- * it never takes another contract's output, so a contract served to another surface or behind another permission
- * shapes nothing here. A type no relation of this contract reaches shows only its id.
- * @param {import("../types.js").CrudContract} crud
+ * What an included record shows, from what its relation lists (see includeFieldsOf): its label and listed fields, the
+ * relationships the list names, and for each of those what its records show.
+ * @param {{ attributes: ReadonlyArray<string>, relationships: Readonly<Record<string, any>> }} include
+ * @param {string} [labelKey]
  */
-function documentShapes(crud) {
-  /** @type {Map<string, { attributes: Set<string>, relationshipNames: Set<string> }>} */
-  const shapes = new Map();
-  for (const entry of contractShape(crud).relationships) {
-    const attributes = shapes.get(entry.relationshipType)?.attributes ?? new Set();
-    for (const key of [entry.labelKey, ...entry.includeFields]) {
-      if (key) attributes.add(key);
-    }
-    shapes.set(entry.relationshipType, { attributes, relationshipNames: new Set() });
-  }
-  return shapes;
+function includedShape({ attributes, relationships }, labelKey = "") {
+  return Object.freeze({
+    attributes: new Set([labelKey, ...attributes].filter(Boolean)),
+    relationshipNames: new Set(Object.keys(relationships)),
+    linked: new Map(Object.entries(relationships).map(([name, nested]) => [name, includedShape(nested)]))
+  });
 }
 
-const NOTHING_SHOWN = Object.freeze({ attributes: new Set(), relationshipNames: new Set() });
+/**
+ * What the documents of a contract show of the records its includes reach, by relationship. An included record shows
+ * its id, its relation's `labelKey` and what the contract's relation lists in `includeFields`, at every depth; it
+ * never takes another contract's output, so a contract served to another surface or behind another permission shapes
+ * nothing here.
+ * @param {import("../types.js").CrudContract} crud
+ * @returns {Map<string, ReturnType<typeof includedShape>>}
+ */
+function documentShapes(crud) {
+  return new Map(contractShape(crud).relationships.map((entry) => [entry.relationshipName, includedShape(entry.include, entry.labelKey)]));
+}
 
 /**
  * The CRUD service: the HTTP edge of a CRUD feature. It takes an operation's
@@ -106,17 +110,20 @@ function createCrudService({ repository, crud }) {
   }
 
   /**
-   * The (type, id) keys a record's kept relationships point to.
+   * Each record a relationship the shapes name links to, with what it shows: [(type, id) key, shape] pairs.
    * @param {Record<string, any>} record
+   * @param {Map<string, ReturnType<typeof includedShape>>} linked The shapes of the relationships kept, by name.
    */
-  function linkedKeys(record) {
-    return Object.values(record.relationships || {}).flatMap(({ data }) => (Array.isArray(data) ? data : data ? [data] : []))
-      .map(({ type, id }) => `${type}:${id}`);
+  function linkedRecords(record, linked) {
+    return Object.entries(record.relationships || {}).flatMap(([name, { data }]) => {
+      const shape = linked.get(name);
+      return shape ? (Array.isArray(data) ? data : data ? [data] : []).map(({ type, id }) => [`${type}:${id}`, shape]) : [];
+    });
   }
 
   /**
    * The document as the contract shows it: its records, and only the included records a kept relationship reaches,
-   * each shaped by its type.
+   * each shaped by what the contract lists for every relationship that reaches it.
    * @param {Record<string, any> | null} document
    */
   function answer(document) {
@@ -127,17 +134,23 @@ function createCrudService({ repository, crud }) {
     const shown = { ...document, data: Array.isArray(document.data) ? records : records[0] };
     if (document.included) {
       const included = new Map(document.included.map((record) => [`${record.type}:${record.id}`, record]));
-      const kept = new Map();
-      const reached = records.flatMap(linkedKeys);
-      while (reached.length > 0) {
-        const key = reached.pop();
-        if (kept.has(key) || !included.has(key)) continue;
-        const record = included.get(key);
-        const shaped = shownRecord(record, shapes.get(record.type) ?? NOTHING_SHOWN);
-        kept.set(key, shaped);
-        reached.push(...linkedKeys(shaped));
+      /** @type {Map<string, Set<ReturnType<typeof includedShape>>>} The shapes that reach each included record. */
+      const reachedBy = new Map();
+      const pending = records.flatMap((record) => linkedRecords(record, shapes));
+      while (pending.length > 0) {
+        const [key, shape] = pending.pop();
+        const shapesOfRecord = reachedBy.get(key) ?? new Set();
+        if (!included.has(key) || shapesOfRecord.has(shape)) continue;
+        reachedBy.set(key, shapesOfRecord.add(shape));
+        pending.push(...linkedRecords(included.get(key), shape.linked));
       }
-      shown.included = document.included.map((record) => kept.get(`${record.type}:${record.id}`)).filter(Boolean);
+      shown.included = document.included.flatMap((record) => {
+        const reaching = [...(reachedBy.get(`${record.type}:${record.id}`) ?? [])];
+        return reaching.length < 1 ? [] : [shownRecord(record, {
+          attributes: new Set(reaching.flatMap((shape) => [...shape.attributes])),
+          relationshipNames: new Set(reaching.flatMap((shape) => [...shape.relationshipNames]))
+        })];
+      });
     }
     return returnJsonApiDocument(shown);
   }

@@ -12,22 +12,39 @@ function resolveSchemaFieldDefinitions(definition = null) {
   return isRecord(definitions) ? definitions : {};
 }
 
+const NOTHING_INCLUDED = Object.freeze({ attributes: Object.freeze([]), relationships: Object.freeze({}) });
+
 /**
- * The fields of a related record a CRUD contract shows when it includes that record, beyond its id and label: its
- * output entry's `includeFields`, such as `fields: { ownerId: { output: { required: false, includeFields: ["name"] } } }`.
- * @param {string} fieldKey
- * @param {Record<string, any>} definition The relation field's output definition.
- * @returns {ReadonlyArray<string>}
+ * What a CRUD contract shows of a record it includes, beyond its id and label: its relation field's output entry's
+ * `includeFields`, the included record's fields and, as `{ relationship: [...] }`, the records it links to with what
+ * each of them shows, at any depth: `fields: { petId: { output: { required: false, includeFields: ["name", { breed:
+ * ["name"] }] } } }`. Nothing else of an included record is shown.
+ * @param {string} label Where the list is, such as "petId.includeFields".
+ * @param {unknown} names
+ * @returns {{ attributes: ReadonlyArray<string>, relationships: Readonly<Record<string, any>> }}
  */
-function includeFieldsOf(fieldKey, definition) {
-  const names = definition.includeFields;
+function includeFieldsOf(label, names) {
   if (names === undefined) {
-    return Object.freeze([]);
+    return NOTHING_INCLUDED;
   }
-  if (!Array.isArray(names) || names.some((name) => !normalizeText(name))) {
-    throw new TypeError(`A CRUD contract's ${fieldKey}.includeFields must list the fields an included record shows.`);
+  const attributes = [];
+  const relationships = {};
+  // A list that is not one is refused as its one malformed entry.
+  for (const name of Array.isArray(names) ? names : [null]) {
+    if (typeof name === "string" && normalizeText(name)) {
+      attributes.push(normalizeText(name));
+    } else if (isRecord(name) && Object.keys(name).length > 0 && Object.entries(name).every(([key, nested]) => normalizeText(key) && Array.isArray(nested))) {
+      for (const [relationshipName, nested] of Object.entries(name)) {
+        relationships[relationshipName] = includeFieldsOf(`${label}.${relationshipName}`, nested);
+      }
+    } else {
+      throw new TypeError(
+        `A CRUD contract's ${label} must list the fields an included record shows: field names, ` +
+        "and { relationship: [...] } for a record it links to."
+      );
+    }
   }
-  return Object.freeze(names.map((name) => normalizeText(name)));
+  return Object.freeze({ attributes: Object.freeze(attributes), relationships: Object.freeze(relationships) });
 }
 
 function resolveJsonApiRelationshipEntries(definition = null) {
@@ -47,7 +64,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
         relationshipName,
         relationshipType,
         labelKey: normalizeText(normalizedFieldDefinition.relation?.labelKey),
-        includeFields: includeFieldsOf(fieldKey, normalizedFieldDefinition),
+        include: includeFieldsOf(`${fieldKey}.includeFields`, normalizedFieldDefinition.includeFields),
         required: normalizedFieldDefinition.required === true,
         nullable: normalizedFieldDefinition.nullable === true
       }));
@@ -78,7 +95,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
       relationshipName: collectionRelationshipName,
       relationshipType: collectionRelationshipType,
       labelKey: normalizeText(relation.labelKey),
-      includeFields: includeFieldsOf(fieldKey, normalizedFieldDefinition),
+      include: includeFieldsOf(`${fieldKey}.includeFields`, normalizedFieldDefinition.includeFields),
       many: true,
       required: normalizedFieldDefinition.required === true,
       nullable: normalizedFieldDefinition.nullable === true
