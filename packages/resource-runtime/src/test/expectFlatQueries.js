@@ -64,7 +64,7 @@ async function measure(knex, work) {
  * transactions' included), else through the runtime of a server the test booted, as countRuntimeQueries() does. The
  * extra statements of a many-row write's later chunks, which its handle reports, are allowed, so no number is
  * hand-picked. A flat path then sends as many statements at every size; a path that reads or writes row by row sends
- * more at each. On failure the message gives every count and the statements repeated most at the largest size. Its seed
+ * more at each, and one that sends none at every size was counted on the wrong channel and fails too. On failure the message gives every count and the statements repeated most at the largest size. Its seed
  * keeps the sizes apart (a workspace or user of their own, or a fresh database).
  * @template S
  * @param {object} options
@@ -91,6 +91,13 @@ async function expectFlatQueries({ sizes = [10, 200], seed, run, knex = null, en
   const counts = measured.map(({ size, count, chunkStatements }) => ({ size, count, chunkStatements }));
   const [smallest] = measured;
   const largest = measured.at(-1);
+  // A data path that sends nothing at every size was counted on the wrong channel, so it would pass unmeasured.
+  if (measured.every(({ count }) => count === 0)) {
+    throw new AssertionError({
+      message: "The path sent no statement at any size, so nothing was measured: pass the test's knex when its features " +
+        "run on it (startTestFeatures, createTestResourceRuntime), or run the path through the server the test booted."
+    });
+  }
   const growing = ({ count, chunkStatements }) => count - chunkStatements > smallest.count - smallest.chunkStatements;
   if (measured.some(growing)) {
     const described = counts.map(({ size, count, chunkStatements }) =>

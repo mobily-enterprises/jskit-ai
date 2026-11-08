@@ -57,6 +57,13 @@ test("expectFlatQueries() passes a path that reads its rows at once and fails on
       await assert.rejects(expectFlatQueries({ knex, environment, sizes, seed, run: atOnce }), /at least two growing whole numbers/u);
     }
     await assert.rejects(expectFlatQueries({ knex, environment, seed }), /requires seed\(size\) and run\(seeded, size\)/u);
+    // Counted on a channel the path does not use (another Knex client than its own), it measures nothing.
+    const elsewhere = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+    try {
+      await assert.rejects(expectFlatQueries({ knex: elsewhere, environment, sizes: [3, 30], seed, run: atOnce }), /sent no statement at any size/u);
+    } finally {
+      await elsewhere.destroy();
+    }
   } finally {
     await knex.destroy();
   }
