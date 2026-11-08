@@ -1008,6 +1008,75 @@ test("a job done for one person records that person in audit fields and is never
   assert.deepEqual(await knex("entries").first("workspace_id", "body", "created_by"), { workspace_id: 1, body: "Asked for", created_by: "9" });
 });
 
+test("a context that names no owner a linked table needs is refused there too, never shown the rows whose owner is NULL", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("profiles", (table) => {
+    table.increments("id");
+    table.integer("user_id");
+    table.string("secret");
+  });
+  await knex.schema.createTable("cards", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.string("title");
+    table.integer("profile_id");
+  });
+  await knex.schema.createTable("tips", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.string("text");
+  });
+  // Profile 1 has no owner; profile 2 is user 5's.
+  await knex("profiles").insert([{ user_id: null, secret: "orphan" }, { user_id: 5, secret: "fives" }]);
+  await knex("cards").insert([{ workspace_id: 1, title: "a", profile_id: 1 }, { workspace_id: 1, title: "b", profile_id: 2 }]);
+  await knex("tips").insert([{ workspace_id: null, text: "shared" }, { workspace_id: 1, text: "ones" }, { workspace_id: 2, text: "twos" }]);
+  const profiles = defineTableResource({
+    name: "profiles",
+    tableName: "profiles",
+    ownership: "user",
+    schema: { userId: { type: "id", nullable: true, storage: { column: "user_id" } }, secret: { type: "string", nullable: true } }
+  });
+  const cards = defineTableResource({
+    name: "cards",
+    tableName: "cards",
+    ownership: "workspace",
+    schema: {
+      workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+      title: { type: "string" },
+      profileId: { type: "id", nullable: true, belongsTo: "profiles", as: "profile", storage: { column: "profile_id" } }
+    }
+  });
+  const tips = defineTableResource({
+    name: "tips",
+    tableName: "tips",
+    ownership: "workspace_or_shared",
+    defaultSort: ["id"],
+    schema: { workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } }, text: { type: "string" } }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const handles = await runtime.own("cards.feature", [profiles, cards, tips]);
+  // A workspace request names no user, so the user-owned profiles refuse it however it reaches them.
+  const options = { context: { workspace: { id: "1" } } };
+  // An include's refusal arrives wrapped in the include's own errors.
+  const noUser = (error) => {
+    for (let cause = error; cause; cause = cause.cause) {
+      if (cause.code === "REST_API_AUTOFILTER_CONTEXT") return true;
+    }
+    return false;
+  };
+  await assert.rejects(handles.profiles.query({ page: { size: 10 } }, options));
+  await assert.rejects(handles.cards.query({ include: ["profile"], page: { size: 10 } }, options), noUser);
+  await assert.rejects(handles.cards.get("1", { include: ["profile"] }, options), noUser);
+  await assert.rejects(handles.cards.create({ title: "linked", profileId: "1" }, options), noUser);
+  assert.equal(await knex("cards").where({ title: "linked" }).first(), undefined);
+  // The cards themselves still read when the read leaves the link out.
+  assert.deepEqual((await handles.cards.queryAll({ fields: ["title"] }, options)).map(({ title }) => title), ["a", "b"]);
+  // A shared table still reads its shared rows for a context with no workspace, and the workspace's rows with one.
+  assert.deepEqual((await handles.tips.queryAll({}, { context: { actor: { id: "5" } } })).map(({ text }) => text), ["shared"]);
+  assert.deepEqual((await handles.tips.queryAll({}, options)).map(({ text }) => text), ["shared", "ones"]);
+});
+
 test("the owner's row policy cannot widen past ownership: its orWhere stays inside its own group", async (t) => {
   const { notes, knex } = await createFixture(t, {
     owns: [{

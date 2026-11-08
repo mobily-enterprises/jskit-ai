@@ -50,11 +50,12 @@ const JSON_REST_AUTOFILTER_PRESETS = Object.freeze({
       resolver: "user"
     })
   ]),
-  // A workspace's own rows, and the rows whose workspaceId is null, which every workspace reads.
+  // A workspace's own rows, and the rows whose workspaceId is null, which every workspace reads. A context with no
+  // workspace reads only the shared rows, so this preset's resolver answers null where the others answer nothing.
   workspace_or_shared: Object.freeze([
     Object.freeze({
       field: "workspaceId",
-      resolver: "workspace",
+      resolver: "workspaceOrShared",
       shared: true
     })
   ])
@@ -640,10 +641,14 @@ async function createResourceHost({ knex, logger }) {
   await api.use(QueryProjectionsPlugin);
   await api.use(RestApiKnexPlugin, { knex });
   await api.use(RowPolicyPlugin);
+  // A workspace or user owner the context does not name resolves to nothing (undefined), which json-rest-api refuses
+  // with REST_API_AUTOFILTER_CONTEXT wherever the table is read: an include, a link's visibility check or a link
+  // write as well as the primary read. Null would read the rows whose owner is NULL instead.
   await api.use(AutoFilterPlugin, {
     resolvers: {
-      workspace: ({ context }) => resolveWorkspaceScopeValue(context),
-      user: ({ context }) => resolveUserScopeValue(context)
+      workspace: ({ context }) => resolveWorkspaceScopeValue(context) ?? undefined,
+      user: ({ context }) => resolveUserScopeValue(context) ?? undefined,
+      workspaceOrShared: ({ context }) => resolveWorkspaceScopeValue(context)
     },
     presets: JSON_REST_AUTOFILTER_PRESETS
   });
