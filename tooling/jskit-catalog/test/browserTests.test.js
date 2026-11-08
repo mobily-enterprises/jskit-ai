@@ -70,6 +70,11 @@ test("each local worker reaches its own server's port, and the run is bounded an
   const signedInWorker = { ...environment, TEST_PARALLEL_INDEX: "1" };
   assert.equal(browserTestConfig({ signIn, environment: signedInWorker }).use.storageState, `${signedInStates}-1.json`);
   assert.equal(signedInWorker.PLAYWRIGHT_STORAGE_STATE, `${signedInStates}-1.json`);
+  // A worker of a project that depends on a setup project inherits the state the setup project's worker 0 was given
+  // (Playwright passes on the environment a dependency's workers changed); it still starts from its own server's.
+  const dependentWorker = { ...environment, TEST_PARALLEL_INDEX: "1", PLAYWRIGHT_STORAGE_STATE: `${signedInStates}-0.json` };
+  assert.equal(browserTestConfig({ signIn, environment: dependentWorker }).use.storageState, `${signedInStates}-1.json`);
+  assert.equal(dependentWorker.PLAYWRIGHT_STORAGE_STATE, `${signedInStates}-1.json`);
   const hosted = browserTestConfig({ signIn, environment: { ...environment, PLAYWRIGHT_STORAGE_STATE: "/tmp/state.json" } });
   assert.equal(hosted.use.storageState, "/tmp/state.json");
   assert.equal(JSON.parse(hosted.webServer.env[SETTINGS_VARIABLE]).signIn, undefined);

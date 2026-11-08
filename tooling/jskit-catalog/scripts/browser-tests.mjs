@@ -117,10 +117,13 @@ function browserTestConfig({
   // process takes the environment prepare gave that server, such as its DB_NAME, before any test file loads.
   const workerIndex = managed ? 0 : Number.parseInt(String(environment.TEST_PARALLEL_INDEX || "0"), 10) || 0;
   const workerEnvironments = path.resolve(cwd, WORKER_ENVIRONMENTS, `workers-${basePort}.json`);
-  // A login state the host supplies is used as it is; the servers sign in only when there is none.
-  const signedInStates = signIn && !managed && !String(environment.PLAYWRIGHT_STORAGE_STATE || "").trim()
-    ? path.resolve(cwd, WORKER_ENVIRONMENTS, `signed-in-${basePort}`)
-    : "";
+  // A login state the host supplies is used as it is; the servers sign in only when there is none. A worker of a
+  // project that depends on another (a setup project) inherits the environment that project's workers changed,
+  // including the state this harness gave them, so one of this harness's own states is never taken for the host's.
+  const ownStates = path.resolve(cwd, WORKER_ENVIRONMENTS, `signed-in-${basePort}`);
+  const suppliedState = String(environment.PLAYWRIGHT_STORAGE_STATE || "").trim();
+  const hostState = suppliedState.startsWith(`${ownStates}-`) ? "" : suppliedState;
+  const signedInStates = signIn && !managed && !hostState ? ownStates : "";
   if (!managed && environment.TEST_PARALLEL_INDEX !== undefined) {
     Object.assign(environment, preparedWorkerEnvironment(workerEnvironments, workerIndex));
     if (signedInStates) environment.PLAYWRIGHT_STORAGE_STATE = `${signedInStates}-${workerIndex}.json`;
