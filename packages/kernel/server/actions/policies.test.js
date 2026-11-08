@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
+import { resolveActorId, resolveAuditActorId } from "./actionContributorHelpers.js";
 import { ensureActionPermissionAllowed, normalizeActionInput, normalizeActionOutput } from "./policies.js";
 
 test("plain json-rest-schema action schemas validate input without reshaping it", async () => {
@@ -158,6 +159,19 @@ test("action permission reads the request's user when the context has no actor",
       requestMeta: { request: { user: { id: 5 } } }
     }
   ));
+});
+
+test("action permission refuses a context that names only whom work is done for, which audit fields still record", () => {
+  // Background work done for user 5 is not signed in as user 5.
+  const context = { permissions: [], onBehalfOf: { id: 5 } };
+  assert.throws(
+    () => ensureActionPermissionAllowed({ id: "tests.secure", permission: { require: "authenticated" } }, context),
+    (error) => error?.statusCode === 401 && error?.code === "ACTION_AUTHENTICATION_REQUIRED"
+  );
+  assert.equal(resolveActorId(context), null);
+  assert.equal(resolveAuditActorId(context), "5");
+  assert.equal(resolveAuditActorId({ actor: { id: 7 }, onBehalfOf: { id: 5 } }), "7", "A signed-in user is who a write is made for");
+  assert.equal(resolveAuditActorId({}), null);
 });
 
 test("action permission enforces required permissions", () => {

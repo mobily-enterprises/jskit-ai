@@ -29,6 +29,19 @@ function resolveActorId(context, request) {
   return normalizeOpaqueId(resolveActor(context, request)?.id);
 }
 
+/**
+ * The id of the user a write is made for, for audit fields such as createdBy: the signed-in user (see
+ * resolveActorId), else the user background work acts for (`context.onBehalfOf.id`, which a job context derived
+ * for one person carries). It never decides access: work done for someone is not signed in as them, so
+ * resolveActor, resolveActorId and every authentication check see no one.
+ * @param {object | null} [context]
+ * @param {object | null} [request]
+ * @returns {string | null}
+ */
+function resolveAuditActorId(context, request) {
+  return resolveActorId(context, request) ?? normalizeOpaqueId(context?.onBehalfOf?.id);
+}
+
 const emptyInputValidator = Object.freeze({
   schema: createSchema({}),
   mode: "replace"
@@ -37,6 +50,7 @@ const emptyInputValidator = Object.freeze({
 export {
   resolveActor,
   resolveActorId,
+  resolveAuditActorId,
   resolveRequest,
   emptyInputValidator
 };

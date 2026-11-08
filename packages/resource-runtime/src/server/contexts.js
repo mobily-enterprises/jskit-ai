@@ -52,8 +52,8 @@ function isJobContext(context) {
  * Who a call runs for, as its row policy sees it: background work across every workspace and user ("system"),
  * background work a system context derived for one workspace or user ("job"), each with its reason; a request by a
  * signed-in user ("user", with the user's id); or a request by no one ("anonymous"). A derived job context names a
- * user only as the person it acts for (`actorId`, when it was given one), so a policy that keys on the actor tells it
- * from an anonymous request by its kind.
+ * user only as the person it acts for (`actorId`, when it was given one), never as a signed-in user, so a policy
+ * that keys on the actor tells it from an anonymous request by its kind.
  * @param {unknown} context
  * @returns {Readonly<{ kind: "system", reason: string } | { kind: "job", reason: string, actorId?: string } | { kind: "user", userId: string } | { kind: "anonymous" }>}
  */
@@ -68,7 +68,7 @@ function callerOf(context) {
     return Object.freeze({
       kind: "job",
       reason: context.jobReason,
-      ...(context.actor ? { actorId: context.actor.id } : {})
+      ...(context.onBehalfOf ? { actorId: context.onBehalfOf.id } : {})
     });
   }
   const userId = resolveActorId(context);
@@ -78,7 +78,7 @@ function callerOf(context) {
 /**
  * @param {string} reason
  * @param {Record<string, unknown>} scopeValues
- * @param {{ actorId?: unknown }} options The person the work acts for, if any: `actor.id`, as a request's actor.
+ * @param {{ actorId?: unknown }} options The person the work acts for, if any: `onBehalfOf.id`, for audit fields only.
  * @param {string} label The deriving method, such as "forWorkspace".
  */
 function jobContext(reason, scopeValues, options, label) {
@@ -89,7 +89,7 @@ function jobContext(reason, scopeValues, options, label) {
   return Object.freeze({
     scopeValues: Object.freeze(scopeValues),
     jobReason: reason,
-    ...(actorId ? { actor: Object.freeze({ id: actorId }) } : {}),
+    ...(actorId ? { onBehalfOf: Object.freeze({ id: actorId }) } : {}),
     [JOB_CONTEXT]: true
   });
 }
@@ -116,9 +116,11 @@ function requireScopeId(value, label, subject) {
  * derive ordinary contexts scoped to one workspace, one user, or one user in
  * one workspace, so the work for each is scoped as usual (and, as background
  * work, free of request row limits). Each takes `{ actorId }` last, for work
- * done for one person (a request a job carries out): the context's `actor`,
- * which audit fields read as a request's, and the row policy's `caller.actorId`.
- * It names who the work is for, never which rows it reaches.
+ * done for one person (a request a job carries out): the context's
+ * `onBehalfOf`, which audit fields read with `resolveAuditActorId(context)`,
+ * and the row policy's `caller.actorId`. It names who the work is for, never
+ * which rows it reaches, and it signs no one in: `resolveActorId` and every
+ * authentication check still see no one.
  * @param {{ feature: string, systemScope: string, reason: string }} declaration
  */
 function createSystemContext({ feature, systemScope, reason }) {

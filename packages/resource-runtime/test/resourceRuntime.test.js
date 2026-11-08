@@ -11,7 +11,9 @@ import {
   StaleRecordError,
   UnpagedQueryError
 } from "../src/server/index.js";
-import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { emptyInputValidator, resolveActorId, resolveAuditActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeOpaqueId } from "@jskit-ai/kernel/shared/support/normalize";
 import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 import { createTestResourceRuntime } from "../src/test/index.js";
@@ -938,11 +940,11 @@ test("a row policy is told who the call runs for: a system context, a job it der
     { kind: "anonymous" }
   ]);
 
-  // A job done for one person carries who it is for: audit fields read it as a request's actor, and the policy as
-  // caller.actorId. It reaches the workspace's rows as before, not that person's.
+  // A job done for one person carries who it is for, for audit fields and the policy's caller.actorId. It reaches the
+  // workspace's rows as before, not that person's.
   const forAda = systemContext.forWorkspace("1", { actorId: 9 });
-  assert.equal(resolveActorId(forAda), "9");
-  assert.equal(resolveActorId(systemContext.forWorkspace("1")), null);
+  assert.equal(resolveAuditActorId(forAda), "9");
+  assert.equal(resolveAuditActorId(systemContext.forWorkspace("1")), null);
   seen.length = 0;
   assert.deepEqual(await titles(forAda), ["private", "shared"]);
   assert.deepEqual(await titles(systemContext.forWorkspaceUser("1", "4", { actorId: "9" })), ["private", "shared"]);
@@ -952,6 +954,58 @@ test("a row policy is told who the call runs for: a system context, a job it der
   ]);
   assert.throws(() => systemContext.forUser("4", { actor: "9" }), /forUser takes \{ actorId \} as its last argument/u);
   assert.throws(() => systemContext.forWorkspace("1", { actorId: " " }), /forWorkspace needs the id of the user it acts for/u);
+});
+
+test("a job done for one person records that person in audit fields and is never signed in as them", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("entries", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.string("body").notNullable();
+    table.string("created_by");
+  });
+  const entryResource = defineTableResource({
+    name: "entries",
+    tableName: "entries",
+    ownership: "workspace",
+    schema: {
+      workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+      body: { type: "string", required: true },
+      createdBy: { type: "string", nullable: true, storage: { column: "created_by" } }
+    }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const { entries } = await runtime.own("journal.feature", [entryResource]);
+  const systemContext = runtime.declareSystemScope("journal.feature", "write the entries people asked for");
+  const forAda = systemContext("write the entry a person asked for").forWorkspace("1", { actorId: "9" });
+  const written = [];
+  const actions = createActionCatalogue();
+  actions.register({
+    contributorId: "journal",
+    domain: "journal",
+    actions: [{
+      id: "journal.write",
+      kind: "command",
+      channels: ["automation"],
+      surfaces: ["app"],
+      permission: { require: "authenticated" },
+      input: emptyInputValidator,
+      execute: (input, context) => written.push(context)
+    }]
+  });
+
+  // An authenticated action and a service's requireAuth see no one signed in.
+  await assert.rejects(
+    actions.execute({ actionId: "journal.write", input: {}, context: { ...forAda, channel: "automation", surface: "app" } }),
+    (error) => error?.statusCode === 401 && error?.code === "ACTION_AUTHENTICATION_REQUIRED"
+  );
+  assert.deepEqual(written, []);
+  assert.throws(() => requireAuth({ context: forAda }, { require: "authenticated" }), (error) => error?.statusCode === 401);
+  assert.equal(resolveActorId(forAda), null);
+  // Its audit field still records whom the entry was written for.
+  await entries.create({ body: "Asked for", createdBy: resolveAuditActorId(forAda) }, { context: forAda, returning: "none" });
+  assert.deepEqual(await knex("entries").first("workspace_id", "body", "created_by"), { workspace_id: 1, body: "Asked for", created_by: "9" });
 });
 
 test("the owner's row policy cannot widen past ownership: its orWhere stays inside its own group", async (t) => {

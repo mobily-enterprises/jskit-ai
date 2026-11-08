@@ -461,10 +461,13 @@ const SettlementFeature = defineFeature({
   `.forWorkspaceUser(workspaceId, userId)`: each workspace or user is then one
   unit of work, scoped as usual, in a transaction of its own.
 - Work a job does for one person (a request it carries out later) passes
-  `{ actorId }` last: `forWorkspace(id, { actorId: requestedBy })`. Audit
-  fields read it as a request's actor (`resolveActorId(context)`) and the row
-  policy as `caller.actorId`; it never changes which rows the job reaches. It
-  passes an `authenticated` check as that user, with no permissions.
+  `{ actorId }` last: `forWorkspace(id, { actorId: requestedBy })`. It is for
+  attribution only: audit fields read it with `resolveAuditActorId(context)`
+  (the signed-in user, else the person a job acts for) and the row policy as
+  `caller.actorId`. It never changes which rows the job reaches and signs no
+  one in: `resolveActorId` and every `authenticated` check still see no one.
+  Write audit fields with `resolveAuditActorId`, and decide access with
+  `resolveActorId`.
 - A job finds its units with one `aggregate` grouped by the ownership field,
   which a system context may group by (and count distinct) even when the table
   hides it, then runs each unit scoped to it. A request's aggregate still
