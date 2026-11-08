@@ -146,6 +146,23 @@ function write(options, run) {
  * @param {(name: string) => (import("@jskit-ai/resource-core/shared/tableResource").TableResource | null)} dependencies.resourceNamed
  *   The application's table resources by name, which shape included records.
  */
+/**
+ * What aggregate() answers over no rows: no groups, or, without groupBy, one row of totals (each count 0, every other
+ * measure null), as json-rest-api answers it.
+ * @param {Record<string, Record<string, unknown>>} measures
+ * @param {unknown[] | undefined} groupBy
+ */
+function noRowsAggregate(measures, groupBy) {
+  if (Array.isArray(groupBy) && groupBy.length > 0) {
+    return Object.freeze([]);
+  }
+  const totals = Object.entries(measures || {}).map(([measureName, spec]) => [
+    measureName,
+    isRecord(spec) && (Object.hasOwn(spec, "count") || Object.hasOwn(spec, "countDistinct")) ? 0 : null
+  ]);
+  return Object.freeze([Object.freeze(Object.fromEntries(totals))]);
+}
+
 function createResourceHandle({ api, resource, hooks, settings, resourceNamed }) {
   const name = resource.name;
   const lockVersionField = resource.lockVersionField || "";
@@ -167,6 +184,20 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     }
     requireOwners(name, resource.ownership, options.context);
     return createJsonRestContext(options.context);
+  }
+
+  /**
+   * Whether the filters give an empty list to a filter that matches one of a list (the id filter, or any filter whose
+   * search entry says `filterOperator: "in"`): such a read matches no row, so the handle answers it without a
+   * statement.
+   * @param {unknown} filters
+   */
+  function matchesNothing(filters) {
+    if (!isRecord(filters)) {
+      return false;
+    }
+    const search = jsonRest().vars.schemaInfo.searchSchemaStructure || {};
+    return Object.entries(filters).some(([key, value]) => Array.isArray(value) && value.length === 0 && search[key]?.filterOperator === "in");
   }
 
   // The fields a list or a one-record read names (see requestedFields).
@@ -252,6 +283,14 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (size != null && Number(size) > pageLimits().request) {
       throw new PageSizeError(name, size, pageLimits().request);
     }
+    const number = params.page?.number;
+    if (format !== "jsonapi" && matchesNothing(params.filters)) {
+      contextOf(options);
+      return Object.freeze({
+        records: Object.freeze([]),
+        page: Object.freeze(number === undefined ? { size: Number(size), hasMore: false, next: null } : { size: Number(size), number, hasMore: false, next: null })
+      });
+    }
     const payload = await returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().query(
       {
         queryParams,
@@ -265,7 +304,6 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     }
     const pagination = payload.meta?.pagination;
     const hasMore = pagination?.hasMore === true;
-    const number = params.page?.number;
     return Object.freeze({
       records: handleRecords(resource, payload.data, read, resourceNamed),
       page: Object.freeze(number === undefined
@@ -286,10 +324,14 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     const context = contextOf(options);
     const rowLimit = isJobContext(options.context) ? undefined : settings.requestRowLimit;
     const read = { ...params, fields: readFields(params, "list") };
+    const queryParams = readQueryParams(resource, read, { page: false, caller: "queryAll" });
+    if (matchesNothing(params.filters)) {
+      return Object.freeze([]);
+    }
     try {
       const payload = await returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().queryAll(
         {
-          queryParams: readQueryParams(resource, read, { page: false, caller: "queryAll" }),
+          queryParams,
           pageSize: settings.serverPageSize,
           ...(rowLimit === undefined ? {} : { rowLimit }),
           transaction: options.trx || undefined,
@@ -338,6 +380,10 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    */
   async function aggregate({ measures, groupBy, filters, sort, page }, options = {}) {
     requireDefinedFilters(name, "aggregate", filters);
+    if (matchesNothing(filters)) {
+      contextOf(options);
+      return noRowsAggregate(measures, groupBy);
+    }
     const result = await jsonRest().aggregate(
       {
         measures: aggregateMeasures(measures),

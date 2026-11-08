@@ -1320,6 +1320,52 @@ async function createVisitFixture(t) {
   return { visits: handles.visits, options, ids: created, selects };
 }
 
+test("a read whose list filter is an empty list answers nothing without a statement, as a read that matches no row does", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("tickets", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.string("stage").notNullable();
+    table.integer("points");
+  });
+  await knex("tickets").insert([{ workspace_id: 1, stage: "new", points: 3 }, { workspace_id: 1, stage: "done", points: 5 }]);
+  const runtime = await createTestResourceRuntime({ knex });
+  const { tickets } = await runtime.own("tickets.feature", [defineTableResource({
+    name: "tickets",
+    tableName: "tickets",
+    ownership: "workspace",
+    searchSchema: { stages: { type: "array", actualField: "stage", filterOperator: "in" } },
+    schema: {
+      workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+      stage: { type: "string", required: true, search: true },
+      points: { type: "integer", nullable: true }
+    }
+  })]);
+  const options = { context: WORKSPACE_A };
+  const measures = { tickets: { count: "id" }, points: { sum: "points" }, most: { max: "points" } };
+  const reads = (filters) => [
+    () => tickets.query({ filters, page: { size: 10 } }, options),
+    () => tickets.query({ filters, page: { size: 10, number: 2 } }, options),
+    () => tickets.queryAll({ filters }, options),
+    () => tickets.aggregate({ measures, filters }, options),
+    () => tickets.aggregate({ measures, groupBy: ["stage"], filters }, options)
+  ];
+  const none = reads({ id: ["999"] });
+  for (const [index, read] of reads({ id: [] }).entries()) {
+    const { result, count } = await countQueries(knex, read);
+    assert.equal(count, 0);
+    // The same answer the database gives a read that matches no row.
+    assert.deepEqual(result, await none[index]());
+  }
+  for (const read of reads({ stages: [], stage: "new" })) {
+    assert.equal((await countQueries(knex, read)).count, 0);
+  }
+  // The guards still run: a context that names no workspace is refused, and a list read still needs its page size.
+  await assert.rejects(tickets.queryAll({ filters: { id: [] } }, { context: {} }), /this context names no workspace/u);
+  await assert.rejects(tickets.query({ filters: { id: [] } }, options), (error) => error.name === "UnpagedQueryError");
+});
+
 test("lock and lockMany read only the fields they name, so a relation left out costs no visibility check", async (t) => {
   const { visits, options, ids, selects } = await createVisitFixture(t);
   let locked;
