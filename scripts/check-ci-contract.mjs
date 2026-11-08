@@ -46,6 +46,26 @@ function collectTestRuns(workflowSource = "") {
     }));
 }
 
+// A test target the shell expands: `*` in its file name only, as `packages/x/test/*.postgres.test.js`.
+const GLOB_CHARACTERS = /[*?[\]{}]/u;
+
+// The issue with one test target, or null when it names a file, or a `*` pattern in the file name that matches one.
+async function testTargetIssue(workflowName, relativeTarget, { repoRoot, pathExists, listDirectory }) {
+  if (!GLOB_CHARACTERS.test(relativeTarget)) {
+    return (await pathExists(path.resolve(repoRoot, relativeTarget))) ? null : `${workflowName} runs missing test target "${relativeTarget}".`;
+  }
+  const directory = path.posix.dirname(relativeTarget);
+  const pattern = path.posix.basename(relativeTarget);
+  if (GLOB_CHARACTERS.test(directory) || /[?[\]{}]/u.test(pattern)) {
+    return `${workflowName} runs test target "${relativeTarget}", a pattern the CI check cannot read; name the files, or use * in the file name only.`;
+  }
+  // The pattern has no ?, [ ] or { }, so only the other regular-expression characters need escaping.
+  const parts = pattern.split("*").map((part) => part.replace(/[.+^$()|\\]/gu, "\\$&"));
+  const matcher = new RegExp(`^${parts.join("[^/]*")}$`, "u");
+  const names = await listDirectory(path.resolve(repoRoot, directory));
+  return names.some((name) => matcher.test(name)) ? null : `${workflowName} runs test target "${relativeTarget}", which matches no file.`;
+}
+
 async function collectCiContractIssues({
   packageJson,
   workflows,
@@ -57,7 +77,8 @@ async function collectCiContractIssues({
     } catch {
       return false;
     }
-  }
+  },
+  listDirectory = async (directoryPath) => readdir(directoryPath).catch(() => [])
 } = {}) {
   const issues = [];
   const scripts = packageJson?.scripts && typeof packageJson.scripts === "object"
@@ -75,9 +96,9 @@ async function collectCiContractIssues({
         issues.push(`${workflowName} runs node --test directly; run \`npx jskit test\`, which keeps test files within the machine's test budget.`);
       }
       for (const relativeTarget of targets) {
-        const targetPath = path.resolve(repoRoot, relativeTarget);
-        if (!(await pathExists(targetPath))) {
-          issues.push(`${workflowName} runs missing test target "${relativeTarget}".`);
+        const issue = await testTargetIssue(workflowName, relativeTarget, { repoRoot, pathExists, listDirectory });
+        if (issue) {
+          issues.push(issue);
         }
       }
     }
