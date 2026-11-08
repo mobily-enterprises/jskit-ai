@@ -1,4 +1,5 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { passedOn } from "./callOptions.js";
 import { isSystemContext } from "./contexts.js";
 import { MissingScopeError } from "./errors.js";
 import { resolveUserScopeValue, resolveWorkspaceScopeValue } from "./resourceHost.js";
@@ -217,20 +218,6 @@ function matchesNoRow(filters, schemaInfo) {
   }
   const search = schemaInfo.searchSchemaStructure || {};
   return Object.entries(filters).some(([key, value]) => Array.isArray(value) && value.length === 0 && search[key]?.filterOperator === "in");
-}
-
-/**
- * What a call hands on to the work it runs (withTransaction's work, an afterWrite hook, a handle's own nested calls):
- * its context and transaction. Its settings (format, missing, returning, lockVersion and the rest) are for that one
- * call, so they never reach a call they were not named on.
- * @param {{ context?: object | null, trx?: object | null }} options
- * @returns {Readonly<{ context?: object | null, trx?: object }>}
- */
-function passedOn(options) {
-  return Object.freeze({
-    ...(options.context === undefined ? {} : { context: options.context }),
-    ...(options.trx ? { trx: options.trx } : {})
-  });
 }
 
 export {

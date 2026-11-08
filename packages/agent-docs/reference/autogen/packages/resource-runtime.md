@@ -14,6 +14,10 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/server/callOptions.js`
+Exports
+- `passedOn(options)`
+
 ### `src/server/contexts.js`
 Exports
 - `callerOf(context)`
@@ -47,7 +51,7 @@ Exports
 - `requirePatchConditions(name, lockVersionField, attributes, options)`
 - `requireReadParams(name, params)`
 - `requireUpsertRows(name, rows, onConflict, idProperty)`
-- `passedOn(options)`
+- `passedOn`
 - `whereSelection(name, operation, filters, options)`
 
 ### `src/server/handleHidden.js`

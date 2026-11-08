@@ -338,7 +338,6 @@ Local functions
 
 ### `src/server/repositories/repositoryPersistenceUtils.js`
 Exports
-- `callerTransaction(options = {})`
 - `normalizeInputRecordId(value)`
 - `parseJsonObject`
 - `stringifyJsonObject(value)`
