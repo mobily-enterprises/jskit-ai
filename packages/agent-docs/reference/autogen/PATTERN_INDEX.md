@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.286`
+- Owner: `@jskit-ai/agent-docs@0.1.287`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/app/minimal-foundation/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/app/minimal-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
@@ -26,7 +26,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.286`
+- Owner: `@jskit-ai/agent-docs@0.1.287`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/app/shell-foundation/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/app/shell-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
@@ -37,7 +37,7 @@ Configure an assistant runtime for one application surface and expose its chat a
 
 - Id: `assistant/assistant-surface`
 - Keywords: `ai`, `assistant`, `chat`, `config`, `environment`, `page`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/assistant-runtime@0.2.32`
+- Owner: `@jskit-ai/assistant-runtime@0.2.33`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/assistant/assistant-surface/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/assistant/assistant-surface/example/)
 - Requires: `@jskit-ai/assistant-runtime`, `@jskit-ai/connectors-catalog`, `@jskit-ai/connectors-core`, `@jskit-ai/shell-web`
@@ -59,7 +59,7 @@ Compose JSKIT authentication routes, views, profile controls, and public surface
 
 - Id: `auth/auth-surface`
 - Keywords: `account`, `auth`, `login`, `logout`, `password`, `placement`, `profile`, `reset`, `surface`
-- Owner: `@jskit-ai/auth-web@0.2.20`
+- Owner: `@jskit-ai/auth-web@0.2.21`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/auth/auth-surface/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/auth/auth-surface/example/)
 - Requires: `@jskit-ai/auth-core`, `@jskit-ai/auth-web`, `@jskit-ai/shell-web`
@@ -70,7 +70,7 @@ Let people sign in with the accounts they already have in an accounts hub or ano
 
 - Id: `auth/oidc-sign-in`
 - Keywords: `accounts hub`, `auth`, `authentication`, `back-channel logout`, `dynamic client registration`, `issuer`, `master login`, `oidc`, `openid connect`, `single sign-on`, `sso`
-- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.22`
+- Owner: `@jskit-ai/auth-provider-oidc-core@0.2.23`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/auth/oidc-sign-in/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/auth/oidc-sign-in/example/)
 - Requires: `@jskit-ai/auth-provider-oidc-core`, `@jskit-ai/auth-web`
@@ -246,7 +246,7 @@ Add a protected administration surface, settings shell, and semantic navigation 
 
 - Id: `console/console-surface`
 - Keywords: `admin`, `console`, `navigation`, `owner`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/console-web@0.1.243`
+- Owner: `@jskit-ai/console-web@0.1.244`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/console/console-surface/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/console/console-surface/example/)
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
@@ -279,7 +279,7 @@ Build a routed CRUD user interface as thin application pages over JSKIT's shared
 
 - Id: `crud/crud-screen-set`
 - Keywords: `actions`, `add`, `crud`, `delete`, `edit`, `filters`, `list`, `material`, `routes`, `view`, `vue`
-- Owner: `@jskit-ai/http-web@0.2.23`
+- Owner: `@jskit-ai/http-web@0.2.24`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/crud/crud-screen-set/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/crud/crud-screen-set/example/)
 - Requires: `@jskit-ai/http-web`, `@jskit-ai/resource-core`, `@jskit-ai/resource-crud-core`
@@ -323,7 +323,7 @@ Wrap a JSKIT web application in a Capacitor Android shell using native Capacitor
 
 - Id: `mobile/android-application`
 - Keywords: `android`, `capacitor`, `device`, `mobile`, `native`, `shell`, `webview`
-- Owner: `@jskit-ai/mobile-capacitor@0.2.18`
+- Owner: `@jskit-ai/mobile-capacitor@0.2.19`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/mobile/android-application/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/mobile/android-application/example/)
 - Requires: `@capacitor/android`, `@capacitor/app`, `@capacitor/cli`, `@jskit-ai/mobile-capacitor`
@@ -334,7 +334,7 @@ Add JSKIT realtime events with an optional Redis backplane and an explicit shell
 
 - Id: `realtime/realtime-application`
 - Keywords: `realtime`, `redis`, `socket.io`, `sockets`, `status`, `websocket`
-- Owner: `@jskit-ai/realtime@0.2.21`
+- Owner: `@jskit-ai/realtime@0.2.22`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/realtime/realtime-application/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/realtime/realtime-application/example/)
 - Requires: `@jskit-ai/realtime`, `@jskit-ai/shell-web`
@@ -345,7 +345,7 @@ Compose application-owned Google Publisher Tag delivery with the generic rewarde
 
 - Id: `rewards/google-rewarded`
 - Keywords: `ads`, `google`, `publisher tag`, `rewarded`, `unlock`
-- Owner: `@jskit-ai/rewarded-web@0.2.21`
+- Owner: `@jskit-ai/rewarded-web@0.2.22`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/rewards/google-rewarded/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/rewards/google-rewarded/example/)
 - Requires: `@jskit-ai/rewarded-web`
@@ -356,7 +356,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `aggregate`, `feature`, `handle`, `orchestration`, `owns`, `package`, `provider`, `repository`, `routes`, `server`, `table resource`
-- Owner: `@jskit-ai/agent-docs@0.1.286`
+- Owner: `@jskit-ai/agent-docs@0.1.287`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/server/feature-package/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/server/feature-package/example/)
 - Requires: `@jskit-ai/kernel`
@@ -367,7 +367,7 @@ Compose the JSKIT responsive shell, semantic placements, settings navigation, an
 
 - Id: `shell/application-shell`
 - Keywords: `adaptive`, `app`, `layout`, `navigation`, `placement`, `responsive`, `settings`, `shell`
-- Owner: `@jskit-ai/shell-web@0.2.18`
+- Owner: `@jskit-ai/shell-web@0.2.19`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/shell/application-shell/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/shell/application-shell/example/)
 - Requires: `@jskit-ai/kernel`, `@jskit-ai/shell-web`
@@ -378,7 +378,7 @@ Add product routes and shell extensions through file routing, semantic placement
 
 - Id: `ui/page-and-placement`
 - Keywords: `component`, `navigation`, `outlet`, `page`, `placement`, `routes`, `section`, `shell`, `subpages`, `vue`
-- Owner: `@jskit-ai/shell-web@0.2.18`
+- Owner: `@jskit-ai/shell-web@0.2.19`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/ui/page-and-placement/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/ui/page-and-placement/example/)
 - Requires: `@jskit-ai/kernel`, `@jskit-ai/shell-web`
@@ -389,7 +389,7 @@ Compose an account settings route and profile, preference, notification, and sig
 
 - Id: `users/account-settings`
 - Keywords: `account`, `link provider`, `notifications`, `oauth`, `preferences`, `profile`, `settings`, `sign-in methods`, `user`, `vue`
-- Owner: `@jskit-ai/users-web@0.2.26`
+- Owner: `@jskit-ai/users-web@0.2.27`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/users/account-settings/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/users/account-settings/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
@@ -422,7 +422,7 @@ Compose workspace selection, invitation, member administration, settings, and re
 
 - Id: `workspaces/workspace-surfaces`
 - Keywords: `admin`, `invite`, `member`, `navigation`, `settings`, `surface`, `switcher`, `workspace`
-- Owner: `@jskit-ai/workspaces-web@0.2.26`
+- Owner: `@jskit-ai/workspaces-web@0.2.27`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/workspaces/workspace-surfaces/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/workspaces/workspace-surfaces/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/workspaces-core`, `@jskit-ai/workspaces-web`
