@@ -433,6 +433,12 @@ fields: {
   petId: { output: { required: false, includeFields: ["name", { breed: ["name"] }] } }
 }
 ```
+An included record's link is listed by its relationship, never as a field:
+`{ location: [] }` answers the pet's location id, with its fields inside the
+list when the include reaches it. A belongs-to field named by its key
+(`"locationId"`) or its relationship (`"location"`) is a relationship in the
+document, never an attribute, so it would never show; the app refuses it at
+boot, naming the link form.
 A `decorateService` that also needs the record it wrote (for an audit or a
 history row) reads it from its own answer, `simplifyJsonApiResult(answer)`
 from `@jskit-ai/http-runtime/shared`, never with a second read; a relationship

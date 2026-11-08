@@ -3,12 +3,14 @@ import test from "node:test";
 import { simplifyJsonApiResult } from "@jskit-ai/http-runtime/shared";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { passedOn } from "@jskit-ai/resource-runtime/server";
-import { createPackageTestKnex, createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
+import { createPackageTestKnex, createTestResourceRuntime, startTestFeatures } from "@jskit-ai/resource-runtime/test";
+import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
 import { createCrudService } from "../src/server/jsonApiModule/service.js";
-import { createCrudContracts } from "../src/server/crudContracts.js";
+import { CrudContractsProvider, createCrudContracts } from "../src/server/crudContracts.js";
+import { defineCrudFeature } from "../src/server/defineCrudFeature.js";
 import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 
 // SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
@@ -319,6 +321,79 @@ test("an include shows the records it links to only as deep, and only with the f
   for (const malformed of [[{ publisher: "name" }], [""], [{}]]) {
     assert.throws(() => serve(malformed), /authorId\.includeFields(\.publisher)? must list the fields an included record shows/u);
   }
+});
+
+test("an include that lists a link of the included record as a field is refused at boot, naming the link's form, which answers the linked id", async (t) => {
+  const publishers = defineTableResource({
+    name: "publishers",
+    tableName: "publishers",
+    ownership: "public",
+    schema: {
+      name: { type: "string", required: true },
+      founderId: { type: "id", nullable: true, lookup: "authors", storage: { column: "founder_id" } }
+    }
+  });
+  const authors = defineTableResource({
+    name: "authors",
+    tableName: "authors",
+    ownership: "public",
+    schema: {
+      name: { type: "string", required: true },
+      publisherId: { type: "id", nullable: true, lookup: "publishers", storage: { column: "publisher_id" } }
+    }
+  });
+  const notes = defineTableResource({
+    name: "notes",
+    tableName: "notes",
+    ownership: "public",
+    schema: { title: { type: "string", required: true }, authorId: { type: "id", nullable: true, lookup: "authors", storage: { column: "author_id" } } }
+  });
+  // The notes feature serves the notes; another feature owns the tables its include reaches.
+  const start = async (includeFields) => {
+    const knex = await testKnex(t);
+    const started = await startTestFeatures({
+      knex,
+      features: [
+        CrudContractsProvider,
+        defineFeature({ id: "test.authors", owns: [authors, publishers], setup: () => ({}) }),
+        defineCrudFeature({
+          crud: defineCrudContract(notes, { namespace: "notes", operations: ["view"], fields: { title: { output: "required" }, authorId: { output: { required: false, includeFields } } } }),
+          surface: "home",
+          routes: false
+        })
+      ],
+      requires: { notes: "crud.notes" },
+      inputs: { "runtime.http": { router: { register() {} } } },
+      createTables: true
+    });
+    t.after(started.stop);
+    return { knex, service: started.capabilities.notes.service };
+  };
+
+  // A belongs-to field is a relationship in a JSON:API document, so listed as a field, by its key or by its
+  // relationship, it would never show: the boot refuses it, at every depth, and names the form that shows it.
+  for (const [includeFields, label, named, form] of [
+    [["name", "publisherId"], "authorId.includeFields", "publisherId", "{ publisher: [] }"],
+    [["publisher"], "authorId.includeFields", "publisher", "{ publisher: [] }"],
+    [["name", { publisher: ["name", "founderId"] }], "authorId.includeFields.publisher", "founderId", "{ founder: [] }"]
+  ]) {
+    await assert.rejects(start(includeFields), (error) => {
+      assert.ok(error instanceof TypeError);
+      assert.ok(error.message.startsWith(`A CRUD contract's ${label} lists "${named}", which is a link of `), error.message);
+      assert.ok(error.message.includes(`List it as ${form}`), error.message);
+      return true;
+    });
+  }
+
+  // Listed as a link, it shows: the included author answers its publisher's id, and nothing of the publisher.
+  const { knex, service } = await start(["name", { publisher: [] }]);
+  await knex("publishers").insert({ name: "Acme" });
+  await knex("authors").insert({ name: "Ada", publisher_id: 1 });
+  await knex("notes").insert({ title: "First", author_id: 1 });
+  const { included } = (await service.view("1", { include: "author" }, {})).value;
+  assert.deepEqual(included.map(({ type, attributes, relationships }) => [type, attributes, relationships.publisher.data]), [
+    ["authors", { name: "Ada" }, { type: "publishers", id: "1" }]
+  ]);
 });
 
 test("the CRUD service answers documents, and 404 for a record that is missing or out of scope", async (t) => {

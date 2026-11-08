@@ -122,8 +122,12 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
     }
   }
 
-  // An owned table resource by name, or null: a handle shapes included records with it.
-  function resourceNamed(name) {
+  /**
+   * The table resource a feature owns under `name`, or null: a handle shapes included records with it, and the CRUD
+   * contracts check at boot what their includes list of it.
+   * @param {string} name
+   */
+  function tableResource(name) {
     return ownedByName.get(name)?.resource ?? null;
   }
 
@@ -246,7 +250,7 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
       });
       ownerByTable.set(resource.tableName, featureId);
       await api.addResource(resource.name, scopes[index]);
-      handles[resource.name] = createResourceHandle({ api, resource, hooks: entry.hooks, settings, resourceNamed });
+      handles[resource.name] = createResourceHandle({ api, resource, hooks: entry.hooks, settings, resourceNamed: tableResource });
     }
     Object.defineProperty(handles, "contributeRowPolicy", {
       value: (name, policy) => contributeRowPolicy(featureId, name, policy),
@@ -292,6 +296,7 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
   return Object.freeze({
     own,
     ownedTables,
+    tableResource,
     declareSystemScope,
     systemScopes
   });

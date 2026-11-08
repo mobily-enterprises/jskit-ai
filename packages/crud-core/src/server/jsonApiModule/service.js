@@ -1,5 +1,7 @@
 import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { resolveCrudResourceScopeName } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import { buildJsonRestQueryParams, passedOn } from "@jskit-ai/resource-runtime/server";
 import {
   resolveDeclaredLookupContainerKey,
@@ -73,6 +75,71 @@ function includedShape({ attributes, relationships }, labelKey = "") {
  */
 function documentShapes(crud) {
   return new Map(contractShape(crud).relationships.map((entry) => [entry.relationshipName, includedShape(entry.include, entry.labelKey)]));
+}
+
+/**
+ * The links a table resource's records carry in a JSON:API document, by relationship name: each belongs-to field's
+ * (its `as`, or its key) and each collection relation's, with the field that declares it and the resource it links to.
+ * @param {{ schema?: Record<string, any> }} resource
+ * @returns {Map<string, { fieldKey: string, target: string }>}
+ */
+function linksOf(resource) {
+  const links = new Map();
+  for (const [fieldKey, definition] of Object.entries(resource.schema ?? {})) {
+    const belongsTo = normalizeText(definition?.belongsTo);
+    const relation = isRecord(definition?.relation) ? definition.relation : {};
+    if (belongsTo) {
+      links.set(normalizeText(definition.as) || fieldKey, { fieldKey, target: belongsTo });
+    } else if (normalizeText(relation.kind).toLowerCase() === "collection") {
+      links.set(normalizeText(relation.as || definition.as) || fieldKey, {
+        fieldKey,
+        target: resolveCrudResourceScopeName(relation.target || relation.targetResource || relation.namespace || relation.apiPath)
+      });
+    }
+  }
+  return links;
+}
+
+/**
+ * Refuses a field an include lists that is a link of the included record: a belongs-to field, by its key
+ * (`locationId`) or its relationship (`location`), or a collection relation. A JSON:API document answers a link
+ * under the record's relationships, never among its attributes, so the field would never show and the record would
+ * read as if it had no link. The list names a link as `{ location: [] }`, which answers the linked record's id, with
+ * the fields to show of that record inside it. Each level is checked against its own table resource; a level whose
+ * resource no feature owns is left to the request.
+ * @param {import("../types.js").CrudContract} crud
+ * @param {(name: string) => ({ name: string, schema: Record<string, any> } | null)} tableResource The resource runtime's
+ *   owned table resources, by name.
+ */
+function checkIncludedFields(crud, tableResource) {
+  const check = (label, resourceName, { attributes, relationships }) => {
+    const resource = tableResource(resourceName);
+    if (!resource) {
+      return;
+    }
+    const links = linksOf(resource);
+    for (const name of attributes) {
+      const relationshipName = links.has(name) ? name : [...links].find(([, { fieldKey }]) => fieldKey === name)?.[0];
+      if (relationshipName) {
+        throw new TypeError(
+          `A CRUD contract's ${label} lists "${name}", which is a link of ${resourceName} to ` +
+          `${links.get(relationshipName).target}, not one of its fields: a document answers a link under its ` +
+          `relationship, never as a field, so "${name}" would never show. List it as { ${relationshipName}: [] }, ` +
+          `which answers the linked record's id, and put the fields to show of that record inside it, such as ` +
+          `{ ${relationshipName}: ["name"] }.`
+        );
+      }
+    }
+    for (const [relationshipName, nested] of Object.entries(relationships)) {
+      const link = links.get(relationshipName);
+      if (link?.target) {
+        check(`${label}.${relationshipName}`, link.target, nested);
+      }
+    }
+  };
+  for (const { attributeKey, relationshipType, include } of contractShape(crud).relationships) {
+    check(`${attributeKey}.includeFields`, relationshipType, include);
+  }
 }
 
 // What each CRUD contract shows, by contract. defineCrudContract deep-freezes a contract, so what it shows is worked
@@ -253,4 +320,4 @@ function createCrudService({ repository, crud }) {
   });
 }
 
-export { createCrudService };
+export { checkIncludedFields, createCrudService };

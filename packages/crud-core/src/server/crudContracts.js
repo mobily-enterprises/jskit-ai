@@ -1,4 +1,5 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+import { checkIncludedFields } from "./jsonApiModule/service.js";
 
 /**
  * The CRUD contracts an application serves, one per namespace. Each CRUD
@@ -29,7 +30,17 @@ function createCrudContracts() {
     }
   }
 
-  function seal() {
+  /**
+   * Ends registration. Given the resource runtime's owned table resources by name, it first checks each contract's
+   * includes against the tables they include (see checkIncludedFields): at boot every feature owns its tables.
+   * @param {(name: string) => ({ name: string, schema: Record<string, any> } | null)} [tableResource]
+   */
+  function seal(tableResource) {
+    if (tableResource) {
+      for (const crud of registered) {
+        checkIncludedFields(crud, tableResource);
+      }
+    }
     sealed = true;
   }
 
@@ -41,13 +52,19 @@ function createCrudContracts() {
 
 const CrudContractsProvider = defineProvider({
   id: "crud.contracts",
+  optional: {
+    resources: "runtime.resources"
+  },
   provides: {
     contracts: "crud.contracts"
   },
   setup: () => ({ contracts: createCrudContracts() }),
-  /** @param {object} _dependencies @param {{ outputs: { contracts: ReturnType<typeof createCrudContracts> } }} context */
-  boot(_dependencies, { outputs }) {
-    outputs.contracts.seal();
+  /**
+   * @param {{ resources?: import("@jskit-ai/resource-runtime/server/types").ResourceRuntime }} dependencies
+   * @param {{ outputs: { contracts: ReturnType<typeof createCrudContracts> } }} context
+   */
+  boot({ resources }, { outputs }) {
+    outputs.contracts.seal(resources?.tableResource);
   }
 });
 

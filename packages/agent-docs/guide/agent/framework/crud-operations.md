@@ -49,8 +49,10 @@ false }` hides one), so a column added later stays out of every API until a
 contract names it. A CRUD feature's answers follow the same rule: an unnamed
 relationship is left out, and an included record shows only its id, its
 relation's `labelKey` and the fields the including contract lists in that
-field's `output.includeFields` (`{ breed: ["name"] }` in the list shows a
-record it links to, as deep as listed), never another contract's output.
+field's `output.includeFields`, never another contract's output. The list
+names a link by its relationship, as deep as listed: `{ breed: ["name"] }`
+shows the breed's name, `{ location: [] }` its id; a field name such as
+`"locationId"` is refused at boot.
 A package with a CRUD feature lists `crud.contracts` in its descriptor's
 `capabilities.requires`. Do not duplicate their schema or serializers.
 Prefer `useCrudListScreen()`, `useCrudViewScreen()`, and

@@ -63,7 +63,7 @@ async function createFixture(t, { requestRowLimit, owns = [noteResource()] } = {
   return { knex, runtime, resources, notes: resources.notes, systemContext };
 }
 
-test("own() answers a handle per resource and refuses a second owner of a table or name", async (t) => {
+test("own() answers a handle per resource and refuses a second owner of a table or name; tableResource() answers an owned resource by name", async (t) => {
   const { runtime, resources } = await createFixture(t);
   assert.deepEqual(Object.keys(resources), ["notes"]);
   assert.equal(typeof resources.contributeRowPolicy, "function");
@@ -71,6 +71,8 @@ test("own() answers a handle per resource and refuses a second owner of a table 
   await assert.rejects(runtime.own("other.feature", [noteResource({ name: "otherNotes" })]), DuplicateOwnerError);
   await assert.rejects(runtime.own("other.feature", [{ resource: noteResource({ name: "x", tableName: "x" }), autofilter: "workspace" }]), /does not take "autofilter"/u);
   assert.deepEqual(runtime.ownedTables(), [{ name: "notes", tableName: "notes", featureId: "notes.feature" }]);
+  assert.equal(runtime.tableResource("notes").tableName, "notes");
+  assert.equal(runtime.tableResource("otherNotes"), null);
 });
 
 test("a call without a context is refused before anything runs", async (t) => {

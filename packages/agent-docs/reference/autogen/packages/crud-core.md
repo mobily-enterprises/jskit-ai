@@ -95,6 +95,7 @@ Local functions
 
 ### `src/server/jsonApiModule/service.js`
 Exports
+- `checkIncludedFields(crud, tableResource)`
 - `createCrudService({ repository, crud })`
 Local functions
 - `documentNotFound()`
@@ -104,6 +105,7 @@ Local functions
 - `contractShape(crud)`
 - `includedShape({ attributes, relationships }, labelKey = "")`
 - `documentShapes(crud)`
+- `linksOf(resource)`
 - `contractShapes(crud)`
 
 ### `src/server/jsonApiResourceContract.js`
