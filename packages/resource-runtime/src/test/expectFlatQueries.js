@@ -95,7 +95,7 @@ async function expectFlatQueries({ sizes = [10, 200], seed, run, knex = null, en
   if (measured.every(({ count }) => count === 0)) {
     throw new AssertionError({
       message: "The path sent no statement at any size, so nothing was measured: pass the test's knex when its features " +
-        "run on it (startTestFeatures, createTestResourceRuntime), or run the path through the server the test booted."
+        "run on it (startTestFeatures, createTestResourceRuntime), or the path never reached the database."
     });
   }
   const growing = ({ count, chunkStatements }) => count - chunkStatements > smallest.count - smallest.chunkStatements;

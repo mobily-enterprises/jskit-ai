@@ -844,9 +844,9 @@ A data test never skips: without `TEST_DB_NAME` it fails
 `knex` whenever the features run on it (`startTestFeatures`,
 `createTestResourceRuntime`). Without `knex` it counts through a server the
 test booted (`countRuntimeQueries(work)` from
-`@jskit-ai/database-runtime/server/testDatabases`). A path that sends no
-statement at any size was counted on the wrong channel, and the test fails
-saying so.
+`@jskit-ai/database-runtime/server/testDatabases`). A check that measures
+nothing never passes: "The path sent no statement at any size" means pass
+`knex`, or the path never reached the database.
 
 `createTestResourceRuntime({ knex })` gives a test the resource runtime its
 features own their tables through: `runtime.own(featureId, [resource])`
