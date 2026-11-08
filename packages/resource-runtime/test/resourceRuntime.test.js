@@ -1159,8 +1159,7 @@ test("a job's actorId never moves its scope; a row policy that keys on the perso
       title: { type: "string", required: true }
     }
   });
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  const knex = await testKnex(t);
   await knex.schema.createTable("drafts", (table) => {
     table.increments("id");
     table.integer("workspace_id");
