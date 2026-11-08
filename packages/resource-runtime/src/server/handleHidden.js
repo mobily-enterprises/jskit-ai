@@ -140,9 +140,10 @@ function createHiddenFieldReads({ resource, scopedQuery, column }) {
 
 /**
  * The repository an owner gives other features (a CRUD feature's `resourceApi.repository`): the same repository,
- * except that a read whose `fields` names a hidden field of the resource is refused unless it runs in a system
- * context or one it derived. The owner's own code reads with the repository itself. A resource without hidden
- * fields keeps its repository as it is.
+ * except that a read whose `fields` names a hidden field of the resource, and any scopedQuery() (its builder carries
+ * every column, hidden ones too), is refused unless it runs in a system context or one it derived. The owner's own
+ * code, its join sources included, reads with the repository itself. A resource without hidden fields keeps its
+ * repository as it is.
  * @template {object} T
  * @param {T} repository
  * @param {{ name: string, schema: Record<string, any> }} resource
@@ -153,6 +154,22 @@ function withoutHiddenFields(repository, resource) {
     return repository;
   }
   const descriptors = Object.getOwnPropertyDescriptors(repository);
+  const { scopedQuery } = repository;
+  // readable-check: allow method-probe - data: an owner's repository may leave out scopedQuery
+  if (typeof scopedQuery === "function") {
+    descriptors.scopedQuery = {
+      enumerable: true,
+      value: async function scopedQueryWithoutHiddenFields(params, options) {
+        if (!isJobContext(options?.context)) {
+          throw new TypeError(
+            `${resource.name}.scopedQuery() answers every column, its hidden fields too, which only the table's owner, ` +
+              "or a system context, reads: ask the owner for a method answering the rows or a join source."
+          );
+        }
+        return scopedQuery.call(repository, params, options);
+      }
+    };
+  }
   for (const [method, { fieldsAt, optionsAt }] of Object.entries(FIELD_READS)) {
     const read = repository[method];
     // readable-check: allow method-probe - data: an owner's repository may leave out any of the reads

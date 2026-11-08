@@ -106,9 +106,37 @@ test("withoutHiddenFields refuses another feature's read naming a hidden field, 
   assert.deepEqual(await exposed.queryAll({ filters: { title: "Kit" }, fields: ["publicToken"] }, { context: system.forWorkspace("2") }),
     [{ id: "3", publicToken: "t3" }]);
   // Everything else is the repository's own, and a resource without hidden fields keeps its repository.
-  assert.equal(exposed.scopedQuery, cards.scopedQuery);
+  assert.equal(exposed.column, cards.column);
   assert.equal(exposed.name, "cards");
   assert.equal(Object.isFrozen(exposed), true);
   const plain = defineTableResource({ name: "notes", tableName: "notes", ownership: "public", schema: { body: { type: "string" } } });
   assert.equal(withoutHiddenFields(cards, plain), cards);
+});
+
+test("withoutHiddenFields refuses another feature's scopedQuery, whose builder carries the hidden columns, and the owner's join source still joins", async (t) => {
+  const { cards, resource, system, options } = await createCardFixture(t);
+  // The owner's join source, a method its decorateRepository adds with the handle it receives.
+  async function cardSource(alias, callOptions) {
+    const { query } = await cards.scopedQuery({ alias }, callOptions);
+    return { query, column: (field) => cards.column(field, alias) };
+  }
+  const exposed = withoutHiddenFields(Object.freeze({ ...cards, cardSource }), resource);
+
+  // Another feature's own builder would select the token: refused before it reads anything.
+  await assert.rejects(
+    (async () => (await exposed.scopedQuery({}, options)).query.select(exposed.column("publicToken")))(),
+    /cards\.scopedQuery\(\) answers every column, its hidden fields too, which only the table's owner, or a system context, reads/u
+  );
+  await assert.rejects(exposed.withTransaction(options, (tx) => exposed.scopedQuery({ alias: "c" }, tx)), /cards\.scopedQuery\(\)/u);
+
+  // A system context, and one it derived, still builds on it.
+  const { query: everyWorkspace } = await exposed.scopedQuery({}, { context: system });
+  assert.deepEqual((await everyWorkspace.count({ cards: exposed.column("id") }))[0].cards, 3);
+  const { query: workspaceTwo } = await exposed.scopedQuery({}, { context: system.forWorkspace("2") });
+  assert.deepEqual(await workspaceTwo.select({ title: exposed.column("title") }), [{ title: "Kit" }]);
+
+  // The cross-owner report pattern: the owner's method answers its scoped rows, which the report selects from.
+  const source = await exposed.cardSource("c", options);
+  const rows = await source.query.select({ title: source.column("title") }).orderBy(source.column("id"));
+  assert.deepEqual(rows, [{ title: "Rex" }, { title: "Bo" }]);
 });
