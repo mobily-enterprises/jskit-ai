@@ -273,7 +273,12 @@ rows the caller may touch, then writes each chunk with one statement, in one
 transaction. Audits and change events run once for the batch, so the
 statements are the same for 10 rows as for 200. `patchWhere` and
 `deleteWhere` put the scope and filters in the statement itself, so a row gone
-meanwhile is skipped, and they take no `missing`. A many-row write answers
+meanwhile is skipped, and they take no `missing`. They change the rows that
+match, but they are not a guard: on MySQL and MariaDB two writers whose filters
+both matched a row can both change it. A change that must happen only while a
+row still holds a value (open to booked, once) is
+`patch(id, changes, { ...options, onlyIf: { status: "open" } })`, a `claim`, or
+a lock and a check (Layer 4). A many-row write answers
 nothing unless `returning` asks: `"ids"`, `"records"`, or `"count"`, which
 reads nothing back.
 
