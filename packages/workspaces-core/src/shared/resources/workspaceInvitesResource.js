@@ -6,6 +6,10 @@ const workspaceInvitesResource = defineTableResource({
   name: "workspaceInvites",
   tableName: "workspace_invites",
   ownership: "public",
+  foreignKeys: [
+    { columns: ["workspaceId"], referencedTableName: "workspaces" },
+    { columns: ["invitedByUserId"], referencedTableName: "users" }
+  ],
   searchSchema: {
     workspace: { type: "id", actualField: "workspace_id", filterOperator: "=" },
     email: { type: "string", actualField: "email", filterOperator: "=" },

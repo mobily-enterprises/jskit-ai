@@ -5,6 +5,8 @@ import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatab
 import migration from "../migrations/payments_core_initial.cjs";
 import { createPaymentService } from "../src/server/service.js";
 import { validatePaymentConfiguration } from "../src/shared/configuration.js";
+import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
+import { PAYMENT_TABLES } from "../src/server/paymentResources.js";
 import { createTestPaymentStore } from "./support/paymentStore.js";
 
 // The payment store's behaviour on MariaDB, through its public functions, as PaymentStoreFeature provides it: what an
@@ -52,6 +54,14 @@ function gate() {
   });
   return { opened, open };
 }
+
+test("the payment table resources declare exactly the foreign keys the migration creates", async (context) => {
+  requireTestDatabase(process.env);
+  const knex = await ownDatabase(context, "da_payments_keys");
+  const resources = PAYMENT_TABLES.map(({ resource }) => resource);
+  const tables = resources.map((resource) => resource.tableName);
+  assert.deepEqual(await checkForeignKeys({ knex, resources, tables }), { missing: [], undeclared: [] });
+});
 
 test("the store refuses incomplete scopes and identities before any work runs", async (context) => {
   requireTestDatabase(process.env);

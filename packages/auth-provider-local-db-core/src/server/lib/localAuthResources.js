@@ -45,6 +45,7 @@ const localAuthSessionResource = defineTableResource({
   name: "localAuthSessions",
   tableName: "auth_local_sessions",
   ownership: "public",
+  foreignKeys: [{ columns: ["userId"], referencedTableName: "auth_local_users" }],
   schema: {
     userId: searchableText,
     tokenHash: searchableText,
@@ -66,6 +67,7 @@ const localAuthRecoveryResource = defineTableResource({
   name: "localAuthRecovery",
   tableName: "auth_local_recovery",
   ownership: "public",
+  foreignKeys: [{ columns: ["userId"], referencedTableName: "auth_local_users" }],
   schema: {
     userId: searchableText,
     tokenHash: searchableText,

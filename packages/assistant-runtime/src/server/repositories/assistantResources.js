@@ -2,7 +2,10 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 
 // The assistant's four tables. The repositories normalize every value before
 // they write it, so text is stored exactly as given (noTrim), and dates are
-// written as UTC database date-times.
+// written as UTC database date-times. Each declares the foreign keys its
+// migrations always create; the workspace_id keys exist only where the
+// application has a workspaces table (constraints/assistant_workspaces_foreign_keys.cjs),
+// so none declares them.
 
 /** @param {Record<string, unknown>} [definition] */
 function textField(definition = {}) {
@@ -36,6 +39,7 @@ const assistantConversationsResource = defineTableResource({
   name: "assistantConversations",
   tableName: "assistant_conversations",
   ownership: "user",
+  foreignKeys: [{ columns: ["userId"], referencedTableName: "users" }],
   queryMaxLimit: 200,
   schema: {
     workspaceId: { type: "id", nullable: true, search: true },
@@ -65,6 +69,10 @@ const assistantMessagesResource = defineTableResource({
   name: "assistantMessages",
   tableName: "assistant_messages",
   ownership: "workspace",
+  foreignKeys: [
+    { columns: ["conversationId"], referencedTableName: "assistant_conversations" },
+    { columns: ["actorUserId"], referencedTableName: "users" }
+  ],
   queryMaxLimit: 500,
   schema: {
     conversationId: { type: "id", search: true },
@@ -89,6 +97,7 @@ const assistantTurnRequestsResource = defineTableResource({
   name: "assistantTurnRequests",
   tableName: "assistant_turn_requests",
   ownership: "user",
+  foreignKeys: [{ columns: ["userId"], referencedTableName: "users" }],
   schema: {
     userId: { type: "id", search: true, storage: { column: "actor_user_id" } },
     scopeKey: textField({ search: true }),

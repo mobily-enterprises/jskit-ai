@@ -5,6 +5,7 @@ const rewardedProviderConfigTableResource = defineTableResource({
   name: "rewardedProviderConfigs",
   tableName: "rewarded_provider_configs",
   ownership: "workspace",
+  foreignKeys: [{ columns: ["workspaceId"], referencedTableName: "workspaces" }],
   schema: {
     workspaceId: {
       type: "id",

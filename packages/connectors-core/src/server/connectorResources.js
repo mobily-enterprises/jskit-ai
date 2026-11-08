@@ -26,6 +26,7 @@ const connectorAuthorizationAttemptResource = defineTableResource({
   name: "connectorAuthorizationAttempts",
   tableName: "connector_authorization_attempts",
   ownership: "public",
+  foreignKeys: [{ columns: ["connectionKey"], referencedTableName: "connector_connections", referencedColumns: ["connection_key"] }],
   idProperty: "attempt_key",
   sortableFields: ["expiresAt"],
   schema: {

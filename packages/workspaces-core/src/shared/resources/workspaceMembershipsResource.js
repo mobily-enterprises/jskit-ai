@@ -7,6 +7,10 @@ const workspaceMembershipsResource = defineTableResource({
   name: "workspaceMemberships",
   tableName: "workspace_memberships",
   ownership: "public",
+  foreignKeys: [
+    { columns: ["workspaceId"], referencedTableName: "workspaces" },
+    { columns: ["userId"], referencedTableName: "users" }
+  ],
   searchSchema: {
     workspace: { type: "id", actualField: "workspace_id", filterOperator: "=" },
     user: { type: "id", actualField: "user_id", filterOperator: "=" },

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- console_settings declares its foreign key, owner_user_id to users (`foreignKeys`), so json-rest-api 3.1.0 can skip the visibility query a system-context read makes for a record such a key guarantees exists. `jskit test --databases` checks each against an app's test database. `usersForeignKeyMigration.test.js` proves it matches the migrations.
 - `console.settings` reads and writes its record with only the caller's context and transaction (`passedOn(options)`) and its own settings: a caller's `format`, `lockVersion` or `returning` no longer reaches its `get` and `patch`.
 - `@jskit-ai/database-runtime` and `@jskit-ai/resource-runtime` are peer dependencies, required and at the same versions, where they were dependencies: its settings are a table resource, and the app holds one copy of the table runtime that every package shares, as it does the kernel. npm installs a required peer as it installed the dependency, so an app installs the same packages and versions; a release whose versions disagree now fails the install with ERESOLVE instead of nesting a second copy.
 - **Breaking (data-access redesign).** The console settings operations are an API contract, `consoleSettingsContract`, which replaces `consoleSettingsResource`, with the two its routes serve: view (GET) and patch (PATCH), each with the method of the route that serves it.

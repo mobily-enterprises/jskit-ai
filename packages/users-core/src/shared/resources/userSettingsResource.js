@@ -285,6 +285,7 @@ const userSettingsTableResource = defineTableResource({
   name: "userSettings",
   tableName: "user_settings",
   ownership: "public",
+  foreignKeys: [{ columns: ["id"], referencedTableName: "users" }],
   idProperty: "user_id",
   schema: {
     id: {

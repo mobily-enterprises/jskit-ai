@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import createKnex from "knex";
 import migration from "../migrations/connectors_core_initial.cjs";
+import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
+import { CONNECTOR_TABLES } from "../src/server/connectorResources.js";
 import { createCredentialProtection, createKnexConnectionStore } from "../src/server/storage.js";
 
 test("credential protection binds ciphertext to its record and supports key rotation", async () => {
@@ -42,6 +44,12 @@ test("durable connector storage on an isolated SQL database", { skip: !databaseU
   const connection = { tokens: { accessToken: "private-access", refreshToken: "private-refresh" }, version: 0 };
   await migration.up(knex);
   try {
+    await t.test("the table resources declare exactly the foreign keys the migration creates", async () => {
+      const resources = CONNECTOR_TABLES.map(({ resource }) => resource);
+      const tables = resources.map((resource) => resource.tableName);
+      assert.deepEqual(await checkForeignKeys({ knex, resources, tables }), { missing: [], undeclared: [] });
+    });
+
     await t.test("persists encrypted records and reopens them through another database pool", async () => {
       await store.withConnection(scope, async ({ save }) => save(connection));
       const rows = await knex("connector_connections").select();

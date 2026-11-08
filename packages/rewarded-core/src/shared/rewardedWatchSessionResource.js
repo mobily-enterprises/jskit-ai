@@ -5,6 +5,11 @@ const rewardedWatchSessionTableResource = defineTableResource({
   name: "rewardedWatchSessions",
   tableName: "rewarded_watch_sessions",
   ownership: "workspace_user",
+  foreignKeys: [
+    { columns: ["workspaceId"], referencedTableName: "workspaces" },
+    { columns: ["userId"], referencedTableName: "users" },
+    { columns: ["providerConfigId"], referencedTableName: "rewarded_provider_configs" }
+  ],
   schema: {
     workspaceId: {
       type: "id",

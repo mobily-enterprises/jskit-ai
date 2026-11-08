@@ -5,6 +5,12 @@ const rewardedUnlockReceiptTableResource = defineTableResource({
   name: "rewardedUnlockReceipts",
   tableName: "rewarded_unlock_receipts",
   ownership: "workspace_user",
+  foreignKeys: [
+    { columns: ["workspaceId"], referencedTableName: "workspaces" },
+    { columns: ["userId"], referencedTableName: "users" },
+    { columns: ["providerConfigId"], referencedTableName: "rewarded_provider_configs" },
+    { columns: ["watchSessionId"], referencedTableName: "rewarded_watch_sessions" }
+  ],
   schema: {
     workspaceId: {
       type: "id",

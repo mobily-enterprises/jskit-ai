@@ -5,6 +5,11 @@ import rulesMigration from "../migrations/rewarded_rules_initial.cjs";
 import unlockReceiptsMigration from "../migrations/rewarded_unlock_receipts_initial.cjs";
 import watchSessionsMigration from "../migrations/rewarded_watch_sessions_initial.cjs";
 import foreignKeysMigration from "../migrations/constraints/rewarded_foreign_keys.cjs";
+import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
+import { rewardedProviderConfigTableResource } from "../src/shared/rewardedProviderConfigResource.js";
+import { rewardedRuleTableResource } from "../src/shared/rewardedRuleResource.js";
+import { rewardedUnlockReceiptTableResource } from "../src/shared/rewardedUnlockReceiptResource.js";
+import { rewardedWatchSessionTableResource } from "../src/shared/rewardedWatchSessionResource.js";
 import { openOwnDatabase } from "./mysqlDatabase.js";
 
 // Knex's filename order within rewarded-core's migrations/ directory.
@@ -68,6 +73,9 @@ test("a fresh MySQL database migrates rewarded-core before users and workspaces 
   }
   await foreignKeysMigration.up(knex);
   assert.deepEqual(await foreignKeys(knex), ALL_KEYS);
+  // The table resources declare exactly those keys.
+  const resources = [rewardedProviderConfigTableResource, rewardedRuleTableResource, rewardedUnlockReceiptTableResource, rewardedWatchSessionTableResource];
+  assert.deepEqual(await checkForeignKeys({ knex, resources, tables: TABLES }), { missing: [], undeclared: [] });
 
   // Keys that already exist are left as they are.
   await foreignKeysMigration.up(knex);

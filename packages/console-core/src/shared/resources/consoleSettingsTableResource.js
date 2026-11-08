@@ -7,6 +7,7 @@ const consoleSettingsTableResource = defineTableResource({
   name: "consoleSettings",
   tableName: "console_settings",
   ownership: "public",
+  foreignKeys: [{ columns: ["ownerUserId"], referencedTableName: "users" }],
   schema: {
     ownerUserId: { type: "id", nullable: true },
     createdAt: { type: "dateTime", storage: { writeSerializer: "datetime-utc" } },

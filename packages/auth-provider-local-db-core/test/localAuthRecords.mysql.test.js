@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
+import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
 import { expectEveryTableOwned } from "@jskit-ai/resource-runtime/test";
+import { LOCAL_AUTH_RESOURCES } from "../src/server/lib/localAuthResources.js";
 import { LOCAL_AUTH_INFRASTRUCTURE_TABLES } from "../src/server/lib/index.js";
 import { openLocalAuthDatabase } from "./support/mysqlLocalAuth.js";
 
@@ -457,4 +459,10 @@ test("every local sign-in table is a table resource or one of LOCAL_AUTH_INFRAST
   const { knex, resourceRuntime } = await openLocalAuthDatabase(context, "da_local_tables");
   await expectEveryTableOwned({ knex, runtime: resourceRuntime, infrastructureTables: LOCAL_AUTH_INFRASTRUCTURE_TABLES, environment: process.env });
   await assert.rejects(expectEveryTableOwned({ knex, runtime: resourceRuntime, environment: process.env }), /Tables no feature owns: auth_local_identities\./u);
+});
+
+test("the local sign-in table resources declare exactly the foreign keys the migrations create", async (context) => {
+  const { knex } = await openLocalAuthDatabase(context, "da_local_keys");
+  const tables = LOCAL_AUTH_RESOURCES.map((resource) => resource.tableName);
+  assert.deepEqual(await checkForeignKeys({ knex, resources: LOCAL_AUTH_RESOURCES, tables }), { missing: [], undeclared: [] });
 });

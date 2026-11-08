@@ -245,6 +245,7 @@ const workspaceSettingsResource = defineTableResource({
   name: "workspaceSettings",
   tableName: "workspace_settings",
   ownership: "public",
+  foreignKeys: [{ columns: ["id"], referencedTableName: "workspaces" }],
   idProperty: "workspace_id",
   schema: {
     id: {

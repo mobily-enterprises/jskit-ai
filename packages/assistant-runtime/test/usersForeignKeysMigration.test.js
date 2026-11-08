@@ -5,6 +5,9 @@ import configMigration from "../migrations/assistant_config_initial.cjs";
 import transcriptsMigration from "../migrations/assistant_transcripts_initial.cjs";
 import turnRequestsMigration from "../migrations/assistant_turn_requests.cjs";
 import usersForeignKeysMigration from "../migrations/constraints/assistant_users_foreign_keys.cjs";
+import workspacesForeignKeysMigration from "../migrations/constraints/assistant_workspaces_foreign_keys.cjs";
+import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
+import * as assistantResources from "../src/server/repositories/assistantResources.js";
 
 const USER_KEYS = [
   { table: "assistant_conversations", from: "created_by_user_id", on_delete: "SET NULL" },
@@ -43,4 +46,25 @@ test("the assistant tables are created before users exists and get their users k
 
   await usersForeignKeysMigration.down(db);
   assert.deepEqual(await usersKeys(db), []);
+});
+
+test("the assistant table resources declare the foreign keys their migrations always create", async (t) => {
+  const db = knex({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => db.destroy());
+  const resources = Object.values(assistantResources);
+  const tables = resources.map((resource) => resource.tableName);
+  for (const migration of [configMigration, transcriptsMigration, turnRequestsMigration]) await migration.up(db);
+  await db.schema.createTable("users", (table) => table.bigInteger("id").primary());
+  await usersForeignKeysMigration.up(db);
+  assert.deepEqual(await checkForeignKeys({ knex: db, resources, tables }), { missing: [], undeclared: [] });
+
+  // An application with workspaces also gets the workspace_id keys, which no resource declares: not every
+  // application has them.
+  await db.schema.createTable("workspaces", (table) => table.bigInteger("id").primary());
+  await workspacesForeignKeysMigration.up(db);
+  const { missing, undeclared } = await checkForeignKeys({ knex: db, resources, tables });
+  assert.deepEqual(missing, []);
+  assert.deepEqual(undeclared.map(({ tableName, columns, referencedTableName }) => ({ tableName, columns, referencedTableName })),
+    ["assistant_config", "assistant_conversations", "assistant_messages"]
+      .map((tableName) => ({ tableName, columns: ["workspace_id"], referencedTableName: "workspaces" })));
 });

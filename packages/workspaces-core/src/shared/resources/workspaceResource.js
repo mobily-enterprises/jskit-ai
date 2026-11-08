@@ -77,6 +77,7 @@ const workspaceResource = defineTableResource({
   name: "workspaces",
   tableName: "workspaces",
   ownership: "public",
+  foreignKeys: [{ columns: ["ownerUserId"], referencedTableName: "users" }],
   searchSchema: {
     slug: { type: "string", actualField: "slug", filterOperator: "=" },
     slugs: { type: "array", actualField: "slug", filterOperator: "in", items: { type: "string" } },

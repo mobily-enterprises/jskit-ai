@@ -3,6 +3,8 @@ import test from "node:test";
 import knex from "knex";
 import initialMigration from "../migrations/console_core_generic_initial.cjs";
 import usersForeignKeyMigration from "../migrations/constraints/console_core_users_foreign_key.cjs";
+import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
+import { consoleSettingsTableResource } from "../src/shared/resources/consoleSettingsTableResource.js";
 
 async function usersKeys(db) {
   return (await db.raw("PRAGMA foreign_key_list(console_settings)"))
@@ -24,6 +26,9 @@ test("console_settings is created before users exists and gets its users key in 
   const key = [{ from: "owner_user_id", to: "id", onDelete: "SET NULL" }];
   assert.deepEqual(await usersKeys(db), key);
   assert.equal((await db("console_settings")).length, 1);
+  // The table resource declares that key, and the table has no other.
+  assert.deepEqual(await checkForeignKeys({ knex: db, resources: [consoleSettingsTableResource], tables: ["console_settings"] }),
+    { missing: [], undeclared: [] });
 
   // A table that already has its users key, as databases migrated before this phase do, gains no duplicate.
   await usersForeignKeyMigration.up(db);

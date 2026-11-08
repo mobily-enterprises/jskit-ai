@@ -4,7 +4,10 @@ import knexLib from "knex";
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
+import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
 import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
+import { userProfileTableResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
+import { userSettingsTableResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
 import { UsersExtensionsProvider } from "@jskit-ai/users-core/server/UsersExtensionsProvider";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import usersInitial from "../../users-core/migrations/users_core_generic_initial.cjs";
@@ -137,6 +140,11 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       }
     }
     for (const table of TABLES) await knex(table).delete();
+  });
+
+  test("the users and workspaces table resources declare exactly the foreign keys the migrations create", async () => {
+    const resources = [userProfileTableResource, userSettingsTableResource, ...WORKSPACES_TABLES];
+    assert.deepEqual(await checkForeignKeys({ knex, resources, tables: TABLES }), { missing: [], undeclared: [] });
   });
 
   after(async () => {

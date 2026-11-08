@@ -26,6 +26,7 @@ const paymentEntryResource = defineTableResource({
   name: "paymentEntries",
   tableName: "payment_entries",
   ownership: "public",
+  foreignKeys: [{ columns: ["accountKey"], referencedTableName: "payment_accounts", referencedColumns: ["account_key"] }],
   idProperty: "entry_key",
   schema: {
     id: key("entry_key"),
