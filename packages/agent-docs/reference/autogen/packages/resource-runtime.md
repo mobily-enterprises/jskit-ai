@@ -14,10 +14,6 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
-### `src/server/callOptions.js`
-Exports
-- `passedOn(options)`
-
 ### `src/server/contexts.js`
 Exports
 - `callerOf(context)`

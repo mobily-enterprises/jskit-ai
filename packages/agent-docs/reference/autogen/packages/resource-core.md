@@ -25,6 +25,10 @@ Local functions
 - `normalizeContractOperations(operations = null, contractMessages = null)`
 - `requireContractNamespace(value, { context = "defineApiContract namespace" } = {})`
 
+### `src/shared/callOptions.js`
+Exports
+- `passedOn(options)`
+
 ### `src/shared/tableResource.js`
 Exports
 - `OWNERSHIP_KINDS`
