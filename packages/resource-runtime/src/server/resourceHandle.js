@@ -9,6 +9,7 @@ import {
   missingOf, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, valueOnly, whereSelection
 } from "./handleGuards.js";
 import {
+  aggregateMeasures,
   MANY_RETURNING,
   SINGLE_RETURNING,
   handleRecords,
@@ -337,7 +338,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     requireDefinedFilters(name, "aggregate", filters);
     const result = await jsonRest().aggregate(
       {
-        measures,
+        measures: aggregateMeasures(measures),
         ...(groupBy === undefined ? {} : { groupBy }),
         queryParams: {
           ...(filters === undefined ? {} : { filters }),

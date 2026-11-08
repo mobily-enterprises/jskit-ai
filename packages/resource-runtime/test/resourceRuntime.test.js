@@ -679,6 +679,14 @@ test("aggregate() totals the caller's rows", async (t) => {
   assert.deepEqual(rows, [{ status: "done", count: 2 }, { status: "open", count: 1 }]);
 });
 
+test("aggregate() counts a table's ids, distinct or not, as its rows, on a schema that declares no id field", async (t) => {
+  const { visits, options } = await createVisitFixture(t);
+  const [totals] = await visits.aggregate({
+    measures: { visits: { count: "id" }, distinct: { countDistinct: "id" }, seen: { count: "id", where: { stage: "seen" } } }
+  }, options);
+  assert.deepEqual(totals, { visits: 2, distinct: 2, seen: 0 });
+});
+
 test("workspace_or_shared reads a workspace's rows and the shared ones, and writes only its own", async (t) => {
   const { notes, knex } = await createFixture(t, { owns: [noteResource({ ownership: "workspace_or_shared" })] });
   await knex("notes").insert([{ workspace_id: null, title: "shared" }, { workspace_id: 2, title: "theirs" }]);

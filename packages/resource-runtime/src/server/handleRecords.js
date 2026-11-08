@@ -77,6 +77,24 @@ function requestedFields(params, quiet, schemaInfo) {
 }
 
 /**
+ * An aggregate's measures as json-rest-api takes them. A record's id is no schema field there, so a count of it, or
+ * of its distinct values, which are every row's, is the count of rows (`"*"`).
+ * @param {unknown} measures
+ */
+function aggregateMeasures(measures) {
+  if (!isRecord(measures)) {
+    return measures;
+  }
+  return Object.fromEntries(Object.entries(measures).map(([measureName, spec]) => {
+    if (!isRecord(spec) || (spec.count !== "id" && spec.countDistinct !== "id")) {
+      return [measureName, spec];
+    }
+    const { count: _count, countDistinct: _countDistinct, ...rest } = spec;
+    return [measureName, { ...rest, count: "*" }];
+  }));
+}
+
+/**
  * The read parameters of a handle call as json-rest-api's queryParams.
  * @param {{ name: string, schema: Record<string, any> }} resource
  * @param {Record<string, any>} params
@@ -396,6 +414,7 @@ function matchesOnlyIf(record, onlyIf) {
 }
 
 export {
+  aggregateMeasures,
   MANY_RETURNING,
   SINGLE_RETURNING,
   handleRecords,

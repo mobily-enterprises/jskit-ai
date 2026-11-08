@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `aggregate` counts `id` (`{ count: "id" }` or `{ countDistinct: "id" }`) as the count of rows, on a schema that declares no id field too; json-rest-api refused it as an unknown field.
 - A handle's included records read as a read of their own resource answers them, at every depth and in an included collection: a belongs-to field carries its id under its own key (`pet.contactId`) and the related record stays nested only when the include names it (`include: "pet.contact"`), where an included record kept json-rest-api's shape (`pet.contact: { id }`, no `contactId`). An included record leaves out a collection it does not include itself, which json-rest-api does not read for it and would answer as empty.
 - `lock` and `lockMany` take `fields` in their options (`{ ...txOptions, fields: ["stage"] }`) and read only those, so a belongs-to field left out costs no check that its related record is visible: a lock of a record with two relations was a locking read and two checks, and is the locking read alone. A `patch` with `lockVersion` or `onlyIf` locks only the fields it compares, so its own locking read checks no relation, and `onlyIf` may now compare a field reads hide by default (it never matched before).
 - A sparse `fields` names a belongs-to field by its own key (`customerId`) as well as by its relationship (`customer`): the key used to select no relationship and answer `customerId: null` for every row. A sparse read leaves out a belongs-to field it does not name, where it answered `null`.
