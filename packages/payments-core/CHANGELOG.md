@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `@jskit-ai/database-runtime` and `@jskit-ai/resource-runtime` are optional peer dependencies, as they are of assistant-runtime, instead of dependencies: an app without a database installs, composes and starts the package without them, where installing them made boot refuse it for want of a database driver. An app that uses its payment store has them through its database.
 - On json-rest-api 3.0.0's release candidate, an account's changed state is written with one read of the locked row before its UPDATE, where it took two.
 - The payment store locks or creates each account and catalogue row with its handle's `lockOrCreate`, in place of a helper of its own with the same behaviour.
 - Breaking: `createKnexPaymentStore` is gone, so the payment tables have one owner, `PaymentStoreFeature`. A JSKIT application registers it in its server providers and composes billing on the `payments.store` it provides; a script or CLI starts it in a capability runtime of its own on the application's Knex, as `docs/standalone.md` shows. `createPaymentService` given no store names that fix, and a missing configuration names `validatePaymentConfiguration`.

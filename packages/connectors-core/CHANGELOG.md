@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `@jskit-ai/database-runtime` and `@jskit-ai/resource-runtime` are optional peer dependencies, as they are of assistant-runtime, instead of dependencies: an app without a database installs, composes and starts the package without them, where installing them made boot refuse it for want of a database driver. An app that uses its knex connection store (`./server/storage`) has them through its database.
 - `createKnexConnectionStore` owns the connector tables through resource-runtime's `createStandaloneResources`, with the connection store's declared system scope, instead of building a resource runtime and host of its own.
 - `connectors.core` without a store requires `connectors.store` again, with a hint, so the kernel's startup error names the missing capability and says to register `createConnectionStoreFeature({ protection })` or pass `createConnectorsFeature({ store })`, instead of a check in its own setup.
 - The connection store locks or creates each connection row with its handle's `lockOrCreate`, in place of a helper of its own with the same behaviour.
