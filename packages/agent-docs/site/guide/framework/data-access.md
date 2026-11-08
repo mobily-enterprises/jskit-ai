@@ -207,6 +207,23 @@ async function noticeVisibilityPolicy({ query, context, column, value }) {
 }
 ```
 
+A row policy hides a row everywhere, also as the target of a visible record's
+link: an order whose supplier the reader cannot see reads `supplierId: null`,
+and a form that saves the order back sends that null. A row policy says who may
+see a row at all; narrowing what one screen lists is a filter on that screen's
+read.
+
+```js
+// bad: a row policy to list only the suppliers a user added; every order whose
+// supplier someone else added now reads supplierId: null for that user
+owns: [{ resource: supplierResource, rowPolicy: addedByActor }]
+
+// good: the screen's read filters; orders keep their suppliers
+function listAddedByMe(params, options) {
+  return suppliers.query({ ...params, filters: { ...params.filters, addedBy: resolveActorId(options.context) } }, options);
+}
+```
+
 ## Layer 2: the CRUD surface
 
 When people list, view, create, edit or delete the rows over HTTP, add a CRUD
