@@ -502,6 +502,55 @@ test("a snackbar never covers the FAB, the navigation bar or a form's Save, so S
   }
 });
 
+// A content-sized drawer fits a long name in its identity (a workspace switcher, say) as well as its labels.
+test("a content-sized drawer is wide enough for its identity's name", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
+  const name = "Northwind Regional Distribution";
+  await page.goto(`/home?drawerWidth=content&identity=${encodeURIComponent(name)}`);
+  const drawer = page.getByTestId("jskit-shell-drawer");
+  await expect(drawer).toHaveAttribute("data-presentation", "drawer");
+  await expect(drawer.getByRole("button", { name })).toBeVisible();
+  // The name's text lies inside the button and the button inside the drawer, its 12dp padding beside it.
+  const fit = () => drawer.evaluate((element) => {
+    const drawerRect = element.getBoundingClientRect();
+    const button = element.querySelector(".fixture-identity");
+    const buttonRect = button.getBoundingClientRect();
+    const range = document.createRange();
+    range.selectNodeContents(button.querySelector(".v-btn__content"));
+    const text = range.getBoundingClientRect();
+    return {
+      textInside: text.left >= buttonRect.left && text.right <= buttonRect.right,
+      buttonInside: buttonRect.left >= drawerRect.left && buttonRect.right <= drawerRect.right - 12 + 0.5,
+      width: Math.round(drawerRect.width)
+    };
+  });
+  // The drawer measures again once the page's fonts load and animates its width, so each reading waits for both.
+  const settle = () => drawer.evaluate(async (element) => {
+    await document.fonts.ready;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    await Promise.all(element.getAnimations({ subtree: true }).map((animation) => animation.finished.catch(() => undefined)));
+  });
+  await expect.poll(async () => {
+    await settle();
+    const { textInside, buttonInside } = await fit();
+    return textInside && buttonInside;
+  }).toBe(true);
+  // It stays at that width: no jump once settled.
+  const settled = (await fit()).width;
+  assert.ok(settled <= 360, `the drawer is ${settled}px wide`);
+  await page.waitForTimeout(300);
+  await settle();
+  assert.equal((await fit()).width, settled);
+  // Without the long name the drawer fits its labels again.
+  await page.goto("/home?drawerWidth=content");
+  await expect.poll(async () => Math.round((await drawer.boundingBox())?.width || 0)).toBeLessThan(settled);
+  await page.close();
+});
+
 // A list that fetches its rows is short when the router scrolls; Up and Back still return to where it was scrolled.
 test("Up and Back return to a list's position once the list has drawn its rows", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",

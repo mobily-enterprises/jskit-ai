@@ -20,6 +20,8 @@ const themeMode = computed(() => route.query.theme === "dark" ? "dark" : "light"
 const railWidth = computed(() => Number(route.query.railWidth) || undefined);
 const navigationItemSpacing = computed(() => Number(route.query.navigationItemSpacing) || undefined);
 const drawerWidth = computed(() => (route.query.drawerWidth === "content" ? "content" : undefined));
+// ?identity=<name> puts an identity at the top of the drawer, as a workspace switcher does.
+const identity = computed(() => String(route.query.identity || ""));
 
 watchEffect(function applyFixtureTheme() {
   const themeName = `${surface.value === "admin" ? "admin" : "home"}-${themeMode.value}`;
@@ -43,6 +45,9 @@ watchEffect(function applyFixtureTheme() {
       :navigation-item-spacing="navigationItemSpacing"
       :drawer-width="drawerWidth"
     >
+      <template v-if="identity" #top-left>
+        <v-btn variant="text" class="fixture-identity text-none" prepend-icon="$work">{{ identity }}</v-btn>
+      </template>
       <RouterView />
     </ShellLayout>
     <ShellErrorHost />

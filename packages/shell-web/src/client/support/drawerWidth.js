@@ -82,7 +82,9 @@ function resolveContentAwareDrawerWidth(
     if (!Number.isFinite(logicalStart) || logicalStart < 0 || !Number.isFinite(textWidth) || textWidth <= 0) {
       continue;
     }
-    requiredWidth = Math.max(requiredWidth, logicalStart + textWidth + Number(endGap || 0));
+    // A measurement that brings its own end space (the identity's padding) says so; a label gets the drawer's.
+    const measurementEndGap = Number.isFinite(measurement?.endGap) ? measurement.endGap : Number(endGap || 0);
+    requiredWidth = Math.max(requiredWidth, logicalStart + textWidth + measurementEndGap);
   }
 
   if (requiredWidth <= 0) {
@@ -99,7 +101,25 @@ function measureRenderedText(element) {
   return range.getBoundingClientRect();
 }
 
-// The width the drawer's rendered labels need, from where each one starts on the drawer's inline axis.
+// The identity at the top of the drawer (ShellLayout's top-left slot or outlet, such as a workspace switcher) at the
+// width its content wants: a name wider than the drawer is cut to the drawer's width, so its box is measured with the
+// width left to its content (max-content) for that one reading, its padding included, and set back before anything
+// paints. Hidden (empty), it measures nothing.
+function measureDrawerIdentity(identityElement, drawerRect, rightToLeft, endBorderWidth) {
+  const { width, maxWidth } = identityElement.style;
+  identityElement.style.width = "max-content";
+  identityElement.style.maxWidth = "none";
+  const rect = identityElement.getBoundingClientRect();
+  identityElement.style.width = width;
+  identityElement.style.maxWidth = maxWidth;
+  return {
+    logicalStart: rightToLeft ? drawerRect.right - rect.right : rect.left - drawerRect.left,
+    textWidth: rect.width,
+    endGap: endBorderWidth
+  };
+}
+
+// The width the drawer's identity and rendered labels need, from where each one starts on the drawer's inline axis.
 function measureDrawerContentWidth(drawerElement, navigationItemSpacing) {
   const drawerRect = drawerElement.getBoundingClientRect();
   const drawerStyle = window.getComputedStyle(drawerElement);
@@ -108,6 +128,10 @@ function measureDrawerContentWidth(drawerElement, navigationItemSpacing) {
     rightToLeft ? drawerStyle.borderLeftWidth : drawerStyle.borderRightWidth
   ) || 0;
   const measurements = [];
+  const identity = drawerElement.querySelector(".shell-layout__identity");
+  if (identity) {
+    measurements.push(measureDrawerIdentity(identity, drawerRect, rightToLeft, endBorderWidth));
+  }
 
   for (const label of drawerElement.querySelectorAll(".v-list-item-title")) {
     const labelStyle = window.getComputedStyle(label);

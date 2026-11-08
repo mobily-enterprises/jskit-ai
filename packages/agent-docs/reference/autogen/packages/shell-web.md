@@ -591,6 +591,7 @@ Exports
 Local functions
 - `clampNumber(value, minimum, maximum)`
 - `measureRenderedText(element)`
+- `measureDrawerIdentity(identityElement, drawerRect, rightToLeft, endBorderWidth)`
 
 ### `src/client/support/gestureTargets.js`
 Exports
