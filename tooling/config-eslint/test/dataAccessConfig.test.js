@@ -44,7 +44,12 @@ test("baseConfig reports the data-access rules as errors in every source but a p
     "src/ApplicationAiFeature.js",
     "src/jobs/nightlyCleanup.js",
     "packages/receivals/src/server/seedReceivals.js",
-    "server/lib/seedService.js"
+    "server/lib/seedService.js",
+    // A test, migrations or seeds folder is told apart only at the root of the app or a package: deeper, it is server code.
+    "packages/receivals/src/server/test/receivalsService.js",
+    "packages/receivals/src/server/migrations/receivals.js",
+    "src/server/seeds/demo.js",
+    "server/lib/scripts/seedDemo.js"
   ]) {
     assert.deepEqual(await dataAccessFindings(baseConfig, filePath), ERRORS, filePath);
   }
@@ -52,12 +57,12 @@ test("baseConfig reports the data-access rules as errors in every source but a p
 
 test("baseConfig leaves tests, migrations, seeds and client code to reach the database directly", async () => {
   for (const filePath of [
-    "packages/receivals/src/server/test/receivalsService.js",
+    "packages/receivals/test/receivalsService.js",
+    "packages/receivals/src/test/expectScoped.js",
     "packages/receivals/src/server/receivalsService.test.js",
     "tests/server/receivals.spec.js",
     "migrations/20260101000000_receivals.js",
     "packages/receivals/migrations/20260101000000_receivals.cjs",
-    "packages/receivals/src/server/migrations/receivals.js",
     "seeds/receivals.js",
     "packages/receivals/seeds/receivals.js",
     "scripts/seed-database.js",

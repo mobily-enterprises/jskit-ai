@@ -1,4 +1,4 @@
-import { DATA_ACCESS_GUIDE_URL, compactText, keyName, ruleMeta, unwrapChain } from "../support.js";
+import { DATA_ACCESS_GUIDE_URL, compactText, keyName, ruleMeta, unwrapAwait, unwrapChain } from "../support.js";
 import {
   INFRASTRUCTURE_HINT,
   KNEX_NAMES,
@@ -29,6 +29,8 @@ const TABLE_METHODS = new Set([
 // (`const target = "pets"`); a join of another table's scopedQuery() subquery, or a variable holding one, is scoped.
 const TABLE_REFERENCE = /table|name$/iu;
 const TABLES_OBJECT = /table/iu;
+// The Knex methods that take raw SQL naming the table they read: whatever their text, it names a table outside its resource.
+const RAW_TABLE_METHODS = new Set(["fromRaw", "joinRaw"]);
 // The Knex methods whose function argument builds a subquery (`whereIn("id", (sub) => sub.from(...))`): the builder it
 // receives is Knex's own, unscoped, so a table it names by any variable that holds no subquery reads past its owner.
 const SUBQUERY_METHODS = /^(?:(?:and|or)?where(?:Not)?(?:In|Exists)?|(?:or)?having(?:Not)?(?:In|Exists)?|union(?:All)?|intersect|except|with(?:Recursive|Materialized|NotMaterialized)?|from)$/u;
@@ -106,16 +108,20 @@ function isOtherLibrary(method, object, args) {
   return method === "join" && (args.length < 2 || /path|^posix$|^win32$/iu.test(name));
 }
 
-// The value a const (or a variable written once) is given where it is declared; undefined for anything else, such as a
-// parameter or an import.
+// The value a const (or a variable written once) is given where it is declared: its initialiser, or, for one
+// destructured from a call's result (`const { query: recent } = await lots.scopedQuery(...)`), the call, which holds
+// what the call returned and names no table. Undefined for anything else, such as a parameter or an import.
 function declaredValue(sourceCode, identifier) {
   for (let scope = sourceCode.getScope(identifier); scope; scope = scope.upper) {
     const variable = scope.set.get(identifier.name);
     if (variable) {
       const [definition] = variable.defs;
       const writes = variable.references.filter((reference) => reference.isWrite()).length;
-      return variable.defs.length === 1 && definition.type === "Variable" && definition.node.id.type === "Identifier" &&
-        definition.node.init && writes <= 1 ? definition.node.init : undefined;
+      const init = variable.defs.length === 1 && definition.type === "Variable" && writes <= 1 ? definition.node.init : null;
+      if (!init || definition.node.id.type === "Identifier") {
+        return init || undefined;
+      }
+      return unwrapAwait(init).type === "CallExpression" ? init : undefined;
     }
   }
   return undefined;
@@ -143,7 +149,7 @@ function inSubqueryCallback(node) {
 
 /**
  * Whether the first argument of from, table, into or a join names a table: text (see isTableText); an alias object with
- * one (`{ p: "projects" }`, `{ p: PROJECTS_TABLE }`); a variable or property whose name says table or name, or whose
+ * one (`{ p: "projects" }`, `{ p: PROJECTS_TABLE }`); either branch of a `?:`, `??`, `||` or `&&` that does; a variable or property whose name says table or name, or whose
  * object's says table; or a const that holds one of these. In a subquery callback (`strict`), any other variable but one
  * holding a builder (a scopedQuery() subquery) names a table too.
  * @param {import("eslint").SourceCode} sourceCode
@@ -158,6 +164,10 @@ function namesTableArgument(sourceCode, first, strict, depth = 0) {
   }
   if (value?.type === "ObjectExpression") {
     return value.properties.some((property) => property.type === "Property" && namesTableArgument(sourceCode, property.value, false, depth));
+  }
+  if (value?.type === "ConditionalExpression" || value?.type === "LogicalExpression") {
+    const branches = value.type === "LogicalExpression" ? [value.left, value.right] : [value.consequent, value.alternate];
+    return branches.some((branch) => namesTableArgument(sourceCode, branch, strict, depth));
   }
   if (value?.type !== "Identifier" && value?.type !== "MemberExpression") {
     return false;
@@ -181,8 +191,8 @@ function aliasesTable(sourceCode, callee, first) {
 
 // Knex reached past the resource: a table builder called with a table name (`knex("t")`, `(trx || knex)("t")`,
 // `knex(tables.messages)`, `client(MODELS_TABLE)`, `knex({ p: "projects" })`), a `.knex` read or a `knex` destructured
-// (`const { knex: q } = database`), a transaction opened by hand, and a table named to from, table, into or a join
-// (see namesTableArgument), in a scopedQuery() report and in a subquery callback alike.
+// (`const { knex: q } = database`), a transaction opened by hand, a table named to from, table, into or a join (see
+// namesTableArgument), in a scopedQuery() report and in a subquery callback alike, and any fromRaw() or joinRaw().
 const noDirectKnex = Object.freeze({
   meta: ruleMeta("Disallow reaching a table with Knex past its resource.", {
     tableBuilder: `{{text}}(...) starts a query on a table by name, outside its resource. ${DOOR} ${HINT}`,
@@ -212,6 +222,8 @@ const noDirectKnex = Object.freeze({
         const ownerIsKnexRead = owner === "knex" && unwrapChain(method.object).type === "MemberExpression";
         if (method.name === "transaction" && TRANSACTION_OWNERS.has(owner) && !ownerIsKnexRead) {
           context.report({ node, messageId: "handTransaction", data: { text: compactText(sourceCode, node.callee) } });
+        } else if (RAW_TABLE_METHODS.has(method.name) && first && !isOtherLibrary(method.name, method.object, node.arguments)) {
+          context.report({ node: first, messageId: "literalTable", data: { method: method.name, table: compactText(sourceCode, first) } });
         } else if (TABLE_METHODS.has(method.name) && !isOtherLibrary(method.name, method.object, node.arguments) &&
           namesTableArgument(sourceCode, first, inSubqueryCallback(node))) {
           context.report({ node: first, messageId: "literalTable", data: { method: method.name, table: compactText(sourceCode, first) } });

@@ -28,6 +28,9 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
     // so are a join of a parameter outside a callback, a connection's settings and a static from of an object.
     "const recent = lots.scopedQuery(options).as(\"l\");\nquery.whereIn(\"lotId\", (sub) => sub.select(\"l.id\").from(recent));",
     "query.whereExists(function () { this.select(1).from(lots.scopedQuery(options).as(\"l\")).whereColumn(\"l.id\", \"r.lot_id\"); });",
+    // The guide's own pattern: a subquery destructured from an awaited scopedQuery() holds a builder, not a table name.
+    "const { query: recent } = await lots.scopedQuery({ alias: \"l\" }, options);\nquery.whereIn(\"lotId\", (sub) => sub.select(\"l.id\").from(recent));",
+    "const [pending] = await Promise.all([lots.scopedQuery(options)]);\nquery.whereIn(\"lotId\", (sub) => sub.from(pending ?? recent.as(\"r\")));",
     "function withBilled(query, billed) { return query.leftJoin(billed, \"b.projectId\", \"t.project_id\"); }",
     "const pool = knex({ client: \"pg\" });\nconst ids = Array.from({ length: 3 }, (_, index) => index);",
     "const reply = await client(model);\nconst draft = transaction(saved);\nconst view = db(record).view;",
@@ -161,6 +164,27 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
         { messageId: "literalTable", data: { method: "from", table: "source" }, line: 3 },
         { messageId: "literalTable", data: { method: "from", table: "\"lots\"" }, line: 4 },
         { messageId: "literalTable", data: { method: "join", table: "owners" }, line: 4 }
+      ]
+    },
+    {
+      // Either branch of a `?:`, `??` or `||` that names a table; any fromRaw() or joinRaw(), whose SQL names its table;
+      // and, in a subquery callback, a variable destructured from anything but a call's result.
+      code: [
+        "query.from(archived ? \"archived_lots\" : \"lots\");",
+        "query.join(override ?? PETS_TABLE, \"p.id\", \"r.pet_id\");",
+        "query.leftJoin(alias || { o: \"owners\" }, \"o.id\", \"r.owner_id\");",
+        "knex.fromRaw(\"projects as p\");",
+        "query.joinRaw(\"join owners o on o.id = r.owner_id\");",
+        "const { target } = settings;",
+        "query.whereIn(\"id\", (sub) => sub.select(\"id\").from(target));"
+      ].join("\n"),
+      errors: [
+        { messageId: "literalTable", data: { method: "from", table: "archived ? \"archived_lots\" : \"lots\"" }, line: 1 },
+        { messageId: "literalTable", data: { method: "join", table: "override ?? PETS_TABLE" }, line: 2 },
+        { messageId: "literalTable", line: 3 },
+        { messageId: "literalTable", data: { method: "fromRaw", table: "\"projects as p\"" }, line: 4 },
+        { messageId: "literalTable", data: { method: "joinRaw", table: "\"join owners o on o.id = r.owner_id\"" }, line: 5 },
+        { messageId: "literalTable", data: { method: "from", table: "target" }, line: 7 }
       ]
     },
     {

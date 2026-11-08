@@ -102,6 +102,8 @@ export default [
     // The PostgreSQL dialect: its driver, table introspection and dialect SQL.
     "packages/database-runtime-postgres/**"
   ], "off"),
+  // A pattern's example is an application of its own: its tests and migrations sit at its root, not at the package's.
+  ...dataAccessConfig(["packages/**/example/{tests,migrations}/**"], "off"),
   // Every other hand-written file stays under 750 lines and every function under 600.
   ...sizeLimitsConfig(["packages/**", "tooling/**", "scripts/**"]),
   ...webConfig,

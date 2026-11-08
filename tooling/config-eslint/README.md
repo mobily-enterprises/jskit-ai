@@ -109,10 +109,12 @@ shared modules too (`packages/billing/src/shared/**`). Test files and `test`,
 
 The resource is the only door to a table. `baseConfig` makes six rules
 errors in every JavaScript file but client code (every package's
-`src/client`), tests (`test`, `tests`, `__tests__`, `e2e`, `test-support` and
-`*.test.*`), migrations, seeds (a `seed` or `seeds` folder, or a `seed*`
-script in `scripts/`, `bin/` or the root) and build output, so server code is
-checked wherever it sits. An application's own `src/` is checked whole: server
+`src/client`), tests (`test`, `tests`, `__tests__`, `e2e`, `test-support`,
+`src/test` and `*.test.*`), migrations, seeds (a `seed` or `seeds` folder, or a
+`seed*` script in `scripts/`, `bin/` or the root) and build output, so server
+code is checked wherever it sits. Each of those folders counts only at the root
+of the app or of a package (`packages/*`, `tooling/*`): deeper, it is server
+code. An application's own `src/` is checked whole: server
 code sits there too (an AI feature in `src/`, a `src/jobs/` folder), no folder
 name tells it from the browser app, and client code has nothing for the rules
 to report. `eslint-disable` cannot turn them off: `jskit/allow-comment-form`

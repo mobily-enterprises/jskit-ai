@@ -60,7 +60,6 @@ Local functions
 
 ### `src/server/PaymentStoreFeature.js`
 Exports
-- `PAYMENT_STORE_FEATURE`
 - `PAYMENT_STORE_SYSTEM_SCOPE`
 - `PaymentStoreFeature`
 

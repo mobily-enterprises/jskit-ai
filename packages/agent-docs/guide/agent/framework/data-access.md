@@ -620,8 +620,10 @@ async function activeDays(memberIds, options) {
   (`whereIn("id", (sub) => sub.from(...))`), whose builder is Knex's own. Nothing
   at run time stops it: `jskit/no-direct-knex` and `jskit/sql-literal` flag it
   (a name as text, an alias object such as `{ p: "projects" }`, a variable
-  whose name says table or name, a const holding one, and in a subquery
-  callback any variable but a scoped subquery), and `expectScoped` catches it
+  whose name says table or name, a const holding one, either branch of a `?:`
+  or `??`, any `fromRaw()` or `joinRaw()`, and in a subquery callback any
+  variable but a scoped subquery or one destructured from a call, such as
+  `const { query } = await lots.scopedQuery(...)`), and `expectScoped` catches it
   only when the test seeds another owner's rows the join matches. Join another
   table only as that table's scoped subquery.
 - When a report needs another owner's rows side by side, that owner adds a
@@ -1016,9 +1018,11 @@ async function signUp(email, password) {
 
 These are always wrong, and lint reports them as errors in all code but a
 package's client (`src/client`), the app's own `src/` included, since server
-code sits there too. Tests, migrations and seeds (a `seeds/` folder, or a
-`seed*` script in `scripts/`, `bin/` or the root) are outside them. Neither
-`eslint-disable` nor an inline `/* eslint ... */` config can turn them off.
+code sits there too. Tests, migrations and seeds (a `test/`, `migrations/` or
+`seeds/` folder at the root of the app or of a package, or a `seed*` script in
+its `scripts/`, `bin/` or root) are outside them; such a folder deeper in
+server code is server code. Neither `eslint-disable`, an inline
+`/* eslint ... */` config nor the app's ESLint config can turn them off.
 
 ### Lint rules
 
@@ -1076,8 +1080,14 @@ it. Check and judge, for each file:
 - a module that requires a capability handing out rows past their owners:
   `runtime.database` or `runtime.resources` without the infrastructure
   exception (features own their tables with `owns`), and
-  `realtime.audience-scope`, `auth.local.accounts`, `auth.local.sessions` or
-  `auth.local.recovery` until `systemScopes` lists that file and capability
-  with its reason, in any spelling the kernel resolves (`Runtime.Resources`);
+  `realtime.audience-scope`, `auth.local.accounts`, `auth.local.sessions`,
+  `auth.local.recovery`, `connectors.store`, `assistant.repositories` or
+  `payments.store` until `systemScopes` lists that file and capability with
+  its reason, in any spelling the kernel resolves (`Runtime.Resources`); a
+  feature's own id counts only where it provides that capability;
 - an `eslint-disable` that names a data-access rule, or no rule, or an inline
-  `/* eslint ... */` config that sets one, outside client code.
+  `/* eslint ... */` config that sets one, outside client code;
+- an app file that the app's ESLint config lints without every data-access
+  rule as an error (`"jskit/no-direct-knex": "off"`, `dataAccessConfig(files,
+  "off")`), or server code (`src/server`, `src/shared`, `server/`) that it
+  ignores, until `infrastructure` lists that file and rule.

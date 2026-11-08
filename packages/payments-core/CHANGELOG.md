@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `PAYMENT_STORE_FEATURE` is no longer exported from `PaymentStoreFeature.js` (no public entry point offered it): the feature's id is written as `"payments.store"`, so `jskit check` sees a module that requires that capability where it names it.
 - `@jskit-ai/database-runtime` and `@jskit-ai/resource-runtime` are optional peer dependencies, as they are of assistant-runtime, instead of dependencies: an app without a database installs, composes and starts the package without them, where installing them made boot refuse it for want of a database driver. An app that uses its payment store has them through its database.
 - On json-rest-api 3.0.0's release candidate, an account's changed state is written with one read of the locked row before its UPDATE, where it took two.
 - The payment store locks or creates each account and catalogue row with its handle's `lockOrCreate`, in place of a helper of its own with the same behaviour.

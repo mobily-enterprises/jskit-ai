@@ -3,20 +3,22 @@ import { jskitPlugin } from "./plugin/index.js";
 const SOURCE_FILES = "**/*.{js,mjs,cjs}";
 // What the data-access rules leave alone: client code, which never reaches the database, and tests, migrations and
 // seeds, which reach it directly on purpose. Each is told by a name that says so, not by a folder that merely tends to
-// hold it: client code is a package's src/client; a seed is a seeds/ (or seed/) folder, or a seed script in a scripts/
-// or bin/ folder or at the root. An application's own src/ is linted whole: it holds the browser app, but server code
-// sits there too (an AI feature in src/, a src/jobs/ folder) and no folder name tells them apart. Client code has nothing
-// for these rules to report, so linting it costs nothing; skipping src/ by folder, and every seed*.js anywhere, let
-// server code escape every rule.
+// hold it, and a folder only at the root of the app or of one of its packages (ROOT), where its name says what the whole
+// tree is: a migrations/, seeds/ or test/ folder deeper in server code is server code. Client code is a package's
+// src/client; a seed is a seeds/ (or seed/) folder, or a seed script in a scripts/ or bin/ folder or at the root. An
+// application's own src/ is linted whole: it holds the browser app, but server code sits there too (an AI feature in
+// src/, a src/jobs/ folder) and no folder name tells them apart. Client code has nothing for these rules to report, so
+// linting it costs nothing; skipping src/ by folder, and every seed*.js anywhere, let server code escape every rule.
+const ROOT = "{,packages/*/,tooling/*/}";
 const NOT_DATA_ACCESS_SOURCE = Object.freeze([
-  "**/src/client/**",
-  "**/{test,tests,__tests__,e2e,test-support}/**",
+  `${ROOT}src/client/**`,
+  `${ROOT}{test,tests,__tests__,e2e,test-support,src/test}/**`,
   "**/*.{test,spec,vitest}.*",
-  "**/migrations/**",
-  "**/{seed,seeds}/**",
-  "**/{scripts,bin}/seed*.{js,mjs,cjs}",
-  "seed*.{js,mjs,cjs}",
-  "**/{dist,build,coverage}/**"
+  `${ROOT}migrations/**`,
+  `${ROOT}{seed,seeds}/**`,
+  `${ROOT}{scripts,bin}/seed*.{js,mjs,cjs}`,
+  `${ROOT}seed*.{js,mjs,cjs}`,
+  `${ROOT}{dist,build,coverage}/**`
 ]);
 
 /**

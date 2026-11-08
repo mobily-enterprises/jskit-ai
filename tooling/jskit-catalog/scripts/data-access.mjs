@@ -1,5 +1,7 @@
 import { readdir, readFile, realpath } from "node:fs/promises";
+import { createRequire } from "node:module";
 import path from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { toPosixPath } from "./files.mjs";
 import { blankJsComments, lineIndex } from "./material3-source.mjs";
 
@@ -11,8 +13,9 @@ import { blankJsComments, lineIndex } from "./material3-source.mjs";
 // listed for review. In the app's own code, which no lint directive can hide from it, a feature's system scope and an
 // infrastructure exception fail until the checked-in BASELINE_FILE lists them, so each new one is reviewed; a module
 // that requires a capability handing out power past the owners (CROSS_OWNER_CAPABILITIES) fails until it is reviewed
-// too; and an eslint-disable or inline eslint config that turns off a data-access rule, or every rule, fails in any file
-// but the client's. As information, it lists the fields of each app table resource that its CRUD contracts never name,
+// too; an eslint-disable or inline eslint config that turns off a data-access rule, or every rule, fails in any file
+// but the client's; and so does an app file the app's own ESLint config lints without every data-access rule as an
+// error, or ignores though it is server code. As information, it lists the fields of each app table resource that its CRUD contracts never name,
 // which no API shows or accepts.
 
 const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access";
@@ -23,6 +26,7 @@ const SECTIONS = Object.freeze({
   "data/baseline": "hard-rules",
   "data/runtime-capability": "the-resource-is-the-only-door",
   "data/lint-disabled": "hard-rules",
+  "data/lint-config": "hard-rules",
   "data/unnamed-fields": "layer-2-the-crud-surface"
 });
 // What each rule asks, said once above its findings in the report.
@@ -36,7 +40,10 @@ const RULE_EXPLANATIONS = Object.freeze({
     "access itself, declared with the infrastructure exception, takes runtime.database or runtime.resources, and a module " +
     "takes any other one once the baseline's systemScopes lists it with its reason.",
   "data/lint-disabled": "neither eslint-disable nor an inline eslint config comment can turn off a data-access rule, and a " +
-    "disable that names no rule turns them all off. Change the code, or name the rules the directive turns off."
+    "disable that names no rule turns them all off. Change the code, or name the rules the directive turns off.",
+  "data/lint-config": "the app's ESLint config makes every data-access rule an error in each server file, and ignores no " +
+    "server code; a config that turns one off, lowers it or ignores the file hides that code from it. Put the rule back, or, " +
+    "once the module's whole job is data access, list { \"file\", \"rule\" } in the baseline's \"infrastructure\"."
 });
 // The reviewed list of the app's infrastructure exceptions and feature system scopes, at the app's root.
 const BASELINE_FILE = "jskit-data-access.json";
@@ -54,24 +61,40 @@ const CROSS_OWNER_CAPABILITIES = Object.freeze({
   "realtime.audience-scope": { gives: "contexts for any workspace and user (forWorkspace, forUser, forWorkspaceUser)" },
   "auth.local.accounts": { gives: "every local sign-in account, read and written in local auth's system context" },
   "auth.local.sessions": { gives: "every sign-in session, read and written in local auth's system context" },
-  "auth.local.recovery": { gives: "every recovery token, read and written in local auth's system context" }
+  "auth.local.recovery": { gives: "every recovery token, read and written in local auth's system context" },
+  "connectors.store": { gives: "every owner's connections, with their credentials decrypted" },
+  "assistant.repositories": { gives: "every actor's and workspace's assistant conversations, messages and settings" },
+  "payments.store": { gives: "every merchant's payment accounts, customers and catalogues" }
 });
 const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 // A capability id written as a string, compared as the kernel resolves it: trimmed and in any case.
 const CAPABILITY_NAMES = Object.keys(CROSS_OWNER_CAPABILITIES).map(escapeRegExp).join("|");
 const CROSS_OWNER_CAPABILITY = new RegExp(`(["'\`])\\s*(${CAPABILITY_NAMES})\\s*\\1`, "giu");
+// The root of the app or of one of its packages, where a folder's name says what the whole tree is: a migrations/ or
+// test/ folder deeper in server code is server code (as in @jskit-ai/config-eslint's dataAccess.js).
+const ROOT = String.raw`(?:(?:packages|tooling)/[^/]+/)?`;
 // Client code, which the data-access rules leave alone: a package's src/client. An app's own src/ is linted whole, since
-// server code sits there too (see @jskit-ai/config-eslint's dataAccess.js).
-const CLIENT_FILE = /(?:^|\/)src\/client\//u;
+// server code sits there too.
+const CLIENT_FILE = new RegExp(`^${ROOT}src/client/`, "u");
+// What the data-access lint leaves alone (NOT_DATA_ACCESS_SOURCE in @jskit-ai/config-eslint's dataAccess.js), for a path
+// from the directory of the ESLint config that governs the file, a nested application's own included: client code,
+// tests, migrations, seeds and build output at a root, seed scripts, and test files.
+const LINT_EXEMPT = new RegExp(`^${ROOT}(?:(?:src/client|src/test|test|tests|__tests__|e2e|test-support|migrations|seeds?|` +
+  "dist|build|coverage)/|(?:(?:scripts|bin)/)?seed[^/]*\\.[cm]?js$)|\\.(?:test|spec|vitest)\\.[^/]*$", "u");
+// Server code, which the app's ESLint config may not ignore: a package's src/server or src/shared, or the app's server/.
+const SERVER_FILE = new RegExp(`^(?:${ROOT}src/(?:server|shared)/|server/)`, "u");
 const FRAMEWORK_DIRECTORY = path.join("node_modules", "@jskit-ai");
 const SOURCE_FILE = /\.[cm]?js$/u;
 const SKIPPED_FILE = /\.(?:test|spec|vitest)\.[cm]?js$/u;
-// Code that defines no table resource or system scope an app runs: dependencies, build output, tests and fixtures,
-// migrations and seeds, and the examples, templates and documentation JSKIT packages carry.
-const SKIPPED_DIRECTORIES = new Set([
-  "node_modules", "dist", "build", "coverage", "test", "tests", "__tests__", "e2e", "fixtures", "test-results",
-  "migrations", "seeds", "templates", "patterns", "examples", "docs", "site", "skills", "test-support"
+// Code that defines no table resource or system scope an app runs: dependencies, anywhere; and, at a root (ROOT), build
+// output, tests and fixtures, migrations and seeds, and the examples, templates and documentation JSKIT packages carry.
+const SKIPPED_ROOT_DIRECTORIES = new Set([
+  "dist", "build", "coverage", "test", "tests", "__tests__", "e2e", "fixtures", "test-results", "migrations", "seed",
+  "seeds", "templates", "patterns", "examples", "docs", "site", "skills", "test-support", "src/test"
 ]);
+const PACKAGE_DIRECTORY = /^(?:packages|tooling)\/[^/]+\/(.+)$/u;
+const skipsDirectory = (name) => path.posix.basename(name) === "node_modules" ||
+  SKIPPED_ROOT_DIRECTORIES.has(PACKAGE_DIRECTORY.exec(name)?.[1] ?? name);
 const MARKERS = new RegExp(`defineTableResource|defineCrudContract|systemScope|systemContext|readable-check: allow|eslint|${CAPABILITY_NAMES}`, "iu");
 const TABLE_RESOURCE_CALL = /\bdefineTableResource\s*\(/gu;
 // A CRUD contract on a table resource named by its variable: `defineCrudContract(receivalResource, { ... })`.
@@ -395,16 +418,71 @@ function readLintDisables(file, source, position) {
 }
 
 // Every place a file's code takes a cross-owner capability: each time it names one outside a provides object (the module
-// that provides it) and other than as a feature's own id.
+// that provides it), and other than as the id of a feature that provides it in the same file.
 function readRuntimeCapabilities(file, { code, masked, position }) {
   const provides = [...masked.matchAll(/\bprovides\s*:\s*\{/gu)].map((match) => {
     const start = match.index + match[0].length - 1;
     return { start, end: closingOffset(masked, start) };
   });
-  return [...code.matchAll(CROSS_OWNER_CAPABILITY)]
-    .filter((match) => !provides.some(({ start, end }) => match.index > start && match.index < end))
-    .filter((match) => !/\bid\s*:\s*$/u.test(masked.slice(Math.max(0, match.index - 12), match.index)))
-    .map((match) => ({ file, line: position(match.index).line, capability: match[2].toLowerCase() }));
+  const names = [...code.matchAll(CROSS_OWNER_CAPABILITY)].map((match) => ({
+    match,
+    capability: match[2].toLowerCase(),
+    provided: provides.some(({ start, end }) => match.index > start && match.index < end)
+  }));
+  const provided = new Set(names.filter((name) => name.provided).map(({ capability }) => capability));
+  const ownId = ({ match, capability }) => provided.has(capability) &&
+    /\bid\s*:\s*$/u.test(masked.slice(Math.max(0, match.index - 12), match.index));
+  return names.filter((name) => !name.provided && !ownId(name))
+    .map(({ match, capability }) => ({ file, line: position(match.index).line, capability }));
+}
+
+// Whether a rule's setting in a computed config is "error", which ESLint gives as 2 or [2, ...options].
+const isError = (setting) => [2, "error"].includes(Array.isArray(setting) ? setting[0] : setting);
+
+// The app's ESLint, from the app or else beside this check, set to find each file's config as `eslint` does; null when
+// neither has one, or the app has no config: then the lint itself cannot run, which fails on its own.
+async function appEslint(root) {
+  for (const base of [path.join(root, "package.json"), fileURLToPath(import.meta.url)]) {
+    let resolved;
+    try {
+      resolved = createRequire(base).resolve("eslint");
+    } catch {
+      continue;
+    }
+    const api = await import(pathToFileURL(resolved).href);
+    const eslint = new (api.ESLint || api.default.ESLint)({ cwd: root });
+    return await eslint.findConfigFile(path.join(root, "package.json")) ? eslint : null;
+  }
+  return null;
+}
+
+// Fails each app file its ESLint config lints without every data-access rule as an error, and each server file it
+// ignores, unless the baseline's infrastructure lists { file, rule } for each rule that is not on. Each file is judged by
+// the config that governs it, as `eslint` does, and what the rules leave alone (LINT_EXEMPT) is told from that config's
+// directory: a nested application's client code is its own.
+async function checkLintConfig(root, files, baseline, report) {
+  const eslint = await appEslint(root);
+  if (!eslint) return;
+  for (const file of files) {
+    const absolute = path.join(root, file);
+    let configFile;
+    let config;
+    try {
+      configFile = await eslint.findConfigFile(absolute);
+      config = configFile ? await eslint.calculateConfigForFile(absolute) : undefined;
+    } catch (error) {
+      report({ file, line: 1 }, "data/lint-config", `ESLint cannot read the app's config for this file: ${String(error?.message || error).split("\n")[0]}`);
+      return;
+    }
+    const governed = configFile ? toPosixPath(path.relative(path.dirname(configFile), absolute)) : "";
+    if (!configFile || LINT_EXEMPT.test(governed) || (!config && !SERVER_FILE.test(governed))) continue;
+    const off = DATA_ACCESS_RULES.filter((rule) => !isError(config?.rules?.[`jskit/${rule}`]) &&
+      !baseline.infrastructure.some((item) => item?.file === file && item?.rule === rule));
+    if (off.length < 1) continue;
+    report({ file, line: 1 }, "data/lint-config", config
+      ? `the ESLint config does not make ${off.map((rule) => `jskit/${rule}`).join(", ")} an error here`
+      : "the ESLint config ignores this server file, so no data-access rule checks it");
+  }
 }
 
 // Fails each cross-owner capability a module requires that is not reviewed: runtime.database and runtime.resources
@@ -472,7 +550,7 @@ async function walk(root, directory, files) {
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     const relative = directory ? path.join(directory, entry.name) : entry.name;
     if (entry.isDirectory()) {
-      if (!entry.name.startsWith(".") && !SKIPPED_DIRECTORIES.has(entry.name)) await walk(root, relative, files);
+      if (!entry.name.startsWith(".") && !skipsDirectory(toPosixPath(relative))) await walk(root, relative, files);
     } else if (entry.isFile() && SOURCE_FILE.test(entry.name) && !SKIPPED_FILE.test(entry.name)) {
       files.push(relative);
     }
@@ -589,6 +667,7 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
   const baseline = await readBaseline(root, report);
   checkBaseline(baseline, excuses, scopes, report);
   checkCapabilities(baseline, capabilities, report);
+  await checkLintConfig(root, appFiles.map(toPosixPath), baseline, report);
   findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);
   return {
     ok: findings.length < 1,

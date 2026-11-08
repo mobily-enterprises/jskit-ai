@@ -72,6 +72,7 @@ Exports
 - `formatDataAccessReport(result)`
 Local functions
 - `escapeRegExp(text)`
+- `skipsDirectory(name)`
 - `blank(text)`
 - `maskStrings(code)`
 - `closingOffset(masked, start)`
@@ -95,6 +96,9 @@ Local functions
 - `blockComments(source)`
 - `readLintDisables(file, source, position)`
 - `readRuntimeCapabilities(file, { code, masked, position })`
+- `isError(setting)`
+- `appEslint(root)`
+- `checkLintConfig(root, files, baseline, report)`
 - `checkCapabilities(baseline, uses, report)`
 - `readBaseline(root, report)`
 - `checkBaseline(baseline, excuses, scopes, report)`

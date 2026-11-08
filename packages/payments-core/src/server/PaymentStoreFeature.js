@@ -2,13 +2,14 @@ import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { PAYMENT_TABLES } from "./paymentResources.js";
 import { createPaymentStore } from "./paymentStore.js";
 
-const PAYMENT_STORE_FEATURE = "payments.store";
 const PAYMENT_STORE_SYSTEM_SCOPE = "payment rows are keyed by their merchant and billable subject, which is their scope, not by a workspace or user";
 
 // The owner of the payment tables in a JSKIT application: it provides the payment store on their handles as
 // `payments.store`. An application that keeps payments elsewhere passes its own store and leaves this feature out.
 const PaymentStoreFeature = defineFeature({
-  id: PAYMENT_STORE_FEATURE,
+  // The id is written out, not exported as a constant: `jskit check` sees a module that requires payments.store only
+  // where it names it.
+  id: "payments.store",
   domain: "payments",
   owns: PAYMENT_TABLES,
   systemScope: PAYMENT_STORE_SYSTEM_SCOPE,
@@ -25,4 +26,4 @@ const PaymentStoreFeature = defineFeature({
   }
 });
 
-export { PAYMENT_STORE_FEATURE, PAYMENT_STORE_SYSTEM_SCOPE, PaymentStoreFeature };
+export { PAYMENT_STORE_SYSTEM_SCOPE, PaymentStoreFeature };

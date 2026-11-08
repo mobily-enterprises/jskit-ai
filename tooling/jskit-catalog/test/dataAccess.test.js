@@ -390,6 +390,89 @@ test("a new exception or system scope fails until the baseline lists it, as do r
   });
 });
 
+test("the stores of connectors, the assistant and payments hand out power past the owners; a feature's id passes only when it provides it", async () => {
+  await withProject({
+    "packages/sync/src/server/SyncFeature.js": [
+      "export const SyncFeature = defineFeature({",
+      "  id: \"sync.jobs\",",
+      "  requires: { connections: \"connectors.store\", assistant: \"assistant.repositories\", payments: \"payments.store\" },",
+      "  setup: () => ({})",
+      "});",
+      ""
+    ].join("\n"),
+    // A feature named as a capability it does not provide requires it like any other module.
+    "packages/sync/src/server/PaymentsMirrorFeature.js": "export const PaymentsMirrorFeature = defineFeature({ id: \"payments.store\", provides: { mirror: \"sync.mirror\" } });\n",
+    "packages/sync/src/server/PaymentStoreFeature.js": "export const PaymentStoreFeature = defineFeature({ id: \"payments.store\", provides: { store: \"payments.store\" } });\n",
+    // A migrations or test folder is skipped only at the root of the app or of a package: deeper, it is server code.
+    "packages/sync/src/server/migrations/backfill.js": "export const requires = { store: \"connectors.store\" };\n",
+    "packages/sync/migrations/20260101_sync.js": "export const requires = { store: \"connectors.store\" };\n",
+    "packages/sync/src/test/fixtures.js": "export const requires = { store: \"connectors.store\" };\n",
+    "tests/fixtures/store.js": "export const requires = { store: \"connectors.store\" };\n"
+  }, async (root) => {
+    const result = await checkDataAccess({ projectRoot: root });
+    assert.deepEqual(findingLines(result), [
+      "packages/sync/src/server/migrations/backfill.js:1 data/runtime-capability",
+      "packages/sync/src/server/PaymentsMirrorFeature.js:1 data/runtime-capability",
+      "packages/sync/src/server/SyncFeature.js:3 data/runtime-capability",
+      "packages/sync/src/server/SyncFeature.js:3 data/runtime-capability",
+      "packages/sync/src/server/SyncFeature.js:3 data/runtime-capability"
+    ]);
+    assert.deepEqual(result.findings.filter(({ file }) => file.endsWith("SyncFeature.js")).map(({ message }) => message.split(":")[0]), [
+      "requires connectors.store, which gives every owner's connections, with their credentials decrypted",
+      "requires assistant.repositories, which gives every actor's and workspace's assistant conversations, messages and settings",
+      "requires payments.store, which gives every merchant's payment accounts, customers and catalogues"
+    ]);
+  });
+});
+
+test("an app file its ESLint config lints without every data-access rule as an error fails, as does server code it ignores", async () => {
+  const dataAccess = JSON.stringify(new URL("../../config-eslint/dataAccess.js", import.meta.url).href);
+  await withProject({
+    "package.json": { name: "linted", type: "module" },
+    "eslint.config.mjs": [
+      `import { dataAccessConfig } from ${dataAccess};`,
+      "export default [",
+      "  { ignores: [\"packages/billing/src/server/**\", \"public/**\"] },",
+      "  ...dataAccessConfig([\"**\"]),",
+      "  { files: [\"server/lib/report.js\", \"server/lib/legacy.js\"], rules: { \"jskit/no-direct-knex\": \"off\" } },",
+      "  { files: [\"server/lib/report.js\"], rules: { \"jskit/sql-literal\": \"warn\" } },",
+      "  ...dataAccessConfig([\"server/jobs/**\"], \"off\")",
+      "];",
+      ""
+    ].join("\n"),
+    "server/lib/report.js": "export const report = {};\n",
+    "server/lib/legacy.js": "export const legacy = {};\n",
+    "server/lib/health.js": "export const health = {};\n",
+    "server/jobs/cleanup.js": "export const cleanup = {};\n",
+    "packages/billing/src/server/invoices.js": "export const invoices = {};\n",
+    // Ignored code that is not server code, client code and seed scripts are the rules' to leave alone.
+    "public/vendor/chart.js": "export const chart = {};\n",
+    "packages/billing/src/client/useInvoices.js": "export const useInvoices = {};\n",
+    "scripts/seed-demo.js": "export const seed = {};\n",
+    // A nested application is judged by its own config, and what the rules leave alone is told from its root.
+    "vendor/editor/eslint.config.mjs": [
+      `import { dataAccessConfig } from ${dataAccess};`,
+      "export default [...dataAccessConfig([\"**\"]), { files: [\"server/legacy.js\"], rules: { \"jskit/knex-reason\": \"off\" } }];",
+      ""
+    ].join("\n"),
+    "vendor/editor/packages/main/src/client/index.js": "export const main = {};\n",
+    "vendor/editor/tests/fixtures/app.js": "export const app = {};\n",
+    "vendor/editor/server/legacy.js": "export const legacy = {};\n",
+    // A module whose whole job is data access is listed for the rule its config turns off.
+    "jskit-data-access.json": { infrastructure: [{ file: "server/lib/legacy.js", rule: "no-direct-knex" }], systemScopes: [] }
+  }, async (root) => {
+    const result = await checkDataAccess({ projectRoot: root });
+    assert.deepEqual(result.findings.map(({ file, line, rule, message }) => `${file}:${line} ${rule} ${message}`), [
+      "packages/billing/src/server/invoices.js:1 data/lint-config the ESLint config ignores this server file, so no data-access rule checks it",
+      "server/jobs/cleanup.js:1 data/lint-config the ESLint config does not make jskit/no-direct-knex, jskit/no-transaction-reader, " +
+        "jskit/sql-literal, jskit/no-hand-scope, jskit/no-hand-context, jskit/knex-reason an error here",
+      "server/lib/report.js:1 data/lint-config the ESLint config does not make jskit/no-direct-knex, jskit/sql-literal an error here",
+      "vendor/editor/server/legacy.js:1 data/lint-config the ESLint config does not make jskit/knex-reason an error here"
+    ]);
+    assert.match(formatDataAccessReport(result), /^data\/lint-config \(4\): the app's ESLint config makes every data-access rule an error in each server file/mu);
+  });
+});
+
 test("plain jskit check reports the data rules and fails on a second table resource for a table", async () => {
   const app = {
     "package.json": { name: "tables", scripts: { test: "jskit test" } },
