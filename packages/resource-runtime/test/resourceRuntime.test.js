@@ -1319,6 +1319,50 @@ test("a record written back as it was read keeps a link to a target the writer c
   assert.equal(await supplierOf(3), null);
 });
 
+test("own() refuses a cross-table filter whose target field is not indexed, whichever table is owned first", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("suppliers", (table) => {
+    table.increments("id");
+    table.string("name").index();
+  });
+  await knex.schema.createTable("items", (table) => {
+    table.increments("id");
+    table.string("name");
+    table.integer("supplier_id");
+  });
+  await knex("suppliers").insert([{ name: "Open" }, { name: "Shut" }]);
+  await knex("items").insert([{ name: "Kept", supplier_id: 1 }, { name: "Other", supplier_id: 2 }]);
+  const suppliers = (indexed) => defineTableResource({
+    name: "suppliers",
+    tableName: "suppliers",
+    ownership: "public",
+    schema: { name: { type: "string", ...(indexed ? { indexed: true } : {}) } }
+  });
+  const items = defineTableResource({
+    name: "items",
+    tableName: "items",
+    ownership: "public",
+    searchSchema: { supplierName: { type: "string", actualField: "suppliers.name" } },
+    schema: {
+      name: { type: "string" },
+      supplierId: { type: "id", nullable: true, belongsTo: "suppliers", as: "supplier", storage: { column: "supplier_id" } }
+    }
+  });
+  const unindexed = /Table resource "items" filters "supplierName" on suppliers\.name, which "suppliers" does not declare indexed: true/u;
+  // The target owned first, then the filtering table; and the other way round.
+  const first = await createTestResourceRuntime({ knex });
+  await first.own("suppliers.feature", [suppliers(false)]);
+  await assert.rejects(first.own("items.feature", [items]), unindexed);
+  const second = await createTestResourceRuntime({ knex });
+  await second.own("items.feature", [items]);
+  await assert.rejects(second.own("suppliers.feature", [suppliers(false)]), unindexed);
+  // An indexed target is searched through the join.
+  const runtime = await createTestResourceRuntime({ knex });
+  const { items: handle } = await runtime.own("items.feature", [items, suppliers(true)]);
+  assert.deepEqual((await handle.queryAll({ filters: { supplierName: "Open" } }, {})).map(({ name }) => name), ["Kept"]);
+});
+
 test("a job finds its units by grouping on a hidden ownership field, which a request may not group by", async (t) => {
   const { notes, runtime } = await createFixture(t, {
     owns: [noteResource({

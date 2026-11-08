@@ -43,6 +43,24 @@ function ownedEntry(entry, featureId) {
 }
 
 /**
+ * The filters of a resource's search that read another table: each `actualField` or `oneOf` path
+ * "resource.field" (or "a.b.field", whose last resource holds the field), as { filter, target, field }.
+ * @param {Record<string, any>} scopeOptions The resource's json-rest-api scope options.
+ */
+function crossTableFilters(scopeOptions) {
+  const declared = [
+    ...Object.entries(scopeOptions.searchSchema || {}),
+    ...Object.entries(scopeOptions.schema || {}).filter(([, field]) => isRecord(field?.search)).map(([name, field]) => [name, field.search])
+  ];
+  return declared.flatMap(([filter, entry]) => [entry?.actualField, ...(Array.isArray(entry?.oneOf) ? entry.oneOf : [])]
+    .filter((path) => typeof path === "string" && path.includes("."))
+    .map((path) => {
+      const segments = path.split(".");
+      return { filter, target: segments.at(-2), field: segments.at(-1) };
+    }));
+}
+
+/**
  * Applies one row policy, the owner's or a contribution, inside its own
  * parenthesised group, so whatever it writes (an orWhere among it) only narrows
  * the rows ownership and the other policies left.
@@ -89,6 +107,8 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
   const ownedByName = new Map();
   /** @type {Map<string, string>} */
   const ownerByTable = new Map();
+  // Cross-table filters whose target table no feature owns yet: they are checked when its owner owns it.
+  const pendingCrossTableFilters = [];
   /** @type {Map<string, string>} The system scope each feature declared. */
   const scopeByFeature = new Map();
 
@@ -157,6 +177,36 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
   }
 
   /**
+   * Refuses, at startup, a cross-table filter on a field json-rest-api cannot search: one its target resource does
+   * not declare `indexed: true`, which json-rest-api otherwise refuses only at the first query. A filter whose
+   * target no feature owns yet waits for it.
+   * @param {ReadonlyArray<{ resource: Record<string, any> }>} entries The resources being owned now.
+   * @param {ReadonlyArray<Record<string, any>>} scopes Their json-rest-api scope options, in the same order.
+   */
+  function checkCrossTableFilters(entries, scopes) {
+    const owning = new Map(entries.map(({ resource }) => [resource.name, resource]));
+    const targetNamed = (name) => owning.get(name) || ownedByName.get(name)?.resource;
+    const filters = [
+      ...pendingCrossTableFilters.splice(0),
+      ...entries.flatMap(({ resource }, index) => crossTableFilters(scopes[index]).map((filter) => ({ ...filter, source: resource.name })))
+    ];
+    for (const filter of filters) {
+      const target = targetNamed(filter.target);
+      if (!target) {
+        pendingCrossTableFilters.push(filter);
+        continue;
+      }
+      if (target.schema?.[filter.field]?.indexed !== true) {
+        throw new TypeError(
+          `Table resource "${filter.source}" filters "${filter.filter}" on ${filter.target}.${filter.field}, which ` +
+          `"${filter.target}" does not declare indexed: true. A cross-table filter reads another table by that field: ` +
+          `give the field indexed: true and its column a database index, or filter on a field of "${filter.source}".`
+        );
+      }
+    }
+  }
+
+  /**
    * Registers the feature as the one owner of each resource and answers their
    * handles, by resource name. The answer's contributeRowPolicy(name, policy)
    * narrows another feature's resource whose owner accepts contributions.
@@ -173,24 +223,26 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
       names.add(resource.name);
       claim(featureId, resource);
     }
+    const contributions = entries.map(() => []);
+    const scopes = entries.map((entry, index) => resourceScopeOptions(entry.resource, {
+      writeSerializers: WRITE_SERIALIZERS,
+      normalizeId: entry.normalizeId,
+      rowPolicy: composedRowPolicy(featureId, entry, contributions[index]),
+      searchSchema: entry.searchSchema,
+      queryFields: entry.queryFields
+    }));
+    checkCrossTableFilters(entries, scopes);
     const handles = {};
-    for (const entry of entries) {
+    for (const [index, entry] of entries.entries()) {
       const { resource } = entry;
-      const contributions = [];
       ownedByName.set(resource.name, {
         featureId,
         resource,
         acceptsContributions: entry.acceptsContributions === true,
-        contributions
+        contributions: contributions[index]
       });
       ownerByTable.set(resource.tableName, featureId);
-      await api.addResource(resource.name, resourceScopeOptions(resource, {
-        writeSerializers: WRITE_SERIALIZERS,
-        normalizeId: entry.normalizeId,
-        rowPolicy: composedRowPolicy(featureId, entry, contributions),
-        searchSchema: entry.searchSchema,
-        queryFields: entry.queryFields
-      }));
+      await api.addResource(resource.name, scopes[index]);
       handles[resource.name] = createResourceHandle({ api, resource, hooks: entry.hooks, settings, resourceNamed });
     }
     Object.defineProperty(handles, "contributeRowPolicy", {

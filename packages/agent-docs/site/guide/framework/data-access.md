@@ -156,7 +156,12 @@ key is one of the resource's `search: true` fields or a `searchSchema` entry;
 `id` takes one id or a list (an empty list matches no row), and another list
 of values needs an entry with `filterOperator: "in"`. The `id` filter is every
 handle's own: a resource never declares an `id` search entry. A `null` value
-matches the rows where the field is null: `filters: { archivedAt: null }`. A table keyed by
+matches the rows where the field is null: `filters: { archivedAt: null }`. A
+filter on another table's field (`searchSchema: { supplierName: { type:
+"string", actualField: "suppliers.name" } }`) needs that field declared
+`indexed: true` on its own table resource, with a database index on its column,
+even when the join is on the other table's id; `own()` refuses it at startup
+otherwise, naming both. A table keyed by
 a `uuid` or `string` primary key takes its ids as text; an `owns` entry's
 `normalizeId` is only for an id written some other way.
 
