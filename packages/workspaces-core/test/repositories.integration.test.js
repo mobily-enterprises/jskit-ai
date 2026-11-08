@@ -257,6 +257,11 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal((await workspaces.findBySlug(" KEPT ")).id, workspace.id);
     assert.equal(await workspaces.findBySlug("deleted"), null);
     assert.equal((await workspaces.findById(deleted.id)).slug, "deleted");
+    const listed = await statementsOf(() => workspaces.listByIds([deleted.id, "999999", workspace.id, workspace.id, null]));
+    assert.deepEqual(listed.result.map(({ slug }) => slug), ["kept", "deleted"], "By id, a missing id left out and a deleted workspace kept");
+    const single = await statementsOf(() => workspaces.listByIds([workspace.id]));
+    assert.equal(listed.statements, single.statements, `The same reads for one workspace and for two: ${listed.sql.join(" | ")}`);
+    assert.deepEqual(await workspaces.listByIds([]), []);
     assert.deepEqual([...await workspaces.listSlugsIn(["deleted"])], ["deleted"], "A deleted workspace's slug stays taken");
 
     await memberships.ensureOwnerMembership(workspace.id, owner.id);

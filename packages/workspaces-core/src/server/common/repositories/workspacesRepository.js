@@ -80,6 +80,24 @@ function createRepository({ workspaces, workspaceMemberships }) {
     return new Set(rows.map((row) => normalizeLowerText(row.slug)));
   }
 
+  /**
+   * The workspaces with these ids, in one read however many, sorted by id. An id naming no workspace is left out; a
+   * deleted workspace is kept, as findById keeps it.
+   * @param {unknown[]} workspaceIds
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
+   */
+  async function listByIds(workspaceIds, options = {}) {
+    if (!Array.isArray(workspaceIds)) {
+      throw new TypeError("workspaces.listByIds() takes a list of workspace ids.");
+    }
+    const ids = [...new Set(workspaceIds.map((id) => normalizeRecordId(id, { fallback: null })).filter(Boolean))];
+    if (ids.length < 1) {
+      return [];
+    }
+    const rows = await workspaces.queryAll({ filters: { id: ids } }, options);
+    return rows.map((row) => normalizeWorkspaceRecord(row)).filter(Boolean).sort(byId);
+  }
+
   async function findPersonalByOwnerUserId(userId, options = {}) {
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
     if (!normalizedUserId) {
@@ -232,6 +250,7 @@ function createRepository({ workspaces, workspaceMemberships }) {
     withTransaction: workspaces.withTransaction,
     joinSource,
     findById,
+    listByIds,
     findBySlug,
     listSlugsIn,
     findPersonalByOwnerUserId,

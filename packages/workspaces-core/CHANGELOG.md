@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `workspaces.listByIds(ids, options)` reads the workspaces with these ids in one statement however many, sorted by id; an id naming none is left out and a deleted workspace kept, as `findById` keeps it. A caller that read one workspace per id with `findById` reads them at once.
 - `workspaces.joinSource({ alias, filters }, options)` and `workspaces.memberships.joinSource({ alias, filters }, options)` answer `{ query, column }`: the scoped workspaces or memberships under `alias`, matching the resource's search filters (such as `{ deletedAt: null }`, or `{ workspace, status: "active" }`), and each field's column under that alias. Another feature's report joins them as subqueries in its own statement, instead of joining `workspaces` or `workspace_memberships` by name, which reads them past their owner.
 - `@jskit-ai/workspaces-core/test/WorkspaceRecordsFeature` exports `WorkspaceRecordsFeature`, for an application's tests. It owns the workspaces tables as `workspaces.core` does and provides only its records, `workspaces` and `workspaces.memberships`, without the routes, settings and invitations, so a test can start it beside the feature it tests with `startTestFeatures`. `WorkspacesFeature` and it name the four tables once, as `WORKSPACES_TABLES`.
 - The workspaces, memberships, invites and settings table resources no longer declare their own `id` search entry (nor `search: true` on the settings' `id` field): their handles' `id` filter takes one id or a list.
