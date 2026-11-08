@@ -28,14 +28,6 @@
       }
     },
     "metadata": {
-      "apiSummary": {
-        "surfaces": [
-          {
-            "subpath": "./client",
-            "summary": "Exports no runtime API today (reserved console surface package entrypoint)."
-          }
-        ]
-      },
       "ui": {
         "placements": {
           "outlets": [

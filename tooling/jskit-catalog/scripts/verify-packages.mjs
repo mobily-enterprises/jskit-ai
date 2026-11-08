@@ -249,6 +249,17 @@ async function validateMigrationDirectory(packageName, absoluteDirectory, relati
   return entries;
 }
 
+// Each apiSummary surface names an entrypoint the package exports, or a group of them ("./server" for its "./server/..."
+// subpaths), so the catalog never describes an import that fails.
+function validateApiSummarySurfaces(packageJson) {
+  const exported = packageJson.exports && typeof packageJson.exports === "object" ? Object.keys(packageJson.exports) : [];
+  for (const { subpath } of packageJson.jskit?.metadata?.apiSummary?.surfaces || []) {
+    if (!exported.some((entry) => entry === subpath || entry.startsWith(`${subpath}/`))) {
+      throw new Error(`${packageJson.name}#jskit.metadata.apiSummary describes ${subpath}, which the package does not export.`);
+    }
+  }
+}
+
 async function validatePackage(packageRecord, localVersions, migrationOwners) {
   const { packageJson, packageRoot, manifestPath } = packageRecord;
   const packageId = String(packageJson.name || "").trim();
@@ -282,6 +293,7 @@ async function validatePackage(packageRecord, localVersions, migrationOwners) {
     throw new Error(`${packageId} cannot both provide and require the same capability.`);
   }
 
+  validateApiSummarySurfaces(packageJson);
   const serverProviderCount = await validateProviderList(packageRecord, "server");
   await validateProviderList(packageRecord, "client");
   await validateMigrations(packageRecord, migrationOwners);
@@ -338,14 +350,8 @@ function validateCapabilityClosure(packages, { builtinCapabilities = BUILTIN_CAP
 }
 
 // The application's one table runtime: a package that takes it as a dependency can install a second copy of it beside
-// the application's, with tables and transactions the application's never sees. Only the runtime itself
-// (resource-runtime on database-runtime) and its drivers (database-runtime-mysql, database-runtime-postgres) depend on it
-// directly.
+// the application's, with its own tables, transactions and error classes. Every package takes it as a peer.
 const TABLE_RUNTIME_PACKAGE_IDS = Object.freeze(["@jskit-ai/database-runtime", "@jskit-ai/resource-runtime"]);
-
-function isTableRuntimePart(packageName, dependencyId) {
-  return TABLE_RUNTIME_PACKAGE_IDS.includes(packageName) || String(packageName).startsWith(`${dependencyId}-`);
-}
 
 function validateSingletonPeerDependencies(packages) {
   const singletonPackageIds = new Set(collectSingletonPackageIds(packages.map(({ packageJson }) => packageJson)));
@@ -353,7 +359,7 @@ function validateSingletonPeerDependencies(packages) {
   for (const { packageJson } of packages) {
     for (const section of ["dependencies", "optionalDependencies"]) {
       for (const dependencyId of Object.keys(packageJson[section] || {})) {
-        if (TABLE_RUNTIME_PACKAGE_IDS.includes(dependencyId) && !isTableRuntimePart(packageJson.name, dependencyId)) {
+        if (TABLE_RUNTIME_PACKAGE_IDS.includes(dependencyId)) {
           throw new Error(
             `${packageJson.name}#${section}.${dependencyId} must be declared in peerDependencies because ` +
             `${dependencyId} is the application's one table runtime.`
@@ -416,6 +422,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
 
 export {
   main,
+  validateApiSummarySurfaces,
   validateCapabilityClosure,
   validateMigrations,
   validateProviderExport,

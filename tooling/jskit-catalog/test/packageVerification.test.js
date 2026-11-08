@@ -4,6 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import {
+  validateApiSummarySurfaces,
   validateCapabilityClosure,
   validateMigrations,
   validateProviderList,
@@ -222,7 +223,7 @@ test("packages consume shared client runtimes through peer dependencies", () => 
   );
 });
 
-test("packages take the table runtime as a peer, except the runtime itself and its drivers", () => {
+test("every package takes the table runtime as a peer, the runtime's own packages too", () => {
   const consumer = (section) => [{
     packageJson: { name: "@jskit-ai/example-core", [section]: { "@jskit-ai/resource-runtime": "0.2.12" }, jskit: {} }
   }];
@@ -234,15 +235,27 @@ test("packages take the table runtime as a peer, except the runtime itself and i
         "@jskit-ai/resource-runtime is the application's one table runtime", "u")
     );
   }
-  assert.doesNotThrow(() => validateSingletonPeerDependencies([
-    { packageJson: { name: "@jskit-ai/resource-runtime", dependencies: { "@jskit-ai/database-runtime": "0.1.262" }, jskit: {} } },
-    { packageJson: { name: "@jskit-ai/database-runtime-mysql", dependencies: { "@jskit-ai/database-runtime": "0.1.262" }, jskit: {} } }
-  ]));
+  for (const name of ["@jskit-ai/resource-runtime", "@jskit-ai/database-runtime-mysql"]) {
+    assert.throws(
+      () => validateSingletonPeerDependencies([{
+        packageJson: { name, dependencies: { "@jskit-ai/database-runtime": "0.1.262" }, jskit: {} }
+      }]),
+      new RegExp(`${name}#dependencies\\.@jskit-ai/database-runtime must be declared in peerDependencies`, "u")
+    );
+  }
+});
+
+test("an apiSummary surface names an exported entrypoint or a group of them", () => {
+  const packageJson = {
+    name: "@jskit-ai/example",
+    exports: { "./server": "./src/server/index.js", "./shared/dialect": "./src/shared/dialect.js" },
+    jskit: { metadata: { apiSummary: { surfaces: [{ subpath: "./server" }, { subpath: "./shared" }] } } }
+  };
+  assert.doesNotThrow(() => validateApiSummarySurfaces(packageJson));
+  packageJson.jskit.metadata.apiSummary.surfaces.push({ subpath: "./server/host" });
   assert.throws(
-    () => validateSingletonPeerDependencies([{
-      packageJson: { name: "@jskit-ai/database-runtime-mysql", dependencies: { "@jskit-ai/resource-runtime": "0.2.12" }, jskit: {} }
-    }]),
-    /database-runtime-mysql#dependencies\.@jskit-ai\/resource-runtime must be declared in peerDependencies/u
+    () => validateApiSummarySurfaces(packageJson),
+    /@jskit-ai\/example#jskit\.metadata\.apiSummary describes \.\/server\/host, which the package does not export/u
   );
 });
 

@@ -11,8 +11,9 @@ requires: @jskit-ai/database-runtime-postgres
 ## Use when
 
 Use this pattern when an application deliberately chooses PostgreSQL. Install
-`@jskit-ai/database-runtime-postgres`; its normal npm dependencies provide the
-database runtime, Knex, and `pg` without a package-setup wizard.
+`@jskit-ai/database-runtime` and `@jskit-ai/database-runtime-postgres` without
+a package-setup wizard: the runtime brings Knex and the driver brings `pg`. The
+driver takes the runtime as a peer, so the application holds its one copy.
 
 ## Do not use when
 

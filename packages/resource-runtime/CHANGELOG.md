@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `@jskit-ai/database-runtime` is a required peer dependency at the same version, where it was a dependency: the application holds one copy of the table runtime, since a nested copy brings its own error classes and transactions.
+- `./server` also exports `isSystemContext(context)` and the runtime's defaults, `DEFAULT_REQUEST_ROW_LIMIT` and `DEFAULT_SERVER_PAGE_SIZE`; `./test` re-exports database-runtime's `TestDatabaseMissingError` beside `requireTestDatabase`; `./server/types` holds the types of `runtime.resources`, its handles, call options and system contexts.
 - `expectFlatQueries` fails when the path sent no statement at any size. That is a test counting on a channel the path does not use, such as no `knex` in a test whose features run on one and that booted no server, which measured 0 at every size and passed.
 - A call's settings stay on that call. `withTransaction` hands its work only `{ context, trx }`, and so does a handle to its `afterWrite` hooks, to `lockOrCreate`'s work and to its own nested calls, instead of every option the caller passed: an outer `returning: "none"` made a create inside, or `findOrCreate`, answer nothing, and an outer `missing: "skip"` made a get inside answer null for a missing record. A handle's own write and read still take its `format`. `passedOn(options)`, exported from `./server`, gives the same `{ context, trx }` to code that calls another table.
 - The `createdAt` and `updatedAt` a handle stamps are cut to the field's `temporalPrecision` (whole seconds for 0): they always carried milliseconds, so every create on a table whose timestamps declare `temporalPrecision: 0` failed with TYPE_CAST_FAILED.

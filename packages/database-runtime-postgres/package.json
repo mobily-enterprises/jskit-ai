@@ -12,10 +12,10 @@
     "./shared/dialect": "./src/shared/dialect.js"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.262",
     "pg": "^8.13.1"
   },
   "peerDependencies": {
+    "@jskit-ai/database-runtime": "0.1.262",
     "@jskit-ai/kernel": "0.2.13"
   },
   "jskit": {

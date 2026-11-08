@@ -15,7 +15,6 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.262",
     "@jskit-ai/resource-core": "0.1.204",
     "@jskit-ai/resource-crud-core": "0.1.204",
     "json-rest-api": "3.0.0"
@@ -50,11 +49,7 @@
         "surfaces": [
           {
             "subpath": "./server",
-            "summary": "Provides runtime.resources: own(featureId, owns) registers a feature's tables and answers their handles; createSystemContext gives background work its context. Exports the runtime's error classes."
-          },
-          {
-            "subpath": "./server/resourceHost",
-            "summary": "The json-rest-api host behind the runtime, and the host helpers crud-core, users-core and workspaces-core use until they own their tables through runtime.resources."
+            "summary": "Provides runtime.resources (ResourceRuntimeProvider): own(featureId, owns) registers a feature's tables and answers their scoped handles, and declareSystemScope(featureId, systemScope) answers the feature's systemContext(reason) for work across every workspace and user. Exports createStandaloneResources, passedOn, withoutHiddenFields, isSystemContext, buildJsonRestQueryParams, the workspace and user scope resolvers, the default row limit and page size, and the runtime's error classes."
           },
           {
             "subpath": "./server/types",
@@ -62,13 +57,14 @@
           },
           {
             "subpath": "./test",
-            "summary": "Data test helpers on a real test database: expectScoped, expectFlatQueries, expectEveryTableOwned and requireTestDatabase."
+            "summary": "Data test helpers on a real test database: createTestResourceRuntime, startTestFeatures, expectScoped, expectFlatQueries, expectEveryTableOwned, requireTestDatabase and TestDatabaseMissingError."
           }
         ]
       }
     }
   },
   "peerDependencies": {
+    "@jskit-ai/database-runtime": "0.1.262",
     "@jskit-ai/kernel": "0.2.13"
   }
 }
