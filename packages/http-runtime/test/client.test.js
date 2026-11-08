@@ -51,6 +51,7 @@ for (const phase of ["headers", "body", "CSRF session"]) {
   test(`read deadline closes a real HTTP connection stalled during ${phase}`, { timeout: 5000 }, async (t) => {
     let received;
     let closed;
+    let handled = false;
     const requestReceived = new Promise((resolve) => { received = resolve; });
     const responseClosed = new Promise((resolve) => { closed = resolve; });
     const server = createServer((_request, response) => {
@@ -59,6 +60,7 @@ for (const phase of ["headers", "body", "CSRF session"]) {
         response.writeHead(200, { "Content-Type": "application/json" });
         response.write('{"pending":');
       }
+      handled = true;
       received();
     });
     t.after(() => {
@@ -72,9 +74,13 @@ for (const phase of ["headers", "body", "CSRF session"]) {
       ? { method: "POST", body: { value: 1 } }
       : {});
     const rejected = assert.rejects(pending, (error) => error.name === "TimeoutError");
-    await Promise.race([requestReceived, pending]);
+    // On a loaded machine the 100 ms deadline can fire before the server has the request: the race then ends with the
+    // rejection, which `rejected` checks, and there is no server response to see closed.
+    await Promise.race([requestReceived, pending.catch(() => {})]);
     await rejected;
-    await responseClosed;
+    if (handled) {
+      await responseClosed;
+    }
   });
 }
 
