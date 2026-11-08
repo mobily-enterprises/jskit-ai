@@ -725,6 +725,18 @@ Exports
 Exports
 - None
 
+### `fixtures/record-action-menu/App.vue`
+Exports
+- None
+
+### `fixtures/record-action-menu/main.js`
+Exports
+- None
+
+### `fixtures/record-action-menu/vite.config.mjs`
+Exports
+- None
+
 ### `fixtures/select-field/App.vue`
 Exports
 - None

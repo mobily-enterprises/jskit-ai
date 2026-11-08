@@ -81,15 +81,18 @@ function runRowAction(action) {
         :aria-label="buttonLabel"
       />
     </template>
-    <v-list min-width="160">
+    <!-- A menu of menu items, as Material 3 menus are exposed (Vuetify's list is otherwise a list of links). -->
+    <v-list role="menu" :aria-label="buttonLabel" min-width="160">
       <v-list-item
         v-if="hasViewAction"
+        role="menuitem"
         prepend-icon="$visibility"
         :title="t('jskit.http.actions.open')"
         :to="viewLocation"
       />
       <v-list-item
         v-if="hasEditAction"
+        role="menuitem"
         prepend-icon="$edit"
         :title="t('jskit.http.actions.edit')"
         :to="editLocation"
@@ -98,9 +101,11 @@ function runRowAction(action) {
       <v-list-item
         v-for="action in visibleRowActions"
         :key="action.key"
+        role="menuitem"
         :title="rowActionLabel(action)"
         :base-color="action.color"
         :disabled="isRowActionDisabled(action)"
+        :aria-disabled="isRowActionDisabled(action) ? 'true' : undefined"
         @click="runRowAction(action)"
       >
         <template v-if="action.icon" #prepend>

@@ -85,6 +85,11 @@ jobs:
           JSKIT_HTTP_WEB_SELECT_FIELD_BROWSER: "1"
         run: npx jskit test packages/http-web/test/selectField.browser.test.js
 
+      - name: Verify list record action menus are menus
+        env:
+          JSKIT_HTTP_WEB_RECORD_ACTION_MENU_BROWSER: "1"
+        run: npx jskit test packages/http-web/test/crudListRecordActionMenu.browser.test.js
+
       - name: Verify select typeahead while a menu opens
         env:
           JSKIT_CONNECTORS_WEB_BROWSER: "1"
