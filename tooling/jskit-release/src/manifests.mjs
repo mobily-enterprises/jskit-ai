@@ -110,6 +110,44 @@ async function discoverReleasePackages(repoRoot) {
   return records.sort((left, right) => left.name.localeCompare(right.name));
 }
 
+// The local path a dependency spec names, as npm reads it: after file:, link: or portal:, or a bare path (./, ../,
+// /, ~/ or a drive letter); null for a registry, git, alias or workspace spec.
+function localDependencyPath(spec) {
+  const value = String(spec || "").trim();
+  const protocol = /^(?:file|link|portal):/u.exec(value);
+  if (protocol) return value.slice(protocol[0].length);
+  return /^(?:\.|~[/\\]|[/\\]|[a-zA-Z]:)/u.test(value) ? value : null;
+}
+
+// npm publishes a manifest's dependency specs as written, so a local path outside the repository (a temporary
+// file:/tmp/... pin, say) would reach every installer, where it names a directory they lack. A relative path inside
+// the repository (a vendored package the release also publishes) is the repository's own; an absolute or home path
+// names this machine wherever it points.
+function assertNoOutsidePathDependencies(records, repoRoot) {
+  const root = path.resolve(repoRoot);
+  const problems = [];
+  for (const record of records) {
+    for (const field of DEPENDENCY_FIELDS) {
+      for (const [dependencyName, spec] of Object.entries(record.packageJson[field] || {})) {
+        const localPath = localDependencyPath(spec);
+        if (localPath === null) continue;
+        if (/^(?:[/\\~]|[a-zA-Z]:)/u.test(localPath)) {
+          problems.push(`${record.name}: ${field}.${dependencyName} is ${spec}, an absolute path on this machine`);
+          continue;
+        }
+        const target = path.resolve(record.dir, localPath);
+        if (target !== root && !target.startsWith(`${root}${path.sep}`)) {
+          problems.push(`${record.name}: ${field}.${dependencyName} is ${spec}, a path outside the repository`);
+        }
+      }
+    }
+  }
+  if (problems.length > 0) {
+    throw new Error("Publishable packages depend on local paths that npm would publish as written:\n- " +
+      `${problems.join("\n- ")}\nDepend on a released version (or a path inside the repository) before preparing or publishing.`);
+  }
+}
+
 async function releaseConfig(repoRoot) {
   const config = (await readJsonFile(path.join(repoRoot, "package.json"))).jskitRelease || {};
   return {
@@ -314,6 +352,7 @@ async function validateReleaseState(records, repoRoot) {
 
 export {
   DEPENDENCY_FIELDS,
+  assertNoOutsidePathDependencies,
   bumpPatch,
   collectPatternPackageJsonPaths,
   collectPublishDependencies,

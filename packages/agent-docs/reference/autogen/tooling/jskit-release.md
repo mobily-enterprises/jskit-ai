@@ -17,6 +17,7 @@ Use this on demand; do not load the full index at startup.
 ### `src/manifests.mjs`
 Exports
 - `DEPENDENCY_FIELDS`
+- `assertNoOutsidePathDependencies(records, repoRoot)`
 - `bumpPatch(version)`
 - `collectPatternPackageJsonPaths(packageRoot, nestedManifests = ["patterns", "examples"])`
 - `collectPublishDependencies(packageJson, localNames)`
@@ -37,6 +38,7 @@ Exports
 Local functions
 - `followVersion(declared, version)`
 - `expandWorkspacePattern(repoRoot, pattern)`
+- `localDependencyPath(spec)`
 - `versionFilePaths(record)`
 
 ### `src/npm-publication.mjs`
@@ -54,6 +56,7 @@ Local functions
 
 ### `src/release.mjs`
 Exports
+- `assertNoOutsidePathDependencies`
 - `assertReleaseCheckout(repoRoot, { allowAhead = false, branch = "main" } = {})`
 - `bumpPatch`
 - `collectPublishDependencies`

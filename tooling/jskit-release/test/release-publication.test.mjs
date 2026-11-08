@@ -5,7 +5,7 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { existsSync } from "node:fs";
 import { publicationFixture } from "./npm-publication-fixture.mjs";
-import { createPublicationInspection, planPublication } from "../src/npm-publication.mjs";
+import { createPublicationInspection, planPublication, snapshotFiles } from "../src/npm-publication.mjs";
 
 test("publication skips a matching dependency and publishes only the absent consumer tarball", async t => {
   const f = await publicationFixture(t, "jskit");
@@ -135,4 +135,25 @@ test("empty registry metadata stops publication instead of implying absence", as
   assert.equal(result.status, 1);
   assert.match(result.stderr, /invalid JSON/u);
   assert.equal((await f.calls()).some(call => call.args[0] === "publish"), false);
+});
+
+test("prepare and publish refuse a publishable package pinned to a local build, before any npm call", async t => {
+  const f = await publicationFixture(t, "jskit");
+  const build = path.join(f.directory, "a-build");
+  await f.addPackage("@jskit-ai/pinned", { dependencies: { "@jskit-ai/a": `file:${build}` } });
+  // A private workspace is never published, so its paths are its own business.
+  await f.addPackage("@jskit-ai/scratch", { private: true, devDependencies: { "@jskit-ai/a": "file:../../../scratch" } });
+  f.git("add", ".");
+  f.git("commit", "-m", "Pin a local build");
+  f.git("push", "origin", "main");
+  const before = await snapshotFiles(f.repo);
+  for (const args of [["prepare"], ["prepare", "--dry-run"], ["publish"], ["publish", "--dry-run"]]) {
+    const result = f.run(args);
+    assert.equal(result.status, 1, args.join(" "));
+    assert.equal(result.stderr, "jskit-release failed: Publishable packages depend on local paths that npm would publish as written:\n" +
+      `- @jskit-ai/pinned: dependencies.@jskit-ai/a is file:${build}, an absolute path on this machine\n` +
+      "Depend on a released version (or a path inside the repository) before preparing or publishing.\n", args.join(" "));
+  }
+  assert.deepEqual(await snapshotFiles(f.repo), before);
+  assert.deepEqual(await f.calls(), []);
 });

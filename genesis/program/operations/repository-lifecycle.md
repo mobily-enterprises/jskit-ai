@@ -30,7 +30,11 @@ pattern/example manifests follow the final version map. Necessary consumer and
 generated catalog/docs changes expand the release set until stable. The catalog's
 self-version and complete release map are regenerated rather than normalized away.
 Registry failures, newer stable published versions and occupied next versions
-stop preparation before applying files.
+stop preparation before applying files. Preparation and publication refuse,
+before any npm call, a publishable manifest whose dependency names a local path
+(`file:`, `link:`, `portal:` or a bare path) that is absolute or leaves the
+repository, since npm would publish it as written; the error names each
+package, dependency and path. Relative paths inside the repository stay allowed.
 
 Both preparation modes use an isolated source copy. Dry runs compute the same
 selection without modifying checkout files or Git; real preparation applies

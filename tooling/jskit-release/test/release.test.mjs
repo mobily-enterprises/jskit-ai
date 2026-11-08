@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  assertNoOutsidePathDependencies,
   assertReleaseCheckout,
   bumpPatch,
   collectPublishDependencies,
@@ -121,6 +122,35 @@ test("publishable packages are the non-private root, workspaces, declared manife
       ["vendored", "vendor/vendored"]
     ]);
   } finally { await rm(root, { recursive: true, force: true }); }
+});
+
+test("a publishable package may depend on a local path only inside the repository", () => {
+  const root = path.join(tmpdir(), "release-root");
+  const record = (name, field, dependencies) => ({ name, dir: path.join(root, "packages", name), packageJson: { [field]: dependencies } });
+  // Registry, alias, git and workspace specs, and relative paths that stay inside the repository, are accepted.
+  assert.doesNotThrow(() => assertNoOutsidePathDependencies([
+    record("inside", "dependencies", { a: "1.0.0", b: "^2.0.0", c: "npm:other@1.0.0", d: "github:owner/repo", e: "workspace:*",
+      f: "file:../sibling", g: "link:../../vendor/g", h: "./local", i: "portal:../sibling" }),
+    record("root-tool", "devDependencies", { root: "file:../.." })
+  ], root));
+  assert.throws(() => assertNoOutsidePathDependencies([
+    record("pinned", "dependencies", { "@scope/kernel": "file:/tmp/kernel-build", url: "file:///tmp/kernel.tgz" }),
+    record("linked", "devDependencies", { tool: "link:../../../outside" }),
+    record("bare", "peerDependencies", { peer: "/opt/peer", home: "~/checkout/home" }),
+    record("optional", "optionalDependencies", { native: "../../../native", portal: "portal:../../../portal" })
+  ], root), {
+    message: [
+      "Publishable packages depend on local paths that npm would publish as written:",
+      "- pinned: dependencies.@scope/kernel is file:/tmp/kernel-build, an absolute path on this machine",
+      "- pinned: dependencies.url is file:///tmp/kernel.tgz, an absolute path on this machine",
+      "- linked: devDependencies.tool is link:../../../outside, a path outside the repository",
+      "- bare: peerDependencies.peer is /opt/peer, an absolute path on this machine",
+      "- bare: peerDependencies.home is ~/checkout/home, an absolute path on this machine",
+      "- optional: optionalDependencies.native is ../../../native, a path outside the repository",
+      "- optional: optionalDependencies.portal is portal:../../../portal, a path outside the repository",
+      "Depend on a released version (or a path inside the repository) before preparing or publishing."
+    ].join("\n")
+  });
 });
 
 test("prepare updates concrete package manifests inside patterns", () => {

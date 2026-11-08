@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import {
   DEPENDENCY_FIELDS,
+  assertNoOutsidePathDependencies,
   bumpPatch,
   collectPatternPackageJsonPaths,
   collectPublishDependencies,
@@ -26,7 +27,8 @@ import { createPublicationInspection, planPublication, snapshotFiles } from "./n
 
 // The release target is the working directory (or --cwd). Its publishable
 // packages are every non-private package among the root, its workspaces and
-// `file:` dependencies inside the repository. Repository-specific behavior is
+// `file:` dependencies inside the repository; prepare and publish refuse one
+// that depends on a local path outside it. Repository-specific behavior is
 // declared in the root package.json `jskitRelease` field:
 //   prepare          command that regenerates derived files during preparation
 //   nestedManifests  package subdirectories whose package.json pins follow the release
@@ -204,6 +206,7 @@ async function prepareRelease({ cwd: repoRoot, dryRun, registry, report = false 
     const before = await snapshotFiles(source);
     const config = await releaseConfig(source);
     const staged = await discoverReleasePackages(source);
+    assertNoOutsidePathDependencies(staged, source);
     if (await fileExists(path.join(repoRoot, "node_modules"))) {
       // A custom pack command builds from this copy. Linking node_modules would
       // resolve workspace links and dependencies outside the copy and change
@@ -408,6 +411,7 @@ function releaseCommitMessage(entries) {
 
 async function publishRelease(records, { cwd: repoRoot, registry }) {
   assertReleaseCheckout(repoRoot);
+  assertNoOutsidePathDependencies(records, repoRoot);
   await validateReleaseState(records, repoRoot);
   const order = topologicalPublishOrder(records);
   const recordsByName = new Map(records.map((record) => [record.name, record]));
@@ -554,6 +558,7 @@ async function main(argv = process.argv.slice(2)) {
 }
 
 export {
+  assertNoOutsidePathDependencies,
   assertReleaseCheckout,
   bumpPatch,
   collectPublishDependencies,
