@@ -40,6 +40,7 @@ Exports
 - `formatOf(name, options)`
 - `matchesNoRow(filters, schemaInfo)`
 - `missingOf(name, caller, missing = "throw")`
+- `refuseConditions(name, method, options, keys, instead)`
 - `requireConditionValues(name, method, options, keys)`
 - `requireDefinedFilters(name, caller, filters, path = "filters")`
 - `requireOwners(name, ownership, context)`
@@ -71,7 +72,6 @@ Exports
 - `idOf(result, format)`
 - `inputData(resource, attributes, stamp, context)`
 - `manyResult(resource, result, returning)`
-- `matchesOnlyIf(record, onlyIf)`
 - `namedFields(resource, fields)`
 - `noRowsAggregate(measures, groupBy)`
 - `patchAnswer(id, record, returning)`
@@ -84,7 +84,7 @@ Exports
 - `textList(value)`
 Local functions
 - `setsOwnTimestamps(context)`
-- `stampAt(field, now)`
+- `atPrecision(field, value)`
 - `stampedAttributes(resource, attributes, stamp, context)`
 - `includedRelationships(include)`
 - `handleRecord(resource, record, included, named, resourceNamed)`

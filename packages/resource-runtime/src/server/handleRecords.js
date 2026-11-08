@@ -175,20 +175,30 @@ function setsOwnTimestamps(context) {
   return isJobContext(context);
 }
 
+// A date-time's text around its fraction of a second: what comes before, the digits, and the zone after them.
+const SECOND_FRACTION = /^(.+T\d{2}:\d{2}:\d{2})\.(\d+)(.*)$/u;
+
 /**
- * A timestamp field's stamp: `now` cut to the field's temporalPrecision (whole seconds for 0), the precision every write
- * of the field is validated against.
+ * A timestamp as the field stores it: its fraction of a second cut (never rounded) to the field's temporalPrecision,
+ * none for 0, the precision every write of the field is validated against. The handle's own stamps come from
+ * `Date#toISOString()`, with milliseconds, and so do many a job's own (setsOwnTimestamps). Anything else, a date-time
+ * with no fraction or a value that is no date-time, is left as it is, for validation to judge.
  * @param {{ temporalPrecision?: number }} field The field's schema definition.
- * @param {string} now The time as `Date#toISOString()` gives it, with milliseconds.
+ * @param {unknown} value
  */
-function stampAt(field, now) {
+function atPrecision(field, value) {
   const precision = field.temporalPrecision;
-  return precision === undefined || precision >= 3 ? now : `${now.slice(0, precision === 0 ? 19 : 20 + precision)}Z`;
+  const parts = typeof value === "string" && precision !== undefined ? SECOND_FRACTION.exec(value) : null;
+  if (!parts || parts[2].length <= precision) {
+    return value;
+  }
+  return `${parts[1]}${precision === 0 ? "" : `.${parts[2].slice(0, precision)}`}${parts[3]}`;
 }
 
 /**
  * A write's attributes with the table's timestamps (see storedTimestamps). The handle's stamps replace any the
- * caller sends, unless it may set its own (setsOwnTimestamps), so a request never sets them. A create stamps
+ * caller sends, unless it may set its own (setsOwnTimestamps), so a request never sets them; a caller's own are cut to
+ * the field's precision as the handle's are (atPrecision). A create stamps
  * createdAt and updatedAt, a change of a record updatedAt, and an empty change nothing, except on a table with a lock
  * version: there an empty change advances the version, which is an update like any other, so it stamps updatedAt and
  * the two never disagree about whether the record changed.
@@ -203,11 +213,13 @@ function stampedAttributes(resource, attributes, stamp, context) {
     return { ...attributes };
   }
   const callerSets = setsOwnTimestamps(context);
-  const data = Object.fromEntries(Object.entries(attributes).filter(([field]) => callerSets || !kept.includes(field)));
+  const data = Object.fromEntries(Object.entries(attributes)
+    .filter(([field]) => callerSets || !kept.includes(field))
+    .map(([field, value]) => [field, kept.includes(field) ? atPrecision(resource.schema[field], value) : value]));
   const now = new Date().toISOString();
   for (const field of storedTimestamps(resource.schema, stamp === "create" ? RECORD_TIMESTAMPS : ["updatedAt"])) {
     if (!Object.hasOwn(data, field)) {
-      data[field] = stampAt(resource.schema[field], now);
+      data[field] = atPrecision(resource.schema[field], now);
     }
   }
   return data;
@@ -440,11 +452,6 @@ function patchAnswer(id, record, returning) {
   return returning === "id" ? id : record;
 }
 
-// Whether the stored record still holds every value onlyIf names.
-function matchesOnlyIf(record, onlyIf) {
-  return Object.entries(onlyIf).every(([field, value]) => (record[field] ?? null) === value);
-}
-
 export {
   aggregateMeasures,
   MANY_RETURNING,
@@ -454,7 +461,6 @@ export {
   idOf,
   inputData,
   manyResult,
-  matchesOnlyIf,
   namedFields,
   noRowsAggregate,
   patchAnswer,

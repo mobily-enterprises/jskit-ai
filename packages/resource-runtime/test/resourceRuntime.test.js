@@ -1578,7 +1578,7 @@ test("lock, lockMany, lockWhere and claim read only the fields they name, so a r
   assert.deepEqual(locked, [{ id: ids[0], stage: "new", vetId: "1" }]);
 });
 
-test("a patch that compares a lock version or onlyIf locks only the fields it compares, hidden ones too", async (t) => {
+test("a patch that compares a lock version or onlyIf locks only the version, and compares onlyIf in SQL, hidden fields too", async (t) => {
   const { visits, options, ids, selects } = await createVisitFixture(t);
   // The patch's own locking read checks no relation: the customer it writes unchanged is checked by the write alone.
   const statements = await selects(() => visits.patch(ids[0], { stage: "seen", customerId: "1" }, { ...options, lockVersion: 0, returning: "none" }));
@@ -1593,6 +1593,45 @@ test("a patch that compares a lock version or onlyIf locks only the fields it co
   assert.equal(await visits.patch(ids[0], { stage: "late" }, { ...options, onlyIf: { reviewer: "sam" } }), null);
   assert.equal((await visits.patch(ids[1], { stage: "seen" }, { ...options, lockVersion: 1, onlyIf: { reviewer: null } })).stage, "seen");
   await assert.rejects(visits.patch("999", { stage: "late" }, { ...options, onlyIf: { reviewer: "lee" } }), notFound);
+});
+
+test("a patch with onlyIf and no changes compares in SQL, so an id given as a number and a hidden field match", async (t) => {
+  const { visits, options, ids } = await createVisitFixture(t);
+  // A record answers customerId as text and never the hidden reviewer, yet both compare.
+  for (const missing of ["throw", "skip"]) {
+    const call = { ...options, missing };
+    assert.equal((await visits.patch(ids[0], {}, { ...call, onlyIf: { customerId: 1 } }))?.id, ids[0], missing);
+    assert.equal((await visits.patch(ids[0], {}, { ...call, onlyIf: { reviewer: "lee", customerId: "1" } }))?.id, ids[0], missing);
+    assert.equal((await visits.patch(ids[1], {}, { ...call, onlyIf: { reviewer: null } }))?.id, ids[1], missing);
+    assert.equal(await visits.patch(ids[0], {}, { ...call, onlyIf: { customerId: 2 } }), null, missing);
+    assert.equal(await visits.patch(ids[0], {}, { ...call, onlyIf: { reviewer: "sam" } }), null, missing);
+  }
+  // With a lock version, an empty patch that matches advances it, and one that does not leaves it.
+  assert.equal(await visits.patch(ids[0], {}, { ...options, lockVersion: 0, onlyIf: { reviewer: "sam" } }), null);
+  assert.equal((await visits.patch(ids[0], {}, { ...options, lockVersion: 0, onlyIf: { reviewer: "lee" } })).lockVersion, 1);
+  // onlyIf names stored fields, as an UPDATE's onlyIf does.
+  await assert.rejects(visits.patch(ids[0], {}, { ...options, onlyIf: { nothing: 1 } }), /visits\.patch\(\) onlyIf\.nothing is not a stored field/u);
+  await assert.rejects(visits.patch(ids[0], {}, { ...options, missing: "skip", onlyIf: { stage: ["new"] } }), /onlyIf\.stage must be a scalar/u);
+});
+
+test("delete, deleteWhere, createMany, patchMany and patchWhere refuse a condition they cannot compare, and write nothing", async (t) => {
+  const { knex, notes } = await createFixture(t);
+  const options = { context: WORKSPACE_A };
+  const note = await notes.create({ title: "draft" }, options);
+  const refused = (method, keys) => new RegExp(`notes\\.${method}\\(\\) cannot compare ${keys}, so it refuses`, "u");
+  await assert.rejects(notes.delete(note.id, { ...options, lockVersion: 0 }), refused("delete", "lockVersion"));
+  await assert.rejects(notes.delete(note.id, { ...options, missing: "skip", onlyIf: { status: "open" } }), refused("delete", "onlyIf"));
+  await assert.rejects(notes.deleteWhere({ id: note.id }, { ...options, lockVersion: 0, onlyIf: { status: "open" } }),
+    refused("deleteWhere", "lockVersion or onlyIf"));
+  await assert.rejects(notes.createMany([{ title: "copy" }], { ...options, onlyIf: { status: "open" } }), refused("createMany", "onlyIf"));
+  await assert.rejects(notes.createMany([{ title: "copy" }], { ...options, lockVersion: 0 }), refused("createMany", "lockVersion"));
+  await assert.rejects(notes.patchMany([{ id: note.id, title: "x" }], { ...options, lockVersion: 0 }), refused("patchMany", "lockVersion"));
+  await assert.rejects(notes.patchWhere({ id: note.id }, { title: "x" }, { ...options, lockVersion: 0 }), refused("patchWhere", "lockVersion"));
+  assert.deepEqual(await knex("notes").select("title", "lock_version"), [{ title: "draft", lock_version: 0 }]);
+  // What the refusal suggests: patchMany's onlyIf on the lock version field changes only the rows still at that version.
+  assert.deepEqual(await notes.patchMany([{ id: note.id, title: "x" }], { ...options, onlyIf: { lockVersion: 1 }, returning: "ids" }), []);
+  assert.deepEqual(await notes.patchMany([{ id: note.id, title: "x" }], { ...options, onlyIf: { lockVersion: 0 }, returning: "ids" }), [note.id]);
+  assert.deepEqual(await knex("notes").select("title", "lock_version"), [{ title: "x", lock_version: 1 }]);
 });
 
 test("a read with one include or two reads each included type once, whatever the rows, and checks no included link again", async (t) => {

@@ -149,6 +149,22 @@ function requireConditionValues(name, method, options, keys) {
 }
 
 /**
+ * Refuses lockVersion or onlyIf, named at all, on a write that cannot compare them: run without them, the write would
+ * change or delete the rows whatever they hold.
+ * @param {string} name The resource's name.
+ * @param {string} method The handle method, such as "delete".
+ * @param {Record<string, unknown>} options
+ * @param {string[]} keys The conditions the method cannot compare.
+ * @param {string} instead What the caller does instead.
+ */
+function refuseConditions(name, method, options, keys, instead) {
+  const named = keys.filter((key) => Object.hasOwn(options, key));
+  if (named.length > 0) {
+    throw new TypeError(`${name}.${method}() cannot compare ${named.join(" or ")}, so it refuses rather than write without them. ${instead}`);
+  }
+}
+
+/**
  * Refuses a patch's lockVersion or onlyIf named with no value (see requireConditionValues); a lockVersion without a
  * lockVersionField, or one that is not a version, or changes that write the version the patch advances itself; and an
  * onlyIf that is not an object of field values.
@@ -217,4 +233,7 @@ function passedOn(options) {
   });
 }
 
-export { formatOf, matchesNoRow, missingOf, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, passedOn, whereSelection };
+export {
+  formatOf, matchesNoRow, missingOf, refuseConditions, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions,
+  requireReadParams, requireUpsertRows, passedOn, whereSelection
+};

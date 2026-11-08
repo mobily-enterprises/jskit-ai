@@ -9,8 +9,8 @@ import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
-  formatOf, matchesNoRow, missingOf, passedOn, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams,
-  requireUpsertRows, whereSelection
+  formatOf, matchesNoRow, missingOf, passedOn, refuseConditions, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions,
+  requireReadParams, requireUpsertRows, whereSelection
 } from "./handleGuards.js";
 import {
   aggregateMeasures,
@@ -21,7 +21,6 @@ import {
   idOf,
   inputData,
   manyResult,
-  matchesOnlyIf,
   noRowsAggregate,
   patchAnswer,
   pickReturning,
@@ -41,6 +40,9 @@ import {
 // grow with the rows.
 const MANY_ROW_CHANNEL = "jskit:resources:many-row";
 const DEFAULT_CHUNK_SIZE = 500;
+// Why a many-row patch refuses lockVersion: one version does not hold for many records.
+const ONE_VERSION = "To change only the rows still at one version, give onlyIf the lock version field and that version; " +
+  "to compare each record's own version, patch() it with its lockVersion.";
 
 /**
  * Reports one many-row call while a flat-query test listens: its rows and chunk
@@ -416,8 +418,10 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
       throw new TypeError(`${name}.patch() with missing: "skip" answers records, not JSON:API documents.`);
     }
     if (Object.keys(attributes).length < 1) {
-      const current = await get(id, {}, { ...passedOn(options), missing: "skip" });
-      return current && (onlyIf === undefined || matchesOnlyIf(current, onlyIf)) ? patchAnswer(id, current, returning) : null;
+      // No change, so no UPDATE compares onlyIf: a read compares it in SQL instead (holdsOnlyIf).
+      const holds = onlyIf === undefined || await holdsOnlyIf(id, onlyIf, options);
+      const current = holds ? await get(id, {}, { ...passedOn(options), missing: "skip" }) : null;
+      return current ? patchAnswer(id, current, returning) : null;
     }
     const full = returning === "record";
     const result = await hooked("patch", options, (callOptions) => jsonRest().patchMany(
@@ -462,9 +466,10 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (lockVersion === undefined && onlyIf === undefined) {
       return patchRecord(id, attributes, callOptions, returning);
     }
-    // A missing row throws, so the row's lock comes first, reading only the fields it compares; an UPDATE that changes
-    // fields compares onlyIf itself, so a hidden field, which no read answers, is compared too.
-    const compared = [...(lockVersion === undefined ? [] : [lockVersionField]), ...Object.keys(onlyIf ?? {})];
+    // A missing row throws, so the row's lock comes first, reading only the lock version. onlyIf is compared in SQL,
+    // by the UPDATE that changes fields or, with no changes, by a read (holdsOnlyIf), so a hidden field, which no read
+    // answers, is compared too, and an id compares however the caller gives it.
+    const compared = lockVersion === undefined ? [] : [lockVersionField];
     return withTransaction(callOptions, async (transaction) => {
       // The patch's own format goes on to its write; work in a transaction receives only the context and transaction.
       const txOptions = { ...transaction, ...formatSetting(callOptions) };
@@ -478,7 +483,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
       if (onlyIf !== undefined && Object.keys(attributes).length > 0) {
         return patchIfPresent(id, attributes, txOptions, returning, onlyIf);
       }
-      if (onlyIf !== undefined && !matchesOnlyIf(current, onlyIf)) {
+      if (onlyIf !== undefined && !(await holdsOnlyIf(id, onlyIf, transaction))) {
         return null;
       }
       return patchRecord(id, attributes, txOptions, returning, { advance: lockVersion !== undefined });
@@ -488,11 +493,13 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   /**
    * Deletes one record and answers its id. A missing or hidden record throws
    * json-rest-api's not-found error; with `missing: "skip"` it answers null, in
-   * one DELETE that fails no transaction.
+   * one DELETE that fails no transaction. It compares no lockVersion or onlyIf, and refuses them.
    * @param {unknown} id
    * @param {{ context?: object | null, trx?: object | null, missing?: "throw" | "skip" }} [options]
    */
   async function deleteRecord(id, options = {}) {
+    refuseConditions(name, "delete", options, ["lockVersion", "onlyIf"],
+      "To delete a record only while it holds some values, lock() it in withTransaction(), compare them, then delete it.");
     const { missing: missingOption, ...callOptions } = options;
     const format = formatOf(name, callOptions);
     if (missingOf(name, "delete", missingOption) === "skip") {
@@ -534,7 +541,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * { keys, action: "ignore" | "merge", merge? }` upserts; the keys must include
    * the ownership fields, and merge is refused under a row policy. A table with
    * no owners and no row policy may key it on the id alone (`keys: ["id"]`).
-   * `returning`: "none" (default), "ids", "records" or "count".
+   * `returning`: "none" (default), "ids", "records" or "count". lockVersion and onlyIf, which compare a stored
+   * record, are refused.
    * @param {Array<Record<string, unknown>>} rows
    * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records" | "count", onConflict?: object, chunkSize?: number }} [options]
    */
@@ -542,6 +550,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (!Array.isArray(rows)) {
       throw new TypeError(`${name}.createMany() takes an array of rows.`);
     }
+    refuseConditions(name, "createMany", options, ["lockVersion", "onlyIf"],
+      "A create has no stored record to compare; onConflict says what happens to a record that exists.");
     if (options.onConflict) {
       requireUpsertRows(name, rows, options.onConflict, resource.idProperty);
     }
@@ -555,7 +565,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   /**
    * Patches each row's own changes into the record with its id: `[{ id, ...changes }]`,
    * one UPDATE per chunk. Ids the caller cannot see throw unless `missing: "skip"`;
-   * `onlyIf` changes only rows whose stored values still equal it.
+   * `onlyIf` changes only rows whose stored values still equal it. lockVersion is refused (see ONE_VERSION).
    * @param {Array<Record<string, unknown> & { id: unknown }>} rows
    * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records", onlyIf?: object, missing?: "throw" | "skip", chunkSize?: number }} [options]
    */
@@ -563,6 +573,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (!Array.isArray(rows)) {
       throw new TypeError(`${name}.patchMany() takes an array of { id, ...changes } rows.`);
     }
+    refuseConditions(name, "patchMany", options, ["lockVersion"], ONE_VERSION);
     requireConditionValues(name, "patchMany", options, ["onlyIf"]);
     return manyRowWrite("patchMany", rows.length, options, (params, context) => jsonRest().patchMany(
       {
@@ -578,12 +589,14 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   /**
    * The same changes to every record the filters select (the caller's own rows only), in one statement
    * that carries the scope and filters, so a row gone meanwhile is skipped. Empty filters change every
-   * row the caller owns, so they need `all: true`. `returning: "count"` answers how many changed.
+   * row the caller owns, so they need `all: true`. `returning: "count"` answers how many changed. lockVersion is
+   * refused (see ONE_VERSION).
    * @param {object} filters
    * @param {Record<string, unknown>} attributes
    * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records" | "count", onlyIf?: object, all?: boolean, chunkSize?: number }} [options]
    */
   async function patchWhere(filters, attributes, options = {}) {
+    refuseConditions(name, "patchWhere", options, ["lockVersion"], ONE_VERSION);
     requireConditionValues(name, "patchWhere", options, ["onlyIf"]);
     const selection = whereSelection(name, "patchWhere", filters, options);
     return manyRowWrite("patchWhere", 0, options, (params, context) => jsonRest().patchWhere(
@@ -596,11 +609,14 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   /**
    * Deletes every record the filters select (the caller's own rows only), as patchWhere selects them.
    * Empty filters delete every row the caller owns, so they need `all: true`. `returning: "count"`
-   * answers how many it deleted, with no ids read back.
+   * answers how many it deleted, with no ids read back. lockVersion and onlyIf are refused: the filters are what
+   * it compares, on each row once it holds the row's lock.
    * @param {object} filters
    * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "count", all?: boolean, chunkSize?: number }} [options]
    */
   async function deleteWhere(filters, options = {}) {
+    refuseConditions(name, "deleteWhere", options, ["lockVersion", "onlyIf"],
+      "Put the values the rows must hold in its filters: it compares them on each row it deletes.");
     if (options.returning === "records") {
       throw new TypeError(`${name}.deleteWhere() returning is "none", "ids" or "count".`);
     }
@@ -627,6 +643,32 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   async function scopedQuery(params = {}, options = {}) {
     requireDefinedFilters(name, "scopedQuery", params.filters);
     return jsonRest().scopedQuery({ ...params, transaction: options.trx || undefined }, contextOf(options));
+  }
+
+  /**
+   * Whether the caller's record with this id holds every value onlyIf names, compared in SQL as the UPDATE of a patch
+   * with changes compares them (json-rest-api's patchMany), so a hidden field, which no read answers, compares too, and
+   * an id compares however the caller gives it. onlyIf names the fields that UPDATE takes: stored fields other than the
+   * id, each with a scalar, a Date or null.
+   * @param {unknown} id
+   * @param {Record<string, unknown>} onlyIf
+   * @param {{ context?: object | null, trx?: object | null }} options
+   */
+  async function holdsOnlyIf(id, onlyIf, options) {
+    const { schemaStructure } = jsonRest().vars.schemaInfo;
+    const adapter = api.knex.helpers.getStorageAdapter(name);
+    let { query } = await scopedQuery({ filters: { id: [id] } }, options);
+    for (const [field, value] of Object.entries(onlyIf)) {
+      const definition = schemaStructure[field];
+      if (field === "id" || !definition || definition.virtual || definition.computed) {
+        throw new TypeError(`${name}.patch() onlyIf.${field} is not a stored field.`);
+      }
+      if (value !== null && typeof value === "object" && !(value instanceof Date)) {
+        throw new TypeError(`${name}.patch() onlyIf.${field} must be a scalar, a Date or null.`);
+      }
+      query = value === null ? query.whereNull(column(field)) : query.where(column(field), adapter.translateFilterValue(field, value));
+    }
+    return (await query.first(column("id"))) !== undefined;
   }
 
   /**
