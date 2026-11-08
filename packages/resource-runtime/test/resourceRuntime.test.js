@@ -259,6 +259,25 @@ test("many-row writes run per chunk in the caller's workspace, and answer nothin
   assert.deepEqual(await knex("notes").pluck("title"), ["other"]);
 });
 
+test("a table keyed by a uuid or a string takes its ids as text without its own normalizeId", async (t) => {
+  const tokens = defineTableResource({
+    name: "tokens",
+    tableName: "tokens",
+    ownership: "public",
+    schema: { id: { type: "uuid", primary: true }, label: { type: "string", required: true } }
+  });
+  const { knex, resources, systemContext } = await createFixture(t, { owns: [noteResource(), tokens] });
+  await knex.schema.createTable("tokens", (table) => {
+    table.uuid("id").primary();
+    table.string("label").notNullable();
+  });
+  const id = "0b8f2f1e-6a51-4c1e-9d2f-2b1c3e4d5f60";
+  const options = { context: systemContext };
+  await resources.tokens.create({ id, label: "first" }, options);
+  assert.equal((await resources.tokens.get(id, {}, options)).label, "first");
+  assert.equal((await resources.tokens.patch(id, { label: "second" }, options)).label, "second");
+});
+
 test("an upsert on a table with no owners may key on the id alone; an owned table's may not", async (t) => {
   const settings = defineTableResource({
     name: "settings",
@@ -267,7 +286,7 @@ test("an upsert on a table with no owners may key on the id alone; an owned tabl
     schema: { id: { type: "string", primary: true }, value: { type: "string", nullable: true }, note: { type: "string", nullable: true } }
   });
   const { knex, resources, notes, systemContext } = await createFixture(t, {
-    owns: [noteResource(), { normalizeId: normalizeOpaqueId, resource: settings }]
+    owns: [noteResource(), settings]
   });
   await knex.schema.createTable("settings", (table) => {
     table.string("id").primary();

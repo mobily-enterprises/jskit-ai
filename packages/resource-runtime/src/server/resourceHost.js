@@ -9,6 +9,7 @@ import {
 } from "json-rest-api";
 import {
   normalizeObject,
+  normalizeOpaqueId,
   normalizeRecordId,
   normalizeText,
   normalizeUniqueTextList
@@ -398,13 +399,27 @@ function buildJsonRestQueryParams(resourceType = "", query = {}, { include = und
 // `filters: { id }`: one id, or a list of them.
 const ID_FILTER = Object.freeze({ type: "array", actualField: "id", filterOperator: "in" });
 
+// Primary key types whose ids are text: json-rest-api's default normalizer takes numeric ids only, so such a table
+// takes each id as written ("Resource document id is invalid" otherwise).
+const TEXT_ID_TYPES = new Set(["uuid", "string"]);
+
+/**
+ * The schema field that is the table's primary key: the one marked `primary`, else the id property's.
+ * @param {{ schema?: Record<string, any>, idProperty?: string }} scopeOptions
+ */
+function primaryField(scopeOptions) {
+  const schema = normalizeObject(scopeOptions.schema);
+  return Object.values(schema).find((definition) => definition?.primary === true) ?? schema[scopeOptions.idProperty || "id"];
+}
+
 /**
  * json-rest-api's options for a table resource: its own keys, with `ownership`
  * as json-rest-api's autofilter preset (none for a public table),
  * `defaultExclude` as normally hidden fields, symbolic write serializers
  * resolved and collection relations derived. The owner's server-only extras
  * (row policy, id normalizer, query fields) are added here, never in the
- * shared definition.
+ * shared definition; a table whose primary key is a uuid or a string takes its
+ * ids as text unless the owner gives its own `normalizeId`.
  * @param {Record<string, any>} resource A table resource from defineTableResource.
  * @param {{ writeSerializers?: Record<string, Function>, normalizeId?: Function, rowPolicy?: Function, searchSchema?: Record<string, any>, queryFields?: Record<string, any> }} [extras]
  */
@@ -470,6 +485,8 @@ function resourceScopeOptions(
 
   if (normalizeId !== undefined) {
     scopeOptions.normalizeId = normalizeId;
+  } else if (TEXT_ID_TYPES.has(primaryField(scopeOptions)?.type)) {
+    scopeOptions.normalizeId = normalizeOpaqueId;
   }
   if (rowPolicy !== undefined) {
     scopeOptions.rowPolicy = rowPolicy;

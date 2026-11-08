@@ -150,7 +150,9 @@ options)`. Every setting rides in options, spread from the call's own:
 key is one of the resource's `search: true` fields or a `searchSchema` entry;
 `id` takes one id or a list (an empty list matches no row), and another list
 of values needs an entry with `filterOperator: "in"`. The `id` filter is every
-handle's own: a resource never declares an `id` search entry.
+handle's own: a resource never declares an `id` search entry. A table keyed by
+a `uuid` or `string` primary key takes its ids as text; an `owns` entry's
+`normalizeId` is only for an id written some other way.
 
 A read answers every field unless `fields` names the ones it needs (a
 belongs-to field by its own key, such as `customerId`, or its relationship);

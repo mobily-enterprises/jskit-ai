@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A table whose primary key is a `uuid` or a `string` takes its ids as text without a `normalizeId` on its `owns` entry; json-rest-api's default normalizer takes numeric ids only and answered "Resource document id is invalid". An owner's own `normalizeId` still wins.
 - `createMany` with `onConflict: { action: "merge" }` and no `merge` list works on a table that stores `createdAt`: the merge list the handle builds from the rows' fields leaves out the conflict keys, the ownership fields and the lock version, which json-rest-api refused to merge ("onConflict.merge cannot change …"), as well as the id and `createdAt`.
 - `aggregate` counts `id` (`{ count: "id" }` or `{ countDistinct: "id" }`) as the count of rows, on a schema that declares no id field too; json-rest-api refused it as an unknown field.
 - A handle's included records read as a read of their own resource answers them, at every depth and in an included collection: a belongs-to field carries its id under its own key (`pet.contactId`) and the related record stays nested only when the include names it (`include: "pet.contact"`), where an included record kept json-rest-api's shape (`pet.contact: { id }`, no `contactId`). An included record leaves out a collection it does not include itself, which json-rest-api does not read for it and would answer as empty.
