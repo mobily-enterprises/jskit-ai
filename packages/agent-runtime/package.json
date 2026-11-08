@@ -11,8 +11,8 @@
   },
   "dependencies": {
     "@jskit-ai/agent": "0.1.2",
-    "@jskit-ai/database-runtime": "0.1.261",
-    "@jskit-ai/resource-core": "0.1.203",
+    "@jskit-ai/database-runtime": "0.1.262",
+    "@jskit-ai/resource-core": "0.1.204",
     "@jskit-ai/resource-runtime": "0.2.12",
     "zod": "^4.6.7"
   },
