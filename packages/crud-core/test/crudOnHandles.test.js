@@ -312,6 +312,8 @@ test("an include shows the records it links to only as deep, and only with the f
     .map(({ type, attributes, relationships }) => [type, attributes, Object.keys(relationships ?? {})]);
 
   assert.deepEqual(await shown(["name", { publisher: ["name"] }]), [["authors", { name: "Ada" }, ["publisher"]], ["publishers", { name: "Acme" }, []]]);
+  // A level-2 field shows only when the including contract lists it.
+  assert.deepEqual(await shown(["name", { publisher: ["name", "secret"] }]), [["authors", { name: "Ada" }, ["publisher"]], ["publishers", { name: "Acme", secret: "private" }, []]]);
   // A nested record the contract does not list is not answered, and the link to it is left out.
   assert.deepEqual(await shown(["name"]), [["authors", { name: "Ada" }, []]]);
   assert.deepEqual(await shown([{ publisher: [] }]), [["authors", {}, ["publisher"]], ["publishers", {}, []]]);
