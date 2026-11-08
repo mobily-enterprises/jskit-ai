@@ -125,10 +125,14 @@ function toDbJson(value) {
 
 /**
  * True when the error reports a transaction the database aborted, and rolled
- * back in full, as a deadlock victim, or a SQLite write that found the database
- * locked by another connection (SQLITE_BUSY), after which json-rest-api rolls
- * its transaction back. A wrapper that reports its transaction committed
- * (json-rest-api's transactionOutcome) never is one.
+ * back in full, as a deadlock victim, a SQLite write that found the database
+ * locked by another connection (SQLITE_BUSY), or, with MariaDB's
+ * innodb_snapshot_isolation on, a locking read of a row another transaction
+ * changed after this one's snapshot ("Record has changed since last read",
+ * errno 1020, ER_CHECKREAD); after the last two json-rest-api rolls its
+ * transaction back, so a new run starts from a fresh snapshot. A wrapper that
+ * reports its transaction committed (json-rest-api's transactionOutcome)
+ * never is one.
  * @param {unknown} error
  */
 function isDeadlockError(error) {
@@ -139,7 +143,8 @@ function isDeadlockError(error) {
       return false;
     }
     const code = String(error.code || "").toUpperCase();
-    if (code === "ER_LOCK_DEADLOCK" || code === "40P01" || code === "SQLITE_BUSY" || Number(error.errno) === 1213) {
+    if (code === "ER_LOCK_DEADLOCK" || code === "ER_CHECKREAD" || code === "40P01" || code === "SQLITE_BUSY" ||
+      Number(error.errno) === 1213 || Number(error.errno) === 1020) {
       return true;
     }
     error = error.cause;

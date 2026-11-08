@@ -303,13 +303,15 @@ list. Each checks every row against the resource first, reads which of the
 rows the caller may touch, then writes each chunk with one statement, in one
 transaction. Audits and change events run once for the batch, so the
 statements are the same for 10 rows as for 200. `patchWhere` and
-`deleteWhere` put the scope and filters in the statement itself, so a row gone
-meanwhile is skipped, and they take no `missing`. They change the rows that
-match, but they are not a guard: on MySQL and MariaDB two writers whose filters
-both matched a row can both change it. A change that must happen only while a
-row still holds a value (open to booked, once) is
-`patch(id, changes, { ...options, onlyIf: { status: "open" } })`, a `claim`, or
-a lock and a check (Layer 4). A many-row write answers
+`deleteWhere` check the scope and filters on each row once they hold its lock,
+so a row gone meanwhile, or changed so that it no longer matches, is skipped,
+and they take no `missing`. That makes them a compare-and-set on their filters:
+of two writers whose filters both matched a row (open to booked), the one that
+waited for the other's lock leaves the row out, and its answer says so
+(`returning: "ids"` lists only the rows it wrote). For one row,
+`patch(id, changes, { ...options, onlyIf: { status: "open" } })` does the same;
+a `claim`, or a lock and a check (Layer 4), when the decision needs more than
+the row's own values. A many-row write answers
 nothing unless `returning` asks: `"ids"`, `"records"`, or `"count"`, which
 reads nothing back.
 
@@ -542,7 +544,9 @@ after-effects after commit. Any failed write inside it fails the whole
 transaction.
 
 A deadlock victim's transaction (MySQL and MariaDB errno 1213, PostgreSQL
-`40P01`) runs its whole work again, up to three more times, so the work must
+`40P01`), and one MariaDB fails as "Record has changed since last read" (errno
+1020, with `innodb_snapshot_isolation` on), runs its whole work again, up to
+three more times, so the work must
 be safe to repeat: an HTTP call or an email goes after commit, or into an
 outbox row written inside it. Work that cannot be repeated passes `{ ...options, retry: false }`, and work that must
 commit before its caller goes on passes `{ ...options, outermost: true }`.

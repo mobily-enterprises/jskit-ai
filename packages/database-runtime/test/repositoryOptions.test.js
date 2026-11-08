@@ -45,6 +45,10 @@ test("isDeadlockError recognizes deadlock victims through causes, never a commit
   assert.equal(isDeadlockError({ errno: 1213 }), true);
   assert.equal(isDeadlockError({ code: "40P01" }), true);
   assert.equal(isDeadlockError({ code: "SQLITE_BUSY", transactionOutcome: "rolledBack" }), true);
+  // MariaDB's snapshot isolation: a locking read of a row changed since the transaction's snapshot.
+  assert.equal(isDeadlockError({ code: "ER_CHECKREAD", errno: 1020 }), true);
+  assert.equal(isDeadlockError({ errno: 1020 }), true);
+  assert.equal(isDeadlockError(new Error("Write failed", { cause: { code: "ER_CHECKREAD", errno: 1020 } })), true);
   assert.equal(isDeadlockError(new Error("Write failed", { cause: deadlock() })), true);
   assert.equal(isDeadlockError({ code: "ER_LOCK_WAIT_TIMEOUT", errno: 1205 }), false);
   assert.equal(isDeadlockError({ code: "ER_DUP_ENTRY", errno: 1062 }), false);
@@ -54,6 +58,18 @@ test("isDeadlockError recognizes deadlock victims through causes, never a commit
   for (const error of [null, undefined, "deadlock", cyclic]) {
     assert.equal(isDeadlockError(error), false);
   }
+});
+
+test("retryDeadlocks runs again a transaction that read a row changed since its snapshot", async () => {
+  let attempts = 0;
+  const result = await retryDeadlocks(async () => {
+    attempts += 1;
+    if (attempts === 1) {
+      throw new Error("Write failed", { cause: Object.assign(new Error("Record has changed since last read"), { code: "ER_CHECKREAD", errno: 1020 }) });
+    }
+    return "clean";
+  });
+  assert.deepEqual([result, attempts], ["clean", 2]);
 });
 
 test("retryDeadlocks runs a deadlock victim again and returns the clean run", async () => {
