@@ -1154,6 +1154,19 @@ test("a patch that compares a lock version or onlyIf locks only the fields it co
   assert.equal(await visits.patch(ids[0], { stage: "late" }, { ...options, onlyIf: { internalCode: "other" } }), null);
 });
 
+test("a read with one include or two reads each included type once, whatever the rows, plus one visibility check per type", async (t) => {
+  const { visits, options, ids, selects } = await createVisitFixture(t);
+  const one = await selects(() => visits.get(ids[0], { fields: ["stage", "customerId"], include: ["customer"] }, options));
+  const two = await selects(() => visits.get(ids[0], { fields: ["stage", "customerId", "vetId"], include: ["customer", "vet"] }, options));
+  const many = await selects(() => visits.query({ fields: ["stage", "customerId", "vetId"], include: ["customer", "vet"], page: { size: 10 } }, options));
+  // The read, each include's own select, then json-rest-api's visibility check of each included type's linkage, which
+  // the include's scoped select already proved; json-rest-api 3.0.0 is to drop those checks, leaving the first reads.
+  assert.deepEqual(one, ["visits", "customers", "customers"]);
+  assert.deepEqual(two, ["visits", "customers", "vets", "customers", "vets"]);
+  // A page of rows reads the same tables as one row.
+  assert.deepEqual(many, two);
+});
+
 test("a sparse read names a belongs-to field by its own key or its relationship, and leaves out the ones it does not name", async (t) => {
   const { visits, options, ids } = await createVisitFixture(t);
   const expected = { id: ids[0], customerId: "1" };
