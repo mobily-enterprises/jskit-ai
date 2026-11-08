@@ -157,9 +157,11 @@ for and spread from the options the method received: `{ ...options, missing:
 "skip" }`, `{ ...options, returning: "id" }`. A method passes on only the
 options it received, never a setting it added for one of its own calls, and
 another table gets only `{ context, trx }`: `passedOn(options)` from
-`@jskit-ai/resource-runtime/server`. `withTransaction` hands its work only the
-context and the transaction, and so does a handle to its hooks and its own
-nested calls.
+`@jskit-ai/resource-runtime/server`. An owner API, called with another
+feature's options, hands each of its calls `passedOn(options)` plus the
+settings that call needs, never the caller's options whole. `withTransaction`
+hands its work only the context and the transaction, and so does a handle to
+its hooks and its own nested calls.
 
 `txOptions` is `{ context, trx }` and nothing else: every other key of the
 method's `options`, the application's own included (a flag that skips an
@@ -211,10 +213,11 @@ options)` or `{ ...txOptions, fields }` for a lock, which costs one more
 statement per 1,000 records, scoped as the read is; a read without `fields`
 never answers it. It may be an id, string, integer, number or boolean, and
 naming any other kind refuses the read. The repository a CRUD feature gives
-other features, and its own actions, refuses a read naming a hidden field
-unless it runs in a system context, so the owner checks a token in a method
-`decorateRepository` adds, with the handle it receives. Never unhide a field
-to read it, and never read it with `scopedQuery`.
+other features, and its own actions, refuses a read naming a hidden field, and
+any `scopedQuery()` (its builder carries every column), unless it runs in a
+system context, so the owner checks a token in a method `decorateRepository`
+adds, with the handle it receives. Never unhide a field to read it, and never
+read it with `scopedQuery`.
 
 `create` and `patch` answer the written record by default, read back through
 the row policy. Server code that does not use it passes `returning: "id"` or
@@ -586,7 +589,9 @@ async function activeDays(memberIds, options) {
   builder is thenable and an async function would run it. The report shapes
   that builder (select, group), names it with `.as()` and joins it, so every
   owner's scope and row policy stay applied. The report lives with the main
-  table's owner, or in a feature that requires both.
+  table's owner, or in a feature that requires both. A join source carries
+  every column, hidden ones too, so an owner answers one only to a feature
+  that may read them.
 
   ```js
   // billing's owner API: its scoped invoices as a join source, with their column names
@@ -784,8 +789,8 @@ Ask the owner: its service, or for a JSKIT table its owner API, with the same
 `auth.local.sessions`, `auth.local.recovery`) and the console
 (`console.settings`). A realtime audience reaches its users the same way: its
 `audienceUsers({ event, options })` asks the owners and answers user ids, in the
-event's scope or, for a customer's or a public surface's event, in the workspace
-its payload names (see [Realtime](/guide/app-extras/realtime)).
+event's scope: for a customer's or a public surface's event, the workspace the
+request resolved, never one its payload names (see [Realtime](/guide/app-extras/realtime)).
 
 An app that had a table resource of its own over a JSKIT table (such as
 `users`) deletes it: its CRUD contract is built on the package's table resource
