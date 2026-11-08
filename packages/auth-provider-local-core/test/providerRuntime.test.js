@@ -1516,9 +1516,19 @@ test("the confirmation sender emails the link, which is never returned or logged
   assert.equal(`${link.origin}${link.pathname}`, "https://app.example.test/auth/login");
   assert.equal(JSON.stringify(logs).includes(link.searchParams.get("confirmation_token")), false);
 
+  // The link's code alone is refused: confirming takes the registration's password too.
+  await assert.rejects(
+    app.actionExecutor.execute({
+      actionId: "auth.register.confirm",
+      input: { token: link.searchParams.get("confirmation_token") },
+      context: { channel: "internal" }
+    }),
+    (error) => error.code === "ACTION_VALIDATION_FAILED" && Object.keys(error.details.fieldErrors).join() === "password"
+  );
+  assert.deepEqual(hooked, []);
   const confirmed = await app.actionExecutor.execute({
     actionId: "auth.register.confirm",
-    input: { token: link.searchParams.get("confirmation_token") },
+    input: { token: link.searchParams.get("confirmation_token"), password: "correct horse battery staple" },
     context: { channel: "internal" }
   });
   assert.equal(confirmed.actor.email, "mail@example.com");

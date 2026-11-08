@@ -57,6 +57,14 @@ test("local auth errors carry codes whose English is the thrown message", async 
   await assert.rejects(() => service.updateDisplayName({ cookies: {} }, { displayName: "Ada" }),
     (error) => assertCoded(error, "auth.session.required"));
 
+  const confirming = await createService(t, { AUTH_LOCAL_EMAIL_CONFIRMATION: "" });
+  const waiting = await confirming.register({ email: "ada@example.com", password: "correct horse" });
+  const token = new URL(waiting.confirmationUrl).searchParams.get("confirmation_token");
+  await assert.rejects(() => confirming.confirmRegistration({ token: "unknown", password: "correct horse" }),
+    (error) => assertCoded(error, "auth.local.register.confirmationInvalid"));
+  await assert.rejects(() => confirming.confirmRegistration({ token, password: "wrong password" }),
+    (error) => assertCoded(error, "auth.local.register.confirmationPasswordInvalid"));
+
   const disabled = await createService(t, { NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" });
   await assert.rejects(() => disabled.requestPasswordReset({ email: "ada@example.com" }),
     (error) => assertCoded(error, "auth.local.recovery.notConfigured"));

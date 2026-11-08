@@ -45,6 +45,7 @@ function useLoginView() {
     setupCode: state.setupCode,
     confirmationUrl: state.confirmationUrl,
     confirmationCode: state.confirmationCode,
+    confirmationLinkToken: state.confirmationLinkToken,
     registrationConfirmPending: state.registrationConfirmPending,
     confirmRegistrationCode: actions.confirmRegistrationCode,
     confirmRegistrationFromLink: actions.confirmRegistrationFromLink,

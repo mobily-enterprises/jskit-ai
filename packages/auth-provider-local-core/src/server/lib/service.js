@@ -103,6 +103,7 @@ function createLocalAuthService({
     confirmationSender,
     firstAccountSetup,
     invitationContextResolver,
+    passwords,
     profileProjector,
     sessions
   });

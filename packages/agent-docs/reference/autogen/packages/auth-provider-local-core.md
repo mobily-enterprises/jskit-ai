@@ -59,11 +59,12 @@ Local functions
 ### `src/server/lib/emailConfirmation.js`
 Exports
 - `CONFIRMATION_TOKEN_TTL_SECONDS`
-- `createLocalEmailConfirmation({ backend, config, confirmationSender, firstAccountSetup, invitationContextResolver, profileProjector, sessions })`
+- `createLocalEmailConfirmation({ backend, config, confirmationSender, firstAccountSetup, invitationContextResolver, passwords, profileProjector, sessions })`
 - `createLoggedConfirmationSender(logger)`
 Local functions
 - `emailTakenError()`
 - `confirmationInvalidError()`
+- `confirmationPasswordInvalidError()`
 
 ### `src/server/lib/fileBackend.js`
 Exports
@@ -243,6 +244,7 @@ Exports
 ### `test-support/emailConfirmationScenario.js`
 Exports
 - `exerciseEmailConfirmation(t, service, storedRegistrations)`
+- `exerciseRegistrationTakeover(service)`
 Local functions
 - `linkToken(result)`
 

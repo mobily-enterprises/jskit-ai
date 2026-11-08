@@ -174,7 +174,7 @@ test("registration confirmation: the register answer carries the development lin
       };
     },
     async confirmRegistration(input) {
-      events.push({ type: "confirm", token: input.token });
+      events.push({ type: "confirm", token: input.token, password: input.password });
       return {
         actor: { displayName: "Ada", email: "ada@example.com" },
         session: { access_token: "confirm-a", refresh_token: "confirm-r" }
@@ -202,7 +202,7 @@ test("registration confirmation: the register answer carries the development lin
   const confirmRoute = route("/api/register/confirm");
   assert.deepEqual(confirmRoute.config.rateLimit, { max: 10, timeWindow: 60_000 });
   const confirmReply = createReplyStub();
-  await confirmRoute.handler({ body: { token: "dev-token" } }, confirmReply);
+  await confirmRoute.handler({ body: { token: "dev-token", password: "correct horse battery staple" } }, confirmReply);
   assert.equal(confirmReply.statusCode, 200);
   assert.deepEqual(confirmReply.payload, {
     ok: true,
@@ -216,7 +216,7 @@ test("registration confirmation: the register answer carries the development lin
   assert.deepEqual(
     events.filter((entry) => entry.type === "confirm" || (entry.type === "writeSession" && entry.session)),
     [
-      { type: "confirm", token: "dev-token" },
+      { type: "confirm", token: "dev-token", password: "correct horse battery staple" },
       { type: "writeSession", session: { access_token: "confirm-a", refresh_token: "confirm-r" } }
     ]
   );

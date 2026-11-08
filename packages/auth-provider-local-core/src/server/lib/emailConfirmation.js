@@ -27,13 +27,26 @@ function confirmationInvalidError() {
   });
 }
 
+function confirmationPasswordInvalidError() {
+  const code = "auth.local.register.confirmationPasswordInvalid";
+  const message = "That is not the password this registration was made with. Enter the password you registered with, or register again.";
+  return new AppError(400, message, {
+    code,
+    details: {
+      fieldErrors: { password: message },
+      fieldErrorCodes: { password: { code, params: {} } }
+    }
+  });
+}
+
 /**
  * Registration with email confirmation: registering keeps the account waiting,
  * with no account, profile or session, until the link sent to its email is
  * opened, which creates the account and signs the person in. The link's code is stored only as a hash, works once and expires
- * after a day; registering again or asking for a new link replaces it. Registering again while a registration waits keeps
- * that registration, its password included, and only sends the new link, so nobody else's registration can change the
- * password the link's account gets.
+ * after a day; asking for a new link replaces it, and registering the email again replaces the waiting registration
+ * whole, so a waiting registration never keeps the email from its owner. Confirming needs the link and the waiting
+ * registration's password: the link proves the email and the password proves the registration, so whoever registered
+ * an email, in whatever order, the account its link creates has a password the person confirming chose.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
@@ -42,6 +55,7 @@ function confirmationInvalidError() {
  * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
  *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender;
  *   in development without a sender, links also go in the response.
+ * @param {import("../types.js").AuthLocalPasswords} dependencies.passwords
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
@@ -51,6 +65,7 @@ function createLocalEmailConfirmation({
   confirmationSender,
   firstAccountSetup,
   invitationContextResolver,
+  passwords,
   profileProjector,
   sessions
 }) {
@@ -75,7 +90,8 @@ function createLocalEmailConfirmation({
 
   /**
    * Keeps a registration, already validated and with its password hashed,
-   * until its email is confirmed.
+   * until its email is confirmed. It replaces a registration already waiting
+   * for that email, and that registration's link.
    * @param {{ email: string, displayName: string, password: object, invitation: object | null }} registration
    */
   async function begin({ email, displayName, password, invitation }) {
@@ -86,10 +102,7 @@ function createLocalEmailConfirmation({
       }
       const now = new Date().toISOString();
       await tx.registrations.deleteExpired(now);
-      const waiting = await tx.registrations.findByEmail(email);
-      await tx.registrations.save(waiting
-        ? { ...waiting, tokenHash, expiresAt }
-        : { email, displayName, password, invitation, tokenHash, createdAt: now, expiresAt });
+      await tx.registrations.save({ email, displayName, password, invitation, tokenHash, createdAt: now, expiresAt });
     });
     return {
       actor: null,
@@ -102,8 +115,9 @@ function createLocalEmailConfirmation({
 
   /**
    * Creates the account a registration was waiting to create, from its link's
-   * code, and signs the person in.
-   * @param {{ token: string }} input
+   * code and the password it registered with, and signs the person in. A wrong
+   * password creates nothing and keeps the registration and its link.
+   * @param {{ token: string, password: string }} input
    */
   async function confirm(input) {
     const tokenHash = sha256Base64url(String(input.token || "").trim());
@@ -111,12 +125,16 @@ function createLocalEmailConfirmation({
     if (!waiting || isExpiredIso(waiting.expiresAt)) {
       throw confirmationInvalidError();
     }
+    if (!(await passwords.verifyPassword(String(input.password || ""), waiting.password))) {
+      throw confirmationPasswordInvalidError();
+    }
     const profileOptions = await resolveRegistrationProfileOptions(
       invitationContextResolver,
       waiting.invitation,
       waiting.email
     );
     const outcome = await backend.withTransaction(async (tx) => {
+      // Every save gives a registration a new link code, so the one this code still finds has the password just checked.
       const registration = await tx.registrations.findByTokenHash(tokenHash);
       if (!registration || isExpiredIso(registration.expiresAt)) {
         return { invalid: true };
@@ -145,8 +163,10 @@ function createLocalEmailConfirmation({
   }
 
   /**
-   * Sends a waiting registration a new link, which replaces the old one. The
-   * answer is the same whether or not a registration waits for that email.
+   * Sends a waiting registration a new link, which replaces the old one; the
+   * registration, its password included, stays as it is. An expired
+   * registration no longer waits: it registers again. The answer is the same
+   * whether or not a registration waits for that email.
    * @param {{ email: string }} input
    */
   async function resend(input) {
@@ -154,7 +174,7 @@ function createLocalEmailConfirmation({
     const { token, tokenHash, expiresAt } = newConfirmation();
     const renewed = await backend.withTransaction(async (tx) => {
       const registration = await tx.registrations.findByEmail(email);
-      if (!registration) {
+      if (!registration || isExpiredIso(registration.expiresAt)) {
         return false;
       }
       await tx.registrations.save({ ...registration, tokenHash, expiresAt });

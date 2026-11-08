@@ -18,7 +18,8 @@
           "forgot": "We will send password reset instructions to your email.",
           "otp": "Request a one-time login code and verify it below.",
           "confirmEmailSentTo": "Open the confirmation link sent to {email} to finish signing in.",
-          "confirmEmailInbox": "Open the confirmation link from your inbox to finish signing in."
+          "confirmEmailInbox": "Open the confirmation link from your inbox to finish signing in.",
+          "confirmEmailPassword": "Enter your password to finish confirming your email."
         },
         "submit": {
           "login": "Sign in",
@@ -38,6 +39,7 @@
           "confirmPassword": "Confirm password",
           "otpCode": "One-time code",
           "confirmationCode": "Confirmation link or code",
+          "registrationPassword": "Password you registered with",
           "setupCode": "Setup code"
         },
         "confirmEmail": {
@@ -47,7 +49,9 @@
           "resent": "If an account exists for that email, a confirmation email has been sent.",
           "confirm": "Confirm",
           "devLink": "Development: no email is sent, so here is the confirmation link.",
-          "useDevLink": "Confirm with this link"
+          "useDevLink": "Confirm with this link",
+          "passwordHint": "Confirming your email needs the password you chose when you registered.",
+          "linkOpened": "Enter the password you chose when you registered. If you did not register, or no longer know that password, register again."
         },
         "firstAccount": {
           "explain": "This app has no account yet. Its first account becomes its owner, so it needs the setup code the server wrote in its log when it started, or that its hosting service shows its owner."

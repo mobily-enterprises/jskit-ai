@@ -61,6 +61,39 @@
               </p>
             </div>
 
+            <!-- Confirming takes the password the registration was made with, so only its owner can confirm it. -->
+            <v-text-field
+              v-model="password"
+              data-testid="auth-confirmation-password"
+              :label="t('jskit.auth.login.field.registrationPassword')"
+              :hint="t('jskit.auth.login.confirmEmail.passwordHint')"
+              persistent-hint
+              :type="showPassword ? 'text' : 'password'"
+              variant="outlined"
+              density="comfortable"
+              autocomplete="current-password"
+              :error-messages="passwordErrorMessages"
+              :append-inner-icon="showPassword ? '$visibilityOff' : '$visibility'"
+              @click:append-inner="togglePasswordVisibility"
+              @blur="passwordTouched = true"
+              class="mb-5"
+            />
+
+            <div v-if="confirmationLinkToken" class="email-confirmation-link mb-5">
+              <v-btn
+                class="text-none"
+                variant="flat"
+                color="primary"
+                size="large"
+                type="submit"
+                data-testid="auth-confirmation-link-submit"
+                :disabled="!password"
+                :loading="registrationConfirmPending"
+              >
+                {{ t("jskit.auth.login.confirmEmail.confirm") }}
+              </v-btn>
+            </div>
+
             <div v-if="confirmationUrl" class="email-confirmation-dev-link mb-5" data-testid="auth-confirmation-dev-link">
               <p class="text-body-medium on-surface-variant mb-2">{{ t("jskit.auth.login.confirmEmail.devLink") }}</p>
               <p class="email-confirmation-url text-body-small mb-3">{{ confirmationUrl }}</p>
@@ -69,6 +102,7 @@
                 variant="flat"
                 color="primary"
                 data-testid="auth-confirmation-dev-confirm"
+                :disabled="!password"
                 :loading="registrationConfirmPending"
                 @click="confirmRegistrationFromLink"
               >
@@ -76,7 +110,10 @@
               </v-btn>
             </div>
 
-            <div v-if="canEnterConfirmationCode" class="email-confirmation-code d-flex align-start ga-2 mb-5">
+            <div
+              v-if="canEnterConfirmationCode && !confirmationLinkToken"
+              class="email-confirmation-code d-flex align-start ga-2 mb-5"
+            >
               <v-text-field
                 v-model="confirmationCode"
                 data-testid="auth-confirmation-code"
@@ -93,7 +130,7 @@
                 size="large"
                 type="submit"
                 data-testid="auth-confirmation-submit"
-                :disabled="!confirmationCode.trim()"
+                :disabled="!confirmationCode.trim() || !password"
                 :loading="registrationConfirmPending"
               >
                 {{ t("jskit.auth.login.confirmEmail.confirm") }}
@@ -319,6 +356,7 @@ const {
   setupCode,
   confirmationUrl,
   confirmationCode,
+  confirmationLinkToken,
   registrationConfirmPending,
   confirmRegistrationFromLink,
   emailConfirmationMessage,

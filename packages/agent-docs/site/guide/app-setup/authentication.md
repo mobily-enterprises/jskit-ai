@@ -162,23 +162,35 @@ password, in every environment, unless `AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
 Registering keeps the registration waiting, with no account, profile or
 session, and answers `requiresEmailConfirmation: true`; the sign-in page then
 shows "Confirm your email", with a button to send a new link and a field for
-the link or its code. Opening the link (`/auth/login?confirmation_token=...`)
-creates the account and signs the person in. The `auth.local.user.registered`
-hook runs then, not on registering. Signing in with the right password while the registration waits
-is refused with status 403 and `auth.login.emailUnconfirmed`, and the sign-in
-page shows how to confirm; a wrong password is an ordinary failed sign-in.
+the link or its code. Confirming takes the link's code and the password the
+registration was made with (`POST /api/register/confirm` with
+`{ token, password }`): opening the link (`/auth/login?confirmation_token=...`)
+asks for that password, and right after registering the page keeps the one
+just typed. Confirming creates the account and signs the person in. The
+`auth.local.user.registered` hook runs then, not on registering. A missing or
+wrong password creates nothing and keeps the registration and its link, with
+status 400 and `auth.local.register.confirmationPasswordInvalid`. Signing in
+with the right password while the registration waits is refused with status
+403 and `auth.login.emailUnconfirmed`, and the sign-in page shows how to
+confirm; a wrong password is an ordinary failed sign-in.
 
 A link's code is random, kept only as a hash, works once and expires after a
-day. Registering the same email again, or asking for a new link, replaces it,
-so a waiting registration never keeps the email from its owner. Asking for a
-new link answers the same whether or not a registration waits.
+day. Registering the same email again replaces the waiting registration whole
+and its link, so a waiting registration never keeps the email from its owner.
+Asking for a new link replaces the link and keeps the registration, password
+included; it answers the same whether or not a registration waits, and sends
+nothing for an expired one. The link proves the email and the password proves
+the registration: whoever registers an email, before its owner or after, the
+account its link creates has the password of the person who confirms it. A
+link its owner never asked for confirms nothing with the owner's password;
+the owner registers instead.
 
 The link is emailed by the optional `auth.local.confirmation-sender`
 capability, an async function accepting `{ email, confirmationUrl }`, built
 like the recovery sender below; with it, `APP_PUBLIC_URL` is required and the
 link is never returned or logged. In development without one, the link is in
 the registration's answer (`confirmationUrl`) and the log, and the sign-in page
-shows it with a button that confirms it. In production (`NODE_ENV=production`)
+shows it with a button that confirms it with the password typed. In production (`NODE_ENV=production`)
 without one, while anyone may register, the server refuses to start, naming
 the ways out: install a sender, set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`, or
 set `AUTH_LOCAL_SELF_REGISTRATION=false`. For direct library
@@ -211,7 +223,8 @@ upgrade wait. Waiting registrations are kept in the file store
 the `auth_local_registrations` table (run `npm run db:migrate`). A custom
 `auth.local.backend` implements the `registrations` collection. Tests that
 register and expect a session either confirm with the answer's
-`confirmationUrl` or set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
+`confirmationUrl` and the password they registered with, or set
+`AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
 
 ## Local accounts from application code (database backend)
 

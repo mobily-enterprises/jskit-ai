@@ -1,7 +1,10 @@
 import test from "node:test";
 import { createLocalAuthService } from "../../auth-provider-local-core/src/server/lib/index.js";
 import { localServiceOptions } from "../../auth-provider-local-core/test-support/localService.js";
-import { exerciseEmailConfirmation } from "../../auth-provider-local-core/test-support/emailConfirmationScenario.js";
+import {
+  exerciseEmailConfirmation,
+  exerciseRegistrationTakeover
+} from "../../auth-provider-local-core/test-support/emailConfirmationScenario.js";
 import { LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
 import { openSqliteLocalAuth } from "./support/localAuthRuntime.js";
 
@@ -13,4 +16,10 @@ test("registration waits for its email to be confirmed, with a hashed, single-us
   const service = createLocalAuthService({ ...localServiceOptions({ env: { AUTH_LOCAL_EMAIL_CONFIRMATION: "" } }), backend });
   await exerciseEmailConfirmation(t, service, async () =>
     JSON.stringify(await knex(LOCAL_AUTH_DB_TABLES.registrations).select()));
+});
+
+test("registering an email before or after its owner never gives its account someone else's password (database backend)", async (t) => {
+  const { backend } = await openSqliteLocalAuth(t);
+  const service = createLocalAuthService({ ...localServiceOptions({ env: { AUTH_LOCAL_EMAIL_CONFIRMATION: "" } }), backend });
+  await exerciseRegistrationTakeover(service);
 });

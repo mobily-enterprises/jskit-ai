@@ -269,7 +269,7 @@ test("register waits for email confirmation, and the other modes reach their req
   await finish(api);
 });
 
-test("email confirmation: the development link, a pasted link after an unconfirmed sign-in, and the emailed link", options, async () => {
+test("email confirmation takes the registration's password: the development link, a pasted link after an unconfirmed sign-in, and the emailed link", options, async () => {
   const session = {
     ...SIGNED_OUT,
     authCapabilities: { ...CAPABILITIES, features: { ...CAPABILITIES.features, emailConfirmationCode: true } }
@@ -291,6 +291,15 @@ test("email confirmation: the development link, a pasted link after an unconfirm
       },
       "POST /api/register/confirm": (body) => {
         confirmations.push(body.token);
+        if (body.password !== "Correct-horse-1") {
+          return {
+            status: 400,
+            json: {
+              error: "That is not the password this registration was made with. Enter the password you registered with, or register again.",
+              code: "auth.local.register.confirmationPasswordInvalid"
+            }
+          };
+        }
         if (body.token === "expired-token") {
           return {
             status: 400,
@@ -314,7 +323,7 @@ test("email confirmation: the development link, a pasted link after an unconfirm
     return api;
   }
 
-  // Registering in development shows the link, and its button confirms and signs in.
+  // Registering in development shows the link, and its button confirms with the password just typed and signs in.
   const registering = await openConfirmingApp();
   await registering.page.goto("/auth/login?mode=register&returnTo=/home");
   await registering.page.getByLabel("Email").fill("ada@example.com");
@@ -327,7 +336,7 @@ test("email confirmation: the development link, a pasted link after an unconfirm
   assert.deepEqual(confirmations, ["dev-token-1"]);
   await finish(registering);
 
-  // Signing in before confirming opens "Confirm your email", where a pasted link confirms.
+  // Signing in before confirming opens "Confirm your email", where a pasted link confirms with the password typed.
   const signingIn = await openConfirmingApp();
   await signingIn.page.goto("/auth/login?returnTo=/home");
   await signIn(signingIn.page, "ada@example.com", "Correct-horse-1");
@@ -341,17 +350,29 @@ test("email confirmation: the development link, a pasted link after an unconfirm
   assert.deepEqual(confirmations.at(-1), "pasted-token-2");
   await finish(signingIn);
 
-  // An emailed link confirms on opening; one that expired says so, and its code leaves the address.
+  // An emailed link asks for the registration's password, and its code leaves the address. A wrong password, or a link
+  // that expired, says so; the right password confirms and signs in.
   const expired = await openConfirmingApp();
   await expired.page.goto("/auth/login?confirmation_token=expired-token&returnTo=/home");
+  await expect(expired.page.getByText("Enter your password to finish confirming your email.")).toBeVisible();
+  assert.equal(new URL(expired.page.url()).search, "?returnTo=%2Fhome");
+  await expect(expired.page.getByTestId("auth-confirmation-link-submit")).toBeDisabled();
+  await expired.page.getByLabel("Password you registered with", { exact: true }).fill("Correct-horse-1");
+  await expired.page.getByTestId("auth-confirmation-link-submit").click();
   await expect.poll(async () => (await reports(expired.page)).at(-1)?.message)
     .toBe("This confirmation link is invalid or has expired. Register again to get a new one.");
-  assert.equal(new URL(expired.page.url()).search, "?returnTo=%2Fhome");
   await finish(expired);
   const emailed = await openConfirmingApp();
   await emailed.page.goto("/auth/login?confirmation_token=emailed-token-3&returnTo=/home");
+  await emailed.page.getByLabel("Password you registered with", { exact: true }).fill("a wrong password");
+  await emailed.page.getByTestId("auth-confirmation-link-submit").click();
+  await expect.poll(async () => (await reports(emailed.page)).at(-1)?.message).toBe(
+    "That is not the password this registration was made with. Enter the password you registered with, or register again."
+  );
+  await emailed.page.getByLabel("Password you registered with", { exact: true }).fill("Correct-horse-1");
+  await emailed.page.getByLabel("Password you registered with", { exact: true }).press("Enter");
   await waitForHome(emailed.page);
-  assert.deepEqual(confirmations.slice(-2), ["expired-token", "emailed-token-3"]);
+  assert.deepEqual(confirmations.slice(-3), ["expired-token", "emailed-token-3", "emailed-token-3"]);
   await finish(emailed);
 });
 

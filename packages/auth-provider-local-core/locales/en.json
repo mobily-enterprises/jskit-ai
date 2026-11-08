@@ -17,6 +17,7 @@
           "emailTaken": "An account already exists for this email.",
           "closed": "This app's accounts are by invitation only.",
           "confirmationInvalid": "This confirmation link is invalid or has expired. Register again to get a new one.",
+          "confirmationPasswordInvalid": "That is not the password this registration was made with. Enter the password you registered with, or register again.",
           "confirmationResent": "If a registration is waiting for that email, a new confirmation link has been sent."
         },
         "setup": {

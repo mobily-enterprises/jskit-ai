@@ -129,16 +129,21 @@ test("auth command body validators lowercase email inputs", () => {
   }
 });
 
-test("registration takes the first account's setup code and confirmation takes its link's code", () => {
+test("registration takes the first account's setup code and confirmation takes its link's code and password", () => {
   const registered = authRegisterCommand.operation.body.schema.create({
     email: "owner@example.com",
     password: "correct horse battery staple",
     setupCode: "ABCDE-FGHJK-MNPQR-STVWX"
   });
   assert.equal(registered.validatedObject.setupCode, "ABCDE-FGHJK-MNPQR-STVWX");
-  assert.deepEqual(Object.keys(authRegisterConfirmCommand.operation.body.schema.create({ token: "code" }).validatedObject), [
-    "token"
+  const confirmBody = authRegisterConfirmCommand.operation.body.schema;
+  assert.deepEqual(Object.keys(confirmBody.create({ token: "code", password: "correct horse" }).validatedObject), [
+    "token",
+    "password"
   ]);
+  // The link's code alone does not confirm: the registration's password is required.
+  assert.deepEqual(Object.keys(confirmBody.create({ token: "code" }).errors), ["password"]);
+  assert.deepEqual(Object.keys(confirmBody.create({ token: "code", password: "" }).errors), ["password"]);
 });
 
 test("auth session and oauth start commands expose explicit nested response schemas", () => {

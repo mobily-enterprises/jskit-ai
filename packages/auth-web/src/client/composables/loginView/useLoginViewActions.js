@@ -189,7 +189,8 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
       state.enterEmailConfirmationPendingState({
         emailAddress: normalizedEmail,
         message: registerCompletion.message,
-        confirmationUrl: registerResult?.confirmationUrl
+        confirmationUrl: registerResult?.confirmationUrl,
+        password: registerPayload.password
       });
       return;
     }
@@ -257,7 +258,11 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
       if (error?.code !== "auth.login.emailUnconfirmed") {
         throw error;
       }
-      state.enterEmailConfirmationPendingState({ emailAddress: normalizedEmail, message: serverMessage(error) });
+      state.enterEmailConfirmationPendingState({
+        emailAddress: normalizedEmail,
+        message: serverMessage(error),
+        password: loginPayload.password
+      });
       return;
     }
     state.applyRememberedAccountPreference({
@@ -422,12 +427,17 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
   }
 
   /**
-   * Confirms a registration from its link's code, or from the whole link,
-   * which signs the person in, and opens the requested page.
+   * Confirms a registration from its link's code, or from the whole link, with
+   * the password it was registered with, which signs the person in, and opens
+   * the requested page.
    * @param {unknown} codeOrLink
    */
   async function confirmRegistration(codeOrLink) {
-    const confirmPayload = { token: confirmationTokenFromInput(codeOrLink) };
+    const confirmPayload = {
+      token: confirmationTokenFromInput(codeOrLink),
+      password: String(state.password.value || "")
+    };
+    state.passwordTouched.value = true;
     state.registrationConfirmPending.value = true;
     clearTransientMessages();
     try {
@@ -458,8 +468,9 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
     }
   }
 
+  // The link this page was opened with, otherwise the code or link the person entered.
   function confirmRegistrationCode() {
-    return confirmRegistration(state.confirmationCode.value);
+    return confirmRegistration(state.confirmationLinkToken.value || state.confirmationCode.value);
   }
 
   function confirmRegistrationFromLink() {
@@ -530,13 +541,16 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
 
   async function initializeOnMounted() {
     state.applyRememberedAccountHint(readRememberedAccountHint());
-    // Opened from a registration's confirmation email.
+    // Opened from a registration's confirmation email: confirming it asks for the registration's password.
     const confirmationToken = takeConfirmationTokenFromLocation();
     state.loading.value = true;
     try {
       const session = await refreshSession();
       if (confirmationToken) {
-        await confirmRegistration(confirmationToken);
+        state.enterEmailConfirmationPendingState({
+          message: t("jskit.auth.login.confirmEmail.linkOpened"),
+          linkToken: confirmationToken
+        });
         return;
       }
       const callbackHandled = await handleOAuthCallbackIfPresent();

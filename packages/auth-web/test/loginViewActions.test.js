@@ -387,3 +387,77 @@ for (const refusal of [
     assert.equal(reports[0]?.message, refusal.payload.error);
   });
 }
+
+test("a page opened from a confirmation link asks for the registration's password, and confirming sends both", async (t) => {
+  const state = createMinimalLoginViewState("/home");
+  Object.assign(state, { confirmationLinkToken: { value: "" }, passwordTouched: { value: false } });
+  state.password.value = "";
+  const pending = [];
+  state.enterEmailConfirmationPendingState = (entry) => {
+    pending.push(entry);
+    state.confirmationLinkToken.value = entry.linkToken;
+  };
+  const destinations = [];
+  const addresses = [];
+  const originalWindow = globalThis.window;
+  globalThis.window = {
+    location: {
+      href: "https://example.com/auth/login?confirmation_token=link-code&returnTo=%2Fhome",
+      replace: (path) => destinations.push(path)
+    },
+    history: { replaceState: (_state, _title, url) => addresses.push(url) }
+  };
+  t.after(() => {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    clearAuthCsrfTokenCache();
+  });
+  const confirmations = [];
+  let signedIn = false;
+  t.mock.method(globalThis, "fetch", async (url, options = {}) => {
+    const method = String(options.method || "GET").toUpperCase();
+    if (url === "/api/session" && method === "GET") {
+      return createJsonResponse({ authenticated: signedIn, csrfToken: "csrf-session" });
+    }
+    assert.equal(`${method} ${url}`, "POST /api/register/confirm");
+    const body = JSON.parse(options.body);
+    confirmations.push(body);
+    if (body.password !== "the registration's password") {
+      return createJsonResponse({
+        error: "That is not the password this registration was made with. Enter the password you registered with, or register again.",
+        code: "auth.local.register.confirmationPasswordInvalid"
+      }, { status: 400 });
+    }
+    signedIn = true;
+    return createJsonResponse({ ok: true, email: "ada@example.com", username: "Ada", message: "Your email is confirmed." });
+  });
+  const actions = useLoginViewActions({
+    state,
+    validation: {},
+    queryClient: { fetchQuery: ({ queryFn }) => queryFn() },
+    errorRuntime: { report() {} }
+  });
+
+  // Opening the link takes its code out of the address and asks for the password; nothing is confirmed yet.
+  await actions.initializeOnMounted();
+  assert.deepEqual(addresses, ["/auth/login?returnTo=%2Fhome"]);
+  assert.equal(pending.length, 1);
+  assert.equal(pending[0].linkToken, "link-code");
+  assert.deepEqual(confirmations, []);
+
+  // Without a password nothing is sent; a wrong one is refused and the page stays.
+  await actions.confirmRegistrationCode();
+  assert.deepEqual(confirmations, []);
+  assert.notEqual(state.errorMessage.value, "");
+  state.password.value = "a wrong password";
+  await actions.confirmRegistrationCode();
+  assert.deepEqual(confirmations, [{ token: "link-code", password: "a wrong password" }]);
+  assert.match(state.errorMessage.value, /^That is not the password this registration was made with\./u);
+  assert.deepEqual(destinations, []);
+
+  // The registration's password confirms, signs in and opens the requested page.
+  state.password.value = "the registration's password";
+  await actions.confirmRegistrationCode();
+  assert.deepEqual(confirmations.at(-1), { token: "link-code", password: "the registration's password" });
+  assert.deepEqual(destinations, ["/home"]);
+});

@@ -72,6 +72,8 @@ export function useLoginViewState({ placementContext }) {
   const confirmationUrl = ref("");
   // A confirmation code or link the person types or pastes.
   const confirmationCode = ref("");
+  // The code of the confirmation link this page was opened with, confirmed with the password typed next to it.
+  const confirmationLinkToken = ref("");
   const invitationToken = ref(readWindowSearchParam("invitationToken") || readWindowSearchParam("inviteToken"));
 
   const isLogin = computed(() => mode.value === LOGIN_MODE);
@@ -109,6 +111,9 @@ export function useLoginViewState({ placementContext }) {
   const authTitle = computed(() => modeText(AUTH_TITLE_BY_MODE));
   const authSubtitle = computed(() => {
     if (isEmailConfirmationPending.value) {
+      if (confirmationLinkToken.value) {
+        return t("jskit.auth.login.subtitle.confirmEmailPassword");
+      }
       const maskedEmail = maskEmail(pendingEmailConfirmationAddress.value);
       if (maskedEmail) {
         return t("jskit.auth.login.subtitle.confirmEmailSentTo", { email: maskedEmail });
@@ -254,6 +259,7 @@ export function useLoginViewState({ placementContext }) {
       pendingEmailConfirmationMessage.value = "";
       confirmationUrl.value = "";
       confirmationCode.value = "";
+      confirmationLinkToken.value = "";
     }
     clearTransientMessages();
     resetTransientValidationState();
@@ -268,11 +274,24 @@ export function useLoginViewState({ placementContext }) {
     }
   }
 
-  function enterEmailConfirmationPendingState({ emailAddress = "", message = "", confirmationUrl: url = "" } = {}) {
+  /**
+   * Shows "Confirm your email". Confirming takes the registration's password:
+   * the one just typed to register or sign in stays in its field, and a page
+   * opened from a confirmation link (`linkToken`) asks for it.
+   */
+  function enterEmailConfirmationPendingState({
+    emailAddress = "",
+    message = "",
+    confirmationUrl: url = "",
+    password: typedPassword = "",
+    linkToken = ""
+  } = {}) {
     switchMode(EMAIL_CONFIRMATION_MODE);
     pendingEmailConfirmationAddress.value = normalizeEmailAddress(emailAddress);
     pendingEmailConfirmationMessage.value = String(message || "").trim();
     confirmationUrl.value = String(url || "").trim();
+    password.value = String(typedPassword || "");
+    confirmationLinkToken.value = String(linkToken || "").trim();
   }
 
   function goToMainScreen() {
@@ -309,6 +328,7 @@ export function useLoginViewState({ placementContext }) {
     pendingEmailConfirmationAddress,
     confirmationUrl,
     confirmationCode,
+    confirmationLinkToken,
     invitationToken,
     isLogin,
     isRegister,

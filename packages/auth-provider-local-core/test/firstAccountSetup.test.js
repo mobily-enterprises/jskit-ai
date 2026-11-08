@@ -130,7 +130,7 @@ test("with email confirmation, the code admits the first registration, and confi
   assert.equal(waitingForFirstAccount(service), true);
   await assert.rejects(service.register({ email: "early@example.com", password: PASSWORD }), codeRequired);
 
-  const owner = await service.confirmRegistration({ token: links[0].searchParams.get("confirmation_token") });
+  const owner = await service.confirmRegistration({ token: links[0].searchParams.get("confirmation_token"), password: PASSWORD });
   assert.equal(owner.actor.email, "owner@example.com");
   assert.ok(owner.session.access_token);
   assert.equal(waitingForFirstAccount(service), false);

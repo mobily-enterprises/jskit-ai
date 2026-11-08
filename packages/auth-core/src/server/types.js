@@ -79,8 +79,9 @@
  * @property {() => boolean} isDevAuthBootstrapEnabled
  * @property {(input: object) => Promise<object>} register
  * @property {(input: object) => Promise<object>} resendRegisterConfirmation
- * @property {(input: { token: string }) => Promise<object>} confirmRegistration Creates the account a
- *   registration waited to create until its email was confirmed, from its link's code, and signs the person in.
+ * @property {(input: { token: string, password: string }) => Promise<object>} confirmRegistration Creates the account a
+ *   registration waited to create until its email was confirmed, from its link's code and the password it registered
+ *   with, and signs the person in.
  * @property {(input: object) => Promise<object>} login
  * @property {(input: object) => Promise<object>} requestOtpLogin
  * @property {(input: object) => Promise<object>} verifyOtpLogin

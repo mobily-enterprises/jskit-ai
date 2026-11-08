@@ -6,7 +6,7 @@ import test from "node:test";
 import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
 import { createLocalAuthService, createLocalFileBackend } from "../src/server/lib/index.js";
 import { localServiceOptions } from "../test-support/localService.js";
-import { exerciseEmailConfirmation } from "../test-support/emailConfirmationScenario.js";
+import { exerciseEmailConfirmation, exerciseRegistrationTakeover } from "../test-support/emailConfirmationScenario.js";
 
 const PASSWORD = "correct horse battery staple";
 
@@ -28,6 +28,11 @@ test("registration waits for its email to be confirmed, with a hashed, single-us
   );
   await exerciseEmailConfirmation(t, service, () =>
     fs.readFile(path.join(storeDir, "registrations.passwd"), "utf8").catch(() => ""));
+});
+
+test("registering an email before or after its owner never gives its account someone else's password (file backend)", async (t) => {
+  const { service } = await startService(t);
+  await exerciseRegistrationTakeover(service);
 });
 
 test("AUTH_LOCAL_EMAIL_CONFIRMATION=false registers and signs in at once, and confirming is unsupported", async (t) => {
@@ -72,6 +77,6 @@ test("an invitation is checked on registering and given to the account its confi
   });
   assert.deepEqual(synced, []);
   const token = new URL(registered.confirmationUrl).searchParams.get("confirmation_token");
-  await service.confirmRegistration({ token });
+  await service.confirmRegistration({ token, password: PASSWORD });
   assert.deepEqual(synced, [{ email: "guest@example.com", source: "workspace-invite", token: "invite-1" }]);
 });

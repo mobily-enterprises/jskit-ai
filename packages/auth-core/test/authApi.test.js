@@ -34,7 +34,7 @@ test("authApi exposes the expected methods and request routes", async () => {
   await api.login({ email: "x@example.com" });
   await api.devLoginAs({ userId: "42" });
   await api.logout();
-  await api.confirmRegistration({ token: "confirmation-code" });
+  await api.confirmRegistration({ token: "confirmation-code", password: "correct horse" });
 
   assert.equal(calls[0].url, "/api/session");
   assert.equal(calls[1].url, "/api/register/confirmation/resend");
@@ -46,7 +46,7 @@ test("authApi exposes the expected methods and request routes", async () => {
   assert.equal(calls[4].url, "/api/logout");
   assert.equal(calls[4].options.method, "POST");
   assert.equal(calls[5].url, "/api/register/confirm");
-  assert.deepEqual(calls[5].options, { method: "POST", body: { token: "confirmation-code" } });
+  assert.deepEqual(calls[5].options, { method: "POST", body: { token: "confirmation-code", password: "correct horse" } });
 });
 
 test("authApi oauthStartUrl builds provider path with optional returnTo", () => {
