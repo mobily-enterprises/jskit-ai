@@ -29,6 +29,7 @@ test("shared entrypoint exports shared database utilities only", () => {
   assert.equal(typeof sharedApi.isDuplicateEntryError, "function");
   assert.equal(typeof sharedApi.isDeadlockError, "function");
   assert.equal(typeof sharedApi.retryDeadlocks, "function");
+  assert.equal(typeof sharedApi.retryLostInsertRace, "function");
   assert.equal(typeof sharedApi.toDatabaseDateTimeUtc, "function");
   assert.equal(typeof sharedApi.DatabaseProvider, "undefined");
   for (const removed of [

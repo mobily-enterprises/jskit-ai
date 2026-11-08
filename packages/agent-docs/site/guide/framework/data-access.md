@@ -340,6 +340,23 @@ plainly and its duplicate retried instead. Inserting and catching the
 duplicate works only outside a transaction: inside one, the failed insert
 fails the whole transaction, so use an upsert there.
 
+A transaction whose insert loses a race for a unique key (another request with
+the same idempotency key committed first) runs once more:
+`retryLostInsertRace(options, () => repository.withTransaction(options, work))`
+from `@jskit-ai/database-runtime/shared`. The database reports the duplicate
+only once the winner has committed, so the second run's lookup by the key
+finds the winner's row. A second duplicate is final, and inside a caller's
+transaction nothing runs again: the caller's transaction has failed, and the
+caller's own retry runs the whole of it. Never write this retry by hand.
+
+```js
+// A repeated payment request answers the first one's record.
+const recordPayment = (input, options) => retryLostInsertRace(options, () => payments.withTransaction(options, async (txOptions) => {
+  const [paid] = await payments.queryAll({ filters: { requestKey: input.requestKey } }, txOptions);
+  return paid ?? payments.create(input, txOptions);
+}));
+```
+
 ## Layer 4: locks
 
 When two requests could change the same rows at once (allocating stock,
@@ -600,8 +617,8 @@ caller's, `outermost` refuses one, and `lock`, `lockMany`, `lockOrCreate` and
 
 When the work throws, the transaction rolls back and the caller gets the
 work's own error, with its status and code, reporting `transactionOutcome:
-"rolledBack"`, so a retry of a lost insert race (`isLostDuplicateInsertRace`)
-also sees a 409 the work made from the duplicate. A failed write inside the work, or a failed commit, reaches
+"rolledBack"`, so `retryLostInsertRace` (Layer 3) also runs again work that
+turned the duplicate into its own 409. A failed write inside the work, or a failed commit, reaches
 the caller as json-rest-api's `RestApiWriteError` (code `REST_API_WRITE`)
 with the transaction's outcome. Classify an error by its `code` or `status`,
 never with `instanceof`: a second copy of a package makes a second class.

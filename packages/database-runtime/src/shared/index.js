@@ -19,5 +19,6 @@ export {
   parseJsonValue,
   toDbJson,
   isDeadlockError,
-  retryDeadlocks
+  retryDeadlocks,
+  retryLostInsertRace
 } from "./repositoryOptions.js";

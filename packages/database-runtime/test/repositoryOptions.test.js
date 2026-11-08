@@ -5,7 +5,8 @@ import {
   normalizeDbRecordId,
   parseJsonValue,
   resolveInsertedRecordId,
-  retryDeadlocks
+  retryDeadlocks,
+  retryLostInsertRace
 } from "../src/shared/repositoryOptions.js";
 
 function deadlock() {
@@ -108,4 +109,49 @@ test("retryDeadlocks runs again only deadlock victims, a few times", async () =>
   const victim = deadlock();
   assert.equal(await attemptsUntilRejected(victim), 4);
   assert.equal(await attemptsUntilRejected(victim, { retries: 0 }), 1);
+});
+
+// What a handle's withTransaction rethrows when its insert lost to a committed one: the duplicate, rolled back in full.
+function lostInsertRace() {
+  const duplicate = Object.assign(new Error("Duplicate entry 'k' for key 'requests_key_unique'"), { code: "ER_DUP_ENTRY", errno: 1062 });
+  return Object.assign(new Error("Write failed", { cause: duplicate }), { transactionOutcome: "rolledBack" });
+}
+
+test("retryLostInsertRace runs a transaction once more when its insert lost a unique race, and answers the second run", async () => {
+  let runs = 0;
+  const result = await retryLostInsertRace({ context: {} }, async () => {
+    runs += 1;
+    if (runs === 1) {
+      throw lostInsertRace();
+    }
+    return "the winner's record";
+  });
+  assert.deepEqual([result, runs], ["the winner's record", 2]);
+});
+
+test("retryLostInsertRace runs again only a lost race outside a caller's transaction, and only once", async () => {
+  async function runsUntilRejected(options, error) {
+    let runs = 0;
+    await assert.rejects(retryLostInsertRace(options, async () => {
+      runs += 1;
+      throw error;
+    }), (thrown) => thrown === error);
+    return runs;
+  }
+  // A second duplicate is final.
+  assert.equal(await runsUntilRejected({}, lostInsertRace()), 2);
+  // Inside the caller's transaction the failed insert failed that transaction: the caller gets the error.
+  assert.equal(await runsUntilRejected({ trx: {} }, lostInsertRace()), 1);
+  // Not a duplicate, or a duplicate whose transaction did not roll back in full.
+  assert.equal(await runsUntilRejected({}, Object.assign(new Error("Validation failed"), { transactionOutcome: "rolledBack" })), 1);
+  assert.equal(await runsUntilRejected({}, Object.assign(lostInsertRace(), { transactionOutcome: "pending" })), 1);
+  assert.equal(await runsUntilRejected({}, lostInsertRace().cause), 1);
+});
+
+test("retryLostInsertRace takes (options, run)", async () => {
+  const run = async () => "ran";
+  for (const call of [() => retryLostInsertRace(run), () => retryLostInsertRace(undefined, run), () => retryLostInsertRace({}, run, {})]) {
+    await assert.rejects(call(), /retryLostInsertRace\(\) takes \(options, run\)/u);
+  }
+  assert.equal(await retryLostInsertRace({}, run), "ran");
 });

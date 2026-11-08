@@ -1,4 +1,5 @@
 import { normalizeCanonicalRecordIdText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isLostDuplicateInsertRace } from "./duplicateEntry.js";
 
 function parseJsonObject(value, fallback = {}) {
   const source = String(value || "").trim();
@@ -175,6 +176,41 @@ async function retryDeadlocks(run, { retries = 3 } = {}) {
   }
 }
 
+/**
+ * Runs `run` once more when its insert lost a race for a unique key: another
+ * request inserted the same key first (an idempotency or request key, a
+ * revision number, a computed id), and `run`'s own transaction rolled back in
+ * full (isLostDuplicateInsertRace). The database reports the duplicate only
+ * once the winner has committed, so the second run reads a snapshot that holds
+ * the winner's row: its lookup by the key finds it, and every other check sees
+ * the current state. A second duplicate is final. `run` is a transaction
+ * opened with these `options`, usually `() => repository.withTransaction(options,
+ * work)`, and must be safe to repeat, as for a deadlock retry. Inside a
+ * caller's transaction (`options.trx`) the failed insert has failed that
+ * transaction, so `run` never runs again there: the error reaches the caller,
+ * whose own retry, if it has one, runs the whole of it again.
+ * @template T
+ * @param {{ trx?: unknown }} options The options `run` opens its transaction with.
+ * @param {() => Promise<T>} run
+ * @returns {Promise<T>}
+ */
+async function retryLostInsertRace(options, run, ...rest) {
+  if (!options || typeof options !== "object" || typeof run !== "function" || rest.length > 0) {
+    throw new TypeError(
+      "retryLostInsertRace() takes (options, run): the options run opens its transaction with, then " +
+        "run, such as () => repository.withTransaction(options, work)."
+    );
+  }
+  try {
+    return await run();
+  } catch (error) {
+    if (!isLostDuplicateInsertRace(error, options)) {
+      throw error;
+    }
+    return run();
+  }
+}
+
 export {
   parseJsonObject,
   stringifyJsonObject,
@@ -184,5 +220,6 @@ export {
   parseJsonValue,
   toDbJson,
   isDeadlockError,
-  retryDeadlocks
+  retryDeadlocks,
+  retryLostInsertRace
 };
