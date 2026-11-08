@@ -84,6 +84,8 @@ Local functions
 - `git(repoRoot, args)`
 - `commitAll(repoRoot, message)`
 - `releaseCommitMessage(entries)`
+- `catalogPins(record, entry)`
+- `waitUntilServedAsLatest(pins, inspection, { attempts = Number(process.env.JSKIT_RELEASE_SERVE_ATTEMPTS || 20), delayMs = Number(process.env.JSKIT_RELEASE_RETRY_DELAY_MS || 30_000) } = {})`
 - `publishRelease(records, { cwd: repoRoot, registry })`
 - `publishCommand(options)`
 - `forgetPinnedLockEntries(repoRoot, names)`
