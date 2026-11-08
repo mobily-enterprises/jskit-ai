@@ -1,12 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import knexLib from "knex";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { emptyInputValidator, resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { HttpProvider } from "@jskit-ai/kernel/server/http";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { startTestFeatures } from "../src/test/index.js";
+import { createPackageTestKnex, startTestFeatures } from "../src/test/index.js";
 
 // A route that reads its own tables without an action takes request.callOptions(): the call options the same request's
 // action gets, from the same context contributors, so each table is scoped as the action would scope it.
@@ -113,8 +112,8 @@ function fastifyStub() {
 }
 
 test("a hand route's callOptions() scope user, workspace and workspace_user tables as the same request's action", async (t) => {
-  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
-  t.after(() => knex.destroy());
+  // SQLite in memory, or a PostgreSQL schema of its own on a DB_CLIENT=pg run (see createPackageTestKnex).
+  const knex = await createPackageTestKnex(t, { environment: process.env });
   for (const [table, columns] of [["bookmarks", ["user_id"]], ["notes", ["workspace_id"]], ["pins", ["workspace_id", "user_id"]]]) {
     await knex.schema.createTable(table, (builder) => {
       builder.increments("id");
