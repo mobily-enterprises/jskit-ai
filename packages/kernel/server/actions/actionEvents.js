@@ -4,7 +4,7 @@ import {
   normalizeText,
   isRecord
 } from "../../shared/support/normalize.js";
-import { resolveActorId } from "./actionContributorHelpers.js";
+import { resolveActorId, resolveRequest } from "./actionContributorHelpers.js";
 
 const ENTITY_CHANGE_OPERATIONS = new Set(["created", "updated", "deleted"]);
 
@@ -87,6 +87,21 @@ function resolveVisibilityScope(visibilityContext = {}) {
   return null;
 }
 
+/**
+ * The workspace the execution's request resolved, as the framework set it on the context (the context's workspace,
+ * the resolved workspace context, the request's workspace), never from input or payload; null when none is set or
+ * they disagree.
+ * @param {object} context
+ */
+function resolveRequestWorkspaceId(context) {
+  const ids = [
+    context.workspace?.id,
+    context.requestMeta?.resolvedWorkspaceContext?.workspace?.id,
+    resolveRequest(context)?.workspace?.id
+  ].map((id) => normalizeOpaqueId(id)).filter((id) => id != null);
+  return ids.length > 0 && ids.every((id) => id === ids[0]) ? ids[0] : null;
+}
+
 function resolveEventScope(context = {}) {
   const visibilityScope = resolveVisibilityScope(normalizeObject(context.visibilityContext));
   if (visibilityScope) {
@@ -98,9 +113,13 @@ function resolveEventScope(context = {}) {
     return contextScope;
   }
 
+  // A customer's or a public surface's write reaches no room by its scope, but its audience reads in the workspace
+  // it ran in (realtime's audienceUsers), which only the framework names.
+  const workspaceId = resolveRequestWorkspaceId(context);
   return {
     kind: "global",
-    id: null
+    id: null,
+    ...(workspaceId == null ? {} : { workspaceId })
   };
 }
 

@@ -39,12 +39,13 @@ example `activeMemberIds(workspaceId, options)` of `workspaces.memberships`, or
 the record owner's repository) and never the database directly. It runs once
 for the event, however many sockets receive it, and `options.context` is the
 event's own scope (its workspace, user, or user in a workspace), so the owners
-answer for that scope and not for a request's. An event whose scope names no
-workspace and no user, such as one written on a customer's or a public surface,
-reads in the workspace its payload names as `workspaceId`: the action sets it
-from the execution it wrote in, as
-`payload: ({ context }) => ({ workspaceId: resolveWorkspaceScopeValue(context) })`
-(`@jskit-ai/resource-runtime/server`). Realtime needs no database, so
+answer for that scope and not for a request's. An event written on a customer's
+or a public surface has a global scope, which reaches no room by itself: the
+framework adds the workspace the request resolved as its `workspaceId`, so the
+audience reads there and `all_workspace_users` reaches it. The payload never
+chooses the scope, since a payload may copy an input id: an `audienceUsers`
+reads with `options`, never with a workspace the payload names. An event with
+no workspace and no user reads with no context. Realtime needs no database, so
 those contexts come from `RealtimeAudienceScopeFeature`
 (`@jskit-ai/realtime/server/RealtimeAudienceScopeFeature`): an application whose
 action events declare such an audience registers it beside its other features,

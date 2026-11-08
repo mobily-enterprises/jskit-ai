@@ -388,19 +388,26 @@ test("realtime delivery reaches an audience's users, read once per event in the 
   await delivery.handle({ type: "entity.changed", entityId: "91", realtime: { event: "users.bootstrap.changed", audience } });
   assert.deepEqual(reads.at(-1).options, {}, "An event without a scope reads with no context");
 
-  // A customer's or a public surface's event is scoped globally: it reads in the workspace its payload names. A scope
-  // that names a workspace or a user keeps it.
+  // A customer's or a public surface's event is scoped globally, with the workspace the request resolved as the
+  // scope's workspaceId, which the framework sets: it reads there. The payload never chooses the scope: one naming
+  // another workspace (an input id it copied) neither widens nor moves the read.
   const payloadScopes = [
-    [{ kind: "global", id: null }, { workspaceId: "12" }],
-    [null, { workspaceId: "12" }],
+    [{ kind: "global", id: null, workspaceId: "11" }, { workspaceId: "11" }],
+    [{ kind: "global", id: null }, null],
+    [null, null],
     [{ kind: "workspace", id: "11" }, { workspaceId: "11" }],
     [{ kind: "user", id: "7" }, { userId: "7" }]
   ];
   for (const [scope, scopeValues] of payloadScopes) {
     await delivery.handle({ type: "entity.changed", entityId: "91", ...(scope ? { scope } : {}),
       realtime: { event: "users.bootstrap.changed", audience, payload: { workspaceId: "12" } } });
-    assert.deepEqual(reads.at(-1).options.context.scopeValues, scopeValues);
+    assert.deepEqual(reads.at(-1).options.context?.scopeValues ?? null, scopeValues);
   }
+  assert.equal(reads.some(({ options }) => options.context?.scopeValues?.workspaceId === "12"), false);
+  const delivered = io.emitted.length;
+  await delivery.handle({ type: "entity.changed", entityId: "91", scope: { kind: "global", id: null },
+    realtime: { event: "users.bootstrap.changed", audience: "all_workspace_users", payload: { workspaceId: "12" } } });
+  assert.equal(io.emitted.slice(delivered).some(({ room }) => [room].flat().includes("workspace:12")), false);
 });
 
 test("without realtime.audience-scope an audience built when its action ran is refused at publish, and logged", async () => {

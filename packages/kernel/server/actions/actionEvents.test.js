@@ -91,3 +91,20 @@ test("an entity-changed event builder carries the realtime part it was declared 
     realtime);
   assert.equal(createEntityChangedActionEvent({ source: "workspace", entity: "settings", operation: "updated", entityId: 1 }).realtime, null);
 });
+
+test("a global event scope carries the workspace the request resolved, and never one its input or payload names", () => {
+  const realtime = { event: "bookings.changed", payload: ({ input }) => ({ workspaceId: input.workspaceId }) };
+  const build = (context) => createEntityChangedActionEvent({ source: "portal", entity: "booking", operation: "updated", entityId: 5, realtime })({
+    context,
+    input: { workspaceId: "99" }
+  });
+  const resolved = { workspace: { id: 23 }, requestMeta: { resolvedWorkspaceContext: { workspace: { id: "23" } } } };
+  assert.deepEqual(build({ ...resolved, visibilityContext: { visibility: "public" } }).scope, { kind: "global", id: null, workspaceId: "23" });
+  assert.deepEqual(build({ requestMeta: { request: { workspace: { id: 23 } } } }).scope, { kind: "global", id: null, workspaceId: "23" });
+  assert.deepEqual(build({}).scope, { kind: "global", id: null });
+  // Two workspaces in one context name none.
+  assert.deepEqual(build({ workspace: { id: 23 }, requestMeta: { resolvedWorkspaceContext: { workspace: { id: 24 } } } }).scope,
+    { kind: "global", id: null });
+  // A scope that names its own workspace or user keeps it.
+  assert.deepEqual(build({ ...resolved, visibilityContext: { scopeKind: "workspace", scopeOwnerId: 23 } }).scope, { kind: "workspace", id: "23" });
+});

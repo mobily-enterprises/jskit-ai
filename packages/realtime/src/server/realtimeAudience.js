@@ -212,10 +212,11 @@ function addAudienceRooms(selection, state) {
 /**
  * The options an audience's audienceUsers reads with: a context scoped to the
  * event's own workspace, workspace user or user, so owner APIs answer for the
- * event's scope and never for a request's. An event whose scope names no
- * workspace and no user (one written on a customer's or a public surface, or by
- * a job) reads in the workspace its payload names as `workspaceId`, which the
- * server builds from the write's execution. An event with neither, or an
+ * event's scope and never for a request's. The scope is the one the framework
+ * built from the write's execution: an event written on a customer's or a public
+ * surface carries the workspace the request resolved as its global scope's
+ * `workspaceId`. The payload never chooses it: an app's payload may copy an
+ * input id. An event whose scope names no workspace and no user, or an
  * application without `realtime.audience-scope`, reads with no context.
  * @param {object} event
  * @param {RealtimeAudienceScope | null | undefined} audienceScope
@@ -225,9 +226,7 @@ function audienceReadOptions(event, audienceScope) {
   const scope = event?.scope;
   const kind = normalizeText(scope?.kind).toLowerCase();
   const userId = resolveScopeUserId(scope);
-  const scopeWorkspaceId = kind === "user" ? null : resolveScopeWorkspaceId(scope);
-  const payloadWorkspaceId = normalizeRecordId(event?.realtime?.payload?.workspaceId, { fallback: null });
-  const workspaceId = scopeWorkspaceId ?? (userId ? null : payloadWorkspaceId);
+  const workspaceId = kind === "user" ? null : resolveScopeWorkspaceId(scope);
   if (workspaceId) {
     return Object.freeze({
       context: userId ? audienceScope.forWorkspaceUser(workspaceId, userId) : audienceScope.forWorkspace(workspaceId)
