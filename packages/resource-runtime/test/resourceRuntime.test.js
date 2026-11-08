@@ -1196,17 +1196,96 @@ test("a patch that compares a lock version or onlyIf locks only the fields it co
   await assert.rejects(visits.patch("999", { stage: "late" }, { ...options, onlyIf: { reviewer: "lee" } }), notFound);
 });
 
-test("a read with one include or two reads each included type once, whatever the rows, plus one visibility check per type", async (t) => {
+test("a read with one include or two reads each included type once, whatever the rows, and checks no included link again", async (t) => {
   const { visits, options, ids, selects } = await createVisitFixture(t);
   const one = await selects(() => visits.get(ids[0], { fields: ["stage", "customerId"], include: ["customer"] }, options));
   const two = await selects(() => visits.get(ids[0], { fields: ["stage", "customerId", "vetId"], include: ["customer", "vet"] }, options));
   const many = await selects(() => visits.query({ fields: ["stage", "customerId", "vetId"], include: ["customer", "vet"], page: { size: 10 } }, options));
-  // The read, each include's own select, then json-rest-api's visibility check of each included type's linkage, which
-  // the include's scoped select already proved; json-rest-api 3.0.0 is to drop those checks, leaving the first reads.
-  assert.deepEqual(one, ["visits", "customers", "customers"]);
-  assert.deepEqual(two, ["visits", "customers", "vets", "customers", "vets"]);
+  // The read, then each include's own scoped select. A link to an included target needs no visibility check: the
+  // include's select already proved the reader may see it.
+  assert.deepEqual(one, ["visits", "customers"]);
+  assert.deepEqual(two, ["visits", "customers", "vets"]);
   // A page of rows reads the same tables as one row.
   assert.deepEqual(many, two);
+});
+
+test("a record written back as it was read keeps a link to a target the writer cannot see", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("suppliers", (table) => {
+    table.increments("id");
+    table.string("name");
+    table.boolean("archived").notNullable().defaultTo(false);
+  });
+  await knex.schema.createTable("items", (table) => {
+    table.increments("id");
+    table.string("name");
+    table.integer("supplier_id");
+  });
+  await knex("suppliers").insert([{ name: "Open", archived: false }, { name: "Closed", archived: true }]);
+  await knex("items").insert([{ name: "Kept", supplier_id: 2 }, { name: "Other", supplier_id: 2 }, { name: "Third", supplier_id: 2 }]);
+  const suppliers = defineTableResource({
+    name: "suppliers",
+    tableName: "suppliers",
+    ownership: "public",
+    schema: { name: { type: "string" }, archived: { type: "boolean", defaultTo: false } }
+  });
+  const items = defineTableResource({
+    name: "items",
+    tableName: "items",
+    ownership: "public",
+    schema: {
+      name: { type: "string" },
+      supplierId: { type: "id", nullable: true, belongsTo: "suppliers", as: "supplier", storage: { column: "supplier_id" } }
+    }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  // A request sees only open suppliers, so a link to an archived one reads as null.
+  const handles = await runtime.own("items.feature", [items, {
+    resource: suppliers,
+    rowPolicy: ({ query, column, caller }) => {
+      if (caller.kind !== "system") query.where(column("archived"), false);
+      return true;
+    }
+  }]);
+  const options = { context: { actor: { id: "7" } } };
+  const supplierOf = async (id) => (await knex("items").where({ id }).first("supplier_id")).supplier_id;
+  const read = await handles.items.get("1", {}, options);
+  assert.equal(read.supplierId, null);
+
+  // A form sends back what it read: the null it was shown keeps the stored link, and the rest of the write applies.
+  await handles.items.patch("1", { name: "Renamed", supplierId: read.supplierId }, { ...options, returning: "none" });
+  assert.deepEqual(await knex("items").where({ id: 1 }).first("name", "supplier_id"), { name: "Renamed", supplier_id: 2 });
+  await handles.items.patchMany([{ id: "2", name: "Also", supplierId: null }], options);
+  assert.equal(await supplierOf(2), 2);
+  // Linking a target the writer sees applies, and so does clearing a link to one.
+  await handles.items.patch("3", { supplierId: "1" }, { ...options, returning: "none" });
+  assert.equal(await supplierOf(3), 1);
+  await handles.items.patch("3", { supplierId: null }, { ...options, returning: "none" });
+  assert.equal(await supplierOf(3), null);
+});
+
+test("a job finds its units by grouping on a hidden ownership field, which a request may not group by", async (t) => {
+  const { notes, runtime } = await createFixture(t, {
+    owns: [noteResource({
+      schema: {
+        id: { type: "id", primary: true },
+        workspaceId: { type: "id", nullable: true, hidden: true, storage: { column: "workspace_id" } },
+        title: { type: "string", required: true, search: true },
+        status: { type: "string", defaultTo: "open", search: true },
+        lockVersion: { type: "integer", defaultTo: 0, storage: { column: "lock_version" } }
+      }
+    })]
+  });
+  await notes.createMany([{ title: "a" }, { title: "b" }], { context: WORKSPACE_A });
+  await notes.createMany([{ title: "c" }], { context: WORKSPACE_B });
+  const systemContext = runtime.declareSystemScope("digest.feature", "nightly digests")("find the workspaces with notes");
+  const units = await notes.aggregate({ groupBy: ["workspaceId"], measures: { notes: { count: "*" } }, filters: { status: "open" } }, { context: systemContext });
+  assert.deepEqual(units.map(({ workspaceId, notes: count }) => [String(workspaceId), Number(count)]).sort(), [["1", 2], ["2", 1]]);
+  await assert.rejects(
+    notes.aggregate({ groupBy: ["workspaceId"], measures: { notes: { count: "*" } } }, { context: WORKSPACE_A }),
+    /'workspaceId' is not an attribute of 'notes' that can be aggregated/u
+  );
 });
 
 test("a sparse read names a belongs-to field by its own key or its relationship, and leaves out the ones it does not name", async (t) => {

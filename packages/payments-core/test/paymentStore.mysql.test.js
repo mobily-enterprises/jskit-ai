@@ -250,10 +250,10 @@ test("the hot path: inspect is one read, and work on an existing account locks i
   assert.deepEqual(await statementsOf(() => store.inspect(scope)), ["select"]);
   assert.deepEqual(await statementsOf(() => store.withAccount(scope, ({ find }) => find("grant:first"))), ["begin;", "select", "select", "commit;"],
     "the account's lock and the entry's read; an unchanged state is not written");
-  // A changed state is one UPDATE, which json-rest-api's patch precedes with two reads of the row the work holds locked.
+  // A changed state is one UPDATE, which json-rest-api's patch precedes with one read of the row the work holds locked.
   assert.deepEqual(await statementsOf(() => store.withAccount(scope, async ({ state }) => {
     state.lots[0].credits = 2;
-  })), ["begin;", "select", "select", "select", "update", "commit;"]);
+  })), ["begin;", "select", "select", "update", "commit;"]);
   assert.deepEqual((await store.inspect(scope)).lots, [{ credits: 2 }]);
 });
 

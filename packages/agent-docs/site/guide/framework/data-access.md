@@ -221,10 +221,14 @@ async function noticeVisibilityPolicy({ query, caller, context, column, value })
 ```
 
 A row policy hides a row everywhere, also as the target of a visible record's
-link: an order whose supplier the reader cannot see reads `supplierId: null`,
-and a form that saves the order back sends that null. A row policy says who may
-see a row at all; narrowing what one screen lists is a filter on that screen's
-read.
+link: an order whose supplier the reader cannot see reads `supplierId: null`.
+A form that saves the order back sends that null, and the write keeps the
+stored link: a null for a link whose target exists but is hidden from the
+writer counts as unchanged. Send that null, never the hidden id: a write naming
+a target the writer cannot see is refused as a missing target, since accepting
+the right hidden id would tell the writer which record is linked. The link is
+still unreadable to that reader, so a row policy says who may see a row at all;
+narrowing what one screen lists is a filter on that screen's read.
 
 ```js
 // bad: a row policy to list only the suppliers a user added; every order whose
@@ -462,8 +466,9 @@ const SettlementFeature = defineFeature({
   policy as `caller.actorId`; it never changes which rows the job reaches. It
   passes an `authenticated` check as that user, with no permissions.
 - A job finds its units with one `aggregate` grouped by the ownership field,
-  which a system context may group by even when the table hides it, then runs
-  each unit scoped to it:
+  which a system context may group by (and count distinct) even when the table
+  hides it, then runs each unit scoped to it. A request's aggregate still
+  refuses a hidden field:
 
   ```js
   async function settleDue(options) {

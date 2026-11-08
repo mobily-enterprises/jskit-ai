@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- On json-rest-api 3.0.0's release candidate, an account's changed state is written with one read of the locked row before its UPDATE, where it took two.
 - The payment store locks or creates each account and catalogue row with its handle's `lockOrCreate`, in place of a helper of its own with the same behaviour.
 - Breaking: `createKnexPaymentStore` is gone, so the payment tables have one owner, `PaymentStoreFeature`. A JSKIT application registers it in its server providers and composes billing on the `payments.store` it provides; a script or CLI starts it in a capability runtime of its own on the application's Knex, as `docs/standalone.md` shows. `createPaymentService` given no store names that fix, and a missing configuration names `validatePaymentConfiguration`.
 - `withAccount` and `withCatalogue` create a missing account or catalogue row inside the work's own transaction (an insert that skips an existing id), so work that fails leaves no row behind. Two first uses of one key that collide on that insert before either work runs (a deadlock on MySQL's and MariaDB's gap locks, a duplicate key elsewhere) run the loser again, up to three times; work that has started never runs again. An existing row costs one locking read, where the store read it once outside the transaction and again under the lock, and work that leaves the state as it was (a duplicate grant, a read) writes nothing.

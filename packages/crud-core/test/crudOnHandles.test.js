@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import knexLib from "knex";
+import { simplifyJsonApiResult } from "@jskit-ai/http-runtime/shared";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
@@ -168,6 +169,68 @@ async function createIncludeFixture(t, { authorsServed = true, authorsShow = { n
   contracts.seal();
   return createCrudService({ repository: resources.notes, crud, contracts });
 }
+
+test("a record a form saves back as the CRUD service showed it keeps its link to an author the writer cannot see", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("authors", (table) => {
+    table.increments("id");
+    table.string("name").notNullable();
+    table.boolean("retired").notNullable().defaultTo(false);
+  });
+  await knex.schema.createTable("notes", (table) => {
+    table.increments("id");
+    table.string("title").notNullable();
+    table.integer("author_id");
+  });
+  await knex("authors").insert([{ name: "Ada", retired: false }, { name: "Grace", retired: true }]);
+  await knex("notes").insert([{ title: "Draft", author_id: 2 }, { title: "Other", author_id: 2 }]);
+  const authors = defineTableResource({
+    name: "authors",
+    tableName: "authors",
+    ownership: "public",
+    schema: { name: { type: "string", required: true }, retired: { type: "boolean", defaultTo: false } }
+  });
+  const notes = defineTableResource({
+    name: "notes",
+    tableName: "notes",
+    ownership: "public",
+    schema: {
+      title: { type: "string", required: true },
+      authorId: { type: "id", nullable: true, lookup: "authors", storage: { column: "author_id" } }
+    }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  // A request sees only authors still writing, so a retired author's link reads as null.
+  const resources = await runtime.own("test.notes", [notes, {
+    resource: authors,
+    rowPolicy: ({ query, column, caller }) => {
+      if (caller.kind !== "system") query.where(column("retired"), false);
+      return true;
+    }
+  }]);
+  const crud = defineCrudContract(notes, {
+    namespace: "notes",
+    operations: ["list", "view", "patch"],
+    fields: { title: { output: "required", patch: "optional" }, authorId: { output: "optional", patch: "optional" } }
+  });
+  const contracts = createCrudContracts();
+  contracts.register(crud);
+  contracts.register(defineCrudContract(authors, { namespace: "authors", operations: ["list", "view"], fields: { name: { output: "required" } } }));
+  contracts.seal();
+  const service = createCrudService({ repository: resources.notes, crud, contracts });
+  const authorOf = async (id) => (await knex("notes").where({ id }).first("author_id")).author_id;
+
+  const shown = simplifyJsonApiResult(await service.view("1", {}, {}));
+  assert.equal(shown.authorId, null);
+  await service.patch("1", { title: "Final", authorId: shown.authorId }, {});
+  assert.deepEqual(await knex("notes").where({ id: 1 }).first("title", "author_id"), { title: "Final", author_id: 2 });
+  // Linking an author the writer sees applies, and so does clearing that link.
+  await service.patch("2", { authorId: "1" }, {});
+  assert.equal(await authorOf(2), 1);
+  await service.patch("2", { authorId: null }, {});
+  assert.equal(await authorOf(2), null);
+});
 
 test("an included record shows only what its own contract shows, and a relationship the contract does not name is left out", async (t) => {
   const service = await createIncludeFixture(t);
