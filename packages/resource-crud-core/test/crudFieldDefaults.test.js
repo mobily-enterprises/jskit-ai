@@ -92,6 +92,10 @@ test("stored createdAt and updatedAt take output only, and a contract that would
   assert.throws(() => defineNotes(schema, { ...title, updatedAt: { output: "required", patch: "optional" } }),
     /defineCrudContract\(notes\) fields\.updatedAt takes updatedAt, which the handle stamps on every write/u);
   assert.throws(() => defineNotes(schema, { ...title, createdAt: { create: "optional" } }), /fields\.createdAt takes createdAt/u);
+  // output: false keeps a stored timestamp out, and an entry that names no operation is refused.
+  const hidden = defineNotes(schema, { ...title, createdAt: { output: false }, updatedAt: { output: false } });
+  assert.deepEqual(fieldsOf(hidden.operations.view.output), ["id", "title"]);
+  assert.throws(() => defineNotes(schema, { ...title, createdAt: {} }), /fields\.createdAt names no operation.*says \{ output: false \}/u);
   const resource = defineTableResource({ name: "notes", tableName: "notes", ownership: "public", schema });
   assert.throws(() => defineCrudContract(resource, {
     namespace: "notes",
@@ -135,7 +139,7 @@ test("an entry writes required and optional as words, or true for the field as i
 test("an entry names fields of the resource and the field operations only", () => {
   assert.throws(() => defineNotes(NOTE_FIELDS, { missing: { output: "required" } }), /fields\.missing is not a field of the notes resource/u);
   assert.throws(() => defineNotes(NOTE_FIELDS, { title: { list: "required" } }), /fields\.title\.list is not a field operation; use output, create, patch, replace/u);
-  assert.throws(() => defineNotes(NOTE_FIELDS, { title: { output: "maybe" } }), /fields\.title\.output must be "required", "optional", true or an object/u);
+  assert.throws(() => defineNotes(NOTE_FIELDS, { title: { output: "maybe" } }), /fields\.title\.output must be "required", "optional", true, false or an object/u);
   assert.throws(() => defineNotes(NOTE_FIELDS, { title: "required" }), /fields\.title must be an object of operations/u);
 });
 

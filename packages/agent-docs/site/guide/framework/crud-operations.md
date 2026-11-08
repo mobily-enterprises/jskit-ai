@@ -38,7 +38,8 @@ Match visibility to real ownership and test allowed plus cross-owner cases.
 The table resource is canonical for fields, columns, ownership and search; the
 CRUD contract for operations, validation, transport, messages and route
 parameters. A contract shows and accepts only the fields its `fields` names
-(a stored `createdAt` and `updatedAt` are shown without an entry), so a column
+(a stored `createdAt` and `updatedAt` are shown without an entry, and
+`createdAt: { output: false }` keeps one out), so a column
 added later stays out of every API until a contract names it. The same holds
 for what a CRUD feature answers: a relationship the contract does not name is
 left out, and an included record shows only what its own table's contract

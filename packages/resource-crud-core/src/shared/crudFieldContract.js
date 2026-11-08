@@ -258,7 +258,9 @@ const FIELD_OPERATION_SHORTHANDS = Object.freeze({
 /**
  * One field's entry in a CRUD contract's `fields`: for each operation it takes
  * part in, "required", "optional", true, or the keys merged over the field's
- * definition for that operation.
+ * definition for that operation; false for one it stays out of, which a stored
+ * timestamp says to leave the output (`createdAt: { output: false }`). An
+ * entry names at least one operation.
  * @param {string} fieldKey
  * @param {unknown} entry
  * @returns {Record<string, true | Record<string, unknown>>}
@@ -267,12 +269,20 @@ function normalizeCrudFieldOperations(fieldKey, entry) {
   if (!isRecord(entry)) {
     throw new TypeError(`defineCrudContract fields.${fieldKey} must be an object of operations.`);
   }
-  return Object.fromEntries(Object.entries(entry).map(([operationName, value]) => {
+  if (Object.keys(entry).length < 1) {
+    throw new TypeError(
+      `defineCrudContract fields.${fieldKey} names no operation. A contract leaves out a field it does not name; ` +
+      `a stored createdAt or updatedAt, which is output without an entry, says { output: false }.`
+    );
+  }
+  for (const operationName of Object.keys(entry)) {
     if (!FIELD_OPERATION_NAMES.includes(operationName)) {
       throw new TypeError(
         `defineCrudContract fields.${fieldKey}.${operationName} is not a field operation; use ${FIELD_OPERATION_NAMES.join(", ")}.`
       );
     }
+  }
+  return Object.fromEntries(Object.entries(entry).filter(([, value]) => value !== false).map(([operationName, value]) => {
     if (typeof value === "string" && Object.hasOwn(FIELD_OPERATION_SHORTHANDS, value)) {
       return [operationName, FIELD_OPERATION_SHORTHANDS[value]];
     }
@@ -280,7 +290,7 @@ function normalizeCrudFieldOperations(fieldKey, entry) {
       return [operationName, value];
     }
     throw new TypeError(
-      `defineCrudContract fields.${fieldKey}.${operationName} must be "required", "optional", true or an object.`
+      `defineCrudContract fields.${fieldKey}.${operationName} must be "required", "optional", true, false or an object.`
     );
   }));
 }
