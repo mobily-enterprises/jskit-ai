@@ -435,6 +435,18 @@ const SettlementFeature = defineFeature({
 - Prefer `systemContext(reason).forWorkspace(id)`, `.forUser(id)` or
   `.forWorkspaceUser(workspaceId, userId)`: each workspace or user is then one
   unit of work, scoped as usual, in a transaction of its own.
+- A job finds its units with one `aggregate` grouped by the ownership field,
+  which a system context may group by even when the table hides it, then runs
+  each unit scoped to it:
+
+  ```js
+  async function settleDue(options) {
+    const due = await cohorts.aggregate({ measures: { cohorts: { count: "id" } }, groupBy: ["workspaceId"], filters: { status: "finished" } }, options);
+    for (const { workspaceId } of due) {
+      await settleWorkspace({ context: systemContext("settle finished weekly leagues for every user").forWorkspace(workspaceId) });
+    }
+  }
+  ```
 - A request uses its own context. The only exception is a console report
   behind a console permission, with bounded output.
 - `jskit check` lists every system scope and every `systemContext` call with
