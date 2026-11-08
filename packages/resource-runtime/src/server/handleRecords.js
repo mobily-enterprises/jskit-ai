@@ -176,6 +176,17 @@ function setsOwnTimestamps(context) {
 }
 
 /**
+ * A timestamp field's stamp: `now` cut to the field's temporalPrecision (whole seconds for 0), the precision every write
+ * of the field is validated against.
+ * @param {{ temporalPrecision?: number }} field The field's schema definition.
+ * @param {string} now The time as `Date#toISOString()` gives it, with milliseconds.
+ */
+function stampAt(field, now) {
+  const precision = field.temporalPrecision;
+  return precision === undefined || precision >= 3 ? now : `${now.slice(0, precision === 0 ? 19 : 20 + precision)}Z`;
+}
+
+/**
  * A write's attributes with the table's timestamps (see storedTimestamps). The handle's stamps replace any the
  * caller sends, unless it may set its own (setsOwnTimestamps), so a request never sets them. A create stamps
  * createdAt and updatedAt, a change of a record updatedAt, and an empty change nothing, except on a table with a lock
@@ -196,7 +207,7 @@ function stampedAttributes(resource, attributes, stamp, context) {
   const now = new Date().toISOString();
   for (const field of storedTimestamps(resource.schema, stamp === "create" ? RECORD_TIMESTAMPS : ["updatedAt"])) {
     if (!Object.hasOwn(data, field)) {
-      data[field] = now;
+      data[field] = stampAt(resource.schema[field], now);
     }
   }
   return data;

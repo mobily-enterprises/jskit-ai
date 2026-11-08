@@ -500,6 +500,38 @@ test("a table that stores createdAt and updatedAt has every write stamp them; a 
   assert.equal((await stamps("a")).created_at, "2026-11-08 01:00:00.000");
 });
 
+test("the handle stamps a timestamp to its field's temporalPrecision: whole seconds for 0, milliseconds for 3", async (t) => {
+  const precise = defineTableResource({
+    name: "precise",
+    tableName: "precise",
+    ownership: "public",
+    schema: {
+      id: { type: "string", primary: true },
+      title: { type: "string", required: true },
+      createdAt: { type: "dateTime", temporalPrecision: 3, storage: { column: "created_at", writeSerializer: "datetime-utc" } },
+      updatedAt: { type: "dateTime", temporalPrecision: 0, storage: { column: "updated_at", writeSerializer: "datetime-utc" } }
+    }
+  });
+  const { knex, resources } = await createFixture(t, {
+    owns: [noteResource(), { normalizeId: normalizeOpaqueId, resource: precise }]
+  });
+  await knex.schema.createTable("precise", (table) => {
+    table.string("id").primary();
+    table.string("title").notNullable();
+    table.string("created_at").notNullable();
+    table.string("updated_at").notNullable();
+  });
+  const options = { context: {} };
+  const stamps = async () => knex("precise").where({ id: "a" }).first("created_at", "updated_at");
+  t.mock.timers.enable({ apis: ["Date"], now: Date.parse("2026-11-08T01:00:00.789Z") });
+  await resources.precise.create({ id: "a", title: "a" }, options);
+  assert.deepEqual(await stamps(), { created_at: "2026-11-08 01:00:00.789", updated_at: "2026-11-08 01:00:00.000" });
+
+  t.mock.timers.setTime(Date.parse("2026-11-08T02:00:00.456Z"));
+  await resources.precise.patch("a", { title: "a2" }, options);
+  assert.deepEqual(await stamps(), { created_at: "2026-11-08 01:00:00.789", updated_at: "2026-11-08 02:00:00.000" });
+});
+
 test("patch() with lockVersion patches the version it read and refuses a stale one; onlyIf patches only matching rows", async (t) => {
   const { notes } = await createFixture(t);
   const note = await notes.create({ title: "draft" }, { context: WORKSPACE_A });
