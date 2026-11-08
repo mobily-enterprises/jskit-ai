@@ -201,7 +201,7 @@ const adapter = reactive({
       </div>
       <main class="fixture" :class="{ narrow, 'fixture--avatar': avatarFixture, 'fixture--short': short }">
         <AssistantConversationElement v-model:avatar-size="avatarSize" :adapter="adapter">
-          <template v-if="showAvatar" #avatar><svg viewBox="0 0 100 100" role="img" aria-label="Support assistant avatar"><circle cx="50" cy="50" r="45" fill="#6750a4" /><path d="M30 62Q50 80 70 62M35 40h1m28 0h1" fill="none" stroke="white" stroke-width="6" stroke-linecap="round" /></svg></template>
+          <template v-if="showAvatar" #avatar><svg viewBox="0 0 100 100" role="img" aria-label="Support assistant avatar"><circle class="fixture-avatar__face" cx="50" cy="50" r="45" /><path class="fixture-avatar__features" d="M30 62Q50 80 70 62M35 40h1m28 0h1" fill="none" stroke-width="6" stroke-linecap="round" /></svg></template>
           <template v-if="avatarToolsFixture" #avatar-tools="scope">
             <button class="fixture-avatar-tool" aria-label="Avatar tool" :data-size="scope.size" :data-height="scope.height">Tool</button>
           </template>
@@ -224,5 +224,8 @@ const adapter = reactive({
 .fixture--avatar { width: min(320px, 100%); }
 .fixture-avatar-tool { flex: 0 0 48px; min-width: 48px; min-height: 48px; }
 .fixture--short { height: 420px; }
+/* The avatar is drawn in the theme's primary roles, so it follows the light and dark schemes. */
+.fixture-avatar__face { fill: rgb(var(--v-theme-primary)); }
+.fixture-avatar__features { stroke: rgb(var(--v-theme-on-primary)); }
 .feedback { flex: 1 1 24rem; min-width: 0; margin: 0; }
 </style>

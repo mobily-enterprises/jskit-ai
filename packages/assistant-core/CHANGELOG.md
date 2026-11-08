@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Test fixture only: the responsive assistant fixture's avatar is drawn in the theme's `primary` and `on-primary` roles instead of a raw `#6750a4` and `white`, so it follows the dark scheme like the rest of the conversation. A package test runs `jskit check m3`'s raw-colour rule over the fixture, which the check itself skips with every `fixtures/` folder.
 - The assistant settings resource (`assistantConfigResource`) has a required boolean `canUpdate` attribute: whether the signed-in person may change the settings, as the server decides (`@jskit-ai/assistant-runtime`'s settings pane shows Save only when it is true).
 - The OpenAI SDK loads with an OpenAI-compatible client's first completion instead of with the server, so a boot of an app with the assistant loads 154 fewer modules (0.13 s on their own).
 - A subscriber hears a streamed delta (an in-progress message) on an authorization under a second old instead of authorizing again for each one: every delta used to wait for one `authorize` call per subscriber before the stream continued (one SELECT each in `@jskit-ai/assistant-runtime`), so a 200-delta reply to one open page cost about 200 reads and now costs as many as a 10-delta one. Every other event (admission, phase, saved message, settlement) still authorizes again, and a revoked subscriber stops hearing the turn within a second.
