@@ -40,19 +40,21 @@ Example, "your rooms or shared rooms":
 owns: [{
   resource: roomResource,
   acceptsContributions: true,
-  rowPolicy({ query, context, column, ownTable }) {
-    const userId = resolveActorId(context);
-    if (!userId) return false;
+  rowPolicy({ query, caller, column, ownTable }) {
+    if (caller.kind !== "user") return caller.kind !== "anonymous";
     query.where((rooms) => rooms
       .where(column("shared"), true)
-      .orWhereIn(column("id"), ownTable("roomMembers").select("room_id").where("user_id", userId)));
+      .orWhereIn(column("id"), ownTable("roomMembers").select("room_id").where("user_id", caller.userId)));
     return true;
   }
 }]
 ```
 
-A system context (`systemScope`, `systemContext(reason)`) reaches the policy as
-`system: true`; the policy decides what a job sees and says why.
+A policy is told who the call runs for as `caller`: `user`, `anonymous`,
+`system` or `job`. Background work is `system` or `job`, never a missing user,
+and a job names its person only as `caller.actorId`. A policy hides a row from
+every read, including other tables' links to it, so narrowing what one screen
+lists is a filter on that screen's read.
 
 Cost:
 

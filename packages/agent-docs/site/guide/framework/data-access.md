@@ -150,20 +150,26 @@ refuses it; the feature never requires it itself, since it receives its
 handles.
 
 Reads take `(params, options)` and writes `(data, options)`: `get(id, {},
-options)`. Every setting rides in options, spread from the call's own:
-`{ ...options, missing: "skip" }`, `{ ...options, returning: "id" }`. A filter
-key is one of the resource's `search: true` fields or a `searchSchema` entry;
-`id` takes one id or a list (an empty list matches no row), and another list
-of values needs an entry with `filterOperator: "in"`. The `id` filter is every
-handle's own: a resource never declares an `id` search entry. A `null` value
-matches the rows where the field is null: `filters: { archivedAt: null }`. A
-filter on another table's field (`searchSchema: { supplierName: { type:
+options)`. A call's settings ride in its options, added on the call they are
+for and spread from the options the method received: `{ ...options, missing:
+"skip" }`, `{ ...options, returning: "id" }`. A method passes on only the
+options it received, never a setting it added for one of its own calls.
+
+A filter key is one of the resource's `search: true` fields or a
+`searchSchema` entry. `id` is every handle's own filter (a resource never
+declares an `id` search entry) and takes one id or a list; an empty list
+matches no row. Another list of values needs an entry with `filterOperator:
+"in"`. A `null` value matches the rows where the field is null: `filters: {
+archivedAt: null }`.
+
+A filter on another table's field (`searchSchema: { supplierName: { type:
 "string", actualField: "suppliers.name" } }`) needs that field declared
 `indexed: true` on its own table resource, with a database index on its column,
 even when the join is on the other table's id; `own()` refuses it at startup
-otherwise, naming both. A table keyed by
-a `uuid` or `string` primary key takes its ids as text; an `owns` entry's
-`normalizeId` is only for an id written some other way.
+otherwise, naming both.
+
+A table keyed by a `uuid` or `string` primary key takes its ids as text; an
+`owns` entry's `normalizeId` is only for an id written some other way.
 
 A read answers every field unless `fields` names the ones it needs (a
 belongs-to field by its own key, such as `customerId`, or its relationship);
@@ -413,28 +419,36 @@ async function activeDays(memberIds, options) {
 }
 ```
 
-- Each report is one named repository method under `// Knex: <kind> - <reason>`.
-  The kinds are a closed list: `totals`, `report`, `newest-per-group`,
-  `subquery`, `hot-path` (with its JSKIT ticket: `// Knex: hot-path #123 -
-  <reason>`) and `runtime-tables`.
+- Each report is one named method in its owner's repository file
+  (`*Repository.js`, `repository.js`, or a file under `repositories/`;
+  `jskit/knex-reason` refuses `scopedQuery()` anywhere else), under
+  `// Knex: <kind> - <reason>`. The kinds:
+  - `totals`: sums or counts `aggregate` cannot group;
+  - `report`: rows shaped across tables;
+  - `newest-per-group`: one row per group, such as each customer's latest
+    visit;
+  - `subquery`: a scoped set another query joins;
+  - `hot-path`: a measured path the handle makes too slow, with its JSKIT
+    ticket (`// Knex: hot-path #123 - <reason>`);
+  - `runtime-tables`: tables people define while the app runs, which no table
+    resource in the code describes.
 - `column()` names columns; `raw` takes one expression as a string literal,
   with its values as bindings.
-- The builder only reads, and only its own table is scoped. A `.join()` of
-  another table, or a table named inside `raw()`, reads that table's rows past
-  its owner and row policy, and nothing at run time stops it: only the
-  `jskit/no-direct-knex` and `jskit/sql-literal` lint rules do. Join only
-  another table's `scopedQuery()` as a subquery, or read it through its owner.
-- Give each report a scope test and a flat-query test (see [Tests](#tests)).
-- A report over tables with different owners joins them in one statement
-  through their owners. Each other owner adds an API method that answers its
-  rows as a join source: `{ query, column }` from its
-  `scopedQuery({ alias }, options)`, with `column(field)` naming its columns
-  under that alias. It answers the builder wrapped, since a builder is thenable
-  and an async function would run it. The report shapes that builder (select,
-  group), names it with `.as()` and joins it as a subquery, so every owner's
-  scope and row policy stay applied. The report lives with the main table's
-  owner, or in a feature that requires both. Never join the other table
-  itself, and never read it once per row.
+- The builder only reads, and only its own table is scoped. A `.join()` of a
+  table by name, or a table named inside `raw()`, reads that table's rows past
+  its owner and row policy. Nothing at run time stops it: `jskit/no-direct-knex`
+  and `jskit/sql-literal` flag it, and `expectScoped` catches it only when the
+  test seeds another owner's rows the join matches. Join another table only as
+  that table's scoped subquery.
+- When a report needs another owner's rows side by side, that owner adds a
+  method answering its scoped rows as a subquery with its own column names,
+  and the report joins it in one statement. The method answers
+  `{ query, column }` from its `scopedQuery({ alias }, options)`, with
+  `column(field)` naming its columns under that alias, wrapped, since a
+  builder is thenable and an async function would run it. The report shapes
+  that builder (select, group), names it with `.as()` and joins it, so every
+  owner's scope and row policy stay applied. The report lives with the main
+  table's owner, or in a feature that requires both.
 
   ```js
   // billing's owner API: its scoped invoices as a join source, with their column names
@@ -461,6 +475,11 @@ async function activeDays(memberIds, options) {
       .groupBy(projectId);
   }
   ```
+
+- When each owner can answer on its own (keys in, grouped totals out), the
+  report is a feature of its own that calls each owner's method and merges the
+  answers in memory: one statement per owner, never a call per row.
+- Give each report a scope test and a flat-query test (see [Tests](#tests)).
 
 ## Reads shaped for the screen
 
