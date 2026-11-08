@@ -71,7 +71,7 @@ function totalsByMonth(options) {
 | scoped query | The read-only Knex builder `scopedQuery()` returns, with ownership and the row policy already applied. |
 | system scope | Why a feature works across every workspace and user, declared with `systemScope`. |
 | system context | The context of that work, from `systemContext(reason)`; `forWorkspace`, `forUser` and `forWorkspaceUser` narrow it. |
-| `txOptions` | The options `withTransaction(options, work)` hands `work`: the call's options with its transaction, passed to every call inside. |
+| `txOptions` | What `withTransaction(options, work)` hands `work`: only the call's context and its transaction, `{ context, trx }`, passed to every call inside. |
 | record | What a handle answers: `{ id, ...fields }`, relationships as ids, included records nested. |
 
 ## Layer 1: the table resource
@@ -155,6 +155,20 @@ another table gets only `{ context, trx }`: `passedOn(options)` from
 `@jskit-ai/resource-runtime/server`. `withTransaction` hands its work only the
 context and the transaction, and so does a handle to its hooks and its own
 nested calls.
+
+So a method that wraps a write on its own table in `withTransaction` passes
+that write `{ ...options, ...txOptions }`. With `txOptions` alone, the caller's
+`returning`, `missing` or `format` never reaches the write, and the method
+answers something its caller did not ask for. Another table's call still gets
+`txOptions`:
+
+```js
+const addLines = (rows, options) => lines.withTransaction(options, async (txOptions) => {
+  const added = await lines.createMany(rows, { ...options, ...txOptions });
+  await orders.patch(rows[0].orderId, { linesChangedAt: new Date() }, txOptions);
+  return added;
+});
+```
 
 A filter key is one of the resource's `search: true` fields or a
 `searchSchema` entry. `id` is every handle's own filter (a resource never
@@ -705,7 +719,8 @@ hour.
 ## Transactions
 
 Open a transaction with the repository's `withTransaction(options, work)` and
-pass the `txOptions` it gives `work` to every call inside. Never read the
+pass the `txOptions` it gives `work` to every call inside, spread over the
+method's own `options` for the write the caller's settings are for. Never read the
 transaction out of `options` by hand. A handle refuses every other
 transaction, a raw Knex one or a savepoint, for reads as for writes. Inside an
 open transaction it joins it; otherwise it opens one and runs events and other
