@@ -89,11 +89,14 @@ function jsonApiResultValue(value) {
 /**
  * A service or action result as the plain records it carries: its document
  * (see jsonApiResultValue) simplified to a record, a list of records or the
- * meta object.
+ * meta object (see simplifyJsonApiDocument for `lookupFieldMap`). A decorated
+ * CRUD service reads the record it wrote from its own answer this way, instead
+ * of reading the record again.
  * @param {unknown} result
+ * @param {{ lookupFieldMap?: Record<string, string> | null }} [options]
  */
-function simplifyJsonApiResult(result) {
-  return simplifyJsonApiDocument(jsonApiResultValue(result));
+function simplifyJsonApiResult(result, options = {}) {
+  return simplifyJsonApiDocument(jsonApiResultValue(result), options);
 }
 
 export {

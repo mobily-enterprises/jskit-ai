@@ -492,19 +492,25 @@ function createJsonApiErrorDocumentFromFailure({
   });
 }
 
-function simplifyJsonApiResourceObject(resource = {}) {
-  return simplifyJsonApiResourceWithRelationshipIds(normalizeJsonApiResourceObject(resource));
+function simplifyJsonApiResourceObject(resource = {}, options = {}) {
+  return simplifyJsonApiResourceWithRelationshipIds(normalizeJsonApiResourceObject(resource), options);
 }
 
-function simplifyJsonApiDocument(payload = {}) {
+/**
+ * A document's data as plain records: `{ id, ...attributes }`, each to-one relationship's id under its field key, the
+ * relationship's name plus `Id` unless `lookupFieldMap` names another (`{ owner: "ownerUserId" }`).
+ * @param {unknown} [payload]
+ * @param {{ lookupFieldMap?: Record<string, string> | null }} [options]
+ */
+function simplifyJsonApiDocument(payload = {}, options = {}) {
   const document = normalizeJsonApiDocument(payload);
 
   if (document.kind === "resource") {
-    return document.data == null ? null : simplifyJsonApiResourceObject(document.data);
+    return document.data == null ? null : simplifyJsonApiResourceObject(document.data, options);
   }
 
   if (document.kind === "collection") {
-    return document.data.map((entry) => simplifyJsonApiResourceObject(entry));
+    return document.data.map((entry) => simplifyJsonApiResourceObject(entry, options));
   }
 
   if (document.kind === "meta") {

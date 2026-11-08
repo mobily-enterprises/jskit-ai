@@ -263,6 +263,11 @@ shows only what its own table's contract shows. When several contracts serve
 that table, an include shows the contract its relation names with
 `relation.namespace` (a `lookup` names its namespace), and otherwise only the
 fields they all show; `jskit check` lists the tables whose contracts differ.
+A `decorateService` that also needs the record it wrote (for an audit or a
+history row) reads it from its own answer, `simplifyJsonApiResult(answer)`
+from `@jskit-ai/http-runtime/shared`, never with a second read; a relationship
+whose field key is not its name plus `Id` passes
+`{ lookupFieldMap: { owner: "ownerUserId" } }`.
 A second surface on the same table (a customer's view beside the staff's) is
 a second CRUD contract on the same resource, never a second resource. A field
 fragment several resources spread into their schemas carries only the field:

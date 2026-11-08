@@ -28,4 +28,9 @@ test("simplifyJsonApiResult reads only tagged results", () => {
   const document = { data: { type: "contacts", id: "1", attributes: { name: "Merc" } } };
   assert.deepEqual(simplifyJsonApiResult(returnJsonApiDocument(document)), { id: "1", name: "Merc" });
   assert.throws(() => simplifyJsonApiResult(document), UNTAGGED);
+  // A to-one relationship's id goes under its name plus Id, or under the field key lookupFieldMap names.
+  const linked = returnJsonApiDocument({ data: { type: "pets", id: "2", attributes: { name: "Rex" }, relationships: {
+    contact: { data: { type: "contacts", id: "1" } }, owner: { data: { type: "users", id: "9" } }, visits: { data: [{ type: "visits", id: "3" }] }
+  } } });
+  assert.deepEqual(simplifyJsonApiResult(linked, { lookupFieldMap: { owner: "ownerUserId" } }), { id: "2", name: "Rex", contactId: "1", ownerUserId: "9" });
 });

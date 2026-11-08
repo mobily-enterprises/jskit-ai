@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `simplifyJsonApiResult(result, { lookupFieldMap })` and `simplifyJsonApiDocument(document, { lookupFieldMap })` take the field key of a to-one relationship whose key is not its name plus `Id` (`{ owner: "ownerUserId" }`), so a decorated CRUD service reads the record it wrote from its own answer, with its real field keys, instead of reading it again.
 - `createTransientRetryHttpClient` marks a `GET`/`HEAD` transient failure whose retries it spent (kernel `markTransientRetriesSpent`), so the app QueryClient's `shouldRetryTransientQueryFailure` does not retry the whole retried call again: one unreachable read is 3 requests and 3 s to the recovery banner instead of 9 requests and 11 s. Which requests it retries, how often and when are unchanged.
 - `withStandardErrorResponses` and `withJsonApiErrorResponses` give every route the same error response schemas, frozen all the way down, instead of building new ones for each route, so the kernel strips, copies and keys each of them once per server. `JSON_API_ERROR_DOCUMENT_SCHEMA` is frozen all the way down.
 
