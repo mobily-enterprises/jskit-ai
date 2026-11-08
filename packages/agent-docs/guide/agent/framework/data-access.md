@@ -492,7 +492,9 @@ const SettlementFeature = defineFeature({
 
 - Prefer `systemContext(reason).forWorkspace(id)`, `.forUser(id)` or
   `.forWorkspaceUser(workspaceId, userId)`: each workspace or user is then one
-  unit of work, scoped as usual, in a transaction of its own.
+  unit of work, scoped as usual, in a transaction of its own. An event it
+  publishes carries that workspace's or user's scope, as a request there would,
+  so it reaches that audience, never everyone.
 - Work a job does for one person (a request it carries out later) passes
   `{ actorId }` last: `forWorkspace(id, { actorId: requestedBy })`. It is for
   attribution only: audit fields read it with `resolveAuditActorId(context)`

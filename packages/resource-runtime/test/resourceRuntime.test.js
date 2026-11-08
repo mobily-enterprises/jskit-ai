@@ -11,7 +11,7 @@ import {
   StaleRecordError,
   UnpagedQueryError
 } from "../src/server/index.js";
-import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { createActionCatalogue, createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { emptyInputValidator, resolveActorId, resolveAuditActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeOpaqueId } from "@jskit-ai/kernel/shared/support/normalize";
@@ -954,6 +954,39 @@ test("a row policy is told who the call runs for: a system context, a job it der
   ]);
   assert.throws(() => systemContext.forUser("4", { actor: "9" }), /forUser takes \{ actorId \} as its last argument/u);
   assert.throws(() => systemContext.forWorkspace("1", { actorId: " " }), /forWorkspace needs the id of the user it acts for/u);
+});
+
+test("an event a job publishes carries the scope of the workspace or user it works on, as a request there would", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  const runtime = await createTestResourceRuntime({ knex });
+  const system = runtime.declareSystemScope("journal.feature", "announce the entries people asked for")("announce an entry");
+  const published = [];
+  const actions = createActionCatalogue({ events: { publish: async (event) => published.push(event) } });
+  actions.register({
+    contributorId: "journal",
+    domain: "journal",
+    actions: [{
+      id: "journal.announce",
+      kind: "command",
+      channels: ["automation"],
+      surfaces: ["app"],
+      permission: { require: "none" },
+      input: emptyInputValidator,
+      execute: () => ({ id: "4" }),
+      events: [createEntityChangedActionEvent({ source: "journal", entity: "entry", operation: "created", entityId: ({ result }) => result.id })]
+    }]
+  });
+  for (const context of [system.forWorkspace("1"), system.forUser("9"), system.forWorkspaceUser("1", "9"), system.forWorkspace("1", { actorId: "9" })]) {
+    await actions.execute({ actionId: "journal.announce", input: {}, context: { ...context, channel: "automation", surface: "app" } });
+  }
+  assert.deepEqual(published.map(({ scope }) => scope), [
+    { kind: "workspace", id: "1" },
+    { kind: "user", id: "9" },
+    { kind: "workspace_user", id: "1", scopeId: "1", userId: "9" },
+    // The person the work acts for is no scope: the event is the workspace's.
+    { kind: "workspace", id: "1" }
+  ]);
 });
 
 test("a job done for one person records that person in audit fields and is never signed in as them", async (t) => {

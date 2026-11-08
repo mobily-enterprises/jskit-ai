@@ -76,6 +76,18 @@ function callerOf(context) {
 }
 
 /**
+ * The event scope of work on one workspace, one user or one person in a workspace, as a request there carries it, so
+ * an event the work publishes reaches that workspace's or that user's audience, never everyone.
+ * @param {{ workspaceId?: string, userId?: string }} scopeValues
+ */
+function eventScopeOf({ workspaceId, userId }) {
+  if (workspaceId && userId) {
+    return Object.freeze({ kind: "workspace_user", id: workspaceId, scopeId: workspaceId, userId });
+  }
+  return Object.freeze(workspaceId ? { kind: "workspace", id: workspaceId } : { kind: "user", id: userId });
+}
+
+/**
  * @param {string} reason
  * @param {Record<string, unknown>} scopeValues
  * @param {{ actorId?: unknown }} options The person the work acts for, if any: `onBehalfOf.id`, for audit fields only.
@@ -88,6 +100,7 @@ function jobContext(reason, scopeValues, options, label) {
   const actorId = options?.actorId === undefined ? null : requireScopeId(options.actorId, label, "user it acts for");
   return Object.freeze({
     scopeValues: Object.freeze(scopeValues),
+    scope: eventScopeOf(scopeValues),
     jobReason: reason,
     ...(actorId ? { onBehalfOf: Object.freeze({ id: actorId }) } : {}),
     [JOB_CONTEXT]: true
