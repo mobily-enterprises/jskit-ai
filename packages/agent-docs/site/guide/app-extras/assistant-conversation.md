@@ -4847,7 +4847,13 @@ wait loop cannot hold the input for minutes, each steer sends the
 `background_tasks` control request (Claude's Ctrl+B equivalent) after its write,
 and again on each `task_started` event until Claude reads it. Foreground Bash
 commands and subagents keep running in the background and report completion with
-a task notification; the blocked tool call returns at once.
+a task notification; the blocked tool call returns at once. A Bash command moved
+this way keeps its own time limit (its `timeout`, or Claude's two-minute default),
+counted from when it started: when that passes, the shared owner stops its task
+with the `stop_task` control and publishes the `steered_command_limit` diagnostic
+(`steered_command_stop_failed` if Claude refuses it). Claude then answers the task
+notification and the turn settles as it would have after a foreground timeout.
+Commands Claude itself starts with `run_in_background` have no limit.
 Claude Code 2.1.308 supports the control. A refused control (an older CLI) only
 leaves the input waiting for the tool call and publishes the
 `steering_background_failed` diagnostic; `steering_backgrounded` reports success.

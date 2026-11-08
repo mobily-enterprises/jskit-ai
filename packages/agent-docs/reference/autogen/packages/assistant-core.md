@@ -447,6 +447,10 @@ Exports
 Exports
 - `createClaudeSessionCleanup({ entries, store, configRoot, acquire, savedState, holdsNativeWork, disconnectedMessage })`
 
+### `src/server/conversation/claudeSteeringBackground.js`
+Exports
+- `createClaudeSteeringBackground({ publish, running, counts })`
+
 ### `src/server/conversation/claudeTools.js`
 Exports
 - `claudeApplicationToolResponse(request, { schemas, turn, signal, assertCurrent = acceptNativeCall, onExecutionFailure = ignoreExecutionFailure })`

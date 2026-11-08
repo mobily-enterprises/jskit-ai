@@ -2035,6 +2035,80 @@ test("a steer during Claude's follow-up to a finished background task moves that
   turn.stop();
 });
 
+// Frame shapes from Claude Code 2.1.308/2.1.319 stream-json: a person wrote while
+// a foreground wait loop with `timeout: 150000` ran. Steering backgrounded it, the
+// call lost its limit, and the wait held the turn in its background phase for
+// thirty minutes. The moved call stops at its own limit, as in the foreground.
+const flushControls = () => new Promise(setImmediate);
+for (const [timeout, limitMs] of [[150_000, 150_000], [undefined, 120_000]]) {
+  test(`a command steering moves to the background still stops at its own limit, timeout=${timeout}`, async t => {
+    t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+    const { turn, send, read, requests, events } = steeringFixture();
+    await send();
+    await read("first");
+    await turn.receive({ type: "assistant", uuid: "wait-call", message: { id: "wait-api", stop_reason: "tool_use",
+      content: [{ type: "tool_use", id: "toolu_wait", name: "Bash", input: {
+        command: "until grep -q ready status.txt; do sleep 5; done", description: "Wait for the status file",
+        ...(timeout ? { timeout } : {}) } }] } });
+    await turn.receive({ type: "system", subtype: "task_started", task_id: "b0wait", tool_use_id: "toolu_wait",
+      description: "Wait for the status file", task_type: "local_bash", is_backgrounded: false });
+    t.mock.timers.tick(60_000);
+    await turn.prepareSteering();
+    await send("question", { steer: true });
+    await flushControls();
+    assert.deepEqual(requests, [{ subtype: "background_tasks" }]);
+    await turn.receive({ type: "system", subtype: "task_updated", task_id: "b0wait", patch: { is_backgrounded: true } });
+    await turn.receive({ type: "user", uuid: "wait-result", message: { content: [{ type: "tool_result", tool_use_id: "toolu_wait",
+      content: "Command was manually backgrounded by user with ID: b0wait. Output is being written to: /tmp/b0wait.output" }] } });
+    await read("question");
+    await turn.receive({ type: "result", subtype: "success", result: "Here is the answer." });
+    await turn.receive({ type: "command_lifecycle", command_uuid: claudeNativeMessageId("first"), state: "completed" });
+    await turn.receive({ type: "command_lifecycle", command_uuid: claudeNativeMessageId("question"), state: "completed" });
+    assert.deepEqual([turn.read().active, turn.read().phase], [true, "background"]);
+
+    t.mock.timers.tick(limitMs - 60_001);
+    await flushControls();
+    assert.deepEqual(requests, [{ subtype: "background_tasks" }], "The call still has time left");
+    t.mock.timers.tick(1);
+    await flushControls();
+    assert.deepEqual(requests, [{ subtype: "background_tasks" }, { subtype: "stop_task", task_id: "b0wait" }],
+      "The moved call is stopped when its own limit passes");
+    assert.equal(events.filter(event => event.type === "diagnostic" && event.stage === "steered_command_limit").length, 1);
+    // Claude stops the task, reports it, and answers that notification.
+    await turn.receive({ type: "system", subtype: "task_notification", task_id: "b0wait", status: "stopped" });
+    await turn.receive({ type: "user", uuid: "stopped-notice", origin: { kind: "task-notification" } });
+    await turn.receive({ type: "result", subtype: "success", result: "The wait hit its time limit." });
+    assert.deepEqual([turn.read().active, turn.read().phase, turn.read().status], [false, "", "completed"]);
+    assert.equal(events.filter(event => event.type === "settled").length, 1);
+  });
+}
+
+test("steering leaves deliberate background commands and finished commands to run their course", async t => {
+  t.mock.timers.enable({ apis: ["setTimeout", "Date"] });
+  const { turn, send, read, requests } = steeringFixture();
+  await send();
+  await read("first");
+  await turn.receive({ type: "assistant", uuid: "server-call", message: { id: "server-api", stop_reason: "tool_use",
+    content: [{ type: "tool_use", id: "toolu_server", name: "Bash", input: { command: "npm run dev", timeout: 60_000, run_in_background: true } }] } });
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "b0server", tool_use_id: "toolu_server",
+    description: "Start the dev server", task_type: "local_bash", is_backgrounded: true });
+  await turn.receive({ type: "assistant", uuid: "build-call", message: { id: "build-api", stop_reason: "tool_use",
+    content: [{ type: "tool_use", id: "toolu_build", name: "Bash", input: { command: "npm run build", timeout: 90_000 } }] } });
+  await turn.receive({ type: "system", subtype: "task_started", task_id: "b0build", tool_use_id: "toolu_build",
+    description: "Build", task_type: "local_bash", is_backgrounded: false });
+  await turn.prepareSteering();
+  await send("question", { steer: true });
+  await flushControls();
+  assert.deepEqual(requests, [{ subtype: "background_tasks" }]);
+  t.mock.timers.tick(30_000);
+  await turn.receive({ type: "system", subtype: "task_notification", task_id: "b0build", status: "completed" });
+  t.mock.timers.tick(30 * 60_000);
+  await flushControls();
+  assert.deepEqual(requests, [{ subtype: "background_tasks" }], "Neither the dev server nor the finished build is stopped");
+  assert.equal(turn.read().backgroundTasks, 1);
+  turn.stop();
+});
+
 test("a refused background request leaves the steer delivered and reports it", async () => {
   const { turn, send, read, requests, client, events } = steeringFixture();
   await send();

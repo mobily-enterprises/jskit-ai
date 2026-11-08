@@ -2,6 +2,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { claudeMessageBlocks } from "./claudeHistory.js";
 import { stopClaudeCodeProcess } from "./claudeProcess.js";
 import { createClaudeConversationAdapter } from "./providers/claude.js";
+import { createClaudeSteeringBackground } from "./claudeSteeringBackground.js";
 
 // messageCode names the sentence, since one turn-failure code covers several.
 export function claudeTurnFailure(message, { code = "assistant_claude_turn_failed", messageCode } = {}) {
@@ -143,6 +144,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
   const waitingSteers = new Set();
   let steeringClient = null;
   const tasks = new Set();
+  const steeringBackground = createClaudeSteeringBackground({ publish, running: taskId => tasks.has(taskId) && !stopped && !cancelling,
+    counts: () => ({ pendingCommands: inFlight.size, backgroundTasks: tasks.size }) });
   let turnId = "";
   let messageId = "";
   let currentCommandId = "";
@@ -181,6 +184,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     assistantRoles.clear();
     result = "";
     outcome = null;
+    steeringBackground.clear();
     invalidateFinalAssistantResult();
   }
 
@@ -189,13 +193,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
   // and subagents to the background: they keep running and report completion,
   // and the blocked tool call returns so Claude reads the steer now.
   function backgroundForegroundWork() {
-    const client = steeringClient;
-    if (!waitingSteers.size || !client?.request || stopped || cancelling) return;
-    void client.request({ subtype: "background_tasks" }).then(
-      () => publish({ type: "diagnostic", stage: "steering_backgrounded", pendingCommands: inFlight.size, backgroundTasks: tasks.size }),
-      // An older CLI still reads the steer when its tool call returns.
-      error => publish({ type: "diagnostic", stage: "steering_background_failed", error: error.message })
-    ).catch(() => {});
+    if (!waitingSteers.size || !steeringClient?.request || stopped || cancelling) return;
+    steeringBackground.background(steeringClient);
   }
 
   function currentReceiptOwner(owner) {
@@ -479,6 +478,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       }
       const previousTaskCount = tasks.size;
       updateClaudeBackgroundTasks(tasks, frame);
+      steeringBackground.received(frame);
       // A command Claude started before reading a waiting steer would hold it too.
       if (frame.subtype === "task_started") backgroundForegroundWork();
       // Inventory removal can precede the task notification and the main model's
@@ -528,6 +528,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       if (apiMessageId && frame.message.content?.some(block => block.type === "tool_use")) {
         await flushAssistantMessages(apiMessageId, "commentary");
       }
+      for (const block of frame.message?.content || []) steeringBackground.called(block);
       for (const block of claudeMessageBlocks(frame)) {
         block.userId = currentCommandId;
         checkOutput(block.text, block.role);
