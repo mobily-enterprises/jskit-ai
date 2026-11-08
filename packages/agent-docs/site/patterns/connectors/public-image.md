@@ -93,6 +93,6 @@ with a setter after construction, or keep a module-level registry.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.2.19`
+- Owner: `@jskit-ai/connectors-catalog@0.2.20`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/public-image/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/public-image/example)
