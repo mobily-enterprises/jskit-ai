@@ -193,8 +193,9 @@ read-back and lookup, so every request pays what it costs. A policy is told
 who the call runs for as `caller`: `{ kind: "user", userId }` for a signed-in
 request, `{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
 `{ kind: "job" }` (a context `forWorkspace` and its kin derived), each with its
-`reason`, for background work. A job names no user, so never read a missing
-actor as an anonymous request.
+`reason`, for background work. A job names a user only as `actorId`, the
+person it was derived for (below), so never read a missing actor as an
+anonymous request.
 
 ```js
 // good: one predicate on the row being read
@@ -455,6 +456,11 @@ const SettlementFeature = defineFeature({
 - Prefer `systemContext(reason).forWorkspace(id)`, `.forUser(id)` or
   `.forWorkspaceUser(workspaceId, userId)`: each workspace or user is then one
   unit of work, scoped as usual, in a transaction of its own.
+- Work a job does for one person (a request it carries out later) passes
+  `{ actorId }` last: `forWorkspace(id, { actorId: requestedBy })`. Audit
+  fields read it as a request's actor (`resolveActorId(context)`) and the row
+  policy as `caller.actorId`; it never changes which rows the job reaches. It
+  passes an `authenticated` check as that user, with no permissions.
 - A job finds its units with one `aggregate` grouped by the ownership field,
   which a system context may group by even when the table hides it, then runs
   each unit scoped to it:

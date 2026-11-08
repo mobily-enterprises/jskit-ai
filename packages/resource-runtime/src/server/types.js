@@ -41,7 +41,8 @@
 /**
  * A context for work across every workspace and user, from `systemContext(reason)`.
  * `forWorkspace(id)`, `forUser(id)` and `forWorkspaceUser(workspaceId, userId)` derive the
- * context of one workspace, one user, or one user in one workspace.
+ * context of one workspace, one user, or one user in one workspace; each takes `{ actorId }` last for work done
+ * for one person, whom audit fields then record.
  * @typedef {ReturnType<typeof import("./contexts.js").createSystemContext>} SystemContext
  */
 

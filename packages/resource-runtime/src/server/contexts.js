@@ -51,10 +51,11 @@ function isJobContext(context) {
 /**
  * Who a call runs for, as its row policy sees it: background work across every workspace and user ("system"),
  * background work a system context derived for one workspace or user ("job"), each with its reason; a request by a
- * signed-in user ("user", with the user's id); or a request by no one ("anonymous"). A derived job context names no
- * user, so a policy that keys on the actor tells it from an anonymous request by its kind.
+ * signed-in user ("user", with the user's id); or a request by no one ("anonymous"). A derived job context names a
+ * user only as the person it acts for (`actorId`, when it was given one), so a policy that keys on the actor tells it
+ * from an anonymous request by its kind.
  * @param {unknown} context
- * @returns {Readonly<{ kind: "system" | "job", reason: string } | { kind: "user", userId: string } | { kind: "anonymous" }>}
+ * @returns {Readonly<{ kind: "system", reason: string } | { kind: "job", reason: string, actorId?: string } | { kind: "user", userId: string } | { kind: "anonymous" }>}
  */
 function callerOf(context) {
   if (isSystemContext(context)) {
@@ -66,7 +67,8 @@ function callerOf(context) {
   if (context && typeof context === "object" && context[JOB_CONTEXT]) {
     return Object.freeze({
       kind: "job",
-      reason: context.jobReason
+      reason: context.jobReason,
+      ...(context.actor ? { actorId: context.actor.id } : {})
     });
   }
   const userId = resolveActorId(context);
@@ -76,11 +78,18 @@ function callerOf(context) {
 /**
  * @param {string} reason
  * @param {Record<string, unknown>} scopeValues
+ * @param {{ actorId?: unknown }} options The person the work acts for, if any: `actor.id`, as a request's actor.
+ * @param {string} label The deriving method, such as "forWorkspace".
  */
-function jobContext(reason, scopeValues) {
+function jobContext(reason, scopeValues, options, label) {
+  if (options !== undefined && (!options || typeof options !== "object" || Object.keys(options).some((key) => key !== "actorId"))) {
+    throw new TypeError(`${label} takes { actorId } as its last argument: the user the work acts for.`);
+  }
+  const actorId = options?.actorId === undefined ? null : requireScopeId(options.actorId, label, "user it acts for");
   return Object.freeze({
     scopeValues: Object.freeze(scopeValues),
     jobReason: reason,
+    ...(actorId ? { actor: Object.freeze({ id: actorId }) } : {}),
     [JOB_CONTEXT]: true
   });
 }
@@ -88,7 +97,7 @@ function jobContext(reason, scopeValues) {
 /**
  * @param {unknown} value
  * @param {string} label The deriving method, such as "forWorkspace".
- * @param {"workspace" | "user"} subject What the id names.
+ * @param {"workspace" | "user" | "user it acts for"} subject What the id names.
  */
 function requireScopeId(value, label, subject) {
   const id = normalizeRecordId(value, { fallback: null });
@@ -106,7 +115,10 @@ function requireScopeId(value, label, subject) {
  * `forWorkspace(id)`, `forUser(id)` and `forWorkspaceUser(workspaceId, userId)`
  * derive ordinary contexts scoped to one workspace, one user, or one user in
  * one workspace, so the work for each is scoped as usual (and, as background
- * work, free of request row limits).
+ * work, free of request row limits). Each takes `{ actorId }` last, for work
+ * done for one person (a request a job carries out): the context's `actor`,
+ * which audit fields read as a request's, and the row policy's `caller.actorId`.
+ * It names who the work is for, never which rows it reaches.
  * @param {{ feature: string, systemScope: string, reason: string }} declaration
  */
 function createSystemContext({ feature, systemScope, reason }) {
@@ -116,14 +128,20 @@ function createSystemContext({ feature, systemScope, reason }) {
   }
   const description = `${feature}: ${normalizedReason}`;
 
-  /** @param {unknown} workspaceId */
-  function forWorkspace(workspaceId) {
-    return jobContext(description, { workspaceId: requireScopeId(workspaceId, "forWorkspace", "workspace") });
+  /**
+   * @param {unknown} workspaceId
+   * @param {{ actorId?: unknown }} [options]
+   */
+  function forWorkspace(workspaceId, options) {
+    return jobContext(description, { workspaceId: requireScopeId(workspaceId, "forWorkspace", "workspace") }, options, "forWorkspace");
   }
 
-  /** @param {unknown} userId */
-  function forUser(userId) {
-    return jobContext(description, { userId: requireScopeId(userId, "forUser", "user") });
+  /**
+   * @param {unknown} userId
+   * @param {{ actorId?: unknown }} [options]
+   */
+  function forUser(userId, options) {
+    return jobContext(description, { userId: requireScopeId(userId, "forUser", "user") }, options, "forUser");
   }
 
   /**
@@ -132,12 +150,13 @@ function createSystemContext({ feature, systemScope, reason }) {
    * and a `user` table the user's.
    * @param {unknown} workspaceId
    * @param {unknown} userId
+   * @param {{ actorId?: unknown }} [options]
    */
-  function forWorkspaceUser(workspaceId, userId) {
+  function forWorkspaceUser(workspaceId, userId, options) {
     return jobContext(description, {
       workspaceId: requireScopeId(workspaceId, "forWorkspaceUser", "workspace"),
       userId: requireScopeId(userId, "forWorkspaceUser", "user")
-    });
+    }, options, "forWorkspaceUser");
   }
 
   return Object.freeze(createJsonRestSystemContext(description, {

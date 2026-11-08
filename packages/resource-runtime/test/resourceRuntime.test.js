@@ -11,6 +11,7 @@ import {
   StaleRecordError,
   UnpagedQueryError
 } from "../src/server/index.js";
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizeOpaqueId } from "@jskit-ai/kernel/shared/support/normalize";
 import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 import { createTestResourceRuntime } from "../src/test/index.js";
@@ -936,6 +937,21 @@ test("a row policy is told who the call runs for: a system context, a job it der
     { kind: "user", userId: "7" },
     { kind: "anonymous" }
   ]);
+
+  // A job done for one person carries who it is for: audit fields read it as a request's actor, and the policy as
+  // caller.actorId. It reaches the workspace's rows as before, not that person's.
+  const forAda = systemContext.forWorkspace("1", { actorId: 9 });
+  assert.equal(resolveActorId(forAda), "9");
+  assert.equal(resolveActorId(systemContext.forWorkspace("1")), null);
+  seen.length = 0;
+  assert.deepEqual(await titles(forAda), ["private", "shared"]);
+  assert.deepEqual(await titles(systemContext.forWorkspaceUser("1", "4", { actorId: "9" })), ["private", "shared"]);
+  assert.deepEqual(seen, [
+    { kind: "job", reason: "digest.feature: send the digest", actorId: "9" },
+    { kind: "job", reason: "digest.feature: send the digest", actorId: "9" }
+  ]);
+  assert.throws(() => systemContext.forUser("4", { actor: "9" }), /forUser takes \{ actorId \} as its last argument/u);
+  assert.throws(() => systemContext.forWorkspace("1", { actorId: " " }), /forWorkspace needs the id of the user it acts for/u);
 });
 
 test("the owner's row policy cannot widen past ownership: its orWhere stays inside its own group", async (t) => {
