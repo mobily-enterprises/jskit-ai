@@ -46,14 +46,23 @@ const UNEXCUSABLE_RULES = new Set(["no-hand-context", "knex-reason"]);
 // An ESLint directive that turns rules off, with the rules it names (before any "--" description).
 const DISABLE_DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?(?:\s+([^]*?))?(?:\s+--[^]*)?\s*$/u;
 
+// An inline config comment, which sets rules where it stands (`/* eslint jskit/no-direct-knex: "off" */`), with the
+// rules it sets: each key before a colon.
+const CONFIG_DIRECTIVE = /^\s*eslint\s+([^]*?)(?:\s+--[^]*)?\s*$/u;
+const CONFIGURED_RULE = /(?:^|[\s,{])["']?((?:jskit\/)?[a-z][\w-]*)["']?\s*:/gu;
+
 /**
- * The data-access rules an `eslint-disable` comment names, each as written; none for any other comment.
- * @param {string} text The comment's text.
+ * The data-access rules an `eslint-disable` comment turns off, or an inline config comment sets, each as written, with
+ * which of the two the comment is; none for any other comment.
+ * @param {{ type: string, value: string }} comment
  */
-function disabledDataAccessRules(text) {
-  const match = DISABLE_DIRECTIVE.exec(text);
-  return (match?.[1] || "").split(",").map((rule) => rule.trim())
+function directedDataAccessRules({ type, value }) {
+  const disable = DISABLE_DIRECTIVE.exec(value);
+  const config = !disable && type === "Block" ? CONFIG_DIRECTIVE.exec(value) : null;
+  const named = disable ? (disable[1] || "").split(",") : [...(config?.[1] || "").matchAll(CONFIGURED_RULE)].map((match) => match[1]);
+  const rules = named.map((rule) => rule.trim())
     .filter((rule) => INFRASTRUCTURE_RULES.has(rule.replace(/^jskit\//u, "")) || UNEXCUSABLE_RULES.has(rule.replace(/^jskit\//u, "")));
+  return { rules, messageId: disable ? "dataAccessDisabled" : "dataAccessConfigured" };
 }
 const INFRASTRUCTURE_PREFIX = /^infrastructure:/u;
 
@@ -183,6 +192,7 @@ const allowCommentForm = Object.freeze({
     dataOnFunction: "\"{{reason}}\" excuses a function with data:, which is only for data. Give the function's real reason, or remove its duplicate.",
     dataAccessUnexcusable: "{{rule}} takes no exception; change the code.",
     dataAccessDisabled: "eslint-disable cannot turn off {{rule}}. Change the code; only a whole module whose job is data access itself takes the infrastructure exception.",
+    dataAccessConfigured: "An inline eslint config cannot set {{rule}}. Change the code; only a whole module whose job is data access itself takes the infrastructure exception.",
     infrastructureExcuse: "The infrastructure exception excuses a whole file from no-direct-knex, no-transaction-reader, no-hand-scope " +
       "or sql-literal, and nothing else, given before the file's first line of code."
   }, "exceptions"),
@@ -196,8 +206,9 @@ const allowCommentForm = Object.freeze({
           .map((comment) => ({ comment, opening: 4 }));
         const scriptComments = sourceCode.getAllComments().map((comment) => ({ comment, opening: 2 }));
         for (const { comment, opening } of [...scriptComments, ...templateComments]) {
-          for (const rule of disabledDataAccessRules(comment.value)) {
-            context.report({ loc: comment.loc, messageId: "dataAccessDisabled", data: { rule } });
+          const directed = directedDataAccessRules(comment);
+          for (const rule of directed.rules) {
+            context.report({ loc: comment.loc, messageId: directed.messageId, data: { rule } });
           }
           const inHeader = opening === 2 && (!firstToken || comment.range[1] <= firstToken.range[0]);
           for (const { body, loc } of allowLines(comment, opening)) {

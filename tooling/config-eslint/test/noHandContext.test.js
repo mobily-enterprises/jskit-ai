@@ -12,7 +12,9 @@ new RuleTester().run("jskit/no-hand-context", noHandContext, {
     "await bookings.query({ filters }, options);",
     "const workspaceId = context.scopeValues?.workspaceId;",
     "const { systemContext } = dependencies;",
-    "const values = { [key]: value };"
+    "const values = { [key]: value };",
+    // The resource runtime defines it; only its call mints a system context.
+    "function declareSystemScope(featureId, systemScope) { return scopes.get(featureId); }\nexport const runtime = { declareSystemScope };"
   ],
   invalid: [
     {
@@ -30,6 +32,13 @@ new RuleTester().run("jskit/no-hand-context", noHandContext, {
     {
       code: "const { createSystemContext: mint } = jsonRestApi;",
       errors: [{ messageId: "systemContext" }]
+    },
+    {
+      code: "const systemContext = runtime.declareSystemScope(\"billing\", \"read every invoice\");\nconst { declareSystemScope } = resources;",
+      errors: [
+        { messageId: "systemContext", data: { name: "declareSystemScope" }, line: 1 },
+        { messageId: "systemContext", data: { name: "declareSystemScope" }, line: 2 }
+      ]
     },
     {
       code: "await bookings.query({}, { context: { scopeValues: { workspaceId } } });",

@@ -140,3 +140,20 @@ new RuleTester({ plugins: { jskit: jskitPlugin } }).run("jskit/allow-comment-for
     }
   ]
 });
+
+// An inline config comment sets a rule where it stands, so it can turn a data-access rule off as a disable does. The
+// plugin is loaded here so that ESLint knows the rules those comments set.
+new RuleTester({ plugins: { jskit: jskitPlugin } }).run("jskit/allow-comment-form inline config", allowCommentForm, {
+  valid: [
+    "/* eslint no-console: \"off\" */\nconsole.log(1);\n// eslint jskit/sql-literal: 0 is a line comment, which sets nothing"
+  ],
+  invalid: [
+    {
+      code: "/* eslint jskit/no-direct-knex: \"off\", no-console: 0 */\nknex(\"users\");\n/*eslint \"jskit/no-hand-scope\":[\"warn\"]*/",
+      errors: [
+        { messageId: "dataAccessConfigured", data: { rule: "jskit/no-direct-knex" }, line: 1 },
+        { messageId: "dataAccessConfigured", data: { rule: "jskit/no-hand-scope" }, line: 3 }
+      ]
+    }
+  ]
+});

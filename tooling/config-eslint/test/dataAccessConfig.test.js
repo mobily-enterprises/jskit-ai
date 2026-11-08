@@ -24,7 +24,7 @@ async function dataAccessFindings(config, filePath) {
 
 const ERRORS = Object.freeze(["error jskit/no-direct-knex", "error jskit/no-hand-scope", "error jskit/sql-literal"]);
 
-test("baseConfig reports the data-access rules as errors in every source but the client's, wherever it sits", async () => {
+test("baseConfig reports the data-access rules as errors in every source but a package's client, the app's own src/ included", async () => {
   for (const filePath of [
     "packages/receivals/src/server/receivalsService.js",
     "packages/receivals/src/shared/receivalResource.js",
@@ -36,7 +36,15 @@ test("baseConfig reports the data-access rules as errors in every source but the
     "server.js",
     "config/server.js",
     "bin/report.cjs",
-    "scripts/report.js"
+    "scripts/report.js",
+    // An application's own src/ is linted whole, and a seed is told by its folder or a script's place, not its name:
+    // server code there, or a service named seed*, is not left alone.
+    "src/main.js",
+    "src/pages/home/receivals.js",
+    "src/ApplicationAiFeature.js",
+    "src/jobs/nightlyCleanup.js",
+    "packages/receivals/src/server/seedReceivals.js",
+    "server/lib/seedService.js"
   ]) {
     assert.deepEqual(await dataAccessFindings(baseConfig, filePath), ERRORS, filePath);
   }
@@ -51,10 +59,11 @@ test("baseConfig leaves tests, migrations, seeds and client code to reach the da
     "packages/receivals/migrations/20260101000000_receivals.cjs",
     "packages/receivals/src/server/migrations/receivals.js",
     "seeds/receivals.js",
-    "packages/receivals/src/server/seedReceivals.js",
+    "packages/receivals/seeds/receivals.js",
+    "scripts/seed-database.js",
+    "packages/receivals/bin/seedDemo.mjs",
+    "seed.js",
     "packages/receivals/src/client/composables/useReceivals.js",
-    "src/main.js",
-    "src/pages/home/receivals.js",
     "tests/e2e/receivals.js",
     "dist/assets/index.js"
   ]) {

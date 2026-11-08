@@ -1216,7 +1216,7 @@ export default [
   `**/src/server/**`, so an existing application sees them before it lists a
   package; it lists each package as it converts it. It makes the
   [data-access rules](/guide/framework/data-access#hard-rules) errors in all
-  code but the client's, tests, migrations and seeds.
+  code but a package's `src/client`, tests, migrations and seeds.
 - `clientFeaturesConfig(globs)` holds client code to the same rules; see
   [client features](/guide/framework/client-features#running-the-checks).
 

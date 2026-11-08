@@ -614,12 +614,16 @@ async function activeDays(memberIds, options) {
     resource in the code describes.
 - `column()` names columns; `raw` takes one expression as a string literal,
   with its values as bindings.
-- The builder only reads, and only its own table is scoped. A `.join()` of a
-  table by name, or a table named inside `raw()`, reads that table's rows past
-  its owner and row policy. Nothing at run time stops it: `jskit/no-direct-knex`
-  and `jskit/sql-literal` flag it, and `expectScoped` catches it only when the
-  test seeds another owner's rows the join matches. Join another table only as
-  that table's scoped subquery.
+- The builder only reads, and only its own table is scoped. A `.join()` or
+  `.from()` of a table by name, or a table named inside `raw()`, reads that
+  table's rows past its owner and row policy, and so does a subquery callback
+  (`whereIn("id", (sub) => sub.from(...))`), whose builder is Knex's own. Nothing
+  at run time stops it: `jskit/no-direct-knex` and `jskit/sql-literal` flag it
+  (a name as text, an alias object such as `{ p: "projects" }`, a variable
+  whose name says table or name, a const holding one, and in a subquery
+  callback any variable but a scoped subquery), and `expectScoped` catches it
+  only when the test seeds another owner's rows the join matches. Join another
+  table only as that table's scoped subquery.
 - When a report needs another owner's rows side by side, that owner adds a
   method answering its scoped rows as a subquery with its own column names,
   and the report joins it in one statement. The method answers
@@ -829,7 +833,9 @@ Ask the owner: its service, or for a JSKIT table its owner API, with the same
 (`users.profiles`, `users.settings`), workspaces (`workspaces`,
 `workspaces.memberships`), local sign-in (`auth.local.accounts`,
 `auth.local.sessions`, `auth.local.recovery`) and the console
-(`console.settings`). A realtime audience reaches its users the same way: its
+(`console.settings`). Local sign-in's owner APIs work in its system context,
+so `jskit check` wants a reviewed reason for each module that requires one
+(see [Hard rules](#hard-rules)). A realtime audience reaches its users the same way: its
 `audienceUsers({ event, options })` asks the owners and answers user ids, in the
 event's scope: for a customer's or a public surface's event, the workspace the
 request resolved, never one its payload names (see [Realtime](/guide/app-extras/realtime)).
@@ -1008,19 +1014,21 @@ async function signUp(email, password) {
 
 ## Hard rules
 
-These are always wrong, and lint reports them as errors in all code but the
-client's, wherever it sits; tests, migrations and seeds are outside them.
-`eslint-disable` cannot turn them off.
+These are always wrong, and lint reports them as errors in all code but a
+package's client (`src/client`), the app's own `src/` included, since server
+code sits there too. Tests, migrations and seeds (a `seeds/` folder, or a
+`seed*` script in `scripts/`, `bin/` or the root) are outside them. Neither
+`eslint-disable` nor an inline `/* eslint ... */` config can turn them off.
 
 ### Lint rules
 
 | Rule | Reports | Section |
 | --- | --- | --- |
 | `jskit/no-direct-knex` | a table reached by name with Knex, a `.knex` read or `knex` destructured, a transaction opened by hand | [The resource is the only door](#the-resource-is-the-only-door) |
-| `jskit/no-transaction-reader` | `options.trx`, `trx \|\| knex`, a `trx = knex` default, `trx` destructured from options | [Transactions](#transactions) |
+| `jskit/no-transaction-reader` | `options.trx`, `trx \|\| knex`, a `trx = knex` default, `trx` destructured from options, any key but `context` and `trx` read from the `txOptions` work receives | [Transactions](#transactions) |
 | `jskit/no-hand-scope` | a hand-written `where` on `workspace_id` or `workspaceId` | [Layer 1: the table resource](#layer-1-the-table-resource) |
 | `jskit/sql-literal` | raw SQL built from strings or templates instead of one literal with bindings | [Layer 5: reports the resource cannot express](#layer-5-reports-the-resource-cannot-express) |
-| `jskit/no-hand-context` | a system context made with `createSystemContext`, a context's `scopeValues` written by hand | [Background work](#background-work) |
+| `jskit/no-hand-context` | a system context made with `createSystemContext` or `declareSystemScope`, a context's `scopeValues` written by hand | [Background work](#background-work) |
 | `jskit/knex-reason` | a `scopedQuery()` report outside a named repository method under `// Knex: <kind> - <reason>` | [Layer 5: reports the resource cannot express](#layer-5-reports-the-resource-cannot-express) |
 
 ### Exceptions
@@ -1064,8 +1072,12 @@ it. Check and judge, for each file:
 - an infrastructure exception or a feature's system scope that the app's
   checked-in `jskit-data-access.json` does not list, so each new one is
   reviewed: `{ "infrastructure": [{ "file", "rule" }], "systemScopes":
-  [{ "feature", "systemScope" }] }`;
-- a module that requires `runtime.database` or `runtime.resources` without
-  the infrastructure exception: features own their tables with `owns`;
-- an `eslint-disable` that names a data-access rule, or no rule, outside
-  client code.
+  [{ "feature", "systemScope" }, { "file", "capability", "systemScope" }] }`;
+- a module that requires a capability handing out rows past their owners:
+  `runtime.database` or `runtime.resources` without the infrastructure
+  exception (features own their tables with `owns`), and
+  `realtime.audience-scope`, `auth.local.accounts`, `auth.local.sessions` or
+  `auth.local.recovery` until `systemScopes` lists that file and capability
+  with its reason, in any spelling the kernel resolves (`Runtime.Resources`);
+- an `eslint-disable` that names a data-access rule, or no rule, or an inline
+  `/* eslint ... */` config that sets one, outside client code.

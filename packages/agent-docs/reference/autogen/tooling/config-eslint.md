@@ -150,7 +150,7 @@ Exports
 - `isInfrastructureExcuse(line, ruleName)`
 - `reasonProblem(reason)`
 Local functions
-- `disabledDataAccessRules(text)`
+- `directedDataAccessRules({ type, value })`
 - `readAllow(text)`
 - `holdsFunction(node)`
 - `excusedNode(sourceCode, comment)`
@@ -229,7 +229,11 @@ Local functions
 - `isTableText(node)`
 - `namesTable(callee, first)`
 - `isOtherLibrary(method, object, args)`
-- `joinsNamedTable(method, first)`
+- `declaredValue(sourceCode, identifier)`
+- `isSubqueryCallback(fn)`
+- `inSubqueryCallback(node)`
+- `namesTableArgument(sourceCode, first, strict, depth = 0)`
+- `aliasesTable(sourceCode, callee, first)`
 
 ### `plugin/rules/noDualShape.js`
 Exports
@@ -324,6 +328,7 @@ Exports
 Local functions
 - `isKnexValue(node)`
 - `isOptionsObject(node)`
+- `txOptionsParameter(node)`
 
 ### `plugin/rules/oneLineAction.js`
 Exports

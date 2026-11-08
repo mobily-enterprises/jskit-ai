@@ -24,6 +24,12 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
     "const line = cells.join(`${separator} `);\nconst chars = Array.from(`${word}!`);\nconst file = path.join(`${root}/data`, name);",
     "query.join(events.scopedQuery(options).as(`e_${index}`), `e_${index}.receivalId`, \"r.id\");\nconst title = \"Lot \" + number;",
     "runtime.knex = connection;",
+    // A subquery callback over another table's scopedQuery() subquery, directly or through a const holding it, is scoped;
+    // so are a join of a parameter outside a callback, a connection's settings and a static from of an object.
+    "const recent = lots.scopedQuery(options).as(\"l\");\nquery.whereIn(\"lotId\", (sub) => sub.select(\"l.id\").from(recent));",
+    "query.whereExists(function () { this.select(1).from(lots.scopedQuery(options).as(\"l\")).whereColumn(\"l.id\", \"r.lot_id\"); });",
+    "function withBilled(query, billed) { return query.leftJoin(billed, \"b.projectId\", \"t.project_id\"); }",
+    "const pool = knex({ client: \"pg\" });\nconst ids = Array.from({ length: 3 }, (_, index) => index);",
     "const reply = await client(model);\nconst draft = transaction(saved);\nconst view = db(record).view;",
     `${EXCUSE}\nimport { readFile } from "node:fs/promises";\nexport const applied = (knex) => knex("knex_migrations").select("name");`,
     "/* readable-check: allow jskit/no-direct-knex - infrastructure: the database template copier */\nexport const copy = (database) => database.knex.raw(\"select 1\");"
@@ -104,6 +110,57 @@ new RuleTester().run("jskit/no-direct-knex", noDirectKnex, {
         { messageId: "literalTable", data: { method: "from", table: "\"archived_\" + name" }, line: 5 },
         { messageId: "literalTable", data: { method: "into", table: "base + \"_copy\"" }, line: 5 },
         { messageId: "tableBuilder", data: { text: "knex" }, line: 6 }
+      ]
+    },
+    {
+      // from, table and into name a table through a variable or property as much as a join does.
+      code: "query.from(PROJECTS_TABLE);\nquery.from(name);\nquery.table(tableName);\nquery.insert(row).into(tables.audit);",
+      errors: [
+        { messageId: "literalTable", data: { method: "from", table: "PROJECTS_TABLE" }, line: 1 },
+        { messageId: "literalTable", data: { method: "from", table: "name" }, line: 2 },
+        { messageId: "literalTable", data: { method: "table", table: "tableName" }, line: 3 },
+        { messageId: "literalTable", data: { method: "into", table: "tables.audit" }, line: 4 }
+      ]
+    },
+    {
+      // A join of a variable whose name lacks "table": by its name, or by the const it reads.
+      code: "query.join(name, \"p.id\", \"r.project_id\");\nconst target = \"projects\";\nquery.leftJoin(target, \"projects.id\", \"r.project_id\");",
+      errors: [
+        { messageId: "literalTable", data: { method: "join", table: "name" }, line: 1 },
+        { messageId: "literalTable", data: { method: "leftJoin", table: "target" }, line: 3 }
+      ]
+    },
+    {
+      // The alias form names its table as a value, for every table method and for knex(...) and trx(...).
+      code: [
+        "query.join({ p: \"projects\" }, \"p.id\", \"r.project_id\");",
+        "query.from({ p: PROJECTS_TABLE });",
+        "query.insert(row).into({ a: `audit_events` });",
+        "await knex({ p: \"projects\" }).select(\"p.id\");",
+        "await trx({ p: PROJECTS_TABLE }).del();"
+      ].join("\n"),
+      errors: [
+        { messageId: "literalTable", line: 1 },
+        { messageId: "literalTable", line: 2 },
+        { messageId: "literalTable", line: 3 },
+        { messageId: "tableBuilder", data: { text: "knex" }, line: 4 },
+        { messageId: "tableBuilder", data: { text: "trx" }, line: 5 }
+      ]
+    },
+    {
+      // A subquery callback receives Knex's own builder, unscoped: a table it names by any variable that holds no
+      // scopedQuery() subquery, an import or a parameter included, reads past its owner.
+      code: [
+        "import { PROJECTS } from \"./tables.js\";",
+        "query.whereIn(\"project_id\", (sub) => sub.select(\"id\").from(PROJECTS));",
+        "query.whereExists(function () { this.select(1).from(source).whereColumn(\"s.id\", \"r.source_id\"); });",
+        "query.whereNotIn(\"id\", (sub) => sub.select(\"lot_id\").from(\"lots\").join(owners, \"owners.id\", \"lots.owner_id\"));"
+      ].join("\n"),
+      errors: [
+        { messageId: "literalTable", data: { method: "from", table: "PROJECTS" }, line: 2 },
+        { messageId: "literalTable", data: { method: "from", table: "source" }, line: 3 },
+        { messageId: "literalTable", data: { method: "from", table: "\"lots\"" }, line: 4 },
+        { messageId: "literalTable", data: { method: "join", table: "owners" }, line: 4 }
       ]
     },
     {

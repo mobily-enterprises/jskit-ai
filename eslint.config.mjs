@@ -85,6 +85,12 @@ export default [
   // The data-access rules: baseConfig makes them errors in every src/server and src/shared tree, and the kernel's
   // server and shared code is listed here.
   ...dataAccessConfig(["packages/kernel/server/**", "packages/kernel/shared/**"]),
+  // defineFeature is where a feature's declared systemScope becomes its systemContext, through the resource runtime's
+  // declareSystemScope, which jskit/no-hand-context refuses everywhere else.
+  {
+    files: ["packages/kernel/server/features/defineFeature.js"],
+    rules: { "jskit/no-hand-context": "off" }
+  },
   // The packages whose job is data access are the resource path itself, so the rules leave them alone.
   ...dataAccessConfig([
     // The resource runtime: the json-rest-api host, handles and scoped queries.

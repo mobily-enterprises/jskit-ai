@@ -10,9 +10,10 @@ import { blankJsComments, lineIndex } from "./material3-source.mjs";
 // without a literal reason fails; and every file the infrastructure exception lifts past the data-access lint rules is
 // listed for review. In the app's own code, which no lint directive can hide from it, a feature's system scope and an
 // infrastructure exception fail until the checked-in BASELINE_FILE lists them, so each new one is reviewed; a module
-// that requires runtime.database or runtime.resources fails unless it is declared infrastructure; and an eslint-disable
-// that names a data-access rule, or no rule at all, fails in any file but the client's. As information, it lists the
-// fields of each app table resource that its CRUD contracts never name, which no API shows or accepts.
+// that requires a capability handing out power past the owners (CROSS_OWNER_CAPABILITIES) fails until it is reviewed
+// too; and an eslint-disable or inline eslint config that turns off a data-access rule, or every rule, fails in any file
+// but the client's. As information, it lists the fields of each app table resource that its CRUD contracts never name,
+// which no API shows or accepts.
 
 const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access";
 const SECTIONS = Object.freeze({
@@ -30,22 +31,38 @@ const RULE_EXPLANATIONS = Object.freeze({
   "data/system-scope": "every system scope and systemContext() call gives its reason as a string literal.",
   "data/baseline": "each infrastructure exception and feature system scope of the app is reviewed, then listed in the checked-in " +
     "jskit-data-access.json; review each one below, then add the entry it shows.",
-  "data/runtime-capability": "a module that requires runtime.database or runtime.resources reaches tables past the features that " +
-    "own them. A feature owns its tables with owns and gets their handles; only a module whose job is data access itself, " +
-    "declared with the infrastructure exception, takes them.",
-  "data/lint-disabled": "eslint-disable cannot turn off a data-access rule, and one that names no rule turns them all off. Change the " +
-    "code, or name the rules the directive turns off."
+  "data/runtime-capability": "a module that requires a capability handing out power past the owners reaches rows past the " +
+    "features that own them. A feature owns its tables with owns and gets their handles; only a module whose job is data " +
+    "access itself, declared with the infrastructure exception, takes runtime.database or runtime.resources, and a module " +
+    "takes any other one once the baseline's systemScopes lists it with its reason.",
+  "data/lint-disabled": "neither eslint-disable nor an inline eslint config comment can turn off a data-access rule, and a " +
+    "disable that names no rule turns them all off. Change the code, or name the rules the directive turns off."
 });
 // The reviewed list of the app's infrastructure exceptions and feature system scopes, at the app's root.
 const BASELINE_FILE = "jskit-data-access.json";
 const DATA_ACCESS_RULES = Object.freeze(["no-direct-knex", "no-transaction-reader", "sql-literal", "no-hand-scope", "no-hand-context", "knex-reason"]);
 // An eslint-disable directive and the rules it names, before any "--" description.
 const LINT_DISABLE = /\/[/*]\s*eslint-disable(?:-next-line|-line)?(?![\w-])([^\n]*)/gu;
-// A module that takes the database, or every table, past the features that own them.
-const RUNTIME_CAPABILITY = /(["'`])(runtime\.(?:database|resources))\1/gu;
-// An app's client code, which the data-access rules leave alone: its own src/ but src/server and src/shared, and every
-// package's src/client.
-const CLIENT_FILE = /^src\/(?!server\/|shared\/)|(?:^|\/)src\/client\//u;
+// An inline config comment's text, `eslint jskit/no-direct-knex: "off"`, and the rules it sets.
+const LINT_CONFIG = /^\s*eslint\s([\s\S]*)$/u;
+// The capabilities that hand a module power past the features owning the rows, with what each gives: one list. Requiring
+// runtime.database or runtime.resources is for a module declared infrastructure only; requiring any other one passes
+// once the baseline's systemScopes lists it, with its reason: { "file", "capability", "systemScope": "<reason>" }.
+const CROSS_OWNER_CAPABILITIES = Object.freeze({
+  "runtime.database": { gives: "the database, past every owner", infrastructureOnly: true },
+  "runtime.resources": { gives: "every table resource's handle", infrastructureOnly: true },
+  "realtime.audience-scope": { gives: "contexts for any workspace and user (forWorkspace, forUser, forWorkspaceUser)" },
+  "auth.local.accounts": { gives: "every local sign-in account, read and written in local auth's system context" },
+  "auth.local.sessions": { gives: "every sign-in session, read and written in local auth's system context" },
+  "auth.local.recovery": { gives: "every recovery token, read and written in local auth's system context" }
+});
+const escapeRegExp = (text) => text.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+// A capability id written as a string, compared as the kernel resolves it: trimmed and in any case.
+const CAPABILITY_NAMES = Object.keys(CROSS_OWNER_CAPABILITIES).map(escapeRegExp).join("|");
+const CROSS_OWNER_CAPABILITY = new RegExp(`(["'\`])\\s*(${CAPABILITY_NAMES})\\s*\\1`, "giu");
+// Client code, which the data-access rules leave alone: a package's src/client. An app's own src/ is linted whole, since
+// server code sits there too (see @jskit-ai/config-eslint's dataAccess.js).
+const CLIENT_FILE = /(?:^|\/)src\/client\//u;
 const FRAMEWORK_DIRECTORY = path.join("node_modules", "@jskit-ai");
 const SOURCE_FILE = /\.[cm]?js$/u;
 const SKIPPED_FILE = /\.(?:test|spec|vitest)\.[cm]?js$/u;
@@ -55,7 +72,7 @@ const SKIPPED_DIRECTORIES = new Set([
   "node_modules", "dist", "build", "coverage", "test", "tests", "__tests__", "e2e", "fixtures", "test-results",
   "migrations", "seeds", "templates", "patterns", "examples", "docs", "site", "skills", "test-support"
 ]);
-const MARKERS = /defineTableResource|defineCrudContract|systemScope|systemContext|readable-check: allow|eslint-disable|runtime\.(?:database|resources)/u;
+const MARKERS = new RegExp(`defineTableResource|defineCrudContract|systemScope|systemContext|readable-check: allow|eslint|${CAPABILITY_NAMES}`, "iu");
 const TABLE_RESOURCE_CALL = /\bdefineTableResource\s*\(/gu;
 // A CRUD contract on a table resource named by its variable: `defineCrudContract(receivalResource, { ... })`.
 const CRUD_CONTRACT_CALL = /\bdefineCrudContract\s*\(\s*([A-Za-z_$][\w$]*)\s*,\s*/gu;
@@ -328,30 +345,83 @@ function readInfrastructureExcuses(file, source) {
   });
 }
 
+const isDataAccessRule = (rule) => DATA_ACCESS_RULES.includes(rule.replace(/^jskit\//u, ""));
+
+// The block comments of a file, each { index, value }, read as blankJsComments reads comments: text in a string or a line
+// comment is no comment. ESLint reads inline config only from block comments.
+function blockComments(source) {
+  const comments = [];
+  let index = 0;
+  while (index < source.length) {
+    const opening = source.slice(index, index + 2);
+    if (opening === "//" || opening === "/*") {
+      const end = source.indexOf(opening === "//" ? "\n" : "*/", index + 2);
+      const stop = end < 0 ? source.length : end;
+      if (opening === "/*") comments.push({ index, value: source.slice(index + 2, stop) });
+      index = opening === "/*" ? stop + 2 : stop;
+    } else if ("\"'`".includes(source[index])) {
+      const quote = source[index];
+      index += 1;
+      while (index < source.length && source[index] !== quote && (quote === "`" || source[index] !== "\n")) {
+        index += source[index] === "\\" ? 2 : 1;
+      }
+      index += 1;
+    } else {
+      index += 1;
+    }
+  }
+  return comments;
+}
+
 // Every eslint-disable in a file that turns off a data-access rule: one that names one, or one that names no rule and so
-// turns off every rule.
+// turns off every rule; and every inline config comment that sets a data-access rule, which can only weaken it.
 function readLintDisables(file, source, position) {
   const disables = [];
   for (const match of source.matchAll(LINT_DISABLE)) {
     const named = match[1].replace(/\*\/.*$/u, "").split(/\s--\s|\s--$/u)[0].split(",").map((rule) => rule.trim()).filter(Boolean);
-    const rules = named.filter((rule) => DATA_ACCESS_RULES.includes(rule.replace(/^jskit\//u, "")));
+    const rules = named.filter(isDataAccessRule);
     if (named.length < 1 || rules.length > 0) {
-      disables.push({ file, line: position(match.index).line, rules });
+      disables.push({ file, line: position(match.index).line, kind: "disable", rules });
+    }
+  }
+  for (const comment of blockComments(source)) {
+    const settings = LINT_CONFIG.exec(comment.value)?.[1].split(/\s--\s/u)[0] || "";
+    const rules = [...settings.matchAll(/(?:^|[\s,{])["']?((?:jskit\/)?[a-z][\w-]*)["']?\s*:/gu)].map((rule) => rule[1]).filter(isDataAccessRule);
+    if (rules.length > 0) {
+      disables.push({ file, line: position(comment.index).line, kind: "config", rules });
     }
   }
   return disables;
 }
 
-// Every place a file's code takes runtime.database or runtime.resources: each time it names one outside a provides
-// object, the module that provides it.
+// Every place a file's code takes a cross-owner capability: each time it names one outside a provides object (the module
+// that provides it) and other than as a feature's own id.
 function readRuntimeCapabilities(file, { code, masked, position }) {
   const provides = [...masked.matchAll(/\bprovides\s*:\s*\{/gu)].map((match) => {
     const start = match.index + match[0].length - 1;
     return { start, end: closingOffset(masked, start) };
   });
-  return [...code.matchAll(RUNTIME_CAPABILITY)]
+  return [...code.matchAll(CROSS_OWNER_CAPABILITY)]
     .filter((match) => !provides.some(({ start, end }) => match.index > start && match.index < end))
-    .map((match) => ({ file, line: position(match.index).line, capability: match[2] }));
+    .filter((match) => !/\bid\s*:\s*$/u.test(masked.slice(Math.max(0, match.index - 12), match.index)))
+    .map((match) => ({ file, line: position(match.index).line, capability: match[2].toLowerCase() }));
+}
+
+// Fails each cross-owner capability a module requires that is not reviewed: runtime.database and runtime.resources
+// outside a module declared infrastructure, and any other one the baseline's systemScopes does not list with a reason.
+function checkCapabilities(baseline, uses, report) {
+  for (const { file, line, capability, infrastructure } of uses) {
+    const { gives, infrastructureOnly } = CROSS_OWNER_CAPABILITIES[capability];
+    if (infrastructureOnly) {
+      if (!infrastructure) report({ file, line }, "data/runtime-capability", `requires ${capability}`);
+      continue;
+    }
+    const entry = baseline.systemScopes.find((item) => item?.file === file && item?.capability === capability);
+    if (typeof entry?.systemScope !== "string" || !entry.systemScope.trim()) {
+      report({ file, line }, "data/runtime-capability", `requires ${capability}, which gives ${gives}: once the module must, add ` +
+        `${JSON.stringify({ file, capability, systemScope: "<why it needs this>" })} to "systemScopes".`);
+    }
+  }
 }
 
 // The app's reviewed baseline, or empty lists when it has none; a file that is not that JSON is a finding.
@@ -370,7 +440,7 @@ async function readBaseline(root, report) {
       systemScopes: Array.isArray(baseline.systemScopes) ? baseline.systemScopes : []
     };
   } catch {
-    report({ file: BASELINE_FILE, line: 1 }, "data/baseline", `${BASELINE_FILE} is not JSON; it lists { "infrastructure": [{ "file", "rule" }], "systemScopes": [{ "feature", "systemScope" }] }.`);
+    report({ file: BASELINE_FILE, line: 1 }, "data/baseline", `${BASELINE_FILE} is not JSON; it lists { "infrastructure": [{ "file", "rule" }], "systemScopes": [{ "feature", "systemScope" }, { "file", "capability", "systemScope" }] }.`);
     return { infrastructure: [], systemScopes: [] };
   }
 }
@@ -492,6 +562,7 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
   const contracts = [];
   const scopes = [];
   const excuses = [];
+  const capabilities = [];
   const findings = [];
   const report = ({ file, line }, rule, message) => findings.push({ file, line, rule, message });
   for (const { file, absolute, framework } of sources) {
@@ -505,21 +576,19 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
     contracts.push(...readCrudContracts(read));
     const fileExcuses = readInfrastructureExcuses(name, source);
     excuses.push(...fileExcuses);
-    if (fileExcuses.length < 1) {
-      for (const use of readRuntimeCapabilities(name, read)) {
-        report(use, "data/runtime-capability", `requires ${use.capability}`);
-      }
-    }
+    capabilities.push(...readRuntimeCapabilities(name, read).map((use) => ({ ...use, infrastructure: fileExcuses.length > 0 })));
     if (CLIENT_FILE.test(name)) continue;
     for (const disable of readLintDisables(name, source, read.position)) {
-      report(disable, "data/lint-disabled", disable.rules.length > 0
-        ? `eslint-disable turns off ${disable.rules.join(", ")}`
-        : "eslint-disable names no rule");
+      report(disable, "data/lint-disabled", disable.kind === "config"
+        ? `an inline eslint config sets ${disable.rules.join(", ")}`
+        : disable.rules.length > 0 ? `eslint-disable turns off ${disable.rules.join(", ")}` : "eslint-disable names no rule");
     }
   }
   checkTables(resources, report);
   checkSystemScopes(scopes, report);
-  checkBaseline(await readBaseline(root, report), excuses, scopes, report);
+  const baseline = await readBaseline(root, report);
+  checkBaseline(baseline, excuses, scopes, report);
+  checkCapabilities(baseline, capabilities, report);
   findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line);
   return {
     ok: findings.length < 1,

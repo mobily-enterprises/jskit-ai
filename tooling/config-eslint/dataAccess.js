@@ -1,18 +1,21 @@
 import { jskitPlugin } from "./plugin/index.js";
 
 const SOURCE_FILES = "**/*.{js,mjs,cjs}";
-// What the data-access rules leave alone, by directory: client code, which never reaches the database (an application's
-// own src/ but its src/server and src/shared, and every package's src/client), and tests, migrations and seeds, which
-// reach it directly on purpose. Everything else is server code, wherever it sits.
+// What the data-access rules leave alone: client code, which never reaches the database, and tests, migrations and
+// seeds, which reach it directly on purpose. Each is told by a name that says so, not by a folder that merely tends to
+// hold it: client code is a package's src/client; a seed is a seeds/ (or seed/) folder, or a seed script in a scripts/
+// or bin/ folder or at the root. An application's own src/ is linted whole: it holds the browser app, but server code
+// sits there too (an AI feature in src/, a src/jobs/ folder) and no folder name tells them apart. Client code has nothing
+// for these rules to report, so linting it costs nothing; skipping src/ by folder, and every seed*.js anywhere, let
+// server code escape every rule.
 const NOT_DATA_ACCESS_SOURCE = Object.freeze([
-  "src/!(server|shared)/**",
-  "src/*.{js,mjs,cjs}",
   "**/src/client/**",
   "**/{test,tests,__tests__,e2e,test-support}/**",
   "**/*.{test,spec,vitest}.*",
   "**/migrations/**",
   "**/{seed,seeds}/**",
-  "**/seed*.{js,mjs,cjs}",
+  "**/{scripts,bin}/seed*.{js,mjs,cjs}",
+  "seed*.{js,mjs,cjs}",
   "**/{dist,build,coverage}/**"
 ]);
 
@@ -36,7 +39,7 @@ function dataAccessRules(severity = "error") {
 
 /**
  * The data-access rules, as errors unless another severity is given, for the source files the globs select, but
- * client code, tests, migrations and seeds (NOT_DATA_ACCESS_SOURCE). baseConfig already applies them to every file of
+ * client code, tests, migrations and seeds (NOT_DATA_ACCESS_SOURCE, which says how each is told apart). baseConfig already applies them to every file of
  * an application; a repository lists its own trees with this.
  * @param {string[]} files
  * @param {"error" | "warn" | "off"} [severity]

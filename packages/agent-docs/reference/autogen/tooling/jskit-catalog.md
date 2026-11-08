@@ -71,6 +71,7 @@ Exports
 - `checkDataAccess({ projectRoot = process.cwd() } = {})`
 - `formatDataAccessReport(result)`
 Local functions
+- `escapeRegExp(text)`
 - `blank(text)`
 - `maskStrings(code)`
 - `closingOffset(masked, start)`
@@ -90,8 +91,11 @@ Local functions
 - `ownsSystemContextName(source, masked)`
 - `readSystemScopes(file, { source, code, masked, position })`
 - `readInfrastructureExcuses(file, source)`
+- `isDataAccessRule(rule)`
+- `blockComments(source)`
 - `readLintDisables(file, source, position)`
 - `readRuntimeCapabilities(file, { code, masked, position })`
+- `checkCapabilities(baseline, uses, report)`
 - `readBaseline(root, report)`
 - `checkBaseline(baseline, excuses, scopes, report)`
 - `walk(root, directory, files)`

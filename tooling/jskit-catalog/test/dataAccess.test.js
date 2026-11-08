@@ -305,10 +305,11 @@ test("a new exception or system scope fails until the baseline lists it, as do r
   await withProject({
     "server/lib/health.js": "// readable-check: allow no-direct-knex - infrastructure: the health check's ping\nexport const ping = ({ database }) => database;\n",
     "packages/jobs/src/server/CleanupFeature.js": "export const CleanupFeature = defineFeature({ id: \"jobs.cleanup\", systemScope: \"delete expired drafts of every user\" });\n",
+    // Capability ids are read as the kernel resolves them: trimmed and in any case.
     "packages/jobs/src/server/RawProvider.js": [
       "export const RawProvider = defineProvider({",
       "  id: \"jobs.raw\",",
-      "  requires: { database: \"runtime.database\", resources: 'runtime.resources' },",
+      "  requires: { database: \"runtime.database\", resources: 'Runtime.Resources ' },",
       "  setup: ({ database }) => ({})",
       "});",
       ""
@@ -319,13 +320,37 @@ test("a new exception or system scope fails until the baseline lists it, as do r
       "/* eslint-disable */",
       "// eslint-disable-next-line no-control-regex -- strips control characters",
       "export const clean = (text) => text;",
+      "/* eslint jskit/no-direct-knex: \"off\", no-console: 0 */",
+      "/* eslint no-console: \"off\" */",
+      "// A line comment quoting /* eslint jskit/sql-literal: 0 */ sets nothing, nor does a string:",
+      "export const text = \"/* eslint jskit/sql-literal: 0 */\";",
       ""
     ].join("\n"),
+    // The capabilities that hand out power past the owners: each one a module requires is reviewed in systemScopes,
+    // with its reason; a feature's own id and a provides entry require nothing.
+    "packages/portal/src/server/PortalFeature.js": [
+      "export const PortalFeature = defineFeature({",
+      "  id: \"portal.customers\",",
+      "  requires: { accounts: \"auth.local.accounts\", sessions: \"auth.local.sessions\" },",
+      "  optional: { audienceScope: \"Realtime.Audience-Scope\" },",
+      "  setup: () => ({})",
+      "});",
+      ""
+    ].join("\n"),
+    "packages/portal/src/server/AudienceScopeFeature.js": "export const AudienceScopeFeature = defineFeature({ id: \"realtime.audience-scope\", provides: { audienceScope: \"realtime.audience-scope\" } });\n",
+    // An app's own src/ is linted whole, so a disable there turns the rules off as anywhere; a package's client is left alone.
     "src/pages/drafts.js": "/* eslint-disable */\nexport const page = {};\n",
+    "packages/drafts/src/client/page.js": "/* eslint-disable */\nexport const page = {};\n",
     "server/lib/databaseProvider.js": "export const DatabaseProvider = defineProvider({ provides: { database: \"runtime.database\" } });\n",
     "node_modules/@jskit-ai/database-runtime/package.json": { name: "@jskit-ai/database-runtime", version: "0.1.0" },
     "node_modules/@jskit-ai/database-runtime/src/server/DatabaseProvider.js": "export const provides = { database: \"runtime.database\" };\n// eslint-disable\n",
-    "jskit-data-access.json": { infrastructure: [{ file: "server/lib/old.js", rule: "no-direct-knex" }], systemScopes: [] }
+    "jskit-data-access.json": {
+      infrastructure: [{ file: "server/lib/old.js", rule: "no-direct-knex" }],
+      systemScopes: [
+        { file: "packages/portal/src/server/PortalFeature.js", capability: "auth.local.sessions", systemScope: "sign a customer in by an emailed link" },
+        { file: "packages/portal/src/server/PortalFeature.js", capability: "auth.local.accounts", systemScope: " " }
+      ]
+    }
   }, async (root) => {
     const result = await checkDataAccess({ projectRoot: root });
     assert.deepEqual(findingLines(result), [
@@ -334,19 +359,31 @@ test("a new exception or system scope fails until the baseline lists it, as do r
       "packages/jobs/src/server/RawProvider.js:3 data/runtime-capability",
       "packages/jobs/src/server/report.js:1 data/lint-disabled",
       "packages/jobs/src/server/report.js:3 data/lint-disabled",
-      "server/lib/health.js:1 data/baseline"
+      "packages/jobs/src/server/report.js:6 data/lint-disabled",
+      "packages/portal/src/server/PortalFeature.js:3 data/runtime-capability",
+      "packages/portal/src/server/PortalFeature.js:4 data/runtime-capability",
+      "server/lib/health.js:1 data/baseline",
+      "src/pages/drafts.js:1 data/lint-disabled"
     ]);
     const messages = result.findings.map(({ message }) => message);
     assert.ok(messages.includes("the infrastructure exception from no-direct-knex: once the whole module's job is data access, add {\"file\":\"server/lib/health.js\",\"rule\":\"no-direct-knex\"} to \"infrastructure\"."));
     assert.ok(messages.some((message) => message.startsWith("the system scope of feature \"jobs.cleanup\": once it must work across every workspace and user, add")));
-    assert.deepEqual(messages.filter((message) => message.startsWith("requires ")), ["requires runtime.database", "requires runtime.resources"]);
+    assert.deepEqual(messages.filter((message) => message.startsWith("requires ")).map((message) => message.split(",")[0]), [
+      "requires runtime.database",
+      "requires runtime.resources",
+      "requires auth.local.accounts",
+      "requires realtime.audience-scope"
+    ]);
+    assert.ok(messages.includes("requires auth.local.accounts, which gives every local sign-in account, read and written in local auth's system context: " +
+      "once the module must, add {\"file\":\"packages/portal/src/server/PortalFeature.js\",\"capability\":\"auth.local.accounts\",\"systemScope\":\"<why it needs this>\"} to \"systemScopes\"."));
     assert.ok(messages.includes("eslint-disable turns off jskit/no-direct-knex"));
     assert.ok(messages.includes("eslint-disable names no rule"));
+    assert.ok(messages.includes("an inline eslint config sets jskit/no-direct-knex"));
     // Each rule's explanation is said once, above its findings.
     const report = formatDataAccessReport(result);
-    assert.match(report, /^data\/runtime-capability \(2\): a module that requires runtime\.database or runtime\.resources reaches tables past the features that own them\./mu);
+    assert.match(report, /^data\/runtime-capability \(4\): a module that requires a capability handing out power past the owners reaches rows past the features that own them\./mu);
     assert.match(report, /^ {2}packages\/jobs\/src\/server\/RawProvider\.js:3 {2}requires runtime\.database$/mu);
-    assert.equal(report.match(/reaches tables past the features that own them/gu).length, 1);
+    assert.equal(report.match(/reaches rows past the features that own them/gu).length, 1);
   });
   await withProject({ "jskit-data-access.json": "{ not json" }, async (root) => {
     assert.deepEqual(findingLines(await checkDataAccess({ projectRoot: root })), ["jskit-data-access.json:1 data/baseline"]);

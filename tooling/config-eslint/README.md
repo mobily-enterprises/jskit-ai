@@ -108,29 +108,46 @@ shared modules too (`packages/billing/src/shared/**`). Test files and `test`,
 ## Data access
 
 The resource is the only door to a table. `baseConfig` makes six rules
-errors in every JavaScript file but client code (an application's own `src/`
-outside `src/server` and `src/shared`, and every package's `src/client`),
-tests (`test`, `tests`, `__tests__`, `e2e`, `test-support` and `*.test.*`),
-migrations, seeds and build output, so server code is checked wherever it sits.
-`eslint-disable` cannot turn them off: `jskit/allow-comment-form` reports a
-directive that names one. Each finding links its section of
+errors in every JavaScript file but client code (every package's
+`src/client`), tests (`test`, `tests`, `__tests__`, `e2e`, `test-support` and
+`*.test.*`), migrations, seeds (a `seed` or `seeds` folder, or a `seed*`
+script in `scripts/`, `bin/` or the root) and build output, so server code is
+checked wherever it sits. An application's own `src/` is checked whole: server
+code sits there too (an AI feature in `src/`, a `src/jobs/` folder), no folder
+name tells it from the browser app, and client code has nothing for the rules
+to report. `eslint-disable` cannot turn them off: `jskit/allow-comment-form`
+reports a directive that names one, and `jskit check` also fails an inline
+`/* eslint ... */` config that sets one. Each finding links its section of
 the [data-access guide](https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access).
 
 - `jskit/no-direct-knex`: a Knex-named builder called with a table name
   (`knex("users")`, `(trx || knex)("users")`), any `.knex` read or `knex`
   destructured (`const { knex: q } = database`), a transaction
-  opened on `knex`, `db` or `database`, and a table name written as text given
-  to `from`, `table`, `into` or a join: a literal, a template (one with `${}`
-  too) or text joined with `+` (`prefix + "_items"`).
+  opened on `knex`, `db` or `database`, and a table named to `from`, `table`,
+  `into` or a join: as text (a literal, a template, one with `${}` too, or text
+  joined with `+`, `prefix + "_items"`), as an alias object
+  (`{ p: "projects" }`, also given to `knex(...)` or `trx(...)`), as a variable
+  or property whose name says table or name (`PROJECTS_TABLE`, `name`,
+  `tables.lots`), or as a const holding one. In a subquery callback
+  (`whereIn("id", (sub) => sub.from(PROJECTS))`), whose builder is Knex's own,
+  any variable but one holding another table's `scopedQuery()` subquery counts
+  as a table.
 - `jskit/no-transaction-reader`: a `.trx` read, `trx` destructured, a
-  `trx = knex` default, and `options.transaction`.
+  `trx = knex` default, and `options.transaction`; and any key but `context`
+  and `trx` read or destructured from the transaction options a work callback
+  receives (`withTransaction(options, (txOptions) => ...)`'s first parameter,
+  `lockOrCreate(row, options, (record, txOptions) => ...)`'s second), which
+  hold `{ context, trx }` only, so an application's own key read there
+  (`txOptions.checkout`, or `options.checkout` where the parameter shadows the
+  method's options) is always undefined.
 - `jskit/sql-literal`: raw SQL (`raw`, `whereRaw`, `orderByRaw`, ...) that is
   not one literal, and a literal with `?` placeholders but no bindings.
 - `jskit/no-hand-scope`: `workspace_id` (or `<table>.workspace_id`) given to a
   `where` filter, as a column or an object key.
 - `jskit/no-hand-context`: a system context made by hand (`createSystemContext`
-  imported, read or destructured) and a context's `scopeValues` written by
-  hand; a system context comes only from a feature's `systemScope`.
+  or the resource runtime's `declareSystemScope`, imported, read or
+  destructured) and a context's `scopeValues` written by hand; a system context
+  comes only from a feature's `systemScope`.
 - `jskit/knex-reason`: a `scopedQuery()` report outside a repository module, or
   without `// Knex: <kind> - <reason>` directly above its named method. The
   kinds are `totals`, `report`, `newest-per-group`, `subquery`, `hot-path`
