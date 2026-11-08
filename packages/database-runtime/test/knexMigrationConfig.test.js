@@ -27,10 +27,40 @@ test("createKnexMigrationConfig fixes MySQL without requiring DB_CLIENT", () => 
   assert.equal(config.client, "mysql2");
   assert.equal(config.connection.port, 3306);
   assert.equal(config.pool, undefined);
-  assert.deepEqual(config.migrations.directory, [
-    "/srv/catalogue/migrations",
-    "/srv/catalogue/migrations/constraints"
-  ]);
+  assert.deepEqual(config.migrations.directory, ["/srv/catalogue/migrations"]);
+});
+
+test("an application without migrations/constraints/ migrates, and its constraints run once the directory exists", async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-app-constraints-"));
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+  await mkdir(path.join(appRoot, "migrations"), { recursive: true });
+  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({ dependencies: {} }));
+  await writeFile(path.join(appRoot, "migrations", "20260101000000_books.cjs"),
+    "exports.up = (knex) => knex.schema.createTable(\"books\", (table) => table.increments(\"id\"));\nexports.down = () => {};\n");
+
+  const migrate = async () => {
+    const { migrations } = await createKnexMigrationConfigFromApp({ client: "pg", environment: connectionEnvironment, appRoot });
+    const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true, migrations });
+    try {
+      await knex.migrate.latest();
+      return { directories: migrations.directory, ran: await knex("knex_migrations").orderBy("id").pluck("name") };
+    } finally {
+      await knex.destroy();
+    }
+  };
+
+  assert.deepEqual(await migrate(), {
+    directories: [path.join(appRoot, "migrations")],
+    ran: ["20260101000000_books.cjs"]
+  });
+
+  await mkdir(path.join(appRoot, "migrations", "constraints"));
+  await writeFile(path.join(appRoot, "migrations", "constraints", "20260101000001_books_index.cjs"),
+    "exports.up = (knex) => knex.schema.alterTable(\"books\", (table) => table.index([\"id\"]));\nexports.down = () => {};\n");
+  assert.deepEqual(await migrate(), {
+    directories: [path.join(appRoot, "migrations"), path.join(appRoot, "migrations", "constraints")],
+    ran: ["20260101000000_books.cjs", "20260101000001_books_index.cjs"]
+  });
 });
 
 test("createKnexMigrationConfig fixes PostgreSQL without requiring DB_CLIENT", () => {
@@ -86,8 +116,7 @@ test("installed package migrations run from their owning packages without copied
   assert.deepEqual(config.migrations.directory, [
     path.join(packageRoot, "migrations"),
     path.join(appRoot, "migrations"),
-    path.join(packageRoot, "migrations", "constraints"),
-    path.join(appRoot, "migrations", "constraints")
+    path.join(packageRoot, "migrations", "constraints")
   ]);
 });
 
@@ -268,8 +297,7 @@ test("a package's migrations and constraints run after those of the packages its
     ...packageDirectories,
     path.join(appRoot, "migrations"),
     path.join(directoryOf["@example/units-core:migrations"], "constraints"),
-    path.join(directoryOf["@example/assets-core:migrations"], "constraints"),
-    path.join(appRoot, "migrations", "constraints")
+    path.join(directoryOf["@example/assets-core:migrations"], "constraints")
   ]);
 });
 

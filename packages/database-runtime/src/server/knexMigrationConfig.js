@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 import { access } from "node:fs/promises";
 import { discoverInstalledPackages } from "@jskit-ai/kernel/server/support";
@@ -32,6 +33,8 @@ function createKnexMigrationConfig({
   }
   const dialectId = normalizeDatabaseClient(client);
   const resolvedMigrationsDirectory = path.resolve(appRoot, migrationsDirectory);
+  // An application needs no constraints/ until it has a constraint; Knex refuses a missing directory.
+  const applicationConstraintsDirectory = path.join(resolvedMigrationsDirectory, "constraints");
   const pool = resolveKnexPool(dialectId);
 
   return {
@@ -49,7 +52,7 @@ function createKnexMigrationConfig({
         ...packageMigrationDirectories.map((directory) => path.resolve(directory)),
         resolvedMigrationsDirectory,
         ...packageConstraintDirectories.map((directory) => path.resolve(directory)),
-        path.join(resolvedMigrationsDirectory, "constraints")
+        ...(existsSync(applicationConstraintsDirectory) ? [applicationConstraintsDirectory] : [])
       ],
       extension: "cjs",
       sortDirsSeparately: true

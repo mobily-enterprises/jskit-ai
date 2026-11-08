@@ -160,7 +160,7 @@ pending migrations in this order, using the default `migrationsDirectory`:
 2. Application `migrations/`.
 3. The `constraints/` subdirectory of each discovered package migration
    directory that has one, in the same order.
-4. Application `migrations/constraints/`.
+4. Application `migrations/constraints/`, when it exists.
 
 Knex sorts filenames within each directory, not across the whole graph; see
 its [`sortDirsSeparately` option](https://knexjs.org/guide/migrations.html#migration-api).
