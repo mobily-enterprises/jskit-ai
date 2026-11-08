@@ -728,8 +728,10 @@ When the work throws, the transaction rolls back and the caller gets the
 work's own error, with its status and code, reporting `transactionOutcome:
 "rolledBack"`, so `retryLostInsertRace` (Layer 3) also runs again work that
 turned the duplicate into its own 409. A failed write inside the work, or a failed commit, reaches
-the caller as json-rest-api's `RestApiWriteError` (code `REST_API_WRITE`)
-with the transaction's outcome. Classify an error by its `code` or `status`,
+the caller as json-rest-api's `RestApiWriteError` with the transaction's
+outcome. It carries the failure's own `code` and `status` (a driver's
+`ER_CHECKREAD`, a not-found's 404), and `REST_API_WRITE` only when the failure
+has no code. Classify an error by its `code` or `status`,
 never with `instanceof`: a second copy of a package makes a second class.
 
 A database error never reaches a client. Its message carries the statement
