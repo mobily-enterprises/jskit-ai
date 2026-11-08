@@ -3,6 +3,7 @@ import test from "node:test";
 import knexLib from "knex";
 import { simplifyJsonApiResult } from "@jskit-ai/http-runtime/shared";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
+import { passedOn } from "@jskit-ai/resource-runtime/server";
 import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
@@ -70,7 +71,7 @@ async function createFixture(t) {
     permissionForOperation: () => ({ require: "authenticated" }),
     ...options
   }));
-  return { knex, repository, audits: resources.noteAudits, service, actionsFor };
+  return { knex, repository, audits: resources.noteAudits, crud, service, actionsFor };
 }
 
 test("the list action keeps answering a larger limit with one capped page", async (t) => {
@@ -336,6 +337,37 @@ test("the CRUD service answers documents, and 404 for a record that is missing o
     await assert.rejects(run, { status: 404, code: "crud.document.notFound" });
   }
   assert.equal(await service.delete("999", { context: WORKSPACE_ONE }), null);
+});
+
+test("a repository decorator receives only the context, the transaction and the document format", async (t) => {
+  const { repository, audits, crud } = await createFixture(t);
+  const received = [];
+  // A decorator that also reads another table hands it only { context, trx }, so that read keeps its own rules.
+  const decorated = Object.freeze({
+    ...repository,
+    async get(id, params, options) {
+      received.push(Object.keys(options).sort());
+      await assert.rejects(audits.get("999", {}, passedOn(options)), (error) => error.code === "REST_API_RESOURCE" && error.subtype === "not_found");
+      return repository.get(id, params, options);
+    },
+    async delete(id, options) {
+      received.push(Object.keys(options).sort());
+      return repository.delete(id, options);
+    }
+  });
+  const service = createCrudService({ repository: decorated, crud });
+  assert.equal((await service.view("7", {}, { context: WORKSPACE_ONE })).value.data.attributes.title, "Note 7");
+  await assert.rejects(service.view("999", {}, { context: WORKSPACE_ONE }), { status: 404, code: "crud.document.notFound" });
+  assert.equal(await service.delete("999", { context: WORKSPACE_ONE }), null);
+  assert.equal(await service.delete("8", { context: WORKSPACE_ONE }), "8");
+  await repository.withTransaction({ context: WORKSPACE_ONE }, (txOptions) => service.view("7", {}, txOptions));
+  assert.deepEqual(received, [
+    ["context", "format"],
+    ["context", "format"],
+    ["context"],
+    ["context"],
+    ["context", "format", "trx"]
+  ]);
 });
 
 test("a mutation's hooks and its standard write share one transaction and roll back together", async (t) => {

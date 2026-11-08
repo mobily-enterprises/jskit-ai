@@ -1,5 +1,6 @@
 import { isDeadlockError, isDuplicateEntryError, isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { passedOn } from "./handleGuards.js";
 
 // First uses of one id at once can collide on its insert before any work runs (on MySQL and MariaDB, first uses of
 // neighbouring ids too, through their gap locks): each collision runs the loser again after a short random wait.
@@ -35,7 +36,8 @@ async function lockOrCreate(handle, row, options, work) {
     return handle.lock(row.id, txOptions);
   };
   if (options.trx) {
-    return work(await locked(options), options);
+    const txOptions = passedOn(options);
+    return work(await locked(txOptions), txOptions);
   }
   for (let attempt = 1; ; attempt += 1) {
     let started = false;

@@ -203,4 +203,18 @@ function matchesNoRow(filters, schemaInfo) {
   return Object.entries(filters).some(([key, value]) => Array.isArray(value) && value.length === 0 && search[key]?.filterOperator === "in");
 }
 
-export { formatOf, matchesNoRow, missingOf, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, whereSelection };
+/**
+ * What a call hands on to the work it runs (withTransaction's work, an afterWrite hook, a handle's own nested calls):
+ * its context and transaction. Its settings (format, missing, returning, lockVersion and the rest) are for that one
+ * call, so they never reach a call they were not named on.
+ * @param {{ context?: object | null, trx?: object | null }} options
+ * @returns {Readonly<{ context?: object | null, trx?: object }>}
+ */
+function passedOn(options) {
+  return Object.freeze({
+    ...(options.context === undefined ? {} : { context: options.context }),
+    ...(options.trx ? { trx: options.trx } : {})
+  });
+}
+
+export { formatOf, matchesNoRow, missingOf, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows, passedOn, whereSelection };

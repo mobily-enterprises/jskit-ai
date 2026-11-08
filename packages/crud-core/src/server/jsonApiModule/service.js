@@ -1,6 +1,6 @@
 import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { buildJsonRestQueryParams } from "@jskit-ai/resource-runtime/server";
+import { buildJsonRestQueryParams, passedOn } from "@jskit-ai/resource-runtime/server";
 import {
   resolveDeclaredLookupContainerKey,
   resolveJsonApiRelationshipEntries,
@@ -155,9 +155,13 @@ function createCrudService({ repository, crud }) {
     return returnJsonApiDocument(shown);
   }
 
-  /** @param {{ context?: object | null, trx?: object | null }} options */
+  /**
+   * What the repository, or a decorator over it, receives: the caller's context and transaction, and the one setting
+   * the service names, JSON:API documents. A decorator passes only `{ context, trx }` on to another table.
+   * @param {{ context?: object | null, trx?: object | null }} options
+   */
   function documentOptions(options) {
-    return { ...options, format: "jsonapi" };
+    return { ...passedOn(options), format: "jsonapi" };
   }
 
   /**
@@ -182,9 +186,11 @@ function createCrudService({ repository, crud }) {
         "lock(recordId, txOptions) inside repository.withTransaction(options, (txOptions) => ...)."
       );
     }
-    return answer(requireDocument(
-      await repository.get(recordId, buildJsonRestQueryParams(resourceName, query), { ...documentOptions(options), missing: "skip" })
-    ));
+    try {
+      return answer(requireDocument(await repository.get(recordId, buildJsonRestQueryParams(resourceName, query), documentOptions(options))));
+    } catch (error) {
+      throw isNotFound(error) ? documentNotFound() : error;
+    }
   }
 
   /**
@@ -216,7 +222,12 @@ function createCrudService({ repository, crud }) {
    * @param {{ context?: object | null, trx?: object | null }} options
    */
   async function deleteRecord(recordId, options) {
-    return repository.delete(recordId, { ...options, missing: "skip" });
+    try {
+      return await repository.delete(recordId, passedOn(options));
+    } catch (error) {
+      if (isNotFound(error)) return null;
+      throw error;
+    }
   }
 
   return Object.freeze({

@@ -35,6 +35,7 @@ test("package exports its provider and helpers, its types and its test helpers, 
   }
   assert.equal(typeof server.createStandaloneResources, "function");
   assert.equal(typeof server.buildJsonRestQueryParams, "function");
+  assert.equal(typeof server.passedOn, "function");
   assert.equal(typeof server.resolveWorkspaceScopeValue, "function");
   assert.equal(typeof server.withoutHiddenFields, "function");
 });

@@ -153,7 +153,11 @@ Reads take `(params, options)` and writes `(data, options)`: `get(id, {},
 options)`. A call's settings ride in its options, added on the call they are
 for and spread from the options the method received: `{ ...options, missing:
 "skip" }`, `{ ...options, returning: "id" }`. A method passes on only the
-options it received, never a setting it added for one of its own calls.
+options it received, never a setting it added for one of its own calls, and
+another table gets only `{ context, trx }`: `passedOn(options)` from
+`@jskit-ai/resource-runtime/server`. `withTransaction` hands its work only the
+context and the transaction, and so does a handle to its hooks and its own
+nested calls.
 
 A filter key is one of the resource's `search: true` fields or a
 `searchSchema` entry. `id` is every handle's own filter (a resource never

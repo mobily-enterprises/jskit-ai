@@ -4,6 +4,7 @@ export { buildJsonRestQueryParams, resolveUserScopeValue, resolveWorkspaceScopeV
 export { createStandaloneResources } from "./standaloneResources.js";
 export { isSystemContext } from "./contexts.js";
 export { withoutHiddenFields } from "./handleHidden.js";
+export { passedOn } from "./handleGuards.js";
 export {
   DuplicateOwnerError,
   MissingScopeError,

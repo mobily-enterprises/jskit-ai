@@ -9,8 +9,8 @@ import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
 import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
-  formatOf, matchesNoRow, missingOf, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams, requireUpsertRows,
-  whereSelection
+  formatOf, matchesNoRow, missingOf, passedOn, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions, requireReadParams,
+  requireUpsertRows, whereSelection
 } from "./handleGuards.js";
 import {
   aggregateMeasures,
@@ -92,7 +92,7 @@ async function openTransaction(api, options, work) {
     return await api.transaction(async (trx) => {
       handleTransactions.add(trx);
       try {
-        return await work(Object.freeze({ ...options, trx }));
+        return await work(Object.freeze({ ...passedOn(options), trx }));
       } catch (error) {
         own = { error };
         throw error;
@@ -108,6 +108,11 @@ async function openTransaction(api, options, work) {
     }
     throw own.error;
   }
+}
+
+// A call's own format setting, for the handle's nested call that answers for it.
+function formatSetting(options) {
+  return options.format === undefined ? {} : { format: options.format };
 }
 
 // Whether the call runs inside a transaction (`options.trx` is set): the handle's own reader, never handed out.
@@ -165,7 +170,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * Runs work in the caller's transaction (`options.trx`), or in one it opens,
    * commits and, when the database aborts it as a deadlock victim, runs again
    * whole, up to three more times (a lock wait timeout is not retried). `work` receives the frozen options
-   * it must pass to every call inside. When work throws, the caller gets work's
+   * it must pass to every call inside: the context and the transaction, and no setting of the caller's
+   * (`returning`, `missing`, `format`...), which was for the call it was named on. When work throws, the caller gets work's
    * own error; a failed write inside it, or a failed commit, arrives as
    * json-rest-api's RestApiWriteError with the transaction's outcome.
    * Settings ride in options: `{ ...options, retry: false }` runs work once, for
@@ -174,7 +180,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * commit before the caller goes on (mail sent after it, say).
    * @template T
    * @param {{ trx?: object | null, context?: object | null, retry?: boolean, outermost?: boolean }} options
-   * @param {(txOptions: Readonly<Record<string, any>>) => Promise<T> | T} work
+   * @param {(txOptions: Readonly<{ context?: object | null, trx: object }>) => Promise<T> | T} work
    * @returns {Promise<T>}
    */
   async function withTransaction(options, work, ...rest) {
@@ -187,7 +193,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
       if (outermost) {
         throw new TypeError(`${name}.withTransaction() outermost work commits before it answers, so it cannot run inside the caller's transaction.`);
       }
-      return work(callOptions);
+      return work(passedOn(callOptions));
     }
     const run = () => openTransaction(api, callOptions, work);
     return retry ? retryDeadlocks(run) : run();
@@ -380,14 +386,15 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * @param {{ context?: object | null, trx?: object | null }} [options]
    */
   function findOrCreate(attributes, options = {}) {
-    return findOrCreateRecord({ get, create }, attributes, options);
+    return findOrCreateRecord({ get, create }, attributes, passedOn(options));
   }
 
   // One row's UPDATE, where a missing or hidden row throws. An empty patch reads the record instead, unless it moves
   // the lock version on: a lockVersion patch always writes.
   async function patchRecord(id, attributes, options, returning, { advance = false } = {}) {
+    const format = formatOf(name, options);
     if (Object.keys(attributes).length < 1 && !advance) {
-      return patchAnswer(id, await get(id, {}, options), returning);
+      return patchAnswer(id, await get(id, {}, { ...passedOn(options), ...formatSetting(options) }), returning);
     }
     const result = await hooked("patch", options, (callOptions) => jsonRest().patch(
       {
@@ -395,11 +402,11 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
         data: inputData(resource, attributes, "update", options.context),
         returning: SINGLE_RETURNING[returning],
         transaction: callOptions.trx || undefined,
-        format: formatOf(name, callOptions)
+        format
       },
       contextOf(callOptions)
     ), () => [String(id)]);
-    return patchAnswer(id, returning === "record" ? handleResult(resource, result, formatOf(name, options)) : undefined, returning);
+    return patchAnswer(id, returning === "record" ? handleResult(resource, result, format) : undefined, returning);
   }
 
   // patch() with missing: "skip": one UPDATE that carries the scope (and onlyIf), so a missing, hidden or changed row
@@ -409,7 +416,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
       throw new TypeError(`${name}.patch() with missing: "skip" answers records, not JSON:API documents.`);
     }
     if (Object.keys(attributes).length < 1) {
-      const current = await get(id, {}, { ...options, missing: "skip" });
+      const current = await get(id, {}, { ...passedOn(options), missing: "skip" });
       return current && (onlyIf === undefined || matchesOnlyIf(current, onlyIf)) ? patchAnswer(id, current, returning) : null;
     }
     const full = returning === "record";
@@ -458,8 +465,10 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     // A missing row throws, so the row's lock comes first, reading only the fields it compares; an UPDATE that changes
     // fields compares onlyIf itself, so a hidden field, which no read answers, is compared too.
     const compared = [...(lockVersion === undefined ? [] : [lockVersionField]), ...Object.keys(onlyIf ?? {})];
-    return withTransaction(callOptions, async (txOptions) => {
-      const [current] = await lockMany([id], { ...txOptions, missing, fields: compared });
+    return withTransaction(callOptions, async (transaction) => {
+      // The patch's own format goes on to its write; work in a transaction receives only the context and transaction.
+      const txOptions = { ...transaction, ...formatSetting(callOptions) };
+      const [current] = await lockMany([id], { ...transaction, missing, fields: compared });
       if (!current) {
         return null;
       }
@@ -485,6 +494,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    */
   async function deleteRecord(id, options = {}) {
     const { missing: missingOption, ...callOptions } = options;
+    const format = formatOf(name, callOptions);
     if (missingOf(name, "delete", missingOption) === "skip") {
       const deleted = await hooked("delete", callOptions, (txOptions) => jsonRest().deleteMany(
         { ids: [id], missing: "skip", returning: "minimal", transaction: txOptions.trx || undefined },
@@ -497,7 +507,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
         id,
         returning: "none",
         transaction: txOptions.trx || undefined,
-        format: formatOf(name, txOptions)
+        format
       },
       contextOf(txOptions)
     ), () => [String(id)]);
