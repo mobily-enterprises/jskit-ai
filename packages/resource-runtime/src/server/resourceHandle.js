@@ -98,7 +98,9 @@ async function openTransaction(api, options, work) {
  * the other answers the winner's record; inside one, a lost race fails the
  * transaction as any failed write does. An id another scope's row holds
  * answers a missing record, as get() of it does, never null or that row: the
- * caller learns only that the id is not its to have.
+ * caller learns only that the id is not its to have. That still tells it the
+ * id is taken, so the id is one the server computes or generates, never one
+ * a request supplies.
  * @param {{ get: Function, create: Function }} handle
  * @param {{ id: unknown } & Record<string, unknown>} attributes
  * @param {{ context?: object | null, trx?: object | null }} options

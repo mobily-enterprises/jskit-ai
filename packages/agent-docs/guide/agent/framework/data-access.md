@@ -186,7 +186,9 @@ conversation id) is read or created once with `findOrCreate({ id,
 ...attributes }, options)`, outside the transaction that then locks it: inside
 one, losing the race to create it fails the whole transaction. Compute such an
 id from the owner too (the workspace or user id in the fingerprint): an id
-another scope's row holds answers a missing record.
+another scope's row holds answers a missing record. That answer still says the
+id is taken, so `findOrCreate` and `lockOrCreate` take only ids the server
+computes or generates, never an id a request supplies.
 
 You never write `where workspace_id = ?`, so you cannot forget it. The row
 policy and write hooks go in the `owns` entry on the server, never in the

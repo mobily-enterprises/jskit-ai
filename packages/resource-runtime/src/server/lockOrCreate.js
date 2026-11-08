@@ -13,7 +13,8 @@ const CREATE_IF_MISSING = Object.freeze({ keys: ["id"], action: "ignore" });
  * (`options.trx`) it runs work there once. Otherwise it opens a transaction of its own: two first uses of one id at
  * once can collide on the insert before either work runs (a deadlock, or a duplicate key), and the loser runs again,
  * up to four runs in all, and finds the winner's record. Work that has started never runs again, so it may call a
- * provider.
+ * provider. The id is one the server computes or generates, never one a request supplies: when a row policy hides the
+ * record with that id, the insert is skipped and the lock answers not found, which still tells the caller it exists.
  * @template T
  * @param {Pick<import("./types.js").ResourceHandle, "name" | "withTransaction" | "lock" | "createMany">} handle
  * @param {{ id: unknown } & Record<string, unknown>} row
