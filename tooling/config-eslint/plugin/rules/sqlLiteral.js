@@ -27,6 +27,10 @@ const sqlLiteral = Object.freeze({
   }, "layer-5-reports-the-resource-cannot-express", DATA_ACCESS_GUIDE_URL),
   create(context) {
     const sourceCode = context.sourceCode;
+    // A module that runs SQL it is given by design (a console's query runner) takes the exception for this rule itself.
+    if (isInfrastructureFile(context, "sql-literal")) {
+      return {};
+    }
     const onKnex = isInfrastructureFile(context, "no-direct-knex");
     return {
       CallExpression(node) {

@@ -105,7 +105,8 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
     {
       code: "// readable-check: allow sql-literal - data: the report's column list\nquery.selectRaw(columns);\n// readable-check: allow jskit/no-hand-scope - infrastructure: protocol state\n// readable-check: allow knex-reason - safety invariant: a known report",
       errors: [
-        { messageId: "dataAccessUnexcusable", data: { rule: "sql-literal" }, line: 1 },
+        // sql-literal takes the infrastructure exception, but not a data: reason.
+        { messageId: "infrastructureExcuse", line: 1 },
         // no-hand-scope takes the infrastructure exception, but only in the file's first lines, before any code.
         { messageId: "infrastructureExcuse", line: 3 },
         { messageId: "dataAccessUnexcusable", data: { rule: "knex-reason" }, line: 4 }

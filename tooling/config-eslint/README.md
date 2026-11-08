@@ -137,8 +137,11 @@ the [data-access guide](https://mobily-enterprises.github.io/jskit-ai/guide/fram
   `runtime-tables`.
 
 Only a module whose job is data access itself (a migration runner, test
-databases, protocol state) is excused from the first two rules, as a whole, by
-one comment per rule before its first line of code:
+databases, protocol state, an operator's data import or cutover tool, a
+database console that runs the person's own SQL) is excused from
+`jskit/no-direct-knex`, `jskit/no-transaction-reader`, `jskit/no-hand-scope`
+and `jskit/sql-literal`, as a whole, by one comment per rule before its first
+line of code:
 
 ```js
 // readable-check: allow no-direct-knex - infrastructure: the migration runner keeps its own bookkeeping table
@@ -147,7 +150,10 @@ import { readFile } from "node:fs/promises";
 ```
 
 `jskit/allow-comment-form` checks its reason like any other, and an excuse it
-refuses excuses nothing. No comment excuses the other four rules.
+refuses excuses nothing. In a file excused from `jskit/no-direct-knex`,
+`jskit/sql-literal` still wants one literal with bindings but allows a
+statement in it. No comment excuses `jskit/no-hand-context` or
+`jskit/knex-reason`.
 
 ## Playwright login
 

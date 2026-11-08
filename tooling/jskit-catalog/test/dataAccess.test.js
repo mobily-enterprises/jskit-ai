@@ -175,10 +175,26 @@ const SCOPES = Object.freeze({
   ].join("\n"),
   "node_modules/@jskit-ai/crud-core/src/server/defineCrudFeature.js":
     "export function defineCrudFeature(config) { return defineFeature({ id: config.id, systemScope: config.systemScope }); }\n",
-  "node_modules/@jskit-ai/resource-runtime/src/server/systemContext.js": [
-    "function systemContext(reason) { return createSystemContext(reason); }",
-    "const contexts = { systemContext(reason) { return systemContext(reason); } };",
-    "export const sweep = () => systemContext(\"delete expired sessions of every user\");",
+  "node_modules/@jskit-ai/auth-core/src/server/sweep.js": [
+    "const contexts = { systemContext(reason) { return reason; } };",
+    "export const sweep = (systemContext) => systemContext(\"delete expired sessions of every user\");",
+    ""
+  ].join("\n"),
+  // Functions of the app's own that are merely named systemContext: declared in the file, or handed in typed as
+  // something else. Their calls are not JSKIT's, so they are neither listed nor failed.
+  "packages/graph/src/server/service.js": [
+    "async function systemContext(sessionId = \"\") { return { sessionId }; }",
+    "export const read = async (input) => [await systemContext(input.sessionId), await systemContext()];",
+    ""
+  ].join("\n"),
+  "packages/deployments/src/server/hostnames.js": [
+    "/**",
+    " * @param {object} dependencies",
+    " * @param {() => { systemRoot: string }} dependencies.systemContext",
+    " */",
+    "export function createHostnames({ systemContext }) {",
+    "  return { route: (input) => resolve(systemContext(), input) };",
+    "}",
     ""
   ].join("\n"),
   // The reviewed scopes of the app's own features.
@@ -200,7 +216,7 @@ test("every system scope is listed with its reason: feature declarations and sys
       "packages/leagues/src/server/LeagueSettlementFeature.js:1 feature leagues.settlement settle finished weekly leagues for every user",
       "packages/leagues/src/server/settlement.js:4 call  settle finished weekly leagues for every user",
       "packages/leagues/src/server/settlement.js:5 call  settle one finished league",
-      "node_modules/@jskit-ai/resource-runtime/src/server/systemContext.js:3 call  delete expired sessions of every user"
+      "node_modules/@jskit-ai/auth-core/src/server/sweep.js:2 call  delete expired sessions of every user"
     ]);
     const report = formatDataAccessReport(result);
     assert.match(report, /^System scopes \(5\), each reading past ownership for its reason \(data\/system-scope; https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access#background-work\):$/mu);
@@ -220,7 +236,16 @@ test("a system scope without a literal reason fails, in the app and as an empty 
       "export const run = (systemContext, why) => [systemContext(), systemContext(why), systemContext(\"  \")];",
       ""
     ].join("\n"),
-    "node_modules/@jskit-ai/auth-core/src/server/sessions.js": "export const expire = (systemContext) => systemContext(\"\");\n"
+    "node_modules/@jskit-ai/auth-core/src/server/sessions.js": "export const expire = (systemContext) => systemContext(\"\");\n",
+    // Typed as JSKIT's factory, the binding is JSKIT's, so its call needs a reason.
+    "packages/jobs/src/server/reminders.js": [
+      "/**",
+      " * @param {object} dependencies",
+      " * @param {(reason: string) => import(\"@jskit-ai/resource-runtime/server/types\").SystemContext} dependencies.systemContext",
+      " */",
+      "export const createReminders = ({ systemContext }) => () => systemContext();",
+      ""
+    ].join("\n")
   }, async (root) => {
     const result = await checkDataAccess({ projectRoot: root });
     assert.deepEqual(findingLines(result), [
@@ -229,13 +254,14 @@ test("a system scope without a literal reason fails, in the app and as an empty 
       "packages/jobs/src/server/CleanupFeature.js:2 data/system-scope",
       "packages/jobs/src/server/CleanupFeature.js:3 data/system-scope",
       "packages/jobs/src/server/CleanupFeature.js:3 data/system-scope",
-      "packages/jobs/src/server/CleanupFeature.js:3 data/system-scope"
+      "packages/jobs/src/server/CleanupFeature.js:3 data/system-scope",
+      "packages/jobs/src/server/reminders.js:5 data/system-scope"
     ]);
     const messages = result.findings.map(({ message }) => message);
     assert.ok(messages.includes("systemScope gives no reason; say why this feature reads past ownership."));
     assert.ok(messages.includes("systemScope is not a string literal; write the reason this feature reads past ownership where it is declared."));
     assert.ok(messages.includes("systemContext() does not take its reason as a string literal; write why this call reads past ownership at the call."));
-    assert.equal(messages.filter((message) => message === "systemContext() gives no reason; say why this call reads past ownership.").length, 3);
+    assert.equal(messages.filter((message) => message === "systemContext() gives no reason; say why this call reads past ownership.").length, 4);
   });
 });
 

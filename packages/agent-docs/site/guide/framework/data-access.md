@@ -757,19 +757,23 @@ client's, wherever it sits; tests, migrations and seeds are outside them.
 ### Exceptions
 
 A module whose job is data access itself (a database runtime, a migration
-runner, test-database setup, an operator's data import or cutover tool) may
-opt out of `jskit/no-direct-knex`, `jskit/no-transaction-reader` and
-`jskit/no-hand-scope` as a whole, with one line per rule before its first line
-of code:
+runner, test-database setup, an operator's data import or cutover tool, a
+database console that runs the person's own SQL) may opt out of
+`jskit/no-direct-knex`, `jskit/no-transaction-reader`, `jskit/no-hand-scope`
+and `jskit/sql-literal` as a whole, with one line per rule before its first
+line of code:
 
 ```js
 // readable-check: allow no-direct-knex - infrastructure: the test databases' snapshot and restore
 ```
 
-In such a file, raw SQL runs on Knex itself, so `jskit/sql-literal` lets it
-hold a statement; it is still one literal with its values as bindings.
-`jskit check` lists every such file for review. The other three rules take no
-exception.
+In a file excused from `jskit/no-direct-knex`, raw SQL runs on Knex itself,
+so `jskit/sql-literal` lets it hold a statement; it is still one literal with
+its values as bindings. Only a module that runs SQL it is given by design (a
+console's query runner) opts out of `jskit/sql-literal` itself, in that one
+header line with its reason; never with a per-line disable. `jskit check`
+lists every such file for review. `jskit/no-hand-context` and
+`jskit/knex-reason` take no exception.
 
 A data import or cutover tool (loading another system's records into the app's
 tables before go-live, say) is the one application module that commonly takes

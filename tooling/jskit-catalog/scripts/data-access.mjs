@@ -70,7 +70,7 @@ const OWNERSHIP_FIELDS = Object.freeze({
 const STAMPED_FIELDS = Object.freeze(["createdAt", "updatedAt"]);
 const FEATURE_CALL = /\bdefine(?:Crud)?Feature\s*\(/gu;
 const SYSTEM_CONTEXT_CALL = /\bsystemContext\s*\(/gu;
-const INFRASTRUCTURE_EXCUSE = /readable-check: allow (?:jskit\/)?(no-direct-knex|no-transaction-reader|no-hand-scope) - (infrastructure:.*?)\s*(?:\*\/)?\s*$/u;
+const INFRASTRUCTURE_EXCUSE = /readable-check: allow (?:jskit\/)?(no-direct-knex|no-transaction-reader|no-hand-scope|sql-literal) - (infrastructure:.*?)\s*(?:\*\/)?\s*$/u;
 
 const blank = (text) => text.replace(/[^\n]/gu, " ");
 
@@ -171,7 +171,7 @@ function keyValue(code, masked, keys, key) {
 
 function readSourceFile(source) {
   const code = blankJsComments(source);
-  return { code, masked: maskStrings(code), position: lineIndex(source) };
+  return { source, code, masked: maskStrings(code), position: lineIndex(source) };
 }
 
 // Every key of the object literal between `start` and `end` (masked code), in order, and whether the literal also
@@ -273,9 +273,29 @@ function unnamedFields(resources, contracts) {
   return unnamed;
 }
 
-// Every system scope a file declares or calls: a feature's systemScope and each systemContext(...) call, with its
-// reason, null when it is not a literal.
-function readSystemScopes(file, { code, masked, position }) {
+// A function of the file's own named systemContext: declared in the file (`function systemContext(`, `const
+// systemContext =`), or handed in under a JSDoc type that is not JSKIT's SystemContext factory, such as
+// `@param {() => { root: string }} dependencies.systemContext`.
+const LOCAL_SYSTEM_CONTEXT = /\bfunction\s*\*?\s*systemContext\s*\(|\b(?:const|let|var)\s+systemContext\s*=/u;
+const PARAM_TYPE = /@param\s*\{/gu;
+const SYSTEM_CONTEXT_PARAM = /^\s*\[?(?:[\w$]+\.)*systemContext\b/u;
+
+// Whether the file's systemContext is its own function, not the one JSKIT hands a feature with a systemScope: the
+// check reads JSKIT's binding, not every function of that name.
+function ownsSystemContextName(source, masked) {
+  if (LOCAL_SYSTEM_CONTEXT.test(masked)) return true;
+  for (const match of source.matchAll(PARAM_TYPE)) {
+    const close = closingOffset(source, match.index + match[0].length - 1);
+    if (close > 0 && SYSTEM_CONTEXT_PARAM.test(source.slice(close, close + 120))) {
+      return !/\bSystemContext\b/u.test(source.slice(match.index, close));
+    }
+  }
+  return false;
+}
+
+// Every system scope a file declares or calls: a feature's systemScope and each call of JSKIT's systemContext(...),
+// with its reason, null when it is not a literal.
+function readSystemScopes(file, { source, code, masked, position }) {
   const scopes = [];
   for (const match of masked.matchAll(FEATURE_CALL)) {
     const object = objectArgument(masked, match.index, match[0].length);
@@ -285,7 +305,8 @@ function readSystemScopes(file, { code, masked, position }) {
     if (reason === undefined) continue;
     scopes.push({ file, line: position(match.index).line, kind: "feature", id: keyValue(code, masked, keys, "id")?.text || "", reason: reason.text });
   }
-  for (const match of masked.matchAll(SYSTEM_CONTEXT_CALL)) {
+  const calls = ownsSystemContextName(source, masked) ? [] : masked.matchAll(SYSTEM_CONTEXT_CALL);
+  for (const match of calls) {
     const open = match.index + match[0].length - 1;
     const close = closingOffset(masked, open);
     const before = masked.slice(Math.max(0, match.index - 20), match.index);

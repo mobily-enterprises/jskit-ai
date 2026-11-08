@@ -9,6 +9,8 @@ RuleTester.itOnly = it.only;
 new RuleTester().run("jskit/sql-literal", sqlLiteral, {
   valid: [
     "query.select(receivals.raw(\"count(*) as total\"));",
+    // A console that runs the person's own SQL by design takes the infrastructure exception for this rule.
+    "// readable-check: allow sql-literal - infrastructure: the database console runs the statement the person typed\nconst rows = await knex.raw(statement);",
     // A file on Knex itself, past no-direct-knex, may run a statement as one literal with its bindings.
     "// readable-check: allow no-direct-knex - infrastructure: the operator's cutover import\nawait trx.raw(\"UPDATE pet_notes SET label = ? WHERE workspace_id = ?\", [label, workspaceId]);",
     "query.whereRaw(\"?? > ?\", [receivals.column(\"amount\"), 0]);",
@@ -69,8 +71,9 @@ new RuleTester().run("jskit/sql-literal", sqlLiteral, {
       errors: [{ messageId: "notLiteral" }]
     },
     {
-      code: "// readable-check: allow sql-literal - infrastructure: the console's query runner\nquery.whereRaw(userSql);",
-      errors: [{ messageId: "notLiteral" }]
+      // The exception holds only before the first line of code.
+      code: "const x = 1;\n// readable-check: allow sql-literal - infrastructure: the console's query runner\nquery.whereRaw(userSql);",
+      errors: [{ messageId: "notLiteral", line: 3 }]
     },
     {
       // A file on Knex itself may run a statement, but still only as one literal with its bindings.

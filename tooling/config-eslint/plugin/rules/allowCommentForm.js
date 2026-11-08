@@ -38,11 +38,11 @@ const DATA_PREFIX = /^data: /u;
 const PARAMETER_RULES = new Set(["dependency-default", "required-collaborators"]);
 const FUNCTION_TYPES = new Set(["FunctionDeclaration", "FunctionExpression", "ArrowFunctionExpression"]);
 // The data-access rules. A module whose job is data access itself (a migration runner, test databases, protocol state,
-// an operator's data import or cutover tool) is excused from the first three as a whole, by an `infrastructure:`
-// comment in its first lines, before any code. No other rule takes that prefix, and the other three data-access rules
-// take no excuse at all.
-const INFRASTRUCTURE_RULES = new Set(["no-direct-knex", "no-transaction-reader", "no-hand-scope"]);
-const UNEXCUSABLE_RULES = new Set(["sql-literal", "no-hand-context", "knex-reason"]);
+// an operator's data import or cutover tool, a console that runs the person's own SQL) is excused from the first four
+// as a whole, by an `infrastructure:` comment in its first lines, before any code. No other rule takes that prefix,
+// and the other two data-access rules take no excuse at all.
+const INFRASTRUCTURE_RULES = new Set(["no-direct-knex", "no-transaction-reader", "no-hand-scope", "sql-literal"]);
+const UNEXCUSABLE_RULES = new Set(["no-hand-context", "knex-reason"]);
 // An ESLint directive that turns rules off, with the rules it names (before any "--" description).
 const DISABLE_DIRECTIVE = /^\s*eslint-disable(?:-next-line|-line)?(?:\s+([^]*?))?(?:\s+--[^]*)?\s*$/u;
 
@@ -183,8 +183,8 @@ const allowCommentForm = Object.freeze({
     dataOnFunction: "\"{{reason}}\" excuses a function with data:, which is only for data. Give the function's real reason, or remove its duplicate.",
     dataAccessUnexcusable: "{{rule}} takes no exception; change the code.",
     dataAccessDisabled: "eslint-disable cannot turn off {{rule}}. Change the code; only a whole module whose job is data access itself takes the infrastructure exception.",
-    infrastructureExcuse: "The infrastructure exception excuses a whole file from no-direct-knex, no-transaction-reader or no-hand-scope, " +
-      "and nothing else, given before the file's first line of code."
+    infrastructureExcuse: "The infrastructure exception excuses a whole file from no-direct-knex, no-transaction-reader, no-hand-scope " +
+      "or sql-literal, and nothing else, given before the file's first line of code."
   }, "exceptions"),
   create(context) {
     return {
