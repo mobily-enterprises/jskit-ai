@@ -432,7 +432,8 @@ function primaryField(scopeOptions) {
 
 /**
  * json-rest-api's options for a table resource: its own keys, with `ownership`
- * as json-rest-api's autofilter preset (none for a public table),
+ * as json-rest-api's autofilter preset (none for a public or a system table,
+ * which have no owner columns),
  * `defaultExclude` as normally hidden fields, symbolic write serializers
  * resolved and collection relations derived. The owner's server-only extras
  * (row policy, id normalizer, query fields) are added here, never in the
@@ -463,7 +464,7 @@ function resourceScopeOptions(
   const scopeOptions = cloneJsonRestResourceValue(tableOptions, {
     writeSerializers: normalizeObject(writeSerializers)
   });
-  if (ownership !== "public") {
+  if (ownership !== "public" && ownership !== "system") {
     scopeOptions.autofilter = ownership;
   }
   if (isPlainJsonRestObject(searchSchema)) {

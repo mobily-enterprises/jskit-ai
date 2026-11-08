@@ -1,9 +1,12 @@
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 
 // The agent's own tables as table resources. Each row belongs to a conversation, which the app
-// defines and guards; the tables carry no workspace or user column, so their ownership is public
-// and only the stores reach them, from the feature that owns them, in its system context. Fields
-// are named as their columns, so the stores answer the rows they always answered.
+// defines and guards, and the stores reach every conversation from any server, so the tables'
+// ownership is "system": only the owning feature's system context reaches them, and a request's
+// context, or one derived for a workspace or a user, is refused before any statement. A column the
+// app adds (a workspace or user id on goals) changes nothing: the app checks the conversation, then
+// calls the stores. Fields are named as their columns, so the stores answer the rows they always
+// answered.
 
 // A table whose key is the conversation's id: the resource's id is that column.
 // Every handle filters it by id (filters: { id }), one id or a list.
@@ -114,7 +117,7 @@ export function agentResources({ columns = {} } = {}) {
     agentRuns: defineTableResource({
       name: "agentRuns",
       tableName: "agent_runs",
-      ownership: "public",
+      ownership: "system",
       idProperty: "conversation_id",
       schema: { ...RUN_FIELDS, ...columns.runs },
       searchSchema: {
@@ -125,7 +128,7 @@ export function agentResources({ columns = {} } = {}) {
     agentGoals: defineTableResource({
       name: "agentGoals",
       tableName: "agent_goals",
-      ownership: "public",
+      ownership: "system",
       schema: { ...GOAL_FIELDS, ...columns.goals },
       searchSchema: {
         statusIn: { type: "array", actualField: "status", filterOperator: "in" },
@@ -135,13 +138,13 @@ export function agentResources({ columns = {} } = {}) {
     agentSummaries: defineTableResource({
       name: "agentSummaries",
       tableName: "agent_summaries",
-      ownership: "public",
+      ownership: "system",
       schema: { ...SUMMARY_FIELDS, ...columns.summaries }
     }),
     agentSummaryQueue: defineTableResource({
       name: "agentSummaryQueue",
       tableName: "agent_summary_queue",
-      ownership: "public",
+      ownership: "system",
       idProperty: "conversation_id",
       schema: { ...SUMMARY_QUEUE_FIELDS, ...columns.summaryQueue },
       searchSchema: {
@@ -151,7 +154,7 @@ export function agentResources({ columns = {} } = {}) {
     agentCommands: defineTableResource({
       name: "agentCommands",
       tableName: "agent_commands",
-      ownership: "public",
+      ownership: "system",
       schema: { ...COMMAND_FIELDS, ...columns.commands }
     })
   });

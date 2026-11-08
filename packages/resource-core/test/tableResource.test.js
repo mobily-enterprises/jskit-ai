@@ -37,14 +37,14 @@ test("a table resource holds the table's facts, frozen, and is recognised as one
 });
 
 test("ownership is required and must be one of the ownership kinds", () => {
-  assert.deepEqual(OWNERSHIP_KINDS, ["public", "workspace", "user", "workspace_user", "workspace_or_shared"]);
+  assert.deepEqual(OWNERSHIP_KINDS, ["public", "workspace", "user", "workspace_user", "workspace_or_shared", "system"]);
   for (const ownership of OWNERSHIP_KINDS) {
     assert.equal(defineTableResource(receivals({ ownership })).ownership, ownership);
   }
   for (const ownership of [undefined, "", "tenant"]) {
     assert.throws(
       () => defineTableResource(receivals({ ownership })),
-      /requires ownership, one of: public, workspace, user, workspace_user, workspace_or_shared/u
+      /requires ownership, one of: public, workspace, user, workspace_user, workspace_or_shared, system/u
     );
   }
 });

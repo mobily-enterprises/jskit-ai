@@ -11,5 +11,6 @@ export {
   PageSizeError,
   RowLimitError,
   StaleRecordError,
+  SystemContextRequiredError,
   UnpagedQueryError
 } from "./errors.js";

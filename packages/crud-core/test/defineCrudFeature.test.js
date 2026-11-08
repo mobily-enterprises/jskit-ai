@@ -1291,6 +1291,13 @@ test("defineCrudFeature rejects implicit workspace scope and public private owne
     }),
     /public CRUD feature serves a table resource whose ownership \(or visibility\) is "public"/u
   );
+  // A system table's rows reach no request, whatever visibility the routes would have.
+  for (const visibility of [undefined, "public"]) {
+    assert.throws(
+      () => defineCrudFeature({ crud: createBookResource({ ownership: "system" }), surface: "app", visibility }),
+      /defineCrudFeature serves requests, and only a system context reaches "books" \(ownership "system"\)/u
+    );
+  }
   assert.throws(
     () => defineCrudFeature({
       crud: createBookResource(),

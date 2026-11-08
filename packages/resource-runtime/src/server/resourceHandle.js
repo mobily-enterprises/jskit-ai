@@ -7,7 +7,7 @@ import { createHiddenFieldReads, markHandleFunctions } from "./handleHidden.js";
 import { createLockReads } from "./handleLocks.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
-import { MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
+import { PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
   formatOf, matchesNoRow, missingOf, passedOn, refuseConditions, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions,
   requireReadParams, requireUpsertRows, whereSelection
@@ -154,9 +154,6 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   /** @param {{ context?: object | null }} options */
   function contextOf(options) {
     requireHandleTransaction(name, options);
-    if (!options.context && resource.ownership !== "public") {
-      throw new MissingScopeError(name);
-    }
     requireOwners(name, resource.ownership, options.context);
     return createJsonRestContext(options.context);
   }

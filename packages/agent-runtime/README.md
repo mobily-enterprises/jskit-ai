@@ -21,7 +21,13 @@ itself, and why it works as it does, is in `@jskit-ai/agent`'s README.
 
 `migrations/agent_initial.cjs` creates the tables. `agentResources()` describes each one as a table
 resource (`agentRuns`, `agentGoals`, `agentSummaries`, `agentSummaryQueue`, `agentCommands`) with
-public ownership: the rows belong to conversations the app guards, and only these stores reach them.
+ownership `"system"`: the rows belong to conversations the app guards, the stores reach every
+conversation from any server in the owning feature's system context, and the handles refuse any other
+context (`SystemContextRequiredError`), a request's or one `forWorkspace` or `forUser` derived, before
+any statement. A request reads or changes agent rows only through the stores (`goals.openGoal`,
+`summaries.current`, ...), once the app has checked that the caller may see the conversation. A
+workspace or user column the app adds to a table does not make it owned: the conversation decides who
+sees its rows, and four of the five tables have no such column.
 An app adds its own columns with `agentResources({ columns: { goals: { bot_id: { type: "id",
 nullable: true } } } })`, then fills them through `owner(row)` for goals or the owner columns of a
 claimed run.

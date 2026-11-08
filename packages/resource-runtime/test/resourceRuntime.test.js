@@ -8,6 +8,7 @@ import {
   PageSizeError,
   RowLimitError,
   StaleRecordError,
+  SystemContextRequiredError,
   UnpagedQueryError
 } from "../src/server/index.js";
 import { createActionCatalogue, createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
@@ -75,6 +76,68 @@ test("a call without a context is refused before anything runs", async (t) => {
   const { notes } = await createFixture(t);
   await assert.rejects(notes.create({ title: "x" }), MissingScopeError);
   await assert.rejects(notes.query({ page: { size: 5 } }), MissingScopeError);
+});
+
+test("a system table answers only a system context: a request's, a derived job's or none is refused before any statement", async (t) => {
+  const knex = await testKnex(t);
+  await knex.schema.createTable("leases", (table) => {
+    table.increments("id");
+    table.string("holder").notNullable();
+  });
+  const leaseResource = defineTableResource({
+    name: "leases",
+    tableName: "leases",
+    ownership: "system",
+    defaultSort: ["id"],
+    schema: { id: { type: "id", primary: true }, holder: { type: "string", required: true, search: true } }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const { leases } = await runtime.own("leases.feature", [leaseResource]);
+  const systemContext = runtime.declareSystemScope("leases.feature", "keep every server's leases")("take a lease");
+  const system = { context: systemContext };
+
+  // The owner's background work reads and writes every row, the many-row writes and the locks included.
+  const [first] = await leases.createMany([{ holder: "a" }, { holder: "b" }], { ...system, returning: "ids" });
+  assert.deepEqual((await leases.queryAll({}, system)).map(({ holder }) => holder), ["a", "b"]);
+  assert.equal(await leases.patchWhere({ holder: "b" }, { holder: "c" }, { ...system, returning: "count" }), 1);
+  assert.deepEqual(await leases.withTransaction(system, async (txOptions) => (await leases.claim({ filters: { holder: "a" } }, txOptions)).map(({ id }) => id)), [first]);
+
+  const statements = [];
+  knex.on("query", ({ sql }) => statements.push(sql));
+  const refused = [
+    { context: WORKSPACE_A },
+    { context: { visibilityContext: { userId: "7" } } },
+    { context: systemContext.forWorkspace("1") },
+    { context: systemContext.forUser("7", { actorId: "7" }) },
+    {}
+  ];
+  for (const options of refused) {
+    const calls = [
+      () => leases.create({ holder: "x" }, { ...options, returning: "none" }),
+      () => leases.createMany([{ holder: "x" }], options),
+      () => leases.query({ page: { size: 5 } }, options),
+      () => leases.queryAll({}, options),
+      () => leases.get(first, {}, options),
+      () => leases.aggregate({ measures: { leases: { count: "*" } } }, options),
+      () => leases.patch(first, { holder: "x" }, options),
+      () => leases.patchWhere({ holder: "a" }, { holder: "x" }, options),
+      () => leases.delete(first, options),
+      () => leases.deleteWhere({ holder: "a" }, options),
+      () => leases.scopedQuery({}, options),
+      () => leases.findOrCreate({ id: "9", holder: "x" }, options)
+    ];
+    for (const call of calls) {
+      await assert.rejects(call, (error) => error instanceof SystemContextRequiredError &&
+        error.code === "RESOURCE_SYSTEM_CONTEXT_REQUIRED" && /ownership "system"/u.test(error.message));
+    }
+  }
+  assert.deepEqual(statements, [], "a refused call sends nothing");
+  // A lock in the owner's transaction with another context is refused too.
+  await leases.withTransaction(system, async (txOptions) => {
+    await assert.rejects(leases.lock(first, { ...txOptions, context: WORKSPACE_A }), SystemContextRequiredError);
+    await assert.rejects(leases.claim({ filters: { holder: "a" } }, { ...txOptions, context: WORKSPACE_A }), SystemContextRequiredError);
+  });
+  assert.deepEqual((await knex("leases").orderBy("id")).map(({ holder }) => holder), ["a", "c"]);
 });
 
 test("reads and single writes stay in the context's workspace", async (t) => {

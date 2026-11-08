@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `defineCrudFeature` refuses a table resource with ownership `system`, which only a system context reaches: a CRUD surface serves requests, so the owner serves what a request may see through its own methods instead.
 - The package's data tests run on `createPackageTestKnex`, so CI's `DB_CLIENT=pg` run proves the CRUD paths on PostgreSQL too.
 - Depends on json-rest-api 3.0.1 (from 3.0.0), exactly, as `@jskit-ai/resource-runtime` does: see its CHANGELOG for the concurrent-merge fix.
 - **Security.** A CRUD feature's capability repository answers without hidden fields through every method it holds, the ones `decorateRepository` adds included, for every table the feature owns, unless the call runs in a system context: a custom read that forwarded the caller's `fields` handed hidden values to other features.

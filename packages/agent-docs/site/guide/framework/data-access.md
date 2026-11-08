@@ -69,7 +69,7 @@ function totalsByMonth(options) {
 | owner API | The capability through which a table's owner lets other features read and write its records, such as `users.profiles`. |
 | CRUD contract | The optional HTTP and screen surface on a table resource: `defineCrudContract()`. |
 | CRUD feature | The feature `defineCrudFeature()` builds from a CRUD contract: its repository, service, actions, routes and screens. |
-| ownership | Who owns a row, required in every table resource: `public`, `workspace`, `user`, `workspace_user`, or `workspace_or_shared` (a workspace's own rows, or rows shared with every workspace when the owner is empty). |
+| ownership | Who owns a row, required in every table resource: `public`, `workspace`, `user`, `workspace_user`, `workspace_or_shared` (a workspace's own rows, or rows shared with every workspace when the owner is empty), or `system` (rows of no workspace or user, which only the owning feature's system context reaches). |
 | row policy | A server-only rule narrowing which rows a context sees, applied to every statement, joins, includes and locks included. |
 | scoped query | The read-only Knex builder `scopedQuery()` returns, with ownership and the row policy already applied. |
 | system scope | Why a feature works across every workspace and user, declared with `systemScope`. |
@@ -767,6 +767,16 @@ const SettlementFeature = defineFeature({
   from the request or from `forWorkspace`, `forUser` and `forWorkspaceUser`:
   lint refuses `createSystemContext` and hand-written `scopeValues`, and a
   context naming two workspaces or two users throws.
+- A table only the feature's own background work reads and writes, whose rows
+  belong to no workspace or user (an agent's runs, a server's leases, a queue
+  keyed by something other than an owner), takes ownership `system`. Every call
+  then needs the owner's `systemContext(reason)`: a request's context, a
+  `forWorkspace`, `forUser` or `forWorkspaceUser` job and no context at all
+  throw `SystemContextRequiredError` before any statement, since on such a
+  table they would reach every workspace's rows. Requests
+  reach the rows only through the owner's own methods, which decide what each
+  caller may see, and `defineCrudFeature` refuses a `system` table. A table
+  whose rows do belong to a workspace or user names that ownership instead.
 - A job that runs on a schedule is a feature whose `boot()` starts a timer and
   whose `shutdown()` stops it; JSKIT ships no scheduler. See
   [typed features, Owned state](/guide/framework/typed-features#owned-state).

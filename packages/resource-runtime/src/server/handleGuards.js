@@ -1,7 +1,7 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { passedOn } from "@jskit-ai/resource-core/shared/callOptions";
 import { isSystemContext } from "./contexts.js";
-import { MissingScopeError } from "./errors.js";
+import { MissingScopeError, SystemContextRequiredError } from "./errors.js";
 import { resolveUserScopeValue, resolveWorkspaceScopeValue } from "./resourceHost.js";
 
 // The checks that keep a handle's calls inside their scope: a call never reaches rows beyond
@@ -19,7 +19,8 @@ const REQUIRED_OWNERS = Object.freeze({
 const OWNER_RESOLVERS = Object.freeze({ workspace: resolveWorkspaceScopeValue, user: resolveUserScopeValue });
 
 /**
- * Refuses a context, other than a system context, that names no owner the table's ownership needs.
+ * Refuses a context, other than a system context, that names no owner the table's ownership needs: none at all on an
+ * owned table, and any on a `system` table, which only a system context reaches.
  * @param {string} name The resource's name.
  * @param {string} ownership
  * @param {object | null | undefined} context
@@ -27,6 +28,12 @@ const OWNER_RESOLVERS = Object.freeze({ workspace: resolveWorkspaceScopeValue, u
 function requireOwners(name, ownership, context) {
   if (isSystemContext(context)) {
     return;
+  }
+  if (ownership === "system") {
+    throw new SystemContextRequiredError(name);
+  }
+  if (!context && ownership !== "public") {
+    throw new MissingScopeError(name);
   }
   const missing = REQUIRED_OWNERS[ownership].find((owner) => !OWNER_RESOLVERS[owner](context));
   if (missing) {

@@ -368,6 +368,12 @@ function defineCrudFeature(feature) {
     throw new TypeError("defineCrudFeature requires crud, a CRUD contract from defineCrudContract.");
   }
   const tableResource = crud.resource;
+  if (tableResource.ownership === "system") {
+    throw new TypeError(
+      `defineCrudFeature serves requests, and only a system context reaches "${tableResource.name}" (ownership "system"): ` +
+      "serve what a request may see through the owner's own methods instead."
+    );
+  }
   const namespace = crud.namespace;
   const featureId = normalizeText(id) || `crud.${namespace}`;
   const featureCapability = normalizeText(capability) || featureId;

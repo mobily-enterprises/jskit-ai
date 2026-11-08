@@ -4,13 +4,17 @@ import { toCamelCase } from "@jskit-ai/kernel/shared/support/stringCase";
 import { normalizePathname } from "@jskit-ai/kernel/shared/surface/paths";
 
 // Who owns a row. `workspace_or_shared` rows are a workspace's own, or shared
-// with every workspace when their owner is null.
+// with every workspace when their owner is null. `system` rows belong to no
+// workspace or user and no request reaches them: only a system context reads or
+// writes them, such as a package's queues, leases and run state that its own
+// background stores keep for every workspace.
 const OWNERSHIP_KINDS = Object.freeze([
   "public",
   "workspace",
   "user",
   "workspace_user",
-  "workspace_or_shared"
+  "workspace_or_shared",
+  "system"
 ]);
 
 const RESOURCE_NAME = /^[A-Za-z][A-Za-z0-9_]*$/u;

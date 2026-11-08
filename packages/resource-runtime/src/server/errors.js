@@ -23,6 +23,24 @@ class MissingScopeError extends TypeError {
   }
 }
 
+/**
+ * A handle call on a `system` table in a context that is not a system context: its rows belong to no workspace or user,
+ * so a request's context, or one derived for a workspace or a user, would reach every workspace's rows. Nothing runs.
+ */
+class SystemContextRequiredError extends TypeError {
+  /** @param {string} resourceName */
+  constructor(resourceName) {
+    super(
+      `${resourceName} rows belong to no workspace or user (ownership "system"), so only a system context reaches them: ` +
+        "the background work of the feature that owns the table, with systemContext(reason). A request's context, or one " +
+        "forWorkspace, forUser or forWorkspaceUser derived, would reach every workspace's rows. Call the owner's own methods, " +
+        "which run in its system context."
+    );
+    this.name = "SystemContextRequiredError";
+    this.code = "RESOURCE_SYSTEM_CONTEXT_REQUIRED";
+  }
+}
+
 /** query() without page.size: every list is paged, and every-row reads say so with queryAll(). */
 class UnpagedQueryError extends TypeError {
   /** @param {string} resourceName */
@@ -91,4 +109,4 @@ class DuplicateOwnerError extends Error {
   }
 }
 
-export { DuplicateOwnerError, MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError };
+export { DuplicateOwnerError, MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, SystemContextRequiredError, UnpagedQueryError };
