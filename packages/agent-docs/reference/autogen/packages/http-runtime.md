@@ -249,7 +249,7 @@ Exports
 - `isJsonApiDocumentResult(value)`
 - `isJsonApiMetaResult(value)`
 - `jsonApiResultValue(value)`
-- `simplifyJsonApiResult(result)`
+- `simplifyJsonApiResult(result, options = {})`
 - `jsonApiResultOrNull(value)`
 Local functions
 - `normalizeJsonApiResultKind(kind = "")`
@@ -289,7 +289,7 @@ Exports
 - `normalizeCodedEntry(entry)`
 - `normalizeJsonApiDocument(payload = {})`
 - `normalizeJsonApiResourceObject(resource = {})`
-- `simplifyJsonApiDocument(payload = {})`
+- `simplifyJsonApiDocument(payload = {}, options = {})`
 Local functions
 - `normalizeMediaType(contentType = "")`
 - `normalizeJsonApiResourceArray(value)`
@@ -300,7 +300,7 @@ Local functions
 - `resolveValidationFieldName(issue)`
 - `resolveJsonApiValidationSource(issue = {}, validationContext = "")`
 - `buildJsonApiErrorMeta({ transactionOutcome, params, messageCode, messageParams, fieldErrorCode })`
-- `simplifyJsonApiResourceObject(resource = {})`
+- `simplifyJsonApiResourceObject(resource = {}, options = {})`
 
 ### `src/shared/validators/operationValidation.js`
 Exports

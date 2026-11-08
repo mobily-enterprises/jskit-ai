@@ -22,7 +22,7 @@ Exports
 - `isJobContext(context)`
 - `isSystemContext`
 Local functions
-- `jobContext(reason, scopeValues)`
+- `jobContext(reason, scopeValues, options, label)`
 - `requireScopeId(value, label, subject)`
 
 ### `src/server/errors.js`

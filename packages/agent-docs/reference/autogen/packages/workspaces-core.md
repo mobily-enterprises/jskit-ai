@@ -260,6 +260,7 @@ Local functions
 
 ### `src/server/workspacesRuntime.js`
 Exports
+- `WORKSPACES_TABLES`
 - `createWorkspaceRecords(resources)`
 - `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, personalWorkspaceName, resources, userProfiles, userSettings, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
 Local functions

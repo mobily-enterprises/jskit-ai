@@ -190,8 +190,9 @@ read-back and lookup, so every request pays what it costs. A policy is told
 who the call runs for as `caller`: `{ kind: "user", userId }` for a signed-in
 request, `{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
 `{ kind: "job" }` (a context `forWorkspace` and its kin derived), each with its
-`reason`, for background work. A job names no user, so never read a missing
-actor as an anonymous request.
+`reason`, for background work. A job names a user only as `actorId`, the
+person it was derived for (below), so never read a missing actor as an
+anonymous request.
 
 ```js
 // good: one predicate on the row being read
@@ -217,10 +218,14 @@ async function noticeVisibilityPolicy({ query, caller, context, column, value })
 ```
 
 A row policy hides a row everywhere, also as the target of a visible record's
-link: an order whose supplier the reader cannot see reads `supplierId: null`,
-and a form that saves the order back sends that null. A row policy says who may
-see a row at all; narrowing what one screen lists is a filter on that screen's
-read.
+link: an order whose supplier the reader cannot see reads `supplierId: null`.
+A form that saves the order back sends that null, and the write keeps the
+stored link: a null for a link whose target exists but is hidden from the
+writer counts as unchanged. Send that null, never the hidden id: a write naming
+a target the writer cannot see is refused as a missing target, since accepting
+the right hidden id would tell the writer which record is linked. The link is
+still unreadable to that reader, so a row policy says who may see a row at all;
+narrowing what one screen lists is a filter on that screen's read.
 
 ```js
 // bad: a row policy to list only the suppliers a user added; every order whose
@@ -260,6 +265,11 @@ shows only what its own table's contract shows. When several contracts serve
 that table, an include shows the contract its relation names with
 `relation.namespace` (a `lookup` names its namespace), and otherwise only the
 fields they all show; `jskit check` lists the tables whose contracts differ.
+A `decorateService` that also needs the record it wrote (for an audit or a
+history row) reads it from its own answer, `simplifyJsonApiResult(answer)`
+from `@jskit-ai/http-runtime/shared`, never with a second read; a relationship
+whose field key is not its name plus `Id` passes
+`{ lookupFieldMap: { owner: "ownerUserId" } }`.
 A second surface on the same table (a customer's view beside the staff's) is
 a second CRUD contract on the same resource, never a second resource. A field
 fragment several resources spread into their schemas carries only the field:
@@ -447,9 +457,15 @@ const SettlementFeature = defineFeature({
 - Prefer `systemContext(reason).forWorkspace(id)`, `.forUser(id)` or
   `.forWorkspaceUser(workspaceId, userId)`: each workspace or user is then one
   unit of work, scoped as usual, in a transaction of its own.
+- Work a job does for one person (a request it carries out later) passes
+  `{ actorId }` last: `forWorkspace(id, { actorId: requestedBy })`. Audit
+  fields read it as a request's actor (`resolveActorId(context)`) and the row
+  policy as `caller.actorId`; it never changes which rows the job reaches. It
+  passes an `authenticated` check as that user, with no permissions.
 - A job finds its units with one `aggregate` grouped by the ownership field,
-  which a system context may group by even when the table hides it, then runs
-  each unit scoped to it:
+  which a system context may group by (and count distinct) even when the table
+  hides it, then runs each unit scoped to it. A request's aggregate still
+  refuses a hidden field:
 
   ```js
   async function settleDue(options) {
@@ -584,6 +600,26 @@ infrastructure tables for it: `LOCAL_AUTH_INFRASTRUCTURE_TABLES`
 (`@jskit-ai/auth-provider-local-db-core/server/lib/index`),
 `OIDC_CLIENT_INFRASTRUCTURE_TABLES` (`@jskit-ai/auth-provider-oidc-core/server/lib/index`)
 and `OIDC_ISSUER_INFRASTRUCTURE_TABLES` (`@jskit-ai/oidc-issuer-core/server`).
+
+A test of a feature and the owner APIs it requires starts them as the server
+does, without HTTP: `startTestFeatures({ knex, features, requires, inputs,
+createTables })` orders the features by their requires, owns their tables
+through a test resource runtime, runs every boot (so `crud.contracts` is
+sealed) and answers `{ capabilities, resources, stop }`. JSKIT's owners start
+beside yours: `UsersExtensionsProvider` and `UsersIdentityProvider` give
+`users.profiles`, and `WorkspaceRecordsFeature`
+(`@jskit-ai/workspaces-core/test/WorkspaceRecordsFeature`) gives `workspaces`
+and `workspaces.memberships` without the workspace routes. Never import another
+package's repositories to build its owner API by hand.
+
+```js
+const { capabilities, stop } = await startTestFeatures({
+  knex,
+  features: [RosterFeature, WorkspaceRecordsFeature, UsersIdentityProvider, UsersExtensionsProvider],
+  requires: { roster: "roster" }
+});
+t.after(stop);
+```
 
 ## Hard rules
 
