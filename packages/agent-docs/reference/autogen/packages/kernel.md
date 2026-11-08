@@ -671,6 +671,7 @@ Exports
 Local functions
 - `resolveContextScope(context = {})`
 - `resolveVisibilityScope(visibilityContext = {})`
+- `resolveRequestWorkspaceId(context)`
 - `resolveEventScope(context = {})`
 - `resolveValue(value, execution)`
 - `normalizeRealtime(value, execution)`
