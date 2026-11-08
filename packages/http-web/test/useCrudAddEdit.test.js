@@ -392,6 +392,50 @@ test("applyCrudPayloadToForm preserves null lookup payload values", () => {
   assert.equal(form.serviceId, "42");
 });
 
+test("editing a record with a null id link saves it as null, and every nullable field keeps its null", () => {
+  const fields = [
+    { key: "title", type: "string" },
+    { key: "ownerId", type: "id", nullable: true },
+    { key: "shelfId", type: "id" },
+    { key: "nickname", type: "string", nullable: true },
+    { key: "status", type: "string", nullable: true, component: "select" },
+    { key: "rank", type: "integer", nullable: true },
+    { key: "dueOn", type: "string", format: "date", nullable: true }
+  ];
+  const form = reactive(createCrudFormModel(fields));
+  applyCrudPayloadToForm(fields, form, {
+    title: "Kindred",
+    ownerId: null,
+    shelfId: 7,
+    nickname: null,
+    status: null,
+    rank: null,
+    dueOn: null
+  });
+  assert.equal(form.ownerId, null);
+  assert.equal(form.shelfId, "7");
+
+  // Saved unchanged, the record's nulls go back as nulls.
+  assert.deepEqual(buildCrudFormPayload(fields, form), {
+    title: "Kindred",
+    ownerId: null,
+    shelfId: "7",
+    nickname: null,
+    status: null,
+    rank: null,
+    dueOn: null
+  });
+
+  // A link typed and cleared again is null; one typed is its id. A required link left empty is not sent, so the
+  // server names it as missing instead of refusing "" as an id.
+  form.ownerId = " 12 ";
+  assert.equal(buildCrudFormPayload(fields, form).ownerId, "12");
+  form.ownerId = "";
+  assert.equal(buildCrudFormPayload(fields, form).ownerId, null);
+  form.shelfId = "";
+  assert.equal(Object.hasOwn(buildCrudFormPayload(fields, form), "shelfId"), false);
+});
+
 test("resolveCrudRouteBoundFieldValues maps route params for route-bound form fields", () => {
   const values = resolveCrudRouteBoundFieldValues(
     [

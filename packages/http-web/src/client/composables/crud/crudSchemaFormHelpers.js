@@ -244,6 +244,7 @@ function shouldSerializeClearedFieldAsNull(field = {}) {
   const fieldFormat = resolveFormFieldFormat(field);
 
   return (
+    fieldType === "id" ||
     fieldType === "integer" ||
     fieldType === "number" ||
     fieldFormat === "date" ||
@@ -302,7 +303,8 @@ function buildCrudFormPayload(fields = [], model = {}) {
       continue;
     }
 
-    if (isLookupFormField(field)) {
+    // An id, a lookup's or a plain link's, is a value or nothing: a cleared one is null, never "".
+    if (isLookupFormField(field) || fieldType === "id") {
       const normalizedLookupValue = String(rawValue).trim();
       if (!normalizedLookupValue) {
         if (clearAsNull) {
@@ -401,7 +403,8 @@ function applyCrudPayloadToForm(fields = [], model = {}, payload = {}) {
       continue;
     }
 
-    targetModel[fieldKey] = rawValue == null ? "" : String(rawValue);
+    // A nullable field keeps its null, so saving the form unchanged sends null back, not "".
+    targetModel[fieldKey] = rawValue == null ? (isNullableFormField(field) ? null : "") : String(rawValue);
   }
 }
 
