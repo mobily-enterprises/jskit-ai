@@ -44,6 +44,7 @@ through its handle's calls, and every call takes the call's `options` last:
 | `lockOrCreate({ id, ...initial }, options, work)` | a keyed record locked, created first when missing, for `work` |
 | `claim({ filters, sort, take }, txOptions)` | the next rows no other worker holds |
 | `withTransaction(options, work)` | one transaction; `work` gets its `txOptions` |
+| `changeHorizon(options)` | PostgreSQL's snapshot horizon, where a read of what changed since starts |
 | `scopedQuery(params, options)` | a read-only builder for a report ([Layer 5](#layer-5-reports-the-resource-cannot-express)) |
 
 ```js

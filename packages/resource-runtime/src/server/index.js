@@ -13,5 +13,6 @@ export {
   RowLimitError,
   StaleRecordError,
   SystemContextRequiredError,
-  UnpagedQueryError
+  UnpagedQueryError,
+  UnsupportedDatabaseError
 } from "./errors.js";

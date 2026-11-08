@@ -9,7 +9,8 @@ import {
   RowLimitError,
   StaleRecordError,
   SystemContextRequiredError,
-  UnpagedQueryError
+  UnpagedQueryError,
+  UnsupportedDatabaseError
 } from "../src/server/index.js";
 import { createActionCatalogue, createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { emptyInputValidator, resolveActorId, resolveAuditActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
@@ -844,6 +845,23 @@ test("every lock and patchWhere take lockMode \"update\" or \"noKeyUpdate\" and 
     // Nothing reached the database, so the transaction goes on (on PostgreSQL a failed statement would end it).
     assert.equal((await notes.lock(a, txOptions)).title, "a");
   });
+  assert.deepEqual(statements, []);
+});
+
+test("changeHorizon() answers PostgreSQL's snapshot horizon as decimal text; elsewhere it throws before any statement", async (t) => {
+  const { knex, notes } = await createFixture(t);
+  await assert.rejects(notes.changeHorizon({}), MissingScopeError);
+  if (knex.client.config.client === "pg") {
+    assert.match(await notes.changeHorizon({ context: WORKSPACE_A }), /^\d{1,20}$/u);
+    return;
+  }
+  const statements = [];
+  const counted = ({ sql }) => statements.push(sql);
+  knex.on("query", counted);
+  await assert.rejects(notes.changeHorizon({ context: WORKSPACE_A }), (error) => error instanceof UnsupportedDatabaseError &&
+    error.code === "RESOURCE_DATABASE_UNSUPPORTED" &&
+    error.message === "notes.changeHorizon() reads PostgreSQL's snapshot horizon (pg_snapshot_xmin), which MySQL, MariaDB and SQLite do not have.");
+  knex.off("query", counted);
   assert.deepEqual(statements, []);
 });
 

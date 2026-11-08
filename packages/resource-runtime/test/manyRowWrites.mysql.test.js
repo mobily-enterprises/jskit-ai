@@ -3,6 +3,7 @@ import test from "node:test";
 import knexLib from "knex";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
+import { UnsupportedDatabaseError } from "../src/server/index.js";
 import { createTestResourceRuntime } from "../src/test/index.js";
 
 // patchWhere and deleteWhere on MySQL or MariaDB, under two concurrent writers: each checks its filters on the row
@@ -142,4 +143,12 @@ test("a deleteWhere whose filter matched a row a concurrent patchWhere changed l
   const row = await knex("slots").where({ id }).first("status");
   // Whichever went first wins; the other finds the row changed (or gone) and leaves it.
   assert.deepEqual([patched + deleted, row ? row.status : "deleted"], [1, patched === 1 ? "taken" : "deleted"]);
+});
+
+test("changeHorizon() throws on MySQL and MariaDB, which stamp no row with its transaction, before any statement", async (t) => {
+  const { knex, slots } = await ownDatabase(t, "horizon");
+  const statements = [];
+  knex.on("query", ({ sql }) => statements.push(sql));
+  await assert.rejects(slots.changeHorizon({ context: WORKSPACE }), UnsupportedDatabaseError);
+  assert.deepEqual(statements, []);
 });

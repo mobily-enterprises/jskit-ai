@@ -2,6 +2,7 @@ import diagnosticsChannel from "node:diagnostics_channel";
 import { RestApiRowLimitError } from "json-rest-api";
 import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { readChangeHorizon } from "./changeHorizon.js";
 import { createJsonRestContext, isJobContext } from "./contexts.js";
 import { createHiddenFieldReads, createJoinSource, markHandleFunctions } from "./handleHidden.js";
 import { createLockReads, lockModeOf } from "./handleLocks.js";
@@ -694,6 +695,15 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     return valueOnlyRaw(`${name}.raw()`, api.knex.instance, [sql, bindings, ...rest]);
   }
 
+  /**
+   * PostgreSQL's snapshot horizon, as decimal text, in the caller's transaction when there is one (see readChangeHorizon).
+   * @param {{ context?: object | null, trx?: object | null }} [options]
+   */
+  async function changeHorizon(options = {}) {
+    contextOf(options);
+    return readChangeHorizon(name, options.trx || api.knex.instance);
+  }
+
   markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate: lockOrCreateRecord });
   return Object.freeze({
     name,
@@ -716,6 +726,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     lockWhere,
     lockOrCreate: lockOrCreateRecord,
     claim,
+    changeHorizon,
     scopedQuery,
     joinSource,
     column,

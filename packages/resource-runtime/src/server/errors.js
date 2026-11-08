@@ -41,6 +41,22 @@ class SystemContextRequiredError extends TypeError {
   }
 }
 
+/**
+ * A handle call that reads something only some databases have, on one that lacks it, such as changeHorizon() outside
+ * PostgreSQL. Nothing runs.
+ */
+class UnsupportedDatabaseError extends Error {
+  /**
+   * @param {string} call The call, as `notes.changeHorizon()`.
+   * @param {string} reason What the call reads and which databases have it.
+   */
+  constructor(call, reason) {
+    super(`${call} ${reason}`);
+    this.name = "UnsupportedDatabaseError";
+    this.code = "RESOURCE_DATABASE_UNSUPPORTED";
+  }
+}
+
 /** query() without page.size: every list is paged, and every-row reads say so with queryAll(). */
 class UnpagedQueryError extends TypeError {
   /** @param {string} resourceName */
@@ -109,4 +125,13 @@ class DuplicateOwnerError extends Error {
   }
 }
 
-export { DuplicateOwnerError, MissingScopeError, PageSizeError, RowLimitError, StaleRecordError, SystemContextRequiredError, UnpagedQueryError };
+export {
+  DuplicateOwnerError,
+  MissingScopeError,
+  PageSizeError,
+  RowLimitError,
+  StaleRecordError,
+  SystemContextRequiredError,
+  UnpagedQueryError,
+  UnsupportedDatabaseError
+};
