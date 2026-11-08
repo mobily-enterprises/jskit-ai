@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Depends on json-rest-api 3.1.1 exactly (from 3.1.0), from the registry with its published integrity: a sort on the ID, or on a required attribute stored in its own table, carries no null placement, so PostgreSQL and MariaDB read a descending page from an index instead of sorting every matching row.
 - Depends on json-rest-api 3.1.0 exactly (from 3.0.1), from the registry with its published integrity: `lockMode: "noKeyUpdate"`, ON CONFLICT on the matching unique index's exact columns, the PostgreSQL merge race on an uncommitted insert, and the `xid8` field type the change horizon reads.
 - `defineCrudFeature` refuses a table resource with ownership `system`, which only a system context reaches: a CRUD surface serves requests, so the owner serves what a request may see through its own methods instead.
 - The package's data tests run on `createPackageTestKnex`, so CI's `DB_CLIENT=pg` run proves the CRUD paths on PostgreSQL too.
