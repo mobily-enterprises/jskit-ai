@@ -538,7 +538,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     }
     return manyRowWrite("createMany", rows.length, options, (params, context) => jsonRest().postMany(
       { ...params, data: rows.map((row) => inputData(resource, row, "create", options.context)),
-        ...(options.onConflict ? { onConflict: upsertConflict(resource, rows, options.onConflict, options.context) } : {}) },
+        ...(options.onConflict ? { onConflict: upsertConflict(resource, rows, options.onConflict, options.context, jsonRest().vars.schemaInfo.ownershipFields ?? []) } : {}) },
       context
     ));
   }

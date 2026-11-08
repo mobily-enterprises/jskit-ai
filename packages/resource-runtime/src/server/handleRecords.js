@@ -187,13 +187,15 @@ function stampedAttributes(resource, attributes, stamp, context) {
 
 /**
  * An upsert's onConflict with the timestamps its merge changes: updatedAt moves on, and a createdAt the handle stamped
- * is the new record's only, so a merge then names its fields (those the rows give, by their field names).
- * @param {{ schema: Record<string, any> }} resource
+ * is the new record's only, so a merge then names its fields (those the rows give, by their field names), less those
+ * a merge never changes: the conflict keys, the ownership fields and the lock version.
+ * @param {{ schema: Record<string, any>, lockVersionField?: string }} resource
  * @param {Array<Record<string, unknown>>} rows The caller's rows, before stamping.
- * @param {{ action?: string, merge?: string[] }} onConflict
+ * @param {{ action?: string, keys?: string[], merge?: string[] }} onConflict
  * @param {unknown} context The call's context: only a caller that sets its own timestamps merges its createdAt.
+ * @param {string[]} ownershipFields The table's ownership fields, json-rest-api's `schemaInfo.ownershipFields`.
  */
-function upsertConflict(resource, rows, onConflict, context) {
+function upsertConflict(resource, rows, onConflict, context, ownershipFields) {
   if (onConflict.action !== "merge") {
     return onConflict;
   }
@@ -210,7 +212,9 @@ function upsertConflict(resource, rows, onConflict, context) {
     return onConflict;
   }
   const fieldOf = Object.fromEntries(Object.entries(resource.schema).map(([field, definition]) => [definition?.as || field, field]));
-  return { ...onConflict, merge: mergeOf(rows.flatMap((row) => Object.keys(row)).map((key) => fieldOf[key] || key), false) };
+  const kept = new Set([...(onConflict.keys ?? []), ...ownershipFields, resource.lockVersionField].filter(Boolean));
+  const merge = mergeOf(rows.flatMap((row) => Object.keys(row)).map((key) => fieldOf[key] || key), false);
+  return { ...onConflict, merge: merge.filter((field) => !kept.has(field)) };
 }
 
 /**

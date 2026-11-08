@@ -315,6 +315,48 @@ test("an upsert finds rows by its conflict keys alone, never by an id, and stays
   );
 });
 
+test("an upsert merge with no merge list changes the rows' fields but never their keys, owner or lock version", async (t) => {
+  const slots = defineTableResource({
+    name: "slots",
+    tableName: "slots",
+    ownership: "workspace",
+    lockVersionField: "lockVersion",
+    schema: {
+      id: { type: "id", primary: true },
+      workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+      day: { type: "string", required: true, search: true },
+      status: { type: "string", required: true },
+      lockVersion: { type: "integer", defaultTo: 0, storage: { column: "lock_version" } },
+      createdAt: { type: "dateTime", storage: { column: "created_at", writeSerializer: "datetime-utc" } },
+      updatedAt: { type: "dateTime", storage: { column: "updated_at", writeSerializer: "datetime-utc" } }
+    }
+  });
+  const { knex, resources } = await createFixture(t, { owns: [noteResource(), slots] });
+  await knex.schema.createTable("slots", (table) => {
+    table.increments("id");
+    table.integer("workspace_id").nullable();
+    table.string("day").notNullable();
+    table.string("status").notNullable();
+    table.integer("lock_version").notNullable().defaultTo(0);
+    table.string("created_at").notNullable();
+    table.string("updated_at").notNullable();
+    table.unique(["workspace_id", "day"]);
+  });
+  const upsert = { context: WORKSPACE_A, onConflict: { keys: ["workspaceId", "day"], action: "merge" } };
+  await resources.slots.createMany([{ day: "mon", status: "pencilled" }], { context: WORKSPACE_A });
+  const before = await knex("slots").first("created_at", "lock_version");
+  // The rows give their owner and lock version too, as a record read back and sent again does.
+  await resources.slots.createMany([
+    { workspaceId: 1, day: "mon", status: "booked", lockVersion: 7 },
+    { workspaceId: 1, day: "tue", status: "pencilled", lockVersion: 0 }
+  ], upsert);
+  // The merged row's version moves on by one, as on any write; the row's own 7 is never taken.
+  assert.deepEqual(await knex("slots").orderBy("day").select("workspace_id", "day", "status", "lock_version", "created_at"), [
+    { workspace_id: 1, day: "mon", status: "booked", lock_version: before.lock_version + 1, created_at: before.created_at },
+    { workspace_id: 1, day: "tue", status: "pencilled", lock_version: 0, created_at: (await knex("slots").where({ day: "tue" }).first()).created_at }
+  ]);
+});
+
 test("lockOrCreate() runs work on the locked record, creating it first when missing, with the work or not at all", async (t) => {
   const counters = defineTableResource({
     name: "counters",
