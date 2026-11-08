@@ -417,7 +417,9 @@ that owns its transaction runs again. For one row,
 `patch(id, changes, { ...options, onlyIf: { status: "open" } })` does the same.
 A filter on another table (a search field whose `actualField` reaches a
 related table) is refused on MySQL and MariaDB (`RestApiValidationError`, rule
-`selection_cross_table`): filter on the row's own columns instead, for example
+`selection_cross_table`), even when it matches no row. A search entry's own
+`applyFilter` that reads another table through a subquery is not detected, and
+is no compare-and-set there either. Filter on the row's own columns instead, for example
 on the link after locking its targets with `lockMany` in the same transaction
 (Layer 4), or move the value onto the row itself for `onlyIf`, or use a
 `claim`. A many-row write answers

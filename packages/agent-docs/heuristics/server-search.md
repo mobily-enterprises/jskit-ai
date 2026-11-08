@@ -130,6 +130,7 @@ searchSchema: {
 
 Keep `applyFilter` focused on query semantics:
 - build the SQL/knex filter there
+- read only the row's own columns in a filter a `patchWhere` or `deleteWhere` decides on: one that reads another table through a subquery is not detected, and is no compare-and-set on MySQL and MariaDB
 - do not put permission checks there
 - do not turn it into a second service layer
 
