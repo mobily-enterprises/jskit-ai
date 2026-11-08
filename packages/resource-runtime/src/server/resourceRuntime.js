@@ -102,6 +102,11 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
     }
   }
 
+  // An owned table resource by name, or null: a handle shapes included records with it.
+  function resourceNamed(name) {
+    return ownedByName.get(name)?.resource ?? null;
+  }
+
   // A SELECT-only builder over one of the feature's own tables, for a row policy's subqueries.
   function ownTableReader(featureId, db) {
     return function ownTable(name) {
@@ -184,7 +189,7 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
         searchSchema: entry.searchSchema,
         queryFields: entry.queryFields
       }));
-      handles[resource.name] = createResourceHandle({ api, resource, hooks: entry.hooks, settings });
+      handles[resource.name] = createResourceHandle({ api, resource, hooks: entry.hooks, settings, resourceNamed });
     }
     Object.defineProperty(handles, "contributeRowPolicy", {
       value: (name, policy) => contributeRowPolicy(featureId, name, policy),

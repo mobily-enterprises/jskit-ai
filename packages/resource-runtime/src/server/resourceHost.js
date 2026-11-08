@@ -23,7 +23,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER } from "@jskit-ai/kernel/shared/support/visibility";
 import { createJsonRestContext } from "./contexts.js";
-import { isPlainJsonRestObject } from "./jsonRestValues.js";
+import { isPlainJsonRestObject, resolveJsonRestCollectionRelationships } from "./jsonRestValues.js";
 
 const JSON_REST_AUTOFILTER_PRESETS = Object.freeze({
   public: Object.freeze([]),
@@ -185,38 +185,6 @@ function normalizeJsonRestList(value) {
     .split(",")
     .map((entry) => normalizeText(entry))
     .filter(Boolean);
-}
-
-function resolveJsonRestCollectionRelationships(resource) {
-  const resourceSchema = normalizeObject(resource?.schema);
-  const relationships = {};
-
-  for (const [fieldName, fieldDefinition] of Object.entries(resourceSchema)) {
-    const normalizedFieldDefinition = normalizeObject(fieldDefinition);
-    const relation = normalizeObject(normalizedFieldDefinition.relation);
-    if (normalizeText(relation.kind).toLowerCase() !== "collection") {
-      continue;
-    }
-
-    const relationshipName = normalizeText(relation.as || normalizedFieldDefinition.as, {
-      fallback: fieldName
-    });
-    const target = resolveCrudResourceScopeName(
-      relation.target || relation.targetResource || relation.namespace || relation.apiPath
-    );
-    const foreignKey = normalizeText(relation.foreignKey);
-    if (!relationshipName || !target || !foreignKey) {
-      continue;
-    }
-
-    relationships[relationshipName] = {
-      type: "hasMany",
-      target,
-      foreignKey
-    };
-  }
-
-  return relationships;
 }
 
 function normalizeJsonRestQueryField(fieldName = "", fieldDefinition = {}, projectionDefinition = null) {

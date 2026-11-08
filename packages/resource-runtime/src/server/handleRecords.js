@@ -2,6 +2,7 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { RECORD_TIMESTAMPS, storedTimestamps } from "@jskit-ai/resource-core/shared/tableResource";
 import { isJobContext } from "./contexts.js";
 import { requireDefinedFilters } from "./handleGuards.js";
+import { resolveJsonRestCollectionRelationships } from "./jsonRestValues.js";
 
 // What a handle takes and answers, in json-rest-api's terms: read parameters,
 // write input with belongs-to fields under their relationships, and plain
@@ -227,14 +228,21 @@ function inputData(resource, attributes, stamp, context) {
 }
 
 /**
- * The relationships a read includes: the first name of each `include` path.
+ * The relationships a read includes, each with the include paths below it: `"pet.contact,vet"` includes pet, with
+ * `["contact"]` below it, and vet.
  * @param {unknown} include
+ * @returns {Map<string, string[]>}
  */
 function includedRelationships(include) {
+  const included = new Map();
   if (include === undefined) {
-    return new Set();
+    return included;
   }
-  return new Set(textList(include).flatMap((entry) => String(entry).split(",")).map((path) => path.trim().split(".")[0]));
+  for (const path of textList(include).flatMap((entry) => String(entry).split(",")).map((entry) => entry.trim()).filter(Boolean)) {
+    const [head, ...rest] = path.split(".");
+    included.set(head, [...(included.get(head) ?? []), ...(rest.length > 0 ? [rest.join(".")] : [])]);
+  }
+  return included;
 }
 
 /**
@@ -252,17 +260,44 @@ function namedFields(resource, fields) {
  * carries the related id under its own name (null when unset), and the related
  * record stays nested under its relationship only when the read included it.
  * A sparse read leaves out a belongs-to field it did not name, so an unread
- * relation is never answered as null.
+ * relation is never answered as null. An included record, or each record of an
+ * included collection, is shaped the same way by its own resource, so it reads
+ * as a read of that resource would answer it.
  * @param {{ schema: Record<string, any> }} resource
  * @param {unknown} record
- * @param {Set<string>} included
+ * @param {Map<string, string[]>} included
  * @param {Set<string> | null} named
+ * @param {(name: string) => ({ name: string, schema: Record<string, any> } | null)} [resourceNamed] The application's table
+ *   resources by name, which shape included records; a read that includes passes it.
  */
-function handleRecord(resource, record, included, named) {
+function handleRecord(resource, record, included, named, resourceNamed) {
   if (!isRecord(record)) {
     return record;
   }
   const shaped = { ...record };
+  // Included records keep their place, shaped by their own resource. json-rest-api reads a collection's linkage for
+  // the records a read asks for, not for those it includes, so an included record leaves out a collection it does
+  // not include itself rather than answer it as empty.
+  const nested = (type, value, belowPaths) => {
+    const related = resourceNamed(type);
+    const below = includedRelationships(belowPaths);
+    const shape = (entry) => {
+      if (!related || !isRecord(entry)) {
+        return entry;
+      }
+      const shapedEntry = handleRecord(related, entry, below, null, resourceNamed);
+      for (const name of Object.keys(resolveJsonRestCollectionRelationships(related)).filter((key) => !below.has(key))) {
+        delete shapedEntry[name];
+      }
+      return shapedEntry;
+    };
+    return Array.isArray(value) ? value.map(shape) : shape(value);
+  };
+  for (const [relationshipName, { target }] of Object.entries(resolveJsonRestCollectionRelationships(resource))) {
+    if (included.has(relationshipName) && Object.hasOwn(record, relationshipName)) {
+      shaped[relationshipName] = nested(target, record[relationshipName], included.get(relationshipName));
+    }
+  }
   for (const [fieldName, definition] of Object.entries(resource.schema)) {
     if (!definition?.belongsTo) {
       continue;
@@ -274,6 +309,9 @@ function handleRecord(resource, record, included, named) {
       continue;
     }
     const related = record[relationshipName];
+    if (included.has(relationshipName)) {
+      shaped[relationshipName] = nested(definition.belongsTo, related, included.get(relationshipName));
+    }
     if (relationshipName === fieldName && included.has(relationshipName)) {
       continue;
     }
@@ -290,11 +328,12 @@ function handleRecord(resource, record, included, named) {
  * @param {{ name: string, schema: Record<string, any> }} resource
  * @param {unknown[]} records
  * @param {{ include?: unknown, fields?: unknown }} [read] What the read included and the fields it named.
+ * @param {(name: string) => ({ name: string, schema: Record<string, any> } | null)} [resourceNamed] Shapes included records.
  */
-function handleRecords(resource, records, { include, fields } = {}) {
+function handleRecords(resource, records, { include, fields } = {}, resourceNamed) {
   const included = includedRelationships(include);
   const named = namedFields(resource, fields);
-  return records.map((record) => handleRecord(resource, record, included, named));
+  return records.map((record) => handleRecord(resource, record, included, named, resourceNamed));
 }
 
 /**
@@ -304,9 +343,12 @@ function handleRecords(resource, records, { include, fields } = {}) {
  * @param {unknown} result
  * @param {string} format
  * @param {{ include?: unknown, fields?: unknown }} [read] What the read included and the fields it named.
+ * @param {(name: string) => ({ name: string, schema: Record<string, any> } | null)} [resourceNamed] Shapes included records.
  */
-function handleResult(resource, result, format, { include, fields } = {}) {
-  return format === "jsonapi" ? result : handleRecord(resource, result, includedRelationships(include), namedFields(resource, fields));
+function handleResult(resource, result, format, { include, fields } = {}, resourceNamed) {
+  return format === "jsonapi"
+    ? result
+    : handleRecord(resource, result, includedRelationships(include), namedFields(resource, fields), resourceNamed);
 }
 
 // A single write's `returning`, as json-rest-api names it.

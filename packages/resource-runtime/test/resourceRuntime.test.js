@@ -1112,3 +1112,64 @@ test("a collection relation with hydrateOnList or hydrateOnView false loads its 
   assert.equal(await reads(() => loud.queryAll({}, {})), 2, "without the flags a read loads the collection's linkage");
   assert.deepEqual((await loud.get("1", {}, {})).pets.map(({ id }) => id), ["1"]);
 });
+
+test("an included record reads as a read of its own resource answers it, at every depth and in a collection", async (t) => {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("contacts", (table) => {
+    table.increments("id");
+    table.string("name").notNullable();
+  });
+  await knex.schema.createTable("pets", (table) => {
+    table.increments("id");
+    table.integer("contact_id");
+    table.string("name").notNullable();
+  });
+  await knex.schema.createTable("bookings", (table) => {
+    table.increments("id");
+    table.integer("pet_id");
+    table.string("day").notNullable();
+  });
+  await knex("contacts").insert({ name: "Ada" });
+  await knex("pets").insert({ contact_id: 1, name: "Rex" });
+  await knex("bookings").insert({ pet_id: 1, day: "monday" });
+  const contacts = defineTableResource({
+    name: "contacts",
+    tableName: "contacts",
+    ownership: "public",
+    schema: {
+      name: { type: "string", required: true },
+      pets: { type: "array", storage: { virtual: true }, relation: { kind: "collection", namespace: "pets", foreignKey: "contactId" } }
+    }
+  });
+  const pets = defineTableResource({
+    name: "pets",
+    tableName: "pets",
+    ownership: "public",
+    schema: {
+      contactId: { type: "id", nullable: true, belongsTo: "contacts", as: "contact", storage: { column: "contact_id" } },
+      name: { type: "string", required: true }
+    }
+  });
+  const bookings = defineTableResource({
+    name: "bookings",
+    tableName: "bookings",
+    ownership: "public",
+    schema: {
+      petId: { type: "id", nullable: true, belongsTo: "pets", as: "pet", storage: { column: "pet_id" } },
+      day: { type: "string", required: true }
+    }
+  });
+  const runtime = await createTestResourceRuntime({ knex });
+  const handles = await runtime.own("bookings.feature", [contacts, pets, bookings]);
+  const pet = await handles.pets.get("1", {}, {});
+  assert.deepEqual(pet, { id: "1", name: "Rex", contactId: "1" });
+
+  const booking = await handles.bookings.get("1", { include: "pet" }, {});
+  assert.deepEqual(booking, { id: "1", day: "monday", petId: "1", pet });
+  const deeper = await handles.bookings.queryAll({ include: "pet.contact" }, {});
+  // The contact's own collection is not included, so it is left out rather than answered empty.
+  assert.deepEqual(deeper[0].pet, { ...pet, contact: { id: "1", name: "Ada" } });
+  const contact = await handles.contacts.get("1", { include: "pets" }, {});
+  assert.deepEqual(contact.pets, [pet]);
+});

@@ -140,8 +140,10 @@ function write(options, run) {
  * @param {import("@jskit-ai/resource-core/shared/tableResource").TableResource} dependencies.resource
  * @param {{ afterWrite?: (event: { operation: string, ids: string[], options: object }) => unknown }} dependencies.hooks
  * @param {{ requestRowLimit: number, serverPageSize: number }} dependencies.settings
+ * @param {(name: string) => (import("@jskit-ai/resource-core/shared/tableResource").TableResource | null)} dependencies.resourceNamed
+ *   The application's table resources by name, which shape included records.
  */
-function createResourceHandle({ api, resource, hooks, settings }) {
+function createResourceHandle({ api, resource, hooks, settings, resourceNamed }) {
   const name = resource.name;
   const lockVersionField = resource.lockVersionField || "";
   const quiet = { list: quietCollections(resource, "hydrateOnList"), view: quietCollections(resource, "hydrateOnView") };
@@ -262,7 +264,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
     const hasMore = pagination?.hasMore === true;
     const number = params.page?.number;
     return Object.freeze({
-      records: handleRecords(resource, payload.data, read),
+      records: handleRecords(resource, payload.data, read, resourceNamed),
       page: Object.freeze(number === undefined
         ? { size: Number(size), hasMore, next: hasMore ? pagination.cursor?.next ?? null : null }
         : { size: Number(size), number, hasMore, next: hasMore ? number + 1 : null })
@@ -292,7 +294,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
         },
         context
       ));
-      return handleRecords(resource, payload.data, read);
+      return handleRecords(resource, payload.data, read, resourceNamed);
     } catch (error) {
       if (error instanceof RestApiRowLimitError && rowLimit !== undefined) {
         throw new RowLimitError(name, rowLimit, error);
@@ -322,7 +324,7 @@ function createResourceHandle({ api, resource, hooks, settings }) {
       contextOf(options)
     ));
     const result = missingOf(name, "get", options.missing) === "skip" ? await returnNullWhenJsonRestResourceMissing(read) : await read();
-    return result === null ? null : handleResult(resource, result, format, named);
+    return result === null ? null : handleResult(resource, result, format, named, resourceNamed);
   }
 
   /**
