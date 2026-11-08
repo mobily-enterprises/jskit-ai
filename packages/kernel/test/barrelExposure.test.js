@@ -142,7 +142,8 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "createActionRouteScope",
       "createCachedResponseSerializerFactory",
       "createCapabilityHttpRuntime",
-      "registerSecurityHeaders"
+      "registerSecurityHeaders",
+      "resolveTrustedProxies"
     ])
   })
 ]);
