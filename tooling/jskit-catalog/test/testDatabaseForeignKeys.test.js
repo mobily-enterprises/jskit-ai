@@ -23,6 +23,21 @@ function petsModule(foreignKeys) {
   ].join("\n");
 }
 
+// A table resource "visits" on the table `tableName`, each visit naming its pet, a key the database does not hold.
+function visitsModule(tableName) {
+  return [
+    "import { defineTableResource } from \"@jskit-ai/resource-core/shared/tableResource\";",
+    "export const visitResource = defineTableResource({",
+    "  name: \"visits\",",
+    `  tableName: ${JSON.stringify(tableName)},`,
+    "  ownership: \"public\",",
+    "  schema: { petId: { type: \"id\" } },",
+    "  foreignKeys: [{ columns: [\"petId\"], referencedTableName: \"pets\" }]",
+    "});",
+    ""
+  ].join("\n");
+}
+
 async function withPetsProject(t, files) {
   const root = await mkdtemp(path.join(HERE, ".foreign-key-project-"));
   t.after(() => rm(root, { recursive: true, force: true }));
@@ -68,4 +83,20 @@ test("jskit test --databases refuses foreignKeys on a table resource it cannot i
     "src/shared/petResource.js": petsModule([{ columns: ["ownerId"], referencedTableName: "owners" }]).replace("export const", "const")
   });
   await assert.rejects(check(knex), /src\/shared\/petResource\.js:2 declares foreignKeys on a table resource the module does not export/u);
+});
+
+test("jskit test --databases leaves out a JSKIT package's table the database does not have", async (t) => {
+  // An installed package whose migrations the app never runs, such as one only a devDependency brings.
+  const { check, knex } = await withPetsProject(t, {
+    "src/shared/petResource.js": petsModule([{ columns: ["ownerId"], referencedTableName: "owners" }]),
+    "node_modules/@jskit-ai/clinic/package.json": "{ \"name\": \"@jskit-ai/clinic\", \"type\": \"module\" }\n",
+    "node_modules/@jskit-ai/clinic/src/shared/visitResource.js": visitsModule("clinic_visits")
+  });
+  assert.equal(await check(knex),
+    "foreign keys: 1 declared, all in the database (1 JSKIT package table(s) the database does not have are not checked)");
+});
+
+test("jskit test --databases fails on an app table resource's keys when the database does not have its table", async (t) => {
+  const { check, knex } = await withPetsProject(t, { "src/shared/visitResource.js": visitsModule("visits") });
+  await assert.rejects(check(knex), /1 declared foreign key\(s\) the test database does not hold[\s\S]*visits: visits \(pet_id\) -> pets \(id\)/u);
 });

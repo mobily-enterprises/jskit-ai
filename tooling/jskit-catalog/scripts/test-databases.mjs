@@ -45,9 +45,11 @@ const keyText = ({ tableName, columns, referencedTableName, referencedColumns })
 /**
  * Compares the foreignKeys the app's table resources and its @jskit-ai packages' declare with the keys TEST_DB_NAME
  * holds, once a run's databases are ready: json-rest-api relies on a declaration to skip work, so a declared key the
- * database lacks fails the run. A key of one of the app's own tables that nothing declares is reported, as work
- * json-rest-api could skip. It imports only the modules that declare foreignKeys; an app without the resource runtime
- * has nothing to check.
+ * database lacks fails the run. A package's table that the database does not have is left out: node_modules can hold
+ * a package whose migrations the app never runs (one only a devDependency brings, or one left behind), and the app
+ * never reads that table. The app's own tables are always checked. A key of one of the app's own tables that nothing
+ * declares is reported, as work json-rest-api could skip. It imports only the modules that declare foreignKeys; an app
+ * without the resource runtime has nothing to check.
  * @param {string} cwd
  * @returns {(knex: object) => Promise<string>}
  */
@@ -67,15 +69,20 @@ function foreignKeyCheckFor(cwd) {
     if (tables.length < 1 && declaringFiles.length < 1) return "";
     const { isTableResource } = await import(pathToFileURL(tableResources).href);
     const resources = [];
+    const absentPackageTables = new Set();
     for (const file of declaringFiles) {
+      const declaring = sources.filter((entry) => entry.absolute === file && entry.foreignKeys);
       const exported = exportedTableResources(await import(pathToFileURL(file).href), isTableResource);
-      for (const source of sources.filter((entry) => entry.absolute === file && entry.foreignKeys)) {
+      for (const source of declaring) {
         if (!exported.some((resource) => resource.foreignKeys && resource.name === source.name)) {
           throw new Error(`${source.file}:${source.line} declares foreignKeys on a table resource the module does not export, so ` +
             `jskit test ${OPTION} cannot check them against the database: export the resource.`);
         }
       }
-      resources.push(...exported.filter((resource) => resource.foreignKeys));
+      for (const resource of exported.filter((entry) => entry.foreignKeys)) {
+        if (declaring[0].framework && !(await knex.schema.hasTable(resource.tableName))) absentPackageTables.add(resource.tableName);
+        else resources.push(resource);
+      }
     }
     const { checkForeignKeys } = await import(pathToFileURL(runtime).href);
     const { missing, undeclared } = await checkForeignKeys({ knex, resources: [...new Set(resources)], tables });
@@ -84,7 +91,9 @@ function foreignKeyCheckFor(cwd) {
         `json-rest-api relies on a declared key, so a wrong one changes results: fix the declaration or add the key ` +
         `with a migration (${GUIDE}).\n` + missing.map((key) => `  ${key.resource}: ${keyText(key)}`).join("\n"));
     }
-    const checked = `foreign keys: ${resources.reduce((count, resource) => count + resource.foreignKeys.length, 0)} declared, all in the database`;
+    const declared = [...new Set(resources)].reduce((count, resource) => count + resource.foreignKeys.length, 0);
+    const checked = `foreign keys: ${declared} declared, all in the database` + (absentPackageTables.size < 1 ? "" :
+      ` (${absentPackageTables.size} JSKIT package table(s) the database does not have are not checked)`);
     if (undeclared.length < 1) return checked;
     return `${checked}; ${undeclared.length} database key(s) on the app's tables are not declared, so json-rest-api cannot ` +
       `skip the work they would save (declare each on its table resource's foreignKeys): ${undeclared.map(keyText).join("; ")}`;
