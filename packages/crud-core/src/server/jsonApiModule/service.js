@@ -67,7 +67,7 @@ function documentShapes(crud, contracts) {
   while (pending.length > 0) {
     for (const entry of pending.pop()) {
       const type = entry.relationshipType;
-      const named = entry.lookupNamespace ? contracts.forNamespace(entry.lookupNamespace) : null;
+      const named = entry.contractNamespace ? contracts.forNamespace(entry.contractNamespace) : null;
       const served = (named ? [named] : contracts.forType(type)).map(contractShape);
       const attributes = entry.labelKey ? new Set([entry.labelKey]) : intersection(served.map((shape) => shape.attributes));
       const relationshipNames = entry.labelKey ? new Set() : intersection(served.map((shape) => shape.relationshipNames));

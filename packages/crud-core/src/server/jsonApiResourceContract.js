@@ -29,9 +29,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
         relationshipName,
         relationshipType,
         labelKey: normalizeText(normalizedFieldDefinition.relation?.labelKey),
-        lookupNamespace: normalizeText(normalizedFieldDefinition.relation?.kind).toLowerCase() === "lookup"
-          ? normalizeText(normalizedFieldDefinition.relation?.namespace)
-          : "",
+        contractNamespace: normalizeText(normalizedFieldDefinition.relation?.namespace),
         required: normalizedFieldDefinition.required === true,
         nullable: normalizedFieldDefinition.nullable === true
       }));
@@ -62,6 +60,7 @@ function resolveJsonApiRelationshipEntries(definition = null) {
       relationshipName: collectionRelationshipName,
       relationshipType: collectionRelationshipType,
       labelKey: normalizeText(relation.labelKey),
+      contractNamespace: normalizeText(relation.namespace),
       many: true,
       required: normalizedFieldDefinition.required === true,
       nullable: normalizedFieldDefinition.nullable === true

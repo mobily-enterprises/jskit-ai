@@ -43,8 +43,9 @@ parameters. A contract shows and accepts only the fields its `fields` names
 added later stays out of every API until a contract names it. The same holds
 for what a CRUD feature answers: a relationship the contract does not name is
 left out, and an included record shows only what its own table's contract
-shows (a lookup that declares its `labelKey` shows only that label, and a
-table no contract serves shows only the record's id). A package with a CRUD
+shows (a lookup that declares its `labelKey` shows only that label, a relation
+that names a contract's namespace shows that contract, and a table no contract
+serves shows only the record's id). A package with a CRUD
 feature lists `crud.contracts`, the registry of the served contracts, in its
 descriptor's `capabilities.requires`. Do not duplicate their schema or
 serializers.

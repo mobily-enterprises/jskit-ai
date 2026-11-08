@@ -22,7 +22,8 @@ const SECTIONS = Object.freeze({
   "data/baseline": "hard-rules",
   "data/runtime-capability": "the-resource-is-the-only-door",
   "data/lint-disabled": "hard-rules",
-  "data/unnamed-fields": "layer-2-the-crud-surface"
+  "data/unnamed-fields": "layer-2-the-crud-surface",
+  "data/differing-contracts": "layer-2-the-crud-surface"
 });
 // What each rule asks, said once above its findings in the report.
 const RULE_EXPLANATIONS = Object.freeze({
@@ -241,20 +242,41 @@ function readTableResources(file, { code, masked, position }) {
 
 // Every CRUD contract a file defines: the variable of its table resource and the fields its `fields` names, null when
 // they are not all written as literal keys.
-function readCrudContracts(masked) {
+function readCrudContracts({ code, masked }) {
   const contracts = [];
   for (const match of masked.matchAll(CRUD_CONTRACT_CALL)) {
     const config = objectAt(masked, match.index + match[0].length);
     if (!config) {
-      contracts.push({ resource: match[1], fields: null });
+      contracts.push({ resource: match[1], namespace: null, fields: null, output: null });
       continue;
     }
-    const at = topLevelKeys(masked, config.start, config.end, ["fields"]).get("fields");
+    const keys = topLevelKeys(masked, config.start, config.end, ["fields", "namespace"]);
+    const at = keys.get("fields");
     const fields = typeof at === "number" ? objectAt(masked, at) : null;
     const named = fields ? objectKeys(masked, fields.start, fields.end) : null;
-    contracts.push({ resource: match[1], fields: at === undefined ? [] : named && !named.partial ? named.keys.map(({ key }) => key) : null });
+    const known = at === undefined || (named && !named.partial);
+    contracts.push({
+      resource: match[1],
+      namespace: keyValue(code, masked, keys, "namespace")?.text ?? null,
+      fields: at === undefined ? [] : known ? named.keys.map(({ key }) => key) : null,
+      output: at === undefined ? [] : known ? outputFields(masked, named.keys) : null
+    });
   }
   return contracts;
+}
+
+// What a contract's `fields` entries put in its output: each field whose entry gives `output` other than false, and
+// `-field` for one that says `output: false` (a stored timestamp kept out). null when an entry is not an object literal.
+function outputFields(masked, keys) {
+  const output = [];
+  for (const { key, at } of keys) {
+    const entry = objectAt(masked, at);
+    if (!entry) return null;
+    const value = topLevelKeys(masked, entry.start, entry.end, ["output"]).get("output");
+    if (value === undefined) continue;
+    output.push(typeof value === "number" && /^false\b/u.test(masked.slice(nextCodeOffset(masked, value))) ? `-${key}` : key);
+  }
+  return output.sort();
 }
 
 // The fields of each app table resource that its CRUD contracts never name, for a resource with at least one contract
@@ -270,6 +292,20 @@ function unnamedFields(resources, contracts) {
     if (fields.length > 0) unnamed.push({ file: resource.file, line: resource.line, name: resource.name, fields });
   }
   return unnamed;
+}
+
+// Each app table resource that several CRUD contracts serve with different outputs, each contract with its namespace
+// and output, for contracts whose outputs are all known.
+function differingContracts(resources, contracts) {
+  const byResource = Map.groupBy(contracts, ({ resource }) => resource);
+  const differing = [];
+  for (const resource of resources) {
+    const own = byResource.get(resource.variable) ?? [];
+    if (resource.framework || own.length < 2 || own.some(({ output }) => output === null)) continue;
+    if (new Set(own.map(({ output }) => output.join(","))).size < 2) continue;
+    differing.push({ file: resource.file, line: resource.line, name: resource.name, contracts: own.map(({ namespace, output }) => ({ namespace, output })) });
+  }
+  return differing;
 }
 
 // Every system scope a file declares or calls: a feature's systemScope and each systemContext(...) call, with its
@@ -480,7 +516,7 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
     resources.push(...readTableResources(name, read).map((resource) => ({ ...resource, framework })));
     scopes.push(...readSystemScopes(name, read).map((scope) => ({ ...scope, framework })));
     if (framework) continue;
-    contracts.push(...readCrudContracts(read.masked));
+    contracts.push(...readCrudContracts(read));
     const fileExcuses = readInfrastructureExcuses(name, source);
     excuses.push(...fileExcuses);
     if (fileExcuses.length < 1) {
@@ -506,7 +542,8 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
     resources: resources.length,
     systemScopes: scopes.filter((scope) => scope.reason !== null),
     excuses,
-    unnamedFields: unnamedFields(resources, contracts)
+    unnamedFields: unnamedFields(resources, contracts),
+    differingContracts: differingContracts(resources, contracts)
   };
 }
 
@@ -531,6 +568,14 @@ function formatDataAccessReport(result) {
     lines.push(`Fields no CRUD contract names (${result.unnamedFields.length} table resource(s)), so no API shows or accepts them; ` +
       `name one in a contract's fields to offer it (data/unnamed-fields; ${GUIDE}#${SECTIONS["data/unnamed-fields"]}):`);
     for (const { file, line, name, fields } of result.unnamedFields) lines.push(`  ${file}:${line}  ${name}: ${fields.join(", ")}`);
+  }
+  if (result.differingContracts.length > 0) {
+    lines.push(`Tables several CRUD contracts serve with different outputs (${result.differingContracts.length} table resource(s)); ` +
+      `an include that names none of their namespaces shows only the fields they all show (data/differing-contracts; ${GUIDE}#${SECTIONS["data/differing-contracts"]}):`);
+    for (const { file, line, name, contracts } of result.differingContracts) {
+      const shown = contracts.map(({ namespace, output }) => `${namespace ?? "(namespace not literal)"} (${output.join(", ") || "timestamps only"})`);
+      lines.push(`  ${file}:${line}  ${name}: ${shown.join("; ")}`);
+    }
   }
   const listed = `${result.systemScopes.length} system scope(s) and ${result.excuses.length} infrastructure exception(s) listed for review`;
   lines.push(result.ok

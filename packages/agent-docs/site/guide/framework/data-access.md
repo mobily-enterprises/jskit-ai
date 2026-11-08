@@ -247,7 +247,10 @@ const receivalCrud = defineCrudContract(receivalResource, {
 ```
 
 A contract shows and accepts only the fields it names, and an included record
-shows only what its own table's contract shows.
+shows only what its own table's contract shows. When several contracts serve
+that table, an include shows the contract its relation names with
+`relation.namespace` (a `lookup` names its namespace), and otherwise only the
+fields they all show; `jskit check` lists the tables whose contracts differ.
 A second surface on the same table (a customer's view beside the staff's) is
 a second CRUD contract on the same resource, never a second resource. A field
 fragment several resources spread into their schemas carries only the field:

@@ -113,7 +113,7 @@ test("a column the contract does not name is neither returned nor accepted", asy
 });
 
 // Notes, each by an author and with an editor, both authors; the authors table keeps a column no contract names.
-async function createIncludeFixture(t, { authorsServed = true } = {}) {
+async function createIncludeFixture(t, { authorsServed = true, authorsShow = { name: { output: "required" } }, cards = false } = {}) {
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
   t.after(() => knex.destroy());
   await knex.schema.createTable("authors", (table) => {
@@ -159,7 +159,11 @@ async function createIncludeFixture(t, { authorsServed = true } = {}) {
   const contracts = createCrudContracts();
   contracts.register(crud);
   if (authorsServed) {
-    contracts.register(defineCrudContract(authors, { namespace: "authors", operations: ["list", "view"], fields: { name: { output: "required" } } }));
+    contracts.register(defineCrudContract(authors, { namespace: "authors", operations: ["list", "view"], fields: authorsShow }));
+  }
+  if (cards) {
+    // A narrower second contract on the same table, served under its own namespace.
+    contracts.register(defineCrudContract(authors, { namespace: "authorCards", operations: ["list"], fields: { name: { output: "required" } } }));
   }
   contracts.seal();
   return createCrudService({ repository: resources.notes, crud, contracts });
@@ -178,6 +182,24 @@ test("an included record shows only what its own contract shows, and a relations
     // Grace is only the editor, which the contract does not name, so she is not included at all.
     assert.deepEqual(document.included.map(({ type, id, attributes }) => [type, id, attributes]), [["authors", "1", { name: "Ada" }]]);
   }
+});
+
+test("an include shows the contract its lookup names, however many contracts serve the table, and one namespace has one contract", async (t) => {
+  const service = await createIncludeFixture(t, {
+    authorsShow: { name: { output: "required" }, secretNote: { output: "optional" } },
+    cards: true
+  });
+  const { value } = await service.view("1", { include: "author" }, {});
+  assert.deepEqual(value.included.map(({ attributes }) => attributes), [{ name: "Ada", secretNote: "private" }]);
+  const contracts = createCrudContracts();
+  const memos = defineTableResource({ name: "memos", tableName: "memos", ownership: "public", schema: { title: { type: "string", required: true } } });
+  const memosCrud = defineCrudContract(memos, { namespace: "memos", operations: ["list", "view"], fields: { title: { output: "required" } } });
+  contracts.register(memosCrud);
+  contracts.register(memosCrud);
+  assert.throws(
+    () => contracts.register(defineCrudContract(memos, { namespace: "memos", operations: ["list"], fields: { title: { output: "required" } } })),
+    /Two CRUD contracts are served under the namespace "memos"/u
+  );
 });
 
 test("an included record of a table no contract serves shows only its id", async (t) => {

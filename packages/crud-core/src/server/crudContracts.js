@@ -15,12 +15,22 @@ function createCrudContracts() {
   /** @type {Map<string, import("./types.js").CrudContract> | null} */
   let byNamespace = null;
 
-  /** @param {import("./types.js").CrudContract} crud */
+  /**
+   * Adds a served contract. One contract served on several surfaces registers once; two contracts under one namespace
+   * are refused, since an include that names the namespace could not tell them apart.
+   * @param {import("./types.js").CrudContract} crud
+   */
   function register(crud) {
     if (byType) {
       throw new Error(`CRUD contract "${crud.namespace}" registered after boot: CRUD features register their contracts during setup.`);
     }
-    registered.push(crud);
+    const same = registered.find((entry) => entry.namespace === crud.namespace);
+    if (same && same !== crud) {
+      throw new Error(`Two CRUD contracts are served under the namespace "${crud.namespace}". Give each contract its own namespace.`);
+    }
+    if (!same) {
+      registered.push(crud);
+    }
   }
 
   function seal() {
