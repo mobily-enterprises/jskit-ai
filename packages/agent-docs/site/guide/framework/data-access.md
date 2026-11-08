@@ -406,16 +406,21 @@ transaction. Audits and change events run once for the batch, so the
 statements are the same for 10 rows as for 200. `patchWhere` and
 `deleteWhere` check the scope and filters on each row once they hold its lock,
 so a row gone meanwhile, or changed so that it no longer matches, is skipped,
-and they take no `missing`. That makes them a compare-and-set on the row's own
-columns: of two writers whose filters both matched a row (open to booked), the
-one that waited for the other's lock leaves the row out, and its answer says so
-(`returning: "ids"` lists only the rows it wrote). For one row,
+and they take no `missing`. That makes them a compare-and-set on their filters
+on every database: of two writers whose filters both matched a row (open to
+booked), only one writes it, and the other's answer says so
+(`returning: "ids"` lists only the rows it wrote). The one that waited for the
+other's lock leaves the row out; SQLite gets there by failing the second writer
+with `SQLITE_BUSY`, and MariaDB with `innodb_snapshot_isolation` fails the
+waiter with errno 1020 ("Record has changed since last read"), which a write
+that owns its transaction runs again. For one row,
 `patch(id, changes, { ...options, onlyIf: { status: "open" } })` does the same.
 A filter on another table (a search field whose `actualField` reaches a
-related table) is not one on MySQL and MariaDB: the related rows are read from
-the transaction's snapshot and never locked. A decision on related rows locks
-them first (`lockMany` in the same transaction, Layer 4), or moves the value
-onto the row itself for `onlyIf`, or uses a `claim`. A many-row write answers
+related table) is refused on MySQL and MariaDB (`RestApiValidationError`, rule
+`selection_cross_table`): filter on the row's own columns instead, for example
+on the link after locking its targets with `lockMany` in the same transaction
+(Layer 4), or move the value onto the row itself for `onlyIf`, or use a
+`claim`. A many-row write answers
 nothing unless `returning` asks: `"ids"`, `"records"`, or `"count"`, which
 reads nothing back.
 
