@@ -2,7 +2,7 @@ import { readOnlyQueryBuilder } from "json-rest-api";
 import { toDatabaseDateTimeUtc } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { isTableResource } from "@jskit-ai/resource-core/shared/tableResource";
-import { createSystemContext } from "./contexts.js";
+import { callerOf, createSystemContext } from "./contexts.js";
 import { DuplicateOwnerError } from "./errors.js";
 import { createResourceHandle } from "./resourceHandle.js";
 import { resourceScopeOptions } from "./resourceHost.js";
@@ -119,19 +119,21 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
   }
 
   // The owner's policy, then every contribution, each in its own group ANDed with ownership: a policy only narrows.
+  // Each gets who the call runs for as `caller` (see callerOf).
   function composedRowPolicy(featureId, entry, contributions) {
     if (!entry.rowPolicy && !entry.acceptsContributions) {
       return undefined;
     }
     return async function ownedRowPolicy(args) {
+      const caller = callerOf(args.context);
       if (entry.rowPolicy) {
-        const result = await applyGrouped(entry.rowPolicy, { ...args, ownTable: ownTableReader(featureId, args.db) });
+        const result = await applyGrouped(entry.rowPolicy, { ...args, caller, ownTable: ownTableReader(featureId, args.db) });
         if (result !== true) {
           return result;
         }
       }
       for (const contribution of contributions) {
-        const result = await applyGrouped(contribution.policy, { ...args, ownTable: ownTableReader(contribution.featureId, args.db) });
+        const result = await applyGrouped(contribution.policy, { ...args, caller, ownTable: ownTableReader(contribution.featureId, args.db) });
         if (result !== true) {
           return result;
         }

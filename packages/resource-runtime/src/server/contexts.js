@@ -1,4 +1,5 @@
 import { createSystemContext as createJsonRestSystemContext, isSystemContext } from "json-rest-api";
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 // Module-private: only jobContext() marks a context as background work's, so a
@@ -48,6 +49,31 @@ function isJobContext(context) {
 }
 
 /**
+ * Who a call runs for, as its row policy sees it: background work across every workspace and user ("system"),
+ * background work a system context derived for one workspace or user ("job"), each with its reason; a request by a
+ * signed-in user ("user", with the user's id); or a request by no one ("anonymous"). A derived job context names no
+ * user, so a policy that keys on the actor tells it from an anonymous request by its kind.
+ * @param {unknown} context
+ * @returns {Readonly<{ kind: "system" | "job", reason: string } | { kind: "user", userId: string } | { kind: "anonymous" }>}
+ */
+function callerOf(context) {
+  if (isSystemContext(context)) {
+    return Object.freeze({
+      kind: "system",
+      reason: context.systemReason
+    });
+  }
+  if (context && typeof context === "object" && context[JOB_CONTEXT]) {
+    return Object.freeze({
+      kind: "job",
+      reason: context.jobReason
+    });
+  }
+  const userId = resolveActorId(context);
+  return Object.freeze(userId ? { kind: "user", userId } : { kind: "anonymous" });
+}
+
+/**
  * @param {string} reason
  * @param {Record<string, unknown>} scopeValues
  */
@@ -75,7 +101,8 @@ function requireScopeId(value, label, subject) {
 /**
  * The context of work across every workspace and user, for a feature that
  * declares `systemScope`. Ownership predicates are skipped for it, row
- * policies receive `system: true`, and creates name their ownership values.
+ * policies receive `system: true` and `caller.kind` "system" (a derived
+ * context's `caller.kind` is "job"), and creates name their ownership values.
  * `forWorkspace(id)`, `forUser(id)` and `forWorkspaceUser(workspaceId, userId)`
  * derive ordinary contexts scoped to one workspace, one user, or one user in
  * one workspace, so the work for each is scoped as usual (and, as background
@@ -123,4 +150,4 @@ function createSystemContext({ feature, systemScope, reason }) {
   }));
 }
 
-export { createJsonRestContext, createSystemContext, isJobContext, isSystemContext };
+export { callerOf, createJsonRestContext, createSystemContext, isJobContext, isSystemContext };

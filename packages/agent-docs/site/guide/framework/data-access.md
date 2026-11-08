@@ -183,25 +183,29 @@ with the row being read, on indexed columns, and reads the owner's other
 tables through `ownTable(name)`, a read-only subquery, never by table name. It
 never loads everything the subject was ever linked to into an `IN` list, and
 never calls another owner's check once per item: it runs on every read, write
-read-back and lookup, so every request pays what it costs.
+read-back and lookup, so every request pays what it costs. A policy is told
+who the call runs for as `caller`: `{ kind: "user", userId }` for a signed-in
+request, `{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
+`{ kind: "job" }` (a context `forWorkspace` and its kin derived), each with its
+`reason`, for background work. A job names no user, so never read a missing
+actor as an anonymous request.
 
 ```js
 // good: one predicate on the row being read
-function noticeVisibilityPolicy({ query, context, column, value, ownTable }) {
-  const userId = resolveActorId(context);
-  if (!userId) {
-    return false;
+function noticeVisibilityPolicy({ query, caller, column, value, ownTable }) {
+  if (caller.kind !== "user") {
+    return caller.kind !== "anonymous";
   }
-  query.where(column("recipientId"), value("recipientId", userId)).whereExists(
+  query.where(column("recipientId"), value("recipientId", caller.userId)).whereExists(
     ownTable("sources").select(1).whereColumn("sources.id", column("sourceId")).where("sources.status", "published")
   );
   return true;
 }
 
 // bad: every source the recipient was ever notified about, checked one by one
-async function noticeVisibilityPolicy({ query, context, column, value }) {
+async function noticeVisibilityPolicy({ query, caller, context, column, value }) {
   const readable = [];
-  for (const sourceId of await noticeHistory.listSourceIds(resolveActorId(context))) {
+  for (const sourceId of await noticeHistory.listSourceIds(caller.userId)) {
     if (await sources.canRead(sourceId, context)) readable.push(sourceId);
   }
   query.whereIn(column("sourceId"), readable.map((id) => value("sourceId", id)));

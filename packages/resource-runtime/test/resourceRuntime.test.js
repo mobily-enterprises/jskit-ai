@@ -889,6 +889,36 @@ test("row policies read their own tables read-only, and contributions only narro
   assert.deepEqual(records.map(({ name }) => name), ["general", "banned"]);
 });
 
+test("a row policy is told who the call runs for: a system context, a job it derived, a signed-in user or no one", async (t) => {
+  const seen = [];
+  const { notes, runtime } = await createFixture(t, {
+    owns: [{
+      resource: noteResource(),
+      rowPolicy: ({ query, column, caller }) => {
+        seen.push(caller);
+        // A job reads its workspace's notes; a request reads only the notes its user may see, and no one reads none.
+        if (caller.kind === "anonymous") return false;
+        if (caller.kind === "user") query.where(column("title"), "shared");
+        return true;
+      }
+    }]
+  });
+  const systemContext = runtime.declareSystemScope("digest.feature", "nightly digests")("send the digest");
+  await notes.createMany([{ title: "shared" }, { title: "private" }], { context: WORKSPACE_A });
+  const titles = async (context) => (await notes.queryAll({}, { context })).map(({ title }) => title).sort();
+  seen.length = 0;
+  assert.deepEqual(await titles(systemContext), ["private", "shared"]);
+  assert.deepEqual(await titles(systemContext.forWorkspace("1")), ["private", "shared"]);
+  assert.deepEqual(await titles({ ...WORKSPACE_A, actor: { id: "7" } }), ["shared"]);
+  assert.deepEqual(await titles(WORKSPACE_A), []);
+  assert.deepEqual(seen, [
+    { kind: "system", reason: "digest.feature: send the digest" },
+    { kind: "job", reason: "digest.feature: send the digest" },
+    { kind: "user", userId: "7" },
+    { kind: "anonymous" }
+  ]);
+});
+
 test("the owner's row policy cannot widen past ownership: its orWhere stays inside its own group", async (t) => {
   const { notes, knex } = await createFixture(t, {
     owns: [{
