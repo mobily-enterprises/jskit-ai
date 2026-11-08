@@ -212,6 +212,14 @@ another scope's row holds answers a missing record. That answer still says the
 id is taken, so `findOrCreate` and `lockOrCreate` take only ids the server
 computes or generates, never an id a request supplies.
 
+A write that the caller's row policy then hides fails, because its read-back
+finds nothing. The `create` or `patch` answers json-rest-api's 404
+(`REST_API_RESOURCE`, "Resource not found") and its transaction rolls back. A
+staff member who sees only the bookings they run cannot book a colleague this
+way. Decide which way the rule goes. Either the policy lets the writer see
+what they may write, or the action refuses the write before it runs, with a
+403 or 422 that says why.
+
 You never write `where workspace_id = ?`, so you cannot forget it. The row
 policy and write hooks go in the `owns` entry on the server, never in the
 shared definition, which ships to the browser. Another feature's contribution
@@ -250,6 +258,42 @@ async function noticeVisibilityPolicy({ query, caller, context, column, value })
   return true;
 }
 ```
+
+A rule that depends on the caller's role reads `context.permissions` with
+`hasPermission(context.permissions, "bookings.view-all")` from
+`@jskit-ai/kernel/shared/support`, never with `includes()`. A role may hold
+`*` (an owner does) or `bookings.*`, and `includes()` misses both, so the
+owner would see only the rows a narrower rule leaves.
+
+```js
+import { hasPermission } from "@jskit-ai/kernel/shared/support";
+
+// good: staff see the bookings they run; bookings.view-all, the owner's * included, sees them all
+function staffSeeTheirOwnBookings({ query, caller, context, column, value }) {
+  if (caller.kind !== "user") {
+    return caller.kind !== "anonymous";
+  }
+  if (hasPermission(context.permissions, "bookings.view-all")) {
+    return true;
+  }
+  query.where(column("staffUserId"), value("staffUserId", caller.userId));
+  return true;
+}
+
+// bad: an owner holding "*" sees only the bookings they run
+if (context.permissions.includes("bookings.view-all")) return true;
+```
+
+A policy trusts `caller`. In a workspace request it also trusts what the
+server resolved from the route's workspace slug and the caller's membership
+before any handle ran:
+- `context.workspace.id`;
+- `context.membership.roleSid`;
+- `context.permissions`, the role's permissions in that workspace.
+
+On a surface whose access policy sets `requireWorkspaceMembership: false`, a
+caller who is not a member has `context.membership` null and
+`context.permissions` empty. Never decide on a value from the request's input.
 
 A row policy hides a row everywhere, also as the target of a visible record's
 link: an order whose supplier the reader cannot see reads `supplierId: null`.
@@ -313,7 +357,40 @@ from `@jskit-ai/http-runtime/shared`, never with a second read; a relationship
 whose field key is not its name plus `Id` passes
 `{ lookupFieldMap: { owner: "ownerUserId" } }`.
 A second surface on the same table (a customer's view beside the staff's) is
-a second CRUD contract on the same resource, never a second resource. A field
+a second CRUD contract on the same resource, never a second resource, with
+its own namespace. One plain feature owns the table and provides its handle.
+Each surface is a `defineCrudFeature` that serves its contract through that
+handle with `ownerRepository`. A CRUD feature that owns the table provides
+`{ repository, crud, service }` rather than a handle, so it cannot be another
+one's `ownerRepository`.
+
+```js
+const ServicesFeature = defineFeature({
+  id: "app.services",
+  owns: [serviceResource],
+  provides: { services: "app.services" },
+  setup: ({ resources }) => ({ services: resources.services })
+});
+const ServiceAdminFeature = defineCrudFeature({
+  crud: serviceAdminCrud,
+  surface: "admin",
+  ownerRepository: "app.services",
+  scope: WORKSPACE_CRUD_SCOPE,
+  relativePath: "/services"
+});
+const ServiceCatalogFeature = defineCrudFeature({
+  crud: serviceCatalogCrud,
+  surface: "app",
+  ownerRepository: "app.services",
+  scope: WORKSPACE_CRUD_SCOPE,
+  relativePath: "/service-catalog"
+});
+```
+
+`WORKSPACE_CRUD_SCOPE` is from
+`@jskit-ai/workspaces-core/server/support/workspaceCrud`; the two contracts'
+namespaces differ because `crud.contracts` refuses two contracts under one
+namespace. A field
 fragment several resources spread into their schemas carries only the field:
 each contract that shows it states its operations in its own `fields`.
 
@@ -613,6 +690,10 @@ const SettlementFeature = defineFeature({
   from the request or from `forWorkspace`, `forUser` and `forWorkspaceUser`:
   lint refuses `createSystemContext` and hand-written `scopeValues`, and a
   context naming two workspaces or two users throws.
+- A job that runs on a schedule is a feature whose `boot()` starts a timer and
+  whose `shutdown()` stops it; JSKIT ships no scheduler. See
+  [typed features, Owned state](/guide/framework/typed-features#owned-state).
+  Every server runs the timer, so a run takes its rows with `claim()`.
 
 Bad: a job read every record of every workspace inside a request path, every
 hour.
@@ -726,11 +807,14 @@ method, which `aggregate` or an include might do instead.
 
 ## Tests
 
-Each data path gets two one-line tests on the real test database:
+Each data path gets two one-line tests on the real test database, with the
+helpers from `@jskit-ai/resource-runtime/test`:
 
 ```js
+import { expectEveryTableOwned, expectFlatQueries, expectScoped, startTestFeatures } from "@jskit-ai/resource-runtime/test";
+
 test("allocation stays in its workspace", () => expectScoped({ environment: process.env, handles: [invoices, payments], systemContext, owners: [workspaceA, workspaceB], seed: seedInvoices, run: (owner) => billing.allocate(input, owner) }));
-test("allocation is flat", () => expectFlatQueries({ environment: process.env, seed: seedInvoices, run: (seeded) => billing.allocate(inputFor(seeded), seeded.options) }));
+test("allocation is flat", () => expectFlatQueries({ environment: process.env, knex, seed: seedInvoices, run: (seeded) => billing.allocate(inputFor(seeded), seeded.options) }));
 ```
 
 `expectFlatQueries` (from `@jskit-ai/resource-runtime/test`) seeds each size,
@@ -741,10 +825,23 @@ after seeding owner B and fails when the answer changes, so it catches a report
 that sums, counts or joins B's rows, not only one that returns them; it also
 fails when the path changed or removed a row of B's. The path runs twice, so it
 answers the same for the same rows: a write answers what repeats, such as the
-ids it changed, not a fresh id or time. A data test never skips: without `TEST_DB_NAME` it fails
-(`requireTestDatabase(process.env)`). A route's statements are counted through
-the server the test boots, with `countRuntimeQueries(work)` from
-`@jskit-ai/database-runtime/server/testDatabases`.
+ids it changed, not a fresh id or time.
+
+An owner is whatever `seed` and `run` receive. On a workspace path it is a
+signed-in member's options, built as the request pipeline builds them:
+`{ context: { actor: { id: userId }, workspace: { id: workspaceId }, permissions } }`,
+where `permissions` holds the member's role permissions. Seed with a job's
+context, `{ context: systemContext(reason).forWorkspace(workspaceId) }`. A row
+policy sees that context as `caller.kind` `"job"`, never as the member.
+
+A data test never skips: without `TEST_DB_NAME` it fails
+(`requireTestDatabase(process.env)`). Give `expectFlatQueries` the test's
+`knex` whenever the features run on it (`startTestFeatures`,
+`createTestResourceRuntime`). Without `knex` it counts through a server the
+test booted (`countRuntimeQueries(work)` from
+`@jskit-ai/database-runtime/server/testDatabases`). A path that sends no
+statement at any size was counted on the wrong channel, and the test fails
+saying so.
 
 `createTestResourceRuntime({ knex })` gives a test the resource runtime its
 features own their tables through: `runtime.own(featureId, [resource])`
@@ -758,6 +855,14 @@ infrastructure tables for it: `LOCAL_AUTH_INFRASTRUCTURE_TABLES`
 (`@jskit-ai/auth-provider-local-db-core/server/lib/index`),
 `OIDC_CLIENT_INFRASTRUCTURE_TABLES` (`@jskit-ai/auth-provider-oidc-core/server/lib/index`)
 and `OIDC_ISSUER_INFRASTRUCTURE_TABLES` (`@jskit-ai/oidc-issuer-core/server`).
+`runtime` knows only the features the test started, so start every owner of a
+migrated table, JSKIT's own included, and pass `runtime: resources` from
+`startTestFeatures`. Local sign-in's tables belong to
+`AuthLocalDatabaseBackendProvider`
+(`@jskit-ai/auth-provider-local-db-core/server/providers/AuthLocalDatabaseBackendProvider`,
+given `inputs: { "runtime.database": { knex } }`).
+`LOCAL_AUTH_INFRASTRUCTURE_TABLES` lists only the identities table it keeps
+outside resources.
 
 A test of a feature and the owner APIs it requires starts them as the server
 does, without HTTP: `startTestFeatures({ knex, features, requires, inputs,
@@ -770,6 +875,13 @@ beside yours: `UsersExtensionsProvider` and `UsersIdentityProvider` give
 and `workspaces.memberships` without the workspace routes. Never import another
 package's repositories to build its owner API by hand.
 
+A `defineCrudFeature` also requires `crud.contracts` and `runtime.http`, which
+an application's server supplies. In a test, add `CrudContractsProvider`
+(`@jskit-ai/crud-core/server/crudContracts`) to `features` and give
+`inputs: { "runtime.http": { router: { register() {} } } }`. The routes are
+then registered nowhere, and the test calls the feature's `service` and
+`repository` directly.
+
 ```js
 const { capabilities, stop } = await startTestFeatures({
   knex,
@@ -777,6 +889,33 @@ const { capabilities, stop } = await startTestFeatures({
   requires: { roster: "roster" }
 });
 t.after(stop);
+```
+
+A test of the routes themselves boots the application's server and signs
+people in over `app.inject`. Keep one cookie jar per person and send the
+session's `csrfToken` as `csrf-token` with every write. The session answer
+carries no user id, so the test finds each person by email
+(`users.profiles.findByEmail(email)`).
+
+```js
+const app = await createServer({ runtimeEnv: { ...resolveRuntimeEnv(), AUTH_LOCAL_EMAIL_CONFIRMATION: "false" } });
+
+async function signUp(email, password) {
+  const cookies = new Map();
+  const send = async (options) => {
+    const cookie = [...cookies].map(([name, value]) => `${name}=${value}`).join("; ");
+    const response = await app.inject({ ...options, headers: { ...options.headers, cookie } });
+    for (const header of [response.headers["set-cookie"] ?? []].flat()) {
+      const [name, ...value] = header.split(";")[0].split("=");
+      cookies.set(name.trim(), value.join("="));
+    }
+    return response;
+  };
+  const csrf = async () => (await send({ method: "GET", url: "/api/session" })).json().csrfToken;
+  await send({ method: "POST", url: "/api/register", headers: { "csrf-token": await csrf() }, payload: { email, password } });
+  await send({ method: "POST", url: "/api/login", headers: { "csrf-token": await csrf() }, payload: { email, password } });
+  return send;
+}
 ```
 
 ## Hard rules
