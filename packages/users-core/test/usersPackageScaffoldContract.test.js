@@ -106,7 +106,10 @@ test("the workspace variant lists and shows only the caller's workspace's active
     countUsers: async () => 3,
     upsert: async () => ({ id: "3" })
   };
-  const memberships = { activeMemberIds: async (workspaceId) => (workspaceId === "7" ? ["1", "2"] : []) };
+  const memberCalls = [];
+  const memberships = {
+    activeMemberIds: async (workspaceId, callOptions) => (memberCalls.push(callOptions), workspaceId === "7" ? ["1", "2"] : [])
+  };
   const users = workspaceMembersOnly(repository, memberships);
   const options = { context: { workspace: { id: "7" } } };
 
@@ -127,4 +130,8 @@ test("the workspace variant lists and shows only the caller's workspace's active
   assert.equal(users.pageLimits, repository.pageLimits);
   // Only the narrowed reads pass through: nothing else of users.profiles reaches users past the workspace.
   assert.deepEqual(Object.keys(users).sort(), ["get", "pageLimits", "query"]);
+  // The memberships read gets only the context and transaction, never the list's own settings.
+  const trx = { id: "trx" };
+  await users.query({}, { ...options, trx, format: "jsonapi", missing: "skip" });
+  assert.deepEqual(memberCalls.at(-1), { context: options.context, trx });
 });

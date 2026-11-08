@@ -1,6 +1,7 @@
 import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
 import { ConflictError } from "@jskit-ai/kernel/server/runtime/errors";
+import { passedOn } from "@jskit-ai/resource-runtime/server";
 import { nowIso, toDate } from "./dateTimes.js";
 import { IDENTITIES_TABLE } from "./identityStore.js";
 
@@ -607,7 +608,7 @@ function createLocalDbBackend({ resources, identities, context }) {
  * @param {object} dependencies.context The feature's system context.
  */
 function createLocalDbOwners({ resources, identities, context }) {
-  const records = (options) => createRecords(resources, identities, { ...options, context });
+  const records = (options) => createRecords(resources, identities, { ...passedOn(options), context });
 
   // An email is kept and found as local sign-in keeps it: trimmed and in lower case.
   const accounts = Object.freeze({

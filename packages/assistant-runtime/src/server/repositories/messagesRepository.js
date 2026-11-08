@@ -1,4 +1,5 @@
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { passedOn } from "@jskit-ai/resource-runtime/server";
 import {
   normalizeInputRecordId,
   parseJsonObject,
@@ -63,8 +64,8 @@ function createRepository({ messages, conversations, systemContext }) {
   // A workspace's messages in that workspace; messages without one in the system context, filtered to none.
   function scoped(workspaceId, options) {
     return workspaceId
-      ? { filters: {}, options: { ...options, context: messageContext.forWorkspace(workspaceId) } }
-      : { filters: { workspaceId: null }, options: { ...options, context: messageContext } };
+      ? { filters: {}, options: { ...passedOn(options), context: messageContext.forWorkspace(workspaceId) } }
+      : { filters: { workspaceId: null }, options: { ...passedOn(options), context: messageContext } };
   }
 
   function withTransaction(options, work) {
@@ -81,7 +82,7 @@ function createRepository({ messages, conversations, systemContext }) {
       return null;
     }
 
-    const record = await messages.get(normalizedMessageId, {}, { ...options, context: messageContext, missing: "skip" });
+    const record = await messages.get(normalizedMessageId, {}, { ...passedOn(options), context: messageContext, missing: "skip" });
     return record ? mapMessageRecord(record) : null;
   }
 
@@ -90,7 +91,7 @@ function createRepository({ messages, conversations, systemContext }) {
     const [row] = await messages.aggregate({
       measures: { maxSeq: { max: "seq" } },
       filters: { conversationId }
-    }, { ...options, context: messageContext });
+    }, { ...passedOn(options), context: messageContext });
     const maxSeq = Number(row?.maxSeq || 0);
     return Number.isInteger(maxSeq) && maxSeq > 0 ? maxSeq : 0;
   }
@@ -143,7 +144,7 @@ function createRepository({ messages, conversations, systemContext }) {
     if (Object.hasOwn(patch, "contentText")) changes.contentText = patch.contentText == null ? null : String(patch.contentText);
     if (Object.hasOwn(patch, "metadata")) changes.metadataJson = stringifyJsonObject(patch.metadata);
     if (Object.keys(changes).length) {
-      await messages.patch(id, changes, { ...options, context: messageContext, missing: "skip", returning: "none" });
+      await messages.patch(id, changes, { ...passedOn(options), context: messageContext, missing: "skip", returning: "none" });
     }
     return findById(id, options);
   }
@@ -183,7 +184,7 @@ function createRepository({ messages, conversations, systemContext }) {
 
     const owned = await conversations.queryAll(
       { filters: { userId: normalizedUserId }, fields: ["userId"] },
-      { ...options, context: userContext.forUser(normalizedUserId) }
+      { ...passedOn(options), context: userContext.forUser(normalizedUserId) }
     );
     const conversationIds = owned.map((conversation) => normalizeRecordId(conversation.id, { fallback: "" })).filter(Boolean);
     const normalizedKind = normalizeText(kind).toLowerCase();
@@ -197,7 +198,7 @@ function createRepository({ messages, conversations, systemContext }) {
         },
         sort: ["-createdAt", "-id"],
         page: { size: 1 }
-      }, { ...options, context: messageContext });
+      }, { ...passedOn(options), context: messageContext });
       if (candidate && (!newest || isNewer(candidate, newest))) {
         newest = candidate;
       }

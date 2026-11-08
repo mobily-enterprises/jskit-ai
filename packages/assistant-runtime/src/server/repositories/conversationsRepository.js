@@ -1,5 +1,6 @@
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { passedOn } from "@jskit-ai/resource-runtime/server";
 import {
   normalizeInputRecordId,
   parseJsonObject,
@@ -115,7 +116,7 @@ function createRepository({ conversations, systemContext }) {
 
   // The record as `context` sees it, under a row lock when asked.
   async function readRecord(id, { forUpdate = false, ...options }, context) {
-    const scoped = { ...options, context };
+    const scoped = { ...passedOn(options), context };
     if (forUpdate !== true) {
       return conversations.get(id, {}, { ...scoped, missing: "skip" });
     }
@@ -174,8 +175,8 @@ function createRepository({ conversations, systemContext }) {
     };
     // A conversation without a valid creator is stored with none, so it is created in the system context.
     const created = createdByUserId
-      ? await conversations.create(attributes, { ...options, context: conversationContext.forUser(createdByUserId) })
-      : await conversations.create({ ...attributes, userId: null }, { ...options, context: conversationContext });
+      ? await conversations.create(attributes, { ...passedOn(options), context: conversationContext.forUser(createdByUserId) })
+      : await conversations.create({ ...attributes, userId: null }, { ...passedOn(options), context: conversationContext });
 
     return mapConversationRecord(created);
   }
@@ -189,14 +190,14 @@ function createRepository({ conversations, systemContext }) {
     const changes = conversationChanges(patch);
     if (Object.keys(changes).length > 0) {
       await conversations.patch(normalizedConversationId, changes, {
-        ...options,
+        ...passedOn(options),
         context: conversationContext,
         missing: "skip",
         returning: "none"
       });
     }
 
-    return findById(normalizedConversationId, { ...options, forUpdate: false });
+    return findById(normalizedConversationId, passedOn(options));
   }
 
   /**
@@ -233,7 +234,7 @@ function createRepository({ conversations, systemContext }) {
       transcriptRevision: revision,
       summaryText: summary ? summary.text : null,
       summaryThroughTurnId: summary ? summary.throughTurnId : null
-    }, { ...options, context: conversationContext, missing: "skip", returning: "none" });
+    }, { ...passedOn(options), context: conversationContext, missing: "skip", returning: "none" });
   }
 
   async function listForActorScope(
@@ -260,7 +261,7 @@ function createRepository({ conversations, systemContext }) {
       },
       sort: ["-id"],
       page: { size: limit }
-    }, { ...options, context: conversationContext.forUser(normalizedActorUserId) });
+    }, { ...passedOn(options), context: conversationContext.forUser(normalizedActorUserId) });
 
     const items = records.map(mapConversationRecord);
     const nextCursor = page.hasMore && items.length > 0 ? items[items.length - 1].id : null;

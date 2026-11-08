@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `console.settings` reads and writes its record with only the caller's context and transaction (`passedOn(options)`) and its own settings: a caller's `format`, `lockVersion` or `returning` no longer reaches its `get` and `patch`.
 - `@jskit-ai/database-runtime` and `@jskit-ai/resource-runtime` are peer dependencies, required and at the same versions, where they were dependencies: its settings are a table resource, and the app holds one copy of the table runtime that every package shares, as it does the kernel. npm installs a required peer as it installed the dependency, so an app installs the same packages and versions; a release whose versions disagree now fails the install with ERESOLVE instead of nesting a second copy.
 - **Breaking (data-access redesign).** The console settings operations are an API contract, `consoleSettingsContract`, which replaces `consoleSettingsResource`, with the two its routes serve: view (GET) and patch (PATCH), each with the method of the route that serves it.
 - The console resources' validation feedback names the catalog key `jskit.console.feedback.validationFailed` instead of plain English; JSKIT's forms render it with `text()`, so the English shown is unchanged. `apiValidation` is sent in the coded form with `validation_failed`.

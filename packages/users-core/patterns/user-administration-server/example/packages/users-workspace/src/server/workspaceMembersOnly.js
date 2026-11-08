@@ -1,5 +1,5 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { resolveWorkspaceScopeValue } from "@jskit-ai/resource-runtime/server";
+import { passedOn, resolveWorkspaceScopeValue } from "@jskit-ai/resource-runtime/server";
 
 /**
  * users-core's users repository narrowed to the caller's workspace: a list reads only the workspace's active members,
@@ -11,9 +11,10 @@ import { resolveWorkspaceScopeValue } from "@jskit-ai/resource-runtime/server";
  * @param {import("@jskit-ai/workspaces-core/server/types").WorkspaceMembershipsRepository} memberships
  */
 function workspaceMembersOnly(repository, memberships) {
-  // The caller's workspace's active members; none when the context names no workspace.
+  // The caller's workspace's active members; none when the context names no workspace. The memberships get only the
+  // context and transaction: the list's own settings (its format, missing) are for the users read.
   function memberIds(options) {
-    return memberships.activeMemberIds(resolveWorkspaceScopeValue(options.context), options);
+    return memberships.activeMemberIds(resolveWorkspaceScopeValue(options.context), passedOn(options));
   }
 
   /**
