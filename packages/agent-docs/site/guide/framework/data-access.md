@@ -406,6 +406,20 @@ async function activeDays(memberIds, options) {
   with its values as bindings.
 - The builder only reads.
 - Give each report a scope test and a flat-query test (see [Tests](#tests)).
+- A report over tables with different owners is a feature of its own. It
+  requires a report method from each owner (keys in, grouped totals out) and
+  merges their answers in memory: one statement per owner, never a join across
+  owners or a call per row. When a measured report is too slow, the owner of
+  the main table adds a method that takes the other owner's keys.
+
+  ```js
+  // tasks and invoices have different owners; the report feature requires both owner APIs
+  async function projectSummary(projectIds, options) {
+    const openTasks = await tasks.countOpenByProject(projectIds, options);
+    const billed = await invoices.totalsByProject(projectIds, options);
+    return projectIds.map((projectId) => ({ projectId, openTasks: openTasks.get(projectId) ?? 0, billed: billed.get(projectId) ?? 0 }));
+  }
+  ```
 
 ## Reads shaped for the screen
 
@@ -514,6 +528,9 @@ A deadlock victim's transaction (MySQL and MariaDB errno 1213, PostgreSQL
 be safe to repeat: an HTTP call or an email goes after commit, or into an
 outbox row written inside it. Work that cannot be repeated passes `{ ...options, retry: false }`, and work that must
 commit before its caller goes on passes `{ ...options, outermost: true }`.
+Code never asks whether it runs in a transaction: `withTransaction` joins the
+caller's, `outermost` refuses one, and `lock`, `lockMany`, `lockOrCreate` and
+`claim` refuse to run outside one.
 
 When the work throws, the transaction rolls back and the caller gets the
 work's own error. A failed write inside the work, or a failed commit, reaches
@@ -542,7 +559,22 @@ An app that had a table resource of its own over a JSKIT table (such as
 `users`) deletes it: its CRUD contract is built on the package's table resource
 (users-core's `userProfileTableResource`) and served through the owner with
 `defineCrudFeature({ crud, ownerRepository: "users.profiles" })` (the
-`users/user-administration-server` pattern).
+`users/user-administration-server` pattern). The app's own facts about a
+person (a staff role, a preference) live in the app's own table keyed by the
+user id, owned by the app with ownership `user` or `workspace_user`, never as
+new columns on `users`.
+
+A surface over a table you don't own that may show only some of its rows (a
+people picker limited to those who share a workspace with the caller) asks the
+owner for exactly that read, as one owner API method that narrows with one
+predicate over the owner's own tables. It never contributes the rule to the
+owner's row policy, which narrows every read of the table (sign-in's too), and
+never passes an id list of everyone the caller may see: an id list is fine for
+the rows one screen shows, not for a rule over thousands of people. An owner
+without such a method gets one added at the owner; until then the surface uses
+the owner's own listing for that scope, such as
+`workspaces.memberships.listActiveByWorkspaceId(workspaceId, options)`, which
+reads the members with their users in one statement.
 
 Bad: an app wrote sign-in sessions and memberships with Knex; the framework's
 own checks and audits never ran.
