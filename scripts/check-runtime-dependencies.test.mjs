@@ -64,3 +64,27 @@ test("a package's declared migration directories are scanned, so a migration's d
   await writeFile(path.join(packageDir, "package.json"), manifest({ "@jskit-ai/database-runtime": "0.1.262" }));
   assert.deepEqual((await collectRuntimeDependencyProblems(packageDir)).missingDependencies, []);
 });
+
+test("nothing a package's ./server loads imports an optional peer statically; a dynamic import or another subpath may", async (t) => {
+  const packageDir = await mkdtemp(path.join(tmpdir(), "runtime-deps-"));
+  t.after(() => rm(packageDir, { recursive: true, force: true }));
+  await mkdir(path.join(packageDir, "src", "server", "repositories"), { recursive: true });
+  await writeFile(path.join(packageDir, "package.json"), JSON.stringify({
+    name: "@example/notes",
+    exports: { "./server": "./src/server/index.js", "./server/storage": "./src/server/storage.js" },
+    peerDependencies: { "@example/tables": "1.0.0" },
+    peerDependenciesMeta: { "@example/tables": { optional: true } }
+  }));
+  await writeFile(path.join(packageDir, "src", "server", "index.js"), "export { NotesFeature } from \"./NotesFeature.js\";\n");
+  await writeFile(path.join(packageDir, "src", "server", "NotesFeature.js"),
+    "import { notesRepository } from \"./repositories/notesRepository.js\";\nconst load = () => import(\"@example/tables/server\");\nexport const NotesFeature = { notesRepository, load };\n");
+  await writeFile(path.join(packageDir, "src", "server", "storage.js"), "export { createTables } from \"@example/tables/server\";\n");
+  const repository = path.join(packageDir, "src", "server", "repositories", "notesRepository.js");
+
+  await writeFile(repository, "// import { passedOn } from \"@example/tables/server\";\nexport const notesRepository = {};\n");
+  assert.deepEqual((await collectRuntimeDependencyProblems(packageDir)).optionalPeerImports, []);
+  await writeFile(repository, "import { passedOn } from \"@example/tables/server/callOptions\";\nexport const notesRepository = { passedOn };\n");
+  assert.deepEqual((await collectRuntimeDependencyProblems(packageDir)).optionalPeerImports, [
+    { packageName: "@example/tables", files: ["src/server/repositories/notesRepository.js"] }
+  ]);
+});

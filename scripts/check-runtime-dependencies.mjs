@@ -163,6 +163,55 @@ function collectImportedPackages(source = "", { vue = false } = {}) {
   return importedPackages;
 }
 
+// The modules a source loads as it is imported: its static imports and re-exports, but not a dynamic import, which runs
+// only when the code calls it.
+const SIDE_EFFECT_IMPORT_PATTERN = /^\s*import\s*["']([^"']+)["']/gm;
+function staticSpecifiers(source = "") {
+  const normalizedSource = maskComments(source);
+  return [STATIC_IMPORT_PATTERN, EXPORT_FROM_PATTERN, SIDE_EFFECT_IMPORT_PATTERN].flatMap((pattern) => {
+    pattern.lastIndex = 0;
+    return Array.from(normalizedSource.matchAll(pattern), (match) => match[1]);
+  });
+}
+
+// An application loads a package's ./server whatever it installed, and npm leaves an optional peer out unless the
+// application installs it itself, so nothing ./server loads imports one statically: that import fails with
+// ERR_MODULE_NOT_FOUND where the peer is missing. Code that needs an optional peer sits in a subpath of its own (a
+// database-backed store's ./server/storage) or imports it when it runs.
+async function collectOptionalPeerImports(packageDir, packageJson) {
+  const optionalPeers = new Set(Object.entries(packageJson.peerDependenciesMeta || {})
+    .filter(([name, meta]) => meta?.optional === true && Object.hasOwn(packageJson.peerDependencies || {}, name))
+    .map(([name]) => name));
+  const entry = packageJson.exports?.["./server"];
+  if (optionalPeers.size === 0 || typeof entry !== "string") {
+    return [];
+  }
+
+  const filesByPeer = new Map();
+  const loaded = new Set();
+  const pending = [path.join(packageDir, entry)];
+  while (pending.length > 0) {
+    const filePath = pending.pop();
+    if (loaded.has(filePath) || !(await fileExists(filePath))) {
+      continue;
+    }
+    loaded.add(filePath);
+    for (const specifier of staticSpecifiers(await readFile(filePath, "utf8"))) {
+      if (specifier.startsWith(".")) {
+        pending.push(path.resolve(path.dirname(filePath), specifier));
+        continue;
+      }
+      const packageName = extractPackageSpecifier(specifier);
+      if (optionalPeers.has(packageName)) {
+        filesByPeer.set(packageName, [...(filesByPeer.get(packageName) || []), toRelativePackagePath(packageDir, filePath)]);
+      }
+    }
+  }
+  return Array.from(filesByPeer.entries())
+    .sort(([left], [right]) => left.localeCompare(right))
+    .map(([packageName, files]) => ({ packageName, files: Array.from(new Set(files)).sort() }));
+}
+
 function toRelativePackagePath(packageDir, filePath) {
   return path.relative(packageDir, filePath).split(path.sep).join("/");
 }
@@ -211,7 +260,9 @@ async function collectRuntimeDependencyProblems(packageDir) {
     .filter((dependency) => declaredRuntimeDependencies.has(dependency) || importedDependencies.has(dependency))
     .sort();
 
-  return { packageName: packageJson.name, missingDependencies, forbiddenDependencies };
+  const optionalPeerImports = await collectOptionalPeerImports(packageDir, packageJson);
+
+  return { packageName: packageJson.name, missingDependencies, forbiddenDependencies, optionalPeerImports };
 }
 
 async function main() {
@@ -220,7 +271,7 @@ async function main() {
 
   for (const packageDir of packageDirs) {
     const problem = await collectRuntimeDependencyProblems(packageDir);
-    if (problem.missingDependencies.length > 0 || problem.forbiddenDependencies.length > 0) {
+    if (problem.missingDependencies.length > 0 || problem.forbiddenDependencies.length > 0 || problem.optionalPeerImports.length > 0) {
       problems.push(problem);
     }
   }
@@ -236,6 +287,16 @@ async function main() {
       for (const missingDependency of problem.missingDependencies) {
         process.stderr.write(`  - ${missingDependency.packageName}\n`);
         for (const filePath of missingDependency.files) {
+          process.stderr.write(`      ${filePath}\n`);
+        }
+      }
+    }
+
+    if (problem.optionalPeerImports.length > 0) {
+      process.stderr.write(`${problem.packageName}'s ./server imports an optional peer, which an application may not install:\n`);
+      for (const optionalPeerImport of problem.optionalPeerImports) {
+        process.stderr.write(`  - ${optionalPeerImport.packageName}\n`);
+        for (const filePath of optionalPeerImport.files) {
           process.stderr.write(`      ${filePath}\n`);
         }
       }
