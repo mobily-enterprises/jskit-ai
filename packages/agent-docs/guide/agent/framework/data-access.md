@@ -46,6 +46,7 @@ through its handle's calls, and every call takes the call's `options` last:
 | `lockOrCreate({ id, ...initial }, options, work)` | a keyed record locked, created first when missing, for `work` |
 | `claim({ filters, sort, take }, txOptions)` | the next rows no other worker holds |
 | `withTransaction(options, work)` | one transaction; `work` gets its `txOptions` |
+| `changeHorizon(options)` | PostgreSQL's snapshot horizon, where a read of what changed since starts ([What changed since](#what-changed-since)) |
 | `scopedQuery(params, options)` | a read-only builder for a report ([Layer 5](#layer-5-reports-the-resource-cannot-express)) |
 
 ```js
@@ -743,6 +744,59 @@ const { records: firstPage } = await subscriptions.query({ filters: { newsletter
 ```
 
 Bad: a list read 100-row pages in a loop for each of 40 related sets.
+
+## What changed since
+
+A page that catches up on a chat, a watch that acts on changes and a sync to
+another system each read what changed since they last read. "Past the highest
+id seen" misses a row whose id was taken before its transaction committed, and
+every change to an older row; "`updatedAt` after the last read" misses a
+transaction that committed after a later one. On PostgreSQL a change stamp and
+the change horizon miss neither:
+
+- The table stamps each row with the transaction that last wrote it, an `xid8`
+  column a trigger sets on every insert and update, whatever the write sent,
+  with an index that starts with the ownership columns:
+
+  ```js
+  // migrations/20261108120000_messages_changed.cjs
+  exports.up = async function up(knex) {
+    await knex.raw("alter table messages add column changed xid8 not null default pg_current_xact_id()");
+    await knex.raw("create function messages_changed() returns trigger language plpgsql as $$ begin new.changed := pg_current_xact_id(); return new; end $$");
+    await knex.raw("create trigger messages_changed before insert or update on messages for each row execute function messages_changed()");
+    await knex.raw("create index messages_changed_ix on messages (workspace_id, changed)");
+  };
+  ```
+- The table resource reads it as an `xid8` field, which nothing writes, and
+  filters on it:
+
+  ```js
+  schema: { /* ... */ changed: { type: "xid8", nullable: true } },
+  searchSchema: {
+    changedSince: { type: "xid8", actualField: "changed", filterOperator: ">=" },
+    changedBefore: { type: "xid8", actualField: "changed", filterOperator: "<" }
+  }
+  ```
+- The reader takes `changeHorizon(options)` before it reads and answers it as
+  the next cursor. Every transaction below the horizon had finished, so the
+  next read, `changedSince: cursor`, finds everything this read could not see.
+  A row can come twice, so the reader merges by id. A job that keeps its cursor
+  in a row reads the window `{ changedSince: cursor, changedBefore: horizon }`
+  and stores the horizon as the new cursor in the same transaction.
+
+```js
+async function catchUp(conversationId, since, options) {
+  const cursor = await messages.changeHorizon(options);
+  const changed = await messages.queryAll({ filters: { conversationId, changedSince: since } }, options);
+  return { messages: changed, cursor };
+}
+```
+
+The horizon is the server's: a long transaction anywhere holds it back, so a
+read repeats more rows, never misses one. MySQL, MariaDB and SQLite stamp no
+row with its transaction: `changeHorizon` throws `UnsupportedDatabaseError`
+there, and an `xid8` field is refused. A reader there takes the rows to handle
+with `claim()`, marking each done in the same transaction.
 
 ## Background work
 

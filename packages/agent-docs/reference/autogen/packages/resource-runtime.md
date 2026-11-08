@@ -14,6 +14,10 @@ Use this on demand; do not load the full index at startup.
 
 ### src
 
+### `src/server/changeHorizon.js`
+Exports
+- `readChangeHorizon(name, db)`
+
 ### `src/server/contexts.js`
 Exports
 - `callerOf(context)`
@@ -35,6 +39,7 @@ Exports
 - `StaleRecordError`
 - `SystemContextRequiredError`
 - `UnpagedQueryError`
+- `UnsupportedDatabaseError`
 
 ### `src/server/foreignKeyCheck.js`
 Exports
@@ -129,6 +134,7 @@ Exports
 - `StaleRecordError`
 - `SystemContextRequiredError`
 - `UnpagedQueryError`
+- `UnsupportedDatabaseError`
 
 ### `src/server/jsonRestValues.js`
 Exports
