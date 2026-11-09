@@ -1,6 +1,7 @@
 <script setup>
-import { computed } from "vue";
+import { computed, onBeforeUnmount } from "vue";
 import CrudListDateFilterControl from "./CrudListDateFilterControl.vue";
+import { createFilterTyping } from "../composables/support/filterTypingSupport.js";
 import { useJskitText } from "../i18n.js";
 
 const props = defineProps({
@@ -20,6 +21,24 @@ const props = defineProps({
 
 const { t, text } = useJskitText();
 const runtimeValues = computed(() => props.runtime.values);
+
+// An id or a number range's bound reaches the list when the person pauses, presses Enter or leaves the field: each
+// key would otherwise ask for a list. A key is the filter's, or "filter:min" and "filter:max" for a range's bounds.
+const typing = createFilterTyping({
+  read(key) {
+    const [filterKey, bound] = key.split(":");
+    return bound ? runtimeValues.value[filterKey]?.[bound] : runtimeValues.value[filterKey];
+  },
+  write(key, value) {
+    const [filterKey, bound] = key.split(":");
+    if (bound) {
+      runtimeValues.value[filterKey][bound] = value;
+    } else {
+      runtimeValues.value[filterKey] = value;
+    }
+  }
+});
+onBeforeUnmount(typing.applyAll);
 
 // Option labels may be message keys, such as the presence filter's.
 function optionItems(filter = {}) {
@@ -83,12 +102,15 @@ function placeholder(filter = {}, fallbackKey = "") {
       />
       <v-text-field
         v-else-if="filter.type === 'recordId'"
-        v-model="runtimeValues[filter.key]"
+        :model-value="typing.value(filter.key)"
         :label="filterLabel(filter)"
         :placeholder="placeholder(filter, 'jskit.http.crud.filters.enterId')"
         clearable
         hide-details="auto"
         class="crud-list-filter-surface__control"
+        @update:model-value="typing.type(filter.key, $event)"
+        @blur="typing.apply(filter.key)"
+        @keydown.enter="typing.apply(filter.key)"
       />
       <div
         v-else-if="filter.type === 'dateRange'"
@@ -113,16 +135,15 @@ function placeholder(filter = {}, fallbackKey = "") {
       </div>
       <div v-else-if="filter.type === 'numberRange'" class="crud-list-filter-surface__range">
         <v-text-field
-          v-model="runtimeValues[filter.key].min"
-          :label="filterLabel(filter, 'jskit.http.crud.filters.rangeMin')"
+          v-for="bound in ['min', 'max']"
+          :key="bound"
+          :model-value="typing.value(`${filter.key}:${bound}`)"
+          :label="filterLabel(filter, bound === 'min' ? 'jskit.http.crud.filters.rangeMin' : 'jskit.http.crud.filters.rangeMax')"
           type="number"
           hide-details="auto"
-        />
-        <v-text-field
-          v-model="runtimeValues[filter.key].max"
-          :label="filterLabel(filter, 'jskit.http.crud.filters.rangeMax')"
-          type="number"
-          hide-details="auto"
+          @update:model-value="typing.type(`${filter.key}:${bound}`, $event)"
+          @blur="typing.apply(`${filter.key}:${bound}`)"
+          @keydown.enter="typing.apply(`${filter.key}:${bound}`)"
         />
       </div>
       <CrudListDateFilterControl

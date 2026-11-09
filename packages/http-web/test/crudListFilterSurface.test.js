@@ -59,6 +59,15 @@ test("CrudListFilterSurface is one Material 3 chip row over a filter sheet, with
   assert.doesNotMatch(source, /apiSuffix|server|repository/);
 });
 
+test("CrudListFilterControls sends a typed id or range bound through the typing delay, not with every key", async () => {
+  const controlsSource = await readFile(path.join(PACKAGE_DIR, "src", "client", "components", "CrudListFilterControls.vue"), "utf8");
+
+  assert.match(controlsSource, /createFilterTyping/);
+  assert.match(controlsSource, /filter\.type === 'recordId'"\s*:model-value="typing\.value\(filter\.key\)"/u);
+  assert.match(controlsSource, /:model-value="typing\.value\(`\$\{filter\.key\}:\$\{bound\}`\)"/u);
+  assert.doesNotMatch(controlsSource, /v-model="runtimeValues\[filter\.key\]\.(min|max)"/u);
+});
+
 test("CrudListDateFilterControl composes stable Vuetify picker components accessibly", async () => {
   const componentPath = path.join(
     PACKAGE_DIR,
