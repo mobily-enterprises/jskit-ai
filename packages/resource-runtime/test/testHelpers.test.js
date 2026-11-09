@@ -375,3 +375,41 @@ test("an owned table's row policy receives the capabilities its feature requires
   assert.deepEqual(Object.keys(received.at(-1)), ["visibility"], "the feature's own dependencies, by local name");
   assert.equal(received.at(-1).visibility, capabilities.shelfRecords.setupVisibility, "the same capability its setup received");
 });
+
+test("startTestFeatures() refuses two table owners that require each other's owner APIs, naming the ring, before any setup", async (t) => {
+  const knex = await testKnex(t);
+  const table = (name) => defineTableResource({
+    name,
+    tableName: name,
+    ownership: "workspace",
+    schema: { workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } }, label: { type: "string", required: true } }
+  });
+  const setups = [];
+  // The parent's owner reads its children, and the children's owner advances the parent: each requires the other.
+  const ParentsFeature = defineFeature({
+    id: "parents",
+    owns: [table("parents")],
+    requires: { children: "children.records" },
+    provides: { parents: "parents.records" },
+    setup: () => {
+      setups.push("parents");
+      return { parents: Object.freeze({}) };
+    }
+  });
+  // An optional require closes a ring as a required one does.
+  const ChildrenFeature = defineFeature({
+    id: "children",
+    owns: [table("children")],
+    optional: { parents: "parents.records" },
+    provides: { children: "children.records" },
+    setup: () => {
+      setups.push("children");
+      return { children: Object.freeze({}) };
+    }
+  });
+  await assert.rejects(
+    startTestFeatures({ knex, features: [ParentsFeature, ChildrenFeature], createTables: true }),
+    { message: "Provider capability cycle detected: children -> parents -> children." }
+  );
+  assert.deepEqual(setups, []);
+});

@@ -1032,6 +1032,38 @@ named with no value, such as `lockVersion: record.lockVersion` on a field
 called `version`, is refused (`options.lockVersion is undefined`), never run
 without it.
 
+### Capability cycles
+
+A capability cycle is a ring of requires: feature A requires a capability that
+feature B provides while B, directly or through others, requires one that A
+provides. An `optional` require closes a ring as a required one does. The
+kernel sets features up in the order their requires give, so it cannot start a
+ring: boot fails before any setup, naming it,
+`Provider capability cycle detected: children -> parents -> children.`
+`startTestFeatures` orders features the same way, so a feature test meets the
+ring before the server does. The same ring between packages, each listing the
+other in its `package.json` dependencies (as importing the other's shared
+table resource needs), fails as
+`Package dependency cycle detected: @local/jobs -> @local/checklists -> @local/jobs`.
+
+Data access makes them easy to write: a parent's owner reads its children
+through their owners while each child's owner checks or advances the parent.
+Keep every require pointing one way:
+
+- The table nearest the root requires none of the owners below it. It provides
+  a small owner API, and the owners below require that.
+- Work that reads several owners together (a parent with its children, a
+  report across them) is a feature of its own that requires each of them, as
+  above and in [Layer 5](#layer-5-reports-the-resource-cannot-express).
+- A package imports another package's shared table resource only when that
+  package does not depend on it back. When two packages need each other's
+  definitions, move those table resources into a package of their own that
+  holds only shared definitions and depends on neither.
+- Never break a ring with a value handed over later (a setter, a capability
+  looked up at call time): a call's destination then depends on what ran
+  before. A setter kept until the split carries typed features' `cycle:`
+  exception ([Optional tokens](typed-features.md#optional-tokens)).
+
 ## Check and judge
 
 Before calling data work done, apply the
