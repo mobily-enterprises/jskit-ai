@@ -694,6 +694,11 @@ way (is this user an operator) is a member of its owner's capability.**
   meaning of 0 and false before replacing a copy.
 - A helper two packages of an application use lives in its shared package,
   never inside one of them.
+- A component's closure over its own state is not a helper: a function of at
+  most two statements in `<script setup>` whose every outside name is a
+  binding `<script setup>` declares (not an import or a global). Two pages
+  that reload their own resources the same way keep their own `reload()`;
+  sharing it would take a module that receives each page's state.
 
 Why: the kernel's helpers fix one meaning of empty, and a copy brings its own.
 

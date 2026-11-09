@@ -248,7 +248,9 @@ Exports
 Local functions
 - `topLevelFunctions(program)`
 - `isNamedNoOp(fn)`
-- `topLevelHelpers(program, text)`
+- `inside(range, [start, end])`
+- `componentClosures(scopeManager, setupRanges)`
+- `topLevelHelpers(program, text, isComponentClosure)`
 - `comparisonRoot(file, packageDirectory)`
 - `compareCopies(left, right)`
 

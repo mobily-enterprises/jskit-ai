@@ -175,3 +175,56 @@ client.run("jskit/no-duplicate-helper (client)", noDuplicateHelper, {
     }
   ]
 });
+
+// Two pages reload their own resource the same way: each reload() is a small closure over its page's <script setup>
+// state, which a shared helper could only take as arguments, so neither copy is reported. A pure helper the pages
+// repeat, a closure over an import, one longer than two statements and one that also reads a global still are.
+const RELOAD = "async function reload() {\n  await resource.reload();\n  if (!resource.loadError.value && resource.data.value) acceptSaved(resource.data.value);\n}\n";
+const page = (setup, body = RELOAD) => `<script setup>\n${setup}\n${body}</script>\n<template><button @click="reload" /></template>\n`;
+const SETTINGS_SETUP = "import { useSettingsForm } from \"../composables/useSettingsForm.js\";\nconst resource = useEndpointResource({ path: \"/settings\" });\nconst { acceptSaved } = useSettingsForm();";
+const PROFILE_SETUP = "import { useProfileForm } from \"../composables/useProfileForm.js\";\nconst resource = useEndpointResource({ path: \"/profile\" });\nfunction acceptSaved(record) {\n  form.value = record;\n}";
+const STORE_SETUP = "import { resource, acceptSaved } from \"../stores/settings.js\";";
+const SAVE_ALL = "async function reload() {\n  await resource.reload();\n  await resource.save();\n  acceptSaved(resource.data.value);\n}\n";
+const LOG_SAVED = "function logSaved() {\n  console.log(resource.data.value);\n}\n";
+const REFRESH = "async function refresh() {\n  await resource.reload();\n}\n";
+writeSource("chat/src/client/pages/Settings.vue", page(SETTINGS_SETUP));
+writeSource("chat/src/client/pages/Imported.vue", page(STORE_SETUP));
+writeSource("chat/src/client/pages/Longer.vue", page(SETTINGS_SETUP, SAVE_ALL));
+writeSource("chat/src/client/pages/Logged.vue", page(SETTINGS_SETUP, LOG_SAVED));
+writeSource("chat/src/client/pages/Refreshed.vue", page(SETTINGS_SETUP, REFRESH));
+const pagePath = (name) => path.join(root, "chat", "src", "client", "pages", name);
+const firstCopy = (name, line) => `${relative(pagePath(name))}:${line}`;
+
+components.run("jskit/no-duplicate-helper (component closures)", noDuplicateHelper, {
+  valid: [
+    { filename: pagePath("Profile.vue"), code: page(PROFILE_SETUP) },
+    { filename: pagePath("Settings.vue"), code: page(SETTINGS_SETUP) }
+  ],
+  invalid: [
+    {
+      filename: pagePath("Remembered.vue"),
+      code: page(PROFILE_SETUP, LABEL),
+      errors: [{ messageId: "duplicateHelper", data: { name: "toLabel", first: `${relative(path.join(root, "chat", "src", "client", "components", "Badge.vue"))}:2` } }]
+    },
+    {
+      filename: pagePath("Stored.vue"),
+      code: page(STORE_SETUP),
+      errors: [{ messageId: "duplicateHelper", data: { name: "reload", first: firstCopy("Imported.vue", 3) } }]
+    },
+    {
+      filename: pagePath("Saved.vue"),
+      code: page(PROFILE_SETUP, SAVE_ALL),
+      errors: [{ messageId: "duplicateHelper", data: { name: "reload", first: firstCopy("Longer.vue", 5) } }]
+    },
+    {
+      filename: pagePath("Printed.vue"),
+      code: page(PROFILE_SETUP, LOG_SAVED),
+      errors: [{ messageId: "duplicateHelper", data: { name: "logSaved", first: firstCopy("Logged.vue", 5) } }]
+    }
+  ]
+});
+// A plain module's refresh() over imported state is a helper; a page's closure with the same text is not a copy of it.
+client.run("jskit/no-duplicate-helper (a module beside component closures)", noDuplicateHelper, {
+  valid: [{ filename: path.join(root, "chat", "src", "client", "z", "refresh.js"), code: `${STORE_SETUP}\n${REFRESH}export { refresh };\n` }],
+  invalid: []
+});

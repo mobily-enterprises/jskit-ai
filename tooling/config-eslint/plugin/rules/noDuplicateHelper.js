@@ -11,6 +11,7 @@ import {
   toPosixPath
 } from "../packageSources.js";
 import { createReporter, isClientLint, ruleMeta } from "../support.js";
+import { scriptSetupRanges } from "../vueSources.js";
 
 const FUNCTION_VALUES = new Set(["ArrowFunctionExpression", "FunctionExpression"]);
 
@@ -43,9 +44,27 @@ function isNamedNoOp(fn) {
     (!statement.argument || statement.argument.type === "Literal" || (statement.argument.type === "Identifier" && statement.argument.name === "undefined"));
 }
 
-function topLevelHelpers(program, text) {
+const inside = (range, [start, end]) => range[0] >= start && range[1] <= end;
+
+// Whether a function is a component's small closure over its own state: at most two statements, written in the
+// component's <script setup>, and every name it reads from outside itself a binding that <script setup> declares, not
+// an import or a global. Two pages that reload their own resources the same way share no helper: sharing it would
+// take a one-function module that receives each page's state as arguments. A plain module has no <script setup>, so
+// none of its functions is one.
+function componentClosures(scopeManager, setupRanges) {
+  const declaredInSetup = (variable) => variable?.defs.length > 0 &&
+    variable.defs.every((definition) => definition.type !== "ImportBinding" && setupRanges.some((range) => inside(definition.name.range, range)));
+  return (fn) => {
+    const statements = fn.body.type === "BlockStatement" ? fn.body.body.length : 1;
+    if (statements > 2 || !scopeManager || !setupRanges.some((range) => inside(fn.range, range))) return false;
+    const free = scopeManager.acquire(fn)?.through || [];
+    return free.length > 0 && free.every((reference) => declaredInSetup(reference.resolved));
+  };
+}
+
+function topLevelHelpers(program, text, isComponentClosure) {
   return topLevelFunctions(program)
-    .filter(({ node, fn }) => node.loc.end.line - node.loc.start.line < 12 && !isNamedNoOp(fn))
+    .filter(({ node, fn }) => node.loc.end.line - node.loc.start.line < 12 && !isNamedNoOp(fn) && !isComponentClosure(fn))
     .map(({ node, name, fn }) => {
       const parameters = fn.params.length ? text.slice(fn.params[0].range[0], fn.params.at(-1).range[1]) : "";
       const body = text.slice(...fn.body.range);
@@ -64,14 +83,17 @@ function comparisonRoot(file, packageDirectory) {
 }
 
 // The small helpers of another file of the package, parsed as this lint run parses; a Vue component's <script> blocks
-// are parsed by vue-eslint-parser.
+// are parsed by vue-eslint-parser, with the scopes that tell its closures over <script setup> state.
 const helpersOf = createSourceMemo((text, file, context) => {
   const { ecmaVersion, sourceType, parserOptions } = context.languageOptions;
-  const parser = file.endsWith(".vue") ? vueParser : context.languageOptions.parser;
-  const options = { ...parserOptions, ecmaVersion, sourceType, range: true, loc: true, tokens: true, comment: true, filePath: file };
+  const component = file.endsWith(".vue");
+  const parser = component ? vueParser : context.languageOptions.parser;
+  const options = { ...parserOptions, ecmaVersion, sourceType, range: true, loc: true, tokens: true, comment: true, filePath: file,
+    ...(component ? { eslintScopeManager: true } : {}) };
   // readable-check: allow method-probe - platform object: an ESLint parser provides parseForESLint, or only parse
-  const program = typeof parser.parseForESLint === "function" ? parser.parseForESLint(text, options).ast : parser.parse(text, options);
-  return topLevelHelpers(program, text).map(({ name, line, key }) => ({ name, line, key }));
+  const parsed = typeof parser.parseForESLint === "function" ? parser.parseForESLint(text, options) : { ast: parser.parse(text, options) };
+  const closures = component ? componentClosures(parsed.scopeManager, scriptSetupRanges({ parserServices: parsed.services })) : () => false;
+  return topLevelHelpers(parsed.ast, text, closures).map(({ name, line, key }) => ({ name, line, key }));
 }, Object.freeze([]));
 
 // Paths in the order readable-check walks them: directory by directory, by name.
@@ -102,7 +124,7 @@ const noDuplicateHelper = Object.freeze({
     return {
       Program(program) {
         const file = context.filename;
-        const own = topLevelHelpers(program, sourceCode.text);
+        const own = topLevelHelpers(program, sourceCode.text, componentClosures(sourceCode.scopeManager, scriptSetupRanges(sourceCode)));
         if (!own.length || !path.isAbsolute(file) || isGeneratedMirror(file)) {
           return;
         }

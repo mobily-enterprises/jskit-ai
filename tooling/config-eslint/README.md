@@ -200,7 +200,9 @@ calls, plus `typed-inject`, `collaborator-props`, `fixed-result-shape`,
 `no-frozen-vue-state`, `released-listeners`, `no-module-state` and
 `eslint-plugin-vue`'s prop and emit rules. The server's action and error rules
 do not apply, a composable is never held to `Object.freeze`, and
-`no-duplicate-helper` compares a client helper with the whole package. Nothing
+`no-duplicate-helper` compares a client helper with the whole package, leaving
+alone a component's closure over its own state (at most two statements in
+`<script setup>`, reading only bindings `<script setup>` declares). Nothing
 changes for client code until a glob selects it, so an existing application
 lists each client tree as it converts it. In a template, one
 `<!-- readable-check: allow <rule> - <reason> -->` above an element excuses
