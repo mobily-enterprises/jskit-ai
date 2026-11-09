@@ -570,6 +570,31 @@ or a counter row taken with `lock(id)`. Every lock needs a transaction; SQLite
 runs one transaction at a time, so there is no row lock to take. Take locks in
 one order on every path, a parent before its children.
 
+A lock answers only the rows it locks, with the fields `fields` names, and
+refuses `include` before any statement. Read the locked rows' related records
+after the lock, in the same transaction: `queryAll({ filters: { id: ids },
+include }, txOptions)`, or the related table's read by id list. On PostgreSQL
+every statement sees what had committed when it began, so that read is current.
+On MySQL and MariaDB a plain read inside a transaction sees the snapshot of the
+transaction's first plain read, and a lock that waited does not move it. So
+take the lock before any plain read in the transaction: the reads after it then
+see what the lock's previous holder committed. A related row the work decides
+on (is this seat already booked?) is locked itself, or read after a lock
+that every writer of it takes first.
+
+```js
+// good: the lock is the transaction's first read, so the bookings read after it are current
+const reserve = (seatId, options) => seats.withTransaction(options, async (txOptions) => {
+  await seats.lock(seatId, { ...txOptions, fields: ["status"] });
+  const taken = await bookings.queryAll({ filters: { seatIds: [seatId] } }, txOptions);
+  return taken.length > 0 ? null : bookings.create({ seatId }, { ...txOptions, returning: "id" });
+});
+
+// bad: the read before the lock fixed the snapshot, so a booking committed while the lock waited is missed
+const free = await bookings.queryAll({ filters: { seatIds: [seatId] } }, txOptions);
+await seats.lock(seatId, txOptions);
+```
+
 On MySQL and MariaDB a locking read locks every row it examines, so two rules
 apply there. Lock ids taken from your own scoped reads, never a list straight
 from a request: every id listed is locked, a hidden one too, before it is left

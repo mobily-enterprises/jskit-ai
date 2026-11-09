@@ -25,6 +25,28 @@ function lockModeOf(name, caller, lockMode) {
 }
 
 /**
+ * Refuses `include` on a locking read, before anything runs: a lock answers only the rows it locks. A plain read of
+ * their related records inside the transaction (json-rest-api's includes are plain reads) would see, on MySQL and
+ * MariaDB, the snapshot of the transaction's first plain read rather than the rows as they are under the lock, so the
+ * caller reads them itself, in the order that makes them current.
+ * @param {string} name The resource's name.
+ * @param {string} caller The handle method, for the message.
+ * @param {unknown} include
+ */
+function refuseInclude(name, caller, include) {
+  if (include === undefined) {
+    return;
+  }
+  throw new TypeError(
+    `${name}.${caller}() locks only its own rows and reads no included records, so it takes no include. Read the ` +
+      "related records after the lock, in the same transaction: queryAll({ filters: { id: ids }, include }, txOptions) " +
+      "or the related table's read by id list. On MySQL and MariaDB a plain read inside a transaction sees the snapshot " +
+      "of the transaction's first plain read: take the lock before any plain read, so the reads after it see what the " +
+      "lock's previous holder committed, and lock a related row the work depends on with its own lockMany()."
+  );
+}
+
+/**
  * A handle's locking reads: lock, lockMany, lockWhere and claim. Each needs the
  * caller's transaction (`options.trx`), locks only rows the caller may see, and
  * reads the fields `options.fields` names, or every field a one-record read
@@ -44,6 +66,7 @@ function createLockReads({ name, resource, jsonRest, readFields, contextOf, hidd
   // A locking read (json-rest-api's lockByIds, lockWhere or claim) of the fields options.fields names, as records, in the
   // lock mode options.lockMode names. `caller` is the handle method, for the messages.
   async function lockRead(caller, method, read, options) {
+    refuseInclude(name, caller, options.include);
     const mode = lockModeOf(name, caller, options.lockMode);
     const hidden = hiddenFields.named(options.fields, "plain");
     const fields = readFields({ fields: options.fields }, "view");
@@ -112,10 +135,11 @@ function createLockReads({ name, resource, jsonRest, readFields, contextOf, hidd
    * @param {{ filters: object, sort?: string | string[], take?: number }} params
    * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate" }} options
    */
-  async function claim({ filters, sort, take } = {}, options, ...rest) {
+  async function claim({ filters, sort, take, include } = {}, options, ...rest) {
     if (rest.length > 0) {
       throw new TypeError(`${name}.claim() takes ({ filters, sort, take }, options).`);
     }
+    refuseInclude(name, "claim", include);
     requireDefinedFilters(name, "claim", filters);
     return lockRead("claim", "claim", {
       filters,

@@ -1814,6 +1814,29 @@ test("lock, lockMany, lockWhere and claim read only the fields they name, so a r
   assert.deepEqual(locked, [{ id: ids[0], stage: "new", vetId: "1" }]);
 });
 
+test("a lock refuses include before any statement; its rows' related records come from a read after the lock, in its transaction", async (t) => {
+  const { visits, options, ids, selects } = await createVisitFixture(t);
+  const refused = (method) => ({
+    name: "TypeError",
+    message: new RegExp(`^visits\\.${method}\\(\\) locks only its own rows and reads no included records, so it takes no include\\. Read the related records after the lock`, "u")
+  });
+  const statements = await selects(() => visits.withTransaction(options, async (tx) => {
+    const including = { ...tx, include: ["customer"] };
+    await assert.rejects(visits.lock(ids[0], including), refused("lock"));
+    await assert.rejects(visits.lockMany(ids, including), refused("lockMany"));
+    await assert.rejects(visits.lockWhere({ id: ids }, including), refused("lockWhere"));
+    await assert.rejects(visits.claim({ filters: { id: ids } }, including), refused("claim"));
+    await assert.rejects(visits.claim({ filters: { id: ids }, include: ["customer"] }, tx), refused("claim"));
+  }));
+  assert.deepEqual(statements, []);
+  // What the refusal says: the lock first, then one read of the locked rows with their related records.
+  const read = await visits.withTransaction(options, async (tx) => {
+    const locked = await visits.lockMany(ids, { ...tx, fields: ["stage"] });
+    return visits.queryAll({ filters: { id: locked.map(({ id }) => id) }, include: ["customer"] }, tx);
+  });
+  assert.deepEqual(read.map(({ id, stage, customerId, customer }) => [id, stage, customerId, customer.name]), ids.map((id) => [id, "new", "1", "Ada"]));
+});
+
 test("a patch that compares a lock version or onlyIf locks only the version, and compares onlyIf in SQL, hidden fields too", async (t) => {
   const { visits, options, ids, selects } = await createVisitFixture(t);
   // The patch's own locking read checks no relation: the customer it writes unchanged is checked by the write alone.

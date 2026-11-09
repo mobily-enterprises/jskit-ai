@@ -86,6 +86,8 @@ Local functions
 Exports
 - `createLockReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields })`
 - `lockModeOf(name, caller, lockMode)`
+Local functions
+- `refuseInclude(name, caller, include)`
 
 ### `src/server/handleRecords.js`
 Exports
