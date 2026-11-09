@@ -9,6 +9,8 @@ import { resourceScopeOptions } from "./resourceHost.js";
 
 const DEFAULT_REQUEST_ROW_LIMIT = 10000;
 const DEFAULT_SERVER_PAGE_SIZE = 1000;
+// A row policy's `requires` when its feature was owned with none (a test's runtime.own(featureId, owns)).
+const NO_REQUIRES = Object.freeze({});
 const ENTRY_KEYS = Object.freeze(["resource", "rowPolicy", "hooks", "acceptsContributions", "normalizeId", "queryFields", "searchSchema"]);
 // Every table resource's datetime-utc fields are written as UTC database date-times.
 const WRITE_SERIALIZERS = Object.freeze({ "datetime-utc": toDatabaseDateTimeUtc });
@@ -144,8 +146,9 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
 
   // The owner's policy, then every contribution, each in its own group ANDed with ownership: a policy only narrows.
   // Each gets who the call runs for as `caller` (see callerOf), its one way to tell: json-rest-api's own `system` flag
-  // is left out.
-  function composedRowPolicy(featureId, entry, contributions) {
+  // is left out. The owner's policy also gets the owning feature's dependencies as `requires`; a contribution is a
+  // function its feature built in setup, with its own.
+  function composedRowPolicy(featureId, entry, contributions, requires) {
     if (!entry.rowPolicy && !entry.acceptsContributions) {
       return undefined;
     }
@@ -154,7 +157,7 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
       delete args.system;
       const caller = callerOf(args.context);
       if (entry.rowPolicy) {
-        const result = await applyGrouped(entry.rowPolicy, { ...args, caller, ownTable: ownTableReader(featureId, args.db) });
+        const result = await applyGrouped(entry.rowPolicy, { ...args, caller, ownTable: ownTableReader(featureId, args.db), requires });
         if (result !== true) {
           return result;
         }
@@ -219,8 +222,10 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
    * narrows another feature's resource whose owner accepts contributions.
    * @param {string} featureId
    * @param {ReadonlyArray<object>} owns
+   * @param {{ requires?: Readonly<Record<string, unknown>> }} [options] The feature's dependencies, by local name, as its
+   *   setup receives them (defineFeature passes them): each entry's rowPolicy receives them as `requires`.
    */
-  async function own(featureId, owns) {
+  async function own(featureId, owns, { requires = NO_REQUIRES } = {}) {
     const entries = owns.map((entry) => ownedEntry(entry, featureId));
     const names = new Set();
     for (const { resource } of entries) {
@@ -234,7 +239,7 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
     const scopes = entries.map((entry, index) => resourceScopeOptions(entry.resource, {
       writeSerializers: WRITE_SERIALIZERS,
       normalizeId: entry.normalizeId,
-      rowPolicy: composedRowPolicy(featureId, entry, contributions[index]),
+      rowPolicy: composedRowPolicy(featureId, entry, contributions[index], requires),
       searchSchema: entry.searchSchema,
       queryFields: entry.queryFields
     }));

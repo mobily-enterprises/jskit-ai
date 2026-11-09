@@ -74,7 +74,7 @@
  * @property {Record<string, any>} [actionDefaults]
  * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [boot]
  * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [shutdown]
- * @property {ReadonlyArray<object>} [owns] The table resources this feature owns, each a table resource or `{ resource, ...serverOnlyExtras }`. Its setup() receives their handles as `resources`, by resource name, and it is the only feature that does.
+ * @property {ReadonlyArray<object>} [owns] The table resources this feature owns, each a table resource or `{ resource, ...serverOnlyExtras }`. Its setup() receives their handles as `resources`, by resource name, and it is the only feature that does. An entry's `rowPolicy` receives the capabilities the feature requires (and its optional ones), by local name, as `requires`.
  * @property {string} [systemScope] Why this feature works across every workspace and user, such as a background job. Its setup() receives `systemContext(reason)`.
  */
 
@@ -82,7 +82,7 @@
  * The `runtime.resources` capability, as the kernel uses it for a feature's
  * `owns` and `systemScope`. The kernel knows nothing else about resources.
  * @typedef {object} ResourceRuntime
- * @property {(featureId: string, owns: ReadonlyArray<object>) => Record<string, object> | Promise<Record<string, object>>} own Registers the feature as the one owner of each resource and returns their handles, by resource name. Throws when another feature owns one of their tables.
+ * @property {(featureId: string, owns: ReadonlyArray<object>, options?: { requires?: Readonly<Record<string, any>> }) => Record<string, object> | Promise<Record<string, object>>} own Registers the feature as the one owner of each resource and returns their handles, by resource name. Throws when another feature owns one of their tables. `requires`, the feature's resolved dependencies, reaches each entry's row policy.
  * @property {(featureId: string, systemScope: string) => (reason: string) => object} declareSystemScope Records the feature's system scope and returns its system context factory: each call, given its reason, answers a context that reads and writes every workspace's and user's rows.
  */
 

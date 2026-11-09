@@ -38,8 +38,8 @@ async function createTestResourceRuntime({ knex, logger = silentLogger, requestR
   }
   return Object.freeze({
     ...runtime,
-    async own(featureId, owns) {
-      const handles = await runtime.own(featureId, owns);
+    async own(featureId, owns, options) {
+      const handles = await runtime.own(featureId, owns, options);
       for (const name of Object.keys(handles)) {
         await api.resources[name].createKnexTable();
       }

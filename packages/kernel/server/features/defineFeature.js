@@ -77,13 +77,15 @@ function normalizeSystemScope(systemScope, featureId) {
  * What setup receives besides its own dependencies: the handles of the
  * resources the feature owns, and the system context factory the resource
  * runtime answers for its declared system scope, whose every call names its
- * reason.
+ * reason. Each owned entry's row policy receives the feature's own
+ * dependencies (`requires`), as setup does.
  * @param {Record<string, any>} dependencies
  * @param {{ featureId: string, owns: ReadonlyArray<object> | null, systemScope: string | null }} featureResources
+ * @param {Readonly<Record<string, any>>} requires The capabilities the feature requires, and its optional ones, by local name.
  */
-async function resourceDependencies({ resourceRuntime }, { featureId, owns, systemScope }) {
+async function resourceDependencies({ resourceRuntime }, { featureId, owns, systemScope }, requires) {
   return {
-    ...(owns ? { resources: await resourceRuntime.own(featureId, owns) } : {}),
+    ...(owns ? { resources: await resourceRuntime.own(featureId, owns, { requires }) } : {}),
     ...(systemScope ? { systemContext: resourceRuntime.declareSystemScope(featureId, systemScope) } : {})
   };
 }
@@ -152,7 +154,7 @@ function defineFeature({
       const featureContext = Object.freeze({ ...context, actionCatalogue });
       const setupDependencies = Object.freeze({
         ...featureDependencies,
-        ...(await resourceDependencies(dependencies, featureResources))
+        ...(await resourceDependencies(dependencies, featureResources, featureDependencies))
       });
       const outputs = normalizeProviderOutputs(
         { id: featureId, provides },

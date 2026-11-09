@@ -322,3 +322,56 @@ test("startTestFeatures() starts features in the order their requires give, on t
   assert.deepEqual(order, ["shelves", "reports", "boot"]);
   assert.deepEqual(resources.ownedTables(), [{ name: "shelves", tableName: "shelves", featureId: "shelves" }]);
 });
+
+test("an owned table's row policy receives the capabilities its feature requires, as its setup does", async (t) => {
+  const knex = await testKnex(t);
+  const shelves = defineTableResource({
+    name: "shelves",
+    tableName: "shelves",
+    ownership: "workspace",
+    schema: { workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } }, label: { type: "string", required: true } }
+  });
+  // What the policy needs from another feature: the labels each person may see, as a membership service answers them.
+  const Visibility = defineProvider({
+    id: "test.visibility",
+    provides: { visibility: "shelves.visibility" },
+    setup: () => ({ visibility: Object.freeze({ labelsFor: (userId) => (String(userId) === "7" ? ["fiction"] : []) }) })
+  });
+  const received = [];
+  const ShelvesFeature = defineFeature({
+    id: "shelves",
+    requires: { visibility: "shelves.visibility" },
+    owns: [{
+      resource: shelves,
+      rowPolicy: ({ query, caller, column, requires }) => {
+        received.push(requires);
+        if (caller.kind !== "user") return caller.kind !== "anonymous";
+        query.whereIn(column("label"), requires.visibility.labelsFor(caller.userId));
+        return true;
+      }
+    }],
+    systemScope: "add shelves for a test",
+    provides: { shelfRecords: "shelves.records" },
+    setup: ({ resources, systemContext, visibility }) => ({
+      shelfRecords: Object.freeze({
+        setupVisibility: visibility,
+        add: (label, workspaceId) => resources.shelves.create({ label }, { context: systemContext("add a shelf").forWorkspace(workspaceId), returning: "none" }),
+        labels: async (options) => (await resources.shelves.queryAll({}, options)).map(({ label }) => label).sort()
+      })
+    })
+  });
+  const { capabilities, stop } = await startTestFeatures({
+    knex,
+    features: [ShelvesFeature, Visibility],
+    requires: { shelfRecords: "shelves.records" },
+    createTables: true
+  });
+  t.after(stop);
+  await capabilities.shelfRecords.add("fiction", "1");
+  await capabilities.shelfRecords.add("poetry", "1");
+  const asPerson = (userId) => ({ context: { actor: { id: userId }, workspace: { id: "1" } } });
+  assert.deepEqual(await capabilities.shelfRecords.labels(asPerson("7")), ["fiction"]);
+  assert.deepEqual(await capabilities.shelfRecords.labels(asPerson("8")), []);
+  assert.deepEqual(Object.keys(received.at(-1)), ["visibility"], "the feature's own dependencies, by local name");
+  assert.equal(received.at(-1).visibility, capabilities.shelfRecords.setupVisibility, "the same capability its setup received");
+});

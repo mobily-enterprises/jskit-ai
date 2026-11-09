@@ -316,7 +316,11 @@ request, `{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
 `{ kind: "job" }` (a context `forWorkspace` and its kin derived), each with its
 `reason`, for background work. A job names a user only as `actorId`, the
 person it works for ([below](#background-work)), so never read a missing actor
-as an anonymous request.
+as an anonymous request. The owner's policy also receives the capabilities its
+feature requires (and its optional ones), by local name, as `requires`, the
+same ones its setup receives: a policy that needs another feature's answer
+declares that feature's capability in `requires` and reads `requires.<name>`.
+It runs on every read, so what it asks there must be cheap.
 
 ```js
 // good: one predicate on the row being read

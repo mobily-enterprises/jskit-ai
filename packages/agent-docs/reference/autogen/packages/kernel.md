@@ -751,7 +751,7 @@ Local functions
 - `withoutActionCatalogue(dependencies)`
 - `normalizeOwns(owns, featureId)`
 - `normalizeSystemScope(systemScope, featureId)`
-- `resourceDependencies({ resourceRuntime }, { featureId, owns, systemScope })`
+- `resourceDependencies({ resourceRuntime }, { featureId, owns, systemScope }, requires)`
 
 ### `server/features/index.js`
 Exports
