@@ -158,6 +158,9 @@ function createRepository({ userSettings }) {
 
   return Object.freeze({
     withTransaction: userSettings.withTransaction,
+    // The users' settings as a join source for another owner's report, which reads them in its own statement: the
+    // handle's joinSource, under `alias`, keyed by the user's id (`column("id")`).
+    joinSource: userSettings.joinSource,
     findByUserId,
     listByUserIds,
     ensureForUserId,

@@ -490,6 +490,10 @@ function createRepository({ userProfiles, userSettings }) {
 
   return Object.freeze({
     withTransaction: userProfiles.withTransaction,
+    // The users as a join source for another owner's report, which reads them in its own statement: the handle's
+    // joinSource, the users under `alias` matching `filters` (this resource's search fields), with the users table's
+    // row policy applied.
+    joinSource: userProfiles.joinSource,
     findById,
     findByEmail,
     findByIdentity,

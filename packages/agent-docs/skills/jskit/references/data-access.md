@@ -752,6 +752,25 @@ async function activeDays(memberIds, options) {
   }
   ```
 
+- A report that asks which of its rows have, or lack, another owner's rows
+  puts that owner's join source in `whereExists` or `whereNotExists`, tied to
+  its own row with `whereColumn`; one that counts them joins the source grouped,
+  as `projectSummary` does. Rows matched by a related row's value ("items
+  whose supplier is named Acme") need no report: a cross-table search filter
+  answers them in a plain read ([Layer 1](#layer-1-the-table-resource)).
+
+  ```js
+  // Knex: report - the caller's projects with no task the caller sees
+  async function idleProjects(options) {
+    const task = await tasks.joinSource({ alias: "k" }, options);
+    const { query } = await projects.scopedQuery({ alias: "p" }, options);
+    const projectId = projects.column("id", "p");
+    return query
+      .whereNotExists(task.query.select(task.column("id")).whereColumn(task.column("projectId"), projectId))
+      .select({ id: projectId, name: projects.column("name", "p") });
+  }
+  ```
+
 - When each owner can answer on its own (keys in, grouped totals out), the
   report is a feature of its own that calls each owner's method and merges the
   answers in memory: one statement per owner, never a call per row.
@@ -1017,7 +1036,10 @@ participants) reads them with `users.profiles.listByIds(ids, options)`: every
 profile in one call, however many ids, never `query` pages of 100 walked by
 hand or one `findById` per person. `users.settings.listByUserIds(ids, options)`
 does the same for their settings, and `workspaces.listByIds(ids, options)` for
-workspaces.
+workspaces. A report that reads people, their settings, workspaces or
+memberships beside its own rows joins `joinSource({ alias, filters },
+options)` of `users.profiles`, `users.settings`, `workspaces` or
+`workspaces.memberships` ([Layer 5](#layer-5-reports-the-resource-cannot-express)).
 
 An app that had a table resource of its own over a JSKIT table (such as
 `users`) deletes it: its CRUD contract is built on the package's table resource
