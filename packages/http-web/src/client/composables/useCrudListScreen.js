@@ -155,8 +155,7 @@ function useCrudListScreen({
       String(workspaceSlug || "")
     ],
     search: {
-      enabled: true,
-      mode: "query"
+      enabled: true
     },
     queryParams: filterRuntime.queryParams,
     routeQueryValueResolvers: filterRuntime.routeQueryValueResolvers,

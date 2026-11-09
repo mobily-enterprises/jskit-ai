@@ -127,7 +127,6 @@ function createCrudLookupFieldRuntime({
       ],
       search: {
         enabled: true,
-        mode: "query",
         queryParam: "q"
       },
       ...(Object.hasOwn(normalizedRequestQueryParams, key)

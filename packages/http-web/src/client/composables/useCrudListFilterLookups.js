@@ -83,8 +83,7 @@ function useCrudListFilterLookups(
       readEnabled: optionsWanted,
       queryKeyFactory: queryKeyFactory(""),
       search: {
-        enabled: true,
-        mode: "query"
+        enabled: true
       },
       ...(requestQueryParams ? { requestQueryParams } : {}),
       placementSource: normalizedPlacementSourcePrefix
