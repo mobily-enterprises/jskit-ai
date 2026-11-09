@@ -194,12 +194,21 @@ method takes the call's `options` last and joins the transaction of the
 | Capability | Methods |
 | --- | --- |
 | `workspaces` | `findById(id, options)`, `findBySlug(slug, options)` (a deleted workspace is not found, though its slug stays taken), `listSlugsIn`, `findPersonalByOwnerUserId`, `listForUserId(userId, options)`, `insert`, `updateById`, `lock(workspaceId, options)` |
-| `workspaces.memberships` | `findByWorkspaceIdAndUserId`, `ensureOwnerMembership`, `upsertMembership(workspaceId, userId, patch, options)`, `addMember({ workspaceId, userId, roleSid }, options)`, `activeMemberIds(workspaceId, options)`, `listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listActiveWorkspaceIdsByUserId`, `listActiveWorkspaceIdsByUserIds`, `listActiveWorkspaceIdsByUserIdsAmong(userIds, workspaceIds, options)` |
+| `workspaces.memberships` | `findByWorkspaceIdAndUserId`, `ensureOwnerMembership`, `upsertMembership(workspaceId, userId, patch, options)`, `addMember({ workspaceId, userId, roleSid }, options)`, `activeMemberIds(workspaceId, options)`, `listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listActiveWorkspaceIdsByUserId`, `listActiveWorkspaceIdsByUserIds`, `listActiveWorkspaceIdsByUserIdsAmong(userIds, workspaceIds, options)`, `joinSource({ alias, filters }, options)` |
 
 `addMember` makes the user an active member with the role (`member` when none
 is given), adding the membership or reactivating it. `activeMemberIds` answers
-the active members' user ids at the same cost however many members there
-are, without including their profiles. `lock` takes
+every active member's user id, without their profiles: it reads all of the
+workspace's active memberships, so its cost grows with the workspace, and so
+do `listActiveByWorkspaceId`'s and
+`workspaces.services.members.listMembers(workspace, options)`'s. Use them where
+the work needs every member, such as a job, a delivery's recipients or a
+realtime audience. A screen or list reads a page instead:
+`workspaces.services.members.listMembersPage(workspace, { cursor, limit }, options)`
+answers one page of active members by display name (`limit`, 20 when none)
+with the `nextCursor` that asks for the next, null on the last, and an app's
+own list of members pages them in SQL with one report over the memberships'
+`joinSource`. `lock` takes
 the workspace's row lock until the caller's transaction ends, so work that must
 not interleave for one workspace takes turns; it runs only inside a
 transaction, given its `txOptions`, and answers `{ id }`, or `null` when there
