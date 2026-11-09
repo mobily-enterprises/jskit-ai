@@ -96,6 +96,19 @@ test("the list action keeps answering a larger limit with one capped page", asyn
   assert.equal(next.value.data[0].attributes.title, "Note 21");
 });
 
+test("the list action narrows to the record ids it names, so a picker reads its selected values past the first page", async (t) => {
+  const { actionsFor } = await createFixture(t);
+  const [list] = actionsFor({ operations: ["list"] });
+
+  const many = await list.execute({ id: ["240", "3"] }, WORKSPACE_ONE);
+  assert.deepEqual(many.value.data.map((record) => record.attributes.title).sort(), ["Note 240", "Note 3"]);
+  const one = await list.execute({ id: "245" }, WORKSPACE_ONE);
+  assert.deepEqual(one.value.data.map((record) => record.attributes.title), ["Note 245"]);
+  // Another workspace's ids stay out of scope.
+  const elsewhere = await list.execute({ id: "245" }, Object.freeze({ scopeValues: Object.freeze({ workspaceId: "2" }) }));
+  assert.deepEqual(elsewhere.value.data, []);
+});
+
 test("a column the contract does not name is neither returned nor accepted", async (t) => {
   const { knex, actionsFor } = await createFixture(t);
   const [list, view, create, update] = actionsFor({ operations: ["list", "view", "create", "update"] });

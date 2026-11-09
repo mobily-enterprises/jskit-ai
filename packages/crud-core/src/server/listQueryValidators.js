@@ -4,7 +4,12 @@ import {
 } from "@jskit-ai/kernel/shared/validators";
 import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudParentFilterKeys } from "@jskit-ai/resource-crud-core/shared/crudLookup";
+import {
+  CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY,
+  defineCrudListFilters
+} from "@jskit-ai/resource-crud-core/shared/crudListFilters";
 import { resolveJsonApiFieldsetContract } from "./jsonApiResourceContract.js";
+import { buildFilterQuerySchemaDefinition } from "./listFilterTypes.js";
 
 const listSearchQueryValidator = Object.freeze({
   schema: createSchema({
@@ -15,6 +20,12 @@ const listSearchQueryValidator = Object.freeze({
   }),
   mode: "patch"
 });
+
+// `id`, one record id or a list of them, narrows a list to those rows (the handle's own id filter), so a picker
+// reads the selected values its loaded page lacks in one request instead of showing their raw ids.
+const listRecordIdsQueryValidator = buildFilterQuerySchemaDefinition(Object.values(defineCrudListFilters({
+  id: { type: CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY, label: "Id" }
+})));
 
 const lookupIncludeQueryValidator = Object.freeze({
   schema: createSchema({
@@ -191,7 +202,7 @@ function createCrudParentFilterQueryValidator(resource = {}) {
 }
 
 /**
- * The query schemas of a CRUD list: cursor, search, parent filters, list filters, include and fieldsets.
+ * The query schemas of a CRUD list: cursor, search, record ids, parent filters, list filters, include and fieldsets.
  * @param {object} [options]
  * @param {object} [options.resource]
  * @param {object | null} [options.listFilterQueryValidator]
@@ -217,6 +228,7 @@ function createStandardCrudListQueryValidators({
       orderBy: resource.resource?.defaultSort
     }),
     searchQueryValidator,
+    listRecordIdsQueryValidator,
     createCrudParentFilterQueryValidator(resource),
     ...(resolvedListFilterQueryValidator
       ? [resolvedListFilterQueryValidator]
@@ -240,6 +252,7 @@ export {
   createCrudCursorPaginationQueryValidator,
   createJsonApiFieldsetsQueryValidator,
   listSearchQueryValidator,
+  listRecordIdsQueryValidator,
   lookupIncludeQueryValidator,
   jsonApiFieldsetsQueryValidator,
   createCrudParentFilterQueryValidator,

@@ -254,6 +254,13 @@ mapping in the resource; do not add page-local filtering or duplicate request
 code. The full Books source example maps `q` to title, author and notes; narrow
 it when adapting the example to fewer fields.
 
+Every CRUD list also takes `id`, one record id or a list of them
+(`filter[id]` on the JSON:API transport), and answers only those of its rows,
+in the caller's scope. A picker whose selected values are not on the page it
+loaded reads them this way, all in one request, instead of showing their raw
+ids or reading pages until it finds them; `useCrudListFilterLookups()` does it
+for a lookup filter's chips and options.
+
 The browser page's route query and internal CRUD query use plain `q`. The
 JSON:API HTTP transport uses `filter[q]`. Shared CRUD clients encode and decode
 this automatically. Raw HTTP/API tests must send the transport key themselves:

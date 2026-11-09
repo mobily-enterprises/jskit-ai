@@ -10,6 +10,7 @@ import { useList } from "../records/useList.js";
 import { resolveLookupItemLabel } from "./crudLookupFieldLabelSupport.js";
 import { inferCrudLookupJsonApiTransport } from "./crudJsonApiTransportSupport.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
+import { normalizeLookupRequestQueryParamsMap } from "../internal/crudListFilterLookupSupport.js";
 import { useJskitText } from "../../i18n.js";
 
 const { t } = useJskitText();
@@ -59,14 +60,23 @@ function createSelectedLookupItem(selectedValue, selectedRecord = {}, entry = {}
   };
 }
 
+/**
+ * The options of a form's lookup fields, one server-searched page each. `requestQueryParams` narrows a field's options
+ * on the server by its key: `{ roomId: () => ({ buildingId: formState.buildingId, bookable: true }) }` lists only the
+ * chosen building's bookable rooms, and follows the building as it changes. Each entry is an object (its values may be refs), a ref, or
+ * a function of `{ surfaceId, scopeParamValue, ownershipFilter }`, as useList's requestQueryParams.
+ * @param {object} [options]
+ */
 function createCrudLookupFieldRuntime({
   formFields = [],
   recordIdParam = "recordId",
   queryKeyPrefix = [],
   placementSourcePrefix = "",
-  lookupContainerKey = "lookups"
+  lookupContainerKey = "lookups",
+  requestQueryParams = {}
 } = {}) {
   const runtimes = new Map();
+  const normalizedRequestQueryParams = normalizeLookupRequestQueryParamsMap(requestQueryParams);
   const normalizedRecordIdParam = normalizeText(recordIdParam) || "recordId";
   const normalizedPlacementSourcePrefix = normalizeText(placementSourcePrefix);
   const normalizedQueryKeyPrefix = normalizeQueryKeyPrefix(queryKeyPrefix);
@@ -120,6 +130,9 @@ function createCrudLookupFieldRuntime({
         mode: "query",
         queryParam: "q"
       },
+      ...(Object.hasOwn(normalizedRequestQueryParams, key)
+        ? { requestQueryParams: normalizedRequestQueryParams[key] }
+        : {}),
       placementSource: normalizedPlacementSourcePrefix
         ? `${normalizedPlacementSourcePrefix}.${key}`
         : `lookup.${key}`,

@@ -457,6 +457,7 @@ function resolveRouteSyncManagedKeys({
 
 export {
   normalizeListSyncToRouteConfig,
+  resolveQueryParamsInput,
   resolveQueryParamDescriptors,
   resolveActiveQueryParamEntries,
   resolveWritableQueryParamBindings,

@@ -8,6 +8,7 @@ import {
 import { compileRouteValidator } from "@jskit-ai/kernel/_testable";
 import {
   listSearchQueryValidator,
+  listRecordIdsQueryValidator,
   lookupIncludeQueryValidator,
   createCrudCursorPaginationQueryValidator,
   createJsonApiFieldsetsQueryValidator,
@@ -64,6 +65,17 @@ test("listSearchQueryValidator normalizes q", async () => {
   assert.deepEqual(normalized, {
     q: "ani"
   });
+});
+
+test("listRecordIdsQueryValidator takes one record id or a list of them as a list", () => {
+  assert.deepEqual(validateSchemaPayload(listRecordIdsQueryValidator, { id: "7" }, { phase: "input" }), { id: ["7"] });
+  assert.deepEqual(
+    validateSchemaPayload(listRecordIdsQueryValidator, { id: ["7", "12"] }, { phase: "input" }),
+    { id: ["7", "12"] }
+  );
+  assert.throws(() => validateSchemaPayload(listRecordIdsQueryValidator, { id: "seven" }, { phase: "input" }));
+  const compiled = compileRouteValidator({ query: listRecordIdsQueryValidator });
+  assert.deepEqual(compiled.schema.querystring.required || [], []);
 });
 
 test("listSearchQueryValidator keeps q optional when merged with pagination query validator", () => {
@@ -297,7 +309,7 @@ test("standard CRUD query validator groups remain plain and extensible", () => {
   );
   assert.deepEqual(
     Object.keys(listQueryValidator.schema.getFieldDefinitions()).sort(),
-    ["archived", "currentness", "cursor", "fields", "include", "limit", "q"]
+    ["archived", "currentness", "cursor", "fields", "id", "include", "limit", "q"]
   );
 
   const viewQueryValidator = composeSchemaDefinition(

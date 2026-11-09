@@ -109,29 +109,40 @@ function createLookupOptionsFromItems(items = [], filter = {}, labelResolver = n
   return Object.freeze([...optionMap.values()]);
 }
 
-function mergeSelectedLookupOptions(options = [], selectedValues = [], cachedOptions = new Map()) {
-  const optionMap = new Map(
-    (Array.isArray(options) ? options : []).map((option) => [normalizeText(option?.value), option])
-  );
+// The options a lookup shows: selected values its loaded rows lack (from the cache or their own read) first, then the
+// loaded rows. A complete list (no page left to load) is sorted by label; a partial one keeps the server's order, so
+// its first page never looks like a complete A to Z list.
+function mergeSelectedLookupOptions(options = [], selectedValues = [], cachedOptions = new Map(), { complete = true } = {}) {
+  const loaded = Array.isArray(options) ? options : [];
+  const loadedValues = new Set(loaded.map((option) => normalizeText(option?.value)));
   const normalizedCache = cachedOptions instanceof Map ? cachedOptions : new Map();
+  const selected = [];
 
   for (const value of Array.isArray(selectedValues) ? selectedValues : []) {
     const normalizedValue = normalizeText(value);
-    if (!normalizedValue || optionMap.has(normalizedValue)) {
+    if (!normalizedValue || loadedValues.has(normalizedValue) || selected.some((option) => option.value === normalizedValue)) {
       continue;
     }
 
     const cachedOption = normalizedCache.get(normalizedValue);
     if (cachedOption) {
-      optionMap.set(normalizedValue, cachedOption);
+      selected.push(cachedOption);
     }
   }
 
-  return Object.freeze(
-    [...optionMap.values()].sort((left, right) => {
-      return String(left?.label || "").localeCompare(String(right?.label || ""));
-    })
-  );
+  const merged = [...selected, ...loaded];
+  return Object.freeze(complete
+    ? merged.sort((left, right) => String(left?.label || "").localeCompare(String(right?.label || "")))
+    : merged);
+}
+
+// The selected values neither the loaded rows nor the cache can label: the lookup reads these by id.
+function resolveUnlabeledLookupValues(selectedValues = [], options = [], cachedOptions = new Map()) {
+  const loadedValues = new Set((Array.isArray(options) ? options : []).map((option) => normalizeText(option?.value)));
+  const normalizedCache = cachedOptions instanceof Map ? cachedOptions : new Map();
+  return Object.freeze((Array.isArray(selectedValues) ? selectedValues : [])
+    .map((value) => normalizeText(value))
+    .filter((value) => value && !loadedValues.has(value) && !normalizedCache.has(value)));
 }
 
 function resolveLookupOptionLabel(options = [], cachedOptions = new Map(), value = "", fallback = "") {
@@ -163,5 +174,6 @@ export {
   resolveLookupSelectedValues,
   createLookupOptionsFromItems,
   mergeSelectedLookupOptions,
+  resolveUnlabeledLookupValues,
   resolveLookupOptionLabel
 };
