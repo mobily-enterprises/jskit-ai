@@ -100,7 +100,7 @@ Exports
 Local functions
 - `documentNotFound()`
 - `requireDocument(document)`
-- `isNotFound(error)`
+- `isNotFound(error, resourceName)`
 - `recordOutput(crud)`
 - `contractShape(crud)`
 - `includedShape({ attributes, relationships }, labelKey = "")`

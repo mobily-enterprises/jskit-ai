@@ -11,7 +11,8 @@ Use when:
 
 Rules:
 
-- Any chunk that adds or changes user-facing UI must include a Playwright flow that exercises the changed behavior before the chunk is done.
+- Any chunk that adds or changes user-facing UI proves the changed behavior with an automated test before the chunk is done, at the cheapest level that can: a component's content, states and conditional display in a client component test (Vitest); only what needs a real browser (navigation, a flow across screens, layout at the standard widths, focus, the real sign-in) in Playwright.
+- Put a new browser check in the existing spec that already reaches that screen with the data it needs. Add a new spec only for a new flow, using the app's shared server, sign-in and fixture setup. A browser test that pays its own server start, sign-in or seeding to check one card, label or state is not acceptable: every run pays for it for as long as it exists. Move that check to a component test or an existing spec, and report the spec's time and the suite's time before and after.
 - Pattern and framework UI changes must be checked at compact phone, tablet-ish medium, and expanded desktop widths.
 - Check horizontal overflow, clipped or invisible text, duplicate navigation, and broken route placement at every standard viewport. On compact screens, also check screen tap targets under 48 px; medium and expanded layouts may use their documented denser controls.
 - Apps with `shell-web` installed should start from `tests/e2e/adaptive-shell.spec.ts` and extend it with feature-specific assertions.
@@ -186,7 +187,8 @@ browser check with a full lint, build, or test sweep; follow its verification po
 
 Do not mark the chunk done if:
 
-- the feature changed user-facing UI but no Playwright flow ran
-- the Playwright flow skipped the changed behavior itself
+- the feature changed user-facing UI but no test at the right level proves it
+- the test skipped the changed behavior itself
+- a new browser test pays its own setup to check what a component test or an existing spec could
 - a managed environment was bypassed by installing another browser
 - an authenticated flow was left untested without clearly reporting the missing session-bootstrap seam

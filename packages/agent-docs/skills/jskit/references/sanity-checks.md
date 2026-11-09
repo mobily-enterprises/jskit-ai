@@ -116,6 +116,10 @@ expects the relationship id or an unselected field never gets it.
   once](typed-features.md#test-databases-are-prepared-once),
   [integration test
   databases](database-layer.md#integration-test-databases)).
+- A component's content and states are checked in a Vitest component test;
+  a browser check is an assertion in the Playwright spec that already reaches
+  that screen. Every Playwright run ends with its 10 slowest tests: compare a
+  new test's time, and the suite's, before and after.
 
 ### Inputs and access
 
