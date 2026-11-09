@@ -219,7 +219,8 @@ test("listForActorScope pages newest first by id, within one actor, surface and 
   assert.deepEqual(Object.keys(all).sort(), ["items", "nextCursor"]);
   assert.deepEqual(all.items.map((item) => item.id), [archived.id, mine[2].id, mine[1].id, mine[0].id], "newest id first, global scope only");
   assert.equal(all.nextCursor, null);
-  assert.deepEqual(all.items[1], mine[2], "items are whole conversation records");
+  const { metadata: _metadata, ...summary } = mine[2];
+  assert.deepEqual(all.items[1], summary, "items are conversation records without their runtime metadata, which only a read needs");
 
   const page = await conversations.listForActorScope({ ...scope, pagination: { limit: 2 } });
   assert.deepEqual(page.items.map((item) => item.id), [archived.id, mine[2].id]);

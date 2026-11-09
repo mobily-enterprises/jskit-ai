@@ -70,3 +70,18 @@ test("assistant conversation message params accept numeric path strings", async 
   assert.equal(parsed.ok, true);
   assert.deepEqual(parsed.value, { conversationId: 2 });
 });
+
+// A list shows each conversation without its runtime metadata (the system prompt, every tool's
+// schema and a note per message), which grows with every message; a read of the conversation keeps it.
+test("a conversation list item carries no runtime metadata, and a read of the conversation does", async () => {
+  const item = { id: "1", workspaceId: null, title: "Trip", createdByUserId: "7", status: "active", provider: "openai",
+    model: "gpt-4.1", surfaceId: "home", startedAt: "2026-03-16T10:00:00.000Z", endedAt: null, messageCount: 2,
+    createdAt: "2026-03-16T10:00:00.000Z", updatedAt: "2026-03-16T10:01:00.000Z" };
+  const listed = await validateOperationSection({ operation: assistantContract.operations.conversationsList,
+    section: "output", value: { items: [item], nextCursor: null } });
+  assert.equal(listed.ok, true);
+  assert.equal(Object.hasOwn(listed.value.items[0], "metadata"), false);
+  const read = await validateOperationSection({ operation: assistantContract.operations.conversationMessagesList,
+    section: "output", value: { conversation: item, entries: [], page: 1, pageSize: 200, total: 0, totalPages: 1 } });
+  assert.equal(read.ok, false, "a conversation read still requires its metadata");
+});

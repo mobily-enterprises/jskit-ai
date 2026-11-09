@@ -20,6 +20,16 @@ function normalizeRequiredSurfaceId(value) {
   return normalizedSurfaceId;
 }
 
+// What a list shows of a conversation: never its runtime metadata (the system prompt, every tool's schema and
+// a note per message ever written), which grows with the conversation and only a read of it needs.
+const LIST_FIELDS = Object.freeze(["workspaceId", "userId", "title", "status", "provider", "model", "surfaceId", "messageCount",
+  "startedAt", "endedAt", "createdAt", "updatedAt"]);
+
+function mapConversationSummary(record = {}) {
+  const { metadata: _metadata, ...summary } = mapConversationRecord(record);
+  return summary;
+}
+
 function mapConversationRecord(record = {}) {
   return {
     id: normalizeRecordId(record.id, { fallback: "" }),
@@ -260,10 +270,11 @@ function createRepository({ conversations, systemContext }) {
         ...(cursor ? { beforeId: cursor } : {})
       },
       sort: ["-id"],
+      fields: LIST_FIELDS,
       page: { size: limit }
     }, { ...passedOn(options), context: conversationContext.forUser(normalizedActorUserId) });
 
-    const items = records.map(mapConversationRecord);
+    const items = records.map(mapConversationSummary);
     const nextCursor = page.hasMore && items.length > 0 ? items[items.length - 1].id : null;
 
     return {

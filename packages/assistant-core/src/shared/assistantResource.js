@@ -74,7 +74,7 @@ const conversationsListQuerySchema = createSchema({
   }
 });
 
-const conversationRecordSchema = createSchema({
+const conversationRecordFields = {
   id: {
     type: "string",
     required: true,
@@ -146,7 +146,13 @@ const conversationRecordSchema = createSchema({
     required: true,
     minLength: 1
   }
-});
+};
+
+const conversationRecordSchema = createSchema(conversationRecordFields);
+
+// A list's conversation: the record without its runtime metadata, which only a read of the conversation needs.
+const { metadata: _metadata, ...conversationListItemFields } = conversationRecordFields;
+const conversationListItemSchema = createSchema(conversationListItemFields);
 
 const messageRecordSchema = createSchema({
   id: {
@@ -277,7 +283,7 @@ const assistantContract = defineApiContract({
     conversationsList: {
       method: "GET",
       query: conversationsListQuerySchema,
-      output: createCursorListValidator(createSchemaDefinition(conversationRecordSchema, "replace"))
+      output: createCursorListValidator(createSchemaDefinition(conversationListItemSchema, "replace"))
     },
     conversationMessagesList: {
       method: "GET",
