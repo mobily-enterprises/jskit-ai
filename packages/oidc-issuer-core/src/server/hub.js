@@ -80,22 +80,24 @@ async function createHub({ knex, config, devAuth, logger, mailer, now, googleEnd
     return kid;
   }
 
-  /** Sends a signed logout token to every approved app that asked for back-channel logout. */
+  /**
+   * Sends a signed logout token to every approved app that asked for back-channel logout, all at once: one slow app
+   * does not hold the others back.
+   */
   async function backchannelLogout(accountId) {
-    const results = [];
-    for (const row of await clients.list()) {
-      if (!ACTIVE_STATUSES.has(row.status)) continue;
-      const client = await current.provider.Client.find(row.client_id);
-      if (!client?.backchannelLogoutUri) continue;
+    const provider = current.provider;
+    const results = await Promise.all((await clients.listIdsWithStatus(ACTIVE_STATUSES)).map(async (clientId) => {
+      const client = await provider.Client.find(clientId);
+      if (!client?.backchannelLogoutUri) return null;
       try {
         await client.backchannelLogout(accountId);
-        results.push({ clientId: row.client_id, ok: true });
+        return { clientId, ok: true };
       } catch (error) {
-        logger.warn({ clientId: row.client_id, err: error }, "Back-channel logout was not accepted.");
-        results.push({ clientId: row.client_id, ok: false });
+        logger.warn({ clientId, err: error }, "Back-channel logout was not accepted.");
+        return { clientId, ok: false };
       }
-    }
-    return results;
+    }));
+    return results.filter(Boolean);
   }
 
   async function maintain() {

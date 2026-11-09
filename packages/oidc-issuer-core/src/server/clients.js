@@ -128,6 +128,11 @@ function createClientStore({ knex, now }) {
     return table().orderBy("created_at", "desc");
   }
 
+  /** The ids of the apps in one of these statuses, read by status in SQL. */
+  async function listIdsWithStatus(statuses) {
+    return (await table().whereIn("status", [...statuses]).select("client_id")).map((row) => row.client_id);
+  }
+
   /** The status a new registration from this origin receives. */
   async function statusForOrigin(origin, devOriginPatterns) {
     const rows = await table().where({ origin });
@@ -189,6 +194,7 @@ function createClientStore({ knex, now }) {
   return Object.freeze({
     get,
     list,
+    listIdsWithStatus,
     statusForOrigin,
     insert,
     rename,

@@ -52,3 +52,46 @@ test("disabling an account sends a signed logout token to approved apps", async 
   const blocked = await createBrowser().api(`${hub.url}/hub/api/sign-in`, { body: { email: "ada@example.test", password: PASSWORD } });
   assert.equal(blocked.status, 401, "a disabled account cannot sign in");
 });
+
+test("ending every session reads only the approved apps and sends their logout tokens at once", async (t) => {
+  // Each app answers only once both tokens have arrived, or after 2 seconds: one at a time, the first waits it out.
+  let inFlight = 0;
+  let mostAtOnce = 0;
+  let bothArrived;
+  const arrivals = new Promise((resolve) => { bothArrived = resolve; });
+  const slow = Fastify({ logger: false, forceCloseConnections: true });
+  slow.addContentTypeParser("application/x-www-form-urlencoded", { parseAs: "string" }, (_request, body, done) => done(null, body));
+  slow.post("/api/auth/oidc/backchannel-logout", async (_request, reply) => {
+    inFlight += 1;
+    mostAtOnce = Math.max(mostAtOnce, inFlight);
+    if (inFlight === 2) bothArrived();
+    await Promise.race([arrivals, new Promise((resolve) => setTimeout(resolve, 2_000))]);
+    inFlight -= 1;
+    return reply.code(200).send();
+  });
+  await slow.listen({ port: 0, host: "127.0.0.1" });
+  t.after(() => slow.close());
+  const origin = `http://127.0.0.1:${slow.server.address().port}`;
+  await registerApp(hub.url, { origin, name: "One" });
+  await registerApp(hub.url, { origin, name: "Two" });
+  const waiting = await registerApp(hub.url, { origin: "https://waiting.example.test", name: "Waiting" });
+  assert.equal(waiting.response.headers.get("x-hub-client-status"), "pending");
+  const owner = createBrowser();
+  await owner.api(`${hub.url}/hub/api/sign-in`, { body: { email: OWNER_EMAIL, password: PASSWORD } });
+  const { body: { account } } = await createAccount(createBrowser(), hub.url, { email: "grace@example.test", password: PASSWORD });
+
+  const statements = [];
+  const record = ({ sql }) => statements.push(sql);
+  hub.knex.on("query", record);
+  let disabled;
+  try {
+    disabled = await owner.api(`${hub.url}/hub/api/admin/people/${account.id}/disable`, { body: {} });
+  } finally {
+    hub.knex.off("query", record);
+  }
+  assert.equal(disabled.status, 200);
+  assert.equal(mostAtOnce, 2, "Both apps' logout tokens are in flight at once");
+  const appReads = statements.filter((sql) => /oidc_issuer_clients/u.test(sql) && /^select/iu.test(sql));
+  assert.equal(appReads.length, 1, appReads.join("\n"));
+  assert.match(appReads[0], /`status` in \(/u, "The approved apps are chosen by status in SQL");
+});
