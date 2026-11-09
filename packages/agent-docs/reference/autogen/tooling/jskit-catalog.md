@@ -209,7 +209,7 @@ Local functions
 - `walk(projectRoot, directory, files, wholeApp = false)`
 - `collectFiles(projectRoot, paths)`
 - `createReporter(file, source)`
-- `checkCode(code, offset, { report, themed })`
+- `checkCode(code, offset, context)`
 - `checkScript(code, offset, context)`
 - `checkCss(css, offset, context)`
 - `checkDeclaration(declaration, context)`
@@ -396,12 +396,14 @@ Local functions
 ### `scripts/ui-components.mjs`
 Exports
 - `checkRemovedProps(tags, script, removedProps, report)`
-- `checkVuetifyByNameAttribute(tag, entry, report)`
-- `checkVuetifyByNameCode(code, offset, report)`
+- `checkVuetifyByNameAttribute(tag, entry, context)`
+- `checkVuetifyByNameCode(code, offset, context)`
 - `readRemovedProps(root)`
+- `readVuetifyComponents(root)`
 Local functions
+- `readExportNames(file, names = new Set(), seen = new Set())`
 - `readComponentImports(script)`
-- `reportByName(report, offset, name, how)`
+- `reportByName({ report, vuetifyComponents }, offset, name, how)`
 
 ### `scripts/verify-packages.mjs`
 Exports

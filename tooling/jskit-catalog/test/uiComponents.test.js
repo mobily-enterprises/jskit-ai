@@ -71,9 +71,27 @@ test("an exception cannot excuse a ui/* rule", async () => {
   });
 });
 
+// The installed Vuetify, as its package lays out vuetify/components: an index of each component's own index.
+const VUETIFY = {
+  "node_modules/vuetify/package.json": {
+    name: "vuetify",
+    version: "4.3.2",
+    type: "module",
+    exports: { ".": "./lib/framework.js", "./components": { types: "./lib/components/index.d.ts", import: "./lib/components/index.js" } }
+  },
+  "node_modules/vuetify/lib/components/index.js": ["VBottomSheet", "VCard", "VDialog", "VMenu", "transitions"]
+    .map((name) => `export * from "./${name}/index.js";`).join("\n"),
+  "node_modules/vuetify/lib/components/VBottomSheet/index.js": "export { VBottomSheet } from \"./VBottomSheet.js\";\n",
+  "node_modules/vuetify/lib/components/VCard/index.js": "export { VCard } from \"./VCard.js\";\nexport { VCardText, VCardTitle } from \"./VCardText.js\";\n",
+  "node_modules/vuetify/lib/components/VDialog/index.js": "export { VDialog } from \"./VDialog.js\";\n",
+  "node_modules/vuetify/lib/components/VMenu/index.js": "export { VMenu } from \"./VMenu.js\";\n",
+  "node_modules/vuetify/lib/components/transitions/index.js": "export const VFadeTransition = createCssTransition(\"fade-transition\");\n"
+};
+
 test("a Vuetify component named for Vue to resolve at run time is a finding; one imported and passed is not", async () => {
   await withApp({
     "package.json": { name: "by-name", private: true },
+    ...VUETIFY,
     "src/components/ConfirmHost.vue": component(
       [
         "import { h, resolveComponent, resolveDynamicComponent } from \"vue\";",
@@ -92,10 +110,16 @@ test("a Vuetify component named for Vue to resolve at run time is a finding; one
       ].join("\n"),
       "<component :is=\"VDialog\" /><component is=\"section\" /><v-dialog />"
     ),
-    "src/lib/dialogs.js": "export const open = (h) => h(\"VDialog\");\n"
+    "src/lib/dialogs.js": "export const open = (h) => h(\"VDialog\");\n",
+    // Names the installed Vuetify does not export are another library's to register.
+    "src/components/Chart.vue": component(
+      "import { h, resolveComponent } from \"vue\";\nconst chart = resolveComponent(\"v-chart\");\nconst tree = () => h(\"VTreeselect\");",
+      "<component is=\"v-chart\" /><component :is=\"'VChart'\" /><component is=\"v-fade-transition\" />"
+    )
   }, async (root) => {
     const result = await checkMaterial3({ projectRoot: root });
     assert.deepEqual(findingLines(result), [
+      "src/components/Chart.vue:7 ui/vuetify-by-name",
       "src/components/ConfirmHost.vue:3 ui/vuetify-by-name",
       "src/components/ConfirmHost.vue:4 ui/vuetify-by-name",
       "src/components/ConfirmHost.vue:5 ui/vuetify-by-name",
@@ -105,12 +129,22 @@ test("a Vuetify component named for Vue to resolve at run time is a finding; one
       "src/components/ConfirmHost.vue:8 ui/vuetify-by-name",
       "src/lib/dialogs.js:1 ui/vuetify-by-name"
     ]);
-    assert.equal(result.findings[0].message, "resolveComponent(\"v-dialog\") names Vuetify's VDialog for Vue to resolve at run time, " +
+    assert.equal(result.findings[1].message, "resolveComponent(\"v-dialog\") names Vuetify's VDialog for Vue to resolve at run time, " +
       "which finds nothing in a JSKIT app: Vuetify components are imported where a template writes their tag, never " +
       "registered by name, so Vue renders an unknown element. Import it, import { VDialog } from \"vuetify/components\", " +
       "and pass the component itself.");
     assert.deepEqual(result.findings.filter(({ line }) => line === 8).map(({ message }) => message.split(" names ")[0]), [
       "is=\"v-menu\"", ":is=\"'VDialog'\"", ":is=\"'v-bottom-sheet'\"", "resolveComponent(\"v-card\")"
     ]);
+    assert.match(result.findings[0].message, /^is="v-fade-transition" names Vuetify's VFadeTransition /u);
+  });
+});
+
+test("without Vuetify installed, no name is Vuetify's", async () => {
+  await withApp({
+    "package.json": { name: "no-vuetify", private: true },
+    "src/lib/dialogs.js": "export const open = (h) => h(\"VDialog\");\n"
+  }, async (root) => {
+    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root })), []);
   });
 });

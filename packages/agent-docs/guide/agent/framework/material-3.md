@@ -217,7 +217,9 @@ Exactly this, and nothing more:
   `<component :is="VDialog">` or `h(VDialog)`. Named as a string
   (`resolveComponent("v-dialog")`, `resolveDynamicComponent`, `h("v-dialog")`,
   `<component is="v-dialog">`) it resolves to nothing and Vue renders an
-  unknown element, so `jskit check` fails it (`ui/vuetify-by-name`).
+  unknown element, so `jskit check` fails it (`ui/vuetify-by-name`). Only the
+  names the installed Vuetify exports from `vuetify/components` count; another
+  library's component (`v-chart`) is that library's to register.
 - **JSKIT components:** a prop that a JSKIT release removes from a component
   it exports is listed in the package's `jskit.metadata.ui.removedProps`
   (`{ "<Component>": { "<prop>": "<what to do instead>" } }`). An app that
@@ -422,7 +424,7 @@ given paths:
 | `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet (`:border="false"` and `border="0"` draw none and pass) |
 | `m3/mdi-icon` | `mdi-*` icon strings and `@mdi/js` imports |
 | `m3/fixed-button-height` | `height`/`min-height` on buttons, in props, styles or CSS (`.v-btn` and its modifiers, not `.v-btn-group` or `.v-btn-toggle`) |
-| `ui/vuetify-by-name` | a Vuetify component named as a string for Vue to resolve: `resolveComponent`, `resolveDynamicComponent` or `h` with `"v-dialog"` or `"VDialog"`, or a `<component>` whose `is` names one |
+| `ui/vuetify-by-name` | a Vuetify component named as a string for Vue to resolve: `resolveComponent`, `resolveDynamicComponent` or `h` with `"v-dialog"` or `"VDialog"`, or a `<component>` whose `is` names one; a name the installed `vuetify/components` does not export passes |
 | `ui/removed-prop` | a prop the installed JSKIT package lists as removed from the component the template passes it to, written in camelCase or kebab-case, static or bound |
 
 Tests, fixtures, server code and migrations are not checked. A clean check is

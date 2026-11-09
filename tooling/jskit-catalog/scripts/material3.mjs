@@ -24,7 +24,7 @@ import {
   readTags,
   splitVue
 } from "./material3-source.mjs";
-import { checkRemovedProps, checkVuetifyByNameAttribute, checkVuetifyByNameCode, readRemovedProps } from "./ui-components.mjs";
+import { checkRemovedProps, checkVuetifyByNameAttribute, checkVuetifyByNameCode, readRemovedProps, readVuetifyComponents } from "./ui-components.mjs";
 
 // The conformance check of the JSKIT Material 3 guide, its navigation rules (nav/*), its visual rules (m3/*) and its
 // rules for using components (ui/*, ui-components.mjs). It
@@ -193,7 +193,8 @@ function createReporter(file, source) {
 }
 
 // Hex colours and navigation in any JavaScript: a script block, a module, or a bound or event attribute's expression.
-function checkCode(code, offset, { report, themed }) {
+function checkCode(code, offset, context) {
+  const { report, themed } = context;
   if (!themed) {
     for (const match of code.matchAll(quotedHex())) {
       report("m3/raw-hex", offset + match.index, `Raw colour ${match[2]}. Use a theme colour role. ${CONTENT_COLOUR}`);
@@ -203,7 +204,7 @@ function checkCode(code, offset, { report, themed }) {
     }
   }
   checkNavigationCode(code, offset, report);
-  checkVuetifyByNameCode(code, offset, report);
+  checkVuetifyByNameCode(code, offset, context);
 }
 
 function checkScript(code, offset, context) {
@@ -291,7 +292,7 @@ function checkAttribute(tag, entry, context) {
     report("m3/raw-hex", entry.valueOffset, `Raw colour ${entry.value.trim()}. Use a theme colour role such as color="primary". ${CONTENT_COLOUR}`);
   }
   checkLinkAttribute(tag, entry, context.report);
-  checkVuetifyByNameAttribute(tag, entry, context.report);
+  checkVuetifyByNameAttribute(tag, entry, context);
 }
 
 function checkSurface(tag, report) {
@@ -379,10 +380,12 @@ async function checkMaterial3({ projectRoot = process.cwd(), paths = [] } = {}) 
     ? await readTitledFiles({ root, appFiles: [...new Set([...appFiles, ...files])] })
     : new Set();
   const removedProps = await readRemovedProps(root);
+  const vuetifyComponents = await readVuetifyComponents(root);
   const findings = [];
   const exceptions = [];
   for (const file of files) {
-    const checked = checkFile(file, await readFile(path.join(root, file), "utf8"), { titled: titledFiles.has(file), removedProps });
+    const context = { titled: titledFiles.has(file), removedProps, vuetifyComponents };
+    const checked = checkFile(file, await readFile(path.join(root, file), "utf8"), context);
     findings.push(...checked.findings);
     exceptions.push(...checked.exceptions);
   }
