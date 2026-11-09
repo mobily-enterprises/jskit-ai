@@ -12,7 +12,7 @@ import {
   formatExportSummary
 } from "./i18n.mjs";
 import { checkDataAccess, formatDataAccessReport } from "./data-access.mjs";
-import { checkMaterial3, formatMaterial3Report, formatNavigationReport } from "./material3.mjs";
+import { checkMaterial3, formatMaterial3Report } from "./material3.mjs";
 import { checkProject, updateProject } from "./project-packages.mjs";
 import { runTests } from "./test-command.mjs";
 import { checkTestRuns, formatTestRunsReport } from "./test-runs.mjs";
@@ -21,9 +21,6 @@ const SCRIPT_PATH = fileURLToPath(import.meta.url);
 const PACKAGE_ROOT = path.resolve(path.dirname(SCRIPT_PATH), "..");
 const CATALOG_PATH = path.join(PACKAGE_ROOT, "catalog", "packages.json");
 const I18N_SUBCOMMANDS = new Set(["export", "check"]);
-// #241: plain `jskit check` fails on every nav/* rule. The JSKIT release that ships once every app has
-// been converted sets this to true, so plain `jskit check` (and every app's verify) fails on every m3/* finding too.
-const MATERIAL3_GATE = false;
 
 function usage() {
   return [
@@ -38,9 +35,11 @@ function usage() {
     "Commands:",
     "  update       Align root and workspace @jskit-ai/* declarations to this published catalog, then run npm install.",
     "  check        Fail when manifests or package-lock.json contain stale, mixed, or private singleton JSKIT stacks,",
-    "               or when application source breaks a JSKIT navigation rule (nav/*): history or window.location",
-    "               navigation, a hand-built in-app path, a back control other than the shell's Up arrow, an inner",
-    "               page without a declared parent, or a main-navigation page that declares one. It also fails when",
+    "               or when application source breaks a rule of the JSKIT Material 3 guide: a navigation rule (nav/*),",
+    "               such as history or window.location navigation, a hand-built in-app path, a back control other than",
+    "               the shell's Up arrow, an inner page without a declared parent or a main-navigation page that",
+    "               declares one, or a visual rule (m3/*), such as a raw colour, an MDI icon, an outlined card or a",
+    "               fixed button height. It also fails when",
     "               a package script runs tests outside the machine's test budget (test/*): node --test instead of",
     "               jskit test, a fixed test concurrency or worker count, or a Playwright or Vitest config whose",
     "               workers do not come from testConcurrency() of @jskit-ai/jskit-catalog/test-budget. A Playwright",
@@ -51,9 +50,9 @@ function usage() {
     "               scope (a feature's systemScope, a systemContext() call) gives no literal reason (data/system-scope),",
     "               and it lists every system scope and every file the infrastructure exception lifts past the",
     "               data-access lint rules for review.",
-    "  check m3     List application UI source that departs from the JSKIT Material 3 guide, each finding with its",
-    "               guide section: the whole app, or only the given files and directories (a section, or a task's",
-    "               changed files). Its visual rules (m3/*) are a report; its nav/* rules are plain jskit check's.",
+    "  check m3     Check application UI source against the JSKIT Material 3 guide alone, with each finding's guide",
+    "               section and every exception: the whole app, or only the given files and directories (a section,",
+    "               or a task's changed files). Plain jskit check applies the same rules to the whole app.",
     "  i18n export  Write the English messages of the installed JSKIT packages to src/locales/<locale>/jskit.json",
     "               for translators, keeping existing translations and extra keys.",
     "  i18n check   Compare src/locales/<locale>/jskit.json with the installed packages' English; fail on missing keys,",
@@ -269,7 +268,7 @@ async function main(argv = process.argv.slice(2)) {
     checkInstalled: true,
     catalog
   });
-  const ui = await checkMaterial3({ projectRoot: options.projectRoot, navigationOnly: !MATERIAL3_GATE });
+  const ui = await checkMaterial3({ projectRoot: options.projectRoot });
   const tests = await checkTestRuns({ projectRoot: options.projectRoot, manifests: result.manifests });
   const data = await checkDataAccess({ projectRoot: options.projectRoot });
   // The data rules first: a graph that fails on many pin versions would otherwise bury them.
@@ -279,7 +278,7 @@ async function main(argv = process.argv.slice(2)) {
       ? `JSKIT project graph is coordinated across ${result.manifests.length} manifest(s) and ` +
         `${result.installations.length} resolved package installation(s).`
       : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
-    MATERIAL3_GATE ? formatMaterial3Report(ui) : formatNavigationReport(ui),
+    formatMaterial3Report(ui),
     formatTestRunsReport(tests)
   ];
   if (!result.ok || !ui.ok || !tests.ok || !data.ok) {

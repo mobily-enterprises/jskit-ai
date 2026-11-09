@@ -188,9 +188,8 @@ Local functions
 ### `scripts/material3.mjs`
 Exports
 - `MATERIAL3_RULES`
-- `checkMaterial3({ projectRoot = process.cwd(), paths = [], navigationOnly = false } = {})`
+- `checkMaterial3({ projectRoot = process.cwd(), paths = [] } = {})`
 - `formatMaterial3Report(result)`
-- `formatNavigationReport(result)`
 Local functions
 - `hexPattern()`
 - `channelColour()`
@@ -201,7 +200,7 @@ Local functions
 - `isFrameworkPackage(projectRoot, directory)`
 - `walk(projectRoot, directory, files, wholeApp = false)`
 - `collectFiles(projectRoot, paths)`
-- `createReporter(file, source, { navigationOnly = false } = {})`
+- `createReporter(file, source)`
 - `checkCode(code, offset, { report, themed })`
 - `checkScript(code, offset, context)`
 - `checkCss(css, offset, context)`

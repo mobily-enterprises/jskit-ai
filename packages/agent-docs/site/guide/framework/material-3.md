@@ -372,16 +372,16 @@ Two commands read application source (no server, no browser) and print each
 finding with its file, line, rule and the section of this page:
 
 ```bash
-npx jskit check                          # in every app's verify: fails on any nav/* rule
-npx jskit check m3                       # the whole app: src/ and packages/
+npx jskit check                          # in every app's verify: fails on any nav/* or m3/* finding
+npx jskit check m3                       # these rules alone, the whole app: src/ and packages/
 npx jskit check m3 src/pages/home/books  # a section
 npx jskit check m3 $(git diff --name-only --diff-filter=d main)  # changed files
 ```
 
-Plain `jskit check` fails on the [navigation rules](#forbidden-in-app-code).
-`jskit check m3` lists those and the visual rules below. The visual rules are a
-report until every JSKIT app has been converted to them; the JSKIT release after
-that makes plain `jskit check`, and so every app's verify, fail on them too:
+Plain `jskit check`, and so every app's verify, fails on the
+[navigation rules](#forbidden-in-app-code) and on the visual rules below.
+`jskit check m3` applies the same rules alone, to the whole app or to the
+given paths:
 
 | Rule | Finds |
 |---|---|

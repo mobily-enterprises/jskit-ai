@@ -6,7 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { promisify } from "node:util";
-import { checkMaterial3, formatMaterial3Report, formatNavigationReport, MATERIAL3_RULES } from "../scripts/material3.mjs";
+import { checkMaterial3, formatMaterial3Report, MATERIAL3_RULES } from "../scripts/material3.mjs";
 import { parseArgs, usage } from "../scripts/jskit.mjs";
 
 const execFileAsync = promisify(execFile);
@@ -33,6 +33,12 @@ async function withApp(files, run) {
 }
 
 const findingLines = (result) => result.findings.map(({ file, line, rule }) => `${file}:${line} ${rule}`);
+
+// The check with its navigation findings alone, for the tests of the nav/* rules.
+async function checkNavigation(options) {
+  const result = await checkMaterial3(options);
+  return { ...result, findings: result.findings.filter(({ rule }) => rule.startsWith("nav/")) };
+}
 
 // Every rule fails at least once in this page; each line is numbered in the comment beside the expectation below.
 const DRIFTING_PAGE = [
@@ -189,15 +195,13 @@ test("jskit check m3 reports each drifting pattern once, with its line and rule"
       "src/pages/home/books.vue:43 m3/fixed-button-height",
       "src/pages/home/books.vue:44 m3/raw-hex"
     ]);
-    assert.equal(result.errors, DRIFTING_NAVIGATION.length);
+    assert.match(formatMaterial3Report(result), /^Material 3 check: 29 finding\(s\) in 2 of 4 file\(s\) of the whole app\. Exceptions: 1\.$/mu);
     const darkScheme = result.findings.filter(({ rule }) => rule === "m3/dark-scheme").map(({ message }) => message);
     assert.match(darkScheme.join("\n"), /No dark colour scheme/u);
     assert.match(darkScheme.join("\n"), /pinned to light/u);
     for (const finding of result.findings) assert.ok(MATERIAL3_RULES[finding.rule], finding.rule);
 
-    const navigation = await checkMaterial3({ projectRoot: root, navigationOnly: true });
-    assert.deepEqual(findingLines(navigation), DRIFTING_NAVIGATION);
-    assert.match(formatNavigationReport(navigation), /14 error\(s\) in 4 file\(s\) and 0 shell page\(s\)\. Fix each one; no comment excuses a navigation rule\.$/u);
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), DRIFTING_NAVIGATION);
   });
 });
 
@@ -286,14 +290,12 @@ test("an exception excuses one m3/* rule on its line or the next, with a reason,
     assert.match(result.findings.find(({ line }) => line === 10).message, /Nothing excuses a navigation rule \(nav\/raw-link\)/u);
     assert.match(result.findings.find(({ line }) => line === 8).message, /m3\/raw-colour is not a Material 3 rule/u);
 
-    // Plain jskit check's navigation part fails on the nav/* exceptions too, and lists no visual exception.
-    const navigation = await checkMaterial3({ projectRoot: root, navigationOnly: true });
-    assert.deepEqual(findingLines(navigation), [
+    // An exception naming a navigation rule is a finding, and the line it meant to excuse stays one.
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), [
       "src/pages/home/partners.vue:10 nav/allow",
       "src/pages/home/partners.vue:11 nav/raw-link",
       "src/pages/home/partners.vue:12 nav/allow"
     ]);
-    assert.deepEqual(navigation.exceptions, []);
   });
 });
 
@@ -330,9 +332,8 @@ test("nothing turns the check off for an app, a folder or a file", async () => {
     assert.deepEqual(result.exceptions, [
       { file: "src/pages/home/far.vue", line: 1, rule: "m3/raw-hex", reason: "only reaches the next line" }
     ]);
-    const navigation = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const navigation = await checkNavigation({ projectRoot: root });
     assert.equal(navigation.findings.length, 4);
-    assert.equal(navigation.ok, false);
   });
 });
 
@@ -364,13 +365,13 @@ test("a whole-app check reads a JSKIT package's patterns and templates, not its 
     "packages/shelves/package.json": JSON.stringify({ name: "@local/shelves" }),
     "packages/shelves/src/client/leave.js": leaving
   }, async (root) => {
-    const whole = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const whole = await checkNavigation({ projectRoot: root });
     assert.deepEqual(whole.files, ["packages/shell-web/templates/src/leave.js", "packages/shelves/src/client/leave.js"]);
     assert.deepEqual(whole.findings.map(({ file, rule }) => `${file} ${rule}`), [
       "packages/shell-web/templates/src/leave.js nav/window-location",
       "packages/shelves/src/client/leave.js nav/window-location"
     ]);
-    const asked = await checkMaterial3({ projectRoot: root, paths: ["packages/shell-web"], navigationOnly: true });
+    const asked = await checkNavigation({ projectRoot: root, paths: ["packages/shell-web"] });
     assert.ok(asked.files.includes("packages/shell-web/src/client/leave.js"));
   });
 });
@@ -642,7 +643,7 @@ const PARENT_APP = {
 
 test("every inner shell page declares a parent and no main-navigation page declares one", async () => {
   await withApp(PARENT_APP, async (root) => {
-    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const result = await checkNavigation({ projectRoot: root });
     assert.deepEqual(findingLines(result), [
       "src/pages/home/contacts/index.vue:2 nav/top-level-parent",
       "src/pages/home/settings/general/index.vue:1 nav/missing-parent",
@@ -684,11 +685,11 @@ const accountApp = (homeLinkProps) => ({
 
 test("a main-navigation link that names its surface is a destination of that surface only", async () => {
   await withApp(accountApp("{ label: \"Home\", surface: \"home\", scopedSuffix: \"/\" }"), async (root) => {
-    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), []);
   });
   // A link that names no surface leads to "/" on each surface it shows on, so account's "/" is a destination.
   await withApp(accountApp("{ label: \"Start\", scopedSuffix: \"/\" }"), async (root) => {
-    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), [
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), [
       "src/pages/account/index.vue:2 nav/top-level-parent"
     ]);
   });
@@ -698,13 +699,13 @@ test("a page that declares a parent under no shell layout is a finding: its titl
   const app = accountApp("{ label: \"Home\", surface: \"home\", scopedSuffix: \"/\" }");
   delete app["src/pages/account.vue"];
   await withApp(app, async (root) => {
-    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const result = await checkNavigation({ projectRoot: root });
     assert.deepEqual(findingLines(result), ["src/pages/account/index.vue:2 nav/missing-shell-layout"]);
     assert.match(result.findings[0].message, /Give the surface its layout, src\/pages\/account\.vue: ShellLayout around <RouterView \/>, with meta\.jskit\.surface "account"/u);
   });
   // An App.vue that draws the bar around every page leaves none outside it.
   await withApp({ ...app, "src/App.vue": "<script setup>\nimport ShellLayout from \"@/components/ShellLayout.vue\";\n</script>\n<template>\n  <ShellLayout><RouterView /></ShellLayout>\n</template>\n" }, async (root) => {
-    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), []);
   });
 });
 
@@ -763,7 +764,7 @@ const parentLine = (id) => {
 
 test("a package's routes are shell pages: inner ones declare a parent in package.json, top-level ones none", async () => {
   await withApp(packageRouteApp(), async (root) => {
-    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const result = await checkNavigation({ projectRoot: root });
     const manifest = "packages/manage/package.json";
     assert.deepEqual(findingLines(result), [
       `${manifest}:${routeLine("manage.view")} nav/missing-parent`,
@@ -787,13 +788,13 @@ test("a package's routes are shell pages: inner ones declare a parent in package
     ]);
 
     // A run over the package's files judges its routes too.
-    const section = await checkMaterial3({ projectRoot: root, paths: ["packages/manage"], navigationOnly: true });
+    const section = await checkNavigation({ projectRoot: root, paths: ["packages/manage"] });
     assert.equal(section.findings.filter(({ rule }) => rule.startsWith("nav/")).length, 5);
   });
   // An App.vue that draws the bar around every page puts the bare page under it too.
   const appShell = { "src/App.vue": "<script setup>\nimport ShellLayout from \"@/components/ShellLayout.vue\";\n</script>\n<template>\n  <ShellLayout><RouterView /></ShellLayout>\n</template>\n" };
   await withApp(packageRouteApp(appShell), async (root) => {
-    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const result = await checkNavigation({ projectRoot: root });
     assert.equal(result.findings.some(({ rule }) => rule === "nav/missing-shell-layout"), false);
   });
 });
@@ -827,7 +828,7 @@ test("a main-navigation placement that isn't literal data is a finding instead o
     "addPlacement({ id: \"app.shelf\", target: \"shell.secondary-nav\", kind: \"link\", props: { scopedSuffix: `/shelves/${shelfId}` } });",
     ""
   ].join("\n")), async (root) => {
-    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const result = await checkNavigation({ projectRoot: root });
     assert.deepEqual(findingLines(result), [
       "src/placement.js:2 nav/placement-data",
       "src/placement.js:5 nav/placement-data",
@@ -846,7 +847,7 @@ test("a main-navigation placement that isn't literal data is a finding instead o
     "addPlacement({ id: \"app.shelves\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"home\"], props: { label: t(\"nav.shelves\"), scopedSuffix: \"/shelves\" } });",
     ""
   ].join("\n")), async (root) => {
-    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), []);
   });
 });
 
@@ -890,7 +891,7 @@ const OWN_BAR_APP = {
 
 test("a layout that draws its own top app bar with ShellUpButton is a shell layout, and only a hand-made Up is a back control", async () => {
   await withApp(OWN_BAR_APP, async (root) => {
-    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const result = await checkNavigation({ projectRoot: root });
     assert.deepEqual(findingLines(result), [
       "src/components/HandMadeUp.vue:6 nav/back-control",
       "src/pages/app/projects/[slug].vue:1 nav/missing-parent"
@@ -901,7 +902,6 @@ test("a layout that draws its own top app bar with ShellUpButton is a shell layo
       "/projects/:slug",
       "/projects/:slug/run  own"
     ]);
-    assert.match(formatNavigationReport(result), /2 error\(s\) in \d+ file\(s\) and 3 shell page\(s\)/u);
   });
 });
 
@@ -938,13 +938,13 @@ const NOT_BACK_PAGE = [
 
 test("nav/back-control flags controls that navigate the app, not prose, variables, steps or an embedded frame's history", async () => {
   await withApp({ "package.json": SHELL_MANIFEST, "src/components/PreviewBrowser.vue": NOT_BACK_PAGE }, async (root) => {
-    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), []);
   });
   const navigating = NOT_BACK_PAGE
     .replace("frame.value.contentWindow.history.back();", "router.push(paths.page(\"/projects\"));")
     .replace("  step.value -= 1;", "  up();");
   await withApp({ "package.json": SHELL_MANIFEST, "src/components/PreviewBrowser.vue": navigating }, async (root) => {
-    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), [
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), [
       "src/components/PreviewBrowser.vue:8 nav/back-control",
       "src/components/PreviewBrowser.vue:19 nav/back-control",
       "src/components/PreviewBrowser.vue:21 nav/back-control"
@@ -971,7 +971,7 @@ test("nav/back-control flags back components in PascalCase and kebab case, and t
     ""
   ].join("\n");
   await withApp({ "package.json": SHELL_MANIFEST, "src/components/InvoicePanel.vue": page }, async (root) => {
-    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const result = await checkNavigation({ projectRoot: root });
     assert.deepEqual(findingLines(result), [
       "src/components/InvoicePanel.vue:2 nav/back-control",
       "src/components/InvoicePanel.vue:8 nav/back-control",
@@ -996,11 +996,11 @@ test("nav/missing-parent judges only pages that always render under the shell's 
     "src/pages/admin/invoices/[id].vue": pageWith("definePage({ meta: { jskit: { parent: \"/\" } } });")
   };
   await withApp(app, async (root) => {
-    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), []);
   });
   // Under a layout whose every RouterView is inside the ShellLayout, the same inner page needs its parent.
   await withApp({ ...app, "src/pages/admin.vue": layout("  <ShellLayout>\n    <RouterView />\n  </ShellLayout>") }, async (root) => {
-    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), [
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), [
       "src/pages/admin/staff-sign-in.vue:1 nav/missing-parent"
     ]);
   });
@@ -1021,7 +1021,7 @@ test("nav/surface-parent flags a parent declared beside a surface, and the layou
     "src/pages/home/contacts.vue": `${route({ surface: "home", parent: "/" })}<template>\n  <section />\n</template>\n`
   };
   await withApp(app, async (root) => {
-    const result = await checkMaterial3({ projectRoot: root, navigationOnly: true });
+    const result = await checkNavigation({ projectRoot: root });
     assert.deepEqual(findingLines(result), ["src/pages/account.vue:2 nav/surface-parent", "src/pages/home/contacts.vue:2 nav/surface-parent"]);
     const message = (file) => result.findings.find((finding) => finding.file === file).message;
     assert.match(message("src/pages/account.vue"), /never reads it[\s\S]*Declare the surface only on the surface's layout page[\s\S]*here, move jskit\.parent to the page this layout renders/u);
@@ -1035,18 +1035,18 @@ test("nav/surface-parent flags a parent declared beside a surface, and the layou
     "src/pages/home/contacts.vue": `${route({ parent: "/" })}<template>\n  <section />\n</template>\n`
   };
   await withApp(fixed, async (root) => {
-    assert.deepEqual(findingLines(await checkMaterial3({ projectRoot: root, navigationOnly: true })), []);
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), []);
   });
 });
 
-test("plain jskit check fails on navigation errors after the package graph and passes once they are fixed", async () => {
+test("plain jskit check fails on navigation and visual findings after the package graph and passes once they are fixed", async () => {
   await withApp(PARENT_APP, async (root) => {
     const failure = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]).then(() => null, (error) => error);
     assert.equal(failure?.code, 1);
     assert.match(failure.stderr, /^JSKIT project graph is coordinated across 1 manifest\(s\) and 0 resolved package installation\(s\)\.$/mu);
     assert.match(failure.stderr, /edit\.vue:2:\d+ {2}nav\/missing-parent {2}Inner page \/suppliers\/:supplierId\/edit of home has no parent/u);
     assert.match(failure.stderr, /material-3#what-an-app-declares/u);
-    assert.match(failure.stderr, /JSKIT navigation rules: 4 error\(s\) in 23 file\(s\) and 13 shell page\(s\)\./u);
+    assert.match(failure.stderr, /^Material 3 check: 4 finding\(s\) in 4 of 23 file\(s\) of the whole app\. Exceptions: 0\.$/mu);
 
     const declare = (parent) => pageWith(`definePage({ meta: { jskit: { parent: "${parent}" } } });`);
     await writeFile(path.join(root, "src/pages/home/contacts/index.vue"), "<template>\n  <section />\n</template>\n");
@@ -1054,7 +1054,14 @@ test("plain jskit check fails on navigation errors after the package graph and p
     await writeFile(path.join(root, "src/pages/home/suppliers/[supplierId]/edit.vue"), declare("/suppliers/:supplierId"));
     await writeFile(path.join(root, "src/pages/w/[workspaceSlug]/admin/jobs/[jobId]/index.vue"), declare("/jobs"));
     const { stdout } = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]);
-    assert.match(stdout, /JSKIT navigation rules pass in 23 file\(s\) and 13 shell page\(s\)\./u);
+    assert.match(stdout, /^Material 3 check: no findings in 23 file\(s\) of the whole app\. Exceptions: 0\.$/mu);
+
+    // The visual rules fail it too: an outlined card.
+    await writeFile(path.join(root, "src/pages/home/contacts/index.vue"), "<template>\n  <v-card variant=\"outlined\" />\n</template>\n");
+    const visual = await execFileAsync(process.execPath, [CLI_PATH, "check", "--root", root]).then(() => null, (error) => error);
+    assert.equal(visual?.code, 1);
+    assert.match(visual.stderr, /contacts\/index\.vue:2:\d+ {2}m3\/outlined-card {2}/u);
+    assert.match(visual.stderr, /^Material 3 check: 1 finding\(s\) in 1 of 23 file\(s\) of the whole app\. Exceptions: 0\.$/mu);
   });
 });
 
@@ -1076,6 +1083,6 @@ test("jskit check m3 parses as its own command and fails the CLI with the report
     assert.match(failure.stderr, /src\/pages\/home\/books\.vue:23:\d+ {2}nav\/history {2}router\.back\(/u);
     assert.match(failure.stderr, /guide\/framework\/material-3#forbidden-in-app-code/u);
     assert.match(failure.stderr, /^Exceptions \(1\):\nsrc\/pages\/home\/books\.vue:30 {2}m3\/raw-hex {2}the partner's logo colour is contractual$/mu);
-    assert.match(failure.stderr, /Material 3 check: 27 finding\(s\) in 1 of 2 file\(s\) of the given paths\. 14 of them nav\/\* rules, which plain jskit check fails on\. Exceptions: 1\.$/mu);
+    assert.match(failure.stderr, /Material 3 check: 27 finding\(s\) in 1 of 2 file\(s\) of the given paths\. Exceptions: 1\.$/mu);
   });
 });

@@ -25,11 +25,11 @@ import {
   splitVue
 } from "./material3-source.mjs";
 
-// `jskit check m3 [path ...]`: the conformance check of the JSKIT Material 3 guide. It reads application source,
-// never runs it. With no paths it checks the whole app; paths narrow it to a section or a task's changed files. The
-// navigation rules (nav/*) are also part of plain `jskit check`, which fails on them for every JSKIT app (#241); the
-// visual rules (m3/*) join them there once every app has been converted. Nothing turns the check off for an app, a
-// folder or a file: the only exception is one line's `m3-check: allow <m3 rule> - <reason>`.
+// The conformance check of the JSKIT Material 3 guide, its navigation rules (nav/*) and its visual rules (m3/*). It
+// reads application source, never runs it. Plain `jskit check` runs it over the whole app and fails on any finding, in
+// every JSKIT app's verify (#241); `jskit check m3 [path ...]` runs it alone, narrowed to a section or a task's changed
+// files. Nothing turns the check off for an app, a folder or a file: the only exception is one line's
+// `m3-check: allow <m3 rule> - <reason>`.
 
 const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/material-3";
 const RULES = Object.freeze({
@@ -154,7 +154,7 @@ async function collectFiles(projectRoot, paths) {
 
 // One line's `m3-check: allow <m3 rule> - <reason>` excuses that rule on its own line and the next. Any other
 // m3-check comment is itself a finding: one naming a nav/* rule (nothing excuses those), an unknown rule, or no reason.
-function createReporter(file, source, { navigationOnly = false } = {}) {
+function createReporter(file, source) {
   const position = lineIndex(source);
   const findings = [];
   const exceptions = [];
@@ -163,8 +163,6 @@ function createReporter(file, source, { navigationOnly = false } = {}) {
     const at = { file, line, column: 1 };
     if (isNavigationRule(rule)) {
       findings.push({ rule: "nav/allow", ...at, message: `Nothing excuses a navigation rule (${rule}). Delete the comment and fix the line.` });
-    } else if (navigationOnly) {
-      continue;
     } else if (!EXCUSABLE_RULES.has(rule)) {
       const what = rule ? `${rule} is not a Material 3 rule` : "The comment is not \"m3-check: allow <rule> - <reason>\"";
       findings.push({ rule: "m3/allow-rule", ...at, message: `${what}, so it excuses nothing.` });
@@ -176,7 +174,6 @@ function createReporter(file, source, { navigationOnly = false } = {}) {
     }
   }
   function report(rule, offset, message) {
-    if (navigationOnly && !isNavigationRule(rule)) return;
     const at = position(offset);
     if (excused.get(at.line)?.includes(rule)) return;
     findings.push({ rule, file, line: at.line, column: at.column, message });
@@ -299,7 +296,7 @@ function checkButtonSize(tag, report) {
 }
 
 function checkFile(file, source, context) {
-  const { report, findings, exceptions } = createReporter(file, source, context);
+  const { report, findings, exceptions } = createReporter(file, source);
   const fileContext = { ...context, report, file, themed: file.split("/").slice(0, -1).includes(THEME_DIRECTORY) };
   const extension = path.extname(file);
   if (extension === ".vue") {
@@ -354,14 +351,12 @@ async function checkDarkScheme(projectRoot, checkedFiles, wholeApp) {
 
 /**
  * Checks application source against the Material 3 guide.
- * @param {{ projectRoot?: string, paths?: string[], navigationOnly?: boolean }} options paths are files or directories
- * relative to the root; navigationOnly keeps only the nav/* rules, as plain jskit check does for the whole app
+ * @param {{ projectRoot?: string, paths?: string[] }} options paths are files or directories relative to the root
  */
-async function checkMaterial3({ projectRoot = process.cwd(), paths = [], navigationOnly = false } = {}) {
+async function checkMaterial3({ projectRoot = process.cwd(), paths = [] } = {}) {
   const root = path.resolve(projectRoot);
   const { files, missing } = await collectFiles(root, paths);
   const appFiles = paths.length === 0 ? files : (await collectFiles(root, [])).files;
-  const context = { navigationOnly };
   // Only a page under the shell's top app bar has its title there; one without a bar has its own h1.
   const titledFiles = usesShell(await readProjectManifest(root))
     ? await readTitledFiles({ root, appFiles: [...new Set([...appFiles, ...files])] })
@@ -369,15 +364,14 @@ async function checkMaterial3({ projectRoot = process.cwd(), paths = [], navigat
   const findings = [];
   const exceptions = [];
   for (const file of files) {
-    const checked = checkFile(file, await readFile(path.join(root, file), "utf8"), { ...context, titled: titledFiles.has(file) });
+    const checked = checkFile(file, await readFile(path.join(root, file), "utf8"), { titled: titledFiles.has(file) });
     findings.push(...checked.findings);
     exceptions.push(...checked.exceptions);
   }
   const pages = await checkPageParents({ root, appFiles, pageFiles: files, report: (finding) => findings.push(finding) });
-  if (!navigationOnly) findings.push(...await checkDarkScheme(root, files, paths.length === 0));
+  findings.push(...await checkDarkScheme(root, files, paths.length === 0));
   findings.sort((left, right) => left.file.localeCompare(right.file) || left.line - right.line || left.column - right.column);
-  const errors = findings.filter((finding) => isNavigationRule(finding.rule)).length;
-  return { projectRoot: root, wholeApp: paths.length === 0, navigationOnly, files, missing, pages, findings, exceptions, errors, ok: findings.length === 0 };
+  return { projectRoot: root, wholeApp: paths.length === 0, files, missing, pages, findings, exceptions, ok: findings.length === 0 };
 }
 
 function formatFindings(result) {
@@ -395,24 +389,13 @@ function formatMaterial3Report(result) {
   const scope = result.wholeApp ? "the whole app" : "the given paths";
   const fileCount = `${result.files.length} file(s)`;
   const withFindings = new Set(result.findings.map((finding) => finding.file)).size;
-  const errors = result.errors > 0 ? ` ${result.errors} of them nav/* rules, which plain jskit check fails on.` : "";
   if (result.exceptions.length > 0) lines.push(`Exceptions (${result.exceptions.length}):`);
   for (const { file, line, rule, reason } of result.exceptions) lines.push(`${file}:${line}  ${rule}  ${reason}`);
   const exceptions = ` Exceptions: ${result.exceptions.length}.`;
   lines.push(result.ok
     ? `Material 3 check: no findings in ${fileCount} of ${scope}.${exceptions}`
-    : `Material 3 check: ${result.findings.length} finding(s) in ${withFindings} of ${fileCount} of ${scope}.${errors}${exceptions}`);
+    : `Material 3 check: ${result.findings.length} finding(s) in ${withFindings} of ${fileCount} of ${scope}.${exceptions}`);
   return lines.join("\n");
 }
 
-// The navigation part of plain jskit check: errors, with no exemptions.
-function formatNavigationReport(result) {
-  const lines = result.ok ? [] : formatFindings(result);
-  const pages = `${result.pages.length} shell page(s)`;
-  lines.push(result.ok
-    ? `JSKIT navigation rules pass in ${result.files.length} file(s) and ${pages}.`
-    : `JSKIT navigation rules: ${result.findings.length} error(s) in ${result.files.length} file(s) and ${pages}. Fix each one; no comment excuses a navigation rule.`);
-  return lines.join("\n");
-}
-
-export { RULES as MATERIAL3_RULES, checkMaterial3, formatMaterial3Report, formatNavigationReport };
+export { RULES as MATERIAL3_RULES, checkMaterial3, formatMaterial3Report };
