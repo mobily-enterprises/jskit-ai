@@ -224,15 +224,18 @@ Exports
 - `narrowInQuery`
 Local functions
 - `literalProperty(object, key)`
+- `paramsLiteral(node)`
 - `objectLiteral(sourceCode, node)`
 - `literalNumber(object, key)`
+- `isOneMore(node)`
 - `pageBound(sourceCode, params)`
 - `builderChain(node)`
-- `limitOfOne(end, back)`
+- `limitCount(end, back)`
 - `isScopedBuilder(sourceCode, identifier)`
 - `readOf(sourceCode, call)`
-- `isLengthRead(expression)`
 - `isRowsMember(expression)`
+- `useOf(expression)`
+- `repeatsPerItem(node, readNode)`
 - `statementLine(node)`
 
 ### `plugin/rules/noDirectKnex.js`
@@ -392,7 +395,9 @@ Local functions
 Exports
 - `searchOnServer`
 Local functions
+- `isSearchName(name)`
 - `attribute(element, name, directive = "")`
+
 ### `plugin/rules/selectionField.js`
 Exports
 - `selectionField`

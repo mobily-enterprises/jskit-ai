@@ -11,8 +11,11 @@ import { vueImportNames } from "../vueSources.js";
 const LIST_COMPOSABLES = new Set(["useList", "useListCore", "useCrudList", "useCrudListScreen", "usePagedCollection"]);
 // The JSKIT call that answers a lookup field's or a lookup filter's options.
 const LOOKUP_ITEMS = "resolveLookupItems";
-// A ref that holds typed search text.
-const SEARCH_NAME = /search|query|term|keyword/iu;
+// A ref that holds typed search text: a name with one of these words (`search`, `searchText`, `queryTerm`, `keywords`),
+// or `q`; not a word that merely contains one (`terminal`, `determinate`).
+const SEARCH_WORDS = new Set(["search", "query", "term", "terms", "keyword", "keywords"]);
+const isSearchName = (name) => name === "q" ||
+  name.replace(/([a-z0-9])([A-Z])/gu, "$1 $2").toLowerCase().split(/[\s_$]+/u).some((word) => SEARCH_WORDS.has(word));
 const COMPUTED = new Set(["computed"]);
 const AUTOCOMPLETES = new Set(["v-autocomplete", "vautocomplete"]);
 
@@ -23,7 +26,8 @@ function attribute(element, name, directive = "") {
     if (!entry.directive) {
       return !directive && (entry.key.name === name || entry.key.rawName === name);
     }
-    return entry.key.name.name === directive && entry.key.argument?.type === "VIdentifier" && entry.key.argument.name === name;
+    return entry.key.name.name === directive && entry.key.argument?.type === "VIdentifier" &&
+      (entry.key.argument.name === name || entry.key.argument.rawName === name);
   });
 }
 
@@ -63,7 +67,7 @@ const searchOnServer = Object.freeze({
         if (found || node.type !== "MemberExpression" || node.computed) {
           return;
         }
-        const named = node.property.name === "value" && node.object.type === "Identifier" && SEARCH_NAME.test(node.object.name);
+        const named = node.property.name === "value" && node.object.type === "Identifier" && isSearchName(node.object.name);
         if (named || node.property.name === "searchQuery") {
           found = compactText(sourceCode, node);
         }
@@ -119,7 +123,9 @@ const searchOnServer = Object.freeze({
 
     function checkAutocomplete(element) {
       const name = element.rawName.toLowerCase();
-      const searchable = name === "selectfield" || name === "select-field" ? attribute(element, "searchable") : null;
+      const searchable = name === "selectfield" || name === "select-field"
+        ? attribute(element, "searchable") || attribute(element, "searchable", "bind")
+        : null;
       if (!AUTOCOMPLETES.has(name) && !searchable) {
         return;
       }
@@ -128,7 +134,8 @@ const searchOnServer = Object.freeze({
       if (!listed) {
         return;
       }
-      const noFilter = attribute(element, "no-filter") || attribute(element, "noFilter") || attribute(element, "no-filter", "bind");
+      const noFilter = attribute(element, "no-filter") || attribute(element, "noFilter") || attribute(element, "no-filter", "bind") ||
+        attribute(element, "noFilter", "bind");
       const sends = attribute(element, "update:search", "on") || attribute(element, "search", "model");
       const missing = [!noFilter && "has no no-filter", !sends && "sends no typed text (@update:search)"].filter(Boolean);
       if (missing.length) {

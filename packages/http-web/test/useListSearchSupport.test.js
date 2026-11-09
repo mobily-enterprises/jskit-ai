@@ -28,3 +28,10 @@ test("normalizeListSearchConfig refuses a search of the loaded page, naming the 
     (error) => error instanceof TypeError && /runs on the server/u.test(error.message) && /searchSchema\.q/u.test(error.message)
   );
 });
+
+test("normalizeListSearchConfig refuses fields, which the resource's searchSchema.q names on the server", () => {
+  assert.throws(
+    () => normalizeListSearchConfig({ enabled: true, fields: ["name"] }),
+    (error) => error instanceof TypeError && /takes no fields/u.test(error.message) && /searchSchema\.q/u.test(error.message)
+  );
+});

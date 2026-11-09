@@ -36,9 +36,29 @@ tester.run("jskit/narrow-in-query", narrowInQuery, {
     read("const result = await pool.query(\"select 1\");\nreturn result.rows.filter(Boolean);"),
     read("const inserted = await knex(\"tasks\").insert(ids).returning(\"id\");\nreturn inserted.filter(Boolean);"),
     read("const row = await knex(\"tasks\").where({ id: projectId }).first();\nreturn row;"),
+    // Rows the code needs whole, with a subset derived beside them: every row read is used.
+    read("const rows = await tasks.queryAll({ filters: { projectId } }, options);\nreturn { rows, overdue: rows.filter(isOverdue) };"),
+    read("const { records, page } = await tasks.query({ filters: { projectId }, page: { size: 20 } }, options);\nconst open = records.filter(isOpen).length;\nreturn { records: records.map(toTask), page, open };"),
+    read("const page = await tasks.query({ filters: { projectId }, page: { size: 20 } }, options);\nconst first = page.records.find(isOpen);\nreturn { page, first };"),
+    read("const rows = await tasks.queryAll({ filters: { projectId } }, options);\nconst late = rows.some(isOverdue);\nawait exportTasks(rows, { late });"),
+    read("const rows = await tasks.queryAll({ filters: { projectId } }, options);\nfor (const row of rows) { total += row.hours; }\nreturn { total, open: rows.filter(isOpen) };"),
+    // Rows matched against other items in a loop or a callback: an in-memory join or grouping, one read for all.
+    read("const sections = await sectionHandle.queryAll({ filters: { moduleIds: ids } }, options);\nreturn ids.map((id) => ({ id, sections: sections.filter((section) => section.moduleId === id) }));"),
+    read("const rows = await users.queryAll({ filters: { ids } }, options);\nconst result = {};\nfor (const id of ids) {\n  result[id] = rows.find((row) => row.id === id) || null;\n}\nreturn result;"),
+    read("const rows = await tasks.queryAll({ filters: { projectIds: ids } }, options);\nfor (const id of ids) {\n  for (const row of rows) {\n    if (row.projectId !== id) continue;\n    await notify(id, row);\n  }\n}"),
+    // A loop that uses every row before it skips some.
+    read("const rows = await tasks.queryAll({ filters: { projectId } }, options);\nfor (const row of rows) {\n  await audit(row);\n  if (row.done) continue;\n  await notify(row);\n}"),
+    // A read of at most one row narrows nothing.
+    read("const { records } = await users.query({ filters: { id: projectId }, page: { size: 1 } }, options);\nreturn records.find((user) => user.active) || null;"),
+    // A page of one written through a params wrapper, or after a spread of other params.
+    read("const { records } = await vets.query(forViewer({ filters: { id: projectId }, fields: [\"id\"], page: { size: 1 } }, options), options);\nreturn records.length > 0;"),
+    read("const { records } = await tasks.query({ ...params, page: { size: 1 } }, options);\nreturn records.length > 0;"),
+    // One row more than the page keeps, to learn whether more follow.
+    read("const rows = await knex(\"tasks\").where({ project_id: projectId }).orderBy(\"id\").limit(size + 1);\nreturn { rows: rows.slice(0, size).map(toTask), hasMore: rows.length > size };"),
+    read("const page = await tasks.query({ filters: { projectId }, page: { size: size + 1 } }, options);\nconst kept = page.records.slice(0, size);\nreturn { kept, more: page.records.length > size };"),
     // The exception, above the narrowing or above the read.
-    read(`const rows = await tasks.queryAll({ filters: { projectId } }, options);\n${EXCUSE}\nreturn { rows, overdue: rows.filter(isOverdue) };`),
-    read(`${EXCUSE}\nconst rows = await tasks.queryAll({ filters: { projectId } }, options);\nreturn { rows, overdue: rows.filter(isOverdue), first: rows.find(Boolean) };`),
+    read(`const rows = await tasks.queryAll({ filters: { projectId } }, options);\n${EXCUSE}\nreturn rows.filter(isOverdue);`),
+    read(`${EXCUSE}\nconst rows = await tasks.queryAll({ filters: { projectId } }, options);\nreturn { overdue: rows.filter(isOverdue), first: rows.find(Boolean) };`),
     "function later(rows) { return rows.filter(Boolean); }\nasync function read(options) { const rows = await tasks.queryAll({}, options); return rows.map(toTask); }"
   ],
   invalid: [
@@ -99,6 +119,29 @@ tester.run("jskit/narrow-in-query", narrowInQuery, {
     {
       code: read("const rows = await tasks.queryAll({ filters: { projectId } }, options);\nfor (const row of rows) {\n  if (row.archived) {\n    continue;\n  }\n  await notify(row);\n}"),
       errors: [{ messageId: "narrowsEvery", data: { use: "A loop that skips rows with continue", read: "tasks.queryAll()" } }]
+    },
+    {
+      // The section picker inside a branch: the narrowing runs once, not per item of something else.
+      code: read("const { records } = await sections.query({ sort: [\"-createdAt\"], page: { size: 200 } }, options);\nif (projectId) {\n  return records.filter((section) => section.moduleId === projectId);\n}\nreturn [];"),
+      errors: [{ messageId: "narrowsPage", data: { use: ".filter()", read: "sections.query()" }, line: 4 }]
+    },
+    {
+      // Two narrowings of the same rows, and no use of them whole.
+      code: read("const rows = await tasks.queryAll({ filters: { projectId } }, options);\nconst open = rows.filter(isOpen);\nconst first = rows.find(isOpen);\nreturn { open, first };"),
+      errors: [
+        { messageId: "narrowsEvery", data: { use: ".filter()", read: "tasks.queryAll()" } },
+        { messageId: "narrowsEvery", data: { use: ".find()", read: "tasks.queryAll()" } }
+      ]
+    },
+    {
+      // A slice of a capped read that asks for no extra row cuts rows it read.
+      code: read("const rows = await knex(\"tasks\").where({ project_id: projectId }).limit(size);\nreturn rows.slice(0, 5).map(toTask);"),
+      errors: [{ messageId: "narrowsPage", data: { use: ".slice()", read: "the Knex query" } }]
+    },
+    {
+      // A spread after the page may replace it, so the page's size is not known.
+      code: read("const { records } = await tasks.query({ page: { size: 1 }, ...params }, options);\nreturn records.length > 0;"),
+      errors: [{ messageId: "narrowsPage", data: { use: "Its .length alone (a count or an existence test)", read: "tasks.query()" } }]
     },
     {
       // An exception needs the rule's name: another rule's does not excuse it.

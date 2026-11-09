@@ -60,6 +60,14 @@ test("a CRUD list refuses a query key it does not take, which Fastify's validati
   assert.equal(searched.statusCode, 200, searched.body);
   assert.deepEqual(listed, [{ q: "Ada" }]);
 
+  // Every key JSKIT's list composables send is taken: the page, its cursor, the search, include and a sparse fieldset.
+  const paged = await app.inject({
+    method: "GET",
+    url: "/api/notes?page%5Blimit%5D=20&page%5Bcursor%5D=5&filter%5Bq%5D=Ada&include=author&fields%5Bnotes%5D=title"
+  });
+  assert.equal(paged.statusCode, 200, paged.body);
+  assert.equal(listed.length, 2);
+
   // Before, both answered every row: validation dropped the filter and the list never saw it.
   for (const url of ["/api/notes?filter%5Bstatus%5D=open", "/api/notes?filter%5Bq%5D=Ada&status=open"]) {
     const response = await app.inject({ method: "GET", url });
@@ -67,10 +75,10 @@ test("a CRUD list refuses a query key it does not take, which Fastify's validati
     const [error] = response.json().errors;
     assert.equal(error.code, "crud.query.undeclaredKeys", url);
     assert.match(error.title, /does not take (filter\[status\]|status):/u, url);
-    assert.match(error.title, /It takes .*filter\[q\]/u, url);
+    assert.match(error.title, /It takes .*filter\[q\].*fields\[<type>\]/u, url);
     // The client shows the code's sentence in the user's language: the English sent is the catalog's.
     const english = mergeCatalogs(kernelEnglish, crudEnglish);
     assert.equal(formatMessage(catalogMessage(english, messageKeyForCode(error.code)), error.meta.params), error.title, url);
   }
-  assert.equal(listed.length, 1);
+  assert.equal(listed.length, 2);
 });

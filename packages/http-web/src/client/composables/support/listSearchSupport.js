@@ -22,6 +22,11 @@ function normalizeListSearchConfig(value = {}) {
       "which the list's search sends as q. A search of the loaded page misses every row past it."
     );
   }
+  if (Object.hasOwn(source, "fields")) {
+    throw new TypeError(
+      "List search takes no fields: the resource's searchSchema.q names the fields a search reads, on the server."
+    );
+  }
 
   return Object.freeze({
     enabled: source.enabled === true,

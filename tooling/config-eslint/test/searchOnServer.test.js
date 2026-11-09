@@ -20,6 +20,8 @@ modules.run("jskit/search-on-server (computed)", searchOnServer, {
     // Filtering a list's items by something other than a search ref, or a search over items no list holds.
     `${IMPORTS}export function useServices() {\n  const list = useList({ apiSuffix: "/services" });\n  const visible = computed(() => list.items.filter((service) => service.active));\n  return { visible };\n}`,
     `${IMPORTS}export function useColours() {\n  const search = ref("");\n  const colours = ["red", "green"];\n  return computed(() => colours.filter((colour) => colour.includes(search.value)));\n}`,
+    // A ref whose name only contains a search word (terminal holds "term") is no search.
+    `${IMPORTS}export function useSessions() {\n  const activeTerminal = ref("");\n  const list = useList({ apiSuffix: "/sessions" });\n  return computed(() => list.items.filter((session) => session.terminalId !== activeTerminal.value));\n}`,
     // The exception.
     `${IMPORTS}export function useServices() {\n  const search = ref("");\n  const list = useList({ apiSuffix: "/services" });\n  // readable-check: allow search-on-server - every row: the endpoint answers the five fixed service kinds in one page\n  return computed(() => list.items.filter((service) => service.name.includes(search.value)));\n}`
   ],
@@ -32,6 +34,10 @@ modules.run("jskit/search-on-server (computed)", searchOnServer, {
       // Through a const the getter holds the items in, and items destructured from the composable.
       code: `${IMPORTS}export function useServices() {\n  const searchText = ref("");\n  const { items } = useList({ apiSuffix: "/services" });\n  return computed(() => {\n    const source = Array.isArray(items.value) ? items.value : [];\n    const term = searchText.value.toLowerCase();\n    return source.filter((service) => service.name.toLowerCase().includes(term));\n  });\n}`,
       errors: [{ messageId: "computedFilter", data: { items: "source", search: "searchText.value" } }]
+    },
+    {
+      code: `${IMPORTS}export function useServices() {\n  const q = ref("");\n  const list = useList({ apiSuffix: "/services" });\n  return computed(() => list.items.filter((service) => service.name.includes(q.value)));\n}`,
+      errors: [{ messageId: "computedFilter", data: { items: "list.items", search: "q.value" } }]
     },
     {
       code: `${IMPORTS}export function useServices() {\n  const list = useList({ apiSuffix: "/services", search: { enabled: true } });\n  return computed(() => list.items.filter((service) => service.name.includes(list.searchQuery)));\n}`,
@@ -59,6 +65,11 @@ components.run("jskit/search-on-server (autocomplete)", searchOnServer, {
     {
       code: `${SCRIPT}<template>\n  <v-autocomplete v-model="serviceId" :items="services.items" />\n</template>`,
       errors: [{ messageId: "localAutocomplete", data: { items: "services.items", missing: "has no no-filter and sends no typed text (@update:search)" } }]
+    },
+    {
+      // searchable bound to true, and the field's camelCase noFilter bound, are read like their plain forms.
+      code: `${SCRIPT}<template>\n  <SelectField v-model="serviceId" :searchable="true" :items="services.items" :noFilter="true" />\n</template>`,
+      errors: [{ messageId: "localAutocomplete", data: { items: "services.items", missing: "sends no typed text (@update:search)" } }]
     },
     {
       code: `${SCRIPT}<template>\n  <VAutocomplete v-model="serviceId" :items="services.items" no-filter />\n</template>`,

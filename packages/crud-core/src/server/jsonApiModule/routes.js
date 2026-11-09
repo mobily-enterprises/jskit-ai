@@ -36,7 +36,10 @@ function refuseUndeclaredListQuery(request) {
   if (unknown.length < 1) {
     return;
   }
-  const known = Object.keys(request.routeOptions?.schema?.querystring?.properties || {}).join(", ") || "none";
+  const querystring = request.routeOptions?.schema?.querystring || {};
+  // A sparse fieldset key is taken by pattern, one per JSON:API type: `fields[<type>]`.
+  const patterns = Object.keys(querystring.patternProperties || {}).map((pattern) => (pattern.startsWith("^fields") ? "fields[<type>]" : pattern));
+  const known = [...Object.keys(querystring.properties || {}), ...patterns].join(", ") || "none";
   const params = { unknown: unknown.join(", "), known };
   throw new AppError(400,
     `This list does not take ${params.unknown}: an undeclared query key would be dropped, and the list would answer as ` +

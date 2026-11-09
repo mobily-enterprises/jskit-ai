@@ -1000,7 +1000,10 @@ then narrowed is also wrong, since the row wanted can sit past it.
   answers whether one exists. A count: `aggregate()`.
 - Never filter, find, slice or count the rows a read answered, nor skip some
   in a loop. Mapping them and grouping them by a key (`Map.groupBy`) narrow
-  nothing.
+  nothing, and neither does code that needs every row it read: rows handed on
+  whole (returned, passed, stored, mapped or walked in full) with a subset
+  derived beside them, and rows matched against other items in a loop or a
+  callback (an in-memory join, one read instead of one per item).
 - A lookup field's picker and a list's Search box send what the person types
   as `q` to the server, which searches every row; `useList` does with
   `search: { enabled: true }`. The table resource defines `searchSchema.q`.
@@ -1028,15 +1031,18 @@ const [holder] = await profiles.queryAll({ filters: { usernames: [username] }, t
 
 `jskit/narrow-in-query` reports `.filter()`, `.find()`, `.some()`,
 `.every()`, `.slice()`, a lone `.length` and a loop that skips rows with
-`continue` over the rows a read answered in the same function, and
+`continue` over the rows a read answered in the same function, unless the
+code also uses those rows whole, runs the narrowing once per item of
+something else, read at most one row, or slices a read that asked for one row
+more than it keeps (`limit(size + 1)`) to learn whether more follow.
 `jskit/search-on-server` reports a client search over a list's loaded items.
 `jskit check` fails a lookup field or a CRUD list screen whose app table
 resource has no `searchSchema.q`, on the resource or its owns entry
-(`data/search-q`). Code that needs every row a read answers says why on the
-line above the read or the narrowing:
+(`data/search-q`). Other code that needs every row a read answers says why on
+the line above the read or the narrowing:
 
 ```js
-// readable-check: allow narrow-in-query - every row: the export writes every invoice and lists the overdue ones beside them
+// readable-check: allow narrow-in-query - every row: a conversation holds at most keep + 1 summaries, since each save deletes the older ones
 ```
 
 ## What changed since
