@@ -24,7 +24,6 @@ const OWNERSHIP_WORKSPACE = ROUTE_VISIBILITY_WORKSPACE;
  * @param {import("vue").Ref<boolean>} options.canInviteMembers
  * @param {import("vue").Ref<boolean>} options.canManageMembers
  * @param {import("vue").Ref<boolean>} options.canRevokeInvites
- * @param {{ refresh: () => Promise<unknown> }} options.workspaceRolesView
  * @param {{ reload: () => Promise<unknown> }} options.workspaceMembersList
  * @param {{ reload: () => Promise<unknown> }} options.workspaceInvitesList
  */
@@ -35,7 +34,6 @@ function useWorkspaceMembersActions({
   canInviteMembers,
   canManageMembers,
   canRevokeInvites,
-  workspaceRolesView,
   workspaceMembersList,
   workspaceInvitesList
 }) {
@@ -166,10 +164,7 @@ function useWorkspaceMembersActions({
       createdInviteUrl.value = String(result?.inviteUrl || "").trim();
       createdInviteDeliveryStatus.value = String(delivery.status || "").trim().toLowerCase();
       forms.invite.email = "";
-      await Promise.all([
-        workspaceInvitesList.reload(),
-        workspaceRolesView.refresh()
-      ]);
+      await workspaceInvitesList.reload();
       if (createdInviteDeliveryStatus.value === "sent") {
         inviteFeedback.success(t("jskit.workspaces.members.inviteSent"));
       } else if (createdInviteDeliveryStatus.value === "failed") {
@@ -217,10 +212,7 @@ function useWorkspaceMembersActions({
       await revokeInviteCommand.run({
         inviteId
       });
-      await Promise.all([
-        workspaceInvitesList.reload(),
-        workspaceRolesView.refresh()
-      ]);
+      await workspaceInvitesList.reload();
       teamFeedback.success(t("jskit.workspaces.members.inviteRevoked"));
     } catch (error) {
       teamFeedback.error(error, t("jskit.workspaces.members.revokeInviteFailed"));
@@ -246,10 +238,7 @@ function useWorkspaceMembersActions({
         memberUserId,
         roleSid
       });
-      await Promise.all([
-        workspaceMembersList.reload(),
-        workspaceRolesView.refresh()
-      ]);
+      await workspaceMembersList.reload();
       membersFeedback.success(t("jskit.workspaces.members.roleUpdated"));
     } catch (error) {
       membersFeedback.error(error, t("jskit.workspaces.members.updateRoleFailed"));
@@ -273,10 +262,7 @@ function useWorkspaceMembersActions({
       await memberRemoveCommand.run({
         memberUserId
       });
-      await Promise.all([
-        workspaceMembersList.reload(),
-        workspaceRolesView.refresh()
-      ]);
+      await workspaceMembersList.reload();
       membersFeedback.success(t("jskit.workspaces.members.removed"));
     } catch (error) {
       membersFeedback.error(error, t("jskit.workspaces.members.removeFailed"));

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Inviting, revoking an invite, changing a member's role and removing a member reload only the invites or the members, not the workspace's role catalogue too: the catalogue is configuration that does not change with them, and each members response already carries it. `useWorkspaceMembersActions` no longer takes `workspaceRolesView`.
 - The members screen's invite-role and member-role fields are http-web's `SelectField`, bound to `loading` while the workspace's role catalog loads, so a stored role id never shows as text before its label; the members admin status says `isLoadingRoles`.
 - The invite form's email and role fields have no margin under them, since each keeps its supporting-text line (`@jskit-ai/material-web` no longer sets `hideDetails: "auto"`).
 - The workspace-surfaces pattern's pending-invitations cue links to the account settings' invitations section at its own address, `/account/invites`, as users-web's routed sections have it, instead of `/account?section=invites`.
