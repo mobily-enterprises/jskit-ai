@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.2.37",
+  "version": "0.2.38",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -51,7 +51,7 @@
     "@ai-sdk/perplexity": "^4.0.43",
     "@ai-sdk/togetherai": "^3.0.49",
     "@ai-sdk/xai": "^4.0.58",
-    "@jskit-ai/agent": "0.1.2",
+    "@jskit-ai/agent": "0.1.3",
     "@jskit-ai/resource-core": "0.1.209",
     "@openrouter/ai-sdk-provider": "^3.0.0",
     "ai": "^7.0.152",

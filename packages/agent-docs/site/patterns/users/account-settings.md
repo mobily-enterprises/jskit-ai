@@ -108,6 +108,6 @@ section show one at a time and Up returns from the section to the list; at
 
 ## Packaged source
 
-- Owner: `@jskit-ai/users-web@0.2.33`
+- Owner: `@jskit-ai/users-web@0.2.34`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/users-web/patterns/account-settings/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/users-web/patterns/account-settings/example)
