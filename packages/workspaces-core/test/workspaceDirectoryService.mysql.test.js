@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import { buildWorkspaceName, createService as createDirectoryService } from "../src/server/common/services/workspaceDirectoryService.js";
+import { noWorkspaceCreatedParticipant } from "../src/server/workspaceDirectory/noWorkspaceCreatedParticipant.js";
 import { listCatalogRolePermissions } from "../src/shared/roles.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 import { workspacesDatabase } from "./support/mysqlWorkspaces.js";
@@ -21,6 +22,7 @@ function directoryOf(db, tenancy) {
     tenancyProfile: resolveTenancyProfile(tenancy),
     roleCatalog: db.roleCatalog,
     personalWorkspaceName: buildWorkspaceName,
+    createdParticipant: noWorkspaceCreatedParticipant,
     workspacesRepository: db.workspaces,
     workspaceMembershipsRepository: db.memberships,
     workspaceSettingsRepository: db.settings

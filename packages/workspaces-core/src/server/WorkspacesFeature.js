@@ -10,6 +10,7 @@ import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/workspaceSe
 import { unconfiguredWorkspaceInviteMailer } from "./workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
 import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWorkspaceInviteEmail.js";
 import { noInviteAcceptanceParticipant } from "./workspacePendingInvitations/noInviteAcceptanceParticipant.js";
+import { noWorkspaceCreatedParticipant } from "./workspaceDirectory/noWorkspaceCreatedParticipant.js";
 import { buildWorkspaceName } from "./common/services/workspaceDirectoryService.js";
 import { createWorkspaceSettingsActions } from "./workspaceSettings/workspaceSettingsActions.js";
 import { WORKSPACES_TABLES, createWorkspaceRecords, createWorkspacesRuntime } from "./workspacesRuntime.js";
@@ -31,7 +32,8 @@ const WorkspacesFeature = defineFeature({
     inviteAcceptanceParticipant: "workspaces.invite-acceptance-participant",
     inviteEmailTemplate: "workspaces.invite-email-template",
     inviteMailer: "workspaces.invite-mailer",
-    personalWorkspaceName: "workspaces.personal-workspace-name"
+    personalWorkspaceName: "workspaces.personal-workspace-name",
+    workspaceCreatedParticipant: "workspaces.workspace-created-participant"
   },
   provides: {
     workspaces: "workspaces.core",
@@ -52,6 +54,7 @@ const WorkspacesFeature = defineFeature({
    * @param {import("./types.js").WorkspacesResources} capabilities.resources
    * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} capabilities.userProfiles
    * @param {import("@jskit-ai/users-core/server/types").UsersSettings} capabilities.userSettings
+   * @param {import("./types.js").WorkspaceCreatedParticipant | null} capabilities.workspaceCreatedParticipant
    */
   async setup({
     appRoot,
@@ -65,7 +68,8 @@ const WorkspacesFeature = defineFeature({
     personalWorkspaceName,
     resources,
     userProfiles,
-    userSettings
+    userSettings,
+    workspaceCreatedParticipant
   }) {
     const records = createWorkspaceRecords(resources);
     const workspaces = createWorkspacesRuntime({
@@ -79,6 +83,7 @@ const WorkspacesFeature = defineFeature({
       resources,
       userProfiles,
       userSettings,
+      workspaceCreatedParticipant: workspaceCreatedParticipant ?? noWorkspaceCreatedParticipant,
       workspaces: records.workspaces,
       workspaceMemberships: records.memberships
     });
@@ -139,6 +144,7 @@ export {
   createWorkspaceRecords,
   createWorkspacesRuntime,
   noInviteAcceptanceParticipant,
+  noWorkspaceCreatedParticipant,
   renderDefaultWorkspaceInviteEmail,
   unconfiguredWorkspaceInviteMailer
 };

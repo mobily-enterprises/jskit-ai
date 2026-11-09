@@ -82,6 +82,7 @@ function createWorkspaceRecords(resources) {
  * @param {import("./types.js").WorkspacesResources} dependencies.resources The handles of the tables `workspaces.core` owns.
  * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} dependencies.userProfiles
  * @param {import("@jskit-ai/users-core/server/types").UsersSettings} dependencies.userSettings
+ * @param {import("./types.js").WorkspaceCreatedParticipant} dependencies.workspaceCreatedParticipant
  * @param {import("./types.js").Workspaces} dependencies.workspaces
  * @param {import("./types.js").WorkspacesMemberships} dependencies.workspaceMemberships
  */
@@ -96,6 +97,7 @@ function createWorkspacesRuntime({
   resources,
   userProfiles,
   userSettings,
+  workspaceCreatedParticipant,
   workspaces: workspacesRepository,
   workspaceMemberships: workspaceMembershipsRepository
 }) {
@@ -119,6 +121,7 @@ function createWorkspacesRuntime({
     tenancyProfile,
     roleCatalog,
     personalWorkspaceName,
+    createdParticipant: workspaceCreatedParticipant,
     workspacesRepository,
     workspaceMembershipsRepository,
     workspaceSettingsRepository

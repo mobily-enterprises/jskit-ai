@@ -50,6 +50,16 @@
  */
 
 /**
+ * The `workspaces.workspace-created-participant` capability: the application's
+ * writes for a new workspace, personal (provisioned at sign-in) or created by
+ * `workspace.workspaces.create`. It runs after the workspace, its owner's
+ * membership and its settings are written, inside the uncommitted creation
+ * transaction, and a failure rolls the whole creation back. `owner` is the user
+ * who owns the workspace. Its options join that transaction: pass them to every call.
+ * @typedef {(created: { workspace: object, owner: object }, options: { trx: unknown, context?: object }) => Promise<void>} WorkspaceCreatedParticipant
+ */
+
+/**
  * The `workspaces.personal-workspace-name` capability: names the personal
  * workspace provisioned for a user. An empty name falls back to the default.
  * @typedef {(user: object) => string} PersonalWorkspaceName

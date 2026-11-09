@@ -3,8 +3,11 @@ import assert from "node:assert/strict";
 import { createWorkspaceActionContextContributor } from "../src/server/common/contributors/workspaceActionContextContributor.js";
 import { createWorkspaceAuthPolicyContextResolver } from "../src/server/common/contributors/workspaceAuthPolicyContextResolver.js";
 import { buildWorkspaceName, createService } from "../src/server/common/services/workspaceDirectoryService.js";
+import { noWorkspaceCreatedParticipant } from "../src/server/workspaceDirectory/noWorkspaceCreatedParticipant.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
+
+const TEST_TRX = Object.freeze({ name: "the creation transaction" });
 
 // The service receives what the workspaces feature resolves from its config.
 function resolvedSettings(appConfig) {
@@ -41,6 +44,7 @@ function createWorkspaceServiceFixture({
   userWorkspaceRows = null,
   membershipResolver = null,
   personalWorkspaceName = undefined,
+  createdParticipant = noWorkspaceCreatedParticipant,
   personalWorkspace = {
     id: "1",
     slug: "tony3",
@@ -50,7 +54,10 @@ function createWorkspaceServiceFixture({
     avatarUrl: ""
   }
 } = {}) {
+  // Each write and the participant, with the transaction it ran in: withTransaction hands work TEST_TRX.
+  const steps = [];
   const calls = {
+    withTransaction: 0,
     findBySlug: 0,
     listSlugsIn: 0,
     findPersonalByOwnerUserId: 0,
@@ -91,7 +98,15 @@ function createWorkspaceServiceFixture({
       personalWorkspaceName,
       roleCatalog: roleCatalog && typeof roleCatalog === "object" ? { ...roleCatalog } : roleCatalog
     }),
+    async createdParticipant(created, options) {
+      steps.push(["participant", options.trx]);
+      return createdParticipant(created, options);
+    },
     workspacesRepository: {
+      async withTransaction(options, work) {
+        calls.withTransaction += 1;
+        return work(Object.freeze({ ...options, trx: TEST_TRX }));
+      },
       async findBySlug(slug) {
         calls.findBySlug += 1;
         const normalizedSlug = String(slug || "").trim().toLowerCase();
@@ -133,8 +148,9 @@ function createWorkspaceServiceFixture({
           }
         ];
       },
-      async insert(payload) {
+      async insert(payload, options = {}) {
         calls.insert += 1;
+        steps.push(["insert", options.trx]);
         insertedPayloads.push(payload);
         const workspaceId = String(nextWorkspaceId++);
         const inserted = {
@@ -173,8 +189,9 @@ function createWorkspaceServiceFixture({
       }
     },
     workspaceMembershipsRepository: {
-      async ensureOwnerMembership() {
+      async ensureOwnerMembership(workspaceId, userId, options = {}) {
         calls.ensureOwnerMembership += 1;
+        steps.push(["membership", options.trx]);
       },
       async findByWorkspaceIdAndUserId(workspaceId, userId) {
         if (typeof membershipResolver === "function") {
@@ -189,8 +206,9 @@ function createWorkspaceServiceFixture({
       }
     },
     workspaceSettingsRepository: {
-      async ensureForWorkspaceId() {
+      async ensureForWorkspaceId(workspaceId, options = {}) {
         calls.ensureWorkspaceSettings += 1;
+        steps.push(["settings", options.trx]);
         return {
           invitesEnabled: true
         };
@@ -198,7 +216,7 @@ function createWorkspaceServiceFixture({
     }
   });
 
-  return { service, calls, insertedPayloads };
+  return { service, calls, insertedPayloads, steps };
 }
 
 test("workspaceService keeps bootstrap payload assembly outside its API", () => {
@@ -419,6 +437,60 @@ test("workspaceService.createWorkspaceForAuthenticatedUser generates an omitted 
   assert.equal(insertedPayloads[0].slug, "operations-team");
   assert.equal(insertedPayloads[0].isPersonal, false);
   assert.equal(insertedPayloads[0].ownerUserId, "7");
+});
+
+test("both ways of creating a workspace run the created participant last, in the creation's transaction", async () => {
+  const chiara = { id: "7", email: "chiara@example.com", displayName: "Chiara" };
+  const creations = {
+    named: async (service) => (await service.createWorkspaceForAuthenticatedUser(chiara, { name: "Operations Team" })).value,
+    personal: (service) => service.ensureProvisionedWorkspaceForAuthenticatedUser(chiara)
+  };
+  for (const [kind, create] of Object.entries(creations)) {
+    const received = [];
+    const { service, calls, steps } = createWorkspaceServiceFixture({
+      tenancyMode: kind === "personal" ? "personal" : "workspaces",
+      tenancyPolicy: { workspace: { allowSelfCreate: true } },
+      personalWorkspace: null,
+      async createdParticipant(created, options) {
+        received.push({ created, options });
+      }
+    });
+    const workspace = await create(service);
+    assert.equal(calls.withTransaction, 1, kind);
+    assert.deepEqual(steps, [
+      ["insert", TEST_TRX], ["membership", TEST_TRX], ["settings", TEST_TRX], ["participant", TEST_TRX]
+    ], kind);
+    assert.equal(received.length, 1, kind);
+    const [{ created, options }] = received;
+    assert.deepEqual(Object.keys(created).sort(), ["owner", "workspace"]);
+    assert.equal(created.workspace.id, workspace.id);
+    assert.equal(created.workspace.isPersonal, kind === "personal");
+    assert.deepEqual(created.owner, chiara);
+    assert.ok(Object.isFrozen(created.workspace) && Object.isFrozen(created.owner), kind);
+    assert.equal(options.trx, TEST_TRX);
+  }
+});
+
+test("a created participant's failure fails the creation, and an existing personal workspace runs no participant", async () => {
+  const refusal = new Error("the application cannot set this workspace up");
+  async function refuse() {
+    throw refusal;
+  }
+  const { service, steps } = createWorkspaceServiceFixture({
+    tenancyMode: "workspaces",
+    tenancyPolicy: { workspace: { allowSelfCreate: true } },
+    createdParticipant: refuse
+  });
+  await assert.rejects(service.createWorkspaceForAuthenticatedUser({ id: "7" }, { name: "Operations Team" }), (error) => error === refusal);
+  assert.equal(steps.at(-1)[0], "participant");
+
+  const { service: personal, steps: personalSteps } = createWorkspaceServiceFixture({
+    tenancyMode: "personal",
+    createdParticipant: refuse
+  });
+  const existing = await personal.ensureProvisionedWorkspaceForAuthenticatedUser({ id: "7", displayName: "Chiara" });
+  assert.equal(existing.id, "1");
+  assert.ok(!personalSteps.some(([step]) => step === "participant"));
 });
 
 // The slug a new workspace named `name` gets while `takenSlugs` are held, and how many reads chose it.

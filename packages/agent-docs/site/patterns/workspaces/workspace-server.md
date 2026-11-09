@@ -73,6 +73,15 @@ external effects out of it. Without the capability, acceptance activates the
 membership only. Allow ordinary invitations; reject stale, revoked, conflicting
 or unexpectedly missing application associations.
 
+Provide the optional `workspaces.workspace-created-participant` capability the
+same way to write application records for every new workspace. The
+`workspace.workspaces.create` action and personal workspace provisioning invoke
+`fn({ workspace, owner }, txOptions)` after writing the workspace, its owner's
+membership and its settings, in the creation's uncommitted transaction (the
+caller's when it passes one). Pass `txOptions` on and propagate failures: a
+failure rolls the whole creation back. An existing personal workspace does not
+call it.
+
 Call `members.prepareInvite(workspace, actor, payload, txOptions)` inside
 `repositories.workspaceInvites.withTransaction(options, async (txOptions) => …)`
 or another resource handle's `withTransaction`. It returns

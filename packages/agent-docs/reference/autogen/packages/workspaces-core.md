@@ -58,7 +58,7 @@ Local functions
 ### `src/server/common/services/workspaceDirectoryService.js`
 Exports
 - `buildWorkspaceName(user)`
-- `createService({ tenancyProfile, roleCatalog, personalWorkspaceName, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository })`
+- `createService({ tenancyProfile, roleCatalog, personalWorkspaceName, createdParticipant, workspacesRepository, workspaceMembershipsRepository, workspaceSettingsRepository })`
 Local functions
 - `toSlugPart(value)`
 - `buildWorkspaceBaseSlug(user)`
@@ -146,6 +146,7 @@ Exports
 - `type WorkspaceInviteMailer`
 - `type WorkspaceInviteEmailTemplate`
 - `type WorkspaceInviteAcceptanceParticipant`
+- `type WorkspaceCreatedParticipant`
 - `type PersonalWorkspaceName`
 
 ### `src/server/workspaceBootstrapContributor.js`
@@ -156,6 +157,10 @@ Local functions
 - `normalizeRequestedWorkspaceStatus(value)`
 - `buildRequestedWorkspacePayload(workspaceSlug, status)`
 - `resolveRequestedWorkspaceStatusFromError(error)`
+
+### `src/server/workspaceDirectory/noWorkspaceCreatedParticipant.js`
+Exports
+- `noWorkspaceCreatedParticipant()`
 
 ### `src/server/workspaceDirectory/workspaceDirectoryActions.js`
 Exports
@@ -247,6 +252,7 @@ Exports
 - `createWorkspaceRecords`
 - `createWorkspacesRuntime`
 - `noInviteAcceptanceParticipant`
+- `noWorkspaceCreatedParticipant`
 - `renderDefaultWorkspaceInviteEmail`
 - `unconfiguredWorkspaceInviteMailer`
 
@@ -260,7 +266,7 @@ Local functions
 Exports
 - `WORKSPACES_TABLES`
 - `createWorkspaceRecords(resources)`
-- `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, personalWorkspaceName, resources, userProfiles, userSettings, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
+- `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, personalWorkspaceName, resources, userProfiles, userSettings, workspaceCreatedParticipant, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
 Local functions
 - `requirePositiveInteger(value, label)`
 - `requireBoolean(value, label)`

@@ -58,6 +58,7 @@ function buildWorkspaceName(user) {
  * @param {import("../../types.js").WorkspaceTenancyProfile} dependencies.tenancyProfile
  * @param {import("../../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
  * @param {import("../../types.js").PersonalWorkspaceName} dependencies.personalWorkspaceName
+ * @param {import("../../types.js").WorkspaceCreatedParticipant} dependencies.createdParticipant
  * @param {import("../../types.js").WorkspacesRepository} dependencies.workspacesRepository
  * @param {import("../../types.js").WorkspaceMembershipsRepository} dependencies.workspaceMembershipsRepository
  * @param {import("../../types.js").WorkspaceSettingsRepository} dependencies.workspaceSettingsRepository
@@ -66,6 +67,7 @@ function createService({
   tenancyProfile,
   roleCatalog,
   personalWorkspaceName,
+  createdParticipant,
   workspacesRepository,
   workspaceMembershipsRepository,
   workspaceSettingsRepository
@@ -88,31 +90,52 @@ function createService({
     throw new Error("Unable to generate unique workspace slug.");
   }
 
-  /**
-   * Creates a workspace under the first free slug from baseSlug. When another owner's create takes that slug between
-   * the read and the insert, it picks again; inside the caller's transaction the duplicate fails the transaction.
-   * @param {string} baseSlug
-   * @param {Record<string, unknown>} payload The workspace, without its slug.
-   * @param {object} [options]
-   */
-  async function insertWithFreeSlug(baseSlug, payload, options = {}) {
-    for (let attempt = 1; ; attempt += 1) {
-      const slug = await ensureUniqueWorkspaceSlug(baseSlug, options);
-      try {
-        return await workspacesRepository.insert({ ...payload, slug }, options);
-      } catch (error) {
-        if (attempt >= WORKSPACE_SLUG_ATTEMPTS || !isLostDuplicateInsertRace(error, options)) {
-          throw error;
-        }
-      }
-    }
-  }
-
   async function ensureWorkspaceSettingsForWorkspace(workspace, options = {}) {
     return workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, {
       ...options,
       workspace
     });
+  }
+
+  /**
+   * Creates a workspace under the first free slug from baseSlug, its owner's membership and its settings, then runs the
+   * `workspaces.workspace-created-participant`, all in one transaction: the caller's (`options.trx`), or one of its own.
+   * Any failure, the participant's included, rolls the whole creation back. When another create takes the slug between
+   * the read and the insert, a transaction of its own answers the winner when it is the same owner's same kind of
+   * workspace (a personal workspace made at two first sign-ins at once, a form sent twice), and otherwise runs again
+   * under a new slug; inside the caller's transaction the duplicate fails the caller's transaction.
+   * @param {string} baseSlug
+   * @param {{ name: string, isPersonal: boolean, avatarUrl: string }} payload The workspace, without its slug and owner.
+   * @param {{ id: string }} owner The user who owns it.
+   * @param {object} [options]
+   */
+  async function createOwnedWorkspace(baseSlug, payload, owner, options = {}) {
+    // The slug while the workspace's own insert runs: a duplicate from a later write is not a lost slug.
+    let insertingSlug = null;
+    for (let attempt = 1; ; attempt += 1) {
+      try {
+        return await workspacesRepository.withTransaction(options, async (txOptions) => {
+          insertingSlug = await ensureUniqueWorkspaceSlug(baseSlug, txOptions);
+          const workspace = await workspacesRepository.insert(
+            { ...payload, slug: insertingSlug, ownerUserId: owner.id },
+            txOptions
+          );
+          insertingSlug = null;
+          await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, owner.id, txOptions);
+          await ensureWorkspaceSettingsForWorkspace(workspace, txOptions);
+          await createdParticipant({ workspace: Object.freeze({ ...workspace }), owner: Object.freeze({ ...owner }) }, txOptions);
+          return workspace;
+        });
+      } catch (error) {
+        if (attempt >= WORKSPACE_SLUG_ATTEMPTS || !insertingSlug || !isLostDuplicateInsertRace(error, options)) {
+          throw error;
+        }
+        const winner = await workspacesRepository.findBySlug(insertingSlug, options);
+        if (winner && winner.ownerUserId === owner.id && winner.isPersonal === payload.isPersonal) {
+          return winner;
+        }
+      }
+    }
   }
 
   async function ensurePersonalWorkspaceForUser(user, options = {}) {
@@ -128,20 +151,16 @@ function createService({
       return existing;
     }
 
-    const inserted = await insertWithFreeSlug(
+    return createOwnedWorkspace(
       buildWorkspaceBaseSlug(user),
       {
         name: normalizeText(personalWorkspaceName(user)) || buildWorkspaceName(user),
-        ownerUserId: normalizedUserId,
         isPersonal: true,
         avatarUrl: ""
       },
+      { ...user, id: normalizedUserId },
       options
     );
-
-    await workspaceMembershipsRepository.ensureOwnerMembership(inserted.id, normalizedUserId, options);
-    await ensureWorkspaceSettingsForWorkspace(inserted, options);
-    return inserted;
   }
 
   async function listWorkspacesForUser(user, options = {}) {
@@ -205,20 +224,16 @@ function createService({
       });
     }
 
-    const inserted = await insertWithFreeSlug(
+    return returnJsonApiData(await createOwnedWorkspace(
       requestedSlug || toSlugPart(name),
       {
         name,
-        ownerUserId: normalizedUserId,
         isPersonal: false,
         avatarUrl: ""
       },
+      { ...user, id: normalizedUserId },
       options
-    );
-
-    await workspaceMembershipsRepository.ensureOwnerMembership(inserted.id, normalizedUserId, options);
-    await ensureWorkspaceSettingsForWorkspace(inserted, options);
-    return returnJsonApiData(inserted);
+    ));
   }
 
   async function getWorkspaceForAuthenticatedUser(user, workspaceSlug, options = {}) {

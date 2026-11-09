@@ -336,6 +336,7 @@ authorization and role checks. Do not pass arbitrary HTTP input as options.
 | `workspaces.services.members.sendInvite(workspace, actor, prepared, options)` | Refuses to run inside a transaction: it delivers after the preparation's transaction commits. Reloads the committed pending invitation and workspace display data, validates expiry and token correspondence, and sends that invitation without replacement. |
 | `workspaces.services.members.createInvite(workspace, actor, payload, options)` | Owns preparation and commit, then calls `sendInvite`, and answers with `sendInvite`'s result as JSON:API data (`returnJsonApiData`, read it from `.value`), as the invite action sends it. Refuses to run inside a transaction. |
 | `workspaces.invite-acceptance-participant` (optional capability) | One application function receiving `({ invite, user }, options)` inside the acceptance transaction. Without it, acceptance activates the membership only. |
+| `workspaces.workspace-created-participant` (optional capability) | One application function receiving `({ workspace, owner }, options)` inside a new workspace's creation transaction. Without it, creation writes the workspace, its owner's membership and its settings only. |
 
 `sendInvite` accepts `{ createdInviteId, inviteTokenPreview }` from preparation or
 only `{ createdInviteId }` for a later attempt. The latter uses JSKIT's existing
@@ -470,6 +471,24 @@ refusal, revocation or replacement cannot overwrite accepted/revoked state.
 Replacement can create a new pending invitation after acceptance while retaining
 the accepted invitation. Keep callbacks short: invitation changes in one workspace
 serialize. Deadlocks/serialization failures propagate without replaying callbacks.
+
+### Workspace creation participation
+
+Provide the optional `workspaces.workspace-created-participant` capability the
+same way, from a small application feature, to write application records for
+every new workspace in the same transaction. Both creation paths call
+`fn({ workspace, owner }, txOptions)`: the `workspace.workspaces.create` action
+(`createWorkspaceForAuthenticatedUser`) and a personal workspace's provisioning
+(`ensurePersonalWorkspaceForUser`, which joins its caller's transaction, such as
+a first sign-in's profile sync). It runs after the workspace, its owner's
+membership and its settings are written, so it can read them with `txOptions`.
+`workspace` and `owner` are shallow frozen. Pass `txOptions` to every write and
+let failures propagate: a failure rolls back the whole creation, workspace,
+membership, settings and the participant's own writes, and the caller receives
+the failure itself (an `AppError` answers as that refusal). Keep external effects
+out of it. An existing personal workspace is not created again and does not call
+it, and a create that loses its slug to the same owner's identical create answers
+that workspace without calling it a second time.
 
 ### Compatibility and verification
 

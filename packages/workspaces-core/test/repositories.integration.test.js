@@ -3,6 +3,7 @@ import { before, beforeEach, after, describe, test } from "node:test";
 import knexLib from "knex";
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
 import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
@@ -25,6 +26,7 @@ import { unconfiguredWorkspaceInviteMailer } from "../src/server/workspaceMember
 import { createWorkspaceInviteUrlBuilder } from "../src/server/workspaceMembers/workspaceInviteUrls.js";
 import { createService as createMembersService } from "../src/server/workspaceMembers/workspaceMembersService.js";
 import { buildWorkspaceName, createService as createDirectoryService } from "../src/server/common/services/workspaceDirectoryService.js";
+import { noWorkspaceCreatedParticipant } from "../src/server/workspaceDirectory/noWorkspaceCreatedParticipant.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 import { createWorkspacesServerI18n } from "../src/server/i18n.js";
 import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
@@ -600,6 +602,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       tenancyProfile: resolveTenancyProfile({ tenancyMode: "workspaces", tenancyPolicy: { workspace: { allowSelfCreate: true } } }),
       roleCatalog: createWorkspaceRoleCatalog(),
       personalWorkspaceName: buildWorkspaceName,
+      createdParticipant: noWorkspaceCreatedParticipant,
       workspacesRepository: workspaces,
       workspaceMembershipsRepository: memberships,
       workspaceSettingsRepository: settings
@@ -619,6 +622,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       tenancyProfile: resolveTenancyProfile({ tenancyMode: "personal" }),
       roleCatalog: createWorkspaceRoleCatalog(),
       personalWorkspaceName: buildWorkspaceName,
+      createdParticipant: noWorkspaceCreatedParticipant,
       workspacesRepository: workspaces,
       workspaceMembershipsRepository: memberships,
       workspaceSettingsRepository: settings
@@ -837,6 +841,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       tenancyProfile: resolveTenancyProfile({ tenancyMode: "workspaces", tenancyPolicy: { workspace: { allowSelfCreate: true } } }),
       roleCatalog: createWorkspaceRoleCatalog(),
       personalWorkspaceName: buildWorkspaceName,
+      createdParticipant: noWorkspaceCreatedParticipant,
       workspacesRepository: racing,
       workspaceMembershipsRepository: memberships,
       workspaceSettingsRepository: settings
@@ -846,6 +851,108 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal(created.value.slug, "acme-2");
     assert.notEqual(String(created.value.id), String(adas.id));
     assert.equal(String((await workspaces.findBySlug("acme-2")).ownerUserId), String(grace.id));
+  });
+
+  test("a new workspace's created participant runs in its creation transaction, and its failure leaves nothing of the creation", async () => {
+    const count = async (table, where = {}) => Number((await knex(table).where(where).count({ count: "*" }).first()).count);
+    const seen = [];
+    let refusal = null;
+    let duplicateWrite = false;
+    // The application's participant reads what the creation wrote and makes a write of its own in the same transaction.
+    async function createdParticipant({ workspace, owner }, options) {
+      const ownerMembership = await memberships.findByWorkspaceIdAndUserId(workspace.id, owner.id, options);
+      const workspaceSettings = await settings.findByWorkspaceId(workspace.id, options);
+      seen.push({
+        slug: workspace.slug,
+        isPersonal: workspace.isPersonal,
+        owner: owner.id,
+        role: ownerMembership.roleSid,
+        settings: String(workspaceSettings.id) === String(workspace.id),
+        frozen: Object.isFrozen(workspace) && Object.isFrozen(owner),
+        trx: options.trx
+      });
+      await profiles.updateDisplayNameById(owner.id, `${owner.displayName} of ${workspace.slug}`, options);
+      if (duplicateWrite) await workspaces.insert({ slug: "acme", name: "Copy", ownerUserId: owner.id }, options);
+      if (refusal) throw refusal;
+    }
+    let missOwnSlug = false;
+    const directory = createDirectoryService({
+      tenancyProfile: resolveTenancyProfile({ tenancyMode: "workspaces", tenancyPolicy: { workspace: { allowSelfCreate: true } } }),
+      roleCatalog: createWorkspaceRoleCatalog(),
+      personalWorkspaceName: buildWorkspaceName,
+      createdParticipant,
+      // The free-slug read can miss a workspace once, as when another create inserts it between the read and the insert.
+      workspacesRepository: {
+        ...workspaces,
+        async listSlugsIn(slugs, options) {
+          if (missOwnSlug) {
+            missOwnSlug = false;
+            return new Set();
+          }
+          return workspaces.listSlugsIn(slugs, options);
+        }
+      },
+      workspaceMembershipsRepository: memberships,
+      workspaceSettingsRepository: settings
+    });
+    const ada = await createProfile("ada");
+    const grace = await createProfile("grace");
+
+    const team = (await directory.createWorkspaceForAuthenticatedUser(ada, { name: "Acme", slug: "acme" })).value;
+    const personal = await directory.ensurePersonalWorkspaceForUser(grace);
+    assert.deepEqual(seen.map(({ trx, ...entry }) => entry), [
+      { slug: "acme", isPersonal: false, owner: ada.id, role: "owner", settings: true, frozen: true },
+      { slug: "grace", isPersonal: true, owner: grace.id, role: "owner", settings: true, frozen: true }
+    ]);
+    assert.ok(seen.every(({ trx }) => trx), "each ran inside its creation's transaction");
+    assert.equal((await profiles.findById(ada.id)).displayName, "ada of acme");
+    assert.equal((await directory.ensurePersonalWorkspaceForUser(grace)).id, personal.id);
+    assert.equal(seen.length, 2, "an existing personal workspace is not created again, and runs no participant");
+
+    // A create that loses its slug to the same owner's same kind of workspace answers that workspace, and runs no participant.
+    missOwnSlug = true;
+    assert.equal((await directory.createWorkspaceForAuthenticatedUser(ada, { name: "Acme", slug: "acme" })).value.id, team.id);
+    assert.equal(seen.length, 2);
+
+    // Inside the caller's transaction, the participant runs in that transaction.
+    const carol = await createProfile("carol");
+    await userSettings.withTransaction({}, async (txOptions) => {
+      await directory.ensurePersonalWorkspaceForUser(carol, txOptions);
+      assert.equal(seen.at(-1).trx, txOptions.trx);
+    });
+
+    // A participant's refusal rolls back the workspace, its owner's membership, its settings and the participant's own write.
+    refusal = new AppError(409, "This workspace cannot be set up yet.", { code: "test.workspace.setupRefused" });
+    const workspacesBefore = await count("workspaces");
+    const settingsBefore = await count("workspace_settings");
+    const bob = await createProfile("bob");
+    for (const create of [
+      () => directory.createWorkspaceForAuthenticatedUser(bob, { name: "Refused", slug: "refused" }),
+      () => directory.ensurePersonalWorkspaceForUser(bob)
+    ]) {
+      await assert.rejects(create(), (error) => {
+        assert.equal(error, refusal);
+        assert.equal(error.transactionOutcome, "rolledBack");
+        return true;
+      });
+    }
+    assert.equal(await count("workspaces"), workspacesBefore);
+    assert.equal(await count("workspaces", { owner_user_id: bob.id }), 0);
+    assert.equal(await count("workspace_memberships", { user_id: bob.id }), 0);
+    assert.equal(await count("workspace_settings"), settingsBefore);
+    assert.equal((await profiles.findById(bob.id)).displayName, "bob");
+
+    // A duplicate from the participant's own write is not a lost slug: the creation fails once and does not run again.
+    refusal = null;
+    duplicateWrite = true;
+    const runs = seen.length;
+    await assert.rejects(directory.createWorkspaceForAuthenticatedUser(bob, { name: "Copy", slug: "copy" }), (error) => {
+      assert.ok(findDuplicateEntryError(error));
+      assert.equal(error.transactionOutcome, "rolledBack");
+      return true;
+    });
+    assert.equal(seen.length, runs + 1);
+    assert.equal(await count("workspaces", { owner_user_id: bob.id }), 0);
   });
 
   test("a duplicate participant poisons its managed transaction even when its caller catches the failure", async () => {
