@@ -182,9 +182,9 @@ Exactly this, and nothing more:
   `createVuetify(createMaterialVuetifyOptions(theme))` with
   `createMaterialVuetifyOptions` from `@jskit-ai/material-web/client`, importing
   `@jskit-ai/material-web/client/material.css`. JSKIT generates the light and
-  dark schemes from the seed at startup (Material Color Utilities
-  `SchemeTonalSpot`, every role in kebab-case such as `surface-container-low`,
-  plus success, warning and info with their containers), with
+  dark schemes from the seed at startup (every role in kebab-case such as
+  `surface-container-low`, plus success, warning and info with their
+  containers), with
   `defaultTheme: "system"` so the person's light, dark or system preference
   applies. The `md3` blueprint and JSKIT's Material 3 Vuetify defaults live in
   material-web; an app keeps no defaults file and never hand-picks a colour. The
@@ -208,22 +208,12 @@ Exactly this, and nothing more:
   Symbols has no brand marks (Google, GitHub, a payment network): a brand's
   logo is the brand's own artwork, a content image or SVG used as its owner
   publishes it, not an icon alias.
-- **Vuetify components by import:** a template's Vuetify tags (`<v-dialog>`)
-  are compiled to imports where they are written; a JSKIT app registers no
-  Vuetify component globally. A component chosen at run time is imported and
-  passed itself: `import { VDialog } from "vuetify/components"`, then
-  `<component :is="VDialog">` or `h(VDialog)`. Named as a string
-  (`resolveComponent("v-dialog")`, `resolveDynamicComponent`, `h("v-dialog")`,
-  `<component is="v-dialog">`) it resolves to nothing and Vue renders an
-  unknown element, so `jskit check` fails it (`ui/vuetify-by-name`). Only the
-  names the installed Vuetify exports from `vuetify/components` count; another
-  library's component (`v-chart`) is that library's to register.
-- **JSKIT components:** a prop that a JSKIT release removes from a component
-  it exports is listed in the package's `jskit.metadata.ui.removedProps`
-  (`{ "<Component>": { "<prop>": "<what to do instead>" } }`). An app that
-  still passes one fails `jskit check` (`ui/removed-prop`): Vue would pass it
-  on as an HTML attribute that does nothing. Each removal is also in the
-  package's CHANGELOG.
+- **Components:** a Vuetify component chosen at run time is imported and
+  passed: `import { VDialog } from "vuetify/components"`, then `:is="VDialog"`
+  or `h(VDialog)`. A JSKIT app registers none globally, so one named as a
+  string (`resolveComponent("v-dialog")`, `is="v-dialog"`) renders nothing
+  (`ui/vuetify-by-name`). A prop a JSKIT package lists as removed (its
+  `jskit.metadata.ui.removedProps` and CHANGELOG) fails `ui/removed-prop`.
 
 ## Exact sizes
 
@@ -274,14 +264,9 @@ dialog, chip or FAB.
   file, such as a CSV export), `disabled`, `loading` or `color` (`error` for a
   destructive one); attributes such as `target` reach its button. On compact
   widths the bar shows the single `primary` action (a form's Save) and puts
-  every other action in its "More actions" menu, where `overflow` actions
-  always are. The bar's own items (top-right placements such as tools, a
-  notification bell and the account avatar) stay while they fit beside the
-  whole title; those that don't follow the actions into the menu, farthest
-  from the corner first, and the item nearest the corner stays unless the
-  `primary` action takes its place. An item keeps running while it is in the
-  menu, closed or open, so its live count, its panel or a floating button it
-  shows elsewhere on the page stay. Medium and wider bars show them all.
+  the other actions, and the top-right items that don't fit beside the title,
+  in its "More actions" menu, where `overflow` actions always are; medium and
+  wider bars show them all.
 - **Window size classes:** compact under 600 (navigation bar), medium 600–839
   (navigation rail), expanded 840–1199 and large from 1200 (drawer), read from
   `useShellWindowSizeClass()`
@@ -294,24 +279,17 @@ dialog, chip or FAB.
   starter registers it as `local.main.ui.section-tab-link-item`), and the page
   draws one tab row, `display: flex; overflow-x: auto` over a 1dp
   `outline-variant` bottom border. `ShellTabLinkItem` is the navigation bar's
-  destination; placed in a page it draws a section tab. material.css draws
-  every `v-bottom-navigation` as the navigation bar (a 64x32 indicator around
-  each 24dp icon), so an app's own bar of `v-btn`s matches the shell's; a bar's
-  `bg-color` and a destination's `color` or `base-color` keep their colours.
+  destination; placed in a page it draws a section tab. material.css draws an
+  app's own `v-bottom-navigation` the same way, keeping its colour props.
 
 ## Colour
 
 - Use semantic roles through Vuetify props, classes and
   `rgb(var(--v-theme-<role>))`; never a raw colour value in a component.
-- Text in an `on-*` role uses its text class or a `color` prop:
-  `class="text-on-surface-variant"` for supporting text, or
-  `<v-icon color="on-surface-variant">`. material-web has a `text-on-*` class
-  for every `on-*` role of the scheme (fixed and surface-tone roles, and
-  success, warning and info, included); Vuetify's own `on-surface-variant`
-  class does the same. An app colour's `on-*` roles have only Vuetify's class
-  (`class="on-partner"`), and `bg-partner` or `color="partner"` already puts
-  its text in `on-partner`. Never lower text emphasis with an opacity or
-  `text-medium-emphasis`: Material 3 uses `on-surface-variant` instead.
+- Text in an `on-*` role uses its class or a `color` prop
+  (`class="text-on-surface-variant"`, `<v-icon color="on-surface-variant">`);
+  an app colour's is `class="on-partner"`, which `bg-partner` already sets.
+  Never lower text emphasis with an opacity or `text-medium-emphasis`.
 - Status chips use `color="success"` (or `warning`, `info`, `error`) or the
   container roles (`success-container` with `on-success-container`), and each
   status meaning has its own hue. Never communicate status, selection, validation, or permission through
@@ -345,10 +323,9 @@ dialog, chip or FAB.
   next workflow step is the one filled button, shown in context rather than a
   row of mostly disabled actions.
 - **Form:** the bar's close (X) cancels and Save is its filled action. A
-  field keeps its supporting-text line, as JSKIT's defaults leave it, so an
-  error or hint appears in place: no margin under a field, and no
-  `hide-details` in a form. A field outside a form (a search box, a filter, a
-  composer) sets `hide-details`. Nothing moves under a finger: a multi-select
+  field keeps its message line (no `hide-details`, no margin under it), so an
+  error appears in place; a field outside a form (search, filter) sets
+  `hide-details`. Nothing moves under a finger: a multi-select
   chip field keeps its input width when it loses focus. A pick-one-of-N choice is a
   segmented button (`v-btn-toggle`, drawn by JSKIT, with 12dp segment sides as
   in any `v-btn-group`) with `role="radiogroup"` and
@@ -383,11 +360,9 @@ dialog, chip or FAB.
   field. A user-triggered command uses JSKIT's shared action
   feedback/snackbar path. Never insert a transient command-error alert above
   page content where it shifts the working layout.
-- A snackbar never covers the FAB or the actions it reports on. `ShellErrorHost`
-  centres it above the navigation bar on compact windows and starts it at the
-  content's start edge, at most half its width, on wider ones. A FAB takes
-  layout room (`<v-fab app layout>`, as `ShellPrimaryAction`'s does), so the
-  snackbar shows above it.
+- A snackbar never covers the FAB or the actions it reports on: `ShellErrorHost`
+  places it, and a FAB takes layout room (`<v-fab app layout>`, as
+  `ShellPrimaryAction`'s does), so the snackbar shows above it.
 
 ## Adaptive layout
 
@@ -409,28 +384,23 @@ npx jskit check m3 src/pages/home/books  # a section
 npx jskit check m3 $(git diff --name-only --diff-filter=d main)  # changed files
 ```
 
-Plain `jskit check`, and so every app's verify, fails on the
-[navigation rules](#forbidden-in-app-code) and on the visual and component
-rules below; nothing excuses a `ui/*` finding.
-`jskit check m3` applies the same rules alone, to the whole app or to the
-given paths:
+Both fail on the [navigation rules](#forbidden-in-app-code) and on these;
+nothing excuses a `ui/*` finding:
 
 | Rule | Finds |
 |---|---|
 | `m3/duplicate-h1` | a second `h1` that can show beside the first (one per `v-if` branch is one), or an in-page `h1` under a layout that always shows the shell's page title |
-| `m3/raw-hex` | a hex colour, or one written as channels (`rgba(0, 0, 0, 0.15)`, as in a hand-made shadow), outside `src/theme/` (`palettes.js` holds content colours), in code, CSS or a colour attribute (`color`, `bg-color`, SVG `fill`); `rgba(var(--v-theme-shadow), 0.2)` reads a role and passes, as do `href="#add"` and `url(#fade)` |
+| `m3/raw-hex` | a hex colour, or one written as channels (`rgba(0, 0, 0, 0.15)`, as in a hand-made shadow), outside `src/theme/` (`palettes.js` holds content colours); `rgba(var(--v-theme-shadow), 0.2)` reads a role and passes |
 | `m3/dark-scheme` | no dark scheme, or the theme pinned to light |
-| `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet (`:border="false"` and `border="0"` draw none and pass) |
+| `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet |
 | `m3/mdi-icon` | `mdi-*` icon strings and `@mdi/js` imports |
-| `m3/fixed-button-height` | `height`/`min-height` on buttons, in props, styles or CSS (`.v-btn` and its modifiers, not `.v-btn-group` or `.v-btn-toggle`) |
-| `ui/vuetify-by-name` | a Vuetify component named as a string for Vue to resolve: `resolveComponent`, `resolveDynamicComponent` or `h` with `"v-dialog"` or `"VDialog"`, or a `<component>` whose `is` names one; a name the installed `vuetify/components` does not export passes |
-| `ui/removed-prop` | a prop the installed JSKIT package lists as removed from the component the template passes it to, written in camelCase or kebab-case, static or bound |
+| `m3/fixed-button-height` | `height`/`min-height` on buttons, in props, styles or CSS |
+| `ui/vuetify-by-name` | a Vuetify component named as a string for Vue to resolve |
+| `ui/removed-prop` | a prop the installed JSKIT package lists as removed from that component |
 
 Tests, fixtures, server code and migrations are not checked. A clean check is
-necessary, not sufficient: it cannot see layout, spacing or contrast. A
-[UI pass](./ui-pass.md) is the guard for those, because it looks at every
-affected screen at three widths in light and dark; an editor that runs one
-automatically after each plan keeps that guard on every change.
+necessary, not sufficient: layout, spacing and contrast need a
+[UI pass](./ui-pass.md), every affected screen at three widths in light and dark.
 
 ### Exceptions
 
@@ -439,16 +409,13 @@ Take the approved route first; none needs an exception:
 - **Brand or partner colours** are theme custom colours, used by name:
   `colors: { partner: "#0A7D3E" }` in `src/theme/index.js`, then
   `<v-chip color="partner">`. A hex string is harmonized toward the seed; a
-  colour that must keep its hue is `{ value: "#F5C518", blend: false }`
-  (Material Theme Builder's Blend switched off), with the same four roles.
+  colour that must keep its hue is `{ value: "#F5C518", blend: false }`, with
+  the same four roles.
 - **Content colours**, colours that are content rather than UI, keep one
-  value in both schemes: an identity palette a person picks and the server
-  stores, avatar and illustration artwork, brand marks (a language's
-  file-type tint), fixed chart series, QR codes, colours written into
-  exported files. They are named exports of plain hex values in
-  `src/theme/palettes.js`, used as they are, never for UI chrome (a theme
-  colour is toned per scheme, so it can't keep an identity the same).
-  Components read them through bindings:
+  value in both schemes: an identity palette a person picks, artwork, brand
+  marks, fixed chart series, QR codes, colours in exported files. They are
+  named exports of plain hex values in `src/theme/palettes.js`, used as they
+  are, never for UI chrome. Components read them through bindings:
 
   ```vue
   <script setup>
