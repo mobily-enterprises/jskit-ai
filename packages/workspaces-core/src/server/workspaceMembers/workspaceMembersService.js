@@ -218,6 +218,24 @@ function createService({
     return returnJsonApiData(await listMembers(workspace, options));
   }
 
+  // Changes an active member who is not the owner, and answers the members. The membership is locked before it is
+  // checked, so a role change and a removal of one member at once run one after the other, and the second decides on
+  // what the first left: a removed member is not made active again by a role change, and keeps the role they had.
+  async function changeActiveMember(workspace, memberUserId, { ownerError, changes }, options) {
+    await workspaceMembershipsRepository.withTransaction(options, async (txOptions) => {
+      const membership = await workspaceMembershipsRepository.lockByWorkspaceIdAndUserId(workspace.id, memberUserId, txOptions);
+      if (!membership || membership.status !== "active") {
+        throw new AppError(404, "Member not found.", { code: "workspaces.member.notFound" });
+      }
+      if (memberUserId === normalizeRecordId(workspace.ownerUserId, { fallback: null }) || membership.roleSid === OWNER_ROLE_ID) {
+        throw ownerError();
+      }
+      await workspaceMembershipsRepository.upsertMembership(workspace.id, memberUserId, changes(membership), txOptions);
+    });
+
+    return returnJsonApiData(await listMembers(workspace, options));
+  }
+
   async function updateMemberRole(workspace, payload, options = {}) {
     const memberUserId = normalizeRecordId(payload.memberUserId, { fallback: null });
     const roleSid = normalizeLowerText(payload.roleSid || "");
@@ -228,25 +246,10 @@ function createService({
       throw roleNotAssignableError();
     }
 
-    const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, memberUserId, options);
-    if (!existingMembership || existingMembership.status !== "active") {
-      throw new AppError(404, "Member not found.", { code: "workspaces.member.notFound" });
-    }
-    if (memberUserId === normalizeRecordId(workspace.ownerUserId, { fallback: null }) || existingMembership.roleSid === OWNER_ROLE_ID) {
-      throw new AppError(409, "Cannot change workspace owner role.", { code: "workspaces.member.ownerRoleLocked" });
-    }
-
-    await workspaceMembershipsRepository.upsertMembership(
-      workspace.id,
-      memberUserId,
-      {
-        roleSid,
-        status: "active"
-      },
-      options
-    );
-
-    return returnJsonApiData(await listMembers(workspace, options));
+    return changeActiveMember(workspace, memberUserId, {
+      ownerError: () => new AppError(409, "Cannot change workspace owner role.", { code: "workspaces.member.ownerRoleLocked" }),
+      changes: () => ({ roleSid, status: "active" })
+    }, options);
   }
 
   async function removeMember(workspace, payload, options = {}) {
@@ -255,25 +258,10 @@ function createService({
       throw memberUserIdRequiredError();
     }
 
-    const existingMembership = await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, memberUserId, options);
-    if (!existingMembership || existingMembership.status !== "active") {
-      throw new AppError(404, "Member not found.", { code: "workspaces.member.notFound" });
-    }
-    if (memberUserId === normalizeRecordId(workspace.ownerUserId, { fallback: null }) || existingMembership.roleSid === OWNER_ROLE_ID) {
-      throw new AppError(409, "Cannot remove workspace owner.", { code: "workspaces.member.ownerNotRemovable" });
-    }
-
-    await workspaceMembershipsRepository.upsertMembership(
-      workspace.id,
-      memberUserId,
-      {
-        roleSid: existingMembership.roleSid,
-        status: "revoked"
-      },
-      options
-    );
-
-    return returnJsonApiData(await listMembers(workspace, options));
+    return changeActiveMember(workspace, memberUserId, {
+      ownerError: () => new AppError(409, "Cannot remove workspace owner.", { code: "workspaces.member.ownerNotRemovable" }),
+      changes: (membership) => ({ roleSid: membership.roleSid, status: "revoked" })
+    }, options);
   }
 
   async function listInvitesPayload(workspace, options = {}) {

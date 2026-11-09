@@ -88,6 +88,24 @@ function createRepository({ workspaceMemberships }) {
     return normalizeMembershipRecord(rows[0] || null);
   }
 
+  /**
+   * The membership as findByWorkspaceIdAndUserId reads it, locked until the caller's transaction ends, or null. Another
+   * change of the same membership that locks it first waits, and then reads what this one left.
+   * @param {unknown} workspaceId
+   * @param {unknown} userId
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options The caller's transaction.
+   */
+  async function lockByWorkspaceIdAndUserId(workspaceId, userId, options) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedWorkspaceId || !normalizedUserId) {
+      return null;
+    }
+
+    const [row] = await workspaceMemberships.lockWhere({ workspace: normalizedWorkspaceId, user: normalizedUserId }, options);
+    return normalizeMembershipRecord(row || null);
+  }
+
   async function ensureOwnerMembership(workspaceId, userId, options = {}) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     const normalizedUserId = normalizeRecordId(userId, { fallback: null });
@@ -260,6 +278,7 @@ function createRepository({ workspaceMemberships }) {
     // "active" }`).
     joinSource: workspaceMemberships.joinSource,
     findByWorkspaceIdAndUserId,
+    lockByWorkspaceIdAndUserId,
     ensureOwnerMembership,
     upsertMembership,
     addMember,

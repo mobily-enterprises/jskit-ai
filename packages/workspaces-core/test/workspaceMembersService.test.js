@@ -71,9 +71,13 @@ function createFixture() {
           }
         ];
       },
-      async findByWorkspaceIdAndUserId(workspaceId, userId) {
+      async withTransaction(options, work) {
+        return work({ ...options, trx: {} });
+      },
+      async lockByWorkspaceIdAndUserId(workspaceId, userId, options) {
         assert.equal(Number(workspaceId), 7);
         assert.equal(Number(userId), 11);
+        assert.ok(options.trx, "the membership is locked inside the change's transaction");
         return {
           workspaceId: "7",
           userId: "11",
@@ -81,9 +85,10 @@ function createFixture() {
           status: "active"
         };
       },
-      async upsertMembership(workspaceId, userId, patch) {
+      async upsertMembership(workspaceId, userId, patch, options) {
         assert.equal(Number(workspaceId), 7);
         assert.equal(Number(userId), 11);
+        assert.ok(options.trx, "and written in it");
         assert.deepEqual(patch, {
           roleSid: "admin",
           status: "active"
@@ -530,7 +535,10 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
               }
             ];
       },
-      async findByWorkspaceIdAndUserId(workspaceId, userId) {
+      async withTransaction(options, work) {
+        return work({ ...options, trx: {} });
+      },
+      async lockByWorkspaceIdAndUserId(workspaceId, userId) {
         assert.equal(Number(workspaceId), 7);
         assert.equal(Number(userId), 11);
         return {
@@ -594,7 +602,10 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
       async listActiveByWorkspaceId() {
         return [];
       },
-      async findByWorkspaceIdAndUserId(workspaceId, userId) {
+      async withTransaction(options, work) {
+        return work({ ...options, trx: {} });
+      },
+      async lockByWorkspaceIdAndUserId(workspaceId, userId) {
         assert.equal(Number(workspaceId), 7);
         assert.equal(Number(userId), 9);
         return {

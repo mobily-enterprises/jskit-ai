@@ -74,7 +74,10 @@ test("Members and Invitations response validation preserves labels and saved rol
       async listActiveByWorkspaceId() {
         return [{ userId: "11", roleSid: savedRole, status: "active", displayName: "Person", email: "person@example.com" }];
       },
-      async findByWorkspaceIdAndUserId() { return { userId: "11", roleSid: savedRole, status: "active" }; },
+      async withTransaction(options, work) {
+        return work({ ...options, trx: {} });
+      },
+      async lockByWorkspaceIdAndUserId() { return { userId: "11", roleSid: savedRole, status: "active" }; },
       async upsertMembership(_workspaceId, _userId, patch) { savedRole = patch.roleSid; }
     },
     workspaceInvitesRepository: { async listPendingByWorkspaceIdWithWorkspace() { return []; } },

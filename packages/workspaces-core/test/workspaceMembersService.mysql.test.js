@@ -206,6 +206,70 @@ test("updateMemberRole and removeMember change an active member of their workspa
     "both changes roll back with the caller's transaction");
 });
 
+// Resolves once a statement on this test's database has waited a second or more, which here is only a wait for a row
+// lock: the race's second request has reached the membership the first holds. The test user sees its own
+// connections in the process list without the PROCESS privilege.
+async function untilBlocked(db) {
+  const deadline = Date.now() + 10_000;
+  while (Date.now() < deadline) {
+    const [rows] = await db.knex.raw(
+      "SELECT COUNT(*) AS waiting FROM information_schema.PROCESSLIST WHERE DB = ? AND COMMAND = 'Query' " +
+        "AND TIME >= 1 AND INFO NOT LIKE '%PROCESSLIST%'",
+      [db.name]
+    );
+    if (Number(rows[0].waiting) > 0) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("No statement waited for a lock within 10 s.");
+}
+
+// Runs `first` in a transaction that holds what it changed until `second`, started meanwhile, waits for it; answers
+// `second`'s outcome once `first` has committed.
+async function race(db, first, second) {
+  const held = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const winner = db.memberships.withTransaction({}, async (txOptions) => {
+    await first(txOptions);
+    held.resolve();
+    await release.promise;
+  });
+  let loser;
+  try {
+    await held.promise;
+    loser = second();
+    loser.catch(() => {});
+    await untilBlocked(db);
+  } finally {
+    release.resolve();
+    await winner;
+  }
+  return loser;
+}
+
+test("a role change and a removal of one member at once: the second decides on what the first left", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const service = membersService(db);
+  const { workspace, members } = await teamOf(db, "race", ["cy", "di"]);
+  const stored = async (member) => {
+    const { roleSid, status } = await db.memberships.findByWorkspaceIdAndUserId(workspace.id, member.id);
+    return { roleSid, status };
+  };
+
+  const changingRemoved = race(db,
+    (txOptions) => service.removeMember(workspace, { memberUserId: members.cy.id }, txOptions),
+    () => service.updateMemberRole(workspace, { memberUserId: members.cy.id, roleSid: "admin" }));
+  await assert.rejects(changingRemoved, (error) => error.status === 404 && error.code === "workspaces.member.notFound",
+    "a role change that waited for a removal finds no member");
+  assert.deepEqual(await stored(members.cy), { roleSid: "member", status: "revoked" }, "the removed member stays removed");
+
+  await race(db,
+    (txOptions) => service.updateMemberRole(workspace, { memberUserId: members.di.id, roleSid: "admin" }, txOptions),
+    () => service.removeMember(workspace, { memberUserId: members.di.id }));
+  assert.deepEqual(await stored(members.di), { roleSid: "admin", status: "revoked" },
+    "a removal that waited for a role change keeps the role it gave");
+});
+
 test("listMembers and the invites list leave out other workspaces' members and invites", async () => {
   requireTestDatabase(process.env);
   const db = await database.open();
