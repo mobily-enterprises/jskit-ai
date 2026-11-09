@@ -246,6 +246,41 @@ test("m3/raw-hex finds colours written as channels, as in hand-made shadows, and
   });
 });
 
+// What only looks like a raw colour, a border or a button: a fragment or text that reads as hex, an SVG url(#id), a border
+// bound off, and the button group and toggle, which are not buttons.
+const LOOKALIKE_PAGE = [
+  "<template>", // 1
+  "  <v-btn-toggle class=\"filters\">", // 2
+  "    <v-btn href=\"#add\" text=\"#1042\" />", // 3
+  "  </v-btn-toggle>", // 4
+  "  <v-card :border=\"false\">Flat</v-card>", // 5
+  "  <v-sheet border=\"0\">Flat</v-sheet>", // 6
+  "  <v-card :border=\"framed\">Framed</v-card>", // 7
+  "  <svg><rect fill=\"url(#fade)\" /><circle fill=\"#abc\" /></svg>", // 8
+  "  <v-chip bg-color=\"#123456\">Tag</v-chip>", // 9
+  "</template>", // 10
+  "", // 11
+  "<style scoped>", // 12
+  ".filters.v-btn-toggle { height: 48px; }", // 13
+  ".v-btn-group { min-height: 40px; }", // 14
+  ".v-btn--size-large { height: 56px; }", // 15
+  ".wash { background: url(#fade), url(\"#fade\"); mask: url(#cut); }", // 16
+  "</style>", // 17
+  ""
+].join("\n");
+
+test("m3/* leave alone fragments and text that read as hex, SVG url(#id), a border bound off and button groups", async () => {
+  await withApp({ "package.json": SHELL_MANIFEST, "src/pages/home/lookalikes.vue": LOOKALIKE_PAGE }, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root });
+    assert.deepEqual(findingLines(result).filter((line) => / m3\//u.test(line)), [
+      "src/pages/home/lookalikes.vue:7 m3/outlined-card",
+      "src/pages/home/lookalikes.vue:8 m3/raw-hex",
+      "src/pages/home/lookalikes.vue:9 m3/raw-hex",
+      "src/pages/home/lookalikes.vue:15 m3/fixed-button-height"
+    ]);
+  });
+});
+
 // #241: one line's `m3-check: allow <m3 rule> - <reason>` is the only exception. Nothing excuses a navigation rule,
 // and an exception without a reason or naming an unknown rule excuses nothing and is itself a finding.
 const EXCEPTION_PAGE = [

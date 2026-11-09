@@ -415,11 +415,11 @@ given paths:
 | Rule | Finds |
 |---|---|
 | `m3/duplicate-h1` | a second `h1` that can show beside the first (one per `v-if` branch is one), or an in-page `h1` under a layout that always shows the shell's page title |
-| `m3/raw-hex` | a hex colour, or one written as channels (`rgba(0, 0, 0, 0.15)`, as in a hand-made shadow), outside `src/theme/` (`palettes.js` holds content colours); `rgba(var(--v-theme-shadow), 0.2)` reads a role and passes |
+| `m3/raw-hex` | a hex colour, or one written as channels (`rgba(0, 0, 0, 0.15)`, as in a hand-made shadow), outside `src/theme/` (`palettes.js` holds content colours), in code, CSS or a colour attribute (`color`, `bg-color`, SVG `fill`); `rgba(var(--v-theme-shadow), 0.2)` reads a role and passes, as do `href="#add"` and `url(#fade)` |
 | `m3/dark-scheme` | no dark scheme, or the theme pinned to light |
-| `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet |
+| `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet (`:border="false"` and `border="0"` draw none and pass) |
 | `m3/mdi-icon` | `mdi-*` icon strings and `@mdi/js` imports |
-| `m3/fixed-button-height` | `height`/`min-height` on buttons, in props, styles or CSS |
+| `m3/fixed-button-height` | `height`/`min-height` on buttons, in props, styles or CSS (`.v-btn` and its modifiers, not `.v-btn-group` or `.v-btn-toggle`) |
 | `ui/vuetify-by-name` | a Vuetify component named as a string for Vue to resolve: `resolveComponent`, `resolveDynamicComponent` or `h` with `"v-dialog"` or `"VDialog"`, or a `<component>` whose `is` names one |
 | `ui/removed-prop` | a prop the installed JSKIT package lists as removed from the component the template passes it to, written in camelCase or kebab-case, static or bound |
 

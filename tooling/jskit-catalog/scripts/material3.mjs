@@ -78,6 +78,13 @@ const CHANNEL_COLOUR = String.raw`\b(?:rgba?|hsla?)\(\s*[\d.][^()]*\)`;
 const channelColour = () => new RegExp(CHANNEL_COLOUR, "giu");
 const exactChannelColour = new RegExp(`^${CHANNEL_COLOUR}$`, "iu");
 const CHANNEL_FIX = "Use rgb(var(--v-theme-<role>)), with an alpha for a shadow or scrim: rgba(var(--v-theme-shadow), 0.2).";
+// An attribute that takes a colour as a plain value: a Vuetify colour prop (color, bg-color, baseColor) or SVG paint.
+// Any other attribute's "#add" is a fragment or text.
+const COLOUR_ATTRIBUTE = /(?:colou?r|^fill|^stroke)$/iu;
+// A url(...) in CSS, whose "#fade" names an SVG element, not a colour.
+const CSS_URL = /url\([^)]*\)/giu;
+// A border attribute that draws none: a bound false, 0, null or undefined, or "0" (Vuetify's border-0).
+const NO_BORDER = /^(?:false|0|null|undefined)$/u;
 const quotedHex = () => new RegExp(`(["'\`])(${HEX_COLOUR})\\1`, "gu");
 const MDI_STRING = /\bmdi-[a-z][a-z0-9-]*/gu;
 const MDI_IMPORT = /(?:from\s*|import\s*|require\(\s*)["'](@mdi\/(?:js|font)[^"']*)["']/gu;
@@ -226,14 +233,16 @@ function checkCss(css, offset, context) {
 function checkDeclaration(declaration, context) {
   const { report, themed } = context;
   if (!themed) {
-    for (const match of declaration.value.matchAll(hexPattern())) {
+    const value = declaration.value.replace(CSS_URL, (url) => " ".repeat(url.length));
+    for (const match of value.matchAll(hexPattern())) {
       report("m3/raw-hex", declaration.valueOffset + match.index, `Raw colour ${match[0]}. Use rgb(var(--v-theme-<role>)). ${CONTENT_COLOUR}`);
     }
-    for (const match of declaration.value.matchAll(channelColour())) {
+    for (const match of value.matchAll(channelColour())) {
       report("m3/raw-hex", declaration.valueOffset + match.index, `Raw colour ${match[0]}. ${CHANNEL_FIX} ${CONTENT_COLOUR}`);
     }
   }
-  const buttonRule = declaration.selectors.some((selector) => /\.v-btn\b/u.test(selector));
+  // .v-btn and its modifiers (.v-btn--size-large), not .v-btn-group or .v-btn-toggle.
+  const buttonRule = declaration.selectors.some((selector) => /\.v-btn(?:--[\w-]+)?(?![\w-])/u.test(selector));
   if (buttonRule && ["height", "min-height", "--v-btn-height"].includes(declaration.property)) {
     report("m3/fixed-button-height", declaration.offset, `A fixed ${declaration.property} on buttons. JSKIT ships the 40dp button with its 48dp touch target; remove it. ${SMALLER_BUTTON}`);
   }
@@ -277,7 +286,8 @@ function checkAttribute(tag, entry, context) {
     for (const declaration of readInlineDeclarations(entry.value, entry.valueOffset)) {
       checkDeclaration({ ...declaration, selectors: tag.name === "v-btn" ? [".v-btn"] : [] }, context);
     }
-  } else if (!themed && (exactHex.test(entry.value.trim()) || exactChannelColour.test(entry.value.trim()))) {
+  } else if (!themed && COLOUR_ATTRIBUTE.test(entry.name) &&
+    (exactHex.test(entry.value.trim()) || exactChannelColour.test(entry.value.trim()))) {
     report("m3/raw-hex", entry.valueOffset, `Raw colour ${entry.value.trim()}. Use a theme colour role such as color="primary". ${CONTENT_COLOUR}`);
   }
   checkLinkAttribute(tag, entry, context.report);
@@ -290,7 +300,7 @@ function checkSurface(tag, report) {
     report("m3/outlined-card", variant.offset, `${tag.name} with variant="outlined". Material 3 separates surfaces by tone: use the flat default or a surface-container colour.`);
   }
   const border = attribute(tag, "border");
-  if (border) {
+  if (border && !(border.bound ? NO_BORDER.test(border.value.trim()) : border.value.trim() === "0")) {
     report("m3/outlined-card", border.offset, `${tag.name} with a border. Material 3 separates surfaces by tone: use the flat default or a surface-container colour.`);
   }
 }
