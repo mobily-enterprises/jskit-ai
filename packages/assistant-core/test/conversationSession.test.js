@@ -1429,3 +1429,28 @@ test("native settings authorize their scope and reject replaced or closed host p
   await assert.rejects(runtime.updateNativeConversationSettings(request), { code: "conversation_handle_closed" });
   assert.deepEqual([acquisitions, updates], [1, 1]);
 });
+
+// A caller that waits on its own turn reads that turn, never every turn of the conversation: the
+// whole transcript was read and cloned at the end of every chat turn to keep one.
+test("waiting on one turn reads that turn, not the whole transcript", async t => {
+  const memory = createMemoryConversationStorage();
+  const turnReads = [];
+  const storage = { ...memory, read: (scope, operation) => memory.read(scope, transaction =>
+    operation({ ...transaction, readTurn: id => { turnReads.push(id); return transaction.readTurn(id); } })) };
+  const f = await fixture(t, { storage });
+  for (const [messageId, text] of [["m1", "First"], ["m2", "Second"], ["m3", "Third"]]) {
+    await f.conversation.send({ messageId, text });
+    await f.conversation.wait();
+  }
+  const { turnId } = await f.conversation.send({ messageId: "m4", text: "Fourth" });
+  await f.conversation.wait();
+  turnReads.length = 0;
+  const result = await f.conversation.wait({ turnId });
+  assert.deepEqual(result.conversationLog.map(turn => turn.turnId), [turnId]);
+  assert.equal(result.conversationLog[0].assistant.text, "Hello there.");
+  assert.equal(result.status, "ready");
+  assert.equal(result.pagination, undefined);
+  assert.deepEqual([...new Set(turnReads)], [turnId], "only the turn waited on, which is also the latest, is read");
+  assert.deepEqual((await f.conversation.wait({ turnId: "000001" })).conversationLog.map(turn => turn.user.text), ["First"]);
+  assert.deepEqual((await f.conversation.wait({ turnId: "999999" })).conversationLog, []);
+});

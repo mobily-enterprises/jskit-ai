@@ -1,5 +1,6 @@
 import { codexAppServerTurnStateFromAgentRun } from "./codexTurn.js";
 import { failure, stateErrorFields } from "./conversationRefusals.js";
+import { hasMessages, isCompletedEnvelopeTurn } from "./transcript.js";
 
 /** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
 /** @typedef {import("./conversationEntries.js").ConversationState} ConversationState */
@@ -85,6 +86,17 @@ function createConversationReads({ storage, transcript, streams, attachmentsOffe
     return (await readTranscript(entry)).find(turn => turn.turnId === turnId) || null;
   }
 
+  /**
+   * One saved turn by its id, or null, without reading the rest of the transcript.
+   * @param {ConversationEntry} entry
+   * @param {string} turnId
+   */
+  async function readTurn(entry, turnId) {
+    if (entry.conversation) return readBoundTurn(entry, turnId);
+    const turn = await storage.read(entry.id, transaction => transaction.readTurn(turnId));
+    return hasMessages(turn) ? turn : null;
+  }
+
   /** @param {ConversationEntry} entry */
   async function lastTranscriptTurn(entry) {
     const page = entry.conversation && !offersPages(entry) ? null
@@ -143,20 +155,24 @@ function createConversationReads({ storage, transcript, streams, attachmentsOffe
   }
 
   /**
-   * What a reader sees of a conversation from its saved state: a page of its transcript, or all
-   * of it, with the current turn's status, phase, error and live stream.
+   * What a reader sees of a conversation from its saved state: a page of its transcript, one turn
+   * of it (`query.turnId`), or all of it, with the current turn's status, phase, error and live stream.
    * @param {ConversationEntry} entry
    * @param {ConversationState} state
    * @param {object} [query]
    */
   async function snapshot(entry, state, query) {
-    const page = query ? await readTranscriptPage(entry, query) : null;
+    const oneTurn = query?.turnId !== undefined;
+    const page = oneTurn ? { conversationLog: [await readTurn(entry, query.turnId)]
+      .filter(turn => turn && !(completedEnvelope && isCompletedEnvelopeTurn(turn))) }
+      : query ? await readTranscriptPage(entry, query) : null;
     const conversationLog = page ? page.conversationLog
       : completedEnvelope ? await transcript.readConversationLog(entry.id, { presentation: true }) : await readTranscript(entry);
-    // Browsing an older page does not change the current turn's control/error state.
-    const latest = completedEnvelope || query?.beforeTurnId
-      ? entry.conversation ? (await readTranscriptPage(entry, { limit: 1 })).conversationLog
-        : (await transcript.readConversationLogPage(entry.id, { limit: 1 })).conversationLog : conversationLog;
+    // Browsing an older page, or reading one turn, does not change the current turn's control/error state.
+    const latest = oneTurn ? [await lastTranscriptTurn(entry)].filter(Boolean)
+      : completedEnvelope || query?.beforeTurnId
+        ? entry.conversation ? (await readTranscriptPage(entry, { limit: 1 })).conversationLog
+          : (await transcript.readConversationLogPage(entry.id, { limit: 1 })).conversationLog : conversationLog;
     const last = latest.at(-1)?.metadata?.runtime;
     const savedRequest = state.request;
     const nativeTurn = state.nativeTurn || (entry.driver.canonicalTranscript && state.binding?.codexAppServerRun
@@ -182,7 +198,7 @@ function createConversationReads({ storage, transcript, streams, attachmentsOffe
       goal: entry.goal || null,
       pendingRequest,
       conversationLog: conversationLog.filter(turn => !turn.metadata?.runtime?.supersededBy),
-      ...(page ? { pagination: page.pagination } : {}),
+      ...(page?.pagination ? { pagination: page.pagination } : {}),
       streaming: completedEnvelope && !entry.conversation ? { ...streaming,
         messages: streaming.messages.filter(message => !(message.origin === "application" && message.completedEnvelope === true)) } : streaming
     };
@@ -195,6 +211,7 @@ function createConversationReads({ storage, transcript, streams, attachmentsOffe
     findSubmittedTurn,
     readBoundTurn,
     lastTranscriptTurn,
+    readTurn,
     readNativeResult,
     logicalSnapshot,
     snapshot

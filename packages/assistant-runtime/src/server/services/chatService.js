@@ -401,7 +401,8 @@ function createChatService({
           const receipt = await handle.send({ messageId: source.messageId, text: source.input,
             ...(source.attachmentIds !== undefined ? { attachmentIds: source.attachmentIds } : {}) });
           turnId = receipt.turnId;
-          const snapshot = await handle.wait();
+          // The finished turn alone: waiting never reads the rest of the conversation.
+          const snapshot = await handle.wait({ turnId });
           const turn = snapshot.conversationLog.find(entry => entry.turnId === turnId);
           const status = turn?.metadata?.runtime?.status;
           if (status !== "complete") {

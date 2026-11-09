@@ -142,14 +142,16 @@ function createConversationHandles({ entries, storage, defaultHost, events, read
           return entry.provider.inspectAdmission({ messageId, threadId, context, representation });
         });
       },
-      async wait(input) {
+      // Waits for the conversation's work to settle and reads it as read(query) does: `{ turnId }`
+      // reads only that turn, so a caller that waits on its own turn never reads the whole transcript.
+      async wait(query) {
         await events.access(context, id, "read", entry);
         if (entry.conversation?.commands) throw failure("This conversation uses its original read and subscription operations.", "conversation_original_read_only", 400, { messageCode: "assistant.conversation.originalReadOnly" });
-        if (entry.conversation?.native?.scoped) return entry.provider.waitNative({ input, context });
+        if (entry.conversation?.native?.scoped) return entry.provider.waitNative({ input: query, context });
         await entry.pending;
         await entry.active?.done;
         await events.access(context, id, "read", entry);
-        return reads.snapshot(entry, await entries.readState(entry));
+        return reads.snapshot(entry, await entries.readState(entry), query);
       },
       // Cancel of one unsent or unconfirmed message always records it; an
       // application conversation supplies its own operation for that.

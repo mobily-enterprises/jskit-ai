@@ -163,7 +163,7 @@ export function createConversationTranscript({ storage, clock = currentDate, app
   });
 }
 
-function hasMessages(turn) {
+export function hasMessages(turn) {
   return Boolean(turn && (turn.system || turn.user || turn.assistant || turn.commentary?.length || turn.thinking?.length));
 }
 
