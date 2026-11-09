@@ -1454,3 +1454,22 @@ test("waiting on one turn reads that turn, not the whole transcript", async t =>
   assert.deepEqual((await f.conversation.wait({ turnId: "000001" })).conversationLog.map(turn => turn.user.text), ["First"]);
   assert.deepEqual((await f.conversation.wait({ turnId: "999999" })).conversationLog, []);
 });
+
+// Checking one message's delivery finds that message's turn by its id; it read and cloned every
+// turn of the conversation to find it.
+test("checking one message's delivery reads that message's turn, not the whole transcript", async t => {
+  const memory = createMemoryConversationStorage();
+  const turnReads = [];
+  const storage = { ...memory, read: (scope, operation) => memory.read(scope, transaction =>
+    operation({ ...transaction, readTurn: id => { turnReads.push(id); return transaction.readTurn(id); } })) };
+  const f = await fixture(t, { storage });
+  for (const [messageId, text] of [["m1", "First"], ["m2", "Second"], ["m3", "Third"], ["m4", "Fourth"]]) {
+    await f.conversation.send({ messageId, text });
+    await f.conversation.wait();
+  }
+  turnReads.length = 0;
+  const receipt = await f.conversation.inspectDelivery({ messageId: "m2" });
+  assert.equal(receipt.status, "accepted");
+  assert.equal(receipt.turnId, "000002");
+  assert.deepEqual([...new Set(turnReads)], ["000002"]);
+});

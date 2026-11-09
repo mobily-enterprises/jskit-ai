@@ -181,8 +181,8 @@ function createConversationDelivery({ storage, transcript, events, entries, read
     if (entry.active && !allowActive) throw failure("Wait for the current submission before checking delivery.", "conversation_busy", 409, { messageCode: "assistant.conversation.waitForSubmission" });
     if (entry.storageFailure) throw entry.storageFailure;
     if (entry.executionFailure) throw entry.executionFailure;
-    const history = await reads.readTranscript(entry);
-    const existing = history.find(turn => submittedMessage(turn)?.messageId === messageId);
+    // The message's own turn, found by its id: never a read of every turn.
+    const existing = await reads.findSubmittedTurn(entry, messageId);
     const receipt = existing && { status: "accepted", messageId, turnId: existing.turnId, duplicate: true };
     // Turns written before the first runtime segment carry no runtime metadata.
     const existingRuntime = existing?.metadata?.runtime;
@@ -191,7 +191,7 @@ function createConversationDelivery({ storage, transcript, events, entries, read
     if (existing && (existingRuntime?.segmentId !== entry.segmentId || existingRuntime.supersededBy ||
         existingRuntime.status === "complete" && !goalRequest)) return receipt;
     if (goalMessageId && goalMessageId !== messageId) {
-      const owner = history.find(turn => submittedMessage(turn)?.messageId === goalMessageId);
+      const owner = await reads.findSubmittedTurn(entry, goalMessageId);
       const ownerRuntime = owner?.metadata?.runtime;
       if (ownerRuntime?.goalMessageId !== goalMessageId || ownerRuntime.segmentId !== entry.segmentId) throw new Error("The goal command for this native continuation is missing.");
       const result = await inspectDelivery(entry, context, goalMessageId);
@@ -227,8 +227,7 @@ function createConversationDelivery({ storage, transcript, events, entries, read
     if (!observation.accepted) return { ...(receipt || { status: "unknown", messageId }),
       ...(observation.recoveryLimitation ? { recoveryLimitation: observation.recoveryLimitation } : {}) };
     if (entry.driver.canonicalTranscript) {
-      const latest = await reads.readTranscript(entry);
-      const saved = latest.find(turn => submittedMessage(turn)?.messageId === messageId);
+      const saved = await reads.findSubmittedTurn(entry, messageId);
       if (!saved) throw new Error("The native receipt did not persist its authored message.");
       const state = saved.metadata?.runtime;
       if (state?.segmentId !== entry.segmentId) throw new Error("The native receipt belongs to another conversation segment.");
@@ -261,7 +260,7 @@ function createConversationDelivery({ storage, transcript, events, entries, read
       const native = { ...observation, messageId };
       const results = [];
       const id = messageId;
-      let turn = history.find(turn => submittedMessage(turn)?.messageId === id);
+      let turn = existing;
       if (turn?.metadata?.runtime?.supersededBy || turn && turn.metadata?.runtime?.segmentId !== entry.segmentId) {
         throw new Error("Native history refers to a turn outside the active conversation segment.");
       }
@@ -276,7 +275,6 @@ function createConversationDelivery({ storage, transcript, events, entries, read
               ...(input.completedEnvelope === true ? { completedEnvelope: true } : {}),
               ...(typeof input.nativeToolAttempt === "boolean" ? { nativeToolAttempt: input.nativeToolAttempt } : {}) } } });
           turn = await transaction.readTurn(turnId);
-          history.push(turn);
         }
         const runtime = turn.metadata.runtime;
         if (runtime.nativeTurnId && native.nativeTurnId && runtime.nativeTurnId !== native.nativeTurnId) throw new Error("Native history changed the accepted turn's identity.");
@@ -349,7 +347,7 @@ function createConversationDelivery({ storage, transcript, events, entries, read
         if (delivered?.notSent) return notSentDeliveryReceipt(messageId);
         if (!delivered?.delivered) throw deliveryFailure(delivered);
       }
-      const row = (await reads.readTranscript(entry)).find(turn => submittedMessage(turn)?.messageId === messageId);
+      const row = await reads.findSubmittedTurn(entry, messageId);
       if (row) return { status: "accepted", messageId, turnId: row.turnId, duplicate: true };
       const threadId = state.request?.messageId === messageId ? state.request.threadId : conversationNativeIdentity(state);
       if (!threadId) return { status: "unknown", messageId };

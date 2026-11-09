@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Checking or recovering one message's delivery (`inspectDelivery`, and a send that finds its message already saved) finds that message's turn by its id instead of reading and cloning every turn of the conversation to find it.
 - With completed envelopes, a streamed turn's saved completed-envelope marker is read once per turn instead of once per delta: the marker is written with the turn's authored message and never changes, and a reply's hundreds of deltas each opened a storage read. A turn not saved yet is read again until it is.
 - **Breaking.** `assistantContract`'s `conversationsList` items have no `metadata`: a list shows a conversation's title, status and times, and the runtime metadata, which held the system prompt, every tool's schema and a note per message ever written, made each history page grow with every message. `conversationMessagesList` still answers the conversation with its metadata. Upgrading: a client that read `metadata` from a list item reads it from the conversation's messages read.
 - A conversation handle's `wait(query)` takes the query `read(query)` does, and `wait({ turnId })` answers only that turn (an empty `conversationLog` when it has no messages, or is a hidden completed-envelope turn), reading that turn and the latest one instead of reading and cloning every turn of the conversation.
