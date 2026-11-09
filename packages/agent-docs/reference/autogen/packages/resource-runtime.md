@@ -129,6 +129,7 @@ Exports
 - `manyResult(resource, result, returning)`
 - `namedFields(resource, fields)`
 - `noRowsAggregate(measures, groupBy)`
+- `aggregateAnswer(rows, page, hasMore)`
 - `patchAnswer(id, record, returning)`
 - `upsertConflict(resource, rows, onConflict, context, ownershipFields)`
 - `pickReturning(modes, value, fallback, label)`

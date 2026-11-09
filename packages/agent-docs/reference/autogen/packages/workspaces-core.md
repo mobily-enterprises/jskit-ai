@@ -40,6 +40,13 @@ Exports
 - `normalizeInviteRecord(payload)`
 - `normalizeInviteWithWorkspace(payload = {})`
 
+### `src/server/common/repositories/workspaceMemberPagesRepository.js`
+Exports
+- `createRepository({ workspaceMemberships, userProfiles })`
+Local functions
+- `encodeCursor(row)`
+- `decodeCursor(cursor)`
+
 ### `src/server/common/repositories/workspaceMembershipsRepository.js`
 Exports
 - `createRepository({ workspaceMemberships })`
@@ -137,6 +144,7 @@ Exports
 - `type WorkspacesResources`
 - `type WorkspacesRepository`
 - `type WorkspaceMembershipsRepository`
+- `type WorkspaceMemberPagesRepository`
 - `type WorkspaceInvitesRepository`
 - `type WorkspaceSettingsRepository`
 - `type WorkspaceRoleCatalog`
@@ -202,8 +210,9 @@ Exports
 
 ### `src/server/workspaceMembers/workspaceMembersService.js`
 Exports
-- `createService({ workspaceMembershipsRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog, workspaceInvitationsEnabled, inviteUrlBuilder, workspaceInviteMailer, workspaceInviteEmailTemplate, i18n, userProfilesRepository, userSettingsRepository })`
+- `createService({ workspaceMembershipsRepository, workspaceMemberPagesRepository, workspaceInvitesRepository, inviteExpiresInMs, roleCatalog, workspaceInvitationsEnabled, inviteUrlBuilder, workspaceInviteMailer, workspaceInviteEmailTemplate, i18n, userProfilesRepository, userSettingsRepository })`
 Local functions
+- `listPage({ cursor, limit } = {})`
 - `roleNotAssignableError()`
 - `memberUserIdRequiredError()`
 - `inviteIdRequiredError()`
@@ -260,7 +269,7 @@ Exports
 Exports
 - `WorkspacesIntegrationsProvider`
 Local functions
-- `resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds)`
+- `resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds, { scopes } = {})`
 
 ### `src/server/workspacesRuntime.js`
 Exports

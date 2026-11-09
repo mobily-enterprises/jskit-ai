@@ -652,9 +652,9 @@ Why: a value with two defaults has two meanings, and a mode flag hides a
 second method inside the first.
 
 ```js
-// good
-async function list(filters, options = {}) {
-  return invoices.queryAll({ filters }, options);
+// good: one page, as a list shows it
+async function list(filters, page, options = {}) {
+  return invoices.query({ filters, page }, options);
 }
 
 // bad

@@ -154,7 +154,7 @@ Local functions
 
 ### `src/client/composables/crud/crudLookupFieldRuntime.js`
 Exports
-- `createCrudLookupFieldRuntime({ formFields = [], recordIdParam = "recordId", queryKeyPrefix = [], placementSourcePrefix = "", lookupContainerKey = "lookups" } = {})`
+- `createCrudLookupFieldRuntime({ formFields = [], recordIdParam = "recordId", queryKeyPrefix = [], placementSourcePrefix = "", lookupContainerKey = "lookups", requestQueryParams = {} } = {})`
 Local functions
 - `normalizeQueryKeyPrefix(value)`
 - `normalizeLookupValue(value)`
@@ -192,7 +192,8 @@ Exports
 - `normalizeLookupRequestQueryParamsMap(value = {})`
 - `resolveLookupSelectedValues(filter = {}, rawValue = undefined)`
 - `createLookupOptionsFromItems(items = [], filter = {}, labelResolver = noCustomLookupLabel)`
-- `mergeSelectedLookupOptions(options = [], selectedValues = [], cachedOptions = new Map())`
+- `mergeSelectedLookupOptions(options = [], selectedValues = [], cachedOptions = new Map(), { complete = true } = {})`
+- `resolveUnlabeledLookupValues(selectedValues = [], options = [], cachedOptions = new Map())`
 - `resolveLookupOptionLabel(options = [], cachedOptions = new Map(), value = "", fallback = "")`
 Local functions
 - `noCustomLookupLabel()`
@@ -328,9 +329,15 @@ Exports
 - `toUiErrorMessage(error, fallbackMessage = "", defaultMessage = "")`
 - `toUiFieldErrors(error)`
 
+### `src/client/composables/support/filterTypingSupport.js`
+Exports
+- `FILTER_TYPING_DELAY_MS`
+- `createFilterTyping({ read, write, delayMs = FILTER_TYPING_DELAY_MS })`
+
 ### `src/client/composables/support/listQueryParamSupport.js`
 Exports
 - `normalizeListSyncToRouteConfig(syncToRoute = false, { defaultSearchParam = "q" } = {})`
+- `resolveQueryParamsInput(queryParams, context = {})`
 - `resolveQueryParamDescriptors(queryParams, context = {}, { routeValueResolvers = null } = {})`
 - `resolveActiveQueryParamEntries(descriptors = [])`
 - `resolveWritableQueryParamBindings(descriptors = [])`
@@ -343,7 +350,6 @@ Exports
 Local functions
 - `normalizeQueryParamKey(value)`
 - `normalizeQueryParamValues(value)`
-- `resolveQueryParamsInput(queryParams, context = {})`
 - `resolveQueryParamBindingType(value)`
 - `resolveArrayQueryParamItemType(values = [])`
 - `createWritableQueryParamBinding({ source = {}, rawKey = "", rawValue = null, key = "", resolveRouteValue = null } = {})`

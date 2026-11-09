@@ -323,6 +323,7 @@ Exports
 - `createRepository({ conversations, systemContext })`
 Local functions
 - `normalizeRequiredSurfaceId(value)`
+- `mapConversationSummary(record = {})`
 - `mapConversationRecord(record = {})`
 - `normalizeCursorPagination(pagination = {}, { defaultLimit = 20, maxLimit = 200 } = {})`
 - `rethrowLockError(error)`

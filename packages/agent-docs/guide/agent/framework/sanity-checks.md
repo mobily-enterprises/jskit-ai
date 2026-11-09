@@ -67,13 +67,13 @@ expects the relationship id or an unselected field never gets it.
 ### Every row
 
 - A handle's `query()` answers one page and refuses a missing or oversized
-  `page.size`, where json-rest-api would cut the list silently. A read its
-  callers treat as complete uses `queryAll()`, or the missing rows vanish from
-  every picker and delivery built on it
+  `page.size`, where json-rest-api would cut the list silently. A delivery
+  reaching every row uses `queryAll()`; a picker reads a page searched with
+  `q` and its selected values by `id`
   ([Reads](/guide/framework/data-access#reads-shaped-for-the-screen)).
 - A grouped `aggregate()` answers every group or throws
   `RESOURCE_GROUP_LIMIT`; past `pageLimits().request` groups, page it with
-  `page: { size, number }`
+  `page: { size, number }` (answers `{ rows, page }`)
   ([The handle's calls](/guide/framework/data-access#the-handle-s-calls)).
 - A lookup by a unique key matches at most one row: `get(id)`, or a `query()`
   of page size 1.

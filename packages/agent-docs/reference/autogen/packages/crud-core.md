@@ -171,6 +171,7 @@ Exports
 - `createCrudCursorPaginationQueryValidator(list = {})`
 - `createJsonApiFieldsetsQueryValidator({ resource = {} } = {})`
 - `listSearchQueryValidator`
+- `listRecordIdsQueryValidator`
 - `lookupIncludeQueryValidator`
 - `jsonApiFieldsetsQueryValidator`
 - `createCrudParentFilterQueryValidator(resource = {})`

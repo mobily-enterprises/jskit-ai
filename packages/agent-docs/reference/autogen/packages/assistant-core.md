@@ -1732,10 +1732,10 @@ Local functions
 ### `src/server/conversation/transcript.js`
 Exports
 - `createConversationTranscript({ storage, clock = currentDate, applicationTurns = false })`
+- `hasMessages(turn)`
 - `isCompletedEnvelopeTurn(turn)`
 Local functions
 - `currentDate()`
-- `hasMessages(turn)`
 
 ### `src/server/hosts/claudeHistory.js`
 Exports

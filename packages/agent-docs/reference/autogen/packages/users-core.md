@@ -284,6 +284,9 @@ Exports
 ### `patterns/user-administration-server/example/packages/users-workspace/src/server/workspaceMembersOnly.js`
 Exports
 - `workspaceMembersOnly(repository, memberships)`
+Local functions
+- `encodeCursor(row)`
+- `decodeCursor(cursor)`
 
 ### `patterns/user-administration-server/example/packages/users-workspace/src/shared/index.js`
 Exports

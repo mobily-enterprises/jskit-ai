@@ -40,8 +40,6 @@ Exports
 - `TURN_LIMITS`
 - `OLD_RESULT_CHARS`
 - `WINDOW_TOKENS`
-Local functions
-- `partTokens(part)`
 
 ### `src/server/index.js`
 Exports
@@ -130,11 +128,15 @@ Local functions
 
 ### `src/server/text.js`
 Exports
+- `partTokens(part)`
 - `estimateTokens(messages)`
 - `textPart(text, fromLine = 1)`
 - `sameGist(a, b)`
 - `stripNotes(text)`
 - `READ_LIMIT`
+Local functions
+- `byteSize(data)`
+- `fileTokens(mediaType, data)`
 
 ### `src/server/tool.js`
 Exports

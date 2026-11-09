@@ -104,7 +104,7 @@ Exports
 
 ### `src/client/composables/useWorkspaceMembersActions.js`
 Exports
-- `useWorkspaceMembersActions({ forms, workspaceMembersApiPath, workspaceInvitesApiPath, canInviteMembers, canManageMembers, canRevokeInvites, workspaceRolesView, workspaceMembersList, workspaceInvitesList })`
+- `useWorkspaceMembersActions({ forms, workspaceMembersApiPath, workspaceInvitesApiPath, canInviteMembers, canManageMembers, canRevokeInvites, workspaceMembersList, workspaceInvitesList })`
 
 ### `src/client/composables/useWorkspaceMembersPage.js`
 Exports

@@ -134,6 +134,15 @@ A form field whose `relation` is a `lookup` takes its options from
 lookup label for a selected value missing from the current options, that option
 is listed first; a selected value without a label is not listed.
 
+A lookup whose options depend on another field of the form (the rooms of the
+chosen building, only bookable ones) narrows them on the server: pass
+`requestQueryParams` keyed by the field, `createCrudLookupFieldRuntime({
+formFields, requestQueryParams: { roomId: () => ({ buildingId:
+formState.buildingId, bookable: true }) } })`. The function runs again when what
+it reads changes, so the options follow the building. Each value is a filter the lookup's list accepts
+(its `searchSchema` and list filter validator), never a page of every row
+narrowed in the browser.
+
 Render selection fields whose options load from the server, or whose value is a
 record id, with `SelectField` from
 `@jskit-ai/http-web/client/components/SelectField`, not a raw `v-select`,

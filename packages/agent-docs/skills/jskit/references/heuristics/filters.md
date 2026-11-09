@@ -132,6 +132,20 @@ Use `useCrudListFilterLookups(...)` when:
 - the UI needs remote autocomplete search
 - chips should show readable labels instead of raw ids
 
+A lookup filter's options are one server page, searched on the server as the
+person types (`setSearch`, sent as `q`):
+- the page keeps the server's order while more rows remain (`hasMore`), and is
+  sorted by label only once every row is loaded; `loadMore()` (or
+  `loadMoreLookup(key)`) reads the next page, so never present the first page
+  as the complete list
+- a selected value past the loaded page (from the URL or a bookmark) is read by
+  id, every such value in one request, so its chip shows its label
+- the options load when something shows them (the open filter sheet's
+  control, or a search), not with every list page
+- a lookup narrowed by another value (only active suppliers, only one
+  region's) passes it in `requestQueryParams[filterKey]`, which the lookup's
+  list must accept as a filter
+
 Use built-in `presence` when:
 - a filter means null vs not-null, such as assigned vs unassigned storage
 - the UI wants custom labels like "Assigned" / "Unassigned" but the transport contract can stay `present` / `missing`

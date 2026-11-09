@@ -60,7 +60,9 @@ A grouped `aggregate` answers its groups from one statement, at most
 `pageLimits().request` of them (the resource's `queryMaxLimit`). When there
 are more it throws a 400 coded `RESOURCE_GROUP_LIMIT` instead of answering
 part of them. Narrow the filters, or read the groups in pages, `page: { size,
-number }` with `number` from 1, until a page answers fewer than `size` rows.
+number }` with `number` from 1. A page answers as a `query` page does, `{ rows,
+page: { size, number, hasMore, next } }`, never a bare array that could pass
+for every group: read the next while `page.hasMore`.
 Page numbers are offsets, so read every page before work that changes what
 the filters match.
 
@@ -710,12 +712,12 @@ takes first.
 // good: the lock is the transaction's first read, so the bookings read after it are current
 const reserve = (seatId, options) => seats.withTransaction(options, async (txOptions) => {
   await seats.lock(seatId, { ...txOptions, fields: ["status"] });
-  const taken = await bookings.queryAll({ filters: { seatIds: [seatId] } }, txOptions);
-  return taken.length > 0 ? null : bookings.create({ seatId }, { ...txOptions, returning: "id" });
+  const [taken] = await bookings.queryAll({ filters: { seatIds: [seatId] }, take: 1 }, txOptions);
+  return taken ? null : bookings.create({ seatId }, { ...txOptions, returning: "id" });
 });
 
 // bad: the read before the lock fixed the snapshot, so a booking committed while the lock waited is missed
-const free = await bookings.queryAll({ filters: { seatIds: [seatId] } }, txOptions);
+const [booked] = await bookings.queryAll({ filters: { seatIds: [seatId] }, take: 1 }, txOptions);
 await seats.lock(seatId, txOptions);
 ```
 
@@ -926,7 +928,11 @@ async function activeDays(memberIds, options) {
   `page.number` reads with OFFSET, which slows as the rows grow, so anything
   that grows pages with `page.after`. Each page is one statement, with no
   count: never walk pages to reach one.
-- A screen list never uses `queryAll`.
+- A screen list never uses `queryAll`, and neither does a picker: it reads
+  one page searched on the server as the person types (`q`), narrowed in the
+  query by what it depends on (the parent record, `active`), and reads its
+  selected values past that page by id. Reading every row for a dropdown, or
+  narrowing a page in code, either grows with the table or misses rows.
 - Related rows come by id list (`filters: { id: ids }`, or an `in` filter on
   another field) or `include`, grouped in memory. Never a query per row, however
   the loop is spelled (`for`, `map` with `Promise.all`, a helper called per
@@ -1137,10 +1143,10 @@ const SettlementFeature = defineFeature({
   async function settleDue(options) {
     const size = cohorts.pageLimits().request;
     const due = [];
-    for (let number = 1; ; number += 1) {
-      const page = await cohorts.aggregate({ measures: { cohorts: { count: "id" } }, groupBy: ["workspaceId"], filters: { status: "finished" }, page: { size, number } }, options);
-      due.push(...page);
-      if (page.length < size) break;
+    for (let number = 1; number; ) {
+      const { rows, page } = await cohorts.aggregate({ measures: { cohorts: { count: "id" } }, groupBy: ["workspaceId"], filters: { status: "finished" }, page: { size, number } }, options);
+      due.push(...rows);
+      number = page.next;
     }
     for (const { workspaceId } of due) {
       await settleWorkspace({ context: systemContext("settle finished weekly leagues for every user").forWorkspace(workspaceId) });
