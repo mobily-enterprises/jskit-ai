@@ -16,7 +16,7 @@ new RuleTester().run("jskit/one-line-action", oneLineAction, {
     "const action = Object.freeze({\n  id: \"booking.read\",\n  // readable-check: allow input-fallback - called without input by the scheduler\n  execute: (input = {}) => bookingEngine.readStatus(input)\n});",
     "const actions = Object.freeze([Object.freeze({ id: \"booking.read\", execute: (input, context) => bookingEngine.readStatus(input, { context }) })]);",
     "const operations = [{ operation: \"list\", execute: (input, context) => run(\"list\", input, context) }];",
-    "const receivalActions = { \"intake-drums\": { id: \"crud.receivals.intakeDrums\", async execute({ input, service }) { return service.recordIntakeDrums(input); } } };",
+    "const seatActions = { \"book-seats\": { id: \"crud.bookings.bookSeats\", async execute({ input, service }) { return service.recordSeatBookings(input); } } };",
     "const cardActions = { context: { id: \"crud.day_cards.context\", kind: \"query\", execute: ({ service, context }) => service.composerContext({ context }) } };",
     "import { deepFreeze } from \"@jskit-ai/kernel/shared/support/deepFreeze\";\nconst actions = deepFreeze([{ id: \"booking.read\", execute: (input) => bookingEngine.readStatus(input) }]);",
     "import { deepFreeze as frozen } from \"@jskit-ai/kernel/shared/support\";\nconst action = frozen({ id: \"booking.read\", execute: (input) => bookingEngine.readStatus(input) });",

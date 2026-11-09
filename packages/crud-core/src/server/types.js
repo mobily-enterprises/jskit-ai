@@ -123,7 +123,7 @@
 /**
  * A CRUD feature's `operationLifecycle`: the hooks of each standard operation
  * that has any. Type a lifecycle declared apart from its feature with it:
- * `@type {CrudOperationLifecycle<DrumsService, DrumsRepository>}`.
+ * `@type {CrudOperationLifecycle<BookingsService, BookingsRepository>}`.
  * @template [Service=CrudService]
  * @template [Repository=CrudRepository]
  * @typedef {{ list?: CrudLifecycleHooks<Service, Repository>, view?: CrudLifecycleHooks<Service, Repository>, create?: CrudLifecycleHooks<Service, Repository>, update?: CrudLifecycleHooks<Service, Repository>, delete?: CrudLifecycleHooks<Service, Repository> }} CrudOperationLifecycle

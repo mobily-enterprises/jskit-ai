@@ -835,8 +835,10 @@ async function activeDays(memberIds, options) {
   another field) or `include`, grouped in memory. Never a query per row, however
   the loop is spelled (`for`, `map` with `Promise.all`, a helper called per
   item).
-- `queryAll` reads every matching row, in cursor pages that skip and repeat
-  none. Use it for id lists, one parent's rows and jobs: a read its callers
+- `queryAll` reads every matching row, in cursor pages that each start after
+  the sort values of the page before, so no row is skipped or read twice
+  unless a write moves a row's sort value (the id, by default) past the page
+  while the read runs. Use it for id lists, one parent's rows and jobs: a read its callers
   treat as complete, which a `query` would silently cut at one page. In a
   request it stops past the request row limit (`pageLimits().requestRows`,
   10,000 rows) with a 400 coded `RESOURCE_ROW_LIMIT`, and never answers part
