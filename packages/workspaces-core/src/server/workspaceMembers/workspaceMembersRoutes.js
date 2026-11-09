@@ -79,7 +79,8 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
         actionId: "workspace.members.list",
         input: {
           workspaceSlug: request.input.params.workspaceSlug,
-          ...request.input.query
+          cursor: request.input.query.cursor,
+          limit: request.input.query.limit
         }
       });
       reply.code(200).send(response);
@@ -180,7 +181,8 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
           actionId: "workspace.invites.list",
           input: {
             workspaceSlug: request.input.params.workspaceSlug,
-            ...request.input.query
+            cursor: request.input.query.cursor,
+            limit: request.input.query.limit
           }
         });
         reply.code(200).send(response);
