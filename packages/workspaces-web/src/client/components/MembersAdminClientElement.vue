@@ -152,6 +152,11 @@
                     </template>
                   </v-list-item>
                 </v-list>
+                <div v-if="hasMoreMembers" class="d-flex justify-center mb-3">
+                  <v-btn variant="text" :loading="isLoadingMoreMembers" @click="actions.loadMoreMembers()">
+                    {{ t("jskit.workspaces.membersAdmin.loadMore") }}
+                  </v-btn>
+                </div>
 
                 <v-divider class="mb-3" />
 
@@ -179,6 +184,11 @@
                   </v-list-item>
                   <p v-if="inviteRows.length < 1" class="text-body-medium on-surface-variant mb-0">{{ t("jskit.workspaces.membersAdmin.noPendingInvites") }}</p>
                 </v-list>
+                <div v-if="hasMoreInvites" class="d-flex justify-center mt-3">
+                  <v-btn variant="text" :loading="isLoadingMoreInvites" @click="actions.loadMoreInvites()">
+                    {{ t("jskit.workspaces.membersAdmin.loadMore") }}
+                  </v-btn>
+                </div>
               </template>
             </template>
           </v-card-text>
@@ -267,6 +277,10 @@ const membersListLoaded = computed(() => status.value.hasLoadedMembersList);
 const membersListRefreshing = computed(() => status.value.isRefreshingMembersList);
 const inviteListLoaded = computed(() => status.value.hasLoadedInviteList);
 const inviteListRefreshing = computed(() => status.value.isRefreshingInviteList);
+const hasMoreMembers = computed(() => status.value.hasMoreMembers);
+const isLoadingMoreMembers = computed(() => status.value.isLoadingMoreMembers);
+const hasMoreInvites = computed(() => status.value.hasMoreInvites);
+const isLoadingMoreInvites = computed(() => status.value.isLoadingMoreInvites);
 
 const showWorkspaceInviteLoadingSkeleton = computed(
   () => canInviteMembers.value && !workspaceInvitePolicyLoaded.value

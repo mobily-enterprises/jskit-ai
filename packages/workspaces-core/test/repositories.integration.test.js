@@ -20,6 +20,7 @@ import workspaceColorMigration from "../migrations/workspaces_core_workspaces_dr
 import { createWorkspaceRecords } from "../src/server/WorkspacesFeature.js";
 import { WORKSPACES_TABLES } from "../src/server/workspacesRuntime.js";
 import { createRepository as createInvitesRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
+import { createRepository as createMemberPagesRepository } from "../src/server/common/repositories/workspaceMemberPagesRepository.js";
 import { createRepository as createSettingsRepository } from "../src/server/workspaceSettings/workspaceSettingsRepository.js";
 import { renderDefaultWorkspaceInviteEmail } from "../src/server/workspaceMembers/defaultWorkspaceInviteEmail.js";
 import { unconfiguredWorkspaceInviteMailer } from "../src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
@@ -90,6 +91,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   let workspaces;
   let memberships;
   let invites;
+  let memberPages;
   let settings;
   let usersExtensions;
   let profileProjector;
@@ -130,6 +132,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     const resources = await runtime.own("workspaces.core", WORKSPACES_TABLES);
     ({ workspaces, memberships } = createWorkspaceRecords(resources));
     invites = createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
+    memberPages = createMemberPagesRepository({ workspaceMemberships: resources.workspaceMemberships, userProfiles: profiles });
     settings = createSettingsRepository({
       workspaceSettings: resources.workspaceSettings, defaultInvitesEnabled: false, defaultColorSettings: {}
     });
@@ -429,6 +432,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
 
   const createMembers = () => createMembersService({
     workspaceMembershipsRepository: memberships,
+    workspaceMemberPagesRepository: memberPages,
     workspaceInvitesRepository: invites,
     inviteExpiresInMs: 86400000,
     roleCatalog: createWorkspaceRoleCatalog(),
@@ -440,6 +444,18 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     userProfilesRepository: profiles,
     userSettingsRepository: userSettings
   });
+
+  // Every member the members screen's list answers, a page at a time.
+  async function everyListedMember(membersService, workspace) {
+    const members = [];
+    let cursor = null;
+    do {
+      const page = await membersService.listMembersPage(workspace, { limit: 100, ...(cursor ? { cursor } : {}) });
+      members.push(...page.members);
+      cursor = page.nextCursor;
+    } while (cursor);
+    return members;
+  }
 
   // Lists of more rows than json-rest-api's default page (20) and maximum page (100), written in bulk.
   async function insertRows(table, rows) {
@@ -513,6 +529,9 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     const { members } = await membersService.listMembers(workspace);
     assert.deepEqual(members.map(({ userId }) => userId), listed.map(({ userId }) => userId));
     assert.deepEqual(members.filter(({ isOwner }) => isOwner).map(({ userId }) => userId), [ownerId]);
+    // The members screen's pages answer them in the same order.
+    const paged = await everyListedMember(membersService, workspace);
+    assert.deepEqual(paged.map(({ userId }) => userId), listed.map(({ userId }) => userId));
 
     await profiles.withTransaction({}, async (txOptions) => {
       const joiner = await createProfile("Zara", txOptions);
@@ -520,6 +539,10 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       const withJoiner = await memberships.listActiveByWorkspaceId(workspace.id, txOptions);
       assert.equal(withJoiner.length, 1051);
       assert.equal(withJoiner.at(-1).displayName, "Zara");
+      // listMembers reads with the caller's options: inside the transaction it sees the joiner too.
+      const { members: everyMember } = await membersService.listMembers(workspace, txOptions);
+      assert.equal(everyMember.length, 1051);
+      assert.equal(everyMember.at(-1).displayName, "Zara");
     });
   });
 

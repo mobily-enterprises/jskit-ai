@@ -20,6 +20,7 @@
  */
 /** @typedef {ReturnType<typeof import("./common/repositories/workspacesRepository.js").createRepository>} WorkspacesRepository */
 /** @typedef {ReturnType<typeof import("./common/repositories/workspaceMembershipsRepository.js").createRepository>} WorkspaceMembershipsRepository */
+/** @typedef {ReturnType<typeof import("./common/repositories/workspaceMemberPagesRepository.js").createRepository>} WorkspaceMemberPagesRepository */
 /** @typedef {ReturnType<typeof import("./common/repositories/workspaceInvitesRepository.js").createRepository>} WorkspaceInvitesRepository */
 /** @typedef {ReturnType<typeof import("./workspaceSettings/workspaceSettingsRepository.js").createRepository>} WorkspaceSettingsRepository */
 /** @typedef {ReturnType<typeof import("../shared/roles.js").createWorkspaceRoleCatalog>} WorkspaceRoleCatalog */

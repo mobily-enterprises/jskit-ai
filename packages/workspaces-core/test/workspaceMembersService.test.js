@@ -47,6 +47,8 @@ function createRoleCatalog() {
 }
 
 function createFixture() {
+  const pages = [];
+  const everyMemberReads = [];
   const workspace = {
     id: "7",
     slug: "tony3",
@@ -58,9 +60,28 @@ function createFixture() {
   const service = createService({
     workspaceInvitationsEnabled: true,
     i18n: createWorkspacesServerI18n(),
-    workspaceMembershipsRepository: {
-      async listActiveByWorkspaceId(workspaceId) {
+    workspaceMemberPagesRepository: {
+      async listActivePage(workspaceId, page) {
         assert.equal(Number(workspaceId), 7);
+        pages.push(page);
+        return {
+          members: [
+            {
+              userId: "11",
+              roleSid: "member",
+              status: "active",
+              displayName: "Alice",
+              email: "alice@example.com"
+            }
+          ],
+          next: page.after ? null : "page-2"
+        };
+      }
+    },
+    workspaceMembershipsRepository: {
+      async listActiveByWorkspaceId(workspaceId, options) {
+        assert.equal(Number(workspaceId), 7);
+        everyMemberReads.push(options);
         return [
           {
             userId: "11",
@@ -96,9 +117,10 @@ function createFixture() {
       }
     },
     workspaceInvitesRepository: {
-      async listPendingByWorkspaceIdWithWorkspace(workspaceId) {
+      async listPendingPageByWorkspaceId(workspaceId, page) {
         assert.equal(Number(workspaceId), 7);
-        return [];
+        assert.deepEqual(page, { size: 20 });
+        return { invites: [], next: null };
       },
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert() {},
@@ -114,7 +136,7 @@ function createFixture() {
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
   });
 
-  return { service, workspace };
+  return { service, workspace, pages, everyMemberReads };
 }
 
 test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", async () => {
@@ -123,9 +145,9 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
   const service = createService({
     workspaceInvitationsEnabled: true,
     i18n: createWorkspacesServerI18n(),
-    workspaceMembershipsRepository: {
-      async listActiveByWorkspaceId() {
-        return [];
+    workspaceMemberPagesRepository: {
+      async listActivePage() {
+        return { members: [], next: null };
       }
     },
     workspaceInvitesRepository: {
@@ -139,8 +161,8 @@ test("workspaceMembersService.createInvite uses configured inviteExpiresInMs", a
         savedInvite = { ...payload, id: "31" };
         return savedInvite;
       },
-      async listPendingByWorkspaceIdWithWorkspace() {
-        return [];
+      async listPendingPageByWorkspaceId() {
+        return { invites: [], next: null };
       },
       async findPendingByIdForWorkspace() {
         return savedInvite;
@@ -190,9 +212,9 @@ test("workspaceMembersService.createInvite without a provided mailer neither loo
   const service = createService({
     workspaceInvitationsEnabled: true,
     i18n: createWorkspacesServerI18n(),
-    workspaceMembershipsRepository: {
-      async listActiveByWorkspaceId() {
-        return [];
+    workspaceMemberPagesRepository: {
+      async listActivePage() {
+        return { members: [], next: null };
       }
     },
     workspaceInvitesRepository: {
@@ -205,8 +227,8 @@ test("workspaceMembersService.createInvite without a provided mailer neither loo
         savedInvite = { ...payload, id: "32" };
         return savedInvite;
       },
-      async listPendingByWorkspaceIdWithWorkspace() {
-        return [];
+      async listPendingPageByWorkspaceId() {
+        return { invites: [], next: null };
       },
       async findPendingByIdForWorkspace() {
         return savedInvite;
@@ -246,9 +268,9 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
   const service = createService({
     workspaceInvitationsEnabled: true,
     i18n: createWorkspacesServerI18n(),
-    workspaceMembershipsRepository: {
-      async listActiveByWorkspaceId() {
-        return [];
+    workspaceMemberPagesRepository: {
+      async listActivePage() {
+        return { members: [], next: null };
       }
     },
     workspaceInvitesRepository: {
@@ -267,8 +289,8 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
         savedInvite = { ...payload, id: "88", workspaceSlug: "acme", workspaceName: "Acme" };
         return savedInvite;
       },
-      async listPendingByWorkspaceIdWithWorkspace() {
-        return [];
+      async listPendingPageByWorkspaceId() {
+        return { invites: [], next: null };
       },
       async findPendingByIdForWorkspace() {
         return savedInvite;
@@ -340,17 +362,17 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
   const service = createService({
     workspaceInvitationsEnabled: true,
     i18n: createWorkspacesServerI18n(),
-    workspaceMembershipsRepository: {
-      async listActiveByWorkspaceId() {
-        return [];
+    workspaceMemberPagesRepository: {
+      async listActivePage() {
+        return { members: [], next: null };
       }
     },
     workspaceInvitesRepository: {
       async withTransaction(options, work) {
         return work({ ...options, trx: {} });
       },
-      async listPendingByWorkspaceIdWithWorkspace() {
-        return [];
+      async listPendingPageByWorkspaceId() {
+        return { invites: [], next: null };
       },
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert() {
@@ -394,13 +416,13 @@ test("workspaceMembersService.revokeInvite returns the revoked invite id", async
 test("workspaceMembersService rejects invite operations when invitations are disabled", async () => {
   const service = createService({
     i18n: createWorkspacesServerI18n(),
-    workspaceMembershipsRepository: {
-      async listActiveByWorkspaceId() {
-        return [];
+    workspaceMemberPagesRepository: {
+      async listActivePage() {
+        return { members: [], next: null };
       }
     },
     workspaceInvitesRepository: {
-      async listPendingByWorkspaceIdWithWorkspace() {
+      async listPendingPageByWorkspaceId() {
         throw new Error("invite repository should not be called when invitations are disabled");
       },
       async expirePendingByWorkspaceIdAndEmail() {
@@ -431,6 +453,7 @@ test("workspaceMembersService rejects invite operations when invitations are dis
           id: "7",
           ownerUserId: "9"
         },
+        {},
         authorizedOptions(["workspace.members.view"])
       ),
     /Workspace invitations are disabled/
@@ -471,8 +494,8 @@ test("workspaceMembersService answers the role and member list actions with JSON
 
   assert.deepEqual(await service.listRolesResponse(options), returnJsonApiData(await service.listRoles(options)));
   assert.deepEqual(
-    await service.listMembersResponse(workspace, options),
-    returnJsonApiData(await service.listMembers(workspace, options))
+    await service.listMembersResponse(workspace, { cursor: "page-2", limit: 5 }, options),
+    returnJsonApiData(await service.listMembersPage(workspace, { cursor: "page-2", limit: 5 }, options))
   );
 });
 
@@ -490,6 +513,31 @@ test("workspaceMembersService.listMembers uses the resolved workspace directly",
   });
   assert.equal(response.members.length, 1);
   assert.equal(response.members[0].displayName, "Alice");
+});
+
+test("workspaceMembersService.listMembers answers every active member, reading them with the caller's options", async () => {
+  const { service, workspace, pages, everyMemberReads } = createFixture();
+  const options = { ...authorizedOptions(["workspace.members.view"]), trx: {} };
+
+  const response = await service.listMembers(workspace, options);
+
+  assert.equal(response.members.length, 1);
+  assert.equal("nextCursor" in response, false);
+  assert.equal(everyMemberReads.length, 1);
+  assert.equal(everyMemberReads[0], options, "the caller's options, its transaction included");
+  assert.deepEqual(pages, []);
+});
+
+test("workspaceMembersService.listMembersPage reads the page the query names, 20 members when it names no size", async () => {
+  const { service, workspace, pages } = createFixture();
+  const options = authorizedOptions(["workspace.members.view"]);
+
+  assert.equal((await service.listMembersPage(workspace, {}, options)).nextCursor, "page-2");
+  assert.equal((await service.listMembersPage(workspace, { cursor: "page-2", limit: 5 }, options)).nextCursor, null);
+  assert.deepEqual(pages, [{ size: 20 }, { size: 5, after: "page-2" }]);
+  // A member change answers the first page.
+  await service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "admin" }, authorizedOptions(["workspace.members.manage"]));
+  assert.deepEqual(pages.at(-1), { size: 20 });
 });
 
 test("workspaceMembersService.updateMemberRole returns the refreshed member list without re-fetching the workspace", async () => {
@@ -520,21 +568,26 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
   const service = createService({
     workspaceInvitationsEnabled: true,
     i18n: createWorkspacesServerI18n(),
-    workspaceMembershipsRepository: {
-      async listActiveByWorkspaceId(workspaceId) {
+    workspaceMemberPagesRepository: {
+      async listActivePage(workspaceId) {
         assert.equal(Number(workspaceId), 7);
-        return removed
-          ? []
-          : [
-              {
-                userId: "11",
-                roleSid: "member",
-                status: "active",
-                displayName: "Alice",
-                email: "alice@example.com"
-              }
-            ];
-      },
+        return {
+          members: removed
+            ? []
+            : [
+                {
+                  userId: "11",
+                  roleSid: "member",
+                  status: "active",
+                  displayName: "Alice",
+                  email: "alice@example.com"
+                }
+              ],
+          next: null
+        };
+      }
+    },
+    workspaceMembershipsRepository: {
       async withTransaction(options, work) {
         return work({ ...options, trx: {} });
       },
@@ -559,8 +612,8 @@ test("workspaceMembersService.removeMember marks membership revoked and returns 
       }
     },
     workspaceInvitesRepository: {
-      async listPendingByWorkspaceIdWithWorkspace() {
-        return [];
+      async listPendingPageByWorkspaceId() {
+        return { invites: [], next: null };
       },
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert() {},
@@ -599,9 +652,6 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
     workspaceInvitationsEnabled: true,
     i18n: createWorkspacesServerI18n(),
     workspaceMembershipsRepository: {
-      async listActiveByWorkspaceId() {
-        return [];
-      },
       async withTransaction(options, work) {
         return work({ ...options, trx: {} });
       },
@@ -620,8 +670,8 @@ test("workspaceMembersService.removeMember rejects removing the owner", async ()
       }
     },
     workspaceInvitesRepository: {
-      async listPendingByWorkspaceIdWithWorkspace() {
-        return [];
+      async listPendingPageByWorkspaceId() {
+        return { invites: [], next: null };
       },
       async expirePendingByWorkspaceIdAndEmail() {},
       async insert() {},
@@ -654,9 +704,9 @@ function createMailingService({ accounts = {}, appRoot = "", mailer } = {}) {
   let savedInvite;
   return createService({
     workspaceInvitationsEnabled: true,
-    workspaceMembershipsRepository: {
-      async listActiveByWorkspaceId() {
-        return [];
+    workspaceMemberPagesRepository: {
+      async listActivePage() {
+        return { members: [], next: null };
       }
     },
     workspaceInvitesRepository: {
@@ -669,8 +719,8 @@ function createMailingService({ accounts = {}, appRoot = "", mailer } = {}) {
         savedInvite = { ...payload, id: "88", workspaceSlug: "acme", workspaceName: "Acme & Co" };
         return savedInvite;
       },
-      async listPendingByWorkspaceIdWithWorkspace() {
-        return [];
+      async listPendingPageByWorkspaceId() {
+        return { invites: [], next: null };
       },
       async findPendingByIdForWorkspace() {
         return savedInvite;

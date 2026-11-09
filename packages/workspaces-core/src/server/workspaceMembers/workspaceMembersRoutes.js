@@ -68,6 +68,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       params: workspaceSlugParamsValidator,
       ...createJsonApiResourceRouteContract({
         ...WORKSPACE_MEMBERS_TRANSPORT,
+        query: workspaceMembersContract.operations.membersList.query,
         output: workspaceMembersContract.operations.membersList.output,
         outputKind: "record",
         getRecordId: resolveWorkspaceRecordId
@@ -77,7 +78,8 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       const response = await request.executeAction({
         actionId: "workspace.members.list",
         input: {
-          workspaceSlug: request.input.params.workspaceSlug
+          workspaceSlug: request.input.params.workspaceSlug,
+          ...request.input.query
         }
       });
       reply.code(200).send(response);
@@ -167,6 +169,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
         params: workspaceSlugParamsValidator,
         ...createJsonApiResourceRouteContract({
           ...WORKSPACE_INVITES_TRANSPORT,
+          query: workspaceMembersContract.operations.invitesList.query,
           output: workspaceMembersContract.operations.invitesList.output,
           outputKind: "record",
           getRecordId: resolveWorkspaceRecordId
@@ -176,7 +179,8 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
         const response = await request.executeAction({
           actionId: "workspace.invites.list",
           input: {
-            workspaceSlug: request.input.params.workspaceSlug
+            workspaceSlug: request.input.params.workspaceSlug,
+            ...request.input.query
           }
         });
         reply.code(200).send(response);

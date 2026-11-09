@@ -63,6 +63,7 @@
         "inviteCaption": "Role: {role} • expires {expires}",
         "revoke": "Revoke",
         "noPendingInvites": "No pending invites.",
+        "loadMore": "Load more",
         "linkSent": "Invite sent. The link remains available here.",
         "linkDeliveryFailed": "Email delivery failed. Copy this link to share the invite.",
         "linkReady": "Copy this link to share the invite."

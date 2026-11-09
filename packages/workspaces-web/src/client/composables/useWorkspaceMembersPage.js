@@ -207,7 +207,6 @@ function useWorkspaceMembersPage() {
     canInviteMembers,
     canManageMembers,
     canRevokeInvites,
-    workspaceRolesView,
     workspaceMembersList,
     workspaceInvitesList
   });
@@ -238,7 +237,11 @@ function useWorkspaceMembersPage() {
       hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isInitialLoading,
       isRefreshingWorkspaceSettings: canInviteMembers.value && Boolean(workspaceSettingsView.isRefetching),
       isRefreshingMembersList: canViewMembers.value && Boolean(workspaceMembersList.isRefetching),
-      isRefreshingInviteList: canViewMembers.value && Boolean(workspaceInvitesList.isRefetching)
+      isRefreshingInviteList: canViewMembers.value && Boolean(workspaceInvitesList.isRefetching),
+      hasMoreMembers: canViewMembers.value && Boolean(workspaceMembersList.hasMore),
+      isLoadingMoreMembers: Boolean(workspaceMembersList.isLoadingMore),
+      hasMoreInvites: canViewMembers.value && Boolean(workspaceInvitesList.hasMore),
+      isLoadingMoreInvites: Boolean(workspaceInvitesList.isLoadingMore)
     };
   });
 
@@ -391,7 +394,16 @@ function useWorkspaceMembersPage() {
     revokeInviteId,
     removeMemberUserId,
     status,
-    actions,
+    // The lists read a page at a time: the person loads the next page of members or invites when there is one.
+    actions: Object.freeze({
+      submitInvite: actions.submitInvite,
+      copyCreatedInviteLink: actions.copyCreatedInviteLink,
+      submitRevokeInvite: actions.submitRevokeInvite,
+      submitMemberRoleUpdate: actions.submitMemberRoleUpdate,
+      submitRemoveMember: actions.submitRemoveMember,
+      loadMoreMembers: workspaceMembersList.loadMore,
+      loadMoreInvites: workspaceInvitesList.loadMore
+    }),
     loadError,
     canRetryLoad,
     isRetryingLoad,

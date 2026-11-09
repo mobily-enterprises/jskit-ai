@@ -159,7 +159,8 @@ function createRepository({ workspaceMemberships }) {
   }
 
   /**
-   * The ids of the workspace's active members, in one read without their profiles.
+   * The ids of the workspace's active members, in one read without their profiles. It reads every active membership,
+   * so its cost grows with the workspace: a screen lists members a page at a time (workspaceMemberPagesRepository).
    * @param {unknown} workspaceId
    * @param {object} [options]
    * @returns {Promise<string[]>}

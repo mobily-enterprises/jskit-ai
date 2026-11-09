@@ -13,6 +13,7 @@ import workspaceSettingsMigration from "../../migrations/workspaces_core_workspa
 import workspaceColorMigration from "../../migrations/workspaces_core_workspaces_drop_color.cjs";
 import { createWorkspaceRecords } from "../../src/server/WorkspacesFeature.js";
 import { createRepository as createInvitesRepository } from "../../src/server/common/repositories/workspaceInvitesRepository.js";
+import { createRepository as createMemberPagesRepository } from "../../src/server/common/repositories/workspaceMemberPagesRepository.js";
 import { createRepository as createSettingsRepository } from "../../src/server/workspaceSettings/workspaceSettingsRepository.js";
 import { workspaceInvitesResource } from "../../src/shared/resources/workspaceInvitesResource.js";
 import { workspaceMembershipsResource } from "../../src/shared/resources/workspaceMembershipsResource.js";
@@ -90,6 +91,7 @@ async function openDatabase(suffix, cleanups) {
     roleCatalog: ROLE_CATALOG,
     workspaces: records.workspaces,
     memberships: records.memberships,
+    memberPages: createMemberPagesRepository({ workspaceMemberships: resources.workspaceMemberships, userProfiles: profiles }),
     invites: createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces: records.workspaces }),
     settings: createSettingsRepository({
       workspaceSettings: resources.workspaceSettings,

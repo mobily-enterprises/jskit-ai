@@ -39,6 +39,15 @@ const inviteSummaryOutputSchema = createSchema({
   invitedByUserId: { type: "string", required: false, nullable: true, minLength: 1, pattern: RECORD_ID_PATTERN }
 });
 
+// A members or invites list request: the page's size, and the nextCursor of the page before.
+const listPageQuerySchema = createSchema({
+  cursor: { type: "string", required: false, minLength: 1, maxLength: 1024 },
+  limit: { type: "number", required: false, min: 1, max: 100 }
+});
+
+// The cursor of the list's next page, or null on its last page.
+const nextCursorOutputField = Object.freeze({ type: "string", required: false, nullable: true });
+
 const workspaceMembersOutputSchema = createSchema({
   workspace: {
     type: "object",
@@ -50,6 +59,7 @@ const workspaceMembersOutputSchema = createSchema({
     required: true,
     items: memberSummaryOutputSchema
   },
+  nextCursor: { ...nextCursorOutputField },
   roleCatalog: {
     type: "object",
     required: true,
@@ -68,6 +78,7 @@ const workspaceInvitesListOutputSchema = createSchema({
     required: true,
     items: inviteSummaryOutputSchema
   },
+  nextCursor: { ...nextCursorOutputField },
   roleCatalog: {
     type: "object",
     required: true,
@@ -86,6 +97,7 @@ const workspaceInviteCreateOutputSchema = createSchema({
     required: true,
     items: inviteSummaryOutputSchema
   },
+  nextCursor: { ...nextCursorOutputField },
   roleCatalog: {
     type: "object",
     required: true,
@@ -148,6 +160,7 @@ const workspaceInviteRevokeOutputSchema = createSchema({
     required: true,
     items: inviteSummaryOutputSchema
   },
+  nextCursor: { ...nextCursorOutputField },
   roleCatalog: {
     type: "object",
     required: true,
@@ -223,6 +236,7 @@ const workspaceMembersContract = defineApiContract({
     },
     membersList: {
       method: "GET",
+      query: listPageQuerySchema,
       output: workspaceMembersOutputSchema
     },
     updateMemberRole: {
@@ -238,6 +252,7 @@ const workspaceMembersContract = defineApiContract({
     },
     invitesList: {
       method: "GET",
+      query: listPageQuerySchema,
       output: workspaceInvitesListOutputSchema
     },
     createInvite: {

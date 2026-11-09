@@ -70,6 +70,11 @@ test("Members and Invitations response validation preserves labels and saved rol
     i18n: createWorkspacesServerI18n(),
     roleCatalog: catalog,
     inviteExpiresInMs: 60_000,
+    workspaceMemberPagesRepository: {
+      async listActivePage() {
+        return { members: [{ userId: "11", roleSid: savedRole, status: "active", displayName: "Person", email: "person@example.com" }], next: null };
+      }
+    },
     workspaceMembershipsRepository: {
       async listActiveByWorkspaceId() {
         return [{ userId: "11", roleSid: savedRole, status: "active", displayName: "Person", email: "person@example.com" }];
@@ -80,7 +85,7 @@ test("Members and Invitations response validation preserves labels and saved rol
       async lockByWorkspaceIdAndUserId() { return { userId: "11", roleSid: savedRole, status: "active" }; },
       async upsertMembership(_workspaceId, _userId, patch) { savedRole = patch.roleSid; }
     },
-    workspaceInvitesRepository: { async listPendingByWorkspaceIdWithWorkspace() { return []; } },
+    workspaceInvitesRepository: { async listPendingPageByWorkspaceId() { return { invites: [], next: "invites-2" }; } },
     inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: {}, env: {} }),
     workspaceInviteMailer: unconfiguredWorkspaceInviteMailer,
     workspaceInviteEmailTemplate: renderDefaultWorkspaceInviteEmail
@@ -95,6 +100,7 @@ test("Members and Invitations response validation preserves labels and saved rol
   const roles = output(workspaceMembersContract, "rolesList", await service.listRoles());
   assert.deepEqual(roles.roles.map((role) => role.label), expectedLabels);
   const invites = output(workspaceMembersContract, "invitesList", (await service.listInvitesResponse(workspace)).value);
+  assert.equal(invites.nextCursor, "invites-2");
   assert.deepEqual(invites.roleCatalog.roles.map((role) => role.label), expectedLabels);
   await assert.rejects(service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "Controller" }), /Validation failed/);
   await assert.rejects(service.updateMemberRole(workspace, { memberUserId: "11", roleSid: "owner" }), /Validation failed/);

@@ -20,7 +20,8 @@
         "userIdRequired": "Member user id is required.",
         "notFound": "Member not found.",
         "ownerRoleLocked": "Cannot change workspace owner role.",
-        "ownerNotRemovable": "Cannot remove workspace owner."
+        "ownerNotRemovable": "Cannot remove workspace owner.",
+        "cursorInvalid": "This list's cursor is not one it answered."
       },
       "invite": {
         "disabled": "Workspace invitations are disabled.",

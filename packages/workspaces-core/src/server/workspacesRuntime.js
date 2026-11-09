@@ -7,6 +7,7 @@ import { workspaceResource } from "../shared/resources/workspaceResource.js";
 import { workspaceSettingsResource } from "../shared/resources/workspaceSettingsResource.js";
 import { createRepository as createWorkspaceInvitesRepository } from "./common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createWorkspaceMembershipsRepository } from "./common/repositories/workspaceMembershipsRepository.js";
+import { createRepository as createWorkspaceMemberPagesRepository } from "./common/repositories/workspaceMemberPagesRepository.js";
 import { createRepository as createWorkspacesRepository } from "./common/repositories/workspacesRepository.js";
 import { createService as createWorkspaceService } from "./common/services/workspaceDirectoryService.js";
 import { createWorkspacesServerI18n } from "./i18n.js";
@@ -134,6 +135,10 @@ function createWorkspacesRuntime({
   });
   const workspaceMembersService = createWorkspaceMembersService({
     workspaceMembershipsRepository,
+    workspaceMemberPagesRepository: createWorkspaceMemberPagesRepository({
+      workspaceMemberships: resources.workspaceMemberships,
+      userProfiles
+    }),
     workspaceInvitesRepository,
     inviteExpiresInMs: requirePositiveInteger(
       config?.workspaceMembers?.defaults?.inviteExpiresInMs,

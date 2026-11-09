@@ -16,6 +16,22 @@ const WORKSPACE_MEMBER_CHANGED_EVENTS = createWorkspaceEntityAndBootstrapEvents(
   workspaceRealtimeEvent: "workspace.members.changed"
 });
 
+const membersListActionInput = composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  workspaceMembersContract.operations.membersList.query
+], {
+  mode: "create",
+  context: "workspaceMembersActions.membersListActionInput"
+});
+
+const invitesListActionInput = composeSchemaDefinitions([
+  workspaceSlugParamsValidator,
+  workspaceMembersContract.operations.invitesList.query
+], {
+  mode: "create",
+  context: "workspaceMembersActions.invitesListActionInput"
+});
+
 const updateMemberRoleActionInput = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
   workspaceMembersContract.operations.updateMemberRole.input
@@ -99,17 +115,18 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
         require: "all",
         permissions: ["workspace.members.view"]
       },
-      input: workspaceSlugParamsValidator,
+      input: membersListActionInput,
       output: null,
       extensions: {
         assistant: {
-          description: "List members of the active workspace.",
+          description: "List members of the active workspace, a page at a time: pass a page's nextCursor as cursor for the next.",
           output: workspaceMembersContract.operations.membersList.output,
           transformResult: (result) => result.value
         }
       },
       execute: (input, context) => workspaceMembersService.listMembersResponse(
         resolveWorkspace(context, input),
+        input,
         { context }
       )
     }),
@@ -175,17 +192,18 @@ function createWorkspaceMembersActions({ workspaceMembersService }) {
         require: "all",
         permissions: ["workspace.members.view"]
       },
-      input: workspaceSlugParamsValidator,
+      input: invitesListActionInput,
       output: null,
       extensions: {
         assistant: {
-          description: "List invitations for the active workspace without invitation tokens.",
+          description: "List invitations for the active workspace without invitation tokens, a page at a time: pass a page's nextCursor as cursor for the next.",
           output: workspaceMembersContract.operations.invitesList.output,
           transformResult: (result) => result.value
         }
       },
       execute: (input, context) => workspaceMembersService.listInvitesResponse(
         resolveWorkspace(context, input),
+        input,
         { context }
       )
     }),

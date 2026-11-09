@@ -22,6 +22,7 @@ const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 function membersService(db) {
   return createMembersService({
     workspaceMembershipsRepository: db.memberships,
+    workspaceMemberPagesRepository: db.memberPages,
     workspaceInvitesRepository: db.invites,
     inviteExpiresInMs: 86400000,
     roleCatalog: db.roleCatalog,
@@ -75,7 +76,7 @@ test("createInvite saves a pending invite, answers the workspace's pending invit
   assert.equal(result.kind, "data");
   const value = result.value;
   assert.deepEqual(Object.keys(value), [
-    "workspace", "invites", "roleCatalog", "inviteTokenPreview", "inviteUrl", "inviteDelivery", "createdInviteId"
+    "workspace", "invites", "nextCursor", "roleCatalog", "inviteTokenPreview", "inviteUrl", "inviteDelivery", "createdInviteId"
   ]);
   assert.deepEqual(value.workspace, membersWorkspace(workspace));
   assert.deepEqual(value.roleCatalog, cloneWorkspaceRoleCatalog(db.roleCatalog));
@@ -106,7 +107,7 @@ test("createInvite saves a pending invite, answers the workspace's pending invit
   assert.equal((await db.invites.listPendingByWorkspaceIdWithWorkspace(other.id)).length, 1, "the other workspace's invite stays");
 
   const listedOnly = (await service.listInvitesResponse(workspace)).value;
-  assert.deepEqual(Object.keys(listedOnly), ["workspace", "invites", "roleCatalog"]);
+  assert.deepEqual(Object.keys(listedOnly), ["workspace", "invites", "nextCursor", "roleCatalog"]);
   assert.deepEqual(listedOnly.invites, again.invites);
 
   await assert.rejects(service.createInvite(workspace, owner, { email: "rae@example.test", roleSid: "owner" }),
@@ -126,7 +127,7 @@ test("revokeInvite revokes a pending invite of its workspace once and answers th
 
   const result = await service.revokeInvite(workspace, first);
   assert.equal(result.kind, "data");
-  assert.deepEqual(Object.keys(result.value), ["workspace", "invites", "roleCatalog", "revokedInviteId"]);
+  assert.deepEqual(Object.keys(result.value), ["workspace", "invites", "nextCursor", "roleCatalog", "revokedInviteId"]);
   assert.equal(result.value.revokedInviteId, first);
   assert.deepEqual(result.value.invites.map(({ id }) => id), [second]);
   assert.equal((await db.invites.findById(first)).status, "revoked");
@@ -162,7 +163,7 @@ test("updateMemberRole and removeMember change an active member of their workspa
 
   const updated = await service.updateMemberRole(workspace, { memberUserId: members.ann.id, roleSid: " Admin " });
   assert.equal(updated.kind, "data");
-  assert.deepEqual(Object.keys(updated.value), ["workspace", "members", "roleCatalog"]);
+  assert.deepEqual(Object.keys(updated.value), ["workspace", "members", "nextCursor", "roleCatalog"]);
   assert.deepEqual(updated.value.workspace, membersWorkspace(workspace));
   assert.deepEqual(updated.value.members, [
     { userId: members.ann.id, roleSid: "admin", status: "active", displayName: "roles-ann", email: "roles-ann@example.test", isOwner: false },
@@ -284,4 +285,61 @@ test("listMembers and the invites list leave out other workspaces' members and i
     ["scope-other-dan", "scope-other-owner"]);
   assert.deepEqual((await service.listInvitesResponse(workspace)).value.invites, []);
   assert.equal((await service.listInvitesResponse(other)).value.invites.length, 1);
+});
+
+// Every statement the work sends, as SQL.
+async function statementsOf(knex, work) {
+  const statements = [];
+  const record = ({ sql }) => statements.push(sql);
+  knex.on("query", record);
+  try {
+    return { result: await work(), statements };
+  } finally {
+    knex.off("query", record);
+  }
+}
+
+test("the members and invites lists answer a page at a time, each page chosen in SQL", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const service = membersService(db);
+  const { owner, workspace, members } = await teamOf(db, "pages", ["dan", "amy", "cat", "bob", "eve"]);
+  await db.memberships.upsertMembership(workspace.id, members.eve.id, { status: "revoked" });
+  await teamOf(db, "pages-other", ["amy"]);
+  const names = (page) => page.members.map(({ displayName }) => displayName);
+
+  const { result: first, statements } = await statementsOf(db.knex, () => service.listMembersPage(workspace, { limit: 2 }));
+  assert.deepEqual(names(first), ["pages-amy", "pages-bob"]);
+  // One statement reads the page: none reads the workspace's memberships whole.
+  const memberReads = statements.filter((sql) => /workspace_memberships/u.test(sql));
+  assert.equal(memberReads.length, 1, statements.join("\n"));
+  assert.match(memberReads[0], /\blimit\b/iu);
+  const second = await service.listMembersPage(workspace, { limit: 2, cursor: first.nextCursor });
+  assert.deepEqual(names(second), ["pages-cat", "pages-dan"]);
+  // The removed member and the other workspace's members are never listed.
+  const last = (await service.listMembersResponse(workspace, { limit: 2, cursor: second.nextCursor })).value;
+  assert.deepEqual(names(last), ["pages-owner"]);
+  assert.equal(last.nextCursor, null);
+  assert.deepEqual(names(await service.listMembersPage(workspace)), ["pages-amy", "pages-bob", "pages-cat", "pages-dan", "pages-owner"]);
+  await assert.rejects(service.listMembersPage(workspace, { cursor: "not-a-cursor" }),
+    (error) => error.status === 400 && error.code === "workspaces.member.cursorInvalid");
+
+  const invited = [];
+  for (const email of ["ivy", "jon", "kim"]) {
+    invited.push((await service.createInvite(workspace, owner, { email: `${email}@example.test` })).value.createdInviteId);
+  }
+  const createdAt = (id, value) => db.knex("workspace_invites").where({ id }).update({ created_at: value });
+  await createdAt(invited[0], "2030-01-01 00:00:02");
+  await createdAt(invited[1], "2030-01-01 00:00:01");
+  await createdAt(invited[2], "2030-01-01 00:00:02");
+  const { result: newest, statements: inviteStatements } = await statementsOf(db.knex,
+    () => service.listInvitesResponse(workspace, { limit: 2 }));
+  // Newest first, and invites made in the same second in the order they were made.
+  assert.deepEqual(newest.value.invites.map(({ id }) => id), [invited[0], invited[2]]);
+  const inviteReads = inviteStatements.filter((sql) => /workspace_invites/u.test(sql));
+  assert.equal(inviteReads.length, 1, inviteStatements.join("\n"));
+  assert.match(inviteReads[0], /\blimit\b/iu);
+  const oldest = (await service.listInvitesResponse(workspace, { limit: 2, cursor: newest.value.nextCursor })).value;
+  assert.deepEqual(oldest.invites.map(({ id }) => id), [invited[1]]);
+  assert.equal(oldest.nextCursor, null);
 });

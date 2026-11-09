@@ -154,6 +154,10 @@
  * @property {boolean} isRefreshingWorkspaceSettings
  * @property {boolean} isRefreshingMembersList
  * @property {boolean} isRefreshingInviteList
+ * @property {boolean} hasMoreMembers
+ * @property {boolean} isLoadingMoreMembers
+ * @property {boolean} hasMoreInvites
+ * @property {boolean} isLoadingMoreInvites
  */
 
 /**
@@ -164,6 +168,8 @@
  * @property {(inviteId: string) => Promise<void>} submitRevokeInvite
  * @property {(member: WorkspaceMember, roleSid: string) => Promise<void>} submitMemberRoleUpdate
  * @property {(member: WorkspaceMember) => Promise<void>} submitRemoveMember
+ * @property {() => Promise<unknown>} loadMoreMembers
+ * @property {() => Promise<unknown>} loadMoreInvites
  */
 
 export {};

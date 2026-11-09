@@ -165,6 +165,35 @@ function createRepository({ workspaceInvites, workspaces }) {
       .sort((left, right) => String(right.createdAt || "").localeCompare(String(left.createdAt || "")));
   }
 
+  /**
+   * One page of the workspace's pending invites, newest first (then oldest id), each with its workspace as
+   * listPendingByWorkspaceIdWithWorkspace reads it: `{ invites, next }`, where `next` is the cursor of the page after,
+   * or null on the last page. It reads one page however many invites are pending.
+   * @param {unknown} workspaceId
+   * @param {{ size: number, after?: string }} page At most the invites handle's pageLimits().request invites.
+   * @param {object} [options]
+   */
+  async function listPendingPageByWorkspaceId(workspaceId, { size, after }, options = {}) {
+    const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+    if (!normalizedWorkspaceId) {
+      return { invites: [], next: null };
+    }
+
+    const { records, page } = await workspaceInvites.query(
+      {
+        filters: { workspace: normalizedWorkspaceId, status: "pending" },
+        sort: ["-createdAt", "id"],
+        include: ["workspace"],
+        page: {
+          size: Math.min(Number(size), workspaceInvites.pageLimits().request),
+          ...(after === undefined ? {} : { after })
+        }
+      },
+      options
+    );
+    return { invites: records.map(normalizeInviteWithWorkspace).filter(Boolean), next: page.next };
+  }
+
   async function insert(payload, options = {}) {
     const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
     const workspaceId = normalizeRecordId(source.workspaceId, { fallback: null });
@@ -313,6 +342,7 @@ function createRepository({ workspaceInvites, workspaces }) {
     findByTokenHashWithWorkspace,
     listPendingByEmail,
     listPendingByWorkspaceIdWithWorkspace,
+    listPendingPageByWorkspaceId,
     insert,
     expirePendingByWorkspaceIdAndEmail,
     markAcceptedById,

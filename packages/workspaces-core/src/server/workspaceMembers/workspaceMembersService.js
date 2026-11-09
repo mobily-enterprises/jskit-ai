@@ -11,6 +11,13 @@ import {
 
 const DEFAULT_LOCALE = "en";
 const DEFAULT_TIME_ZONE = "UTC";
+// A members or invites list page's size when the request names none, as a client list's first request asks.
+const DEFAULT_PAGE_SIZE = 20;
+
+// The page a list request asks for: its size and the cursor of the page before, as the repositories read it.
+function listPage({ cursor, limit } = {}) {
+  return { size: Number(limit) || DEFAULT_PAGE_SIZE, ...(cursor ? { after: cursor } : {}) };
+}
 
 function roleNotAssignableError() {
   return createValidationError({
@@ -33,6 +40,7 @@ function inviteIdRequiredError() {
 /**
  * @param {object} dependencies
  * @param {import("../types.js").WorkspaceMembershipsRepository} dependencies.workspaceMembershipsRepository
+ * @param {import("../types.js").WorkspaceMemberPagesRepository} dependencies.workspaceMemberPagesRepository
  * @param {import("../types.js").WorkspaceInvitesRepository} dependencies.workspaceInvitesRepository
  * @param {number} dependencies.inviteExpiresInMs
  * @param {import("../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
@@ -47,6 +55,7 @@ function inviteIdRequiredError() {
  */
 function createService({
   workspaceMembershipsRepository,
+  workspaceMemberPagesRepository,
   workspaceInvitesRepository,
   inviteExpiresInMs,
   roleCatalog,
@@ -189,7 +198,8 @@ function createService({
   }
 
   // Applications read the role catalog and member list as they are; the
-  // *Response methods answer with them as JSON:API data, for the actions.
+  // *Response methods answer with them as JSON:API data, for the actions. The actions' members and invites lists answer
+  // a page at a time: `query` names its size (`limit`, 20 when none) and the `nextCursor` of the page before (`cursor`).
   async function listRoles() {
     return cloneWorkspaceRoleCatalog(roleCatalog);
   }
@@ -198,12 +208,30 @@ function createService({
     return returnJsonApiData(await listRoles());
   }
 
+  // Every active member of the workspace, for work that needs them all, such as a delivery's recipients.
   async function listMembers(workspace, options = {}) {
     const members = await workspaceMembershipsRepository.listActiveByWorkspaceId(workspace.id, options);
 
     return withRoleCatalog({
       workspace: mapMembersWorkspace(workspace),
       members: members.map((member) => mapMemberSummary(member, workspace))
+    });
+  }
+
+  /**
+   * One page of the workspace's active members, by display name, and the `nextCursor` of the page after (null on the
+   * last page): the members list a screen shows.
+   * @param {object} workspace
+   * @param {{ cursor?: string, limit?: number }} [query]
+   * @param {object} [options]
+   */
+  async function listMembersPage(workspace, query = {}, options = {}) {
+    const page = await workspaceMemberPagesRepository.listActivePage(workspace.id, listPage(query), options);
+
+    return withRoleCatalog({
+      workspace: mapMembersWorkspace(workspace),
+      members: page.members.map((member) => mapMemberSummary(member, workspace)),
+      nextCursor: page.next
     });
   }
 
@@ -214,11 +242,11 @@ function createService({
     return member ? mapMemberSummary(member, workspace) : null;
   }
 
-  async function listMembersResponse(workspace, options = {}) {
-    return returnJsonApiData(await listMembers(workspace, options));
+  async function listMembersResponse(workspace, query = {}, options = {}) {
+    return returnJsonApiData(await listMembersPage(workspace, query, options));
   }
 
-  // Changes an active member who is not the owner, and answers the members. The membership is locked before it is
+  // Changes an active member who is not the owner, and answers the members' first page. The membership is locked before it is
   // checked, so a role change and a removal of one member at once run one after the other, and the second decides on
   // what the first left: a removed member is not made active again by a role change, and keeps the role they had.
   async function changeActiveMember(workspace, memberUserId, { ownerError, changes }, options) {
@@ -233,7 +261,7 @@ function createService({
       await workspaceMembershipsRepository.upsertMembership(workspace.id, memberUserId, changes(membership), txOptions);
     });
 
-    return returnJsonApiData(await listMembers(workspace, options));
+    return returnJsonApiData(await listMembersPage(workspace, {}, options));
   }
 
   async function updateMemberRole(workspace, payload, options = {}) {
@@ -264,18 +292,20 @@ function createService({
     }, options);
   }
 
-  async function listInvitesPayload(workspace, options = {}) {
+  // One page of the workspace's pending invites, newest first, and the nextCursor of the page after.
+  async function listInvitesPayload(workspace, query, options) {
     ensureWorkspaceInvitationsEnabled();
-    const invites = await workspaceInvitesRepository.listPendingByWorkspaceIdWithWorkspace(workspace.id, options);
+    const page = await workspaceInvitesRepository.listPendingPageByWorkspaceId(workspace.id, listPage(query), options);
 
     return withRoleCatalog({
       workspace: mapMembersWorkspace(workspace),
-      invites: invites.map((invite) => mapInviteSummary(invite))
+      invites: page.invites.map((invite) => mapInviteSummary(invite)),
+      nextCursor: page.next
     });
   }
 
-  async function listInvitesResponse(workspace, options = {}) {
-    return returnJsonApiData(await listInvitesPayload(workspace, options));
+  async function listInvitesResponse(workspace, query = {}, options = {}) {
+    return returnJsonApiData(await listInvitesPayload(workspace, query, options));
   }
 
   async function prepareInvite(workspace, user, payload, options = {}) {
@@ -348,7 +378,7 @@ function createService({
       avatarUrl: invite.workspaceAvatarUrl
     };
     const inviteUrl = inviteUrlBuilder({ token, invite, workspace: savedWorkspace });
-    const response = await listInvitesPayload(savedWorkspace, options);
+    const response = await listInvitesPayload(savedWorkspace, {}, options);
     const inviteDelivery = await deliverInviteEmail({ workspace: savedWorkspace, user, invite, inviteUrl }, options);
     return {
       ...response,
@@ -391,7 +421,7 @@ function createService({
     };
     const revokedInviteId = await workspaceInvitesRepository.withTransaction(options, revoke);
 
-    const response = await listInvitesPayload(workspace, options);
+    const response = await listInvitesPayload(workspace, {}, options);
     return returnJsonApiData({
       ...response,
       revokedInviteId
@@ -415,6 +445,7 @@ function createService({
     listRoles,
     listRolesResponse,
     listMembers,
+    listMembersPage,
     getMember,
     listMembersResponse,
     updateMemberRole,
