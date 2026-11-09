@@ -53,6 +53,7 @@ function placeholder(filter = {}, fallbackKey = "") {
         hide-details
         class="crud-list-filter-surface__control"
       />
+      <!-- readable-check: allow selection-field - data: an enum or presence filter lists its options in its definition, so nothing loads -->
       <v-select
         v-else-if="filter.type === 'enum' || filter.type === 'enumMany' || filter.type === 'presence'"
         v-model="runtimeValues[filter.key]"

@@ -42,12 +42,11 @@
                     autocomplete="email"
                     :disabled="isCreatingInvite || showWorkspaceInviteRefreshingIndicator"
                   />
-                  <v-select
+                  <SelectField
                     v-model="inviteForm.roleSid"
                     :label="t('jskit.workspaces.membersAdmin.role')"
                     :items="inviteRoleOptions"
-                    item-title="title"
-                    item-value="value"
+                    :loading="isLoadingRoles"
                     variant="outlined"
                     density="comfortable"
                     :disabled="isCreatingInvite || showWorkspaceInviteRefreshingIndicator"
@@ -127,11 +126,10 @@
 
                     <template #append>
                       <div class="d-flex align-center ga-2">
-                        <v-select
+                        <SelectField
                           v-model="member.roleSid"
                           :items="memberRoleOptions"
-                          item-title="title"
-                          item-value="value"
+                          :loading="isLoadingRoles"
                           density="compact"
                           variant="outlined"
                           hide-details
@@ -139,8 +137,8 @@
                           :disabled="showMembersRefreshingIndicator || isMemberRoleLocked(member)"
                           @update:model-value="(value) => onMemberRoleUpdate(member, value)"
                         >
-                          <template #selection="{ internalItem }">{{ formatRole(internalItem.value, internalItem.title) }}</template>
-                        </v-select>
+                          <template #selection="{ internalItem }">{{ memberRoleTitle(internalItem.value) }}</template>
+                        </SelectField>
                         <v-btn
                           variant="text"
                           color="error"
@@ -192,6 +190,7 @@
 
 <script setup>
 import { computed, toRefs } from "vue";
+import SelectField from "@jskit-ai/http-web/client/components/SelectField";
 import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { useJskitText } from "../i18n.js";
 
@@ -261,6 +260,7 @@ const isRemovingMember = computed(() => status.value.isRemovingMember);
 const isCopyingInviteLink = computed(() => status.value.isCopyingInviteLink);
 const createdInviteUrl = computed(() => status.value.createdInviteUrl);
 const createdInviteDeliveryStatus = computed(() => status.value.createdInviteDeliveryStatus);
+const isLoadingRoles = computed(() => status.value.isLoadingRoles);
 const workspaceInvitePolicyLoaded = computed(() => status.value.hasLoadedWorkspaceSettings);
 const workspaceInvitePolicyRefreshing = computed(() => status.value.isRefreshingWorkspaceSettings);
 const membersListLoaded = computed(() => status.value.hasLoadedMembersList);
@@ -309,6 +309,11 @@ const inviteLinkStatusText = computed(() => {
 
 function formatRole(roleSid, fallback = roleSid) {
   return options.value.formatRole(roleSid, fallback);
+}
+
+// A member's role reads as its label, else its option's title, else its id: an owner's role is no assignable option.
+function memberRoleTitle(roleSid) {
+  return formatRole(roleSid, memberRoleOptions.value.find((option) => option.value === roleSid)?.title || roleSid);
 }
 
 function formatDateTime(value) {

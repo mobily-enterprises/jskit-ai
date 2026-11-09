@@ -104,6 +104,7 @@
 
         <section :aria-label="t('jskit.assistant.model.model')" class="assistant-model-control__section">
           <div class="assistant-model-control__label">{{ t("jskit.assistant.model.model") }}</div>
+          <!-- readable-check: allow selection-field - data: it shows only once the model list holds more than six models, so a stored model id never shows before its options -->
           <v-autocomplete
             v-if="modelRows.length > 6"
             auto-select-first="exact"

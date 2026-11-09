@@ -28,6 +28,7 @@ import { onePropertyPerLine } from "./rules/onePropertyPerLine.js";
 import { playwrightLoginUnchanged } from "./rules/playwrightLoginUnchanged.js";
 import { releasedListeners } from "./rules/releasedListeners.js";
 import { requiredCollaborators } from "./rules/requiredCollaborators.js";
+import { selectionField } from "./rules/selectionField.js";
 import { noHandContext } from "./rules/noHandContext.js";
 import { sqlLiteral } from "./rules/sqlLiteral.js";
 import { typedDependencies } from "./rules/typedDependencies.js";
@@ -66,6 +67,7 @@ const jskitPlugin = Object.freeze({
     "released-listeners": releasedListeners,
     "no-module-state": noModuleState,
     "no-frozen-vue-state": noFrozenVueState,
+    "selection-field": selectionField,
     "playwright-login-unchanged": playwrightLoginUnchanged,
     "no-direct-knex": noDirectKnex,
     "no-transaction-reader": noTransactionReader,

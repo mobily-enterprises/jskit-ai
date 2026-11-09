@@ -35,6 +35,7 @@ const emit = defineEmits(["dismiss"]);
       :key="question.name"
       class="assistant-questions__question-field"
     >
+      <!-- readable-check: allow selection-field - data: the choices arrive with the assistant question they answer, so nothing loads -->
       <v-select
         v-if="question.choices.length"
         :model-value="answers[question.name]"

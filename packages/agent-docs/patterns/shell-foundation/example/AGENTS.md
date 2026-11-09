@@ -74,7 +74,11 @@ Selection fields never show a stored id as text. A select, autocomplete or
 combobox whose options load from the server, or whose value is a record id,
 uses `SelectField` from `@jskit-ai/http-web/client/components/SelectField` with
 `loading` while the options load, not a raw `v-select`, `v-autocomplete` or
-`v-combobox`.
+`v-combobox`. The lint rule `jskit/selection-field` reports a raw one whose
+items are not fixed (a list written out, a top-level `const` holding one, or an
+import from a `shared` module) and a `SelectField` over loaded items without
+`loading`; a justified case says why in
+`<!-- readable-check: allow selection-field - data: <reason> -->` above it.
 
 Copied pattern source is ordinary application source. Do not add generator
 provenance, receipts, completion ledgers, or tooling-operation history. Keep

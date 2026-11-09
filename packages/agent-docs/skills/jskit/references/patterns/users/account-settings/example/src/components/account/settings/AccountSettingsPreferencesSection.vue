@@ -15,6 +15,7 @@ const preferences = props.runtime.preferences;
       <v-form @submit.prevent="preferences.submit" novalidate>
         <v-row>
           <v-col cols="12" md="4">
+            <!-- readable-check: allow selection-field - data: the account settings runtime holds these as fixed lists, so nothing loads -->
             <v-select
               v-model="preferences.form.theme"
               label="Theme"
@@ -29,6 +30,7 @@ const preferences = props.runtime.preferences;
           </v-col>
 
           <v-col cols="12" md="4">
+            <!-- readable-check: allow selection-field - data: the account settings runtime holds these as fixed lists, so nothing loads -->
             <v-select
               v-model="preferences.form.locale"
               label="Language / locale"
@@ -43,6 +45,7 @@ const preferences = props.runtime.preferences;
           </v-col>
 
           <v-col cols="12" md="4">
+            <!-- readable-check: allow selection-field - data: the account settings runtime holds these as fixed lists, so nothing loads -->
             <v-select
               v-model="preferences.form.timeZone"
               label="Time zone"
@@ -55,6 +58,7 @@ const preferences = props.runtime.preferences;
           </v-col>
 
           <v-col cols="12" md="4">
+            <!-- readable-check: allow selection-field - data: the account settings runtime holds these as fixed lists, so nothing loads -->
             <v-select
               v-model="preferences.form.dateFormat"
               label="Date format"
@@ -69,6 +73,7 @@ const preferences = props.runtime.preferences;
           </v-col>
 
           <v-col cols="12" md="4">
+            <!-- readable-check: allow selection-field - data: the account settings runtime holds these as fixed lists, so nothing loads -->
             <v-select
               v-model="preferences.form.numberFormat"
               label="Number format"
@@ -83,6 +88,7 @@ const preferences = props.runtime.preferences;
           </v-col>
 
           <v-col cols="12" md="4">
+            <!-- readable-check: allow selection-field - data: the account settings runtime holds these as fixed lists, so nothing loads -->
             <v-select
               v-model="preferences.form.currencyCode"
               label="Currency"
@@ -95,6 +101,7 @@ const preferences = props.runtime.preferences;
           </v-col>
 
           <v-col cols="12" md="4">
+            <!-- readable-check: allow selection-field - data: the account settings runtime holds these as fixed lists, so nothing loads -->
             <v-select
               v-model.number="preferences.form.avatarSize"
               label="Avatar size"

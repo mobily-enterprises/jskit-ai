@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The members screen's invite-role and member-role fields are http-web's `SelectField`, bound to `loading` while the workspace's role catalog loads, so a stored role id never shows as text before its label; the members admin status says `isLoadingRoles`.
 - The invite form's email and role fields have no margin under them, since each keeps its supporting-text line (`@jskit-ai/material-web` no longer sets `hideDetails: "auto"`).
 - The workspace-surfaces pattern's pending-invitations cue links to the account settings' invitations section at its own address, `/account/invites`, as users-web's routed sections have it, instead of `/account?section=invites`.
 - The workspaces and invitations screens and the workspace-surfaces pattern's panels sit directly on the page, without bordered sheets; the invite landing and the members screen use elevated Material 3 cards; titles use Material 3 type classes instead of hand-sized ones. Buttons are Material 3's 40dp buttons inside material-web's 48dp touch target, no longer stretched to 48px; the workspace list's and invitations' buttons are default size instead of small.

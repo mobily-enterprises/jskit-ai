@@ -137,6 +137,7 @@
               :configuration="configuration" :disabled="configurationMode !== 'editable' || pending"
               :update="updateConfiguration"
             >
+              <!-- readable-check: allow selection-field - data: a configuration field the assistant declares lists its choices, so nothing loads -->
               <v-select
                 v-for="field in configurationFields" :key="field.name"
                 :model-value="configuration[field.name]" :label="field.label" :items="field.items"

@@ -41,6 +41,7 @@ Exports
 - None
 Local functions
 - `formatRole(roleSid, fallback = roleSid)`
+- `memberRoleTitle(roleSid)`
 - `formatDateTime(value)`
 - `showOwnerChip(member)`
 - `isMemberRoleLocked(member)`

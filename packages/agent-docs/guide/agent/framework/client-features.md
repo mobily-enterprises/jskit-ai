@@ -389,6 +389,29 @@ const emit = defineEmits(["close"]);
 emit("closed");
 ```
 
+### Selection fields
+
+**A select, autocomplete or combobox whose options load from the server, or
+whose value is a record id, is `SelectField` from
+`@jskit-ai/http-web/client/components/SelectField`, with `loading` bound while
+the options load.** A raw `v-select`, `v-autocomplete` or `v-combobox` takes
+fixed options only: a list written out in the template, a top-level `const`
+holding one (as written, frozen, or `computed()` over one written out), or an
+import from a `shared` module. The model's name decides nothing.
+
+Why: Vuetify titles a value missing from `items` with the value itself, so a
+stored id such as `53` shows until the options arrive; `SelectField` hides it
+while `loading` is true.
+
+```vue
+<!-- good -->
+<SelectField v-model="form.serviceId" :items="services.items" :loading="services.loading" />
+<v-select v-model="form.size" :items="SIZE_OPTIONS" />
+
+<!-- bad: a stored id shows while the services load -->
+<v-select v-model="form.serviceId" :items="services.items" />
+```
+
 ### Presenting scripts
 
 **A component's `<script>` presents: props, emits, element refs, display
@@ -563,6 +586,7 @@ client-only rules below. The server's action and error rules do not apply.
 | `jskit/no-frozen-vue-state` | `Object.freeze` over refs, computeds or reactive state | [Fixed result shape](#fixed-result-shape) |
 | `jskit/released-listeners` | a listener, interval, observer or subscription the file starts and never releases | [Released listeners](#released-listeners) |
 | `jskit/no-module-state` | a module-level `let`, `ref()` or `reactive()` | [Module state](#module-state) |
+| `jskit/selection-field` | a `v-select`, `v-autocomplete` or `v-combobox` whose items are not fixed, and a `SelectField` whose items are not fixed that binds no `loading` | [Selection fields](#selection-fields) |
 | `vue/require-prop-types`, `vue/require-default-prop`, `vue/require-valid-default-prop`, `vue/no-required-prop-with-default` | a prop without a type, optional without a default, or both | [Collaborator props](#collaborator-props) |
 | `vue/require-explicit-emits` | an emitted event the component does not declare | [Declared emits](#declared-emits) |
 
@@ -583,10 +607,11 @@ Simplicity, effect order and presenting scripts are checked by reading.
 Client exceptions use the
 [typed features exceptions](/guide/framework/typed-features#exceptions): a
 comment on the line before the finding, naming the rule or the finding, with a
-reason prefix. Client code adds three placements:
+reason prefix. Client code adds four placements:
 
 | Placement | The exception |
 | --- | --- |
 | `// readable-check: allow module-state - shared resource: <what the page shares>` | module state every instance on the page shares on purpose |
 | `<!-- readable-check: allow optional-call - optional operation: <what lacks it> -->` above an element | that element's bindings call an optional operation |
+| `<!-- readable-check: allow selection-field - data: <where the options come from> -->` above an element | a selection whose options are in memory and whose value is no record id |
 | `// readable-check: allow method-probe - input validation: <the shapes>` above a function | the probes of a function whose one job is normalizing an external value of several shapes |

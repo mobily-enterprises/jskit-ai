@@ -147,6 +147,7 @@
  * @property {boolean} isCopyingInviteLink
  * @property {string} createdInviteUrl
  * @property {string} createdInviteDeliveryStatus
+ * @property {boolean} isLoadingRoles
  * @property {boolean} hasLoadedWorkspaceSettings
  * @property {boolean} hasLoadedMembersList
  * @property {boolean} hasLoadedInviteList

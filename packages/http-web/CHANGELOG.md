@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `SelectField` imports `VSelect` and `VAutocomplete` from their own paths, `vuetify/components/VSelect` and `vuetify/components/VAutocomplete`, instead of the `vuetify/components` barrel, so a test that mocks Vuetify's per-component paths renders it too. The crud-screen-set pattern names the lint rule `jskit/selection-field` (`@jskit-ai/config-eslint`), which reports a raw `v-select`, `v-autocomplete` or `v-combobox` whose items are not fixed and a `SelectField` over loaded items without `loading`.
 - `jskit.metadata.ui.removedProps` lists `CrudViewScreen`'s `resourcePluralTitle`, removed in this release, so `jskit check` fails an app that still passes it (`ui/removed-prop`) instead of Vue passing it on as an attribute.
 - `CrudAddEditScreen`'s field rows are 16px apart, below each field's supporting-text line, which fields keep now that `@jskit-ai/material-web` no longer sets `hideDetails: "auto"`: a server's field error appears in that line instead of pushing the rest of the form down. Two text fields are 38px apart (16px plus the line), where they were 24px; a field without the line (`hide-details`, a switch or checkbox, a section heading) has 16px below it. Columns side by side stay 24px apart. Upgrading: a form that set its own margins between fields drops them.
 

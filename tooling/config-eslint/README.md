@@ -197,8 +197,13 @@ components, client factories and client providers to the
 the typed-features rules that read client code, with `use*` composables
 counted as factories and component templates read for probes and optional
 calls, plus `typed-inject`, `collaborator-props`, `fixed-result-shape`,
-`no-frozen-vue-state`, `released-listeners`, `no-module-state` and
-`eslint-plugin-vue`'s prop and emit rules. The server's action and error rules
+`no-frozen-vue-state`, `released-listeners`, `no-module-state`,
+`selection-field` and `eslint-plugin-vue`'s prop and emit rules.
+`selection-field` reports a `v-select`, `v-autocomplete` or `v-combobox`
+(or its PascalCase form) whose `items` are not fixed (a list written out, a
+top-level `const` holding one as written, frozen or `computed()` over one, or
+an import from a `shared` module), and a `SelectField` over items that are not
+fixed with no `loading` binding; one with no items at all loads nothing. The server's action and error rules
 do not apply, a composable is never held to `Object.freeze`, and
 `no-duplicate-helper` compares a client helper with the whole package, leaving
 alone a component's closure over its own state (at most two statements in

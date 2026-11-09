@@ -14,8 +14,8 @@ const TEST_FILES = Object.freeze([
 // composables, client factories and providers are typed where received and required, never probed, in scripts and
 // templates; injected values take an exported key, a type and no empty default; props a component calls are required
 // and typed by their contract; results keep the shape they are built with and hold Vue state unfrozen; whatever client
-// code starts it releases; no module-level mutable state; one copy of each helper per package; files under 750 lines
-// and functions under 600. The server's action and error rules have no client counterpart, and a composable's result is
+// code starts it releases; no module-level mutable state; a selection whose options are not fixed is SelectField with
+// loading; one copy of each helper per package; files under 750 lines and functions under 600. The server's action and error rules have no client counterpart, and a composable's result is
 // never held to Object.freeze.
 function clientFeaturesRules(severity) {
   return Object.freeze({
@@ -40,6 +40,7 @@ function clientFeaturesRules(severity) {
     "jskit/released-listeners": severity,
     "jskit/no-module-state": severity,
     "jskit/no-frozen-vue-state": severity,
+    "jskit/selection-field": severity,
     ...sizeLimitRules(severity)
   });
 }

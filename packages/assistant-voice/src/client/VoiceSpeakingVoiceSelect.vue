@@ -14,6 +14,7 @@ function selectVoice(value) {
 </script>
 
 <template>
+  <!-- readable-check: allow selection-field - data: the speech service sends its voices as it connects, and the select stays disabled until there are two to choose from -->
   <v-select
     :model-value="voice.selectedVoice.value" @update:model-value="selectVoice"
     :items="voice.availableVoices.value" item-title="label" item-value="id"

@@ -143,7 +143,9 @@ arrive. `SelectField` hides an unresolved value while `loading` is true, shows
 "Unavailable option" once the options settle, and remembers titles it has seen
 so a narrowing search does not blank a chosen value. Display never changes the
 stored value. `searchable` renders an autocomplete; other props and slots pass
-through to Vuetify.
+through to Vuetify. The lint rule `jskit/selection-field` reports a raw
+selection whose items are not fixed, and a `SelectField` over loaded items
+without `loading`.
 
 ```vue
 <CrudAddEditScreen :screen="screen" v-bind="lookups">

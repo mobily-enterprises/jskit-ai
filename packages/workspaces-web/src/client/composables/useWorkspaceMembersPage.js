@@ -232,6 +232,7 @@ function useWorkspaceMembersPage() {
       isCopyingInviteLink: Boolean(isCopyingInviteLink.value),
       createdInviteUrl: createdInviteUrl.value,
       createdInviteDeliveryStatus: createdInviteDeliveryStatus.value,
+      isLoadingRoles: Boolean(workspaceRolesView.isLoading),
       hasLoadedWorkspaceSettings: !canInviteMembers.value || !workspaceSettingsView.isLoading,
       hasLoadedMembersList: !canViewMembers.value || !workspaceMembersList.isInitialLoading,
       hasLoadedInviteList: !canViewMembers.value || !workspaceInvitesList.isInitialLoading,

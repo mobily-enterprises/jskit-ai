@@ -112,6 +112,7 @@ function settingErrors(field) {
               :placeholder="definition.name" :error-messages="errors[`${integrationPath}.displayName`]"
               @update:model-value="editIntegration({ displayName: $event || undefined })"
             />
+            <!-- readable-check: allow selection-field - data: the provider definition this form edits lists its account modes, so nothing loads -->
             <v-select
               :label="t('jskit.connectors.configurationFields.accountMode.label')" :items="modes" :model-value="integration.accountMode" :disabled="disabled"
               :error-messages="errors[`${integrationPath}.accountMode`]"
@@ -124,6 +125,7 @@ function settingErrors(field) {
       <v-expansion-panel value="credentials" :title="t('jskit.connectors.configurationFields.panels.credentials')">
         <v-expansion-panel-text>
           <v-defaults-provider root>
+            <!-- readable-check: allow selection-field - data: the provider definition lists its sign-in methods, so nothing loads -->
             <v-select
               v-if="authenticationOptions.length > 1"
               :label="t('jskit.connectors.configurationFields.authentication.label')" :items="authenticationOptions" :model-value="integration.authentication.method" :disabled="disabled"
@@ -132,6 +134,7 @@ function settingErrors(field) {
               @update:model-value="editAuthentication"
             />
             <template v-for="field in visibleSettings" :key="field.name">
+              <!-- readable-check: allow selection-field - data: a settings field of the provider definition lists its items, so nothing loads -->
               <v-autocomplete
                 v-if="field.searchable"
                 :label="text(field.label)" :items="settingItems(field)" :disabled="disabled" auto-select-first
@@ -139,6 +142,7 @@ function settingErrors(field) {
                 :hint="settingHint(field)" persistent-hint :error-messages="settingErrors(field)"
                 @update:model-value="editSetting(field.name, $event)"
               />
+              <!-- readable-check: allow selection-field - data: a settings field of the provider definition lists its items, so nothing loads -->
               <v-select
                 v-else-if="field.items"
                 :label="text(field.label)" :items="settingItems(field)" :disabled="disabled"
@@ -165,12 +169,14 @@ function settingErrors(field) {
               </slot>
             </template>
             <template v-else-if="integration.authentication.method === 'oauth2'">
+              <!-- readable-check: allow selection-field - data: the registrations are those of the configuration being edited, so nothing loads -->
               <v-select
                 :label="t('jskit.connectors.configurationFields.registration.label')" :items="registrationOptions" :model-value="registrationId" :disabled="disabled"
                 :error-messages="errors[`${integrationPath}.authentication.registrationRef`]"
                 @update:model-value="editIntegration({ authentication: { ...integration.authentication, registrationRef: $event } })"
               />
               <template v-if="registration?.source === 'own'">
+                <!-- readable-check: allow selection-field - data: the provider definition lists its grant types, so nothing loads -->
                 <v-select
                   v-if="grantOptions.length > 1"
                   :label="t('jskit.connectors.configurationFields.grantType.label')" :items="grantOptions" :model-value="grantType" :disabled="disabled"

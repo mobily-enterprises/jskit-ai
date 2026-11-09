@@ -372,6 +372,21 @@ Exports
 Local functions
 - `positionalCollaboratorDefaults(fn, visitorKeys)`
 
+### `plugin/rules/selectionField.js`
+Exports
+- `selectionField`
+Local functions
+- `kebabName(rawName)`
+- `isWrittenList(node)`
+- `isWrittenValue(node)`
+- `computedResult(getter)`
+- `isFixedValue(node, { freezing, computing })`
+- `fixedBindings(program)`
+- `propAttribute(element, name)`
+- `bindsObject(element)`
+- `rootIdentifier(expression)`
+- `hasFixedItems(attribute, bindings)`
+
 ### `plugin/rules/sqlLiteral.js`
 Exports
 - `sqlLiteral`

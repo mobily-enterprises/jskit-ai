@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from "vue";
-import { VAutocomplete, VSelect } from "vuetify/components";
+import { VAutocomplete } from "vuetify/components/VAutocomplete";
+import { VSelect } from "vuetify/components/VSelect";
 import { optionTitle, optionValue, selectionFieldState } from "../support/selectFieldSupport.js";
 
 // A v-select / v-autocomplete that never shows a stored id as text (see selectFieldSupport.js).
