@@ -5,9 +5,10 @@ import { usePaths } from "../../../src/client/navigation/usePaths.js";
 // Material 3 components as JSKIT's defaults draw them: a segmented button, filter chips (in a chip group and toggled
 // with aria-pressed), fixed tabs that share a phone's width or scroll, a menu's own list beside a list in a rich menu
 // panel, dialog actions, a disabled filled button, a card and expansion panels at rest, a pagination's current page,
-// placeholders, a button to the page above this one, which isn't active here, and a segmented button and a button
-// group in the narrow `auto` column of a filter row, beside wide fields, and a dialog holding a virtual-scroll list
-// that jumps to its last item as the expansion panel around it re-renders.
+// placeholders, a card's list with an active item and one at rest, each with a subtitle, a button to the page above
+// this one, which isn't active here, and a segmented button and a button group in the narrow `auto` column of a
+// filter row, beside wide fields, and a dialog holding a virtual-scroll list that jumps to its last item as the
+// expansion panel around it re-renders.
 const paths = usePaths();
 const page = ref(2);
 const view = ref("day");
@@ -114,6 +115,12 @@ function jumpToLastBooking() {
     <v-text-field label="Name" placeholder="Ada Lovelace" class="align-self-stretch" data-testid="fixture-labelled" />
     <v-card class="align-self-stretch" data-testid="fixture-card">
       <v-card-text>A card at rest.</v-card-text>
+    </v-card>
+    <v-card class="align-self-stretch" data-testid="fixture-subtitled-list">
+      <v-list>
+        <v-list-item active title="Notifications" subtitle="Email and push" data-testid="fixture-active-item" />
+        <v-list-item title="Privacy" subtitle="Who sees your profile" data-testid="fixture-rest-item" />
+      </v-list>
     </v-card>
     <v-expansion-panels data-testid="fixture-expansion-panels">
       <v-expansion-panel title="Delivery" text="Delivered on Tuesdays." />

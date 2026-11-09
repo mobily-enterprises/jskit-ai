@@ -290,11 +290,13 @@ test("material.css draws segmented buttons, filter chips, fixed tabs and dialog 
     css,
     /\.v-input:not\(\.v-input--error, \.v-input--disabled\) > \.v-input__details \.v-messages \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
   );
-  // So is an inactive, uncoloured list item's subtitle.
+  // So is an inactive, uncoloured list item's subtitle; every enabled item's subtitle, an active one's included, is
+  // at full strength in the item's own colour.
   assert.match(
     css,
-    /\.v-list-item:not\(\.v-list-item--active, \.v-list-item--disabled, \[class\*=" text-"\]\) \.v-list-item-subtitle \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
+    /\.v-list-item:not\(\.v-list-item--active, \.v-list-item--disabled, \[class\*=" text-"\]\) \.v-list-item-subtitle \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*\}/u
   );
+  assert.match(css, /\.v-list-item:not\(\.v-list-item--disabled\) \.v-list-item-subtitle \{\s*opacity: 1;\s*\}/u);
   // A disabled container button is on-surface 12% and 38%, unlayered over its colour class.
   assert.match(
     css,

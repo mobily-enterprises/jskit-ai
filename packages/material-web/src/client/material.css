@@ -432,12 +432,17 @@
     opacity: 1;
   }
 
-  /* A list item's supporting text is on-surface-variant at full strength, as Material 3's list draws it, instead of
-     the item's on-surface at the medium-emphasis opacity (4.35:1 on surface-container-low). An active item and one
-     with its own text colour keep that colour, and a disabled item keeps its own fade. */
+  /* A list item's supporting text is at full strength, as Material 3's list draws it, instead of the item's colour at
+     Vuetify's medium-emphasis opacity: 4.35:1 on surface-container-low for an item at rest and 4.45:1 for an active
+     one, under WCAG's 4.5:1. An item at rest without a text colour of its own draws it in on-surface-variant; an
+     active item keeps the item's colour, as a selected Material 3 list item's supporting text takes its label's, and
+     so does one with its own text colour. A disabled item keeps its own fade. */
+  .v-list-item:not(.v-list-item--disabled) .v-list-item-subtitle {
+    opacity: 1;
+  }
+
   .v-list-item:not(.v-list-item--active, .v-list-item--disabled, [class*=" text-"]) .v-list-item-subtitle {
     color: rgb(var(--v-theme-on-surface-variant));
-    opacity: 1;
   }
 
   /* Dividers and table rules use outline-variant at full strength (the theme's border colour). Vuetify draws a

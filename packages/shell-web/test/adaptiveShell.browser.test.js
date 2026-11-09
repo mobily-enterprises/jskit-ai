@@ -1343,6 +1343,51 @@ test("a virtual-scroll list in a dialog reaches its last item after the page aro
   }
 });
 
+// A list item's subtitle is at full strength, as Material 3's list draws its supporting text: on-surface-variant on an
+// item at rest, the item's own colour on an active one, over the card and the active item's selected state layer.
+// Vuetify's medium-emphasis opacity measured 4.35:1 at rest and 4.45:1 active on the card, under WCAG's 4.5:1.
+test("a list item's subtitle is readable at rest and active, in light and dark", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 60_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  for (const theme of ["light", "dark"]) {
+    const page = await browser.newPage({ baseURL: vite.baseURL, colorScheme: theme, viewport: { width: 390, height: 844 } });
+    await page.goto(`/home/components?theme=${theme}`);
+    const onSurfaceVariant = await readRoleColor(page, "on-surface-variant");
+    for (const testId of ["fixture-active-item", "fixture-rest-item"]) {
+      const item = await page.getByTestId(testId).evaluate((element) => {
+        const style = (node) => window.getComputedStyle(node);
+        const overlay = element.querySelector(".v-list-item__overlay");
+        const subtitle = element.querySelector(".v-list-item-subtitle");
+        return {
+          card: style(element.closest(".v-card")).backgroundColor,
+          color: style(element).color,
+          // Vuetify draws a state layer only on an item that is active or can be clicked.
+          overlay: overlay ? [style(overlay).backgroundColor, Number(style(overlay).opacity)] : ["rgb(0, 0, 0)", 0],
+          subtitle: [style(subtitle).color, Number(style(subtitle).opacity)]
+        };
+      });
+      const at = `${testId} in ${theme}`;
+      // What shows under the subtitle: the card, then the item's state layer at its opacity.
+      const card = parseRgb(item.card);
+      const layer = parseRgb(item.overlay[0]);
+      const mix = (top, bottom, alpha) => ({
+        red: top.red * alpha + bottom.red * (1 - alpha),
+        green: top.green * alpha + bottom.green * (1 - alpha),
+        blue: top.blue * alpha + bottom.blue * (1 - alpha)
+      });
+      const background = mix(layer, card, layer.alpha * item.overlay[1]);
+      const text = parseRgb(item.subtitle[0]);
+      const ratio = contrastRatio(mix(text, background, text.alpha * item.subtitle[1]), background);
+      assert.equal(item.subtitle[1], 1, `${at}: the subtitle is at full strength`);
+      assert.equal(item.subtitle[0], testId === "fixture-rest-item" ? onSurfaceVariant : item.color, `${at}: its colour`);
+      assert.ok(ratio >= 4.5, `${at}: the subtitle's contrast was ${ratio.toFixed(2)}:1`);
+    }
+    await page.close();
+  }
+});
+
 test("segmented buttons, filter chips, fixed tabs, menus and dialog actions take Material 3's shapes and colours", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
