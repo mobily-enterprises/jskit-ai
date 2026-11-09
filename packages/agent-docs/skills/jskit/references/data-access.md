@@ -982,6 +982,60 @@ const { records: firstPage } = await subscriptions.query({ filters: { newsletter
 
 Bad: a list read 100-row pages in a loop for each of 40 related sets.
 
+## Narrow in the query
+
+A read asks the store for exactly the rows the code uses. The filter, sort,
+limit, existence check and count go in the read, never in code over the rows
+it answered: a read of every row then narrowed is slow, and a page or a `take`
+then narrowed is also wrong, since the row wanted can sit past it.
+
+- Filter with the resource's searchSchema: a field
+  (`filters: { status: "open" }`), an id list (`filters: { id: ids }`, or an
+  `in` filter on another field), or `q` for typed text, whose `oneOf` names the
+  fields it searches.
+- One row: a unique filter with `take: 1` or `page: { size: 1 }`, which also
+  answers whether one exists. A count: `aggregate()`.
+- Never filter, find, slice or count the rows a read answered, nor skip some
+  in a loop. Mapping them and grouping them by a key (`Map.groupBy`) narrow
+  nothing.
+- A lookup field's picker and a list's Search box send what the person types
+  as `q` to the server, which searches every row; `useList` does with
+  `search: { enabled: true }`. The table resource defines `searchSchema.q`.
+  Never search the page a list loaded in the browser: it misses every row past
+  it.
+- A CRUD list refuses a query key it does not take with a 400
+  (`crud.query.undeclaredKeys`). A list filter is declared in the feature's
+  `listFilterQueryValidator` and the resource's searchSchema.
+- Prove a capped read with a test that seeds past the cap and makes the row
+  the cap leaves out (the oldest, for a newest-first read) the one that
+  matches: the read that asks for it finds it; a read narrowed in code does
+  not.
+
+```js
+// good: the store answers one module's sections
+const { records } = await sections.query({ filters: { moduleId }, sort: ["-createdAt"], page: { size: 50 } }, options);
+
+// bad: the newest 200 sections of every module, then one module's kept in code
+const { records: recent } = await sections.query({ sort: ["-createdAt"], page: { size: 200 } }, options);
+const moduleSections = recent.filter((section) => section.moduleId === moduleId);
+
+// good: one row says who holds a unique username
+const [holder] = await profiles.queryAll({ filters: { usernames: [username] }, take: 1 }, options);
+```
+
+`jskit/narrow-in-query` reports `.filter()`, `.find()`, `.some()`,
+`.every()`, `.slice()`, a lone `.length` and a loop that skips rows with
+`continue` over the rows a read answered in the same function, and
+`jskit/search-on-server` reports a client search over a list's loaded items.
+`jskit check` fails a lookup field or a CRUD list screen whose app table
+resource has no `searchSchema.q`, on the resource or its owns entry
+(`data/search-q`). Code that needs every row a read answers says why on the
+line above the read or the narrowing:
+
+```js
+// readable-check: allow narrow-in-query - every row: the export writes every invoice and lists the overdue ones beside them
+```
+
 ## What changed since
 
 A page that catches up on a chat, a watch that acts on changes and a sync to

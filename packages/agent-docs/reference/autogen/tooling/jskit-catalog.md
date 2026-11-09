@@ -71,13 +71,33 @@ Exports
 - `ROOT`
 - `lintIgnores({ governed, config })`
 - `sourceFiles(root)`
+- `vueFiles(root)`
 Local functions
 - `skipsDirectory(name)`
-- `walk(root, directory, files)`
+- `walk(root, directory, files, pattern = SOURCE_FILE)`
 - `frameworkPackages(root)`
 - `appEslint(root)`
 - `lintConfigs(root, files)`
 - `skippedPaths(files, skipped)`
+
+### `scripts/data-access-source.mjs`
+Exports
+- `assignedVariable(masked, offset)`
+- `blank(text)`
+- `closingOffset(masked, start)`
+- `enclosingObject(masked, offset)`
+- `identifierAt(code, offset)`
+- `keyValue(code, masked, keys, key)`
+- `nextCodeOffset(text, offset)`
+- `objectArgument(masked, callOffset, matchLength)`
+- `objectAt(masked, offset)`
+- `objectKeys(masked, start, end)`
+- `readSourceFile(source)`
+- `readValue(code, masked, offset)`
+- `topLevelKeys(masked, start, end, names)`
+Local functions
+- `maskStrings(code)`
+- `constantValue(code, name)`
 
 ### `scripts/data-access.mjs`
 Exports
@@ -86,21 +106,14 @@ Exports
 - `readTableResourceSources({ projectRoot = process.cwd() } = {})`
 Local functions
 - `escapeRegExp(text)`
-- `blank(text)`
-- `maskStrings(code)`
-- `closingOffset(masked, start)`
-- `nextCodeOffset(text, offset)`
-- `constantValue(code, name)`
-- `readValue(code, masked, offset)`
-- `topLevelKeys(masked, start, end, names)`
-- `objectArgument(masked, callOffset, matchLength)`
-- `keyValue(code, masked, keys, key)`
-- `readSourceFile(source)`
-- `objectKeys(masked, start, end)`
-- `objectAt(masked, offset)`
 - `readSchemaFields(code, masked, keys, ownership)`
 - `readTableResources(file, { code, masked, position })`
+- `readSearchQ(masked, keys)`
 - `readCrudContracts({ code, masked })`
+- `readSearches(file, { code, masked, position })`
+- `vueScripts(source)`
+- `resourceNameFromNamespace(namespace)`
+- `checkSearchQ(resources, contracts, searches, report)`
 - `unnamedFields(resources, contracts)`
 - `ownsSystemContextName(source, masked)`
 - `readSystemScopes(file, { source, code, masked, position })`

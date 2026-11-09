@@ -219,6 +219,22 @@ Local functions
 - `typeKey(text, file, imports)`
 - `commentTypes(text)`
 
+### `plugin/rules/narrowInQuery.js`
+Exports
+- `narrowInQuery`
+Local functions
+- `literalProperty(object, key)`
+- `objectLiteral(sourceCode, node)`
+- `literalNumber(object, key)`
+- `pageBound(sourceCode, params)`
+- `builderChain(node)`
+- `limitOfOne(end, back)`
+- `isScopedBuilder(sourceCode, identifier)`
+- `readOf(sourceCode, call)`
+- `isLengthRead(expression)`
+- `isRowsMember(expression)`
+- `statementLine(node)`
+
 ### `plugin/rules/noDirectKnex.js`
 Exports
 - `noDirectKnex`
@@ -372,6 +388,11 @@ Exports
 Local functions
 - `positionalCollaboratorDefaults(fn, visitorKeys)`
 
+### `plugin/rules/searchOnServer.js`
+Exports
+- `searchOnServer`
+Local functions
+- `attribute(element, name, directive = "")`
 ### `plugin/rules/selectionField.js`
 Exports
 - `selectionField`

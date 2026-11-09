@@ -16,6 +16,7 @@ new RuleTester().run("jskit/allow-comment-form", allowCommentForm, {
     "// readable-check: allow setter-seam - deferred until boot: auth.service is built after every setup has registered its auth extensions\nattachAuthService(deferred, service);",
     "// readable-check: allow method-probe - filled by the editor repository; convert with its supplier\nstore.setProvider(provider);",
     "// readable-check: allow method-probe - cross-repository slot editor.session-preparation\nif (typeof preparation.run === \"function\") {}",
+    "// readable-check: allow narrow-in-query - every row: the export writes every invoice and lists the overdue ones beside them\nconst overdue = invoices.filter((invoice) => invoice.overdue);",
     "/* readable-check: allow method-probe - data: a route definition may omit its schema */\nif (typeof route.schema === \"object\") {}",
     "// readable-check: allow dependency-default - data: an absent list of providers has none\nfunction build({ providers = [] } = {}) { return providers; }",
     "// readable-check: allow method-probe - data: a route definition may omit its handler\nconst handler = typeof route.handler === \"function\" ? route.handler : null;",

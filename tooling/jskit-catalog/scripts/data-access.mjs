@@ -1,8 +1,11 @@
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { ROOT, lintIgnores, sourceFiles } from "./data-access-files.mjs";
+import { ROOT, lintIgnores, sourceFiles, vueFiles } from "./data-access-files.mjs";
 import { toPosixPath } from "./files.mjs";
-import { blankJsComments, lineIndex } from "./material3-source.mjs";
+import {
+  assignedVariable, blank, closingOffset, enclosingObject, identifierAt, keyValue, nextCodeOffset, objectArgument, objectAt,
+  objectKeys, readSourceFile, readValue, topLevelKeys
+} from "./data-access-source.mjs";
 
 // The data part of plain `jskit check`, read from source, never run. It backs up what the lint rules cannot see across
 // files: every table has exactly one table resource (`defineTableResource({ name, tableName })`) across the app and its
@@ -15,8 +18,10 @@ import { blankJsComments, lineIndex } from "./material3-source.mjs";
 // too; an eslint-disable or inline eslint config that turns off a data-access rule, or every rule, fails in any file
 // but the client's; and so does an app file the app's own ESLint config lints without every data-access rule as an
 // error, or ignores though it is server code. Whatever else that config ignores, no lint reads, so neither does this
-// check: it lists what it skipped. As information, it lists the fields of each app table resource that its CRUD contracts
-// never name, which no API shows or accepts.
+// check: it lists what it skipped. Every app table resource a lookup field picks from or a CRUD list screen shows defines
+// searchSchema.q, on the resource or its owns entry, since the picker and the list's Search box send what the person
+// types as q. As information, it lists the fields of each app table resource that its CRUD contracts never name, which
+// no API shows or accepts.
 
 const GUIDE = "https://mobily-enterprises.github.io/jskit-ai/guide/framework/data-access";
 const SECTIONS = Object.freeze({
@@ -27,7 +32,8 @@ const SECTIONS = Object.freeze({
   "data/runtime-capability": "the-resource-is-the-only-door",
   "data/lint-disabled": "hard-rules",
   "data/lint-config": "hard-rules",
-  "data/unnamed-fields": "layer-2-the-crud-surface"
+  "data/unnamed-fields": "layer-2-the-crud-surface",
+  "data/search-q": "narrow-in-the-query"
 });
 // What each rule asks, said once above its findings in the report.
 const RULE_EXPLANATIONS = Object.freeze({
@@ -41,6 +47,9 @@ const RULE_EXPLANATIONS = Object.freeze({
     "takes any other one once the baseline's systemScopes lists it with its reason.",
   "data/lint-disabled": "neither eslint-disable nor an inline eslint config comment can turn off a data-access rule, and a " +
     "disable that names no rule turns them all off. Change the code, or name the rules the directive turns off.",
+  "data/search-q": "a lookup field's picker and a CRUD list screen's Search box send what the person types as q, so the " +
+    "table resource they read defines searchSchema.q (on the resource or its owns entry), searching the fields a person " +
+    "would type; without it, every search fails. Searching the rows a page loaded instead misses every row past it.",
   "data/lint-config": "the app's ESLint config makes every data-access rule an error in each server file, and ignores no " +
     "server code; a config that turns one off, lowers it or ignores the file hides that code from it. Put the rule back, or, " +
     "once the module's whole job is data access, list { \"file\", \"rule\" } in the baseline's \"infrastructure\"."
@@ -78,7 +87,7 @@ const CLIENT_FILE = new RegExp(`^${ROOT}src/client/`, "u");
 // tests, migrations, seeds and build output at a root, seed scripts, and test files.
 const LINT_EXEMPT = new RegExp(`^${ROOT}(?:(?:src/client|src/test|test|tests|__tests__|e2e|test-support|migrations|seeds?|` +
   "dist|build|coverage)/|(?:(?:scripts|bin)/)?seed[^/]*\\.[cm]?js$)|\\.(?:test|spec|vitest)\\.[^/]*$", "u");
-const MARKERS = new RegExp(`defineTableResource|defineCrudContract|systemScope|systemContext|readable-check: allow|eslint|${CAPABILITY_NAMES}`, "iu");
+const MARKERS = new RegExp(`defineTableResource|defineCrudContract|systemScope|systemContext|readable-check: allow|eslint|lookup|searchSchema|useCrudListScreen|${CAPABILITY_NAMES}`, "iu");
 const TABLE_RESOURCE_CALL = /\bdefineTableResource\s*\(/gu;
 const TABLE_RESOURCE_MARKER = /\bdefineTableResource\s*\(/u;
 // A CRUD contract on a table resource named by its variable: `defineCrudContract(receivalResource, { ... })`.
@@ -95,134 +104,6 @@ const STAMPED_FIELDS = Object.freeze(["createdAt", "updatedAt"]);
 const FEATURE_CALL = /\bdefine(?:Crud)?Feature\s*\(/gu;
 const SYSTEM_CONTEXT_CALL = /\bsystemContext\s*\(/gu;
 const INFRASTRUCTURE_EXCUSE = /readable-check: allow (?:jskit\/)?(no-direct-knex|no-transaction-reader|no-hand-scope|sql-literal) - (infrastructure:.*?)\s*(?:\*\/)?\s*$/u;
-
-const blank = (text) => text.replace(/[^\n]/gu, " ");
-
-// Code with its comments and the contents of its strings and templates blanked to spaces, every offset kept: calls
-// and keys are found in it, values are read from the code at the same offsets.
-function maskStrings(code) {
-  let output = "";
-  let index = 0;
-  while (index < code.length) {
-    const quote = code[index];
-    if (quote !== "\"" && quote !== "'" && quote !== "`") {
-      output += quote;
-      index += 1;
-      continue;
-    }
-    let end = index + 1;
-    while (end < code.length && code[end] !== quote && (quote === "`" || code[end] !== "\n")) {
-      end += code[end] === "\\" ? 2 : 1;
-    }
-    output += quote + blank(code.slice(index + 1, end)) + code.slice(end, end + 1);
-    index = end + 1;
-  }
-  return output;
-}
-
-// The offset just past the bracket that closes the one at `start`, in masked code; -1 when it never closes.
-function closingOffset(masked, start) {
-  let depth = 0;
-  for (let index = start; index < masked.length; index += 1) {
-    if ("([{".includes(masked[index])) depth += 1;
-    else if (")]}".includes(masked[index]) && --depth === 0) return index + 1;
-  }
-  return -1;
-}
-
-const nextCodeOffset = (text, offset) => offset + (/^\s*/u.exec(text.slice(offset))?.[0].length || 0);
-
-// The string a top-level `const NAME = "..."` gives, or null.
-function constantValue(code, name) {
-  const match = new RegExp(`(?:^|[\\s;])const\\s+${name}\\s*=\\s*(["'\`])((?:\\\\.|(?!\\1)[^\\\\\\n])*)\\1\\s*[;,\\n]`, "u").exec(code);
-  return match && !(match[1] === "`" && match[2].includes("${")) ? match[2] : null;
-}
-
-/**
- * The value written at an offset, read up to the comma or bracket that ends it: { text } for a string literal, a
- * template without expressions, or a const holding one; { text: null } for anything else.
- */
-function readValue(code, masked, offset) {
-  const start = nextCodeOffset(code, offset);
-  const quote = code[start];
-  if (quote === "\"" || quote === "'" || quote === "`") {
-    let end = start + 1;
-    while (end < code.length && code[end] !== quote) end += code[end] === "\\" ? 2 : 1;
-    const after = masked[nextCodeOffset(masked, end + 1)];
-    const text = code.slice(start + 1, end);
-    const whole = after === "," || after === "}" || after === ")";
-    return { text: whole && !(quote === "`" && text.includes("${")) ? text.replace(/\\(.)/gu, "$1") : null };
-  }
-  const identifier = /^[A-Za-z_$][\w$]*(?=\s*[,})])/u.exec(code.slice(start));
-  return { text: identifier ? constantValue(code, identifier[0]) : null };
-}
-
-// The top-level keys of the object literal between `start` and `end`, in masked code: for each wanted key, the offset
-// just past its colon, or "shorthand" for `{ name }`.
-function topLevelKeys(masked, start, end, names) {
-  let depth = 0;
-  let top = "";
-  for (let index = start; index < end; index += 1) {
-    const char = masked[index];
-    if ("([{".includes(char)) depth += 1;
-    top += depth === 1 || char === "\n" ? char : " ";
-    if (")]}".includes(char)) depth -= 1;
-  }
-  const keys = new Map();
-  for (const match of top.matchAll(/(?:^|[{,])\s*([A-Za-z_$][\w$]*)\s*(:|(?=[,}]))/gu)) {
-    const [whole, key, colon] = match;
-    if (names.includes(key) && !keys.has(key)) keys.set(key, colon ? start + match.index + whole.length : "shorthand");
-  }
-  return keys;
-}
-
-// The object literal a call at `callOffset` takes as its first argument: { start, end } in masked code, or null when the
-// call is a declaration (`function defineFeature(`) or its first argument is anything else.
-function objectArgument(masked, callOffset, matchLength) {
-  if (/function\s*\*?\s*$/u.test(masked.slice(Math.max(0, callOffset - 20), callOffset))) return null;
-  const start = nextCodeOffset(masked, callOffset + matchLength);
-  if (masked[start] !== "{") return null;
-  const end = closingOffset(masked, start);
-  return end < 0 ? null : { start, end };
-}
-
-// The value of one key of an object literal, as readValue reads it; undefined when the object has no such key.
-function keyValue(code, masked, keys, key) {
-  const at = keys.get(key);
-  if (at === undefined) return undefined;
-  return at === "shorthand" ? { text: constantValue(code, key) } : readValue(code, masked, at);
-}
-
-function readSourceFile(source) {
-  const code = blankJsComments(source);
-  return { source, code, masked: maskStrings(code), position: lineIndex(source) };
-}
-
-// Every key of the object literal between `start` and `end` (masked code), in order, and whether the literal also
-// spreads or computes keys, so that its keys are not all known.
-function objectKeys(masked, start, end) {
-  let depth = 0;
-  let top = "";
-  for (let index = start; index < end; index += 1) {
-    const char = masked[index];
-    if ("([{".includes(char)) depth += 1;
-    top += depth === 1 || char === "\n" ? char : " ";
-    if (")]}".includes(char)) depth -= 1;
-  }
-  const keys = [...top.matchAll(/(?:^|[{,])\s*([A-Za-z_$][\w$]*)\s*(?::|(?=[,}]))/gu)].map((match) => ({
-    key: match[1],
-    at: start + match.index + match[0].length
-  }));
-  return { keys, partial: /(?:^|[{,])\s*(?:\.\.\.|["'`[])/u.test(top) };
-}
-
-// The object literal written at an offset: { start, end } in masked code, or null for anything else.
-function objectAt(masked, offset) {
-  const start = nextCodeOffset(masked, offset);
-  if (masked[start] !== "{") return null;
-  const end = closingOffset(masked, start);
-  return end < 0 ? null : { start, end };
-}
 
 // A table resource's schema fields that a CRUD contract could show: { names, partial }, or null when the schema is
 // not an object literal. The ownership fields, the stamped timestamps, the primary key and hidden fields are left out.
@@ -249,38 +130,140 @@ function readTableResources(file, { code, masked, position }) {
   for (const match of masked.matchAll(TABLE_RESOURCE_CALL)) {
     const object = objectArgument(masked, match.index, match[0].length);
     if (!object) continue;
-    const keys = topLevelKeys(masked, object.start, object.end, ["name", "tableName", "ownership", "schema", "foreignKeys"]);
+    const keys = topLevelKeys(masked, object.start, object.end, ["name", "tableName", "ownership", "schema", "foreignKeys", "searchSchema"]);
     const ownership = keyValue(code, masked, keys, "ownership")?.text ?? null;
     resources.push({
       file,
       line: position(match.index).line,
       name: keyValue(code, masked, keys, "name")?.text ?? null,
       tableName: keyValue(code, masked, keys, "tableName")?.text ?? null,
-      variable: /(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=\s*$/u.exec(masked.slice(Math.max(0, match.index - 120), match.index))?.[1] ?? null,
+      variable: assignedVariable(masked, match.index),
       fields: readSchemaFields(code, masked, keys, ownership),
-      foreignKeys: keys.has("foreignKeys")
+      foreignKeys: keys.has("foreignKeys"),
+      searchQ: readSearchQ(masked, keys)
     });
   }
   return resources;
 }
 
-// Every CRUD contract a file defines: the variable of its table resource and the fields its `fields` names, null when
-// they are not all written as literal keys.
+// Whether an object literal's `searchSchema` key defines q: true or false, or null when it is not written as an object
+// literal whose keys are all known. `keys` are the literal's top-level keys (topLevelKeys).
+function readSearchQ(masked, keys) {
+  const at = keys.get("searchSchema");
+  if (at === undefined) return false;
+  const schema = typeof at === "number" ? objectAt(masked, at) : null;
+  const named = schema ? objectKeys(masked, schema.start, schema.end) : null;
+  if (named?.keys.some(({ key }) => key === "q")) return true;
+  return named && !named.partial ? false : null;
+}
+
+// Every CRUD contract a file defines: its variable and namespace, the variable of its table resource and the fields its
+// `fields` names, null when they are not all written as literal keys.
 function readCrudContracts({ code, masked }) {
   const contracts = [];
   for (const match of masked.matchAll(CRUD_CONTRACT_CALL)) {
+    const variable = assignedVariable(masked, match.index);
     const config = objectAt(masked, match.index + match[0].length);
     if (!config) {
-      contracts.push({ resource: match[1], fields: null });
+      contracts.push({ variable, namespace: null, resource: match[1], fields: null });
       continue;
     }
-    const at = topLevelKeys(masked, config.start, config.end, ["fields"]).get("fields");
+    const keys = topLevelKeys(masked, config.start, config.end, ["fields", "namespace"]);
+    const at = keys.get("fields");
     const fields = typeof at === "number" ? objectAt(masked, at) : null;
     const named = fields ? objectKeys(masked, fields.start, fields.end) : null;
     const known = at === undefined || (named && !named.partial);
-    contracts.push({ resource: match[1], fields: at === undefined ? [] : known ? named.keys.map(({ key }) => key) : null });
+    contracts.push({
+      variable,
+      namespace: keyValue(code, masked, keys, "namespace")?.text ?? null,
+      resource: match[1],
+      fields: at === undefined ? [] : known ? named.keys.map(({ key }) => key) : null
+    });
   }
   return contracts;
+}
+
+/**
+ * What a file says about searches: the namespaces its lookup fields pick from (`lookup: "<namespace>"`, or a relation
+ * `{ kind: "lookup", namespace }`), the table resource variables its owns entries give a searchSchema
+ * (`{ resource, searchSchema }`, with searchQ as readSearchQ reads it), and the CRUD contract variables its list screens
+ * show (`useCrudListScreen({ resource })`).
+ */
+function readSearches(file, { code, masked, position }) {
+  const lookups = [];
+  for (const match of masked.matchAll(/\b(lookup|kind)\s*:/gu)) {
+    const value = readValue(code, masked, match.index + match[0].length).text;
+    if (match[1] === "lookup" && value) {
+      lookups.push({ file, line: position(match.index).line, namespace: value });
+    } else if (match[1] === "kind" && value === "lookup") {
+      const object = enclosingObject(masked, match.index);
+      const namespace = object && keyValue(code, masked, topLevelKeys(masked, object.start, object.end, ["namespace"]), "namespace")?.text;
+      if (namespace) lookups.push({ file, line: position(match.index).line, namespace });
+    }
+  }
+  const owned = [];
+  for (const match of masked.matchAll(/\bsearchSchema\s*:/gu)) {
+    const object = enclosingObject(masked, match.index);
+    const keys = object ? topLevelKeys(masked, object.start, object.end, ["resource", "searchSchema"]) : new Map();
+    const at = keys.get("resource");
+    const variable = typeof at === "number" ? identifierAt(code, at) : null;
+    if (variable) owned.push({ variable, searchQ: readSearchQ(masked, keys) });
+  }
+  const screens = [];
+  for (const match of masked.matchAll(/\buseCrudListScreen\s*\(/gu)) {
+    const object = objectArgument(masked, match.index, match[0].length);
+    const at = object && topLevelKeys(masked, object.start, object.end, ["resource"]).get("resource");
+    const contract = typeof at === "number" ? identifierAt(code, at) : null;
+    if (contract) screens.push({ file, line: position(match.index).line, contract });
+  }
+  return { lookups, owned, screens };
+}
+
+// A Vue component's <script> blocks, everything else blanked with its line breaks kept, so offsets and lines hold.
+const vueScripts = (source) => {
+  let scripts = blank(source);
+  for (const match of source.matchAll(/(<script\b[^>]*>)([\s\S]*?)<\/script>/gu)) {
+    const start = match.index + match[1].length;
+    scripts = scripts.slice(0, start) + match[2] + scripts.slice(start + match[2].length);
+  }
+  return scripts;
+};
+
+// The resource name a namespace stands for, as @jskit-ai/resource-core's resourceNameFromNamespace makes it:
+// `processing-lots` and `/processing-lots` are `processingLots`.
+const resourceNameFromNamespace = (namespace) => namespace.replace(/^\/+|\/+$/gu, "").replace(/\//gu, "-")
+  .replace(/[-_\s]+([A-Za-z0-9])/gu, (_, letter) => letter.toUpperCase());
+
+/**
+ * Fails each lookup and CRUD list screen whose app table resource defines no searchSchema.q, on the resource or an
+ * owns entry. A lookup names its table resource by namespace; a list screen by its CRUD contract's variable. One the
+ * check cannot follow (a framework resource, a contract or resource it cannot find, a searchSchema it cannot read) is
+ * left unjudged.
+ */
+function checkSearchQ(resources, contracts, searches, report) {
+  const appResources = resources.filter((resource) => !resource.framework);
+  const ownedQ = Map.groupBy(searches.flatMap(({ owned }) => owned), ({ variable }) => variable);
+  // An unreadable searchSchema (null) counts as one that defines q.
+  const searchQ = (resource) => resource.searchQ !== false || (ownedQ.get(resource.variable) || []).some(({ searchQ: q }) => q !== false);
+  const unique = (list) => (list.length === 1 ? list[0] : null);
+  const where = (resource) => `${resource.name} (${resource.file}:${resource.line})`;
+  const fix = "give it searchSchema: { q: { type: \"string\", oneOf: [<the fields a person types>], filterOperator: \"like\" } }.";
+  for (const lookup of searches.flatMap(({ lookups }) => lookups)) {
+    const name = resourceNameFromNamespace(lookup.namespace);
+    const resource = unique(appResources.filter((entry) => entry.name === name));
+    if (resource && !searchQ(resource)) {
+      report(lookup, "data/search-q", `lookup "${lookup.namespace}" picks from ${where(resource)}, which defines no ` +
+        `searchSchema.q: the picker sends what the person types as q, so ${fix}`);
+    }
+  }
+  for (const screen of searches.flatMap(({ screens }) => screens)) {
+    const contract = unique(contracts.filter((entry) => entry.variable === screen.contract));
+    const resource = contract && unique(appResources.filter((entry) => entry.variable === contract.resource));
+    if (resource && !searchQ(resource)) {
+      report(screen, "data/search-q", `this list screen shows ${screen.contract}, whose table resource ${where(resource)} ` +
+        `defines no searchSchema.q: the list's Search box sends what the person types as q, so ${fix}`);
+    }
+  }
 }
 
 // The fields of each app table resource that its CRUD contracts never name, for a resource with at least one contract
@@ -568,6 +551,7 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
   const scopes = [];
   const excuses = [];
   const capabilities = [];
+  const searches = [];
   const findings = [];
   const report = ({ file, line }, rule, message) => findings.push({ file, line, rule, message });
   for (const { file, absolute, framework } of sources) {
@@ -579,6 +563,7 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
     scopes.push(...readSystemScopes(name, read).map((scope) => ({ ...scope, framework })));
     if (framework) continue;
     contracts.push(...readCrudContracts(read));
+    searches.push(readSearches(name, read));
     const fileExcuses = readInfrastructureExcuses(name, source);
     excuses.push(...fileExcuses);
     capabilities.push(...readRuntimeCapabilities(name, read).map((use) => ({ ...use, infrastructure: fileExcuses.length > 0 })));
@@ -589,7 +574,12 @@ async function checkDataAccess({ projectRoot = process.cwd() } = {}) {
         : disable.rules.length > 0 ? `eslint-disable turns off ${disable.rules.join(", ")}` : "eslint-disable names no rule");
     }
   }
+  for (const { file, absolute } of await vueFiles(root)) {
+    const source = await readFile(absolute, "utf8");
+    if (source.includes("useCrudListScreen")) searches.push(readSearches(file, readSourceFile(vueScripts(source))));
+  }
   checkTables(resources, report);
+  checkSearchQ(resources, contracts, searches, report);
   checkSystemScopes(scopes, report);
   const baseline = await readBaseline(root, report);
   checkBaseline(baseline, excuses, scopes, report);

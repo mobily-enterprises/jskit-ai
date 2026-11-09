@@ -358,9 +358,6 @@ Local functions
 ### `src/client/composables/support/listSearchSupport.js`
 Exports
 - `normalizeListSearchConfig(value = {})`
-- `matchesLocalSearch(item = {}, query = "", searchFields = [])`
-Local functions
-- `normalizeSearchableValue(value)`
 
 ### `src/client/composables/support/refValueHelpers.js`
 Exports

@@ -16,8 +16,7 @@ import {
   createRequestQueryRuntime
 } from "../support/requestQueryRuntimeSupport.js";
 import {
-  normalizeListSearchConfig,
-  matchesLocalSearch
+  normalizeListSearchConfig
 } from "../support/listSearchSupport.js";
 import {
   normalizeListSyncToRouteConfig,
@@ -187,7 +186,7 @@ function useList({
     }
     return normalized;
   });
-  const querySearchEnabled = computed(() => searchConfig.enabled === true && searchConfig.mode === "query");
+  const querySearchEnabled = computed(() => searchConfig.enabled === true);
   const listPath = computed(() => {
     return normalizeText(operationScope.apiPath.value);
   });
@@ -426,19 +425,7 @@ function useList({
       list.trimToFirstPage();
     }
   );
-  const filteredItems = computed(() => {
-    const sourceItems = Array.isArray(list.items.value) ? list.items.value : [];
-    if (searchConfig.enabled !== true || searchConfig.mode !== "local") {
-      return sourceItems;
-    }
-
-    const queryValue = activeSearchQuery.value;
-    if (!queryValue) {
-      return sourceItems;
-    }
-
-    return sourceItems.filter((item) => matchesLocalSearch(item, queryValue, searchConfig.fields));
-  });
+  const listItems = computed(() => (Array.isArray(list.items.value) ? list.items.value : []));
 
   const isInitialLoading = operationScope.isLoading(list.isInitialLoading);
   const isFetching = operationScope.isLoading(list.isFetching);
@@ -446,7 +433,7 @@ function useList({
   const loadError = operationScope.loadError(list.loadError);
   const isLoading = operationScope.isLoading(list.isLoading);
   const listUiRuntime = createListUiRuntime({
-    items: filteredItems,
+    items: listItems,
     isInitialLoading,
     recordIdParam,
     recordIdSelector,
@@ -479,7 +466,7 @@ function useList({
     hasMore: list.hasMore,
     loadError,
     pages: list.pages,
-    items: filteredItems,
+    items: listItems,
     reload: list.reload,
     loadMore: list.loadMore,
     hasViewUrl: listUiRuntime.hasViewUrl,

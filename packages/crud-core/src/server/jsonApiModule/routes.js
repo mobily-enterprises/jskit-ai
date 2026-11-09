@@ -2,6 +2,7 @@ import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { resolveScopedApiBasePath } from "@jskit-ai/kernel/shared/surface";
 import { checkRouteVisibility } from "@jskit-ai/kernel/shared/support/visibility";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createCrudJsonApiRouteContracts } from "../routeContracts.js";
 import { buildCrudCustomActionId } from "./customActionId.js";
 
@@ -16,6 +17,32 @@ function buildScopeInput(scopeInput, request) {
     throw new TypeError("CRUD scopeInput must return an object.");
   }
   return result;
+}
+
+/**
+ * Refuses a list request that names a query key its route does not take. Fastify's validation drops an undeclared
+ * query key without a word, so a filter the list does not know (`filter[status]`) would answer every row, as if it
+ * were never sent: the keys the request names that validation left out of request.query are the undeclared ones.
+ * @param {{ url?: string, query?: object, routeOptions?: { schema?: { querystring?: { properties?: object } } } }} request
+ */
+function refuseUndeclaredListQuery(request) {
+  const url = String(request.url || "");
+  const start = url.indexOf("?");
+  if (start < 0) {
+    return;
+  }
+  const taken = new Set(Object.keys(request.query || {}));
+  const unknown = [...new Set(new URLSearchParams(url.slice(start + 1)).keys())].filter((key) => key && !taken.has(key));
+  if (unknown.length < 1) {
+    return;
+  }
+  const known = Object.keys(request.routeOptions?.schema?.querystring?.properties || {}).join(", ") || "none";
+  const params = { unknown: unknown.join(", "), known };
+  throw new AppError(400,
+    `This list does not take ${params.unknown}: an undeclared query key would be dropped, and the list would answer as ` +
+    `if it had not been sent. It takes ${known}. To filter on a field, add it to the feature's listFilterQueryValidator ` +
+    "and the resource's searchSchema; to search, send filter[q] and give the resource searchSchema.q.",
+    { code: "crud.query.undeclaredKeys", params });
 }
 
 function buildCustomActionInput(scopeInput, route, request) {
@@ -153,6 +180,7 @@ function createCrudJsonApiRoutes({
       ...paramsContract()
     },
     async function (request, reply) {
+      refuseUndeclaredListQuery(request);
       const response = await request.executeAction({
         actionId: actionId("list"),
         input: {

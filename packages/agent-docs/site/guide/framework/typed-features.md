@@ -774,6 +774,13 @@ handle's `queryAll(params, options)`. A `query()` names its page size, and
 answers one page.** [Reads shaped for the screen](/guide/framework/data-access#reads-shaped-for-the-screen)
 gives the rules and examples.
 
+### Narrow in the query
+
+**A read asks for exactly the rows the code uses: its filter, sort, limit,
+existence check and count go in the read, never in code over the rows it
+answered.** [Narrow in the query](/guide/framework/data-access#narrow-in-the-query)
+gives the rules and examples.
+
 ### Lists read related rows in batches
 
 **A read that builds a list fetches its related rows in batches, an id-list
@@ -1275,6 +1282,7 @@ Every finding ends with a link to the section of this page that explains it.
 | `jskit/app-error-code` | an `AppError`, `DomainError`, `ConflictError` or `NotFoundError` (or a subclass the module declares) without its own code, and one code naming two sentences in a module | [Refusals carry their own code](#refusals-carry-their-own-code) |
 | `jskit/no-patched-error` | `Object.assign(new Error(…), { statusCode })`, or an error builder's result given its status afterwards | [One construction per error](#one-construction-per-error) |
 | `jskit/no-test-only-export` | an export whose name says only tests use it (`…ForTests`, `__reset…`; `__testables` aside) | [No test-only exports](#no-test-only-exports) |
+| `jskit/narrow-in-query` | `.filter()`, `.find()`, `.some()`, `.every()`, `.slice()`, a lone `.length` or a loop that skips with `continue`, over the rows a read in the same function answered | [Narrow in the query](#narrow-in-the-query) |
 | `jskit/one-property-per-line` | two properties on one line in a returned `Object.freeze({ … })` or a `requires` / `optional` / `provides` map (`eslint --fix` splits them) | [Formatter](#formatter) |
 | `jskit/jsdoc-description-inside` | a `//` description directly above a `/** */` block | [Comments](#comments) |
 | `jskit/allow-comment-form` | a `readable-check: allow` reason without a prefix from the table below, or one that cites tests or the state of a project | [Exceptions](#exceptions) |
@@ -1326,6 +1334,7 @@ if (typeof buildSerializer !== "function") {
 | `filled by <repository>; convert with its supplier` | keeps a setter that another repository's code calls |
 | `cross-repository slot <token>` | keeps a probe for a token another repository supplies |
 | `shared resource:` | keeps client module state that every instance on the page shares on purpose ([client features](/guide/framework/client-features#module-state)) |
+| `every row: <why>` | code needs every row a read answers and narrows them for its own use, such as an export that writes every row and marks some (`jskit/narrow-in-query`) |
 | `infrastructure: <what the module is>` | excuses a whole file whose job is data access itself from `jskit/no-direct-knex` or `jskit/no-transaction-reader`, one line per rule before its first line of code ([data access](/guide/framework/data-access#exceptions)) |
 
 One kind of probe gets one prefix and one wording everywhere, and a bare

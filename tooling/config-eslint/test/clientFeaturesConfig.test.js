@@ -23,8 +23,8 @@ const COMPONENT = [
   "<template><button @click=\"adapter.resend(); $emit('sent')\" /></template>",
   ""
 ].join("\n");
-const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "fixed-result-shape", "released-listeners", "no-module-state", "no-frozen-vue-state", "selection-field"]);
-const SERVER_ONLY_RULES = Object.freeze(["one-line-action", "action-execute-shape", "action-creator", "no-idempotency", "app-error-code", "no-patched-error"]);
+const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "fixed-result-shape", "released-listeners", "no-module-state", "no-frozen-vue-state", "selection-field", "search-on-server"]);
+const SERVER_ONLY_RULES = Object.freeze(["one-line-action", "action-execute-shape", "action-creator", "no-idempotency", "app-error-code", "no-patched-error", "narrow-in-query"]);
 // The rule baseConfig holds every application's Playwright configs to, outside the client features.
 const BASE_ONLY_RULES = Object.freeze(["playwright-login-unchanged"]);
 // The data-access rules, which dataAccessConfig and baseConfig turn on for server and shared code.

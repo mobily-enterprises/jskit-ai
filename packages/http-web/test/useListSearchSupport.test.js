@@ -1,9 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import {
-  normalizeListSearchConfig,
-  matchesLocalSearch
-} from "../src/client/composables/support/listSearchSupport.js";
+import { normalizeListSearchConfig } from "../src/client/composables/support/listSearchSupport.js";
 
 test("normalizeListSearchConfig defaults to disabled query search", () => {
   const config = normalizeListSearchConfig();
@@ -14,48 +11,20 @@ test("normalizeListSearchConfig defaults to disabled query search", () => {
   assert.equal(config.minLength, 1);
 });
 
-test("normalizeListSearchConfig accepts query mode and fields", () => {
+test("normalizeListSearchConfig accepts query mode and its query parameter", () => {
   const config = normalizeListSearchConfig({
     enabled: true,
     mode: "query",
-    queryParam: "search",
-    fields: ["name", "name", "email"]
+    queryParam: "search"
   });
   assert.equal(config.enabled, true);
   assert.equal(config.mode, "query");
   assert.equal(config.queryParam, "search");
-  assert.deepEqual(config.fields, ["name", "email"]);
 });
 
-test("normalizeListSearchConfig accepts explicit local mode", () => {
-  const config = normalizeListSearchConfig({
-    enabled: true,
-    mode: "local"
-  });
-  assert.equal(config.mode, "local");
-});
-
-test("matchesLocalSearch checks configured fields", () => {
-  const result = matchesLocalSearch(
-    {
-      firstName: "Ana",
-      surname: "Marin",
-      phone: "0400"
-    },
-    "mar",
-    ["surname"]
+test("normalizeListSearchConfig refuses a search of the loaded page, naming the server search", () => {
+  assert.throws(
+    () => normalizeListSearchConfig({ enabled: true, mode: "local" }),
+    (error) => error instanceof TypeError && /runs on the server/u.test(error.message) && /searchSchema\.q/u.test(error.message)
   );
-  assert.equal(result, true);
-});
-
-test("matchesLocalSearch scans scalar values when fields are not configured", () => {
-  const result = matchesLocalSearch(
-    {
-      firstName: "Ana",
-      surname: "Marin",
-      count: 42
-    },
-    "42"
-  );
-  assert.equal(result, true);
 });

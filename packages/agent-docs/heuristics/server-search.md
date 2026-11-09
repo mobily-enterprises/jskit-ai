@@ -241,6 +241,8 @@ owns: [{ resource: contactResource, rowPolicy: ownContactsOrShared }]
 - Put visibility in the owner's row policy, never in a search key or route query validation.
 - Do not expose a query key publicly just because the service maps to it internally.
 - Do not rely on route validators alone; a public key still needs a matching backend search definition.
+- A CRUD list refuses a query key its route does not declare with a 400 (`crud.query.undeclaredKeys`), so an undeclared filter fails loudly instead of answering every row.
+- Never narrow the rows a read answered in code, and never search a list's loaded page in the browser: the filter goes in the read, and a picker or Search box sends `q` ([Narrow in the query](../site/guide/framework/data-access.md#narrow-in-the-query); `jskit/narrow-in-query`, `jskit/search-on-server`, and `jskit check`'s `data/search-q` for a lookup or list screen whose resource has no `searchSchema.q`).
 
 ## Quick Rule Of Thumb
 

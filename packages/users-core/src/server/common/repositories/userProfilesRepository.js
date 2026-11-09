@@ -456,8 +456,9 @@ function createRepository({ userProfiles, userSettings }) {
     const normalizedUserId = normalizeDbRecordId(userId, { fallback: null });
     try {
       return await userProfiles.withTransaction(options, async (txOptions) => {
-        const holders = await userProfiles.queryAll({ filters: { usernames: [normalizedUsername] } }, txOptions);
-        if (holders.some((row) => normalizeDbRecordId(row.id, { fallback: null }) !== normalizedUserId)) {
+        // Usernames are unique, so one row answers who holds it.
+        const [holder] = await userProfiles.queryAll({ filters: { usernames: [normalizedUsername] }, take: 1 }, txOptions);
+        if (holder && normalizeDbRecordId(holder.id, { fallback: null }) !== normalizedUserId) {
           throw buildDuplicateUsernameConflictError();
         }
         return patchProfile(userId, { username: normalizedUsername }, txOptions);

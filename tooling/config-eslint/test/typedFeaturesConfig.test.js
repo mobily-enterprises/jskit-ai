@@ -58,7 +58,7 @@ test("typedFeaturesConfig sets the file and function size limits", () => {
 });
 
 // The rules that read only client code, which clientFeaturesConfig turns on.
-const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "fixed-result-shape", "released-listeners", "no-module-state", "no-frozen-vue-state", "selection-field"]);
+const CLIENT_ONLY_RULES = Object.freeze(["typed-inject", "collaborator-props", "fixed-result-shape", "released-listeners", "no-module-state", "no-frozen-vue-state", "selection-field", "search-on-server"]);
 // The rule baseConfig holds every application's Playwright configs to, outside the typed features.
 const BASE_ONLY_RULES = Object.freeze(["playwright-login-unchanged"]);
 // The data-access rules, which dataAccessConfig and baseConfig turn on.

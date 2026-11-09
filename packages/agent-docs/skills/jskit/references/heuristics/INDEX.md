@@ -38,7 +38,7 @@ How to use it:
   - [ui-contract.md](./ui-contract.md)
 - filter, filters, search facets, chips, date range, enum filter, lookup filter, `useCrudListFilters`, `createCrudListFilters`
   - [filters.md](./filters.md)
-- `searchSchema`, `search: true`, `applyFilter`, server search, query validators, backend filters, internal JSON REST filters
+- `searchSchema`, `search: true`, `applyFilter`, server search, query validators, backend filters, internal JSON REST filters, picker search, `q`, filtering rows in code, `jskit/narrow-in-query`, `jskit/search-on-server`, `data/search-q`, `crud.query.undeclaredKeys`
   - [server-search.md](./server-search.md)
 - `actualField`, `storage.column`, `storage.writeSerializer`, `storage.virtual`, `queryFields`, computed field, virtual field, projection, `defaultTo`, datetime write serialization, temporalPrecision, json-rest-schema dates
   - [table-resource-fields.md](./table-resource-fields.md)

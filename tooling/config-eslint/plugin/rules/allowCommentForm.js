@@ -20,6 +20,7 @@ const REASON_PREFIXES = Object.freeze([
   /^filled by \S.*; convert with its supplier/u,
   /^cross-repository slot \S/u,
   /^shared resource: \S/u,
+  /^every row: \S/u,
   /^infrastructure: \S/u
 ]);
 // A guard once kept because a test asserted its error now says what goes wrong
@@ -185,7 +186,7 @@ function dataAccessProblem(rule, reason, inHeader) {
 const allowCommentForm = Object.freeze({
   meta: ruleMeta("Require readable-check allow comments to give a reason with a fixed prefix that describes the code.", {
     allowForm: "Write the exception as \"readable-check: allow <rule> - <reason>\".",
-    allowPrefix: "\"{{reason}}\" starts with no reason prefix. Start it with input validation:, data:, platform object:, optional operation:, safety invariant:, not a slot:, cycle: <supplier> requires <owner>, deferred until boot:, filled by <repository>; convert with its supplier, cross-repository slot <token>, shared resource:, or (for a data-access infrastructure module) infrastructure:.",
+    allowPrefix: "\"{{reason}}\" starts with no reason prefix. Start it with input validation:, data:, platform object:, optional operation:, safety invariant:, not a slot:, cycle: <supplier> requires <owner>, deferred until boot:, filled by <repository>; convert with its supplier, cross-repository slot <token>, shared resource:, every row:, or (for a data-access infrastructure module) infrastructure:.",
     retiredPrefix: "\"{{reason}}\" uses the retired test asserts error:. Say what goes wrong without the guard under safety invariant: <what goes wrong>, or remove the guard.",
     citesTests: "\"{{reason}}\" cites tests. Describe the code; a guard that protects an internal invariant says what goes wrong without it under safety invariant:.",
     citesStatus: "\"{{reason}}\" cites the state of a project. Describe what is true of the code.",

@@ -519,6 +519,33 @@ let attachmentClientSequence = 0;
 let pendingDraft = "";
 ```
 
+### Search on the server
+
+**A search over a list's records runs on the server: the list's search
+(`useList({ search: { enabled: true } })`) sends what the person types as `q`,
+and the table resource defines `searchSchema.q`. An autocomplete over a list's
+items or a lookup's options takes `no-filter` and sends the typed text with
+`@update:search` (a lookup's `setLookupSearch`).**
+
+Why: a list holds the page it loaded, so a search over its items misses every
+row past that page.
+
+```vue
+<!-- good: the server searches every record -->
+<SelectField v-model="formState.serviceId" searchable no-filter
+  :search="resolveLookupSearch('serviceId')"
+  @update:search="setLookupSearch('serviceId', $event)"
+  :items="resolveLookupItems('serviceId', { selectedValue: formState.serviceId })" />
+
+<!-- bad: Vuetify searches only the options already loaded -->
+<v-autocomplete v-model="serviceId" :items="services.items" />
+```
+
+```js
+// bad: a search over the page the list loaded
+const visible = computed(() => list.items.filter((service) => service.name.includes(search.value)));
+```
+
 ## Helpers and sizes
 
 ### One helper per package
@@ -587,6 +614,7 @@ client-only rules below. The server's action and error rules do not apply.
 | `jskit/released-listeners` | a listener, interval, observer or subscription the file starts and never releases | [Released listeners](#released-listeners) |
 | `jskit/no-module-state` | a module-level `let`, `ref()` or `reactive()` | [Module state](#module-state) |
 | `jskit/selection-field` | a `v-select`, `v-autocomplete` or `v-combobox` whose items are not fixed, and a `SelectField` whose items are not fixed that binds no `loading` | [Selection fields](#selection-fields) |
+| `jskit/search-on-server` | a `computed()` that filters a list composable's items by a search ref; an autocomplete over a list's items or a lookup's options without `no-filter` or an `update:search` handler | [Search on the server](#search-on-the-server) |
 | `vue/require-prop-types`, `vue/require-default-prop`, `vue/require-valid-default-prop`, `vue/no-required-prop-with-default` | a prop without a type, optional without a default, or both | [Collaborator props](#collaborator-props) |
 | `vue/require-explicit-emits` | an emitted event the component does not declare | [Declared emits](#declared-emits) |
 

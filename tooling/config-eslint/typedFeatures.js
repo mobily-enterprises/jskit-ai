@@ -28,8 +28,8 @@ function sizeLimitRules(severity) {
 // create<Name>Actions creator, with no idempotency field; refusals are AppErrors
 // with their own code, built in one construction; the environment comes from
 // the caller; no test-only exports; one copy of each helper per package; one
-// property per line in frozen results and token maps; files under 750 lines and
-// functions under 600.
+// property per line in frozen results and token maps; a read's rows are never
+// narrowed in code; files under 750 lines and functions under 600.
 function typedFeaturesRules(severity) {
   return Object.freeze({
     "jskit/typed-dependencies": severity,
@@ -53,6 +53,7 @@ function typedFeaturesRules(severity) {
     "jskit/no-patched-error": severity,
     "jskit/no-env-default": severity,
     "jskit/no-test-only-export": severity,
+    "jskit/narrow-in-query": severity,
     ...sizeLimitRules(severity)
   });
 }

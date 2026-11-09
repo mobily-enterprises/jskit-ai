@@ -90,6 +90,7 @@ Exports
 - `registerCrudRoutes(router, routes)`
 Local functions
 - `buildScopeInput(scopeInput, request)`
+- `refuseUndeclaredListQuery(request)`
 - `buildCustomActionInput(scopeInput, route, request)`
 - `normalizeCustomActionRoutes(actions, namespace)`
 

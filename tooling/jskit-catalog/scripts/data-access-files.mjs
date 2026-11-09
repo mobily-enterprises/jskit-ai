@@ -18,6 +18,7 @@ const ROOT = String.raw`(?:(?:packages|tooling)/[^/]+/)?`;
 const SERVER_FILE = new RegExp(`^${ROOT}(?:[^/]+$|(?:src|server|scripts|bin|config)/)`, "u");
 const FRAMEWORK_DIRECTORY = path.join("node_modules", "@jskit-ai");
 const SOURCE_FILE = /\.[cm]?js$/u;
+const VUE_FILE = /\.vue$/u;
 const SKIPPED_FILE = /\.(?:test|spec|vitest)\.[cm]?js$/u;
 // Code that defines no table resource or system scope an app runs: dependencies, anywhere; and, at a root (ROOT), build
 // output, tests and fixtures, migrations and seeds, and the examples, templates and documentation JSKIT packages carry.
@@ -29,7 +30,7 @@ const PACKAGE_DIRECTORY = /^(?:packages|tooling)\/[^/]+\/(.+)$/u;
 const skipsDirectory = (name) => path.posix.basename(name) === "node_modules" ||
   SKIPPED_ROOT_DIRECTORIES.has(PACKAGE_DIRECTORY.exec(name)?.[1] ?? name);
 
-async function walk(root, directory, files) {
+async function walk(root, directory, files, pattern = SOURCE_FILE) {
   let entries;
   try {
     entries = await readdir(path.join(root, directory), { withFileTypes: true });
@@ -40,8 +41,8 @@ async function walk(root, directory, files) {
   for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
     const relative = directory ? path.join(directory, entry.name) : entry.name;
     if (entry.isDirectory()) {
-      if (!entry.name.startsWith(".") && !skipsDirectory(toPosixPath(relative))) await walk(root, relative, files);
-    } else if (entry.isFile() && SOURCE_FILE.test(entry.name) && !SKIPPED_FILE.test(entry.name)) {
+      if (!entry.name.startsWith(".") && !skipsDirectory(toPosixPath(relative))) await walk(root, relative, files, pattern);
+    } else if (entry.isFile() && pattern.test(entry.name) && !SKIPPED_FILE.test(entry.name)) {
       files.push(relative);
     }
   }
@@ -137,4 +138,11 @@ async function sourceFiles(root) {
   return { sources, lint, skipped: skippedPaths(names, skipped) };
 }
 
-export { ROOT, lintIgnores, sourceFiles };
+// The app's own Vue components, which data/search-q reads for the list screens they show.
+async function vueFiles(root) {
+  const files = [];
+  await walk(root, "", files, VUE_FILE);
+  return files.map((file) => ({ file: toPosixPath(file), absolute: path.join(root, file) }));
+}
+
+export { ROOT, lintIgnores, sourceFiles, vueFiles };

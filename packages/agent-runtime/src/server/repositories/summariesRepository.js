@@ -30,6 +30,7 @@ export function createSummariesRepository({ summaries, queue, options }) {
       const newest = await latest(conversationId, txOptions);
       if (newest && Number(newest.covers_up_to) >= coversUpTo) return;
       await summaries.create({ conversation_id: conversationId, follows: newest?.id ?? null, covers_up_to: coversUpTo, summary, messages }, { ...txOptions, returning: "none" });
+      // readable-check: allow narrow-in-query - every row: a conversation holds at most keep + 1 summaries, since each save deletes the older ones
       const newestFirst = await summaries.queryAll({ filters: { conversation_id: conversationId }, sort: ["-id"], fields: ["covers_up_to"] }, txOptions);
       const old = newestFirst.slice(keep).map((row) => row.id);
       if (old.length) await summaries.deleteWhere({ id: old }, txOptions);

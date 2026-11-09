@@ -117,6 +117,65 @@ test("the fields of an app table resource that its CRUD contracts never name are
   });
 });
 
+test("a lookup's or a CRUD list screen's app table resource without searchSchema.q fails; q on the resource or its owns entry passes", async () => {
+  const table = (variable, name, extra = "") =>
+    `export const ${variable} = defineTableResource({ name: "${name}", tableName: "${name}", ownership: "workspace", schema: { name: { type: "string" } }${extra} });`;
+  await withProject({
+    "packages/customers/src/shared/customerResource.js": [
+      table("customerResource", "customers"),
+      "export const customerCrud = defineCrudContract(customerResource, { namespace: \"customers\", fields: { name: { output: \"required\" } } });",
+      ""
+    ].join("\n"),
+    "packages/suppliers/src/shared/supplierResource.js": [
+      table("supplierResource", "suppliers"),
+      table("lotResource", "processingLots"),
+      ""
+    ].join("\n"),
+    // q given by the owns entry, not the resource.
+    "packages/suppliers/src/server/feature.js":
+      "export const feature = defineCrudFeature({ owns: [{ resource: supplierResource, searchSchema: { q: { type: \"string\", oneOf: [\"name\"] } } }] });\n",
+    "packages/orders/src/shared/orderResource.js": [
+      "export const orderResource = defineTableResource({",
+      "  name: \"orders\",",
+      "  tableName: \"orders\",",
+      "  schema: {",
+      "    customerId: { type: \"id\", lookup: \"customers\" },",
+      "    supplierId: { type: \"id\", lookup: \"suppliers\" },",
+      "    lotId: { type: \"id\", relation: { kind: \"lookup\", namespace: \"processing-lots\" } },",
+      "    ownerId: { type: \"id\", lookup: \"users\" }",
+      "  },",
+      "  searchSchema: { q: { type: \"string\", oneOf: [\"reference\"] } }",
+      "});",
+      "export const orderCrud = defineCrudContract(orderResource, { namespace: \"orders\", fields: { customerId: { output: \"required\" } } });",
+      ""
+    ].join("\n"),
+    "src/pages/customers/index.vue": [
+      "<script setup>",
+      "import { customerCrud } from \"@local/customers/shared\";",
+      "const screen = useCrudListScreen({ resource: customerCrud, apiSuffix: \"/customers\" });",
+      "</script>",
+      "<template><p>Don't search here.</p><CrudListScreen :screen=\"screen\" /></template>",
+      ""
+    ].join("\n"),
+    "src/pages/orders/index.vue": "<script setup>\nconst screen = useCrudListScreen({ resource: orderCrud });\n</script>\n",
+    // A framework resource is left to its package.
+    "node_modules/@jskit-ai/users-core/package.json": { name: "@jskit-ai/users-core", version: "0.1.0" },
+    "node_modules/@jskit-ai/users-core/src/shared/userResource.js": "export const userResource = defineTableResource({ name: \"users\", tableName: \"users\", ownership: \"user\" });\n"
+  }, async (root) => {
+    const result = await checkDataAccess({ projectRoot: root });
+    assert.deepEqual(findingLines(result), [
+      "packages/orders/src/shared/orderResource.js:5 data/search-q",
+      "packages/orders/src/shared/orderResource.js:7 data/search-q",
+      "src/pages/customers/index.vue:3 data/search-q"
+    ]);
+    const report = formatDataAccessReport(result);
+    assert.match(report, /^data\/search-q \(3\): a lookup field's picker and a CRUD list screen's Search box send what the person types as q, .* https:\/\/mobily-enterprises\.github\.io\/jskit-ai\/guide\/framework\/data-access#narrow-in-the-query$/mu);
+    assert.match(report, /orderResource\.js:5 {2}lookup "customers" picks from customers \(packages\/customers\/src\/shared\/customerResource\.js:1\), which defines no searchSchema\.q/u);
+    assert.match(report, /orderResource\.js:7 {2}lookup "processing-lots" picks from processingLots /u);
+    assert.match(report, /index\.vue:3 {2}this list screen shows customerCrud, whose table resource customers .* Search box/u);
+  });
+});
+
 test("a second table resource for a table, a repeated name and an unreadable one fail, naming both files", async () => {
   await withProject({
     ...TABLES,

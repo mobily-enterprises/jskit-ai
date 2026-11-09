@@ -1,7 +1,6 @@
 import {
   normalizeInteger,
-  normalizeText,
-  normalizeUniqueTextList
+  normalizeText
 } from "@jskit-ai/kernel/shared/support/normalize";
 import { asPlainObject } from "./scopeHelpers.js";
 import { useJskitText } from "../../i18n.js";
@@ -10,15 +9,19 @@ const { t, text } = useJskitText();
 
 const DEFAULT_LIST_SEARCH_DEBOUNCE_MS = 250;
 const DEFAULT_LIST_SEARCH_MIN_LENGTH = 1;
-const LIST_SEARCH_MODE_LOCAL = "local";
 const LIST_SEARCH_MODE_QUERY = "query";
 
+// A list holds the page it loaded, so a search runs on the server: it sends the typed text as `queryParam` (q), and the
+// resource's searchSchema.q searches every row. No mode searches the loaded page in the browser.
 function normalizeListSearchConfig(value = {}) {
   const source = asPlainObject(value);
-  const modeRaw = normalizeText(source.mode).toLowerCase();
-  const mode = modeRaw === LIST_SEARCH_MODE_LOCAL
-    ? LIST_SEARCH_MODE_LOCAL
-    : LIST_SEARCH_MODE_QUERY;
+  const mode = normalizeText(source.mode).toLowerCase() || LIST_SEARCH_MODE_QUERY;
+  if (mode !== LIST_SEARCH_MODE_QUERY) {
+    throw new TypeError(
+      `List search runs on the server and takes no mode "${mode}": drop the mode, and give the resource searchSchema.q, ` +
+      "which the list's search sends as q. A search of the loaded page misses every row past it."
+    );
+  }
 
   return Object.freeze({
     enabled: source.enabled === true,
@@ -34,40 +37,10 @@ function normalizeListSearchConfig(value = {}) {
     minLength: normalizeInteger(source.minLength, {
       fallback: DEFAULT_LIST_SEARCH_MIN_LENGTH,
       min: DEFAULT_LIST_SEARCH_MIN_LENGTH
-    }),
-    fields: Object.freeze(normalizeUniqueTextList(source.fields))
+    })
   });
 }
 
-function normalizeSearchableValue(value) {
-  if (value == null) {
-    return "";
-  }
-  if (typeof value === "string") {
-    return normalizeText(value).toLowerCase();
-  }
-  if (typeof value === "number" || typeof value === "boolean") {
-    return String(value).toLowerCase();
-  }
-  return "";
-}
-
-function matchesLocalSearch(item = {}, query = "", searchFields = []) {
-  const source = asPlainObject(item);
-  const normalizedQuery = normalizeText(query).toLowerCase();
-  if (!normalizedQuery) {
-    return true;
-  }
-
-  const fields = Array.isArray(searchFields) ? searchFields : [];
-  if (fields.length > 0) {
-    return fields.some((field) => normalizeSearchableValue(source[field]).includes(normalizedQuery));
-  }
-
-  return Object.values(source).some((value) => normalizeSearchableValue(value).includes(normalizedQuery));
-}
-
 export {
-  normalizeListSearchConfig,
-  matchesLocalSearch
+  normalizeListSearchConfig
 };

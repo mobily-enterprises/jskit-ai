@@ -8,8 +8,9 @@
 // "not a slot:", "cycle: <supplier> requires <owner>",
 // "deferred until boot: <reason>",
 // "filled by <repository>; convert with its supplier",
-// "cross-repository slot <token>" or "shared resource:" (client state every
-// instance on the page shares on purpose).
+// "cross-repository slot <token>", "shared resource:" (client state every
+// instance on the page shares on purpose) or "every row:" (code that needs
+// every row a read answers, and says why).
 
 const FACTORY_NAME = /^(create|build)[A-Z]/u;
 // In client code a composable (use<Name>) receives its collaborators the way a factory does.

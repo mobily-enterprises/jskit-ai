@@ -88,8 +88,9 @@ async function adoptOidcAccounts({ knex, file, apply = false }) {
     for (const id of ids) {
       const rows = await trx("users").where({ auth_provider_user_sid: id })
         .whereIn("auth_provider", [LOCAL_PROVIDER_ID, AUTH_OIDC_PROVIDER_ID]).select("id", "auth_provider");
-      const local = rows.find((row) => row.auth_provider === LOCAL_PROVIDER_ID);
-      const adopted = rows.find((row) => row.auth_provider === AUTH_OIDC_PROVIDER_ID);
+      const byProvider = new Map(rows.map((row) => [row.auth_provider, row]));
+      const local = byProvider.get(LOCAL_PROVIDER_ID);
+      const adopted = byProvider.get(AUTH_OIDC_PROVIDER_ID);
       if (local && adopted) counts.conflicts += 1;
       else if (adopted) counts.alreadyAdopted += 1;
       else if (!local) counts.notFound += 1;

@@ -9,6 +9,7 @@ import { noOptionalAfterDefault } from "./rules/noOptionalAfterDefault.js";
 import { jsdocDescriptionInside } from "./rules/jsdocDescriptionInside.js";
 import { knexReason } from "./rules/knexReason.js";
 import { namedRepeatedType } from "./rules/namedRepeatedType.js";
+import { narrowInQuery } from "./rules/narrowInQuery.js";
 import { noDirectKnex } from "./rules/noDirectKnex.js";
 import { noDualShape } from "./rules/noDualShape.js";
 import { noDuplicateHelper } from "./rules/noDuplicateHelper.js";
@@ -29,13 +30,15 @@ import { playwrightLoginUnchanged } from "./rules/playwrightLoginUnchanged.js";
 import { releasedListeners } from "./rules/releasedListeners.js";
 import { requiredCollaborators } from "./rules/requiredCollaborators.js";
 import { selectionField } from "./rules/selectionField.js";
+import { searchOnServer } from "./rules/searchOnServer.js";
 import { noHandContext } from "./rules/noHandContext.js";
 import { sqlLiteral } from "./rules/sqlLiteral.js";
 import { typedDependencies } from "./rules/typedDependencies.js";
 import { typedInject } from "./rules/typedInject.js";
 
-// The `jskit` ESLint plugin: the typed-features rules, by name, server and client, the data-access rules, and the rule
-// that keeps a Playwright config's managed login unchanged. Each rule's messages link to the guide section that
+// The `jskit` ESLint plugin: the typed-features rules, by name, server and client (narrow-in-query and search-on-server
+// among them: a read asks for exactly the rows the code uses), the data-access rules, and the rule that keeps a
+// Playwright config's managed login unchanged. Each rule's messages link to the guide section that
 // explains it.
 const jskitPlugin = Object.freeze({
   meta: Object.freeze({ name: "@jskit-ai/config-eslint/jskit" }),
@@ -61,6 +64,7 @@ const jskitPlugin = Object.freeze({
     "no-patched-error": noPatchedError,
     "no-env-default": noEnvDefault,
     "no-test-only-export": noTestOnlyExport,
+    "narrow-in-query": narrowInQuery,
     "typed-inject": typedInject,
     "collaborator-props": collaboratorProps,
     "fixed-result-shape": fixedResultShape,
@@ -68,6 +72,7 @@ const jskitPlugin = Object.freeze({
     "no-module-state": noModuleState,
     "no-frozen-vue-state": noFrozenVueState,
     "selection-field": selectionField,
+    "search-on-server": searchOnServer,
     "playwright-login-unchanged": playwrightLoginUnchanged,
     "no-direct-knex": noDirectKnex,
     "no-transaction-reader": noTransactionReader,
