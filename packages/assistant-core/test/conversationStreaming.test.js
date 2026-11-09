@@ -4,6 +4,7 @@ import { createConversationStreams } from "../src/server/conversation/streams.js
 import { classifyCodexAppServerEvent } from "../src/server/conversation/codexEvents.js";
 import { createOpenCodeServerClient, openCodeAssistantMessageText } from "../src/server/conversation/openCodeClient.js";
 import { mergeConversationStream } from "../src/shared/conversation/streaming.js";
+import { createConversationEvents } from "../src/server/conversation/conversationEvents.js";
 
 test("Codex chunks retain whitespace and item identity; completed items reject late chunks", () => {
   const streams = createConversationStreams();
@@ -255,4 +256,28 @@ test("live message metadata retains its captured attribution across deltas witho
   assert.equal(streams.update("one", { ...input, delta: "late" }), null);
   const other = streams.update("two", { ...input, metadata: { model: { id: "other" } } });
   assert.equal(other.messages[0].metadata.model.id, "other");
+});
+
+// A completed-envelope runtime reads a streamed turn's saved marker once, not once for each of a
+// reply's hundreds of deltas: the marker is written with the turn's authored message and never changes.
+test("a reply's streamed deltas read their turn's completed-envelope marker once", async () => {
+  const reads = [];
+  const turns = new Map([["000001", { turnId: "000001", user: { text: "Hi" }, metadata: { runtime: { origin: "user" } } }],
+    ["000002", { turnId: "000002", system: { text: "Wake" }, metadata: { runtime: { origin: "application", completedEnvelope: true } } }]]);
+  const storage = { read: (_id, operation) => operation({ readTurn: async turnId => { reads.push(turnId); return structuredClone(turns.get(turnId) || null); } }) };
+  const events = createConversationEvents({ authorize: () => true, isClosed: () => false, storage, streams: null, completedEnvelope: true });
+  const heard = [];
+  const entry = { id: "chat", disposed: false, active: { requests: new Map() },
+    listeners: new Set([{ context: {}, authorizedAt: Date.now(), listener: event => { heard.push(event); } }]) };
+  const delta = (turnId, text) => ({ type: "message", role: "assistant", status: "inProgress", turnId, messageId: `reply-${turnId}`, text });
+  for (let index = 1; index <= 50; index++) await events.emit(entry, delta("000001", "word ".repeat(index)));
+  assert.deepEqual(reads, ["000001"]);
+  assert.equal(heard.length, 50);
+  assert.equal(heard.some(event => event.completedEnvelope), false);
+  for (let index = 1; index <= 5; index++) await events.emit(entry, delta("000002", "raw".repeat(index)));
+  assert.deepEqual(reads, ["000001", "000002"]);
+  assert.equal(heard.slice(50).every(event => event.completedEnvelope === true), true, "a marked turn's deltas stay marked");
+  await events.emit(entry, delta("000003", "unsaved"));
+  await events.emit(entry, delta("000003", "unsaved still"));
+  assert.deepEqual(reads, ["000001", "000002", "000003", "000003"], "a turn not saved yet is read again");
 });

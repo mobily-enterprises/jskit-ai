@@ -29,6 +29,25 @@ function serial(entry, callback) {
  * @param {boolean} dependencies.completedEnvelope
  */
 function createConversationEvents({ authorize, isClosed, storage, streams, completedEnvelope }) {
+  // Each entry's last saved turn whose completed-envelope marker was read. A turn's marker is written with its authored
+  // message and never changes, so the hundreds of deltas of one reply read it once, not once each.
+  const envelopeMarks = new WeakMap();
+
+  /**
+   * Whether the saved turn carries the completed-envelope marker; false while it is not saved.
+   * @param {ConversationEntry} entry
+   * @param {string} turnId
+   */
+  async function savedEnvelopeMark(entry, turnId) {
+    const known = envelopeMarks.get(entry);
+    if (known?.turnId === turnId) return known.marked;
+    const turn = await storage.read(entry.id, transaction => transaction.readTurn(turnId));
+    if (!turn) return false;
+    const marked = isCompletedEnvelopeTurn(turn);
+    envelopeMarks.set(entry, { turnId, marked });
+    return marked;
+  }
+
   /**
    * Send and its immediate admission share one authorization. Dispatch, receipt admission and
    * every other operation authorize again.
@@ -99,7 +118,7 @@ function createConversationEvents({ authorize, isClosed, storage, streams, compl
       let marked = isCompletedEnvelopeTurn(payload.patch?.turn) ||
         request?.completedEnvelope === true && request.input.origin === "application";
       if (!marked && payload.turnId) {
-        try { marked = await storage.read(entry.id, async transaction => isCompletedEnvelopeTurn(await transaction.readTurn(payload.turnId))); }
+        try { marked = await savedEnvelopeMark(entry, payload.turnId); }
         catch { /* An unavailable receipt cannot establish presentation custody. */ }
       }
       if (!marked && payload.type === "message") marked =
