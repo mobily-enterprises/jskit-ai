@@ -64,3 +64,25 @@ test("People lists accounts; the owner cannot turn off their own account", async
   const refused = await owner.api(`${hub.url}/hub/api/admin/people/${self.id}/disable`, { body: {} });
   assert.equal(refused.status, 400);
 });
+
+test("People reads only the columns it shows, never a password's hash or salt", async () => {
+  await hub.issuer.hub.accounts.create({ email: "linked@example.test", displayName: "Linked", googleSub: "google-subject-1" });
+  const statements = [];
+  const record = ({ sql }) => statements.push(sql);
+  hub.knex.on("query", record);
+  let people;
+  try {
+    people = (await (await owner.request(`${hub.url}/hub/api/admin/people`)).json()).people;
+  } finally {
+    hub.knex.off("query", record);
+  }
+  const listing = statements.filter((sql) => /oidc_issuer_accounts/u.test(sql) && /order by/iu.test(sql));
+  assert.equal(listing.length, 1, statements.join("\n"));
+  assert.doesNotMatch(listing[0], /select \*|password_salt|password_algorithm|"password_hash",|`password_hash`,/iu);
+  const byEmail = Object.fromEntries(people.map((person) => [person.email, person]));
+  assert.deepEqual(
+    [byEmail[OWNER_EMAIL].hasPassword, byEmail[OWNER_EMAIL].googleLinked, byEmail["linked@example.test"].hasPassword,
+      byEmail["linked@example.test"].googleLinked],
+    [true, false, false, true]
+  );
+});

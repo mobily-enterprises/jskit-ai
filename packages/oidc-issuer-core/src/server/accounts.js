@@ -102,8 +102,9 @@ function toAccount(row) {
     email: row.email,
     emailVerified: Boolean(row.email_verified),
     displayName: row.display_name,
-    hasPassword: Boolean(row.password_hash),
-    googleLinked: Boolean(row.google_sub),
+    // A listed row says only whether these are set (has_password, google_linked), never what they hold.
+    hasPassword: Boolean(Object.hasOwn(row, "has_password") ? row.has_password : row.password_hash),
+    googleLinked: Boolean(Object.hasOwn(row, "google_linked") ? row.google_linked : row.google_sub),
     disabled: Boolean(row.disabled),
     locked: Number(row.failed_logins) >= LOCK_AFTER_FAILURES,
     createdAt: row.created_at,
@@ -158,8 +159,17 @@ function createAccountStore({ knex, now }) {
     return toAccount(await table().where({ google_sub: String(googleSub ?? "") }).first());
   }
 
+  // Every account, newest first, reading only the columns an account's summary shows: never a password's hash or
+  // salt, nor the Google subject, of which it says only whether they are set.
   async function list() {
-    return (await table().orderBy("created_at", "desc")).map(toAccount);
+    const rows = await table()
+      .select("id", "email", "email_verified", "display_name", "disabled", "failed_logins", "created_at", "updated_at")
+      .select(
+        knex.raw("?? is not null as ??", ["password_hash", "has_password"]),
+        knex.raw("?? is not null as ??", ["google_sub", "google_linked"])
+      )
+      .orderBy("created_at", "desc");
+    return rows.map(toAccount);
   }
 
   async function create({ email, password = null, displayName = "", emailVerified = false, googleSub = null }) {
