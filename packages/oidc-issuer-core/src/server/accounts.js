@@ -272,10 +272,11 @@ function createAccountStore({ knex, now }) {
     return update(id, { disabled: Boolean(disabled) });
   }
 
-  /** Imports one exported JSKIT local account, keeping its id and scrypt fields byte for byte. */
-  async function importLocal(row) {
+  /** Imports exported JSKIT local accounts in one statement, keeping their ids and scrypt fields byte for byte. */
+  async function importLocal(rows) {
+    if (rows.length === 0) return;
     const timestamp = now();
-    await table().insert({
+    await table().insert(rows.map((row) => ({
       id: row.id,
       email: normalizeEmail(row.email),
       email_verified: false,
@@ -289,11 +290,12 @@ function createAccountStore({ knex, now }) {
       failed_logins: 0,
       created_at: timestamp,
       updated_at: timestamp
-    });
+    })));
   }
 
-  async function rawById(id) {
-    return table().where({ id }).first();
+  /** The stored rows whose id or email is one of these, in one read. */
+  async function rawByIdsOrEmails(ids, emails) {
+    return table().whereIn("id", ids).orWhereIn("email", emails.map(normalizeEmail));
   }
 
   return Object.freeze({
@@ -314,8 +316,7 @@ function createAccountStore({ knex, now }) {
     // readable-check: allow setter-seam - not a slot: setDisabled changes an account's status
     setDisabled,
     importLocal,
-    rawById,
-    rawByEmail: rowByEmail
+    rawByIdsOrEmails
   });
 }
 

@@ -3,6 +3,8 @@ import { createAccountStore, isEmail, normalizeEmail } from "./accounts.js";
 import { systemClock } from "./clock.js";
 
 const PASSWORD_FIELDS = ["password_algorithm", "password_version", "password_salt", "password_hash"];
+// Rows looked up and inserted per statement.
+const ROWS_PER_STATEMENT = 500;
 
 function parseLine(line) {
   const value = JSON.parse(line);
@@ -43,6 +45,7 @@ async function importAccounts({ knex, text, apply = false, now = systemClock }) 
   const accounts = createAccountStore({ knex, now });
   const result = { imported: 0, skipped: 0, conflicts: [] };
   const seen = new Set();
+  const candidates = [];
   const lines = String(text).split("\n");
   for (const [index, line] of lines.entries()) {
     if (!line.trim()) continue;
@@ -59,23 +62,36 @@ async function importAccounts({ knex, text, apply = false, now = systemClock }) 
       continue;
     }
     seen.add(row.id).add(row.email);
-    const byId = await accounts.rawById(row.id);
-    const byEmail = await accounts.rawByEmail(row.email);
-    if (byId && byEmail && byId.id === byEmail.id && samePassword(byId, row)) {
-      result.skipped += 1;
-      continue;
-    }
-    if (byId || byEmail) {
-      result.conflicts.push({
-        line: lineNumber,
-        id: row.id,
-        reason: byId ? "this id belongs to a different hub account" : "this email belongs to a different hub account"
-      });
-      continue;
-    }
-    if (apply) await accounts.importLocal(row);
-    result.imported += 1;
+    candidates.push({ lineNumber, row });
   }
+
+  for (let start = 0; start < candidates.length; start += ROWS_PER_STATEMENT) {
+    const chunk = candidates.slice(start, start + ROWS_PER_STATEMENT);
+    const existing = await accounts.rawByIdsOrEmails(chunk.map(({ row }) => row.id), chunk.map(({ row }) => row.email));
+    const existingById = new Map(existing.map((account) => [account.id, account]));
+    const existingByEmail = new Map(existing.map((account) => [normalizeEmail(account.email), account]));
+    const fresh = [];
+    for (const { lineNumber, row } of chunk) {
+      const byId = existingById.get(row.id);
+      const byEmail = existingByEmail.get(row.email);
+      if (byId && byEmail && byId.id === byEmail.id && samePassword(byId, row)) {
+        result.skipped += 1;
+        continue;
+      }
+      if (byId || byEmail) {
+        result.conflicts.push({
+          line: lineNumber,
+          id: row.id,
+          reason: byId ? "this id belongs to a different hub account" : "this email belongs to a different hub account"
+        });
+        continue;
+      }
+      fresh.push(row);
+    }
+    if (apply) await accounts.importLocal(fresh);
+    result.imported += fresh.length;
+  }
+  result.conflicts.sort((left, right) => left.line - right.line);
   return result;
 }
 

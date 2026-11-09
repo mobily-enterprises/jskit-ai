@@ -81,3 +81,27 @@ test("running the import again skips what is already there", async () => {
   assert.deepEqual([again.imported, again.skipped, again.conflicts.length], [0, 2, 1]);
   assert.match(again.conflicts[0].reason, /email belongs to a different hub account/u);
 });
+
+test("an import looks the accounts up and writes them in one statement each, not one per account", async () => {
+  const lines = Array.from({ length: 30 }, (_, index) => JSON.stringify({
+    id: `usr_bulk${String(index).padStart(16, "0")}`,
+    email: `bulk-${index}@example.test`,
+    password_algorithm: "scrypt",
+    password_version: "1",
+    password_salt: `salt-${index}`,
+    password_hash: `hash-${index}`
+  }));
+  const statements = [];
+  const record = ({ sql }) => statements.push(sql);
+  hub.knex.on("query", record);
+  try {
+    const applied = await importAccounts({ knex: hub.knex, text: lines.join("\n"), apply: true });
+    assert.deepEqual([applied.imported, applied.skipped, applied.conflicts.length], [30, 0, 0]);
+  } finally {
+    hub.knex.off("query", record);
+  }
+  const accountStatements = statements.filter((sql) => /oidc_issuer_accounts/u.test(sql));
+  assert.equal(accountStatements.filter((sql) => /^select/iu.test(sql)).length, 1, accountStatements.join("\n"));
+  assert.equal(accountStatements.filter((sql) => /^insert/iu.test(sql)).length, 1, accountStatements.join("\n"));
+  assert.equal(await hub.knex("oidc_issuer_accounts").where("email", "like", "bulk-%").count({ count: "*" }).first().then((row) => Number(row.count)), 30);
+});

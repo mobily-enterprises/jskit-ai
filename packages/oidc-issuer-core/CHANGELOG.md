@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `jskit-oidc-issuer import-accounts` looks the exported accounts up and inserts them 500 at a time, two statements per 500 instead of two reads and an insert per account. It reports the same counts and conflicts, in line order. The account store's `rawById` and `rawByEmail` are `rawByIdsOrEmails(ids, emails)`, and `importLocal` takes a list of rows.
 - The hub's People list reads only the columns it shows, and asks the database whether each account has a password and a linked Google sign-in, so it no longer reads every account's password hash and salt, or its Google subject. It still lists every account, newest first; paging it waits on its page loading more as it scrolls.
 - Ending every session (a password change, a reset or a disabled account) reads only the approved apps' ids, by status in SQL, and sends their back-channel logout tokens at once instead of one after another, so a slow app no longer holds the others back. Each app's answer is still logged and reported as before.
 - `@jskit-ai/database-runtime` is a peer dependency, required and at the same version, where it was a dependency: the issuer keeps its accounts, clients and sessions in the database, and the app holds one copy of the table runtime that every package shares, as it does the kernel. npm installs a required peer as it installed the dependency, so an app installs the same packages and versions; a release whose versions disagree now fails the install with ERESOLVE instead of nesting a second copy.
