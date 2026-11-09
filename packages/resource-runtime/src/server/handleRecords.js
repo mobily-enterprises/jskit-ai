@@ -123,6 +123,24 @@ function noRowsAggregate(measures, groupBy) {
 }
 
 /**
+ * What aggregate() answers: every group's rows without `page`, and with it the page's groups and the page, as query()
+ * answers a page, so a caller never takes one page of groups for every group.
+ * @param {readonly Record<string, unknown>[]} rows
+ * @param {{ size: number, number?: number } | undefined} page
+ * @param {boolean} hasMore
+ */
+function aggregateAnswer(rows, page, hasMore) {
+  if (page === undefined) {
+    return rows;
+  }
+  const number = page.number ?? 1;
+  return Object.freeze({
+    rows,
+    page: Object.freeze({ size: Number(page.size), number, hasMore, next: hasMore ? number + 1 : null })
+  });
+}
+
+/**
  * The read parameters of a handle call as json-rest-api's queryParams.
  * @param {{ name: string, schema: Record<string, any> }} resource
  * @param {Record<string, any>} params
@@ -476,6 +494,7 @@ export {
   manyResult,
   namedFields,
   noRowsAggregate,
+  aggregateAnswer,
   patchAnswer,
   upsertConflict,
   pickReturning,

@@ -26,6 +26,7 @@ import {
   inputData,
   manyResult,
   noRowsAggregate,
+  aggregateAnswer,
   patchAnswer,
   pickReturning,
   quietCollections,
@@ -315,10 +316,10 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
   /**
    * Totals: `measures` ({ name: { count | countDistinct | sum | avg | min | max: field, where? } })
    * over the filtered rows, grouped by `groupBy` fields or date buckets. Answers the rows.
-   * One statement answers at most pageLimits().request groups: a grouped
-   * aggregate without `page` answers every group or, when there are more, throws
-   * GroupLimitError rather than answer part of them. `page: { size, number }`
-   * (number from 1) answers one page of groups; a page shorter than `size` is the last.
+   * One statement answers at most pageLimits().request groups: a grouped aggregate without `page` answers every group
+   * or, when there are more, throws GroupLimitError rather than answer part of them. `page: { size, number }` (number
+   * from 1) answers one page of groups as query() does, `{ rows, page: { size, number, hasMore, next } }`: read the
+   * next while `page.hasMore`.
    * @param {{ measures: object, groupBy?: Array<string | object>, filters?: object, sort?: string[], page?: { size: number, number?: number } }} spec
    * @param {{ context?: object | null, trx?: object | null }} [options]
    */
@@ -329,7 +330,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
     }
     const context = contextOf(options);
     if (matchesNoRow(filters, jsonRest().vars.schemaInfo)) {
-      return noRowsAggregate(measures, groupBy);
+      return aggregateAnswer(noRowsAggregate(measures, groupBy), page, false);
     }
     // json-rest-api pages grouped rows at its default page size when none is named, and says so only in meta.
     const groupLimit = page === undefined && Array.isArray(groupBy) && groupBy.length > 0 ? pageLimits().request : undefined;
@@ -350,7 +351,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
     if (groupLimit !== undefined && result.meta?.page?.hasMore === true) {
       throw new GroupLimitError(name, groupLimit);
     }
-    return result.data;
+    return aggregateAnswer(result.data, page, result.meta?.page?.hasMore === true);
   }
 
   /**

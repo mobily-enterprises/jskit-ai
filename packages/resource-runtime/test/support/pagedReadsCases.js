@@ -138,7 +138,7 @@ function pagedReadsCases(connect) {
       await assert.rejects(pagesOf(notes.queryPages({ take: 2 }, request)), /notes\.queryPages\(\) does not take take/u);
     }],
 
-    ["a grouped aggregate without a page answers every group one statement holds and throws past them, never part; a page answers its groups", async (t) => {
+    ["a grouped aggregate without a page answers every group one statement holds and throws past them, never part; a page answers its groups and whether more remain", async (t) => {
       const knex = await connect(t, "da_pr_groups");
       const { notes } = await createNotes(knex);
       const options = { context: WORKSPACE_A };
@@ -155,9 +155,20 @@ function pagedReadsCases(connect) {
         error.code === "RESOURCE_GROUP_LIMIT" && error.messageCode === "resource.groupLimit" && error.messageParams.groupLimit === 3 &&
         /notes\.aggregate\(\) has more than 3 groups, the most one statement answers\. Read them in pages/u.test(error.message));
       const page = (number) => notes.aggregate({ ...byStatus, page: { size: 2, number } }, options);
-      assert.deepEqual((await page(1)).map(({ status }) => status), ["a", "b"]);
-      assert.deepEqual((await page(2)).map(({ status }) => status), ["c", "d"]);
-      assert.deepEqual(await page(3), []);
+      // A page says whether groups remain, as query() does, and is no array a caller could take for every group.
+      const first = await page(1);
+      assert.equal(Array.isArray(first), false);
+      assert.deepEqual(first.rows.map(({ status }) => status), ["a", "b"]);
+      assert.deepEqual(first.page, { size: 2, number: 1, hasMore: true, next: 2 });
+      const second = await page(2);
+      assert.deepEqual(second.rows.map(({ status }) => status), ["c", "d"]);
+      assert.deepEqual(second.page, { size: 2, number: 2, hasMore: false, next: null });
+      assert.deepEqual(await page(3), { rows: [], page: { size: 2, number: 3, hasMore: false, next: null } });
+      // A filter that matches no row answers an empty page without a statement.
+      assert.deepEqual(
+        await notes.aggregate({ ...byStatus, filters: { id: [] }, page: { size: 2 } }, options),
+        { rows: [], page: { size: 2, number: 1, hasMore: false, next: null } }
+      );
       await assert.rejects(notes.aggregate({ ...byStatus, page: { number: 2 } }, options), /notes\.aggregate\(\) page needs size/u);
       // Without groupBy an aggregate is one row, whatever the number of rows.
       assert.deepEqual(await notes.aggregate({ measures: { notes: { count: "*" } } }, options), [{ notes: 5 }]);

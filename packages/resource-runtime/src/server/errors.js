@@ -120,8 +120,8 @@ class GroupLimitError extends AppError {
     super(
       400,
       `${resourceName}.aggregate() has more than ${groupLimit} groups, the most one statement answers. Read them in pages, ` +
-        `page: { size, number } with size up to ${groupLimit} and number from 1, until a page answers fewer than size ` +
-        "rows, or narrow the filters.",
+        `page: { size, number } with size up to ${groupLimit} and number from 1, each answering { rows, page }, while ` +
+        "page.hasMore, or narrow the filters.",
       { code: "RESOURCE_GROUP_LIMIT", messageCode: "resource.groupLimit", messageParams: { groupLimit } }
     );
     this.name = "GroupLimitError";
