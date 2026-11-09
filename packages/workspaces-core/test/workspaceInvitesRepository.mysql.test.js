@@ -301,13 +301,14 @@ test("a revoke and an accept of one pending invite race: the first to lock it wi
     let loser;
     try {
       await held.promise;
-      loser = db.invites[second](created.id);
+      // Expected at once: its 404 can come as soon as the winner commits, before the winner's own answer.
+      loser = assert.rejects(db.invites[second](created.id), handled, `${second} after ${first}`);
       await untilLockWait(db);
     } finally {
       release.resolve();
       await winner;
     }
-    await assert.rejects(loser, handled, `${second} after ${first}`);
+    await loser;
     const stored = await db.invites.findById(created.id);
     assert.equal(stored.status, status);
     assert.equal(stored.acceptedAt === null, status === "revoked");
