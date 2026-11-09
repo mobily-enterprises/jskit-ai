@@ -558,6 +558,47 @@ test("code the app's ESLint config ignores outside server code is skipped, and l
   });
 });
 
+test("a directory the app's ESLint config ignores stays skipped when it holds its own config, as `eslint .` never enters it", async () => {
+  const dataAccess = JSON.stringify(new URL("../../config-eslint/dataAccess.js", import.meta.url).href);
+  const ownConfig = `import { dataAccessConfig } from ${dataAccess};\nexport default [...dataAccessConfig(["**"])];\n`;
+  const exception = "// readable-check: allow no-direct-knex - infrastructure: the tool's own bookkeeping table\nexport const migrate = {};\n";
+  await withProject({
+    "package.json": { name: "nested", type: "module" },
+    "eslint.config.mjs": [
+      `import { dataAccessConfig } from ${dataAccess};`,
+      "export default [",
+      "  { ignores: [\"vendor-sub/**\", \"submodules/**\", \"packages/archive/\", \"packages/billing/legacy/\"] },",
+      "  ...dataAccessConfig([\"**\"])",
+      "];",
+      ""
+    ].join("\n"),
+    // Copies of other applications, each with its own config, that the app's config ignores: their code, which their
+    // own configs lint, is never the app's, at the ignored directory or deeper in it.
+    "vendor-sub/eslint.config.mjs": ownConfig,
+    "vendor-sub/server/db.js": "/* eslint-disable */\nexport const requires = { database: \"runtime.database\" };\n",
+    "vendor-sub/packages/tools/src/server/migrate.js": exception,
+    "submodules/editor/eslint.config.mjs": ownConfig,
+    "submodules/editor/packages/tools/src/server/migrate.js": exception,
+    // Server code the app's config ignores is still read, told from the app's root, whatever config its package has.
+    "packages/archive/eslint.config.mjs": ownConfig,
+    "packages/archive/src/server/store.js": "export const store = {};\n",
+    // A package whose own config the app's config does not ignore is read, and that config alone judges what it holds:
+    // as for `eslint .`, an ignore of the app's config inside it does not reach in.
+    "packages/billing/eslint.config.mjs": ownConfig,
+    "packages/billing/src/server/report.js": "/* eslint-disable */\nexport const report = {};\n",
+    "packages/billing/legacy/server/old.js": "/* eslint-disable */\nexport const old = {};\n"
+  }, async (root) => {
+    const result = await checkDataAccess({ projectRoot: root });
+    assert.deepEqual(findingLines(result), [
+      "packages/archive/eslint.config.mjs:1 data/lint-config",
+      "packages/archive/src/server/store.js:1 data/lint-config",
+      "packages/billing/legacy/server/old.js:1 data/lint-disabled",
+      "packages/billing/src/server/report.js:1 data/lint-disabled"
+    ]);
+    assert.deepEqual(result.skipped, ["submodules/", "vendor-sub/"]);
+  });
+});
+
 test("server code the app's ESLint config ignores is still read, and fails", async () => {
   const dataAccess = JSON.stringify(new URL("../../config-eslint/dataAccess.js", import.meta.url).href);
   await withProject({

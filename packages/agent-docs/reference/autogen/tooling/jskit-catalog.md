@@ -77,6 +77,7 @@ Local functions
 - `walk(root, directory, files, pattern = SOURCE_FILE)`
 - `frameworkPackages(root)`
 - `appEslint(root)`
+- `configIgnoredBy(root, { eslint, ESLint })`
 - `lintConfigs(root, files)`
 - `skippedPaths(files, skipped)`
 

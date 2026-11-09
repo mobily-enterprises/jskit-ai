@@ -69,8 +69,12 @@ async function frameworkPackages(root) {
   return packages;
 }
 
-// The app's ESLint, from the app or else beside this check, set to find each file's config as `eslint` does; null when
-// neither has one, or the app has no config: then the lint itself cannot run, which fails on its own.
+// A file directly in a directory, for asking ESLint about the directory: its API judges files, not directories.
+const DIRECTORY_PROBE = "jskit-directory-probe.js";
+
+// The app's ESLint, from the app or else beside this check, set to find each file's config as `eslint` does, with
+// its ESLint class; null when neither has one, or the app has no config: then the lint itself cannot run, which fails
+// on its own.
 async function appEslint(root) {
   for (const base of [path.join(root, "package.json"), fileURLToPath(import.meta.url)]) {
     let resolved;
@@ -80,25 +84,58 @@ async function appEslint(root) {
       continue;
     }
     const api = await import(pathToFileURL(resolved).href);
-    const eslint = new (api.ESLint || api.default.ESLint)({ cwd: root });
-    return await eslint.findConfigFile(path.join(root, "package.json")) ? eslint : null;
+    const { ESLint } = api.ESLint ? api : api.default;
+    const eslint = new ESLint({ cwd: root });
+    return await eslint.findConfigFile(path.join(root, "package.json")) ? { eslint, ESLint } : null;
   }
   return null;
 }
 
-// The ESLint config of each app file that one governs, read as `eslint` reads it: each { file, governed, config },
-// `governed` the file's path from that config's directory and `config` undefined when the config ignores the file; and the
-// first error reading one, after which no more are read. None when the app has no ESLint config (appEslint).
+// For a config file, the config whose ignores keep `eslint .`, run at the app's root, out of its directory; undefined
+// when it enters it. ESLint enters a directory unless the config of the directory above ignores it, so a parent config
+// ignores a nested config's directory whole, and past it the nested config alone judges what it holds. The directory's
+// verdict is that of a file directly in it, asked of an ESLint bound to the config above alone.
+function configIgnoredBy(root, { eslint, ESLint }) {
+  const verdicts = new Map();
+  const bound = new Map();
+  const boundTo = (configFile) => {
+    if (!bound.has(configFile)) bound.set(configFile, new ESLint({ cwd: path.dirname(configFile), overrideConfigFile: configFile }));
+    return bound.get(configFile);
+  };
+  async function verdict(configFile) {
+    const directory = path.dirname(configFile);
+    const inside = path.relative(root, directory);
+    if (!inside || inside.startsWith("..") || path.isAbsolute(inside)) return undefined;
+    // The config of the directory above, which ESLint asks before entering this one.
+    const above = await eslint.findConfigFile(directory);
+    if (!above) return undefined;
+    return await ignoredBy(above) ??
+      (await boundTo(above).isPathIgnored(path.join(directory, DIRECTORY_PROBE)) ? above : undefined);
+  }
+  function ignoredBy(configFile) {
+    if (!verdicts.has(configFile)) verdicts.set(configFile, verdict(configFile));
+    return verdicts.get(configFile);
+  }
+  return ignoredBy;
+}
+
+// The ESLint config of each app file that one governs, read as `eslint .` reads it: each { file, governed, config },
+// `governed` the file's path from that config's directory and `config` undefined when the config ignores the file, or
+// when a config above ignores the directory of the file's nested config (configIgnoredBy), as `eslint .` never reaches
+// it: `governed` is then told from the directory of the config that ignores it. And the first error reading one, after
+// which no more are read. None when the app has no ESLint config (appEslint).
 async function lintConfigs(root, files) {
   const configs = [];
-  const eslint = await appEslint(root);
-  for (const file of eslint ? files : []) {
+  const app = await appEslint(root);
+  const ignoredBy = app && configIgnoredBy(root, app);
+  for (const file of app ? files : []) {
     const absolute = path.join(root, file);
     try {
-      const configFile = await eslint.findConfigFile(absolute);
+      const configFile = await app.eslint.findConfigFile(absolute);
       if (!configFile) continue;
-      const governed = toPosixPath(path.relative(path.dirname(configFile), absolute));
-      configs.push({ file, governed, config: await eslint.calculateConfigForFile(absolute) });
+      const outer = await ignoredBy(configFile);
+      const governed = toPosixPath(path.relative(path.dirname(outer ?? configFile), absolute));
+      configs.push({ file, governed, config: outer ? undefined : await app.eslint.calculateConfigForFile(absolute) });
     } catch (error) {
       return { configs, error: { file, message: String(error?.message || error).split("\n")[0] } };
     }
