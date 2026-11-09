@@ -5,7 +5,7 @@
   "dependencies": {
     "@fastify/rate-limit": "^11.2.0",
     "fast-json-stringify": "^7.0.1",
-    "json-rest-schema": "^1.0.17",
+    "json-rest-schema": "^1.0.20",
     "json-schema-ref-resolver": "^3.0.0"
   },
   "scripts": {

@@ -37,7 +37,9 @@ test("each json-rest-schema error keeps its English and gains a kernel.validatio
     ["FIELD_NOT_ALLOWED", "kernel.validation.field.notAllowed", {}, { value: 1 }],
     ["STRICT_BOOLEAN", "kernel.validation.field.strictBoolean", { value: { type: "boolean", strictBoolean: true } }, { value: "true" }],
     ["RANGE_EXCEEDED", "kernel.validation.field.rangeExceeded", { value: { type: "number", length: 2 } }, { value: 12345 }],
-    ["NOT_EMPTY", "kernel.validation.field.notEmpty", { value: { type: "string", notEmpty: true } }, { value: "" }]
+    ["NOT_EMPTY", "kernel.validation.field.notEmpty", { value: { type: "string", notEmpty: true } }, { value: "" }],
+    ["MIN_ITEMS", "kernel.validation.field.minItems", { value: { type: "array", minItems: 2 } }, { value: ["a"] }],
+    ["MAX_ITEMS", "kernel.validation.field.maxItems", { value: { type: "array", maxItems: 2 } }, { value: ["a", "b", "c"] }]
   ];
 
   for (const [libraryCode, code, structure, payload] of cases) {
@@ -116,41 +118,6 @@ test("a field's messages override the English, and an override object gives it a
   assert.equal(nullError.fieldErrorCodes, undefined);
 });
 
-/**
- * The schema, its create() failing `field` with `libraryError`, as json-rest-schema
- * 1.0.18's minItems and maxItems validators fail it. The kernel installs 1.0.17,
- * which checks neither; once it requires 1.0.18 these cases join the table above.
- */
-function failingWith(schema, field, libraryError) {
-  return Object.assign(Object.create(schema), {
-    create: () => ({ validatedObject: {}, errors: { [field]: { field, ...libraryError } } })
-  });
-}
-
-// json-rest-schema 1.0.18's own MIN_ITEMS and MAX_ITEMS errors (src/core/CorePlugin.js).
-function minItemsError(min, actual) {
-  return { code: "MIN_ITEMS", message: `Must have at least ${min} items.`, params: { min, actual } };
-}
-function maxItemsError(max, actual) {
-  return { code: "MAX_ITEMS", message: `Must have no more than ${max} items.`, params: { max, actual } };
-}
-
-test("MIN_ITEMS and MAX_ITEMS keep their English and gain kernel.validation.field codes", () => {
-  const cases = [
-    [minItemsError(2, 1), "kernel.validation.field.minItems"],
-    [maxItemsError(2, 3), "kernel.validation.field.maxItems"]
-  ];
-
-  for (const [libraryError, code] of cases) {
-    const schema = failingWith(createSchema({ value: { type: "array", minItems: 2, maxItems: 2 } }), "value", libraryError);
-    const error = validationFailure({ schema, mode: "create" }, { value: [] });
-    assert.equal(error.messageCode, "kernel.validation.schemaFailed");
-    assert.equal(error.fieldErrors.value, libraryError.message, libraryError.code);
-    assert.deepEqual(error.fieldErrorCodes.value, { code, params: libraryError.params }, libraryError.code);
-    assertCatalogRenders(error.fieldErrorCodes.value, error.fieldErrors.value);
-  }
-});
-
 test("an array field's minItems and maxItems messages override its English", () => {
   const schema = createSchema({
     tags: {
@@ -164,11 +131,11 @@ test("an array field's minItems and maxItems messages override its English", () 
     }
   });
 
-  const empty = validationFailure({ schema: failingWith(schema, "tags", minItemsError(1, 0)), mode: "create" }, { tags: [] });
+  const empty = validationFailure({ schema, mode: "create" }, { tags: [] });
   assert.deepEqual(empty.fieldErrors, { tags: "Pick a tag." });
   assert.equal(empty.fieldErrorCodes, undefined);
 
-  const full = validationFailure({ schema: failingWith(schema, "tags", maxItemsError(2, 3)), mode: "create" }, { tags: ["a", "b", "c"] });
+  const full = validationFailure({ schema, mode: "create" }, { tags: ["a", "b", "c"] });
   assert.deepEqual(full.fieldErrors, { tags: "Pick at most 2 tags." });
   assert.deepEqual(full.fieldErrorCodes, { tags: { code: "books.tags.tooMany", params: { max: 2, actual: 3 } } });
 });

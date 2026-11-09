@@ -39,7 +39,7 @@
     "@tanstack/vue-query": "^5.101.0",
     "fastify": "^5.12.7",
     "pino": "^10.3.1",
-    "json-rest-schema": "^1.0.17",
+    "json-rest-schema": "^1.0.20",
     "pinia": "^4.0.3",
     "vue": "^3.5.44",
     "vue-router": "^5.3.1",

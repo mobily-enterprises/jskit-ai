@@ -14,7 +14,7 @@
   "dependencies": {
     "@jskit-ai/resource-core": "0.1.208",
     "@jskit-ai/users-core": "0.2.23",
-    "json-rest-schema": "^1.0.17"
+    "json-rest-schema": "^1.0.20"
   },
   "description": "Console runtime: console settings schema, bootstrap flags, actions, and HTTP routes.",
   "jskit": {

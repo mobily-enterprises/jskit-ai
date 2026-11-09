@@ -129,7 +129,7 @@
     "@modelcontextprotocol/sdk": "1.32.1",
     "@smithy/fetch-http-handler": "5.8.0",
     "jose": "^6.1.3",
-    "json-rest-schema": "^1.0.17"
+    "json-rest-schema": "^1.0.20"
   },
   "peerDependencies": {
     "@jskit-ai/kernel": "0.2.17"

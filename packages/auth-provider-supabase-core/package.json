@@ -14,7 +14,7 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "jose": "^6.1.0",
-    "json-rest-schema": "^1.0.17",
+    "json-rest-schema": "^1.0.20",
     "ws": "^8.21.1"
   },
   "jskit": {
