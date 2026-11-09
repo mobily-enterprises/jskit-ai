@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { Readable } from "node:stream";
 import test from "node:test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
@@ -231,7 +232,14 @@ test("withoutHiddenFields refuses a hidden field named through any method, and s
 
 test("withoutHiddenFields strips the hidden fields from each page queryPages() hands another feature, and refuses one its fields names", async (t) => {
   const { cards, resource, system, options } = await createCardFixture(t);
-  const owner = Object.freeze({ ...cards, tokenPages: (callOptions) => cards.queryPages({ fields: ["title", "publicToken"] }, callOptions) });
+  const owner = Object.freeze({
+    ...cards,
+    tokenPages: (callOptions) => cards.queryPages({ fields: ["title", "publicToken"] }, callOptions),
+    // An owner's method of another name that forwards the caller's params to queryPages().
+    eachCard: (params, callOptions) => cards.queryPages(params, callOptions),
+    // A stream of the owner's own, which passes as it is.
+    exportStream: () => Readable.from(["Rex\n", "Bo\n"])
+  });
   const exposed = withoutHiddenFields(owner, resource);
   const pagesOf = async (pages) => {
     const read = [];
@@ -244,6 +252,22 @@ test("withoutHiddenFields strips the hidden fields from each page queryPages() h
   assert.deepEqual(await pagesOf(exposed.queryPages({ fields: ["title"] }, options)), [[{ id: "1", title: "Rex" }, { id: "2", title: "Bo" }]]);
   await assert.rejects(pagesOf(exposed.queryPages({ fields: ["title", "publicToken"] }, options)), /cards\.queryPages\(\) fields names the hidden field "publicToken"/u);
   assert.deepEqual(await pagesOf(exposed.tokenPages({ context: system.forWorkspace("2") })), [[{ id: "3", title: "Kit", publicToken: "t3" }]]);
+
+  // A refusal is pages that throw and a rejected promise at once, whatever the method's name, and leaves no rejection
+  // unhandled when only iterated.
+  const unhandled = [];
+  const onUnhandled = (reason) => unhandled.push(reason);
+  process.on("unhandledRejection", onUnhandled);
+  t.after(() => process.off("unhandledRejection", onUnhandled));
+  assert.deepEqual(await pagesOf(exposed.eachCard({ fields: ["title"] }, options)), [[{ id: "1", title: "Rex" }, { id: "2", title: "Bo" }]]);
+  await assert.rejects(pagesOf(exposed.eachCard({ fields: ["title", "publicToken"] }, options)), /cards\.eachCard\(\) fields names the hidden field "publicToken"/u);
+  await assert.rejects(exposed.eachCard({ fields: ["publicToken"] }, options), /cards\.eachCard\(\) fields names the hidden field/u);
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(unhandled, []);
+  const stream = exposed.exportStream();
+  assert.equal(stream instanceof Readable, true);
+  assert.equal(typeof stream.pipe, "function");
+  assert.deepEqual(await stream.toArray(), ["Rex\n", "Bo\n"]);
 });
 
 test("withoutHiddenFields refuses a field one owned table hides and another shows, since it strips hidden fields by name", () => {

@@ -6,7 +6,7 @@ import {
   countRuntimeQueries,
   requireTestDatabase
 } from "@jskit-ai/database-runtime/server/testDatabases";
-import { MANY_ROW_CHANNEL } from "../server/resourceHandle.js";
+import { MANY_ROW_CHANNEL } from "../server/manyRowChannel.js";
 
 const REPEATED_STATEMENTS_SHOWN = 5;
 // The measurement open in the current async context: a many-row call reports for the one whose work makes it.
@@ -42,7 +42,8 @@ function requireSizes(sizes) {
 
 /**
  * Counts the statements `work` sends, and the extra statements the many-row
- * calls among them report for their chunks after the first. Both come only
+ * calls among them report for their chunks after the first, and queryPages()
+ * for its pages after the first. Both come only
  * from `work` and the async work it starts, as countQueries() counts them, so
  * another test or a loop running meanwhile does not change the count.
  * @param {import("knex").Knex | import("knex").Knex.Transaction | null} knex
@@ -57,7 +58,9 @@ async function measure(knex, work) {
   diagnosticsChannel.subscribe(MANY_ROW_CHANNEL, listen);
   try {
     const { count, queries } = await openMeasurement.run(measurement, () => knex ? countQueries(knex, work) : countRuntimeQueries(work));
-    const chunkStatements = calls.reduce((total, { rows, chunkSize }) => total + Math.max(0, Math.ceil(rows / chunkSize) - 1), 0);
+    // A many-row write's chunks after its first, and the statements of each queryPages() page after its first.
+    const chunkStatements = calls.reduce((total, { operation, statements, rows, chunkSize }) =>
+      total + (operation === "queryPages" ? statements : Math.max(0, Math.ceil(rows / chunkSize) - 1)), 0);
     return { count, chunkStatements, queries };
   } finally {
     diagnosticsChannel.unsubscribe(MANY_ROW_CHANNEL, listen);
@@ -70,8 +73,9 @@ async function measure(knex, work) {
  * transactions' included), else through the runtime of a server the test booted, as countRuntimeQueries() does. Only
  * the path's own statements count, from `run` and the async work it starts, so a test or a background loop sending
  * through the same Knex meanwhile changes nothing. The
- * extra statements of a many-row write's later chunks, which its handle reports, are allowed, so no number is
- * hand-picked. A flat path then sends as many statements at every size; a path that reads or writes row by row sends
+ * extra statements of a many-row write's later chunks, and of a queryPages() read's later pages (its own page, include
+ * and hidden-field reads, whose pages shrink to a few rows when they name blobs), which its handle reports, are
+ * allowed, so no number is hand-picked; work the path does itself for each page counts. A flat path then sends as many statements at every size; a path that reads or writes row by row sends
  * more at each, and one that sends none at every size was counted on the wrong channel and fails too. On failure the message gives every count and the statements repeated most at the largest size. Its seed
  * keeps the sizes apart (a workspace or user of their own, or a fresh database).
  * @template S
@@ -82,7 +86,7 @@ async function measure(knex, work) {
  * @param {import("knex").Knex | import("knex").Knex.Transaction | null} [options.knex]
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.environment The test's environment, such as `process.env`.
  * @returns {Promise<Array<{ size: number, count: number, chunkStatements: number }>>} The count at each size, and how
- *   many of its statements were later chunks of many-row writes.
+ *   many of its statements were later chunks of many-row writes or later pages of queryPages().
  */
 async function expectFlatQueries({ sizes = [10, 200], seed, run, knex = null, environment }) {
   requireTestDatabase(environment);
@@ -109,7 +113,7 @@ async function expectFlatQueries({ sizes = [10, 200], seed, run, knex = null, en
   const growing = ({ count, chunkStatements }) => count - chunkStatements > smallest.count - smallest.chunkStatements;
   if (measured.some(growing)) {
     const described = counts.map(({ size, count, chunkStatements }) =>
-      `${count} at ${size} rows${chunkStatements > 0 ? ` (${chunkStatements} of them later chunks)` : ""}`);
+      `${count} at ${size} rows${chunkStatements > 0 ? ` (${chunkStatements} of them later chunks or pages)` : ""}`);
     const repeated = mostRepeated(largest.queries).map(([statement, times]) => `  ${times} x ${statement}`);
     throw new AssertionError({
       message: [

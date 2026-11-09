@@ -1,4 +1,4 @@
-import { namedBlobs, refuseBlobsInBulk } from "./handleBlobs.js";
+import { checkBlobReads, namedBlobs } from "./handleBlobs.js";
 import { missingOf, requireDefinedFilters } from "./handleGuards.js";
 import { handleRecords, sparseFieldset, textList } from "./handleRecords.js";
 
@@ -68,9 +68,8 @@ function createLockReads({ name, resource, jsonRest, readFields, contextOf, hidd
   // lock mode options.lockMode names. `caller` is the handle method, for the messages.
   async function lockRead(caller, method, read, options) {
     refuseInclude(name, caller, options.include);
-    if (method !== "lockByIds") {
-      refuseBlobsInBulk(name, caller, namedBlobs(resource, options.fields, () => null));
-    }
+    // lock() and lockMany() hold their ids' blobs, lockWhere() and claim() any number of rows, so they name none.
+    checkBlobReads(name, caller, namedBlobs(resource, options.fields, () => null), method === "lockByIds" ? read.ids.length : Infinity);
     const mode = lockModeOf(name, caller, options.lockMode);
     const hidden = hiddenFields.named(options.fields, "plain");
     const fields = readFields({ fields: options.fields }, "view");

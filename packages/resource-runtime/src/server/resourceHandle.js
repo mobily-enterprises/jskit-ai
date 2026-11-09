@@ -3,10 +3,11 @@ import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { readChangeHorizon } from "./changeHorizon.js";
 import { createJsonRestContext } from "./contexts.js";
-import { namedBlobs, refuseBlobsInJson } from "./handleBlobs.js";
+import { checkBlobReads, checkBlobValues, namedBlobs, refuseBlobsInJson } from "./handleBlobs.js";
 import { createEveryRowReads } from "./handleEveryRow.js";
 import { createHiddenFieldReads, createJoinSource, markHandleFunctions } from "./handleHidden.js";
 import { createLockReads, lockModeOf } from "./handleLocks.js";
+import { MANY_ROW_CHANNEL } from "./manyRowChannel.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
 import { GroupLimitError, PageSizeError, StaleRecordError, UnpagedQueryError } from "./errors.js";
@@ -37,10 +38,6 @@ import {
   returnNullWhenJsonRestResourceMissing
 } from "./resourceHost.js";
 
-// Each many-row call publishes { resource, operation, rows, chunkSize } here while something
-// subscribes, so a flat-query test can tell the statements chunking adds from statements that
-// grow with the rows.
-const MANY_ROW_CHANNEL = "jskit:resources:many-row";
 const DEFAULT_CHUNK_SIZE = 500;
 // The fewest rows a many-row call's chunk holds. A smaller chunk sends a statement every few rows, as a loop of
 // single-row writes does, and a flat-query check allows a many-row call's later chunks.
@@ -243,8 +240,9 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     const read = { ...params, fields: readFields(params, "list") };
     const queryParams = readQueryParams(resource, read, { page: true, caller: "query" });
     const hidden = hiddenFields.named(params.fields, format);
+    const blobs = namedBlobs(resource, params.fields, resourceNamed);
     if (format === "jsonapi") {
-      refuseBlobsInJson(name, namedBlobs(resource, params.fields, resourceNamed));
+      refuseBlobsInJson(name, blobs);
     }
     const size = params.page?.size;
     if (size == null && format !== "jsonapi") {
@@ -253,6 +251,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (size != null && Number(size) > pageLimits().request) {
       throw new PageSizeError(name, size, pageLimits().request);
     }
+    checkBlobReads(name, "query", blobs, Number(size));
     const context = contextOf(options);
     const payload = format !== "jsonapi" && matchesNoRow(params.filters, jsonRest().vars.schemaInfo)
       ? { data: [] }
@@ -279,7 +278,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   }
 
   // queryAll and queryPages (see handleEveryRow.js).
-  const { queryAll, queryPages } = createEveryRowReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields, settings, resourceNamed });
+  const { queryAll, queryPages } = createEveryRowReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, settings, resourceNamed });
 
   /**
    * One record. A missing or hidden one throws json-rest-api's not-found error
@@ -293,9 +292,11 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     const format = formatOf(name, options);
     const named = { ...params, fields: readFields(params, "view") };
     const hidden = hiddenFields.named(params.fields, format);
+    const blobs = namedBlobs(resource, params.fields, resourceNamed);
     if (format === "jsonapi") {
-      refuseBlobsInJson(name, namedBlobs(resource, params.fields, resourceNamed));
+      refuseBlobsInJson(name, blobs);
     }
+    checkBlobReads(name, "get", blobs);
     const read = () => returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().get(
       {
         id,
@@ -357,6 +358,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * @param {{ context?: object | null, trx?: object | null, returning?: "record" | "id" | "none", format?: "jsonapi" }} [options]
    */
   async function create(attributes, options = {}) {
+    checkBlobValues(resource, [attributes]);
     const returning = pickReturning(SINGLE_RETURNING, options.returning, "record", `${name}.create()`);
     const format = formatOf(name, options);
     // An afterWrite hook needs the new id, so a create returning nothing still asks for it.
@@ -381,7 +383,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * @param {{ id: unknown } & Record<string, unknown>} attributes
    * @param {{ context?: object | null, trx?: object | null }} [options]
    */
-  function findOrCreate(attributes, options = {}) {
+  async function findOrCreate(attributes, options = {}) {
+    checkBlobValues(resource, [attributes]);
     return findOrCreateRecord({ get, create }, attributes, passedOn(options));
   }
 
@@ -450,6 +453,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (!isRecord(attributes)) {
       throw new TypeError(`${name}.patch() takes attributes as an object.`);
     }
+    // Before any statement: a lockVersion or onlyIf patch locks the row first, and an afterWrite hook opens a transaction.
+    checkBlobValues(resource, [attributes]);
     requirePatchConditions(name, lockVersionField, attributes, options);
     const { lockVersion, onlyIf, missing: missingOption, ...callOptions } = options;
     const missing = missingOf(name, "patch", missingOption);
@@ -550,6 +555,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (!Array.isArray(rows)) {
       throw new TypeError(`${name}.createMany() takes an array of rows.`);
     }
+    checkBlobValues(resource, rows);
     refuseConditions(name, "createMany", options, ["lockVersion", "onlyIf"],
       "A create has no stored record to compare; onConflict says what happens to a record that exists.");
     if (options.onConflict) {
@@ -573,6 +579,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     if (!Array.isArray(rows)) {
       throw new TypeError(`${name}.patchMany() takes an array of { id, ...changes } rows.`);
     }
+    checkBlobValues(resource, rows);
     refuseConditions(name, "patchMany", options, ["lockVersion"], ONE_VERSION);
     requireConditionValues(name, "patchMany", options, ["onlyIf"]);
     return manyRowWrite("patchMany", rows.length, options, (params, context) => jsonRest().patchMany(
@@ -597,6 +604,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
    * @param {{ context?: object | null, trx?: object | null, returning?: "none" | "ids" | "records" | "count", onlyIf?: object, all?: boolean, chunkSize?: number, lockMode?: "update" | "noKeyUpdate" }} [options]
    */
   async function patchWhere(filters, attributes, options = {}) {
+    checkBlobValues(resource, [attributes]);
     refuseConditions(name, "patchWhere", options, ["lockVersion"], ONE_VERSION);
     requireConditionValues(name, "patchWhere", options, ["onlyIf"]);
     const selection = whereSelection(name, "patchWhere", filters, options);
@@ -630,7 +638,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   }
 
   // Runs work on the record with row.id, locked, creating it first when missing (see lockOrCreate.js).
-  function lockOrCreateRecord(row, options, work) {
+  async function lockOrCreateRecord(row, options, work) {
+    checkBlobValues(resource, [row]);
     return lockOrCreate({ name, withTransaction, lock, createMany }, row, options, work);
   }
 
@@ -704,7 +713,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     return readChangeHorizon(name, options.trx || api.knex.instance);
   }
 
-  markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate: lockOrCreateRecord, queryPages });
+  markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate: lockOrCreateRecord });
   return Object.freeze({
     name,
     pageLimits,

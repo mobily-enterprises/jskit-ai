@@ -53,16 +53,18 @@ Local functions
 
 ### `src/server/handleBlobs.js`
 Exports
+- `blobBuffers(resource, data)`
 - `blobFields(resource)`
-- `blobPageSize(blobs, serverPageSize)`
-- `checkBlobValues(resource, data)`
+- `checkBlobReads(name, caller, blobs, rows = 1)`
+- `checkBlobValues(resource, rows)`
 - `namedBlobs(resource, fields, resourceNamed)`
-- `refuseBlobsInBulk(name, caller, blobs)`
 - `refuseBlobsInJson(name, blobs)`
+Local functions
+- `labelsOf(blobs)`
 
 ### `src/server/handleEveryRow.js`
 Exports
-- `createEveryRowReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields, settings, resourceNamed })`
+- `createEveryRowReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, settings, resourceNamed })`
 
 ### `src/server/handleGuards.js`
 Exports
@@ -83,12 +85,13 @@ Exports
 Exports
 - `createHiddenFieldReads({ resource, scopedQuery, column })`
 - `createJoinSource({ api, resource, jsonRest, scopedQuery, column })`
-- `markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate, queryPages })`
+- `markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate })`
 - `withoutHiddenFields(repository, resources)`
 Local functions
 - `namedHiddenFields(resource, fields)`
 - `storedValue(value, { type, precision, scale })`
-- `refusedPages(error)`
+- `refusedCall(error)`
+- `isAsyncGenerator(value)`
 - `fieldNames(fields)`
 - `isKnexValue(value)`
 - `withoutFullBuilder(value, label)`
@@ -163,6 +166,11 @@ Exports
 Exports
 - `findOrCreateRecord({ get, create }, attributes, options)`
 - `lockOrCreate(handle, row, options, work)`
+
+### `src/server/manyRowChannel.js`
+Exports
+- `MANY_ROW_CHANNEL`
+- `reportedPageRead(knex, resource, read)`
 
 ### `src/server/rawExpression.js`
 Exports

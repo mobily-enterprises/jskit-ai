@@ -173,13 +173,17 @@ PostgreSQL's `bytea` and SQLite's `BLOB` hold more than any limit you would
 name. A blob takes no `search`, `indexed`, `unique`, `sortable`, `defaultTo` or
 `belongsTo`. A write takes a Buffer or a Uint8Array of at most `maxBytes`, or
 null, and refuses anything else with a validation error on the field (422)
-before any statement. A read leaves a blob out unless its `fields` names it,
-and answers it as a Buffer: `get(id, { fields: ["image"] }, options)`, a page
-of `query()`, or `lock()`. `queryAll()`, `lockWhere()` and `claim()` read every
-matching row at once, so they refuse to name a blob; `queryPages()` reads them,
-each of its pages holding at most 16 MiB of the blobs it names. JSON holds no
-binary, so a JSON:API read and a CRUD contract refuse a blob, and a route of
-its own serves one as the response body. A file people upload (a photo, a
+before any statement, a transaction's or a lock's included. A read leaves a
+blob out unless its `fields` names it, and answers it as a Buffer, holding at
+most 16 MiB of the blobs it names, or one record's: `get(id, { fields:
+["image"] }, options)` and `lock()` read one record's; a page of `query()` and
+the ids of `lockMany()` are refused past the records whose `maxBytes` fit 16
+MiB, and each page of `queryPages()` holds no more. `queryAll()`, `lockWhere()`
+and `claim()` read every matching row at once, so they refuse to name a blob,
+and no read names an included table's blob, since an include holds any number
+of records: read it through that table's handle. A join source carries no
+blob. JSON holds no binary, so a JSON:API read and a CRUD contract refuse a
+blob, and a route of its own serves one as the response body. A file people upload (a photo, a
 document) goes to storage through `runtime.uploads` and the table keeps its
 key; a blob is for the few bytes the record itself needs, such as a thumbnail
 or a signature.
@@ -760,8 +764,10 @@ async function activeDays(memberIds, options) {
   other features, answers `{ query, column }`: the caller's scoped rows under
   that alias (ownership, the row policy and the filters applied) with the
   columns a read answers and the ownership fields (`workspaceId`, `userId`),
-  hidden or not, as join keys; never another hidden column. `column(field)`
-  names each under the alias. The builder comes wrapped, since a builder is
+  hidden or not, as join keys; never another hidden column, and never a blob,
+  so a report's `select("k.*")` holds no unbounded bytes. `column(field)`
+  names each under the alias. A report on the owner's own `scopedQuery()`
+  names the columns it selects, never a blob's. The builder comes wrapped, since a builder is
   thenable and an async function would run it. The report shapes it (select,
   group), names it with `.as()` and joins it, so every owner's scope and row
   policy stay applied. The report lives with the main table's owner, or in a
@@ -837,10 +843,16 @@ async function activeDays(memberIds, options) {
   of the rows. A job reads without that limit and holds every row in memory.
 - Work over many rows reads `queryPages` and handles one page at a time:
   `for await (const records of handle.queryPages(params, options))`. Each
-  page is one statement of up to `pageLimits().server` rows that starts after
-  the last row of the page before, so the work may change what the filters
-  match as it goes. In a request it throws at the same row limit, before the
-  page that passes it.
+  page is one statement of up to `pageLimits().server` rows (fewer when its
+  fields name blobs, so it holds at most 16 MiB of them), plus the reads of
+  its includes and of the hidden fields it names, and starts after the sort
+  values of the last row of the page before. So the work may change what the
+  filters match as it goes, and no row still to come is skipped or read twice,
+  as long as it leaves the sort fields' values alone (the id, by default): a
+  row whose sort value moves past the page is read again or not at all. In a
+  request it throws at the same row limit, before the page that passes it.
+  `expectFlatQueries` allows each later page's own statements, as it allows
+  a many-row write's later chunks; work the path does for each page counts.
 
 ```js
 // good: one page of invoices, then all of that page's lines in one read
@@ -1186,7 +1198,8 @@ test("allocation is flat", () => expectFlatQueries({ environment: process.env, k
 `expectFlatQueries` (from `@jskit-ai/resource-runtime/test`) seeds each size,
 counts the statements the path sends, and fails when a larger size sends more,
 with the counts and the statements repeated most; the later chunks a many-row
-write reports are allowed. It counts only the path's own statements, those
+write reports, and the statements of each later page `queryPages()` reads, are
+allowed. It counts only the path's own statements, those
 `run` and the async work it starts send, so another test or a background loop
 using the same Knex meanwhile changes nothing; work a loop started earlier does
 on the path's behalf is not counted either. `expectScoped` runs the path as owner A before and

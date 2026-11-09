@@ -134,37 +134,48 @@ const HANDLE_SCOPED_QUERIES = new WeakSet();
 const HANDLE_WORK_RUNNERS = new WeakSet();
 // The names an owner's own wrappers of those runners keep.
 const WORK_RUNNER_NAMES = Object.freeze(new Set(["withTransaction", "lockOrCreate"]));
-// Every handle's queryPages, which answers pages to iterate, so a refusal arrives as pages that throw when read.
-const HANDLE_PAGE_READS = new WeakSet();
 // The builders a handle's joinSource() answers, which carry the table's visible columns and ownership fields only: the
 // one query builder withoutHiddenFields hands another feature.
 const JOIN_SOURCES = new WeakSet();
 
 /**
- * Records a new handle's scopedQuery, withTransaction, lockOrCreate and queryPages for withoutHiddenFields.
- * @param {{ scopedQuery: Function, withTransaction: Function, lockOrCreate: Function, queryPages: Function }} handle
+ * Records a new handle's scopedQuery, withTransaction and lockOrCreate for withoutHiddenFields.
+ * @param {{ scopedQuery: Function, withTransaction: Function, lockOrCreate: Function }} handle
  */
-function markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate, queryPages }) {
+function markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate }) {
   HANDLE_SCOPED_QUERIES.add(scopedQuery);
   HANDLE_WORK_RUNNERS.add(withTransaction);
   HANDLE_WORK_RUNNERS.add(lockOrCreate);
-  HANDLE_PAGE_READS.add(queryPages);
 }
 
 /**
- * Pages that throw `error` when read: a refusal of a call that answers pages.
+ * A call refused before it runs: a rejected promise that is pages too, since a method of any name may answer pages
+ * (queryPages(), or an owner's method answering them), so `await` and `for await` both throw `error`. Its rejection
+ * counts as handled, so a caller that only iterates leaves none unhandled.
  * @param {Error} error
- * @returns {AsyncIterable<never>}
+ * @returns {Promise<never> & AsyncIterable<never>}
  */
-function refusedPages(error) {
-  return Object.freeze({ [Symbol.asyncIterator]: () => Object.freeze({ next: () => Promise.reject(error) }) });
+function refusedCall(error) {
+  const refused = Promise.reject(error);
+  refused.catch(() => {});
+  return Object.assign(refused, { [Symbol.asyncIterator]: () => Object.freeze({ next: () => Promise.reject(error) }) });
+}
+
+/**
+ * Whether a value is an async generator's pages, such as queryPages() answers, whose pages withoutHiddenFields strips
+ * one at a time. Other async iterables (a Node stream) pass as they are, as other instances do.
+ * @param {unknown} value
+ */
+function isAsyncGenerator(value) {
+  return Object.prototype.toString.call(value) === "[object AsyncGenerator]";
 }
 
 /**
  * A handle's joinSource(): the table as a join source for another owner's report, which joins it in its own
  * statement. It answers `{ query, column }`: the rows scopedQuery() gives under `alias` (the caller's ownership, the
  * row policy and `filters` applied) with the stored columns a read answers and the ownership fields, hidden or not,
- * since a report joins on them and they name the caller's own scope; never another hidden column. `column(field)`
+ * since a report joins on them and they name the caller's own scope; never another hidden column, and never a blob,
+ * so a report's `select("alias.*")` holds no unbounded bytes. `column(field)`
  * names each under that alias. A CRUD feature's repository answers it to any feature, where it
  * refuses scopedQuery(). The builder comes wrapped, since a builder is thenable.
  * @param {object} dependencies
@@ -191,7 +202,7 @@ function createJoinSource({ api, resource, jsonRest, scopedQuery, column }) {
     const carried = Object.keys(schemaStructure).filter((field) => {
       const definition = schemaStructure[field];
       return field !== "id" && (definition.hidden !== true || joinKeys.has(field)) &&
-        definition.virtual !== true && !definition.belongsToPolymorphic;
+        definition.virtual !== true && !definition.belongsToPolymorphic && resource.schema[field]?.type !== "blob";
     });
     // The scoped rows' visible columns and ownership fields, as a derived table under the alias: nothing a caller adds
     // reaches the others.
@@ -203,6 +214,9 @@ function createJoinSource({ api, resource, jsonRest, scopedQuery, column }) {
     return Object.freeze({
       query: source,
       column(field) {
+        if (resource.schema[field]?.type === "blob") {
+          throw new TypeError(`${name}.joinSource() carries no blob, so it has no column for "${field}": a report reads no blob, and get() reads one record's.`);
+        }
         if (resource.schema[field]?.hidden === true && !joinKeys.has(field)) {
           throw new TypeError(`${name}.joinSource() carries no hidden field but its ownership fields, so it has no column for "${field}".`);
         }
@@ -398,7 +412,6 @@ function guardedFunction(repository, key, call, resource, hidden) {
   const label = `${resource?.name ?? "repository"}.${key}()`;
   const builder = HANDLE_SCOPED_QUERIES.has(call) || (resource !== null && key === "scopedQuery");
   const work = HANDLE_WORK_RUNNERS.has(call) || WORK_RUNNER_NAMES.has(key);
-  const paged = HANDLE_PAGE_READS.has(call) || key === "queryPages";
   return function callWithoutHiddenFields(...args) {
     // A system context, or one it derived, in whichever record the method takes its options.
     if (args.some((arg) => isRecord(arg) && isJobContext(arg.context))) {
@@ -418,7 +431,7 @@ function guardedFunction(repository, key, call, resource, hidden) {
         `${label} fields names the hidden field ${named.map((field) => `"${field}"`).join(", ")}, ` +
           "which only the table's owner, or a system context, reads."
       );
-      return paged ? refusedPages(refusal) : Promise.reject(refusal);
+      return refusedCall(refusal);
     }
     const answer = call.apply(repository, args);
     // A runner's answer is the caller's own work: it passes as it is.
@@ -430,8 +443,7 @@ function guardedFunction(repository, key, call, resource, hidden) {
     if (isKnexValue(answer)) {
       return withoutFullBuilder(answer, label);
     }
-    // readable-check: allow method-probe - data: queryPages() answers an async iterable, whose pages arrive one at a time
-    if (typeof answer?.[Symbol.asyncIterator] === "function") {
+    if (isAsyncGenerator(answer)) {
       return withoutHiddenPages(answer, hidden, label);
     }
     // readable-check: allow method-probe - data: a repository's method may answer at once or with a promise
