@@ -205,6 +205,12 @@ Exactly this, and nothing more:
   Symbols has no brand marks (Google, GitHub, a payment network): a brand's
   logo is the brand's own artwork, a content image or SVG used as its owner
   publishes it, not an icon alias.
+- **JSKIT components:** a prop that a JSKIT release removes from a component
+  it exports is listed in the package's `jskit.metadata.ui.removedProps`
+  (`{ "<Component>": { "<prop>": "<what to do instead>" } }`). An app that
+  still passes one fails `jskit check` (`ui/removed-prop`): Vue would pass it
+  on as an HTML attribute that does nothing. Each removal is also in the
+  package's CHANGELOG.
 
 ## Exact sizes
 
@@ -383,14 +389,15 @@ Two commands read application source (no server, no browser) and print each
 finding with its file, line, rule and the section of this page:
 
 ```bash
-npx jskit check                          # in every app's verify: fails on any nav/* or m3/* finding
+npx jskit check                          # in every app's verify: fails on any nav/*, m3/* or ui/* finding
 npx jskit check m3                       # these rules alone, the whole app: src/ and packages/
 npx jskit check m3 src/pages/home/books  # a section
 npx jskit check m3 $(git diff --name-only --diff-filter=d main)  # changed files
 ```
 
 Plain `jskit check`, and so every app's verify, fails on the
-[navigation rules](#forbidden-in-app-code) and on the visual rules below.
+[navigation rules](#forbidden-in-app-code) and on the visual and component
+rules below; nothing excuses a `ui/*` finding.
 `jskit check m3` applies the same rules alone, to the whole app or to the
 given paths:
 
@@ -402,6 +409,7 @@ given paths:
 | `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet |
 | `m3/mdi-icon` | `mdi-*` icon strings and `@mdi/js` imports |
 | `m3/fixed-button-height` | `height`/`min-height` on buttons, in props, styles or CSS |
+| `ui/removed-prop` | a prop the installed JSKIT package lists as removed from the component the template passes it to, written in camelCase or kebab-case, static or bound |
 
 Tests, fixtures, server code and migrations are not checked. A clean check is
 necessary, not sufficient: it cannot see layout, spacing or contrast. A

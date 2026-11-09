@@ -260,6 +260,22 @@ function validateApiSummarySurfaces(packageJson) {
   }
 }
 
+// Each component that jskit.metadata.ui.removedProps lists is one the package exports as ./client/components/<name>,
+// with a hint for each removed prop, so jskit check's ui/removed-prop judges a component an app can import.
+function validateRemovedProps(packageJson) {
+  const exported = packageJson.exports && typeof packageJson.exports === "object" ? packageJson.exports : {};
+  for (const [component, props] of Object.entries(packageJson.jskit?.metadata?.ui?.removedProps || {})) {
+    if (!exported[`./client/components/${component}`]) {
+      throw new Error(`${packageJson.name}#jskit.metadata.ui.removedProps lists ${component}, which the package does not export as ./client/components/${component}.`);
+    }
+    for (const [prop, hint] of Object.entries(props || {})) {
+      if (typeof hint !== "string" || !hint.trim()) {
+        throw new Error(`${packageJson.name}#jskit.metadata.ui.removedProps.${component}.${prop} says nothing; say what to do instead.`);
+      }
+    }
+  }
+}
+
 async function validatePackage(packageRecord, localVersions, migrationOwners) {
   const { packageJson, packageRoot, manifestPath } = packageRecord;
   const packageId = String(packageJson.name || "").trim();
@@ -294,6 +310,7 @@ async function validatePackage(packageRecord, localVersions, migrationOwners) {
   }
 
   validateApiSummarySurfaces(packageJson);
+  validateRemovedProps(packageJson);
   const serverProviderCount = await validateProviderList(packageRecord, "server");
   await validateProviderList(packageRecord, "client");
   await validateMigrations(packageRecord, migrationOwners);
@@ -423,6 +440,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === SCRIPT_PATH) {
 export {
   main,
   validateApiSummarySurfaces,
+  validateRemovedProps,
   validateCapabilityClosure,
   validateMigrations,
   validateProviderExport,

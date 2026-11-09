@@ -8,6 +8,7 @@ import {
   validateCapabilityClosure,
   validateMigrations,
   validateProviderList,
+  validateRemovedProps,
   validateSingletonPeerDependencies
 } from "../scripts/verify-packages.mjs";
 
@@ -257,6 +258,19 @@ test("an apiSummary surface names an exported entrypoint or a group of them", ()
     () => validateApiSummarySurfaces(packageJson),
     /@jskit-ai\/example#jskit\.metadata\.apiSummary describes \.\/server\/host, which the package does not export/u
   );
+});
+
+test("a removed prop is listed for an exported component, with a hint", () => {
+  const packageJson = {
+    name: "@jskit-ai/example",
+    exports: { "./client/components/RecordScreen": "./src/client/components/RecordScreen.vue" },
+    jskit: { metadata: { ui: { removedProps: { RecordScreen: { pluralTitle: "The Up arrow names the list." } } } } }
+  };
+  assert.doesNotThrow(() => validateRemovedProps(packageJson));
+  packageJson.jskit.metadata.ui.removedProps.RecordScreen.backLabel = " ";
+  assert.throws(() => validateRemovedProps(packageJson), /removedProps\.RecordScreen\.backLabel says nothing/u);
+  packageJson.jskit.metadata.ui.removedProps = { RecordMenu: { label: "Use title." } };
+  assert.throws(() => validateRemovedProps(packageJson), /lists RecordMenu, which the package does not export as \.\/client\/components\/RecordMenu/u);
 });
 
 test("kernel is always treated as shared client infrastructure", () => {

@@ -393,10 +393,18 @@ Local functions
 - `seconds(ms)`
 - `readTestTimeBounds(cwd)`
 
+### `scripts/ui-components.mjs`
+Exports
+- `checkRemovedProps(tags, script, removedProps, report)`
+- `readRemovedProps(root)`
+Local functions
+- `readComponentImports(script)`
+
 ### `scripts/verify-packages.mjs`
 Exports
 - `main()`
 - `validateApiSummarySurfaces(packageJson)`
+- `validateRemovedProps(packageJson)`
 - `validateCapabilityClosure(packages, { builtinCapabilities = BUILTIN_CAPABILITIES } = {})`
 - `validateMigrations(packageRecord, migrationOwners)`
 - `validateProviderExport(value, label)`

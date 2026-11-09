@@ -24,8 +24,10 @@ import {
   readTags,
   splitVue
 } from "./material3-source.mjs";
+import { checkRemovedProps, readRemovedProps } from "./ui-components.mjs";
 
-// The conformance check of the JSKIT Material 3 guide, its navigation rules (nav/*) and its visual rules (m3/*). It
+// The conformance check of the JSKIT Material 3 guide, its navigation rules (nav/*), its visual rules (m3/*) and its
+// rules for using components (ui/*, ui-components.mjs). It
 // reads application source, never runs it. Plain `jskit check` runs it over the whole app and fails on any finding, in
 // every JSKIT app's verify (#241); `jskit check m3 [path ...]` runs it alone, narrowed to a section or a task's changed
 // files. Nothing turns the check off for an app, a folder or a file: the only exception is one line's
@@ -40,6 +42,7 @@ const RULES = Object.freeze({
   "m3/outlined-card": "colour",
   "m3/mdi-icon": "foundation",
   "m3/fixed-button-height": "exact-sizes",
+  "ui/removed-prop": "foundation",
   "m3/allow-reason": "exceptions",
   "m3/allow-rule": "exceptions",
   "nav/allow": "exceptions"
@@ -246,6 +249,7 @@ function checkTemplate(template, context) {
   }
   // The branches each h1 renders under: h1s on different branches of one v-if chain never show together.
   const branches = readConditionalBranches(template);
+  checkRemovedProps(tags, context.script, context.removedProps, report);
   const headings = [];
   for (const tag of tags) {
     for (const entry of tag.attributes) {
@@ -361,10 +365,11 @@ async function checkMaterial3({ projectRoot = process.cwd(), paths = [] } = {}) 
   const titledFiles = usesShell(await readProjectManifest(root))
     ? await readTitledFiles({ root, appFiles: [...new Set([...appFiles, ...files])] })
     : new Set();
+  const removedProps = await readRemovedProps(root);
   const findings = [];
   const exceptions = [];
   for (const file of files) {
-    const checked = checkFile(file, await readFile(path.join(root, file), "utf8"), { titled: titledFiles.has(file) });
+    const checked = checkFile(file, await readFile(path.join(root, file), "utf8"), { titled: titledFiles.has(file), removedProps });
     findings.push(...checked.findings);
     exceptions.push(...checked.exceptions);
   }

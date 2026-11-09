@@ -1947,6 +1947,13 @@
           },
           "client": {
             "singleton": true
+          },
+          "ui": {
+            "removedProps": {
+              "CrudViewScreen": {
+                "resourcePluralTitle": "Its \"Back to\" button is gone: the shell's Up arrow returns to the list. Remove the prop."
+              }
+            }
           }
         }
       },
