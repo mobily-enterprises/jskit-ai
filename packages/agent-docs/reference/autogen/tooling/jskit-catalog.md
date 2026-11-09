@@ -66,6 +66,19 @@ Local functions
 - `buildCatalog({ repoRoot, packagesRoot, outputPath })`
 - `main()`
 
+### `scripts/data-access-files.mjs`
+Exports
+- `ROOT`
+- `lintIgnores({ governed, config })`
+- `sourceFiles(root)`
+Local functions
+- `skipsDirectory(name)`
+- `walk(root, directory, files)`
+- `frameworkPackages(root)`
+- `appEslint(root)`
+- `lintConfigs(root, files)`
+- `skippedPaths(files, skipped)`
+
 ### `scripts/data-access.mjs`
 Exports
 - `checkDataAccess({ projectRoot = process.cwd() } = {})`
@@ -73,7 +86,6 @@ Exports
 - `readTableResourceSources({ projectRoot = process.cwd() } = {})`
 Local functions
 - `escapeRegExp(text)`
-- `skipsDirectory(name)`
 - `blank(text)`
 - `maskStrings(code)`
 - `closingOffset(masked, start)`
@@ -98,16 +110,12 @@ Local functions
 - `readLintDisables(file, source, position)`
 - `readRuntimeCapabilities(file, { code, masked, position })`
 - `isError(setting)`
-- `appEslint(root)`
-- `checkLintConfig(root, files, baseline, report)`
+- `checkLintConfig({ configs, error }, baseline, report)`
 - `checkCapabilities(baseline, uses, report)`
 - `readBaseline(root, report)`
 - `checkBaseline(baseline, excuses, scopes, report)`
-- `walk(root, directory, files)`
-- `frameworkPackages(root)`
 - `checkTables(resources, report)`
 - `checkSystemScopes(scopes, report)`
-- `sourceFiles(root)`
 
 ### `scripts/files.mjs`
 Exports

@@ -473,6 +473,53 @@ test("an app file its ESLint config lints without every data-access rule as an e
   });
 });
 
+test("code the app's ESLint config ignores outside server code is skipped, and listed", async () => {
+  const dataAccess = JSON.stringify(new URL("../../config-eslint/dataAccess.js", import.meta.url).href);
+  await withProject({
+    "package.json": { name: "vendored", type: "module" },
+    "eslint.config.mjs": [
+      `import { dataAccessConfig } from ${dataAccess};`,
+      "export default [{ ignores: [\"legacy/\", \"scripts/vendored-*.js\"] }, ...dataAccessConfig([\"**\"])];",
+      ""
+    ].join("\n"),
+    ...TABLES,
+    "server/index.js": "export const index = {};\n",
+    "scripts/build.js": "export const build = {};\n",
+    // A read-only legacy copy, kept beside the app, that no lint reads: none of it is held to the data rules either.
+    "legacy/server/db.js": [
+      "/* eslint-disable */",
+      "export const receivals = defineTableResource({ name: \"receivals\", tableName: \"receivals\" });",
+      ""
+    ].join("\n"),
+    "legacy/lib/report.js": "export const report = () => systemContext(\"\"); // eslint-disable-line\n",
+    "scripts/vendored-tool.js": "/* eslint-disable */\nexport const requires = { database: \"runtime.database\" };\n"
+  }, async (root) => {
+    const result = await checkDataAccess({ projectRoot: root });
+    assert.deepEqual(findingLines(result), []);
+    assert.deepEqual(result.skipped, ["legacy/", "scripts/vendored-tool.js"]);
+    assert.match(formatDataAccessReport(result),
+      /^Skipped, as the app's ESLint config ignores them and they hold no server code \(2\):\n {2}legacy\/\n {2}scripts\/vendored-tool\.js\nJSKIT data access: 4 table resource\(s\)/mu);
+  });
+});
+
+test("server code the app's ESLint config ignores is still read, and fails", async () => {
+  const dataAccess = JSON.stringify(new URL("../../config-eslint/dataAccess.js", import.meta.url).href);
+  await withProject({
+    "package.json": { name: "unlinted", type: "module" },
+    "eslint.config.mjs": [
+      `import { dataAccessConfig } from ${dataAccess};`,
+      "export default [{ ignores: [\"server/\"] }, ...dataAccessConfig([\"**\"])];",
+      ""
+    ].join("\n"),
+    "server/lib/db.js": "/* eslint-disable */\nexport const db = {};\n"
+  }, async (root) => {
+    const result = await checkDataAccess({ projectRoot: root });
+    assert.deepEqual(findingLines(result), ["server/lib/db.js:1 data/lint-disabled", "server/lib/db.js:1 data/lint-config"]);
+    assert.deepEqual(result.skipped, []);
+    assert.doesNotMatch(formatDataAccessReport(result), /^Skipped/mu);
+  });
+});
+
 test("plain jskit check reports the data rules and fails on a second table resource for a table", async () => {
   const app = {
     "package.json": { name: "tables", scripts: { test: "jskit test" } },

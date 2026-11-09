@@ -1387,3 +1387,7 @@ it. Check and judge, for each file:
   rule as an error (`"jskit/no-direct-knex": "off"`, `dataAccessConfig(files,
   "off")`), or server code (`src/server`, `src/shared`, `server/`) that it
   ignores, until `infrastructure` lists that file and rule.
+
+It reads none of what the app's ESLint config ignores outside server code,
+such as a vendored copy of old code kept beside the app, since no lint reads
+it either, and lists each directory and file it skipped.
