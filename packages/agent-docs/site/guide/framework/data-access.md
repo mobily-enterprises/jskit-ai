@@ -209,7 +209,17 @@ A filter on another table's field (`searchSchema: { supplierName: { type:
 "string", actualField: "suppliers.name" } }`) needs that field declared
 `indexed: true` on its own table resource, with a database index on its column,
 even when the join is on the other table's id; `own()` refuses it at startup
-otherwise, naming both.
+otherwise, naming both. That `indexed: true` is the other table's owner letting
+filters search the field. The filter reads that table as the table's own read
+in the caller's scope: its ownership, its owner's row policy and the policies
+contributed to it decide which of its rows can match, in `query`, `queryAll`,
+`queryPages` and `aggregate` alike, and each row matches once, through a
+has-many path too (suppliers filtered by their items' names). `own()` also
+refuses two filters no scope guards: one that reads a `system` table from a
+table that is not `system`, since a request would read it, and one on a field
+the other table hides, which would tell a caller which rows hold a value it
+may not read. For either, the other table's owner answers the ids it matches
+through its owner API, and the filter takes the list: `filters: { supplierIds }`.
 
 A table keyed by a `uuid` or `string` primary key takes its ids as text; an
 `owns` entry's `normalizeId` is only for an id written some other way.

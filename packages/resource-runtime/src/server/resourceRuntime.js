@@ -46,7 +46,8 @@ function ownedEntry(entry, featureId) {
 
 /**
  * The filters of a resource's search that read another table: each `actualField` or `oneOf` path
- * "resource.field" (or "a.b.field", whose last resource holds the field), as { filter, target, field }.
+ * "resource.field" (or "a.b.field", whose last resource holds the field), as { filter, tables, target, field }, where
+ * `tables` names every resource the path joins and `target` the last.
  * @param {Record<string, any>} scopeOptions The resource's json-rest-api scope options.
  */
 function crossTableFilters(scopeOptions) {
@@ -58,7 +59,7 @@ function crossTableFilters(scopeOptions) {
     .filter((path) => typeof path === "string" && path.includes("."))
     .map((path) => {
       const segments = path.split(".");
-      return { filter, target: segments.at(-2), field: segments.at(-1) };
+      return { filter, tables: segments.slice(0, -1), target: segments.at(-2), field: segments.at(-1) };
     }));
 }
 
@@ -187,30 +188,50 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
   }
 
   /**
-   * Refuses, at startup, a cross-table filter on a field json-rest-api cannot search: one its target resource does
-   * not declare `indexed: true`, which json-rest-api otherwise refuses only at the first query. A filter whose
-   * target no feature owns yet waits for it.
+   * Refuses, at startup, a cross-table filter json-rest-api would not search, or would search outside its owner's
+   * consent. json-rest-api joins each table the path names as that table's own read in the caller's scope (its
+   * ownership, its owner's row policy and the policies contributed to it), and searches only a field its owner declares
+   * `indexed: true`, which it otherwise refuses only at the first query. Two tables no scope guards are refused here: a
+   * `system` table, which only its owner's system context reads, joined into a table that is not `system` itself (a
+   * request would read it), and a hidden field, whose value a filter would tell a caller who may not read it. A filter
+   * whose tables no feature owns yet waits for them.
    * @param {ReadonlyArray<{ resource: Record<string, any> }>} entries The resources being owned now.
    * @param {ReadonlyArray<Record<string, any>>} scopes Their json-rest-api scope options, in the same order.
    */
   function checkCrossTableFilters(entries, scopes) {
     const owning = new Map(entries.map(({ resource }) => [resource.name, resource]));
-    const targetNamed = (name) => owning.get(name) || ownedByName.get(name)?.resource;
+    const resourceOf = (name) => owning.get(name) || ownedByName.get(name)?.resource;
     const filters = [
       ...pendingCrossTableFilters.splice(0),
-      ...entries.flatMap(({ resource }, index) => crossTableFilters(scopes[index]).map((filter) => ({ ...filter, source: resource.name })))
+      ...entries.flatMap(({ resource }, index) => crossTableFilters(scopes[index]).map((filter) => ({ ...filter, source: resource })))
     ];
     for (const filter of filters) {
-      const target = targetNamed(filter.target);
-      if (!target) {
+      if (!filter.tables.every(resourceOf)) {
         pendingCrossTableFilters.push(filter);
         continue;
       }
-      if (target.schema?.[filter.field]?.indexed !== true) {
+      const { source, filter: name, target, field } = filter;
+      const on = `Table resource "${source.name}" filters "${name}" on ${target}.${field}`;
+      const instead = `filter on a field of "${source.name}", or have the owner of "${target}" answer the ids it matches ` +
+        "(an owner API) and filter by them.";
+      const system = filter.tables.find((table) => resourceOf(table).ownership === "system");
+      if (system && source.ownership !== "system") {
         throw new TypeError(
-          `Table resource "${filter.source}" filters "${filter.filter}" on ${filter.target}.${filter.field}, which ` +
-          `"${filter.target}" does not declare indexed: true. A cross-table filter reads another table by that field: ` +
-          `give the field indexed: true and its column a database index, or filter on a field of "${filter.source}".`
+          `${on}, which reads "${system}", a system table: only its owner's system context reads it, and the filter ` +
+          `would read it in the caller's scope, a request's too. Make "${system}" a table the caller's scope guards, or ${instead}`
+        );
+      }
+      const definition = resourceOf(target).schema?.[field];
+      if (definition?.hidden === true) {
+        throw new TypeError(
+          `${on}, a field "${target}" hides: a filter on it would tell a caller who may not read it which rows hold a ` +
+          `value. Filter on a field "${target}" shows, or ${instead}`
+        );
+      }
+      if (definition?.indexed !== true) {
+        throw new TypeError(
+          `${on}, which "${target}" does not declare indexed: true. A cross-table filter reads another table by that field: ` +
+          `give the field indexed: true and its column a database index, or filter on a field of "${source.name}".`
         );
       }
     }
