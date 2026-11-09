@@ -120,6 +120,38 @@ function projectReports({ projects, tasks }) {
   return { withTasks, withoutTasks, taskCounts };
 }
 
+/**
+ * A console's reports, in a feature that owns neither table and requires both owners: each roots at the projects'
+ * join source and ties the tasks' to it, in one statement.
+ */
+function consoleReports({ projects, tasks }) {
+  // Knex: report - the caller's projects with no task the caller sees, for a console that owns neither table
+  async function idle(options) {
+    const project = await projects.joinSource({ alias: "p" }, options);
+    const task = await tasks.joinSource({ alias: "k" }, options);
+    return project.query
+      .whereNotExists(task.query.select(task.column("id")).whereColumn(task.column("projectId"), project.column("id")))
+      .select({ name: project.column("name") })
+      .orderBy(project.column("id"));
+  }
+  // Knex: totals - each of the caller's projects with how many tasks the caller sees, for a console that owns neither table
+  async function counts(options) {
+    const project = await projects.joinSource({ alias: "p" }, options);
+    const task = await tasks.joinSource({ alias: "k" }, options);
+    const counted = task.query
+      .select({ projectId: task.column("projectId") })
+      .count({ tasks: task.column("id") })
+      .groupBy(task.column("projectId"))
+      .as("c");
+    const rows = await project.query
+      .leftJoin(counted, "c.projectId", project.column("id"))
+      .select({ name: project.column("name"), tasks: "c.tasks" })
+      .orderBy(project.column("id"));
+    return rows.map(({ name, tasks: count }) => ({ name, tasks: Number(count ?? 0) }));
+  }
+  return { idle, counts };
+}
+
 const names = (rows) => rows.map(({ name }) => name);
 
 /**
@@ -147,6 +179,21 @@ function reportsAcrossOwnersCases(connect) {
       const counts = await countQueries(knex, () => taskCounts(request));
       assert.deepEqual([counts.result, counts.count], [[{ name: "Alpha", tasks: 2 }, { name: "Beta", tasks: 1 }, { name: "Gamma", tasks: 0 }], 1]);
       assert.deepEqual(await taskCounts(handles.job), [{ name: "Alpha", tasks: 2 }, { name: "Beta", tasks: 1 }, { name: "Gamma", tasks: 1 }]);
+    }],
+
+    ["a console's report, in a feature that owns none of the tables, roots at one owner's join source and ties the others' to it, in one statement", async (t) => {
+      const knex = await connect(t, "da_ro_console");
+      const handles = await projectsAndTasks(knex);
+      const { idle, counts } = consoleReports(handles);
+      const request = { context: WORKSPACE_A };
+
+      const none = await countQueries(knex, () => idle(request));
+      assert.deepEqual([names(none.result), none.count], [["Gamma"], 1]);
+      assert.deepEqual(names(await idle(handles.job)), []);
+
+      const counted = await countQueries(knex, () => counts(request));
+      assert.deepEqual([counted.result, counted.count], [[{ name: "Alpha", tasks: 2 }, { name: "Beta", tasks: 1 }, { name: "Gamma", tasks: 0 }], 1]);
+      assert.deepEqual(await counts(handles.job), [{ name: "Alpha", tasks: 2 }, { name: "Beta", tasks: 1 }, { name: "Gamma", tasks: 1 }]);
     }]
   ];
 }

@@ -68,13 +68,23 @@ function requestedFields(params, quiet, schemaInfo) {
     return params.fields;
   }
   const left = new Set(skipped.flatMap(({ fieldName, relationshipName }) => [fieldName, relationshipName]));
-  const { outputFields, outputRelationships, idProperty } = schemaInfo();
+  return defaultFieldList(schemaInfo()).filter((field) => !left.has(field));
+}
+
+/**
+ * Every field a read that names none answers, as a list a read can name: the attributes json-rest-api answers by
+ * default (none hidden, none normally hidden, blobs among those) and every relationship.
+ * @param {{ outputFields: Record<string, any>, outputRelationships: Record<string, any>, idProperty?: string }} schemaInfo
+ *   json-rest-api's compiled schema of the resource.
+ * @returns {string[]}
+ */
+function defaultFieldList({ outputFields, outputRelationships, idProperty }) {
   return [
     ...Object.entries(outputFields)
       .filter(([field, definition]) => field !== "id" && field !== idProperty && !definition?.hidden && !definition?.normallyHidden)
       .map(([field]) => field),
     ...Object.keys(outputRelationships)
-  ].filter((field) => !left.has(field));
+  ];
 }
 
 /**
@@ -455,6 +465,8 @@ function patchAnswer(id, record, returning) {
 
 export {
   aggregateMeasures,
+  defaultFieldList,
+  includedRelationships,
   MANY_RETURNING,
   SINGLE_RETURNING,
   handleRecords,

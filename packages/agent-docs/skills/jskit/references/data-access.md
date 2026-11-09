@@ -29,7 +29,7 @@ through its handle's calls, and every call takes the call's `options` last:
 | Call | Does |
 | --- | --- |
 | `query({ filters, sort, page, include }, options)` | one page: `{ records, page }` |
-| `queryAll({ filters, sort, include }, options)` | every matching row, for jobs, id lists and one parent's rows |
+| `queryAll({ filters, sort, include, take }, options)` | every matching row, or the first `take`, for jobs, id lists and one parent's rows |
 | `queryPages({ filters, sort, include }, options)` | every matching row, a page at a time, for work over many rows |
 | `get(id, params, options)` | one record |
 | `aggregate({ measures, groupBy, filters, sort, page }, options)` | totals, grouped by fields or date buckets |
@@ -255,6 +255,63 @@ table that is not `system`, since a request would read it, and one on a field
 the other table hides, which would tell a caller which rows hold a value it
 may not read. For either, the other table's owner answers the ids it matches
 through its owner API, and the filter takes the list: `filters: { supplierIds }`.
+
+A filter that asks whether a row has, or lacks, another owner's rows
+(projects with an open task, projects with no task) reads that owner's join
+source. The `owns` entry's `searchSchema` names each join source by an alias,
+with a function answering its owner from the feature's `requires` or its own
+handles (`owned`), and `applyFilter` gets `joinSource(alias)`: that owner's
+`{ query, column }` for the caller's scope, as a report's join source
+([Layer 5](#layer-5-reports-the-resource-cannot-express)), which it ties to
+the row with `whereColumn` inside `whereExists` or `whereNotExists`:
+
+```js
+// the projects feature's owns entry; the feature requires the tasks owner as `tasks`
+{
+  resource: projectResource,
+  searchSchema: {
+    hasOpenTask: {
+      type: "boolean",
+      joinSources: { k: ({ requires }) => requires.tasks },
+      applyFilter(query, wanted, { column, joinSource }) {
+        const task = joinSource("k");
+        const openTasks = task.query
+          .select(task.column("id"))
+          .whereColumn(task.column("projectId"), column("id"))
+          .where(task.column("status"), "open");
+        if (wanted) {
+          query.whereExists(openTasks);
+        } else {
+          query.whereNotExists(openTasks);
+        }
+      }
+    }
+  }
+}
+```
+
+The handle builds the join sources a read's filters use just before the read,
+in the call's own context and transaction, so `query`, `queryAll`,
+`queryPages`, `aggregate` and `joinSource` take the filter in their one
+statement, and the other owner's ownership, row policy and hidden fields
+decide which of its rows count (`column()` refuses a hidden field). A filter
+that prefers one match and falls back on another when no row of the table has
+the first (the projects named like the term, or, when none is, those with a
+task in that status) names the feature's own handle for its own table,
+`({ owned }) => owned.projects`. Only a read through a handle builds join
+sources. `own()` refuses, at startup, `joinSources` that is not a record of
+functions under aliases, such a filter with `oneOf` or without `applyFilter`,
+and `joinSources` in the table resource's own `searchSchema`, which names no
+feature to answer it.
+
+An app switches to such a filter where a search resolves another owner's
+matches first: a repository that reads the other owner's ids (an id report on
+its `scopedQuery()`, or that owner's `queryAll` matched in memory) and then
+filters `id` by the list, or a filter that was a `whereRaw` with `EXISTS
+(SELECT ... FROM ...)`, which `jskit/sql-literal` refuses. The filter moves
+into the `owns` entry with the other owner as a join source, the code that
+resolved ids goes, and the read is one statement however many rows match,
+where the id list grew with the matches.
 
 A table keyed by a `uuid` or `string` primary key takes its ids as text; an
 `owns` entry's `normalizeId` is only for an id written some other way.
@@ -564,8 +621,9 @@ waiter with errno 1020 ("Record has changed since last read"), which a write
 that owns its transaction runs again. For one row,
 `patch(id, changes, { ...options, onlyIf: { status: "open" } })` does the same.
 A filter on another table (a search field whose `actualField` reaches a
-related table) is refused on MySQL and MariaDB (`RestApiValidationError`, rule
-`selection_cross_table`), even when it matches no row. A search entry's own
+related table, or one that reads a join source) is refused on MySQL and
+MariaDB (`RestApiValidationError`, rule `selection_cross_table`), even when it
+matches no row; `lockWhere` and `claim` refuse it the same way. A search entry's own
 `applyFilter` that reads another table through a subquery is not detected, and
 is no compare-and-set there either. Filter on the row's own columns instead, for example
 on the link after locking its targets with `lockMany` in the same transaction
@@ -622,17 +680,31 @@ or a counter row taken with `lock(id)`. Every lock needs a transaction; SQLite
 runs one transaction at a time, so there is no row lock to take. Take locks in
 one order on every path, a parent before its children.
 
-A lock answers only the rows it locks, with the fields `fields` names, and
-refuses `include` before any statement. Read the locked rows' related records
-after the lock, in the same transaction: `queryAll({ filters: { id: ids },
-include }, txOptions)`, or the related table's read by id list. On PostgreSQL
-every statement sees what had committed when it began, so that read is current.
-On MySQL and MariaDB a plain read inside a transaction sees the snapshot of the
+A lock answers the rows it locks, with the fields `fields` names. Its
+`include` names belongs-to relationships (`include: ["customer"]`, or
+`"batch.yard"` a level further): after its own rows, the lock locks the
+records they name through each related table's own handle (its scope, its row
+policy, its hidden fields), in id order, each related table once however many
+rows name it, and nests them as a read's include does; a link to a record the
+caller may not see reads as in a read, its belongs-to field null. Those are locks too, so on MySQL and MariaDB
+they find a record committed after the transaction's first plain read, which a
+plain read misses. They come after the rows, a child before the parent it
+names, so a path that locks the parent first and then its children (to add one)
+takes the other order: the database ends a deadlock between the two by failing
+one transaction, which `withTransaction` runs again, and a path that runs
+often keeps one order on both sides. A collection (`include: ["lines"]`) is
+refused before any statement: lock a parent's children with their own
+table's `lockWhere` in the same transaction.
+
+Every other read after the lock is a plain read. On PostgreSQL every statement
+sees what had committed when it began, so that read is current. On MySQL and
+MariaDB a plain read inside a transaction sees the snapshot of the
 transaction's first plain read, and a lock that waited does not move it. So
 take the lock before any plain read in the transaction: the reads after it then
 see what the lock's previous holder committed. A related row the work decides
-on (is this seat already booked?) is locked itself, or read after a lock
-that every writer of it takes first.
+on (is this seat already booked?) is locked itself, through the lock's
+`include` or a lock of its own, or read after a lock that every writer of it
+takes first.
 
 ```js
 // good: the lock is the transaction's first read, so the bookings read after it are current
@@ -797,7 +869,10 @@ async function activeDays(memberIds, options) {
   its own row with `whereColumn`; one that counts them joins the source grouped,
   as `projectSummary` does. Rows matched by a related row's value ("items
   whose supplier is named Acme") need no report: a cross-table search filter
-  answers them in a plain read ([Layer 1](#layer-1-the-table-resource)).
+  answers them in a plain read ([Layer 1](#layer-1-the-table-resource)). Nor
+  does a question that only narrows a plain read's rows (has an open task, has
+  no task): a search filter that reads the other owner's join source answers
+  it in that read, with its page, sort and includes as usual (Layer 1).
 
   ```js
   // Knex: report - the caller's projects with no task the caller sees
@@ -811,6 +886,32 @@ async function activeDays(memberIds, options) {
   }
   ```
 
+- A report in a feature that owns none of its tables (a console's, over
+  several owners) roots at the main owner's `joinSource()` instead of a
+  `scopedQuery()`, and ties the other owners' join sources to it the same way,
+  in one statement, every owner's scope and row policy applied.
+
+  ```js
+  // Knex: report - the caller's projects with no task the caller sees, for a console that owns neither table
+  async function idleProjects(options) {
+    const project = await projects.joinSource({ alias: "p" }, options);
+    const task = await tasks.joinSource({ alias: "k" }, options);
+    return project.query
+      .whereNotExists(task.query.select(task.column("id")).whereColumn(task.column("projectId"), project.column("id")))
+      .select({ name: project.column("name") });
+  }
+  ```
+
+- An app switches a report it kept as a raw-SQL exception (another owner's
+  table joined by name, or a subquery in `raw()`, in a file under an
+  infrastructure exception, see [Exceptions](#exceptions)) to these: the
+  report's feature requires each owner whose rows it reads, puts each owner's
+  join source where the table stood (`whereExists`, `whereNotExists`, or
+  joined grouped for counts and sums), roots at its own table's
+  `scopedQuery()` or at the main owner's `joinSource()`, and the file drops
+  its `readable-check: allow` lines and its `jskit-data-access.json` entry.
+  When an owner is a JSKIT package, its owner API answers `joinSource`
+  ([Tables you don't own](#tables-you-dont-own)).
 - When each owner can answer on its own (keys in, grouped totals out), the
   report is a feature of its own that calls each owner's method and merges the
   answers in memory: one statement per owner, never a call per row.
@@ -838,6 +939,11 @@ async function activeDays(memberIds, options) {
   request it stops past the request row limit (`pageLimits().requestRows`,
   10,000 rows) with a 400 coded `RESOURCE_ROW_LIMIT`, and never answers part
   of the rows. A job reads without that limit and holds every row in memory.
+  `queryAll({ ..., take: 500 })` answers only the first 500 rows in its sort
+  order and reads no row past them, the last page no larger than the rows still
+  wanted. `take` is then the read's bound, so a request may name more than the
+  request row limit and never gets `RESOURCE_ROW_LIMIT`: name the bound the
+  work can hold, never one from the request unchecked.
 - Work over many rows reads `queryPages` and handles one page at a time:
   `for await (const records of handle.queryPages(params, options))`. Each
   page is one statement of up to `pageLimits().server` rows (fewer when its

@@ -11,7 +11,7 @@ import { returnBadRequestWhenJsonRestFieldsetInvalid } from "./resourceHost.js";
  * A handle's reads of every row its filters match: queryAll, which answers them at once, and queryPages, which hands
  * them over a page at a time. Both read in cursor pages of `settings.serverPageSize` rows and, in a request context,
  * stop past `settings.requestRowLimit` rows; a system context, and the workspace and user contexts it derives, read
- * without a limit.
+ * without a limit. queryAll with `take` answers only the first `take` rows, and reads no further.
  * @param {object} dependencies
  * @param {{ knex: { instance: any } }} dependencies.api The table's json-rest-api, whose Knex sends its statements.
  * @param {string} dependencies.name The resource's name.
@@ -34,11 +34,18 @@ function createEveryRowReads({ api, name, resource, jsonRest, readFields, contex
    * id order (or `sort`). In a request it throws past the request row limit
    * (pageLimits().requestRows); a system context, and the workspace and user
    * contexts it derives, read without one, holding every row in memory:
-   * queryPages() reads them a page at a time.
-   * @param {{ filters?: object, sort?: string | string[], include?: string | string[], fields?: string[] | object }} [params]
+   * queryPages() reads them a page at a time. With `take`, it answers the first
+   * `take` of them in that order and reads no further (see takeRows), in a request
+   * too, where `take` is the bound instead of the request row limit.
+   * @param {{ filters?: object, sort?: string | string[], include?: string | string[], fields?: string[] | object, take?: number }} [params]
    * @param {{ context?: object | null, trx?: object | null }} [options]
    */
   async function queryAll(params = {}, options = {}) {
+    if (params !== null && typeof params === "object" && Object.hasOwn(params, "take")) {
+      const { take, ...read } = params;
+      // take: undefined is no take, as an option left undefined is anywhere.
+      return take === undefined ? queryAll(read, options) : takeRows(read, take, options);
+    }
     const context = contextOf(options);
     const rowLimit = rowLimitOf(options);
     checkBlobReads(name, "queryAll", namedBlobs(resource, params.fields, resourceNamed), Infinity);
@@ -65,6 +72,55 @@ function createEveryRowReads({ api, name, resource, jsonRest, readFields, contex
       }
       throw error;
     }
+  }
+
+  /**
+   * queryAll() with `take`: the first `take` records the filters match, in id order (or `sort`), read in pages of at
+   * most pageLimits().server rows, the last page no larger than the rows still wanted, so nothing past the `take`-th
+   * row is read. `take` bounds the read, so a request reads past the request row limit when it names more, and never
+   * throws RowLimitError: name a bound the work can hold. The pages after the first are reported as queryPages()
+   * reports its own, so expectFlatQueries() allows them.
+   * @param {{ filters?: object, sort?: string | string[], include?: string | string[], fields?: string[] | object }} params
+   * @param {unknown} take
+   * @param {{ context?: object | null, trx?: object | null }} options
+   */
+  async function takeRows(params, take, options) {
+    if (!Number.isSafeInteger(take) || /** @type {number} */ (take) < 1) {
+      throw new TypeError(`${name}.queryAll() take is the most records it answers, a whole number from 1. Received: ${JSON.stringify(take)}`);
+    }
+    const wanted = /** @type {number} */ (take);
+    const context = contextOf(options);
+    checkBlobReads(name, "queryAll", namedBlobs(resource, params.fields, resourceNamed), wanted);
+    const read = { ...params, fields: readFields(params, "list") };
+    const queryParams = readQueryParams(resource, read, { page: false, caller: "queryAll" });
+    const hidden = hiddenFields.named(params.fields, "plain");
+    if (matchesNoRow(params.filters, jsonRest().vars.schemaInfo)) {
+      return [];
+    }
+    const sort = queryParams.sort?.length ? queryParams.sort : ["id"];
+    const rows = [];
+    let after;
+    // One page: as many rows as are still wanted, up to a server page, after the last row of the page before.
+    const page = async () => {
+      const size = Math.min(settings.serverPageSize, wanted - rows.length);
+      const payload = await returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().query(
+        {
+          queryParams: { ...queryParams, sort, page: after === undefined ? { size } : { size, after } },
+          pageSizeLimit: size,
+          transaction: options.trx || undefined,
+          format: "plain"
+        },
+        { ...context }
+      ));
+      rows.push(...payload.data);
+      const pagination = payload.meta?.pagination;
+      after = pagination?.hasMore === true && rows.length < wanted ? pagination.cursor?.next ?? undefined : undefined;
+    };
+    await page();
+    while (after !== undefined) {
+      await reportedPageRead(api.knex.instance, name, page);
+    }
+    return hiddenFields.add(handleRecords(resource, rows, read, resourceNamed), hidden, options);
   }
 
   /**

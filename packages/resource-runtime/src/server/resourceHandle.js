@@ -7,6 +7,7 @@ import { checkBlobReads, checkBlobValues, namedBlobs, refuseBlobsInJson } from "
 import { createEveryRowReads } from "./handleEveryRow.js";
 import { createHiddenFieldReads, createJoinSource, markHandleFunctions } from "./handleHidden.js";
 import { createLockReads, lockModeOf } from "./handleLocks.js";
+import { withCallOptions } from "./filterJoinSources.js";
 import { MANY_ROW_CHANNEL } from "./manyRowChannel.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
@@ -143,8 +144,9 @@ function write(options, run) {
  * @param {{ requestRowLimit: number, serverPageSize: number }} dependencies.settings
  * @param {(name: string) => (import("@jskit-ai/resource-core/shared/tableResource").TableResource | null)} dependencies.resourceNamed
  *   The application's table resources by name, which shape included records.
+ * @param {(name: string) => ({ lockMany: Function } | null)} dependencies.handleNamed Owned tables' handles, for a lock's include.
  */
-function createResourceHandle({ api, resource, hooks, settings, resourceNamed }) {
+function createResourceHandle({ api, resource, hooks, settings, resourceNamed, handleNamed }) {
   const name = resource.name;
   const lockVersionField = resource.lockVersionField || "";
   const quiet = { list: quietCollections(resource, "hydrateOnList"), view: quietCollections(resource, "hydrateOnView") };
@@ -153,11 +155,11 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     return api.resources[name];
   }
 
-  /** @param {{ context?: object | null }} options */
+  /** @param {{ context?: object | null, trx?: object | null }} options The call's, which its join sources are built in. */
   function contextOf(options) {
     requireHandleTransaction(name, options);
     requireOwners(name, resource.ownership, options.context);
-    return createJsonRestContext(options.context);
+    return withCallOptions(createJsonRestContext(options.context), options);
   }
 
   // The fields a list or a one-record read names (see requestedFields).
@@ -167,7 +169,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   // The table as a join source, with its visible columns only (see handleHidden.js).
   const joinSource = createJoinSource({ api, resource, jsonRest, scopedQuery, column });
   // lock, lockMany, lockWhere and claim (see handleLocks.js).
-  const { lock, lockMany, lockWhere, claim } = createLockReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields });
+  const { lock, lockMany, lockWhere, claim } = createLockReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, handleNamed, resourceNamed });
 
   /**
    * Runs work in the caller's transaction (`options.trx`), or in one it opens,

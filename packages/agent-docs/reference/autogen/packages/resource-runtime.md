@@ -42,6 +42,14 @@ Exports
 - `UnpagedQueryError`
 - `UnsupportedDatabaseError`
 
+### `src/server/filterJoinSources.js`
+Exports
+- `filterJoinSources(featureId, resource, searchSchema)`
+- `joinSourceHooks({ resourceName, declared, ownerOf })`
+- `withCallOptions(jsonRestContext, options)`
+Local functions
+- `preparedFilter(resourceName, filter, applyFilter)`
+
 ### `src/server/foreignKeyCheck.js`
 Exports
 - `checkForeignKeys({ knex, resources, tables = [] })`
@@ -102,14 +110,16 @@ Local functions
 
 ### `src/server/handleLocks.js`
 Exports
-- `createLockReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields })`
+- `createLockReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, handleNamed, resourceNamed })`
 - `lockModeOf(name, caller, lockMode)`
 Local functions
-- `refuseInclude(name, caller, include)`
+- `lockedIncludes(resource, caller, include)`
 
 ### `src/server/handleRecords.js`
 Exports
 - `aggregateMeasures(measures)`
+- `defaultFieldList({ outputFields, outputRelationships, idProperty })`
+- `includedRelationships(include)`
 - `MANY_RETURNING`
 - `SINGLE_RETURNING`
 - `handleRecords(resource, records, { include, fields } = {}, resourceNamed)`
@@ -131,7 +141,6 @@ Local functions
 - `setsOwnTimestamps(context)`
 - `atPrecision(field, value)`
 - `stampedAttributes(resource, attributes, stamp, context)`
-- `includedRelationships(include)`
 - `handleRecord(resource, record, included, named, resourceNamed)`
 
 ### `src/server/index.js`
@@ -181,7 +190,7 @@ Local functions
 ### `src/server/resourceHandle.js`
 Exports
 - `MANY_ROW_CHANNEL`
-- `createResourceHandle({ api, resource, hooks, settings, resourceNamed })`
+- `createResourceHandle({ api, resource, hooks, settings, resourceNamed, handleNamed })`
 Local functions
 - `reportManyRow(resource, operation, rows, chunkSize)`
 - `requireHandleTransaction(name, options)`

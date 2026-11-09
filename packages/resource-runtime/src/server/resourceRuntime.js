@@ -4,6 +4,7 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { isTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { callerOf, createSystemContext } from "./contexts.js";
 import { DuplicateOwnerError } from "./errors.js";
+import { filterJoinSources, joinSourceHooks } from "./filterJoinSources.js";
 import { createResourceHandle } from "./resourceHandle.js";
 import { resourceScopeOptions } from "./resourceHost.js";
 
@@ -110,6 +111,8 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
   const ownedByName = new Map();
   /** @type {Map<string, string>} */
   const ownerByTable = new Map();
+  /** @type {Map<string, object>} Each owned table's handle, by resource name: a lock's include locks through it. */
+  const handleByName = new Map();
   // Cross-table filters whose target table no feature owns yet: they are checked when its owner owns it.
   const pendingCrossTableFilters = [];
   /** @type {Map<string, string>} The system scope each feature declared. */
@@ -132,6 +135,14 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
    */
   function tableResource(name) {
     return ownedByName.get(name)?.resource ?? null;
+  }
+
+  /**
+   * The handle of the table a feature owns under `name`, or null: a lock's include locks related records through it.
+   * @param {string} name
+   */
+  function handleNamed(name) {
+    return handleByName.get(name) ?? null;
   }
 
   // A SELECT-only builder over one of the feature's own tables, for a row policy's subqueries.
@@ -257,15 +268,24 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
       claim(featureId, resource);
     }
     const contributions = entries.map(() => []);
+    // Filters that read other tables through their owners' join sources (see filterJoinSources.js).
+    const searches = entries.map((entry) => filterJoinSources(featureId, entry.resource, entry.searchSchema));
     const scopes = entries.map((entry, index) => resourceScopeOptions(entry.resource, {
       writeSerializers: WRITE_SERIALIZERS,
       normalizeId: entry.normalizeId,
       rowPolicy: composedRowPolicy(featureId, entry, contributions[index], requires),
-      searchSchema: entry.searchSchema,
+      searchSchema: searches[index].searchSchema,
       queryFields: entry.queryFields
     }));
     checkCrossTableFilters(entries, scopes);
     const handles = {};
+    // A join source's picker gets the feature's dependencies and its own handles, built below before any read.
+    const ownerOf = (pick) => pick({ requires, owned: handles });
+    for (const [index, { declared }] of searches.entries()) {
+      if (declared.length > 0) {
+        scopes[index].hooks = joinSourceHooks({ resourceName: entries[index].resource.name, declared, ownerOf });
+      }
+    }
     for (const [index, entry] of entries.entries()) {
       const { resource } = entry;
       ownedByName.set(resource.name, {
@@ -276,7 +296,8 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
       });
       ownerByTable.set(resource.tableName, featureId);
       await api.addResource(resource.name, scopes[index]);
-      handles[resource.name] = createResourceHandle({ api, resource, hooks: entry.hooks, settings, resourceNamed: tableResource });
+      handles[resource.name] = createResourceHandle({ api, resource, hooks: entry.hooks, settings, resourceNamed: tableResource, handleNamed });
+      handleByName.set(resource.name, handles[resource.name]);
     }
     Object.defineProperty(handles, "contributeRowPolicy", {
       value: (name, policy) => contributeRowPolicy(featureId, name, policy),

@@ -838,7 +838,7 @@ test("locks need a transaction and take only the caller's rows", async (t) => {
     assert.deepEqual((await notes.lockMany([a.id, other.id], { ...txOptions, missing: "skip" })).map(({ title }) => title), ["a"]);
     assert.deepEqual((await notes.lockWhere({ status: "queued" }, txOptions)).map(({ title }) => title), ["b"]);
     assert.deepEqual((await notes.claim({ filters: { status: "queued" }, take: 5 }, txOptions)).map(({ id }) => String(id)), [String(b.id)]);
-    await assert.rejects(notes.claim({ status: "queued" }, { limit: 5 }, txOptions), /takes \(\{ filters, sort, take \}, options\)/u);
+    await assert.rejects(notes.claim({ status: "queued" }, { limit: 5 }, txOptions), /takes \(\{ filters, sort, take, include \}, options\)/u);
   });
   await assert.rejects(notes.withTransaction({ context: WORKSPACE_A }, (txOptions) => notes.lock(other.id, txOptions)), notFound);
 });
@@ -1814,27 +1814,35 @@ test("lock, lockMany, lockWhere and claim read only the fields they name, so a r
   assert.deepEqual(locked, [{ id: ids[0], stage: "new", vetId: "1" }]);
 });
 
-test("a lock refuses include before any statement; its rows' related records come from a read after the lock, in its transaction", async (t) => {
+test("a lock includes its rows' related records as a read does, each locked after the rows; a collection is refused before any statement", async (t) => {
   const { visits, options, ids, selects } = await createVisitFixture(t);
   const refused = (method) => ({
     name: "TypeError",
-    message: new RegExp(`^visits\\.${method}\\(\\) locks only its own rows and reads no included records, so it takes no include\\. Read the related records after the lock`, "u")
+    message: new RegExp(`^visits\\.${method}\\(\\) includes "notes", which is no belongs-to relationship of visits: a lock includes only the records its rows name`, "u")
   });
   const statements = await selects(() => visits.withTransaction(options, async (tx) => {
-    const including = { ...tx, include: ["customer"] };
+    const including = { ...tx, include: ["customer", "notes"] };
     await assert.rejects(visits.lock(ids[0], including), refused("lock"));
     await assert.rejects(visits.lockMany(ids, including), refused("lockMany"));
     await assert.rejects(visits.lockWhere({ id: ids }, including), refused("lockWhere"));
     await assert.rejects(visits.claim({ filters: { id: ids } }, including), refused("claim"));
-    await assert.rejects(visits.claim({ filters: { id: ids }, include: ["customer"] }, tx), refused("claim"));
+    await assert.rejects(visits.claim({ filters: { id: ids }, include: ["notes"] }, tx), refused("claim"));
   }));
   assert.deepEqual(statements, []);
-  // What the refusal says: the lock first, then one read of the locked rows with their related records.
-  const read = await visits.withTransaction(options, async (tx) => {
-    const locked = await visits.lockMany(ids, { ...tx, fields: ["stage"] });
-    return visits.queryAll({ filters: { id: locked.map(({ id }) => id) }, include: ["customer"] }, tx);
-  });
-  assert.deepEqual(read.map(({ id, stage, customerId, customer }) => [id, stage, customerId, customer.name]), ids.map((id) => [id, "new", "1", "Ada"]));
+  // A lock's include answers what a read's include answers: the records left out by default stay out, the related
+  // records nest under their relationships, and each included table is read once, after the lock's own rows.
+  for (const include of [["customer"], ["customer", "vet"], "vet"]) {
+    const read = await visits.queryAll({ filters: { id: ids }, include }, options);
+    let locked;
+    const tables = await selects(() => visits.withTransaction(options, async (tx) => {
+      locked = await visits.lockMany(ids, { ...tx, include });
+    }));
+    assert.deepEqual(locked, read, JSON.stringify(include));
+    assert.equal(tables[0], "visits", JSON.stringify(include));
+    for (const table of ["customers", "vets"]) {
+      assert.ok(tables.filter((name) => name === table).length <= 1, `${JSON.stringify(include)}: ${tables.join(", ")}`);
+    }
+  }
 });
 
 test("a patch that compares a lock version or onlyIf locks only the version, and compares onlyIf in SQL, hidden fields too", async (t) => {

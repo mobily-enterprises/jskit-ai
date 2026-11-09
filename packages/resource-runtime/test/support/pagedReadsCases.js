@@ -98,6 +98,46 @@ function pagedReadsCases(connect) {
       await assert.rejects(pagesOf(notes.queryPages({ page: { size: 2 } }, { context: WORKSPACE_A })), /notes\.queryPages\(\) does not take page/u);
     }],
 
+    ["queryAll() with take answers the first rows in its sort order, reading no row past them, and a request may name more than its row limit", async (t) => {
+      const knex = await connect(t, "da_pr_take");
+      const { notes, system } = await createNotes(knex);
+      await notes.createMany(Array.from({ length: 7 }, (_, index) => ({ title: `n${index}` })), { context: WORKSPACE_A, returning: "none" });
+      await notes.createMany([{ title: "theirs" }], { context: WORKSPACE_B, returning: "none" });
+      const request = { context: WORKSPACE_A };
+      const titles = (records) => records.map(({ title }) => title);
+
+      // Pages of 3, the last no larger than the rows still wanted: 4 rows in 2 statements, the second asking for 1.
+      const four = await countQueries(knex, () => notes.queryAll({ fields: ["title"], take: 4 }, request));
+      assert.deepEqual(titles(four.result), ["n0", "n1", "n2", "n3"]);
+      assert.equal(four.count, 2);
+      // A request reads past its row limit, 5, when take names more; fewer rows than take answer them all.
+      assert.deepEqual(titles(await notes.queryAll({ fields: ["title"], take: 7 }, request)), ["n0", "n1", "n2", "n3", "n4", "n5", "n6"]);
+      const ten = await countQueries(knex, () => notes.queryAll({ fields: ["title"], take: 10 }, request));
+      assert.equal(ten.result.length, 7);
+      assert.equal(ten.count, 3);
+      // In its sort order, filtered, and in its scope; background work takes too.
+      assert.deepEqual(titles(await notes.queryAll({ sort: "-title", fields: ["title"], take: 2 }, request)), ["n6", "n5"]);
+      assert.deepEqual(titles(await notes.queryAll({ filters: { title: "n4" }, fields: ["title"], take: 3 }, request)), ["n4"]);
+      assert.deepEqual(titles(await notes.queryAll({ fields: ["title"], take: 1 }, { context: WORKSPACE_B })), ["theirs"]);
+      assert.deepEqual(titles(await notes.queryAll({ fields: ["title"], take: 2 }, { context: system.forWorkspace("1") })), ["n0", "n1"]);
+      // A whole record without fields, as queryAll() answers it.
+      assert.deepEqual(await notes.queryAll({ take: 1 }, request), [{ id: "1", workspaceId: 1, title: "n0", status: "open" }]);
+      // A filter that matches no row reads nothing.
+      const none = await countQueries(knex, () => notes.queryAll({ filters: { id: [] }, take: 3 }, request));
+      assert.deepEqual([none.result, none.count], [[], 0]);
+      // take is a whole number from 1, checked before anything runs.
+      for (const take of [0, -1, 1.5, "3", null]) {
+        await assert.rejects(notes.queryAll({ take }, request), (error) => error instanceof TypeError &&
+          /^notes\.queryAll\(\) take is the most records it answers, a whole number from 1\./u.test(error.message), String(take));
+      }
+      // Without take, or with take: undefined, a request still stops at its row limit, and background work reads every row.
+      await assert.rejects(notes.queryAll({}, request), /notes\.queryAll\(\) read more than 5 rows/u);
+      await assert.rejects(notes.queryAll({ take: undefined }, request), /notes\.queryAll\(\) read more than 5 rows/u);
+      assert.equal((await notes.queryAll({ take: undefined }, { context: system.forWorkspace("1") })).length, 7);
+      // queryPages() reads a page at a time already, and takes no take.
+      await assert.rejects(pagesOf(notes.queryPages({ take: 2 }, request)), /notes\.queryPages\(\) does not take take/u);
+    }],
+
     ["a grouped aggregate without a page answers every group one statement holds and throws past them, never part; a page answers its groups", async (t) => {
       const knex = await connect(t, "da_pr_groups");
       const { notes } = await createNotes(knex);
