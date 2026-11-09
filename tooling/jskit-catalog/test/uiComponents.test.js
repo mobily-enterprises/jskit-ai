@@ -70,3 +70,47 @@ test("an exception cannot excuse a ui/* rule", async () => {
     assert.deepEqual(findingLines(result), ["src/pages/books/view.vue:5 m3/allow-rule", "src/pages/books/view.vue:6 ui/removed-prop"]);
   });
 });
+
+test("a Vuetify component named for Vue to resolve at run time is a finding; one imported and passed is not", async () => {
+  await withApp({
+    "package.json": { name: "by-name", private: true },
+    "src/components/ConfirmHost.vue": component(
+      [
+        "import { h, resolveComponent, resolveDynamicComponent } from \"vue\";",
+        "const dialog = resolveComponent(\"v-dialog\");",
+        "const sheet = resolveDynamicComponent('VBottomSheet');",
+        "const card = () => h(\"v-card\", {}, []);"
+      ].join("\n"),
+      "<component is=\"v-menu\" /><component :is=\"wide ? 'VDialog' : 'v-bottom-sheet'\" /><component :is=\"resolveComponent('v-card')\" />"
+    ),
+    "src/components/Imported.vue": component(
+      [
+        "import { h } from \"vue\";",
+        "import { VCard, VDialog } from \"vuetify/components\";",
+        "const card = () => h(VCard, {}, []);",
+        "const label = \"v-dialog\";"
+      ].join("\n"),
+      "<component :is=\"VDialog\" /><component is=\"section\" /><v-dialog />"
+    ),
+    "src/lib/dialogs.js": "export const open = (h) => h(\"VDialog\");\n"
+  }, async (root) => {
+    const result = await checkMaterial3({ projectRoot: root });
+    assert.deepEqual(findingLines(result), [
+      "src/components/ConfirmHost.vue:3 ui/vuetify-by-name",
+      "src/components/ConfirmHost.vue:4 ui/vuetify-by-name",
+      "src/components/ConfirmHost.vue:5 ui/vuetify-by-name",
+      "src/components/ConfirmHost.vue:8 ui/vuetify-by-name",
+      "src/components/ConfirmHost.vue:8 ui/vuetify-by-name",
+      "src/components/ConfirmHost.vue:8 ui/vuetify-by-name",
+      "src/components/ConfirmHost.vue:8 ui/vuetify-by-name",
+      "src/lib/dialogs.js:1 ui/vuetify-by-name"
+    ]);
+    assert.equal(result.findings[0].message, "resolveComponent(\"v-dialog\") names Vuetify's VDialog for Vue to resolve at run time, " +
+      "which finds nothing in a JSKIT app: Vuetify components are imported where a template writes their tag, never " +
+      "registered by name, so Vue renders an unknown element. Import it, import { VDialog } from \"vuetify/components\", " +
+      "and pass the component itself.");
+    assert.deepEqual(result.findings.filter(({ line }) => line === 8).map(({ message }) => message.split(" names ")[0]), [
+      "is=\"v-menu\"", ":is=\"'VDialog'\"", ":is=\"'v-bottom-sheet'\"", "resolveComponent(\"v-card\")"
+    ]);
+  });
+});

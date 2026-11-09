@@ -210,6 +210,14 @@ Exactly this, and nothing more:
   Symbols has no brand marks (Google, GitHub, a payment network): a brand's
   logo is the brand's own artwork, a content image or SVG used as its owner
   publishes it, not an icon alias.
+- **Vuetify components by import:** a template's Vuetify tags (`<v-dialog>`)
+  are compiled to imports where they are written; a JSKIT app registers no
+  Vuetify component globally. A component chosen at run time is imported and
+  passed itself: `import { VDialog } from "vuetify/components"`, then
+  `<component :is="VDialog">` or `h(VDialog)`. Named as a string
+  (`resolveComponent("v-dialog")`, `resolveDynamicComponent`, `h("v-dialog")`,
+  `<component is="v-dialog">`) it resolves to nothing and Vue renders an
+  unknown element, so `jskit check` fails it (`ui/vuetify-by-name`).
 - **JSKIT components:** a prop that a JSKIT release removes from a component
   it exports is listed in the package's `jskit.metadata.ui.removedProps`
   (`{ "<Component>": { "<prop>": "<what to do instead>" } }`). An app that
@@ -414,6 +422,7 @@ given paths:
 | `m3/outlined-card` | `variant="outlined"` or `border` on a card or sheet |
 | `m3/mdi-icon` | `mdi-*` icon strings and `@mdi/js` imports |
 | `m3/fixed-button-height` | `height`/`min-height` on buttons, in props, styles or CSS |
+| `ui/vuetify-by-name` | a Vuetify component named as a string for Vue to resolve: `resolveComponent`, `resolveDynamicComponent` or `h` with `"v-dialog"` or `"VDialog"`, or a `<component>` whose `is` names one |
 | `ui/removed-prop` | a prop the installed JSKIT package lists as removed from the component the template passes it to, written in camelCase or kebab-case, static or bound |
 
 Tests, fixtures, server code and migrations are not checked. A clean check is

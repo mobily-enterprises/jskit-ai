@@ -396,9 +396,12 @@ Local functions
 ### `scripts/ui-components.mjs`
 Exports
 - `checkRemovedProps(tags, script, removedProps, report)`
+- `checkVuetifyByNameAttribute(tag, entry, report)`
+- `checkVuetifyByNameCode(code, offset, report)`
 - `readRemovedProps(root)`
 Local functions
 - `readComponentImports(script)`
+- `reportByName(report, offset, name, how)`
 
 ### `scripts/verify-packages.mjs`
 Exports

@@ -24,7 +24,7 @@ import {
   readTags,
   splitVue
 } from "./material3-source.mjs";
-import { checkRemovedProps, readRemovedProps } from "./ui-components.mjs";
+import { checkRemovedProps, checkVuetifyByNameAttribute, checkVuetifyByNameCode, readRemovedProps } from "./ui-components.mjs";
 
 // The conformance check of the JSKIT Material 3 guide, its navigation rules (nav/*), its visual rules (m3/*) and its
 // rules for using components (ui/*, ui-components.mjs). It
@@ -43,6 +43,7 @@ const RULES = Object.freeze({
   "m3/mdi-icon": "foundation",
   "m3/fixed-button-height": "exact-sizes",
   "ui/removed-prop": "foundation",
+  "ui/vuetify-by-name": "foundation",
   "m3/allow-reason": "exceptions",
   "m3/allow-rule": "exceptions",
   "nav/allow": "exceptions"
@@ -195,6 +196,7 @@ function checkCode(code, offset, { report, themed }) {
     }
   }
   checkNavigationCode(code, offset, report);
+  checkVuetifyByNameCode(code, offset, report);
 }
 
 function checkScript(code, offset, context) {
@@ -279,6 +281,7 @@ function checkAttribute(tag, entry, context) {
     report("m3/raw-hex", entry.valueOffset, `Raw colour ${entry.value.trim()}. Use a theme colour role such as color="primary". ${CONTENT_COLOUR}`);
   }
   checkLinkAttribute(tag, entry, context.report);
+  checkVuetifyByNameAttribute(tag, entry, context.report);
 }
 
 function checkSurface(tag, report) {
