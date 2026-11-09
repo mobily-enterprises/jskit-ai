@@ -97,6 +97,6 @@ tests and a production build.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/shell-web@0.2.20`
+- Owner: `@jskit-ai/shell-web@0.2.21`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/shell-web/patterns/application-shell/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/shell-web/patterns/application-shell/example)
