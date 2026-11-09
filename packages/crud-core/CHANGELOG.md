@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Depends on json-rest-api 3.1.4 exactly (from 3.1.3), from the registry with its published integrity: a patch, put or patchMany that stores the values a row already holds answers the row as stored on MySQL and MariaDB (it answered the values this transaction first read), and AnyAPI storage checks its tables' columns with one statement at start-up.
 - A CRUD list asked over HTTP for two or more values of a filter that takes several (`recordIdMany`, `enumMany`, and the list's `id`) answers the rows matching any of them, where it answered 400 (`@jskit-ai/resource-crud-core` reads the comma-separated value the route makes of them). The list's `id` passes the undeclared-key check, which a test proves.
 - **Breaking.** A CRUD list refuses a query key its route does not take with a 400 coded `crud.query.undeclaredKeys`, naming the key and the keys the list takes. Fastify's validation dropped an undeclared key without a word, so `?filter[status]=open` on a list that declares no `status` filter answered every row as if it were unfiltered. Upgrading: declare the filter in the feature's `listFilterQueryValidator` and the resource's searchSchema, or stop sending it.
 - Every CRUD list takes `id`, one record id or a list of them (`filter[id]` over JSON:API), and answers only those records within the caller's scope, so a client reads the records behind ids it already holds, such as a lookup's selected values past the loaded page, in one request.
