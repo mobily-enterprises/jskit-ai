@@ -1,3 +1,4 @@
+import { retryLostInsertRace } from "@jskit-ai/database-runtime/shared";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeIdentity } from "../support/identity.js";
 
@@ -90,7 +91,9 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
   /**
    * Creates or updates the users row of a signed-in identity, ensures its settings and runs the lifecycle
    * contributors (personal workspace provisioning). With `onlyWhenChanged`, an existing row that already
-   * matches the identity is answered after one read, without that work: an ordinary request's check.
+   * matches the identity is answered after one read, without that work: an ordinary request's check. A first
+   * sign-in that loses its insert to the same identity's other first sign-in answers the winner's profile, so there
+   * is one user either way; inside a caller's transaction (`trx`) that loss fails the caller's transaction instead.
    * @param {object} profileLike
    * @param {{ onlyWhenChanged?: boolean, trx?: object, context?: object }} [options]
    */
@@ -133,7 +136,9 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
       return synchronizedProfile;
     };
 
-    return userProfilesRepository.withTransaction(options, runSync);
+    // Two first sign-ins of one identity at once both find no profile and both insert one: the one that loses the
+    // insert rolls back in full and runs again, finding the winner's profile as a returning sign-in does.
+    return retryLostInsertRace(options, () => userProfilesRepository.withTransaction(options, runSync));
   }
 
   return Object.freeze({

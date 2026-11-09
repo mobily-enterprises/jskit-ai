@@ -4,6 +4,7 @@ import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatab
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
 import { createRepository as createUserProfilesRepository } from "../src/server/common/repositories/userProfilesRepository.js";
 import { createRepository as createUserSettingsRepository } from "../src/server/common/repositories/userSettingsRepository.js";
+import { createService as createAuthProfileSyncService } from "../src/server/common/services/authProfileSyncService.js";
 import { DEFAULT_USER_SETTINGS } from "../src/shared/settings.js";
 import { usersDatabase } from "./support/usersDatabases.js";
 
@@ -228,6 +229,38 @@ test("a standalone profile insert that loses its identity to another answers the
   }), (error) => error.transactionOutcome === "rolledBack");
   assert.equal(participant.transactionOutcome, "pending", "the caller's transaction is failed, not recovered");
   assert.ok(findDuplicateEntryError(participant));
+});
+
+test("two first sign-ins of one identity at once make one user, and the one that lost the insert answers it", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const synced = [];
+  const projectorOn = (userProfiles) => createAuthProfileSyncService({
+    userProfilesRepository: createUserProfilesRepository({ userProfiles, userSettings: db.settings }),
+    userSettingsRepository: db.settings,
+    resolveLifecycleContributors: () => [{
+      async afterIdentityProfileSynced({ profile, created }) { synced.push({ id: profile.id, created }); }
+    }]
+  });
+  const projector = projectorOn(db.resources.userProfiles);
+  let other = null;
+  // The other first sign-in runs whole, and commits, between this one's read (no profile yet) and its insert.
+  const racing = projectorOn({
+    ...db.resources.userProfiles,
+    async create(attributes, options) {
+      other ??= await projector.syncIdentityProfile(identityOf("twin"));
+      return db.resources.userProfiles.create(attributes, options);
+    }
+  });
+
+  const answered = await racing.syncIdentityProfile(identityOf("twin"));
+  assert.ok(other, "the other sign-in ran inside this one");
+  assert.equal(answered.id, other.id, "both answer the one user");
+  const rows = await db.knex("users").where({ auth_provider_user_sid: "identity-twin" }).select("id");
+  assert.deepEqual(rows.map((row) => String(row.id)), [other.id]);
+  assert.equal((await db.settings.findByUserId(other.id)).id, other.id, "with its settings");
+  // The winner's sync reports a created user; the run that lost was rolled back and ran again as a returning sign-in.
+  assert.deepEqual(synced.map(({ created }) => created), [true, false]);
 });
 
 test("user settings start from the defaults once, join a caller's transaction, and a lost standalone insert reads the winner", async () => {

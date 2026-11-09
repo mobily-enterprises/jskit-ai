@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Two first sign-ins of one identity at once (a double-clicked sign-in, two tabs) make one user, and both answer it: the sync that loses the insert (`auth.profile.projector`'s `syncIdentityProfile`) rolls back in full and runs again, reading the winner's profile as a returning sign-in does, with `created: false` for the lifecycle contributors. It failed with the database's duplicate-entry error (`ER_DUP_ENTRY`). Inside a caller's transaction (`trx`) the loss still fails that transaction, for the caller's own retry.
 - `users.profiles.listByIds(ids, options)` answers every profile of a list of ids in one call, however many, sorted by id. An id named twice answers its profile once, and an id naming no profile the caller can see, or that is no id, is left out. It reads 1,000 distinct ids per statement, each joining the caller's transaction and seeing what `query` sees for the caller's context. Code that names people by id read them in `query` pages of at most 100, walked by hand, once a group passed 100 people. Its tests run on MariaDB/MySQL (`listByIds.mysql.test.js`) and PostgreSQL (`listByIds.postgres.test.js`, in CI's PostgreSQL job).
 - `users.settings.listByUserIds(userIds, options)` answers the settings of a list of users in one call, the same way: sorted by user id, each user once, users without settings left out, and each locale canonical as `findByUserId` reads it. Code that showed many people's settings read them with one `findByUserId` per person.
 
