@@ -254,3 +254,17 @@ test("a short history is read whole with its stored summary, and nothing is save
   assert.match(f.requests[0].messages[0].content, /Summary of the earlier part of this conversation[^]*Earlier: hello\./u);
   assert.deepEqual(f.requests[0].messages.slice(1, -1).map(message => message.content), ["Hi", "Hello", "Next question"]);
 });
+
+// Inside one long turn, old action results give way to a note once the request nears the model's
+// own window, not the million-token one the engine's defaults are sized for: sized for that, a
+// smaller model's request overflowed long before anything was left out.
+test("a long turn's old action results give way within the model's window", async () => {
+  const f = fixture({ limits: { contextTokens: 10_000 },
+    reply: round => round <= 22 ? { call: "action_execute", input: { page: round } } : { text: "Read every page." },
+    execute: (_input, count) => ({ ok: true, result: { page: count, rows: "row ".repeat(1000) } }) });
+  await f.run("Read every page of the report.");
+  assert.equal(f.executions.length, 22);
+  const last = JSON.stringify(f.streamed.at(-1).messages);
+  assert.match(last, /was left out to save room/u);
+  assert.match(last, /\\"page\\":22/u, "the newest results stay");
+});

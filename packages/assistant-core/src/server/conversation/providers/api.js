@@ -264,6 +264,8 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       const pass = async history => {
         const result = await runLoop({ model, name: NAME, instructions: configuration.systemPrompt, history, tools: engineTools,
           summary: earlier, state: stateNote(), maxSteps: maximumSteps, onText, onStep, signal: stopped, clean: text => stripNotes(unsaid(text)),
+          // A long turn's old results give way within this model's window, not the largest one's.
+          turnLimits: window.turn,
           // With nothing done yet, a failed call is the reply's error, not an account.
           throwIf: (_error, steps) => !step && !steps.length,
           // A configured effort reaches every provider the standard way.
