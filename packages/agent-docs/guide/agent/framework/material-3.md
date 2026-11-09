@@ -280,7 +280,9 @@ dialog, chip or FAB.
   starter registers it as `local.main.ui.section-tab-link-item`), and the page
   draws one tab row, `display: flex; overflow-x: auto` over a 1dp
   `outline-variant` bottom border. `ShellTabLinkItem` is the navigation bar's
-  destination; placed in a page it draws a section tab.
+  destination; placed in a page it draws a section tab. material.css draws
+  every `v-bottom-navigation` as the navigation bar (a 64x32 indicator around
+  each 24dp icon), so an app's own bar of `v-btn`s matches the shell's.
 
 ## Colour
 

@@ -89,10 +89,10 @@
     "borderTopColor": "rgb(206, 233, 219)",
     "boxShadow": "none",
     "fontFamily": "\"Roboto Flex Variable\", \"Roboto Flex\", Roboto, system-ui, sans-serif",
-    "fontSize": "11px",
+    "fontSize": "24px",
     "fontWeight": "500",
-    "lineHeight": "13.75px",
-    "paddingInlineStart": "0px"
+    "lineHeight": "24px",
+    "paddingInlineStart": "20px"
   },
   "navigationBarLabel": {
     "height": 16,

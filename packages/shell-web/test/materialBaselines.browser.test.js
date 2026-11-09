@@ -26,7 +26,7 @@ const SHELL_PROBES = Object.freeze([
   { name: "upButton", selector: "[data-testid=jskit-shell-back]", width: true },
   { name: "menuButton", selector: "[data-testid=jskit-shell-nav-toggle]", width: true },
   { name: "navigationBar", selector: "[data-testid=jskit-shell-bottom-nav]", width: true },
-  { name: "navigationBarIndicator", selector: ".tab-link-item--active .tab-link-item__indicator", width: true },
+  { name: "navigationBarIndicator", selector: ".tab-link-item--active .v-icon", width: true },
   { name: "navigationBarLabel", selector: ".tab-link-item__label" },
   { name: "rail", selector: "[data-testid=jskit-shell-rail]", width: true },
   { name: "railIndicator", selector: "[data-testid=jskit-shell-rail] .v-list-item--active .shell-menu-link-item__indicator", width: true },

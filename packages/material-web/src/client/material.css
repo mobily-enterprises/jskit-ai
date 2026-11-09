@@ -455,6 +455,55 @@
     color: rgb(var(--v-theme-outline-variant));
   }
 
+  /* Material 3's navigation bar (v-bottom-navigation). A destination's 24dp icon sits in a 64x32 pill, the icon's
+     own box: the active indicator, in secondary-container with the icon in on-secondary-container, and the state
+     layer, where Vuetify draws its overlay and ripple across the whole button. The label is label-medium, 4dp below,
+     on-surface-variant at rest and on-surface when active. */
+  .v-bottom-navigation .v-bottom-navigation__content > .v-btn > :is(.v-btn__overlay, .v-btn__underlay, .v-ripple__container) {
+    display: none;
+  }
+
+  /* The label's colour and type are set on the content, and the icon's colour on the icon, not on the button, which
+     Vuetify's reset gives `color: inherit` and `font: inherit`. */
+  .v-bottom-navigation .v-bottom-navigation__content > .v-btn .v-btn__content {
+    color: rgb(var(--v-theme-on-surface-variant));
+    font-size: 0.75rem;
+    font-weight: 500;
+    gap: 4px;
+    letter-spacing: 0.03125rem;
+    line-height: 1rem;
+  }
+
+  .v-bottom-navigation .v-bottom-navigation__content > .v-btn .v-icon {
+    --jskit-navigation-state: transparent;
+    background-image: linear-gradient(var(--jskit-navigation-state), var(--jskit-navigation-state));
+    border-radius: 16px;
+    box-sizing: border-box;
+    color: rgb(var(--v-theme-on-surface-variant));
+    font-size: 24px;
+    height: 32px;
+    padding: 4px 20px;
+    transition: background-color 200ms var(--md-sys-motion-easing-standard);
+    width: 64px;
+  }
+
+  .v-bottom-navigation .v-bottom-navigation__content > .v-btn:hover .v-icon {
+    --jskit-navigation-state: color-mix(in srgb, currentColor calc(var(--v-hover-opacity) * 100%), transparent);
+  }
+
+  .v-bottom-navigation .v-bottom-navigation__content > .v-btn:is(:focus-visible, :active) .v-icon {
+    --jskit-navigation-state: color-mix(in srgb, currentColor calc(var(--v-focus-opacity) * 100%), transparent);
+  }
+
+  .v-bottom-navigation .v-bottom-navigation__content > .v-btn--active .v-icon {
+    background-color: rgb(var(--v-theme-secondary-container));
+    color: rgb(var(--v-theme-on-secondary-container));
+  }
+
+  .v-bottom-navigation .v-bottom-navigation__content > .v-btn--active .v-btn__content {
+    color: rgb(var(--v-theme-on-surface));
+  }
+
   /* Motion: emphasized easing; entering elements decelerate, leaving ones accelerate. */
   .v-navigation-drawer,
   .v-bottom-navigation,

@@ -768,7 +768,7 @@ test("a page's section tabs are Material 3 primary tabs at every width, and the 
     await expect(page.getByTestId("fixture-section-tabs").getByRole("link", { name: "Activity" })).toHaveAttribute("aria-current", "page");
     if (viewport.name === "compact") {
       // The navigation bar's destinations keep their 64x32 indicators.
-      const indicator = page.getByTestId("jskit-shell-bottom-nav").locator(".tab-link-item__indicator").first();
+      const indicator = page.getByTestId("jskit-shell-bottom-nav").locator(".tab-link-item .v-icon").first();
       const box = await indicator.boundingBox();
       assert.deepEqual([Math.round(box.width), Math.round(box.height)], [64, 32], `${at}: a navigation bar destination`);
     }
@@ -1384,6 +1384,56 @@ test("a list item's subtitle is readable at rest and active, in light and dark",
       assert.equal(item.subtitle[0], testId === "fixture-rest-item" ? onSurfaceVariant : item.color, `${at}: its colour`);
       assert.ok(ratio >= 4.5, `${at}: the subtitle's contrast was ${ratio.toFixed(2)}:1`);
     }
+    await page.close();
+  }
+});
+
+test("an app's own v-bottom-navigation is Material 3's navigation bar: a 64x32 indicator around a 24dp icon, in light and dark", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 60_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  for (const theme of ["light", "dark"]) {
+    const page = await browser.newPage({ baseURL: vite.baseURL, colorScheme: theme, viewport: { width: 390, height: 844 } });
+    await page.goto(`/home/components?theme=${theme}`);
+    const roles = {};
+    for (const role of ["secondary-container", "on-secondary-container", "on-surface", "on-surface-variant"]) {
+      roles[role] = await readRoleColor(page, role);
+    }
+    const read = (testId) => page.getByTestId(testId).evaluate((button) => {
+      const style = (node) => window.getComputedStyle(node);
+      const icon = button.querySelector(".v-icon");
+      // A label in a span of its own beside an icon in the content, or the content itself beside a prepend-icon.
+      const label = button.querySelector(".v-btn__content > span") || button.querySelector(".v-btn__content");
+      const box = (node) => node.getBoundingClientRect();
+      const visible = (node) => node && style(node).display !== "none";
+      return {
+        indicator: [Math.round(box(icon).width), Math.round(box(icon).height), style(icon).borderTopLeftRadius],
+        glyph: Math.round(box(icon.querySelector("svg")).width),
+        colors: [style(icon).backgroundColor, style(icon).color, style(label).color],
+        stateLayer: style(icon).backgroundImage,
+        label: [style(label).fontSize, style(label).lineHeight, style(label).fontWeight],
+        gap: Math.round(box(label).top - box(icon).bottom),
+        // The state layer is the indicator's, not Vuetify's across the whole button.
+        buttonLayers: [".v-btn__overlay", ".v-btn__underlay"].some((selector) => visible(button.querySelector(`:scope > ${selector}`)))
+      };
+    });
+    const at = (name) => `${name} in ${theme}`;
+    const active = await read("fixture-navigation-active");
+    const rest = await read("fixture-navigation-rest");
+    for (const [name, destination] of [["active", active], ["rest", rest]]) {
+      assert.deepEqual(destination.indicator, [64, 32, "16px"], at(`${name}: the indicator`));
+      assert.equal(destination.glyph, 24, at(`${name}: the icon`));
+      assert.deepEqual(destination.label, ["12px", "16px", "500"], at(`${name}: label-medium`));
+      assert.equal(destination.gap, 4, at(`${name}: the label 4dp below the indicator`));
+      assert.equal(destination.buttonLayers, false, at(`${name}: no whole-button state layer`));
+    }
+    assert.deepEqual(active.colors, [roles["secondary-container"], roles["on-secondary-container"], roles["on-surface"]], at("active"));
+    assert.deepEqual(rest.colors, ["rgba(0, 0, 0, 0)", roles["on-surface-variant"], roles["on-surface-variant"]], at("rest"));
+    // Hovered, the destination's indicator takes its state layer.
+    await page.getByTestId("fixture-navigation-rest").hover();
+    await expect.poll(() => page.getByTestId("fixture-navigation-rest").locator(".v-icon")
+      .evaluate((icon) => window.getComputedStyle(icon).backgroundImage)).not.toBe(rest.stateLayer);
     await page.close();
   }
 });

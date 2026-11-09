@@ -7,8 +7,9 @@ import { usePaths } from "../../../src/client/navigation/usePaths.js";
 // panel, dialog actions, a disabled filled button, a card and expansion panels at rest, a pagination's current page,
 // placeholders, a card's list with an active item and one at rest, each with a subtitle, a button to the page above
 // this one, which isn't active here, and a segmented button and a button group in the narrow `auto` column of a
-// filter row, beside wide fields, and a dialog holding a virtual-scroll list that jumps to its last item as the
-// expansion panel around it re-renders.
+// filter row, beside wide fields, a dialog holding a virtual-scroll list that jumps to its last item as the
+// expansion panel around it re-renders, and an app's own navigation bar, a plain v-bottom-navigation in a layout of
+// its own, with one destination's icon in its content and the other's a prepend-icon.
 const paths = usePaths();
 const page = ref(2);
 const view = ref("day");
@@ -122,6 +123,15 @@ function jumpToLastBooking() {
         <v-list-item title="Privacy" subtitle="Who sees your profile" data-testid="fixture-rest-item" />
       </v-list>
     </v-card>
+    <v-layout class="align-self-stretch fixture-navigation-bar" data-testid="fixture-navigation-bar">
+      <v-bottom-navigation model-value="home" grow>
+        <v-btn value="home" data-testid="fixture-navigation-active">
+          <v-icon icon="$home" />
+          <span>Home</span>
+        </v-btn>
+        <v-btn value="search" prepend-icon="$search" data-testid="fixture-navigation-rest">Search</v-btn>
+      </v-bottom-navigation>
+    </v-layout>
     <v-expansion-panels data-testid="fixture-expansion-panels">
       <v-expansion-panel title="Delivery" text="Delivered on Tuesdays." />
       <v-expansion-panel title="Returns" text="Returned within 30 days." />
@@ -164,6 +174,11 @@ function jumpToLastBooking() {
 </template>
 
 <style scoped>
+.fixture-navigation-bar {
+  height: 80px;
+  position: relative;
+}
+
 /* A filter row as an app lays one out: the segmented button and the button group in `auto` columns beside wide
    fields, so their segments get only the room their own padding and labels need. At 1440 the row is 1032px and the
    fields' minimums (34rem) leave the two auto columns 416px: whole labels need 381px with 12dp segments and 501px

@@ -83,8 +83,11 @@ export const theme = {
   `aria-pressed` too), fixed tabs that share the width or else scroll, dialog
   actions 24dp from the edges, a menu's own list as its container
   (`surface-container` at level 2, in the menu's 4dp corners) while a list in a
-  rich menu panel (a card or sheet in the menu) stays plain, emphasized easing
-  and reduced motion. It adds a `text-on-*` class for every `on-*` role of the
+  rich menu panel (a card or sheet in the menu) stays plain, a
+  `v-bottom-navigation` as Material 3's navigation bar (each destination's 24dp
+  icon in a 64x32 indicator, in `secondary-container` when active and holding
+  the state layer, over a label-medium label), emphasized easing and reduced
+  motion. It adds a `text-on-*` class for every `on-*` role of the
   scheme, which Vuetify names only `.on-<role>`, so `color="on-surface-variant"`
   and `class="text-on-surface-variant"` work; an app colour's `on-*` roles keep
   only Vuetify's `.on-<name>` class. Its

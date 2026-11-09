@@ -15,10 +15,11 @@ import {
 import { useJskitText } from "../i18n.js";
 import ShellSectionTabLinkItem from "./ShellSectionTabLinkItem.vue";
 
-// A Material 3 navigation bar destination: the icon in a 64x32 indicator with its label below; the active one's
-// indicator is filled and so is its icon. It is one only in ShellLayout's navigation bar; placed anywhere else (a
-// page's section tabs), it is a section tab, ShellSectionTabLinkItem, which a page.section-nav names itself.
-// In the bar it is a text button in on-surface-variant of its own, so no app's filled-button defaults fill it.
+// A Material 3 navigation bar destination: its icon and its label below, which @jskit-ai/material-web's material.css
+// draws as it draws every v-bottom-navigation's buttons (the icon in its 64x32 indicator); the active one's icon is
+// the filled one. It is one only in ShellLayout's navigation bar; placed anywhere else (a page's section tabs), it is
+// a section tab, ShellSectionTabLinkItem, which a page.section-nav names itself. In the bar it is a text button, so
+// no app's filled-button defaults fill it.
 const props = defineProps(shellNavigationLinkProps);
 /** @type {{ value: string }} */
 const presentation = inject(SHELL_NAVIGATION_PRESENTATION_KEY, NO_SHELL_NAVIGATION_PRESENTATION);
@@ -49,82 +50,26 @@ const displayIcon = computed(() =>
     :exact="props.exact"
     :ripple="false"
     variant="text"
-    color="on-surface-variant"
     min-width="0"
     stacked
   >
-    <span class="tab-link-item__indicator">
-      <v-icon v-if="displayIcon" :icon="displayIcon" />
-    </span>
+    <v-icon v-if="displayIcon" :icon="displayIcon" />
     <span class="tab-link-item__label">{{ resolvedLabel || t("jskit.shell.layout.tab") }}</span>
   </v-btn>
 </template>
 
 <style scoped>
 .tab-link-item {
-  color: rgb(var(--v-theme-on-surface-variant));
   flex: 1 1 0;
   height: 100%;
   min-height: 48px;
   padding-inline: 0;
 }
 
-.tab-link-item > :deep(.v-btn__overlay),
-.tab-link-item > :deep(.v-btn__underlay) {
-  display: none;
-}
-
-.tab-link-item :deep(.v-btn__content) {
-  flex-direction: column;
-  gap: 4px;
-}
-
-.tab-link-item__indicator {
-  align-items: center;
-  border-radius: 16px;
-  display: flex;
-  height: 32px;
-  justify-content: center;
-  overflow: hidden;
-  position: relative;
-  width: 64px;
-}
-
-.tab-link-item__indicator::before {
-  background: currentColor;
-  content: "";
-  inset: 0;
-  opacity: 0;
-  position: absolute;
-  transition: opacity 200ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.tab-link-item:hover .tab-link-item__indicator::before {
-  opacity: var(--v-hover-opacity);
-}
-
-.tab-link-item:focus-visible .tab-link-item__indicator::before,
-.tab-link-item:active .tab-link-item__indicator::before {
-  opacity: var(--v-focus-opacity);
-}
-
-.tab-link-item--active .tab-link-item__indicator {
-  background: rgb(var(--v-theme-secondary-container));
-  color: rgb(var(--v-theme-on-secondary-container));
-}
-
 .tab-link-item__label {
-  font-size: 0.75rem;
-  font-weight: 500;
-  letter-spacing: 0.03125rem;
-  line-height: 1rem;
   max-width: 5.5rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.tab-link-item--active .tab-link-item__label {
-  color: rgb(var(--v-theme-on-surface));
 }
 </style>
