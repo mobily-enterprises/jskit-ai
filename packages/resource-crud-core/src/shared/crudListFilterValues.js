@@ -424,8 +424,12 @@ function normalizeCrudListNumberRangeQueryValue(value) {
   };
 }
 
+// A JSON:API list route reads a filter named several times (`filter[status]=a&filter[status]=b`) as one
+// comma-separated value, `a,b`, the form JSON:API gives a list, so each text value is split at its commas.
 function parseCrudListFilterMultiQueryValue(value, normalizeEntry, { invalidValues }) {
-  const normalizedEntries = (Array.isArray(value) ? value : [value]).map(normalizeEntry);
+  const normalizedEntries = (Array.isArray(value) ? value : [value])
+    .flatMap((entry) => (typeof entry === "string" ? entry.split(",") : [entry]))
+    .map(normalizeEntry);
   const acceptedValues = Array.from(new Set(normalizedEntries.filter(Boolean)));
 
   if (invalidValues === CRUD_LIST_FILTER_INVALID_VALUES_DISCARD) {

@@ -237,6 +237,10 @@ test("multi-value filters accept repeated valid values in reject mode and return
 
   assert.deepEqual(parseCrudListFilterQueryValue(filters.status, ["active", "active"], reject), ["active"]);
   assert.deepEqual(parseCrudListFilterQueryValue(filters.supplierContactId, ["5", "5", 7], reject), ["5", "7"]);
+  // A JSON:API route reads a filter named twice as one comma-separated value.
+  assert.deepEqual(parseCrudListFilterQueryValue(filters.supplierContactId, "5,7", reject), ["5", "7"]);
+  assert.deepEqual(parseCrudListFilterQueryValue(filters.status, "active,archived", reject), ["active", "archived"]);
+  assert.equal(parseCrudListFilterQueryValue(filters.supplierContactId, "5,,7", reject), INVALID_CRUD_LIST_FILTER_QUERY_VALUE);
   assert.equal(
     parseCrudListFilterQueryValue(filters.status, ["active", "active", "unexpected"], reject),
     INVALID_CRUD_LIST_FILTER_QUERY_VALUE

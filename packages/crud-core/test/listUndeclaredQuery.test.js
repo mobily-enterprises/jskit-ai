@@ -82,3 +82,13 @@ test("a CRUD list refuses a query key it does not take, which Fastify's validati
   }
   assert.equal(listed.length, 2);
 });
+
+test("a CRUD list takes filter[id], one record id or several, which a lookup sends to label the values it holds", async (t) => {
+  const { app, listed } = await listApp(t);
+
+  for (const url of ["/api/notes?filter%5Bid%5D=7", "/api/notes?filter%5Bid%5D=7&filter%5Bid%5D=12&page%5Blimit%5D=20"]) {
+    const response = await app.inject({ method: "GET", url });
+    assert.equal(response.statusCode, 200, `${url}: ${response.body}`);
+  }
+  assert.deepEqual(listed.map((input) => input.id), [["7"], ["7", "12"]]);
+});
