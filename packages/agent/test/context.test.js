@@ -35,3 +35,16 @@ test("an earlier turn's long result is cut, the same way every time", () => {
   const words = { role: "assistant", content: [{ type: "text", text: "y".repeat(20000) }] };
   assert.equal(clipOldResult(words), words, "only tool results are cut");
 });
+
+// Inside a turn, a picture or file the person attached counts by its size, as in the history: its
+// bytes written out as JSON made a 0.8 MB picture look like 700k tokens, so every older tool result
+// but the newest twenty was left out on every step.
+test("an attached picture does not make a turn's old results give way", () => {
+  const prompt = [
+    { role: "user", content: [{ type: "text", text: "Read all six parts of this." }, { type: "image", image: Buffer.alloc(900_000), mediaType: "image/png" },
+      { type: "file", data: Buffer.alloc(900_000), mediaType: "application/pdf" }] },
+    ...[1, 2, 3, 4, 5, 6].flatMap(step)
+  ];
+  const limits = { trimAt: 300_000, trimTo: 200_000, keepRecent: 2 };
+  assert.equal(trimOldResults(prompt, new Set(), limits), prompt);
+});

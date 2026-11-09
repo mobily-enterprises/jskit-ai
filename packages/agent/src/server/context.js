@@ -1,5 +1,5 @@
 import { SUMMARY_LIMITS } from "./summaries.js";
-import { estimateTokens } from "./text.js";
+import { estimateTokens, partTokens } from "./text.js";
 
 // Context for the model's 1-million-token window. Between turns, a conversation is summarised
 // (summaries.js); what's after the summary is read word for word.
@@ -29,8 +29,6 @@ export function summaryNote(summary) {
 // the model's words stay. Results once left out stay out for the rest of the turn, so the prompt's
 // start changes rarely and the cache keeps hitting. Stored history is untouched.
 export const TURN_LIMITS = { trimAt: 700000, trimTo: 500000, keepRecent: 20 };
-
-const partTokens = (part) => Math.ceil(JSON.stringify(part).length / 4);
 
 export function trimOldResults(messages, left = new Set(), limits = TURN_LIMITS) {
   const results = messages.flatMap((message) => (message.role === "tool" && Array.isArray(message.content) ? message.content.filter((part) => part.type === "tool-result") : []));

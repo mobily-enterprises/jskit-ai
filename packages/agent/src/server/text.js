@@ -1,14 +1,62 @@
 // Reading and measuring text.
 
+// A picture costs about this many tokens whatever its size: a provider scales it down first.
+const PICTURE_TOKENS = 1000;
+const BINARY_PARTS = new Set(["media", "image-data", "file-data"]);
+
+// A file's size in bytes: a Buffer or byte array, base64 text, or a data URL. A link has no
+// bytes here; it counts as a picture does.
+function byteSize(data) {
+  if (data instanceof ArrayBuffer) return data.byteLength;
+  if (ArrayBuffer.isView(data)) return data.byteLength;
+  if (data?.type === "Buffer" && Array.isArray(data.data)) return data.data.length;
+  if (typeof data !== "string") return null;
+  if (/^[a-z][a-z\d+.-]*:\/\//iu.test(data)) return null;
+  const base64 = data.startsWith("data:") ? data.slice(data.indexOf(",") + 1) : data;
+  return Math.floor((base64.length * 3) / 4) - (base64.match(/=*$/u)[0].length);
+}
+
+// A file's tokens: a picture's fixed cost, else about a token per four of its bytes.
+function fileTokens(mediaType, data) {
+  const bytes = byteSize(data);
+  return String(mediaType || "").startsWith("image/") || bytes === null ? PICTURE_TOKENS : Math.ceil(bytes / 4);
+}
+
 /**
- * A rough token count (about four characters a token; a picture counts as a thousand), enough to
- * decide when to summarise and where to cut.
+ * One message part's rough token count: text at about four characters a token, a picture a
+ * thousand, and a file's bytes about four to a token. A file's bytes are never counted as the
+ * JSON that writes them out, which is several characters a byte: an attachment would then count
+ * as more than the whole history and push every earlier message out.
+ */
+export function partTokens(part) {
+  if (part?.type === "image") return PICTURE_TOKENS;
+  if (part?.type === "file") return fileTokens(part.mediaType, part.data);
+  let binary = 0;
+  // A tool result can carry pictures or files of its own, and bytes anywhere count by their size.
+  const text = JSON.stringify(part, (_key, value) => {
+    if (value && typeof value === "object" && BINARY_PARTS.has(value.type) && "data" in value) {
+      binary += fileTokens(value.mediaType, value.data);
+      return null;
+    }
+    const bytes = value && typeof value === "object" ? byteSize(value) : null;
+    if (bytes !== null) {
+      binary += Math.ceil(bytes / 4);
+      return null;
+    }
+    return value;
+  }) ?? "";
+  return Math.ceil(text.length / 4) + binary;
+}
+
+/**
+ * A rough token count (about four characters a token; a picture counts as a thousand, a file
+ * about a token per four bytes), enough to decide when to summarise and where to cut.
  */
 export function estimateTokens(messages) {
   let tokens = 0;
   for (const message of messages) {
     if (typeof message.content === "string") tokens += Math.ceil(message.content.length / 4);
-    else for (const part of message.content || []) tokens += part.type === "image" ? 1000 : Math.ceil(JSON.stringify(part).length / 4);
+    else for (const part of message.content || []) tokens += partTokens(part);
   }
   return tokens;
 }
