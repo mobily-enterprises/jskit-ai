@@ -38,9 +38,13 @@ variant also names `visibility: "workspace"`: its routes are a workspace's,
 so they resolve the caller's workspace and check its `crud.users.*`
 permissions. The `users` table is public, every user's, so the variant also
 narrows the repository to the workspace's members with `decorateRepository`
-(`src/server/workspaceMembersOnly.js`): a list reads only the active members
-from `workspaces.memberships`' `activeMemberIds`, and anyone else is a missing
-record, so a workspace admin never learns who else has an account. The narrowed
+(`src/server/workspaceMembersOnly.js`): a list reads only the active members,
+and anyone else is a missing record, so a workspace admin never learns who else
+has an account. Each page is one report over users.profiles' and
+`workspaces.memberships`' join sources: the users the list's filters match that
+hold an active membership, in the users list's order, a page at a time, so it
+never reads the workspace's memberships whole; a view reads the one membership
+with `findByWorkspaceIdAndUserId`. The narrowed
 repository answers only `query`, `get` and `pageLimits`: users.profiles' other
 methods (`findByEmail`, `countUsers`, the writes) read or write every user, so
 they never pass through it.

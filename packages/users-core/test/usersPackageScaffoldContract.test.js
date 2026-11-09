@@ -92,7 +92,9 @@ test("both user administration variants stay read-only on users-core's one users
   }
 });
 
-test("the workspace variant lists and shows only the caller's workspace's active members", async () => {
+// The list's pages are proved on the database in workspaces-core's userAdministrationExample.mysql.test.js: each page is
+// chosen in SQL, so no statement reads the workspace's memberships whole.
+test("the workspace variant shows only the caller's workspace's active members, reading one membership", async () => {
   const { workspaceMembersOnly } = await import(pathToFileURL(path.join(
     patternRoot, "example", "packages", "users-workspace", "src", "server", "workspaceMembersOnly.js"
   )).href);
@@ -100,38 +102,38 @@ test("the workspace variant lists and shows only the caller's workspace's active
   const repository = {
     query: async (params) => (calls.push(["query", params.filters]), { data: [] }),
     get: async (id) => (calls.push(["get", id]), { data: { id } }),
-    pageLimits: () => ({}),
+    pageLimits: () => ({ request: 100 }),
     // users.profiles' other methods read and write every user.
     findByEmail: async () => ({ id: "3" }),
     countUsers: async () => 3,
     upsert: async () => ({ id: "3" })
   };
   const memberCalls = [];
+  const statuses = new Map([["7:1", "active"], ["7:2", "revoked"]]);
   const memberships = {
-    activeMemberIds: async (workspaceId, callOptions) => (memberCalls.push(callOptions), workspaceId === "7" ? ["1", "2"] : [])
+    findByWorkspaceIdAndUserId: async (workspaceId, userId, callOptions) => {
+      memberCalls.push([workspaceId, userId, callOptions]);
+      const status = statuses.get(`${workspaceId}:${userId}`);
+      return status ? { workspaceId, userId, status } : null;
+    }
   };
   const users = workspaceMembersOnly(repository, memberships);
   const options = { context: { workspace: { id: "7" } } };
 
-  await users.query({ filters: { q: "ann" }, page: { size: 20 } }, options);
-  await users.query({ filters: { id: ["2", "3"] } }, options);
-  await users.query({ filters: { id: "3" } }, options);
-  await users.query({}, { context: { workspace: { id: "8" } } });
-  assert.deepEqual(calls.splice(0), [
-    ["query", { q: "ann", id: ["1", "2"] }],
-    ["query", { id: ["2"] }],
-    ["query", { id: [] }],
-    ["query", { id: [] }]
-  ]);
   assert.deepEqual(await users.get("1", {}, options), { data: { id: "1" } });
+  assert.equal(await users.get("2", {}, { ...options, missing: "skip" }), null);
   assert.equal(await users.get("3", {}, { ...options, missing: "skip" }), null);
   await assert.rejects(users.get("3", {}, options), (error) => error.status === 404 && error.code === "crud.document.notFound");
+  await assert.rejects(users.get("1", {}, { context: { workspace: { id: "8" } } }), (error) => error.status === 404);
   assert.deepEqual(calls, [["get", "1"]]);
+  // A context with no workspace lists nobody, without reading memberships.
+  await users.query({ page: { size: 20 } }, { context: {}, format: "jsonapi" });
+  assert.deepEqual(calls.at(-1), ["query", { id: [] }]);
   assert.equal(users.pageLimits, repository.pageLimits);
   // Only the narrowed reads pass through: nothing else of users.profiles reaches users past the workspace.
   assert.deepEqual(Object.keys(users).sort(), ["get", "pageLimits", "query"]);
-  // The memberships read gets only the context and transaction, never the list's own settings.
+  // The membership read gets only the context and transaction, never the view's own settings.
   const trx = { id: "trx" };
-  await users.query({}, { ...options, trx, format: "jsonapi", missing: "skip" });
-  assert.deepEqual(memberCalls.at(-1), { context: options.context, trx });
+  await users.get("1", {}, { ...options, trx, format: "jsonapi", missing: "skip" });
+  assert.deepEqual(memberCalls.at(-1), ["7", "1", { context: options.context, trx }]);
 });
