@@ -2,9 +2,9 @@
 
 Before calling a list, a save, a test, a refactor, a screen or a deployment
 done, measure what it costs and does, judge whether that is sane, and fix the
-cause when it is not. This page holds JSKIT's part: the pitfalls JSKIT's own
+cause when it is not. This page holds JSKIT's part: the pitfalls its own
 packages cause, then the JSKIT call, helper or setting that applies each
-check, with one line on what it catches and why.
+check, and what it catches.
 
 ## JSKIT's own pitfalls
 
@@ -65,13 +65,13 @@ expects the relationship id or an unselected field never gets it.
 ### Every row
 
 - A handle's `query()` answers one page and refuses a missing or oversized
-  `page.size`, because json-rest-api would otherwise cut the list without an
-  error. A read its callers treat as complete uses `queryAll()`, because the
-  missing rows otherwise vanish from every picker and delivery built on it
+  `page.size`, where json-rest-api would cut the list silently. A read its
+  callers treat as complete uses `queryAll()`, or the missing rows vanish from
+  every picker and delivery built on it
   ([Reads](/guide/framework/data-access#reads-shaped-for-the-screen)).
 - A grouped `aggregate()` answers every group or throws
-  `RESOURCE_GROUP_LIMIT`: one with more groups than `pageLimits().request`
-  reads them with `page: { size, number }`
+  `RESOURCE_GROUP_LIMIT`; past `pageLimits().request` groups, page it with
+  `page: { size, number }`
   ([The handle's calls](/guide/framework/data-access#the-handle-s-calls)).
 - A lookup by a unique key matches at most one row: `get(id)`, or a `query()`
   of page size 1.
@@ -81,12 +81,11 @@ expects the relationship id or an unselected field never gets it.
 - Count a path's queries with `expectFlatQueries()` from
   `@jskit-ai/resource-runtime/test`, or `countQueries()` from
   `@jskit-ai/database-runtime/server/testDatabases`, at a few rows and at a
-  realistic number; the count should follow tables and pages, not rows
+  realistic number; it should follow tables and pages, not rows
   ([Tests](/guide/framework/data-access#tests)).
 - A JSON:API read adds a few lookup and visibility queries per page and per
-  relationship field, and json-rest-api reads each relationship's related ids
-  in one statement however many rows the page has. Both follow pages, not
-  rows, so `expectFlatQueries` passes them.
+  relationship field, and one statement per relationship for its related ids.
+  Both follow pages, not rows, so `expectFlatQueries` passes them.
 - A handle's `get()` or `query()`, or a service `get`, inside a loop is the
   usual per-row read; batch it with an id-list filter through `queryAll()` or
   `include`, grouped with `Map.groupBy()`
@@ -110,8 +109,8 @@ expects the relationship id or an unselected field never gets it.
   `DB_NAME`, because tests write and delete rows and would destroy the
   developer's data. A skip for want of a test database is a failure.
 - Test databases restore a stored snapshot checked by a digest of the
-  migration and seed sources, and the harness reports each preparation phase's
-  duration, so slow preparation shows ([Test databases are prepared
+  migration and seed sources, and the harness times each preparation phase,
+  so slow preparation shows ([Test databases are prepared
   once](/guide/framework/typed-features#test-databases-are-prepared-once),
   [integration test
   databases](/guide/app-setup/database-layer#integration-test-databases)).
@@ -137,7 +136,7 @@ Before changing a JSKIT feature, list where its behaviour lives, with the test
 that covers each item, and walk the list again after: routes, actions and
 their input schemas, row policies, CRUD fields, lookups and hooks, placements
 and navigation meta, messages and their codes, events, jobs and migrations.
-These are the places a consolidation drops behaviour without a failing build.
+A consolidation drops behaviour there without a failing build.
 
 ### Changes others depend on
 
