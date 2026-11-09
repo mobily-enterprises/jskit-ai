@@ -259,17 +259,19 @@ test("revalidation never syncs profiles, and one actor's logins share a room loo
   assert.equal(roomLookups, 1, "Both logins are Alice, so one publish looks up her rooms once");
 });
 
-test("a workspace event checks only its members' logins, with one room lookup among 10 or 200 other sockets", async (t) => {
+test("a workspace event checks only its members' logins, asking about the 10 or 200 other actors once and only about its room", async (t) => {
   const members = new Set(["1", "2"]);
   const lookups = [];
   const audiences = createAudienceContributors();
   audiences.register({
     id: "test.memberships",
-    resolveActorsScopes(actorIds) {
-      lookups.push(actorIds.length);
+    // It answers every scope of each actor, asked about some or not: realtime keeps only the rooms it asked about.
+    resolveActorsScopes(actorIds, question) {
+      lookups.push(question ? { actors: actorIds.length, scopes: question.scopes } : { actors: actorIds.length });
       return scopesByActor(actorIds, (actorId) => [{ kind: "workspace", id: members.has(actorId) ? 7 : 8 }]);
     }
   });
+  const aboutRoom = [{ kind: "workspace", id: "7" }];
   const f = await signedInSockets(t, { audiences });
   f.sessions.set("alice", "1").set("bob", "2");
   const alice = await f.connect("alice");
@@ -295,9 +297,9 @@ test("a workspace event checks only its members' logins, with one room lookup am
     publishes.push({ checks: [...f.checks].sort(), lookups: [...lookups] });
   }
   assert.deepEqual(publishes, [
-    { checks: ["alice", "bob"], lookups: [12] },
-    { checks: ["alice", "bob"], lookups: [202] }
-  ], "Only the members' logins are checked, and one lookup answers for every online actor");
+    { checks: ["alice", "bob"], lookups: [{ actors: 2 }, { actors: 10, scopes: aboutRoom }] },
+    { checks: ["alice", "bob"], lookups: [{ actors: 2 }, { actors: 200, scopes: aboutRoom }] }
+  ], "Only the members' logins are checked and their rooms looked up; the others are asked about workspace 7 only, in one question");
 
   // Events on one connection arrive in order, so no outsider received the publishes.
   const markers = outsiders.map(({ client }) => arrival(client, "marker"));
@@ -305,7 +307,7 @@ test("a workspace event checks only its members' logins, with one room lookup am
   await Promise.all(markers);
   assert.equal(outsiders.every(({ received }) => received.length === 0), true);
 
-  // Granted: an outsider joins the very next publish, through the same single lookup.
+  // Granted: an outsider joins the very next publish, through the same single question; only its rooms are then looked up.
   members.add("105");
   f.checks.length = 0;
   lookups.length = 0;
@@ -313,7 +315,36 @@ test("a workspace event checks only its members' logins, with one room lookup am
   await f.publish({ workspaceId: 7 });
   await granted;
   assert.deepEqual(f.checks.sort(), ["alice", "bob", "outsider-5"]);
-  assert.deepEqual(lookups, [202]);
+  assert.deepEqual(lookups, [{ actors: 2 }, { actors: 200, scopes: aboutRoom }, { actors: 1 }]);
+});
+
+test("a user event asks about the other actors only for the user's room, and a contributor of no user rooms reads nothing", async (t) => {
+  const reads = [];
+  const audiences = createAudienceContributors();
+  audiences.register({
+    id: "test.memberships",
+    // As workspaces-core's contributor: it names workspace rooms only, so a question about other scopes reads nothing.
+    resolveActorsScopes(actorIds, question) {
+      const scopes = question?.scopes;
+      reads.push(scopes ? { actors: actorIds.length, scopes } : { actors: actorIds.length });
+      if (scopes && !scopes.some((scope) => scope.kind === "workspace")) return new Map();
+      return scopesByActor(actorIds, () => [{ kind: "workspace", id: 7 }]);
+    }
+  });
+  const f = await signedInSockets(t, { audiences });
+  f.sessions.set("alice", "1").set("bob", "2").set("carol", "3");
+  const alice = await f.connect("alice");
+  await f.connect("bob");
+  await f.connect("carol");
+
+  f.checks.length = 0;
+  reads.length = 0;
+  const reached = arrival(alice.client, "item.changed");
+  await f.publish({ userId: 1 });
+  await reached;
+  assert.deepEqual(f.checks, ["alice"]);
+  assert.deepEqual(reads, [{ actors: 1 }, { actors: 2, scopes: [{ kind: "user", id: "1" }] }],
+    "Alice's rooms are looked up for her check; Bob and Carol are asked only about user 1's room");
 });
 
 test("a login whose session needs refreshing is dropped and refused until the client refreshes", async (t) => {

@@ -157,6 +157,45 @@ test("workspace realtime audiences are the actor's active memberships", async ()
   ]));
 });
 
+test("a realtime question about some scopes reads only their workspaces' memberships, and none for user rooms", async () => {
+  const audienceContributors = [];
+  const reads = [];
+  const noop = () => {};
+  WorkspacesIntegrationsProvider.setup({
+    actions: { registerContextContributor: noop },
+    authExtensions: { registerPolicyContextResolver: noop },
+    config: runtimeConfig(),
+    http: { registerVisibilityResolver: noop },
+    realtime: { registerAudienceContributor: (entry) => audienceContributors.push(entry) },
+    usersExtensions: { registerProfileSyncLifecycleContributor: noop },
+    workspaceMemberships: {
+      async listActiveWorkspaceIdsByUserIds() {
+        throw new Error("A question about some scopes never reads every membership of the actors");
+      },
+      async listActiveWorkspaceIdsByUserIdsAmong(userIds, workspaceIds) {
+        reads.push({ userIds, workspaceIds });
+        return new Map([["9", ["11"]], ["10", []]]);
+      }
+    },
+    workspaces: {
+      invitationsEnabled: false,
+      services: { directory: { async resolveWorkspaceContextForUserBySlug() { return null; } } }
+    }
+  });
+  const [contributor] = audienceContributors;
+
+  assert.deepEqual(await contributor.resolveActorsScopes(["9", "10"], { scopes: [{ kind: "user", id: "4" }] }), new Map());
+  assert.deepEqual(reads, [], "No workspace scope asked, no memberships read");
+
+  assert.deepEqual(await contributor.resolveActorsScopes(["9", "10"], {
+    scopes: [{ kind: "workspace", id: "11" }, { kind: "workspace_user", workspaceId: "11", userId: "9" }, { kind: "user", id: "4" }]
+  }), new Map([
+    ["9", [{ kind: "workspace", id: "11" }, { kind: "workspace_user", workspaceId: "11", userId: "9" }]],
+    ["10", []]
+  ]));
+  assert.deepEqual(reads, [{ userIds: ["9", "10"], workspaceIds: ["11"] }]);
+});
+
 test("workspace settings color defaults must be hex colors", () => {
   const config = runtimeConfig();
   config.workspaceSettings.defaults.lightPrimaryColor = "charcoal";

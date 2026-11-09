@@ -76,6 +76,30 @@ test("listActiveWorkspaceIdsByUserIds reads 1,000 users per query without includ
   assert.equal(queryCalls.length, 2, "No users need no query");
 });
 
+test("listActiveWorkspaceIdsByUserIdsAmong reads only the named workspaces' memberships, none for no workspace", async () => {
+  const queryCalls = [];
+  const repository = createMembershipsRepository({
+    workspaceMemberships: {
+      async queryAll(params) {
+        queryCalls.push(params);
+        return params.filters.users
+          .filter((userId) => userId === "1")
+          .map((userId) => ({ id: `m${userId}`, workspaceId: params.filters.workspace, userId, status: "active" }));
+      }
+    }
+  });
+
+  const workspaceIds = await repository.listActiveWorkspaceIdsByUserIdsAmong(["1", "2"], ["7", 8, "7", ""]);
+
+  assert.deepEqual(workspaceIds, new Map([["1", ["7", "8"]], ["2", []]]));
+  assert.deepEqual(queryCalls, [
+    { filters: { workspace: "7", users: ["1", "2"], status: "active" } },
+    { filters: { workspace: "8", users: ["1", "2"], status: "active" } }
+  ]);
+  assert.deepEqual(await repository.listActiveWorkspaceIdsByUserIdsAmong(["1"], []), new Map([["1", []]]));
+  assert.equal(queryCalls.length, 2, "No workspace needs no query");
+});
+
 test("findPersonalByOwnerUserId answers the owner's personal workspace with the lowest id", async () => {
   const workspace = (id) => ({ id, slug: `personal-${id}`, name: "Personal", ownerUserId: "9", isPersonal: true });
   const repository = createWorkspacesRepository({

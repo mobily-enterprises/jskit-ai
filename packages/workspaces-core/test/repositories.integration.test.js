@@ -713,6 +713,23 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     const outsider = (await insertUsers(["outsider"])).get("outsider");
     assert.deepEqual(await memberships.listActiveWorkspaceIdsByUserIds([outsider]), new Map([[outsider, []]]));
     assert.deepEqual(await memberships.listActiveWorkspaceIdsByUserIds([]), new Map());
+
+    // Narrowed to the second and third workspaces, the read answers only those memberships, at the same cost.
+    const amongSmall = await statementsOf(() => memberships.listActiveWorkspaceIdsByUserIdsAmong(
+      [...idsOf(usernames.slice(0, 10)), outsider], [second, third]
+    ));
+    const amongLarge = await statementsOf(() => memberships.listActiveWorkspaceIdsByUserIdsAmong(
+      idsOf(usernames.slice(0, 200)), [second, third]
+    ));
+    usernames.slice(0, 200).forEach((username, index) => {
+      assert.deepEqual(amongLarge.result.get(users.get(username)), index % 2 === 0 ? [second] : []);
+    });
+    assert.deepEqual(amongSmall.result.get(outsider), []);
+    assert.equal(amongLarge.statements, amongSmall.statements);
+    assert.deepEqual(await memberships.listActiveWorkspaceIdsByUserIdsAmong(idsOf(usernames.slice(0, 2)), []), new Map([
+      [users.get("person-000"), []],
+      [users.get("person-001"), []]
+    ]));
   });
 
   test("a workspace's 120 pending invitations and an email's 110 are all listed", async () => {

@@ -43,7 +43,7 @@ function sharedWithinPass(load, keyOf) {
  * one authentication (the auth service sees only the request), and sockets of
  * one actor share its contributed rooms. The rooms of the actors a pass names
  * up front are one bulk resolution, which the sockets it revalidates then
- * share, so no actor's rooms are looked up twice in a pass. Revalidation asks
+ * share, so no actor's rooms are looked up in full twice in a pass. Revalidation asks
  * only who is signed in, so the provider reads the app profile instead of
  * synchronizing it, and never refreshes a session the socket could not store.
  * @param {AuthService} authService
@@ -129,9 +129,14 @@ function createRealtimeDelivery({ io, logger, authService, audiences: { mayContr
    * A socket outside every target room can enter one only by revalidation
    * joining a contributed room, and the rooms it joins are exactly its actor's
    * (a socket whose login now names another actor is disconnected instead). So
-   * a socket outside is checked only when its actor's rooms, one bulk lookup
-   * for every outside actor, include a target, or when it has no actor yet and
-   * may sign in now. Any other socket is left to the 30-second pass.
+   * a socket outside is checked only when its actor is contributed into a
+   * target room, or when it has no actor yet and may sign in now. One bulk
+   * question asks the contributors about the outside actors and the target
+   * rooms only, so a publish to one workspace reads that workspace's
+   * memberships among them, not every online actor's, and a publish to user
+   * rooms reads none when no contributor names user rooms. The inside sockets'
+   * actors are looked up in full meanwhile, for their revalidation. Any other
+   * socket is left to the 30-second pass.
    * @param {{ broadcastAllClients: boolean, rooms: readonly string[] }} targets
    * @param {ReturnType<typeof createPassChecks>} checks
    */
@@ -142,21 +147,20 @@ function createRealtimeDelivery({ io, logger, authService, audiences: { mayContr
     const contributable = targets.rooms.filter((room) => mayContribute(room));
     if (contributable.length === 0) return sockets.filter(inTargets);
 
-    // The rooms of every signed-in socket's actor, inside or outside, in one lookup.
-    checks.lookUpActorsRooms(sockets.map(rememberedActorId).filter(Boolean));
-    const entering = await Promise.all(sockets.map(async (socket) => {
+    const inside = sockets.filter(inTargets);
+    checks.lookUpActorsRooms(inside.map(rememberedActorId).filter(Boolean));
+    const outsideActorIds = new Set(sockets.filter((socket) => !inTargets(socket)).map(rememberedActorId).filter(Boolean));
+    let enteringRooms = null;
+    try {
+      enteringRooms = await resolveActorsRooms([...outsideActorIds], { rooms: contributable });
+    } catch {
+      // Every outside socket is revalidated instead, which meets a failing lookup and disconnects it, as before.
+    }
+    return sockets.filter((socket) => {
       if (inTargets(socket)) return true;
       const actorId = rememberedActorId(socket);
-      if (!actorId) return true;
-      try {
-        const rooms = await checks.audiences.resolveActorRooms(actorId);
-        return contributable.some((room) => rooms.has(room));
-      } catch {
-        // Revalidating it meets the same failure and disconnects it, as before.
-        return true;
-      }
-    }));
-    return sockets.filter((_socket, index) => entering[index]);
+      return !actorId || enteringRooms === null || enteringRooms.get(actorId).size > 0;
+    });
   }
 
   async function deliverLocal({ eventName, payload, targets }) {

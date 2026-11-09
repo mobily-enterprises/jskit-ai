@@ -247,6 +247,30 @@ function createRepository({ workspaceMemberships }) {
    * @returns {Promise<Map<string, string[]>>} Every asked user, with no workspaces when they have none.
    */
   async function listActiveWorkspaceIdsByUserIds(userIds, options = {}) {
+    return activeWorkspaceIdsByUserIds(userIds, [{}], options);
+  }
+
+  /**
+   * Which of the workspaces each user is an active member of: listActiveWorkspaceIdsByUserIds narrowed to
+   * `workspaceIds`, so it reads only those workspaces' memberships of the users, one query per workspace and 1,000
+   * users. No workspace needs no query.
+   * @param {Iterable<string | number>} userIds
+   * @param {Iterable<string | number>} workspaceIds
+   * @param {object} [options]
+   * @returns {Promise<Map<string, string[]>>} Every asked user, with no workspaces when they are a member of none of them.
+   */
+  async function listActiveWorkspaceIdsByUserIdsAmong(userIds, workspaceIds, options = {}) {
+    const normalizedWorkspaceIds = new Set();
+    for (const workspaceId of workspaceIds) {
+      const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
+      if (normalizedWorkspaceId) normalizedWorkspaceIds.add(normalizedWorkspaceId);
+    }
+    return activeWorkspaceIdsByUserIds(userIds, [...normalizedWorkspaceIds].map((workspace) => ({ workspace })), options);
+  }
+
+  // Each user's active workspace ids, reading the users' active memberships 1,000 users at a time under each of the
+  // filters in turn.
+  async function activeWorkspaceIdsByUserIds(userIds, filtersList, options) {
     const workspaceIdsByUserId = new Map();
     for (const userId of userIds) {
       const normalizedUserId = normalizeRecordId(userId, { fallback: null });
@@ -254,18 +278,21 @@ function createRepository({ workspaceMemberships }) {
     }
 
     const normalizedUserIds = [...workspaceIdsByUserId.keys()];
-    for (let start = 0; start < normalizedUserIds.length; start += USER_IDS_PER_QUERY) {
-      const rows = await queryMemberships(
-        {
-          users: normalizedUserIds.slice(start, start + USER_IDS_PER_QUERY),
-          status: "active"
-        },
-        options
-      );
-      for (const row of rows) {
-        const userId = normalizeDbRecordId(row.userId, { fallback: null });
-        const workspaceId = normalizeDbRecordId(row.workspaceId, { fallback: null });
-        if (workspaceId) workspaceIdsByUserId.get(userId)?.push(workspaceId);
+    for (const filters of filtersList) {
+      for (let start = 0; start < normalizedUserIds.length; start += USER_IDS_PER_QUERY) {
+        const rows = await queryMemberships(
+          {
+            ...filters,
+            users: normalizedUserIds.slice(start, start + USER_IDS_PER_QUERY),
+            status: "active"
+          },
+          options
+        );
+        for (const row of rows) {
+          const userId = normalizeDbRecordId(row.userId, { fallback: null });
+          const workspaceId = normalizeDbRecordId(row.workspaceId, { fallback: null });
+          if (workspaceId) workspaceIdsByUserId.get(userId)?.push(workspaceId);
+        }
       }
     }
     return workspaceIdsByUserId;
@@ -287,7 +314,8 @@ function createRepository({ workspaceMemberships }) {
     listByWorkspaceId,
     findActiveByWorkspaceIdAndUserId,
     listActiveWorkspaceIdsByUserId,
-    listActiveWorkspaceIdsByUserIds
+    listActiveWorkspaceIdsByUserIds,
+    listActiveWorkspaceIdsByUserIdsAmong
   });
 }
 

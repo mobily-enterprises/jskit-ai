@@ -72,10 +72,27 @@ function roomForScope(scope) {
 }
 
 /**
+ * The scope whose room roomForScope() names, or null for a room it never names.
+ * @param {string} room
+ */
+function scopeForRoom(room) {
+  const text = String(room);
+  const workspaceUser = /^workspace:([^:]+):user:([^:]+)$/u.exec(text);
+  const workspace = /^workspace:([^:]+)$/u.exec(text);
+  const user = /^user:([^:]+)$/u.exec(text);
+  const scope = workspaceUser
+    ? { kind: "workspace_user", workspaceId: workspaceUser[1], userId: workspaceUser[2] }
+    : workspace ? { kind: "workspace", id: workspace[1] } : user ? { kind: "user", id: user[1] } : null;
+  return scope && roomForScope(scope) === text ? scope : null;
+}
+
+/**
  * Packages that know which scopes an actor belongs to (for example workspace
  * memberships) contribute them here; realtime only turns scopes into rooms.
  * A contributor answers for many actors at once, so a publish that may let
  * every online actor into a room asks each contributor once, not once per actor.
+ * A publish asks only about its target rooms: it names their scopes, so a
+ * contributor reads only those, and keeps only those rooms of each answer.
  */
 function createAudienceContributors() {
   const contributors = new Map();
@@ -105,22 +122,28 @@ function createAudienceContributors() {
 
   /**
    * Every actor's contributed rooms, with one call per contributor whatever
-   * the number of actors.
+   * the number of actors. With `rooms`, only which of those rooms each actor
+   * is contributed into: the contributors are asked about those rooms' scopes
+   * only, and none is asked when no contributor could name one of them.
    * @type {ActorsRoomsResolver}
    */
-  async function resolveActorsRooms(actorIds) {
+  async function resolveActorsRooms(actorIds, { rooms: asked } = {}) {
     const roomsByActorId = new Map();
     for (const actorId of actorIds) roomsByActorId.set(actorId, new Set());
     if (roomsByActorId.size === 0) return roomsByActorId;
+    const askedRooms = asked === undefined ? null : new Set(asked);
+    const scopes = askedRooms === null ? null : [...askedRooms].map(scopeForRoom).filter(Boolean);
+    if (scopes !== null && scopes.length === 0) return roomsByActorId;
     for (const { id, resolveActorsScopes } of contributors.values()) {
-      const scopesByActorId = await resolveActorsScopes([...roomsByActorId.keys()]);
+      const actors = [...roomsByActorId.keys()];
+      const scopesByActorId = await (scopes === null ? resolveActorsScopes(actors) : resolveActorsScopes(actors, { scopes }));
       if (!(scopesByActorId instanceof Map)) {
         throw new TypeError(`Realtime audience contributor "${id}" must resolve to a Map of actor ids to scopes.`);
       }
       for (const [actorId, rooms] of roomsByActorId) {
         for (const scope of flattenEntries(scopesByActorId.get(actorId))) {
           const room = roomForScope(scope);
-          if (room) rooms.add(room);
+          if (room && (askedRooms === null || askedRooms.has(room))) rooms.add(room);
         }
       }
     }

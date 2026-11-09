@@ -101,10 +101,13 @@ audience contributor is registered and a target room is a user or workspace
 room, when its actor's contributed rooms include a target room or it has not
 signed in yet. A socket joins only its own actor's contributed rooms, so a
 publish to `workspace:7` checks that workspace's members' sockets, not every
-connected one. To decide, the publish resolves the contributed rooms of every
-signed-in socket's actor in one call to each contributor, whatever the number
-of sockets. Other sockets are not checked for that publish; the 30-second check
-reaches them. Sockets whose authentication requests are identical, such as tabs of
+connected one. To decide, the publish asks each contributor once about the
+actors of every signed-in socket outside the target rooms, whatever their
+number, naming only the target rooms' scopes, so a contributor reads only
+those (a publish to `workspace:7` reads workspace 7's memberships among them,
+and a publish to user rooms reads no memberships); meanwhile it looks up the
+contributed rooms of the actors already inside, for their checks. Other
+sockets are not checked for that publish; the 30-second check reaches them. Sockets whose authentication requests are identical, such as tabs of
 one browser, share one `authenticateRequest()` call within a publish or a
 30-second pass, and the sockets a publish or pass checks reuse that one lookup
 of their contributed rooms; nothing is reused from one publish or pass to the
@@ -138,12 +141,19 @@ them in one query rather than one per actor: it returns, or resolves to, a `Map`
 from actor id to that actor's event scopes (`{ kind: "user", id }`,
 `{ kind: "workspace", id }` or `{ kind: "workspace_user", workspaceId, userId }`);
 an actor it leaves out has none. A single actor is asked as a list of one.
+A publish asking whether actors outside its rooms belong to them calls
+`resolveActorsScopes(actorIds, { scopes })` with those rooms' scopes: the
+contributor may read only those scopes, and realtime keeps only them of its
+answer, so a contributor that ignores `scopes` still answers correctly.
 Realtime turns each scope into the same room an `event_scope` audience targets. Sockets
 join those rooms on connection and, on every revalidation, leave the contributed
 rooms the actor no longer belongs to; rooms joined by anything else are left
 alone. `@jskit-ai/workspaces-core` contributes the actors' active workspace
 memberships this way when realtime is installed, with
 `listActiveWorkspaceIdsByUserIds()`: one memberships query per 1,000 actors.
+Asked about some scopes, it reads only the memberships of the workspaces they
+name, with `listActiveWorkspaceIdsByUserIdsAmong()`, and none when they name
+no workspace.
 
 The authentication request includes parsed cookies, the `Host`, `Origin` and
 `X-Forwarded-Proto` headers when present, and the socket address and TLS state.

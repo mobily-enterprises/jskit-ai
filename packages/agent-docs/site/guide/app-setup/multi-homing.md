@@ -194,7 +194,7 @@ method takes the call's `options` last and joins the transaction of the
 | Capability | Methods |
 | --- | --- |
 | `workspaces` | `findById(id, options)`, `findBySlug(slug, options)` (a deleted workspace is not found, though its slug stays taken), `listSlugsIn`, `findPersonalByOwnerUserId`, `listForUserId(userId, options)`, `insert`, `updateById`, `lock(workspaceId, options)` |
-| `workspaces.memberships` | `findByWorkspaceIdAndUserId`, `ensureOwnerMembership`, `upsertMembership(workspaceId, userId, patch, options)`, `addMember({ workspaceId, userId, roleSid }, options)`, `activeMemberIds(workspaceId, options)`, `listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listActiveWorkspaceIdsByUserId`, `listActiveWorkspaceIdsByUserIds` |
+| `workspaces.memberships` | `findByWorkspaceIdAndUserId`, `ensureOwnerMembership`, `upsertMembership(workspaceId, userId, patch, options)`, `addMember({ workspaceId, userId, roleSid }, options)`, `activeMemberIds(workspaceId, options)`, `listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listActiveWorkspaceIdsByUserId`, `listActiveWorkspaceIdsByUserIds`, `listActiveWorkspaceIdsByUserIdsAmong(userIds, workspaceIds, options)` |
 
 `addMember` makes the user an active member with the role (`member` when none
 is given), adding the membership or reactivating it. `activeMemberIds` answers

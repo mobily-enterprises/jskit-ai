@@ -7,8 +7,8 @@
  * @typedef {(actorId: string) => Promise<Set<string>>} ActorRoomsResolver
  */
 /**
- * The rooms each actor's contributed scopes name, every asked actor included.
- * @typedef {(actorIds: string[]) => Promise<Map<string, Set<string>>>} ActorsRoomsResolver
+ * The rooms each actor's contributed scopes name, every asked actor included; with `rooms`, only those of them.
+ * @typedef {(actorIds: string[], question?: { rooms?: readonly string[] }) => Promise<Map<string, Set<string>>>} ActorsRoomsResolver
  */
 /** @typedef {ReturnType<typeof import("./realtimeAudience.js").createAudienceContributors>} AudienceContributors */
 /**
@@ -27,8 +27,10 @@
  * as a list of one.
  * @typedef {object} RealtimeAudienceContributor
  * @property {string} id
- * @property {(actorIds: string[]) => Map<string, unknown> | Promise<Map<string, unknown>>} resolveActorsScopes
- *   Returns, or resolves to, each actor's scopes by actor id; an actor it leaves out has none.
+ * @property {(actorIds: string[], question?: { scopes: object[] }) => Map<string, unknown> | Promise<Map<string, unknown>>} resolveActorsScopes
+ *   Returns, or resolves to, each actor's scopes by actor id; an actor it leaves out has none. With `question.scopes`,
+ *   the caller asks only whether the actors belong to those scopes, so the contributor may read only them; any other
+ *   scope it answers is left out.
  */
 
 export {};

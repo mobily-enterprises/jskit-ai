@@ -10,11 +10,24 @@ import {
 /**
  * Every active membership puts the actor in the workspace audience and in its
  * own workspace-user audience. All the actors' memberships are one bulk read.
+ * Asked about some scopes only (a publish asking whether actors outside its
+ * rooms belong to them), it reads only the memberships of the workspaces those
+ * scopes name, and nothing when they name none (user rooms).
  * @param {import("./types.js").WorkspacesMemberships} workspaceMemberships
  * @param {string[]} actorIds
+ * @param {{ scopes?: Array<{ kind: string, id?: string, workspaceId?: string }> }} [question]
  */
-async function resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds) {
-  const workspaceIdsByActorId = await workspaceMemberships.listActiveWorkspaceIdsByUserIds(actorIds);
+async function resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds, { scopes } = {}) {
+  const askedWorkspaceIds = scopes === undefined
+    ? null
+    : [...new Set(scopes.flatMap((scope) => {
+      if (scope.kind === "workspace") return [scope.id];
+      return scope.kind === "workspace_user" ? [scope.workspaceId] : [];
+    }))];
+  if (askedWorkspaceIds !== null && askedWorkspaceIds.length === 0) return new Map();
+  const workspaceIdsByActorId = askedWorkspaceIds === null
+    ? await workspaceMemberships.listActiveWorkspaceIdsByUserIds(actorIds)
+    : await workspaceMemberships.listActiveWorkspaceIdsByUserIdsAmong(actorIds, askedWorkspaceIds);
   const scopesByActorId = new Map();
   for (const [actorId, workspaceIds] of workspaceIdsByActorId) {
     scopesByActorId.set(actorId, workspaceIds.flatMap((workspaceId) => [
@@ -94,7 +107,7 @@ const WorkspacesIntegrationsProvider = defineProvider({
     if (realtime) {
       realtime.registerAudienceContributor({
         id: "workspaces.memberships",
-        resolveActorsScopes: (actorIds) => resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds)
+        resolveActorsScopes: (actorIds, question) => resolveWorkspaceRealtimeScopes(workspaceMemberships, actorIds, question)
       });
     }
 
