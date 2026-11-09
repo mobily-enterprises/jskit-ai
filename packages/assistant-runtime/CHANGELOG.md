@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Each conversation request authenticates once: the route's access check and the action's request context share one sign-in lookup instead of each asking again.
 - **Breaking.** Conversation list items no longer carry `metadata`: the conversations repository's `listForActorScope` reads only the fields a list shows, as `assistantContract`'s `conversationsList` now answers them. Upgrading: code that read `metadata` from a list item reads the conversation instead, with `findByIdForActorScope` or the conversation's messages read, which still answer it.
 - A chat turn ends by reading the turn it waited on (`handle.wait({ turnId })`) instead of reading and cloning every turn of the conversation to keep one.
 - The conversations and messages repositories hand their handle calls only the caller's transaction, with their own context and settings: a caller's other settings (a format, `missing`, `returning`, `fields`) no longer ride into every read and write they make. They take `passedOn` from `@jskit-ai/resource-core/shared/callOptions`, so `@jskit-ai/assistant-runtime/server` still loads on file storage, where `@jskit-ai/resource-runtime` (an optional peer) is not installed.

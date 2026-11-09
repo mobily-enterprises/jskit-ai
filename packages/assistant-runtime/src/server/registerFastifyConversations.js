@@ -29,12 +29,19 @@ async function registerFastifyConversations(app, {
       !config || typeof config !== "object" || Array.isArray(config)) {
     throw new TypeError("Fastify conversations require runtime, config and authenticate(request).");
   }
-  async function requestContext(request) {
+  async function authenticateRequest(request) {
     const context = await authenticate(request);
     if (!context || typeof context !== "object" || Array.isArray(context)) {
       throw new AppError(401, "Authentication required.", { code: "assistant.runtime.authenticationRequired" });
     }
     return context;
+  }
+  // One authentication per request: the route's check and the action's context share its answer.
+  const authenticated = new WeakMap();
+  function requestContext(request) {
+    if (!request || typeof request !== "object") return authenticateRequest(request);
+    if (!authenticated.has(request)) authenticated.set(request, authenticateRequest(request));
+    return authenticated.get(request);
   }
   const AccessProvider = defineProvider({
     id: "assistant.fastify.access",

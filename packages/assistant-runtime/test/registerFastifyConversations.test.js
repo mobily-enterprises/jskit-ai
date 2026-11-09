@@ -138,6 +138,8 @@ test("Fastify conversations await trusted authentication across HTTP and shared 
     assert.equal(context.applicationId, trusted.applicationId);
   }
   assert.ok(authenticated.some(request => request.method === "POST"));
+  assert.equal(authenticated.filter(request => request.method === "POST").length, ids.length,
+    "each send authenticates once: the route's check and the action's context share it");
   assert.ok(authenticated.some(request => request.method === undefined), "socket requests also use the async authenticator");
 
   sessions.delete("owner-session");
