@@ -22,8 +22,11 @@ function requireDocument(document) {
 }
 
 // json-rest-api's not-found error, classified by its code.
-function isNotFound(error) {
-  return error?.code === "REST_API_RESOURCE" && error?.subtype === "not_found";
+// A not-found naming another resource, such as a link to a record that does not exist, is that resource's own
+// refusal, not this record missing.
+function isNotFound(error, resourceName) {
+  const type = error?.details?.resourceType;
+  return error?.code === "REST_API_RESOURCE" && error?.subtype === "not_found" && (type == null || type === resourceName);
 }
 
 /**
@@ -270,7 +273,7 @@ function createCrudService({ repository, crud }) {
     try {
       return answer(requireDocument(await repository.get(recordId, buildJsonRestQueryParams(resourceName, query), documentOptions(options))));
     } catch (error) {
-      throw isNotFound(error) ? documentNotFound() : error;
+      throw isNotFound(error, resourceName) ? documentNotFound() : error;
     }
   }
 
@@ -293,7 +296,7 @@ function createCrudService({ repository, crud }) {
         await repository.patch(recordId, payload, documentOptions(options))
       ));
     } catch (error) {
-      throw isNotFound(error) ? documentNotFound() : error;
+      throw isNotFound(error, resourceName) ? documentNotFound() : error;
     }
   }
 
@@ -306,7 +309,7 @@ function createCrudService({ repository, crud }) {
     try {
       return await repository.delete(recordId, passedOn(options));
     } catch (error) {
-      if (isNotFound(error)) return null;
+      if (isNotFound(error, resourceName)) return null;
       throw error;
     }
   }

@@ -165,7 +165,7 @@ async function createIncludeFixture(t, { authorOutput = "optional", authorsShow 
   return createCrudService({ repository: resources.notes, crud });
 }
 
-test("a record a form saves back as the CRUD service showed it keeps its link to an author the writer cannot see", async (t) => {
+test("a record a form saves back as the CRUD service showed it keeps its link to an author the writer cannot see, and a link to a missing author names that author", async (t) => {
   const knex = await testKnex(t);
   await knex.schema.createTable("authors", (table) => {
     table.increments("id");
@@ -220,6 +220,10 @@ test("a record a form saves back as the CRUD service showed it keeps its link to
   assert.equal(await authorOf(2), 1);
   await service.patch("2", { authorId: null }, {});
   assert.equal(await authorOf(2), null);
+  // A link to an author that does not exist is refused as that author missing, not as the note missing.
+  await assert.rejects(service.patch("2", { authorId: "99" }, {}), (error) => error.code === "REST_API_RESOURCE" &&
+    error.subtype === "not_found" && error.details.resourceType === "authors" && error.details.resourceId === "99");
+  await assert.rejects(service.patch("99", { title: "Gone" }, {}), { status: 404, code: "crud.document.notFound" });
 });
 
 test("an included record shows only its id, and a relationship the contract does not name is left out", async (t) => {
