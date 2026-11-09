@@ -221,8 +221,9 @@ export function createGoals({
       goals.extendLease(goal.id, limits.leaseSeconds).catch(() => {});
       runs.heartbeat(row.conversation_id).catch(() => {});
     }, runs.limits.heartbeatMs);
-    const current = await goals.startRound(goal.id, goal.rounds + 1);
     try {
+      // Inside the try: a round that cannot start stops its lease renewal and frees the conversation too.
+      const current = await goals.startRound(goal.id, goal.rounds + 1);
       await notify(row, { type: "working", working: true, status: "Carrying on with the goal" });
       await track(goal, () => respond(row, { timeZone: goal.time_zone, language: goal.language, prompt: roundPrompt(current), goalTurn: true }));
       await goals.finishRound(goal.id);

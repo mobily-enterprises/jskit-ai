@@ -165,3 +165,46 @@ test("a reply running in the conversation goes first; the round waits, and an er
   assert.equal(failed.reason, "the model is unavailable");
   assert.equal(await runs.saved(3), undefined, "and frees the conversation");
 });
+
+// A round that cannot start (its goal row cannot be written) stops renewing its lease and frees the
+// conversation, as a round that fails later does: the renewal used to start before it and run forever.
+test("a round that cannot start frees the conversation and stops renewing its lease", { skip: DATABASE }, async (context) => {
+  const knex = await testDatabase(context);
+  const agent = await agentOwner(knex);
+  const runs = createRuns(agent);
+  const handle = agent.resources.agentGoals;
+  let failStart = true;
+  const agentGoals = { ...handle, patch: (id, changes, options) => {
+    if (failStart && Object.hasOwn(changes, "rounds")) {
+      failStart = false;
+      return Promise.reject(new Error("the goal could not be saved"));
+    }
+    return handle.patch(id, changes, options);
+  } };
+  const intervals = new Set();
+  const realSetInterval = globalThis.setInterval;
+  const realClearInterval = globalThis.clearInterval;
+  globalThis.setInterval = (...args) => { const timer = realSetInterval(...args); intervals.add(timer); return timer; };
+  globalThis.clearInterval = (timer) => { intervals.delete(timer); return realClearInterval(timer); };
+  context.after(() => {
+    for (const timer of intervals) realClearInterval(timer);
+    globalThis.setInterval = realSetInterval;
+    globalThis.clearInterval = realClearInterval;
+  });
+  const goals = createGoals({
+    ...agent, resources: { ...agent.resources, agentGoals }, runs, limits: { ...GOAL_LIMITS, retryMs: 200 },
+    find: async (goal) => ({ conversation_id: goal.conversation_id }),
+    respond: async () => assert.fail("a round that could not start never replies"),
+    claim: (row) => runs.claim(row.conversation_id),
+    record: async () => {},
+    notify: async () => {}
+  });
+  await goals.operationsFor({ conversation_id: 5 }, { human: true }).create("Start fails.");
+  await goals.afterTurn(5);
+  await goals.runDue();
+  assert.equal(intervals.size, 0, "the lease renewal stopped");
+  assert.equal(await runs.saved(5), undefined, "the conversation is free again");
+  const goal = await knex("agent_goals").where({ conversation_id: 5 }).first();
+  assert.equal(goal.status, "paused", "the rounds stopped");
+  assert.equal(goal.reason, "the goal could not be saved");
+});
