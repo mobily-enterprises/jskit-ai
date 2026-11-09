@@ -109,3 +109,15 @@ test("saved conversations are parsed once until they change and look messages up
   await f.storage.read("cached", transaction => transaction.appendMessage("000001", { role: "assistant", text: "Read only", at: "2026-01-01T00:00:03Z" }));
   assert.equal((await f.transcript.readConversationLog("cached"))[0].assistant, null);
 });
+
+test("a write that changes nothing leaves the saved file alone", async (t) => {
+  const f = await fixture(t);
+  await f.transcript.writeConversationUserMessage("unchanged", { text: "First", messageId: "first", at: "2026-01-01T00:00:00Z" });
+  const [file] = (await readdir(f.directory)).filter(name => name.endsWith(".json"));
+  const before = await stat(join(f.directory, file), { bigint: true });
+  assert.equal(await f.storage.write("unchanged", transaction => transaction.findMessageTurnId("first")), "000001");
+  const after = await stat(join(f.directory, file), { bigint: true });
+  assert.deepEqual([after.ino, after.mtimeNs], [before.ino, before.mtimeNs], "an unchanged conversation is not saved again");
+  assert.deepEqual(await f.storage.write("absent", transaction => transaction.listTurnIds()), []);
+  assert.deepEqual((await readdir(f.directory)).filter(name => name.endsWith(".json")), [file], "looking at a missing conversation does not create it");
+});

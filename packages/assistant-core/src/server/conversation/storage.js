@@ -152,9 +152,12 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
   function transaction(saved) {
     const { index: _index, ...draft } = saved;
     const added = new Map();
+    // Whether any write method ran: a transaction that only read saves nothing.
+    let changed = false;
     let ownTurns = false;
     const owned = new Set();
     function ownTurn(id) {
+      changed = true;
       if (!ownTurns) {
         draft.turns = new Map(draft.turns);
         ownTurns = true;
@@ -203,9 +206,10 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
     }
     return {
       record,
+      changed: () => changed,
       view: {
         async readMetadata() { return structuredClone(draft.metadata); },
-        async writeMetadata(value) { draft.metadata = structuredClone(value); },
+        async writeMetadata(value) { changed = true; draft.metadata = structuredClone(value); },
         async updateTurnMetadata(id, patch) {
           if (!turns().get(id)) throw new Error("The conversation turn does not exist.");
           const turn = ownTurn(id);
@@ -229,6 +233,7 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
         async writeSummary({ text, throughTurnId }) {
           if (typeof text !== "string" || !text.trim()) throw new TypeError("A conversation summary requires text.");
           if (!turns().get(throughTurnId)) throw new Error("The conversation turn does not exist.");
+          changed = true;
           draft.summary = { text, throughTurnId };
         },
         async appendMessage(id, { turnMetadata, ...message }) {
@@ -261,6 +266,8 @@ export function createConversationStorage({ readRecord, writeRecord, deleteRecor
     const operation = previous.then(async () => {
       const draft = transaction(await readSaved(id));
       const result = await callback(draft.view);
+      // A write that changed nothing leaves the saved record, and its cache, as they are.
+      if (!remove && !draft.changed()) return result;
       // A failed or partial save leaves the cached record unknown.
       cache.delete(id);
       if (remove) await deleteRecord(id);
