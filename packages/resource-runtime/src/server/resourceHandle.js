@@ -3,6 +3,7 @@ import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { readChangeHorizon } from "./changeHorizon.js";
 import { createJsonRestContext } from "./contexts.js";
+import { namedBlobs, refuseBlobsInJson } from "./handleBlobs.js";
 import { createEveryRowReads } from "./handleEveryRow.js";
 import { createHiddenFieldReads, createJoinSource, markHandleFunctions } from "./handleHidden.js";
 import { createLockReads, lockModeOf } from "./handleLocks.js";
@@ -242,6 +243,9 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     const read = { ...params, fields: readFields(params, "list") };
     const queryParams = readQueryParams(resource, read, { page: true, caller: "query" });
     const hidden = hiddenFields.named(params.fields, format);
+    if (format === "jsonapi") {
+      refuseBlobsInJson(name, namedBlobs(resource, params.fields, resourceNamed));
+    }
     const size = params.page?.size;
     if (size == null && format !== "jsonapi") {
       throw new UnpagedQueryError(name);
@@ -289,6 +293,9 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     const format = formatOf(name, options);
     const named = { ...params, fields: readFields(params, "view") };
     const hidden = hiddenFields.named(params.fields, format);
+    if (format === "jsonapi") {
+      refuseBlobsInJson(name, namedBlobs(resource, params.fields, resourceNamed));
+    }
     const read = () => returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().get(
       {
         id,

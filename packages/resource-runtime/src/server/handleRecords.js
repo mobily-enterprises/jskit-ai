@@ -1,6 +1,7 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { RECORD_TIMESTAMPS, storedTimestamps } from "@jskit-ai/resource-core/shared/tableResource";
 import { isJobContext } from "./contexts.js";
+import { checkBlobValues } from "./handleBlobs.js";
 import { requireDefinedFilters } from "./handleGuards.js";
 import { resolveJsonRestCollectionRelationships } from "./jsonRestValues.js";
 
@@ -269,7 +270,7 @@ function inputData(resource, attributes, stamp, context) {
   if (!isRecord(attributes)) {
     throw new TypeError(`${resource.name} writes take attributes as an object.`);
   }
-  const data = stampedAttributes(resource, attributes, stamp, context);
+  const data = checkBlobValues(resource, stampedAttributes(resource, attributes, stamp, context));
   for (const [fieldName, definition] of Object.entries(resource.schema)) {
     if (!definition?.belongsTo || !Object.hasOwn(data, fieldName)) {
       continue;

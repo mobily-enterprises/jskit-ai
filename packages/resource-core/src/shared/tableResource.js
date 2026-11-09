@@ -91,6 +91,36 @@ function expandLookupField(fieldKey, fieldDefinition) {
   return expanded;
 }
 
+// What a blob field never takes: it is no search key, index, sort or default.
+const BLOB_REFUSED = Object.freeze(["search", "indexed", "unique", "sortable", "defaultTo", "belongsTo"]);
+
+/**
+ * A blob field's limits: `maxBytes`, the most bytes a value holds, which only a blob takes. A blob is a value the
+ * process holds whole, so the limit is what keeps every read and write of it bounded.
+ * @param {string} fieldKey
+ * @param {Record<string, unknown>} fieldDefinition
+ */
+function requireBlobLimits(fieldKey, fieldDefinition) {
+  if (fieldDefinition.type !== "blob") {
+    if (Object.hasOwn(fieldDefinition, "maxBytes")) {
+      throw new TypeError(`defineTableResource schema.${fieldKey}.maxBytes is a blob's limit; a string's is maxLength.`);
+    }
+    return;
+  }
+  const { maxBytes } = fieldDefinition;
+  if (!Number.isSafeInteger(maxBytes) || /** @type {number} */ (maxBytes) < 1) {
+    throw new TypeError(
+      `defineTableResource schema.${fieldKey} is a blob and needs maxBytes, the most bytes a value holds, as a whole ` +
+        "number from 1, which its column must hold too. A file people upload goes to storage through runtime.uploads, " +
+        "and the table keeps its key."
+    );
+  }
+  const refused = BLOB_REFUSED.find((key) => fieldDefinition[key] !== undefined && fieldDefinition[key] !== false);
+  if (refused) {
+    throw new TypeError(`defineTableResource schema.${fieldKey} is a blob, which takes no ${refused}: a blob is read and written whole, never searched, sorted or defaulted.`);
+  }
+}
+
 /**
  * The schema with each field checked and each lookup shorthand expanded. A
  * field's CRUD operations belong to the CRUD contract's `fields`.
@@ -113,6 +143,7 @@ function normalizeTableSchema(schema) {
           "A create is checked for required fields before defaults apply, so one without the field would fail REQUIRED."
       );
     }
+    requireBlobLimits(fieldKey, fieldDefinition);
     if (Object.hasOwn(fieldDefinition, "operations")) {
       throw new TypeError(
         `defineTableResource schema.${fieldKey}.operations belongs to the CRUD contract: ` +

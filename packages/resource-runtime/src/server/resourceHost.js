@@ -8,6 +8,7 @@ import {
   RowPolicyPlugin
 } from "json-rest-api";
 import {
+  isRecord,
   normalizeObject,
   normalizeOpaqueId,
   normalizeRecordId,
@@ -24,6 +25,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER } from "@jskit-ai/kernel/shared/support/visibility";
 import { createJsonRestContext } from "./contexts.js";
+import { blobFields } from "./handleBlobs.js";
 import { isPlainJsonRestObject, resolveJsonRestCollectionRelationships } from "./jsonRestValues.js";
 import { valueOnlyRaw } from "./rawExpression.js";
 
@@ -299,16 +301,14 @@ function applyJsonRestQueryFields(scopeOptions = {}, extraQueryFields = {}) {
   }
 }
 
+// The fields a read leaves out unless its fields name them: the resource's defaultExclude, and every blob field.
 function resolveJsonRestDefaultExcludedFields(resource) {
-  const defaultExclude = resource.defaultExclude;
-  if (defaultExclude == null) {
-    return [];
-  }
+  const defaultExclude = resource.defaultExclude ?? [];
   if (!Array.isArray(defaultExclude)) {
     throw new TypeError("json-rest-api resource defaultExclude must be an array.");
   }
 
-  return normalizeUniqueTextList(defaultExclude);
+  return normalizeUniqueTextList([...defaultExclude, ...(isRecord(resource.schema) ? blobFields(resource) : [])]);
 }
 
 function applyJsonRestDefaultExclusions(scopeOptions = {}, resource = {}) {

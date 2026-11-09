@@ -334,6 +334,12 @@ function normalizeContractFields(resource, fields) {
     if (!Object.hasOwn(resource.schema, fieldKey)) {
       throw new TypeError(`defineCrudContract fields.${fieldKey} is not a field of the ${resource.name} resource.`);
     }
+    if (resource.schema[fieldKey]?.type === "blob") {
+      throw new TypeError(
+        `defineCrudContract fields.${fieldKey} is a blob, which a CRUD contract's JSON cannot carry: a route of its own ` +
+          `serves it, reading it with get(id, { fields: ["${fieldKey}"] }) and answering it as the response body.`
+      );
+    }
     const operations = normalizeCrudFieldOperations(fieldKey, entry);
     if (storedTimestamps(resource.schema).includes(fieldKey) && Object.keys(operations).some((name) => name !== "output")) {
       refuseStampedField(resource.name, `fields.${fieldKey}`, fieldKey);

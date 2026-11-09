@@ -153,3 +153,15 @@ test("foreignKeys declares the table's database keys on its schema fields, in js
   );
   assert.throws(declaring([{ columns: ["status"], referencedTableName: "statuses", deleteRule: 1 }]), /foreignKeys\[0\]\.deleteRule must be text/u);
 });
+
+test("a blob field names maxBytes, the most bytes a value holds, and takes no search, index, sort or default", () => {
+  const blob = (image) => defineTableResource({ name: "avatars", tableName: "avatars", ownership: "public", schema: { image } });
+  assert.equal(blob({ type: "blob", maxBytes: 65535, nullable: true }).schema.image.maxBytes, 65535);
+  for (const maxBytes of [undefined, 0, 1.5, "64k"]) {
+    assert.throws(() => blob({ type: "blob", maxBytes }), /schema\.image is a blob and needs maxBytes, the most bytes a value holds, as a whole number from 1, which its column must hold too\. A file people upload goes to storage through runtime\.uploads/u);
+  }
+  for (const [key, value] of [["search", true], ["indexed", true], ["unique", true], ["sortable", true], ["defaultTo", ""], ["belongsTo", "users"]]) {
+    assert.throws(() => blob({ type: "blob", maxBytes: 10, [key]: value }), new RegExp(`schema\\.image is a blob, which takes no ${key}: a blob is read and written whole`, "u"));
+  }
+  assert.throws(() => blob({ type: "string", maxBytes: 10 }), /schema\.image\.maxBytes is a blob's limit; a string's is maxLength/u);
+});

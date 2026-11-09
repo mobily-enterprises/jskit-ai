@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `defineCrudContract` refuses a blob field in `fields`, saying how to serve it: a CRUD contract answers JSON, which holds no binary, so a route of its own reads the blob with `get(id, { fields })` and answers it as the response body.
 - `@jskit-ai/resource-core`'s new `./shared/callOptions` exports `passedOn(options)`, what a call hands on to the work it runs: only its `context` and `trx`. The module imports nothing, so code that loads without the table runtime passes options on as every handle does; `@jskit-ai/resource-runtime/server` re-exports it.
 - A field entry may say `false` for an operation it stays out of, so a contract keeps a stored timestamp out of its output with `createdAt: { output: false }`. An entry that names no operation (`createdAt: {}`) is refused, saying so: a contract leaves out a field it does not name.
 - The `crud/crud-contract` pattern's book resource no longer declares an `id` search entry, which every handle now provides.

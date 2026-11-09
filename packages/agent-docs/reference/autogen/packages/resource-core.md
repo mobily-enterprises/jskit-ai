@@ -39,6 +39,7 @@ Exports
 - `storedTimestamps(schema, names = RECORD_TIMESTAMPS)`
 Local functions
 - `expandLookupField(fieldKey, fieldDefinition)`
+- `requireBlobLimits(fieldKey, fieldDefinition)`
 - `normalizeTableSchema(schema)`
 - `requireText(value, label)`
 - `requireOwnership(value)`

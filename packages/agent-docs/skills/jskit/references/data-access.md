@@ -161,6 +161,40 @@ whole number exactly, so json-rest-api answers those digits as text rather
 than a rounded number. A value that can grow that large gets a decimal field
 (`precision` and `scale`), whose digits stay text.
 
+A `type: "blob"` field holds bytes the process reads and writes whole, so it
+names `maxBytes`, the most bytes a value holds, and its column holds that much
+too: MySQL's and MariaDB's `BLOB` holds 64 KiB and `MEDIUMBLOB` 16 MiB, while
+PostgreSQL's `bytea` and SQLite's `BLOB` hold more than any limit you would
+name. A blob takes no `search`, `indexed`, `unique`, `sortable`, `defaultTo` or
+`belongsTo`. A write takes a Buffer or a Uint8Array of at most `maxBytes`, or
+null, and refuses anything else with a validation error on the field (422)
+before any statement. A read leaves a blob out unless its `fields` names it,
+and answers it as a Buffer: `get(id, { fields: ["image"] }, options)`, a page
+of `query()`, or `lock()`. `queryAll()`, `lockWhere()` and `claim()` read every
+matching row at once, so they refuse to name a blob; `queryPages()` reads them,
+each of its pages holding at most 16 MiB of the blobs it names. JSON holds no
+binary, so a JSON:API read and a CRUD contract refuse a blob, and a route of
+its own serves one as the response body. A file people upload (a photo, a
+document) goes to storage through `runtime.uploads` and the table keeps its
+key; a blob is for the few bytes the record itself needs, such as a thumbnail
+or a signature.
+
+```js
+const signatureResource = defineTableResource({
+  name: "signatures",
+  tableName: "signatures",
+  ownership: "workspace",
+  schema: {
+    signedBy: { type: "string", required: true },
+    // MEDIUMBLOB on MySQL and MariaDB
+    image: { type: "blob", maxBytes: 256 * 1024, required: true }
+  }
+});
+
+// One signature's image, read where a route answers it.
+const imageOf = async (id, options) => (await signatures.get(id, { fields: ["image"] }, options)).image;
+```
+
 A package whose features own tables or declare `systemScope` lists
 `runtime.resources` in its descriptor's `capabilities.requires`, or boot
 refuses it; the feature never requires it itself, since it receives its

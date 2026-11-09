@@ -129,3 +129,19 @@ test("a contract is built on a table resource and takes only the CRUD keys", () 
   assert.throws(() => contactsCrud({ crudOperations: ["list"] }), /does not take crudOperations/u);
   assert.throws(() => contactsCrud({ contract: { response: { defaultExclude: ["notes"] } } }), /contract\.response belongs to the table resource: its defaultExclude/u);
 });
+
+test("a contract refuses a blob field, which its JSON cannot carry, and serves the rest of the table", () => {
+  const avatars = defineTableResource({
+    name: "avatars",
+    tableName: "avatars",
+    ownership: "public",
+    schema: { label: { type: "string", required: true }, image: { type: "blob", maxBytes: 65535, nullable: true } }
+  });
+  const avatarsCrud = (fields) => defineCrudContract(avatars, { namespace: "avatars", messages: { validation: "Fix invalid values." }, fields });
+  assert.throws(() => avatarsCrud({ image: { output: "optional" } }), {
+    name: "TypeError",
+    message: "defineCrudContract fields.image is a blob, which a CRUD contract's JSON cannot carry: a route of its own serves it, " +
+      'reading it with get(id, { fields: ["image"] }) and answering it as the response body.'
+  });
+  assert.equal(isCrudContract(avatarsCrud({ label: { output: "required", create: "required", patch: "optional" } })), true);
+});

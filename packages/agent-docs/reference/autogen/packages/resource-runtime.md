@@ -51,6 +51,15 @@ Local functions
 - `sameKey(left, right)`
 - `declaredForeignKeys(knex, resources)`
 
+### `src/server/handleBlobs.js`
+Exports
+- `blobFields(resource)`
+- `blobPageSize(blobs, serverPageSize)`
+- `checkBlobValues(resource, data)`
+- `namedBlobs(resource, fields, resourceNamed)`
+- `refuseBlobsInBulk(name, caller, blobs)`
+- `refuseBlobsInJson(name, blobs)`
+
 ### `src/server/handleEveryRow.js`
 Exports
 - `createEveryRowReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields, settings, resourceNamed })`

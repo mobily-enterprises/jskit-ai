@@ -1,5 +1,6 @@
 import { RestApiRowLimitError } from "json-rest-api";
 import { isJobContext } from "./contexts.js";
+import { blobPageSize, namedBlobs, refuseBlobsInBulk } from "./handleBlobs.js";
 import { RowLimitError } from "./errors.js";
 import { matchesNoRow } from "./handleGuards.js";
 import { handleRecords, readQueryParams } from "./handleRecords.js";
@@ -38,6 +39,7 @@ function createEveryRowReads({ name, resource, jsonRest, readFields, contextOf, 
   async function queryAll(params = {}, options = {}) {
     const context = contextOf(options);
     const rowLimit = rowLimitOf(options);
+    refuseBlobsInBulk(name, "queryAll", namedBlobs(resource, params.fields, resourceNamed));
     const read = { ...params, fields: readFields(params, "list") };
     const queryParams = readQueryParams(resource, read, { page: false, caller: "queryAll" });
     const hidden = hiddenFields.named(params.fields, "plain");
@@ -85,7 +87,7 @@ function createEveryRowReads({ name, resource, jsonRest, readFields, contextOf, 
     if (matchesNoRow(params.filters, jsonRest().vars.schemaInfo)) {
       return;
     }
-    const size = settings.serverPageSize;
+    const size = blobPageSize(namedBlobs(resource, params.fields, resourceNamed), settings.serverPageSize);
     const sort = queryParams.sort?.length ? queryParams.sort : ["id"];
     let rows = 0;
     let after;
