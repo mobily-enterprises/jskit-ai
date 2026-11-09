@@ -296,7 +296,8 @@ dialog, chip or FAB.
   `outline-variant` bottom border. `ShellTabLinkItem` is the navigation bar's
   destination; placed in a page it draws a section tab. material.css draws
   every `v-bottom-navigation` as the navigation bar (a 64x32 indicator around
-  each 24dp icon), so an app's own bar of `v-btn`s matches the shell's.
+  each 24dp icon), so an app's own bar of `v-btn`s matches the shell's; a bar's
+  `bg-color` and a destination's `color` or `base-color` keep their colours.
 
 ## Colour
 

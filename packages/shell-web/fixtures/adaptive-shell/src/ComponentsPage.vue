@@ -8,8 +8,10 @@ import { usePaths } from "../../../src/client/navigation/usePaths.js";
 // placeholders, a card's list with an active item and one at rest, each with a subtitle, a button to the page above
 // this one, which isn't active here, and a segmented button and a button group in the narrow `auto` column of a
 // filter row, beside wide fields, a dialog holding a virtual-scroll list that jumps to its last item as the
-// expansion panel around it re-renders, and an app's own navigation bar, a plain v-bottom-navigation in a layout of
-// its own, with one destination's icon in its content and the other's a prepend-icon.
+// expansion panel around it re-renders, and an app's own navigation bars, each a v-bottom-navigation in a layout of
+// its own: a plain one, with one destination's icon in its content and the other's a prepend-icon; one the app
+// colours (bg-color) and one whose color tints its active destination; and comfortable, compact and horizontal ones;
+// each with a badge on the active destination's icon and a destination with an append icon below its label.
 const paths = usePaths();
 const page = ref(2);
 const view = ref("day");
@@ -23,6 +25,13 @@ const bookingsDialog = ref(false);
 const bookings = Array.from({ length: 40 }, (_, index) => `Booking ${index + 1}`);
 const bookingsScroll = ref(null);
 const pageRenders = ref(0);
+const navigationBars = [
+  { id: "coloured", props: { bgColor: "primary" } },
+  { id: "tinted", props: { color: "primary" } },
+  { id: "comfortable", props: { density: "comfortable" } },
+  { id: "compact", props: { density: "compact" } },
+  { id: "horizontal", props: { mode: "horizontal" } }
+];
 // The panel around the dialog re-renders first (as a form does when a field changes), then the list scrolls to its
 // last item.
 function jumpToLastBooking() {
@@ -130,6 +139,25 @@ function jumpToLastBooking() {
           <span>Home</span>
         </v-btn>
         <v-btn value="search" prepend-icon="$search" data-testid="fixture-navigation-rest">Search</v-btn>
+      </v-bottom-navigation>
+    </v-layout>
+    <v-layout
+      v-for="bar in navigationBars"
+      :key="bar.id"
+      class="align-self-stretch fixture-navigation-bar"
+      :data-testid="`fixture-navigation-${bar.id}`"
+    >
+      <v-bottom-navigation model-value="home" grow v-bind="bar.props">
+        <v-btn value="home" :data-testid="`fixture-navigation-${bar.id}-active`">
+          <v-badge icon="$check" color="error">
+            <v-icon icon="$home" />
+          </v-badge>
+          <span>Home</span>
+        </v-btn>
+        <v-btn value="search" prepend-icon="$search" :data-testid="`fixture-navigation-${bar.id}-rest`">Search</v-btn>
+        <v-btn value="more" prepend-icon="$menu" append-icon="$expand" :data-testid="`fixture-navigation-${bar.id}-append`">
+          More
+        </v-btn>
       </v-bottom-navigation>
     </v-layout>
     <v-expansion-panels data-testid="fixture-expansion-panels">

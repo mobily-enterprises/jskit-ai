@@ -86,13 +86,16 @@ export const theme = {
   rich menu panel (a card or sheet in the menu) stays plain, a
   `v-bottom-navigation` as Material 3's navigation bar (each destination's 24dp
   icon in a 64x32 indicator, in `secondary-container` when active and holding
-  the state layer, over a label-medium label), emphasized easing and reduced
+  the state layer, over a label-medium label; the indicator 24dp tall in a
+  compact bar; a bar's `bg-color` or a destination's `color`, `base-color` or
+  colour class keeps the app's colours), emphasized easing and reduced
   motion. It adds a `text-on-*` class for every `on-*` role of the
   scheme, which Vuetify names only `.on-<role>`, so `color="on-surface-variant"`
   and `class="text-on-surface-variant"` work; an app colour's `on-*` roles keep
   only Vuetify's `.on-<name>` class. Its
   component rules sit in Vuetify's `vuetify-overrides` cascade layer, so an
-  app's own props and utility classes still win; only a disabled button's
+  app's own props and utility classes still win (a typography class for a
+  navigation bar's label goes on the label); only a disabled button's
   colours and a full-screen dialog's surface are unlayered, over the colour
   class a `color` prop gives. Nothing uses
   `!important` or Sass.

@@ -41,7 +41,7 @@ const displayIcon = computed(() =>
   <ShellSectionTabLinkItem v-if="!inNavigationBar" v-bind="props" />
   <v-btn
     v-else-if="resolvedTarget.href"
-    class="tab-link-item text-none"
+    class="tab-link-item"
     :class="{ 'tab-link-item--active': active }"
     :to="resolvedTarget.sameOrigin ? resolvedTarget.href : undefined"
     :href="resolvedTarget.sameOrigin ? undefined : resolvedTarget.href"

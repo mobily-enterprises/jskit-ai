@@ -1438,6 +1438,71 @@ test("an app's own v-bottom-navigation is Material 3's navigation bar: a 64x32 i
   }
 });
 
+test("an app's colours win over the navigation bar's, and a denser bar, a badge and an append icon keep its shape", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 60_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
+  await page.goto("/home/components");
+  const roles = {};
+  for (const role of ["primary", "on-primary", "secondary-container", "on-surface-variant"]) {
+    roles[role] = await readRoleColor(page, role);
+  }
+  const transparent = "rgba(0, 0, 0, 0)";
+  const read = (testId) => page.getByTestId(testId).evaluate((button) => {
+    const style = (node) => window.getComputedStyle(node);
+    const box = (node) => node.getBoundingClientRect();
+    const bar = box(button.closest(".v-bottom-navigation"));
+    // The destination's icon, a prepend-icon or one in a badge; its label, in a span or the content itself.
+    const icon = button.querySelector(".v-btn__prepend > .v-icon, .v-badge__wrapper > .v-icon");
+    const label = button.querySelector(".v-btn__content > span") || button.querySelector(".v-btn__content");
+    return {
+      indicator: [Math.round(box(icon).width), Math.round(box(icon).height)],
+      colors: [style(icon).backgroundColor, style(icon).color, style(label).color],
+      fits: box(icon).top >= bar.top - 0.5 && box(label).bottom <= bar.bottom + 0.5,
+      // An append icon and a badge's own icon are not the destination's.
+      otherIcons: Array.from(button.querySelectorAll(".v-btn__append .v-icon, .v-badge__badge .v-icon"))
+        .map((other) => Math.round(box(other).width))
+    };
+  });
+
+  // A bar the app colours: every destination takes the bar's on-primary, and the active indicator is drawn in it.
+  const coloured = { active: await read("fixture-navigation-coloured-active"), rest: await read("fixture-navigation-coloured-rest") };
+  assert.deepEqual(coloured.active.colors.slice(1), [roles["on-primary"], roles["on-primary"]], "coloured bar: active");
+  assert.ok(![transparent, roles["secondary-container"]].includes(coloured.active.colors[0]), `coloured bar: ${coloured.active.colors[0]}`);
+  assert.deepEqual(coloured.rest.colors, [transparent, roles["on-primary"], roles["on-primary"]], "coloured bar: rest");
+
+  // A bar whose color tints its active destination: that one is primary, the rest keep Material 3's colours.
+  const tinted = { active: await read("fixture-navigation-tinted-active"), rest: await read("fixture-navigation-tinted-rest") };
+  assert.deepEqual(tinted.active.colors.slice(1), [roles.primary, roles.primary], "tinted bar: active");
+  assert.ok(![transparent, roles["secondary-container"]].includes(tinted.active.colors[0]), `tinted bar: ${tinted.active.colors[0]}`);
+  assert.deepEqual(tinted.rest.colors, [transparent, roles["on-surface-variant"], roles["on-surface-variant"]], "tinted bar: rest");
+
+  // Denser bars fit their destinations: a comfortable one (48dp) drops the label's 4dp, a compact one (40dp) has a
+  // 24dp indicator. The badge's icon and an append icon (below the label of a stacked button) keep their own size.
+  for (const [density, indicator] of [["comfortable", [64, 32]], ["compact", [64, 24]]]) {
+    for (const name of ["active", "rest"]) {
+      const destination = await read(`fixture-navigation-${density}-${name}`);
+      assert.deepEqual(destination.indicator, indicator, `${density} ${name}: the indicator`);
+      assert.equal(destination.fits, true, `${density} ${name}: the indicator and label inside the bar`);
+    }
+    for (const name of ["active", "append"]) {
+      const destination = await read(`fixture-navigation-${density}-${name}`);
+      assert.deepEqual(destination.indicator, indicator, `${density} ${name}: the indicator`);
+      assert.equal(destination.otherIcons.length, 1, `${density} ${name}: its badge or append icon`);
+      assert.ok(destination.otherIcons[0] < 64, `${density} ${name}: ${destination.otherIcons}`);
+    }
+  }
+
+  // A horizontal bar lays its destinations flat, as Vuetify draws them: no indicator around the icon.
+  for (const name of ["active", "rest"]) {
+    const destination = await read(`fixture-navigation-horizontal-${name}`);
+    assert.ok(destination.indicator[0] < 64, `horizontal ${name}: ${destination.indicator}`);
+  }
+  await page.close();
+});
+
 test("segmented buttons, filter chips, fixed tabs, menus and dialog actions take Material 3's shapes and colours", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000
