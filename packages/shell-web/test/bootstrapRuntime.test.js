@@ -234,3 +234,58 @@ test("shell bootstrap runtime queue recovers after a refresh rejects", async () 
   await assert.rejects(runtime.refresh("manual"), /error handler failed/);
   assert.deepEqual(await runtime.refresh("manual"), { recovered: true });
 });
+
+test("shell bootstrap runtime runs one refresh and lets every later caller share one waiting refresh", async () => {
+  const handlers = createBootstrapPayloadHandlerRegistry();
+  const placementRuntime = createPlacementRuntime({ step: "first" });
+  const appliedReasons = [];
+  handlers.register(Object.freeze({
+    handlerId: "test.bootstrap.coalesce",
+    order: 0,
+    resolveBootstrapRequest({ placementRuntime: runtimePlacement }) {
+      return { query: { step: runtimePlacement.getContext().step } };
+    },
+    applyBootstrapPayload({ reason }) {
+      appliedReasons.push(reason);
+    },
+    handleBootstrapError() {}
+  }));
+  const fetched = [];
+  let releaseFirst = () => {};
+  const firstHeld = new Promise((resolve) => {
+    releaseFirst = resolve;
+  });
+  const runtime = createShellBootstrapRuntime({
+    handlers,
+    placementRuntime,
+    logger: silentLogger,
+    fetchImplementation: async (url) => {
+      fetched.push(url);
+      if (fetched.length === 1) {
+        await firstHeld;
+      }
+      return {
+        ok: true,
+        async json() {
+          return { url };
+        }
+      };
+    }
+  });
+
+  const first = runtime.refresh("init");
+  const waiting = [runtime.refresh("auth.state"), runtime.refresh("realtime"), runtime.refresh("route")];
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  placementRuntime.setContext({ step: "second" });
+  releaseFirst();
+
+  assert.deepEqual(await first, { url: "/api/bootstrap?step=first" });
+  for (const result of await Promise.all(waiting)) {
+    assert.deepEqual(result, { url: "/api/bootstrap?step=second" });
+  }
+  assert.deepEqual(fetched, ["/api/bootstrap?step=first", "/api/bootstrap?step=second"]);
+  assert.deepEqual(appliedReasons, ["init", "auth.state"]);
+
+  assert.deepEqual(await runtime.refresh("manual"), { url: "/api/bootstrap?step=second" });
+  assert.equal(fetched.length, 3);
+});

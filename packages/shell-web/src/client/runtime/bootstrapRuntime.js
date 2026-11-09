@@ -48,7 +48,8 @@ function createShellBootstrapRuntime({
   bootstrapPath = BOOTSTRAP_PATH
 }) {
   let initialized = false;
-  let refreshQueue = Promise.resolve();
+  let runningRefresh = null;
+  let pendingRefresh = null;
 
   async function resolveBootstrapRequest(reason = "manual") {
     const payloadHandlers = handlers.list();
@@ -165,9 +166,27 @@ function createShellBootstrapRuntime({
     }
   }
 
+  function startRefresh(reason) {
+    runningRefresh = performRefresh(reason).finally(() => {
+      runningRefresh = null;
+    });
+    return runningRefresh;
+  }
+
+  // One refresh runs and at most one waits: everyone asking while one waits
+  // shares it, since it resolves its request only when it starts.
   function refresh(reason = "manual") {
-    refreshQueue = refreshQueue.catch(() => null).then(() => performRefresh(reason));
-    return refreshQueue;
+    if (pendingRefresh) {
+      return pendingRefresh;
+    }
+    if (!runningRefresh) {
+      return startRefresh(reason);
+    }
+    pendingRefresh = runningRefresh.catch(() => null).then(() => {
+      pendingRefresh = null;
+      return startRefresh(reason);
+    });
+    return pendingRefresh;
   }
 
   async function initialize() {
