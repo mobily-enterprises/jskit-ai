@@ -41,6 +41,9 @@ import {
 // grow with the rows.
 const MANY_ROW_CHANNEL = "jskit:resources:many-row";
 const DEFAULT_CHUNK_SIZE = 500;
+// The fewest rows a many-row call's chunk holds. A smaller chunk sends a statement every few rows, as a loop of
+// single-row writes does, and a flat-query check allows a many-row call's later chunks.
+const MIN_CHUNK_SIZE = 100;
 // Why a many-row patch refuses lockVersion: one version does not hold for many records.
 const ONE_VERSION = "To change only the rows still at one version, give onlyIf the lock version field and that version; " +
   "to compare each record's own version, patch() it with its lockVersion.";
@@ -522,6 +525,12 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   }
 
   function manyRowWrite(operation, rows, options, request) {
+    if (options.chunkSize !== undefined && !(Number.isSafeInteger(options.chunkSize) && options.chunkSize >= MIN_CHUNK_SIZE)) {
+      throw new TypeError(
+        `${name}.${operation}() chunkSize is a whole number of at least ${MIN_CHUNK_SIZE} rows (${DEFAULT_CHUNK_SIZE} when left out): ` +
+        "a smaller chunk sends a statement every few rows."
+      );
+    }
     const returning = pickReturning(MANY_RETURNING, options.returning, "none", `${name}.${operation}()`);
     const askFor = hooks.afterWrite && (returning === "none" || returning === "count") ? "ids" : returning;
     reportManyRow(name, operation, rows, options.chunkSize);

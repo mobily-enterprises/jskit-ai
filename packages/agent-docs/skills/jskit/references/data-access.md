@@ -487,8 +487,10 @@ Every filter takes `id`, one id or a list, so `patchWhere({ id: ids },
 changes, options)` and `deleteWhere({ id: ids }, options)` change a known
 list. Each checks every row against the resource first, reads which of the
 rows the caller may touch, then writes each chunk with one statement, in one
-transaction. Audits and change events run once for the batch, so the
-statements are the same for 10 rows as for 200. `patchWhere` and
+transaction. A chunk is 500 rows unless the call passes `chunkSize`, which is
+at least 100: a smaller chunk would send a statement every few rows, as a loop
+does, and is refused before any statement. Audits and change events run once
+for the batch, so the statements are the same for 10 rows as for 200. `patchWhere` and
 `deleteWhere` check the scope and filters on each row once they hold its lock,
 so a row gone meanwhile, or changed so that it no longer matches, is skipped,
 and they take no `missing`. That makes them a compare-and-set on their filters

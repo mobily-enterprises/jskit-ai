@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking.** A many-row call (`createMany`, `patchMany`, `patchWhere`, `deleteWhere`) refuses a `chunkSize` that is not a whole number of at least 100 rows, with a `TypeError` naming the call, before any statement; one left out is still 500. A chunk of 1 or 5 rows sent a statement every row or few, as a loop of single-row writes does, and `expectFlatQueries()` allowed those statements as the call's later chunks, so it passed a write that grew with its rows. Upgrading: a call that passed a smaller `chunkSize` passes 100 or more, or none.
 - `expectFlatQueries()` counts only the measured path's own statements and many-row reports, from `run` and the async work it starts: a test or a background loop running beside it in the same process no longer changes the count. The many-row channel is process-wide, so another test's chunked write was taken for the path's own later chunks, which could hide statements that grow with the rows.
 - The resource runtime answers `tableResource(name)`: the table resource a feature owns under that name, or null. The CRUD contracts registry checks at boot, through it, what each contract's includes list of the tables they include.
 - The MariaDB many-row race tests read `INNODB_TRX` every 150 ms, where they polled it every 25 ms: InnoDB refreshes its copy of that table only when nothing has read it for 0.1 s, so the tests read the copy from before the writers reached the row's lock until their 10 s bound ran out, on any server whose test user may read it (CI's root).

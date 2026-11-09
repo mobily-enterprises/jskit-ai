@@ -97,10 +97,10 @@ test("expectFlatQueries() allows the later chunks a many-row write reports, and 
   };
   const createInChunks = (options, size) => books.createMany(
     Array.from({ length: size }, (_, index) => ({ title: `Book ${index}` })),
-    { ...options, chunkSize: 5 }
+    { ...options, chunkSize: 100 }
   );
-  const counts = await expectFlatQueries({ knex, environment, sizes: [3, 30], seed, run: createInChunks });
-  assert.deepEqual(counts.map(({ size, chunkStatements }) => [size, chunkStatements]), [[3, 0], [30, 5]]);
+  const counts = await expectFlatQueries({ knex, environment, sizes: [3, 300], seed, run: createInChunks });
+  assert.deepEqual(counts.map(({ size, chunkStatements }) => [size, chunkStatements]), [[3, 0], [300, 2]]);
 
   const oneByOne = async (options, size) => {
     for (let index = 0; index < size; index += 1) {

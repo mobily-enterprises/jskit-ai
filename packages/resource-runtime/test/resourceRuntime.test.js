@@ -330,6 +330,28 @@ test("many-row writes run per chunk in the caller's workspace, and answer nothin
   assert.deepEqual(await knex("notes").pluck("title"), ["other"]);
 });
 
+test("a many-row write refuses a chunk of fewer than 100 rows before any statement, and takes 100 or more", async (t) => {
+  const { notes, knex } = await createFixture(t);
+  const options = { context: WORKSPACE_A };
+  const [id] = await notes.createMany([{ title: "a" }], { ...options, returning: "ids" });
+  for (const chunkSize of [1, 99, 0, 150.5, -100, "200", null]) {
+    for (const [operation, call] of [
+      ["createMany", () => notes.createMany([{ title: "b" }], { ...options, chunkSize })],
+      ["patchMany", () => notes.patchMany([{ id, title: "b" }], { ...options, chunkSize })],
+      ["patchWhere", () => notes.patchWhere({ id }, { title: "b" }, { ...options, chunkSize })],
+      ["deleteWhere", () => notes.deleteWhere({ id }, { ...options, chunkSize })]
+    ]) {
+      const refused = new RegExp(`^TypeError: notes\\.${operation}\\(\\) chunkSize is a whole number of at least 100 rows \\(500 when left out\\)`, "u");
+      const { count } = await countQueries(knex, () => assert.rejects(call(), refused, `${operation} with chunkSize ${chunkSize}`));
+      assert.equal(count, 0, `${operation} with chunkSize ${chunkSize} sends nothing`);
+    }
+  }
+  assert.deepEqual(await knex("notes").pluck("title"), ["a"]);
+  const { count } = await countQueries(knex, () => notes.createMany(Array.from({ length: 250 }, (_, index) => ({ title: `c${index}` })), { ...options, chunkSize: 100 }));
+  assert.ok(count >= 3, `250 rows in chunks of 100 are 3 inserts, in ${count} statements`);
+  assert.equal((await knex("notes").pluck("id")).length, 251);
+});
+
 test("a table keyed by a uuid or a string takes its ids as text without its own normalizeId", async (t) => {
   const tokens = defineTableResource({
     name: "tokens",
