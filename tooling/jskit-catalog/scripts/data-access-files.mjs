@@ -5,14 +5,17 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { toPosixPath } from "./files.mjs";
 
 // The files `jskit check`'s data part (data-access.mjs) reads: the app's own source, but what its ESLint config ignores
-// outside server code, which no lint reads either; and the source of its installed @jskit-ai packages. With them, each
-// app file's ESLint config, which data/lint-config judges, and the paths it skipped, which it lists.
+// outside server source (SERVER_FILE), which no lint reads either; and the source of its installed @jskit-ai packages.
+// With them, each app file's ESLint config, which data/lint-config judges, and the paths it skipped, which it lists.
 
 // The root of the app or of one of its packages, where a folder's name says what the whole tree is: a migrations/ or
 // test/ folder deeper in server code is server code (as in @jskit-ai/config-eslint's dataAccess.js).
 const ROOT = String.raw`(?:(?:packages|tooling)/[^/]+/)?`;
-// Server code, which the app's ESLint config may not ignore: a package's src/server or src/shared, or the app's server/.
-const SERVER_FILE = new RegExp(`^(?:${ROOT}src/(?:server|shared)/|server/)`, "u");
+// Server source, which the app's ESLint config may not ignore, as @jskit-ai/config-eslint's base.js and dataAccess.js
+// lint it: at a root (ROOT), its files (a root server.js) and its src/ (an app's whole src/, src/jobs/ and its server
+// code with it; a package's src/server and src/shared), server/, scripts/, bin/ and config/. Anything else the config
+// ignores, a vendored copy of old code or generated output, is not data-access code.
+const SERVER_FILE = new RegExp(`^${ROOT}(?:[^/]+$|(?:src|server|scripts|bin|config)/)`, "u");
 const FRAMEWORK_DIRECTORY = path.join("node_modules", "@jskit-ai");
 const SOURCE_FILE = /\.[cm]?js$/u;
 const SKIPPED_FILE = /\.(?:test|spec|vitest)\.[cm]?js$/u;
@@ -102,7 +105,7 @@ async function lintConfigs(root, files) {
   return { configs };
 }
 
-// Code the app's ESLint config ignores that is not server code: no lint reads it, so neither does this check.
+// Code the app's ESLint config ignores that is not server source: no lint reads it, so neither does this check.
 const lintIgnores = ({ governed, config }) => !config && !SERVER_FILE.test(governed);
 
 // The fewest paths that name the app files skipped: for each, the highest directory holding no file that is read, written
@@ -116,7 +119,7 @@ function skippedPaths(files, skipped) {
   }))].sort();
 }
 
-// The app's source files but those its ESLint config ignores outside server code (lintIgnores), and those of its
+// The app's source files but those its ESLint config ignores outside server source (lintIgnores), and those of its
 // installed @jskit-ai packages (framework: true), each { file, absolute, framework }; with each app file's ESLint config
 // (lintConfigs) and the paths of the files skipped (skippedPaths).
 async function sourceFiles(root) {

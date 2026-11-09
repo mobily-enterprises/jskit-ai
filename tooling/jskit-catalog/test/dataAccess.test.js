@@ -475,30 +475,27 @@ test("an app file its ESLint config lints without every data-access rule as an e
 
 test("code the app's ESLint config ignores outside server code is skipped, and listed", async () => {
   const dataAccess = JSON.stringify(new URL("../../config-eslint/dataAccess.js", import.meta.url).href);
+  const widgets = "defineTableResource({ name: \"widgets\", tableName: \"widgets\", ownership: \"workspace\" });";
   await withProject({
     "package.json": { name: "vendored", type: "module" },
     "eslint.config.mjs": [
       `import { dataAccessConfig } from ${dataAccess};`,
-      "export default [{ ignores: [\"legacy/\", \"scripts/vendored-*.js\"] }, ...dataAccessConfig([\"**\"])];",
+      "export default [{ ignores: [\"legacy/\", \"public/vendor/\"] }, ...dataAccessConfig([\"**\"])];",
       ""
     ].join("\n"),
-    ...TABLES,
+    "packages/widgets/src/shared/widgetResource.js": `export const widgetResource = ${widgets}\n`,
     "server/index.js": "export const index = {};\n",
     "scripts/build.js": "export const build = {};\n",
     // A read-only legacy copy, kept beside the app, that no lint reads: none of it is held to the data rules either.
-    "legacy/server/db.js": [
-      "/* eslint-disable */",
-      "export const receivals = defineTableResource({ name: \"receivals\", tableName: \"receivals\" });",
-      ""
-    ].join("\n"),
+    "legacy/server/db.js": `/* eslint-disable */\nexport const widgets = ${widgets}\n`,
     "legacy/lib/report.js": "export const report = () => systemContext(\"\"); // eslint-disable-line\n",
-    "scripts/vendored-tool.js": "/* eslint-disable */\nexport const requires = { database: \"runtime.database\" };\n"
+    "public/vendor/chart.js": "/* eslint-disable */\nexport const requires = { database: \"runtime.database\" };\n"
   }, async (root) => {
     const result = await checkDataAccess({ projectRoot: root });
     assert.deepEqual(findingLines(result), []);
-    assert.deepEqual(result.skipped, ["legacy/", "scripts/vendored-tool.js"]);
+    assert.deepEqual(result.skipped, ["legacy/", "public/"]);
     assert.match(formatDataAccessReport(result),
-      /^Skipped, as the app's ESLint config ignores them and they hold no server code \(2\):\n {2}legacy\/\n {2}scripts\/vendored-tool\.js\nJSKIT data access: 4 table resource\(s\)/mu);
+      /^Skipped, as the app's ESLint config ignores them and they hold no server code \(2\):\n {2}legacy\/\n {2}public\/\nJSKIT data access: 1 table resource\(s\)/mu);
   });
 });
 
@@ -508,13 +505,32 @@ test("server code the app's ESLint config ignores is still read, and fails", asy
     "package.json": { name: "unlinted", type: "module" },
     "eslint.config.mjs": [
       `import { dataAccessConfig } from ${dataAccess};`,
-      "export default [{ ignores: [\"server/\"] }, ...dataAccessConfig([\"**\"])];",
+      "export default [",
+      "  { ignores: [\"server.js\", \"server/\", \"scripts/vendored-*.js\", \"config/\", \"src/jobs/\", \"packages/*/bin/\"] },",
+      "  ...dataAccessConfig([\"**\"])",
+      "];",
       ""
     ].join("\n"),
-    "server/lib/db.js": "/* eslint-disable */\nexport const db = {};\n"
+    // Server code, as the base config lints it: a root's files and its src/, server/, scripts/, bin/ and config/.
+    "server.js": "export const server = {};\n",
+    "server/lib/db.js": "/* eslint-disable */\nexport const db = {};\n",
+    "scripts/vendored-tool.js": "/* eslint-disable */\nexport const requires = { database: \"runtime.database\" };\n",
+    "config/database.js": "export const database = {};\n",
+    "src/jobs/cleanup.js": "export const cleanup = {};\n",
+    "packages/billing/bin/import.js": "export const run = {};\n"
   }, async (root) => {
     const result = await checkDataAccess({ projectRoot: root });
-    assert.deepEqual(findingLines(result), ["server/lib/db.js:1 data/lint-disabled", "server/lib/db.js:1 data/lint-config"]);
+    assert.deepEqual(findingLines(result), [
+      "config/database.js:1 data/lint-config",
+      "packages/billing/bin/import.js:1 data/lint-config",
+      "scripts/vendored-tool.js:1 data/lint-disabled",
+      "scripts/vendored-tool.js:1 data/lint-config",
+      "scripts/vendored-tool.js:2 data/runtime-capability",
+      "server.js:1 data/lint-config",
+      "server/lib/db.js:1 data/lint-disabled",
+      "server/lib/db.js:1 data/lint-config",
+      "src/jobs/cleanup.js:1 data/lint-config"
+    ]);
     assert.deepEqual(result.skipped, []);
     assert.doesNotMatch(formatDataAccessReport(result), /^Skipped/mu);
   });
