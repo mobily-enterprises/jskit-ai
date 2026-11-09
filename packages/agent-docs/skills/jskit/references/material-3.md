@@ -322,9 +322,12 @@ dialog, chip or FAB.
   actions in the bar's overflow menu, never in the content; the record's
   next workflow step is the one filled button, shown in context rather than a
   row of mostly disabled actions.
-- **Form:** the bar's close (X) cancels and Save is its filled action. Fields
-  use `hideDetails: "auto"`. Nothing moves under a finger: a multi-select chip
-  field keeps its input width when it loses focus. A pick-one-of-N choice is a
+- **Form:** the bar's close (X) cancels and Save is its filled action. A
+  field keeps its supporting-text line, as JSKIT's defaults leave it, so an
+  error or hint appears in place: no margin under a field, and no
+  `hide-details` in a form. A field outside a form (a search box, a filter, a
+  composer) sets `hide-details`. Nothing moves under a finger: a multi-select
+  chip field keeps its input width when it loses focus. A pick-one-of-N choice is a
   segmented button (`v-btn-toggle`, drawn by JSKIT, with 12dp segment sides as
   in any `v-btn-group`) with `role="radiogroup"` and
   `role="radio"`/`aria-checked` buttons.

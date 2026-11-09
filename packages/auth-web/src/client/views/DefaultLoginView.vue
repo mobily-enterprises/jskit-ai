@@ -200,7 +200,6 @@
               autocomplete="email"
               :error-messages="emailErrorMessages"
               @blur="emailTouched = true"
-              class="mb-3"
             />
 
             <v-text-field
@@ -215,7 +214,6 @@
               :append-inner-icon="showPassword ? '$visibilityOff' : '$visibility'"
               @click:append-inner="togglePasswordVisibility"
               @blur="passwordTouched = true"
-              class="mb-3"
             />
 
             <v-text-field
@@ -230,7 +228,6 @@
               :append-inner-icon="showConfirmPassword ? '$visibilityOff' : '$visibility'"
               @click:append-inner="toggleConfirmPasswordVisibility"
               @blur="confirmPasswordTouched = true"
-              class="mb-3"
             />
 
             <v-text-field
@@ -242,7 +239,6 @@
               autocomplete="one-time-code"
               :error-messages="otpCodeErrorMessages"
               @blur="otpCodeTouched = true"
-              class="mb-3"
             />
 
             <div v-if="isLogin && (canRequestPasswordRecovery || canUseOtp)" class="aux-links d-flex justify-end mb-4">

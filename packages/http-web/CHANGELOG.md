@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- `CrudAddEditScreen`'s field rows are 4px apart, plus each field's supporting-text line, which fields keep now that `@jskit-ai/material-web` no longer sets `hideDetails: "auto"`: a server's field error appears in that line instead of pushing the rest of the form down. Columns side by side stay 24px apart.
+
 - A record's form keeps its null values: editing a record whose `type: "id"` link is null and saving it sends null back. `applyCrudPayloadToForm` put "" in the form for every null field except booleans and lookups, and `buildCrudFormPayload` sent that "" back, which the id cast refused with a raw "Value could not be cast…"; a nullable string or select also came back as "" instead of null. A nullable field now keeps null in the form, and an `id` field is saved like a lookup: trimmed, null when a nullable one is cleared, and not sent when a required one is empty, so the server names it as missing. Numbers, dates, times and booleans already round-tripped their nulls and are unchanged.
 - A list record's overflow menu (`CrudListRecordActionMenu`, on cards and table rows) is exposed as a menu: its list has `role="menu"`, named after its button ("Actions for {title}"), and Open, Edit and each row action are `role="menuitem"`, with `aria-disabled="true"` on an unavailable action, as Material 3 menus and shell-web's page-actions menu are. Before, it was Vuetify's default list of links and list items, so assistive technology heard no menu and a browser test looking for its menu items found none. Nothing changes visually.
 - CRUD screens take a CRUD contract from `@jskit-ai/resource-crud-core`'s `defineCrudContract`; the crud-screen-set pattern's pages use the books example's `bookCrud`.

@@ -78,28 +78,25 @@ const materialDefaults = Object.freeze({
     color: "primary",
     inset: "material"
   },
+  // Outlined fields keep Vuetify's line for their supporting text, as a Material 3 text field does, so an error or
+  // hint appears in place without moving what is below it. A field outside a form (a search box, a filter, a
+  // composer) sets `hide-details` itself.
   VAutocomplete: {
-    hideDetails: "auto",
     variant: "outlined"
   },
   VCombobox: {
-    hideDetails: "auto",
     variant: "outlined"
   },
   VFileInput: {
-    hideDetails: "auto",
     variant: "outlined"
   },
   VSelect: {
-    hideDetails: "auto",
     variant: "outlined"
   },
   VTextarea: {
-    hideDetails: "auto",
     variant: "outlined"
   },
   VTextField: {
-    hideDetails: "auto",
     variant: "outlined"
   },
   VCheckbox: {

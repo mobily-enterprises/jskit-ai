@@ -153,6 +153,10 @@ test("the Vuetify options follow the system scheme on the md3 blueprint with Mat
   assert.equal(options.defaults.VSnackbar.color, "inverse-surface");
   // A button with `to` is active only on exactly its route.
   assert.equal(options.defaults.VBtn.exact, true);
+  // Fields keep their supporting-text line, so an error or hint appears without moving the form below it.
+  for (const field of ["VAutocomplete", "VCombobox", "VFileInput", "VSelect", "VTextarea", "VTextField"]) {
+    assert.deepEqual(options.defaults[field], { variant: "outlined" }, field);
+  }
   assert.throws(() => createMaterialVuetifyOptions({ icons: { "my-leaf": "M0 0" } }), /camelCase/u);
 });
 

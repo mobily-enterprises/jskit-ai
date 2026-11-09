@@ -152,6 +152,20 @@ test("password sign-in opens the requested page, remembers the account, and sign
   await finish(api);
 });
 
+test("an email error shown on blur appears in the field's own line, so the fields below it stay put", options, async () => {
+  const api = await openApp();
+  const { page } = api;
+  await page.goto("/auth/login");
+  await expect(page.getByTestId("auth-mode-register")).toBeVisible();
+  const password = page.getByLabel("Password", { exact: true });
+  const before = await password.boundingBox();
+  await page.getByLabel("Email").fill("not-an-email");
+  await page.getByLabel("Email").blur();
+  await expect(page.locator(".v-messages__message").first()).toBeVisible();
+  assert.deepEqual(await password.boundingBox(), before);
+  await finish(api);
+});
+
 test("a refused sign-in reports the server's error and leaves the form usable", options, async () => {
   const api = await openApp({ routes: { "POST /api/login": deny(401, "Invalid email or password.") } });
   const { page } = api;

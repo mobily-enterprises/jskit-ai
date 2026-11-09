@@ -112,7 +112,8 @@ useShellPageClose({ label: () => t("jskit.http.actions.cancel"), close: cancel }
     </div>
     <v-skeleton-loader v-else-if="formRuntime.showFormSkeleton" type="text@2, article" />
     <v-form v-else @submit.prevent="addEdit.submit" novalidate>
-      <v-row class="crud-add-edit-form__fields">
+      <!-- Each field's own supporting-text line spaces the rows, so they add only 4px to it. -->
+      <v-row class="crud-add-edit-form__fields" :gap="[24, 4]">
         <slot
           name="fields"
           :mode="mode"

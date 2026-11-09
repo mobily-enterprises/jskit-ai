@@ -34,7 +34,6 @@
             autocomplete="new-password"
             :append-inner-icon="showPassword ? '$visibilityOff' : '$visibility'"
             :error-messages="passwordError"
-            class="mb-3"
             @click:append-inner="showPassword = !showPassword"
           />
           <v-text-field
@@ -46,7 +45,6 @@
             autocomplete="new-password"
             :append-inner-icon="showConfirmPassword ? '$visibilityOff' : '$visibility'"
             :error-messages="confirmPasswordError"
-            class="mb-4"
             @click:append-inner="showConfirmPassword = !showConfirmPassword"
           />
           <v-btn block color="primary" size="large" type="submit" :loading="loading" :disabled="!canSubmit">

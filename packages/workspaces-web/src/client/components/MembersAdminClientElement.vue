@@ -41,7 +41,6 @@
                     type="email"
                     autocomplete="email"
                     :disabled="isCreatingInvite || showWorkspaceInviteRefreshingIndicator"
-                    class="mb-3"
                   />
                   <v-select
                     v-model="inviteForm.roleSid"
@@ -52,7 +51,6 @@
                     variant="outlined"
                     density="comfortable"
                     :disabled="isCreatingInvite || showWorkspaceInviteRefreshingIndicator"
-                    class="mb-3"
                   />
                   <v-btn
                     type="submit"
