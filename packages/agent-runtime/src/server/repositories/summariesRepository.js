@@ -1,4 +1,4 @@
-import { isLostDuplicateInsertRace } from "@jskit-ai/database-runtime/shared";
+import { isLostDuplicateInsertRace, retryLostInsertRace } from "@jskit-ai/database-runtime/shared";
 import { AGENT_ROWS } from "../resources.js";
 import { conversationKey, firstRow, rowOf } from "./rows.js";
 
@@ -19,20 +19,21 @@ export function createSummariesRepository({ summaries, queue, options }) {
   }
 
   /**
-   * Saves a summary unless another server saved a newer one first (the newest is locked while this
-   * decides), and keeps only the newest `keep` of the conversation's summaries.
+   * Saves a summary unless the conversation's newest already covers as much, and keeps only the
+   * newest `keep` of its summaries. The summary follows the newest it read (none for the first), and
+   * the database lets only one summary follow each: when another server saves one after reading the
+   * same newest, the save that loses rolls back and decides again on the other's summary.
    */
   function saveUnlessNewer(conversationId, { coversUpTo, summary, messages }, keep) {
     conversationKey(conversationId);
-    return summaries.withTransaction(options, async (txOptions) => {
+    return retryLostInsertRace(options, () => summaries.withTransaction(options, async (txOptions) => {
       const newest = await latest(conversationId, txOptions);
-      const [locked] = newest ? await summaries.lockMany([newest.id], { ...txOptions, missing: "skip" }) : [];
-      if (locked && Number(locked.covers_up_to) >= coversUpTo) return;
-      await summaries.create({ conversation_id: conversationId, covers_up_to: coversUpTo, summary, messages }, { ...txOptions, returning: "none" });
+      if (newest && Number(newest.covers_up_to) >= coversUpTo) return;
+      await summaries.create({ conversation_id: conversationId, follows: newest?.id ?? null, covers_up_to: coversUpTo, summary, messages }, { ...txOptions, returning: "none" });
       const newestFirst = await summaries.queryAll({ filters: { conversation_id: conversationId }, sort: ["-id"], fields: ["covers_up_to"] }, txOptions);
       const old = newestFirst.slice(keep).map((row) => row.id);
       if (old.length) await summaries.deleteWhere({ id: old }, txOptions);
-    });
+    }));
   }
 
   /** Queues the conversation; one that is queued already keeps its place. */

@@ -66,6 +66,8 @@ const GOAL_FIELDS = Object.freeze({
 });
 const SUMMARY_FIELDS = Object.freeze({
   conversation_id: Object.freeze({ type: "id", search: true }),
+  // The summary this one follows, the conversation's newest when it was saved; null for its first.
+  follows: Object.freeze({ type: "id", nullable: true }),
   covers_up_to: Object.freeze({ type: "id" }),
   summary: TEXT,
   messages: COUNT,

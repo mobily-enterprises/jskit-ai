@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { SUMMARY_LIMITS } from "@jskit-ai/agent/server";
 import { createSummaries } from "../src/server/index.js";
+import { createSummariesRepository } from "../src/server/repositories/summariesRepository.js";
 import { DATABASE, agentOwner, testDatabase } from "./database.js";
 
 // Summarising conversations in the background: past a size, a conversation is queued; one server
@@ -186,4 +187,44 @@ test("a notice wakes every server's loop, which summarises what's queued", { ski
   await loop.drain(1000);
   assert.equal((await store.current(6)).summary, "WOKEN SUMMARY");
   assert.equal(listeners.length, 0, "drained, it stops listening");
+});
+
+test("two servers saving a summary of one conversation at once: the newest saved always covers the most", { skip: DATABASE }, async (context) => {
+  const knex = await testDatabase(context);
+  const { resources, systemContext } = await agentOwner(knex);
+  const options = Object.freeze({ context: systemContext("two servers save summaries at once") });
+  const handle = resources.agentSummaries;
+  const other = createSummariesRepository({ summaries: handle, queue: resources.agentSummaryQueue, options });
+  let competitor = null;
+  // This server reads the conversation's newest summary, and the other then saves one, whole, before this one writes.
+  const racing = createSummariesRepository({
+    summaries: {
+      ...handle,
+      async query(params, callOptions) {
+        const page = await handle.query(params, callOptions);
+        const run = competitor;
+        competitor = null;
+        if (run) await run();
+        return page;
+      }
+    },
+    queue: resources.agentSummaryQueue,
+    options
+  });
+  const save = (repository, conversationId, coversUpTo) => repository.saveUnlessNewer(conversationId, { coversUpTo, summary: `up to ${coversUpTo}`, messages: 1 }, 3);
+  const covered = async (conversationId) => (await knex("agent_summaries").where({ conversation_id: conversationId }).orderBy("id")).map((row) => Number(row.covers_up_to));
+
+  // A first summary, and a later one, that the other server's summary up to 9 overtakes while they wait to write.
+  competitor = () => save(other, 1, 9);
+  await save(racing, 1, 5);
+  assert.deepEqual(await covered(1), [9], "the first summary up to 5 is dropped for the other's first, up to 9");
+  await save(other, 2, 3);
+  competitor = () => save(other, 2, 9);
+  await save(racing, 2, 5);
+  assert.deepEqual(await covered(2), [3, 9], "the summary up to 5 is dropped: the newest covers 9");
+  // One that covers more than the other's is saved after it.
+  await save(other, 3, 3);
+  competitor = () => save(other, 3, 9);
+  await save(racing, 3, 12);
+  assert.deepEqual(await covered(3), [3, 9, 12]);
 });

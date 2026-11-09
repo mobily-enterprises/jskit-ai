@@ -13,8 +13,8 @@ import { requireStoreDependencies } from "./arguments.js";
  * close to DeepSeek Harness's 727k/127k: a chat is read word for word until it's far into the
  * window, leaving room for one long turn's own steps on top.
  *
- * Tables (resources.js): summaries (agentSummaries: id, conversation_id, covers_up_to, summary,
- * messages, created_at) and a queue (agentSummaryQueue: conversation_id its key, requested_at,
+ * Tables (resources.js): summaries (agentSummaries: id, conversation_id, follows, covers_up_to,
+ * summary, messages, created_at) and a queue (agentSummaryQueue: conversation_id its key, requested_at,
  * run_after, lease_until, attempts, last_error), on the handles of the feature that owns them.
  *
  * Hooks: `history(conversationId, { after })` gives { messages, inherited, toModel, named }: the
