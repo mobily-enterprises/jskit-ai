@@ -208,6 +208,20 @@ test("material.css holds the exact-size rules without Sass or !important", async
   assert.match(css, /\.text-on-surface-variant \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);/u);
 });
 
+// Vuetify gives an on-* role only the class ".on-<role>", so color="on-<role>" finds no text-on-<role> class unless
+// material.css has one: it has one for every Material 3 on-* role the scheme defines (surface-light is a Vuetify-only
+// name, so its on-surface-light is not one), and none for a role the scheme lacks.
+test("material.css has a text-on-* class for every Material 3 on-* role of the scheme", async () => {
+  const css = await readFile(path.join(PACKAGE_ROOT, "src/client/material.css"), "utf8");
+  const onRoles = Object.keys(materialThemes("#6750A4").light.colors)
+    .filter((role) => role.startsWith("on-") && role !== "on-surface-light")
+    .sort();
+  const classes = [...css.matchAll(/^ {2}\.text-(on-[a-z-]+) \{\s*color: rgb\(var\(--v-theme-(on-[a-z-]+)\)\);\s*\}/gmu)];
+  for (const [, name, role] of classes) assert.equal(name, role, `.text-${name} reads its own role`);
+  assert.deepEqual(classes.map(([, name]) => name).sort(), onRoles);
+  assert.ok(onRoles.includes("on-primary-fixed-variant") && onRoles.includes("on-surface-container-high"), onRoles.join(", "));
+});
+
 test("segmented buttons and filter chips select in secondary-container; a menu's own list is the menu's container", () => {
   const { defaults } = createMaterialVuetifyOptions();
   assert.deepEqual(defaults.VBtnToggle, {

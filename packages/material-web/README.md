@@ -84,7 +84,10 @@ export const theme = {
   actions 24dp from the edges, a menu's own list as its container
   (`surface-container` at level 2, in the menu's 4dp corners) while a list in a
   rich menu panel (a card or sheet in the menu) stays plain, emphasized easing
-  and reduced motion. Its
+  and reduced motion. It adds a `text-on-*` class for every `on-*` role of the
+  scheme, which Vuetify names only `.on-<role>`, so `color="on-surface-variant"`
+  and `class="text-on-surface-variant"` work; an app colour's `on-*` roles keep
+  only Vuetify's `.on-<name>` class. Its
   component rules sit in Vuetify's `vuetify-overrides` cascade layer, so an
   app's own props and utility classes still win; only a disabled button's
   colours and a full-screen dialog's surface are unlayered, over the colour

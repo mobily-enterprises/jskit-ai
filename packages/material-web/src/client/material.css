@@ -489,7 +489,9 @@
 
 /*
  * Vuetify names the utility class of an on-* colour role ".on-surface-variant", so color="on-surface-variant" on an
- * icon or a text button would find no class. These text-on-* forms make it work.
+ * icon or a text button would find no class. These text-on-* forms make it work for every on-* role of the scheme:
+ * the scheme's roles, the fixed roles' and the surface tones', and success, warning and info with their containers.
+ * An app colour's on-* roles have only Vuetify's own class (class="on-partner"); bg-partner already sets on-partner.
  */
 @layer vuetify-utilities {
   /* A menu's own list is surface-container. In this layer, outside its theme sublayers, so it outranks the
@@ -519,6 +521,34 @@
     color: rgb(var(--v-theme-on-surface-variant));
   }
 
+  .text-on-surface-dim {
+    color: rgb(var(--v-theme-on-surface-dim));
+  }
+
+  .text-on-surface-bright {
+    color: rgb(var(--v-theme-on-surface-bright));
+  }
+
+  .text-on-surface-container-lowest {
+    color: rgb(var(--v-theme-on-surface-container-lowest));
+  }
+
+  .text-on-surface-container-low {
+    color: rgb(var(--v-theme-on-surface-container-low));
+  }
+
+  .text-on-surface-container {
+    color: rgb(var(--v-theme-on-surface-container));
+  }
+
+  .text-on-surface-container-high {
+    color: rgb(var(--v-theme-on-surface-container-high));
+  }
+
+  .text-on-surface-container-highest {
+    color: rgb(var(--v-theme-on-surface-container-highest));
+  }
+
   .text-on-primary {
     color: rgb(var(--v-theme-on-primary));
   }
@@ -541,6 +571,30 @@
 
   .text-on-tertiary-container {
     color: rgb(var(--v-theme-on-tertiary-container));
+  }
+
+  .text-on-primary-fixed {
+    color: rgb(var(--v-theme-on-primary-fixed));
+  }
+
+  .text-on-primary-fixed-variant {
+    color: rgb(var(--v-theme-on-primary-fixed-variant));
+  }
+
+  .text-on-secondary-fixed {
+    color: rgb(var(--v-theme-on-secondary-fixed));
+  }
+
+  .text-on-secondary-fixed-variant {
+    color: rgb(var(--v-theme-on-secondary-fixed-variant));
+  }
+
+  .text-on-tertiary-fixed {
+    color: rgb(var(--v-theme-on-tertiary-fixed));
+  }
+
+  .text-on-tertiary-fixed-variant {
+    color: rgb(var(--v-theme-on-tertiary-fixed-variant));
   }
 
   .text-on-error {

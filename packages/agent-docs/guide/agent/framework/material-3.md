@@ -286,6 +286,15 @@ dialog, chip or FAB.
 
 - Use semantic roles through Vuetify props, classes and
   `rgb(var(--v-theme-<role>))`; never a raw colour value in a component.
+- Text in an `on-*` role uses its text class or a `color` prop:
+  `class="text-on-surface-variant"` for supporting text, or
+  `<v-icon color="on-surface-variant">`. material-web has a `text-on-*` class
+  for every `on-*` role of the scheme (fixed and surface-tone roles, and
+  success, warning and info, included); Vuetify's own `on-surface-variant`
+  class does the same. An app colour's `on-*` roles have only Vuetify's class
+  (`class="on-partner"`), and `bg-partner` or `color="partner"` already puts
+  its text in `on-partner`. Never lower text emphasis with an opacity or
+  `text-medium-emphasis`: Material 3 uses `on-surface-variant` instead.
 - Status chips use `color="success"` (or `warning`, `info`, `error`) or the
   container roles (`success-container` with `on-success-container`), and each
   status meaning has its own hue. Never communicate status, selection, validation, or permission through
