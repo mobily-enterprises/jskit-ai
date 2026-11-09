@@ -297,7 +297,10 @@ test("the profile menu and a refused, then retried, sign-out show only the pseud
   await api.open("/home");
   // On a phone, where the name is hidden, the activator is a round icon button around the avatar.
   await page.setViewportSize({ width: 390, height: 844 });
-  const activator = await page.locator(".auth-profile-widget__activator").evaluate((element) => {
+  // The resize swaps the named button for the icon one on the next render; measure only once it is shown.
+  const phoneActivator = page.locator(".auth-profile-widget__activator.v-btn--icon");
+  await expect(phoneActivator).toBeVisible();
+  const activator = await phoneActivator.evaluate((element) => {
     const box = element.getBoundingClientRect();
     return { width: box.width, height: box.height, radius: Number.parseFloat(window.getComputedStyle(element).borderTopLeftRadius) };
   });
