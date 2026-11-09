@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
+import { expectFlatQueries } from "@jskit-ai/resource-runtime/test";
 import { workspacesDatabase } from "./support/mysqlWorkspaces.js";
 
 // Characterization of workspaceInvitesRepository on MariaDB/MySQL, through the functions its services call, before
@@ -199,6 +200,26 @@ test("expiring an email's pending invites touches only that workspace's pending 
     assert.equal(error.message, "Invitation workspace no longer exists.");
     return true;
   });
+});
+
+test("expiring an email's pending invites sends the same statements for 3 invites as for 30", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  let team = 0;
+  await expectFlatQueries({
+    environment: process.env,
+    knex: db.knex,
+    sizes: [3, 30],
+    // Each size invites one email to a workspace of its own as often as the size says.
+    seed: async (size) => {
+      team += 1;
+      const { workspace } = await teamOf(db, `flat-expire-${team}`);
+      for (let index = 0; index < size; index += 1) await invite(db, workspace, "una@example.test", `flat-expire-${team}-${index}`);
+      return workspace;
+    },
+    run: (workspace) => db.invites.expirePendingByWorkspaceIdAndEmail(workspace.id, "una@example.test")
+  });
+  assert.deepEqual(await db.invites.listPendingByEmail("una@example.test"), [], "every one of them expired");
 });
 
 test("accepting or revoking stamps a pending invite once; a handled, unknown or foreign invite is a 404", async () => {

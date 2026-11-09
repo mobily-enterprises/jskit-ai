@@ -26,35 +26,6 @@ function normalizeInviteRecord(payload) {
   };
 }
 
-function normalizeInvitePatchPayload(payload = {}) {
-  const source = payload && typeof payload === "object" && !Array.isArray(payload) ? payload : {};
-  const normalized = {};
-
-  if (Object.hasOwn(source, "roleSid")) {
-    normalized.roleSid = normalizeLowerText(source.roleSid);
-  }
-  if (Object.hasOwn(source, "status")) {
-    normalized.status = normalizeLowerText(source.status);
-  }
-  if (Object.hasOwn(source, "invitedByUserId")) {
-    normalized.invitedByUserId =
-      source.invitedByUserId == null
-        ? null
-        : normalizeRecordId(source.invitedByUserId, { fallback: null });
-  }
-  if (Object.hasOwn(source, "expiresAt")) {
-    normalized.expiresAt = source.expiresAt == null ? null : toIsoString(source.expiresAt);
-  }
-  if (Object.hasOwn(source, "acceptedAt")) {
-    normalized.acceptedAt = source.acceptedAt == null ? null : toIsoString(source.acceptedAt);
-  }
-  if (Object.hasOwn(source, "revokedAt")) {
-    normalized.revokedAt = source.revokedAt == null ? null : toIsoString(source.revokedAt);
-  }
-
-  return normalized;
-}
-
 function normalizeInviteWithWorkspace(payload = {}) {
   const invite = normalizeInviteRecord(payload);
   if (!invite) {
@@ -257,22 +228,12 @@ function createRepository({ workspaceInvites, workspaces }) {
 
     await workspaceInvites.withTransaction(options, async (txOptions) => {
       await lockWorkspaceForInvitations(normalizedWorkspaceId, txOptions);
-      const patch = normalizeInvitePatchPayload({ status: "expired" });
-      const rows = await queryInvites(
-        {
-          workspace: normalizedWorkspaceId,
-          email: normalizeLowerText(email),
-          status: "pending"
-        },
-        { ...txOptions, lock: true }
+      // One write for every pending invite of the email, however many there are; the handle stamps updatedAt.
+      await workspaceInvites.patchWhere(
+        { workspace: normalizedWorkspaceId, email: normalizeLowerText(email), status: "pending" },
+        { status: "expired" },
+        { ...txOptions, returning: "none" }
       );
-
-      for (const row of rows) {
-        if (!row?.id) {
-          continue;
-        }
-        await patchInvite(row.id, { status: patch.status, updatedAt: new Date().toISOString() }, txOptions);
-      }
     });
   }
 

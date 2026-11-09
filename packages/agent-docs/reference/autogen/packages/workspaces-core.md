@@ -39,8 +39,6 @@ Exports
 - `createRepository({ workspaceInvites, workspaces })`
 - `normalizeInviteRecord(payload)`
 - `normalizeInviteWithWorkspace(payload = {})`
-Local functions
-- `normalizeInvitePatchPayload(payload = {})`
 
 ### `src/server/common/repositories/workspaceMembershipsRepository.js`
 Exports
