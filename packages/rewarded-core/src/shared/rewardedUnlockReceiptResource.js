@@ -67,7 +67,9 @@ const rewardedUnlockReceiptTableResource = defineTableResource({
   searchSchema: {
     q: { type: "string", oneOf: ["gateKey"], filterOperator: "like", splitBy: " ", matchAll: true },
     // Server-only: the rewarded service counts the receipts granted since a day began.
-    grantedSince: { type: "dateTime", actualField: "grantedAt", filterOperator: ">=" }
+    grantedSince: { type: "dateTime", actualField: "grantedAt", filterOperator: ">=" },
+    // Server-only: the rewarded service finds the gate's receipt that still unlocks it.
+    unlockedAfter: { type: "dateTime", actualField: "unlockedUntil", filterOperator: ">" }
   },
   defaultSort: ["-createdAt"]
 });

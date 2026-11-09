@@ -205,6 +205,26 @@ test(`rewarded grants use real resources and atomic transactions (${databaseUrl 
     assert.equal((await knex("rewarded_unlock_receipts").where({ watch_session_id: session.id }).select()).length, 1);
   });
 
+  await t.test("an unlock granted before 25 newer, expired receipts still unlocks the gate", async () => {
+    await repositories.rewardedRules.create({
+      gateKey: "long", surface: "app", enabled: true,
+      unlockMinutes: 30, cooldownMinutes: 0, dailyLimit: null,
+      title: "Long", description: "Long unlock test"
+    }, { context });
+    const hourAgo = new Date(Date.now() - 3600000);
+    const unlocking = await repositories.rewardedUnlockReceipts.create({
+      gateKey: "long", grantedAt: new Date(hourAgo.getTime() - 60000).toISOString(),
+      unlockedUntil: new Date(Date.now() + 86400000).toISOString()
+    }, { context });
+    await repositories.rewardedUnlockReceipts.createMany(Array.from({ length: 25 }, (_, index) => ({
+      gateKey: "long", grantedAt: new Date(hourAgo.getTime() + index * 1000).toISOString(), unlockedUntil: hourAgo.toISOString()
+    })), { context });
+
+    const state = await service.getCurrentState({ workspaceSlug: "alpha", gateKey: "long" }, { context });
+    assert.equal(state.reason, "already-unlocked");
+    assert.equal(String(state.unlock.id), String(unlocking.id));
+  });
+
   await t.test("a daily limit above one page of receipts is counted exactly and reached", async () => {
     await repositories.rewardedRules.create({
       gateKey: "daily", surface: "app", enabled: true,

@@ -171,14 +171,19 @@ function createService({
     return queryFirst(rewardedProviderConfigsRepository, { surface: REWARDED_SURFACE, enabled: true }, "-updatedAt", repositoryOptions);
   }
 
+  /**
+   * The gate's most recently granted receipt that still unlocks it at `now`, however many receipts came after it.
+   * @param {RewardedRepositoryOptions} repositoryOptions
+   */
+  async function resolveActiveUnlockReceipt(gateKey, now, repositoryOptions) {
+    const filters = { gateKey, unlockedAfter: now.toISOString() };
+    const receipt = await queryFirst(rewardedUnlockReceiptsRepository, filters, "-grantedAt", repositoryOptions);
+    return isFutureDate(receipt?.unlockedUntil, now) ? receipt : null;
+  }
+
   /** @param {RewardedRepositoryOptions} repositoryOptions */
-  async function resolveUnlockReceipts(gateKey, repositoryOptions) {
-    const { records } = await rewardedUnlockReceiptsRepository.query({
-      filters: { gateKey },
-      sort: ["-grantedAt"],
-      page: { size: 25 }
-    }, repositoryOptions);
-    return records;
+  async function resolveLatestUnlockReceipt(gateKey, repositoryOptions) {
+    return queryFirst(rewardedUnlockReceiptsRepository, { gateKey }, "-grantedAt", repositoryOptions);
   }
 
   /**
@@ -240,9 +245,7 @@ function createService({
 
     const rule = formatRule(ruleRecord);
     const providerConfig = formatProviderConfig(providerConfigRecord);
-    const receipts = await resolveUnlockReceipts(gateKey, { context });
-    const activeReceiptRecord = receipts.find((entry) => isFutureDate(entry?.unlockedUntil, now)) || null;
-    const activeUnlock = formatUnlockReceipt(activeReceiptRecord);
+    const activeUnlock = formatUnlockReceipt(await resolveActiveUnlockReceipt(gateKey, now, { context }));
 
     if (activeUnlock) {
       return {
@@ -261,9 +264,10 @@ function createService({
       };
     }
 
-    const latestReceipt = receipts[0] || null;
+    // Only a cooldown needs the latest receipt.
+    const latestReceipt = Number(rule.cooldownMinutes || 0) > 0 ? await resolveLatestUnlockReceipt(gateKey, { context }) : null;
     let cooldownUntil = null;
-    if (latestReceipt && Number(rule.cooldownMinutes || 0) > 0) {
+    if (latestReceipt) {
       cooldownUntil = addMinutes(parseDate(latestReceipt.grantedAt) || now, rule.cooldownMinutes);
       if (cooldownUntil.getTime() > now.getTime()) {
         return {
