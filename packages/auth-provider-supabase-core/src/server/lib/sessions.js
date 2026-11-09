@@ -191,7 +191,8 @@ function createSupabaseSessions({ config, clients, profileMirror, profiles }) {
     }
 
     const currentAccessToken = String(session?.access_token || accessToken || "").trim();
-    const explicitUser = await getUserByAccessToken(currentAccessToken);
+    // The cookie's token was read above; only a token setSession issued is read again.
+    const explicitUser = currentAccessToken === accessToken ? null : await getUserByAccessToken(currentAccessToken);
     if (explicitUser) {
       user = explicitUser;
     }

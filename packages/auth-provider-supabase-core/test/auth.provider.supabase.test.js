@@ -7,6 +7,7 @@ import * as authProviderSupabase from "../src/server/lib/index.js";
 import { createSupabaseAccountFlows } from "../src/server/lib/accountFlows.js";
 import { resolveSupabaseConfig } from "../src/server/lib/config.js";
 import { createSupabasePasswordFlows } from "../src/server/lib/passwordFlows.js";
+import { createSupabaseSessions } from "../src/server/lib/sessions.js";
 import { PROVIDER_MODE_PROFILES } from "../src/server/lib/profileModes.js";
 
 test("auth.provider.supabase exports required symbols", () => {
@@ -416,4 +417,64 @@ test("supabase password reset consumes the recovery session reader", async () =>
   assert.equal(recoverySessionReads, 1);
   assert.equal(normalSessionReads, 0);
   assert.equal(signOutCalls, 1);
+});
+
+test("supabase sessions read a valid access token's user once", async () => {
+  const reads = [];
+  const user = { id: "supabase-user-1", email: "ada@example.com" };
+  const sessions = createSupabaseSessions({
+    config: supabaseConfig(),
+    clients: {
+      ensureConfigured() {},
+      createSupabaseClient() {
+        return {
+          auth: {
+            async getUser(token) {
+              reads.push(token);
+              return { data: { user }, error: null };
+            }
+          }
+        };
+      }
+    },
+    profileMirror: {},
+    profiles: {}
+  });
+
+  const current = await sessions.resolveCurrentSupabaseUser({ cookies: { sb_access_token: "access-1", sb_refresh_token: "refresh-1" } });
+  assert.deepEqual(current, { session: null, user });
+  assert.deepEqual(reads, ["access-1"]);
+});
+
+test("supabase sessions read the user of a token that setSession issued", async () => {
+  const reads = [];
+  const refreshedUser = { id: "supabase-user-1", email: "ada@example.com" };
+  const sessions = createSupabaseSessions({
+    config: supabaseConfig(),
+    clients: {
+      ensureConfigured() {},
+      createSupabaseClient() {
+        return {
+          auth: {
+            async getUser(token) {
+              reads.push(token);
+              return token === "access-2"
+                ? { data: { user: { ...refreshedUser, read: true } }, error: null }
+                : { data: { user: null }, error: { status: 401, message: "expired" } };
+            },
+            async setSession() {
+              return { data: { session: { access_token: "access-2", refresh_token: "refresh-2" }, user: refreshedUser }, error: null };
+            }
+          }
+        };
+      }
+    },
+    profileMirror: {},
+    profiles: {}
+  });
+
+  const current = await sessions.resolveCurrentSupabaseUser({ cookies: { sb_access_token: "access-1", sb_refresh_token: "refresh-1" } });
+  assert.deepEqual(reads, ["access-1", "access-2"]);
+  assert.equal(current.user.read, true);
+  assert.equal(current.session.access_token, "access-2");
 });
