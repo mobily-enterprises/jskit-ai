@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The `AuthInvitationContextResolver` type documents what local auth relies on: the resolver throws for an invitation the registration cannot use, and the context it answers names, in `email`, the address the invitation was sent to and, in `expiresAt`, when it stops working, so a registration through it can skip email confirmation.
 - `AuthProfileProjector.syncIdentityProfile` documents `onlyWhenChanged`, which providers pass on an ordinary request so a profile that already matches is only read; sign-in and session refresh synchronize in full.
 - `normalizeAuthCapabilities` carries `features.password.selfRegister`: whether anyone may register, not only an invited person or the first account. A provider that doesn't say gets the value of `register`.
 - The register body takes `setupCode`, the first account's one-time setup code, and the capability `features.firstAccountSetupCode` says a provider is waiting for it. New message key: `jskit.auth.validation.setupCodeInvalid`.

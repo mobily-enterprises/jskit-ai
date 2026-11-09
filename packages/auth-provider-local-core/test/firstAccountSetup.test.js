@@ -117,25 +117,42 @@ test("restarting while there is no account makes a new code, and the old one sto
   assert.equal(waitingForFirstAccount(later.service), false);
 });
 
-test("with email confirmation, the code admits the first registration, and confirming it ends the setup", async (t) => {
+test("with email confirmation, the first account the setup code admits signs in at once and ends the setup; later sign-ups wait", async (t) => {
   const storeDir = await temporaryStoreDir(t);
   const links = [];
   const { service, setupCode } = await startServer(storeDir, {
     env: { AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
-    confirmationSender: async ({ confirmationUrl }) => { links.push(new URL(confirmationUrl)); }
+    confirmationSender: async ({ email, confirmationUrl }) => { links.push({ email, url: new URL(confirmationUrl) }); }
   });
-  const waiting = await service.register({ email: "owner@example.com", password: PASSWORD, setupCode });
-  assert.equal(waiting.requiresEmailConfirmation, true);
-  // Until that registration is confirmed there is still no account, so the code is still needed.
-  assert.equal(waitingForFirstAccount(service), true);
-  await assert.rejects(service.register({ email: "early@example.com", password: PASSWORD }), codeRequired);
-
-  const owner = await service.confirmRegistration({ token: links[0].searchParams.get("confirmation_token"), password: PASSWORD });
+  assert.equal(service.getCapabilities().features.emailConfirmation, true);
+  // Only the server's operator can read the code, so its registration needs no link: it is the owner's account at once.
+  const owner = await service.register({ email: "owner@example.com", password: PASSWORD, setupCode });
+  assert.equal(owner.requiresEmailConfirmation, false);
   assert.equal(owner.actor.email, "owner@example.com");
   assert.ok(owner.session.access_token);
+  assert.deepEqual(links, []);
   assert.equal(waitingForFirstAccount(service), false);
   assert.equal(await codeFile(storeDir), null);
-  assert.equal((await service.register({ email: "later@example.com", password: PASSWORD })).requiresEmailConfirmation, true);
+  assert.equal((await service.login({ email: "owner@example.com", password: PASSWORD })).actor.email, "owner@example.com");
+
+  // Every later sign-up confirms its email, and cannot sign in until it does.
+  const later = await service.register({ email: "later@example.com", password: PASSWORD });
+  assert.equal(later.requiresEmailConfirmation, true);
+  assert.deepEqual(links.map(({ email }) => email), ["later@example.com"]);
+  await assert.rejects(service.login({ email: "later@example.com", password: PASSWORD }), {
+    status: 403,
+    code: "auth.login.emailUnconfirmed"
+  });
+  const confirmed = await service.confirmRegistration({ token: links[0].url.searchParams.get("confirmation_token"), password: PASSWORD });
+  assert.equal(confirmed.actor.email, "later@example.com");
+});
+
+test("development's first account, which needs no setup code, still confirms its email", async (t) => {
+  const storeDir = await temporaryStoreDir(t);
+  const { service } = await startServer(storeDir, { env: { NODE_ENV: "development", AUTH_LOCAL_EMAIL_CONFIRMATION: "" } });
+  const first = await service.register({ email: "dev@example.com", password: PASSWORD });
+  assert.equal(first.requiresEmailConfirmation, true);
+  assert.ok(first.confirmationUrl);
 });
 
 test("development asks for no setup code", async (t) => {

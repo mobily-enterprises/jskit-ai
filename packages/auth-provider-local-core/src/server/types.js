@@ -55,8 +55,8 @@
  *   delete(email: string): Promise<number>,
  *   deleteExpired(now: string): Promise<number>
  * }} registrations Registrations waiting for their email to be confirmed, one per
- *   email; `save` replaces the email's registration. Used only while
- *   AUTH_LOCAL_EMAIL_CONFIRMATION is on.
+ *   email; `save` replaces the email's registration. Saved only while
+ *   AUTH_LOCAL_EMAIL_CONFIRMATION is on; a sign-in reads them whatever it says.
  */
 
 /**

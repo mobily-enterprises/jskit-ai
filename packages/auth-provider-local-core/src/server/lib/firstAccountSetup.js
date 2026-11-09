@@ -130,10 +130,11 @@ function createFirstAccountSetup({ backend, config, logger }) {
     return started;
   }
 
+  // True when the code admits the app's first account; false when an account exists and no code is needed.
   async function admitIn(tx, setupCode) {
     if (await tx.users.hasAny()) {
       finish();
-      return;
+      return false;
     }
     if (!String(setupCode || "").trim()) {
       throw setupCodeRequired();
@@ -141,18 +142,20 @@ function createFirstAccountSetup({ backend, config, logger }) {
     if (setupCodeHash(setupCode) !== codeHash) {
       throw setupCodeInvalid();
     }
+    return true;
   }
 
   /**
    * Refuses a registration while the first account needs its setup code and
-   * `setupCode` is not it.
+   * `setupCode` is not it. Answers true when the setup code admitted it: the
+   * app's first account, which only the server's operator can register, so it
+   * needs no email confirmation.
    * @param {unknown} setupCode
+   * @returns {Promise<boolean>}
    */
   async function admitRegistration(setupCode) {
     await start();
-    if (codeHash !== null) {
-      await backend.withTransaction((tx) => admitIn(tx, setupCode));
-    }
+    return codeHash !== null && (await backend.withTransaction((tx) => admitIn(tx, setupCode)));
   }
 
   /**

@@ -38,7 +38,12 @@
  * The invitation context resolver an application registers on
  * `auth.extensions`; an auth provider reads it once with
  * resolveInvitationContextResolver(), which answers invitationAsGiven when none
- * is registered.
+ * is registered. It throws for an invitation the registration cannot use
+ * (unknown, no longer pending, or sent to another email), and the context it
+ * answers becomes the provider's profile options' `invitation`. The context's
+ * `email`, when given, is the address the invitation was sent to, and its
+ * `expiresAt` when the invitation stops working: local auth registers a person
+ * whose email the invitation names, before then, without confirming the email.
  * @typedef {object} AuthInvitationContextResolver
  * @property {string} resolverId
  * @property {(invitation: { token: string, source: string, email: string }) => Promise<object>} resolveInvitationContext

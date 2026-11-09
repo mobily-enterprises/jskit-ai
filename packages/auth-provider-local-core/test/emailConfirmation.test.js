@@ -4,15 +4,23 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
+import { AUTH_TEXTS } from "@jskit-ai/auth-core/server/authTexts";
 import { createLocalAuthService, createLocalFileBackend } from "../src/server/lib/index.js";
 import { localServiceOptions } from "../test-support/localService.js";
 import { exerciseEmailConfirmation, exerciseRegistrationTakeover } from "../test-support/emailConfirmationScenario.js";
 
 const PASSWORD = "correct horse battery staple";
+const unconfirmed = { status: 403, code: AUTH_TEXTS.emailUnconfirmed.code };
+const invalidCredentials = { status: 401, code: AUTH_TEXTS.invalidCredentials.code };
 
-async function startService(t, { env = {}, ...overrides } = {}) {
+async function temporaryStoreDir(t) {
   const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-confirmation-"));
   t.after(() => fs.rm(storeDir, { recursive: true, force: true }));
+  return storeDir;
+}
+
+async function startService(t, { env = {}, storeDir, ...overrides } = {}) {
+  storeDir ??= await temporaryStoreDir(t);
   const backend = createLocalFileBackend({ storeDir });
   // "" leaves AUTH_LOCAL_EMAIL_CONFIRMATION unset: confirmation on, its default.
   const options = localServiceOptions({ env: { AUTH_LOCAL_EMAIL_CONFIRMATION: "", ...env } });
@@ -79,4 +87,81 @@ test("an invitation is checked on registering and given to the account its confi
   const token = new URL(registered.confirmationUrl).searchParams.get("confirmation_token");
   await service.confirmRegistration({ token, password: PASSWORD });
   assert.deepEqual(synced, [{ email: "guest@example.com", source: "workspace-invite", token: "invite-1" }]);
+});
+
+test("an invitation a feature resolved for the registering email signs in at once; any other registration still waits", async (t) => {
+  const later = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+  // What a feature's resolver answers for each token, as workspace invites do: the address it was sent to and its expiry.
+  // A real resolver refuses another email or a lapsed invitation itself; these show local auth checks them too.
+  const invitations = {
+    "for-ada": { email: "Ada@Example.COM", expiresAt: later },
+    "for-bob": { email: "bob@example.com", expiresAt: later },
+    lapsed: { email: "cat@example.com", expiresAt: new Date(Date.now() - 1000).toISOString() },
+    unaddressed: {}
+  };
+  const synced = [];
+  const { service } = await startService(t, {
+    invitationContextResolver: {
+      async resolveInvitationContext({ token, source }) {
+        return { token, source, ...invitations[token] };
+      }
+    },
+    profileProjector: {
+      async syncIdentityProfile(profile, options) {
+        synced.push({ email: profile.email, token: options.invitation?.token });
+        return null;
+      },
+      async findByIdentity() {
+        return null;
+      }
+    }
+  });
+  const register = (email, token) =>
+    service.register({ email, password: PASSWORD, ...(token && { invitation: { token, source: "workspace-invite" } }) });
+
+  // Sent to this email, letter case aside, and not expired: the account exists at once, with its invitation.
+  const invited = await register("ada@example.com", "for-ada");
+  assert.equal(invited.requiresEmailConfirmation, false);
+  assert.ok(invited.session.access_token);
+  assert.deepEqual(synced, [{ email: "ada@example.com", token: "for-ada" }]);
+  assert.equal((await service.login({ email: "ada@example.com", password: PASSWORD })).actor.email, "ada@example.com");
+
+  // Another person's invitation, a lapsed one, one that names no email, and no invitation at all: each waits for its
+  // link, and its password is refused as unconfirmed.
+  for (const [email, token] of [
+    ["eve@example.com", "for-bob"],
+    ["cat@example.com", "lapsed"],
+    ["dan@example.com", "unaddressed"],
+    ["fay@example.com", null]
+  ]) {
+    const waiting = await register(email, token);
+    assert.equal(waiting.requiresEmailConfirmation, true, email);
+    assert.equal(waiting.session, null, email);
+    await assert.rejects(service.login({ email, password: PASSWORD }), unconfirmed, email);
+  }
+  // Only the invited account has a profile: no waiting registration made one.
+  assert.deepEqual([...new Set(synced.map(({ email }) => email))], ["ada@example.com"]);
+});
+
+test("an invitation passed through as given, with no feature to resolve it, still waits for its link", async (t) => {
+  const { service } = await startService(t, { invitationContextResolver: invitationAsGiven });
+  const waiting = await service.register({
+    email: "ada@example.com",
+    password: PASSWORD,
+    invitation: { token: "anything", source: "workspace-invite", email: "ada@example.com" }
+  });
+  assert.equal(waiting.requiresEmailConfirmation, true);
+  await assert.rejects(service.login({ email: "ada@example.com", password: PASSWORD }), unconfirmed);
+});
+
+test("a registration made while confirmation was on is refused as unconfirmed after it is turned off, until it registers again", async (t) => {
+  const storeDir = await temporaryStoreDir(t);
+  const { service: confirming } = await startService(t, { storeDir });
+  assert.equal((await confirming.register({ email: "ada@example.com", password: PASSWORD })).requiresEmailConfirmation, true);
+
+  const { service } = await startService(t, { storeDir, env: { AUTH_LOCAL_EMAIL_CONFIRMATION: "false" } });
+  await assert.rejects(service.login({ email: "ada@example.com", password: PASSWORD }), unconfirmed);
+  await assert.rejects(service.login({ email: "ada@example.com", password: "a wrong password" }), invalidCredentials);
+  assert.equal((await service.register({ email: "ada@example.com", password: PASSWORD })).requiresEmailConfirmation, false);
+  assert.equal((await service.login({ email: "ada@example.com", password: PASSWORD })).actor.email, "ada@example.com");
 });

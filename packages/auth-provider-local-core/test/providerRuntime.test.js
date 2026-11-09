@@ -1508,15 +1508,24 @@ test("the confirmation sender emails the link, which is never returned or logged
   const features = app.authService.getCapabilities().features;
   assert.deepEqual([features.emailConfirmation, features.emailConfirmationCode], [true, true]);
 
-  const registered = await app.authService.register({
-    email: "mail@example.com",
+  // The first account, admitted by its setup code, needs no link: it registers, and the hook runs, at once.
+  const owner = await app.authService.register({
+    email: "owner@example.com",
     password: "correct horse battery staple",
     setupCode: await firstAccountSetupCode(app.storeDir)
+  });
+  assert.equal(owner.requiresEmailConfirmation, false);
+  assert.deepEqual(hooked, ["owner@example.com"]);
+  assert.equal(messages.length, 0);
+
+  const registered = await app.authService.register({
+    email: "mail@example.com",
+    password: "correct horse battery staple"
   });
   assert.equal(registered.requiresEmailConfirmation, true);
   assert.equal(registered.session, null);
   assert.equal(Object.hasOwn(registered, "confirmationUrl"), false);
-  assert.deepEqual(hooked, []);
+  assert.deepEqual(hooked, ["owner@example.com"]);
   assert.equal(messages.length, 1);
   assert.equal(messages[0].email, "mail@example.com");
   const link = new URL(messages[0].confirmationUrl);
@@ -1532,7 +1541,7 @@ test("the confirmation sender emails the link, which is never returned or logged
     }),
     (error) => error.code === "ACTION_VALIDATION_FAILED" && Object.keys(error.details.fieldErrors).join() === "password"
   );
-  assert.deepEqual(hooked, []);
+  assert.deepEqual(hooked, ["owner@example.com"]);
   const confirmed = await app.actionExecutor.execute({
     actionId: "auth.register.confirm",
     input: { token: link.searchParams.get("confirmation_token"), password: "correct horse battery staple" },
@@ -1540,5 +1549,5 @@ test("the confirmation sender emails the link, which is never returned or logged
   });
   assert.equal(confirmed.actor.email, "mail@example.com");
   assert.ok(confirmed.session.access_token);
-  assert.deepEqual(hooked, ["mail@example.com"]);
+  assert.deepEqual(hooked, ["owner@example.com", "mail@example.com"]);
 });

@@ -159,8 +159,15 @@ The login page shows either refusal, translated, with the wait.
 
 Local auth confirms the email address of each account it registers by
 password, in every environment, unless `AUTH_LOCAL_EMAIL_CONFIRMATION=false`.
-Registering keeps the registration waiting, with no account, profile or
-session, and answers `requiresEmailConfirmation: true`; the sign-in page then
+Two registrations whose email is already proven sign in at once instead: one
+through an invitation that a feature's invitation context resolver (such as
+workspace invites) resolves, still pending, for the registering email (letter
+case aside) and before its `expiresAt`, since its link reached that address;
+and the first account a production server's setup code admits (see below). An
+invitation passed through as given, with no resolver installed, or whose
+context names no email, proves nothing. Any other registration keeps waiting,
+with no account, profile or session, and answers
+`requiresEmailConfirmation: true`; the sign-in page then
 shows "Confirm your email", with a button to send a new link and a field for
 the link or its code. Confirming takes the link's code and the password the
 registration was made with (`POST /api/register/confirm` with
@@ -172,7 +179,9 @@ wrong password creates nothing and keeps the registration and its link, with
 status 400 and `auth.local.register.confirmationPasswordInvalid`. Signing in
 with the right password while the registration waits is refused with status
 403 and `auth.login.emailUnconfirmed`, and the sign-in page shows how to
-confirm; a wrong password is an ordinary failed sign-in.
+confirm; a wrong password is an ordinary failed sign-in. The refusal holds
+even after `AUTH_LOCAL_EMAIL_CONFIRMATION=false`, which offers no
+confirming: the person registers again.
 
 A link's code is random, kept only as a hash, works once and expires after a
 day. Registering the same email again replaces the waiting registration whole
@@ -208,9 +217,10 @@ Confirmation guards self-registration. An app whose accounts are only invited,
 or created through the first account, sets `AUTH_LOCAL_SELF_REGISTRATION=false`
 and needs no confirmation sender: an invitation counts when a feature's
 invitation context resolver (such as workspace invites) resolves it for that
-email, and the first account is admitted by its setup code. In production
-without a sender, those registrations sign in at once; with one, they confirm
-as usual. An app that refused the register routes itself, with a 404 hook,
+email, and the first account is admitted by its setup code. Those
+registrations sign in at once, with or without a sender, except an invitation
+whose resolver names no email, which confirms when a sender is installed. An
+app that refused the register routes itself, with a 404 hook,
 can drop the hook for this setting. The sign-in page then shows its Register
 tab only to an invited person (an `invitationToken` in its address) and, while
 the app has no account, to the first one: local auth reports
@@ -287,8 +297,9 @@ field (capability `features.firstAccountSetupCode`), and the register body
 takes `setupCode`; letter case, spaces and dashes do not matter. A missing code
 is refused with 403 `auth.local.setup.codeRequired`, a wrong one with 403
 `auth.local.setup.codeInvalid`. An OAuth sign-in cannot create that first
-account. The registration then follows the ordinary rules, email confirmation
-included, and confirming it signs the owner in. The code admits registrations
+account. The registration then follows the ordinary rules, except that it
+needs no email confirmation: only the operator can read the code, so it signs
+the owner in at once. The code admits registrations
 until an account exists; then it stops working and its file is deleted, and
 registration needs no code again. Restarting before then makes a new code and
 the old one stops working: the latest log line and the file always agree, and

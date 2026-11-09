@@ -121,7 +121,8 @@ async function resolveRegistrationProfileOptions(invitationContextResolver, invi
 
 /**
  * The accounts of local auth: registering one (which waits for its email to
- * be confirmed while config.emailConfirmation is on), signing in with its
+ * be confirmed while config.emailConfirmation is on, unless an invitation sent
+ * to that email or the first account's setup code admits it), signing in with its
  * password (failures slow the account down, as config.signInThrottle says) or
  * as a dev user, and renaming it.
  * @param {object} dependencies
@@ -156,16 +157,27 @@ function createLocalAccounts({
     throw new AppError(403, "This app's accounts are by invitation only.", { code: "auth.local.register.closed" });
   }
 
+  // A feature's resolver gives an invitation only while it can be used, so one it resolved that was sent to this
+  // email and has not expired proves the email: its link reached that address. One passed through as given, or one
+  // whose resolver does not say whom it was sent to, proves nothing.
+  function invitationProvesEmail(invitation, email) {
+    if (invitationContextResolver === invitationAsGiven || !invitation?.email) return false;
+    if (normalizeEmail(invitation.email) !== email) return false;
+    return invitation.expiresAt == null || new Date(invitation.expiresAt).getTime() > Date.now();
+  }
+
   async function register(input) {
     const email = validateEmailInput(input.email);
     validatePasswordInput(input.password, config.passwordMinLength);
     const displayName = normalizeDisplayName(input.displayName, email);
-    await firstAccountSetup.admitRegistration(input.setupCode);
+    const firstAccount = await firstAccountSetup.admitRegistration(input.setupCode);
     // Checked now, so a registration with an invitation it cannot use is refused at once.
     const profileOptions = await resolveRegistrationProfileOptions(invitationContextResolver, input.invitation, email);
     if (!config.selfRegistration) await admitClosedRegistration(profileOptions);
     const password = await passwords.hashPassword(input.password);
-    if (config.emailConfirmation) {
+    // The first account, admitted by the setup code only the operator can read, and an invited person need no link.
+    const emailProven = firstAccount || invitationProvesEmail(profileOptions.invitation, email);
+    if (config.emailConfirmation && !emailProven) {
       return emailConfirmation.begin({ email, displayName, password, invitation: normalizeInvitationInput(input.invitation) });
     }
     const result = await backend.withTransaction(async (tx) => {
@@ -213,9 +225,9 @@ function createLocalAccounts({
         return { waitMs };
       }
       const user = await tx.users.findByEmail(email);
-      if (!user && config.emailConfirmation &&
-        (await emailConfirmation.isWaitingWithPassword(tx, email, (registration) =>
-          passwords.verifyPassword(password, registration.password)))) {
+      // Whatever config.emailConfirmation says now: a registration made while it was on still waits.
+      if (!user && (await emailConfirmation.isWaitingWithPassword(tx, email, (registration) =>
+        passwords.verifyPassword(password, registration.password)))) {
         return { unconfirmed: true };
       }
       if (!user || user.disabled || !hasPassword(user) || !(await passwords.verifyPassword(password, user.password))) {
