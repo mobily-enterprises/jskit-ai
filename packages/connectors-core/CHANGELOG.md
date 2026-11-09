@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A connection's status reads its row without a transaction or lock, and no longer creates an empty row for every person and integration whose status is viewed. `status()` calls `withConnection(slot, work, { readOnly: true })`; the SQL store reads the row with a plain get for such work, and the file store and a custom store that ignores the option still answer correctly.
 - connector_authorization_attempts declares its foreign key, connection_key to connector_connections.connection_key (`foreignKeys`), so json-rest-api 3.1.0 can skip the visibility query a system-context read makes for a record such a key guarantees exists. `jskit test --databases` checks each against an app's test database. `knexConnectionStore.test.js` proves it matches the migration on the connector test database.
 - `@jskit-ai/database-runtime` and `@jskit-ai/resource-runtime` are optional peer dependencies, as they are of assistant-runtime, instead of dependencies: an app without a database installs, composes and starts the package without them, where installing them made boot refuse it for want of a database driver. An app that uses its knex connection store (`./server/storage`) has them through its database.
 - `createKnexConnectionStore` owns the connector tables through resource-runtime's `createStandaloneResources`, with the connection store's declared system scope, instead of building a resource runtime and host of its own.

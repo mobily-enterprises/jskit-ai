@@ -9,8 +9,32 @@ import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared
 import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import migration from "../migrations/connectors_core_initial.cjs";
 import { createConnectionStoreFeature, createCredentialProtection } from "../src/server/storage.js";
+import { createConnectionService } from "../src/server/index.js";
+import { clickhouseProvider } from "../../connectors-catalog/src/server/clickhouse.js";
 
 const owner = Object.freeze({ applicationId: "app", subjectId: "user-1" });
+
+async function startStore(t) {
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true, pool: { min: 1, max: 1 } });
+  t.after(() => knex.destroy());
+  await migration.up(knex);
+  const resources = await createTestResourceRuntime({ knex });
+  const protection = createCredentialProtection({ keys: { current: randomBytes(32) }, activeKeyId: "current" });
+  let store = null;
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [
+      EventProvider,
+      ActionProvider,
+      defineProvider({ id: "test.resources", provides: { resources: "runtime.resources" }, setup: () => ({ resources }) }),
+      createConnectionStoreFeature({ protection }),
+      defineProvider({ id: "test.connections", requires: { connections: "connectors.store" }, setup({ connections }) { store = connections; } })
+    ]
+  });
+  await runtime.start();
+  t.after(() => runtime.shutdown());
+  return { knex, store };
+}
 
 test("createConnectionStoreFeature owns the connector tables and provides the store on their handles as connectors.store", async (t) => {
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true, pool: { min: 1, max: 1 } });
@@ -50,4 +74,34 @@ test("createConnectionStoreFeature owns the connector tables and provides the st
   ]), [{ token: "t1" }, "s1", "s1", null]);
   await store.withConnection(slot, ({ putAttempt }) => putAttempt({ state: "s2", expiresAt: 3_000 }));
   assert.equal(await store.pruneExpiredAttempts({ before: 3_000 }), 1);
+});
+
+test("a status read takes no lock and creates no connection row", async (t) => {
+  const { knex, store } = await startStore(t);
+  const statements = [];
+  const record = ({ sql }) => statements.push(sql);
+  knex.on("query", record);
+  t.after(() => knex.off("query", record));
+  const service = createConnectionService({
+    configuration: { schemaVersion: 1, registrations: {}, integrations: { database: {
+      provider: "clickhouse", accountMode: "shared", scopes: [], authentication: { method: "none" },
+      settings: { httpUrl: "https://database.example:8443/" }
+    } } },
+    providers: [clickhouseProvider],
+    store,
+    authorize: async (context) => context,
+    resolveReference: async () => "",
+    fetchImpl: async () => Response.json({ meta: [], data: [{ ok: 1, user: "default" }], rows: 1 })
+  });
+  const input = { context: owner, integrationId: "database" };
+  const rowCount = async () => Number((await knex("connector_connections").count({ count: "*" }).first()).count);
+
+  const before = await service.status(input);
+  assert.notEqual(before.status, "connected");
+  assert.equal(await rowCount(), 0);
+  await service.connectWithoutCredentials(input);
+  statements.length = 0;
+  assert.equal((await service.status(input)).status, "connected");
+  assert.equal(await rowCount(), 1);
+  assert.deepEqual(statements.filter((sql) => !/^select/iu.test(sql)), [], statements.join("\n"));
 });

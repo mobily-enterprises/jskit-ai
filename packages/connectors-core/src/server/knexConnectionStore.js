@@ -38,8 +38,8 @@ function createKnexConnectionStore({ knex, protection }) {
     return ready;
   }
 
-  async function withConnection(slot, work) {
-    return (await store()).withConnection(slot, work);
+  async function withConnection(slot, work, options) {
+    return (await store()).withConnection(slot, work, options);
   }
   async function pruneExpiredAttempts(options) {
     return (await store()).pruneExpiredAttempts(options);

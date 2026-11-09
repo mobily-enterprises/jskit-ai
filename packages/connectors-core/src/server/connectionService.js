@@ -486,7 +486,7 @@ function createConnectionService({
         return publicConnection({ ...connection, status: "reconnect-required" });
       }
       return { ...publicConnection(connection), ...(callbackUrl ? { callbackUrl } : {}) };
-    });
+    }, { readOnly: true });
   }
 
   /** @param {import("./types.js").IntegrationRequest} request */

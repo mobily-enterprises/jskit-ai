@@ -479,6 +479,10 @@ consuming it. Consumption must
 affect only the current owner and slot. Removal also invalidates pending
 attempts. Failures returned by the runtime are thrown after commit so failed
 API requests do not roll back rotated refresh tokens or restore consumed codes.
+A status read calls `withConnection(slot, work, { readOnly: true })`: its work
+only reads `connection`, so a store may skip the lock and must not create the
+connection; the SQL store reads the row without a transaction, and a store that
+ignores the option still answers correctly.
 
 ## Current limits and proof
 

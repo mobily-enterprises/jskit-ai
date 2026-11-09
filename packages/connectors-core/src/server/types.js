@@ -70,7 +70,9 @@
  * Where connections are kept: createKnexConnectionStore(),
  * createFileConnectionStore() or the application's own store.
  * @typedef {object} ConnectionStore
- * @property {<T>(slot: { owner: ConnectionOwner, integrationId: string }, work: (record: ConnectionRecord) => Promise<T>) => Promise<T>} withConnection
+ * @property {<T>(slot: { owner: ConnectionOwner, integrationId: string }, work: (record: ConnectionRecord) => Promise<T>, options?: { readOnly?: boolean }) => Promise<T>} withConnection
+ *   Runs the work with the connection locked. With `readOnly`, the work only reads `connection`, and the store may
+ *   skip the lock and the row it would otherwise create.
  */
 
 /**

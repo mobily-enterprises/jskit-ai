@@ -16,7 +16,8 @@ function requireProtection(protection) {
 
 /**
  * Connections kept encrypted in the connector tables, on their table resources' handles, each locked in a transaction
- * while it is used. Every call works in a system context, because a row's scope is its key.
+ * while it is used, unless the work only reads it. Every call works in a system context, because a row's scope is
+ * its key.
  * @param {object} dependencies
  * @param {Record<string, import("@jskit-ai/resource-runtime/server/types").ResourceHandle>} dependencies.resources The handles of CONNECTOR_TABLES.
  * @param {(reason: string) => import("@jskit-ai/resource-runtime/server/types").SystemContext} dependencies.systemContext
@@ -28,9 +29,14 @@ function createConnectionStore({ resources, systemContext, protection }) {
   const connectionOptions = Object.freeze({ context: systemContext("a connection and its attempts are read and changed by their owner and integration key") });
   const pruneOptions = Object.freeze({ context: systemContext("maintenance prunes every connection's expired authorization attempts") });
 
-  async function withConnection({ owner, integrationId }, work) {
+  async function withConnection({ owner, integrationId }, work, { readOnly = false } = {}) {
     const connectionKey = hash(JSON.stringify([owner.applicationId, owner.subjectId, integrationId]));
     const connectionBinding = `connection:${connectionKey}`;
+    if (readOnly) {
+      // Work that only reads takes no lock and creates no row.
+      const row = await connections.get(connectionKey, {}, { ...connectionOptions, missing: "skip" });
+      return work({ connection: row?.payload ? await protection.open(row.payload, connectionBinding) : null });
+    }
     // Retain this row on disconnect so other processes continue to lock the same identity.
     return connections.lockOrCreate({ id: connectionKey, payload: null }, connectionOptions, async (row, txOptions) => {
       const writeOptions = { ...txOptions, returning: "none" };
