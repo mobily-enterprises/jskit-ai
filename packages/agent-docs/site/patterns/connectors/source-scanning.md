@@ -94,6 +94,6 @@ with a setter after construction, or keep a module-level registry.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.2.21`
+- Owner: `@jskit-ai/connectors-catalog@0.2.22`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/source-scanning/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/source-scanning/example)
