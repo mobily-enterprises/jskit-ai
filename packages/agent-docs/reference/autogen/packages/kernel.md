@@ -792,9 +792,10 @@ Local functions
 - `messageCodeFields(error, expose = true)`
 - `hiddenServerErrorFields(code = "")`
 - `resolveRequestRouteTransport(request)`
-- `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "", message = error?.message, exposeDetails = true, messageFields = {} } = {})`
+- `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "", message = error?.message, exposeDetails = true, messageFields = {}, outcomeFields = {} } = {})`
 - `resolveApiErrorStatus(error, code)`
 - `applyErrorHeaders(reply, error)`
+- `findRefusal(thrown)`
 
 ### `server/http/HttpProvider.js`
 Exports

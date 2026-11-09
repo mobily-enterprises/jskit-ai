@@ -144,7 +144,8 @@ function applyRouteTransportErrorResponse(reply, request, error, {
   normalizedErrorCode = "",
   message = error?.message,
   exposeDetails = true,
-  messageFields = {}
+  messageFields = {},
+  outcomeFields = {}
 } = {}) {
   const transport = resolveRequestRouteTransport(request);
   // readable-check: allow method-probe - data: a route's transport may define an error serializer
@@ -160,7 +161,8 @@ function applyRouteTransportErrorResponse(reply, request, error, {
     code: normalizedErrorCode,
     message,
     exposeDetails,
-    ...messageFields
+    ...messageFields,
+    ...outcomeFields
   });
 
   // readable-check: allow method-probe - data: a serializer's result must not be a promise
@@ -214,6 +216,24 @@ function applyErrorHeaders(reply, error) {
   }
 }
 
+/**
+ * The refusal a client is answered with: the thrown error when it is an AppError or an ActionRuntimeError, else the
+ * first one in its cause chain, or null. A refusal thrown inside a write's transaction reaches the handler as
+ * json-rest-api's RestApiWriteError, which keeps it as its cause and copies only its message, code, status and details,
+ * so answering the wrapper would drop its details, params, messageCode and headers.
+ * @param {any} thrown
+ */
+function findRefusal(thrown) {
+  const seen = new Set();
+  for (let error = thrown; error && typeof error === "object" && !seen.has(error); error = error.cause) {
+    if (isAppError(error) || error instanceof ActionRuntimeError) {
+      return error;
+    }
+    seen.add(error);
+  }
+  return null;
+}
+
 /** @param {RuntimeFastify} app */
 function registerApiErrorHandler(app) {
   function shouldExposeAppErrorDetails(errorCode = "") {
@@ -221,13 +241,18 @@ function registerApiErrorHandler(app) {
   }
 
   app.setErrorHandler(/** @param {any} thrown Whatever the route threw. */ (thrown, request, reply) => {
-    /** @type {any} A database error is answered by its stand-in; its message, statement and values are logged only. */
-    const error = thrown instanceof ActionRuntimeError ? thrown : hideDatabaseError(thrown);
-    if (error !== thrown) {
+    const refusal = findRefusal(thrown);
+    /**
+     * @type {any} A refusal is answered as itself, thrown or wrapped; a database error by its stand-in, its message,
+     * statement and values logged only.
+     */
+    const error = refusal ?? hideDatabaseError(thrown);
+    if (!refusal && error !== thrown) {
       app.log.error({ err: thrown, statusCode: error.status }, "Database error");
     }
     const normalizedErrorCode = String(error?.code || "").trim();
-    const transactionOutcome = normalizeTransactionOutcome(error?.transactionOutcome);
+    // A wrapper reports the outcome of the transaction the refusal failed, after its rollback.
+    const transactionOutcome = normalizeTransactionOutcome(thrown?.transactionOutcome ?? error?.transactionOutcome);
     const outcomeFields = transactionOutcome ? { transactionOutcome } : {};
     const isCsrfErrorCode = normalizedErrorCode.startsWith("FST_CSRF_");
     const statusCode = resolveApiErrorStatus(error, normalizedErrorCode);
@@ -237,7 +262,8 @@ function registerApiErrorHandler(app) {
       if (applyRouteTransportErrorResponse(reply, request, error, {
         statusCode: 400,
         normalizedErrorCode: validationErrorCode,
-        messageFields: { params: {} }
+        messageFields: { params: {} },
+        outcomeFields
       })) {
         return;
       }
@@ -254,8 +280,8 @@ function registerApiErrorHandler(app) {
     applyErrorHeaders(reply, error);
 
     if (isAppError(error) || error instanceof ActionRuntimeError) {
-      if (error.status >= 500 && error === thrown) {
-        app.log.error({ err: error }, "AppError 5xx");
+      if (error.status >= 500 && error === refusal) {
+        app.log.error({ err: thrown }, "AppError 5xx");
       }
       const appErrorCode = normalizedErrorCode || "app_error";
       const exposeDetails = shouldExposeAppErrorDetails(appErrorCode);
@@ -267,7 +293,8 @@ function registerApiErrorHandler(app) {
         statusCode: error.status,
         normalizedErrorCode: appErrorCode,
         exposeDetails,
-        messageFields
+        messageFields,
+        outcomeFields
       })) {
         return;
       }
@@ -309,7 +336,8 @@ function registerApiErrorHandler(app) {
       normalizedErrorCode: fallbackErrorCode,
       message,
       exposeDetails: !hidden,
-      messageFields
+      messageFields,
+      outcomeFields
     })) {
       return;
     }

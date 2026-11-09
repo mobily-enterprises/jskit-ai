@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
+import { ActionRuntimeError } from "../actions/actionDefinitions.js";
 import { AppError, ConflictError } from "../runtime/errors.js";
 import {
   normalizeBodylessContentTypeHeader,
@@ -427,6 +428,122 @@ test("an AppError keeps its own answer whatever database error it wraps", () => 
     assert.equal(reply.payload.error, message);
   }
   assert.equal(fastify.logged.some(({ message }) => message === "Database error"), false);
+});
+
+// A refusal a write hook throws: what the client needs to take the next step is in its details, params and messageCode.
+function stepRefusal(status = 409) {
+  return new AppError(status, "This step needs the email confirmed first.", {
+    code: "orders.step.refused",
+    params: { step: "payment" },
+    messageCode: "orders.step.refused.payment",
+    messageParams: { step: "payment" },
+    details: { nextStep: "confirm-email" },
+    headers: { "Retry-After": "30" }
+  });
+}
+
+test("a refusal thrown inside a write's transaction answers as itself, with the wrapper's transaction outcome", () => {
+  const refusal = stepRefusal();
+  const expected = {
+    error: "This step needs the email confirmed first.",
+    code: "orders.step.refused",
+    params: { step: "payment" },
+    messageCode: "orders.step.refused.payment",
+    messageParams: { step: "payment" },
+    details: { nextStep: "confirm-email" }
+  };
+  for (const [thrown, outcome] of [
+    [refusal, undefined],
+    [writeErrorAround(refusal), "rolledBack"],
+    // A wrapper of the wrapper, such as an error that adds context to a failure, and a refusal that marks its own outcome.
+    [new Error("The order could not be saved.", { cause: writeErrorAround(refusal) }), undefined],
+    [new Error("The order could not be saved.", { cause: Object.assign(stepRefusal(), { transactionOutcome: "committed" }) }), "committed"]
+  ]) {
+    const fastify = createFastifyStub();
+    registerApiErrorHandler(fastify);
+    const reply = createReplyStub();
+    fastify.errorHandler(thrown, {}, reply);
+    assert.equal(reply.statusCode, 409);
+    assert.deepEqual(reply.payload, { ...expected, ...(outcome ? { transactionOutcome: outcome } : {}) });
+    assert.equal(reply.headers["Retry-After"], "30");
+    assert.deepEqual(fastify.logged, [], "a refusal below 500 is not logged");
+  }
+
+  // A route transport serializes the refusal itself, and receives the wrapper's outcome.
+  const fastify = createFastifyStub();
+  registerApiErrorHandler(fastify);
+  const serialized = [];
+  const request = { routeOptions: { config: { transport: { error(error, fields) {
+    serialized.push({ error, fields: { ...fields, request: undefined, reply: undefined } });
+    return { errors: [{ status: String(fields.statusCode), code: fields.code, title: error.message }] };
+  } } } } };
+  const reply = createReplyStub();
+  fastify.errorHandler(writeErrorAround(refusal), request, reply);
+  assert.equal(reply.statusCode, 409);
+  assert.equal(serialized[0].error, refusal);
+  assert.deepEqual(serialized[0].fields, {
+    request: undefined,
+    reply: undefined,
+    statusCode: 409,
+    code: "orders.step.refused",
+    message: refusal.message,
+    exposeDetails: true,
+    params: { step: "payment" },
+    messageCode: "orders.step.refused.payment",
+    messageParams: { step: "payment" },
+    transactionOutcome: "rolledBack"
+  });
+});
+
+test("a wrapped refusal keeps a refusal's limits: a permission denial's details stay hidden and a 5xx is logged whole", () => {
+  const fastify = createFastifyStub();
+  registerApiErrorHandler(fastify);
+  const denied = new ActionRuntimeError(403, "Forbidden.", {
+    code: "ACTION_PERMISSION_DENIED",
+    params: { permission: "orders.pay" },
+    details: { actionId: "orders.pay", permission: "orders.pay" }
+  });
+  const deniedReply = createReplyStub();
+  fastify.errorHandler(writeErrorAround(denied), {}, deniedReply);
+  assert.equal(deniedReply.statusCode, 403);
+  assert.deepEqual(deniedReply.payload, { error: "Forbidden.", code: "ACTION_PERMISSION_DENIED", params: {}, transactionOutcome: "rolledBack" });
+
+  const unavailable = writeErrorAround(stepRefusal(503));
+  const unavailableReply = createReplyStub();
+  fastify.errorHandler(unavailable, {}, unavailableReply);
+  assert.equal(unavailableReply.statusCode, 503);
+  assert.deepEqual(unavailableReply.payload.details, { nextStep: "confirm-email" });
+  assert.deepEqual(fastify.logged, [{ level: "error", fields: { err: unavailable }, message: "AppError 5xx" }]);
+});
+
+test("a wrapper with no refusal in its cause chain answers as before, without its cause's details", () => {
+  const internal = Object.assign(new Error("Hook failed reading private-row 7"), { code: "HOOK_FAILED", details: { row: "private-row" } });
+  const refusedOutside = Object.assign(new Error("Title is required."), {
+    code: "REST_API_VALIDATION",
+    details: { internal: "private-detail" }
+  });
+  const looped = new Error("loop");
+  looped.cause = looped;
+  for (const [thrown, status, expected] of [
+    [writeErrorAround(internal), 500, {
+      error: "Internal server error.",
+      code: "HOOK_FAILED",
+      params: {},
+      messageCode: "internal_server_error",
+      messageParams: {},
+      transactionOutcome: "rolledBack"
+    }],
+    [writeErrorAround(refusedOutside), 422, { error: "Title is required.", code: "REST_API_VALIDATION", params: {}, transactionOutcome: "rolledBack" }],
+    [new Error("Wrapped loop", { cause: looped }), 500, { error: "Internal server error.", code: "internal_server_error", params: {} }]
+  ]) {
+    const fastify = createFastifyStub();
+    registerApiErrorHandler(fastify);
+    const reply = createReplyStub();
+    fastify.errorHandler(thrown, {}, reply);
+    assert.equal(reply.statusCode, status);
+    assert.deepEqual(reply.payload, expected);
+    assert.equal(JSON.stringify(reply.payload).includes("private"), false);
+  }
 });
 
 test("registerJsonApiContentTypeParser installs the JSON:API media type parser once", () => {

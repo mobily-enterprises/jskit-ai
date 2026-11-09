@@ -342,6 +342,84 @@ test("real resource validation, permission hooks and completion failures retain 
   assert.deepEqual(await knex("books").pluck("title"), ["Stored book", "Stored book"]);
 });
 
+// json-rest-api wraps what a write's hook throws in its RestApiWriteError, which copies the refusal's message, code,
+// status and details and keeps it as its cause; the client gets the refusal as if the route had thrown it.
+test("a refusal a real write's hook throws reaches the client as itself, with its details and the write's outcome", async (t) => {
+  const app = Fastify();
+  t.after(() => app.close());
+  const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+  t.after(() => knex.destroy());
+  await knex.schema.createTable("orders", (table) => {
+    table.increments("id");
+    table.string("title").notNullable();
+  });
+  const api = await createResourceHost({ knex, logger: silentLogger });
+  await api.addResource("orders", { schema: { title: { type: "string", required: true } } });
+  const refusals = new Map();
+  function refuse(phase) {
+    const refusal = new AppError(409, "This step needs the email confirmed first.", {
+      code: "orders.step.refused",
+      params: { phase },
+      messageCode: "orders.step.refused.payment",
+      messageParams: { phase },
+      details: { nextStep: "confirm-email" }
+    });
+    refusals.set(phase, refusal);
+    throw refusal;
+  }
+  // One refusal after the row is written, inside the write's transaction, and one after the write commits.
+  await api.customize({ hooks: {
+    afterDataCallPost({ context }) {
+      if ((context.originalContext ?? context).refuse === "inside") refuse("inside");
+    },
+    afterCommit({ context }) {
+      if (context.refuse === "afterCommit") refuse("afterCommit");
+    }
+  } });
+  registerApiErrorHandler(app);
+  const wrappers = [];
+  const transport = createJsonApiResourceRouteTransport({ type: "orders" });
+  for (const jsonapi of [false, true]) {
+    for (const phase of ["inside", "afterCommit"]) {
+      app.post(`/${jsonapi ? "jsonapi" : "plain"}/${phase}`, { config: jsonapi ? { transport } : {} }, async (request) => {
+        try {
+          return await api.resources.orders.post({ data: request.body }, { refuse: phase });
+        } catch (error) {
+          wrappers.push(error);
+          throw error;
+        }
+      });
+    }
+  }
+
+  for (const jsonapi of [false, true]) {
+    for (const [phase, outcome] of [["inside", "rolledBack"], ["afterCommit", "committed"]]) {
+      const url = `/${jsonapi ? "jsonapi" : "plain"}/${phase}`;
+      const response = await app.inject({ method: "POST", url, payload: { title: `Order ${url}` } });
+      const wrapper = wrappers.at(-1);
+      assert.equal(wrapper.name, "RestApiWriteError", url);
+      assert.equal(wrapper.cause, refusals.get(phase), url);
+      assert.equal(wrapper.transactionOutcome, outcome, url);
+      assert.equal(response.statusCode, 409, url);
+      const payload = response.json();
+      const clientError = buildHttpError({ status: response.statusCode }, payload);
+      assert.equal(clientError.code, "orders.step.refused", url);
+      assert.equal(clientError.message, "This step needs the email confirmed first.", url);
+      assert.deepEqual(clientError.params, { phase }, url);
+      assert.equal(clientError.messageCode, "orders.step.refused.payment", url);
+      assert.deepEqual(clientError.messageParams, { phase }, url);
+      assert.equal(clientError.transactionOutcome, outcome, url);
+      if (jsonapi) {
+        assert.equal(payload.errors[0].meta.transactionOutcome, outcome, url);
+      } else {
+        assert.deepEqual(clientError.details, { nextStep: "confirm-email" }, url);
+      }
+    }
+  }
+  assert.deepEqual(await knex("orders").pluck("title"), ["Order /plain/afterCommit", "Order /jsonapi/afterCommit"],
+    "a refusal inside the write rolls it back; one after its commit leaves it written");
+});
+
 test("error handler, JSON:API transport and client preserve outcomes without disclosing internal failures", () => {
   const transport = createJsonApiResourceRouteTransport({ type: "books" });
   const app = { log: { error() {}, info() {} }, setErrorHandler(handler) { this.errorHandler = handler; } };

@@ -375,8 +375,9 @@ function buildRouteTransport({
     return createJsonApiDocument(documentOptions);
   }
 
-  // The kernel error handler decides what is exposed; params and messageCode come
-  // from it, and each field or Ajv issue carries its own code.
+  // The kernel error handler decides what is exposed; params, messageCode and the
+  // transaction's outcome (a wrapper's, for a refusal it wrapped) come from it, and
+  // each field or Ajv issue carries its own code.
   function errorDocument(error, {
     statusCode = 500,
     code = "",
@@ -384,7 +385,8 @@ function buildRouteTransport({
     exposeDetails = true,
     params = {},
     messageCode = "",
-    messageParams = {}
+    messageParams = {},
+    transactionOutcome = error?.transactionOutcome
   } = {}) {
     const fieldErrors = !exposeDetails ? {} : isRecord(error?.fieldErrors)
       ? error.fieldErrors
@@ -405,7 +407,7 @@ function buildRouteTransport({
       params,
       messageCode,
       messageParams,
-      transactionOutcome: error?.transactionOutcome,
+      transactionOutcome,
       fieldErrors,
       fieldErrorCodes,
       validationIssues,
