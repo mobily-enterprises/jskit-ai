@@ -134,18 +134,30 @@ const HANDLE_SCOPED_QUERIES = new WeakSet();
 const HANDLE_WORK_RUNNERS = new WeakSet();
 // The names an owner's own wrappers of those runners keep.
 const WORK_RUNNER_NAMES = Object.freeze(new Set(["withTransaction", "lockOrCreate"]));
+// Every handle's queryPages, which answers pages to iterate, so a refusal arrives as pages that throw when read.
+const HANDLE_PAGE_READS = new WeakSet();
 // The builders a handle's joinSource() answers, which carry the table's visible columns and ownership fields only: the
 // one query builder withoutHiddenFields hands another feature.
 const JOIN_SOURCES = new WeakSet();
 
 /**
- * Records a new handle's scopedQuery, withTransaction and lockOrCreate for withoutHiddenFields.
- * @param {{ scopedQuery: Function, withTransaction: Function, lockOrCreate: Function }} handle
+ * Records a new handle's scopedQuery, withTransaction, lockOrCreate and queryPages for withoutHiddenFields.
+ * @param {{ scopedQuery: Function, withTransaction: Function, lockOrCreate: Function, queryPages: Function }} handle
  */
-function markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate }) {
+function markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate, queryPages }) {
   HANDLE_SCOPED_QUERIES.add(scopedQuery);
   HANDLE_WORK_RUNNERS.add(withTransaction);
   HANDLE_WORK_RUNNERS.add(lockOrCreate);
+  HANDLE_PAGE_READS.add(queryPages);
+}
+
+/**
+ * Pages that throw `error` when read: a refusal of a call that answers pages.
+ * @param {Error} error
+ * @returns {AsyncIterable<never>}
+ */
+function refusedPages(error) {
+  return Object.freeze({ [Symbol.asyncIterator]: () => Object.freeze({ next: () => Promise.reject(error) }) });
 }
 
 /**
@@ -364,6 +376,18 @@ function guardedRepository(repository, resource, hidden, guarded) {
 }
 
 /**
+ * Each page of an async iterable, such as queryPages()'s, without its hidden fields.
+ * @param {AsyncIterable<unknown>} pages
+ * @param {Set<string>} hidden
+ * @param {string} label
+ */
+async function* withoutHiddenPages(pages, hidden, label) {
+  for await (const page of pages) {
+    yield withoutHiddenValues(page, hidden, label);
+  }
+}
+
+/**
  * @param {object} repository
  * @param {string} key
  * @param {Function} call
@@ -374,6 +398,7 @@ function guardedFunction(repository, key, call, resource, hidden) {
   const label = `${resource?.name ?? "repository"}.${key}()`;
   const builder = HANDLE_SCOPED_QUERIES.has(call) || (resource !== null && key === "scopedQuery");
   const work = HANDLE_WORK_RUNNERS.has(call) || WORK_RUNNER_NAMES.has(key);
+  const paged = HANDLE_PAGE_READS.has(call) || key === "queryPages";
   return function callWithoutHiddenFields(...args) {
     // A system context, or one it derived, in whichever record the method takes its options.
     if (args.some((arg) => isRecord(arg) && isJobContext(arg.context))) {
@@ -389,10 +414,11 @@ function guardedFunction(repository, key, call, resource, hidden) {
     const named = [...new Set(args.flatMap((arg) => (isRecord(arg) ? fieldNames(arg.fields) : [])))]
       .filter((field) => hidden.has(field));
     if (named.length > 0) {
-      return Promise.reject(new TypeError(
+      const refusal = new TypeError(
         `${label} fields names the hidden field ${named.map((field) => `"${field}"`).join(", ")}, ` +
           "which only the table's owner, or a system context, reads."
-      ));
+      );
+      return paged ? refusedPages(refusal) : Promise.reject(refusal);
     }
     const answer = call.apply(repository, args);
     // A runner's answer is the caller's own work: it passes as it is.
@@ -403,6 +429,10 @@ function guardedFunction(repository, key, call, resource, hidden) {
     // never runs here.
     if (isKnexValue(answer)) {
       return withoutFullBuilder(answer, label);
+    }
+    // readable-check: allow method-probe - data: queryPages() answers an async iterable, whose pages arrive one at a time
+    if (typeof answer?.[Symbol.asyncIterator] === "function") {
+      return withoutHiddenPages(answer, hidden, label);
     }
     // readable-check: allow method-probe - data: a repository's method may answer at once or with a promise
     return typeof answer?.then === "function"

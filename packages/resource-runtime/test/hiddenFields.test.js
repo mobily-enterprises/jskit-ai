@@ -229,6 +229,23 @@ test("withoutHiddenFields refuses a hidden field named through any method, and s
   assert.deepEqual(await exposed.cardsTitled({ context: system.forWorkspace("2") }, { title: "Kit" }), [{ id: "3", title: "Kit", publicToken: "t3" }]);
 });
 
+test("withoutHiddenFields strips the hidden fields from each page queryPages() hands another feature, and refuses one its fields names", async (t) => {
+  const { cards, resource, system, options } = await createCardFixture(t);
+  const owner = Object.freeze({ ...cards, tokenPages: (callOptions) => cards.queryPages({ fields: ["title", "publicToken"] }, callOptions) });
+  const exposed = withoutHiddenFields(owner, resource);
+  const pagesOf = async (pages) => {
+    const read = [];
+    for await (const records of pages) {
+      read.push(records);
+    }
+    return read;
+  };
+  assert.deepEqual(await pagesOf(exposed.tokenPages(options)), [[{ id: "1", title: "Rex" }, { id: "2", title: "Bo" }]]);
+  assert.deepEqual(await pagesOf(exposed.queryPages({ fields: ["title"] }, options)), [[{ id: "1", title: "Rex" }, { id: "2", title: "Bo" }]]);
+  await assert.rejects(pagesOf(exposed.queryPages({ fields: ["title", "publicToken"] }, options)), /cards\.queryPages\(\) fields names the hidden field "publicToken"/u);
+  assert.deepEqual(await pagesOf(exposed.tokenPages({ context: system.forWorkspace("2") })), [[{ id: "3", title: "Kit", publicToken: "t3" }]]);
+});
+
 test("withoutHiddenFields refuses a field one owned table hides and another shows, since it strips hidden fields by name", () => {
   const cards = defineTableResource({
     name: "cards",

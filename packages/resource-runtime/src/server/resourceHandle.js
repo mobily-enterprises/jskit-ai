@@ -1,14 +1,14 @@
 import diagnosticsChannel from "node:diagnostics_channel";
-import { RestApiRowLimitError } from "json-rest-api";
 import { retryDeadlocks } from "@jskit-ai/database-runtime/shared";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { readChangeHorizon } from "./changeHorizon.js";
-import { createJsonRestContext, isJobContext } from "./contexts.js";
+import { createJsonRestContext } from "./contexts.js";
+import { createEveryRowReads } from "./handleEveryRow.js";
 import { createHiddenFieldReads, createJoinSource, markHandleFunctions } from "./handleHidden.js";
 import { createLockReads, lockModeOf } from "./handleLocks.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
-import { PageSizeError, RowLimitError, StaleRecordError, UnpagedQueryError } from "./errors.js";
+import { GroupLimitError, PageSizeError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
   formatOf, matchesNoRow, missingOf, passedOn, refuseConditions, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions,
   requireReadParams, requireUpsertRows, whereSelection
@@ -216,11 +216,15 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     });
   }
 
-  /** The largest page query() serves, and the page size of every-row reads. */
+  /**
+   * The largest page query() serves and the most groups one aggregate() answers (`request`), the page size of every-row
+   * reads (`server`), and the most rows queryAll() and queryPages() read in a request context (`requestRows`).
+   */
   function pageLimits() {
     return Object.freeze({
       request: jsonRest().vars.queryMaxLimit,
-      server: settings.serverPageSize
+      server: settings.serverPageSize,
+      requestRows: settings.requestRowLimit
     });
   }
 
@@ -270,41 +274,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     });
   }
 
-  /**
-   * Every record the filters match, read in pages of pageLimits().server rows in
-   * id order (or `sort`). In a request it throws past the request row limit;
-   * a system context, and the workspace and user contexts it derives, read
-   * without one.
-   * @param {{ filters?: object, sort?: string | string[], include?: string | string[], fields?: string[] | object }} [params]
-   * @param {{ context?: object | null, trx?: object | null }} [options]
-   */
-  async function queryAll(params = {}, options = {}) {
-    const context = contextOf(options);
-    const rowLimit = isJobContext(options.context) ? undefined : settings.requestRowLimit;
-    const read = { ...params, fields: readFields(params, "list") };
-    const queryParams = readQueryParams(resource, read, { page: false, caller: "queryAll" });
-    const hidden = hiddenFields.named(params.fields, "plain");
-    try {
-      const payload = matchesNoRow(params.filters, jsonRest().vars.schemaInfo)
-        ? { data: [] }
-        : await returnBadRequestWhenJsonRestFieldsetInvalid(() => jsonRest().queryAll(
-          {
-            queryParams,
-            pageSize: settings.serverPageSize,
-            ...(rowLimit === undefined ? {} : { rowLimit }),
-            transaction: options.trx || undefined,
-            format: "plain"
-          },
-          context
-        ));
-      return await hiddenFields.add(handleRecords(resource, payload.data, read, resourceNamed), hidden, options);
-    } catch (error) {
-      if (error instanceof RestApiRowLimitError && rowLimit !== undefined) {
-        throw new RowLimitError(name, rowLimit, error);
-      }
-      throw error;
-    }
-  }
+  // queryAll and queryPages (see handleEveryRow.js).
+  const { queryAll, queryPages } = createEveryRowReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields, settings, resourceNamed });
 
   /**
    * One record. A missing or hidden one throws json-rest-api's not-found error
@@ -334,15 +305,24 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
   /**
    * Totals: `measures` ({ name: { count | countDistinct | sum | avg | min | max: field, where? } })
    * over the filtered rows, grouped by `groupBy` fields or date buckets. Answers the rows.
-   * @param {{ measures: object, groupBy?: Array<string | object>, filters?: object, sort?: string[], page?: object }} spec
+   * One statement answers at most pageLimits().request groups: a grouped
+   * aggregate without `page` answers every group or, when there are more, throws
+   * GroupLimitError rather than answer part of them. `page: { size, number }`
+   * (number from 1) answers one page of groups; a page shorter than `size` is the last.
+   * @param {{ measures: object, groupBy?: Array<string | object>, filters?: object, sort?: string[], page?: { size: number, number?: number } }} spec
    * @param {{ context?: object | null, trx?: object | null }} [options]
    */
   async function aggregate({ measures, groupBy, filters, sort, page }, options = {}) {
     requireDefinedFilters(name, "aggregate", filters);
+    if (page !== undefined && page?.size == null) {
+      throw new TypeError(`${name}.aggregate() page needs size (at most pageLimits().request) and takes number from 1: page: { size, number }.`);
+    }
     const context = contextOf(options);
     if (matchesNoRow(filters, jsonRest().vars.schemaInfo)) {
       return noRowsAggregate(measures, groupBy);
     }
+    // json-rest-api pages grouped rows at its default page size when none is named, and says so only in meta.
+    const groupLimit = page === undefined && Array.isArray(groupBy) && groupBy.length > 0 ? pageLimits().request : undefined;
     const result = await jsonRest().aggregate(
       {
         measures: aggregateMeasures(measures),
@@ -350,12 +330,16 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
         queryParams: {
           ...(filters === undefined ? {} : { filters }),
           ...(sort === undefined ? {} : { sort: textList(sort) }),
-          ...(page === undefined ? {} : { page })
+          ...(page === undefined ? {} : { page }),
+          ...(groupLimit === undefined ? {} : { page: { size: groupLimit } })
         },
         transaction: options.trx || undefined
       },
       context
     );
+    if (groupLimit !== undefined && result.meta?.page?.hasMore === true) {
+      throw new GroupLimitError(name, groupLimit);
+    }
     return result.data;
   }
 
@@ -713,13 +697,14 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed })
     return readChangeHorizon(name, options.trx || api.knex.instance);
   }
 
-  markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate: lockOrCreateRecord });
+  markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate: lockOrCreateRecord, queryPages });
   return Object.freeze({
     name,
     pageLimits,
     withTransaction,
     query,
     queryAll,
+    queryPages,
     get,
     aggregate,
     create,

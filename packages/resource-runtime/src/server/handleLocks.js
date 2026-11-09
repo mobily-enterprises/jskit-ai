@@ -59,7 +59,7 @@ function refuseInclude(name, caller, include) {
  *   The table's json-rest-api resource.
  * @param {(params: { fields?: unknown }, kind: "view") => unknown} dependencies.readFields The fields a read names.
  * @param {(options: object) => object} dependencies.contextOf The call's json-rest-api context, after its scope checks.
- * @param {ReturnType<typeof import("./handleHidden.js").createHiddenFieldReads>} dependencies.hiddenFields The hidden
+ * @param {import("./types.js").HiddenFieldReads} dependencies.hiddenFields The hidden
  *   fields `options.fields` names, read after the lock.
  */
 function createLockReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields }) {

@@ -33,8 +33,9 @@ through its handle's calls, and every call takes the call's `options` last:
 | --- | --- |
 | `query({ filters, sort, page, include }, options)` | one page: `{ records, page }` |
 | `queryAll({ filters, sort, include }, options)` | every matching row, for jobs, id lists and one parent's rows |
+| `queryPages({ filters, sort, include }, options)` | every matching row, a page at a time, for work over many rows |
 | `get(id, params, options)` | one record |
-| `aggregate({ measures, groupBy, filters, sort }, options)` | totals, grouped by fields or date buckets |
+| `aggregate({ measures, groupBy, filters, sort, page }, options)` | totals, grouped by fields or date buckets |
 | `create(data, options)`, `findOrCreate({ id, ...data }, options)` | one record; a keyed one, created once |
 | `patch(id, changes, options)`, `delete(id, options)` | one record |
 | `createMany(rows, options)` | many records, or an upsert with `onConflict` |
@@ -57,6 +58,14 @@ function totalsByMonth(options) {
   }, options);
 }
 ```
+
+A grouped `aggregate` answers its groups from one statement, at most
+`pageLimits().request` of them (the resource's `queryMaxLimit`). When there
+are more it throws a 400 coded `RESOURCE_GROUP_LIMIT` instead of answering
+part of them. Narrow the filters, or read the groups in pages, `page: { size,
+number }` with `number` from 1, until a page answers fewer than `size` rows.
+Page numbers are offsets, so read every page before work that changes what
+the filters match.
 
 ## Words
 
@@ -758,8 +767,15 @@ async function activeDays(memberIds, options) {
 - `queryAll` reads every matching row, in cursor pages that skip and repeat
   none. Use it for id lists, one parent's rows and jobs: a read its callers
   treat as complete, which a `query` would silently cut at one page. In a
-  request it stops past the request row limit (10,000 rows) with a 400 coded
-  `RESOURCE_ROW_LIMIT`.
+  request it stops past the request row limit (`pageLimits().requestRows`,
+  10,000 rows) with a 400 coded `RESOURCE_ROW_LIMIT`, and never answers part
+  of the rows. A job reads without that limit and holds every row in memory.
+- Work over many rows reads `queryPages` and handles one page at a time:
+  `for await (const records of handle.queryPages(params, options))`. Each
+  page is one statement of up to `pageLimits().server` rows that starts after
+  the last row of the page before, so the work may change what the filters
+  match as it goes. In a request it throws at the same row limit, before the
+  page that passes it.
 
 ```js
 // good: one page of invoices, then all of that page's lines in one read
@@ -774,6 +790,11 @@ for (const invoice of records) {
 
 // good: a delivery job reads every active subscriber
 const subscribers = await subscriptions.queryAll({ filters: { newsletterId, status: "active" } }, options);
+
+// good: a job over a table of any size marks each page as it reads it
+for await (const records of reminders.queryPages({ filters: { status: "due" } }, txOptions)) {
+  await reminders.patchWhere({ id: records.map((reminder) => reminder.id) }, { status: "sent" }, txOptions);
+}
 
 // bad: the first page only, whatever its size
 const { records: firstPage } = await subscriptions.query({ filters: { newsletterId, status: "active" }, page: { size: 20 } }, options);
@@ -866,14 +887,21 @@ const SettlementFeature = defineFeature({
   request's `caller.userId`, so a job for a person sees what that person may
   see, and a job for no one its whole scope. Work on one person's rows only
   takes their scope (`forUser`, `forWorkspaceUser`) or filters its reads.
-- A job finds its units with one `aggregate` grouped by the ownership field,
+- A job finds its units with an `aggregate` grouped by the ownership field,
   which a system context may group by (and count distinct) even when the table
-  hides it, then runs each unit scoped to it. A request's aggregate still
-  refuses a hidden field:
+  hides it, then runs each unit scoped to it. It reads the units in pages, all
+  of them before the first runs, since settling a unit changes what the
+  filters match. A request's aggregate still refuses a hidden field:
 
   ```js
   async function settleDue(options) {
-    const due = await cohorts.aggregate({ measures: { cohorts: { count: "id" } }, groupBy: ["workspaceId"], filters: { status: "finished" } }, options);
+    const size = cohorts.pageLimits().request;
+    const due = [];
+    for (let number = 1; ; number += 1) {
+      const page = await cohorts.aggregate({ measures: { cohorts: { count: "id" } }, groupBy: ["workspaceId"], filters: { status: "finished" }, page: { size, number } }, options);
+      due.push(...page);
+      if (page.length < size) break;
+    }
     for (const { workspaceId } of due) {
       await settleWorkspace({ context: systemContext("settle finished weekly leagues for every user").forWorkspace(workspaceId) });
     }

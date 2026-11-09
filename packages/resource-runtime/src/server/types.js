@@ -33,6 +33,11 @@
  */
 
 /**
+ * A handle's reads of the hidden fields a read names, which json-rest-api leaves out (see handleHidden.js).
+ * @typedef {ReturnType<typeof import("./handleHidden.js").createHiddenFieldReads>} HiddenFieldReads
+ */
+
+/**
  * The options every handle call takes last: the caller's context (an action's,
  * or a system context) and the transaction to join.
  * @typedef {{ context?: object | null, trx?: object | null }} ResourceCallOptions

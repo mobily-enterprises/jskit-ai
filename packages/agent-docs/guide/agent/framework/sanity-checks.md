@@ -71,6 +71,10 @@ expects the relationship id or an unselected field never gets it.
   error. A read its callers treat as complete uses `queryAll()`, because the
   missing rows otherwise vanish from every picker and delivery built on it
   ([Reads](/guide/framework/data-access#reads-shaped-for-the-screen)).
+- A grouped `aggregate()` answers every group or throws
+  `RESOURCE_GROUP_LIMIT`: one with more groups than `pageLimits().request`
+  reads them with `page: { size, number }`
+  ([The handle's calls](/guide/framework/data-access#the-handle-s-calls)).
 - A lookup by a unique key matches at most one row: `get(id)`, or a `query()`
   of page size 1.
 

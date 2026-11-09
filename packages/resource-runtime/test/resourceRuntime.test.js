@@ -196,7 +196,7 @@ test("query() pages with page.size and page.after, and refuses an unpaged or ove
   assert.deepEqual(second.records.map(({ title }) => title), ["n2", "n3"]);
   const filtered = await notes.query({ filters: { title: "n4" }, page: { size: 2 } }, { context: WORKSPACE_A });
   assert.deepEqual(filtered.records.map(({ title }) => title), ["n4"]);
-  assert.deepEqual(notes.pageLimits(), { request: 20, server: 1000 });
+  assert.deepEqual(notes.pageLimits(), { request: 20, server: 1000, requestRows: 10000 });
 });
 
 test("query() serves a numbered page in one statement, with no count, and refuses page.number with page.after", async (t) => {

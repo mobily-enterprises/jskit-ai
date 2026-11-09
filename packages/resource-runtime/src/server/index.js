@@ -8,6 +8,7 @@ export { withoutHiddenFields } from "./handleHidden.js";
 export { passedOn } from "./handleGuards.js";
 export {
   DuplicateOwnerError,
+  GroupLimitError,
   MissingScopeError,
   PageSizeError,
   RowLimitError,

@@ -85,23 +85,46 @@ class PageSizeError extends TypeError {
 }
 
 /**
- * queryAll() in a request context reading past the request row limit: the request answers a 400 coded
+ * queryAll() or queryPages() in a request context reading past the request row limit: the request answers a 400 coded
  * RESOURCE_ROW_LIMIT, with a sentence the client can show in the user's language, instead of a 500.
  */
 class RowLimitError extends AppError {
   /**
    * @param {string} resourceName
    * @param {number} rowLimit
-   * @param {unknown} cause
+   * @param {unknown} [cause]
+   * @param {"queryAll" | "queryPages"} [caller]
    */
-  constructor(resourceName, rowLimit, cause) {
+  constructor(resourceName, rowLimit, cause, caller = "queryAll") {
     super(
       400,
-      `${resourceName}.queryAll() read more than ${rowLimit} rows inside a request. Work over that many rows belongs ` +
-        "in a background job: a feature with systemScope, working per workspace with systemContext(reason).forWorkspace(id).",
+      `${resourceName}.${caller}() read more than ${rowLimit} rows inside a request. Work over that many rows belongs ` +
+        "in a background job: a feature with systemScope, working per workspace with systemContext(reason).forWorkspace(id), " +
+        "where queryPages() reads them a page at a time.",
       { cause, code: "RESOURCE_ROW_LIMIT", messageCode: "resource.rowLimit", messageParams: { rowLimit } }
     );
     this.name = "RowLimitError";
+  }
+}
+
+/**
+ * A grouped aggregate() without a page that has more groups than one statement answers: it throws a 400 coded
+ * RESOURCE_GROUP_LIMIT, with a sentence the client can show in the user's language, rather than answer part of them.
+ */
+class GroupLimitError extends AppError {
+  /**
+   * @param {string} resourceName
+   * @param {number} groupLimit
+   */
+  constructor(resourceName, groupLimit) {
+    super(
+      400,
+      `${resourceName}.aggregate() has more than ${groupLimit} groups, the most one statement answers. Read them in pages, ` +
+        `page: { size, number } with size up to ${groupLimit} and number from 1, until a page answers fewer than size ` +
+        "rows, or narrow the filters.",
+      { code: "RESOURCE_GROUP_LIMIT", messageCode: "resource.groupLimit", messageParams: { groupLimit } }
+    );
+    this.name = "GroupLimitError";
   }
 }
 
@@ -127,6 +150,7 @@ class DuplicateOwnerError extends Error {
 
 export {
   DuplicateOwnerError,
+  GroupLimitError,
   MissingScopeError,
   PageSizeError,
   RowLimitError,

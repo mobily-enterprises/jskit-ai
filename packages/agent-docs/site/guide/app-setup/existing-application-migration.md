@@ -211,7 +211,7 @@ write goes through that table's handle
 | a field's `default:` | `defaultTo:` (`default` is refused, since json-rest-api never read it) |
 | a `createdAt` or `updatedAt` default of now | nothing: drop it, since every handle write stamps them |
 | a CRUD contract that showed every column | a contract shows only its `fields`, so list every field the API showed |
-| reading every row | `queryAll`, which refuses above 10,000 rows, so page with `query()` |
+| reading every row | `queryAll`, which refuses above 10,000 rows in a request; a job over more reads `queryPages()` a page at a time |
 | an app's own wrappers around old calls | the handle method they wrapped, then delete the wrapper |
 
 Handles answer records, `{ id, ...fields }`, with a belongs-to field as the

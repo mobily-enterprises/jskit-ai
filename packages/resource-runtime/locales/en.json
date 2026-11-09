@@ -10,7 +10,8 @@
       }
     },
     "resource": {
-      "rowLimit": "This request would read more than {rowLimit} rows. Ask for fewer and try again."
+      "rowLimit": "This request would read more than {rowLimit} rows. Ask for fewer and try again.",
+      "groupLimit": "This request would total more than {groupLimit} groups. Ask for fewer and try again."
     }
   }
 }

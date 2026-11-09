@@ -33,6 +33,7 @@ Local functions
 ### `src/server/errors.js`
 Exports
 - `DuplicateOwnerError`
+- `GroupLimitError`
 - `MissingScopeError`
 - `PageSizeError`
 - `RowLimitError`
@@ -49,6 +50,10 @@ Local functions
 - `sameNames(left, right)`
 - `sameKey(left, right)`
 - `declaredForeignKeys(knex, resources)`
+
+### `src/server/handleEveryRow.js`
+Exports
+- `createEveryRowReads({ name, resource, jsonRest, readFields, contextOf, hiddenFields, settings, resourceNamed })`
 
 ### `src/server/handleGuards.js`
 Exports
@@ -69,11 +74,12 @@ Exports
 Exports
 - `createHiddenFieldReads({ resource, scopedQuery, column })`
 - `createJoinSource({ api, resource, jsonRest, scopedQuery, column })`
-- `markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate })`
+- `markHandleFunctions({ scopedQuery, withTransaction, lockOrCreate, queryPages })`
 - `withoutHiddenFields(repository, resources)`
 Local functions
 - `namedHiddenFields(resource, fields)`
 - `storedValue(value, { type, precision, scale })`
+- `refusedPages(error)`
 - `fieldNames(fields)`
 - `isKnexValue(value)`
 - `withoutFullBuilder(value, label)`
@@ -130,6 +136,7 @@ Exports
 - `withoutHiddenFields`
 - `passedOn`
 - `DuplicateOwnerError`
+- `GroupLimitError`
 - `MissingScopeError`
 - `PageSizeError`
 - `RowLimitError`
@@ -218,5 +225,6 @@ Exports
 - `type JsonRestResource`
 - `type ResourceRuntime`
 - `type ResourceHandle`
+- `type HiddenFieldReads`
 - `type ResourceCallOptions`
 - `type SystemContext`
