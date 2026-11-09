@@ -1,7 +1,15 @@
 import assert from "node:assert/strict";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import os from "node:os";
+import path from "node:path";
 import test from "node:test";
 import { defineProvider } from "../../../shared/capabilities/defineProvider.js";
-import { assertManifestMatchesProviders, validatePackageCapabilities } from "./packageCatalog.js";
+import {
+  assertManifestMatchesProviders,
+  manifestCapabilityDrift,
+  packageCapabilityDrift,
+  validatePackageCapabilities
+} from "./packageCatalog.js";
 
 const BOOKS_PROVIDER = defineProvider({
   id: "feature.books",
@@ -107,6 +115,52 @@ test("a manifest requirement no provider has is logged as an install-time requir
       message: "Package manifest requires a capability its providers do not."
     }
   ]);
+});
+
+test("a manifest's drift names each capability to add or remove, the kernel's own and client ones aside", () => {
+  const manifest = {
+    provides: ["feature.authors", "client.books"],
+    requires: ["runtime.storage", "runtime.realtime", "client.shell"]
+  };
+
+  assert.deepEqual(manifestCapabilityDrift(booksPackage(manifest), [BOOKS_PROVIDER]), {
+    manifestProvides: ["feature.authors"],
+    provided: ["feature.books"],
+    unlistedProvides: ["feature.books"],
+    extraProvides: ["feature.authors"],
+    // runtime.actions and runtime.events are the kernel's own; runtime.realtime is only optional.
+    unlistedRequires: ["runtime.database"],
+    extraRequires: ["runtime.realtime", "runtime.storage"]
+  });
+});
+
+test("a package's drift loads its declared server providers, and is null for a package that declares none", async (t) => {
+  const packageRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-manifest-drift-"));
+  t.after(() => rm(packageRoot, { recursive: true, force: true }));
+  await mkdir(path.join(packageRoot, "src", "server"), { recursive: true });
+  await writeFile(path.join(packageRoot, "src", "server", "BooksFeature.js"), [
+    "export const BooksFeature = {",
+    "  id: \"feature.books\",",
+    "  requires: { database: \"runtime.database\" },",
+    "  provides: { books: \"feature.books\" },",
+    "  setup() { return { books: {} }; }",
+    "};",
+    ""
+  ].join("\n"));
+  const packageEntry = (providers) => ({
+    packageId: "@fixture/books",
+    packageRoot,
+    packageMetadata: {
+      capabilities: { provides: ["feature.books"], requires: [] },
+      runtime: { server: { providers } }
+    }
+  });
+
+  const drift = await packageCapabilityDrift(packageEntry([{ entrypoint: "src/server/BooksFeature.js", export: "BooksFeature" }]));
+
+  assert.deepEqual(drift.unlistedRequires, ["runtime.database"]);
+  assert.deepEqual([drift.unlistedProvides, drift.extraProvides, drift.extraRequires], [[], [], []]);
+  assert.equal(await packageCapabilityDrift(packageEntry([])), null);
 });
 
 test("a manifest names its capabilities in any case and spacing the runtime resolves, as its providers do", () => {

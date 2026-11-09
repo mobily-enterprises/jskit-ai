@@ -178,6 +178,10 @@ The check fails when:
 - installed package versions or root/workspace declarations disagree with the lockfile.
 - a package script runs tests outside the machine's test budget (`test/*`, see
   [Test files run in parallel](/guide/framework/typed-features#test-files-run-in-parallel)).
+- an application package's manifest (`jskit.capabilities`) misses a capability
+  its features provide or require, or provides one none of them does
+  (`manifest/capabilities`, see
+  [Package manifest](/guide/framework/typed-features#package-manifest)).
 
 Shared client owners such as the kernel, HTTP runtime, shell, auth web runtime,
 realtime runtime, and assistant runtime use exact peer dependencies where they

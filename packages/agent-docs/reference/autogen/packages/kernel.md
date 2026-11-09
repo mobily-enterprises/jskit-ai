@@ -945,6 +945,7 @@ Exports
 - `registerSurfaceRequestConstraint`
 - `resolveRuntimeProfileFromSurface`
 - `createInstalledRuntime`
+- `packageCapabilityDrift`
 
 ### `server/platform/installedRuntime.js`
 Exports
@@ -975,11 +976,14 @@ Exports
 Exports
 - `assertManifestMatchesProviders(packageEntry, packageProviders, { logger })`
 - `collectGlobalUiPaths(packageEntries)`
+- `manifestCapabilityDrift(packageEntry, packageProviders)`
+- `packageCapabilityDrift(packageEntry)`
 - `resolveInstalledJskitPackages({ appRoot })`
 - `resolvePackageLoadOrder(packageEntries)`
 - `validatePackageCapabilities(packageEntries, { builtinProvidersByCapability = {} } = {})`
 - `type ProviderDefinition`
 - `type RuntimeLogger`
+- `type ManifestCapabilityDrift`
 Local functions
 - `normalizeUiRoutePath(pathValue)`
 - `registerCapabilityProvider(providersByCapability, capabilityId, providerPackageId)`
@@ -1165,6 +1169,7 @@ Exports
 - `type ProviderSetupContext`
 - `type ProviderLifecycleContext`
 - `type ProviderDefinition`
+- `type ManifestCapabilityDrift`
 - `type FeatureSetupContext`
 - `type FeatureDefinition`
 - `type ResourceRuntime`

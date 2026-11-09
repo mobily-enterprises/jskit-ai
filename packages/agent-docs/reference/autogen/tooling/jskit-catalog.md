@@ -166,6 +166,14 @@ Local functions
 - `runI18n({ subcommand, locale, projectRoot })`
 - `readCatalog()`
 
+### `scripts/manifest-capabilities.mjs`
+Exports
+- `checkManifestCapabilities({ projectRoot, manifests })`
+- `formatManifestCapabilitiesReport(result)`
+Local functions
+- `capabilityLine(contents, capabilityId = "")`
+- `kernelPlatform(manifestPath, root)`
+
 ### `scripts/material3-source.mjs`
 Exports
 - `DEFAULT_IMPORT`

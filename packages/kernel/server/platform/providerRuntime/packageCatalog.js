@@ -6,6 +6,7 @@ import { ActionProvider } from "../../actions/actionProvider.js";
 import { HttpProvider } from "../../http/HttpProvider.js";
 import { BootstrapProvider } from "../../runtime/BootstrapProvider.js";
 import { EventProvider } from "../../runtime/EventProvider.js";
+import { loadCapabilityProviders } from "./capabilityProviderLoader.js";
 
 const EXCLUSIVE_CAPABILITIES = Object.freeze([
   "auth.service",
@@ -13,6 +14,7 @@ const EXCLUSIVE_CAPABILITIES = Object.freeze([
 ]);
 /** @typedef {import("../../types.js").ProviderDefinition} ProviderDefinition */
 /** @typedef {import("../../types.js").RuntimeLogger} RuntimeLogger */
+/** @typedef {import("../../types.js").ManifestCapabilityDrift} ManifestCapabilityDrift */
 
 // What the kernel's own providers give every package: events, actions, HTTP and the bootstrap.
 const KERNEL_PROVIDED_CAPABILITIES = new Set([EventProvider, ActionProvider, HttpProvider, BootstrapProvider]
@@ -194,43 +196,71 @@ function providerCapabilityIds(providers, key) {
 }
 
 /**
- * Checks a package's manifest (`jskit.capabilities`) against the server providers it declares, so the two cannot
- * drift. The manifest provides exactly what the providers provide, client capabilities aside. It requires every
- * capability a provider requires, apart from the kernel's own and those the package provides; optional ones are never
- * required. A manifest requirement no provider has is an install-time one, such as the database a migration needs, so
- * it is logged, not refused.
+ * Where a package's manifest (`jskit.capabilities`) and the server providers it declares disagree. The manifest
+ * provides exactly what the providers provide, client capabilities aside. It requires every capability a provider
+ * requires, apart from the kernel's own and those the package provides; optional ones are never required. A manifest
+ * requirement no provider has may be an install-time one, such as the database a migration needs.
+ * @param {{ packageMetadata?: { capabilities?: { provides?: unknown, requires?: unknown } } }} packageEntry
+ * @param {ReadonlyArray<ProviderDefinition>} packageProviders
+ * @returns {ManifestCapabilityDrift}
+ */
+function manifestCapabilityDrift(packageEntry, packageProviders) {
+  const manifest = packageEntry.packageMetadata?.capabilities;
+  const manifestProvides = [...manifestCapabilityIds(manifest?.provides)].filter((id) => !CLIENT_CAPABILITY.test(id));
+  const manifestRequires = manifestCapabilityIds(manifest?.requires);
+  const provided = providerCapabilityIds(packageProviders, "provides");
+  const required = providerCapabilityIds(packageProviders, "requires");
+  return Object.freeze({
+    manifestProvides: sortStrings(manifestProvides),
+    provided: sortStrings([...provided]),
+    unlistedProvides: sortStrings([...provided].filter((id) => !manifestProvides.includes(id))),
+    extraProvides: sortStrings(manifestProvides.filter((id) => !provided.has(id))),
+    unlistedRequires: sortStrings([...required].filter((id) =>
+      !KERNEL_PROVIDED_CAPABILITIES.has(id) && !provided.has(id) && !manifestRequires.has(id))),
+    extraRequires: sortStrings([...manifestRequires].filter((id) => !CLIENT_CAPABILITY.test(id) && !required.has(id)))
+  });
+}
+
+/**
+ * Checks a package's manifest against the server providers it declares (manifestCapabilityDrift), so the two cannot
+ * drift: a capability the manifest or the providers miss is refused. A manifest requirement no provider has is an
+ * install-time one, so it is logged, not refused.
  * @param {{ packageId: string, packageMetadata?: { capabilities?: { provides?: unknown, requires?: unknown } } }} packageEntry
  * @param {ReadonlyArray<ProviderDefinition>} packageProviders
  * @param {{ logger: RuntimeLogger }} options
  */
 function assertManifestMatchesProviders(packageEntry, packageProviders, { logger }) {
   const { packageId } = packageEntry;
-  const manifest = packageEntry.packageMetadata?.capabilities;
-  const manifestProvides = [...manifestCapabilityIds(manifest?.provides)].filter((id) => !CLIENT_CAPABILITY.test(id));
-  const manifestRequires = manifestCapabilityIds(manifest?.requires);
-  const provided = providerCapabilityIds(packageProviders, "provides");
-  const required = providerCapabilityIds(packageProviders, "requires");
-
-  if (manifestProvides.length !== provided.size || manifestProvides.some((id) => !provided.has(id))) {
-    const manifestList = sortStrings(manifestProvides).join(", ");
-    const providerList = sortStrings([...provided]).join(", ");
+  const drift = manifestCapabilityDrift(packageEntry, packageProviders);
+  if (drift.unlistedProvides.length > 0 || drift.extraProvides.length > 0) {
+    const manifestList = drift.manifestProvides.join(", ");
+    const providerList = drift.provided.join(", ");
     throw new Error(`Package ${packageId} manifest provides [${manifestList}] but its providers provide [${providerList}].`);
   }
-  for (const capabilityId of sortStrings([...required])) {
-    if (!KERNEL_PROVIDED_CAPABILITIES.has(capabilityId) && !provided.has(capabilityId) && !manifestRequires.has(capabilityId)) {
-      throw new Error(`Package ${packageId} requires capability ${capabilityId} in its providers but not in its manifest.`);
-    }
+  if (drift.unlistedRequires.length > 0) {
+    throw new Error(`Package ${packageId} requires capability ${drift.unlistedRequires[0]} in its providers but not in its manifest.`);
   }
-  for (const capabilityId of sortStrings([...manifestRequires])) {
-    if (!CLIENT_CAPABILITY.test(capabilityId) && !required.has(capabilityId)) {
-      logger.warn({ packageId, capabilityId }, "Package manifest requires a capability its providers do not.");
-    }
+  for (const capabilityId of drift.extraRequires) {
+    logger.warn({ packageId, capabilityId }, "Package manifest requires a capability its providers do not.");
   }
+}
+
+/**
+ * Loads a package's server providers and compares its manifest with them, as start-up does, without starting the app
+ * (plain `jskit check` reports it); null when the package declares no server providers, which start-up does not compare.
+ * @param {{ packageId: string, packageRoot: string, packageMetadata?: Record<string, any> }} packageEntry
+ * @returns {Promise<ManifestCapabilityDrift | null>}
+ */
+async function packageCapabilityDrift(packageEntry) {
+  const packageProviders = await loadCapabilityProviders({ packageEntry });
+  return packageProviders.length > 0 ? manifestCapabilityDrift(packageEntry, packageProviders) : null;
 }
 
 export {
   assertManifestMatchesProviders,
   collectGlobalUiPaths,
+  manifestCapabilityDrift,
+  packageCapabilityDrift,
   resolveInstalledJskitPackages,
   resolvePackageLoadOrder,
   validatePackageCapabilities

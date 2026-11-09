@@ -12,6 +12,7 @@ const BARREL_EXPECTATIONS = Object.freeze([
     filePath: path.join(REPO_ROOT, "packages", "kernel", "server", "platform", "index.js"),
     expectedExports: Object.freeze([
       "createInstalledRuntime",
+      "packageCapabilityDrift",
       "registerSurfaceRequestConstraint",
       "resolveRuntimeProfileFromSurface"
     ])

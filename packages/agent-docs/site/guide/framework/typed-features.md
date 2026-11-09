@@ -79,6 +79,31 @@ setup: ({ resources }) => ({ invoices: { list: (options) => resources.invoices.q
 actions: ({ invoices }) => [{ id: "invoices.list", execute: () => invoices.list() }]
 ```
 
+### Package manifest
+
+**A package's manifest, `jskit.capabilities` in its `package.json`, lists
+exactly what its features provide, and every capability they require beyond
+the kernel's own (`runtime.actions`, `runtime.events`, `runtime.http`,
+`runtime.bootstrap`) and those the package provides itself.** Optional
+capabilities are not required. A requirement no feature has stays only when
+the package needs it at install time, such as the database its migrations
+need.
+
+Why: start-up resolves every package's requirements from the manifests, and
+refuses a manifest that disagrees with the package's features. Plain
+`jskit check` loads each application package's features (the server providers
+`jskit.runtime.server.providers` declares) and reports the drift before that
+(`manifest/capabilities`), each capability to add or remove; it lists the
+requirements no feature has for review.
+
+```jsonc
+// good: BooksFeature provides app.books and requires crud.contracts and runtime.actions
+"capabilities": { "provides": ["app.books"], "requires": ["crud.contracts"] }
+
+// bad: app.books missing from provides, crud.contracts from requires
+"capabilities": { "provides": ["app.book"], "requires": [] }
+```
+
 ### Capability types
 
 **Each provided token has one `@typedef` in its package's `src/server/types.js`,
@@ -1178,8 +1203,9 @@ Why: a comment that narrates history is wrong the day after it is written.
 
 `npm run lint` runs ESLint with `@jskit-ai/config-eslint`, and `npm run
 verify` runs `jskit check` (the package graph, navigation, [data
-access](/guide/framework/data-access#exceptions) and [test
-runs](#test-run-rules)), lint, the tests and the build. The foundations'
+access](/guide/framework/data-access#exceptions), [test
+runs](#test-run-rules) and [package manifests](#package-manifest)), lint, the
+tests and the build. The foundations'
 `eslint.config.mjs` already holds a new
 application's code to every check:
 

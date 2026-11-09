@@ -52,6 +52,19 @@
  */
 
 /**
+ * Where a package's manifest (`jskit.capabilities`) and its server providers disagree. Each list is sorted.
+ * @typedef {object} ManifestCapabilityDrift
+ * @property {ReadonlyArray<string>} manifestProvides What the manifest provides, client capabilities aside.
+ * @property {ReadonlyArray<string>} provided What the providers provide.
+ * @property {ReadonlyArray<string>} unlistedProvides Provided by a provider, not by the manifest.
+ * @property {ReadonlyArray<string>} extraProvides Provided by the manifest, by no provider.
+ * @property {ReadonlyArray<string>} unlistedRequires Required by a provider, not by the manifest, and neither the kernel's
+ *   own nor provided by the package.
+ * @property {ReadonlyArray<string>} extraRequires Required by the manifest, by no provider: an install-time requirement,
+ *   or a stale one.
+ */
+
+/**
  * What a feature's setup() and actions() receive besides their dependencies.
  * @typedef {object} FeatureSetupContext
  * @property {string} profile

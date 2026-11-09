@@ -12,6 +12,7 @@ import {
   formatExportSummary
 } from "./i18n.mjs";
 import { checkDataAccess, formatDataAccessReport } from "./data-access.mjs";
+import { checkManifestCapabilities, formatManifestCapabilitiesReport } from "./manifest-capabilities.mjs";
 import { checkMaterial3, formatMaterial3Report } from "./material3.mjs";
 import { checkProject, updateProject } from "./project-packages.mjs";
 import { runTests } from "./test-command.mjs";
@@ -50,7 +51,10 @@ function usage() {
     "               installed JSKIT packages share a table or a name (data/one-resource-per-table), or when a system",
     "               scope (a feature's systemScope, a systemContext() call) gives no literal reason (data/system-scope),",
     "               and it lists every system scope and every file the infrastructure exception lifts past the",
-    "               data-access lint rules for review.",
+    "               data-access lint rules for review. It fails when an application package's manifest",
+    "               (jskit.capabilities) misses a capability its features (server providers) provide or require, or",
+    "               provides one none of them does (manifest/capabilities), and lists each requirement no feature has,",
+    "               which only install time may need, for review.",
     "  check m3     Check application UI source against the JSKIT Material 3 guide alone, with each finding's guide",
     "               section and every exception: the whole app, or only the given files and directories (a section,",
     "               or a task's changed files). Plain jskit check applies the same rules to the whole app.",
@@ -272,6 +276,7 @@ async function main(argv = process.argv.slice(2)) {
   const ui = await checkMaterial3({ projectRoot: options.projectRoot });
   const tests = await checkTestRuns({ projectRoot: options.projectRoot, manifests: result.manifests });
   const data = await checkDataAccess({ projectRoot: options.projectRoot });
+  const capabilities = await checkManifestCapabilities({ projectRoot: options.projectRoot, manifests: result.manifests });
   // The data rules first: a graph that fails on many pin versions would otherwise bury them.
   const reports = [
     formatDataAccessReport(data),
@@ -280,9 +285,10 @@ async function main(argv = process.argv.slice(2)) {
         `${result.installations.length} resolved package installation(s).`
       : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
     formatMaterial3Report(ui),
-    formatTestRunsReport(tests)
+    formatTestRunsReport(tests),
+    formatManifestCapabilitiesReport(capabilities)
   ];
-  if (!result.ok || !ui.ok || !tests.ok || !data.ok) {
+  if (!result.ok || !ui.ok || !tests.ok || !data.ok || !capabilities.ok) {
     throw new Error(reports.join("\n"));
   }
   process.stdout.write(`${reports.join("\n")}\n`);
