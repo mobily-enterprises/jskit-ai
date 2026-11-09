@@ -137,7 +137,7 @@
               </v-btn>
             </div>
 
-            <div class="switch-row d-flex align-center justify-space-between ga-3">
+            <div class="switch-row d-flex flex-wrap align-center justify-space-between ga-3">
               <v-btn class="text-none" variant="tonal" color="primary" @click="goToMainScreen">
                 {{ t("jskit.auth.login.confirmEmail.goToMainScreen") }}
               </v-btn>
@@ -241,7 +241,7 @@
               @blur="otpCodeTouched = true"
             />
 
-            <div v-if="isLogin && (canRequestPasswordRecovery || canUseOtp)" class="aux-links d-flex justify-end mb-4">
+            <div v-if="isLogin && (canRequestPasswordRecovery || canUseOtp)" class="aux-links d-flex flex-wrap justify-end mb-4">
               <v-btn
                 v-if="canRequestPasswordRecovery"
                 variant="text"
@@ -304,14 +304,14 @@
               {{ submitLabel }}
             </v-btn>
 
-            <div v-if="isForgot" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
+            <div v-if="isForgot" class="switch-row mt-4 d-flex flex-wrap align-center justify-space-between ga-3">
               <span class="on-surface-variant">{{ t("jskit.auth.login.rememberedPassword") }}</span>
               <v-btn variant="text" color="secondary" @click="switchMode('login')">
                 {{ t("jskit.auth.login.backToSignIn") }}
               </v-btn>
             </div>
 
-            <div v-else-if="isOtp" class="switch-row mt-4 d-flex align-center justify-space-between ga-3">
+            <div v-else-if="isOtp" class="switch-row mt-4 d-flex flex-wrap align-center justify-space-between ga-3">
               <span class="on-surface-variant">{{ t("jskit.auth.login.otherMethod") }}</span>
               <v-btn variant="text" color="secondary" @click="switchMode('login')">
                 {{ t("jskit.auth.login.backToSignIn") }}

@@ -283,6 +283,37 @@ test("register waits for email confirmation, and the other modes reach their req
   await finish(api);
 });
 
+// Material 3 reflows actions that do not fit: on a phone, Confirm your email's three actions wrap inside the card.
+test("on a phone, Confirm your email's three actions wrap inside the card, none clipped", options, async () => {
+  const api = await openApp({
+    viewport: { width: 390, height: 844 },
+    routes: { "POST /api/register": { json: { requiresEmailConfirmation: true, username: "Ada" } } }
+  });
+  const { page } = api;
+  await page.goto("/auth/login?returnTo=/home&mode=register");
+  await page.getByLabel("Email").fill("ada@example.com");
+  await page.getByLabel("Password", { exact: true }).fill("Correct-horse-1");
+  await page.getByLabel("Confirm password", { exact: true }).fill("Correct-horse-1");
+  await page.getByTestId("auth-submit").click();
+  await expect(page.getByText("Confirm your email")).toBeVisible();
+  const layout = await page.locator(".switch-row").evaluate((element) => ({
+    row: element.getBoundingClientRect().toJSON(),
+    overflows: element.scrollWidth > element.clientWidth,
+    buttons: [...element.querySelectorAll(".v-btn")].map((button) => ({
+      text: button.textContent.trim(),
+      ...button.getBoundingClientRect().toJSON()
+    }))
+  }));
+  assert.deepEqual(layout.buttons.map(({ text }) => text), ["Go to main screen", "Resend confirmation email", "Back to sign in"]);
+  assert.equal(layout.overflows, false, "the row does not overflow");
+  for (const button of layout.buttons) {
+    assert.ok(button.left >= layout.row.left - 0.5 && button.right <= layout.row.right + 0.5, `${button.text} lies inside the row`);
+    assert.ok(button.right <= 390, `${button.text} lies inside the screen`);
+  }
+  assert.ok(new Set(layout.buttons.map(({ top }) => Math.round(top))).size > 1, "the actions wrap onto more than one line");
+  await finish(api);
+});
+
 test("email confirmation takes the registration's password: the development link, a pasted link after an unconfirmed sign-in, and the emailed link", options, async () => {
   const session = {
     ...SIGNED_OUT,

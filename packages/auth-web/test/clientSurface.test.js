@@ -125,6 +125,18 @@ test("default login view avoids decorative login chrome", () => {
   assert.doesNotMatch(constantsSource, /\[LOGIN_MODE\]:\s*"Sign in to continue\.?"/);
 });
 
+test("default login view's action rows wrap, so a phone shows every action instead of clipping the last", () => {
+  const viewSource = readFileSync(fileURLToPath(new URL("../src/client/views/DefaultLoginView.vue", import.meta.url)), "utf8");
+  const rows = [...viewSource.matchAll(/class="((?:switch-row|aux-links)\b[^"]*)"/gu)].map(([, classes]) => classes);
+
+  assert.equal(rows.filter((classes) => classes.startsWith("switch-row")).length, 3);
+  for (const classes of rows.filter((entry) => entry.startsWith("switch-row"))) {
+    assert.match(classes, /\bflex-wrap\b/u, classes);
+    assert.match(classes, /\bga-3\b/u, classes);
+  }
+  assert.match(rows.find((classes) => classes.startsWith("aux-links")), /\bflex-wrap\b/u);
+});
+
 test("default login view gates password login controls by provider capabilities", () => {
   const viewPath = fileURLToPath(new URL("../src/client/views/DefaultLoginView.vue", import.meta.url));
   const validationPath = fileURLToPath(new URL("../src/client/composables/loginView/useLoginViewValidation.js", import.meta.url));
