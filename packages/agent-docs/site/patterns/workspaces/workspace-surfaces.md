@@ -89,6 +89,6 @@ responsive navigation variants.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/workspaces-web@0.2.34`
+- Owner: `@jskit-ai/workspaces-web@0.2.35`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/workspaces-web/patterns/workspace-surfaces/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/workspaces-web/patterns/workspace-surfaces/example)
