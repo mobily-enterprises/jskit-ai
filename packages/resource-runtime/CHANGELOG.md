@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `expectFlatQueries()` counts only the measured path's own statements and many-row reports, from `run` and the async work it starts: a test or a background loop running beside it in the same process no longer changes the count. The many-row channel is process-wide, so another test's chunked write was taken for the path's own later chunks, which could hide statements that grow with the rows.
 - The resource runtime answers `tableResource(name)`: the table resource a feature owns under that name, or null. The CRUD contracts registry checks at boot, through it, what each contract's includes list of the tables they include.
 - The MariaDB many-row race tests read `INNODB_TRX` every 150 ms, where they polled it every 25 ms: InnoDB refreshes its copy of that table only when nothing has read it for 0.1 s, so the tests read the copy from before the writers reached the row's lock until their 10 s bound ran out, on any server whose test user may read it (CI's root).
 - Depends on json-rest-api 3.1.1 exactly (from 3.1.0), from the registry with its published integrity: a sort on the ID, or on a required attribute stored in its own table, carries no null placement, so PostgreSQL and MariaDB read a descending page from an index instead of sorting every matching row.

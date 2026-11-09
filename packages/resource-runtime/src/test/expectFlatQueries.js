@@ -1,4 +1,5 @@
 import { AssertionError } from "node:assert";
+import { AsyncLocalStorage } from "node:async_hooks";
 import diagnosticsChannel from "node:diagnostics_channel";
 import {
   countQueries,
@@ -8,6 +9,8 @@ import {
 import { MANY_ROW_CHANNEL } from "../server/resourceHandle.js";
 
 const REPEATED_STATEMENTS_SHOWN = 5;
+// The measurement open in the current async context: a many-row call reports for the one whose work makes it.
+const openMeasurement = new AsyncLocalStorage();
 // A quoted SQL string, written as a string so that source scanners that skip quoted text keep their place.
 const SQL_STRING_LITERAL = new RegExp("'(?:[^']|'')*'", "gu");
 
@@ -39,18 +42,21 @@ function requireSizes(sizes) {
 
 /**
  * Counts the statements `work` sends, and the extra statements the many-row
- * calls among them report for their chunks after the first.
+ * calls among them report for their chunks after the first. Both come only
+ * from `work` and the async work it starts, as countQueries() counts them, so
+ * another test or a loop running meanwhile does not change the count.
  * @param {import("knex").Knex | import("knex").Knex.Transaction | null} knex
  * @param {() => unknown} work
  */
 async function measure(knex, work) {
   const calls = [];
+  const measurement = Symbol("measurement");
   const listen = (message) => {
-    calls.push(message);
+    if (openMeasurement.getStore() === measurement) calls.push(message);
   };
   diagnosticsChannel.subscribe(MANY_ROW_CHANNEL, listen);
   try {
-    const { count, queries } = knex ? await countQueries(knex, work) : await countRuntimeQueries(work);
+    const { count, queries } = await openMeasurement.run(measurement, () => knex ? countQueries(knex, work) : countRuntimeQueries(work));
     const chunkStatements = calls.reduce((total, { rows, chunkSize }) => total + Math.max(0, Math.ceil(rows / chunkSize) - 1), 0);
     return { count, chunkStatements, queries };
   } finally {
@@ -60,8 +66,10 @@ async function measure(knex, work) {
 
 /**
  * Fails when a path's statements grow with its rows. For each size, smallest first, it seeds that many rows with
- * `seed(size)`, then runs `run(seeded, size)` and counts the statements sent meanwhile: through `knex` when given (its
- * transactions' included), else through the runtime of a server the test booted, as countRuntimeQueries() does. The
+ * `seed(size)`, then runs `run(seeded, size)` and counts the statements it sends: through `knex` when given (its
+ * transactions' included), else through the runtime of a server the test booted, as countRuntimeQueries() does. Only
+ * the path's own statements count, from `run` and the async work it starts, so a test or a background loop sending
+ * through the same Knex meanwhile changes nothing. The
  * extra statements of a many-row write's later chunks, which its handle reports, are allowed, so no number is
  * hand-picked. A flat path then sends as many statements at every size; a path that reads or writes row by row sends
  * more at each, and one that sends none at every size was counted on the wrong channel and fails too. On failure the message gives every count and the statements repeated most at the largest size. Its seed

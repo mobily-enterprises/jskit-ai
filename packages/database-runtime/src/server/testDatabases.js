@@ -22,6 +22,7 @@
 // of a server the test booted, countRuntimeQueries(); expectFlatQueries() in @jskit-ai/resource-runtime/test compares
 // those counts at a few rows and at many. A data test never skips: requireTestDatabase() fails it when TEST_DB_NAME is
 // not set.
+import { AsyncLocalStorage } from "node:async_hooks";
 import { createHash, randomBytes } from "node:crypto";
 import diagnosticsChannel from "node:diagnostics_channel";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
@@ -524,8 +525,13 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
   };
 }
 
+// The recordings open in the current async context, outermost first: a statement counts for each recording whose work
+// (or work it started) sends it, and for no other, so a test or a loop running beside the work is left out.
+const openRecordings = new AsyncLocalStorage();
+
 /**
  * Runs `work` while `listen` hands each statement to the recorder it is given, and stops listening when `work` ends.
+ * The recorder keeps only the statements sent from `work`'s own async context, and from the async work it starts.
  * @template T
  * @param {(record: (query: { sql: string }) => void) => () => void} listen Starts listening; returns how to stop.
  * @param {() => Promise<T> | T} work
@@ -533,11 +539,14 @@ async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot
  */
 async function recordStatements(listen, work) {
   const queries = [];
+  const recording = Symbol("recording");
   const stop = listen((query) => {
-    queries.push(String(query.sql));
+    if (openRecordings.getStore()?.includes(recording)) queries.push(String(query.sql));
   });
   try {
-    const result = await work();
+    // Awaited inside the scope: work may answer a lazy thenable, such as a Knex builder or app.inject()'s chain, that
+    // sends its statement only once it is awaited.
+    const result = await openRecordings.run([...(openRecordings.getStore() || []), recording], async () => await work());
     return { result, count: queries.length, queries };
   } finally {
     stop();
@@ -547,7 +556,9 @@ async function recordStatements(listen, work) {
 /**
  * Runs `work` and records the SQL of every statement `knex` sends meanwhile, its transactions' included (their BEGIN
  * and COMMIT among them), for a test that compares a path's statements at a few rows and at many. Pass the Knex
- * instance or transaction the work runs on; statements anything else sends through it meanwhile count too.
+ * instance or transaction the work runs on. Only the statements `work` sends count, with those of the async work it
+ * starts: another test or a background loop sending through the same Knex meanwhile is left out, and so is a loop
+ * started before `work` that sends on its behalf.
  * @template T
  * @param {import("knex").Knex | import("knex").Knex.Transaction} knex
  * @param {() => Promise<T> | T} work
@@ -565,7 +576,8 @@ async function countQueries(knex, work) {
  * Runs `work` and records the SQL of every statement the application runtime's own database sends meanwhile: the
  * `runtime.database` Knex of each server this process booted, as a test that creates the server with `createServer()`
  * and calls a route with `app.inject()` does, its transactions' included. A Knex the test made itself is not counted,
- * and neither is a server in another process. Statements the runtime sends for anything else meanwhile count too.
+ * and neither is a server in another process. Only the statements `work` sends count, as countQueries() counts them:
+ * the runtime's statements for anything else meanwhile, such as a background loop's, are left out.
  * @template T
  * @param {() => Promise<T> | T} work
  * @returns {Promise<{ result: T, count: number, queries: string[] }>} `work`'s result, how many statements the runtime

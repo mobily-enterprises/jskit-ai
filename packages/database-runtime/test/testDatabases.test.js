@@ -148,6 +148,17 @@ test("countQueries() records each statement a piece of work sends, so a read per
     assert.deepEqual(inTransaction.result, { title: "Book 1" });
     assert.deepEqual(inTransaction.queries, ["BEGIN;", "select `title` from `books` where `id` = ? limit ?", "COMMIT;"]);
 
+    // Only the work's own statements count: work running beside it, such as another test or a background loop, is
+    // left out, even while the work waits for it.
+    let wake;
+    const beside = new Promise((resolve) => { wake = resolve; }).then(() => knex("books").count({ books: "*" }));
+    const alone = await countQueries(knex, async () => {
+      wake();
+      await beside;
+      return knex("books").where({ id: ids[0] }).first("title");
+    });
+    assert.deepEqual(alone.queries, ["select `title` from `books` where `id` = ? limit ?"]);
+
     // Counting ends with the work, failed work included.
     const listeners = knex.listenerCount("query");
     await assert.rejects(countQueries(knex, async () => {

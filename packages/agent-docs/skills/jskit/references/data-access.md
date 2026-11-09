@@ -1024,7 +1024,10 @@ test("allocation is flat", () => expectFlatQueries({ environment: process.env, k
 `expectFlatQueries` (from `@jskit-ai/resource-runtime/test`) seeds each size,
 counts the statements the path sends, and fails when a larger size sends more,
 with the counts and the statements repeated most; the later chunks a many-row
-write reports are allowed. `expectScoped` runs the path as owner A before and
+write reports are allowed. It counts only the path's own statements, those
+`run` and the async work it starts send, so another test or a background loop
+using the same Knex meanwhile changes nothing; work a loop started earlier does
+on the path's behalf is not counted either. `expectScoped` runs the path as owner A before and
 after seeding owner B and fails when the answer changes, so it catches a report
 that sums, counts or joins B's rows, not only one that returns them; it also
 fails when the path changed or removed a row of B's. The path runs twice, so it

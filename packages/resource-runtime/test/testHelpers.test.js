@@ -110,6 +110,40 @@ test("expectFlatQueries() allows the later chunks a many-row write reports, and 
   await assert.rejects(expectFlatQueries({ knex, environment, sizes: [3, 30], seed, run: oneByOne }), /The statements grow with the rows/u);
 });
 
+test("expectFlatQueries() counts only the path's own statements and many-row writes, not those of work beside it", async (t) => {
+  const { knex, books } = await createShelfFixture(t);
+  let workspace = 0;
+  const seed = () => {
+    workspace += 1;
+    return { context: { workspace: { id: String(workspace) } } };
+  };
+  // Work beside the path, started before it, as another test or a background loop is: woken by the path, it writes
+  // row by row and in chunks, as many rows as the path has, while the path waits for it.
+  let wake = null;
+  const beside = (async () => {
+    const options = { context: { workspace: { id: "999" } }, returning: "none" };
+    for (;;) {
+      const { size, done } = await new Promise((resolve) => { wake = resolve; });
+      if (!size) return;
+      for (let index = 0; index < size; index += 1) await books.create({ title: `Beside ${index}` }, options);
+      await books.createMany(Array.from({ length: size * 10 }, (_, index) => ({ title: `Beside ${index}` })), { ...options, chunkSize: 100 });
+      done();
+    }
+  })();
+  const flatPath = async (options, size) => {
+    await new Promise((done) => wake({ size, done }));
+    return books.queryAll({}, options);
+  };
+  try {
+    const counts = await expectFlatQueries({ knex, environment, sizes: [3, 30], seed, run: flatPath });
+    assert.deepEqual(counts.map(({ chunkStatements }) => chunkStatements), [0, 0], "the work beside it wrote 300 rows in 3 chunks");
+    assert.equal(counts[0].count, counts[1].count);
+  } finally {
+    wake({});
+    await beside;
+  }
+});
+
 test("expectScoped() passes a path that keeps to its workspace and fails one that reaches another", async (t) => {
   const { books, systemContext } = await createShelfFixture(t);
   const owners = [{ context: { workspace: { id: "1" } } }, { context: { workspace: { id: "2" } } }];
