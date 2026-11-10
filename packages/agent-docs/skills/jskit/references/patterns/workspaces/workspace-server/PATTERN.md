@@ -34,6 +34,22 @@ the other palette fields) that new workspaces start with.
 Use workspace routes, resources, scope helpers, tenancy profiles, and settings
 contracts exported by `@jskit-ai/workspaces-core`.
 
+## Role permissions
+
+A role's `permissions` grant names that something requires:
+
+| Grant | Covers |
+| --- | --- |
+| `crud.<namespace>.list`, `.view`, `.create`, `.update`, `.delete` | A workspace CRUD operation; an HTTP `PATCH` is `update` |
+| `crud.<namespace>.<action name>` | A custom CRUD action |
+| `<prefix>.*`, `*` | Every required permission under the prefix; every permission |
+
+At startup a grant that covers no permission an action, a route's `permission`
+or a surface access policy requires stops the server outside production, with
+a "did you mean"; production logs it. List a permission the application checks
+itself (a service, a row policy, `access.can()`) in
+`roleCatalog.customPermissions`.
+
 ## Role display labels
 
 Each `roleCatalog.roles[roleId]` definition may include an optional string

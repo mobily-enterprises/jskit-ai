@@ -467,7 +467,9 @@ A rule that depends on the caller's role reads `context.permissions` with
 `hasPermission(context.permissions, "bookings.view-all")` from
 `@jskit-ai/kernel/shared/support`, never with `includes()`. A role may hold
 `*` (an owner does) or `bookings.*`, and `includes()` misses both, so the
-owner would see only the rows a narrower rule leaves.
+owner would see only the rows a narrower rule leaves. No action requires such a
+permission, so list it in `roleCatalog.customPermissions`, or the server refuses
+to start outside production (see Workspace tenancy → Role permissions).
 
 ```js
 import { hasPermission } from "@jskit-ai/kernel/shared/support";

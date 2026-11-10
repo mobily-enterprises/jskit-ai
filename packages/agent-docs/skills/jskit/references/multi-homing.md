@@ -291,6 +291,40 @@ stored colours; change them with `PATCH /api/w/:workspaceSlug/settings` or
 membership semantics exactly; do not synthesize memberships to compensate for
 a policy/runtime mismatch.
 
+## Role permissions
+
+Each `roleCatalog.roles.<id>.permissions` lists the permissions the role
+grants, and `inherits` adds another role's. A grant names a permission that
+something in the application requires:
+
+| Grant | Covers |
+| --- | --- |
+| `crud.<namespace>.list`, `.view`, `.create`, `.update`, `.delete` | An operation of a workspace CRUD feature; an HTTP `PATCH` is `update` |
+| `crud.<namespace>.<action name>` | A custom action of that feature |
+| `workspace.settings.view`, `.update`, `workspace.roles.view`, `workspace.members.view`, `.invite`, `.manage`, `workspace.invites.revoke` | The workspace actions (settings, roles, members, invitations) |
+| `<prefix>.*` | Every required permission under the prefix, such as `crud.labels.*` |
+| `*` | Every permission, as the owner holds |
+
+When the server starts, JSKIT compares each role's own grants with the
+permissions the registered actions, the routes' `permission` and the surface
+access policies require. A grant that covers none of them stops the server
+outside production, for example `Role "member" grants "crud.labels.patch",
+which no action requires; did you mean "crud.labels.update"?`; in production
+the server starts and logs it as a warning. List a permission the application
+checks itself, in a service, a row policy or the browser (`access.can()`), in
+`roleCatalog.customPermissions`:
+
+```js
+export const roleCatalog = {
+  customPermissions: ["bookings.view-all"],
+  workspace: { defaultInviteRole: "member" },
+  roles: {
+    owner: { assignable: false, permissions: ["*"] },
+    member: { assignable: true, permissions: ["crud.bookings.list", "crud.bookings.update", "bookings.view-all"] }
+  }
+};
+```
+
 ## Role display labels
 
 Set optional `label` strings in the existing `roleCatalog.roles` definitions,

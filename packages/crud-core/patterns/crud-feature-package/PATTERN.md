@@ -132,7 +132,8 @@ so an action without an HTTP route would otherwise reach records that no route
 shows the user. The actions of an `internal: true` or `routes: false` feature
 therefore stay off `automation` (the assistant cannot call them) unless their
 permission names a permission (`require: "all"` or `"any"`), as the workspace
-scope's default `crud.<namespace>.<operation>` permissions do. Give such a
+scope's default `crud.<namespace>.<operation>` permissions do (the operation is
+`list`, `view`, `create`, `update` or `delete`; an HTTP `PATCH` is `update`). Give such a
 feature explicit `permissions` when the assistant should read it for the users
 who hold them; the default for other surfaces, `require: "authenticated"`,
 would admit every signed-in user. An additional action's own `channels`

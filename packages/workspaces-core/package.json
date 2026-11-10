@@ -46,6 +46,7 @@
         "runtime.database",
         "runtime.env",
         "runtime.http",
+        "runtime.logger",
         "runtime.resources",
         "users.extensions",
         "users.profiles",
@@ -62,6 +63,10 @@
           {
             "entrypoint": "src/server/WorkspacesIntegrationsProvider.js",
             "export": "WorkspacesIntegrationsProvider"
+          },
+          {
+            "entrypoint": "src/server/WorkspaceRoleGrantsProvider.js",
+            "export": "WorkspaceRoleGrantsProvider"
           }
         ]
       },

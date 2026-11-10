@@ -25,7 +25,8 @@ Default JSKIT pattern:
 5. Derive identity from `caller` (`caller.kind`, then `caller.userId`), never from input. In a workspace request a role
    rule reads `context.permissions`, which the server resolves from the membership before any handle runs, with
    `hasPermission(context.permissions, "bookings.view-all")` from `@jskit-ai/kernel/shared/support`: `includes()`
-   misses wildcard grants, such as an owner role's `*` or a `bookings.*`.
+   misses wildcard grants, such as an owner role's `*` or a `bookings.*`. List such a permission, which no action
+   requires, in `roleCatalog.customPermissions`, or the server refuses to start outside production.
 6. Group every policy-owned `OR` branch.
 7. Return `true` after adding the predicate, return `false` to deny all rows, or throw for invalid trusted context.
 8. Keep action permissions for writes; visibility is not mutation authorization.

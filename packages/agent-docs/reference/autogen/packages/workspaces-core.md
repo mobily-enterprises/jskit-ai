@@ -100,6 +100,23 @@ Exports
 Exports
 - `resolveWorkspace(context = {}, input = {})`
 
+### `src/server/support/roleCatalogGrants.js`
+Exports
+- `collectRequiredPermissions({ actions, routes, config })`
+- `describeUnknownRoleGrants(findings)`
+- `findUnknownRoleGrants(config, required)`
+- `type RuntimeConfig`
+- `type UnknownRoleGrant`
+Local functions
+- `customPermissionNames(config)`
+- `editDistance(left, right)`
+- `nearest(text, candidates)`
+- `requiredNamespaces(required)`
+- `suggestPermissions(grant, required)`
+- `checkGrant(grant, required)`
+- `quoted(names)`
+- `describeFinding({ roleId, grant, problem, suggestions })`
+
 ### `src/server/support/workspaceActionSurfaces.js`
 Exports
 - `resolveWorkspaceSurfaceIdsFromAppConfig(appConfig = {})`
@@ -235,6 +252,10 @@ Local functions
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
 Exports
 - `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog, acceptanceParticipant })`
+
+### `src/server/WorkspaceRoleGrantsProvider.js`
+Exports
+- `WorkspaceRoleGrantsProvider`
 
 ### `src/server/workspaceSettings/workspaceSettingsActions.js`
 Exports
