@@ -122,6 +122,7 @@ test("a recordIdMany list filter builds its search schema and answers the rows o
 
   for (const [query, references] of [
     ["filter%5Bcustomer%5D=1&filter%5Bcustomer%5D=2", ["A", "B", "D"]],
+    ["filter%5Bcustomer%5D=1,2", ["A", "B", "D"]],
     ["filter%5Bcustomer%5D=1&filter%5Bcustomer%5D=3", ["A", "C", "D"]],
     ["filter%5Bcustomer%5D=3", ["C"]],
     ["filter%5Bcustomer%5D=9", []]

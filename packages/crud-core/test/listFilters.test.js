@@ -415,6 +415,12 @@ test("createCrudListFilters reject validator keeps strict filter schemas", () =>
   );
   assert.deepEqual(transportSchema.properties.status.anyOf[1].items.enum, ["active", "archived"]);
   assert.equal(transportSchema.properties.supplierContactId.anyOf[1].items.anyOf[0].pattern, "^[1-9][0-9]*$");
+  // Or one comma-separated value, the form JSON:API gives a list, of valid values only.
+  const commaList = (property) => new RegExp(transportSchema.properties[property].anyOf[2].pattern, "u");
+  assert.equal(commaList("status").test("active,archived"), true);
+  assert.equal(commaList("status").test("active,unexpected"), false);
+  assert.equal(commaList("supplierContactId").test("7,4"), true);
+  assert.equal(commaList("supplierContactId").test("7,,4"), false);
   assert.equal(
     transportSchema.properties.weight.anyOf[0].pattern,
     "^(?:[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?(?:\\.\\.(?:[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)?)?|\\.\\.[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)(?:[eE][+-]?\\d+)?)$"

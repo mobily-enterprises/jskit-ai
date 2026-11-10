@@ -96,7 +96,9 @@ function cloneTransportSchema(value) {
   );
 }
 
-function buildSingleOrMultiTransportSchema(itemSchema) {
+// A filter that takes several values takes them as the client sends them, `filter[x]=1&filter[x]=2`, or as one
+// comma-separated value, `filter[x]=1,2`, the form JSON:API gives a list (and the one the parse reads either as).
+function buildSingleOrMultiTransportSchema(itemSchema, itemPattern = "") {
   return {
     anyOf: [
       cloneTransportSchema(itemSchema),
@@ -104,9 +106,15 @@ function buildSingleOrMultiTransportSchema(itemSchema) {
         type: "array",
         items: cloneTransportSchema(itemSchema),
         minItems: 1
-      }
+      },
+      ...(itemPattern ? [{ type: "string", pattern: `^${itemPattern}(?:,${itemPattern})+$` }] : [])
     ]
   };
+}
+
+function allowedValuesPattern(allowedValues) {
+  const alternatives = allowedValues.map((value) => String(value).replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"));
+  return alternatives.length > 0 ? `(?:${alternatives.join("|")})` : "";
 }
 
 function addDaysToDateFilterValue(value = "", days = 0) {
@@ -176,14 +184,11 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
   }),
   [CRUD_LIST_FILTER_TYPE_ENUM_MANY]: Object.freeze({
     buildTransportSchema({ discardInvalidValues, allowedValues }) {
-      return buildSingleOrMultiTransportSchema(
-        discardInvalidValues
-          ? looseTextTransportSchema
-          : {
-              type: "string",
-              enum: allowedValues
-            }
-      );
+      if (discardInvalidValues) {
+        return buildSingleOrMultiTransportSchema(looseTextTransportSchema);
+      }
+      const allowedValueSchema = { type: "string", enum: allowedValues };
+      return buildSingleOrMultiTransportSchema(allowedValueSchema, allowedValuesPattern(allowedValues));
     },
     applyQuery: applyInFilterQuery
   }),
@@ -197,11 +202,9 @@ const FILTER_TYPE_SERVER_HANDLERS = Object.freeze({
   }),
   [CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY]: Object.freeze({
     buildTransportSchema({ discardInvalidValues }) {
-      return buildSingleOrMultiTransportSchema(
-        discardInvalidValues
-          ? looseStringOrNumberTransportSchema
-          : recordIdTransportSchema
-      );
+      return discardInvalidValues
+        ? buildSingleOrMultiTransportSchema(looseStringOrNumberTransportSchema)
+        : buildSingleOrMultiTransportSchema(recordIdTransportSchema, RECORD_ID_PATTERN.slice(1, -1));
     },
     applyQuery: applyInFilterQuery
   }),

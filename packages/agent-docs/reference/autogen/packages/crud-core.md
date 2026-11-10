@@ -158,7 +158,8 @@ Exports
 - `applyDefaultFilterQuery(queryBuilder, filter = {}, value, column = "")`
 Local functions
 - `cloneTransportSchema(value)`
-- `buildSingleOrMultiTransportSchema(itemSchema)`
+- `buildSingleOrMultiTransportSchema(itemSchema, itemPattern = "")`
+- `allowedValuesPattern(allowedValues)`
 - `buildAllowedValuesTransportSchema({ discardInvalidValues, allowedValues })`
 - `applyEqualsFilterQuery(queryBuilder, value, column = "")`
 - `applyInFilterQuery(queryBuilder, value, column = "")`
