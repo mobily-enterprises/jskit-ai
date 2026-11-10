@@ -871,7 +871,7 @@ Local functions
 - `routeRequiresJsonApiContentTypeParser(route)`
 - `enforceRequestContentType({ request, route, transport })`
 - `buildRequestInput(request, { inputTransforms, transportInputTransforms })`
-- `executeMiddlewareStack(middleware, request, reply)`
+- `executeMiddlewareStack(middleware, request, reply, sending)`
 - `wrapReplySend({ reply, request, route, outputTransform, transport })`
 
 ### `server/http/lib/routeSupport.js`

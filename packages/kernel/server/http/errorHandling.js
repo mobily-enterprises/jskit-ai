@@ -3,6 +3,7 @@ import { isRecord, normalizeTransactionOutcome } from "../../shared/support/norm
 import { errorFieldErrors } from "../../shared/validators/schemaPayloadValidation.js";
 import { resolveValidationIssueCode } from "../../shared/validators/validationIssueCodes.js";
 import { JSON_API_CONTENT_TYPE } from "./lib/routeTransport.js";
+import { resolveRouteLabel } from "./lib/routeSupport.js";
 import { hideDatabaseError, isAppError } from "../runtime/errors.js";
 
 /** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
@@ -316,7 +317,11 @@ function registerApiErrorHandler(app) {
       return;
     }
 
-    if (statusCode >= 500) {
+    if (statusCode >= 500 && error?.serialization) {
+      // Fastify marks a response its serializer refused, such as one that breaks its response schema.
+      app.log.error({ err: error, route: resolveRouteLabel({ method: request?.method, path: request?.routeOptions?.url }) },
+        "Response serialization failed");
+    } else if (statusCode >= 500) {
       app.log.error({ err: error }, "Unhandled error");
     } else {
       app.log.info({ err: error, statusCode }, "Request rejected");

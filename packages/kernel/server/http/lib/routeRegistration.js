@@ -172,17 +172,23 @@ async function buildRequestInput(request, { inputTransforms, transportInputTrans
   return Object.freeze(input);
 }
 
-async function executeMiddlewareStack(middleware, request, reply) {
+async function executeMiddlewareStack(middleware, request, reply, sending) {
   for (const handler of middleware) {
     await handler(request, reply);
-    if (reply.sent) {
+    if (sending.started || reply.sent) {
       return;
     }
   }
 }
 
+/**
+ * Replaces the reply's send with the route's transport and output transforms. The returned record says whether a
+ * send has started: Fastify may still be finishing it after send returns, for example running an asynchronous
+ * onError hook for a response its serializer refused.
+ */
 function wrapReplySend({ reply, request, route, outputTransform, transport }) {
   const originalSend = reply.send.bind(reply);
+  const sending = { started: false };
   reply.send = function transformedSend(payload) {
     const statusCode = Number(reply.statusCode || 200);
 
@@ -194,6 +200,7 @@ function wrapReplySend({ reply, request, route, outputTransform, transport }) {
         reply.header("Content-Type", transport.contentType);
       }
 
+      sending.started = true;
       return originalSend(payload);
     }
 
@@ -241,8 +248,10 @@ function wrapReplySend({ reply, request, route, outputTransform, transport }) {
       reply.header("Content-Type", transport.contentType);
     }
 
+    sending.started = true;
     return originalSend(nextPayload);
   };
+  return sending;
 }
 
 /**
@@ -286,7 +295,7 @@ function registerRoutes(fastify, { routes, actions }) {
           });
         }
 
-        wrapReplySend({
+        const sending = wrapReplySend({
           reply,
           request,
           route,
@@ -294,11 +303,14 @@ function registerRoutes(fastify, { routes, actions }) {
           transport: routeTransport
         });
 
-        await executeMiddlewareStack(route.middleware, request, reply);
-        if (reply.sent) {
-          return;
+        await executeMiddlewareStack(route.middleware, request, reply, sending);
+        if (!sending.started && !reply.sent) {
+          await route.handler(request, reply);
         }
-        await route.handler(request, reply);
+        // A started send can still be finishing, its refused response waiting on an onError hook before the error
+        // handler answers; returning the reply makes Fastify wait for it instead of sending the reply again itself,
+        // which Fastify refuses inside onError (FST_ERR_SEND_INSIDE_ONERR) and which then crashed the process.
+        return sending.started ? reply : undefined;
       }
     });
   }
