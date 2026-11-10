@@ -45,9 +45,11 @@ A role's `permissions` grant names that something requires:
 
 At startup a grant that covers no permission an action, a route's `permission`
 or a surface access policy requires stops the server outside production, with
-a "did you mean"; production logs it. List a permission the application checks
-itself (a service, a row policy, `access.can()`) in
-`roleCatalog.customPermissions`.
+a "did you mean"; production logs it. The check cannot see a permission the
+application checks itself (a service, a row policy, `access.can()`): before
+removing or renaming a reported grant, search the code for it, including built
+names such as `crud.${resource}.list`. List one the application checks in
+`roleCatalog.customPermissions`; remove a grant only when nothing uses it.
 
 ## Role display labels
 

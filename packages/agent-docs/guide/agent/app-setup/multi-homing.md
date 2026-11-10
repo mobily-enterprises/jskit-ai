@@ -325,6 +325,12 @@ export const roleCatalog = {
 };
 ```
 
+The check cannot see a permission the application checks in its own code, so
+before removing or renaming a reported grant, search the code for it
+(`hasPermission()`, `can()`, permission string checks, including built names
+such as `crud.${resource}.list`). If the application checks it, list it in
+`customPermissions`; remove the grant only when nothing uses it.
+
 ## Role display labels
 
 Set optional `label` strings in the existing `roleCatalog.roles` definitions,

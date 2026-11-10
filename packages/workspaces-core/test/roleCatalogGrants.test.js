@@ -51,7 +51,15 @@ test("a grant no action requires is reported at its role, with the operation the
   assert.match(message, /Role "member" grants "crud\.labels\.patch", which no action requires; did you mean "crud\.labels\.update"\?/u);
   assert.match(message, /Role "member" grants "crud\.issues\.patch", which no action requires; did you mean "crud\.issues\.update"\?/u);
   assert.match(message, /list, view, create, update or delete/u, "the message names the CRUD operations");
-  assert.match(message, /roleCatalog\.customPermissions/u, "the message says where an app-checked permission goes");
+  // The check cannot see a permission the app checks in its own code, so right after the findings the message says to
+  // look for one before removing a grant, and where it goes.
+  assert.equal(
+    message.split("\n")[3],
+    "Before removing or renaming a grant, search the application's own code for that permission (hasPermission(), " +
+      "can(), permission string checks, including built names such as `crud.${resource}.list`), which this check " +
+      "cannot see. If the application checks it, list it in roleCatalog.customPermissions; remove it only when " +
+      "nothing uses it."
+  );
 });
 
 test("every form of grant that covers a required permission is valid", () => {

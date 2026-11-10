@@ -213,8 +213,8 @@ function describeFinding({ roleId, grant, problem, suggestions }) {
 }
 
 /**
- * What a startup error or warning says about the grants findUnknownRoleGrants() found: each grant, then how JSKIT
- * names permissions.
+ * What a startup error or warning says about the grants findUnknownRoleGrants() found: each grant, what to do about a
+ * permission the application checks in its own code (which this check cannot see), then how JSKIT names permissions.
  * @param {ReadonlyArray<UnknownRoleGrant>} findings
  */
 function describeUnknownRoleGrants(findings) {
@@ -222,10 +222,13 @@ function describeUnknownRoleGrants(findings) {
     "The workspace role catalogue (roleCatalog.roles) grants permissions that nothing in the application requires, " +
       "so those roles lack the access that was meant:",
     ...findings.map((finding) => `- ${describeFinding(finding)}`),
+    "Before removing or renaming a grant, search the application's own code for that permission (hasPermission(), " +
+      "can(), permission string checks, including built names such as `crud.${resource}.list`), which this check " +
+      "cannot see. If the application checks it, list it in roleCatalog.customPermissions; remove it only when " +
+      "nothing uses it.",
     "A CRUD action requires crud.<namespace>.<operation>, where the operation is list, view, create, update or delete " +
       "(an HTTP PATCH is update), and a custom CRUD action crud.<namespace>.<action name>. \"*\" grants every " +
-      "permission and \"<prefix>.*\" every permission under the prefix. List a permission the application checks " +
-      "itself (in a service, a row policy or the browser) in roleCatalog.customPermissions."
+      "permission and \"<prefix>.*\" every permission under the prefix."
   ].join("\n");
 }
 

@@ -61,7 +61,15 @@ function startRuntime({ config, env = {}, logger = captureLogger().logger, works
 test("outside production the server refuses to start while a role grants a permission no action requires", async () => {
   await assert.rejects(
     startRuntime({ config: memberGrants(["crud.labels.list", "crud.labels.patch"]), env: { NODE_ENV: "test" } }),
-    /Role "member" grants "crud\.labels\.patch", which no action requires; did you mean "crud\.labels\.update"\?/u
+    (error) => {
+      assert.match(error.message, /Role "member" grants "crud\.labels\.patch", which no action requires; did you mean "crud\.labels\.update"\?/u);
+      assert.match(
+        error.message,
+        /Before removing or renaming a grant, search the application's own code for that permission \(hasPermission\(\)/u,
+        "the refusal says to look for the permission in the app's own code before removing the grant"
+      );
+      return true;
+    }
   );
   await assert.rejects(
     startRuntime({ config: memberGrants(["crud.labels.patch"]) }),
