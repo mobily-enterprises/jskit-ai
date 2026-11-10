@@ -132,12 +132,13 @@ export function createClaudeConversationGoals({ conversationId, readHistory, int
 
   // Only a retained Pause is paused. A goal whose turn has ended keeps
   // Claude's checker armed: the next turn, or a host's restart recovery,
-  // continues it, so between turns it stays active.
+  // continues it, so between turns it stays active unless its history shows
+  // it complete, blocked or waiting at the account's usage limit.
   async function read(history = null) {
     const { goal = null } = history || await readHistory();
     const retained = readRetainedGoal();
     if (retained) return { ...retained };
-    return goal ? { ...goal, status: ["complete", "blocked"].includes(goal.status) ? goal.status : "active" } : null;
+    return goal ? { ...goal, status: ["complete", "blocked", "usageLimited"].includes(goal.status) ? goal.status : "active" } : null;
   }
 
   async function update(input = {}, { interrupt: interruptGoal = interrupt, send: sendGoal = send, signal } = {}) {

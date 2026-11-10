@@ -301,6 +301,21 @@ async function readClaudeHistory(options) {
       goal = { ...goal, status: "blocked", updatedAt: Date.parse(frame.timestamp) / 1000,
         reason: ["Claude stopped after repeated attempts to continue the unfinished goal. Resolve the blocker, then resume the goal.", goal.reason].filter(Boolean).join("\n\n") };
     }
+    // Claude's own API-error message ends the goal's turn at the account's
+    // usage limit (with its reset time) or an exhausted credit balance. The
+    // goal waits there until a later answer shows the account working again.
+    if (["active", "usageLimited"].includes(goal?.status) && frame.type === "assistant" &&
+        !frame.parent_tool_use_id && !frame.isSidechain) {
+      const outOfCredit = frame.isApiErrorMessage === true && frame.error === "billing_error";
+      const limited = outOfCredit || (frame.isApiErrorMessage === true &&
+        ["usage_limit_reached", "model_requires_usage_credits"].includes(frame.apiError));
+      if (limited || (goal.status === "usageLimited" && frame.isApiErrorMessage !== true)) {
+        const resetsAt = frame.apiErrorParams?.rate_limit_info?.resetsAt;
+        const { resetsAt: _resetsAt, outOfCredit: _outOfCredit, ...rest } = goal;
+        goal = { ...rest, status: limited ? "usageLimited" : "active", updatedAt: Date.parse(frame.timestamp) / 1000,
+          ...(outOfCredit ? { outOfCredit: true } : limited && Number.isSafeInteger(resetsAt) && resetsAt > 0 ? { resetsAt } : {}) };
+      }
+    }
     // Native /goal appends its sentinel before the authored command, whose
     // parent identifies that exact attachment. A later evaluation keeps it.
     if (frame.type === "user" && !frame.isMeta && frame.uuid && goalStartId && frame.parentUuid === goalStartId) {

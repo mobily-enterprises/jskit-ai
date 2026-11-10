@@ -20,9 +20,19 @@ const running = computed(() => goal.value?.status === "active");
 const working = computed(() => running.value && props.state.working === true);
 // A Start stays Starting… until the server's goal shows it, even while closed.
 const starting = computed(() => props.state.action === "set");
-const label = computed(() => props.state.loading ? t("jskit.assistant.goal.loading") : props.state.available === false ? t("jskit.assistant.goal.unavailable")
-  : starting.value ? t("jskit.assistant.goal.starting")
+// A goal waiting at its AI account's limit names it, with the reset time when
+// the engine reports one (with its day when that is not today).
+const resetTime = computed(() => {
+  if (!Number.isSafeInteger(goal.value?.resetsAt)) return "";
+  const reset = new Date(goal.value.resetsAt * 1000);
+  const time = `${String(reset.getHours()).padStart(2, "0")}:${String(reset.getMinutes()).padStart(2, "0")}`;
+  return reset.toDateString() === new Date().toDateString() ? time : `${reset.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
+});
+const statusLabel = computed(() => goal.value?.status === "usageLimited" && goal.value.outOfCredit ? t("jskit.assistant.goal.outOfCredit")
+  : goal.value?.status === "usageLimited" && resetTime.value ? t("jskit.assistant.goal.usageLimitedUntil", { time: resetTime.value })
     : t(Object.hasOwn(STATUS_KEYS, goal.value?.status ?? "") ? STATUS_KEYS[goal.value.status] : "jskit.assistant.goal.set"));
+const label = computed(() => props.state.loading ? t("jskit.assistant.goal.loading") : props.state.available === false ? t("jskit.assistant.goal.unavailable")
+  : starting.value ? t("jskit.assistant.goal.starting") : statusLabel.value);
 const nativeElapsed = computed(() => Number.isFinite(goal.value?.elapsedSeconds));
 const createdAt = computed(() => typeof goal.value?.createdAt === "string" ? Date.parse(goal.value.createdAt) : NaN);
 const elapsedLabel = computed(() => nativeElapsed.value ? t("jskit.assistant.goal.runningTime") : t("jskit.assistant.goal.elapsedSinceStart"));
@@ -86,12 +96,13 @@ async function cancelGoal() {
     </template>
     <v-card class="assistant-goal__details pa-3" max-width="360">
       <strong role="status">{{ label }}</strong>
-      <v-btn v-if="(running || (state.pauseBlocked && goal?.status === 'blocked')) && state.pause" size="small" :disabled="state.stopPending" @click="state.pause()">{{ state.action === 'pause' ? t('jskit.assistant.goal.pausing') : t('jskit.assistant.goal.pause') }}</v-btn>
+      <v-btn v-if="(running || (state.pauseBlocked && ['blocked', 'usageLimited'].includes(goal?.status))) && state.pause" size="small" :disabled="state.stopPending" @click="state.pause()">{{ state.action === 'pause' ? t('jskit.assistant.goal.pausing') : t('jskit.assistant.goal.pause') }}</v-btn>
       <v-btn v-if="['paused', 'blocked', 'usageLimited'].includes(goal?.status) && state.resume" size="small" :disabled="state.pending" @click="state.resume()">{{ state.action === 'resume' ? t('jskit.assistant.goal.resuming') : t('jskit.assistant.goal.resume') }}</v-btn>
       <v-btn v-if="goal && goal.status !== 'complete' && state.cancel" color="error" size="small" variant="text" :disabled="state.stopPending" @click="cancelGoal">{{ state.action === 'cancel' ? t('jskit.assistant.goal.cancelling') : t('jskit.assistant.goal.cancel') }}</v-btn>
       <p v-if="goal" class="my-2">{{ goal.objective }}</p>
       <p v-if="goal?.reason" class="text-body-small my-2">{{ goal.reason }}</p>
       <p v-if="elapsed" class="text-body-small my-2">{{ elapsedText }}</p>
+      <p v-if="goal?.status === 'usageLimited'" class="text-body-small mt-2">{{ t('jskit.assistant.goal.usageLimitedHint') }}</p>
       <p v-if="running || goal?.status === 'paused'" class="text-body-small mt-2">{{ state.pauseInterruptsTurn ? t('jskit.assistant.goal.pauseInterruptsTurn') : t('jskit.assistant.goal.pausePreventsTurns') }}</p>
       <p v-if="goal && goal.status !== 'complete' && state.cancel" class="text-body-small mt-2">{{ state.cancelInterruptsTurn ? t('jskit.assistant.goal.cancelInterruptsTurn') : t('jskit.assistant.goal.cancelRemovesGoal') }}</p>
       <form v-if="canSet" class="assistant-goal__form mt-2" @submit.prevent="setGoal">
@@ -115,6 +126,9 @@ async function cancelGoal() {
 .assistant-goal__details { overflow-wrap: anywhere; min-height: 0; max-height: calc(100dvh - 24px); }
 .assistant-goal__form { display: grid; gap: 0.75rem; }
 @keyframes assistant-goal-flash { 50% { opacity: 0.3; } }
-@container assistant-conversation (max-width: 26rem) { .assistant-goal__elapsed { display: none; } }
+@container assistant-conversation (max-width: 26rem) {
+  .assistant-goal__elapsed { display: none; }
+  .assistant-goal__label { max-width: 10rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
 @media (prefers-reduced-motion: reduce) { .assistant-goal__light--working { animation: none; } }
 </style>

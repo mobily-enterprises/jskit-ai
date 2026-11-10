@@ -43,7 +43,7 @@
  * @property {boolean} [working]
  * @property {boolean} [pending]
  * @property {boolean} [stopPending]
- * @property {boolean} [pauseBlocked] True when a blocked goal can still be paused.
+ * @property {boolean} [pauseBlocked] True when a goal that is not running (blocked, or waiting at its usage limit) can still be paused.
  * @property {boolean} [pauseInterruptsTurn]
  * @property {boolean} [cancelInterruptsTurn]
  * @property {boolean} [tokenBudgetSupported]

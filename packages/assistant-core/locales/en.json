@@ -112,6 +112,7 @@
         "goal": "Goal",
         "loading": "Loading goal…",
         "objective": "Goal objective",
+        "outOfCredit": "Out of credit: top up or switch AI account",
         "pause": "Pause goal",
         "pauseInterruptsTurn": "Pause stops the current turn and keeps the goal for later.",
         "pausePreventsTurns": "Pausing prevents further automatic turns. Use Stop to interrupt the current turn.",
@@ -126,7 +127,9 @@
         "starting": "Starting…",
         "tokenBudget": "Token budget (optional)",
         "unavailable": "Goal unavailable",
-        "usageLimited": "Goal waiting for allowance"
+        "usageLimited": "Waiting: AI usage limit",
+        "usageLimitedHint": "The goal does not continue by itself. Choose Resume goal once the AI account can work again.",
+        "usageLimitedUntil": "Waiting: AI usage limit, resets at {time}"
       },
       "longText": {
         "details": "Details",

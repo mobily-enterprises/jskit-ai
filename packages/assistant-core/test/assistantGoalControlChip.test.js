@@ -14,7 +14,7 @@ async function importControl() {
     load(url, context, nextLoad) {
       if (url === textUrl) {
         return { format: "module", shortCircuit: true, source:
-          "export function useJskitText() { return { t: (key, params) => params ? `${key}(${params.label}=${params.elapsed})` : key }; }" };
+          "export function useJskitText() { return { t: (key, params) => params ? `${key}(${Object.values(params).join(\"=\")})` : key }; }" };
       }
       if (url !== controlUrl) return nextLoad(url, context);
       const { descriptor } = parse(readFileSync(new URL(url), "utf8"));
@@ -32,8 +32,8 @@ async function importControl() {
 const slotted = tag => defineComponent({ setup: (_props, { slots }) => () => h(tag, slots.default?.()) });
 
 /** The chip (the menu's activator) and the details panel of one goal state. */
-async function render(control, goal) {
-  const app = createSSRApp({ render: () => h(control, { state: { enabled: true, goal, pause() {}, resume() {}, cancel() {} } }) });
+async function render(control, goal, state = {}) {
+  const app = createSSRApp({ render: () => h(control, { state: { enabled: true, goal, pause() {}, resume() {}, cancel() {}, ...state } }) });
   app.component("VMenu", defineComponent({ setup: (_props, { slots }) => () => h("div", [
     h("div", { class: "chip" }, slots.activator?.({ props: {} })), h("div", { class: "panel" }, slots.default?.())
   ]) }));
@@ -79,4 +79,33 @@ test("an active goal's chip shows its clock, and a finished goal's chip shows ne
   assert.doesNotMatch(complete.chip, /assistant-goal__elapsed/u);
   const none = await render(control, null);
   assert.equal(none.label, "jskit.assistant.goal.set");
+});
+
+test("a goal waiting at its AI account's limit names the limit and when it resets, and Resume is the person's to press", async () => {
+  const control = await importControl();
+  const reset = new Date();
+  reset.setSeconds(0, 0);
+  const time = `${String(reset.getHours()).padStart(2, "0")}:${String(reset.getMinutes()).padStart(2, "0")}`;
+  const waiting = { objective: "Finish every check", status: "usageLimited", createdAt: startedTwoHoursAgo, resetsAt: reset.getTime() / 1000 };
+  // Claude's goals can be paused while they wait; the chip shows no clock.
+  const claude = await render(control, waiting, { pauseBlocked: true });
+  assert.equal(claude.label, `jskit.assistant.goal.usageLimitedUntil(${time})`);
+  assert.doesNotMatch(claude.chip, /assistant-goal__elapsed|assistant-goal__light--running/u);
+  assert.match(claude.panel, new RegExp(`role="status">jskit\\.assistant\\.goal\\.usageLimitedUntil\\(${time}\\)<`, "u"));
+  for (const action of ["pause", "resume", "cancel", "usageLimitedHint"]) {
+    assert.match(claude.panel, new RegExp(`jskit\\.assistant\\.goal\\.${action}<`, "u"), `a waiting Claude goal offers ${action}`);
+  }
+  // Codex refuses Pause while it waits, so its control offers only Resume and Cancel.
+  const codex = await render(control, waiting);
+  assert.doesNotMatch(codex.panel, /jskit\.assistant\.goal\.pause</u);
+  assert.match(codex.panel, /jskit\.assistant\.goal\.resume</u);
+  // A reset on another day names its day.
+  const later = await render(control, { ...waiting, resetsAt: waiting.resetsAt + 3 * 24 * 60 * 60 });
+  assert.equal(later.label, `jskit.assistant.goal.usageLimitedUntil(${new Date((waiting.resetsAt + 3 * 24 * 60 * 60) * 1000)
+    .toLocaleDateString(undefined, { weekday: "short" })} ${time})`);
+  // Without a reset time it waits for the person; out of credit says what to do.
+  assert.equal((await render(control, { ...waiting, resetsAt: undefined })).label, "jskit.assistant.goal.usageLimited");
+  const credit = await render(control, { ...waiting, resetsAt: undefined, outOfCredit: true }, { pauseBlocked: true });
+  assert.equal(credit.label, "jskit.assistant.goal.outOfCredit");
+  assert.match(credit.panel, /jskit\.assistant\.goal\.resume</u);
 });

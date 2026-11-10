@@ -1277,8 +1277,14 @@ accumulated **active running time**, and `sampledAt` is its sample time in epoch
 backend cannot supply it truthfully. Only an active goal's chip shows its clock;
 a `paused`, `blocked`, `usageLimited` or `budgetLimited` goal's chip shows its
 status label (for example "Goal paused") instead, and its details keep the
-elapsed time. The clock hides in a narrow conversation
-pane; the light stays visible and details retain the time. Reduced motion uses
+elapsed time. A `usageLimited` goal is waiting at its AI account's limit: its
+label names the limit and, from an optional `resetsAt` (epoch **seconds**), when it
+resets ("Waiting: AI usage limit, resets at 05:00", with the day when the reset is
+not today); with `outOfCredit: true` it reads "Out of credit: top up or switch AI
+account". Its details say the goal does not continue by itself and offer Resume
+and Cancel, and Pause when `pauseBlocked` is set. In a narrow conversation pane
+the clock hides and a long label ends in an ellipsis; the light stays visible
+and details retain the time and full label. Reduced motion uses
 a steady red light. Pause follows the command's declared behavior:
 `pauseInterruptsTurn: true` means it stops the current turn and keeps the goal;
 otherwise it prevents further automatic turns while Stop interrupts current work.
@@ -1294,9 +1300,13 @@ the account is out of credit. When another message starts a process, the
 native owner clears the restored checker with Claude's local command (no model
 request) and requires its exact successful receipt before admitting user input.
 Ordinary messages and process restart keep the goal paused. Only that retained
-Pause reads `paused`: a Claude goal whose turn ended any other way (a usage
-limit, an interrupt, a process restart) keeps its checker armed, so the next
-turn continues it and it reads `active`. Explicit Resume reinstalls the objective;
+Pause reads `paused`: a Claude goal whose turn ended any other way (an interrupt,
+a process restart) keeps its checker armed, so the next turn continues it and it
+reads `active`. When Claude's own history ends the goal's turn with its usage-limit
+message, the goal reads `usageLimited` with that message's `resetsAt`; its
+credit-balance message reads `usageLimited` with `outOfCredit: true`. A later
+answer returns it to `active`. Hosts that restart goals must not resume a waiting
+goal: Resume after the reset stays the person's choice. Explicit Resume reinstalls the objective;
 Cancel removes the retained goal. A failed native clear leaves the new message
 unsent and retains Pause for recovery. Hosts supplying their own Claude store must
 round-trip the optional `pausedGoal` field with the existing conversation state.

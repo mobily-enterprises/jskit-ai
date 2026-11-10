@@ -129,6 +129,45 @@ test("Claude successful native clear removes a failed goal without a clearing se
   assert.equal((await readClaudeHistory(options)).goal.objective, "Next checks", "a later goal still wins");
 });
 
+// Claude 2.1.308 history at a hosted goal's usage limit (2026-11-10), and the
+// message Claude Code writes when the account's credit balance is too low.
+test("Claude's own limit message makes its goal wait, with the reset time, until a later answer", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "claude-limit-goal-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  const conversationId = "1d6f6949-185c-46b2-9475-a9f080d505f2";
+  const file = path.join(directory, `${conversationId}.jsonl`);
+  const options = { configRoot: root, workdir: root, conversationId };
+  const append = (...frames) => writeFile(file, frames.map(JSON.stringify).join("\n") + "\n", { flag: "a" });
+  const limit = { type: "assistant", uuid: "limit", timestamp: "2026-11-10T04:54:47.014Z", isApiErrorMessage: true,
+    error: "rate_limit", apiError: "usage_limit_reached",
+    apiErrorParams: { rate_limit_info: { status: "rejected", resetsAt: 1794286800, rateLimitType: "five_hour" } },
+    message: { model: "<synthetic>", role: "assistant", content: [{ type: "text", text: "You've hit your session limit · resets 5am (UTC)" }] } };
+  const answer = { type: "assistant", uuid: "answer", timestamp: "2026-11-10T05:01:00.000Z",
+    message: { role: "assistant", content: [{ type: "text", text: "Continuing the checks." }] } };
+  await append({ type: "attachment", uuid: "goal", timestamp: "2026-11-10T04:00:00.000Z",
+    attachment: { type: "goal_status", condition: "Finish all checks", met: false, sentinel: true } },
+  { ...limit, uuid: "nested", parent_tool_use_id: "child" }, { ...limit, uuid: "sidechain", isSidechain: true },
+  { ...limit, uuid: "other-error", apiError: "max_output_tokens" });
+  assert.equal((await readClaudeHistory(options)).goal.status, "active", "a helper's limit or another API error is not the goal's");
+  await append(limit);
+  const waiting = (await readClaudeHistory(options)).goal;
+  assert.equal(waiting.status, "usageLimited");
+  assert.equal(waiting.resetsAt, 1794286800);
+  assert.equal(waiting.objective, "Finish all checks");
+  await append(answer);
+  const resumed = (await readClaudeHistory(options)).goal;
+  assert.equal(resumed.status, "active", "an answer after the reset shows the account working again");
+  assert.equal("resetsAt" in resumed, false);
+  await append({ ...limit, uuid: "credit", error: "billing_error", apiError: undefined, apiErrorParams: undefined,
+    message: { ...limit.message, content: [{ type: "text", text: "Credit balance is too low" }] } });
+  const credit = (await readClaudeHistory(options)).goal;
+  assert.equal(credit.status, "usageLimited");
+  assert.equal(credit.outOfCredit, true);
+  assert.equal("resetsAt" in credit, false);
+});
+
 test("Claude local-command error output stays distinguishable and result-only success retains provenance", async () => {
   const { turn, send, events } = fixture();
   await send();
@@ -2979,17 +3018,27 @@ test("Pausing an idle Claude goal retires its warm process before the next ordin
 // A hosted goal (2026-11-10): the account hit its usage limit, the turn ended
 // with the checker still armed and the control read "paused", so the person
 // saw it paused while a restart resumed it and ran ~20 continuation turns.
-test("A Claude goal whose turn ended without Pause stays active; Pause sends nothing and the next start clears it locally", { timeout: 5_000 }, async t => {
+test("A Claude goal whose turn ended without Pause is active, at its usage limit it waits; Pause sends nothing and the next start clears it locally", { timeout: 5_000 }, async t => {
   const f = await publishedClaudeFixture(t);
   await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish all checks", messageId: "limited-goal" });
-  // The account is out of credit: Claude ends the turn with its limit error.
-  await f.frame({ type: "result", subtype: "success", result: "You've hit your session limit · resets 5am (UTC)" });
+  await f.behavior.goalAttachmentWork;
+  await f.frame({ type: "result", subtype: "success", result: "Partial progress" });
   assert.equal(f.entry.turn.active, false);
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "active",
+    "nothing paused it: the next turn's checker, or a restart, continues it");
+  // Claude ends the next turn at the account's usage limit, as its history records.
+  const history = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"),
+    `${f.entry.process.options.sessionId}.jsonl`);
+  await appendFile(history, JSON.stringify({ type: "assistant", uuid: "limit", timestamp: new Date().toISOString(),
+    isApiErrorMessage: true, error: "rate_limit", apiError: "usage_limit_reached",
+    apiErrorParams: { rate_limit_info: { status: "rejected", resetsAt: 1794286800 } },
+    message: { role: "assistant", content: [{ type: "text", text: "You've hit your session limit · resets 5am (UTC)" }] } }) + "\n");
   const goal = (await f.owner.readGoal(f.entry)).goal;
-  assert.equal(goal.status, "active", "nothing paused it: the next turn's checker, or a restart, continues it");
+  assert.equal(goal.status, "usageLimited");
+  assert.equal(goal.resetsAt, 1794286800);
   await f.owner.stopConversation(f.entry, "The application stopped.");
   assert.equal(f.entry.process, null);
-  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "active", "a stopped process does not pause the goal either");
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "usageLimited", "a stopped process keeps the goal waiting");
   const inputs = f.behavior.nativeInputs.length;
   const processes = f.processes.length;
   await f.owner.updateGoal(f.entry, { action: "pause", ...goal });
