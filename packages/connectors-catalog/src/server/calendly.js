@@ -2,6 +2,7 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { calendlyDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation, withQuery } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 const id = { type: "string", required: true, minLength: 1, maxLength: 100, pattern: "^[A-Za-z0-9_-]+$" };
 const text = { type: "string", minLength: 1, maxLength: 1000 };
@@ -43,18 +44,18 @@ const calendlyProvider = Object.freeze({
       if (!(value.user || value.organization || value.group)) throw new ConnectorError("connector_input_invalid", "Choose the user, organization or group whose events to read.", { statusCode: 422, messageCode: "connectors.calendly.chooseEventOwner" }); return value;
     }),
     "events.get": operation("GET", "scheduled_events/{uuid}", { uuid: id }, "scheduled_events:read", record),
-    "events.cancel": operation("POST", "scheduled_events/{uuid}/cancellation", { uuid: id, reason: { ...text, maxLength: 10000 } },
-      "scheduled_events:write", result => typeof result?.resource?.canceled_by === "string" && typeof result.resource.created_at === "string"),
+    "events.cancel": sideEffect(operation("POST", "scheduled_events/{uuid}/cancellation", { uuid: id, reason: { ...text, maxLength: 10000 } },
+      "scheduled_events:write", result => typeof result?.resource?.canceled_by === "string" && typeof result.resource.created_at === "string")),
     "invitees.list": operation("GET", "scheduled_events/{uuid}/invitees", { uuid: id, ...page, status, email,
       sort: { type: "string", enum: ["created_at:asc", "created_at:desc"] } }, "scheduled_events:read", collection),
     "invitees.get": operation("GET", "scheduled_events/{uuid}/invitees/{invitee_uuid}", { uuid: id, invitee_uuid: id }, "scheduled_events:read", record),
-    "invitees.create": operation("POST", "invitees", { event_type: { ...uri("event_types"), required: true }, start_time: { ...date, required: true },
+    "invitees.create": sideEffect(operation("POST", "invitees", { event_type: { ...uri("event_types"), required: true }, start_time: { ...date, required: true },
       invitee: { type: "object", required: true, schema: createSchema({ email: { ...email, required: true }, name: text,
         timezone: { ...text, required: true, validator: value => { try { new Intl.DateTimeFormat("en", { timeZone: value }); return true; } catch { return "Choose an IANA timezone."; } } } }) },
       questions_and_answers: { type: "array", items: { type: "object", schema: createSchema({ question: { ...text, required: true }, answer: { ...text, required: true }, position: { type: "integer", required: true, min: 0 } }) },
         validator: value => value.length <= 100 || "Use at most 100 answers." },
       event_guests: { type: "array", items: email, validator: value => value.length <= 10 || "Use at most 10 guests." }
-    }, "scheduled_events:write", record),
+    }, "scheduled_events:write", record)),
     "schedulingLinks.create": operation("POST", "scheduling_links", { owner: { ...uri("event_types"), required: true },
       owner_type: { type: "string", enum: ["EventType"], defaultTo: "EventType" }, max_event_count: { type: "integer", enum: [1], defaultTo: 1 }
     }, "scheduling_links:write", result => typeof result?.resource?.booking_url === "string" && typeof result.resource.owner === "string"),

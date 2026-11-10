@@ -45,6 +45,10 @@
         "reloadFailed": "The app cannot reload because the app server is not reachable. Restart the server, then click Reload.",
         "thisAppUpdated": "This app was updated. Reload to get the latest version.",
         "unreachable": "{label} could not reach the server or network. Check the connection and try again."
+      },
+      "sideEffects": {
+        "testCopy": "Test copy",
+        "testCopyDescription": "Test copy: emails, messages and payments are simulated, not sent."
       }
     }
   }

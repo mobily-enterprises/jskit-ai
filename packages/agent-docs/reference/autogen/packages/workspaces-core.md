@@ -204,6 +204,10 @@ Exports
 Local functions
 - `escapeHtml(value)`
 
+### `src/server/workspaceMembers/simulatedWorkspaceInviteMailer.js`
+Exports
+- `createSimulatedWorkspaceInviteMailer(logger)`
+
 ### `src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js`
 Exports
 - `buildMailerUnconfiguredDelivery()`

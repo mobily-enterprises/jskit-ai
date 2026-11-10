@@ -4,6 +4,7 @@ import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { woocommerceDefinition } from "../shared/wordpress.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 const baseUrl = (settings) => `${settings.siteUrl.replace(/\/+$/u, "")}/wp-json/wc/v3`;
 const pagination = {
@@ -328,7 +329,7 @@ const woocommerceProvider = Object.freeze({
   operations: {
     "refunds.list": refundOperation("list"),
     "refunds.get": refundOperation("get"),
-    "refunds.create": refundOperation("create"),
+    "refunds.create": sideEffect(refundOperation("create")),
     "reports.sales": reportOperation("sales"),
     "reports.topSellers": reportOperation("top_sellers"),
     "reports.orders": reportOperation("orders/totals"),

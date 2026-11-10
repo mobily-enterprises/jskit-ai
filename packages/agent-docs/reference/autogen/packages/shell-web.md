@@ -565,6 +565,14 @@ Exports
 Local functions
 - `isPullRefreshQuery(query)`
 
+### `src/client/sideEffects/testCopyBanner.js`
+Exports
+- `TEST_COPY_BANNER_ID`
+- `createTestCopyBannerRuntime(options)`
+- `installTestCopyBanner({ documentObject = pageDocument(), mode = pageSideEffectsMode(documentObject) } = {})`
+Local functions
+- `removeNothing()`
+
 ### `src/client/stores/useShellErrorPresentationStore.js`
 Exports
 - `useShellErrorPresentationStore`
@@ -800,6 +808,14 @@ Exports
 - None
 
 ### `fixtures/production-build/vite.config.mjs`
+Exports
+- None
+
+### `fixtures/test-copy-banner/src/main.js`
+Exports
+- None
+
+### `fixtures/test-copy-banner/vite.config.mjs`
 Exports
 - None
 

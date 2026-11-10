@@ -227,3 +227,23 @@ test('signed subscription lifecycle updates app access without crossing subjects
     }
   } finally { await migration.down(db); await db.destroy(); }
 });
+
+test('a test copy takes no real payments: it refuses live checkout and billing before any provider write', async () => {
+  const live = { ...scope, environment: 'live' };
+  const adapter = {
+    validatePlan() {},
+    async createCustomer() { assert.fail('a test copy creates no live customer'); },
+    async createCheckout() { assert.fail('a test copy starts no live checkout'); },
+    async createPortal() { assert.fail('a test copy opens no live billing session'); }
+  };
+  const store = { async withAccount(_scope, run) { return run({ state: {} }); } };
+  const options = { adapter, store, payments: {}, merchantScope: live, returnUrl: 'https://app.example/billing', authorize: async () => true };
+  const input = { actor: 'tenant-a', subjectId: 'tenant-a', email: 'tenant@example.com', planId: 'pro', requestId: 'request-1' };
+  for (const sideEffects of [undefined, 'simulate', 'LIVE']) {
+    const service = createPaymentCheckoutService({ ...options, sideEffects });
+    await assert.rejects(service.checkout(input), { code: 'payment_test_copy', statusCode: 409, message: /set SIDE_EFFECTS=live/u });
+    await assert.rejects(service.portal(input), { code: 'payment_test_copy' });
+  }
+  // A live application passes the gate: here the next refusal is the missing billing account.
+  await assert.rejects(createPaymentCheckoutService({ ...options, sideEffects: 'live' }).portal(input), { code: 'payment_customer_missing' });
+});

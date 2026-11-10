@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Creating, changing and cancelling an event are marked `sideEffect`, since they can invite or notify people: a test copy (`SIDE_EFFECTS` is not `live`) logs them instead of sending them.
+
 ## 0.2.0 - 2026-10-29
 
 - Translation ready: every user-visible text is a message key with its English in `locales/en.json`, so an app translates it by supplying translation files only. With no translations, texts and behaviour are unchanged. See the guide "Translating a JSKIT app".

@@ -10,6 +10,7 @@ import {
 } from "../asyncModuleRecovery/inject.js";
 import { createShellAsyncModuleRecoveryRuntime } from "../asyncModuleRecovery/runtime.js";
 import { createShellClientUpdateRuntime } from "../clientUpdate/runtime.js";
+import { createTestCopyBannerRuntime } from "../sideEffects/testCopyBanner.js";
 import {
   SHELL_REQUEST_RECOVERY_RUNTIME_KEY
 } from "../requestRecovery/inject.js";
@@ -336,6 +337,7 @@ const ShellWebClientProvider = defineProvider({
       logger
     });
     const navigationRuntime = createShellNavigationRuntime({ router });
+    const testCopyBannerRuntime = createTestCopyBannerRuntime();
 
     return {
       shell: Object.freeze({
@@ -348,7 +350,8 @@ const ShellWebClientProvider = defineProvider({
         navigation: navigationRuntime,
         placement: placementRuntime,
         refresh: refreshRuntime,
-        requestRecovery: requestRecoveryRuntime
+        requestRecovery: requestRecoveryRuntime,
+        testCopyBanner: testCopyBannerRuntime
       })
     };
   },
@@ -367,6 +370,8 @@ const ShellWebClientProvider = defineProvider({
     asyncModuleRecoveryRuntime.install();
     // Before the router's first navigation, so the trail starts with the page the tab opened on.
     navigationRuntime.install();
+    // A test copy says so from the first frame, whatever the application's layout.
+    outputs.shell.testCopyBanner.install();
 
     const appModules = importAppModules();
     const placementTopology = await loadAppPlacementTopology(logger, asyncModuleRecoveryRuntime, appModules.placementTopology);
@@ -408,6 +413,7 @@ const ShellWebClientProvider = defineProvider({
     installRouterErrorBridge(router, errorRuntime, logger);
   },
   shutdown(_dependencies, { outputs }) {
+    outputs.shell.testCopyBanner.dispose();
     outputs.shell.navigation.dispose();
     outputs.shell.clientUpdate.dispose();
     outputs.shell.requestRecovery.dispose();

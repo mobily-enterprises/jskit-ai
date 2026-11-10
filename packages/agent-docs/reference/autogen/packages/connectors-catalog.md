@@ -696,6 +696,10 @@ Local functions
 - `emptyUserErrors(payload)`
 - `productMutation(name, fields)`
 
+### `src/server/sideEffect.js`
+Exports
+- `sideEffect(operation)`
+
 ### `src/server/slack.js`
 Exports
 - `slackProvider`

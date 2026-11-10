@@ -93,6 +93,9 @@
  * @property {(result: any, request: ConnectorRequest) => boolean} [validateResult] Answers whether the response is what was asked.
  * @property {string} [assistantAction] The assistant action whose permission covers it; its operation id otherwise.
  * @property {string[]} [authenticationMethods] The credential modes it runs with; every mode otherwise.
+ * @property {boolean} [sideEffect] True for an operation that acts on the world: sends a message, charges, books or
+ *   posts. Unless the application's SIDE_EFFECTS is `live`, it is checked and logged, never sent, and answers
+ *   `{ simulated: true }`.
  */
 
 /**

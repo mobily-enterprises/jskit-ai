@@ -10,7 +10,7 @@ test("Brevo explicitly sends messages and campaigns, manages contacts and retain
   const directory = await makeTestDirectory("brevo-repair-"); t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; const state = { response: { contacts: [], count: 0 }, status: 200, deny: false, fail: false };
   const identity = { context: { applicationId: "booking-app", subjectId: "owner" }, integrationId: "messaging" };
-  const service = createConnectionService({ configuration: { schemaVersion: 1, registrations: {}, integrations: {
+  const service = createConnectionService({ sideEffects: "live", configuration: { schemaVersion: 1, registrations: {}, integrations: {
     messaging: { provider: "brevo", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:BREVO_API_KEY" } }
   } }, providers: [brevoProvider], authorize: async context => { if (state.deny) throw new Error("denied"); return context; },
     resolveReference: async () => "brevo-fixture-key",

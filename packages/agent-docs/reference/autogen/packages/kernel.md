@@ -213,6 +213,17 @@ Exports
 Local functions
 - `normalizePlacementRenderers(value = {})`
 
+### `shared/support/sideEffects.js`
+Exports
+- `SIDE_EFFECTS_ENV_KEY`
+- `SIDE_EFFECTS_LIVE`
+- `SIDE_EFFECTS_META_NAME`
+- `SIDE_EFFECTS_SIMULATE`
+- `pageSideEffectsMode(documentObject = globalThis.document)`
+- `resolveSideEffectsMode(env)`
+- `sideEffectsAreLive(env)`
+- `withSideEffectsMeta(html, mode)`
+
 ### `shared/support/silentLogger.js`
 Exports
 - `silentLogger`
@@ -928,6 +939,12 @@ Local functions
 - `resolveContentSecurityPolicyHeaders(settings)`
 - `resolveSecurityHeaders({ config, env })`
 
+### `server/http/sideEffectsPage.js`
+Exports
+- `registerSideEffectsPage(fastify, { env })`
+- `type RuntimeEnv`
+- `type RuntimeFastify`
+
 ### `server/http/trustedProxies.js`
 Exports
 - `DEFAULT_TRUSTED_PROXIES`
@@ -1084,6 +1101,11 @@ Local functions
 - `resolveRequireMode(value)`
 - `normalizeRequireAuthOptions(options = {})`
 - `requireAuthenticatedActor(context = {}, options = {})`
+
+### `server/runtime/sideEffects.js`
+Exports
+- `logSideEffectsMode(logger, env)`
+- `logSimulatedSideEffect(logger, { kind, summary, details = {} })`
 
 ### `server/support/appConfig.js`
 Exports

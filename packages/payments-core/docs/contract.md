@@ -42,6 +42,13 @@ bindings. The same source declaration can name both environments, but callers
 cannot select live operations merely by submitting `environment: live`.
 The server owns environment selection and supplies the matching Env projection.
 
+A test copy takes no real money. The application's `SIDE_EFFECTS` setting is
+`live` only for the copy that acts for real; anything else, including unset,
+means simulate. A simulating application refuses checkout and billing-portal
+requests in the live environment with `payment_test_copy` (409), before any
+provider write; the sandbox environment works either way. Pass
+`sideEffects: resolveSideEffectsMode(env)` to `createPaymentCheckoutService`.
+
 An amount is an integer in the currency's smallest unit. ISO-looking currency
 syntax is not evidence the provider accepts that currency. Initial plans are
 one recurring item, quantity one, monthly or yearly. Logical plan IDs are source

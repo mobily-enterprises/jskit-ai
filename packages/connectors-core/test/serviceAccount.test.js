@@ -184,7 +184,7 @@ test("service grants honor cancellation and deadlines without replay or partial 
 
 test("the service-account Feature action uses the same application policy and verified runtime", async (t) => {
   const f = await fixture(t); let actions;
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(f.options),
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(f.options),
     defineProvider({ id: "test.service-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })] });
   await runtime.start();
   try {

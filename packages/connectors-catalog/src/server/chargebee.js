@@ -2,6 +2,7 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { chargebeeDefinition } from "../shared/chargebee.js";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 const origin = ({ siteName }) => `https://${siteName.toLowerCase()}.chargebee.com`;
 const text = { type: "string", minLength: 1, maxLength: 250 };
@@ -52,14 +53,14 @@ const chargebeeProvider = Object.freeze({
     "itemPrices.get": operation("GET", "item_prices/{resource}", { resource }, record("item_price")),
     "subscriptions.list": operation("GET", "subscriptions", { ...pagination, "customer_id[is]": text }, collection("subscription")),
     "subscriptions.get": operation("GET", "subscriptions/{resource}", { resource }, record("subscription")),
-    "subscriptions.create": operation("POST", "customers/{resource}/subscription_for_items", { resource, subscription_items: itemList,
+    "subscriptions.create": sideEffect(operation("POST", "customers/{resource}/subscription_for_items", { resource, subscription_items: itemList,
       auto_collection: { type: "string", required: true, enum: ["on", "off"] }, invoice_immediately: { type: "boolean", required: true },
       id: { ...resource, required: false }, trial_end: { type: "integer", min: 0 }
-    }, record("subscription")),
-    "subscriptions.updateAtTermEnd": operation("POST", "subscriptions/{resource}/update_for_items", { resource, subscription_items: itemList,
+    }, record("subscription"))),
+    "subscriptions.updateAtTermEnd": sideEffect(operation("POST", "subscriptions/{resource}/update_for_items", { resource, subscription_items: itemList,
       replace_items_list: { type: "boolean", required: true }
-    }, record("subscription"), { end_of_term: true }),
-    "subscriptions.cancelAtTermEnd": operation("POST", "subscriptions/{resource}/cancel_for_items", { resource, cancel_reason_code: text }, record("subscription"), { cancel_option: "end_of_term" }),
+    }, record("subscription"), { end_of_term: true })),
+    "subscriptions.cancelAtTermEnd": sideEffect(operation("POST", "subscriptions/{resource}/cancel_for_items", { resource, cancel_reason_code: text }, record("subscription"), { cancel_option: "end_of_term" })),
     "invoices.list": operation("GET", "invoices", { ...pagination, "customer_id[is]": text, "subscription_id[is]": text }, collection("invoice")),
     "invoices.get": operation("GET", "invoices/{resource}", { resource, line_items_limit: { type: "integer", min: 1, max: 300 }, line_items_offset: { ...text, maxLength: 1000 } }, record("invoice")),
     "invoices.pdf": operation("POST", "invoices/{resource}/pdf", { resource, disposition_type: { type: "string", enum: ["inline", "attachment"], defaultTo: "attachment" } }, result => typeof result?.download?.download_url === "string"),

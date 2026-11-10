@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { incidentIoDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation } from "./jsonOperation.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { sideEffect } from "./sideEffect.js";
 
 const id = { type: "string", required: true, minLength: 1, maxLength: 200,
   validator: value => /^[a-zA-Z0-9_-]+$/u.test(value) || "Use the incident.io resource ID, not a URL." };
@@ -34,10 +35,10 @@ const incidentIoProvider = Object.freeze({
       ["alerts.get", "/v2/alerts", "alert"], ["schedules.get", "/v2/schedules", "schedule"],
       ["catalog.get", "/v3/catalog_entries", "catalog_entry"]
     ].map(([name, path, key]) => [name, validatedOperation({ id }, ({ id }) => ({ method: "GET", url: address(`${path}/${id}`) }), result(key))])),
-    "incidents.create": validatedOperation({ ...incidentFields, idempotency_key: { ...text, required: true, maxLength: 200 },
+    "incidents.create": sideEffect(validatedOperation({ ...incidentFields, idempotency_key: { ...text, required: true, maxLength: 200 },
       visibility: { type: "string", required: true, enum: ["public", "private"] },
       mode: { type: "string", enum: ["standard", "retrospective", "test", "tutorial"], defaultTo: "standard" }, incident_type_id: optionalId
-    }, body => ({ method: "POST", url: address("/v2/incidents"), body }), result("incident")),
+    }, body => ({ method: "POST", url: address("/v2/incidents"), body }), result("incident"))),
     "incidents.update": validatedOperation({ id, incident: { type: "object", required: true, schema: createSchema(incidentFields),
       validator: value => Object.keys(value).length > 0 || "Provide at least one incident field." },
       notify_incident_channel: { type: "boolean", required: true }

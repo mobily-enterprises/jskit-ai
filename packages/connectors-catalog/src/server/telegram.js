@@ -1,6 +1,7 @@
 import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { telegramDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 function telegramResult(response, validate) {
   if (response?.ok === false) throw providerStatusError(Number(response.error_code));
@@ -21,14 +22,14 @@ const telegramProvider = Object.freeze({
   } },
   checkOperation: "profile.read",
   operations: {
-    "messages.send": jsonOperation("https://api.telegram.org/sendMessage", {
+    "messages.send": sideEffect(jsonOperation("https://api.telegram.org/sendMessage", {
       chat_id: chatIdField,
       text: { type: "string", required: true, noTrim: true, minLength: 1, maxLength: 4096 },
       message_thread_id: { type: "integer", min: 1 },
       disable_notification: { type: "boolean", defaultTo: false },
       protect_content: { type: "boolean", defaultTo: false }
     }, (response) => telegramResult(response, (message) => Number.isSafeInteger(message?.message_id) &&
-      Number.isSafeInteger(message.chat?.id) && typeof message.text === "string"), "POST"),
+      Number.isSafeInteger(message.chat?.id) && typeof message.text === "string"), "POST")),
     "chats.action": jsonOperation("https://api.telegram.org/sendChatAction", {
       chat_id: chatIdField, message_thread_id: { type: "integer", min: 1 },
       action: { type: "string", required: true, enum: ["typing", "upload_photo", "record_video", "upload_video", "record_voice", "upload_voice", "upload_document", "choose_sticker", "find_location", "record_video_note", "upload_video_note"] }

@@ -11,8 +11,11 @@ import { PaymentError, fingerprint } from "./errors.js";
  * @param {import("./types.js").PaymentMerchantScope} dependencies.merchantScope
  * @param {string} dependencies.returnUrl
  * @param {(actor: unknown, request: { subjectId: string, action: string }) => boolean | Promise<boolean>} dependencies.authorize
+ * @param {"live" | "simulate"} [dependencies.sideEffects] The application's SIDE_EFFECTS setting. Unless `live`, the
+ *   application is a test copy: it takes no real money, so checkout and billing changes in the live payment
+ *   environment are refused; the sandbox environment works either way.
  */
-function createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize }) {
+function createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize, sideEffects = "simulate" }) {
   // readable-check: allow method-probe - input validation: the application passes its billable-subject authorization
   if (typeof authorize !== "function") throw new TypeError("Supply the application's billable-subject authorization function.");
   const target = new URL(returnUrl);
@@ -20,6 +23,12 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     throw new TypeError("Configure an HTTPS application return/checkout URL (HTTP is allowed only for local development).");
   }
   const merchant = structuredClone(merchantScope);
+  // Before any provider write: a test copy creates no live customer, checkout or billing session.
+  function requireRealMoneyAllowed() {
+    if (merchant.environment === "live" && sideEffects !== "live") {
+      throw new PaymentError("payment_test_copy", "This test copy takes no real payments. Use the sandbox payment environment, or set SIDE_EFFECTS=live to take real payments.", 409);
+    }
+  }
   async function allowed(actor, subjectId, action) {
     if (typeof subjectId !== "string" || !subjectId || subjectId.length > 200 || await authorize(actor, { subjectId, action }) !== true) {
       throw new PaymentError("payment_forbidden", "You cannot manage this billable account.", 403);
@@ -50,6 +59,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
   }
   async function checkout({ actor, subjectId, email, planId, requestId }) {
     const scope = await allowed(actor, subjectId, "checkout");
+    requireRealMoneyAllowed();
     adapter.validatePlan(planId);
     if (typeof requestId !== "string" || !/^[A-Za-z0-9_-]{1,100}$/.test(requestId)) throw new PaymentError("payment_request_invalid", "Supply a stable checkout request identifier.");
     if (typeof email !== "string" || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PaymentError("payment_input_invalid", "Supply the authenticated billing contact's email.", 422, { messageCode: "payments.input.billingEmail" });
@@ -95,6 +105,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
   }
   async function portal({ actor, subjectId }) {
     const scope = await allowed(actor, subjectId, "portal");
+    requireRealMoneyAllowed();
     return perform(scope, async (tx) => {
       if (!tx.state.customerId) throw new PaymentError("payment_customer_missing", "Create a billing account first.", 404);
       return { action: "portal", customerId: tx.state.customerId };

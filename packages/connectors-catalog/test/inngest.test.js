@@ -49,7 +49,7 @@ async function fixture(t) {
         { status: state.httpStatus, headers: { Location: "https://unexpected.example", Link: '<https://unexpected.example/next>; rel="next"' } });
     }
   };
-  return { service: createConnectionService(options), options, directory, protection, state, requests, resolved };
+  return { service: createConnectionService({ ...options, sideEffects: "live" }), options, directory, protection, state, requests, resolved };
 }
 
 test("Inngest verifies only signing-key metadata and keeps both credential values out of file state", async (t) => {
@@ -67,7 +67,7 @@ test("Inngest verifies only signing-key metadata and keeps both credential value
     assert.equal(text.includes(state.eventKey), false);
     assert.equal(text.includes(state.signing), false);
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ sideEffects: "live", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), connection);
   for (const owner of [{ ...context, applicationId: "different-app" }, { ...context, subjectId: "different-owner" }]) {
     await assert.rejects(restarted.invoke({ ...input, context: owner, operation: "events.send", input: event }), { code: "connector_reconnect_required" });
@@ -189,7 +189,7 @@ test("Inngest reference and branch changes require reverification, including bra
     const config = structuredClone(options.configuration);
     Object.assign(config.integrations.jobs.settings, changes);
     for (const [name, value] of Object.entries(changes)) if (value === undefined) delete config.integrations.jobs.settings[name];
-    const changed = createConnectionService({ ...options, configuration: config });
+    const changed = createConnectionService({ sideEffects: "live", ...options, configuration: config });
     const count = requests.length;
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: "events.send", input: event }), { code: "connector_reconnect_required" });
@@ -197,7 +197,7 @@ test("Inngest reference and branch changes require reverification, including bra
   }
   const config = structuredClone(options.configuration);
   delete config.integrations.jobs.settings.branchEnvironment;
-  const changed = createConnectionService({ ...options, configuration: config });
+  const changed = createConnectionService({ sideEffects: "live", ...options, configuration: config });
   await changed.connectApiKey(input);
   await changed.invoke({ ...input, operation: "events.send", input: event });
   assert.equal(requests.at(-1).headers.get("x-inngest-env"), null);

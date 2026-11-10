@@ -20,7 +20,7 @@ async function fixture(t) {
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { fail: false };
-  const service = createConnectionService({
+  const service = createConnectionService({ sideEffects: "live",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { mail: {
       provider: "resend", accountMode: "shared", scopes: [],
       authentication: { method: "api-key", secretRef: "env:RESEND_KEY" }

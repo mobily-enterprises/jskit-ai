@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { mailgunDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 const origins = { us: "https://api.mailgun.net", eu: "https://api.eu.mailgun.net" };
 const domainField = { type: "string", required: true, minLength: 3, maxLength: 253,
@@ -40,13 +41,13 @@ const mailgunProvider = Object.freeze({
   apiKey: { headers: (key) => ({ Authorization: `Basic ${Buffer.from(`api:${key}`).toString("base64")}` }) },
   checkOperation: "domains.list",
   operations: {
-    "messages.send": { scopes: [], request(input, settings) {
+    "messages.send": sideEffect({ scopes: [], request(input, settings) {
       const { domain, to, ...fields } = validateSchemaPayload({ schema: sendSchema, mode: "replace" }, input, { statusCode: 422 });
       const body = new FormData();
       for (const [name, value] of Object.entries(fields)) body.append(name, value);
       for (const recipient of to) body.append("to", recipient);
       return { method: "POST", url: `${origins[settings.region]}/v3/${encodeURIComponent(domain)}/messages`, body };
-    }, validateResult: result => typeof result?.id === "string" && result.id.length > 0 && typeof result.message === "string" },
+    }, validateResult: result => typeof result?.id === "string" && result.id.length > 0 && typeof result.message === "string" }),
     "domains.get": domainOperation("GET"),
     "domains.verify": domainOperation("PUT", "/verify"),
     "domains.create": { scopes: [], request(input, settings) {

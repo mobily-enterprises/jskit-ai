@@ -120,7 +120,7 @@ const workspaceInviteCreateOutputSchema = createSchema({
       status: {
         type: "string",
         required: true,
-        enum: ["sent", "failed", "mailer_unconfigured"]
+        enum: ["sent", "simulated", "failed", "mailer_unconfigured"]
       },
       message: {
         type: "string",

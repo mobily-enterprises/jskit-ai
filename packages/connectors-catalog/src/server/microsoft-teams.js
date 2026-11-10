@@ -3,6 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { microsoftTeamsDefinition } from "../shared/microsoft.js";
 import { graphRead, microsoftProvider } from "./microsoft.js";
 import { hasStringId } from "./connectorValues.js";
+import { sideEffect } from "./sideEffect.js";
 
 const id = { type: "string", required: true, minLength: 1, maxLength: 1024,
   validator: value => /^[A-Za-z0-9_:@.=-]+$/u.test(value) && value !== "." && value !== ".." || "Use the returned Teams resource ID." };
@@ -21,10 +22,10 @@ const microsoftTeamsProvider = microsoftProvider(microsoftTeamsDefinition, "orga
   "channels.list": graphRead("Channel.ReadBasic.All", { teamId: id }, ({ teamId }) => ({ pathname: `/teams/${encodeURIComponent(teamId)}/channels` })),
   "messages.list": graphRead("ChannelMessage.Read.All", { ...channel, pageSize }, input => ({ pathname: `${channelPath(input)}/messages`, query: { $top: input.pageSize } })),
   "replies.list": graphRead("ChannelMessage.Read.All", { ...channel, messageId: id }, input => ({ pathname: `${channelPath(input)}/messages/${encodeURIComponent(input.messageId)}/replies` })),
-  "messages.send": send("ChannelMessage.Send", channel, input => `${channelPath(input)}/messages`),
-  "replies.send": send("ChannelMessage.Send", { ...channel, messageId: id }, input => `${channelPath(input)}/messages/${encodeURIComponent(input.messageId)}/replies`),
+  "messages.send": sideEffect(send("ChannelMessage.Send", channel, input => `${channelPath(input)}/messages`)),
+  "replies.send": sideEffect(send("ChannelMessage.Send", { ...channel, messageId: id }, input => `${channelPath(input)}/messages/${encodeURIComponent(input.messageId)}/replies`)),
   "chats.list": graphRead("Chat.ReadWrite", {}, () => ({ pathname: "/me/chats" })),
   "chatMessages.list": graphRead("Chat.ReadWrite", { chatId: id, pageSize }, ({ chatId, pageSize }) => ({ pathname: `/chats/${encodeURIComponent(chatId)}/messages`, query: { $top: pageSize } })),
-  "chatMessages.send": send("Chat.ReadWrite", { chatId: id }, ({ chatId }) => `/chats/${encodeURIComponent(chatId)}/messages`)
+  "chatMessages.send": sideEffect(send("Chat.ReadWrite", { chatId: id }, ({ chatId }) => `/chats/${encodeURIComponent(chatId)}/messages`))
 });
 export { microsoftTeamsProvider };

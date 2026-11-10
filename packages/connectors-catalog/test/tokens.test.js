@@ -125,7 +125,7 @@ async function fixture(t, entry) {
     }
   };
   const input = { context: { applicationId: "app-one", subjectId: "account-one" }, integrationId: "source" };
-  return { service: createConnectionService(options), options, directory, protection, input, state, requests };
+  return { service: createConnectionService({ ...options, sideEffects: "live" }), options, directory, protection, input, state, requests };
 }
 
 for (const entry of cases) {
@@ -145,7 +145,7 @@ for (const entry of cases) {
     assert.equal(first.init.redirect, "error");
     for (const [header, value] of Object.entries(entry.extraHeaders || {})) assert.equal(first.headers.get(header), value);
     for (const name of await readdir(directory)) assert.equal((await readFile(path.join(directory, name), "utf8")).includes(state.key), false);
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ sideEffects: "live", ...options, store: createFileConnectionStore({ directory, protection }) });
     assert.equal((await restarted.status(input)).status, "connected");
     state.response = entry.operationResponse || entry.response;
     state.key = entry.rotatedKey || "rotated-fixture-key";
@@ -224,7 +224,7 @@ test("Clay advances only explicitly requested query pages and validates each res
 test("Clay search policy, billing failure and interrupted iterators never replay a request", async (t) => {
   const { service, options, input, state, requests } = await fixture(t, cases.find(({ provider }) => provider === clayProvider));
   await service.connectApiKey(input);
-  const restricted = createConnectionService({ ...options, authorize: async (owner, request) =>
+  const restricted = createConnectionService({ sideEffects: "live", ...options, authorize: async (owner, request) =>
     request.operation === "searches.create" || request.operation === "searches.next" && request.input.searchId !== "search-1" ? null : owner });
   await assert.rejects(restricted.invoke({ ...input, operation: "searches.create", input: { query: "anything" } }), { code: "connector_access_denied" });
   await assert.rejects(restricted.invoke({ ...input, operation: "searches.next", input: { searchId: "another-search" } }), { code: "connector_access_denied" });
@@ -240,7 +240,7 @@ test("Clay search policy, billing failure and interrupted iterators never replay
   let started;
   const pendingRequest = new Promise((resolve) => { started = resolve; });
   let attempts = 0;
-  const interrupted = createConnectionService({ ...options, fetchImpl: async (_url, init) => {
+  const interrupted = createConnectionService({ sideEffects: "live", ...options, fetchImpl: async (_url, init) => {
     attempts += 1;
     init.signal.throwIfAborted();
     started();
@@ -283,7 +283,7 @@ test("Clay runs approved routines and queries Enterprise tables without replay o
     ["routines.run", { routineId: "x", items: [{ id: "x" }] }], ["tables.query", { query: { tables: [] } }],
     ["tables.query", { query, limit: 101 }], ["tables.query", { query: { ...query, url: "https://other.test" } }]])
     await assert.rejects(invoke(operation, values), { code: "connector_input_invalid" });
-  const restricted = createConnectionService({ ...options, authorize: async (owner, request) => request.operation === "routines.run" ? null : owner });
+  const restricted = createConnectionService({ sideEffects: "live", ...options, authorize: async (owner, request) => request.operation === "routines.run" ? null : owner });
   await assert.rejects(restricted.invoke({ ...input, operation: "routines.run", input: { routineId: "x", items } }), { code: "connector_access_denied" });
   assert.equal(requests.length, count);
   state.response = { status: "complete" };
@@ -302,7 +302,7 @@ test("regional connections require re-verification before changing their provide
     await service.connectApiKey(input);
     const config = structuredClone(options.configuration);
     config.integrations.source.settings = { [setting]: alternative };
-    const changed = createConnectionService({ ...options, configuration: config });
+    const changed = createConnectionService({ sideEffects: "live", ...options, configuration: config });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: provider.checkOperation }), { code: "connector_reconnect_required" });
     assert.equal(requests.length, 1);
@@ -313,7 +313,7 @@ test("regional connections require re-verification before changing their provide
     assert.equal((await service.status(input)).status, "reconnect-required");
     config.integrations.source.settings[setting] = "https://attacker.invalid";
     const count = requests.length;
-    assert.throws(() => createConnectionService({ ...options, configuration: config }), { code: "integration_configuration_invalid" });
+    assert.throws(() => createConnectionService({ sideEffects: "live", ...options, configuration: config }), { code: "integration_configuration_invalid" });
     assert.equal(requests.length, count);
   }
 });
@@ -327,7 +327,7 @@ test("Storyblok supports all space regions and requires explicit draft reads wit
   ]) {
     const config = structuredClone(options.configuration);
     config.integrations.source.settings = { region };
-    const regional = createConnectionService({ ...options, configuration: config });
+    const regional = createConnectionService({ sideEffects: "live", ...options, configuration: config });
     state.response = entry.response;
     await regional.connectApiKey(input);
     assert.equal(requests.at(-1).url.host, host);
@@ -369,7 +369,7 @@ test("Storyblok delivers one page with resolved content and keeps private previe
   assert.equal(request.url.pathname, "/v2/cdn/stories/bookings/groom%20%26%20wash");
   assert.deepEqual(Object.fromEntries(request.url.searchParams), { version: "published", cv: "42",
     resolve_relations: "page.author", resolve_links: "url", resolve_assets: "1", token: f.state.key });
-  const restricted = createConnectionService({ ...f.options, authorize: async (owner, request) => request.input?.version === "draft" ? null : owner });
+  const restricted = createConnectionService({ sideEffects: "live", ...f.options, authorize: async (owner, request) => request.input?.version === "draft" ? null : owner });
   const before = f.requests.length;
   await assert.rejects(restricted.invoke({ ...f.input, operation: "stories.get", input: { id: "home", version: "draft" } }), { code: "connector_access_denied" });
   for (const id of ["../private", "a/../private", "a//b", "/home"]) {
@@ -583,7 +583,7 @@ test("Lexware reads accounting resources and creates explicit draft invoices wit
     { ...draft, voucherDate: "2026-02-30T00:00:00Z" }, { ...draft, lineItems: [{ ...draft.lineItems[0], netAmount: -1 }] },
     { ...draft, lineItems: [{ ...draft.lineItems[0], taxRatePercentage: 101 }] }, { ...draft, lineItems: [{ ...draft.lineItems[0], currency: "USD" }] }])
     await assert.rejects(service.invoke({ ...input, operation: "invoices.createDraft", input: invalid }), { code: "connector_input_invalid" });
-  const restricted = createConnectionService({ ...options, authorize: async (owner, request) => request.operation === "invoices.createDraft" ? null : owner });
+  const restricted = createConnectionService({ sideEffects: "live", ...options, authorize: async (owner, request) => request.operation === "invoices.createDraft" ? null : owner });
   await assert.rejects(restricted.invoke({ ...input, operation: "invoices.createDraft", input: draft }), { code: "connector_access_denied" });
   assert.equal(requests.length, before);
   state.response = {};
@@ -779,10 +779,10 @@ test("Contentful uses the selected delivery space and rejects invalid settings b
   } });
   for (const settings of [{}, { spaceId: "../other" }, { spaceId: "space-one", environmentId: "../../other" },
     { spaceId: "space-one", region: "elsewhere" }]) {
-    assert.throws(() => createConnectionService(configured(settings)));
+    assert.throws(() => createConnectionService({ ...configured(settings), sideEffects: "live" }));
   }
   assert.equal(requests.length, 0);
-  const service = createConnectionService(configured({ spaceId: "space-one", environmentId: "preview-2", region: "eu" }));
+  const service = createConnectionService({ ...configured({ spaceId: "space-one", environmentId: "preview-2", region: "eu" }), sideEffects: "live" });
   await service.connectApiKey(input);
   assert.equal(requests[0].url.href, "https://cdn.eu.contentful.com/spaces/space-one/environments/preview-2/entries?limit=1&skip=0");
   assert.equal(requests[0].headers.get("authorization"), "Bearer private-fixture-key");
@@ -863,7 +863,7 @@ test("HubSpot leads become linked deals and advance through a pipeline with app-
   const entry = cases.find(item => item.provider.id === "hubspot");
   const f = await fixture(t, { ...entry, scopes: hubspotProvider.scopes.map(scope => scope.value) });
   const calls = [];
-  const service = createConnectionService({ ...f.options,
+  const service = createConnectionService({ sideEffects: "live", ...f.options,
     authorize: async (owner, request) => request.operation === "deals.update" && request.input.id !== "202" ? null : owner,
     fetchImpl: async (address, init) => {
       const url = new URL(address), body = init.body ? JSON.parse(init.body) : undefined;
@@ -906,7 +906,7 @@ test("HubSpot leads become linked deals and advance through a pipeline with app-
     ["deals.associateContact", { contactId: "101/other", dealId: "202" }]
   ]) await assert.rejects(invoke(operation, input));
   assert.equal(calls.length, before);
-  const limited = createConnectionService({ ...f.options, configuration: { ...f.options.configuration,
+  const limited = createConnectionService({ sideEffects: "live", ...f.options, configuration: { ...f.options.configuration,
     integrations: { source: { ...f.options.configuration.integrations.source, scopes: ["crm.objects.contacts.read"] } } } });
   await assert.rejects(limited.invoke({ ...f.input, operation: "deals.create", input: { properties: { dealname: "Denied", dealstage: "won" } } }), { code: "connector_scope_missing" });
   assert.equal(hubspotProvider.operations["contacts.create"].validateResult({ status: "error" }), false);
@@ -917,7 +917,7 @@ test("incident.io incident recovery covers follow-ups, alerts, schedules and cat
   const f = await fixture(t, cases.find(item => item.provider.id === "incident-io"));
   const calls = [];
   let rejected = false;
-  const service = createConnectionService({ ...f.options,
+  const service = createConnectionService({ sideEffects: "live", ...f.options,
     authorize: async (owner, request) => request.operation === "alerts.resolve" && request.input.id !== "alert-one" ? null : owner,
     fetchImpl: async (address, init) => {
       const url = new URL(address), body = init.body ? JSON.parse(init.body) : undefined;
@@ -1005,7 +1005,7 @@ test("Notion reads content and data sources then creates and updates a note with
   for (const [op, values] of [["pages.get", { id: "../users" }], ["blocks.append", { id, children: [] }],
     ["blocks.append", { id, children: Array(101).fill(children[0]) }], ["pages.update", { id, properties: { x: "x".repeat(65536) } }]])
     await assert.rejects(invoke(op, values), { code: "connector_input_invalid" });
-  const restricted = createConnectionService({ ...options, authorize: async (owner, request) => request.operation === "pages.create" ? null : owner });
+  const restricted = createConnectionService({ sideEffects: "live", ...options, authorize: async (owner, request) => request.operation === "pages.create" ? null : owner });
   await assert.rejects(restricted.invoke({ ...input, operation: "pages.create", input: { parentId: id, parentType: "page_id", properties } }), { code: "connector_access_denied" });
   assert.equal(requests.length, before);
   for (const status of [403, 404, 429, 500]) { state.status = status; const count = requests.length; await assert.rejects(invoke("blocks.append", { id, children })); assert.equal(requests.length, count + 1); }
@@ -1036,7 +1036,7 @@ test("Pipedrive token CRM reads and writes use its configured company and preser
   const count = requests.length;
   for (const [op, values] of [["deals.get", { id: "../other" }], ["leads.create", { title: "No contact" }], ["deals.update", { id: 1 }], ["persons.create", { name: "X", emails: Array(21).fill({ value: "x@y.test" }) }]])
     await assert.rejects(invoke(op, values), { code: "connector_input_invalid" });
-  const denied = createConnectionService({ ...options, authorize: async (owner, request) => request.operation === "deals.create" ? null : owner });
+  const denied = createConnectionService({ sideEffects: "live", ...options, authorize: async (owner, request) => request.operation === "deals.create" ? null : owner });
   await assert.rejects(denied.invoke({ ...input, operation: "deals.create", input: { title: "Denied" } }), { code: "connector_access_denied" });
   assert.equal(requests.length, count);
   for (const status of [403, 429, 500]) { state.status = status; const before = requests.length; await assert.rejects(invoke("deals.create", { title: "Explicit" })); assert.equal(requests.length, before + 1); }
@@ -1072,7 +1072,7 @@ test("Replicate submits, polls and cancels model predictions without losing medi
   const count = requests.length;
   for (const [op, values] of [["predictions.get", { id: "../other" }], ["models.predict", { owner: "fixture", name: "model", input: { prompt: "x".repeat(262145) } }], ["predictions.create", { version: "unversioned", input: {} }]])
     await assert.rejects(invoke(op, values), { code: "connector_input_invalid" });
-  const denied = createConnectionService({ ...options, authorize: async (owner, request) => request.operation === "predictions.cancel" ? null : owner });
+  const denied = createConnectionService({ sideEffects: "live", ...options, authorize: async (owner, request) => request.operation === "predictions.cancel" ? null : owner });
   await assert.rejects(denied.invoke({ ...input, operation: "predictions.cancel", input: { id: "job1" } }), { code: "connector_access_denied" });
   assert.equal(requests.length, count);
   for (const status of [403, 429, 500]) { state.status = status; const before = requests.length; await assert.rejects(invoke("models.predict", { owner: "fixture", name: "model", input: {} })); assert.equal(requests.length, before + 1); }

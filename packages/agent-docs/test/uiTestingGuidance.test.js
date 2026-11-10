@@ -77,6 +77,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "multi-homing.md",
     "pattern-index.md",
     "sanity-checks.md",
+    "side-effects.md",
     "translation.md",
     "typed-features.md",
     "ui-operations.md",

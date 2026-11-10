@@ -44,7 +44,7 @@ async function fixture(t, spec) {
       return Response.json(state.response, { status: state.status, headers: { Link: '<https://other-site.example/next>; rel="next"' } });
     }
   };
-  return { service: createConnectionService(options), options, directory, protection, requests, state };
+  return { service: createConnectionService({ ...options, sideEffects: "live" }), options, directory, protection, requests, state };
 }
 
 for (const spec of cases) {

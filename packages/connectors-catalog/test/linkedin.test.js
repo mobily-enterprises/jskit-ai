@@ -55,7 +55,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ ...options, sideEffects: "live" });
   async function start() {
     const { authorizationUrl } = await service.beginAuthorization(input);
     const url = new URL(authorizationUrl); const redirect = new URL(callback);
@@ -100,7 +100,7 @@ test("LinkedIn uses confidential Web OAuth, validates userinfo and persists only
     const text = await readFile(path.join(directory, name), "utf8");
     for (const secret of ["fixture-client-secret", "fixture-access-1", "unused-identity-token"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ sideEffects: "live", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.invoke({ ...input, operation: "profile.read" }), state.response);
   state.response = { sub: "member-1", email: "member@example.test", email_verified: false };
   assert.deepEqual(await restarted.invoke({ ...input, operation: "profile.read" }), state.response);
@@ -185,7 +185,7 @@ test("LinkedIn sanitizes API failures and handles provider cancellation and time
   state.stall = true;
   const controller = new AbortController(); controller.abort();
   await assert.rejects(service.invoke({ ...input, operation: "profile.read", signal: controller.signal }), { code: "connector_cancelled" });
-  const timeoutService = createConnectionService({ ...options, providers: [{ ...provider, requestTimeoutMs: 20 }] });
+  const timeoutService = createConnectionService({ sideEffects: "live", ...options, providers: [{ ...provider, requestTimeoutMs: 20 }] });
   const keepAlive = setTimeout(() => {}, 1000);
   try { await assert.rejects(timeoutService.invoke({ ...input, operation: "profile.read" }), { code: "connector_provider_timeout" }); }
   finally { clearTimeout(keepAlive); }
@@ -200,9 +200,9 @@ test("LinkedIn respects host policy, registration identity and unavailable manag
   const count = state.calls.length; state.deny = true;
   await assert.rejects(service.invoke({ ...input, operation: "profile.read" })); assert.equal(state.calls.length, count); state.deny = false;
   const changed = structuredClone(configuration); changed.registrations.linkedin.clientId = "other-client";
-  await assert.rejects(createConnectionService({ ...options, configuration: changed }).invoke({ ...input, operation: "profile.read" }), { code: "connector_reconnect_required" });
+  await assert.rejects(createConnectionService({ sideEffects: "live", ...options, configuration: changed }).invoke({ ...input, operation: "profile.read" }), { code: "connector_reconnect_required" });
   changed.registrations.linkedin = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:GATEWAY_KEY", assignmentRef: "shared" };
-  assert.throws(() => createConnectionService({ ...options, configuration: changed }), { code: "integration_configuration_invalid" });
+  assert.throws(() => createConnectionService({ sideEffects: "live", ...options, configuration: changed }), { code: "integration_configuration_invalid" });
   assert.equal(state.calls.length, count);
 });
 
@@ -215,7 +215,7 @@ test("LinkedIn's documented portable JSON validates unchanged", async () => {
 test("LinkedIn publishes text as the connected member and respects host policy without retries", async (t) => {
   const f = await fixture(t); f.configuration.integrations.linkedin.scopes.push("w_member_social");
   f.state.scope += " w_member_social";
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ ...f.options, sideEffects: "live" });
   const auth = new URL((await service.beginAuthorization(input)).authorizationUrl);
   const returned = new URL(callback); returned.searchParams.set("code", "code"); returned.searchParams.set("state", auth.searchParams.get("state"));
   await service.completeAuthorization({ ...input, callbackUrl: returned.href });

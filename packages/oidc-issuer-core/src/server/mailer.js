@@ -1,3 +1,4 @@
+import { logSimulatedSideEffect } from "@jskit-ai/kernel/server/runtime/sideEffects";
 import { escapeHtml } from "./http.js";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
@@ -19,6 +20,8 @@ function composeMessage({ heading, body, actionLabel, actionUrl, footer }) {
  * Sends the hub's emails with the owner's own sender: Resend when
  * RESEND_API_KEY is set, otherwise SMTP_URL. Outside production, with neither
  * set, messages are written to the log so the developer can follow the link.
+ * A test copy (SIDE_EFFECTS is not `live`) sends nothing: it logs each message,
+ * link included, and `send` answers `{ simulated: true }`.
  * @param {object} dependencies
  * @param {import("./types.js").HubConfig["mail"]} dependencies.mail
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
@@ -47,11 +50,26 @@ function createMailer({ mail, logger, isProduction, fetchImpl }) {
     }
   }
 
+  /** @returns {Promise<{ simulated: boolean }>} */
   async function send(message) {
-    if (mail.from && mail.resendApiKey) return sendWithResend(message);
-    if (mail.from && mail.smtpUrl) return sendWithSmtp(message);
-    if (isProduction) throw new Error("The hub has no email sender.");
-    logger.info({ to: message.to, subject: message.subject }, `Accounts hub email (not sent: no sender configured)\n${message.text}`);
+    if (!mail.live) {
+      logSimulatedSideEffect(logger, {
+        kind: "email",
+        summary: `the accounts hub email "${message.subject}" to ${message.to}`,
+        details: { to: message.to, subject: message.subject, text: message.text }
+      });
+      return { simulated: true };
+    }
+    if (mail.from && mail.resendApiKey) {
+      await sendWithResend(message);
+    } else if (mail.from && mail.smtpUrl) {
+      await sendWithSmtp(message);
+    } else if (isProduction) {
+      throw new Error("The hub has no email sender.");
+    } else {
+      logger.info({ to: message.to, subject: message.subject }, `Accounts hub email (not sent: no sender configured)\n${message.text}`);
+    }
+    return { simulated: false };
   }
 
   return Object.freeze({

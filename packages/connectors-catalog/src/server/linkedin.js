@@ -1,6 +1,7 @@
 import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { linkedinDefinition } from "../shared/linkedin.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 async function normalizeTokenResponse(response, { grantType }) {
   let value;
@@ -59,7 +60,7 @@ const linkedinProvider = Object.freeze({
     return { id: response.headers.get("x-restli-id") };
   },
   operations: {
-    "posts.create": { ...publish, scopes: ["w_member_social"] },
+    "posts.create": sideEffect({ ...publish, scopes: ["w_member_social"] }),
     "profile.read": {
       ...jsonOperation("https://api.linkedin.com/v2/userinfo", {}, (value) =>
         typeof value?.sub === "string" && value.sub.length > 0 && value.sub.length <= 1024 &&

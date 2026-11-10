@@ -635,8 +635,9 @@ function registerAdminRoutes(app, hub, support) {
   app.post("/hub/api/admin/setup/test-email", async (request) => {
     const { account } = await requireOwner(request);
     const locale = requestLocale(texts, request);
+    let delivery;
     try {
-      await mailer.send({
+      delivery = await mailer.send({
         to: account.email,
         subject: texts.t(locale, "jskit.accounts.mail.test.subject"),
         ...composeMessage({
@@ -650,6 +651,10 @@ function registerAdminRoutes(app, hub, support) {
     } catch (error) {
       await settings.set("email-test", { ok: false, at: hub.now().toISOString() });
       throw hubError(HUB_ERRORS.testEmailFailed, { reason: error.message });
+    }
+    // A test copy logged the email instead of sending it, which proves nothing about the sender.
+    if (delivery?.simulated) {
+      return { ok: true, simulated: true };
     }
     await settings.set("email-test", { ok: true, at: hub.now().toISOString() });
     return { ok: true };

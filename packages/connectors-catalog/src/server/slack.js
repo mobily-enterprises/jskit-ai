@@ -2,6 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { slackDefinition } from "../shared/slack.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 function checkReply(value) {
   if (value?.ok === true) return value;
@@ -88,13 +89,13 @@ for (const [name, permission] of [["channels.history", "channels:history"], ["gr
 operations["users.info"] = { ...jsonOperation("https://slack.com/api/users.info", {
   user: { type: "string", required: true, validator: (value) => /^[UW][A-Z0-9]+$/u.test(value) || "Use a Slack user ID.", maxLength: 100 }
 }, (value) => value?.ok === true && typeof value.user?.id === "string" && typeof value.user?.name === "string"), scopes: ["users:read"] };
-operations["messages.send"] = { ...jsonOperation("https://slack.com/api/chat.postMessage", {
+operations["messages.send"] = sideEffect({ ...jsonOperation("https://slack.com/api/chat.postMessage", {
   channel, text: { type: "string", required: true, minLength: 1, maxLength: 4000, noTrim: true },
   thread_ts: timestamp, unfurl_links: { type: "boolean", defaultTo: false },
   unfurl_media: { type: "boolean", defaultTo: false }
 }, (value) => value?.ok === true && typeof value.channel === "string" &&
   typeof value.ts === "string" && /^[0-9]+\.[0-9]+$/u.test(value.ts) &&
-  value.message !== null && typeof value.message === "object", "POST"), scopes: ["chat:write"] };
+  value.message !== null && typeof value.message === "object", "POST"), scopes: ["chat:write"] });
 
 const slackProvider = Object.freeze({
   ...slackDefinition,

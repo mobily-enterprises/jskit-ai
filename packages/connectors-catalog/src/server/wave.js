@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { waveDefinition } from "../shared/wave.js";
 import { graphqlOperation } from "./graphqlOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 const endpoint = "https://gql.waveapps.com/graphql/public";
 const identifier = (value) => typeof value === "string" && value.length > 0 && value.length <= 2048 && !/[\s\p{Cc}]/u.test(value);
@@ -272,10 +273,10 @@ const waveProvider = Object.freeze({
     "invoices.update": documentMutation("Invoice", "Patch", { ...invoiceFields, customerId: { ...businessId, required: false },
       items: { ...invoiceFields.items, required: false }, id: businessId }, "invoice:write"),
     "invoices.approve": documentMutation("Invoice", "Approve", { invoiceId: businessId }, "invoice:write"),
-    "invoices.send": documentMutation("Invoice", "Send", {
+    "invoices.send": sideEffect(documentMutation("Invoice", "Send", {
       invoiceId: businessId,
       ...sendFields
-    }, "invoice:send"),
+    }, "invoice:send")),
     "estimates.create": documentMutation("Estimate", "Create", estimateFields, "estimate:write"),
     "estimates.update": documentMutation("Estimate", "Patch", {
       ...estimateFields, id: businessId,
@@ -285,7 +286,7 @@ const waveProvider = Object.freeze({
       exchangeRate: { ...decimalInput, required: true }, items: { ...estimateFields.items, required: false }
     }, "estimate:write"),
     "estimates.approve": documentMutation("Estimate", "Approve", { estimateId: businessId }, "estimate:write"),
-    "estimates.send": documentMutation("Estimate", "Send", { estimateId: businessId, ...sendFields }, "estimate:send"),
+    "estimates.send": sideEffect(documentMutation("Estimate", "Send", { estimateId: businessId, ...sendFields }, "estimate:send")),
     "estimates.list": businessPage("estimates", estimateSelection, ["estimate:read", "estimate:*"], validEstimate, ", sort: CREATED_AT_DESC"),
     "estimates.get": {
       ...graphqlOperation(endpoint,

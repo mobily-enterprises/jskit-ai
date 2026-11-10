@@ -22,7 +22,7 @@ Local functions
 
 ### `src/server/connectionService.js`
 Exports
-- `createConnectionService({ configuration, providers, resolveReference, store, authorize, executionMode = "application", fetchImpl = globalThis.fetch, now = Date.now })`
+- `createConnectionService({ configuration, providers, resolveReference, store, authorize, executionMode = "application", fetchImpl = globalThis.fetch, now = Date.now, sideEffects = "simulate", logger = console })`
 Local functions
 - `publicConnection(connection)`
 - `connectionMatches(connection, integration, providerId, registration)`
@@ -92,8 +92,9 @@ Exports
 
 ### `src/server/providerRequests.js`
 Exports
+- `SIMULATED_RESULT`
 - `connectionProvider(definition, integration)`
-- `createProviderRequests({ fetchImpl, now, resolveReference })`
+- `createProviderRequests({ fetchImpl, now, resolveReference, sideEffects = "simulate", logger = console })`
 - `operationRequest(operation, input, settings, providerData)`
 - `requireOperationScope(operation, scopes, message, { messageCode })`
 - `tokenResponse(provider, response, details)`

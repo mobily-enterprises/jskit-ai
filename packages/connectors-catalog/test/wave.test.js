@@ -68,7 +68,7 @@ async function fixture(t, requestedScopes = scopes) {
       return Response.json(state.responses?.shift() || state.response || value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ ...options, sideEffects: "live" });
   async function start() {
     const result = await service.beginAuthorization(input);
     const url = new URL(result.authorizationUrl);
@@ -101,7 +101,7 @@ test("Wave code consent verifies the user and persists encrypted state for CLI r
     const text = await readFile(path.join(directory, file), "utf8");
     for (const secret of ["fixture-wave-secret", "fixture-wave-code", "fixture-access-1", "fixture-refresh-1"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService(options);
+  const restarted = createConnectionService({ ...options, sideEffects: "live" });
   assert.deepEqual(await restarted.status(input), { ...connected, callbackUrl: callback });
   assert.deepEqual(await restarted.invoke({ ...input, operation: "user.read" }), user);
 });
@@ -173,7 +173,7 @@ test("Wave serializes refresh with the original callback and preserves rotated g
   await assert.rejects(service.invoke({ ...input, operation: "user.read" }), { code: "connector_rate_limited" });
   assert.equal(state.tokenCount, 3);
   state.status = 200;
-  const restarted = createConnectionService(options);
+  const restarted = createConnectionService({ ...options, sideEffects: "live" });
   await restarted.invoke({ ...input, operation: "user.read" });
   assert.equal(state.tokenCount, 3);
   assert.deepEqual((await restarted.status(input)).grantedScopes, ["user:read", "business:read"]);
@@ -188,12 +188,12 @@ test("Wave rejects cross-owner access, changed callbacks and denied host policy 
   }
   bindings["env:WAVE_CALLBACK"] = "https://new.example.test/callback";
   assert.equal((await service.status(input)).status, "reconnect-required");
-  await assert.rejects(createConnectionService(options).invoke({ ...input, operation: "user.read" }), { code: "connector_reconnect_required" });
+  await assert.rejects(createConnectionService({ ...options, sideEffects: "live" }).invoke({ ...input, operation: "user.read" }), { code: "connector_reconnect_required" });
   delete bindings["env:WAVE_CALLBACK"];
   assert.equal((await service.status(input)).status, "reconnect-required");
   bindings["env:WAVE_CALLBACK"] = callback;
   assert.equal((await service.status(input)).status, "connected");
-  const denied = createConnectionService({ ...options, authorize: async () => null });
+  const denied = createConnectionService({ sideEffects: "live", ...options, authorize: async () => null });
   await assert.rejects(denied.invoke({ ...input, operation: "customers.list", input: { businessId } }), { code: "connector_access_denied" });
   assert.equal(requests.length, count);
 });

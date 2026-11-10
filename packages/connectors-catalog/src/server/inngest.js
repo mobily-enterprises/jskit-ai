@@ -3,6 +3,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { inngestDefinition } from "../shared/inngest.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 const api = "https://api.inngest.com/v2";
 const eventEndpoint = "https://inn.gs/e/";
@@ -65,7 +66,7 @@ const inngestProvider = Object.freeze({
       },
       validateResult: validPage
     },
-    "events.send": {
+    "events.send": sideEffect({
       scopes: [],
       request(input, settings) {
         const event = validateSchemaPayload({ schema: eventSchema, mode: "replace" }, input, { statusCode: 422 });
@@ -79,7 +80,7 @@ const inngestProvider = Object.freeze({
         return result?.status === 200 && !result.error && Array.isArray(result.ids) && result.ids.length === 1 &&
           result.ids.every((id) => typeof id === "string" && id.length > 0);
       }
-    }
+    })
   }
 });
 

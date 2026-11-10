@@ -170,6 +170,17 @@ Exports
 Local functions
 - `normalizePlacementRenderers(value = {})`
 
+### `support/sideEffects.js`
+Exports
+- `SIDE_EFFECTS_ENV_KEY`
+- `SIDE_EFFECTS_LIVE`
+- `SIDE_EFFECTS_META_NAME`
+- `SIDE_EFFECTS_SIMULATE`
+- `pageSideEffectsMode(documentObject = globalThis.document)`
+- `resolveSideEffectsMode(env)`
+- `sideEffectsAreLive(env)`
+- `withSideEffectsMeta(html, mode)`
+
 ### `support/silentLogger.js`
 Exports
 - `silentLogger`

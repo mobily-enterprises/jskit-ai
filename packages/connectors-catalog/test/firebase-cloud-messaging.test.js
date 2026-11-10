@@ -46,7 +46,7 @@ async function fixture(t) {
         : Response.json(state.response ?? { name: "projects/target-project/messages/fixture-receipt" }, { status: state.status });
     }
   };
-  return { state, options, directory, service: createConnectionService(options) };
+  return { state, options, directory, service: createConnectionService({ ...options, sideEffects: "live" }) };
 }
 
 test("Firebase CLI validates both client modes, public fields and indirect credentials without accepting mixed setup", async (t) => {
@@ -168,7 +168,7 @@ test("Firebase cannot claim a connection for denied sends or a malformed or wron
 
 test("Firebase grants survive file restart, renew with rotated credentials and retain owner and project boundaries", async (t) => {
   const f = await fixture(t); await f.service.connectServiceAccount(input);
-  const restarted = createConnectionService(f.options); await restarted.invoke({ ...input, operation: "messages.validate", input: { message } });
+  const restarted = createConnectionService({ ...f.options, sideEffects: "live" }); await restarted.invoke({ ...input, operation: "messages.validate", input: { message } });
   assert.equal(f.state.grants.length, 1); f.state.now += 3_600_000;
   await restarted.invoke({ ...input, operation: "messages.validate", input: { message } }); assert.equal(f.state.grants.length, 2);
   f.state.credential = JSON.stringify({ ...account, private_key_id: "b".repeat(40) });
@@ -177,7 +177,7 @@ test("Firebase grants survive file restart, renew with rotated credentials and r
     await assert.rejects(restarted.invoke({ ...input, context: owner, operation: "messages.send", input: { message } }), { code: "connector_reconnect_required" });
   }
   const configuration = structuredClone(f.options.configuration); configuration.integrations.push.settings.projectId = "other-project";
-  const changed = createConnectionService({ ...f.options, configuration }); assert.equal((await changed.status(input)).status, "reconnect-required");
+  const changed = createConnectionService({ sideEffects: "live", ...f.options, configuration }); assert.equal((await changed.status(input)).status, "reconnect-required");
   await assert.rejects(changed.invoke({ ...input, operation: "messages.send", input: { message } }), { code: "connector_reconnect_required" });
   await restarted.disconnect(input); assert.equal((await f.service.status(input)).status, "disconnected");
 });
@@ -186,7 +186,7 @@ test("sending requires application authorization over the exact audience and pay
   const f = await fixture(t); await f.service.connectServiceAccount(input);
   let release; const paused = new Promise((resolve) => { release = resolve; }); let started;
   const authorizing = new Promise((resolve) => { started = resolve; });
-  const service = createConnectionService({ ...f.options, authorize: async (owner, operation) => {
+  const service = createConnectionService({ sideEffects: "live", ...f.options, authorize: async (owner, operation) => {
     if (operation.operation !== "messages.send") return owner;
     if (operation.input.message.fid !== message.fid) return null;
     started(); await paused; operation.input.message.fid = "policy-mutation"; return owner;

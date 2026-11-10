@@ -3,6 +3,7 @@ import { createSchema } from "json-rest-schema";
 import { brevoDefinition } from "../shared/tokens.js";
 import { jsonOperation, validatedOperation, withQuery } from "./jsonOperation.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { sideEffect } from "./sideEffect.js";
 
 const text = { type: "string", minLength: 1, maxLength: 1000 };
 const email = { ...text, maxLength: 320, pattern: "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$" };
@@ -40,18 +41,18 @@ const brevoProvider = Object.freeze({
   apiKey: { headers: (key) => ({ "api-key": key }) },
   checkOperation: "contacts.list",
   operations: {
-    "email.send": operation("POST", "smtp/email", { sender: { ...mailbox, required: true },
+    "email.send": sideEffect(operation("POST", "smtp/email", { sender: { ...mailbox, required: true },
       to: { type: "array", required: true, items: mailbox, validator: value => value.length > 0 && value.length <= 50 || "Supply 1–50 recipients." },
       subject: text, htmlContent: { ...text, maxLength: 1000000 }, textContent: { ...text, maxLength: 1000000 },
       templateId: { ...id, required: false }, params: bag, replyTo: mailbox
-    }, result => typeof result?.messageId === "string", content),
-    "sms.send": operation("POST", "transactionalSMS/sms", { sender: { ...text, required: true, maxLength: 15,
+    }, result => typeof result?.messageId === "string", content)),
+    "sms.send": sideEffect(operation("POST", "transactionalSMS/sms", { sender: { ...text, required: true, maxLength: 15,
       validator: value => /^[A-Za-z0-9]{1,11}$/.test(value) || /^[0-9]{12,15}$/.test(value) || "Use 1–11 letters/digits or 12–15 digits for the SMS sender." },
       recipient: { type: "string", required: true, pattern: "^\\+?[0-9]{6,15}$" }, type: { type: "string", required: true, enum: ["transactional", "marketing"] },
       content: { ...text, maxLength: 10000 }, templateId: { ...id, required: false }, params: bag, unicodeEnabled: bool, organisationPrefix: text, tag: text
     }, result => Number.isInteger(result?.messageId) && typeof result.reference === "string", value => {
       if ((value.content === undefined) === (value.templateId === undefined)) throw new ConnectorError("connector_input_invalid", "Choose SMS content or a template, not both.", { statusCode: 422, messageCode: "connectors.brevo.smsContentOrTemplate" }); return value;
-    }),
+    })),
     "contacts.get": operation("GET", "contacts/{resource}", { resource: { ...email, required: true } }, record),
     "contacts.create": operation("POST", "contacts", { email: { ...email, required: true }, ...contact,
       updateEnabled: { ...bool, defaultTo: false } }, result => empty(result) || record(result)),
@@ -74,17 +75,17 @@ const brevoProvider = Object.freeze({
         validator: value => value.length > 0 && value.length <= 100 || "Choose 1–100 recipient lists." }, exclusionListIds: ids }) },
       replyTo: email, previewText: text, tag: text
     }, record, content),
-    "campaigns.sendTest": operation("POST", "emailCampaigns/{resource}/sendTest", { resource: id, emailTo: { ...emails, required: true } }, empty),
-    "campaigns.sendNow": operation("POST", "emailCampaigns/{resource}/sendNow", { resource: id }, empty),
+    "campaigns.sendTest": sideEffect(operation("POST", "emailCampaigns/{resource}/sendTest", { resource: id, emailTo: { ...emails, required: true } }, empty)),
+    "campaigns.sendNow": sideEffect(operation("POST", "emailCampaigns/{resource}/sendNow", { resource: id }, empty)),
     "email.events": operation("GET", "smtp/statistics/events", { ...page, messageId: text, email, days: { type: "integer", min: 1, max: 90 },
       event: { type: "string", enum: ["blocked", "bounces", "deferred", "delivered", "hardBounces", "invalid", "opened", "requests", "softBounces", "spam", "unsubscribed", "clicks", "error", "loadedByProxy"] }
     }, result => Array.isArray(result?.events)),
     "sms.events": operation("GET", "transactionalSMS/statistics/events", { ...page, phoneNumber: text, days: { type: "integer", min: 1, max: 90 } }, result => Array.isArray(result?.events)),
-    "events.create": operation("POST", "events", { event_name: { type: "string", required: true, maxLength: 255, pattern: "^[A-Za-z0-9_-]+$" },
+    "events.create": sideEffect(operation("POST", "events", { event_name: { type: "string", required: true, maxLength: 255, pattern: "^[A-Za-z0-9_-]+$" },
       identifiers: { type: "object", required: true, schema: createSchema({ email_id: { ...email, required: true } }) },
       event_properties: { ...bag, validator: value => Buffer.byteLength(JSON.stringify(value)) <= 50000 || "Event properties exceed 50KB." }, contact_properties: bag,
       event_date: { ...text, validator: value => Number.isFinite(Date.parse(value)) && /^\d{4}-\d{2}-\d{2}T/.test(value) || "Use an ISO timestamp." }
-    }, empty),
+    }, empty)),
     "contacts.list": jsonOperation("https://api.brevo.com/v3/contacts", {
       limit: { type: "integer", min: 1, max: 1000, defaultTo: 50 },
       offset: { type: "integer", min: 0, defaultTo: 0 },

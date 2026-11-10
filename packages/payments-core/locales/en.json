@@ -17,7 +17,8 @@
       "payment_feature_required": "Your subscription does not include this feature.",
       "payment_insufficient_credits": "Not enough credits for this action.",
       "payment_debit_missing": "No debit exists for this reference.",
-      "payment_customer_unbound": "Bind this provider customer before processing its events."
+      "payment_customer_unbound": "Bind this provider customer before processing its events.",
+      "payment_test_copy": "This test copy takes no real payments. Use the sandbox payment environment, or set SIDE_EFFECTS=live to take real payments."
     },
     "payments": {
       "scope": {

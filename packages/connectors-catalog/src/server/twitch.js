@@ -3,6 +3,7 @@ import { twitchDefinition } from "../shared/twitch.js";
 import { jsonOperation } from "./jsonOperation.js";
 import { createSchema } from "json-rest-schema";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { sideEffect } from "./sideEffect.js";
 
 const validationUrl = "https://id.twitch.tv/oauth2/validate";
 const userId = (value) => typeof value === "string" && /^[1-9]\d*$/u.test(value);
@@ -330,10 +331,10 @@ const twitchProvider = Object.freeze({
     }, ["channel:manage:predictions"], interactionResult, "PATCH", values => {
       if ((values.status === "RESOLVED") !== Boolean(values.winning_outcome_id)) throw new ConnectorError("connector_input_invalid", "Supply a winning outcome only when resolving the prediction.", { statusCode: 422, messageCode: "connectors.twitch.supplyWinningOutcomeResolvingPrediction" });
     }),
-    "chat.send": helixOperation("chat/messages", { broadcaster_id: { ...idField, required: true },
+    "chat.send": sideEffect(helixOperation("chat/messages", { broadcaster_id: { ...idField, required: true },
       message: { type: "string", required: true, noTrim: true, minLength: 1, maxLength: 500 }, reply_parent_message_id: { ...opaqueId, required: false }
     }, ["user:write:chat"], value => Array.isArray(value?.data) && value.data.length === 1 &&
-      typeof value.data[0]?.message_id === "string" && typeof value.data[0].is_sent === "boolean", "POST"),
+      typeof value.data[0]?.message_id === "string" && typeof value.data[0].is_sent === "boolean", "POST")),
     "streams.list": jsonOperation("https://api.twitch.tv/helix/streams", {
       ...pageFields, user_id: idField, game_id: idField,
       user_login: { type: "string", minLength: 1, maxLength: 25, pattern: "^[A-Za-z0-9_]+$" },

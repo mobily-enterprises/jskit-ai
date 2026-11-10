@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { isProductionEnv } from "@jskit-ai/kernel/server/runtime/runtimeMode";
+import { sideEffectsAreLive } from "@jskit-ai/kernel/shared/support/sideEffects";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const MIN_SECRET_BYTES = 32;
@@ -112,7 +113,9 @@ function resolveMail(env, { isProduction }) {
   return Object.freeze({
     from,
     resendApiKey,
-    smtpUrl
+    smtpUrl,
+    // A test copy (SIDE_EFFECTS is not live) logs each email instead of sending it, even with a sender configured.
+    live: sideEffectsAreLive(env)
   });
 }
 

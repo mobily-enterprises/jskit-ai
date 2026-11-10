@@ -125,12 +125,34 @@ test("a build whose page would put Vuetify's layers out of order fails", async (
 test("development pages and missing builds have no build id", async (t) => {
   const plugin = createJskitClientBootstrapPlugin();
   const html = "<html><head></head><body></body></html>";
-  assert.deepEqual(plugin.transformIndexHtml.handler(html, { server: {} }).map(({ tag }) => tag), ["style"], "only the layer order");
+  const served = plugin.transformIndexHtml.handler(html, { server: {} });
+  assert.deepEqual(served.map(({ tag }) => tag), ["style", "meta"], "the layer order and the side-effects setting");
+  assert.equal(served.some(({ attrs }) => attrs?.name === "jskit-client-build"), false, "no build id");
 
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-client-build-id-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   assert.equal(await readServedClientBuildId({ appRoot: root }), "");
   await assert.rejects(readServedClientBuildId({}), /requires appRoot/u);
+});
+
+test("a development page names the development server's SIDE_EFFECTS, simulating unless it is exactly live", (t) => {
+  const plugin = createJskitClientBootstrapPlugin();
+  const saved = process.env.SIDE_EFFECTS;
+  t.after(() => {
+    if (saved === undefined) {
+      delete process.env.SIDE_EFFECTS;
+    } else {
+      process.env.SIDE_EFFECTS = saved;
+    }
+  });
+  const sideEffects = () => plugin.transformIndexHtml.handler("<html><head></head></html>", { server: {} })
+    .find(({ attrs }) => attrs?.name === "jskit-side-effects")?.attrs.content;
+  delete process.env.SIDE_EFFECTS;
+  assert.equal(sideEffects(), "simulate", "unset simulates");
+  process.env.SIDE_EFFECTS = "LIVE";
+  assert.equal(sideEffects(), "simulate", "only exactly live is live");
+  process.env.SIDE_EFFECTS = "live";
+  assert.equal(sideEffects(), "live");
 });
 
 test("a page reads the build it loaded from its own document", () => {

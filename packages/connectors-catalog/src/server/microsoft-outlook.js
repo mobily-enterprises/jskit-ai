@@ -4,6 +4,7 @@ import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/s
 import { microsoftOutlookDefinition } from "../shared/microsoft.js";
 import { hasStringId } from "./connectorValues.js";
 import { graphRead, microsoftProvider, pageSize } from "./microsoft.js";
+import { sideEffect } from "./sideEffect.js";
 
 const id = { type: "string", required: true, minLength: 1, maxLength: 2048,
   validator: value => /^[A-Za-z0-9_+=-]+$/u.test(value) || "Use the returned Outlook resource ID." };
@@ -24,16 +25,16 @@ const base = microsoftProvider(microsoftOutlookDefinition, "common", "folders.li
   "attachments.get": operation(["Mail.Read"], { messageId: id, attachmentId: id }, ({ messageId, attachmentId }) => ({ method: "GET", url: url(`/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(attachmentId)}`) }), value => hasStringId(value) && value["@odata.type"] === "#microsoft.graph.fileAttachment" && typeof value.contentBytes === "string" && value.contentBytes.length <= 6666668),
   "messages.setRead": operation(["Mail.ReadWrite"], { messageId: id, isRead: { type: "boolean", required: true } }, ({ messageId, isRead }) => ({ method: "PATCH", url: url(`/messages/${encodeURIComponent(messageId)}`), body: { isRead } })),
   "messages.move": operation(["Mail.ReadWrite"], { messageId: id, destinationId: id }, ({ messageId, destinationId }) => ({ method: "POST", url: url(`/messages/${encodeURIComponent(messageId)}/move`), body: { destinationId } })),
-  "messages.send": operation(["Mail.Send"], {
+  "messages.send": sideEffect(operation(["Mail.Send"], {
     subject: { ...text, maxLength: 998 }, text,
     to: { type: "array", required: true, validator: value => value.length > 0 && value.length <= 20 && value.every(address => typeof address === "string" && address.length <= 320 && /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/u.test(address)) || "Supply 1–20 recipient email addresses." }
-  }, ({ subject, text, to }) => ({ method: "POST", url: url("/sendMail"), body: { message: { subject, body: { contentType: "Text", content: text }, toRecipients: to.map(address => ({ emailAddress: { address } })) }, saveToSentItems: true } }), value => value?.accepted === true),
+  }, ({ subject, text, to }) => ({ method: "POST", url: url("/sendMail"), body: { message: { subject, body: { contentType: "Text", content: text }, toRecipients: to.map(address => ({ emailAddress: { address } })) }, saveToSentItems: true } }), value => value?.accepted === true)),
   "calendars.list": { ...graphRead("Calendars.Read", {}, () => ({ pathname: "/me/calendars" })), scopes: ["Calendars.Read", "Calendars.ReadWrite"] },
   "events.list": { ...graphRead("Calendars.Read", { calendarId: id, pageSize }, ({ calendarId, pageSize }) => ({ pathname: `/me/calendars/${encodeURIComponent(calendarId)}/events`, query: { $top: pageSize } })), scopes: ["Calendars.Read", "Calendars.ReadWrite"] },
-  "events.create": operation(["Calendars.ReadWrite"], { calendarId: id, subject: { ...text, maxLength: 255 }, start: instant, end: instant }, ({ calendarId, subject, start, end }) => {
+  "events.create": sideEffect(operation(["Calendars.ReadWrite"], { calendarId: id, subject: { ...text, maxLength: 255 }, start: instant, end: instant }, ({ calendarId, subject, start, end }) => {
     if (Date.parse(end) <= Date.parse(start)) throw new ConnectorError("connector_input_invalid", "End must follow start.", { statusCode: 422, messageCode: "connectors.microsoftOutlook.endMustFollowStart" });
     return { method: "POST", url: url(`/calendars/${encodeURIComponent(calendarId)}/events`), body: { subject, start: { dateTime: start.slice(0, -1), timeZone: "UTC" }, end: { dateTime: end.slice(0, -1), timeZone: "UTC" } } };
-  }),
+  })),
   "folders.list": graphRead("Mail.Read", {
     pageSize, includeHiddenFolders: { type: "boolean", defaultTo: false }
   }, (params) => ({ pathname: "/me/mailFolders", query: {

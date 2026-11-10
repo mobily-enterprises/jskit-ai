@@ -59,7 +59,7 @@ async function fixture(t, actor = "user", granted = scopes) {
       return Response.json(url.pathname === "/api/auth.test" ? { ok: true, team_id: "T123", user_id: "U123" } : state.page, { status: state.apiStatus });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ ...options, sideEffects: "live" });
   async function start() {
     const { authorizationUrl } = await service.beginAuthorization(input);
     const url = new URL(authorizationUrl);
@@ -91,7 +91,7 @@ for (const actor of ["user", "bot"]) {
     assert(body.get("code_verifier"));
     assert.equal(requests[1].url.searchParams.get("types"), "public_channel");
     for (const filename of await readdir(directory)) assert(!(await readFile(path.join(directory, filename), "utf8")).includes("secret-"));
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ sideEffects: "live", ...options, store: createFileConnectionStore({ directory, protection }) });
     assert.deepEqual(await restarted.status(input), { ...connected, callbackUrl: callback });
     for (const [operation, type] of [["channels.list", "public_channel"], ["groups.list", "private_channel"], ["directMessages.list", "im"], ["groupMessages.list", "mpim"]]) {
       assert.deepEqual(await restarted.invoke({ ...input, operation, input: { limit: 5, cursor: "next +&/=", exclude_archived: true } }), page);
@@ -111,7 +111,7 @@ for (const actor of ["user", "bot"]) {
     const { service, options, state, connect, requests } = await fixture(t, actor);
     await connect();
     state.time += 40_000;
-    const restarted = createConnectionService(options);
+    const restarted = createConnectionService({ ...options, sideEffects: "live" });
     await Promise.all([service.invoke({ ...input, operation: "channels.list" }), restarted.invoke({ ...input, operation: "groups.list" })]);
     assert.equal(state.tokenCount, 2);
     state.time += 40_000;
@@ -177,7 +177,7 @@ test("Slack changing actor invalidates pending attempts and connections, and can
   const next = await start();
   const configuration = structuredClone(options.configuration);
   configuration.integrations.slack.settings.actor = "bot";
-  const changed = createConnectionService({ ...options, configuration });
+  const changed = createConnectionService({ sideEffects: "live", ...options, configuration });
   const before = requests.length;
   await assert.rejects(changed.completeAuthorization({ ...input, callbackUrl: next.callbackUrl }), { code: "connector_attempt_invalid" });
   await assert.rejects(changed.invoke({ ...input, operation: "channels.list" }), { code: "connector_reconnect_required" });
@@ -247,7 +247,7 @@ test("Slack API throttling does not replay and revocation persists reconnect sta
   state.apiStatus = 200;
   state.page = { ok: false, error: "token_revoked", detail: "secret-client" };
   await assert.rejects(service.invoke({ ...input, operation: "channels.list" }), { code: "connector_reconnect_required" });
-  const restarted = createConnectionService(options);
+  const restarted = createConnectionService({ ...options, sideEffects: "live" });
   assert.equal((await restarted.status(input)).status, "reconnect-required");
   before = requests.length;
   await assert.rejects(restarted.invoke({ ...input, operation: "channels.list" }), { code: "connector_reconnect_required" });

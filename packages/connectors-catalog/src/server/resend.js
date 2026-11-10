@@ -2,6 +2,7 @@ import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { resendDefinition } from "../shared/resend.js";
 import { validatedOperation, withQuery } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 const pagination = createSchema({
   limit: { type: "integer", min: 1, max: 100, defaultTo: 20 },
@@ -63,9 +64,9 @@ const resendProvider = Object.freeze({
     "broadcasts.get": marketingOperation({ id: resourceId }, "GET", ({ id }) => `broadcasts/${id}`),
     "broadcasts.list": marketingOperation(listFields, "GET", () => "broadcasts", listResult),
     "broadcasts.update": marketingOperation({ id: resourceId, ...broadcastFields }, "PATCH", ({ id }) => `broadcasts/${id}`),
-    "broadcasts.send": marketingOperation({ id: resourceId }, "POST", ({ id }) => `broadcasts/${id}/send`),
+    "broadcasts.send": sideEffect(marketingOperation({ id: resourceId }, "POST", ({ id }) => `broadcasts/${id}/send`)),
     "domains.get": marketingOperation({ id: resourceId }, "GET", ({ id }) => `domains/${id}`),
-    "emails.send": {
+    "emails.send": sideEffect({
       scopes: [],
       request(input) {
         const { idempotencyKey, ...body } = validateSchemaPayload({ schema: email, mode: "replace" }, input, { statusCode: 422 });
@@ -73,7 +74,7 @@ const resendProvider = Object.freeze({
           headers: { "Idempotency-Key": idempotencyKey }, body };
       },
       validateResult: (result) => typeof result?.id === "string" && result.id.length > 0
-    },
+    }),
     "domains.list": {
       scopes: [],
       request(input) {

@@ -61,6 +61,7 @@ Exports
 - `CONFIRMATION_TOKEN_TTL_SECONDS`
 - `createLocalEmailConfirmation({ backend, config, confirmationSender, firstAccountSetup, invitationContextResolver, passwords, profileProjector, sessions })`
 - `createLoggedConfirmationSender(logger)`
+- `createSimulatedConfirmationSender(logger)`
 Local functions
 - `emailTakenError()`
 - `confirmationInvalidError()`
@@ -154,6 +155,7 @@ Exports
 Exports
 - `createLocalPasswordFlows({ backend, config, passwords, profileProjector, recoverySender, sessions })`
 - `createLoggedRecoverySender(logger)`
+- `createSimulatedRecoverySender(logger)`
 
 ### `src/server/lib/passwords.js`
 Exports

@@ -4,6 +4,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { serializeNativeJson, requestPath, sameRecord, cursor, querySchema, contactIdField, nativeJsonObjectField } from "./wixValues.js";
 import { isUuid } from "../shared/uuid.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { sideEffect } from "./sideEffect.js";
 
 // Wix Bookings operations: bookings, services, availability, staff, categories and service forms.
 
@@ -228,7 +229,7 @@ function bookingConfirmationOperation(action) {
   };
 }
 const wixBookingOperations = {
-  "bookings.reschedule": {
+  "bookings.reschedule": sideEffect({
     scopes: [],
     request(input) {
       const { bookingId, revision, slot, notifyParticipants, message } = validateSchemaPayload({ schema: bookingRescheduleSchema, mode: "replace" }, input, { statusCode: 422 });
@@ -249,10 +250,10 @@ const wixBookingOperations = {
     },
     validateResult: (value, request) => isUuid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
       BigInt(value.booking.revision) <= 9223372036854775807n && typeof value.booking.status === "string" && value.booking.status.length > 0
-  },
-  "bookings.confirm": bookingConfirmationOperation("confirm"),
-  "bookings.decline": bookingConfirmationOperation("decline"),
-  "bookings.confirmOrDecline": bookingConfirmationOperation("confirmOrDecline"),
+  }),
+  "bookings.confirm": sideEffect(bookingConfirmationOperation("confirm")),
+  "bookings.decline": sideEffect(bookingConfirmationOperation("decline")),
+  "bookings.confirmOrDecline": sideEffect(bookingConfirmationOperation("confirmOrDecline")),
   "bookingServices.listAddOnGroups": {
     scopes: [],
     request(input) {
@@ -355,7 +356,7 @@ const wixBookingOperations = {
         typeof field.type === "string" && field.type.length > 0 && (field.label === undefined || typeof field.label === "string" && field.label.length <= 350) &&
         (field.deleted === undefined || typeof field.deleted === "boolean") && (field.options === undefined || Array.isArray(field.options) && field.options.length <= 400))
   },
-  "bookings.create": {
+  "bookings.create": sideEffect({
     scopes: [],
     request(input) {
       const value = validateSchemaPayload({ schema: bookingCreateSchema, mode: "replace" }, input, { statusCode: 422 });
@@ -381,7 +382,7 @@ const wixBookingOperations = {
     },
     validateResult: value => isUuid(value?.booking?.id) && typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) &&
       BigInt(value.booking.revision) <= 9223372036854775807n && typeof value.booking.status === "string" && value.booking.status.length > 0
-  },
+  }),
   "availability.list": availabilityOperation("list"),
   "availability.get": availabilityOperation("get"),
   "bookings.list": {
@@ -402,7 +403,7 @@ const wixBookingOperations = {
       (!request.body.query.filter?.id || sameRecord(value.extendedBookings.length <= 1 && value.extendedBookings.every(record => record.booking.id === request.body.query.filter.id),
         "Wix returned an unexpected booking for the requested ID.", { messageCode: "connectors.wix.returnedUnexpectedBookingRequestedId" }))
   },
-  "bookings.cancel": {
+  "bookings.cancel": sideEffect({
     scopes: [],
     request(input) {
       const { bookingId, revision, notifyParticipants, message, waiveCharges } = validateSchemaPayload({ schema: bookingCancelSchema, mode: "replace" }, input, { statusCode: 422 });
@@ -413,7 +414,7 @@ const wixBookingOperations = {
     },
     validateResult: (value, request) => isUuid(value?.booking?.id) && sameRecord(value.booking.id === requestPath(request, -2), "Wix returned a different booking. Check the operation outcome before retrying.", { messageCode: "connectors.wix.returnedDifferentBookingCheckOperation" }) && value.booking.status === "CANCELED" &&
       typeof value.booking.revision === "string" && /^\d{1,19}$/u.test(value.booking.revision) && BigInt(value.booking.revision) <= 9223372036854775807n
-  },
+  }),
   "bookingServices.list": {
     scopes: [],
     request(input) {

@@ -1,6 +1,7 @@
 import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { gmailDefinition } from "../shared/google.js";
 import { googleOperation, googleRead, googleProvider, documentId, pageToken } from "./google.js";
+import { sideEffect } from "./sideEffect.js";
 const origin = "https://gmail.googleapis.com";
 const read = ["gmail.readonly", "gmail.modify", "gmail.metadata", "https://mail.google.com/"];
 const contentScopes = ["gmail.readonly", "gmail.modify", "https://mail.google.com/"];
@@ -23,7 +24,7 @@ const gmailProvider = Object.freeze({ ...googleProvider(gmailDefinition, origin,
   "messages.read": googleRead(contentScopes, { id: documentId, format: { type: "string", enum: ["full", "raw"], defaultTo: "full" } }, ({ id, format }) => ({ url: `${origin}/gmail/v1/users/me/messages/${encodeURIComponent(id)}`, query: { format } }), messageResult),
   "messages.search": googleRead(contentScopes, { ...listFields, q: { type: "string", required: true, minLength: 1, maxLength: 4096 } }, query => ({ url: `${origin}/gmail/v1/users/me/messages`, query }), value => Number.isInteger(value?.resultSizeEstimate) && (value.messages === undefined || Array.isArray(value.messages))),
   "attachments.get": googleRead(contentScopes, { messageId: documentId, id: documentId }, ({ messageId, id }) => ({ url: `${origin}/gmail/v1/users/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(id)}` }), value => Number.isInteger(value?.size) && typeof value.data === "string"),
-  "messages.send": gmailWrite(["gmail.send", ...composeScopes], { raw: rawField, threadId: { ...documentId, required: false } }, body => ({ path: "/messages/send", body }), messageResult),
+  "messages.send": sideEffect(gmailWrite(["gmail.send", ...composeScopes], { raw: rawField, threadId: { ...documentId, required: false } }, body => ({ path: "/messages/send", body }), messageResult)),
   "messages.modify": gmailWrite(modifyScopes, { id: documentId, addLabelIds: labelIds, removeLabelIds: labelIds }, ({ id, ...body }) => {
     if (!body.addLabelIds?.length && !body.removeLabelIds?.length) throw new ConnectorError("connector_input_invalid", "Supply labels to add or remove.", { statusCode: 422, messageCode: "connectors.gmail.supplyLabelsAddRemove" });
     return { path: `/messages/${encodeURIComponent(id)}/modify`, body };
@@ -35,7 +36,7 @@ const gmailProvider = Object.freeze({ ...googleProvider(gmailDefinition, origin,
   "drafts.create": gmailWrite(composeScopes, { raw: rawField, threadId: { ...documentId, required: false } }, message => ({ path: "/drafts", body: { message } }), draftResult),
   "drafts.update": gmailWrite(composeScopes, { id: documentId, raw: rawField, threadId: { ...documentId, required: false } }, ({ id, ...message }) => ({ path: `/drafts/${encodeURIComponent(id)}`, body: { message } }), draftResult, "PUT"),
   "drafts.delete": gmailWrite(composeScopes, { id: documentId }, ({ id }) => ({ path: `/drafts/${encodeURIComponent(id)}` }), value => value === null, "DELETE"),
-  "drafts.send": gmailWrite(composeScopes, { id: documentId }, body => ({ path: "/drafts/send", body }), messageResult),
+  "drafts.send": sideEffect(gmailWrite(composeScopes, { id: documentId }, body => ({ path: "/drafts/send", body }), messageResult)),
   "labels.list": googleRead([...read, "gmail.labels"], {}, () => ({ url: `${origin}/gmail/v1/users/me/labels` }), value => Array.isArray(value?.labels)),
   "labels.delete": gmailWrite(labelScopes, { id: documentId }, ({ id }) => ({ path: `/labels/${encodeURIComponent(id)}` }), value => value === null, "DELETE"),
   "labels.create": gmailWrite(labelScopes, { name: { type: "string", required: true, minLength: 1, maxLength: 225 } }, body => ({ path: "/labels", body }), value => typeof value?.id === "string" && typeof value.name === "string"),

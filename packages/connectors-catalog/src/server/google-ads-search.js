@@ -6,6 +6,7 @@ import { validateGoogleAdsSearchPlan } from "../shared/google-ads-search.js";
 import { validatedOperation } from "./jsonOperation.js";
 import { googleAdsApi, googleAdsScope, loginCustomerHeaders } from "./googleAdsApi.js";
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
+import { sideEffect } from "./sideEffect.js";
 
 const customerId = { type: "string", required: true, validator: value => /^[0-9]{10}$/.test(value) || "Use a ten-digit customer ID." };
 const id = { type: "string", required: true, validator: value => /^[0-9]{1,20}$/.test(value) || "Use a numeric campaign ID." };
@@ -41,8 +42,8 @@ function searchMutation(plan, validateOnly) {
 const googleAdsSearchOperations = {
   "search.validate": { scopes: [googleAdsScope], request: (input, settings) => ({ method: "POST", ...searchMutation(input, true), headers: loginCustomerHeaders(settings) }), validateResult: mutated },
   "search.createPaused": { scopes: [googleAdsScope], request: (input, settings) => ({ method: "POST", ...searchMutation(input, false), headers: loginCustomerHeaders(settings) }), validateResult: result => mutated(result) && Array.isArray(result.mutateOperationResponses) && result.mutateOperationResponses.some(item => /^customers\/[0-9]{10}\/campaigns\/[0-9]+$/.test(item.campaignResult?.resourceName || "")) },
-  "campaigns.setStatus": requestOperation({ customerId, campaignId: id, status: { type: "string", required: true, enum: ["PAUSED", "ENABLED"] } },
-    p => ({ url: `${googleAdsApi}/customers/${p.customerId}/campaigns:mutate`, body: { operations: [{ update: { resourceName: `customers/${p.customerId}/campaigns/${p.campaignId}`, status: p.status }, updateMask: "status" }] } }), result => mutated(result) && result.results?.length === 1),
+  "campaigns.setStatus": sideEffect(requestOperation({ customerId, campaignId: id, status: { type: "string", required: true, enum: ["PAUSED", "ENABLED"] } },
+    p => ({ url: `${googleAdsApi}/customers/${p.customerId}/campaigns:mutate`, body: { operations: [{ update: { resourceName: `customers/${p.customerId}/campaigns/${p.campaignId}`, status: p.status }, updateMask: "status" }] } }), result => mutated(result) && result.results?.length === 1)),
   "conversions.createWebsite": requestOperation({ customerId, name: { type: "string", required: true, minLength: 1, maxLength: 100 } },
     p => ({ url: `${googleAdsApi}/customers/${p.customerId}/conversionActions:mutate`, body: { operations: [{ create: { name: p.name, type: "WEBPAGE", category: "SUBMIT_LEAD_FORM", status: "ENABLED", countingType: "ONE_PER_CLICK", primaryForGoal: true } }] } }), result => mutated(result) && result.results?.length === 1)
 };

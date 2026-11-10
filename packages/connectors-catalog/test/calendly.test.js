@@ -42,7 +42,7 @@ test("Calendly web OAuth uses Basic and PKCE, persists rotating refresh tokens a
       return Response.json({ resource: { uri: "https://api.calendly.com/users/one", name: "Fixture" } });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ ...options, sideEffects: "live" });
   for (const outcome of ["cancel", "denied"]) {
     const attempt = new URL((await service.beginAuthorization(input)).authorizationUrl);
     const denied = new URL(callback);
@@ -68,7 +68,7 @@ test("Calendly web OAuth uses Basic and PKCE, persists rotating refresh tokens a
   time += 40_000;
   await Promise.all([service.invoke({ ...input, operation: "profile.read" }), service.invoke({ ...input, operation: "profile.read" })]);
   assert.equal(exchanges, 2);
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ sideEffects: "live", ...options, store: createFileConnectionStore({ directory, protection }) });
   time += 40_000;
   await restarted.invoke({ ...input, operation: "profile.read" });
   assert.equal(exchanges, 3);
@@ -90,7 +90,7 @@ test("Calendly scheduling retains booking details, scopes, pagination and explic
   const directory = await makeTestDirectory("calendly-scheduling-"); t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; const state = { response: { resource: { uri: "https://api.calendly.com/users/u", name: "Owner" } }, status: 200, fail: false, deny: false };
   const identity = { context: { applicationId: "booking", subjectId: "owner" }, integrationId: "calendar" };
-  const service = createConnectionService({ configuration: { schemaVersion: 1, registrations: {}, integrations: {
+  const service = createConnectionService({ sideEffects: "live", configuration: { schemaVersion: 1, registrations: {}, integrations: {
     calendar: { provider: "calendly", accountMode: "shared", scopes: ["users:read", "event_types:read", "availability:read", "scheduled_events:read", "scheduled_events:write", "scheduling_links:write"], authentication: { method: "api-key", secretRef: "env:CALENDLY_API_KEY" } }
   } }, providers: [calendlyProvider], authorize: async context => { if (state.deny) throw new Error("denied"); return context; }, resolveReference: async () => "fixture-token",
     store: createFileConnectionStore({ directory, protection: createCredentialProtection({ keys: { current: new Uint8Array(32).fill(6) }, activeKeyId: "current" }) }),

@@ -25,6 +25,7 @@ const JSKIT_SKILL_GUIDES = Object.freeze({
   "framework/data-access.md": "data-access.md",
   "framework/material-3.md": "material-3.md",
   "framework/sanity-checks.md": "sanity-checks.md",
+  "framework/side-effects.md": "side-effects.md",
   "framework/translation.md": "translation.md",
   "framework/typed-features.md": "typed-features.md",
   "framework/ui-operations.md": "ui-operations.md",

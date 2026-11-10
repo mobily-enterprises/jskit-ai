@@ -109,7 +109,7 @@ test("connections without a store fail at startup, naming the feature to registe
     authorize: async (context) => context, resolveReference: async () => ""
   };
   // The kernel's startup error names the missing capability and adds the feature's hint.
-  assert.throws(() => createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options)] }), {
+  assert.throws(() => createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options)] }), {
     message: 'Provider "connectors.core" requires missing capability "connectors.store". Register createConnectionStoreFeature({ protection }) ' +
       "from @jskit-ai/connectors-core/server/storage in your server providers, or pass createConnectorsFeature({ store })."
   });
@@ -131,7 +131,7 @@ test("the ordinary credential-free Feature action verifies without resolving ref
       return Response.json({ meta: [], data: [{ ok: 1, user: "default" }], rows: 1 });
     }
   };
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [
     EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({ id: "test.credential-free-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })
   ] });
@@ -415,7 +415,7 @@ test("cancelling a service token exchange preserves the previous grant without r
 test("the client credentials Feature action uses the ordinary application policy and runtime", async () => {
   const { options } = serviceAccountSetup();
   let actions;
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options),
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({ id: "test.service-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })] });
   await runtime.start();
   try {
@@ -886,7 +886,7 @@ test("configuration rejects gateway registrations before constructing a runtime"
 test("the Feature exposes ordinary JSKIT actions with application authorization", async () => {
   const { options } = setup();
   let actions;
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [
     EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({
       id: "test.observer", requires: { catalogue: "runtime.actions" },
@@ -1055,7 +1055,7 @@ test("JSON-body credentials replace supplied values, preserve input and reach th
     }
   };
   let actions;
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [
     EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({ id: "test.body-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })
   ] });
@@ -1338,4 +1338,70 @@ test("missing API key preserves a verified connection until explicit disconnect"
   await service.disconnect(input);
   assert.deepEqual(await service.status(input), { status: "unconfigured", configurationError: "connector_binding_missing" });
   assert.equal(requests, 1);
+});
+
+test("a test copy checks and logs a side-effect operation without sending it, and a live application sends it", async () => {
+  const config = { schemaVersion: 1, registrations: {}, integrations: { mail: {
+    provider: "resend", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:KEY" }
+  } } };
+  const message = { from: "app@example.test", to: ["person@example.test"], subject: "Hello", text: "Hi", idempotencyKey: "m-1" };
+  const sent = [];
+  const logged = [];
+  const store = memoryStore();
+  const options = {
+    configuration: config, providers: [resendProvider], store, authorize: async () => owner, resolveReference: async () => "fixture-key",
+    logger: { info: (details, text) => logged.push({ details, text }) },
+    fetchImpl: async (url) => {
+      sent.push(String(url));
+      return Response.json(String(url).endsWith("/emails") ? { id: "email-1" } : { object: "list", data: [], has_more: false });
+    }
+  };
+  const input = { context: owner, integrationId: "mail" };
+  const simulated = createConnectionService(options);
+  await simulated.connectApiKey(input);
+  assert.equal(sent.length, 1, "verification is a read and runs for real");
+  assert.match(sent[0], /^https:\/\/api\.resend\.com\/domains/u);
+  const verifiedAt = store.connections.values().next().value.verifiedAt;
+  assert.deepEqual(await simulated.invoke({ ...input, operation: "emails.send", input: message }), { simulated: true });
+  assert.equal(sent.length, 1, "nothing was sent");
+  assert.equal(store.connections.values().next().value.verifiedAt, verifiedAt, "a simulation proves nothing about the key");
+  assert.equal(logged.length, 1);
+  assert.deepEqual(logged[0].details, { sideEffects: "simulate", kind: "connector operation", provider: "resend", operation: "emails.send", input: message });
+  assert.match(logged[0].text, /^Test copy: the resend emails\.send request was simulated, not sent/u);
+  // A simulated operation is checked like a real one.
+  await assert.rejects(simulated.invoke({ ...input, operation: "emails.send", input: { ...message, to: [] } }), { code: "connector_input_invalid" });
+
+  const live = createConnectionService({ ...options, sideEffects: "live" });
+  assert.deepEqual(await live.invoke({ ...input, operation: "emails.send", input: message }), { id: "email-1" });
+  assert.deepEqual(sent.slice(1), ["https://api.resend.com/emails"]);
+});
+
+test("the connectors feature follows the application's SIDE_EFFECTS, which its options cannot override", async () => {
+  for (const [env, expected] of [[{}, 0], [{ SIDE_EFFECTS: "live" }, 1]]) {
+    let connections;
+    const sent = [];
+    const runtime = createCapabilityRuntime({ inputs: { "runtime.env": env, "runtime.logger": silentLogger }, providers: [
+      EventProvider, ActionProvider,
+      createConnectorsFeature({
+        configuration: { schemaVersion: 1, registrations: {}, integrations: { mail: {
+          provider: "resend", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:KEY" }
+        } } },
+        providers: [resendProvider], store: memoryStore(), authorize: async () => owner, resolveReference: async () => "fixture-key",
+        sideEffects: "live",
+        fetchImpl: async (url) => {
+          sent.push(String(url));
+          return Response.json(String(url).endsWith("/emails") ? { id: "email-1" } : { object: "list", data: [], has_more: false });
+        }
+      }),
+      defineProvider({ id: "test.side-effects-observer", requires: { core: "connectors.core" }, setup({ core }) { connections = core; } })
+    ] });
+    await runtime.start();
+    try {
+      const input = { context: owner, integrationId: "mail" };
+      await connections.connectApiKey(input);
+      await connections.invoke({ ...input, operation: "emails.send",
+        input: { from: "app@example.test", to: ["person@example.test"], subject: "Hello", text: "Hi", idempotencyKey: "m-1" } });
+      assert.equal(sent.filter((url) => url.endsWith("/emails")).length, expected, JSON.stringify(env));
+    } finally { await runtime.shutdown(); }
+  }
 });

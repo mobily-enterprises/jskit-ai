@@ -4,6 +4,7 @@ import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { ConnectorError, providerStatusError } from "@jskit-ai/connectors-core/server";
 import { firebaseCloudMessagingDefinition, firebaseMessagingScope, firebaseProjectId } from "../shared/firebase-cloud-messaging.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 const tokenUrl = "https://oauth2.googleapis.com/token";
 const endpoint = ({ projectId }) => `https://fcm.googleapis.com/v1/projects/${projectId}/messages:send`;
@@ -82,7 +83,7 @@ const firebaseCloudMessagingProvider = Object.freeze({
     "connection.check": { ...check, scopes: [firebaseMessagingScope], request(input, settings) {
       return { ...check.request(input, settings), body: { validate_only: true, message: { topic: "jskit-connection-check", data: { connectionCheck: "true" } } } };
     } },
-    "messages.validate": messageOperation(true), "messages.send": messageOperation(false)
+    "messages.validate": messageOperation(true), "messages.send": sideEffect(messageOperation(false))
   },
   async exchange(address, options, { fetchImpl, settings }) {
     const response = await fetchImpl(address, { ...options, body: JSON.stringify(options.body), credentials: "omit", redirect: "error",

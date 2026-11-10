@@ -64,7 +64,7 @@ async function fixture(t, settings = {}) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, configuration, directory, protection, requests, state };
+  return { service: createConnectionService({ ...options, sideEffects: "live" }), options, configuration, directory, protection, requests, state };
 }
 
 test("Wix validates account settings and secret references without opening an OAuth journey", async (t) => {
@@ -97,7 +97,7 @@ test("Wix verifies with account headers, encrypts its file grant and resolves ro
   assert.deepEqual(JSON.parse(first.init.body), { query: { cursorPaging: { limit: 20 } } });
   for (const name of await readdir(directory)) assert.equal((await readFile(path.join(directory, name), "utf8")).includes(state.key), false);
   state.key = "rotated-wix-key";
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ sideEffects: "live", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.equal((await restarted.status(input)).status, "reconnect-required");
   assert.deepEqual(await restarted.invoke({ ...input, operation: "sites.list" }), sites);
   assert.equal(requests.at(-1).headers.get("authorization"), state.key);
@@ -141,7 +141,7 @@ test("Wix preserves owner isolation, host policy and account binding", async (t)
   }
   state.deny = true; await assert.rejects(service.invoke({ ...input, operation: "sites.list" })); state.deny = false;
   const changed = structuredClone(configuration); changed.integrations.wix.settings.accountId = siteId;
-  const moved = createConnectionService({ ...options, configuration: changed });
+  const moved = createConnectionService({ sideEffects: "live", ...options, configuration: changed });
   assert.equal((await moved.status(input)).status, "reconnect-required");
   await assert.rejects(moved.invoke({ ...input, operation: "sites.list" }), { code: "connector_reconnect_required" });
   assert.equal(requests.length, before);
@@ -160,7 +160,7 @@ test("Wix sanitizes provider failures, rejects invalid verification and preserve
   }
   state.stall = true; const controller = new AbortController(); controller.abort();
   await assert.rejects(service.invoke({ ...input, operation: "sites.list", signal: controller.signal }), { code: "connector_cancelled" });
-  const timed = createConnectionService({ ...options, providers: [{ ...provider, requestTimeoutMs: 20 }] });
+  const timed = createConnectionService({ sideEffects: "live", ...options, providers: [{ ...provider, requestTimeoutMs: 20 }] });
   const keepAlive = setTimeout(() => {}, 1000);
   try { await assert.rejects(timed.invoke({ ...input, operation: "sites.list" }), { code: "connector_provider_timeout" }); }
   finally { clearTimeout(keepAlive); }

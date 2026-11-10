@@ -139,6 +139,8 @@ async function createStartedApp({
     // Registration signs in at once here; the email confirmation tests turn confirmation on.
     AUTH_LOCAL_EMAIL_CONFIRMATION: "false",
     NODE_ENV: "test",
+    // An installed sender sends for real here; the test copy tests leave SIDE_EFFECTS unset.
+    SIDE_EFFECTS: "live",
     ...env
     },
     "runtime.logger": runtimeLogger,
@@ -1381,6 +1383,52 @@ test("local recovery uses the application sender without returning or logging it
   const token = new URL(messages[0].recoveryUrl).searchParams.get("token");
   const recovery = await app.authService.completePasswordRecovery({ code: token, type: "recovery" });
   assert.equal(recovery.actor.email, "sender@example.com");
+});
+
+test("a test copy logs the emails an installed sender would send, sends none and keeps the links out of the answers", async (t) => {
+  const sent = [];
+  const logs = [];
+  const app = await createStartedApp({
+    env: {
+      SIDE_EFFECTS: undefined,
+      NODE_ENV: "production",
+      AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
+      AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+      AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
+      AUTH_LOCAL_EMAIL_CONFIRMATION: "",
+      APP_PUBLIC_URL: "https://app.example.test"
+    },
+    recoverySender: async (message) => { sent.push(message); },
+    confirmationSender: async (message) => { sent.push(message); },
+    logger: { info: (details, message) => logs.push({ details, message }), warn() {}, error() {}, debug() {} }
+  });
+  t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
+  await app.authService.register({
+    email: "owner@example.com",
+    password: "correct horse battery staple",
+    setupCode: await firstAccountSetupCode(app.storeDir)
+  });
+  const registered = await app.authService.register({ email: "tester@example.com", password: "correct horse battery staple" });
+  assert.equal(registered.requiresEmailConfirmation, true);
+  assert.equal(Object.hasOwn(registered, "confirmationUrl"), false);
+  const reset = await app.authService.requestPasswordReset({ email: "owner@example.com" });
+  assert.equal(reset.recoveryUrl, undefined);
+  assert.deepEqual(sent, [], "nothing sent");
+
+  const simulated = logs.filter(({ details }) => details?.sideEffects === "simulate" && details.kind === "email");
+  assert.deepEqual(simulated.map(({ details }) => details.email), ["tester@example.com", "owner@example.com"]);
+  assert.match(simulated[0].message, /^Test copy: the email confirmation email to tester@example\.com was simulated, not sent/u);
+  assert.match(simulated[0].details.confirmationUrl, /^https:\/\/app\.example\.test\/auth\/login\?confirmation_token=/u);
+  assert.match(simulated[1].message, /^Test copy: the password reset email to owner@example\.com was simulated/u);
+  // The logged links work: the tester confirms the registration and resets the password with them.
+  const confirmationToken = new URL(simulated[0].details.confirmationUrl).searchParams.get("confirmation_token");
+  const confirmed = await app.authService.confirmRegistration({ token: confirmationToken, password: "correct horse battery staple" });
+  assert.equal(confirmed.actor.email, "tester@example.com");
+  const recovery = await app.authService.completePasswordRecovery({
+    code: new URL(simulated[1].details.recoveryUrl).searchParams.get("token"),
+    type: "recovery"
+  });
+  assert.equal(recovery.actor.email, "owner@example.com");
 });
 
 test("a failing recovery sender does not fall back to development output", async (t) => {

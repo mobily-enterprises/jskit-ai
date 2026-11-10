@@ -1,4 +1,5 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
+import { sideEffectsAreLive } from "@jskit-ai/kernel/shared/support/sideEffects";
 import { createWorkspaceBootstrapContributor } from "./workspaceBootstrapContributor.js";
 import { registerWorkspaceDirectoryRoutes } from "./workspaceDirectory/workspaceDirectoryRoutes.js";
 import { createWorkspaceDirectoryActions } from "./workspaceDirectory/workspaceDirectoryActions.js";
@@ -8,6 +9,7 @@ import { registerWorkspacePendingInvitationsRoutes } from "./workspacePendingInv
 import { createWorkspacePendingInvitationsActions } from "./workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/workspaceSettingsRoutes.js";
 import { unconfiguredWorkspaceInviteMailer } from "./workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
+import { createSimulatedWorkspaceInviteMailer } from "./workspaceMembers/simulatedWorkspaceInviteMailer.js";
 import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWorkspaceInviteEmail.js";
 import { noInviteAcceptanceParticipant } from "./workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { noWorkspaceCreatedParticipant } from "./workspaceDirectory/noWorkspaceCreatedParticipant.js";
@@ -25,6 +27,7 @@ const WorkspacesFeature = defineFeature({
     config: "runtime.config",
     env: "runtime.env",
     http: "runtime.http",
+    logger: "runtime.logger",
     userProfiles: "users.profiles",
     userSettings: "users.settings"
   },
@@ -47,6 +50,7 @@ const WorkspacesFeature = defineFeature({
    * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} capabilities.config
    * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} capabilities.env
    * @param {import("@jskit-ai/kernel/server/types").RuntimeHttp} capabilities.http
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} capabilities.logger
    * @param {import("./types.js").WorkspaceInviteAcceptanceParticipant | null} capabilities.inviteAcceptanceParticipant
    * @param {import("./types.js").WorkspaceInviteEmailTemplate | null} capabilities.inviteEmailTemplate
    * @param {import("./types.js").WorkspaceInviteMailer | null} capabilities.inviteMailer
@@ -65,6 +69,7 @@ const WorkspacesFeature = defineFeature({
     inviteAcceptanceParticipant,
     inviteEmailTemplate,
     inviteMailer,
+    logger,
     personalWorkspaceName,
     resources,
     userProfiles,
@@ -78,7 +83,10 @@ const WorkspacesFeature = defineFeature({
       env,
       inviteAcceptanceParticipant: inviteAcceptanceParticipant ?? noInviteAcceptanceParticipant,
       inviteEmailTemplate: inviteEmailTemplate ?? renderDefaultWorkspaceInviteEmail,
-      inviteMailer: inviteMailer ?? unconfiguredWorkspaceInviteMailer,
+      // A test copy (SIDE_EFFECTS is not live) logs the invitations a provided mailer would send, and sends none.
+      inviteMailer: inviteMailer
+        ? (sideEffectsAreLive(env) ? inviteMailer : createSimulatedWorkspaceInviteMailer(logger))
+        : unconfiguredWorkspaceInviteMailer,
       personalWorkspaceName: personalWorkspaceName ?? buildWorkspaceName,
       resources,
       userProfiles,

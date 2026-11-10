@@ -6,6 +6,7 @@ import {
   discoverInstalledPackages
 } from "../../internal/node/installedPackages.js";
 import { CLIENT_BUILD_META_NAME } from "../../shared/support/clientBuild.js";
+import { SIDE_EFFECTS_META_NAME, resolveSideEffectsMode } from "../../shared/support/sideEffects.js";
 import { isRecord, normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import {
@@ -687,12 +688,16 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
       // After Vite adds the page's script and style tags. Their content-hashed
       // names change whenever any built code or style does, so the page's
       // build id is a digest of the page itself. The layer order goes first in
-      // every page, built or served in development.
+      // every page, built or served in development. A page the development
+      // server sends names the development environment's SIDE_EFFECTS, as the
+      // JSKIT server does for the pages it sends; a built page names none, since
+      // the server that sends it supplies its own.
       order: "post",
       handler(html, { bundle } = {}) {
         const layerOrder = { tag: "style", children: VUETIFY_LAYER_ORDER, injectTo: "head-prepend" };
         if (!bundle) {
-          return [layerOrder];
+          const sideEffects = { name: SIDE_EFFECTS_META_NAME, content: resolveSideEffectsMode(process.env) };
+          return [layerOrder, { tag: "meta", attrs: sideEffects, injectTo: "head-prepend" }];
         }
         const buildId = createHash("sha256").update(html).digest("hex").slice(0, 16);
         return [layerOrder, { tag: "meta", attrs: { name: CLIENT_BUILD_META_NAME, content: buildId }, injectTo: "head-prepend" }];

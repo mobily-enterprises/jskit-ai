@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { registrationClientAuthentication, registrationGrantType, validateIntegrationConfiguration } from "../shared/configuration.js";
 import { createConnectionCredentials } from "./connectionCredentials.js";
 import { ConnectorError, providerError } from "./errors.js";
-import { connectionProvider, createProviderRequests, operationRequest, requireOperationScope, tokenResponse } from "./providerRequests.js";
+import { SIMULATED_RESULT, connectionProvider, createProviderRequests, operationRequest, requireOperationScope, tokenResponse } from "./providerRequests.js";
 
 function publicConnection(connection) {
   if (!connection) return { status: "disconnected" };
@@ -59,6 +59,9 @@ function callbackMatches(connection, provider, registration) {
  * @param {"application" | "assistant"} [options.executionMode]
  * @param {typeof globalThis.fetch} [options.fetchImpl]
  * @param {() => number} [options.now]
+ * @param {"live" | "simulate"} [options.sideEffects] The application's SIDE_EFFECTS setting. Unless `live`, operations
+ *   marked `sideEffect` are checked and logged, never sent, and answer `{ simulated: true }`.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger | Console} [options.logger] Where simulated operations are logged.
  */
 function createConnectionService({
   configuration,
@@ -68,7 +71,9 @@ function createConnectionService({
   authorize,
   executionMode = "application",
   fetchImpl = globalThis.fetch,
-  now = Date.now
+  now = Date.now,
+  sideEffects = "simulate",
+  logger = console
 }) {
   if (!["application", "assistant"].includes(executionMode)) throw new TypeError("Select application or assistant execution.");
   const config = validateIntegrationConfiguration(configuration, { providers });
@@ -90,7 +95,7 @@ function createConnectionService({
     );
   }
   const connectionCredentials = createConnectionCredentials({ config, resolveReference });
-  const providerRequests = createProviderRequests({ fetchImpl, now, resolveReference });
+  const providerRequests = createProviderRequests({ fetchImpl, now, resolveReference, sideEffects, logger });
 
   async function access(context, integrationId, operation, input, checkAssistantPermission = true) {
     const integration = integrations[integrationId];
@@ -428,6 +433,8 @@ function createConnectionService({
         }
         const credentials = usesApiKey ? { ...connection, apiKey: await connectionCredentials.apiKeyFor(integration, provider) } : connection;
         const result = await providerRequests.request(provider, operation, input, credentials, signal);
+        // A simulated operation never reached the provider, so it proves nothing about the credential.
+        if (result === SIMULATED_RESULT) return { result };
         await save({ ...connection, verifiedAt: now(),
           ...(usesApiKey ? { credentialFingerprint: createHash("sha256").update(credentials.apiKey).digest("hex") } : {})
         });

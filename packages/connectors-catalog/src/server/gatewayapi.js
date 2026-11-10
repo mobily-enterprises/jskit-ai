@@ -3,6 +3,7 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { gatewayApiDefinition } from "../shared/tokens.js";
 import { jsonOperation } from "./jsonOperation.js";
+import { sideEffect } from "./sideEffect.js";
 
 const origins = { global: "https://gatewayapi.com", eu: "https://gatewayapi.eu" };
 const messagingOrigins = { global: "https://messaging.gatewayapi.com", eu: "https://messaging.gatewayapi.eu" };
@@ -22,11 +23,11 @@ const gatewayApiProvider = Object.freeze({
   apiKey: { headers: (key) => ({ Authorization: `Token ${key}` }) },
   checkOperation: "balance.read",
   operations: {
-    "messages.send": jsonOperation(settings => `${messagingOrigins[settings.region]}/mobile/single`, messageFields, validReceipt, "POST"),
-    "messages.sendBatch": jsonOperation(settings => `${messagingOrigins[settings.region]}/mobile/multi`, {
+    "messages.send": sideEffect(jsonOperation(settings => `${messagingOrigins[settings.region]}/mobile/single`, messageFields, validReceipt, "POST")),
+    "messages.sendBatch": sideEffect(jsonOperation(settings => `${messagingOrigins[settings.region]}/mobile/multi`, {
       messages: { type: "array", required: true, items: { type: "object", schema: messageSchema },
         validator: value => value.length >= 1 && value.length <= 1000 || "Send 1–1000 messages per batch." }
-    }, result => Array.isArray(result?.responses) && result.responses.every(validReceipt), "POST"),
+    }, result => Array.isArray(result?.responses) && result.responses.every(validReceipt), "POST")),
     "balance.read": jsonOperation((settings) => `${origins[settings.region]}/rest/me`, {},
       (result) => Number.isInteger(result?.id) && typeof result.credit === "string" && typeof result.currency === "string")
   }

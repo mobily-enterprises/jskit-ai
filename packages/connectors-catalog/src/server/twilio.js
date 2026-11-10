@@ -4,6 +4,7 @@ import { ConnectorError } from "@jskit-ai/connectors-core/server";
 import { createSchema } from "json-rest-schema";
 import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { sideEffect } from "./sideEffect.js";
 
 const origins = {
   us1: "https://api.twilio.com", ie1: "https://api.dublin.ie1.twilio.com", au1: "https://api.sydney.au1.twilio.com"
@@ -36,20 +37,20 @@ const twilioProvider = Object.freeze({
   apiKey: { headers: (secret, settings) => ({ Authorization: `Basic ${Buffer.from(`${settings.apiKeySid}:${secret}`).toString("base64")}` }) },
   checkOperation: "calls.list",
   operations: {
-    "messages.send": resourceOperation("Messages", "POST", {
+    "messages.send": sideEffect(resourceOperation("Messages", "POST", {
       To: phone, From: { ...phone, required: false }, MessagingServiceSid: { ...sid("MG"), required: false },
       Body: { type: "string", required: true, noTrim: true, minLength: 1, maxLength: 1600 }, StatusCallback: callbackUrl
     }, values => {
       if (Boolean(values.From) === Boolean(values.MessagingServiceSid)) throw new ConnectorError("connector_input_invalid", "Choose one sender number or Messaging Service SID.", { statusCode: 422, messageCode: "connectors.twilio.chooseSenderNumberMessagingService" });
-    }),
+    })),
     "messages.get": resourceOperation("Messages", "GET", { resourceSid: sid("SM") }),
-    "calls.create": resourceOperation("Calls", "POST", {
+    "calls.create": sideEffect(resourceOperation("Calls", "POST", {
       To: phone, From: phone, Url: callbackUrl,
       Twiml: { type: "string", noTrim: true, minLength: 1, maxLength: 4000 },
       StatusCallback: callbackUrl, Timeout: { type: "integer", min: 5, max: 600, defaultTo: 60 }
     }, values => {
       if (Boolean(values.Url) === Boolean(values.Twiml)) throw new ConnectorError("connector_input_invalid", "Supply either a call-control URL or inline TwiML.", { statusCode: 422, messageCode: "connectors.twilio.supplyEitherCallControlUrl" });
-    }),
+    })),
     "calls.get": resourceOperation("Calls", "GET", { resourceSid: sid("CA") }),
     "calls.list": jsonOperation((settings) => `${origins[settings.region]}/2010-04-01/Accounts/${settings.accountSid}/Calls.json`, {
       PageSize: { type: "integer", min: 1, max: 1000, defaultTo: 50 },

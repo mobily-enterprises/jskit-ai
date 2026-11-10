@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A test copy (`SIDE_EFFECTS` is not `live`) sends no accounts-hub email: the mailer logs it as simulated and answers `{ simulated: true }`; the hub's test-email route answers `{ ok: true, simulated: true }` and records no successful email test. Production still requires the sender's configuration.
 - `jskit-oidc-issuer import-accounts` looks the exported accounts up and inserts them 500 at a time, two statements per 500 instead of two reads and an insert per account. It reports the same counts and conflicts, in line order. The account store's `rawById` and `rawByEmail` are `rawByIdsOrEmails(ids, emails)`, and `importLocal` takes a list of rows.
 - The hub's People list reads only the columns it shows, and asks the database whether each account has a password and a linked Google sign-in, so it no longer reads every account's password hash and salt, or its Google subject. It still lists every account, newest first; paging it waits on its page loading more as it scrolls.
 - Ending every session (a password change, a reset or a disabled account) reads only the approved apps' ids, by status in SQL, and sends their back-channel logout tokens at once instead of one after another, so a slow app no longer holds the others back. Each app's answer is still logged and reported as before.

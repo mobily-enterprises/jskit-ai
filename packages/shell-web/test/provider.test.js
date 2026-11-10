@@ -156,7 +156,8 @@ test("shell capability owns placement, navigation, bootstrap, refresh, errors, a
     "navigation",
     "placement",
     "refresh",
-    "requestRecovery"
+    "requestRecovery",
+    "testCopyBanner"
   ]);
   assert.deepEqual(fixture.shell.placement.getContext().surfaceAccess, {
     app: { allowed: true }

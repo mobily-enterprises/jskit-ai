@@ -35,7 +35,7 @@ test("workspace members invite mutation outputs expose their tracking ids explic
   assert.deepEqual(inviteDeliverySchema.required, ["status", "message", "providerMessageId"]);
   assert.deepEqual(
     inviteDeliverySchema.properties.status.enum,
-    ["sent", "failed", "mailer_unconfigured"]
+    ["sent", "simulated", "failed", "mailer_unconfigured"]
   );
   assert.equal(revokeOutputSchema.properties.revokedInviteId.type, "string");
   assert.equal(revokeOutputSchema.properties.roleCatalog["x-json-rest-schema"]?.castType, "object");

@@ -14,7 +14,7 @@ const workspaceInviteAssistantOutput = createSchemaDefinition(createSchema({
       expiresAt: { type: "string", required: true }
     })
   },
-  deliveryStatus: { type: "string", required: true, enum: ["sent", "failed", "mailer_unconfigured"] }
+  deliveryStatus: { type: "string", required: true, enum: ["sent", "simulated", "failed", "mailer_unconfigured"] }
 }), "replace");
 
 const pendingInvitationsAssistantOutput = createSchemaDefinition(createSchema({

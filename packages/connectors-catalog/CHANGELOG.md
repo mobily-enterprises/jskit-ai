@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Operations that act on the world are marked `sideEffect`, so a test copy (`SIDE_EFFECTS` is not `live`) simulates them: Brevo email, SMS, campaign sends and events; Calendly cancellations and invitees; Chargebee subscription changes; Firebase Cloud Messaging; GatewayAPI; Gmail sends; Google Ads campaign status; incident.io incidents; Inngest events; LinkedIn posts; Mailgun; Outlook mail and events; Teams messages; Resend emails and broadcasts; Slack messages; Telegram; Twilio messages and calls; Twitch chat; Wave invoice and estimate sends; Wix Bookings changes; WooCommerce refunds. The api-key and Firebase messaging patterns pass `sideEffects: resolveSideEffectsMode(env)`.
 - The browser catalog (`./shared`) no longer bundles the whole AI model snapshot. The AI connector definition now reads only the 13 configurable providers (0.2 MB, in `ai-models.json`). The other 200 providers, which are framework metadata (2.0 MB), moved to `ai-framework-models.json`, which only `./shared/ai` and `./server/ai` load. Exports, the catalogue and every configurable model's choices, hints and credential scopes are unchanged. The definition no longer recognises a framework provider's model key, which its settings schema already rejected.
 - The Resend guide shows local auth's `auth.local.confirmation-sender` next to its recovery sender.
 

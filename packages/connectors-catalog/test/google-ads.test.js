@@ -71,7 +71,7 @@ async function fixture(t, settings = { loginCustomerId: "9876543210" }) {
       return Response.json(accounts ? state.accounts : state.respond ? state.respond(url, JSON.parse(init.body)) : state.response);
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ ...options, sideEffects: "live" });
   const start = async (target = service) => {
     const result = await target.beginAuthorization(input); const url = new URL(result.authorizationUrl);
     const returned = new URL(callback); returned.searchParams.set("code", "fixture-code"); returned.searchParams.set("state", url.searchParams.get("state"));
@@ -146,12 +146,12 @@ test("Google Ads rejects malformed IDs, unbounded queries and caller transport f
 
 test("Google Ads encrypted file grants survive restart, isolate owners, renew once and retain refresh tokens", async (t) => {
   const f = await fixture(t); await f.connect();
-  const restarted = createConnectionService({ ...f.options, store: createFileConnectionStore({ directory: f.directory, protection: f.protection }) });
+  const restarted = createConnectionService({ sideEffects: "live", ...f.options, store: createFileConnectionStore({ directory: f.directory, protection: f.protection }) });
   assert.equal((await restarted.status(input)).status, "connected");
   await assert.rejects(restarted.invoke({ ...input, context: { ...context, subjectId: "user-two" }, operation: "customers.listAccessible" }), { code: "connector_reconnect_required" });
   await assert.rejects(restarted.invoke({ ...input, context: { ...context, applicationId: "other-app" }, operation: "customers.listAccessible" }), { code: "connector_reconnect_required" });
   f.state.time += 3600000; f.state.refresh = false;
-  await Promise.all([f.invoke(undefined, restarted), f.invoke(undefined, createConnectionService(f.options))]);
+  await Promise.all([f.invoke(undefined, restarted), f.invoke(undefined, createConnectionService({ ...f.options, sideEffects: "live" }))]);
   assert.equal(f.state.grants, 2); assert.equal(f.state.lastRefresh, "refresh-fixture-1");
   f.state.time += 3600000; f.state.refresh = true; await f.invoke(undefined, restarted);
   assert.equal(f.state.grants, 3); assert.equal(f.state.lastRefresh, "refresh-fixture-3");
@@ -169,14 +169,14 @@ test("Google Ads settings and client changes invalidate saved access and in-prog
     const started = await f.start(); const configuration = structuredClone(f.configuration);
     if (change === "manager") configuration.integrations.ads.settings.loginCustomerId = "1111111111";
     if (change === "client") configuration.registrations.google.clientId = "different-client";
-    const changed = createConnectionService({ ...f.options, configuration }); const calls = f.state.calls.length;
+    const changed = createConnectionService({ sideEffects: "live", ...f.options, configuration }); const calls = f.state.calls.length;
     await assert.rejects(changed.invoke({ ...input, operation: "customers.listAccessible" }), { code: "connector_reconnect_required" });
     await assert.rejects(changed.completeAuthorization({ ...input, callbackUrl: started.callbackUrl }));
     assert.equal(f.state.calls.length, calls);
   }
   const configuration = structuredClone(f.configuration);
   configuration.registrations.google.clientSecretRef = "env:MISSING";
-  const missing = createConnectionService({ ...f.options, configuration });
+  const missing = createConnectionService({ sideEffects: "live", ...f.options, configuration });
   await assert.rejects(f.invoke(undefined, missing), { code: "connector_binding_missing" });
 });
 
@@ -218,7 +218,7 @@ test("Google Ads distinguishes API approval, quota, scope, account and query fai
 
 test("Google Ads host policy sees immutable account/query inputs and denies before credentials or HTTP", async (t) => {
   const f = await fixture(t); await f.connect(); const values = { customerId, query };
-  const authorized = createConnectionService({ ...f.options, authorize: async (owner, operation) => {
+  const authorized = createConnectionService({ sideEffects: "live", ...f.options, authorize: async (owner, operation) => {
     if (operation.operation === "reports.search") {
       assert.deepEqual(operation.input, { customerId, query }); operation.input.customerId = "1111111111"; values.query = "SELECT customer.id FROM customer";
     }
@@ -237,7 +237,7 @@ test("Google Ads rejects declined or insufficient consent and keeps managed assi
   f.state.scope = "openid"; await assert.rejects(f.connect(), { code: "connector_scope_missing" }); assert.equal(f.state.calls.length, 1);
   const configuration = structuredClone(f.configuration);
   configuration.registrations.google = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:IDENTITY", assignmentRef: "public" };
-  assert.throws(() => createConnectionService({ ...f.options, configuration }), { code: "integration_configuration_invalid" });
+  assert.throws(() => createConnectionService({ sideEffects: "live", ...f.options, configuration }), { code: "integration_configuration_invalid" });
 });
 
 test("Google Ads refresh scope reduction, API cancellation and timeout do not replay requests", async (t) => {
@@ -245,7 +245,7 @@ test("Google Ads refresh scope reduction, API cancellation and timeout do not re
   const keepAlive = setTimeout(() => {}, 1000);
   t.after(() => clearTimeout(keepAlive));
   const f = await fixture(t); await f.connect(); f.state.stall = "api";
-  const timed = createConnectionService({ ...f.options, providers: [{ ...provider, requestTimeoutMs: 20 }] });
+  const timed = createConnectionService({ sideEffects: "live", ...f.options, providers: [{ ...provider, requestTimeoutMs: 20 }] });
   await assert.rejects(f.invoke(undefined, timed), { code: "connector_provider_timeout" });
   const controller = new AbortController(); const pending = f.service.invoke({ ...input, operation: "reports.search", input: { customerId, query }, signal: controller.signal });
   const timer = setTimeout(() => controller.abort(), 20); await assert.rejects(pending, { code: "connector_cancelled" }); clearTimeout(timer);
@@ -322,7 +322,7 @@ test("Search workflow uses existing consent, Google validation, atomic paused cr
   assert.equal((await f.ads.report()).campaigns[0].campaign.id, "33");
   const before = f.state.grants;
   f.configuration.extensions.googleAdsSearch.ads.headlines[0] = "Fresh Booking Copy";
-  const restarted = createConnectionService({ ...f.options, configuration: f.configuration });
+  const restarted = createConnectionService({ sideEffects: "live", ...f.options, configuration: f.configuration });
   assert.equal((await restarted.status(input)).status, "connected");
   assert.equal(f.state.grants, before, "campaign changes do not require fresh OAuth consent");
 });

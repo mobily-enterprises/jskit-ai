@@ -50,6 +50,7 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
    - [multi-homing](references/multi-homing.md) for workspaces or invitations.
    - [translation](references/translation.md) for languages, translated texts
      or error codes.
+   - [side effects](references/side-effects.md) before sending email, messages or payments.
    - For creation, foundation patterns, or package selection, read
      [application operations](references/app-operations.md).
    - Before schema, CRUD or screen work on a table, also read
