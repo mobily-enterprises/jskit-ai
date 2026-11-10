@@ -52,10 +52,11 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMem
       const activeSurfaceId = normalizeSurfaceId(
         request?.routeOptions?.config?.surface || context?.surface
       );
+      // With the request, this is the resolution the workspace action context contributor then reuses.
       const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
         actor,
         workspaceSlug,
-        { requireMembership: !membershipOptionalSurfaceIds.has(activeSurfaceId) }
+        { requireMembership: !membershipOptionalSurfaceIds.has(activeSurfaceId), request }
       );
 
       return buildVisibilityContribution({

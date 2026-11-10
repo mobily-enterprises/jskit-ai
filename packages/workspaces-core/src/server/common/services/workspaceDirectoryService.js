@@ -248,9 +248,9 @@ function createService({
     return returnJsonApiData(await workspacesRepository.updateById(workspaceContext.workspace.id, patch, options));
   }
 
-  // The checks that run before a request's handler (its auth policy and its action context)
-  // each need the request's workspace context. They pass the request and share one resolution
-  // for the same user, slug and membership requirement, instead of reading the workspace, the
+  // The checks that run before a request's handler (its auth policy, its route visibility and its
+  // action context) each need the request's workspace context. They pass the request and share one
+  // resolution for the same user, slug and membership requirement, instead of reading the workspace, the
   // membership and the settings again for each check. A call without a request resolves on
   // its own.
   const requestWorkspaceContexts = new WeakMap();

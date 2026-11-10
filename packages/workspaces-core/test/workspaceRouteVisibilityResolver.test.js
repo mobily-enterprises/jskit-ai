@@ -105,6 +105,7 @@ test("workspace route visibility honors membership-optional workspace surfaces",
   });
 
   assert.equal(calls[0].options.requireMembership, false);
+  assert.equal(calls[0].options.request, request, "The request's later workspace checks reuse this resolution");
   assert.deepEqual(contribution, {
     scopeKind: "workspace_user",
     requiresActorScope: true,
