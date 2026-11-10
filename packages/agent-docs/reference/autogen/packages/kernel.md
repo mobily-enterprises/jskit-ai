@@ -908,7 +908,10 @@ Local functions
 - `assertValidSchema(schema, name)`
 - `filedSchemaId(schema, fallback)`
 - `everyRefResolves(schema, externalSchemas)`
-- `compiledOnFirstUse(compile, options, key)`
+- `namesNothingOutside(value)`
+- `selfContainedBranch(ajv, ref)`
+- `branchValidator(validator, compiledBranches)`
+- `compiledOnFirstUse(build, options, key)`
 
 ### `server/http/securityHeaders.js`
 Exports

@@ -3,7 +3,10 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 import Fastify from "fastify";
 import SerializerSelector from "@fastify/fast-json-stringify-compiler";
+import fastJsonStringify from "fast-json-stringify";
+import { createSchema } from "json-rest-schema";
 import { deepFreeze } from "../../shared/support/deepFreeze.js";
+import { resolveSchemaTransportSchemaDefinition } from "../../shared/validators/index.js";
 import { createCachedResponseSerializerFactory, schemaCacheKey } from "./responseSerializerFactory.js";
 
 const linkSchema = {
@@ -81,7 +84,7 @@ function trackNativeFactory() {
 test("reuses exact JSON schemas, compiles each on first use and preserves native rejection without caching failures", () => {
   const native = trackNativeFactory();
   const compile = createCachedResponseSerializerFactory(native.build)({}, {});
-  const calls = () => native.contexts[0].calls.length;
+  const calls = () => native.contexts.reduce((sum, context) => sum + context.calls.length, 0);
   const first = compile({ schema: successSchema, url: "/one", httpStatus: "200" });
   const second = compile({ schema: structuredClone(successSchema), url: "/two", httpStatus: "201" });
   assert.equal(second, first);
@@ -249,8 +252,12 @@ test("each factory invocation isolates serializer options and external reference
   assert.equal(string(3.8), '"3.8"');
   assert.notEqual(another, string);
   assert.equal(another(1), '"1"');
-  assert.equal(native.contexts.length, 4);
-  assert.ok(native.contexts.every(({ calls }) => calls.length === 1));
+  // Each invocation builds its serializers in fast-json-stringify's debug mode, for restore, with its own options.
+  const debug = native.contexts.filter(({ options }) => options.mode === "debug");
+  assert.equal(debug.length, 4);
+  assert.deepEqual(debug.map(({ options }) => options.rounding), ["floor", "ceil", undefined, undefined]);
+  assert.ok(debug.every(({ calls }) => calls.length === 1));
+  assert.ok(native.contexts.every(({ options, calls }) => options.mode === "debug" || calls.length === 0));
 });
 
 test("Fastify startup reuses serializers with identical native HTTP output and errors", async (t) => {
@@ -306,7 +313,7 @@ test("Fastify startup reuses serializers with identical native HTTP output and e
     payload = { errors: [{ links: { self: link } }] };
     assert.equal((await applications[1].inject("/two")).statusCode, 500);
   }
-  assert.equal(cached.contexts[0].calls.length, 2);
+  assert.equal(cached.contexts.reduce((sum, { calls }) => sum + calls.length, 0), 2);
 });
 
 test("Fastify encapsulation and schema additions create isolated compiler contexts", async (t) => {
@@ -384,4 +391,191 @@ test("generic and HTTP kernel imports do not load Fastify or response-compiler d
     await import(${JSON.stringify(new URL("./index.js", import.meta.url).href)});
   `], { encoding: "utf8" });
   assert.equal(result.status, 0, result.stderr);
+});
+
+// Attributes exported by json-rest-schema, with a JSON:API nullable relationship as the HTTP runtime writes it: nullable
+// numbers, booleans with enums, dates and relationships are each a union.
+function recordAttributes(fieldsPerKind = 1) {
+  const structure = { active: { type: "boolean", required: true } };
+  for (let index = 0; index < fieldsPerKind; index++) {
+    Object.assign(structure, {
+      [`amount${index}`]: { type: "number", nullable: true },
+      [`count${index}`]: { type: "integer", nullable: true, min: 0 },
+      [`flagged${index}`]: { type: "boolean", nullable: true },
+      [`startsAt${index}`]: { type: "dateTime", nullable: true },
+      [`day${index}`]: { type: "date", nullable: true },
+      [`title${index}`]: { type: "string", nullable: true, maxLength: 20 }
+    });
+  }
+  const { $schema: _draft, ...attributes } = resolveSchemaTransportSchemaDefinition(
+    { schema: createSchema(structure), mode: "replace" },
+    { defaultMode: "replace" }
+  );
+  return attributes;
+}
+
+function nullableRelationship(type) {
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["data"],
+    properties: {
+      data: {
+        anyOf: [
+          {
+            type: "object",
+            additionalProperties: false,
+            required: ["type", "id"],
+            properties: { type: { const: type }, id: { anyOf: [{ type: "string", minLength: 1 }, { type: "number" }] } }
+          },
+          { type: "null" }
+        ]
+      }
+    }
+  };
+}
+
+function recordListSchema({ fieldsPerKind = 1, relationships = 1 } = {}) {
+  const relationshipProperties = {};
+  for (let index = 0; index < relationships; index++) {
+    relationshipProperties[`owner${index}`] = nullableRelationship(`owners${index % 3}`);
+  }
+  return {
+    type: "object",
+    additionalProperties: false,
+    required: ["data"],
+    properties: {
+      data: {
+        type: "array",
+        items: { allOf: [{ $ref: "#/definitions/record" }] }
+      },
+      links: linksSchema
+    },
+    definitions: {
+      record: {
+        type: "object",
+        additionalProperties: false,
+        required: ["type", "id", "attributes"],
+        properties: {
+          type: { const: "records" },
+          id: { anyOf: [{ type: "string", minLength: 1 }, { type: "number" }] },
+          attributes: { allOf: [{ $ref: "#/definitions/attributes" }] },
+          relationships: { type: "object", additionalProperties: false, properties: relationshipProperties }
+        }
+      },
+      attributes: recordAttributes(fieldsPerKind)
+    }
+  };
+}
+
+// What a serializer writes for the value, or the error it refuses it with. fast-json-stringify numbers the schemas it
+// makes inside a build with one counter for the process, so two builds of a schema, native ones too, differ only there.
+function outcome(serialize, value) {
+  try {
+    return { json: serialize(value) };
+  } catch (error) {
+    return { error: error.constructor.name, message: error.message.replace(/__fjs_(root|merged)_\d+/g, "__fjs_$1_<n>") };
+  }
+}
+
+test("union branches compiled on their own write and refuse every value exactly as before, with the same errors", () => {
+  const schema = recordListSchema();
+  const native = fastJsonStringify(structuredClone(schema));
+  const compile = createCachedResponseSerializerFactory(SerializerSelector())({}, {});
+  const lifted = compile({ schema: structuredClone(schema), httpStatus: "200" });
+  const document = (attributes, relationship = null) => ({
+    data: [{ type: "records", id: "1", attributes: { active: true, ...attributes }, relationships: { owner0: { data: relationship } } }]
+  });
+  const values = [
+    null, 0, 1, 1.5, -3, 2 ** 53, NaN, Infinity, -Infinity, "", "12", "1.5", "abc", "yes", "true", "0", true, false,
+    new Date(Date.UTC(2026, 0, 2, 3, 4, 5)), "2026-01-02", "2026-01-02T03:04:05.000Z", /pattern/, [], [1], {},
+    { toJSON: () => "json" }, { toString: () => "text" }, 10n, "a title that is longer than twenty"
+  ];
+  const fields = ["active", "amount0", "count0", "flagged0", "startsAt0", "day0", "title0"];
+  let refused = 0;
+  for (const field of fields) {
+    for (const value of values) {
+      const expected = outcome(native, document({ [field]: value }));
+      assert.deepEqual(outcome(lifted, document({ [field]: value })), expected, `${field}: ${String(value)}`);
+      if (expected.error) refused += 1;
+    }
+  }
+  const relationships = [
+    null, { type: "owners0", id: "5" }, { type: "owners0", id: 5 }, { type: "others", id: "5" }, { type: "owners0" },
+    { type: "owners0", id: "" }, { type: "owners0", id: "5", extra: true }, { type: "owners0", id: null }, [], "5",
+    [{ type: "owners0", id: "5" }], { type: "owners0", id: new Date(0) }
+  ];
+  for (const relationship of relationships) {
+    const expected = outcome(native, document({}, relationship));
+    assert.deepEqual(outcome(lifted, document({}, relationship)), expected, JSON.stringify(relationship));
+    if (expected.error) refused += 1;
+  }
+  for (const id of [1, "7", "", null, true, [1]]) {
+    const value = { data: [{ type: "records", id, attributes: { active: 1 } }], links: { self: id } };
+    assert.deepEqual(outcome(lifted, value), outcome(native, value), `id ${JSON.stringify(id)}`);
+  }
+  assert.ok(refused > 20, `${refused} refused values`);
+});
+
+test("a big list compiles each distinct union branch once and never the whole response schema", () => {
+  const schema = recordListSchema({ fieldsPerKind: 25, relationships: 30 });
+  const built = [];
+  const serialize = createCachedResponseSerializerFactory((externalSchemas, options) => {
+    const compile = SerializerSelector()(externalSchemas, options);
+    return (input) => {
+      const result = compile(input);
+      built.push(result);
+      return result;
+    };
+  })({}, {})({ schema });
+  const rows = Array.from({ length: 20 }, (_, row) => {
+    const attributes = { active: row % 2 === 0 };
+    for (let index = 0; index < 25; index++) {
+      Object.assign(attributes, {
+        [`amount${index}`]: row % 3 ? row + index / 4 : null,
+        [`count${index}`]: row % 4 ? row : null,
+        [`flagged${index}`]: row % 5 ? row % 2 === 1 : null,
+        [`startsAt${index}`]: row % 3 ? new Date(Date.UTC(2026, 0, row + 1)) : null,
+        [`day${index}`]: row % 2 ? "2026-01-02" : null,
+        [`title${index}`]: row % 2 ? `title ${row}` : null
+      });
+    }
+    const relationships = {};
+    for (let index = 0; index < 30; index++) {
+      relationships[`owner${index}`] = { data: (row + index) % 4 ? { type: `owners${index % 3}`, id: String(row) } : null };
+    }
+    return { type: "records", id: String(row + 1), attributes, relationships };
+  });
+  const document = { data: rows, links: { self: "/records", next: { href: "/records?page=2" } } };
+
+  assert.ok(JSON.stringify(schema).match(/"anyOf"/g).length > 200);
+  assert.equal(serialize(document), fastJsonStringify(structuredClone(schema))(document));
+  const [{ ajv }] = built;
+  const schemas = Object.entries(ajv.schemas).filter(([id]) => id.startsWith("__fjs_"));
+  assert.ok(schemas.length > 0);
+  // Ajv holds the schemas the branches sit in but compiled none of them, only each distinct branch on its own.
+  assert.deepEqual(schemas.filter(([, environment]) => environment.validate).map(([id]) => id), []);
+});
+
+test("a branch that names another schema, or sits under an escaped name, is validated as before", () => {
+  const schema = {
+    type: "object",
+    properties: {
+      record: { anyOf: [{ type: "null" }, { allOf: [{ $ref: "#/definitions/record" }] }] },
+      "a/b": { anyOf: [{ type: "integer" }, { type: "null" }] },
+      "c~d": { anyOf: [{ type: "integer" }, { type: "null" }] }
+    },
+    definitions: {
+      record: { type: "object", required: ["id"], properties: { id: { anyOf: [{ type: "string", minLength: 1 }, { type: "number" }] } } }
+    }
+  };
+  const native = fastJsonStringify(structuredClone(schema));
+  const serialize = createCachedResponseSerializerFactory(SerializerSelector())({}, {})({ schema });
+  const values = [
+    { record: null }, { record: { id: 1 } }, { record: { id: "" } }, { record: {} }, { record: "one" },
+    { "a/b": 1 }, { "a/b": null }, { "c~d": 2 }, { "c~d": "two" }
+  ];
+  for (const value of values) {
+    assert.deepEqual(outcome(serialize, value), outcome(native, value), JSON.stringify(value));
+  }
 });
