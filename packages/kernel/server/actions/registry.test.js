@@ -6,6 +6,7 @@ import { createActionRegistry } from "./registry.js";
 import { toRegisteredContributor } from "./actionDefinitions.js";
 import { noActionPolicy } from "./actionPolicy.js";
 import { silentLogger } from "../runtime/logger.js";
+import { createValidationError } from "../runtime/errors.js";
 
 /**
  * A registry of contributors registered as the catalogue registers them, without a
@@ -187,6 +188,90 @@ test("action registry validates an input without a mode in create mode, and a pa
     notify: false
   });
   assert.deepEqual(await registry.execute({ actionId: "notes.update", input: { notify: true }, context }), { notify: true });
+});
+
+test("an action's checkInput refuses its validated input before it runs, exactly as its input schema refuses a field", async () => {
+  const executed = [];
+  const checked = [];
+  const fieldsMessage = 'fields keys must be resource types; use "books" instead of "book".';
+  const registry = createRegistry({
+    logger: silentLogger,
+    contributors: [{
+      contributorId: "tests.books",
+      domain: "books",
+      actions: [{
+        id: "books.list",
+        channels: ["api"],
+        surfaces: ["app"],
+        input: {
+          schema: createSchema({
+            title: { type: "string", required: false, minLength: 2, messages: { minLength: { code: "tests.titleShort", message: "Title is short." } } },
+            fields: { type: "object", required: false, additionalProperties: true }
+          }),
+          mode: "patch"
+        },
+        checkInput(input) {
+          checked.push(input);
+          if (input.fields?.book) {
+            throw createValidationError({ "fields.book": { code: "tests.fieldsKeys", params: { type: "books" }, message: fieldsMessage } });
+          }
+        },
+        execute: (input) => {
+          executed.push(input);
+          return input;
+        }
+      }]
+    }]
+  });
+  const context = { channel: "api", surface: "app", permissions: [] };
+  const refusal = (input) => registry.execute({ actionId: "books.list", input, context }).then(
+    () => assert.fail(`books.list took ${JSON.stringify(input)}`),
+    (error) => error
+  );
+
+  // The schema judges first, and a refused input never reaches checkInput.
+  const bySchema = await refusal({ title: "x", fields: { book: ["title"] } });
+  assert.equal(checked.length, 0);
+  const byCheck = await refusal({ title: "  Dune  ", fields: { book: ["title"] } });
+  assert.deepEqual(checked, [{ title: "Dune", fields: { book: ["title"] } }]);
+  assert.deepEqual(executed, []);
+  assert.equal(byCheck.constructor, bySchema.constructor);
+  for (const key of ["status", "code", "message", "params"]) {
+    assert.deepEqual(byCheck[key], bySchema[key], key);
+  }
+  assert.deepEqual(byCheck.details, {
+    fieldErrors: { "fields.book": fieldsMessage },
+    fieldErrorCodes: { "fields.book": { code: "tests.fieldsKeys", params: { type: "books" } } }
+  });
+  assert.deepEqual(bySchema.details.fieldErrors, { title: "Title is short." });
+  assert.equal(bySchema.details.fieldErrorCodes.title.code, "tests.titleShort");
+
+  assert.deepEqual(await registry.execute({ actionId: "books.list", input: { fields: { books: ["title"] } }, context }), {
+    fields: { books: ["title"] }
+  });
+  assert.equal(executed.length, 1);
+});
+
+test("an action's checkInput that fails without field errors fails the action with its own error", async () => {
+  const fault = new TypeError("The check broke.");
+  const registry = createRegistry({
+    logger: silentLogger,
+    contributors: [{
+      contributorId: "tests.books",
+      domain: "books",
+      actions: [{
+        id: "books.list",
+        channels: ["api"],
+        surfaces: ["app"],
+        input: { schema: createSchema({}), mode: "patch" },
+        checkInput() {
+          throw fault;
+        },
+        execute: () => assert.fail("the action ran")
+      }]
+    }]
+  });
+  await assert.rejects(registry.execute({ actionId: "books.list", context: { channel: "api", surface: "app", permissions: [] } }), (error) => error === fault);
 });
 
 test("action registry fails startup on duplicate action id + version", () => {

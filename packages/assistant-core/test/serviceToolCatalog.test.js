@@ -3,6 +3,7 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 
 function schema(fields = {}, mode = "patch") {
@@ -29,6 +30,7 @@ function action({
   input = schema({}),
   output = schema({ ok: { type: "boolean", required: true } }),
   extensions = {},
+  checkInput = null,
   execute = async () => ({ ok: true })
 } = {}) {
   return {
@@ -41,6 +43,7 @@ function action({
     input,
     output,
     extensions,
+    checkInput,
     execute
   };
 }
@@ -268,6 +271,48 @@ test("assistant tools expose safe field-level input guidance to the model", asyn
       status: 400
     }
   });
+});
+
+test("assistant tools give the model the field and the type to use when an action's own input check refuses a key", async () => {
+  let executed = false;
+  const actions = createActions([action({
+    input: schema({ fields: { type: "object", required: false, additionalProperties: true } }),
+    // A check of what the schema cannot judge, such as a fieldset key only the application's tables can name.
+    checkInput(input) {
+      if (input.fields?.pet) {
+        throw createValidationError({
+          "fields.pet": {
+            code: "demo.fieldsKeys",
+            params: { type: "pets" },
+            message: "fields keys must be resource types. Allowed keys: \"books\", \"pets\"; use \"pets\" instead of \"pet\"."
+          }
+        });
+      }
+    },
+    execute: async () => {
+      executed = true;
+      return { ok: true };
+    }
+  })]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+
+  assert.deepEqual(await catalog.executeToolCall({
+    toolName: toolSet.tools[0].name,
+    argumentsText: JSON.stringify({ fields: { pet: ["name"] } }),
+    context,
+    toolSet
+  }), {
+    ok: false,
+    error: {
+      code: "ACTION_VALIDATION_FAILED",
+      message: "Validation failed. fields.pet: fields keys must be resource types. Allowed keys: \"books\", \"pets\"; " +
+        "use \"pets\" instead of \"pet\".",
+      status: 400
+    }
+  });
+  assert.equal(executed, false);
 });
 
 test("large authorized catalogs use compact paged discovery, exact contracts, and gated execution", async () => {

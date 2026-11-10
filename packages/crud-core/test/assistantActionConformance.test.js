@@ -10,6 +10,7 @@ import { returnJsonApiDocument } from "@jskit-ai/http-runtime/shared";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createCrudJsonApiActions } from "../src/server/jsonApiModule/actions.js";
+import { resolveIncludedTypes } from "../src/server/jsonApiModule/service.js";
 import { crudJsonApiActionOptions } from "./support/crudJsonApiActionOptions.js";
 
 const BOOKINGS = Object.freeze([
@@ -50,7 +51,24 @@ function lookupField(namespace, relationshipName) {
   };
 }
 
-function createBookingsResource() {
+// The table the bookings' pet include crosses, which names the pet's breed as the type "breeds".
+const PETS_TABLE = defineTableResource({
+  name: "pets",
+  tableName: "pets",
+  ownership: "public",
+  schema: {
+    name: { type: "string", required: true },
+    species: { type: "string", required: true },
+    contactId: lookupField("contacts", "contact"),
+    breedId: lookupField("breeds", "breed")
+  }
+});
+
+/**
+ * @param {object} [options]
+ * @param {boolean} [options.nested] The pet include also reaches the pet's breed, a level below it.
+ */
+function createBookingsResource({ nested = false } = {}) {
   const bookings = defineTableResource({
     name: "bookings",
     tableName: "bookings",
@@ -71,9 +89,12 @@ function createBookingsResource() {
         containerKey: "lookups"
       }
     },
-    fields: Object.fromEntries(
-      ["serviceId", "productId", "contactId", "petId", "summary"].map((field) => [field, { output: "required" }])
-    )
+    fields: {
+      ...Object.fromEntries(
+        ["serviceId", "productId", "contactId", "petId", "summary"].map((field) => [field, { output: "required" }])
+      ),
+      ...(nested ? { petId: { output: { required: true, includeFields: ["name", "species", { breed: ["name"] }] } } } : {})
+    }
   });
 }
 
@@ -150,8 +171,12 @@ function createBookingDocument(query = {}) {
   };
 }
 
-function createFixture() {
-  const resource = createBookingsResource();
+/**
+ * @param {object} [options]
+ * @param {boolean} [options.nested] See createBookingsResource.
+ */
+function createFixture({ nested = false } = {}) {
+  const resource = createBookingsResource({ nested });
   const calls = [];
   const service = {
     async list(query, { context }) {
@@ -182,7 +207,9 @@ function createFixture() {
     permissionForOperation: () => ({
       require: "all",
       permissions: ["bookings.list"]
-    })
+    }),
+    // What the CRUD contracts resolve at boot, from the tables the includes cross.
+    includedTypes: () => resolveIncludedTypes(resource, (name) => (name === "pets" ? PETS_TABLE : null))
   }));
   const actions = createActionCatalogue();
   actions.register({
@@ -479,4 +506,50 @@ test("generated CRUD list contracts conform through native assistant discovery a
       }
     });
   });
+});
+
+test("a generated CRUD list whose include reaches nested types refuses an alias or unknown fieldset key before it runs, naming the field and its type to the assistant", async () => {
+  const fixture = createFixture({ nested: true });
+  const listDefinition = fixture.definitions.find((entry) => entry.id === "crud.bookings.list");
+  // The generated input with another execute, as a test that stubs the action's work registers it: the input alone refuses.
+  const executed = [];
+  const actions = createActionCatalogue();
+  actions.register({
+    contributorId: "test.generated-bookings",
+    domain: "bookings",
+    actions: [{
+      ...listDefinition,
+      execute: (input, context, deps) => {
+        executed.push(input);
+        return listDefinition.execute(input, context, deps);
+      }
+    }]
+  });
+  const catalog = createServiceToolCatalog(actions);
+  const toolSet = catalog.resolveToolSet(fixture.context);
+  const { name: toolName } = toolSet.tools.find(({ actionId }) => actionId === "crud.bookings.list");
+  const list = (input) => catalog.executeToolCall({
+    toolName,
+    argumentsText: JSON.stringify(input),
+    context: fixture.context,
+    toolSet
+  });
+
+  for (const [fields, field] of [[{ pet: ["name"] }, "fields.pet"], [{ nosuch: ["name"] }, "fields.nosuch"]]) {
+    const response = await list({ include: "pet", fields, limit: 3 });
+    assert.equal(response.ok, false);
+    assert.equal(response.error.code, "ACTION_VALIDATION_FAILED");
+    assert.equal(response.error.status, 400);
+    assert.ok(response.error.message.startsWith(
+      `Validation failed. ${field}: fields keys must be JSON:API resource types. Allowed keys: "bookings", "services", ` +
+      '"products", "contacts", "pets", "breeds". Relationship aliases are invalid keys; use "services" instead of "service";'
+    ), response.error.message);
+  }
+  assert.deepEqual(executed, []);
+
+  // A fieldset for the breed the include reaches below its first level still narrows it.
+  const narrowed = await list({ fields: { breeds: ["name"] }, limit: 3 });
+  assert.equal(narrowed.ok, true, JSON.stringify(narrowed.error));
+  assert.equal(executed.length, 1);
+  assert.deepEqual(fixture.calls.at(-1).query.fields, { breeds: ["name"] });
 });

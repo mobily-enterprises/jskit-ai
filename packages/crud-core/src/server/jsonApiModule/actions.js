@@ -36,8 +36,9 @@ function resolveCrudActionChannels(permission, servedOverHttp) {
 
 function buildActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs) {
   const definitions = scopeInputValidator ? [scopeInputValidator] : [];
-  // A fieldset for a type the includes reach below their first level is checked when the action runs (see
-  // createIncludedFieldsetsCheck): only the tables they cross name that type, and every feature owns its tables at boot.
+  // A fieldset for a type the includes reach below their first level is checked by the action's checkInput, after this
+  // schema (see createIncludedFieldsetsCheck): only the tables they cross name that type, and every feature owns its
+  // tables at boot.
   if (operation === "list") {
     definitions.push(...createStandardCrudListQueryValidators({
       resource,
@@ -264,6 +265,8 @@ function createCrudJsonApiActions({
 }) {
   const definitions = builtDefinitions ?? createCrudJsonApiActionDefinitions({ namespace, resource, ...definitionOptions });
   const checkIncludedFieldsets = createIncludedFieldsetsCheck(resource);
+  // A read's input refuses a fieldset for a type its includes do not show, as its schema refuses any other bad key.
+  const checkReadInput = (input) => checkIncludedFieldsets(input.fields, includedTypes());
   const mutationEvent = (operation, entityId) => buildCrudRecordChangedEvent({
     namespace,
     operation,
@@ -378,19 +381,15 @@ function createCrudJsonApiActions({
       operation: "list",
       kind: "query",
       events: [],
-      execute: async (input, context) => {
-        checkIncludedFieldsets(input.fields, includedTypes());
-        return executeOperation("list", input, context, listDocuments);
-      }
+      checkInput: checkReadInput,
+      execute: (input, context) => executeOperation("list", input, context, listDocuments)
     },
     {
       operation: "view",
       kind: "query",
       events: [],
-      execute: async (input, context) => {
-        checkIncludedFieldsets(input.fields, includedTypes());
-        return executeOperation("view", input, context, viewDocument);
-      }
+      checkInput: checkReadInput,
+      execute: (input, context) => executeOperation("view", input, context, viewDocument)
     },
     {
       operation: "create",
@@ -425,6 +424,7 @@ function createCrudJsonApiActions({
       output: null,
       extensions: built.extensions,
       events: definition.events,
+      ...(definition.checkInput ? { checkInput: definition.checkInput } : {}),
       execute: definition.execute
     });
   });

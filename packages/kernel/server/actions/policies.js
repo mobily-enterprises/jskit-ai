@@ -95,14 +95,28 @@ function ensureActionPermissionAllowed(definition, context) {
   }
 }
 
+function hasFieldErrors(error) {
+  return isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors);
+}
+
+/**
+ * The action's input as its schema validates it, then as its own checkInput judges it, when it has one: a check of
+ * what the schema cannot judge until the application runs, such as a CRUD read's fieldsets for the types its includes
+ * reach, which boot resolves. Either refusal is an ACTION_VALIDATION_FAILED naming each refused field, before the
+ * action runs. checkInput refuses by throwing an error with field errors (createValidationError); any other error it
+ * throws is a fault, and goes on as it is.
+ * @param {import("../types.js").ActionDefinition} definition
+ * @param {unknown} input
+ */
 async function normalizeActionInput(definition, input) {
+  let normalized;
   try {
-    return validateSchemaPayload(definition.input, input, {
+    normalized = validateSchemaPayload(definition.input, input, {
       phase: "input",
       context: `Action ${definition.id} input`
     });
   } catch (error) {
-    if (isRecord(error?.fieldErrors) || isRecord(error?.details?.fieldErrors)) {
+    if (hasFieldErrors(error)) {
       throw buildActionValidationError({
         details: schemaFieldErrorDetails(error),
         cause: error
@@ -119,6 +133,15 @@ async function normalizeActionInput(definition, input) {
       cause: error
     });
   }
+
+  if (definition.checkInput) {
+    try {
+      await definition.checkInput(normalized);
+    } catch (error) {
+      throw hasFieldErrors(error) ? buildActionValidationError({ details: schemaFieldErrorDetails(error), cause: error }) : error;
+    }
+  }
+  return normalized;
 }
 
 async function normalizeActionOutput(definition, output) {

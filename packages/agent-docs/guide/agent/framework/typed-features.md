@@ -483,6 +483,13 @@ record declares `mode: "patch"`; a command never does.**
 - An input field lists its allowed values with `enum`; the kernel refuses
   `oneOf` on an input field at startup, because json-rest-schema checks no
   `oneOf` and the field would accept any value.
+- A check of the input that the schema cannot make until the application
+  runs (a value only boot resolves, such as the types a CRUD read's includes
+  reach) is the definition's `checkInput(input)`, never a check inside
+  `execute`. The kernel runs it on the validated input before the action and
+  answers the field errors it throws (`createValidationError`) as an
+  `ACTION_VALIDATION_FAILED`, exactly as a schema refusal, so HTTP clients and
+  assistant tools are told the field to correct.
 
 Why: a command whose required field is never enforced reaches the service
 without it.

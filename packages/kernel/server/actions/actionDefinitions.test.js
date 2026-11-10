@@ -233,6 +233,7 @@ test("normalizeActionDefinition keeps only the contract the runtime enforces", (
   assert.equal(Object.hasOwn(definition, "observability"), false);
   assert.deepEqual(Object.keys(definition).sort(), [
     "channels",
+    "checkInput",
     "contributorId",
     "domain",
     "events",
@@ -246,6 +247,24 @@ test("normalizeActionDefinition keeps only the contract the runtime enforces", (
     "surfaces",
     "version"
   ]);
+});
+
+test("normalizeActionDefinition keeps a checkInput function and refuses anything else", () => {
+  const base = {
+    id: "demo.books.list",
+    domain: "demo",
+    channels: ["api"],
+    surfaces: ["app"],
+    input: { schema: createSchema({}) },
+    execute: async () => ({})
+  };
+  const checkInput = () => {};
+  assert.equal(normalizeActionDefinition({ ...base, checkInput }).checkInput, checkInput);
+  assert.equal(normalizeActionDefinition(base).checkInput, null);
+  assert.throws(
+    () => normalizeActionDefinition({ ...base, checkInput: "fields" }),
+    { message: 'Action definition "demo.books.list" checkInput must be a function when provided.' }
+  );
 });
 
 test("normalizeActionDefinition validates domains with the architecture id pattern", () => {

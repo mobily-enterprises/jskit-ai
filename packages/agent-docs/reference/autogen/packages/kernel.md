@@ -723,6 +723,7 @@ Exports
 Local functions
 - `schemaFieldErrorDetails(error)`
 - `buildActionValidationError({ details, cause })`
+- `hasFieldErrors(error)`
 
 ### `server/actions/registry.js`
 Exports

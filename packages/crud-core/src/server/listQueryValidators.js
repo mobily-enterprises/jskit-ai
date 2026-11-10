@@ -116,8 +116,8 @@ function fieldsetKeysRefusal(contract, resourceTypes) {
  * its view output names, and each type it links to. A type its includes reach below their first level
  * (`includeFields: ["name", { breed: ["name"] }]` reaches the breed's type) is named only by the tables an include
  * crosses, so this schema cannot name it. Such a key is refused, like any other unknown key, unless
- * `deferIncludedTypes` lets it through to createIncludedFieldsetsCheck, which the CRUD actions run once boot has
- * resolved those types.
+ * `deferIncludedTypes` lets it through to createIncludedFieldsetsCheck, which the CRUD list and view actions run as
+ * their input's checkInput, right after this schema, once boot has resolved those types.
  * @param {object} [options]
  * @param {object} [options.resource] The CRUD contract.
  * @param {boolean} [options.deferIncludedTypes]
@@ -172,7 +172,8 @@ function createJsonApiFieldsetsQueryValidator({ resource = {}, deferIncludedType
  * it there; any other key is refused as the validator refuses one. So
  * `include=customer,customer.region&fields[regions]=name` narrows the included regions when the include lists
  * `{ region: ["name", ...] }`, and the includes still decide what an included record can show. The check throws a
- * validation error naming each refused fieldset.
+ * validation error naming each refused fieldset, which the action pipeline answers as it answers the schema's refusal
+ * of a key (ACTION_VALIDATION_FAILED, before the action runs).
  * @param {object} resource The CRUD contract.
  * @returns {(fields: unknown, includedTypes: ReadonlyMap<string, ReadonlySet<string>>) => void} Takes the validated
  *   input's `fields` and the types the includes reach below their first level, each with the fields it shows there,

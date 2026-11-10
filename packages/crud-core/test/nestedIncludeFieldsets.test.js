@@ -62,8 +62,27 @@ const ordersContract = defineCrudContract(orders, {
     customerId: { output: { required: false, includeFields: ["name", { region: ["name", "code"] }] } }
   }
 });
+// invoices -> customer (customers), one level: nothing to defer, so the list's input schema judges every fieldset key.
+const invoices = defineTableResource({
+  name: "invoices",
+  tableName: "invoices",
+  ownership: "public",
+  schema: {
+    number: { type: "string", required: true },
+    customerId: { type: "id", nullable: true, lookup: "customers", storage: { column: "customer_id" } }
+  }
+});
+const invoicesContract = defineCrudContract(invoices, {
+  namespace: "invoices",
+  apiAccess: "public",
+  operations: ["list", "view"],
+  fields: {
+    number: { output: "required" },
+    customerId: { output: { required: false, includeFields: ["name"] } }
+  }
+});
 
-// The orders feature serves the orders; another feature owns the tables its include reaches.
+// The orders and invoices features serve their records; another feature owns the tables their includes reach.
 async function startOrders(t) {
   const knex = await createPackageTestKnex(t, { environment: process.env });
   const router = createRouter();
@@ -72,7 +91,8 @@ async function startOrders(t) {
     features: [
       CrudContractsProvider,
       defineFeature({ id: "test.customers", owns: [customers, regions, tags], setup: () => ({}) }),
-      defineCrudFeature({ crud: ordersContract, surface: "home" })
+      defineCrudFeature({ crud: ordersContract, surface: "home" }),
+      defineCrudFeature({ crud: invoicesContract, surface: "home" })
     ],
     requires: { actions: "runtime.actions" },
     inputs: { "runtime.http": { router } },
@@ -83,6 +103,7 @@ async function startOrders(t) {
   await knex("customers").insert({ name: "Acme", region_id: 1 });
   await knex("tags").insert({ label: "Urgent" });
   await knex("orders").insert({ reference: "A-1", customer_id: 1 });
+  await knex("invoices").insert({ number: "INV-1", customer_id: 1 });
   return { actions: started.capabilities.actions, router };
 }
 
@@ -153,5 +174,65 @@ test("over HTTP, fields[<type>] narrows a record two include levels down and ref
     const response = await get(query);
     assert.equal(response.statusCode, 400, `${query}: ${response.body}`);
     assert.ok(response.body.includes(`"${code}"`), `${query}: ${response.body}`);
+  }
+});
+
+// The list action's input schema refuses a bad key of a contract whose includes stop at their first level; the check
+// the action runs refuses it for one whose includes reach further. A client or an assistant tool reads both alike.
+const BAD_KEYS = Object.freeze([
+  [{ customer: ["name"] }, "fields.customer"],
+  [{ nosuch: ["name"] }, "fields.nosuch"]
+]);
+
+test("a fieldset keyed by a relationship alias or by no type is refused as the action input refuses one, whether the includes reach nested types or not", async (t) => {
+  const { actions } = await startOrders(t);
+  const refusal = (actionId, fields) => actions.execute({ actionId, input: { include: "customer", fields }, context: API }).then(
+    () => assert.fail(`${actionId} took fields ${JSON.stringify(fields)}`),
+    (error) => error
+  );
+
+  for (const [fields, field] of BAD_KEYS) {
+    const nested = await refusal("crud.orders.list", fields);
+    const flat = await refusal("crud.invoices.list", fields);
+    assert.equal(nested.constructor, flat.constructor);
+    for (const [error, allowedKeys] of [[nested, '"orders", "customers", "regions"'], [flat, '"invoices", "customers"']]) {
+      assert.equal(error.status, 400);
+      assert.equal(error.code, "ACTION_VALIDATION_FAILED");
+      assert.equal(error.message, "Validation failed.");
+      assert.deepEqual(Object.keys(error.details.fieldErrors), [field]);
+      assert.deepEqual(error.details.fieldErrorCodes[field], {
+        code: "crud.query.fieldsKeysInvalidWithAliases",
+        params: { allowedTypes: allowedKeys, aliasGuidance: 'use "customers" instead of "customer"' }
+      });
+      assert.equal(
+        error.details.fieldErrors[field],
+        `fields keys must be JSON:API resource types. Allowed keys: ${allowedKeys}. Relationship aliases are invalid ` +
+        'keys; use "customers" instead of "customer".'
+      );
+      assertCatalogRenders(error.details.fieldErrorCodes[field], error.details.fieldErrors[field]);
+    }
+  }
+});
+
+test("over HTTP, a fieldset keyed by a relationship alias or by no type answers alike whether the includes reach nested types or not", async (t) => {
+  const { actions, router } = await startOrders(t);
+  const app = Fastify();
+  t.after(() => app.close());
+  registerApiErrorHandler(app);
+  registerRoutes(app, { routes: router.list(), actions });
+  const listPath = (namespace) => router.list().find((route) => route.method === "GET" && route.path.endsWith(`/${namespace}`)).path;
+
+  for (const [fields, field] of BAD_KEYS) {
+    const [type] = Object.keys(fields);
+    const [nested, flat] = await Promise.all(["orders", "invoices"].map((namespace) => app.inject({
+      method: "GET",
+      url: `${listPath(namespace)}?include=customer&fields%5B${type}%5D=name`
+    })));
+    for (const response of [nested, flat]) {
+      assert.equal(response.statusCode, 400, `${field}: ${response.body}`);
+      for (const expected of ['"ACTION_VALIDATION_FAILED"', '"crud.query.fieldsKeysInvalidWithAliases"', 'use \\"customers\\" instead of \\"customer\\"']) {
+        assert.ok(response.body.includes(expected), `${field} ${expected}: ${response.body}`);
+      }
+    }
   }
 });

@@ -231,6 +231,10 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
   if (typeof source.execute !== "function") {
     throw new Error(`Action definition \"${id}\" execute handler is required.`);
   }
+  // readable-check: allow method-probe - input validation: an action definition's checkInput, when it has one, is a function
+  if (source.checkInput != null && typeof source.checkInput !== "function") {
+    throw new Error(`Action definition \"${id}\" checkInput must be a function when provided.`);
+  }
 
   return Object.freeze({
     id,
@@ -246,6 +250,7 @@ function normalizeActionDefinition(definition, { contributorId = "", contributor
     permission: normalizeActionPermission(source.permission, id),
     extensions: normalizeActionExtensions(source.extensions),
     events: normalizeActionEvents(source.events, id),
+    checkInput: source.checkInput ?? null,
     execute: source.execute,
     contributorId: normalizeText(contributorId)
   });
