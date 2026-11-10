@@ -45,6 +45,11 @@ const elapsed = computed(() => {
   const minutes = Math.floor(total / 60);
   return minutes < 60 ? `${minutes}:${seconds}` : `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${seconds}`;
 });
+// The chip says plainly when a goal is not running (paused, blocked or waiting)
+// and shows its clock only while it runs; the details keep the elapsed time.
+const WAITING_STATUSES = Object.freeze(["paused", "blocked", "usageLimited", "budgetLimited"]);
+const chipLabel = computed(() => props.state.loading || props.state.available === false || starting.value ||
+  WAITING_STATUSES.includes(goal.value?.status) ? label.value : t(goal.value ? "jskit.assistant.goal.goal" : "jskit.assistant.goal.set"));
 // readable-check: allow method-probe - optional operation: a goal state without set() does not allow starting a goal, so Start stays disabled
 const canSet = computed(() => !props.state.loading && props.state.available !== false && typeof props.state.set === "function" && (!goal.value || goal.value.status === "complete"));
 const validBudget = computed(() => props.state.tokenBudgetSupported === false || tokenBudget.value === "" || (Number.isSafeInteger(Number(tokenBudget.value)) && Number(tokenBudget.value) > 0));
@@ -75,8 +80,8 @@ async function cancelGoal() {
     <template #activator="{ props: menuProps }">
       <v-btn v-bind="menuProps" class="assistant-goal" size="small" variant="text" :aria-label="label" :title="[label, elapsedText, goal?.objective].filter(Boolean).join('\n')">
         <span v-if="goal" class="assistant-goal__light" :class="{ 'assistant-goal__light--running': running, 'assistant-goal__light--working': working, 'assistant-goal__light--paused': goal.status === 'paused' }" aria-hidden="true" />
-        <span class="assistant-goal__label">{{ state.loading ? t('jskit.assistant.goal.loading') : state.available === false ? t('jskit.assistant.goal.unavailable') : starting ? t('jskit.assistant.goal.starting') : goal ? t('jskit.assistant.goal.goal') : t('jskit.assistant.goal.set') }}</span>
-        <span v-if="elapsed && goal.status !== 'complete'" class="assistant-goal__elapsed" aria-hidden="true">{{ elapsed }}</span>
+        <span class="assistant-goal__label">{{ chipLabel }}</span>
+        <span v-if="elapsed && running" class="assistant-goal__elapsed" aria-hidden="true">{{ elapsed }}</span>
       </v-btn>
     </template>
     <v-card class="assistant-goal__details pa-3" max-width="360">

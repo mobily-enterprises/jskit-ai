@@ -2976,6 +2976,34 @@ test("Pausing an idle Claude goal retires its warm process before the next ordin
 });
 
 
+// A hosted goal (2026-11-10): the account hit its usage limit, the turn ended
+// with the checker still armed and the control read "paused", so the person
+// saw it paused while a restart resumed it and ran ~20 continuation turns.
+test("A Claude goal whose turn ended without Pause stays active; Pause sends nothing and the next start clears it locally", { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish all checks", messageId: "limited-goal" });
+  // The account is out of credit: Claude ends the turn with its limit error.
+  await f.frame({ type: "result", subtype: "success", result: "You've hit your session limit · resets 5am (UTC)" });
+  assert.equal(f.entry.turn.active, false);
+  const goal = (await f.owner.readGoal(f.entry)).goal;
+  assert.equal(goal.status, "active", "nothing paused it: the next turn's checker, or a restart, continues it");
+  await f.owner.stopConversation(f.entry, "The application stopped.");
+  assert.equal(f.entry.process, null);
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "active", "a stopped process does not pause the goal either");
+  const inputs = f.behavior.nativeInputs.length;
+  const processes = f.processes.length;
+  await f.owner.updateGoal(f.entry, { action: "pause", ...goal });
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
+  assert.equal(f.behavior.nativeInputs.length, inputs, "Pause sends nothing to Claude");
+  assert.equal(f.processes.length, processes, "Pause starts no Claude process");
+  await f.send("person-after-pause");
+  assert.deepEqual(f.behavior.nativeInputs.slice(inputs), ["/goal clear", "Explain"],
+    "the next start stands the native goal down with Claude's local command before the person's own message");
+  assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
+  await f.frame({ type: "result", subtype: "success", result: "Ordinary answer" });
+});
+
+
 test("Claude Block refuses absent reasons and stale identity before interrupting", { timeout: 5_000 }, async t => {
   const f = await publishedClaudeFixture(t);
   await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish checks", messageId: "block-validation" });

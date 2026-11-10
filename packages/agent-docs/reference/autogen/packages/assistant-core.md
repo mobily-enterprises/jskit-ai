@@ -463,7 +463,7 @@ Local functions
 Exports
 - `waitForClaudeConversationTurn(conversation, input = {}, { signal, defaultTimeoutMs = 180_000, maximumTimeoutMs = Infinity, createError = claudeTurnFailure, interruptedMessage = "Claude was interrupted when the application disconnected." } = {})`
 - `runClaudeRenewalTurn(conversation, { clientMessageId, prompt, outputSchema, expectedThreadId, forbiddenThreadId, requireFreshHistory = false, timeoutMs = 180_000 }, { createError = claudeTurnFailure, unreadableCode = "assistant_claude_turn_unreadable", failedCode = "assistant_claude_turn_failed", acceptedField = "inputAccepted" } = {})`
-- `createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send, readRetainedGoal, saveRetainedGoal })`
+- `createClaudeConversationGoals({ conversationId, readHistory, interrupt, send, readRetainedGoal, saveRetainedGoal })`
 - `createClaudeConversationOwner({ configRoot, store, preparation, process, onEvent, createError = claudeTurnFailure, disconnectedMessage = "Claude was interrupted when the application disconnected." })`
 - `type ClaudeConversationEntry`
 - `type ClaudeConversationStore`

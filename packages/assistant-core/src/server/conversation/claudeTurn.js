@@ -118,26 +118,26 @@ export async function runClaudeRenewalTurn(conversation, {
  * @param {{
  *   conversationId: string,
  *   readHistory: () => Promise<Record<string, any>>,
- *   readState: () => { running: boolean, active: boolean },
  *   interrupt: () => Promise<unknown>,
  *   send: (input: Record<string, any>) => Promise<unknown>,
  *   readRetainedGoal: () => Record<string, any> | null,
  *   saveRetainedGoal: (goal: Record<string, any>) => Promise<void>
  * }} options
  */
-export function createClaudeConversationGoals({ conversationId, readHistory, readState, interrupt, send, readRetainedGoal, saveRetainedGoal }) {
+export function createClaudeConversationGoals({ conversationId, readHistory, interrupt, send, readRetainedGoal, saveRetainedGoal }) {
   // These checks run before interrupt/send. Native execution and receipt
   // failures keep their own codes and must not be treated as safe rejections.
   const goalError = (message, { messageCode }) => Object.assign(
     new AppError(400, message, { code: "conversation_invalid_goal", messageCode }), { delivery: "not-sent" });
 
+  // Only a retained Pause is paused. A goal whose turn has ended keeps
+  // Claude's checker armed: the next turn, or a host's restart recovery,
+  // continues it, so between turns it stays active.
   async function read(history = null) {
     const { goal = null } = history || await readHistory();
     const retained = readRetainedGoal();
     if (retained) return { ...retained };
-    const state = readState();
-    return goal ? { ...goal, status: ["complete", "blocked"].includes(goal.status) ? goal.status :
-      state.running && state.active ? "active" : "paused" } : null;
+    return goal ? { ...goal, status: ["complete", "blocked"].includes(goal.status) ? goal.status : "active" } : null;
   }
 
   async function update(input = {}, { interrupt: interruptGoal = interrupt, send: sendGoal = send, signal } = {}) {
@@ -386,7 +386,6 @@ export function createClaudeConversationOwner({
         try { await store.save(entry); }
         catch (error) { Object.assign(entry, previous); throw error; }
       },
-      readState: () => ({ running: Boolean(entry.process), active: isTurnActive(entry) }),
       interrupt: () => interrupt(entry), send: input => delivery.send(entry, input) });
     entries.set(key, entry);
     await store.save(entry);

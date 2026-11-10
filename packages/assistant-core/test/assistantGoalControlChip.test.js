@@ -1,0 +1,82 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readFileSync } from "node:fs";
+import { registerHooks } from "node:module";
+import { compileScript, parse } from "@vue/compiler-sfc";
+import { createSSRApp, defineComponent, h } from "vue";
+import { renderToString } from "vue/server-renderer";
+
+const controlUrl = new URL("../src/client/conversation/AssistantGoalControl.vue", import.meta.url).href;
+const textUrl = new URL("../src/client/i18n.js", import.meta.url).href;
+
+async function importControl() {
+  const hooks = registerHooks({
+    load(url, context, nextLoad) {
+      if (url === textUrl) {
+        return { format: "module", shortCircuit: true, source:
+          "export function useJskitText() { return { t: (key, params) => params ? `${key}(${params.label}=${params.elapsed})` : key }; }" };
+      }
+      if (url !== controlUrl) return nextLoad(url, context);
+      const { descriptor } = parse(readFileSync(new URL(url), "utf8"));
+      return { format: "module", shortCircuit: true,
+        source: compileScript(descriptor, { id: "assistant-goal-chip", inlineTemplate: true }).content };
+    }
+  });
+  try {
+    return (await import(controlUrl)).default;
+  } finally {
+    hooks.deregister();
+  }
+}
+
+const slotted = tag => defineComponent({ setup: (_props, { slots }) => () => h(tag, slots.default?.()) });
+
+/** The chip (the menu's activator) and the details panel of one goal state. */
+async function render(control, goal) {
+  const app = createSSRApp({ render: () => h(control, { state: { enabled: true, goal, pause() {}, resume() {}, cancel() {} } }) });
+  app.component("VMenu", defineComponent({ setup: (_props, { slots }) => () => h("div", [
+    h("div", { class: "chip" }, slots.activator?.({ props: {} })), h("div", { class: "panel" }, slots.default?.())
+  ]) }));
+  app.component("VBtn", slotted("button"));
+  app.component("VCard", slotted("div"));
+  app.component("VTextarea", defineComponent({ render: () => null }));
+  app.component("VTextField", defineComponent({ render: () => null }));
+  const html = await renderToString(app);
+  const chip = /<div class="chip">([\s\S]*?)<\/div><div class="panel">/u.exec(html)[1];
+  const panel = html.slice(html.indexOf('<div class="panel">'));
+  return { chip, label: /<span class="assistant-goal__label">([^<]*)<\/span>/u.exec(chip)[1], panel };
+}
+
+const startedTwoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+test("a paused, blocked or waiting goal's chip says so and shows no running clock; its details keep the elapsed time", async () => {
+  const control = await importControl();
+  for (const [status, key] of [["paused", "jskit.assistant.goal.paused"], ["blocked", "jskit.assistant.goal.blocked"],
+    ["usageLimited", "jskit.assistant.goal.usageLimited"], ["budgetLimited", "jskit.assistant.goal.budgetLimited"]]) {
+    // Claude supplies only its creation time, so its clock is wall time since the goal started.
+    const { chip, label, panel } = await render(control, { objective: "Finish every check", status, createdAt: startedTwoHoursAgo });
+    assert.equal(label, key, `a ${status} goal's chip names its state`);
+    assert.doesNotMatch(chip, /assistant-goal__elapsed/u, `a ${status} goal's chip shows no clock`);
+    assert.match(panel, /jskit\.assistant\.goal\.elapsed\(jskit\.assistant\.goal\.elapsedSinceStart=2:00:0\d\)/u,
+      `a ${status} goal's details keep the elapsed time`);
+  }
+  // A native running time (Codex) stops counting while paused; the chip still shows no clock.
+  const native = await render(control, { objective: "Finish every check", status: "paused", elapsedSeconds: 125, sampledAt: Date.now() });
+  assert.equal(native.label, "jskit.assistant.goal.paused");
+  assert.doesNotMatch(native.chip, /assistant-goal__elapsed/u);
+  assert.match(native.panel, /jskit\.assistant\.goal\.runningTime=2:05/u);
+});
+
+test("an active goal's chip shows its clock, and a finished goal's chip shows neither state nor clock", async () => {
+  const control = await importControl();
+  const active = await render(control, { objective: "Finish every check", status: "active", createdAt: startedTwoHoursAgo });
+  assert.equal(active.label, "jskit.assistant.goal.goal");
+  assert.match(active.chip, /<span class="assistant-goal__elapsed" aria-hidden="true">2:00:0\d<\/span>/u);
+  assert.match(active.chip, /assistant-goal__light--running/u);
+  const complete = await render(control, { objective: "Finish every check", status: "complete", createdAt: startedTwoHoursAgo,
+    sampledAt: Date.now() });
+  assert.equal(complete.label, "jskit.assistant.goal.goal");
+  assert.doesNotMatch(complete.chip, /assistant-goal__elapsed/u);
+  const none = await render(control, null);
+  assert.equal(none.label, "jskit.assistant.goal.set");
+});

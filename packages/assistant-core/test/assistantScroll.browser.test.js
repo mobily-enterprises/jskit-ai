@@ -956,9 +956,14 @@ test("optional goals show running and paused lights, count only active time, and
     await page.getByRole("button", { name: "Pause goal", exact: true }).click();
     await expect(light).toHaveCSS("background-color", "rgb(239, 108, 0)");
     await expect(light).toHaveCSS("animation-name", "none");
-    const pausedTime = await elapsed.textContent();
+    // A paused goal's chip says so without a clock; its open details keep the running time, which stops.
+    await expect(elapsed).toHaveCount(0);
+    await expect(page.locator(".assistant-goal .assistant-goal__label")).toHaveText("Goal paused");
+    const pausedTime = page.locator(".assistant-goal__details").getByText(/^Running time: /u);
+    const pausedText = await pausedTime.textContent();
     await page.clock.fastForward(120_000);
-    await expect(elapsed).toHaveText(pausedTime);
+    await expect(pausedTime).toHaveText(pausedText);
+    await expect(elapsed).toHaveCount(0);
     await page.getByRole("button", { name: "Resume goal", exact: true }).click();
     await page.clock.fastForward(5_000);
     await expect(elapsed).toHaveText("1:10");

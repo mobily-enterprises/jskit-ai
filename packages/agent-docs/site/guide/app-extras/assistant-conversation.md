@@ -1272,7 +1272,10 @@ supplied binding never blocks on message sending or unknown delivery.
 An active goal flashes red; a paused goal stays orange. `elapsedSeconds` is the
 accumulated **active running time**, and `sampledAt` is its sample time in epoch
 **milliseconds**. The UI adds time only while active. Omit elapsed time if the
-backend cannot supply it truthfully. The clock hides in a narrow conversation
+backend cannot supply it truthfully. Only an active goal's chip shows its clock;
+a `paused`, `blocked`, `usageLimited` or `budgetLimited` goal's chip shows its
+status label (for example "Goal paused") instead, and its details keep the
+elapsed time. The clock hides in a narrow conversation
 pane; the light stays visible and details retain the time. Reduced motion uses
 a steady red light. Pause follows the command's declared behavior:
 `pauseInterruptsTurn: true` means it stops the current turn and keeps the goal;
@@ -1284,10 +1287,14 @@ adapter. For a low-level adapter, omit `goal` or use `enabled: false` when goals
 are unsupported. The supplied binding hides unsupported controls automatically.
 
 Claude Pause retains the objective and native identity in the existing conversation
-binding before interrupting execution. When another message starts a process, the
-native owner clears the restored checker with Claude's local command and requires
-its exact successful receipt before admitting user input. Ordinary messages and
-process restart keep the goal paused. Explicit Resume reinstalls the objective;
+binding before interrupting execution. It sends nothing to Claude, so it works when
+the account is out of credit. When another message starts a process, the
+native owner clears the restored checker with Claude's local command (no model
+request) and requires its exact successful receipt before admitting user input.
+Ordinary messages and process restart keep the goal paused. Only that retained
+Pause reads `paused`: a Claude goal whose turn ended any other way (a usage
+limit, an interrupt, a process restart) keeps its checker armed, so the next
+turn continues it and it reads `active`. Explicit Resume reinstalls the objective;
 Cancel removes the retained goal. A failed native clear leaves the new message
 unsent and retains Pause for recovery. Hosts supplying their own Claude store must
 round-trip the optional `pausedGoal` field with the existing conversation state.
