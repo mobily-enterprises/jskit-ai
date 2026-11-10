@@ -82,7 +82,7 @@ Why this is the standard JSKIT shape:
 - Use `requestQueryParams` for endpoint query strings on list, view, and add/edit runtimes.
 - Standard CRUD and lookup reads use all resource-defined output fields by default. Hydrated relationships use the target resource's output contract. Pages and lookup controls do not repeat those definitions as request fieldsets.
 - Put exceptional large fields in `resource.contract.response.defaultExclude`. The target resource owns that default even when it is included by another resource.
-- `requestFieldsets` remains an explicit specialised override and accepts the canonical typed shape, for example `{ jobs: ["id", "status"], contacts: ["id", "displayName"] }`. It participates in both the request and the query cache key.
+- `requestFieldsets` remains an explicit specialised override and accepts the canonical typed shape, for example `{ jobs: ["id", "status"], contacts: ["id", "displayName"] }`. It participates in both the request and the query cache key. A type the read's `include` reaches at any depth (`include: "customer,customer.region"` reaches `regions`) takes a fieldset too, naming only fields the CRUD contract's `includeFields` lists of it.
 - Sparse fieldsets are a serialization boundary, not an authorization mechanism. Server resources reject unknown fields, never serialize hidden fields, and preserve the fields needed internally for relationship linkage.
 - Fields that must never be exposed do not belong in the resource output schema.
 - Keep `apiUrlTemplate` path-only. Do not put `?include=...` or other query strings in URL templates.

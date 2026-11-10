@@ -516,7 +516,7 @@ function defineCrudFeature(feature) {
         resourceApi: Object.freeze(withRemovedProperties({ repository: exposed, crud, service }, REMOVED_RESOURCE_API, "A CRUD feature's capability"))
       };
     },
-    actions({ resourceApi, ...required }) {
+    actions({ resourceApi, crudContracts, ...required }) {
       const actionDependencies = Object.freeze(Object.fromEntries(
         Object.keys(featureRequirements).map((name) => [name, required[name]])
       ));
@@ -529,7 +529,8 @@ function defineCrudFeature(feature) {
         dependencies: actionDependencies,
         scopeInputKeys: normalizedScope.inputKeys,
         realtimeAudience,
-        definitions: actionDefinitions()
+        definitions: actionDefinitions(),
+        includedTypes: () => crudContracts.includedTypes(crud)
       });
     }
   });

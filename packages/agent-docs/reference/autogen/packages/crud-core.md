@@ -54,7 +54,7 @@ Local functions
 Exports
 - `assertCrudOperationName(operation = "")`
 - `createCrudJsonApiActionDefinitions({ namespace, resource, surface, permissionForOperation, operations, scopeInputValidator, listFilterQueryValidator, operationInputs, actions, servedOverHttp })`
-- `createCrudJsonApiActions({ namespace, resource, repository, service, scopeInputKeys, operationLifecycle, dependencies: actionDependencies, realtimeAudience, definitions: builtDefinitions, ...definitionOptions })`
+- `createCrudJsonApiActions({ namespace, resource, repository, service, scopeInputKeys, operationLifecycle, dependencies: actionDependencies, realtimeAudience, definitions: builtDefinitions, includedTypes = () => new Map(), ...definitionOptions })`
 - `normalizeCrudOperationLifecycle(value)`
 Local functions
 - `resolveCrudActionChannels(permission, servedOverHttp)`
@@ -96,8 +96,8 @@ Local functions
 
 ### `src/server/jsonApiModule/service.js`
 Exports
-- `checkIncludedFields(crud, tableResource)`
 - `createCrudService({ repository, crud })`
+- `resolveIncludedTypes(crud, tableResource)`
 Local functions
 - `documentNotFound()`
 - `requireDocument(document)`
@@ -169,7 +169,8 @@ Local functions
 ### `src/server/listQueryValidators.js`
 Exports
 - `createCrudCursorPaginationQueryValidator(list = {})`
-- `createJsonApiFieldsetsQueryValidator({ resource = {} } = {})`
+- `createIncludedFieldsetsCheck(resource)`
+- `createJsonApiFieldsetsQueryValidator({ resource = {}, deferIncludedTypes = false } = {})`
 - `listSearchQueryValidator`
 - `listRecordIdsQueryValidator`
 - `lookupIncludeQueryValidator`
@@ -179,6 +180,7 @@ Exports
 - `createStandardCrudViewQueryValidators({ includeQueryValidator = lookupIncludeQueryValidator, fieldsetsQueryValidator = jsonApiFieldsetsQueryValidator } = {})`
 Local functions
 - `buildJsonApiFieldsetValueDefinition({ allowedFields = [] } = {})`
+- `fieldsetKeysRefusal(contract, resourceTypes)`
 - `resolveCrudListUsesOrderedCursor(list = {})`
 
 ### `src/server/normalizeOptionalText.js`

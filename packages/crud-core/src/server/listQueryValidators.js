@@ -2,7 +2,9 @@ import { createSchema } from "json-rest-schema";
 import {
   cursorPaginationQueryValidator
 } from "@jskit-ai/kernel/shared/validators";
-import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
+import { normalizeJsonApiFieldList } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
+import { isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveCrudParentFilterKeys } from "@jskit-ai/resource-crud-core/shared/crudLookup";
 import {
   CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY,
@@ -84,22 +86,18 @@ const jsonApiFieldsetsQueryValidator = Object.freeze({
   mode: "patch"
 });
 
-function createJsonApiFieldsetsQueryValidator({ resource = {} } = {}) {
-  const contract = resolveJsonApiFieldsetContract(resource);
-  if (!contract.primaryType || contract.resourceTypes.length < 1) {
-    return jsonApiFieldsetsQueryValidator;
-  }
-
-  const firstRelationship = contract.relationshipEntries[0] || null;
-  const example = firstRelationship
-    ? `{"${contract.primaryType}":["${firstRelationship.attributeKey}"],` +
-      `"${firstRelationship.relationshipType}":["${firstRelationship.labelKey || "id"}"]}`
-    : `{"${contract.primaryType}":["id"]}`;
-  const allowedTypes = contract.resourceTypes.map((entry) => `"${entry}"`).join(", ");
+/**
+ * The coded refusal of a fieldset key that is none of the resource types a read takes, naming the resource type to
+ * use for each of the contract's relationship aliases.
+ * @param {ReturnType<typeof resolveJsonApiFieldsetContract>} contract
+ * @param {readonly string[]} resourceTypes
+ */
+function fieldsetKeysRefusal(contract, resourceTypes) {
+  const allowedTypes = resourceTypes.map((entry) => `"${entry}"`).join(", ");
   const aliasGuidance = contract.aliasMappings
     .map((entry) => `use "${entry.resourceType}" instead of "${entry.alias}"`)
     .join("; ");
-  const additionalPropertiesMessage = aliasGuidance
+  return aliasGuidance
     ? {
         code: "crud.query.fieldsKeysInvalidWithAliases",
         message: `fields keys must be JSON:API resource types. Allowed keys: ${allowedTypes}.` +
@@ -111,6 +109,30 @@ function createJsonApiFieldsetsQueryValidator({ resource = {} } = {}) {
         message: `fields keys must be JSON:API resource types. Allowed keys: ${allowedTypes}.`,
         params: { allowedTypes }
       };
+}
+
+/**
+ * The sparse fieldsets a CRUD contract's reads take, keyed by JSON:API resource type: its own type, with the fields
+ * its view output names, and each type it links to. A type its includes reach below their first level
+ * (`includeFields: ["name", { breed: ["name"] }]` reaches the breed's type) is named only by the tables an include
+ * crosses, so this schema cannot name it. Such a key is refused, like any other unknown key, unless
+ * `deferIncludedTypes` lets it through to createIncludedFieldsetsCheck, which the CRUD actions run once boot has
+ * resolved those types.
+ * @param {object} [options]
+ * @param {object} [options.resource] The CRUD contract.
+ * @param {boolean} [options.deferIncludedTypes]
+ */
+function createJsonApiFieldsetsQueryValidator({ resource = {}, deferIncludedTypes = false } = {}) {
+  const contract = resolveJsonApiFieldsetContract(resource);
+  if (!contract.primaryType || contract.resourceTypes.length < 1) {
+    return jsonApiFieldsetsQueryValidator;
+  }
+
+  const firstRelationship = contract.relationshipEntries[0] || null;
+  const example = firstRelationship
+    ? `{"${contract.primaryType}":["${firstRelationship.attributeKey}"],` +
+      `"${firstRelationship.relationshipType}":["${firstRelationship.labelKey || "id"}"]}`
+    : `{"${contract.primaryType}":["id"]}`;
   const fieldsetSchema = createSchema(
     Object.fromEntries(
       contract.resourceTypes.map((resourceType) => [
@@ -121,6 +143,7 @@ function createJsonApiFieldsetsQueryValidator({ resource = {} } = {}) {
       ])
     )
   );
+  const reachesNestedTypes = contract.relationshipEntries.some(({ include }) => Object.keys(include.relationships).length > 0);
 
   return Object.freeze({
     schema: createSchema({
@@ -128,18 +151,72 @@ function createJsonApiFieldsetsQueryValidator({ resource = {} } = {}) {
         type: "object",
         required: false,
         schema: fieldsetSchema,
+        ...(deferIncludedTypes && reachesNestedTypes ? { additionalProperties: true } : {}),
         messages: {
           default: {
             code: "crud.query.fieldsByTypeInvalid",
             message: `fields expects an object keyed by JSON:API resource type, such as ${example}.`,
             params: { example }
           },
-          additionalProperties: additionalPropertiesMessage
+          additionalProperties: fieldsetKeysRefusal(contract, contract.resourceTypes)
         }
       }
     }),
     mode: "patch"
   });
+}
+
+/**
+ * The check of the sparse fieldsets createJsonApiFieldsetsQueryValidator deferred: keys for none of the resource types
+ * its schema names. A type the resource's includes reach below their first level takes only the fields they show of
+ * it there; any other key is refused as the validator refuses one. So
+ * `include=customer,customer.region&fields[regions]=name` narrows the included regions when the include lists
+ * `{ region: ["name", ...] }`, and the includes still decide what an included record can show. The check throws a
+ * validation error naming each refused fieldset.
+ * @param {object} resource The CRUD contract.
+ * @returns {(fields: unknown, includedTypes: ReadonlyMap<string, ReadonlySet<string>>) => void} Takes the validated
+ *   input's `fields` and the types the includes reach below their first level, each with the fields it shows there,
+ *   as the CRUD contracts resolved them at boot (`includedTypes`).
+ */
+function createIncludedFieldsetsCheck(resource) {
+  // Worked out at the first read that names fieldsets, so composing a feature costs nothing more.
+  let contract = null;
+  let namedTypes = null;
+
+  return function checkIncludedFieldsets(fields, includedTypes) {
+    if (!isRecord(fields)) {
+      return;
+    }
+    contract ??= resolveJsonApiFieldsetContract(resource);
+    namedTypes ??= new Set(contract.resourceTypes);
+    if (namedTypes.size < 1 || !contract.primaryType) {
+      return;
+    }
+    const fieldErrors = {};
+    for (const [type, value] of Object.entries(fields)) {
+      if (namedTypes.has(type)) {
+        continue;
+      }
+      const shown = includedTypes.get(type);
+      if (!shown) {
+        fieldErrors[`fields.${type}`] = fieldsetKeysRefusal(contract, [...new Set([...namedTypes, ...includedTypes.keys()])]);
+        continue;
+      }
+      const unshown = normalizeJsonApiFieldList(value).filter((name) => !shown.has(name));
+      if (unshown.length > 0) {
+        const params = { type, shown: [...shown].join(", ") || "none", fields: unshown.join(", ") };
+        fieldErrors[`fields.${type}`] = {
+          code: "crud.query.fieldsNotShown",
+          message: `fields[${params.type}] may name only what this read's includes show of ${params.type}: ` +
+            `${params.shown}. It names ${params.fields}.`,
+          params
+        };
+      }
+    }
+    if (Object.keys(fieldErrors).length > 0) {
+      throw createValidationError(fieldErrors);
+    }
+  };
 }
 
 function resolveCrudListUsesOrderedCursor(list = {}) {
@@ -250,6 +327,7 @@ function createStandardCrudViewQueryValidators({
 
 export {
   createCrudCursorPaginationQueryValidator,
+  createIncludedFieldsetsCheck,
   createJsonApiFieldsetsQueryValidator,
   listSearchQueryValidator,
   listRecordIdsQueryValidator,

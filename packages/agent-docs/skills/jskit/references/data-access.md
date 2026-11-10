@@ -556,6 +556,12 @@ list when the include reaches it. A belongs-to field named by its key
 (`"locationId"`) or its relationship (`"location"`) is a relationship in the
 document, never an attribute, so it would never show; the app refuses it at
 boot, naming the link form.
+A read narrows an included record with `fields[<its JSON:API type>]`, at any
+depth, and never widens what the include shows:
+`?include=pet,pet.breed&fields[breeds]=name`. A type the includes reach below
+their first level takes only the fields and links they list of it there; any
+other field, and a type no include reaches, answer 400 naming what the read
+takes.
 A `decorateService` that also needs the record it wrote (for an audit or a
 history row) reads it from its own answer, `simplifyJsonApiResult(answer)`
 from `@jskit-ai/http-runtime/shared`, never with a second read; a relationship

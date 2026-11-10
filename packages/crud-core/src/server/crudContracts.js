@@ -1,5 +1,5 @@
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { checkIncludedFields } from "./jsonApiModule/service.js";
+import { resolveIncludedTypes } from "./jsonApiModule/service.js";
 
 /**
  * The CRUD contracts an application serves, one per namespace. Each CRUD
@@ -10,6 +10,8 @@ import { checkIncludedFields } from "./jsonApiModule/service.js";
 function createCrudContracts() {
   /** @type {import("./types.js").CrudContract[]} */
   const registered = [];
+  /** @type {Map<import("./types.js").CrudContract, Map<string, Set<string>>>} What resolveIncludedTypes answered for each contract at boot. */
+  const includedTypesByContract = new Map();
   let sealed = false;
 
   /**
@@ -32,21 +34,33 @@ function createCrudContracts() {
 
   /**
    * Ends registration. Given the resource runtime's owned table resources by name, it first checks each contract's
-   * includes against the tables they include (see checkIncludedFields): at boot every feature owns its tables.
+   * includes against the tables they include and keeps the types they reach below their first level (see
+   * resolveIncludedTypes): at boot every feature owns its tables.
    * @param {(name: string) => ({ name: string, schema: Record<string, any> } | null)} [tableResource]
    */
   function seal(tableResource) {
     if (tableResource) {
       for (const crud of registered) {
-        checkIncludedFields(crud, tableResource);
+        includedTypesByContract.set(crud, resolveIncludedTypes(crud, tableResource));
       }
     }
     sealed = true;
   }
 
+  /**
+   * The JSON:API types a registered contract's includes reach below their first level, each with the fields it shows
+   * there: empty until the registry is sealed with the application's table resources.
+   * @param {import("./types.js").CrudContract} crud
+   * @returns {ReadonlyMap<string, ReadonlySet<string>>}
+   */
+  function includedTypes(crud) {
+    return includedTypesByContract.get(crud) ?? new Map();
+  }
+
   return Object.freeze({
     register,
-    seal
+    seal,
+    includedTypes
   });
 }
 

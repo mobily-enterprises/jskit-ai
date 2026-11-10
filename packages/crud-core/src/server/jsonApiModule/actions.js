@@ -7,6 +7,7 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { ARCHITECTURE_ID_PATTERN } from "@jskit-ai/kernel/shared/capabilities";
 import { ACTION_INPUT_DEFAULT_MODE } from "@jskit-ai/kernel/server/actions";
 import {
+  createIncludedFieldsetsCheck,
   createJsonApiFieldsetsQueryValidator,
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators
@@ -35,15 +36,17 @@ function resolveCrudActionChannels(permission, servedOverHttp) {
 
 function buildActionInput(resource, operation, scopeInputValidator, listFilterQueryValidator, operationInputs) {
   const definitions = scopeInputValidator ? [scopeInputValidator] : [];
+  // A fieldset for a type the includes reach below their first level is checked when the action runs (see
+  // createIncludedFieldsetsCheck): only the tables they cross name that type, and every feature owns its tables at boot.
   if (operation === "list") {
     definitions.push(...createStandardCrudListQueryValidators({
       resource,
       listFilterQueryValidator,
-      fieldsetsQueryValidator: createJsonApiFieldsetsQueryValidator({ resource })
+      fieldsetsQueryValidator: createJsonApiFieldsetsQueryValidator({ resource, deferIncludedTypes: true })
     }));
   } else if (operation === "view") {
     definitions.push(recordIdParamsValidator, ...createStandardCrudViewQueryValidators({
-      fieldsetsQueryValidator: createJsonApiFieldsetsQueryValidator({ resource })
+      fieldsetsQueryValidator: createJsonApiFieldsetsQueryValidator({ resource, deferIncludedTypes: true })
     }));
   } else if (operation === "create") {
     definitions.push(operationInputs.create || resource.operations.create.body);
@@ -242,6 +245,9 @@ function createCrudJsonApiActionDefinitions({
  * @param {boolean} dependencies.servedOverHttp False when the feature is internal or registers no routes.
  * @param {ReturnType<typeof createCrudJsonApiActionDefinitions>} [dependencies.definitions] What
  *   createCrudJsonApiActionDefinitions built from the same options, when the caller keeps it; built here otherwise.
+ * @param {() => ReadonlyMap<string, ReadonlySet<string>>} [dependencies.includedTypes] The types the contract's
+ *   includes reach below their first level, with the fields each shows there: the CRUD contracts' includedTypes once
+ *   they are sealed. Without it, a list or view takes no fieldset for such a type.
  */
 function createCrudJsonApiActions({
   namespace,
@@ -253,9 +259,11 @@ function createCrudJsonApiActions({
   dependencies: actionDependencies,
   realtimeAudience,
   definitions: builtDefinitions,
+  includedTypes = () => new Map(),
   ...definitionOptions
 }) {
   const definitions = builtDefinitions ?? createCrudJsonApiActionDefinitions({ namespace, resource, ...definitionOptions });
+  const checkIncludedFieldsets = createIncludedFieldsetsCheck(resource);
   const mutationEvent = (operation, entityId) => buildCrudRecordChangedEvent({
     namespace,
     operation,
@@ -370,13 +378,19 @@ function createCrudJsonApiActions({
       operation: "list",
       kind: "query",
       events: [],
-      execute: (input, context) => executeOperation("list", input, context, listDocuments)
+      execute: async (input, context) => {
+        checkIncludedFieldsets(input.fields, includedTypes());
+        return executeOperation("list", input, context, listDocuments);
+      }
     },
     {
       operation: "view",
       kind: "query",
       events: [],
-      execute: (input, context) => executeOperation("view", input, context, viewDocument)
+      execute: async (input, context) => {
+        checkIncludedFieldsets(input.fields, includedTypes());
+        return executeOperation("view", input, context, viewDocument);
+      }
     },
     {
       operation: "create",

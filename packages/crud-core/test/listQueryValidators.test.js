@@ -12,6 +12,7 @@ import {
   lookupIncludeQueryValidator,
   createCrudCursorPaginationQueryValidator,
   createJsonApiFieldsetsQueryValidator,
+  createIncludedFieldsetsCheck,
   createCrudParentFilterQueryValidator,
   createStandardCrudListQueryValidators,
   createStandardCrudViewQueryValidators
@@ -158,6 +159,68 @@ test("resource-aware sparse fieldsets enumerate JSON:API types and reject relati
       return true;
     }
   );
+});
+
+test("a fieldset for a type the includes reach below their first level waits for the types boot resolves, then names only fields shown there", () => {
+  // orders -> customer (customers) -> region (regions): only the customers table names the region's type.
+  const resource = createCrudResource({
+    namespace: "orders",
+    viewFields: {
+      reference: { type: "string" },
+      customerId: { type: "integer", belongsTo: "customers", as: "customer", includeFields: ["name", { region: ["name", "code"] }] }
+    }
+  });
+  const refusal = (run) => {
+    try {
+      run();
+    } catch (error) {
+      return error;
+    }
+    return assert.fail("expected a refusal");
+  };
+
+  // Without deferIncludedTypes the schema refuses the key, as it refuses any type it does not name.
+  const strict = refusal(() => validateSchemaPayload(createJsonApiFieldsetsQueryValidator({ resource }), {
+    fields: { regions: ["name"] }
+  }, { phase: "input" }));
+  assert.equal(strict.fieldErrorCodes?.["fields.regions"]?.code, "crud.query.fieldsKeysInvalidWithAliases");
+
+  // Deferred, the schema lets the keys it cannot name through, and still checks those it names.
+  const deferred = createJsonApiFieldsetsQueryValidator({ resource, deferIncludedTypes: true });
+  assert.deepEqual(validateSchemaPayload(deferred, {
+    fields: { orders: ["reference"], regions: ["name"], tags: ["label"] }
+  }, { phase: "input" }), { fields: { orders: ["reference"], regions: ["name"], tags: ["label"] } });
+  assert.ok(refusal(() => validateSchemaPayload(deferred, { fields: { orders: ["secret"] } }, { phase: "input" })).fieldErrors);
+  // A contract whose includes stop at their first level has nothing to defer.
+  const flat = createCrudResource({ namespace: "orders", viewFields: { customerId: { type: "integer", belongsTo: "customers", as: "customer" } } });
+  assert.equal(
+    refusal(() => validateSchemaPayload(createJsonApiFieldsetsQueryValidator({ resource: flat, deferIncludedTypes: true }), {
+      fields: { regions: ["name"] }
+    }, { phase: "input" })).fieldErrorCodes?.["fields.regions"]?.code,
+    "crud.query.fieldsKeysInvalidWithAliases"
+  );
+
+  // The check takes the region's fields the include shows, and refuses any other field and any type it does not reach.
+  const check = createIncludedFieldsetsCheck(resource);
+  const includedTypes = new Map([["regions", new Set(["name", "code"])]]);
+  check({ orders: ["reference"], customers: ["name"], regions: ["name", "code"] }, includedTypes);
+  check(undefined, includedTypes);
+  const hidden = refusal(() => check({ regions: ["name", "secret"] }, includedTypes));
+  assert.equal(hidden.status, 400);
+  assert.deepEqual(hidden.details.fieldErrorCodes["fields.regions"], {
+    code: "crud.query.fieldsNotShown",
+    params: { type: "regions", shown: "name, code", fields: "secret" }
+  });
+  assert.equal(
+    hidden.details.fieldErrors["fields.regions"],
+    "fields[regions] may name only what this read's includes show of regions: name, code. It names secret."
+  );
+  const unrelated = refusal(() => check({ tags: ["label"] }, includedTypes));
+  assert.equal(unrelated.details.fieldErrorCodes["fields.tags"].code, "crud.query.fieldsKeysInvalidWithAliases");
+  assert.match(unrelated.details.fieldErrors["fields.tags"], /Allowed keys: "orders", "customers", "regions"\./u);
+  // Before boot resolves the types (or with no table resources), no such type is reached.
+  assert.equal(refusal(() => check({ regions: ["name"] }, new Map())).details.fieldErrorCodes["fields.regions"].code,
+    "crud.query.fieldsKeysInvalidWithAliases");
 });
 
 test("createCrudCursorPaginationQueryValidator keeps numeric cursor validation for unordered lists", () => {
