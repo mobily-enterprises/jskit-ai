@@ -475,11 +475,13 @@ Exports
 - `resolveSurfaceIdFromPlacementPathname(contextValue = null, pathname = "")`
 - `resolveSurfaceRootPathFromPlacementContext(contextValue = null, surfaceId = "")`
 - `resolveSurfacePathFromPlacementContext(contextValue = null, surfaceId = "", pathname = "")`
+- `resolveSurfaceRouteParamsFromPlacementPathname(contextValue = null, surfaceId = "", pathname = "")`
 - `normalizeSurfaceOrigin(originValue = "")`
 - `resolveSurfaceNavigationTargetFromPlacementContext(contextValue = null, { path = "/", surfaceId = "", currentOrigin = "" } = {})`
 Local functions
 - `normalizeSurfaceIdList(value)`
 - `normalizeSurfaceConfig(surfaceConfig = {})`
+- `decodePathSegment(segment = "")`
 - `resolveRuntimeOrigin(currentOrigin = "")`
 - `createPlacementSurfacePathHelpers(surfaceConfig = EMPTY_SURFACE_CONFIG)`
 
@@ -610,7 +612,7 @@ Exports
 Exports
 - `normalizeMenuLinkPathname(pathname = "")`
 - `resolveMenuLinkHref(placementContext = null, target = "")`
-- `resolveMenuLinkTarget({ to = "", surface = "", currentSurfaceId = "", placementContext = null, scopedSuffix = "/", unscopedSuffix = "/", routeParams = {} } = {})`
+- `resolveMenuLinkTarget({ to = "", surface = "", currentSurfaceId = "", currentPathname = "", placementContext = null, scopedSuffix = "/", unscopedSuffix = "/", routeParams = {} } = {})`
 Local functions
 - `resolveMenuLinkSurfaceId(surface = "", fallbackSurfaceId = "")`
 - `interpolateBracketParams(pathTemplate = "", params = {})`
@@ -648,7 +650,7 @@ Local functions
 Exports
 - `normalizeComparablePathname(value = "")`
 - `resolveActivePrimaryNavigationIndex(pathname, entries)`
-- `resolvePrimaryNavigationEntries(placements, { semanticTarget, currentSurfaceId, placementContext, routeParams })`
+- `resolvePrimaryNavigationEntries(placements, { semanticTarget, currentSurfaceId, currentPathname = "", placementContext, routeParams })`
 Local functions
 - `pathMatchesNavigationEntry(pathname = "", entry = {})`
 

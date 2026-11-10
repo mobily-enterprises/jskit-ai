@@ -99,6 +99,7 @@ function useShellRouteTransition(props) {
     return resolvePrimaryNavigationEntries(placements, {
       semanticTarget: props.semanticTarget,
       currentSurfaceId: currentSurfaceId.value,
+      currentPathname: currentPathname.value,
       placementContext: placementContext.value,
       routeParams: route.params
     });

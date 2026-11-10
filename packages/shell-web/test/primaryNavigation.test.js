@@ -59,6 +59,29 @@ test("primary navigation keeps the target's same-origin destinations in placemen
   ]);
 });
 
+test("primary navigation on a route without surface params reads them from the current pathname", () => {
+  const placementContext = {
+    surfaceConfig: {
+      defaultSurfaceId: "app",
+      enabledSurfaceIds: ["app"],
+      surfacesById: {
+        app: { id: "app", pagesRoot: "w/[workspaceSlug]", routeBase: "/w/:workspaceSlug", enabled: true, requiresWorkspace: true }
+      }
+    }
+  };
+  const entries = resolvePrimaryNavigationEntries([
+    placement("contacts", { surface: "app", scopedSuffix: "/contacts", unscopedSuffix: "/contacts" })
+  ], {
+    semanticTarget: "shell.primary-nav",
+    currentSurfaceId: "app",
+    currentPathname: "/w/acme/no-such-page",
+    placementContext,
+    routeParams: { pathMatch: ["w", "acme", "no-such-page"] }
+  });
+
+  assert.deepEqual(entries.map((entry) => [entry.id, entry.href]), [["contacts", "/w/acme/contacts"]]);
+});
+
 test("the active destination is the closest path match", () => {
   const entries = [
     { index: 0, pathname: "/home", exact: false },

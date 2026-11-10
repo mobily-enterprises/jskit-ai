@@ -60,6 +60,7 @@ function useShellNavigationLink(props) {
       to: props.to,
       surface: props.surface,
       currentSurfaceId,
+      currentPathname: route.path,
       placementContext: placementContext.value,
       scopedSuffix: props.scopedSuffix,
       unscopedSuffix: props.unscopedSuffix,

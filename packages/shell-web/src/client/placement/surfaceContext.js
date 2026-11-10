@@ -156,6 +156,40 @@ function resolveSurfacePathFromPlacementContext(contextValue = null, surfaceId =
   return joinSurfacePath(surfaceDefinition?.routeBase, pathname);
 }
 
+function decodePathSegment(segment = "") {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
+// The params a surface's route base names, read from a pathname on that surface, decoded as a route's params are:
+// "/w/:workspaceSlug/admin" reads { workspaceSlug: "acme" } from "/w/acme/admin/jobs". Empty when the pathname is
+// not on the surface.
+function resolveSurfaceRouteParamsFromPlacementPathname(contextValue = null, surfaceId = "", pathname = "") {
+  const surfaceDefinition = resolveSurfaceDefinitionFromPlacementContext(contextValue, surfaceId);
+  if (!surfaceDefinition) {
+    return {};
+  }
+
+  const routeBaseSegments = normalizePathname(surfaceDefinition.routeBase).split("/").filter(Boolean);
+  const pathSegments = normalizePathname(pathname).split("/").filter(Boolean);
+  const params = {};
+  for (const [index, routeBaseSegment] of routeBaseSegments.entries()) {
+    const pathSegment = pathSegments[index];
+    if (!pathSegment) {
+      return {};
+    }
+    if (routeBaseSegment.startsWith(":") && routeBaseSegment.length > 1) {
+      params[routeBaseSegment.slice(1)] = decodePathSegment(pathSegment);
+    } else if (routeBaseSegment !== pathSegment) {
+      return {};
+    }
+  }
+  return params;
+}
+
 function normalizeSurfaceOrigin(originValue = "") {
   const rawOrigin = String(originValue || "").trim();
   if (!rawOrigin) {
@@ -269,6 +303,7 @@ export {
   resolveSurfaceIdFromPlacementPathname,
   resolveSurfaceRootPathFromPlacementContext,
   resolveSurfacePathFromPlacementContext,
+  resolveSurfaceRouteParamsFromPlacementPathname,
   normalizeSurfaceOrigin,
   resolveSurfaceNavigationTargetFromPlacementContext
 };

@@ -37,6 +37,7 @@ function pathMatchesNavigationEntry(pathname = "", entry = {}) {
 function resolvePrimaryNavigationEntries(placements, {
   semanticTarget,
   currentSurfaceId,
+  currentPathname = "",
   placementContext,
   routeParams
 }) {
@@ -48,6 +49,7 @@ function resolvePrimaryNavigationEntries(placements, {
         to: entryProps.to,
         surface: entryProps.surface,
         currentSurfaceId,
+        currentPathname,
         placementContext,
         scopedSuffix: entryProps.scopedSuffix,
         unscopedSuffix: entryProps.unscopedSuffix,

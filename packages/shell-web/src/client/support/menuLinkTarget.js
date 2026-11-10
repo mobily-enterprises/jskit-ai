@@ -2,7 +2,8 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { resolveShellLinkPath } from "../navigation/linkResolver.js";
 import {
   resolveSurfaceDefinitionFromPlacementContext,
-  resolveSurfaceNavigationTargetFromPlacementContext
+  resolveSurfaceNavigationTargetFromPlacementContext,
+  resolveSurfaceRouteParamsFromPlacementPathname
 } from "../placement/surfaceContext.js";
 
 function normalizeMenuLinkPathname(pathname = "") {
@@ -62,6 +63,7 @@ function resolveMenuLinkTarget({
   to = "",
   surface = "",
   currentSurfaceId = "",
+  currentPathname = "",
   placementContext = null,
   scopedSuffix = "/",
   unscopedSuffix = "/",
@@ -72,10 +74,16 @@ function resolveMenuLinkTarget({
     return explicitTarget;
   }
 
+  // The route's params, over those the current surface's route base names in the pathname: a route that declares
+  // none, like the not-found route that catches any path, still has them in its URL.
+  const params = {
+    ...resolveSurfaceRouteParamsFromPlacementPathname(placementContext, currentSurfaceId, currentPathname),
+    ...routeParams
+  };
   const targetSurfaceId = resolveMenuLinkSurfaceId(surface, currentSurfaceId);
   const scopedRouteRequired = surfaceRequiresWorkspaceFromPlacementContext(placementContext, targetSurfaceId);
   const suffixTemplate = normalizeText(scopedRouteRequired ? scopedSuffix : unscopedSuffix) || "/";
-  const interpolatedSuffix = interpolateBracketParams(suffixTemplate, routeParams);
+  const interpolatedSuffix = interpolateBracketParams(suffixTemplate, params);
   if (!targetSurfaceId || !interpolatedSuffix || interpolatedSuffix.includes("[")) {
     return "";
   }
@@ -84,7 +92,7 @@ function resolveMenuLinkTarget({
     context: placementContext,
     surface: targetSurfaceId,
     relativePath: interpolatedSuffix,
-    params: routeParams,
+    params,
     strictParams: true
   }));
 }
