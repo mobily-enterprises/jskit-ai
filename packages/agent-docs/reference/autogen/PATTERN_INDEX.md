@@ -15,7 +15,7 @@ A concrete Fastify, Vue, and JSKIT application foundation for products that do n
 
 - Id: `app/minimal-foundation`
 - Keywords: `app`, `fastify`, `foundation`, `minimal`, `server`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.297`
+- Owner: `@jskit-ai/agent-docs@0.1.298`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/app/minimal-foundation/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/app/minimal-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`
@@ -26,7 +26,7 @@ A concrete JSKIT web application foundation with responsive shell navigation, se
 
 - Id: `app/shell-foundation`
 - Keywords: `app`, `foundation`, `material`, `navigation`, `placements`, `shell`, `vite`, `vue`
-- Owner: `@jskit-ai/agent-docs@0.1.297`
+- Owner: `@jskit-ai/agent-docs@0.1.298`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/app/shell-foundation/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/app/shell-foundation/example/)
 - Requires: `@jskit-ai/http-runtime`, `@jskit-ai/kernel`, `@jskit-ai/shell-web`
@@ -246,7 +246,7 @@ Add a protected administration surface, settings shell, and semantic navigation 
 
 - Id: `console/console-surface`
 - Keywords: `admin`, `console`, `navigation`, `owner`, `placement`, `settings`, `surface`
-- Owner: `@jskit-ai/console-web@0.1.254`
+- Owner: `@jskit-ai/console-web@0.1.255`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/console/console-surface/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/console/console-surface/example/)
 - Requires: `@jskit-ai/console-core`, `@jskit-ai/console-web`, `@jskit-ai/shell-web`
@@ -345,7 +345,7 @@ Compose application-owned Google Publisher Tag delivery with the generic rewarde
 
 - Id: `rewards/google-rewarded`
 - Keywords: `ads`, `google`, `publisher tag`, `rewarded`, `unlock`
-- Owner: `@jskit-ai/rewarded-web@0.2.32`
+- Owner: `@jskit-ai/rewarded-web@0.2.33`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/rewards/google-rewarded/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/rewards/google-rewarded/example/)
 - Requires: `@jskit-ai/rewarded-web`
@@ -356,7 +356,7 @@ Define a server feature through explicit capabilities and first-class actions, a
 
 - Id: `server/feature-package`
 - Keywords: `actions`, `aggregate`, `feature`, `handle`, `orchestration`, `owns`, `package`, `provider`, `repository`, `routes`, `server`, `table resource`
-- Owner: `@jskit-ai/agent-docs@0.1.297`
+- Owner: `@jskit-ai/agent-docs@0.1.298`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/server/feature-package/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/server/feature-package/example/)
 - Requires: `@jskit-ai/kernel`
@@ -389,7 +389,7 @@ Compose an account settings route and profile, preference, notification, and sig
 
 - Id: `users/account-settings`
 - Keywords: `account`, `link provider`, `notifications`, `oauth`, `preferences`, `profile`, `settings`, `sign-in methods`, `user`, `vue`
-- Owner: `@jskit-ai/users-web@0.2.37`
+- Owner: `@jskit-ai/users-web@0.2.38`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/users/account-settings/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/users/account-settings/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/users-core`, `@jskit-ai/users-web`
@@ -400,7 +400,7 @@ Expose user administration and workspace-scoped member operations through app-ow
 
 - Id: `users/user-administration-server`
 - Keywords: `account`, `admin`, `member`, `repository`, `resource`, `routes`, `service`, `user`, `workspace`
-- Owner: `@jskit-ai/users-core@0.2.28`
+- Owner: `@jskit-ai/users-core@0.2.29`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/users/user-administration-server/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/users/user-administration-server/example/)
 - Requires: `@jskit-ai/crud-core`, `@jskit-ai/users-core`
@@ -411,7 +411,7 @@ Configure roles, workspace access policy, invitations, and app-owned invitation 
 
 - Id: `workspaces/workspace-server`
 - Keywords: `access`, `invite`, `membership`, `multitenancy`, `policy`, `role`, `tenancy`, `workspace`
-- Owner: `@jskit-ai/workspaces-core@0.2.28`
+- Owner: `@jskit-ai/workspaces-core@0.2.29`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/workspaces/workspace-server/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/workspaces/workspace-server/example/)
 - Requires: `@jskit-ai/users-core`, `@jskit-ai/workspaces-core`
@@ -422,7 +422,7 @@ Compose workspace selection, invitation, member administration, settings, and re
 
 - Id: `workspaces/workspace-surfaces`
 - Keywords: `admin`, `invite`, `member`, `navigation`, `settings`, `surface`, `switcher`, `workspace`
-- Owner: `@jskit-ai/workspaces-web@0.2.37`
+- Owner: `@jskit-ai/workspaces-web@0.2.38`
 - Read: [PATTERN.md](../../skills/jskit/references/patterns/workspaces/workspace-surfaces/PATTERN.md)
 - Examples: [example/](../../skills/jskit/references/patterns/workspaces/workspace-surfaces/example/)
 - Requires: `@jskit-ai/shell-web`, `@jskit-ai/workspaces-core`, `@jskit-ai/workspaces-web`
