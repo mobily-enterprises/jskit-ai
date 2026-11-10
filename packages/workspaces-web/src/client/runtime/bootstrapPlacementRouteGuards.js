@@ -1,3 +1,4 @@
+import { START_LOCATION } from "vue-router";
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   resolveSurfaceDefinitionFromPlacementContext,
@@ -231,6 +232,12 @@ function createBootstrapPlacementRouteGuards({
     }
 
     const currentRoute = router.currentRoute.value;
+    // Until the router finishes its opening navigation, its current route is the start location "/", not the page
+    // the person opened, and redirecting would cancel that navigation. The runtime's afterEach checks the page once
+    // the router is on it.
+    if (currentRoute === START_LOCATION) {
+      return;
+    }
     const currentFullPath = String(currentRoute.fullPath || "").trim();
     const currentPath = resolveRuntimePathname(currentRoute.path || "/");
     const currentComparablePath = currentFullPath || currentPath;

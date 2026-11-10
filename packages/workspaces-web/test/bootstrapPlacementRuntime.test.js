@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { resolveWorkspaceThemePalette } from "@jskit-ai/workspaces-core/shared/settings";
 import { ThemeSymbol } from "vuetify/lib/composables/theme.js";
+import { createMemoryHistory, createRouter } from "vue-router";
 import { createVuetifyThemeController } from "./support/vuetifyThemeController.js";
 import {
   WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
@@ -966,4 +967,95 @@ test("bootstrap placement runtime handles unauthenticated errors and marks works
 
   assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED);
   assert.equal(placementRuntime.getContext().workspace, null);
+});
+
+/**
+ * A real router whose replace stops navigating after `limit` calls, so a redirect loop ends and the test can count it.
+ * Its pages load like an application's lazily imported ones, so every navigation takes several microtask turns.
+ */
+function createLoopLimitedRouter({ limit = 20, guard = null } = {}) {
+  const page = { render: () => null };
+  const loadPage = () => Promise.resolve(page);
+  const router = createRouter({
+    history: createMemoryHistory(),
+    routes: ["/", "/home", "/ops", "/auth/login"].map((path) => ({ path, component: loadPage }))
+  });
+  if (guard) {
+    router.beforeEach(guard);
+  }
+  const replaceCalls = [];
+  const replace = router.replace.bind(router);
+  router.replace = (target) => {
+    replaceCalls.push(String(target));
+    return replaceCalls.length > limit ? Promise.resolve() : replace(target);
+  };
+  return { router, replaceCalls };
+}
+
+function createSignInSurfaceContext({ authenticated = false, opsOwner = true } = {}) {
+  return {
+    auth: { authenticated },
+    surfaceAccess: { opsowner: opsOwner },
+    surfaceAccessPolicies: {
+      public: {},
+      authenticated: { requireAuth: true },
+      ops_owner: { requireAuth: true, requireFlagsAll: ["ops_owner"] }
+    },
+    surfaceConfig: {
+      tenancyMode: "workspaces",
+      defaultSurfaceId: "home",
+      enabledSurfaceIds: ["home", "ops", "auth"],
+      surfacesById: {
+        home: { id: "home", enabled: true, pagesRoot: "home", routeBase: "/home", requiresWorkspace: false, accessPolicyId: "authenticated" },
+        ops: { id: "ops", enabled: true, pagesRoot: "ops", routeBase: "/ops", requiresWorkspace: false, accessPolicyId: "ops_owner" },
+        auth: { id: "auth", enabled: true, pagesRoot: "auth", routeBase: "/auth", requiresWorkspace: false, accessPolicyId: "public" }
+      }
+    }
+  };
+}
+
+test("bootstrap placement runtime leaves the opening navigation alone while the router still sits on its start location", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  placementRuntime.setContext(createSignInSurfaceContext());
+  // The shell sends a signed-out person from the signed-in home to sign in.
+  const { router, replaceCalls } = createLoopLimitedRouter({
+    guard: (to) => (to.path === "/home" ? "/auth/login?returnTo=/home" : true)
+  });
+  const runtime = createTestRuntime({ placementRuntime, router });
+
+  // Client providers boot just before app.use(router) starts the opening navigation to the page's own address,
+  // so the runtime starts while router.currentRoute is still the start location "/", where nobody is.
+  const initialized = runtime.initialize();
+  const opening = router.push("/auth/login");
+  await initialized;
+  await opening;
+  await router.isReady();
+  await flushTasks();
+
+  assert.deepEqual(replaceCalls, []);
+  assert.equal(router.currentRoute.value.fullPath, "/auth/login");
+});
+
+test("bootstrap placement runtime does not redirect again when its own redirect is cancelled by a newer one", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  placementRuntime.setContext(createSignInSurfaceContext({ authenticated: true }));
+  const { router, replaceCalls } = createLoopLimitedRouter();
+  const runtime = createTestRuntime({ placementRuntime, router });
+  await runtime.initialize();
+  await router.push("/ops");
+  await router.isReady();
+
+  // The person loses the ops flag, and two bootstrap answers arrive together: each redirects to the home surface,
+  // and the second cancels the first. The cancelled one must not start another redirect from the page it left.
+  placementRuntime.setContext({ surfaceAccess: { opsowner: false } });
+  const payload = { session: { authenticated: true, userId: "1" }, workspaces: [], permissions: [] };
+  const first = runtime.applyBootstrapPayload({ request: createBootstrapRequest("/ops"), payload });
+  const second = runtime.applyBootstrapPayload({ request: createBootstrapRequest("/ops"), payload });
+  await Promise.all([first, second]);
+  for (let turn = 0; turn < 5; turn += 1) {
+    await flushTasks();
+  }
+
+  assert.deepEqual(replaceCalls, ["/home", "/home"]);
+  assert.equal(router.currentRoute.value.fullPath, "/home");
 });

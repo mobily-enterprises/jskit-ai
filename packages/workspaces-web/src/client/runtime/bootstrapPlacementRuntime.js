@@ -425,7 +425,12 @@ function createBootstrapPlacementRuntime({
     });
     cleanup.push(unsubscribePlacement);
 
-    const removeAfterEach = router.afterEach(() => {
+    const removeAfterEach = router.afterEach((_to, _from, failure) => {
+      // A cancelled, aborted or duplicate navigation left the route where it was, and the navigation that replaced
+      // it runs its own afterEach. Redirecting again here would cancel that one too, endlessly.
+      if (failure) {
+        return;
+      }
       routeGuards.enforceSurfaceAccessForCurrentRoute();
       applyWorkspaceColorFromPlacementContext("route");
       enforceCurrentWorkspaceStatus();
