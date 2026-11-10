@@ -67,7 +67,9 @@ function usage() {
     "               (at least 1). A file whose first line is `// jskit-test: alone - <reason>` runs after the others,",
     "               on its own. With --databases, each file running at once gets its own copy of TEST_DB_NAME,",
     "               restored from a schema snapshot (the app's knexfile.js and @jskit-ai/database-runtime); with no",
-    "               usable TEST_DB_NAME, the files run one at a time on the connected database.",
+    "               usable TEST_DB_NAME, the files run one at a time on the connected database. Given no files, it",
+    "               fails when a file under tests/ is named as a test (x.integration.js, x.spec.js) that node's",
+    "               default pattern would leave out; a database test is named x.integration.test.js.",
     "",
     "<locale> is a BCP 47 language tag, such as fr or pt-BR."
   ].join("\n");

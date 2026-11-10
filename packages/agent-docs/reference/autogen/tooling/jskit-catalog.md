@@ -365,6 +365,7 @@ Exports
 - `withTimeReporter(run, destination)`
 Local functions
 - `findTestFiles(patterns, cwd)`
+- `missedTestFiles(defaultFiles, cwd)`
 - `readAloneFiles(files, cwd)`
 - `aloneDestination(destination)`
 - `aloneRunOptions(options)`

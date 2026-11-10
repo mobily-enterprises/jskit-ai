@@ -111,6 +111,37 @@ test("a file that states why it must run alone runs after the others, and a malf
   });
 });
 
+test("given no files, jskit test fails rather than leave out a tests/ file named as a test that node's default misses", async () => {
+  await withProject({
+    "tests/server/smoke.test.js": "",
+    "tests/server/database.integration.test.js": "",
+    "tests/server/support/fixtures.js": "",
+    "tests/client/smoke.vitest.js": "",
+    "tests/client/menu.spec.js": 'import { test } from "vitest";\n',
+    "tests/e2e/home.spec.ts": 'import { test } from "./fixtures.js";\n',
+    "tests/browser/workers.spec.js": "",
+    "test/any.integration.js": "",
+    "node_modules/x/tests/ignored.integration.js": ""
+  }, async (root) => {
+    assert.equal(planTestRuns([], { cwd: root, concurrency: 2 }).files, 3);
+    await writeFile(path.join(root, "tests/server/database.integration.js"), "");
+    await mkdir(path.join(root, "packages/main/tests"), { recursive: true });
+    await writeFile(path.join(root, "packages/main/tests/routes_spec.mjs"), 'import test from "node:test";\n');
+    for (const args of [[], ["--test-reporter", "dot"]]) {
+      assert.throws(() => planTestRuns(args, { cwd: root, concurrency: 2 }), (error) => {
+        assert.match(error.message, /^jskit test: given no files, node --test runs only the files its default pattern/u);
+        assert.match(error.message, /\n- packages\/main\/tests\/routes_spec\.mjs\n- tests\/server\/database\.integration\.js\n/u);
+        assert.match(error.message, /a database test: <name>\.integration\.test\.js/u);
+        assert.doesNotMatch(error.message, /vitest|menu\.spec|home\.spec|workers\.spec|any\.integration|ignored/u);
+        return true;
+      });
+    }
+    // Named files are the run the script chose.
+    assert.deepEqual(planTestRuns(["tests/server/*.test.js"], { cwd: root, concurrency: 2 }).paths,
+      ["tests/server/database.integration.test.js", "tests/server/smoke.test.js"]);
+  });
+});
+
 // Two files that each wait for the other to start pass only when they run at the same time; the file that runs alone
 // checks that both have finished before it starts.
 const RENDEZVOUS = (self, other) => `import assert from "node:assert/strict";

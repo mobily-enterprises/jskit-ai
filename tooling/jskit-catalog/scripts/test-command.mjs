@@ -15,11 +15,18 @@ import { reportTestTimes, writeFileStops } from "./test-time-report.mjs";
 // first line, `// jskit-test: alone - <reason>`, and runs after the others, one such file at a time. That second run
 // writes a reporter's file destination beside the first run's (`<name>.alone<ext>`) instead of over it, and with
 // --test-shard=<index>/<total> it runs only its shard's alone files, picked the way node --test picks a shard's files.
+// Given no files, it fails instead of leaving out a file under tests/ named as a test that node's default misses.
 // Every run also reports to test-time-report.mjs, which times the command's files against coarse bounds, and preloads
 // test-file-stop.mjs, which stops a file still running at a generous multiple of its time.
 
 // node --test's own default (Node 26) when it is given no files.
 const DEFAULT_PATTERN = "**/{test,test/**/*,test-*,*[._-]test}.{js,mjs,cjs,ts,mts,cts}";
+// Files under a tests/ folder named as tests that the default leaves out (`x.integration.js`, `x.spec.js`, `x.tests.js`);
+// every file under a test/ folder already matches it. Files in Playwright's e2e and browser folders, and files that
+// import Vitest or Playwright, belong to those runners.
+const TEST_LIKE_PATTERN = "**/tests/**/*[._-]{integration,spec,specs,tests}.{js,mjs,cjs,ts,mts,cts}";
+const OTHER_RUNNER_FOLDER = /(?:^|\/)(?:e2e|browser)\//u;
+const OTHER_RUNNER_IMPORT = /\b(?:from|import|require)\s*\(?\s*["'](?:vitest|@playwright\/test)["']/u;
 const MARKER = /^\s*\/\/\s*jskit-test:(.*)$/u;
 const ALONE = /^\s*alone\s+-\s+(\S.*)$/u;
 const SHARD = "--test-shard";
@@ -38,6 +45,13 @@ function findTestFiles(patterns, cwd) {
     .filter((entry) => entry.isFile() || entry.isSymbolicLink())
     .map((entry) => toPosixPath(path.relative(cwd, path.join(entry.parentPath, entry.name))));
   return [...new Set(files)].sort();
+}
+
+/** The files named as Node tests that a run of node's default files would silently leave out. */
+function missedTestFiles(defaultFiles, cwd) {
+  const found = new Set(defaultFiles);
+  return findTestFiles([TEST_LIKE_PATTERN], cwd).filter((file) => !found.has(file) && !OTHER_RUNNER_FOLDER.test(file) &&
+    !OTHER_RUNNER_IMPORT.test(readFileSync(path.resolve(cwd, file), "utf8")));
 }
 
 /**
@@ -113,6 +127,14 @@ function planTestRuns(args, { cwd = process.cwd(), concurrency = testConcurrency
   const matched = new Map(candidates.map((candidate) => [candidate, findTestFiles([candidate], cwd)]));
   const named = [...new Set([...matched.values()].flat())].sort();
   const files = named.length > 0 ? named : findTestFiles([DEFAULT_PATTERN], cwd);
+  const missed = named.length > 0 ? [] : missedTestFiles(files, cwd);
+  if (missed.length > 0) {
+    throw new Error("jskit test: given no files, node --test runs only the files its default pattern matches " +
+      "(test.js, test-*.js, *.test.js, *_test.js, *-test.js, or any file under a test/ folder), so these test files " +
+      "would never run:\n" +
+      `- ${missed.join("\n- ")}\nRename each to end in .test.js (a database test: <name>.integration.test.js), or ` +
+      "name the files to run.");
+  }
   const { alone, problems } = readAloneFiles(files, cwd);
   if (problems.length > 0) throw new Error(`jskit test:\n- ${problems.join("\n- ")}`);
   const parallel = ["--test", `--test-concurrency=${concurrency}`];

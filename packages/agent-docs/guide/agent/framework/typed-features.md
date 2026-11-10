@@ -1017,6 +1017,10 @@ and Vitest's `maxWorkers` come from `testConcurrency()`.**
   `node --test` and sets `--test-concurrency` to the budget.
   `testConcurrency()` from `@jskit-ai/jskit-catalog/test-budget` returns the
   same number for a config.
+- A Node test file is named `<name>.test.js`, and a database test
+  `<name>.integration.test.js`: given no files, `jskit test` runs node's
+  default pattern and fails on a `tests/` file it would leave out, such as
+  `<name>.integration.js` or `<name>.spec.js`.
 - No script passes a fixed concurrency or worker count. `jskit check` fails a
   package script that runs `node --test` directly or passes one, and a
   Playwright or Vitest config those scripts use whose workers do not come from
