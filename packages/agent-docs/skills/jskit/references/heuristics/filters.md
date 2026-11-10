@@ -160,6 +160,7 @@ Use runtime presets when:
 Put unusual SQL semantics on the server:
 - examples: `pending` meaning `whereNull("ccp1_passed")`, or business-specific status buckets that combine multiple columns
 - implement those in `createCrudListFilterContract(..., { apply: { ... } })`
+- an `apply` receives `(queryBuilder, value)` with the filter's parsed value, whatever its type: a day (`"2026-03-01"`) for `date`, `{ from, to }` for `dateRange`, `{ min, max }` for `numberRange` (an open end is left out), the same through `applyQuery` and through step 5's `toJsonRestQuery`, which sends it under the filter's own key
 - do not use custom `apply` just for null/not-null checks when `type: "presence"` fits
 
 Avoid:

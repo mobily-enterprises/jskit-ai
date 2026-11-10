@@ -9,7 +9,7 @@ import {
 import {
   normalizeColumnsMap,
   createCrudListFilterJsonRestSearchSchema,
-  normalizeCrudListFilterJsonRestQuery
+  createCrudListFilterJsonRest
 } from "./listFilterJsonRest.js";
 import {
   buildCrudListFilterQueryField,
@@ -101,24 +101,20 @@ function createCrudListFilters(definitions = {}, { columns = {}, apply = {} } = 
     return queryValidatorsByInvalidValueMode[invalidValueMode];
   }
 
-  function toJsonRestQuery(query = {}) {
-    return normalizeCrudListFilterJsonRestQuery({
-      filters: normalizedFilters,
-      parseQuery: parseFilterPayload
-    }, query);
-  }
+  const jsonRest = createCrudListFilterJsonRest({
+    filters: normalizedFilters,
+    parseQuery: parseFilterPayload
+  }, {
+    columns: normalizedColumns,
+    apply
+  });
 
   return Object.freeze({
     filters: normalizedFilters,
     createQueryValidator,
     parseQuery: parseFilterPayload,
-    toJsonRestQuery,
-    jsonRestSearchSchema: createCrudListFilterJsonRestSearchSchema({
-      filters: normalizedFilters
-    }, {
-      columns: normalizedColumns,
-      apply
-    }),
+    toJsonRestQuery: jsonRest.toJsonRestQuery,
+    jsonRestSearchSchema: jsonRest.searchSchema,
     applyQuery
   });
 }

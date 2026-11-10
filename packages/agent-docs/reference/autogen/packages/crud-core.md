@@ -122,7 +122,7 @@ Local functions
 Exports
 - `normalizeColumnsMap(columns = {})`
 - `createCrudListFilterJsonRestSearchSchema(runtime = {}, { columns = {}, apply = {} } = {})`
-- `normalizeCrudListFilterJsonRestQuery(runtime = {}, query = {})`
+- `createCrudListFilterJsonRest(runtime, { columns = {}, apply = {} } = {})`
 Local functions
 - `resolveJsonRestFilterActualField(filter = {}, columns = {})`
 - `renderInternalJsonRestFilterKey(filter = {}, suffix = "")`
@@ -134,8 +134,10 @@ Local functions
 - `buildJsonRestCustomFilterSearchSchemaEntry(filter, customApply)`
 - `resolveCrudListFilterEntries(value = {})`
 - `dateFilterDayStart(date)`
-- `addJsonRestDateFilterValues(target = {}, filter = {}, value = "")`
-- `addJsonRestFilterValue(target = {}, filter = {}, value)`
+- `buildJsonRestRangeFilterValues(filter = {}, value)`
+- `resolveJsonRestFilterProjection(filter, { columns, apply })`
+- `resolveJsonRestFilterProjections(runtime = {}, { columns = {}, apply = {} } = {})`
+- `mergeJsonRestSearchSchema(projections = [])`
 
 ### `src/server/listFilters.js`
 Exports

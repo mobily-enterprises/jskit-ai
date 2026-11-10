@@ -641,6 +641,40 @@ test("createCrudListFilterContract builds route validators and JSON REST search 
   assert.deepEqual(calls, [["whereNull", "location_id"]]);
 });
 
+test("createCrudListFilterContract's toJsonRestQuery sends exactly the keys its search schema declares, with or without a custom apply", () => {
+  // One filter of every type, each with a value that sets all its bounds.
+  const filters = {
+    open: [{ type: "flag", label: "Open" }, "true"],
+    status: [{ type: "enum", label: "Status", options: [{ value: "active", label: "Active" }] }, "active"],
+    tags: [{ type: "enumMany", label: "Tags", options: [{ value: "a", label: "A" }, { value: "b", label: "B" }] }, "a,b"],
+    owner: [{ type: "recordId", label: "Owner" }, "7"],
+    suppliers: [{ type: "recordIdMany", label: "Suppliers" }, ["7", "4"]],
+    arrivedOn: [{ type: "date", label: "Arrived on" }, "2026-04-01"],
+    arrival: [{ type: "dateRange", label: "Arrival" }, "2026-04-01..2026-04-30"],
+    weight: [{ type: "numberRange", label: "Weight" }, "12.5..18"],
+    storage: [{ type: "presence", label: "Storage" }, "missing"]
+  };
+  const definitions = Object.fromEntries(Object.entries(filters).map(([key, [definition]]) => [key, definition]));
+  const query = Object.fromEntries(Object.entries(filters).map(([key, [, value]]) => [key, value]));
+  const everyApply = Object.fromEntries(Object.keys(filters).map((key) => [key, () => {}]));
+
+  for (const apply of [{}, everyApply]) {
+    const contract = createCrudListFilterContract(definitions, { apply });
+    const sent = contract.toJsonRestQuery(query);
+    // Before, a date, dateRange or numberRange filter with a custom apply declared only its own key but sent
+    // __jskit_<key>_from/_toExclusive (or _min/_max), which json-rest-api refused as "Field not allowed".
+    assert.deepEqual(Object.keys(sent).sort(), Object.keys(contract.jsonRestSearchSchema).sort());
+    assert.deepEqual(createSchema(contract.jsonRestSearchSchema).patch(sent).errors, {});
+  }
+
+  // A filter with a custom apply sends its own key with its parsed value, the value applyQuery hands that apply.
+  const custom = createCrudListFilterContract(definitions, { apply: everyApply });
+  assert.deepEqual(custom.toJsonRestQuery(query), { ...custom.parseQuery(query) });
+  assert.deepEqual(custom.toJsonRestQuery(query).arrival, { from: "2026-04-01", to: "2026-04-30" });
+  assert.deepEqual(custom.toJsonRestQuery(query).weight, { min: 12.5, max: 18 });
+  assert.equal(custom.toJsonRestQuery(query).arrivedOn, "2026-04-01");
+});
+
 test("createCrudListFilterContract defaults route validation to reject invalid values", () => {
   const contract = createCrudListFilterContract({
     status: {
