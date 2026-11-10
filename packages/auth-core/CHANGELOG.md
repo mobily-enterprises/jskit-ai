@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A route's `permission` now matches the actor's grants as action permissions do: `*` grants every route, and a grant ending in `.*`, such as `crud.labels.*`, grants every permission under that prefix. It used to need the exact name, so a workspace owner holding `*` was refused a route requiring `crud.labels.update`.
 - The `AuthInvitationContextResolver` type documents what local auth relies on: the resolver throws for an invitation the registration cannot use, and the context it answers names, in `email`, the address the invitation was sent to and, in `expiresAt`, when it stops working, so a registration through it can skip email confirmation.
 - `AuthProfileProjector.syncIdentityProfile` documents `onlyWhenChanged`, which providers pass on an ordinary request so a profile that already matches is only read; sign-in and session refresh synchronize in full.
 - `normalizeAuthCapabilities` carries `features.password.selfRegister`: whether anyone may register, not only an invited person or the first account. A provider that doesn't say gets the value of `register`.

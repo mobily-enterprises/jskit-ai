@@ -1,11 +1,13 @@
+import { hasPermission } from "@jskit-ai/kernel/shared/support/permissions";
 import { parseBooleanFlag } from "./booleanFlag.js";
 
 function parseList(value) {
   return String(value || "").split(",").map((entry) => entry.trim()).filter(Boolean);
 }
 
+// A route permission matches grants as action permissions do: "*", the exact name, or a grant ending in ".*".
 function defaultHasPermission({ permission, permissions }) {
-  return !permission || (Array.isArray(permissions) && permissions.includes(permission));
+  return hasPermission(permissions, permission);
 }
 
 /** The authentication an application without an `auth.service` has: every request is signed out. */
