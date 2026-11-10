@@ -1,4 +1,7 @@
 import { spawn } from "node:child_process";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
 import { startServer } from "../server.js";
 import { DEFAULT_PORT } from "../server/lib/runtimeEnv.js";
 
@@ -43,10 +46,13 @@ process.once("SIGTERM", () => requestShutdown("SIGTERM"));
 try {
   apiServer = await startServer({ host: LOOPBACK_HOST, port: 0 });
   const apiPort = /** @type {import("node:net").AddressInfo} */ (apiServer.server.address()).port;
-  const npmCommand = process.platform === "win32" ? "npm.cmd" : "npm";
+  // Vite runs directly under node rather than through `npm run dev`: npm exits on SIGTERM without stopping
+  // the script it started, which left Vite serving the port after this launcher stopped.
+  const vitePackageFile = createRequire(import.meta.url).resolve("vite/package.json");
+  const viteCli = path.join(path.dirname(vitePackageFile), JSON.parse(readFileSync(vitePackageFile, "utf8")).bin.vite);
   viteProcess = spawn(
-    npmCommand,
-    ["run", "dev", "--", "--host", previewHost, "--port", String(previewPort), "--strictPort"],
+    process.execPath,
+    [viteCli, "--host", previewHost, "--port", String(previewPort), "--strictPort"],
     {
       cwd: process.cwd(),
       env: {

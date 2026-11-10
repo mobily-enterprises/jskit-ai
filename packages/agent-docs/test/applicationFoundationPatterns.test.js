@@ -156,6 +156,9 @@ test("application foundations own one exact development command", async () => {
     assert.match(developSource, /VITE_API_PROXY_TARGET/u);
     assert.match(developSource, /--strictPort/u);
     assert.match(developSource, /startServer/u);
+    // Vite is the launcher's own child, so stopping the launcher stops Vite (npm left it running).
+    assert.match(developSource, /spawn\(\s*process\.execPath,\s*\[viteCli,/u);
+    assert.doesNotMatch(developSource, /"run", "dev"/u);
   }
 });
 
