@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The saved-conversations list (`GET /api/assistant/:surfaceId/conversations`, and its workspace form) answers 200 again instead of 500 ("metadata is required!") once a person has a conversation: the route still serialized each item with the conversation's read schema, which requires `metadata`, after list items stopped carrying it. It serializes them with assistant-core's `assistantConversationListItemOutputValidator`, the item of `assistantContract`'s `conversationsList`. `conversationsListRoute.test.js` lists a saved conversation over HTTP through the real route, actions and SQL repositories.
 - Each conversation request authenticates once: the route's access check and the action's request context share one sign-in lookup instead of each asking again.
 - **Breaking.** Conversation list items no longer carry `metadata`: the conversations repository's `listForActorScope` reads only the fields a list shows, as `assistantContract`'s `conversationsList` now answers them. Upgrading: code that read `metadata` from a list item reads the conversation instead, with `findByIdForActorScope` or the conversation's messages read, which still answer it.
 - A chat turn ends by reading the turn it waited on (`handle.wait({ turnId })`) instead of reading and cloning every turn of the conversation to keep one.

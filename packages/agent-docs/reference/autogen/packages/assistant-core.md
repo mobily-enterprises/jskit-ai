@@ -2105,6 +2105,7 @@ Exports
 - `MAX_MESSAGE_PAGE_SIZE`
 - `attachmentIdsField`
 - `assistantContract`
+- `assistantConversationListItemOutputValidator`
 - `assistantConversationOutputValidator`
 
 ### `src/shared/assistantResponseText.js`
@@ -2258,6 +2259,7 @@ Exports
 - `MAX_MESSAGE_PAGE_SIZE`
 - `attachmentIdsField`
 - `assistantContract`
+- `assistantConversationListItemOutputValidator`
 - `assistantConversationOutputValidator`
 - `MAX_SYSTEM_PROMPT_CHARS`
 - `assistantConfigContract`

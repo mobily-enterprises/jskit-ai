@@ -272,6 +272,8 @@ const conversationMessagesListOutputSchema = createSchema({
 });
 
 const assistantConversationOutputValidator = createSchemaDefinition(conversationRecordSchema, "replace");
+// One conversation of a list, as the conversations list route answers each item: the record without its metadata.
+const assistantConversationListItemOutputValidator = createSchemaDefinition(conversationListItemSchema, "replace");
 
 const assistantContract = defineApiContract({
   namespace: "assistant",
@@ -283,7 +285,7 @@ const assistantContract = defineApiContract({
     conversationsList: {
       method: "GET",
       query: conversationsListQuerySchema,
-      output: createCursorListValidator(createSchemaDefinition(conversationListItemSchema, "replace"))
+      output: createCursorListValidator(assistantConversationListItemOutputValidator)
     },
     conversationMessagesList: {
       method: "GET",
@@ -299,5 +301,6 @@ export {
   MAX_MESSAGE_PAGE_SIZE,
   attachmentIdsField,
   assistantContract,
+  assistantConversationListItemOutputValidator,
   assistantConversationOutputValidator
 };

@@ -4,7 +4,7 @@ import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/share
 import {
   ASSISTANT_CONVERSATIONS_TRANSPORT,
   ASSISTANT_CONVERSATION_MESSAGES_TRANSPORT,
-  assistantConversationOutputValidator,
+  assistantConversationListItemOutputValidator,
   assistantContract,
   resolveAssistantApiBasePath
 } from "@jskit-ai/assistant-core/shared";
@@ -227,7 +227,7 @@ function registerRuntimeRoutes(
       ...createJsonApiResourceRouteContract({
         ...ASSISTANT_CONVERSATIONS_TRANSPORT,
         query: assistantContract.operations.conversationsList.query,
-        output: assistantConversationOutputValidator,
+        output: assistantConversationListItemOutputValidator,
         outputKind: "collection"
       })
     },

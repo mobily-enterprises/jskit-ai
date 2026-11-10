@@ -30,6 +30,7 @@ export {
   MAX_MESSAGE_PAGE_SIZE,
   attachmentIdsField,
   assistantContract,
+  assistantConversationListItemOutputValidator,
   assistantConversationOutputValidator
 } from "./assistantResource.js";
 

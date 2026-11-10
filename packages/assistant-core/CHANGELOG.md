@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `assistantConversationListItemOutputValidator` (from `@jskit-ai/assistant-core/shared`) is one conversation of `assistantContract`'s `conversationsList`, the record without its `metadata`; the contract's list output is built from it, and `@jskit-ai/assistant-runtime`'s conversations list route serializes its items with it.
 - `createConversationStorage`'s `write` saves nothing when its callback called no write method: the adapter's `writeRecord` does not run, so file storage no longer rewrites and flushes the whole conversation file, or creates an empty one for a missing conversation, when a write only looked (a delivery check, a message already saved), and the saved record stays cached.
 - Checking or recovering one message's delivery (`inspectDelivery`, and a send that finds its message already saved) finds that message's turn by its id instead of reading and cloning every turn of the conversation to find it.
 - With completed envelopes, a streamed turn's saved completed-envelope marker is read once per turn instead of once per delta: the marker is written with the turn's authored message and never changes, and a reply's hundreds of deltas each opened a storage read. A turn not saved yet is read again until it is.
