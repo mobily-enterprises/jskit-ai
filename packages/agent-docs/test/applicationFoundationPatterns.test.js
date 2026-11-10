@@ -172,8 +172,7 @@ test("foundation browser configurations serve the production build, a server per
     assert.deepEqual(managed, { webServer: null, baseURL: "http://127.0.0.1:4321", workers: 1, globalTimeout: 20 * 60_000 });
 
     const local = await load({ V64_TEST_CONCURRENCY: "6" });
-    assert.match(local.webServer.command, /browser-test-servers\.mjs"$/u);
-    assert.doesNotMatch(local.webServer.command, /develop|vite/u);
+    assert.match(local.webServer.command, /^node "[^"]*\/browser-test-servers\.mjs"$/u);
     const settings = JSON.parse(local.webServer.env.JSKIT_BROWSER_TESTS);
     assert.deepEqual(
       { workers: settings.workers, basePort: settings.basePort, server: settings.server, build: settings.build },
