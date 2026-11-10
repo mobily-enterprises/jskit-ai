@@ -614,8 +614,15 @@ test("createCrudListFilterContract builds route validators and JSON REST search 
     status: ["active", "archived"],
     supplierContactId: ["7", "4"],
     locationAssignment: "missing",
-    __jskit_arrivalDate_from: "2026-04-01 00:00:00",
-    __jskit_arrivalDate_toExclusive: "2026-05-01 00:00:00",
+    __jskit_arrivalDate_from: "2026-04-01T00:00:00.000Z",
+    __jskit_arrivalDate_toExclusive: "2026-05-01T00:00:00.000Z",
+    __jskit_weight_min: 12.5
+  });
+  // Over HTTP the service's list receives the query the route and the list action already parsed: it maps the same.
+  const { validatedObject: parsedQuery } = contract.queryValidator.schema.patch({ arrivalDate: "2026-04-01..2026-04-30", weight: "12.5.." });
+  assert.deepEqual(contract.toJsonRestQuery(contract.queryValidator.schema.patch(parsedQuery).validatedObject), {
+    __jskit_arrivalDate_from: "2026-04-01T00:00:00.000Z",
+    __jskit_arrivalDate_toExclusive: "2026-05-01T00:00:00.000Z",
     __jskit_weight_min: 12.5
   });
 

@@ -231,13 +231,19 @@ function createCrudListFilterJsonRestSearchSchema(runtime = {}, { columns = {}, 
   return Object.freeze(schema);
 }
 
+// The instant a filter's day starts, in the form json-rest-api's dateTime search keys take (ISO 8601 with its zone,
+// which refuses "2026-03-01 00:00:00"): midnight UTC, the zone a dateTime is stored in.
+function dateFilterDayStart(date) {
+  return `${date}T00:00:00.000Z`;
+}
+
 function addJsonRestDateFilterValues(target = {}, filter = {}, value = "") {
   const nextDate = addDaysToDateFilterValue(value, 1);
   if (value) {
-    target[renderInternalJsonRestFilterKey(filter, "from")] = `${value} 00:00:00`;
+    target[renderInternalJsonRestFilterKey(filter, "from")] = dateFilterDayStart(value);
   }
   if (nextDate) {
-    target[renderInternalJsonRestFilterKey(filter, "toExclusive")] = `${nextDate} 00:00:00`;
+    target[renderInternalJsonRestFilterKey(filter, "toExclusive")] = dateFilterDayStart(nextDate);
   }
 }
 
@@ -249,12 +255,12 @@ function addJsonRestFilterValue(target = {}, filter = {}, value) {
 
   if (filter.type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
     if (value?.from) {
-      target[renderInternalJsonRestFilterKey(filter, "from")] = `${value.from} 00:00:00`;
+      target[renderInternalJsonRestFilterKey(filter, "from")] = dateFilterDayStart(value.from);
     }
     if (value?.to) {
       const nextDate = addDaysToDateFilterValue(value.to, 1);
       if (nextDate) {
-        target[renderInternalJsonRestFilterKey(filter, "toExclusive")] = `${nextDate} 00:00:00`;
+        target[renderInternalJsonRestFilterKey(filter, "toExclusive")] = dateFilterDayStart(nextDate);
       }
     }
     return;

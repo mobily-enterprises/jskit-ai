@@ -251,6 +251,64 @@ test("multi-value filters accept repeated valid values in reject mode and return
   );
 });
 
+// A JSON:API list route parses its query, and the list action and a service's toJsonRestQuery read the parsed
+// query again, so every type's parse takes what it answered.
+test("each filter type's query parse takes its own parsed value", () => {
+  const filters = defineCrudListFilters({
+    onlyStaff: { type: "flag", label: "Staff" },
+    status: { type: "enum", label: "Status", options: [{ value: "active", label: "Active" }] },
+    tags: { type: "enumMany", label: "Tags", options: [{ value: "a", label: "A" }, { value: "b", label: "B" }] },
+    supplierId: { type: "recordId", label: "Supplier" },
+    supplierIds: { type: "recordIdMany", label: "Suppliers" },
+    arrivedOn: { type: "date", label: "Arrived on" },
+    arrival: { type: "dateRange", label: "Arrival" },
+    weight: { type: "numberRange", label: "Weight" },
+    storage: { type: "presence", label: "Storage" }
+  });
+  const reject = { invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_REJECT };
+  const discard = { invalidValues: CRUD_LIST_FILTER_INVALID_VALUES_DISCARD };
+
+  for (const [key, text, parsed] of [
+    ["onlyStaff", "true", true],
+    ["status", "active", "active"],
+    ["tags", "a,b", ["a", "b"]],
+    ["supplierId", "7", "7"],
+    ["supplierIds", "7,4", ["7", "4"]],
+    ["arrivedOn", "2026-03-15", "2026-03-15"],
+    ["arrival", "2026-03-01..2026-03-31", { from: "2026-03-01", to: "2026-03-31" }],
+    ["arrival", "2026-03-01..", { from: "2026-03-01" }],
+    ["arrival", "2026-03-15", { from: "2026-03-15", to: "2026-03-15" }],
+    ["weight", "12.5..18", { min: 12.5, max: 18 }],
+    ["weight", "..0", { max: 0 }],
+    ["storage", "missing", "missing"]
+  ]) {
+    assert.deepEqual(parseCrudListFilterQueryValue(filters[key], text, reject), parsed, `${key}: ${text}`);
+    assert.deepEqual(parseCrudListFilterQueryValue(filters[key], parsed, reject), parsed, `${key}: parsed ${text}`);
+  }
+
+  // An empty bound is an open end; numeric text is a number.
+  assert.deepEqual(parseCrudListFilterQueryValue(filters.arrival, { from: "", to: "2026-03-31" }, reject), { to: "2026-03-31" });
+  assert.deepEqual(parseCrudListFilterQueryValue(filters.weight, { min: "12.5", max: null }, reject), { min: 12.5 });
+  // A parsed range holds only its type's bounds, at least one, each valid.
+  for (const [key, value] of [
+    ["arrival", { from: "March" }],
+    ["arrival", { from: "2026-03-01", until: "2026-03-31" }],
+    ["arrival", { min: 1 }],
+    ["arrival", { from: 20260301 }],
+    ["arrival", {}],
+    ["arrival", { from: "", to: " " }],
+    ["weight", { min: "lots" }],
+    ["weight", { min: true }],
+    ["weight", { from: 1 }],
+    ["weight", { min: Number.NaN }]
+  ]) {
+    assert.equal(parseCrudListFilterQueryValue(filters[key], value, reject), INVALID_CRUD_LIST_FILTER_QUERY_VALUE, JSON.stringify(value));
+    assert.equal(parseCrudListFilterQueryValue(filters[key], value, discard), null, JSON.stringify(value));
+  }
+  // Only a range takes an object.
+  assert.equal(parseCrudListFilterQueryValue(filters.arrivedOn, { from: "2026-03-01" }, reject), INVALID_CRUD_LIST_FILTER_QUERY_VALUE);
+});
+
 test("crud list filter helpers share canonical UI and query normalization", () => {
   const filters = defineCrudListFilters({
     status: {

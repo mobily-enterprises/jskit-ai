@@ -146,6 +146,8 @@ Local functions
 - `rejectInvalidCrudListFilterValue(invalidValues)`
 - `normalizeCrudListDateRangeQueryValue(value)`
 - `normalizeCrudListNumberRangeQueryValue(value)`
+- `normalizeCrudListRangeBound(type, value)`
+- `normalizeCrudListParsedRangeQueryValue(type, value)`
 - `parseCrudListFilterMultiQueryValue(value, normalizeEntry, { invalidValues })`
 - `atomicValueText(value)`
 - `englishChipText(key, params)`

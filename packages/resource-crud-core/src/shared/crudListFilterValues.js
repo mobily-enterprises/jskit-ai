@@ -2,6 +2,7 @@
 import { deepFreeze } from "@jskit-ai/kernel/shared/support/deepFreeze";
 import { catalogMessage, formatMessage } from "@jskit-ai/kernel/shared/i18n";
 import {
+  isRecord,
   normalizeBoolean,
   normalizeCanonicalRecordIdText,
   normalizeUniqueTextList,
@@ -424,6 +425,43 @@ function normalizeCrudListNumberRangeQueryValue(value) {
   };
 }
 
+// The bounds a range filter's parsed value holds, by type: { from, to } or { min, max }.
+const CRUD_LIST_RANGE_BOUND_KEYS = Object.freeze({
+  [CRUD_LIST_FILTER_TYPE_DATE_RANGE]: Object.freeze(["from", "to"]),
+  [CRUD_LIST_FILTER_TYPE_NUMBER_RANGE]: Object.freeze(["min", "max"])
+});
+
+function normalizeCrudListRangeBound(type, value) {
+  if (type === CRUD_LIST_FILTER_TYPE_DATE_RANGE) {
+    return typeof value === "string" ? normalizeDateFilterText(value) || null : null;
+  }
+
+  return typeof value === "number" || typeof value === "string" ? normalizeFiniteFilterNumber(value) : null;
+}
+
+// A range filter's parsed value read again, such as { from: "2026-03-01", to: "2026-03-31" }: it holds only its
+// type's bounds, at least one, each valid; an empty bound is an open end, as in the text form `2026-03-01..`.
+function normalizeCrudListParsedRangeQueryValue(type, value) {
+  const boundKeys = CRUD_LIST_RANGE_BOUND_KEYS[type];
+  const range = {};
+  for (const [key, bound] of Object.entries(value)) {
+    if (!boundKeys.includes(key)) {
+      return undefined;
+    }
+    if (bound == null || (typeof bound === "string" && !bound.trim())) {
+      continue;
+    }
+
+    const normalizedBound = normalizeCrudListRangeBound(type, bound);
+    if (normalizedBound == null) {
+      return undefined;
+    }
+    range[key] = normalizedBound;
+  }
+
+  return Object.keys(range).length > 0 ? range : undefined;
+}
+
 // A JSON:API list route reads a filter named several times (`filter[status]=a&filter[status]=b`) as one
 // comma-separated value, `a,b`, the form JSON:API gives a list, so each text value is split at its commas.
 function parseCrudListFilterMultiQueryValue(value, normalizeEntry, { invalidValues }) {
@@ -448,6 +486,12 @@ function parseCrudListFilterQueryValue(
 ) {
   const type = normalizeCrudListFilterType(filter.type);
   const allowedValues = resolveCrudListFilterAllowedValues(filter);
+
+  // A range also takes its parsed form, { from, to } or { min, max }, which this parse answers: a JSON:API list
+  // route parses its query once, then the list action, and a service's toJsonRestQuery, read that parsed query again.
+  if (isCrudListFilterStructuredValue(filter) && isRecord(value)) {
+    return normalizeCrudListParsedRangeQueryValue(type, value) || rejectInvalidCrudListFilterValue(invalidValues);
+  }
 
   if (type === CRUD_LIST_FILTER_TYPE_FLAG) {
     if (value !== null && value !== "" && !isPrimitiveCrudListFilterInput(value)) {

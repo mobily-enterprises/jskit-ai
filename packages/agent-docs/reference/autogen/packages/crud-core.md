@@ -133,6 +133,7 @@ Local functions
 - `buildJsonRestPresenceFilterSearchSchemaEntry(filter = {}, { actualField = "" } = {})`
 - `buildJsonRestCustomFilterSearchSchemaEntry(filter, customApply)`
 - `resolveCrudListFilterEntries(value = {})`
+- `dateFilterDayStart(date)`
 - `addJsonRestDateFilterValues(target = {}, filter = {}, value = "")`
 - `addJsonRestFilterValue(target = {}, filter = {}, value)`
 
