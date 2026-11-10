@@ -596,6 +596,10 @@ test("createCrudListFilterContract builds route validators and JSON REST search 
   assert.equal(contract.jsonRestSearchSchema.status.filterOperator, "in");
   assert.equal(contract.jsonRestSearchSchema.status.actualField, "status");
   assert.equal(contract.jsonRestSearchSchema.supplierContactId.filterOperator, "in");
+  // json-rest-api validates a search value with json-rest-schema, which takes an item's field definition, not JSON Schema.
+  assert.deepEqual(contract.jsonRestSearchSchema.supplierContactId.items, { type: "id" });
+  assert.deepEqual(createSchema({ supplierContactId: contract.jsonRestSearchSchema.supplierContactId })
+    .patch({ supplierContactId: ["7", "4"] }), { validatedObject: { supplierContactId: [7, 4] }, errors: {} });
   assert.equal(contract.jsonRestSearchSchema.__jskit_arrivalDate_from.filterOperator, ">=");
   assert.equal(contract.jsonRestSearchSchema.__jskit_arrivalDate_toExclusive.filterOperator, "<");
   assert.equal(contract.jsonRestSearchSchema.__jskit_weight_min.filterOperator, ">=");

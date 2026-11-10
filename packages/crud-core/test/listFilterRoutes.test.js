@@ -114,3 +114,24 @@ test("a date range or number range list filter sent over HTTP answers exactly th
     assert.equal((await list(query)).statusCode, 400, query);
   }
 });
+
+test("a recordIdMany list filter builds its search schema and answers the rows of the ids sent over HTTP", async (t) => {
+  // Before, json-rest-schema refused the filter's search schema entry, whose items were a JSON Schema anyOf, so the
+  // orders feature did not start.
+  const list = await ordersApp(t, { customer: { type: "recordIdMany", label: "Customer" } }, { customer: "customerId" });
+
+  for (const [query, references] of [
+    ["filter%5Bcustomer%5D=1&filter%5Bcustomer%5D=2", ["A", "B", "D"]],
+    ["filter%5Bcustomer%5D=1&filter%5Bcustomer%5D=3", ["A", "C", "D"]],
+    ["filter%5Bcustomer%5D=3", ["C"]],
+    ["filter%5Bcustomer%5D=9", []]
+  ]) {
+    const response = await list(query);
+    assert.equal(response.statusCode, 200, `${query}: ${response.body}`);
+    assert.deepEqual(response.references, references, query);
+  }
+
+  for (const query of ["filter%5Bcustomer%5D=abc", "filter%5Bcustomer%5D=1,,2", "filter%5Bcustomer%5D=0"]) {
+    assert.equal((await list(query)).statusCode, 400, query);
+  }
+});

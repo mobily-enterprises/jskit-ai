@@ -19,8 +19,6 @@ import {
   CRUD_LIST_FILTER_PRESENCE_MISSING
 } from "@jskit-ai/resource-crud-core/shared/crudListFilters";
 import {
-  recordIdTransportSchema,
-  cloneTransportSchema,
   addDaysToDateFilterValue,
   applyDefaultFilterQuery
 } from "./listFilterTypes.js";
@@ -81,8 +79,9 @@ function buildJsonRestFilterItemSchema(filter = {}) {
     };
   }
 
+  // A json-rest-schema field definition, never JSON Schema: json-rest-schema refuses an `anyOf` item.
   if (filter.type === CRUD_LIST_FILTER_TYPE_RECORD_ID_MANY) {
-    return cloneTransportSchema(recordIdTransportSchema);
+    return { type: "id" };
   }
 
   return {};

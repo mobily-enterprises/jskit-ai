@@ -151,14 +151,13 @@ Local functions
 
 ### `src/server/listFilterTypes.js`
 Exports
-- `recordIdTransportSchema`
-- `cloneTransportSchema(value)`
 - `addDaysToDateFilterValue(value = "", days = 0)`
 - `buildCrudListFilterQueryField(filterDefinition, { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `createCrudListFilterQuerySchema(structure = {})`
 - `buildFilterQuerySchemaDefinition(filterEntries = [], { invalidValues = CRUD_LIST_FILTER_INVALID_VALUES_REJECT } = {})`
 - `applyDefaultFilterQuery(queryBuilder, filter = {}, value, column = "")`
 Local functions
+- `cloneTransportSchema(value)`
 - `buildSingleOrMultiTransportSchema(itemSchema)`
 - `buildAllowedValuesTransportSchema({ discardInvalidValues, allowedValues })`
 - `applyEqualsFilterQuery(queryBuilder, value, column = "")`
