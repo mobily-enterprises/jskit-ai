@@ -193,8 +193,9 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // (60 and 40 KiB since app-owned top app bars, in-page steps and unblended theme colours; 62 KiB since section tabs,
   // two-destination navigation, snackbar placement, global page paths and brand marks; 63 and 41 KiB since the skill
   // routes table work to the data-access and database-layer references and CRUD names the table resource; 64 KiB
-  // since an include names a link by its relationship, which the boot enforces).
-  assert.ok(Buffer.byteLength(operationalSource) <= 64 * 1024);
+  // since an include names a link by its relationship, which the boot enforces; 65 KiB since in-page navigation to
+  // a named place is labelled with its destination).
+  assert.ok(Buffer.byteLength(operationalSource) <= 65 * 1024);
   assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 41 * 1024);
 });
 

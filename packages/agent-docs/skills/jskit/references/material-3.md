@@ -134,6 +134,11 @@ Exactly this, and nothing more:
 | `nav/surface-parent` | a parent declared beside `jskit.surface`, which the shell never reads |
 | `nav/allow` | any `m3-check: allow nav/...` comment: nothing excuses a navigation rule |
 
+In-page navigation to a named place, such as the Dashboard from a tool pane or
+a list from one of its records, is fine and is not a back control: label it
+with its destination ("Dashboard", "All invoices") and the place's own icon,
+never "Back" or a back arrow.
+
 ### Each rule, right and wrong
 
 - **Up follows the trail.** Right: contact → (link) supplier → Up shows **the
