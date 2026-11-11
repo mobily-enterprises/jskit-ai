@@ -360,6 +360,36 @@ test("failed reservations and oversized arguments cannot reach application execu
   assert.equal(executions, 0);
 });
 
+test("the resolved tool set's argument limit is the one its calls are held to and the one engines are given", async () => {
+  const lengths = [];
+  const actions = createActionCatalogue();
+  actions.register({ contributorId: "test.documents", domain: "test", actions: [{
+    id: "documents.propose", version: 1, kind: "command", channels: ["automation"], surfaces: ["app", "home"],
+    permission: { require: "authenticated" },
+    input: { schema: createSchema({ text: { type: "string", required: true } }), mode: "replace" },
+    output: { schema: createSchema({ length: { type: "number", required: true } }), mode: "replace" },
+    execute: async ({ text }) => { lengths.push(text.length); return { length: text.length }; }
+  }] });
+  // One catalogue per surface behind one, as assistant-runtime's surface-aware catalogue is:
+  // the app surface allows 64 KiB of arguments, home keeps the default 32 KiB.
+  const surfaces = { app: createServiceToolCatalog(actions, { maxToolArgumentBytes: 64 * 1024 }), home: createServiceToolCatalog(actions) };
+  const catalog = {
+    resolveToolSet: (toolContext, options) => surfaces[toolContext.surface].resolveToolSet(toolContext, options),
+    toOpenAiToolSchema: surfaces.home.toOpenAiToolSchema,
+    executeToolCall: payload => surfaces[payload.context.surface].executeToolCall(payload)
+  };
+  const tools = surface => createConversationTools({ catalog, context: { ...context, surface }, signal: new AbortController().signal,
+    transient: true });
+  const proposal = name => ({ id: "propose", name, arguments: JSON.stringify({ text: "x".repeat(40 * 1024) }) });
+  const app = tools("app");
+  assert.equal(app.maximumArgumentBytes, 64 * 1024);
+  assert.deepEqual(await app.execute(proposal(app.descriptors[0].name)), { ok: true, result: { length: 40 * 1024 } });
+  const home = tools("home");
+  assert.equal(home.maximumArgumentBytes, 32 * 1024);
+  await assert.rejects(home.execute(proposal(home.descriptors[0].name)), { message: "The application tool arguments exceed their size limit." });
+  assert.deepEqual(lengths, [40 * 1024]);
+});
+
 test("closing a native tool connection prevents queued calls while retaining an invoked result", async () => {
   const entered = Promise.withResolvers(), complete = Promise.withResolvers();
   let executions = 0;

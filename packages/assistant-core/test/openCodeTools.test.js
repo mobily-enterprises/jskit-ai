@@ -54,6 +54,25 @@ test("the native tool connection requires its private credential and bounds inco
   assert.deepEqual(calls, [{}]);
 });
 
+test("arguments up to the limit reach the application through the native tool connection with the longest call identity", async t => {
+  const limit = 128 * 1024;
+  const sizes = [];
+  const bridge = await createOpenCodeToolBridge({ schemas: [], maxArgumentBytes: limit,
+    execute: async value => { sizes.push(Buffer.byteLength(JSON.stringify(value.input))); return { ok: true }; } });
+  t.after(() => bridge.close());
+  const { url, token } = bridge.configuration;
+  // The plugin's request: the call's identities, each at most 256 characters, around its input.
+  const identity = { sessionId: "s".repeat(256), messageId: "m".repeat(256), id: "c".repeat(256), name: "n".repeat(256) };
+  const send = text => fetch(url, { method: "POST", headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+    body: JSON.stringify({ ...identity, input: { text } }) });
+  assert.deepEqual(await (await send("x".repeat(limit - 11))).json(), { ok: true });
+  assert.deepEqual(sizes, [limit]);
+  const tooLarge = await send("x".repeat(limit + 4096));
+  assert.equal(tooLarge.status, 400);
+  assert.match((await tooLarge.json()).error, /size limit/);
+  assert.deepEqual(sizes, [limit]);
+});
+
 test("native plugin definitions retain exact schemas and native identity without enabling built-in tools", async t => {
   const schema = { type: "object", properties: { query: { type: "string" } }, additionalProperties: false };
   const calls = [];

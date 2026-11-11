@@ -381,6 +381,8 @@ function createServiceToolCatalog(
   );
   const maxToolArgumentBytes = normalizePositiveInteger(rawMaxToolArgumentBytes, { fallback: DEFAULT_MAX_TOOL_ARGUMENT_BYTES });
   const maxToolResultBytes = normalizePositiveInteger(rawMaxToolResultBytes, { fallback: DEFAULT_MAX_TOOL_RESULT_BYTES });
+  // Every tool set carries these, so the calls made with one surface's set keep that surface's limits.
+  const limits = Object.freeze({ maxToolArgumentBytes, maxToolResultBytes });
   const toolSetStates = new WeakMap();
   let methodEntries = null;
 
@@ -446,7 +448,8 @@ function createServiceToolCatalog(
 
     const toolSet = Object.freeze({
       tools: Object.freeze(tools),
-      byName
+      byName,
+      limits
     });
     const actionEntriesById = new Map();
     const directEntriesByToolName = new Map();
@@ -669,10 +672,7 @@ function createServiceToolCatalog(
   }
 
   return Object.freeze({
-    limits: Object.freeze({
-      maxToolArgumentBytes,
-      maxToolResultBytes
-    }),
+    limits,
     resolveToolSet,
     toOpenAiToolSchema,
     executeToolCall

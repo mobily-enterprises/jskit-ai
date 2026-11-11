@@ -24,6 +24,7 @@ test("assistant-runtime registers providers without install-time authoring machi
     "assistant_config_initial.cjs",
     "assistant_transcripts_initial.cjs",
     "assistant_transcripts_summary.cjs",
+    "assistant_transcripts_tool_arguments.cjs",
     "assistant_turn_requests.cjs",
     "constraints"
   ]);

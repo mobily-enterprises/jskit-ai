@@ -42,6 +42,7 @@ test("assistant server config resolves per-surface AI config without app-level g
     timeoutMs: 45_000,
     barredActionIds: ["demo.admin.secret"],
     toolSkipActionPrefixes: ["demo.hidden."],
+    maxToolArgumentBytes: null,
     settingsUpdatePermission: null
   });
   assert.deepEqual(resolveAssistantAiConfig({ appConfig, env }, "admin"), {
@@ -72,4 +73,17 @@ test("assistant server config requires explicit aiConfigPrefix for each surface"
       ),
     /requires assistantServer\.admin\.aiConfigPrefix/
   );
+});
+
+test("assistantServer.<surface>.maxToolArgumentBytes raises a surface's tool argument limit up to 1 MiB", () => {
+  const resolve = maxToolArgumentBytes => resolveAssistantServerConfig({ assistantServer: { writer: { maxToolArgumentBytes } } }, "writer");
+  assert.equal(resolve(undefined).maxToolArgumentBytes, null, "Absent, the surface keeps the catalogue's 32 KiB");
+  assert.equal(resolve(128 * 1024).maxToolArgumentBytes, 128 * 1024);
+  assert.equal(resolve(1024 * 1024).maxToolArgumentBytes, 1024 * 1024);
+  for (const invalid of [0, -1, 1.5, "65536", 1024 * 1024 + 1, Number.POSITIVE_INFINITY, null, true]) {
+    assert.throws(() => resolve(invalid), {
+      name: "TypeError",
+      message: /^assistantServer\.writer\.maxToolArgumentBytes must be/u
+    }, String(invalid));
+  }
 });

@@ -4,6 +4,7 @@ import knex from "knex";
 import { verifyConversationStorageContract } from "@jskit-ai/assistant-core/testing/conversation-storage";
 import transcriptsMigration from "../migrations/assistant_transcripts_initial.cjs";
 import summaryMigration from "../migrations/assistant_transcripts_summary.cjs";
+import toolArgumentsMigration from "../migrations/assistant_transcripts_tool_arguments.cjs";
 import { createSqlConversationStorage } from "../src/server/sqlConversationStorage.js";
 import { createTestAssistantStore } from "./support/assistantStore.js";
 
@@ -76,6 +77,27 @@ test("the SQL conversation storage keeps its contract, cache and summary on MySQ
       summary: await transaction.readSummary(), after: (await transaction.readTurnsAfter("000100")).map(turn => turn.turnId)
     }));
     assert.deepEqual(summarised, { summary: { text, throughTurnId: "000100" }, after: ["000101", "000102"] });
+
+    // A tool call's arguments are its tool_call row's text: an application may allow up to
+    // 1 MiB of them, past the 64 KiB a MySQL TEXT column holds.
+    const contentTextType = async () => (await f.db.raw("SELECT DATA_TYPE AS type FROM information_schema.COLUMNS " +
+      "WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'assistant_messages' AND COLUMN_NAME = 'content_text'"))[0][0].type.toLowerCase();
+    assert.equal(await contentTextType(), "text");
+    await toolArgumentsMigration.up(f.db);
+    await toolArgumentsMigration.up(f.db);
+    assert.equal(await contentTextType(), "longtext");
+    const proposal = await conversation("1");
+    const argumentsText = JSON.stringify({ text: "x".repeat(1024 * 1024 - 11) });
+    const call = { id: "propose", name: "documents_propose", arguments: argumentsText, status: "complete",
+      at: "2026-03-01T00:00:00.000Z", result: { ok: true, result: { length: 1024 * 1024 - 11 } } };
+    const proposed = await f.storage.write(proposal.id, async transaction => {
+      const turnId = await transaction.nextTurnId();
+      await transaction.appendMessage(turnId, { role: "user", messageId: "propose", text: "Propose a document.", at: call.at });
+      await transaction.updateTurnMetadata(turnId, { applicationTools: [call] });
+      return turnId;
+    });
+    const reread = await (await connect()).storage.read(proposal.id, transaction => transaction.readTurn(proposed));
+    assert.equal(reread.metadata.applicationTools[0].arguments, argumentsText, "A 1 MiB call's arguments are saved whole");
 
     await summaryMigration.down(f.db);
     for (const column of ["summary_text", "summary_through_turn_id", "transcript_revision"]) {

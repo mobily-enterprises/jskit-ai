@@ -17,7 +17,7 @@ const TRANSIENT_HOOKS = new Set([authorizeTransientCall, saveTransientCalls, ann
  * One turn's application calls. Native/API adapters only transport these calls.
  * @param {object} options
  * @param {import("../types.js").ServiceToolCatalog} options.catalog
- * @param {{ tools: object[] }} [options.toolSet] A tool set resolved earlier for this turn.
+ * @param {{ tools: object[], limits: { maxToolArgumentBytes: number } }} [options.toolSet] A tool set resolved earlier for this turn.
  * @param {object} options.context The caller context the calls run as.
  * @param {() => Promise<object>} [options.prepareContext] Maps the context again before each call.
  * @param {AbortSignal} options.signal
@@ -42,6 +42,8 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
   // readable-check: allow method-probe - input validation: an optional context mapper must be a function
   if (prepareContext !== undefined && typeof prepareContext !== "function") throw new TypeError("Application tool context requires a server-owned mapper.");
   const toolSet = retainedToolSet ?? catalog.resolveToolSet(context, { discoveryOnly });
+  // The tool set's own limit: a surface-aware catalogue resolves each surface's set with that surface's.
+  const maximumArgumentBytes = toolSet.limits.maxToolArgumentBytes;
   const calls = new Map(structuredClone(previousCalls).map(call => [call.id, call]));
   let pending = Promise.resolve();
   let requested = 0;
@@ -61,7 +63,7 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     signal.throwIfAborted();
     if (typeof id !== "string" || !id || id.length > 256 || typeof name !== "string" || !name || name.length > 256 ||
         typeof argumentsText !== "string") throw new TypeError("An application tool requires its call id, name and JSON arguments.");
-    if (Buffer.byteLength(argumentsText) > catalog.limits.maxToolArgumentBytes) throw Object.assign(new Error("The application tool arguments exceed their size limit."), {
+    if (Buffer.byteLength(argumentsText) > maximumArgumentBytes) throw Object.assign(new Error("The application tool arguments exceed their size limit."), {
       messageCode: "assistant.conversation.toolArgumentsTooLarge", messageParams: {}
     });
     const input = { id, name, arguments: argumentsText };
@@ -117,7 +119,7 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     descriptors: toolSet.tools,
     schemas: toolSet.tools.map(catalog.toOpenAiToolSchema),
     execute,
-    maximumArgumentBytes: catalog.limits.maxToolArgumentBytes,
+    maximumArgumentBytes,
     records
   });
 }

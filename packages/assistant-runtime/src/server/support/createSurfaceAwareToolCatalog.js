@@ -8,7 +8,8 @@ function buildCatalogOptions(appConfig = {}, surfaceId = "") {
 
   return Object.freeze({
     barredActionIds: surfaceConfig.barredActionIds || [],
-    skipActionPrefixes: Object.freeze(["assistant.", ...(surfaceConfig.toolSkipActionPrefixes || [])])
+    skipActionPrefixes: Object.freeze(["assistant.", ...(surfaceConfig.toolSkipActionPrefixes || [])]),
+    ...(surfaceConfig.maxToolArgumentBytes ? { maxToolArgumentBytes: surfaceConfig.maxToolArgumentBytes } : {})
   });
 }
 
@@ -24,7 +25,8 @@ function requireContextSurfaceId(context) {
 /**
  * The assistant's tool catalogue over an application's actions, resolved per surface. Each surface
  * offers the actions its `assistantServer` configuration leaves in (its barred action ids and
- * skipped prefixes taken out), and every call names its surface in `context.surface`. The assistant
+ * skipped prefixes taken out), and its tool sets carry its limits, `maxToolArgumentBytes` included,
+ * which its calls are held to. Every call names its surface in `context.surface`. The assistant
  * runtime builds its catalogue this way; an application test builds one the same way to see the
  * tools a surface offers and to call them.
  * @param {import("@jskit-ai/kernel/server/types").ActionCatalogue} actions The application's actions (`runtime.actions`).
@@ -72,10 +74,6 @@ function createSurfaceAwareToolCatalog(actions, { appConfig = {}, createCatalog 
   }
 
   return Object.freeze({
-    get limits() {
-      if (!schemaCatalog) schemaCatalog = createCatalog(actions, buildCatalogOptions(normalizedAppConfig, ""));
-      return schemaCatalog.limits;
-    },
     resolveToolSet,
     toOpenAiToolSchema,
     executeToolCall

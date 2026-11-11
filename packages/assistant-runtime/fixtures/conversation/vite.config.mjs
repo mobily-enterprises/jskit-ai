@@ -88,7 +88,7 @@ export default defineConfig({
                 async createConversationForTurn() { return { conversation: { id: "100" } }; },
                 async completeConversation() {}
               },
-              serviceToolCatalog: { limits: { maxToolArgumentBytes: 64 * 1024 }, resolveToolSet: () => ({ tools: [] }),
+              serviceToolCatalog: { resolveToolSet: () => ({ tools: [], limits: { maxToolArgumentBytes: 64 * 1024 } }),
                 toOpenAiToolSchema: tool => ({ type: "function", function: tool }) },
               assistantConfigService: { resolveSystemPrompt: async () => "Answer the user." },
               personContextPrompt: createPersonContextPrompt({ personContext: NO_PERSON_CONTEXT, logger: silentLogger }),

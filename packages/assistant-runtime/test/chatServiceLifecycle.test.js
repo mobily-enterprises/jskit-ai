@@ -148,9 +148,8 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
       }
     },
     serviceToolCatalog: {
-      limits: { maxToolArgumentBytes: 64 * 1024 },
       resolveToolSet() {
-        return { tools };
+        return { tools, limits: { maxToolArgumentBytes: 64 * 1024 } };
       },
       toOpenAiToolSchema(tool) {
         return {

@@ -490,6 +490,23 @@ The assistant validates the transformed result against
 JSON:API CRUD actions supply these assistant contracts and transformations
 automatically; their native action and HTTP result shapes do not change.
 
+A tool call's arguments may be at most 32 KiB. A surface whose assistant writes
+a larger document in one call raises its own limit, up to 1 MiB:
+
+```js
+assistantServer: {
+  planner: { aiIntegrationId: "assistant", maxToolArgumentBytes: 128 * 1024 }
+}
+```
+
+Every engine is given the surface's limit, and a larger call ends the turn with
+"The application tool arguments exceed their size limit." before the action
+runs. A malformed value stops the server from starting. On MySQL, apply the
+package's migrations as usual: one lets a saved call's arguments pass 64 KiB.
+The model must still write the call in one step: the API engine asks for at most
+32,000 output tokens a step, and a model's own output limit, or its reasoning,
+can leave less.
+
 ### Framework account and workspace actions
 
 Account and workspace action owners supply assistant-specific descriptions,

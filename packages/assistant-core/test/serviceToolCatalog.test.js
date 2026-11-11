@@ -631,6 +631,15 @@ test("discovery pages and persisted tool results stay within configured bounds",
   });
 });
 
+test("each tool set carries its catalog's size limits for the calls made with it", () => {
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const actions = createActions([action()]);
+  const large = createServiceToolCatalog(actions, { maxToolArgumentBytes: 64 * 1024 });
+  assert.deepEqual(large.resolveToolSet(context).limits, { maxToolArgumentBytes: 64 * 1024, maxToolResultBytes: 48 * 1024 });
+  assert.equal(large.resolveToolSet(context, { discoveryOnly: true }).limits, large.limits);
+  assert.equal(createServiceToolCatalog(actions).resolveToolSet(context).limits.maxToolArgumentBytes, 32 * 1024);
+});
+
 test("assistant tools reject unknown tools and return safe action failures", async () => {
   const actions = createActions([action({
     execute: async () => {

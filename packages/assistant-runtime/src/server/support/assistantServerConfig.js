@@ -7,6 +7,8 @@ import {
 } from "@jskit-ai/assistant-core/server";
 
 const SETTINGS_UPDATE_REQUIRE_MODES = Object.freeze(["authenticated", "all", "any"]);
+// The most a surface may raise its application tool argument limit to: 1 MiB.
+const MAX_TOOL_ARGUMENT_BYTES_CEILING = 1024 * 1024;
 
 /**
  * Who may change a surface's assistant settings, as configured: a permission, an auth policy
@@ -36,6 +38,24 @@ function normalizeSettingsUpdatePermission(value, targetSurfaceId) {
   );
 }
 
+/**
+ * The largest application tool call arguments a surface accepts, in bytes, as configured, or null
+ * for the tool catalogue's default (32 KiB).
+ * @param {unknown} value
+ * @param {string} targetSurfaceId
+ */
+function normalizeMaxToolArgumentBytes(value, targetSurfaceId) {
+  if (value === undefined) {
+    return null;
+  }
+  if (Number.isSafeInteger(value) && value >= 1 && value <= MAX_TOOL_ARGUMENT_BYTES_CEILING) {
+    return value;
+  }
+  throw new TypeError(
+    `assistantServer.${targetSurfaceId}.maxToolArgumentBytes must be a whole number of bytes from 1 to ${MAX_TOOL_ARGUMENT_BYTES_CEILING} (1 MiB).`
+  );
+}
+
 function resolveAssistantServerConfigMap(appConfig) {
   const source = normalizeObject(appConfig?.assistantServer);
   const resolved = {};
@@ -58,6 +78,7 @@ function resolveAssistantServerConfigMap(appConfig) {
       timeoutMs: entry.timeoutMs,
       barredActionIds: Object.freeze(normalizeUniqueTextList(entry.barredActionIds, { acceptSingle: true })),
       toolSkipActionPrefixes: Object.freeze(normalizeUniqueTextList(entry.toolSkipActionPrefixes, { acceptSingle: true })),
+      maxToolArgumentBytes: normalizeMaxToolArgumentBytes(entry.maxToolArgumentBytes, targetSurfaceId),
       settingsUpdatePermission: normalizeSettingsUpdatePermission(entry.settingsUpdatePermission, targetSurfaceId)
     });
   }

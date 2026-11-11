@@ -10,6 +10,7 @@ import { createConversationTranscript } from "@jskit-ai/assistant-core/server/co
 import { verifyConversationStorageContract } from "@jskit-ai/assistant-core/testing/conversation-storage";
 import transcriptsMigration from "../migrations/assistant_transcripts_initial.cjs";
 import summaryMigration from "../migrations/assistant_transcripts_summary.cjs";
+import toolArgumentsMigration from "../migrations/assistant_transcripts_tool_arguments.cjs";
 import claimsMigration from "../migrations/assistant_turn_requests.cjs";
 import { createSqlConversationStorage } from "../src/server/sqlConversationStorage.js";
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
@@ -48,6 +49,8 @@ async function fixture(t) {
   await first.db("users").insert([{ id: 1 }, { id: 2 }]);
   await transcriptsMigration.up(first.db);
   await summaryMigration.up(first.db);
+  // MySQL only: SQLite's text holds a tool call's arguments as they are.
+  await toolArgumentsMigration.up(first.db);
   await claimsMigration.up(first.db);
   await first.db.raw("PRAGMA journal_mode = WAL");
   const conversation = actor => first.conversationsRepository.create({ createdByUserId: actor || "1", surfaceId: "assistant", metadata: {} });
@@ -171,8 +174,8 @@ test("the SQL facade uses common inference and durable tool rows, and the model'
       })();
     }, { model: "fixture-model" }) };
   } };
-  const catalog = { limits: { maxToolArgumentBytes: 4096 },
-    resolveToolSet: () => ({ tools: [{ name: "inventory_lookup", parameters: { type: "object" } }] }),
+  const catalog = {
+    resolveToolSet: () => ({ tools: [{ name: "inventory_lookup", parameters: { type: "object" } }], limits: { maxToolArgumentBytes: 4096 } }),
     toOpenAiToolSchema: tool => ({ type: "function", function: tool }),
     async executeToolCall() {
       executions += 1;
@@ -347,7 +350,7 @@ for (const shape of ["orphan-output", "orphan-tool-result", "unconfirmed-tool"])
           yield { choices: [{ delta: { content: "Fresh answer." }, finish_reason: "stop" }] };
         })();
       }, { model: "fixture-model" }) }) };
-    const catalog = { limits: { maxToolArgumentBytes: 4096 }, resolveToolSet: () => ({ tools: [] }),
+    const catalog = { resolveToolSet: () => ({ tools: [], limits: { maxToolArgumentBytes: 4096 } }),
       toOpenAiToolSchema: tool => ({ type: "function", function: tool }),
       executeToolCall() { effects++; assert.fail("Retained history cannot repeat an application effect"); } };
     const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
