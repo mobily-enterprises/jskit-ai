@@ -234,6 +234,9 @@ test("account route handlers preserve omitted optional action fields", async () 
     if (payload.actionId === "settings.security.oauth.link.start") {
       return { url: "/oauth/link" };
     }
+    if (payload.actionId === "settings.profile.avatar.upload") {
+      return { __jskitJsonApiResult: true, kind: "data", value: {} };
+    }
     return {};
   };
 

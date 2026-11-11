@@ -1,3 +1,4 @@
+import { jsonApiResultValue } from "@jskit-ai/http-runtime/shared";
 import { withStandardErrorResponses } from "@jskit-ai/http-runtime/shared/validators/errorResponses";
 import { createJsonApiResourceRouteContract } from "@jskit-ai/http-runtime/shared/validators/jsonApiRouteTransport";
 import { DEFAULT_IMAGE_UPLOAD_MAX_BYTES } from "@jskit-ai/uploads-runtime/shared";
@@ -134,7 +135,9 @@ function registerAccountProfileRoutes(router, { accountProfileService, authServi
         }
       });
 
-      reply.code(200).send(response);
+      // The action answers JSON:API data, as the account's JSON:API routes need. This multipart route has no
+      // JSON:API transport to encode it: it answers the plain settings its schema declares and the upload reads.
+      reply.code(200).send(jsonApiResultValue(response));
     }
   );
 
