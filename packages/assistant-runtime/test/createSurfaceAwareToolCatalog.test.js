@@ -15,7 +15,8 @@ test("surface-aware tool catalog applies per-surface skip and barred configurati
           admin: {
             barredActionIds: ["demo.admin.secret"],
             toolSkipActionPrefixes: ["demo.admin."],
-            maxToolArgumentBytes: 65536
+            maxToolArgumentBytes: 65536,
+            maxToolResultBytes: 131072
           },
           console: {
             barredActionIds: ["demo.console.secret"]
@@ -69,7 +70,8 @@ test("surface-aware tool catalog applies per-surface skip and barred configurati
     {
       barredActionIds: ["demo.admin.secret"],
       skipActionPrefixes: ["assistant.", "demo.admin."],
-      maxToolArgumentBytes: 65536
+      maxToolArgumentBytes: 65536,
+      maxToolResultBytes: 131072
     },
     {
       barredActionIds: ["demo.console.secret"],
@@ -79,7 +81,8 @@ test("surface-aware tool catalog applies per-surface skip and barred configurati
   assert.deepEqual(execution.options, {
     barredActionIds: ["demo.admin.secret"],
     skipActionPrefixes: ["assistant.", "demo.admin."],
-    maxToolArgumentBytes: 65536
+    maxToolArgumentBytes: 65536,
+    maxToolResultBytes: 131072
   });
 });
 
@@ -109,6 +112,32 @@ test("each surface's tool sets carry and enforce its maxToolArgumentBytes", asyn
   assert.equal(home.limit, 32 * 1024, "A surface without the key keeps the default");
   assert.equal((await home.result).error.code, "assistant_tool_arguments_too_large");
   assert.deepEqual(lengths, [40 * 1024]);
+});
+
+test("each surface's tool sets carry and enforce its maxToolResultBytes", async () => {
+  const actions = createActionCatalogue();
+  actions.register({ contributorId: "test.documents", domain: "test", actions: [{
+    id: "documents.read", version: 1, kind: "query", channels: ["automation"], surfaces: ["reader", "home"],
+    permission: { require: "authenticated" },
+    input: { schema: createSchema({}), mode: "replace" },
+    output: { schema: createSchema({ text: { type: "string", required: true } }), mode: "replace" },
+    execute: async () => ({ text: "x".repeat(67 * 1024) })
+  }] });
+  const catalog = createSurfaceAwareToolCatalog(actions, { appConfig: { assistantServer: { reader: { maxToolResultBytes: 96 * 1024 } } } });
+  const call = surface => {
+    const context = { actor: { id: "owner" }, surface };
+    const toolSet = catalog.resolveToolSet(context);
+    return { limit: toolSet.limits.maxToolResultBytes,
+      result: catalog.executeToolCall({ toolName: toolSet.tools[0].name, argumentsText: "{}", context, toolSet }) };
+  };
+
+  const reader = call("reader");
+  assert.equal(reader.limit, 96 * 1024);
+  assert.equal((await reader.result).result.text.length, 67 * 1024);
+  const home = call("home");
+  assert.equal(home.limit, 48 * 1024, "A surface without the key keeps the default");
+  assert.deepEqual((await home.result).error, { code: "assistant_tool_result_too_large",
+    message: "Tool result exceeds the assistant size limit. Narrow the request and try again.", status: 413 });
 });
 
 test("an application reaches the surface-aware tool catalog through the package's server entry", async () => {

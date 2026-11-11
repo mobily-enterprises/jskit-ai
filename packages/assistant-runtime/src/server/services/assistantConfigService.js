@@ -29,7 +29,7 @@ function createService({
   appConfig,
   workspaceScopeSupport
 }) {
-  // Read once here, so a malformed settingsUpdatePermission or maxToolArgumentBytes stops the server from starting.
+  // Read once here, so a malformed settingsUpdatePermission, maxToolArgumentBytes or maxToolResultBytes stops the server from starting.
   resolveAssistantServerConfigMap(appConfig);
 
   /**

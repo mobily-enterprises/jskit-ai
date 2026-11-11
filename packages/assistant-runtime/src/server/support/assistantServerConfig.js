@@ -7,8 +7,8 @@ import {
 } from "@jskit-ai/assistant-core/server";
 
 const SETTINGS_UPDATE_REQUIRE_MODES = Object.freeze(["authenticated", "all", "any"]);
-// The most a surface may raise its application tool argument limit to: 1 MiB.
-const MAX_TOOL_ARGUMENT_BYTES_CEILING = 1024 * 1024;
+// The most a surface may raise its application tool argument and result limits to: 1 MiB.
+const MAX_TOOL_BYTES_CEILING = 1024 * 1024;
 
 /**
  * Who may change a surface's assistant settings, as configured: a permission, an auth policy
@@ -39,20 +39,23 @@ function normalizeSettingsUpdatePermission(value, targetSurfaceId) {
 }
 
 /**
- * The largest application tool call arguments a surface accepts, in bytes, as configured, or null
- * for the tool catalogue's default (32 KiB).
- * @param {unknown} value
+ * A surface's limit in bytes on its application tool calls' arguments (`maxToolArgumentBytes`) or
+ * results (`maxToolResultBytes`), as configured, or null for the tool catalogue's default (32 KiB of
+ * arguments, 48 KiB of result).
+ * @param {Record<string, unknown>} entry
+ * @param {"maxToolArgumentBytes" | "maxToolResultBytes"} key
  * @param {string} targetSurfaceId
  */
-function normalizeMaxToolArgumentBytes(value, targetSurfaceId) {
+function normalizeMaxToolBytes(entry, key, targetSurfaceId) {
+  const value = entry[key];
   if (value === undefined) {
     return null;
   }
-  if (Number.isSafeInteger(value) && value >= 1 && value <= MAX_TOOL_ARGUMENT_BYTES_CEILING) {
+  if (Number.isSafeInteger(value) && value >= 1 && value <= MAX_TOOL_BYTES_CEILING) {
     return value;
   }
   throw new TypeError(
-    `assistantServer.${targetSurfaceId}.maxToolArgumentBytes must be a whole number of bytes from 1 to ${MAX_TOOL_ARGUMENT_BYTES_CEILING} (1 MiB).`
+    `assistantServer.${targetSurfaceId}.${key} must be a whole number of bytes from 1 to ${MAX_TOOL_BYTES_CEILING} (1 MiB).`
   );
 }
 
@@ -78,7 +81,8 @@ function resolveAssistantServerConfigMap(appConfig) {
       timeoutMs: entry.timeoutMs,
       barredActionIds: Object.freeze(normalizeUniqueTextList(entry.barredActionIds, { acceptSingle: true })),
       toolSkipActionPrefixes: Object.freeze(normalizeUniqueTextList(entry.toolSkipActionPrefixes, { acceptSingle: true })),
-      maxToolArgumentBytes: normalizeMaxToolArgumentBytes(entry.maxToolArgumentBytes, targetSurfaceId),
+      maxToolArgumentBytes: normalizeMaxToolBytes(entry, "maxToolArgumentBytes", targetSurfaceId),
+      maxToolResultBytes: normalizeMaxToolBytes(entry, "maxToolResultBytes", targetSurfaceId),
       settingsUpdatePermission: normalizeSettingsUpdatePermission(entry.settingsUpdatePermission, targetSurfaceId)
     });
   }

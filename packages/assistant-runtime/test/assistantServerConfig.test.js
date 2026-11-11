@@ -43,6 +43,7 @@ test("assistant server config resolves per-surface AI config without app-level g
     barredActionIds: ["demo.admin.secret"],
     toolSkipActionPrefixes: ["demo.hidden."],
     maxToolArgumentBytes: null,
+    maxToolResultBytes: null,
     settingsUpdatePermission: null
   });
   assert.deepEqual(resolveAssistantAiConfig({ appConfig, env }, "admin"), {
@@ -75,15 +76,17 @@ test("assistant server config requires explicit aiConfigPrefix for each surface"
   );
 });
 
-test("assistantServer.<surface>.maxToolArgumentBytes raises a surface's tool argument limit up to 1 MiB", () => {
-  const resolve = maxToolArgumentBytes => resolveAssistantServerConfig({ assistantServer: { writer: { maxToolArgumentBytes } } }, "writer");
-  assert.equal(resolve(undefined).maxToolArgumentBytes, null, "Absent, the surface keeps the catalogue's 32 KiB");
-  assert.equal(resolve(128 * 1024).maxToolArgumentBytes, 128 * 1024);
-  assert.equal(resolve(1024 * 1024).maxToolArgumentBytes, 1024 * 1024);
-  for (const invalid of [0, -1, 1.5, "65536", 1024 * 1024 + 1, Number.POSITIVE_INFINITY, null, true]) {
-    assert.throws(() => resolve(invalid), {
-      name: "TypeError",
-      message: /^assistantServer\.writer\.maxToolArgumentBytes must be/u
-    }, String(invalid));
-  }
-});
+for (const [key, fallback] of [["maxToolArgumentBytes", "32 KiB"], ["maxToolResultBytes", "48 KiB"]]) {
+  test(`assistantServer.<surface>.${key} raises a surface's tool ${key === "maxToolArgumentBytes" ? "argument" : "result"} limit up to 1 MiB`, () => {
+    const resolve = value => resolveAssistantServerConfig({ assistantServer: { writer: { [key]: value } } }, "writer");
+    assert.equal(resolve(undefined)[key], null, `Absent, the surface keeps the catalogue's ${fallback}`);
+    assert.equal(resolve(128 * 1024)[key], 128 * 1024);
+    assert.equal(resolve(1024 * 1024)[key], 1024 * 1024);
+    for (const invalid of [0, -1, 1.5, "65536", 1024 * 1024 + 1, Number.POSITIVE_INFINITY, null, true]) {
+      assert.throws(() => resolve(invalid), {
+        name: "TypeError",
+        message: new RegExp(`^assistantServer\\.writer\\.${key} must be`, "u")
+      }, String(invalid));
+    }
+  });
+}
