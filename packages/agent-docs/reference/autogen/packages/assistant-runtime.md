@@ -427,6 +427,7 @@ Exports
 - `resolveAssistantAiConfig({ appConfig = {}, env = {} } = {}, targetSurfaceId = "")`
 Local functions
 - `normalizeSettingsUpdatePermission(value, targetSurfaceId)`
+- `normalizeMaxToolBytes(entry, key, targetSurfaceId)`
 - `readPrefixedEnvValue(env = {}, prefix = "", key = "")`
 
 ### `src/server/support/assistantStreamWriter.js`
@@ -563,6 +564,10 @@ Exports
 - None
 
 ### `migrations/assistant_transcripts_summary.cjs`
+Exports
+- None
+
+### `migrations/assistant_transcripts_tool_arguments.cjs`
 Exports
 - None
 
