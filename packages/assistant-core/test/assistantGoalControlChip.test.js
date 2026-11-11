@@ -81,6 +81,14 @@ test("an active goal's chip shows its clock, and a finished goal's chip shows ne
   assert.equal(none.label, "jskit.assistant.goal.set");
 });
 
+test("a resumed goal's clock counts from its first start, not from the Resume that sent it again", async () => {
+  const control = await importControl();
+  const resumed = await render(control, { objective: "Finish every check", status: "active",
+    createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(), startedAt: startedTwoHoursAgo });
+  assert.match(resumed.chip, /<span class="assistant-goal__elapsed" aria-hidden="true">2:00:0\d<\/span>/u);
+  assert.match(resumed.panel, /jskit\.assistant\.goal\.elapsedSinceStart=2:00:0\d/u);
+});
+
 test("a goal waiting at its AI account's limit names the limit and when it resets, and Resume is the person's to press", async () => {
   const control = await importControl();
   const reset = new Date();

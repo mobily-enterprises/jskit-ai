@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- A Claude goal's clock counts from its first start: Resume and restart recovery send the same unfinished objective again, which Claude starts anew, so the clock went back to zero after every Pause and Resume and after a server restart. The Claude history keeps that first start, also across the clear that suspends a paused goal's checker, and the goal value carries it as `startedAt` (ISO), which `AssistantGoalControl` counts its wall-clock time from (else `createdAt`). A goal finished or cancelled and then set again starts a new clock.
+- The goal menu is 360 pixels wide, or the screen's width less the menu's 12-pixel margins on a narrower phone (the menu's `width` and `max-width`), so the new-goal objective box fills it instead of shrinking to its label.
 - `assistantConversationListItemOutputValidator` (from `@jskit-ai/assistant-core/shared`) is one conversation of `assistantContract`'s `conversationsList`, the record without its `metadata`; the contract's list output is built from it, and `@jskit-ai/assistant-runtime`'s conversations list route serializes its items with it.
 - `createConversationStorage`'s `write` saves nothing when its callback called no write method: the adapter's `writeRecord` does not run, so file storage no longer rewrites and flushes the whole conversation file, or creates an empty one for a missing conversation, when a write only looked (a delivery check, a message already saved), and the saved record stays cached.
 - Checking or recovering one message's delivery (`inspectDelivery`, and a send that finds its message already saved) finds that message's turn by its id instead of reading and cloning every turn of the conversation to find it.

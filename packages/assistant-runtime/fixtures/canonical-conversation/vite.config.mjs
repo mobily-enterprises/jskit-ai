@@ -156,6 +156,10 @@ export default defineConfig({
             state.queuedGoal = input;
             return json(receipt);
           }
+          // The engine received the command, but the server could not confirm its goal.
+          if (receipt && mode === "goal-refused") {
+            return json({ error: "Claude did not confirm the goal in time.", code: "fixture_goal_unconfirmed" }, 503);
+          }
           changeGoal(state, input);
           const result = receipt || state.goal || null;
           return json(result, result === null ? 204 : 200);

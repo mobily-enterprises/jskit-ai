@@ -129,6 +129,44 @@ test("Claude successful native clear removes a failed goal without a clearing se
   assert.equal((await readClaudeHistory(options)).goal.objective, "Next checks", "a later goal still wins");
 });
 
+test("a resumed Claude goal keeps the time it first started, across the clear before Resume", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "claude-goal-start-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  const conversationId = "6b1f2c9e-4d3a-4c1b-9e7f-2a5d8c0b1e3f";
+  const file = path.join(directory, `${conversationId}.jsonl`);
+  const options = { configRoot: root, workdir: root, conversationId };
+  const append = (...frames) => writeFile(file, frames.map(JSON.stringify).join("\n") + "\n", { flag: "a" });
+  const goal = (uuid, timestamp, condition, extra = {}) => ({ type: "attachment", uuid, timestamp,
+    attachment: { type: "goal_status", condition, met: false, sentinel: true, ...extra } });
+  const first = Date.parse("2026-11-11T07:00:00.000Z") / 1000;
+  await append(goal("set", "2026-11-11T07:00:00.000Z", "Finish all checks"));
+  // Restart recovery sends the same objective again while the goal still runs.
+  await append(goal("recovered", "2026-11-11T07:30:00.000Z", "Finish all checks"));
+  let read = (await readClaudeHistory(options)).goal;
+  assert.equal(read.createdAt, Date.parse("2026-11-11T07:30:00.000Z") / 1000);
+  assert.equal(read.startedAt, first);
+  // A paused goal's checker is cleared when its process starts; Resume sends it again.
+  await append({ type: "system", subtype: "local_command", uuid: "suspended", timestamp: "2026-11-11T08:00:00.000Z",
+    commandRun: { command: "goal", args: "clear" }, content: "<local-command-stdout>Goal cleared: Finish all checks</local-command-stdout>" });
+  assert.equal((await readClaudeHistory(options)).goal, null);
+  await append(goal("resumed", "2026-11-11T08:05:00.000Z", "Finish all checks"));
+  read = (await readClaudeHistory(options)).goal;
+  assert.equal(read.status, "active");
+  assert.equal(read.startedAt, first, "Resume after the clear keeps the first start");
+  await append({ type: "attachment", uuid: "done", timestamp: "2026-11-11T09:00:00.000Z",
+    attachment: { type: "goal_status", condition: "Finish all checks", met: true } });
+  assert.equal((await readClaudeHistory(options)).goal.startedAt, first);
+  // A finished goal set again, or another objective, starts its own clock.
+  await append(goal("again", "2026-11-11T09:10:00.000Z", "Finish all checks"));
+  assert.equal((await readClaudeHistory(options)).goal.startedAt, Date.parse("2026-11-11T09:10:00.000Z") / 1000);
+  await append({ type: "attachment", uuid: "cleared", timestamp: "2026-11-11T09:20:00.000Z",
+    attachment: { type: "goal_status", condition: "Finish all checks", met: true, sentinel: true } },
+  goal("other", "2026-11-11T09:30:00.000Z", "Write the release notes"));
+  assert.equal((await readClaudeHistory(options)).goal.startedAt, Date.parse("2026-11-11T09:30:00.000Z") / 1000);
+});
+
 // Claude 2.1.308 history at a hosted goal's usage limit (2026-11-10), and the
 // message Claude Code writes when the account's credit balance is too low.
 test("Claude's own limit message makes its goal wait, with the reset time, until a later answer", async t => {

@@ -212,6 +212,9 @@ async function readClaudeHistory(options) {
   const userIds = [];
   let lastUserId = "";
   let goal = null;
+  // The unfinished goal a clear removed: a paused goal's checker is cleared
+  // before its Resume sends the same objective again.
+  let clearedGoal = null;
   let goalStartId = "";
   let goalCommandId = "";
   let frames = [];
@@ -260,6 +263,7 @@ async function readClaudeHistory(options) {
         !frame.parent_tool_use_id && !frame.isMeta && frame.commandRun?.command === "goal" &&
         frame.commandRun.args === "clear" && typeof frame.content === "string" &&
         /^<local-command-stdout>(?:No goal set|Goal cleared: [\s\S]+)<\/local-command-stdout>$/u.test(frame.content)) {
+      if (goal && goal.status !== "complete") clearedGoal = goal;
       goal = null;
       goalStartId = "";
       const command = byId.get(frame.parentUuid);
@@ -282,15 +286,22 @@ async function readClaudeHistory(options) {
         goalStartId = status.sentinel === true && typeof status.met === "boolean" ? frame.uuid || "" : "";
         goalCommandId = "";
       }
-      if (status.met === true && status.sentinel === true) goal = null;
-      else if (status.met === false || status.met === true) {
+      if (status.met === true && status.sentinel === true) {
+        if (goal && goal.status !== "complete") clearedGoal = goal;
+        goal = null;
+      } else if (status.met === false || status.met === true) {
         const timestamp = Date.parse(frame.timestamp) / 1000;
+        const createdAt = goal?.objective === status.condition && !status.sentinel ? goal.createdAt : timestamp;
+        // Resume sends the same objective again and Claude starts it anew;
+        // the unfinished goal still started with its first command.
+        const previous = goal || clearedGoal;
         goal = {
-          threadId: options.conversationId, objective: status.condition,
-          createdAt: goal?.objective === status.condition && !status.sentinel ? goal.createdAt : timestamp,
+          threadId: options.conversationId, objective: status.condition, createdAt,
+          startedAt: previous?.objective === status.condition && previous.status !== "complete" ? previous.startedAt : createdAt,
           status: status.met ? "complete" : status.failed === true ? "blocked" : "active", updatedAt: timestamp,
           reason: typeof status.reason === "string" ? status.reason : ""
         };
+        clearedGoal = null;
       }
     }
     // This is native terminal evidence, not an inference from the assistant's

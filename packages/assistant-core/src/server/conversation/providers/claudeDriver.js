@@ -19,6 +19,7 @@ const nativeInput = input => input.content?.length ? [...(input.text ? [{ type: 
 const claudeGoalValue = (goal, conversationId) => goal ? { ...goal,
   id: hash([conversationId, goal.createdAt, goal.objective]),
   ...(Number.isFinite(goal.createdAt) ? { createdAt: new Date(goal.createdAt * 1000).toISOString() } : {}),
+  ...(Number.isFinite(goal.startedAt) ? { startedAt: new Date(goal.startedAt * 1000).toISOString() } : {}),
   ...(Number.isFinite(goal.updatedAt) ? { updatedAt: new Date(goal.updatedAt * 1000).toISOString() } : {})
 } : null;
 const goalCapabilities = Object.freeze({ goals: true, goalBudgets: false,

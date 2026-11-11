@@ -504,6 +504,10 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
       // Delivery keeps its exact authored payload until an explicit receipt check.
       if (prepare) return { ok: false, status: "uncertain", error: failureMessage(failure),
         ...(failure.code ? { code: failure.code } : {}) };
+      // A goal command's transcript turn can settle its message before the
+      // server answers; the server's refusal still says why the goal did not change.
+      if (payload.goalRequest) return { ok: false, error: failureMessage(failure),
+        ...(failure.code ? { code: failure.code } : {}) };
       return false;
     } finally {
       if (!pending.started && pendingMessages.get(messageId) === pending) pendingMessages.delete(messageId);

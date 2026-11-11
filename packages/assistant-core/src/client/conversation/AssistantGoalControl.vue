@@ -34,11 +34,16 @@ const statusLabel = computed(() => goal.value?.status === "usageLimited" && goal
 const label = computed(() => props.state.loading ? t("jskit.assistant.goal.loading") : props.state.available === false ? t("jskit.assistant.goal.unavailable")
   : starting.value ? t("jskit.assistant.goal.starting") : statusLabel.value);
 const nativeElapsed = computed(() => Number.isFinite(goal.value?.elapsedSeconds));
-const createdAt = computed(() => typeof goal.value?.createdAt === "string" ? Date.parse(goal.value.createdAt) : NaN);
+// A goal resumed by sending it again (Claude) keeps the time its first start
+// gave it, so its clock carries on across Pause, Resume and a server restart.
+const startedAt = computed(() => {
+  const value = goal.value?.startedAt ?? goal.value?.createdAt;
+  return typeof value === "string" ? Date.parse(value) : NaN;
+});
 const elapsedLabel = computed(() => nativeElapsed.value ? t("jskit.assistant.goal.runningTime") : t("jskit.assistant.goal.elapsedSinceStart"));
 const elapsedText = computed(() => elapsed.value ? t("jskit.assistant.goal.elapsed", { label: elapsedLabel.value, elapsed: elapsed.value }) : "");
 const clockRunning = computed(() => nativeElapsed.value ? running.value && Number.isFinite(goal.value?.sampledAt)
-  : Boolean(goal.value && goal.value.status !== "complete" && Number.isFinite(createdAt.value)));
+  : Boolean(goal.value && goal.value.status !== "complete" && Number.isFinite(startedAt.value)));
 const elapsed = computed(() => {
   let secondsUsed;
   if (nativeElapsed.value) {
@@ -47,8 +52,8 @@ const elapsed = computed(() => {
     secondsUsed = goal.value.elapsedSeconds + sinceSample;
   } else {
     const end = goal.value?.status === "complete" ? goal.value.sampledAt : now.value;
-    if (!Number.isFinite(createdAt.value) || !Number.isFinite(end)) return "";
-    secondsUsed = (end - createdAt.value) / 1000;
+    if (!Number.isFinite(startedAt.value) || !Number.isFinite(end)) return "";
+    secondsUsed = (end - startedAt.value) / 1000;
   }
   const total = Math.max(0, Math.floor(secondsUsed));
   const seconds = String(total % 60).padStart(2, "0");
@@ -64,7 +69,7 @@ const chipLabel = computed(() => props.state.loading || props.state.available ==
 const canSet = computed(() => !props.state.loading && props.state.available !== false && typeof props.state.set === "function" && (!goal.value || goal.value.status === "complete"));
 const validBudget = computed(() => props.state.tokenBudgetSupported === false || tokenBudget.value === "" || (Number.isSafeInteger(Number(tokenBudget.value)) && Number(tokenBudget.value) > 0));
 let timer;
-onMounted(() => watch(() => [props.state.enabled, clockRunning.value, goal.value?.elapsedSeconds, goal.value?.sampledAt, createdAt.value], () => {
+onMounted(() => watch(() => [props.state.enabled, clockRunning.value, goal.value?.elapsedSeconds, goal.value?.sampledAt, startedAt.value], () => {
   clearInterval(timer);
   now.value = Date.now();
   if (props.state.enabled !== false && clockRunning.value) {
@@ -86,7 +91,7 @@ async function cancelGoal() {
 </script>
 
 <template>
-  <v-menu v-if="state && state.enabled !== false" v-model="open" location="top" :close-on-content-click="false">
+  <v-menu v-if="state && state.enabled !== false" v-model="open" location="top" width="360" max-width="calc(100vw - 24px)" :close-on-content-click="false">
     <template #activator="{ props: menuProps }">
       <v-btn v-bind="menuProps" class="assistant-goal" size="small" variant="text" :aria-label="label" :title="[label, elapsedText, goal?.objective].filter(Boolean).join('\n')">
         <span v-if="goal" class="assistant-goal__light" :class="{ 'assistant-goal__light--running': running, 'assistant-goal__light--working': working, 'assistant-goal__light--paused': goal.status === 'paused' }" aria-hidden="true" />
@@ -94,7 +99,7 @@ async function cancelGoal() {
         <span v-if="elapsed && running" class="assistant-goal__elapsed" aria-hidden="true">{{ elapsed }}</span>
       </v-btn>
     </template>
-    <v-card class="assistant-goal__details pa-3" max-width="360">
+    <v-card class="assistant-goal__details pa-3">
       <strong role="status">{{ label }}</strong>
       <v-btn v-if="(running || (state.pauseBlocked && ['blocked', 'usageLimited'].includes(goal?.status))) && state.pause" size="small" :disabled="state.stopPending" @click="state.pause()">{{ state.action === 'pause' ? t('jskit.assistant.goal.pausing') : t('jskit.assistant.goal.pause') }}</v-btn>
       <v-btn v-if="['paused', 'blocked', 'usageLimited'].includes(goal?.status) && state.resume" size="small" :disabled="state.pending" @click="state.resume()">{{ state.action === 'resume' ? t('jskit.assistant.goal.resuming') : t('jskit.assistant.goal.resume') }}</v-btn>

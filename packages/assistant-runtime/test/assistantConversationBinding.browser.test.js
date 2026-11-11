@@ -519,6 +519,46 @@ test("Cancel stays available while a Resume waits behind the running turn and en
   assert.deepEqual(commands.map(request => request.input.action), ["set", "pause", "resume", "cancel"]);
 });
 
+test("a Resume the server refuses after its message reached the chat shows the server's reason", options, async t => {
+  const f = await fixture(t);
+  await f.command("goals", { id: "chat:1", budgets: false, commands: {
+    set: { delivery: "message", interruptsTurn: false }, resume: { delivery: "message", interruptsTurn: false },
+    pause: { delivery: "control", interruptsTurn: false }
+  } });
+  await f.notify("chat:1");
+  const control = name => f.primary.getByRole("button", { name, exact: true });
+  const menu = name => f.page.getByRole("button", { name, exact: true });
+  await control("Set goal").click();
+  await f.page.getByRole("textbox", { name: "Goal objective" }).fill("Refused after its message arrived");
+  await f.page.locator(".assistant-goal__form button[type=submit]").click();
+  await expect(control("Goal running")).toHaveAttribute("aria-expanded", "false");
+  await control("Goal running").click();
+  await menu("Pause goal").click();
+  await expect(control("Goal paused")).toBeVisible();
+  await f.command("finish", { id: "chat:1" });
+  await f.notify("chat:1");
+  // The server records the Resume's message, and its refusal arrives only after
+  // the chat has shown that message.
+  await f.command("mode", { mode: "goal-refused" });
+  const answer = Promise.withResolvers();
+  let resumes = 0;
+  await f.page.route("**/conversations/*/goal", async route => {
+    if (route.request().method() !== "POST") return route.continue();
+    resumes += 1;
+    const response = await route.fetch();
+    await answer.promise;
+    await route.fulfill({ response });
+  });
+  await menu("Resume goal").click();
+  await expect.poll(() => resumes).toBe(1);
+  await f.notify("chat:1");
+  await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().delivery.state.messages.length)).toBe(0);
+  answer.resolve();
+  await expect(f.page.getByRole("alert").filter({ hasText: "Claude did not confirm the goal in time." })).toBeVisible();
+  await expect(menu("Resume goal")).toBeEnabled();
+  assert.equal(resumes, 1);
+});
+
 test("a supplied goal view keeps its pinned target and refreshes through the retained binding without polling", options, async t => {
   const f = await fixture(t);
   const goal = { id: "retained-goal", objective: "The plain product objective", status: "paused",

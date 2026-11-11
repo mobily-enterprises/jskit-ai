@@ -889,10 +889,24 @@ test("long goal objectives keep Start reachable on short phone, tablet and deskt
   const { vite, browser } = await openFixture(t);
   try {
     const objective = "Complete the requested work and verify the result. ".repeat(80).slice(0, 3990);
-    for (const width of [390, 800, 1280]) {
+    for (const width of [320, 390, 800, 1280]) {
       const page = await browser.newPage({ viewport: { width, height: 578 } });
       await page.goto(`${vite.baseURL}/?conversation=1&goal=1`);
       await page.getByRole("button", { name: "Set goal", exact: true }).click();
+      await expect(page.getByRole("textbox", { name: "Goal objective" })).toBeVisible();
+      // The new goal's box fills its menu, which is 360 px wide or as wide as a phone allows.
+      const measure = () => page.locator(".assistant-goal__details").evaluate(card => {
+        const style = getComputedStyle(card);
+        const bounds = card.getBoundingClientRect();
+        return { left: bounds.left, right: bounds.right, card: bounds.width, field: card.querySelector(".v-textarea").getBoundingClientRect().width,
+          inner: card.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) };
+      });
+      const fills = box => box.card >= Math.min(360, width - 24) - 1 && box.left >= 0 && box.right <= width &&
+        Math.abs(box.field - box.inner) <= 1;
+      await expect.poll(async () => fills(await measure())).toBe(true).catch(async failure => {
+        failure.message += `\nat ${width} px: ${JSON.stringify(await measure())}`;
+        throw failure;
+      });
       await page.getByRole("textbox", { name: "Goal objective" }).fill(objective);
       const start = page.getByRole("button", { name: "Start goal", exact: true });
       await expect(start).toBeInViewport();
