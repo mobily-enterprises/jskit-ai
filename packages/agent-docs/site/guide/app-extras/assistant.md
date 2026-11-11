@@ -504,7 +504,11 @@ Every engine is given the surface's argument limit, and a larger call ends the
 turn with "The application tool arguments exceed their size limit." before the
 action runs. A larger result is not handed to the model: the action has run, and
 the model reads the error `assistant_tool_result_too_large` (status 413) in its
-place and carries on. A malformed value stops the server from starting. On
+place and carries on. The Claude engine starts Claude Code with the surface's
+result limit, so a result within it reaches the model whole, up to Claude Code's
+own ceiling of 500,000 characters; past that, Claude Code saves the result to a
+file and shows the model only its start. A malformed value stops the server from
+starting. On
 MySQL, apply the package's migrations as usual: one lets a saved call's
 arguments and result pass 64 KiB. The model must still write the call in one
 step: the API engine asks for at most 32,000 output tokens a step, and a model's

@@ -679,4 +679,4 @@ function createServiceToolCatalog(
   });
 }
 
-export { createServiceToolCatalog, DISCOVERY_TOOL_DESCRIPTORS };
+export { createServiceToolCatalog, DEFAULT_MAX_TOOL_ARGUMENT_BYTES, DEFAULT_MAX_TOOL_RESULT_BYTES, DISCOVERY_TOOL_DESCRIPTORS };

@@ -6,7 +6,7 @@ import { homedir } from "node:os";
 import path from "node:path";
 import { createClaudeJsonClient } from "./claudeClient.js";
 import { createLocalConversationExecution } from "./localExecution.js";
-import { CLAUDE_APPLICATION_TOOL_SERVER } from "./claudeTools.js";
+import { CLAUDE_APPLICATION_TOOL_SERVER, claudeToolResultAllowance } from "./claudeTools.js";
 import { nativeCommandHook, validateCommandWrapper } from "./commandWrapper.js";
 
 const statusReads = new Map();
@@ -545,15 +545,18 @@ export function createClaudeAccountQueries({
  * @param {Record<string, any>} [options.commandWrapper]
  * @param {number} [options.initializationTimeoutMs]
  * @param {(stage: string) => void} [options.onInitializationProgress]
+ * @param {number} [options.maximumToolResultBytes] The application tool set's result limit, which the process's MCP output cap must hold.
  */
 export async function createClaudeCodeProcess({
   command = "claude", execution = createLocalConversationExecution(), env,
   workdir, onEvent, onControlRequest, onFailure = ignoreProcessFailure, onStarted = ignoreProcessStart, executionLimits, signal,
-  commandWrapper, initializationTimeoutMs = 30_000, onInitializationProgress, ...options
+  commandWrapper, initializationTimeoutMs = 30_000, onInitializationProgress, maximumToolResultBytes, ...options
 }) {
   if (!env) throw new TypeError("createClaudeCodeProcess requires the application's environment, such as process.env.");
   if (commandWrapper !== undefined) validateCommandWrapper(commandWrapper);
   const environment = { ...env, DISABLE_AUTOUPDATER: "1" };
+  const resultAllowance = claudeToolResultAllowance(maximumToolResultBytes);
+  if (resultAllowance) environment.MAX_MCP_OUTPUT_TOKENS = String(resultAllowance);
   for (const name of ["DBUS_SESSION_BUS_ADDRESS", "DBUS_STARTER_ADDRESS", "DBUS_STARTER_BUS_TYPE",
     "CLAUDECODE", "CLAUDE_CODE_ENTRYPOINT"]) delete environment[name];
   let native;

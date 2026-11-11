@@ -292,6 +292,7 @@ function createConversationTurns({ storage, streams, events, entries, reads, del
       const history = activeHistory.filter(inSegment);
       prepareTools(initial);
       const tools = initial.tools && { descriptors: initial.tools.descriptors, schemas: initial.tools.schemas, maximumArgumentBytes: initial.tools.maximumArgumentBytes,
+        maximumResultBytes: initial.tools.maximumResultBytes,
         execute(input, options) {
           const request = toolOwners.get(input.id) || (options?.messageId ? active.requests.get(options.messageId) : active.request);
           if (!request?.accepted) throw new Error("The application tool does not belong to an admitted message.");

@@ -6,6 +6,7 @@ import path from "node:path";
 import { createConversationRuntime, createFileConversationStorage, upgradeConversationRuntimeState } from "../src/server/conversation/index.js";
 import { createLocalConversationExecution } from "../src/server/conversation/localExecution.js";
 import { createClaudeConversationDriver } from "../src/server/conversation/providers/claudeDriver.js";
+import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 import { conversationRequestText } from "../src/server/conversation/continuity.js";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import { createSchema } from "json-rest-schema";
@@ -360,6 +361,12 @@ async function fixture(t, options = {}) {
           input: { hook_event_name: "PreToolUse", tool_name: "Bash", tool_input: { command: "pwd", timeout: 100 } } });
         answer.message.content[0].text = JSON.stringify(output);
       }
+      if (text === "limits") {
+        // What Claude would hold the application tools' results to: their declared size and its MCP output cap.
+        const listed = await request({ subtype: "mcp_message", server_name: "application", message: { jsonrpc: "2.0", id: "list", method: "tools/list" } });
+        answer.message.content[0].text = JSON.stringify({ cap: process.env.MAX_MCP_OUTPUT_TOKENS ?? null,
+          sizes: listed.mcp_response.result.tools.map(tool => tool._meta?.["anthropic/maxResultSizeChars"] ?? null) });
+      }
       if (text === "tools" || text === "foreign-tool") {
         let sequence = 0;
         const invoke = async (name, input) => {
@@ -406,6 +413,7 @@ async function fixture(t, options = {}) {
     CLAUDE_CONFIG_DIR: path.join(directory, "claude"), TEST_TRACE: trace, TEST_ACCOUNT: account, ...options.environment };
   function runtime() {
     const value = createConversationRuntime({ engine: "claude", storage, authorize: options.authorize || (() => true), actions: options.actions,
+      toolCatalog: options.toolCatalog,
       connections: options.connections, attachments: options.attachments, persistCommentary: options.persistCommentary,
       host: { workdir: directory, env, commands: { claude: command }, allowAccountChange: options.allowAccountChange, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
       limits: { admissionTimeoutMs: 150, ...options.limits } });
@@ -721,6 +729,26 @@ test("Claude uses shared discovery and durable application results across native
   const starts = (await f.trace()).filter(row => row.args?.includes("--print"));
   assert.equal(starts.length, 2, "Permission changes do not replace the native process");
   assert.equal(starts[0].args[starts[0].args.indexOf("--session-id") + 1], starts[1].args[starts[1].args.indexOf("--resume") + 1]);
+});
+
+test("Claude keeps a raised result limit's results whole: its tools declare that size and its process's MCP output cap fits it", async t => {
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  const actions = applicationActions(async () => ({ value: 42 }));
+  const limits = async toolCatalog => {
+    const f = await fixture(t, { context, toolCatalog });
+    await f.conversation.send({ messageId: "limits", text: "limits" });
+    const result = await f.conversation.wait();
+    assert.equal(result.conversationLog[0].metadata.runtime.status, "complete");
+    return JSON.parse(result.conversationLog[0].assistant.text);
+  };
+  const raised = await limits(createServiceToolCatalog(actions, { maxToolResultBytes: 128 * 1024 }));
+  assert.equal(raised.cap, String(128 * 1024 + 1024));
+  assert.ok(raised.sizes.length > 0);
+  assert.deepEqual(raised.sizes, raised.sizes.map(() => 128 * 1024 + 1024));
+  // At the default limit, Claude keeps its own.
+  const ordinary = await limits(createServiceToolCatalog(actions));
+  assert.equal(ordinary.cap, process.env.MAX_MCP_OUTPUT_TOKENS ?? null);
+  assert.deepEqual(ordinary.sizes, ordinary.sizes.map(() => null));
 });
 
 test("Claude rejects an application call without the preceding native tool identity", async t => {

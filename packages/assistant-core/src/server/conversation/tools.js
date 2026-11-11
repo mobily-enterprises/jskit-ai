@@ -1,4 +1,5 @@
 import { isDeepStrictEqual } from "node:util";
+import { DEFAULT_MAX_TOOL_ARGUMENT_BYTES, DEFAULT_MAX_TOOL_RESULT_BYTES } from "../lib/serviceToolCatalog.js";
 
 const unknownOutcome = "The application operation did not return a verified result. Inspect its target before requesting another execution.";
 
@@ -17,7 +18,7 @@ const TRANSIENT_HOOKS = new Set([authorizeTransientCall, saveTransientCalls, ann
  * One turn's application calls. Native/API adapters only transport these calls.
  * @param {object} options
  * @param {import("../types.js").ServiceToolCatalog} options.catalog
- * @param {{ tools: object[], limits: { maxToolArgumentBytes: number } }} [options.toolSet] A tool set resolved earlier for this turn.
+ * @param {{ tools: object[], limits?: { maxToolArgumentBytes?: number, maxToolResultBytes?: number } }} [options.toolSet] A tool set resolved earlier for this turn.
  * @param {object} options.context The caller context the calls run as.
  * @param {() => Promise<object>} [options.prepareContext] Maps the context again before each call.
  * @param {AbortSignal} options.signal
@@ -42,8 +43,10 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
   // readable-check: allow method-probe - input validation: an optional context mapper must be a function
   if (prepareContext !== undefined && typeof prepareContext !== "function") throw new TypeError("Application tool context requires a server-owned mapper.");
   const toolSet = retainedToolSet ?? catalog.resolveToolSet(context, { discoveryOnly });
-  // The tool set's own limit: a surface-aware catalogue resolves each surface's set with that surface's.
-  const maximumArgumentBytes = toolSet.limits.maxToolArgumentBytes;
+  // The tool set's own limits: a surface-aware catalogue resolves each surface's set with that surface's.
+  // A hand-written catalogue's tool sets may carry none, and keep the catalogue's defaults.
+  const maximumArgumentBytes = toolSet.limits?.maxToolArgumentBytes ?? DEFAULT_MAX_TOOL_ARGUMENT_BYTES;
+  const maximumResultBytes = toolSet.limits?.maxToolResultBytes ?? DEFAULT_MAX_TOOL_RESULT_BYTES;
   const calls = new Map(structuredClone(previousCalls).map(call => [call.id, call]));
   let pending = Promise.resolve();
   let requested = 0;
@@ -120,6 +123,7 @@ export function createConversationTools({ catalog, toolSet: retainedToolSet, con
     schemas: toolSet.tools.map(catalog.toOpenAiToolSchema),
     execute,
     maximumArgumentBytes,
+    maximumResultBytes,
     records
   });
 }

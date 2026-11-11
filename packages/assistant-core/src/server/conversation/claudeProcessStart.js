@@ -59,8 +59,11 @@ export function createClaudeProcessStart({
     let startupCleanup;
     let startedExecutionId;
     const processToken = {};
+    // A process's MCP output cap is set when it starts, so its tool list declares the same result
+    // limit: the one of the application tools it starts for.
+    entry.toolResultBytes = entry.command?.tools?.maximumResultBytes;
     try { entry.process = await createProcess({ ...options,
-      workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent,
+      workdir: entry.nativeWorkdir, sessionId: entry.id, resume: entry.sent, maximumToolResultBytes: entry.toolResultBytes,
       onStarted: async (executionId, stop) => {
         startedExecutionId = executionId;
         if (typeof stop === "function") {
@@ -114,7 +117,8 @@ export function createClaudeProcessStart({
           const owner = active?.nativeOwner;
           const work = applicationCall.run({ entry, command: active, owner,
             toolUseId: request.message?.params?._meta?.["claudecode/toolUseId"] },
-          () => claudeApplicationToolResponse(request, { schemas: entry.toolSchemas || [], turn: active, signal,
+          () => claudeApplicationToolResponse(request, { schemas: entry.toolSchemas || [], maximumResultBytes: entry.toolResultBytes,
+            turn: active, signal,
             ...(suppliedTools ? {
               assertCurrent(native) {
                 if (!currentApplicationCommand(entry, active, owner) || active.nativeOwner !== owner ||

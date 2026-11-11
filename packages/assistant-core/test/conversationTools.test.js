@@ -360,7 +360,7 @@ test("failed reservations and oversized arguments cannot reach application execu
   assert.equal(executions, 0);
 });
 
-test("the resolved tool set's argument limit is the one its calls are held to and the one engines are given", async () => {
+test("the resolved tool set's limits are the ones its calls are held to and the ones engines are given", async () => {
   const lengths = [];
   const actions = createActionCatalogue();
   actions.register({ contributorId: "test.documents", domain: "test", actions: [{
@@ -372,7 +372,8 @@ test("the resolved tool set's argument limit is the one its calls are held to an
   }] });
   // One catalogue per surface behind one, as assistant-runtime's surface-aware catalogue is:
   // the app surface allows 64 KiB of arguments, home keeps the default 32 KiB.
-  const surfaces = { app: createServiceToolCatalog(actions, { maxToolArgumentBytes: 64 * 1024 }), home: createServiceToolCatalog(actions) };
+  const surfaces = { app: createServiceToolCatalog(actions, { maxToolArgumentBytes: 64 * 1024, maxToolResultBytes: 96 * 1024 }),
+    home: createServiceToolCatalog(actions) };
   const catalog = {
     resolveToolSet: (toolContext, options) => surfaces[toolContext.surface].resolveToolSet(toolContext, options),
     toOpenAiToolSchema: surfaces.home.toOpenAiToolSchema,
@@ -383,11 +384,49 @@ test("the resolved tool set's argument limit is the one its calls are held to an
   const proposal = name => ({ id: "propose", name, arguments: JSON.stringify({ text: "x".repeat(40 * 1024) }) });
   const app = tools("app");
   assert.equal(app.maximumArgumentBytes, 64 * 1024);
+  assert.equal(app.maximumResultBytes, 96 * 1024);
   assert.deepEqual(await app.execute(proposal(app.descriptors[0].name)), { ok: true, result: { length: 40 * 1024 } });
   const home = tools("home");
   assert.equal(home.maximumArgumentBytes, 32 * 1024);
+  assert.equal(home.maximumResultBytes, 48 * 1024);
   await assert.rejects(home.execute(proposal(home.descriptors[0].name)), { message: "The application tool arguments exceed their size limit." });
   assert.deepEqual(lengths, [40 * 1024]);
+});
+
+test("a hand-written catalogue whose tool sets carry no limits keeps the default limits, and its API turns run", { timeout: 30_000 }, async t => {
+  const executed = [];
+  const tool = { name: "numbers_add", description: "Adds two numbers.",
+    parameters: { type: "object", properties: { left: { type: "number" }, right: { type: "number" } } } };
+  const toolCatalog = {
+    resolveToolSet: () => ({ tools: [tool] }),
+    toOpenAiToolSchema: descriptor => ({ type: "function", function: { name: descriptor.name, description: descriptor.description,
+      parameters: descriptor.parameters } }),
+    async executeToolCall({ toolName, argumentsText }) {
+      executed.push([toolName, argumentsText]);
+      return { ok: true, result: { total: 5 } };
+    }
+  };
+  const requests = [];
+  const runtime = createConversationRuntime({ storage: createMemoryConversationStorage(), toolCatalog, authorize: () => true,
+    connections: { resolve: async () => ({ providerId: "test", model: "exact-model", sdkPackage: "@ai-sdk/openai-compatible", apiKey: "test", baseURL: "http://test.invalid/v1" }) },
+    fetch: (_url, request) => {
+      requests.push(JSON.parse(request.body));
+      return response(requests.length === 1 ? { name: tool.name } : {});
+    } });
+  t.after(() => runtime.close());
+  const conversation = await runtime.open({ id: "hand-written", context, configuration });
+  await conversation.send(message);
+  const result = await conversation.wait();
+  assert.equal(result.error, "");
+  assert.equal(result.conversationLog[0].assistant.text, "The total is five.");
+  assert.deepEqual(result.conversationLog[0].metadata.applicationTools[0].result, { ok: true, result: { total: 5 } });
+  assert.deepEqual(executed, [[tool.name, call.arguments]]);
+
+  const tools = createConversationTools({ catalog: toolCatalog, context, signal: new AbortController().signal, transient: true });
+  assert.equal(tools.maximumArgumentBytes, 32 * 1024);
+  assert.equal(tools.maximumResultBytes, 48 * 1024);
+  await assert.rejects(tools.execute({ id: "large", name: tool.name, arguments: JSON.stringify({ text: "x".repeat(32 * 1024) }) }),
+    { message: "The application tool arguments exceed their size limit." });
 });
 
 test("closing a native tool connection prevents queued calls while retaining an invoked result", async () => {

@@ -77,6 +77,28 @@ test("standalone Claude startup uses the supplied execution host and carries its
   assert.deepEqual(await native.stop(), { scopeEmpty: true, exited: true });
 });
 
+test("a Claude process for a raised tool result limit has an MCP output cap that every result within it fits", { skip: process.platform === "win32" }, async (t) => {
+  const setup = await fixture(t, `
+    import { createInterface } from "node:readline";
+    createInterface({ input: process.stdin }).on("line", line => {
+      const frame = JSON.parse(line);
+      if (frame.type === "control_request") process.stdout.write(JSON.stringify({ type: "control_response", response: {
+        subtype: "success", request_id: frame.request_id, response: { cap: process.env.MAX_MCP_OUTPUT_TOKENS ?? null } } }) + "\\n");
+    });
+  `);
+  const cap = async (maximumToolResultBytes, env = setup.env) => {
+    const native = await createClaudeCodeProcess({ ...setup, env, maximumToolResultBytes });
+    t.after(() => native.stop());
+    return native.initialization.cap;
+  };
+  // A token covers at least one byte of a result's text, and 1 KiB covers its envelope.
+  assert.equal(await cap(128 * 1024), String(128 * 1024 + 1024));
+  assert.equal(await cap(1024 * 1024), String(1024 * 1024 + 1024));
+  // At the default 48 KiB or less, or with no tools, Claude's own cap stays.
+  const hostCap = { ...setup.env, MAX_MCP_OUTPUT_TOKENS: "30000" };
+  for (const bytes of [48 * 1024, 16 * 1024, undefined]) assert.equal(await cap(bytes, hostCap), "30000");
+});
+
 test("failed native initialization stops its owned process and reports the protocol failure", { skip: process.platform === "win32" }, async (t) => {
   const setup = await fixture(t, 'process.stdin.once("data", () => process.stdout.write("invalid frame\\n"));');
   await assert.rejects(createClaudeCodeProcess(setup), /invalid UTF-8 or JSON/);
