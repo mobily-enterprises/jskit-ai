@@ -55,6 +55,8 @@ truthful model-facing output; the assistant validates the result against
 `extensions.assistant.output` and rejects unexpected fields, so a contract
 that promises what execution cannot return fails at run time, not at review
 ([Assistant](/guide/app-extras/assistant#database-surface-action-tools)).
+Call it with the largest real input too, seeded records included: a tool's
+arguments stop at 32 KiB and its result at 48 KiB by default.
 
 **Example:** sparse primary fields stay sparse, and an included record is read
 from its lookup container (`items[0].lookups.pet.name`); a contract that

@@ -514,6 +514,15 @@ arguments and result pass 64 KiB. The model must still write the call in one
 step: the API engine asks for at most 32,000 output tokens a step, and a model's
 own output limit, or its reasoning, can leave less.
 
+By default the assistant refuses a tool's arguments past 32 KiB and its result
+past 48 KiB ([limits](./assistant-conversation.md#application-tools)). An
+action that takes a whole document (a template, a plan, a long settings record)
+as its input usually works on small documents and fails on the largest, and
+the model must write the whole document again on every edit. Prefer actions
+shaped as changes for the assistant (add, update or remove one part, by id),
+and call each tool with the largest real document, seeded and library records
+included, not only with the small ones tests create.
+
 ### Framework account and workspace actions
 
 Account and workspace action owners supply assistant-specific descriptions,

@@ -210,6 +210,19 @@ translate a key and show any other string as written:
 { label: "Reports" }
 ```
 
+## Content the app ships as data
+
+Names and descriptions in records the app seeds or ships, such as a
+catalogue's items or a library's templates, are the app's own text. Prefer
+storing their message key (`app.templates.starter.name`) with the English in
+the app's `en` messages, and show the field with `text()` from
+`useJskitText()`, the helper placement labels use: it translates a key and
+shows any other string as written. Stored English cannot follow the user's
+language, and matching it back to a key breaks once someone edits it. When a
+person renames their own copy, the field takes what they wrote and shows it as
+written. Server code that writes such a field into an email or an export
+resolves the key with `createServerI18n` (see [Emails](#emails)).
+
 ## Dates and numbers
 
 JSKIT formats dates, times, numbers and relative times with `Intl` in the

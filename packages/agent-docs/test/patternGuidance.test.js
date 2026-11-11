@@ -316,8 +316,9 @@ test("the sanity checks hold JSKIT's own pitfalls and the JSKIT mechanics for ea
     "Screens",
     "Production settings"
   ]);
-  // The general method, its outer limits and its examples live outside JSKIT; this page stays a mechanics page.
-  assert.ok(Buffer.byteLength(guide) <= 9_800, `The sanity checks grew to ${Buffer.byteLength(guide)} bytes.`);
+  // The general method, its outer limits and its examples live outside JSKIT; this page stays a mechanics page
+  // (10,000 bytes since the tool contracts check sends the largest real input and names the tool size limits).
+  assert.ok(Buffer.byteLength(guide) <= 10_000, `The sanity checks grew to ${Buffer.byteLength(guide)} bytes.`);
   assert.doesNotMatch(guide, /^## Never do these$|^\*\*(?:Good|Outer limit):\*\*/mu);
   assert.doesNotMatch(guide, /genesis/iu);
   for (const mechanic of ["`queryAll()`", "`countQueries()`", "`rowPolicy`", "`jskit test`", "`TEST_DB_NAME`", "`mode: \"patch\"`", "`rateLimit`", "`NODE_ENV=production`", "`config.securityHeaders`"]) {
