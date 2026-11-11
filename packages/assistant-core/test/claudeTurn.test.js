@@ -129,42 +129,116 @@ test("Claude successful native clear removes a failed goal without a clearing se
   assert.equal((await readClaudeHistory(options)).goal.objective, "Next checks", "a later goal still wins");
 });
 
-test("a resumed Claude goal keeps the time it first started, across the clear before Resume", async t => {
-  const root = await mkdtemp(path.join(os.tmpdir(), "claude-goal-start-"));
+// Frame shapes from a hosted Claude goal's history (Claude 2.1.3xx, 2026-11-11):
+// the /goal command's sentinel comes first in the file, its authored command
+// (a string with command tags) names it as parent with a slightly earlier
+// timestamp, and an auto-compaction re-attaches the goal with a sentinel that
+// no command follows, after a summary timestamped before its boundary.
+function claudeGoalFrames(condition) {
+  const at = (seconds) => new Date(Date.parse("2026-11-11T07:00:00.000Z") + seconds * 1000).toISOString();
+  const sentinel = (uuid, parentUuid, seconds) => ({ type: "attachment", uuid, parentUuid, timestamp: at(seconds),
+    attachment: { type: "goal_status", condition, met: false, sentinel: true } });
+  const command = (uuid, parentUuid, seconds, args = condition) => ({ type: "user", uuid, parentUuid, timestamp: at(seconds),
+    isMeta: false, promptId: `prompt-${uuid}`, message: { role: "user", content: `<command-name>/goal</command-name>\n            <command-message>goal</command-message>\n            <command-args>${args}</command-args>` } });
+  const local = (uuid, parentUuid, seconds, args, output) => ({ type: "system", subtype: "local_command", uuid, parentUuid,
+    timestamp: at(seconds), isMeta: false, level: "info", commandRun: { command: "goal", args }, content: `<local-command-stdout>${output}</local-command-stdout>` });
+  const answer = (uuid, parentUuid, seconds, content = [{ type: "text", text: "Progress report" }]) => ({ type: "assistant", uuid, parentUuid,
+    timestamp: at(seconds), message: { id: `api-${uuid}`, role: "assistant", content } });
+  const attachment = (uuid, parentUuid, seconds, type) => ({ type: "attachment", uuid, parentUuid, timestamp: at(seconds), attachment: { type } });
+  const set = (prefix, parent, seconds) => [sentinel(`${prefix}-sentinel`, parent, seconds + 0.002),
+    command(`${prefix}-command`, `${prefix}-sentinel`, seconds),
+    local(`${prefix}-set`, `${prefix}-command`, seconds + 0.003, condition, `Goal set: ${condition}`),
+    { type: "user", uuid: `${prefix}-meta`, parentUuid: `${prefix}-set`, timestamp: at(seconds + 0.004), isMeta: true, message: { role: "user", content: "Work on the goal." } }];
+  return { at, set, answer, attachment, command, local, sentinel,
+    toolUse: (uuid, parentUuid, seconds) => answer(uuid, parentUuid, seconds, [{ type: "tool_use", id: `tool-${uuid}`, name: "Bash", input: { command: "npm test" } }]),
+    toolResult: (uuid, parentUuid, seconds) => ({ type: "user", uuid, parentUuid, timestamp: at(seconds),
+      message: { role: "user", content: [{ type: "tool_result", tool_use_id: `tool-${parentUuid}`, content: "ok" }] }, toolUseResult: { stdout: "ok" } }),
+    message: (uuid, parentUuid, seconds, text) => ({ type: "user", uuid, parentUuid, timestamp: at(seconds), message: { role: "user", content: text } }),
+    compaction: (parent, seconds) => [
+      { type: "system", subtype: "compact_boundary", uuid: "boundary", parentUuid: null, logicalParentUuid: parent, timestamp: at(seconds + 0.295), compactMetadata: { trigger: "auto" } },
+      attachment("instructions", "boundary", seconds + 0.296, "instructions"),
+      { type: "user", uuid: "summary", parentUuid: "instructions", timestamp: at(seconds - 0.069), isCompactSummary: true, isVisibleInTranscriptOnly: true,
+        message: { role: "user", content: "This session is being continued from a previous conversation." } },
+      attachment("model", "summary", seconds + 0.2, "model"),
+      sentinel("reattached", "model", seconds + 0.203),
+      attachment("credential", "reattached", seconds + 0.204, "credential_org")] };
+}
+
+test("a Claude goal Claude re-attaches after compacting its context stays the same goal; only its own /goal command starts it again", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "claude-goal-compaction-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
+  await mkdir(directory, { recursive: true });
+  const conversationId = "1d6f6949-185c-46b2-9475-a9f080d505f3";
+  const file = path.join(directory, `${conversationId}.jsonl`);
+  const options = { configRoot: root, workdir: root, conversationId };
+  const append = (...frames) => writeFile(file, frames.flat().map(JSON.stringify).join("\n") + "\n", { flag: "a" });
+  const f = claudeGoalFrames("Continue till all of the pending items are at 100%");
+  await append(f.set("first", "start", 0), f.answer("first-answer", "first-meta", 60));
+  // The person's Resume while it was active sends the same objective again: a new start.
+  await append(f.set("resumed", "first-answer", 600), f.toolUse("working", "resumed-meta", 700));
+  const resumed = await readClaudeHistory(options);
+  assert.equal(resumed.goal.createdAt, Date.parse(f.at(600.002)) / 1000);
+  assert.equal(resumed.goalCommandId, "resumed-command");
+  await append(f.compaction("working", 9000), f.answer("after-compaction", "credential", 9100));
+  const compacted = await readClaudeHistory(options);
+  assert.equal(compacted.goal.status, "active");
+  assert.equal(compacted.goal.createdAt, resumed.goal.createdAt, "the re-attached goal keeps the identity a restart's recovery saved");
+  assert.equal(compacted.goalCommandId, "resumed-command");
+  // A /goal command for the same objective after the compaction starts it again.
+  await append(f.set("again", "after-compaction", 9200));
+  const again = await readClaudeHistory(options);
+  assert.equal(again.goal.createdAt, Date.parse(f.at(9200.002)) / 1000);
+  assert.equal(again.goalCommandId, "again-command");
+  // An ordinary message after a sentinel is not that sentinel's /goal command.
+  await append(f.sentinel("bare", "again-meta", 9300), f.message("bare-reply", "bare", 9301, "Goal noted"));
+  assert.equal((await readClaudeHistory(options)).goal.createdAt, again.goal.createdAt);
+});
+
+test("a Claude goal's running time counts only the time Claude spent working, carried across a restart, a compaction, Pause and Resume", async t => {
+  const root = await mkdtemp(path.join(os.tmpdir(), "claude-goal-time-"));
   t.after(() => rm(root, { recursive: true, force: true }));
   const directory = path.join(root, "projects", root.replace(/[^a-zA-Z0-9]/gu, "-"));
   await mkdir(directory, { recursive: true });
   const conversationId = "6b1f2c9e-4d3a-4c1b-9e7f-2a5d8c0b1e3f";
   const file = path.join(directory, `${conversationId}.jsonl`);
   const options = { configRoot: root, workdir: root, conversationId };
-  const append = (...frames) => writeFile(file, frames.map(JSON.stringify).join("\n") + "\n", { flag: "a" });
-  const goal = (uuid, timestamp, condition, extra = {}) => ({ type: "attachment", uuid, timestamp,
-    attachment: { type: "goal_status", condition, met: false, sentinel: true, ...extra } });
-  const first = Date.parse("2026-11-11T07:00:00.000Z") / 1000;
-  await append(goal("set", "2026-11-11T07:00:00.000Z", "Finish all checks"));
-  // Restart recovery sends the same objective again while the goal still runs.
-  await append(goal("recovered", "2026-11-11T07:30:00.000Z", "Finish all checks"));
-  let read = (await readClaudeHistory(options)).goal;
-  assert.equal(read.createdAt, Date.parse("2026-11-11T07:30:00.000Z") / 1000);
-  assert.equal(read.startedAt, first);
-  // A paused goal's checker is cleared when its process starts; Resume sends it again.
-  await append({ type: "system", subtype: "local_command", uuid: "suspended", timestamp: "2026-11-11T08:00:00.000Z",
-    commandRun: { command: "goal", args: "clear" }, content: "<local-command-stdout>Goal cleared: Finish all checks</local-command-stdout>" });
-  assert.equal((await readClaudeHistory(options)).goal, null);
-  await append(goal("resumed", "2026-11-11T08:05:00.000Z", "Finish all checks"));
-  read = (await readClaudeHistory(options)).goal;
-  assert.equal(read.status, "active");
-  assert.equal(read.startedAt, first, "Resume after the clear keeps the first start");
-  await append({ type: "attachment", uuid: "done", timestamp: "2026-11-11T09:00:00.000Z",
+  const append = (...frames) => writeFile(file, frames.flat().map(JSON.stringify).join("\n") + "\n", { flag: "a" });
+  const f = claudeGoalFrames("Finish all checks");
+  const read = async () => (await readClaudeHistory(options)).goal;
+  // Ten seconds' thinking, a one-minute tool run and thirty seconds' answer.
+  await append(f.set("set", "start", 0), f.toolUse("tool", "set-meta", 10), f.toolResult("result", "tool", 70), f.answer("report", "result", 100));
+  assert.equal(Math.round((await read()).timeUsedSeconds), 100);
+  // An hour between turns waits for the person's next message and does not count.
+  await append(f.message("next", "report", 3600, "Keep going"));
+  let goal = await read();
+  assert.equal(Math.round(goal.timeUsedSeconds), 100);
+  assert.equal(goal.updatedAt, Date.parse(f.at(3600)) / 1000, "its running time is current as of the latest history");
+  await append(f.answer("next-answer", "next", 3630));
+  // The server stopped mid-turn; its restart sends the goal again an hour later. That gap does not count.
+  await append(f.toolUse("cut", "next-answer", 3640), f.set("restart", "cut", 7200), f.answer("restart-answer", "restart-meta", 7260));
+  assert.equal(Math.round((await read()).timeUsedSeconds), 100 + 40 + 60);
+  // Compacting the context is work, and timestamps running backwards subtract nothing.
+  await append(f.compaction("restart-answer", 7300), f.answer("compacted", "credential", 7320));
+  assert.equal(Math.round((await read()).timeUsedSeconds), 200 + 60);
+  // Pause clears Claude's checker; Resume sends it again half an hour later. Neither wait counts.
+  await append(f.command("pause", "compacted", 7400, "clear"), f.local("cleared", "pause", 7400.01, "clear", "Goal cleared: Finish all checks"));
+  assert.equal(await read(), null);
+  await append(f.set("resume", "cleared", 9000), f.answer("resume-answer", "resume-meta", 9030));
+  goal = await read();
+  assert.equal(goal.status, "active");
+  assert.equal(Math.round(goal.timeUsedSeconds), 260 + 30);
+  assert.equal(goal.updatedAt, Date.parse(f.at(9030)) / 1000);
+  // Finishing keeps the total; a new goal starts from zero.
+  await append({ type: "attachment", uuid: "done", parentUuid: "resume-answer", timestamp: f.at(9040),
     attachment: { type: "goal_status", condition: "Finish all checks", met: true } });
-  assert.equal((await readClaudeHistory(options)).goal.startedAt, first);
-  // A finished goal set again, or another objective, starts its own clock.
-  await append(goal("again", "2026-11-11T09:10:00.000Z", "Finish all checks"));
-  assert.equal((await readClaudeHistory(options)).goal.startedAt, Date.parse("2026-11-11T09:10:00.000Z") / 1000);
-  await append({ type: "attachment", uuid: "cleared", timestamp: "2026-11-11T09:20:00.000Z",
-    attachment: { type: "goal_status", condition: "Finish all checks", met: true, sentinel: true } },
-  goal("other", "2026-11-11T09:30:00.000Z", "Write the release notes"));
-  assert.equal((await readClaudeHistory(options)).goal.startedAt, Date.parse("2026-11-11T09:30:00.000Z") / 1000);
+  goal = await read();
+  assert.equal(goal.status, "complete");
+  assert.equal(Math.round(goal.timeUsedSeconds), 300);
+  await append(claudeGoalFrames("Write the release notes").set("other", "done", 9100), f.answer("other-answer", "other-meta", 9110));
+  goal = await read();
+  assert.equal(goal.objective, "Write the release notes");
+  assert.equal(Math.round(goal.timeUsedSeconds), 10);
 });
 
 // Claude 2.1.308 history at a hosted goal's usage limit (2026-11-10), and the

@@ -348,9 +348,11 @@ test("the first native goal preserves absent identity and later controls capture
   const start = f.page.getByRole("button", { name: "Start goal", exact: true });
   await expect(start).toBeEnabled();
   await start.click();
-  await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toBeVisible();
-  await expect(f.primary.getByRole("button", { name: "Goal running", exact: true })).toHaveAttribute("aria-expanded", "false");
-  await f.primary.getByRole("button", { name: "Goal running", exact: true }).click();
+  // A native control starts no turn here, so the active goal says nothing is working on it yet.
+  const notRunning = f.primary.getByRole("button", { name: "Goal not running", exact: true });
+  await expect(notRunning).toBeVisible();
+  await expect(notRunning).toHaveAttribute("aria-expanded", "false");
+  await notRunning.click();
   const pause = f.page.getByRole("button", { name: "Pause goal", exact: true });
   await expect(pause).toBeEnabled();
   await pause.click();
@@ -3535,7 +3537,8 @@ test("a background goal read keeps current pinned controls available and seriali
   try {
     await f.page.evaluate(() => window.conversationFixture.eventReaders([{ id: "goal-reader", goal: true }]));
     await expect.poll(() => f.page.evaluate(() => window.conversationFixture.current().goalState.value?.pending)).toBe(false);
-    await f.primary.getByRole("button", { name: "Goal running", exact: true }).click();
+    // Nothing works on the active goal here, so its chip says so.
+    await f.primary.getByRole("button", { name: "Goal not running", exact: true }).click();
     holdRead = true;
     await f.page.evaluate(() => { window.fixtureBackgroundGoalRead = window.conversationFixture.current().refreshGoal(); });
     await expect.poll(() => Boolean(releaseRead)).toBe(true);

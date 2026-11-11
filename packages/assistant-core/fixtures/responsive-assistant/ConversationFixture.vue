@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { createAssistantMessageDelivery } from "../../src/client/conversation/messageDelivery.js";
 import AssistantConversationElement from "../../src/client/conversation/AssistantConversationElement.vue";
 import { useAssistantAttachments } from "../../src/client/conversation/useAssistantAttachments.js";
@@ -69,11 +69,19 @@ const models = reactive({
 });
 const goalEnabled = ref(new URLSearchParams(location.search).has("goal"));
 const goal = ref(null);
+// As a server does: a goal's running time counts only while a turn works on
+// it, and is read again when a turn ends, not when one starts.
+let turnStartedAt = null;
+const worked = () => turnStartedAt === null ? 0 : (Date.now() - turnStartedAt) / 1000;
+watch(() => phase.value === "active", working => {
+  if (!working && goal.value?.status === "active") goal.value = { ...goal.value, elapsedSeconds: goal.value.elapsedSeconds + worked(), sampledAt: Date.now() };
+  turnStartedAt = working ? Date.now() : null;
+});
 const goalState = reactive({
   enabled: goalEnabled, goal, pauseBlocked: true, working: computed(() => phase.value === "active"),
-  set(input) { phase.value = "active"; goal.value = { ...input, status: "active", elapsedSeconds: 0, sampledAt: Date.now() }; },
-  pause() { goal.value = { ...goal.value, status: "paused", elapsedSeconds: goal.value.elapsedSeconds + (Date.now() - goal.value.sampledAt) / 1000, sampledAt: Date.now() }; },
-  resume() { phase.value = "active"; goal.value = { ...goal.value, status: "active", reason: "", sampledAt: Date.now() }; },
+  set(input) { phase.value = "active"; turnStartedAt = Date.now(); goal.value = { ...input, status: "active", elapsedSeconds: 0, sampledAt: Date.now() }; },
+  pause() { goal.value = { ...goal.value, status: "paused", elapsedSeconds: goal.value.elapsedSeconds + worked(), sampledAt: Date.now() }; turnStartedAt = null; },
+  resume() { phase.value = "active"; turnStartedAt = Date.now(); goal.value = { ...goal.value, status: "active", reason: "", sampledAt: Date.now() }; },
   cancel() { goal.value = null; phase.value = "idle"; }
 });
 const adapter = reactive({

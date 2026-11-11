@@ -30,6 +30,19 @@ function claudeUserText(content) {
     .filter((block) => block.type === "text" && typeof block.text === "string").map((block) => block.text).join("\n\n");
 }
 
+// A message the person or the host sent, a native /goal command among them.
+// Claude's own notes, compaction summary and interrupt marker are not.
+function claudeAuthoredMessage(frame) {
+  if (frame.type !== "user" || frame.isMeta || frame.isCompactSummary || frame.parent_tool_use_id) return false;
+  const text = claudeUserText(frame.message?.content);
+  return Boolean(text) && !/^\[Request interrupted by user/u.test(text);
+}
+
+// Native /goal saves its sentinel, then the authored command naming that
+// sentinel as its parent. Claude re-attaches an unfinished goal with a
+// sentinel after compacting its context, and no command follows that one.
+const GOAL_COMMAND_PATTERN = /^\s*(?:<command-name>\/goal<\/command-name>|\/goal(?:\s|$))/u;
+
 async function archivedClaudeProjectDirectory(workdir) {
   const canonical = await realpath(workdir).catch((error) => {
     if (error.code === "ENOENT") return workdir;
@@ -221,6 +234,10 @@ async function readClaudeHistory(options) {
   const byId = new Map();
   let leafUuid = "";
   let rewound = false;
+  const commandedSentinels = new Set();
+  // The newest frame time so far. File order wins over timestamps, which can
+  // run slightly backwards between adjacent frames.
+  let lastAt = NaN;
   // Snapshot the file length. A writer can be in the middle of its last frame;
   // Live history reads allow that unfinished tail. Stopped maintenance can
   // require the existing strict parser without changing live observation.
@@ -232,6 +249,8 @@ async function readClaudeHistory(options) {
   }
   for (const frame of frames) {
     if (frame.uuid) byId.set(frame.uuid, frame);
+    if (claudeAuthoredMessage(frame) && frame.parentUuid &&
+        GOAL_COMMAND_PATTERN.test(claudeUserText(frame.message?.content))) commandedSentinels.add(frame.parentUuid);
     if (["user", "assistant"].includes(frame.type) && frame.uuid) leafUuid = frame.uuid;
     if (frame.type === "last-prompt" && frame.leafUuid) {
       leafUuid = frame.leafUuid;
@@ -255,6 +274,17 @@ async function readClaudeHistory(options) {
   }
   for (const frame of frames) {
     if (rewound && frame.uuid && !retained.has(frame.uuid)) continue;
+    // Claude saves its history as it works, so the time up to each frame it
+    // saves itself is the goal's running time. The wait before a message the
+    // person or the host sent (between turns, while paused, or across a
+    // restart) is not.
+    const at = ["user", "assistant", "attachment", "system"].includes(frame.type) ? Date.parse(frame.timestamp) / 1000 : NaN;
+    if (Number.isFinite(at)) {
+      const waited = claudeAuthoredMessage(frame) || frame.type === "attachment" && commandedSentinels.has(frame.uuid);
+      if (goal?.status === "active" && !waited && at > lastAt) goal.timeUsedSeconds += at - lastAt;
+      lastAt = Number.isFinite(lastAt) ? Math.max(lastAt, at) : at;
+      if (goal?.status === "active") goal.updatedAt = lastAt;
+    }
     // The exact native local-command receipt owns clear identity. Claude may
     // insert a caveat between the sentinel and authored command, or omit the
     // sentinel after an impossible evaluation. Neither case changes delivery.
@@ -282,22 +312,28 @@ async function readClaudeHistory(options) {
     const status = frame.attachment;
     if (frame.type === "attachment" && !frame.parent_tool_use_id &&
         status?.type === "goal_status" && typeof status.condition === "string") {
-      if (status.sentinel === true || goal?.objective !== status.condition) {
-        goalStartId = status.sentinel === true && typeof status.met === "boolean" ? frame.uuid || "" : "";
+      // A sentinel no command follows re-attaches the unfinished goal after
+      // Claude compacts its context: it stays the same goal, with its identity.
+      const sentinel = status.sentinel === true && !(status.met === false && status.failed !== true &&
+        goal?.objective === status.condition && goal.status !== "complete" && !commandedSentinels.has(frame.uuid));
+      if (sentinel || goal?.objective !== status.condition) {
+        goalStartId = sentinel && typeof status.met === "boolean" ? frame.uuid || "" : "";
         goalCommandId = "";
       }
-      if (status.met === true && status.sentinel === true) {
+      if (status.met === true && sentinel) {
         if (goal && goal.status !== "complete") clearedGoal = goal;
         goal = null;
       } else if (status.met === false || status.met === true) {
         const timestamp = Date.parse(frame.timestamp) / 1000;
-        const createdAt = goal?.objective === status.condition && !status.sentinel ? goal.createdAt : timestamp;
+        const createdAt = goal?.objective === status.condition && !sentinel ? goal.createdAt : timestamp;
         // Resume sends the same objective again and Claude starts it anew;
-        // the unfinished goal still started with its first command.
+        // the unfinished goal keeps the running time it already had.
         const previous = goal || clearedGoal;
+        const carried = previous?.objective === status.condition &&
+          (previous.status !== "complete" || previous.createdAt === createdAt);
         goal = {
           threadId: options.conversationId, objective: status.condition, createdAt,
-          startedAt: previous?.objective === status.condition && previous.status !== "complete" ? previous.startedAt : createdAt,
+          timeUsedSeconds: carried ? previous.timeUsedSeconds : 0,
           status: status.met ? "complete" : status.failed === true ? "blocked" : "active", updatedAt: timestamp,
           reason: typeof status.reason === "string" ? status.reason : ""
         };

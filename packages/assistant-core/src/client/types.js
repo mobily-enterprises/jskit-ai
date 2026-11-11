@@ -48,9 +48,9 @@
  * @property {boolean} [cancelInterruptsTurn]
  * @property {boolean} [tokenBudgetSupported]
  * @property {string} [error]
- * @property {{ status: string, objective?: string, elapsedSeconds?: number, sampledAt?: number, createdAt?: string,
- *   startedAt?: string } | null} [goal] Without a native running time, its clock counts from startedAt (when the
- *   unfinished goal first started, through any Resume), else createdAt.
+ * @property {{ status: string, objective?: string, elapsedSeconds?: number, sampledAt?: number, createdAt?: string } | null} [goal]
+ *   elapsedSeconds is the time spent working on the goal as of sampledAt (milliseconds); its clock adds the time
+ *   since only while the conversation is working on an active goal.
  * @property {((input: { objective: string, tokenBudget?: number }) => unknown) | null} [set]
  *   Starts a goal; absent while starting one is not allowed, so Start stays disabled.
  * @property {() => unknown} [pause]

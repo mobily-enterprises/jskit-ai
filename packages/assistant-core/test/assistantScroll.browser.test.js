@@ -930,7 +930,7 @@ test("long goal objectives keep Start reachable on short phone, tablet and deskt
   }
 });
 
-test("optional goals show running and paused lights, count only active time, and adapt to pane width", {
+test("optional goals show running, not running and paused lights, count only working time, and adapt to pane width", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000
 }, async (t) => {
@@ -953,14 +953,20 @@ test("optional goals show running and paused lights, count only active time, and
     await input.fill("Preserve this draft and caret");
     await input.evaluate(element => element.setSelectionRange(5, 9));
     const light = page.locator(".assistant-goal__light");
+    const elapsed = page.locator(".assistant-goal__elapsed");
     await expect(light).toHaveCSS("background-color", "rgb(211, 47, 47)");
     await expect(light).toHaveCSS("animation-name", /^assistant-goal-flash/u);
+    // With nothing working on it, the active goal says so: no red light, no
+    // clock, and the idle time does not count.
     await page.getByRole("button", { name: "External idle", exact: true }).evaluate(element => element.click());
+    await expect(page.locator(".assistant-goal .assistant-goal__label")).toHaveText("Goal not running");
     await expect(light).toHaveCSS("animation-name", "none");
-    await expect(light).toHaveCSS("background-color", "rgb(211, 47, 47)");
+    await expect(light).not.toHaveCSS("background-color", "rgb(211, 47, 47)");
+    await expect(elapsed).toHaveCount(0);
+    await page.clock.fastForward(30_000);
     await page.getByRole("button", { name: "External active", exact: true }).evaluate(element => element.click());
     await expect(light).toHaveCSS("animation-name", /^assistant-goal-flash/u);
-    const elapsed = page.locator(".assistant-goal__elapsed");
+    await expect(elapsed).toHaveText("0:00");
     await page.clock.fastForward(65_000);
     await expect(elapsed).toHaveText("1:05");
     await expect(input).toBeFocused();

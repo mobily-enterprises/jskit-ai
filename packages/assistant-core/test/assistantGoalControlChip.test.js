@@ -48,45 +48,53 @@ async function render(control, goal, state = {}) {
 }
 
 const startedTwoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+// Two hours spent working, sampled ten minutes ago.
+const worked = { elapsedSeconds: 2 * 60 * 60, sampledAt: Date.now() - 10 * 60 * 1000 };
 
-test("a paused, blocked or waiting goal's chip says so and shows no running clock; its details keep the elapsed time", async () => {
+test("a paused, blocked or waiting goal's chip says so and shows no running clock; its details keep the running time", async () => {
   const control = await importControl();
   for (const [status, key] of [["paused", "jskit.assistant.goal.paused"], ["blocked", "jskit.assistant.goal.blocked"],
     ["usageLimited", "jskit.assistant.goal.usageLimited"], ["budgetLimited", "jskit.assistant.goal.budgetLimited"]]) {
-    // Claude supplies only its creation time, so its clock is wall time since the goal started.
-    const { chip, label, panel } = await render(control, { objective: "Finish every check", status, createdAt: startedTwoHoursAgo });
+    const { chip, label, panel } = await render(control, { objective: "Finish every check", status, createdAt: startedTwoHoursAgo, ...worked },
+      { working: true });
     assert.equal(label, key, `a ${status} goal's chip names its state`);
-    assert.doesNotMatch(chip, /assistant-goal__elapsed/u, `a ${status} goal's chip shows no clock`);
-    assert.match(panel, /jskit\.assistant\.goal\.elapsed\(jskit\.assistant\.goal\.elapsedSinceStart=2:00:0\d\)/u,
-      `a ${status} goal's details keep the elapsed time`);
+    assert.doesNotMatch(chip, /assistant-goal__elapsed|assistant-goal__light--running/u, `a ${status} goal's chip shows no clock`);
+    assert.match(panel, /jskit\.assistant\.goal\.elapsed\(jskit\.assistant\.goal\.runningTime=2:00:00\)/u,
+      `a ${status} goal's details keep the running time, without the time since`);
   }
-  // A native running time (Codex) stops counting while paused; the chip still shows no clock.
-  const native = await render(control, { objective: "Finish every check", status: "paused", elapsedSeconds: 125, sampledAt: Date.now() });
-  assert.equal(native.label, "jskit.assistant.goal.paused");
-  assert.doesNotMatch(native.chip, /assistant-goal__elapsed/u);
-  assert.match(native.panel, /jskit\.assistant\.goal\.runningTime=2:05/u);
 });
 
-test("an active goal's chip shows its clock, and a finished goal's chip shows neither state nor clock", async () => {
+test("an active goal looks running, with its clock counting on from its running time, only while its conversation works on it", async () => {
   const control = await importControl();
-  const active = await render(control, { objective: "Finish every check", status: "active", createdAt: startedTwoHoursAgo });
-  assert.equal(active.label, "jskit.assistant.goal.goal");
-  assert.match(active.chip, /<span class="assistant-goal__elapsed" aria-hidden="true">2:00:0\d<\/span>/u);
-  assert.match(active.chip, /assistant-goal__light--running/u);
-  const complete = await render(control, { objective: "Finish every check", status: "complete", createdAt: startedTwoHoursAgo,
-    sampledAt: Date.now() });
+  const goal = { objective: "Finish every check", status: "active", createdAt: startedTwoHoursAgo, ...worked };
+  const running = await render(control, goal, { working: true });
+  assert.equal(running.label, "jskit.assistant.goal.goal");
+  assert.match(running.chip, /<span class="assistant-goal__elapsed" aria-hidden="true">2:10:0\d<\/span>/u);
+  assert.match(running.chip, /assistant-goal__light--running/u);
+  assert.match(running.panel, /role="status">jskit\.assistant\.goal\.running</u);
+  // Between turns, or after a restart before its continuation starts, nothing
+  // works on it: the chip says so, with no red light and no clock, and its
+  // running time stays where the work stopped.
+  const idle = await render(control, goal);
+  assert.equal(idle.label, "jskit.assistant.goal.notRunning");
+  assert.doesNotMatch(idle.chip, /assistant-goal__elapsed|assistant-goal__light--running/u);
+  assert.match(idle.panel, /jskit\.assistant\.goal\.runningTime=2:00:00\)/u);
+  assert.match(idle.panel, /jskit\.assistant\.goal\.notRunningHint</u);
+  assert.match(idle.panel, /jskit\.assistant\.goal\.pause</u, "a goal that is not running can still be paused");
+  // The reason it stopped (a restart's continuation that failed) shows with it.
+  const failed = await render(control, goal, { error: "The goal could not continue. Vibe64 tries again shortly." });
+  assert.equal(failed.label, "jskit.assistant.goal.notRunning");
+  assert.match(failed.panel, /role="alert"[^>]*>The goal could not continue\. Vibe64 tries again shortly\.</u);
+  // A goal with no running time shows no clock rather than counting wall time.
+  const untimed = await render(control, { objective: "Finish every check", status: "active", createdAt: startedTwoHoursAgo }, { working: true });
+  assert.doesNotMatch(untimed.chip, /assistant-goal__elapsed/u);
+  assert.doesNotMatch(untimed.panel, /runningTime/u);
+  const complete = await render(control, { objective: "Finish every check", status: "complete", ...worked });
   assert.equal(complete.label, "jskit.assistant.goal.goal");
   assert.doesNotMatch(complete.chip, /assistant-goal__elapsed/u);
+  assert.match(complete.panel, /runningTime=2:00:00\)/u);
   const none = await render(control, null);
   assert.equal(none.label, "jskit.assistant.goal.set");
-});
-
-test("a resumed goal's clock counts from its first start, not from the Resume that sent it again", async () => {
-  const control = await importControl();
-  const resumed = await render(control, { objective: "Finish every check", status: "active",
-    createdAt: new Date(Date.now() - 5 * 60 * 1000).toISOString(), startedAt: startedTwoHoursAgo });
-  assert.match(resumed.chip, /<span class="assistant-goal__elapsed" aria-hidden="true">2:00:0\d<\/span>/u);
-  assert.match(resumed.panel, /jskit\.assistant\.goal\.elapsedSinceStart=2:00:0\d/u);
 });
 
 test("a goal waiting at its AI account's limit names the limit and when it resets, and Resume is the person's to press", async () => {
