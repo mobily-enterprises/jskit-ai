@@ -385,6 +385,7 @@ Exports
 Local functions
 - `claudeProjectDirectoryName(canonical)`
 - `claudeUserText(content)`
+- `claudeAuthoredMessage(frame)`
 - `retainedClaudeFrame(frame)`
 - `claudeHistoryFrames(file)`
 - `completeHistoryOffset(handle, start, size)`
@@ -421,7 +422,7 @@ Exports
 - `claudePlanUsage(value)`
 - `claudeCatalogueModels(initialization)`
 - `createClaudeAccountQueries({ createProcess, accountIdentity, configRoot, processes = noOwnedProcesses, isClosing = neverClosing })`
-- `createClaudeCodeProcess({ command = "claude", execution = createLocalConversationExecution(), env, workdir, onEvent, onControlRequest, onFailure = ignoreProcessFailure, onStarted = ignoreProcessStart, executionLimits, signal, commandWrapper, initializationTimeoutMs = 30_000, onInitializationProgress, ...options })`
+- `createClaudeCodeProcess({ command = "claude", execution = createLocalConversationExecution(), env, workdir, onEvent, onControlRequest, onFailure = ignoreProcessFailure, onStarted = ignoreProcessStart, executionLimits, signal, commandWrapper, initializationTimeoutMs = 30_000, onInitializationProgress, maximumToolResultBytes, ...options })`
 - `type ClaudeCodeProcess`
 Local functions
 - `ignoreProcessStart()`
@@ -453,7 +454,8 @@ Exports
 
 ### `src/server/conversation/claudeTools.js`
 Exports
-- `claudeApplicationToolResponse(request, { schemas, turn, signal, assertCurrent = acceptNativeCall, onExecutionFailure = ignoreExecutionFailure })`
+- `claudeToolResultAllowance(maximumResultBytes)`
+- `claudeApplicationToolResponse(request, { schemas, maximumResultBytes, turn, signal, assertCurrent = acceptNativeCall, onExecutionFailure = ignoreExecutionFailure })`
 - `CLAUDE_APPLICATION_TOOL_SERVER`
 Local functions
 - `acceptNativeCall()`
@@ -2029,6 +2031,8 @@ Exports
 ### `src/server/lib/serviceToolCatalog.js`
 Exports
 - `createServiceToolCatalog(actions, { isActionAvailable, barredActionIds = [], skipActionPrefixes = [], maxDirectTools: rawMaxDirectTools = DEFAULT_MAX_DIRECT_TOOLS, discoveryPageSize: rawDiscoveryPageSize = DEFAULT_DISCOVERY_PAGE_SIZE, maxToolArgumentBytes: rawMaxToolArgumentBytes = DEFAULT_MAX_TOOL_ARGUMENT_BYTES, maxToolResultBytes: rawMaxToolResultBytes = DEFAULT_MAX_TOOL_RESULT_BYTES } = {})`
+- `DEFAULT_MAX_TOOL_ARGUMENT_BYTES`
+- `DEFAULT_MAX_TOOL_RESULT_BYTES`
 - `DISCOVERY_TOOL_DESCRIPTORS`
 Local functions
 - `parseToolPayload(argumentsText)`
@@ -2404,6 +2408,7 @@ Exports
 - None
 Local functions
 - `finishUploads()`
+- `worked()`
 
 ### `fixtures/responsive-assistant/DeliveryFixture.vue`
 Exports
