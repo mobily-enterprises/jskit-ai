@@ -22,7 +22,10 @@ purpose: any host can set it. The host sets it; a request never chooses it.
 - Every HTML page the server sends, and every page the Vite development server
   sends, names the setting in a `jskit-side-effects` meta tag. The shell
   (`@jskit-ai/shell-web`) shows the "Test copy" banner from it, with no
-  application code. The banner never takes a click or a tap.
+  application code. The banner never takes a click or a tap. Screen readers
+  read it as a note, with "emails, messages and payments are simulated, not
+  sent" as its description. It has no label, so a browser test's
+  `getByLabel("Email")` never finds it.
 - The server logs once at startup whether it acts for real. A production server
   that simulates logs a warning.
 - Local-password emails (confirmation and password reset) with an installed

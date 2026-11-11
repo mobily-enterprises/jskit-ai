@@ -22,6 +22,11 @@ Rules:
   app-owned. Do not duplicate base-URL, web-server, or storage-state logic in
   individual tests.
 - Use relative paths such as `page.goto("/home")`. The shared config owns the browser base URL.
+- Find a form field by its exact label: `page.getByLabel("Email", { exact: true })`
+  or `page.getByRole("textbox", { name: "Email", exact: true })`. Without
+  `exact`, Playwright matches any element whose label contains the text, in any
+  case, so "Email" also finds "Confirm email" or any other labelled element that
+  mentions emails, and the lookup fails strict mode.
 - After clicking a client-side navigation control, wait for its destination
   with `await expect(page).toHaveURL(...)` before reloading. Awaiting the click
   alone does not wait for Vue Router to complete. Up tests reach a page

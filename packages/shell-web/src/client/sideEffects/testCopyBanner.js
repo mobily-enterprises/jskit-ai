@@ -48,8 +48,10 @@ function installTestCopyBanner({ documentObject = pageDocument(), mode = pageSid
   const banner = documentObject.createElement("div");
   banner.id = TEST_COPY_BANNER_ID;
   banner.setAttribute("data-testid", TEST_COPY_BANNER_ID);
+  // A note read by its visible text, with the full sentence as its description. A label would make it a labelled
+  // element, which a browser test's field lookup such as `getByLabel("Email")` would also find.
   banner.setAttribute("role", "note");
-  banner.setAttribute("aria-label", t("jskit.shell.sideEffects.testCopyDescription"));
+  banner.setAttribute("aria-description", t("jskit.shell.sideEffects.testCopyDescription"));
   banner.textContent = t("jskit.shell.sideEffects.testCopy");
   // Through the style object, not a style attribute, so a strict content policy without inline styles allows it.
   Object.assign(banner.style, TEST_COPY_BANNER_STYLE);

@@ -57,7 +57,11 @@ test("a simulating page shows the Test copy banner at every width, in light and 
       const label = `${colorScheme} ${viewport.name}`;
       const banner = page.getByTestId("jskit-test-copy-banner");
       assert.equal(await banner.textContent(), "Test copy", label);
-      assert.equal(await banner.getAttribute("aria-label"), "Test copy: emails, messages and payments are simulated, not sent.", label);
+      assert.equal(await page.getByRole("note").textContent(), "Test copy", `${label}: a note`);
+      assert.equal(await banner.getAttribute("aria-description"), "Test copy: emails, messages and payments are simulated, not sent.", label);
+      // An application's inexact field lookup finds only its Email field, never the banner whose sentence says emails.
+      assert.equal(await page.getByLabel("Email").count(), 1, `${label}: one Email match`);
+      assert.equal(await page.getByLabel("Email").getAttribute("id"), "email", `${label}: the Email field`);
       const box = await banner.boundingBox();
       assert.equal(box.y, 0, `${label}: hangs from the top edge`);
       assert.ok(Math.abs(box.x + box.width / 2 - viewport.width / 2) <= 1, `${label}: centred`);

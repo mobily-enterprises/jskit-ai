@@ -29,7 +29,11 @@ test("a simulating page gets one Test copy banner that takes no clicks", () => {
   assert.equal(documentObject.appended.length, 1);
   const [banner] = documentObject.appended;
   assert.equal(banner.textContent, "Test copy");
-  assert.equal(banner.attributes["aria-label"], "Test copy: emails, messages and payments are simulated, not sent.");
+  assert.equal(banner.attributes.role, "note");
+  assert.equal(banner.attributes["aria-description"], "Test copy: emails, messages and payments are simulated, not sent.");
+  // No label, so a field lookup by label (Playwright's getByLabel reads aria-label and aria-labelledby) never finds it.
+  assert.equal("aria-label" in banner.attributes, false);
+  assert.equal("aria-labelledby" in banner.attributes, false);
   assert.equal(banner.attributes["data-testid"], "jskit-test-copy-banner");
   assert.equal(banner.style.pointerEvents, "none");
   assert.equal(banner.style.position, "fixed");

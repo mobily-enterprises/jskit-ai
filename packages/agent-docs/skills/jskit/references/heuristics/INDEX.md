@@ -32,7 +32,7 @@ How to use it:
   - [live-actions.md](./live-actions.md)
 - ajax, fetch, API call, request, endpoint, HTTP client, `useCrudListScreen()`, `useCrudViewScreen()`, `useCrudAddEditScreen()`, `useList()`, `useView()`, `useAddEdit()`, `useEndpointResource()`, `httpWebClient`
   - [client-requests.md](./client-requests.md)
-- playwright, browser test, e2e, ui verification, baseline test, authenticated ui test, test auth, dev login as, dev auth bypass
+- playwright, browser test, e2e, ui verification, baseline test, authenticated ui test, test auth, dev login as, dev auth bypass, `getByLabel`, strict mode violation
   - [ui-testing.md](./ui-testing.md)
 - UI contract, design contract, navigation roles, Up arrow, Back button, declared parent, jskit.parent, in-app trail, history.back, hand-built links, jskit check, Deslop, density, placeholder copy, card shells, shared CRUD screens, row actions, synthetic rows, detail slots
   - [ui-contract.md](./ui-contract.md)

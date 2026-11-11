@@ -80,7 +80,8 @@ URLs. With `PLAYWRIGHT_BASE_URL` set, start no duplicate server. For Up
 sideways) and verify each Up returns to its own origin and that chains unwind;
 open the page directly and verify Up reaches its declared parent; verify
 main-menu destinations show no arrow, a reload keeps the trail, and Save or
-Cancel never leaves the form in it.
+Cancel never leaves the form in it. Find a field by its exact label:
+`page.getByLabel("Email", { exact: true })`.
 
 A managed host owns its browser and may provide
 `PLAYWRIGHT_STORAGE_STATE`; never print or commit that value, bypass it,
