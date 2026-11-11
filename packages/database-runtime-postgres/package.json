@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime-postgres",
-  "version": "0.1.265",
+  "version": "0.1.266",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -15,8 +15,8 @@
     "pg": "^8.13.1"
   },
   "peerDependencies": {
-    "@jskit-ai/database-runtime": "0.1.268",
-    "@jskit-ai/kernel": "0.2.19"
+    "@jskit-ai/database-runtime": "0.1.269",
+    "@jskit-ai/kernel": "0.2.20"
   },
   "jskit": {
     "kind": "runtime",
