@@ -386,6 +386,7 @@ Local functions
 - `claudeProjectDirectoryName(canonical)`
 - `claudeUserText(content)`
 - `claudeAuthoredMessage(frame)`
+- `claudeNoResponsePlaceholder(frame)`
 - `retainedClaudeFrame(frame)`
 - `claudeHistoryFrames(file)`
 - `completeHistoryOffset(handle, start, size)`
