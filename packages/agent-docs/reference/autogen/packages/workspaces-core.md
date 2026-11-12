@@ -228,6 +228,8 @@ Exports
 ### `src/server/workspaceMembers/workspaceMembersRoutes.js`
 Exports
 - `registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEnabled })`
+Local functions
+- `listPageActionInput({ params, query })`
 
 ### `src/server/workspaceMembers/workspaceMembersService.js`
 Exports

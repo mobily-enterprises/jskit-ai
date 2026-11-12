@@ -16,6 +16,20 @@ import {
 import { resolveDefaultWorkspaceRouteSurfaceIdFromAppConfig } from "../support/workspaceActionSurfaces.js";
 
 /**
+ * A members or invites list request's action input: its workspace, and the cursor and limit its query sends, each only
+ * when sent. An action's input refuses a field that is present but undefined, so naming an absent one refused every
+ * first page with 400.
+ * @param {{ params: { workspaceSlug: string }, query: { cursor?: string, limit?: number } }} input The request's input.
+ */
+function listPageActionInput({ params, query }) {
+  return {
+    workspaceSlug: params.workspaceSlug,
+    ...(Object.hasOwn(query, "cursor") ? { cursor: query.cursor } : {}),
+    ...(Object.hasOwn(query, "limit") ? { limit: query.limit } : {})
+  };
+}
+
+/**
  * @param {import("@jskit-ai/kernel/server/types").RuntimeRouter} router
  * @param {{ config: import("@jskit-ai/kernel/server/types").RuntimeConfig, workspaceInvitationsEnabled: boolean }} options
  */
@@ -77,11 +91,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
     async function (request, reply) {
       const response = await request.executeAction({
         actionId: "workspace.members.list",
-        input: {
-          workspaceSlug: request.input.params.workspaceSlug,
-          cursor: request.input.query.cursor,
-          limit: request.input.query.limit
-        }
+        input: listPageActionInput(request.input)
       });
       reply.code(200).send(response);
     }
@@ -179,11 +189,7 @@ function registerWorkspaceMembersRoutes(router, { config, workspaceInvitationsEn
       async function (request, reply) {
         const response = await request.executeAction({
           actionId: "workspace.invites.list",
-          input: {
-            workspaceSlug: request.input.params.workspaceSlug,
-            cursor: request.input.query.cursor,
-            limit: request.input.query.limit
-          }
+          input: listPageActionInput(request.input)
         });
         reply.code(200).send(response);
       }
