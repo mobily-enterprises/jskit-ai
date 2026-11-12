@@ -68,8 +68,9 @@ function createConversationSending({ storage, events, entries, reads, turns, onD
    * @param {object} [goal]
    * @param {string} [representation]
    * @param {object} [wakeOptions]
+   * @param {boolean} [retryFinishedTurn] Whether a message that Claude's completion refused may be admitted once more.
    */
-  async function send(entry, context, input, origin = "user", goal, representation, wakeOptions) {
+  async function send(entry, context, input, origin = "user", goal, representation, wakeOptions, retryFinishedTurn = true) {
     const deliveryTiming = createConversationDeliveryTiming({ engine: entry.engine,
       conversationId: entry.id, messageId: input?.messageId, report: onDeliveryTiming, hostStages: deliveryHostStages });
     deliveryTiming("received");
@@ -90,6 +91,15 @@ function createConversationSending({ storage, events, entries, reads, turns, onD
       if (result.error) throw result.error;
       return result.receipt;
     } catch (error) {
+      // Completion can retire Claude's generation while this message's turn is prepared, before the message is
+      // written: a Claude resumed after its process stopped during a background command reports that command
+      // stopped, with a result. That exact pre-write rejection permits one re-admission of this same message, as
+      // a goal's does, after the original cleanup and save finish.
+      if (retryFinishedTurn && entry.conversation && origin === "user" && !goal && input?.steer !== true &&
+          error.code === "conversation_steer_turn_finished" && error.delivery === "not-sent") {
+        await entry.active?.done;
+        return send(entry, context, input, origin, goal, representation, wakeOptions, false);
+      }
       deliveryTiming("failed");
       throw error;
     }

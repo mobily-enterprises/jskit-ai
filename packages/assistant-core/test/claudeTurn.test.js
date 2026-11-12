@@ -2858,6 +2858,36 @@ for (const action of ["set", "resume"]) for (const finishCount of [1, 2]) test(`
   assert.equal(preparations, 2, "Only one re-admission is allowed");
 });
 
+// A Claude resumed after its process stopped during a background command reports that command stopped, with a
+// result, while the next message's turn is prepared (seen with Claude Code 2.1.322 after a Pause and a restart).
+for (const finishCount of [1, 2]) test(`Claude re-admits a message once when its turn finished before the message was written, finishes=${finishCount}`, { timeout: 5_000 }, async t => {
+  const f = await suppliedCommonFixture(t, { tools: false });
+  let preparations = 0;
+  let writes = 0;
+  f.behavior.initialize = async native => {
+    const send = native.client.send;
+    native.client.send = async (...args) => { writes++; return send(...args); };
+  };
+  f.setBeforeState(async (_entry, event) => {
+    if (event.state === "starting" && ++preparations <= finishCount) {
+      await f.frame({ type: "result", subtype: "success", result: "" });
+    }
+  });
+  const pending = f.conversation.send({ messageId: "racing-message", text: "Deployment is done, continue the goal!" });
+  if (finishCount === 2) {
+    await assert.rejects(pending, error => error.code === "conversation_steer_turn_finished" && error.delivery === "not-sent");
+    assert.equal(writes, 0);
+  } else {
+    await pending;
+    assert.equal(writes, 1, "The message is written once, after its definite non-delivery");
+    await f.frame({ type: "result", subtype: "success", result: "Continuing." });
+    await f.conversation.wait();
+    const log = await f.binding.transcript.readConversationLog();
+    assert.equal(log.flatMap(turn => turn.messages).filter(message => message.messageId === "racing-message").length, 1);
+  }
+  assert.equal(preparations, 2, "Only one re-admission is allowed");
+});
+
 for (const action of ["set", "resume"]) test(`Claude goal preparation failure permits a safe same-message retry, action=${action}`, { timeout: 5_000 }, async t => {
   const f = await suppliedCommonFixture(t, { tools: false });
   let expectedGoalId;
@@ -3386,6 +3416,8 @@ test(`Claude common runtime saves a successful self-${retention.action} tool rec
   assert.equal(call.result.ok, true);
   assert.equal(f.entry.process, null);
   assert.equal(f.entry.command, null);
+  assert.equal(f.behavior.nativeInputs.at(-1), "/goal clear", "Claude's own checker stands down beside its Pause, before it stops");
+  const clears = f.behavior.nativeInputs.filter(input => input === "/goal clear").length;
   const retained = await f.owner.readGoal(f.entry);
   assert.equal(retained.goal.status, retention.status);
   assert.equal(retained.goal.createdAt, original.goal.createdAt);
@@ -3394,6 +3426,8 @@ test(`Claude common runtime saves a successful self-${retention.action} tool rec
   assert.equal(next.status, "accepted");
   assert.equal((await f.owner.readGoal(f.entry)).goal.status, retention.status);
   assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Prepare the question."]);
+  assert.equal(f.behavior.nativeInputs.filter(input => input === "/goal clear").length, clears,
+    "no second \"Goal cleared\" lands above the person's next message");
   assert.equal((await readClaudeHistory({ configRoot: f.context.workdir, workdir: f.context.workdir,
     conversationId: f.conversationId })).goal, null, "The native checker is disarmed, not merely labelled paused");
   await f.frame({ type: "result", subtype: "success", result: "Next request completed." });
@@ -3494,17 +3528,20 @@ test(`Claude ${retention.action} survives ordinary messages and owner recreation
   await f.owner.updateGoal(f.entry, { ...original, action: retention.action, reason: retention.reason });
   assert.equal(f.entry.process, null);
   assert.equal((await f.owner.readGoal(f.entry)).goal.status, retention.status);
+  // The Stop that paused this working turn retired its process, so the next start stands the checker down.
   await f.send("ordinary-after-pause");
   assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
+  const clears = () => f.behavior.nativeInputs.filter(input => input === "/goal clear").length;
+  const clearsAtStart = clears();
   assert.equal((await readClaudeHistory({ configRoot: f.context.workdir, workdir: f.context.workdir, conversationId: f.conversationId })).goal, null);
   assert.deepEqual((await f.owner.readGoal(f.entry)).goal, { ...original, status: retention.status, ...(retention.reason ? { reason: retention.reason } : {}) });
   await f.frame({ type: "result", subtype: "success", result: "Ordinary answer" });
   await f.owner.close(f.entry);
   await f.reopen();
   assert.deepEqual((await f.owner.readGoal(f.entry)).goal, { ...original, status: retention.status, ...(retention.reason ? { reason: retention.reason } : {}) });
-  f.behavior.clearWithoutGoalSentinel = true;
   await f.send("ordinary-after-restart");
-  assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
+  assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["Explain", "Explain"], "the checker stayed down: a restart clears nothing again");
+  assert.equal(clears(), clearsAtStart);
   await f.frame({ type: "result", subtype: "success", result: "Still ordinary" });
   await f.owner.updateGoal(f.entry, { action: "resume", ...original, messageId: "lifecycle-resume" });
   assert.equal(f.entry.pausedGoal, null);
@@ -3524,6 +3561,8 @@ test("Claude refuses ordinary input when the paused native goal could not be cle
   const f = await publishedClaudeFixture(t);
   await f.owner.updateGoal(f.entry, { action: "set", objective: "Finish every check", messageId: "refused-set" });
   const goal = (await f.owner.readGoal(f.entry)).goal;
+  // Paused with no Claude running, its checker is stood down by the next start.
+  await f.owner.stopConversation(f.entry, "The application stopped.");
   await f.owner.updateGoal(f.entry, { action: "pause", ...goal });
   f.behavior.initialize = native => {
     native.client.send = async (message, input) => {
@@ -3552,8 +3591,11 @@ test("Pausing an idle Claude goal retires its warm process before the next ordin
   assert.equal(f.entry.turn.active, false);
   await f.owner.updateGoal(f.entry, { action: "pause", ...goal });
   assert.equal(f.entry.process, null);
+  assert.equal(f.behavior.nativeInputs.at(-1), "/goal clear", "the warm process's checker stands down at Pause");
+  const clears = f.behavior.nativeInputs.filter(input => input === "/goal clear").length;
   await f.send("ordinary-after-idle-pause");
   assert.deepEqual(f.behavior.nativeInputs.slice(-2), ["/goal clear", "Explain"]);
+  assert.equal(f.behavior.nativeInputs.filter(input => input === "/goal clear").length, clears);
   assert.equal((await f.owner.readGoal(f.entry)).goal.status, "paused");
   await f.frame({ type: "result", subtype: "success", result: "Ordinary answer" });
 });

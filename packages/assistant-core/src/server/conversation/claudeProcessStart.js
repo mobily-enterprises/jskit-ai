@@ -9,8 +9,9 @@ export function hasPendingClaudeStartup(entry) {
 /**
  * Starts a retained entry's Claude process: it fences preparation, routes the
  * process's frames and application tool calls, keeps startup custody, and
- * suspends a retained goal before the first prompt. Local commands (goal clear,
- * compaction) run on that process outside the turn view.
+ * suspends a retained goal's checker: beside its Pause on a running process,
+ * otherwise before the first prompt. Local commands (goal clear, compaction) run
+ * on that process outside the turn view.
  * @param {{
  *   store: import("./claudeTurn.js").ClaudeConversationStore,
  *   process: import("./claudeTurn.js").ClaudeConversationProcessHost,
@@ -35,6 +36,9 @@ export function createClaudeProcessStart({
   currentApplicationCommand
 }) {
   const createProcess = process.create || createClaudeCodeProcess;
+  const GOAL_CLEAR = Object.freeze({ name: "goal",
+    failureMessage: "Claude could not suspend its retained goal checker.", failureCode: "conversation_claude_goal_suspend_failed",
+    timeoutMessage: "Claude timed out suspending its retained goal checker.", timeoutCode: "conversation_claude_goal_suspend_timeout" });
 
   async function startProcess(entry, configuration) {
     const context = entry.context;
@@ -179,12 +183,13 @@ export function createClaudeProcessStart({
     entry.processToken = processToken;
     if (entry.pausedGoal || entry.blockedGoal) {
       try {
-        const id = await runLocalCommand(entry, "/goal clear", { name: "goal", timeoutMs: 30_000,
-          failureMessage: "Claude could not suspend its retained goal checker.", failureCode: "conversation_claude_goal_suspend_failed",
-          timeoutMessage: "Claude timed out suspending its retained goal checker.", timeoutCode: "conversation_claude_goal_suspend_timeout" });
-        const cleared = await readHistory(entry);
-        if (cleared.goal || cleared.goalCommandId !== id) {
-          throw createError("Claude has not saved the retained goal's native clear receipt.", { code: "conversation_claude_goal_clear_unconfirmed" });
+        // A Pause that already stood the checker down leaves no second "Goal cleared" above the next message.
+        if ((await readHistory(entry)).goal) {
+          const id = await runLocalCommand(entry, "/goal clear", { ...GOAL_CLEAR, timeoutMs: 30_000 });
+          const cleared = await readHistory(entry);
+          if (cleared.goal || cleared.goalCommandId !== id) {
+            throw createError("Claude has not saved the retained goal's native clear receipt.", { code: "conversation_claude_goal_clear_unconfirmed" });
+          }
         }
         assertPreparing();
       } catch (error) {
@@ -211,8 +216,26 @@ export function createClaudeProcessStart({
     }
   }
 
+  // A retained Pause or blocker stands Claude's own goal checker down at once, on the process still running, before it
+  // stops, so its "Goal cleared" sits beside that Pause in Claude's history instead of above the person's next message.
+  // Claude's own Pause first interrupts its turn. Without a running process, or when Claude cannot clear it in moments,
+  // the process still stops and the next start clears it.
+  async function suspendGoalChecker(entry, { interruptTurn = false } = {}) {
+    try {
+      if (!entry.process || !(entry.pausedGoal || entry.blockedGoal) || !(await readHistory(entry)).goal) return;
+      if (entry.nativeTurn.read().active) {
+        if (!interruptTurn) return;
+        await entry.nativeTurn.interrupt(entry.process.client);
+      }
+      await runLocalCommand(entry, "/goal clear", { ...GOAL_CLEAR, timeoutMs: 10_000 });
+    } catch {
+      // The next start clears it.
+    }
+  }
+
   return Object.freeze({
     startProcess,
-    runLocalCommand
+    runLocalCommand,
+    suspendGoalChecker
   });
 }

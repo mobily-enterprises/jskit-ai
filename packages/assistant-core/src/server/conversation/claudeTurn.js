@@ -649,13 +649,18 @@ export function createClaudeConversationOwner({
           return;
         }
         pending.stopping = true;
-        const work = reason || !entry.turn?.active ? entry.nativeTurn.stopProcess(reason) : interrupt(entry);
+        // Claude has its response: its turn ends, its goal checker stands down beside this Pause, then it stops.
+        const work = reason ? entry.nativeTurn.stopProcess(reason)
+          : processStart.suspendGoalChecker(entry, { interruptTurn: true }).then(() => entry.nativeTurn.stopProcess());
         void work.catch(error => call.command.failure.reject(error));
       };
       entry.goalToolStop = pending;
       pending.timer = setTimeout(() => pending.stop("Claude did not acknowledge its goal tool response before the time limit."), 30_000);
       pending.timer.unref();
-    } else if (!selfStop && ["pause", "block"].includes(input.action)) await entry.nativeTurn.stopProcess();
+    } else if (!selfStop && ["pause", "block"].includes(input.action)) {
+      await processStart.suspendGoalChecker(entry);
+      await entry.nativeTurn.stopProcess();
+    }
     let result;
     if (!["pause", "block"].includes(input.action)) {
       const deadline = Date.now() + (operations?.attachmentTimeoutMs ?? 30_000);

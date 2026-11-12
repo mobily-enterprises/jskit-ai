@@ -365,7 +365,8 @@ async function fixture(t, options = {}) {
         // What Claude would hold the application tools' results to: their declared size and its MCP output cap.
         const listed = await request({ subtype: "mcp_message", server_name: "application", message: { jsonrpc: "2.0", id: "list", method: "tools/list" } });
         answer.message.content[0].text = JSON.stringify({ cap: process.env.MAX_MCP_OUTPUT_TOKENS ?? null,
-          sizes: listed.mcp_response.result.tools.map(tool => tool._meta?.["anthropic/maxResultSizeChars"] ?? null) });
+          sizes: listed.mcp_response.result.tools.map(tool => tool._meta?.["anthropic/maxResultSizeChars"] ?? null),
+          alwaysLoad: listed.mcp_response.result.tools.map(tool => tool._meta?.["anthropic/alwaysLoad"] ?? null) });
       }
       if (text === "tools" || text === "foreign-tool") {
         let sequence = 0;
@@ -749,6 +750,8 @@ test("Claude keeps a raised result limit's results whole: its tools declare that
   const ordinary = await limits(createServiceToolCatalog(actions));
   assert.equal(ordinary.cap, process.env.MAX_MCP_OUTPUT_TOKENS ?? null);
   assert.deepEqual(ordinary.sizes, ordinary.sizes.map(() => null));
+  // Claude keeps the application's tools loaded instead of finding them through its tool search first.
+  for (const listed of [raised, ordinary]) assert.deepEqual(listed.alwaysLoad, listed.sizes.map(() => true));
 });
 
 test("Claude rejects an application call without the preceding native tool identity", async t => {

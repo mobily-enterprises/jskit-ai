@@ -49,8 +49,9 @@ export async function claudeApplicationToolResponse(request, {
       break;
     case "tools/list": {
       const allowance = claudeToolResultAllowance(maximumResultBytes);
+      // The application's tools are its entry points, so Claude keeps them loaded instead of searching for them first.
       result = { tools: schemas.map(({ function: tool }) => ({ name: tool.name, description: tool.description,
-        inputSchema: tool.parameters, ...(allowance ? { _meta: { "anthropic/maxResultSizeChars": allowance } } : {}) })) };
+        inputSchema: tool.parameters, _meta: { "anthropic/alwaysLoad": true, ...(allowance ? { "anthropic/maxResultSizeChars": allowance } : {}) } })) };
       break;
     }
     case "tools/call": {
