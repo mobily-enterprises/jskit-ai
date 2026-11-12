@@ -268,6 +268,7 @@ Local functions
 
 ### `src/client/composables/runtime/operationUiHelpers.js`
 Exports
+- `createLoadRetryActionFactory({ errorStatus, retry, enabled = true })`
 - `setupRouteChangeCleanup({ enabled = true, route, feedback, onClear })`
 - `setupOperationErrorReporting({ enabled = true, source = "http-web.operation", loadError = null, notFoundError = null, loadActionFactory = noRetryAction, notFoundActionFactory = noRetryAction, loadChannel = "", notFoundChannel = "", loadSeverity = "error", notFoundSeverity = "warning", dedupeWindowMs = 2000 } = {})`
 Local functions
@@ -311,7 +312,7 @@ Local functions
 
 ### `src/client/composables/runtime/useUiFeedback.js`
 Exports
-- `useUiFeedback({ initialType = "success", source = "http-web.ui-feedback", successChannel = "", errorChannel = "", dedupeWindowMs = 2000 } = {})`
+- `useUiFeedback({ initialType = "success", source = "http-web.ui-feedback", successChannel = "", warningChannel = "", errorChannel = "", dedupeWindowMs = 2000 } = {})`
 
 ### `src/client/composables/runtime/useViewCore.js`
 Exports
@@ -384,8 +385,10 @@ Local functions
 Exports
 - `buildRequestRecoveryMeta(requestRecovery = null, defaults = {})`
 - `hasResolvedQueryData({ query = null, data = null } = {})`
+- `isRetryableLoadStatus(status)`
 - `mergeQueryMeta(queryOptions = null, meta = {})`
 - `mergeRequestRecoveryQueryMeta(queryOptions = null, requestRecovery = null, defaults = {})`
+- `resolveLoadErrorStatus(error)`
 Local functions
 - `normalizeRequestRecoveryInput(requestRecovery = null)`
 - `normalizeRequestRecoveryValue(name, value)`

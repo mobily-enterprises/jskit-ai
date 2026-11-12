@@ -226,7 +226,13 @@ grows with the workspace, and a lookup per row multiplies it.
 
 To send invitation email, provide the optional `workspaces.invite-mailer`
 capability from one of the application's providers. Without one, invitations
-are still created and delivery reports `mailer_unconfigured`. The mailer, typed
+are still created and delivery reports `mailer_unconfigured`. After **Send
+invite**, the Members panel's notice follows the delivery status: `sent` says
+the invite was sent; `simulated` (a test copy, whose `SIDE_EFFECTS` is not
+`live`) and `mailer_unconfigured` say no email was sent; `failed` is a warning
+that the email failed. Each of those three points to the invite link, which
+the panel shows under the form with its **Copy** button. A status the panel
+does not know says only that the invite was created. The mailer, typed
 `WorkspaceInviteMailer` in `@jskit-ai/workspaces-core/server/types`, is an
 object whose `sendWorkspaceInvite(message, options)` receives `{ inviteId,
 email, inviteUrl, workspace, inviter, roleSid, expiresAt, locale, message }`,
