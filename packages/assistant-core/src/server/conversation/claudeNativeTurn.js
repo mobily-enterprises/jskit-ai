@@ -1,6 +1,6 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { claudeMessageBlocks } from "./claudeHistory.js";
-import { stopClaudeCodeProcess } from "./claudeProcess.js";
+import { setClaudeTurnState, stopClaudeEntryProcess } from "./claudeEntryStop.js";
 import { createClaudeConversationAdapter } from "./providers/claude.js";
 import { createClaudeSteeringBackground } from "./claudeSteeringBackground.js";
 
@@ -19,11 +19,19 @@ function steeringRefusal(message, { messageCode, finished }) {
 
 const CLAUDE_SIGNED_OUT_MESSAGE = "Claude isn't connected. Sign in to Claude, then send your message again.";
 
-function setClaudeTurnState(entry, state, message = "") {
-  if (!entry.turn) return;
-  const active = ["starting", "active", "finalizing"].includes(state);
-  Object.assign(entry.turn, { active, state, error: message, updatedAt: new Date().toISOString(),
-    phase: active && !entry.observationError ? String(entry.turn.phase ?? "").trim() : "" });
+// Ends a frame whose turn a Stop, reset or the next turn's start superseded
+// while the frame waited on its host. receive() catches it; it never escapes.
+const SUPERSEDED_FRAME = new Error("A later Stop or turn superseded this Claude frame.");
+
+// A failed pipe write is a definite non-delivery: Claude never read that
+// message. The copy carries that verdict without changing the error other
+// callers share (the client's failure is the same object for every write).
+function unsentDelivery(error) {
+  return Object.assign(new Error(error.message, { cause: error }), {
+    ...(error.code ? { code: error.code } : {}),
+    ...(error.messageCode ? { messageCode: error.messageCode, messageParams: error.messageParams || {} } : {}),
+    delivery: "not-sent"
+  });
 }
 
 // The entry's turn result, with the text and messages the native view holds.
@@ -131,6 +139,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
   if (!conversationId) throw new TypeError("A Claude conversation id is required.");
   const instructions = process ? createClaudeConversationAdapter(process) : null;
   const publish = entry ? publishEntryEvent : onEvent;
+  // The steps of this turn that the entry's process stop runs.
+  const entryStop = { entry, bound, process, onEvent, read, stop, updateState, readResult, resolveCompletion, invalidateFinalAssistantResult };
   const messages = new Map();
   const pendingAssistantMessages = new Map();
   const assistantRoles = new Map();
@@ -154,6 +164,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
   let outcome;
   let active = false;
   let generation = 0;
+  // The lease every frame, and every message being prepared for this turn,
+  // holds while it waits on its host. stop(), begin() and reset() replace the
+  // turn and advance it.
+  let epoch = 0;
   let stopped = false;
   let cancelling = false;
   let maximumOutput = 4 * 1024 * 1024;
@@ -222,10 +236,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     return claudeTurnResult(entry, read());
   }
 
-  function resolveCompletion(result) {
-    entry.completion?.resolve(result);
-    resolvedCompletion = entry.completion;
-    if (entry.command?.finishIfCurrent) entry.command.completion.resolve(result);
+  function resolveCompletion(result, completion = entry.completion, command = entry.command) {
+    completion?.resolve(result);
+    resolvedCompletion = completion;
+    if (command?.finishIfCurrent) command.completion.resolve(result);
   }
 
   async function updateState(state, message = "", expectedGeneration = generation) {
@@ -241,71 +255,8 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     return expectedGeneration === generation;
   }
 
-  async function stopProcess(reason = "", { preparing = false } = {}) {
-    clearTimeout(entry.goalToolStop?.timer);
-    entry.goalToolStop = null;
-    if (!preparing) entry.preparationRevision++;
-    invalidateFinalAssistantResult();
-    // Runtime bindings commit execution release before dropping the handle.
-    // Retained host entries keep their original post-proof checkpoint order.
-    if (entry.stopPending) return entry.stopPending;
-    const active = read().active;
-    if (!bound) entry.stopping = true;
-    const operation = async () => {
-      const startup = entry.startupCleanup?.executionId === entry.executionId ? entry.startupCleanup : null;
-      let proof;
-      try {
-        if (!bound || entry.process || entry.executionId) {
-          proof = await stopClaudeCodeProcess({ process: entry.process || startup, executionId: entry.executionId,
-            stopExecution: process.stopExecution });
-        }
-      } catch (error) {
-        if (bound || error.code !== "claude_stop_unconfirmed") throw error;
-        entry.observationError = reason || "Claude process exit has not been confirmed. Try Stop again.";
-        await onEvent({ type: "save" });
-        await onEvent({ type: "stop-unconfirmed" });
-        throw error;
-      }
-      if (bound && (entry.process || entry.executionId)) await process.releaseExecution();
-      entry.process = null;
-      entry.executionId = "";
-      entry.exitProof = proof;
-      stop(bound ? reason : reason || "Claude stopped before acknowledging the prompt.");
-      if (bound) {
-        if (entry.startupCleanup === startup) entry.startupCleanup = null;
-        if (active) entry.completion?.resolve({ status: "interrupted", error: reason || "Work stopped." });
-        return;
-      }
-      if (entry.turn?.active && process.ownerClosing()) {
-        // At shutdown the turn's end belongs to the next server, as after a
-        // crash: its saved record keeps the execution and the active turn, so
-        // that server's recovery proves this exit, interrupts the turn and runs
-        // the host's checkpoint. Run here, that checkpoint (a Git snapshot, say)
-        // would hold the host's bounded shutdown for as long as it takes.
-        resolveCompletion({ ...readResult(), status: "interrupted", error: reason });
-        if (entry.startupCleanup === startup) entry.startupCleanup = null;
-        return entry.exitProof;
-      }
-      if (entry.turn?.active) {
-        try { await updateState("interrupted", reason); }
-        catch (error) {
-          // Native cleanup is verified even when the host refuses its checkpoint.
-          // Retain that refusal without publishing a completed answer or active work.
-          setClaudeTurnState(entry, "interrupted", error.message);
-          await onEvent({ type: "save" });
-          await onEvent({ type: "state", state: "interrupted", active: false, message: error.message });
-          resolveCompletion(readResult());
-          if (entry.startupCleanup === startup) entry.startupCleanup = null;
-          throw error;
-        }
-      } else await onEvent({ type: "save" });
-      resolveCompletion(readResult());
-      if (entry.startupCleanup === startup) entry.startupCleanup = null;
-      return entry.exitProof;
-    };
-    entry.stopPending = operation().catch(error => { if (bound) error.cleanupFailed = true; throw error; })
-      .finally(() => { entry.stopPending = null; });
-    return entry.stopPending;
+  function stopProcess(reason, options) {
+    return stopClaudeEntryProcess(entryStop, reason, options);
   }
 
   async function publishEntryEvent(event, deferred = false) {
@@ -341,16 +292,17 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       });
       return;
     }
+    // A state the host refused to save for a superseded turn is not published.
     if (event.type === "continued") {
       if (entry.completion === resolvedCompletion) entry.completion = Promise.withResolvers();
       if (bound) setClaudeTurnState(entry, "active");
-      else await updateState("active");
+      else if (!await updateState("active")) return;
     } else if (event.type === "admitted") {
       if (event.userEcho) entry.sent = true;
       if (!bound) await onEvent({ type: "save" });
     } else if (event.type === "phase") {
       entry.turn.phase = event.phase;
-      if (!bound) await updateState(entry.turn.state);
+      if (!bound && !await updateState(entry.turn.state)) return;
     } else if (event.type === "settled") {
       const state = event.status === "interrupted" ? "interrupted" : event.status === "failed" ? "failed" : "completed";
       if (bound) setClaudeTurnState(entry, state, event.error);
@@ -369,8 +321,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     if (change) await onEvent({ type: "provider-update", change });
     if (event.type === "settled") {
       if (event.generation !== generation) return;
+      // The settled turn resolves its own completion: the next turn can begin
+      // while the goal refreshes, and it owns entry.completion by then.
+      const result = bound ? event : readResult();
+      const { completion, command: settledCommand } = entry;
       if (event.source === "result") await onEvent({ type: "provider-update", change: "goal" });
-      resolveCompletion(bound ? event : readResult());
+      resolveCompletion(result, completion, settledCommand);
     }
     return published;
   }
@@ -381,13 +337,13 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     }
   }
 
-  async function publishMessage(message) {
+  async function publishMessage(message, emit) {
     if (!message.userId && currentCommandId) message = { ...message, userId: currentCommandId };
     messages.set(message.id, message);
     const owner = acceptedInput;
     const completeAssistant = message.complete && message.role === "assistant";
     if (completeAssistant) clearFinalAssistantResult();
-    const conversationTurn = await publish({ type: "message", message });
+    const conversationTurn = await emit({ type: "message", message });
     if (completeAssistant && message.text && currentReceiptOwner(owner) && !stopped && !cancelling &&
         conversationTurn && typeof conversationTurn === "object" && !Array.isArray(conversationTurn)) {
       publishedAssistant = { owner, itemId: message.id, outputId: message.outputId || message.id,
@@ -396,24 +352,49 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     return conversationTurn;
   }
 
-  async function flushAssistantMessages(apiMessageId, role) {
+  async function flushAssistantMessages(apiMessageId, role, emit) {
     assistantRoles.set(apiMessageId, role);
     const pending = pendingAssistantMessages.get(apiMessageId) || [];
     pendingAssistantMessages.delete(apiMessageId);
     for (const block of pending) {
-      await publishMessage({ ...block, role });
+      await publishMessage({ ...block, role }, emit);
       if (block.outputId) {
         if (block.outputId !== block.id) messages.delete(block.outputId);
-        await publish({ type: "message-complete", messageId: block.outputId });
+        await emit({ type: "message-complete", messageId: block.outputId });
       }
     }
   }
 
+  /**
+   * One native frame. The process's reader hands over frames one at a time;
+   * Stop, a reset and the next turn's start are synchronous steps that advance
+   * the lease. So the turn changes under a frame only while the frame waits on
+   * its host, and the frame does all of that waiting through its lease: when a
+   * Stop, a reset or the next turn's start has superseded its turn, the frame
+   * ends at that wait, before it reads, changes or publishes anything of the
+   * turn that replaced it. A message being prepared holds the lease the same
+   * way (see holds()). Input to the same turn (a steer) may change it meanwhile,
+   * so a frame decides from the state it finds after each wait, never from
+   * earlier reads.
+   */
   async function receive(frame) {
     if (stopped) return;
     if (frame.session_id && frame.session_id !== conversationId) throw claudeTurnFailure("Claude returned a different conversation id.");
     if (frame.parent_tool_use_id) return; // Nested agents do not replace the main reply.
-    await publish({ type: "provider-event", event: frame });
+    const lease = epoch;
+    const hold = () => { if (lease !== epoch) throw SUPERSEDED_FRAME; };
+    const emit = async event => {
+      hold();
+      const published = await publish(event);
+      hold();
+      return published;
+    };
+    try { await receiveFrame(frame, emit, hold); }
+    catch (error) { if (error !== SUPERSEDED_FRAME) throw error; }
+  }
+
+  async function receiveFrame(frame, emit, hold) {
+    await emit({ type: "provider-event", event: frame });
     if (continuesClaudeTurn(frame) && turnId && !cancelling) {
       const wasActive = active;
       if (outcome || !active) {
@@ -423,10 +404,10 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
         clearFinalAssistantResult();
       }
       active = true;
-      if (!wasActive) await publish({ type: "continued", source: frame.type });
+      if (!wasActive) await emit({ type: "continued", source: frame.type });
       if (phase === "background") {
         phase = "";
-        await publish({ type: "phase", phase });
+        await emit({ type: "phase", phase });
       }
     }
     if (frame.type === "command_lifecycle" || frame.type === "user") {
@@ -449,19 +430,22 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
           // Once acknowledged, storage owns the admission decision. Its write
           // must not race a native-ack timeout and a second submission.
           clearTimeout(pending.timer);
-          try {
-            await pending.accept();
-            if (inputOwner === pending.receiptOwner && !stopped && !cancelling) acceptedInput = pending.receiptOwner;
-            admissions.delete(uuid);
-            pending.resolve();
-          } catch (error) {
+          let failure;
+          try { await pending.accept(); }
+          catch (error) { failure = error; }
+          // A Stop while storage decided has already refused this admission.
+          hold();
+          if (failure) {
             acceptedInput = null;
             clearFinalAssistantResult();
-            pending.reject(error);
-            throw error;
+            pending.reject(failure);
+            throw failure;
           }
+          if (inputOwner === pending.receiptOwner && !stopped && !cancelling) acceptedInput = pending.receiptOwner;
+          admissions.delete(uuid);
+          pending.resolve();
         }
-        await publish({ type: "admitted", messageId: uuid, userEcho: frame.type === "user" });
+        await emit({ type: "admitted", messageId: uuid, userEcho: frame.type === "user" });
       }
     } else if (frame.type === "system") {
       if (active && ["status", "compact_boundary"].includes(frame.subtype)) {
@@ -469,12 +453,12 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
         // An idle status does not end a wait that only background tasks own.
         if (nextPhase !== phase && (nextPhase || phase !== "background")) {
           phase = nextPhase;
-          await publish({ type: "phase", phase });
+          await emit({ type: "phase", phase });
         }
       }
       if (frame.subtype === "local_command_output" && frame.content) {
         await publishMessage({ id: `claude_${frame.uuid}`, role: "commentary", text: frame.content, complete: true,
-          data: { native: { engineId: "claude", type: "system", subtype: "local_command_output" } } });
+          data: { native: { engineId: "claude", type: "system", subtype: "local_command_output" } } }, emit);
       }
       const previousTaskCount = tasks.size;
       updateClaudeBackgroundTasks(tasks, frame);
@@ -487,16 +471,16 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       if (tasks.size < previousTaskCount) outcome = null;
       if (phase === "background" && !outcome) {
         phase = "";
-        await publish({ type: "phase", phase });
+        await emit({ type: "phase", phase });
       }
       if (["background_tasks_changed", "task_started", "task_notification", "task_updated"].includes(frame.subtype)) {
         if (tasks.size && turnId && !active && !cancelling) {
           generation++;
           active = true;
           clearFinalAssistantResult();
-          await publish({ type: "continued", source: frame.subtype });
+          await emit({ type: "continued", source: frame.subtype });
         }
-        await publish({ type: "diagnostic", stage: "background_tasks", nativeEvent: frame.subtype,
+        await emit({ type: "diagnostic", stage: "background_tasks", nativeEvent: frame.subtype,
           active, pendingCommands: inFlight.size, backgroundTasks: tasks.size });
       }
     } else if (frame.type === "stream_event") {
@@ -512,21 +496,21 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
         if (block && typeof delta === "string") {
           block.text += delta;
           checkOutput(block.text, block.role);
-          await publishMessage(block);
-          await publish({ type: block.role === "thinking" ? "thinking" : "text", text: delta, messageId: id });
+          await publishMessage(block, emit);
+          await emit({ type: block.role === "thinking" ? "thinking" : "text", text: delta, messageId: id });
         }
       } else if (event.type === "content_block_stop") {
         if (![...pendingAssistantMessages.values()].some(blocks => blocks.some(block => block.outputId === id))) {
           messages.delete(id);
-          await publish({ type: "message-complete", messageId: id });
+          await emit({ type: "message-complete", messageId: id });
         }
       } else if (event.type === "message_delta" && event.delta?.stop_reason) {
-        await flushAssistantMessages(messageId, event.delta.stop_reason === "tool_use" ? "commentary" : "assistant");
+        await flushAssistantMessages(messageId, event.delta.stop_reason === "tool_use" ? "commentary" : "assistant", emit);
       }
     } else if (frame.type === "assistant") {
       const apiMessageId = frame.message?.id;
       if (apiMessageId && frame.message.content?.some(block => block.type === "tool_use")) {
-        await flushAssistantMessages(apiMessageId, "commentary");
+        await flushAssistantMessages(apiMessageId, "commentary", emit);
       }
       for (const block of frame.message?.content || []) steeringBackground.called(block);
       for (const block of claudeMessageBlocks(frame)) {
@@ -539,41 +523,43 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
         }
         if (apiMessageId && block.role === "assistant") {
           const role = assistantRoles.get(apiMessageId);
-          if (role) await publishMessage({ ...block, role });
+          if (role) await publishMessage({ ...block, role }, emit);
           else {
             const pending = pendingAssistantMessages.get(apiMessageId) || [];
             pending.push(block);
             pendingAssistantMessages.set(apiMessageId, pending);
           }
-        } else await publishMessage(block);
+        } else await publishMessage(block, emit);
       }
       if (apiMessageId && frame.message.stop_reason) {
-        await flushAssistantMessages(apiMessageId, frame.message.stop_reason === "tool_use" ? "commentary" : "assistant");
+        await flushAssistantMessages(apiMessageId, frame.message.stop_reason === "tool_use" ? "commentary" : "assistant", emit);
       }
     } else if (frame.type === "result") {
       const failed = frame.is_error || frame.subtype !== "success";
       const interrupted = ["aborted_streaming", "aborted_tools"].includes(frame.terminal_reason);
       const role = failed || interrupted ? "commentary" : "assistant";
-      for (const id of pendingAssistantMessages.keys()) await flushAssistantMessages(id, role);
+      for (const id of pendingAssistantMessages.keys()) await flushAssistantMessages(id, role, emit);
       const output = typeof frame.structured_output === "object" ? JSON.stringify(frame.structured_output) : String(frame.result || "");
       checkOutput(output);
       const message = !failed ? "" : claudeResultError(frame, output);
       result = failed ? "" : output;
       if (result && ![...messages.values()].some((block) => block.complete && block.role === "assistant" && block.text === result)) {
-        await publishMessage(claudeResultMessage(frame, turnId, result));
+        await publishMessage(claudeResultMessage(frame, turnId, result), emit);
       }
       inFlight.delete(currentCommandId);
       for (const uuid of startedInputs) inFlight.delete(uuid);
       startedInputs.clear();
       if (cancelling) return;
-      outcome = { status: interrupted ? "interrupted" : failed ? "failed" : "completed", error: message };
+      const status = interrupted ? "interrupted" : failed ? "failed" : "completed";
+      outcome = { status, error: message };
       // The reply is final, but native background tasks still own the turn
       // (and may continue it). Keep it active and say what it is waiting for.
       if (active && tasks.size && !inFlight.size && phase !== "background") {
         phase = "background";
-        await publish({ type: "phase", phase });
+        await emit({ type: "phase", phase });
       }
-      await publish({ type: "diagnostic", stage: "native_result", status: outcome.status,
+      // A steer prepared during that wait owns completion and cleared this outcome.
+      await emit({ type: "diagnostic", stage: "native_result", status,
         terminalReason: frame.terminal_reason, active, pendingCommands: inFlight.size, backgroundTasks: tasks.size });
     }
     if ((frame.type === "system" || frame.type === "result" || frame.type === "command_lifecycle" && frame.state === "completed") &&
@@ -587,13 +573,18 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
           itemId: candidate.itemId, outputId: candidate.outputId, text: candidate.text,
           conversationTurn: candidate.conversationTurn } : null;
       latestSettlement = { type: "settled", ...read(), generation, source: frame.type };
-      try { await publish(latestSettlement); }
-      catch (error) { clearFinalAssistantResult(); throw error; }
+      try { await emit(latestSettlement); }
+      catch (error) {
+        // A superseded frame leaves the final receipt to the turn that replaced it.
+        if (error !== SUPERSEDED_FRAME) clearFinalAssistantResult();
+        throw error;
+      }
     }
   }
 
   function stop(reason = "Claude stopped before acknowledging the prompt.") {
     generation++;
+    epoch++;
     stopped = true;
     invalidateFinalAssistantResult();
     for (const pending of admissions.values()) {
@@ -624,6 +615,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     if (active) throw claudeTurnFailure("This Claude turn is still working.", { messageCode: "assistant.claude.turnStillWorking" });
     if (!id || !Number.isSafeInteger(maxOutputCharacters) || maxOutputCharacters < 1) throw new TypeError("Invalid Claude turn configuration.");
     generation++;
+    epoch++;
     clearTurnView();
     turnId = id;
     maximumOutput = maxOutputCharacters;
@@ -633,10 +625,17 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     cancelling = false;
     stopped = false;
     active = true;
+    return epoch;
+  }
+
+  // Whether the turn a lease from begin() or prepareSteering() names is still this one.
+  function holds(lease) {
+    return lease === epoch;
   }
 
   function reset() {
     if (active || inFlight.size || tasks.size) throw claudeTurnFailure("Stop Claude before resetting its turn view.", { messageCode: "assistant.claude.stopBeforeReset" });
+    epoch++;
     clearTurnView();
   }
 
@@ -663,13 +662,14 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       { delivery: "uncertain" }
     )), timeoutMs);
     admissions.set(uuid, { ...admitted, accept, timer, receiptOwner });
+    let unwritten = false;
     try {
       await Promise.all([client.send(message, { messageId: uuid, sessionId: conversationId })
-        .then(() => { if (steer) backgroundForegroundWork(); }), admitted.promise]);
+        .then(() => { if (steer) backgroundForegroundWork(); }, error => { unwritten = true; throw error; }), admitted.promise]);
     } catch (error) {
       waitingSteers.delete(uuid);
       if (inputOwner === receiptOwner) invalidateFinalAssistantResult();
-      throw error;
+      throw unwritten && !error.delivery ? unsentDelivery(error) : error;
     } finally {
       clearTimeout(timer);
     }
@@ -691,7 +691,9 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     outcome = null;
     acceptedInput = null;
     clearFinalAssistantResult();
+    const lease = epoch;
     await publish({ type: "diagnostic", stage: "steering_queued", pendingCommands: inFlight.size, backgroundTasks: tasks.size });
+    return lease;
   }
 
   async function cancel(client, stopProcess) {
@@ -721,6 +723,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       invalidateInstructions: instructions.invalidate
     } : {}),
     begin,
+    holds,
     reset,
     send,
     prepareSteering,

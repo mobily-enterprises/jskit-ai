@@ -6,6 +6,7 @@ import { setTimeout as delay } from "node:timers/promises";
 import { runClaudeRenewalTurn, waitForClaudeConversationTurn } from "../src/server/conversation/claudeTurn.js";
 import { createClaudeConversationTurn } from "../src/server/conversation/claudeNativeTurn.js";
 import { claudeNativeMessageId, readClaudeHistory } from "../src/server/conversation/claudeHistory.js";
+import { exploreHostWaits } from "./fixtures/hostWaits.js";
 
 function fixture() {
   const events = [];
@@ -694,6 +695,182 @@ test("Claude steering survives background completion while the follow-up is bein
   assert.equal(turn.read().text, "Revised answer");
 });
 
+// A turn whose host holds one publication, as its storage or checkpoint does,
+// so the test can steer, stop or replace the turn while a frame waits on it.
+function heldPublicationFixture() {
+  const events = [];
+  let hold = null;
+  const turn = createClaudeConversationTurn({ conversationId: "native-session", async onEvent(event) {
+    events.push(event);
+    if (!hold?.matches(event)) return;
+    const current = hold;
+    hold = null;
+    current.entered.resolve(event);
+    await current.release.promise;
+  } });
+  const client = { async send() {}, async interrupt() {} };
+  function holdAt(matches) {
+    hold = { matches, entered: Promise.withResolvers(), release: Promise.withResolvers() };
+    return hold;
+  }
+  async function deliver(id, options = {}) {
+    const uuid = claudeNativeMessageId(id);
+    const sending = turn.send(client, id, { messageId: uuid, accept: async () => {}, ...options });
+    await turn.receive({ type: "command_lifecycle", command_uuid: uuid, state: "queued" });
+    await sending;
+    await turn.receive({ type: "command_lifecycle", command_uuid: uuid, state: "started" });
+  }
+  turn.begin({ id: "turn-1" });
+  return { turn, events, holdAt, deliver };
+}
+
+test("a steer prepared while a background-only result is being published neither breaks that frame nor settles the turn with it", async () => {
+  const f = heldPublicationFixture();
+  await f.deliver("first");
+  await f.turn.receive({ type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" });
+  const held = f.holdAt(event => event.type === "phase" && event.phase === "background");
+  const receiving = f.turn.receive({ type: "result", subtype: "success", result: "Build started" });
+  await held.entered.promise;
+  // A person's message arrives while the host is still saving the background phase.
+  await f.turn.prepareSteering();
+  held.release.resolve();
+  await receiving;
+  assert.deepEqual([f.turn.read().active, f.turn.read().phase], [true, "background"]);
+  assert.equal(f.events.some(event => event.type === "settled"), false, "The steer owns this turn's completion now");
+  await f.deliver("steer", { steer: true });
+  await f.turn.receive({ type: "system", subtype: "task_notification", task_id: "build", status: "completed" });
+  assert.equal(f.turn.read().active, true);
+  await f.turn.receive({ type: "result", subtype: "success", result: "Steered answer" });
+  assert.deepEqual([f.turn.read().active, f.turn.read().status, f.turn.read().text], [false, "completed", "Steered answer"]);
+  assert.equal(f.events.filter(event => event.type === "settled").length, 1);
+});
+
+for (const [name, setup, frame, matches] of [
+  ["a background task's native event", [], { type: "system", subtype: "task_started", task_id: "late", task_type: "local_bash" },
+    event => event.type === "provider-event"],
+  ["a background-only result's phase", [{ type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" }],
+    { type: "result", subtype: "success", result: "Build started" }, event => event.type === "phase"],
+  ["an answer's first block", [], { type: "assistant", uuid: "old-answer", message: { content: [
+    { type: "text", text: "Old one" }, { type: "text", text: "Old two" }] } }, event => event.type === "message"],
+  ["a final answer's first flushed block", [], { type: "assistant", uuid: "old-final", message: { id: "old-api", stop_reason: "end_turn",
+    content: [{ type: "text", text: "Old one" }, { type: "text", text: "Old two" }] } }, event => event.type === "message"]
+]) test(`a frame resuming after Stop and the next turn's start leaves that turn alone: ${name}`, async () => {
+  const f = heldPublicationFixture();
+  await f.deliver("first");
+  for (const earlier of setup) await f.turn.receive(earlier);
+  const held = f.holdAt(matches);
+  const receiving = f.turn.receive(frame);
+  await held.entered.promise;
+  // The host stops this turn and begins the next one while the frame waits.
+  f.turn.stop("Stopped.");
+  f.turn.begin({ id: "turn-2" });
+  const begun = f.events.length;
+  held.release.resolve();
+  await receiving;
+  assert.deepEqual(f.events.slice(begun), [], "Nothing of the stopped turn is published into the next one");
+  const next = f.turn.read();
+  assert.deepEqual([next.turnId, next.active, next.status, next.text, next.phase, next.messages, next.pendingCommands, next.backgroundTasks],
+    ["turn-2", true, "inProgress", "", "", [], 0, 0]);
+  await f.deliver("next");
+  await f.turn.receive({ type: "result", subtype: "success", result: "Next answer" });
+  assert.deepEqual([f.turn.read().active, f.turn.read().status, f.turn.read().text], [false, "completed", "Next answer"]);
+});
+
+// Claude's frames for a turn that answers at once, and for one that starts a
+// build in the background, answers, and answers again once the build is done.
+const claudeTurnScripts = {
+  foreground: first => [
+    { type: "assistant", uuid: "answer", message: { id: "answer-api", stop_reason: "end_turn", content: [{ type: "text", text: "Done" }] } },
+    { type: "result", subtype: "success", result: "Done" },
+    { type: "command_lifecycle", command_uuid: first, state: "completed" }
+  ],
+  background: first => [
+    { type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" },
+    { type: "assistant", uuid: "started", message: { id: "started-api", stop_reason: "end_turn", content: [{ type: "text", text: "Build started" }] } },
+    { type: "result", subtype: "success", result: "Build started" },
+    { type: "system", subtype: "status", status: null },
+    { type: "system", subtype: "task_notification", task_id: "build", status: "completed" },
+    { type: "user", uuid: "build-notice", origin: { kind: "task-notification" } },
+    { type: "assistant", uuid: "passed", message: { id: "passed-api", stop_reason: "end_turn", content: [{ type: "text", text: "Build passed" }] } },
+    { type: "result", subtype: "success", result: "Build passed" },
+    { type: "command_lifecycle", command_uuid: first, state: "completed" }
+  ]
+};
+
+for (const [script, frames] of Object.entries(claudeTurnScripts)) test(`a steer, Stop, interruption or the next turn inside any of a Claude turn's host waits breaks nothing: ${script}`, async () => {
+  const waits = await exploreHostWaits(async ({ intervention, wait }) => {
+    const events = [];
+    const messages = [];
+    const client = { async send() {}, async interrupt() {} };
+    let reader = { open: true };
+    let superseded = null;
+    let steer = null;
+    // Only the script's waits are explored; the checks after it make none.
+    let exploring = true;
+    const turn = createClaudeConversationTurn({ conversationId: "native-session", async onEvent(event) {
+      events.push(event);
+      if (exploring) await wait(event.type, intervene);
+    } });
+    function send(id, options = {}) {
+      const uuid = claudeNativeMessageId(id);
+      const settled = turn.send(client, id, { messageId: uuid, ...options,
+        accept: async () => { if (exploring) await wait("accept", intervene); } })
+        .then(() => ({ id, delivered: true }), error => ({ id, error }));
+      messages.push(settled);
+      return { uuid, settled };
+    }
+    // The process's reader: once the host stops the process, it hands over no more frames.
+    const feed = async (frame, from = reader) => { if (from.open) await turn.receive(frame); };
+    async function intervene() {
+      if (intervention === "steer") {
+        try { await turn.prepareSteering(); }
+        catch (error) { messages.push(Promise.resolve({ id: "steer", error })); return; }
+        steer = send("steer", { steer: true });
+        return;
+      }
+      if (intervention === "interrupt") await turn.interrupt(client);
+      reader.open = false;
+      turn.stop("Stopped.");
+      if (intervention === "next turn") turn.begin({ id: "turn-2" });
+      superseded = events.length;
+    }
+    turn.begin({ id: "turn-1" });
+    const first = send("first");
+    await feed({ type: "command_lifecycle", command_uuid: first.uuid, state: "queued" });
+    await feed({ type: "command_lifecycle", command_uuid: first.uuid, state: "started" });
+    for (const frame of frames(first.uuid)) await feed(frame);
+    exploring = false;
+    if (superseded !== null) {
+      assert.deepEqual(events.slice(superseded), [], "A stopped turn publishes nothing more");
+      if (intervention === "next turn") {
+        const next = turn.read();
+        assert.deepEqual([next.turnId, next.active, next.text, next.phase, next.messages, next.pendingCommands, next.backgroundTasks],
+          ["turn-2", true, "", "", [], 0, 0], "The next turn starts clean");
+      }
+    }
+    if (steer) {
+      await feed({ type: "command_lifecycle", command_uuid: steer.uuid, state: "queued" });
+      await feed({ type: "command_lifecycle", command_uuid: steer.uuid, state: "started" });
+      await feed({ type: "result", subtype: "success", result: "Steered answer" });
+      assert.deepEqual([turn.read().active, turn.read().status, turn.read().text], [false, "completed", "Steered answer"]);
+    }
+    // Every message is delivered, or refused with Claude's own reason.
+    for (const outcome of await Promise.all(messages)) {
+      if (outcome.error) assert.ok(outcome.error.code || outcome.error.delivery, `${outcome.id}: ${outcome.error.stack}`);
+    }
+    // The next message always works.
+    reader = { open: true };
+    if (!turn.read().active) turn.begin({ id: "turn-last" });
+    const last = send("last");
+    await feed({ type: "command_lifecycle", command_uuid: last.uuid, state: "queued" });
+    await feed({ type: "command_lifecycle", command_uuid: last.uuid, state: "started" });
+    await feed({ type: "result", subtype: "success", result: "Last answer" });
+    assert.deepEqual(await last.settled, { id: "last", delivered: true });
+    assert.deepEqual([turn.read().active, turn.read().status, turn.read().text], [false, "completed", "Last answer"]);
+  }, ["steer", "stop", "interrupt", "next turn"]);
+  assert.ok(waits.includes("accept") && waits.includes("settled") && waits.includes(script === "background" ? "phase" : "message"), waits.join());
+});
+
 test("lost acknowledgement stays uncertain and stop rejects pending admission", async () => {
   const { turn, client, send } = fixture();
   client.send = async () => {};
@@ -1045,6 +1222,7 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
       }
     },
     async onEvent(entry, event) {
+      await behavior.event?.(entry, event);
       if (event.type === "before-state") await beforeState?.(entry, event);
       if (event.type === "admit-message" && canonicalAdmission) {
         await behavior.beforeAdmit?.();
@@ -1073,6 +1251,20 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
     async reopen() { entry = await owner.open(context, { mainId: conversationId }); return entry; } };
 }
 
+test("a prompt this server never wrote can still arrive only through an earlier server's Claude whose exit is unproven", async t => {
+  const f = await publishedClaudeFixture(t);
+  // After a restart, a message whose delivery was never settled was written,
+  // if at all, by the earlier server.
+  const inspect = async () => (await f.owner.inspectAdmission(f.entry, { messageId: "from-earlier-server" })).admission;
+  f.entry.executionId = "execution-of-earlier-server";
+  assert.equal(await inspect(), "unknown", "The earlier server's Claude may still record it");
+  f.entry.executionId = "";
+  // The Claude this server starts (a context read, say) never received it.
+  await f.owner.ensureProcess(f.entry);
+  assert.ok(f.entry.process);
+  assert.equal(await inspect(), "not-admitted");
+});
+
 test("Claude proves a prompt was not admitted only once no process can still record it", async t => {
   const f = await publishedClaudeFixture(t);
   const { inspectPersistentConversationAdmission } = await import("../src/server/conversation/providers/scoped.js");
@@ -1089,6 +1281,162 @@ test("Claude proves a prompt was not admitted only once no process can still rec
   assert.equal((await f.owner.inspectAdmission(f.entry, { messageId: "held" })).admission, "not-admitted");
   assert.equal((await f.owner.read(f.entry, { messageId: "held" })).notAdmitted, true);
   assert.equal((await persistent()).admission, "not-admitted");
+});
+
+test("Claude's background phase saved for a stopped turn is not published into the next turn", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("first");
+  await f.frame({ type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" });
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  f.setBeforeState(async (entry, event) => {
+    if (event.state !== "active" || entry.turn.phase !== "background") return;
+    f.setBeforeState(null);
+    entered.resolve();
+    await release.promise;
+  });
+  const receiving = f.frame({ type: "result", subtype: "success", result: "Build started" });
+  await entered.promise;
+  await f.owner.stopConversation(f.entry, "Stopped.");
+  await f.send("next");
+  const published = [];
+  f.behavior.event = (_entry, event) => { published.push(event); };
+  release.resolve();
+  await receiving;
+  assert.deepEqual(published.filter(event => event.type === "phase"), []);
+  assert.deepEqual([f.entry.turn.id, f.entry.turn.active, f.owner.snapshot(f.entry).phase], [claudeNativeMessageId("next"), true, ""]);
+  await f.frame({ type: "result", subtype: "success", result: "Next answer" });
+  assert.equal((await f.entry.completion.promise).text, "Next answer");
+});
+
+test("a finished Claude turn's goal refresh cannot complete the next turn", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("first");
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  f.behavior.event = async (_entry, event) => {
+    if (event.type !== "provider-update" || event.change !== "goal") return;
+    f.behavior.event = null;
+    entered.resolve();
+    await release.promise;
+  };
+  const settling = f.frame({ type: "result", subtype: "success", result: "First answer" });
+  await entered.promise;
+  // The person's next message begins the next turn while the host refreshes the goal.
+  await f.send("next");
+  const next = f.entry.completion.promise;
+  release.resolve();
+  await settling;
+  assert.equal(await Promise.race([next.then(() => "completed"), delay(20).then(() => "working")]), "working");
+  await f.frame({ type: "result", subtype: "success", result: "Next answer" });
+  assert.deepEqual([(await next).status, (await next).text], ["completed", "Next answer"]);
+});
+
+for (const [script, frames] of Object.entries(claudeTurnScripts)) test(`a person's message or Stop inside any host wait of a Claude conversation leaves every message decided and the next one working: ${script}`, { timeout: 120_000 }, async t => {
+  const waits = await exploreHostWaits(async ({ intervention, wait }) => {
+    const f = await publishedClaudeFixture(t);
+    const undelivered = [];
+    let person = null;
+    let written = null;
+    // What the host hears of the script's turn once Stop has ended it.
+    let afterStop = null;
+    const outcome = (id, sending) => sending.then(() => ({ id, delivered: true }), error => ({ id, error }));
+    // The checks wait for the intervention: a Stop inside the first message's
+    // own wait ends that message's send while the intervention still runs.
+    let intervened = null;
+    function intervene() {
+      intervened = act();
+      return intervened;
+    }
+    async function act() {
+      if (intervention !== "message") {
+        await f.owner.stopConversation(f.entry, "Stopped.");
+        afterStop = [];
+      }
+      if (intervention === "stop") return;
+      // A running Claude acknowledges a message on its reader later, not inside
+      // the write. Without a process the message starts one and is delivered
+      // inside this wait, unless this wait is inside a process start: messages
+      // queue behind a start in progress, so it lands once this wait is over.
+      const starting = await stillPending(f.entry.nativeTurn.whenIdle());
+      if (f.entry.process) written = holdClaudeWrites(f.entry.process);
+      person = outcome("person", f.owner.send(f.entry, { message: "Also check the logs.", messageId: "person" }));
+      if (written) await Promise.race([written, person]);
+      else if (!starting) await person;
+    }
+    f.behavior.event = (_entry, event) => {
+      if (afterStop && (event.type === "provider-event" ? event.event.script : ["message", "message-complete", "phase", "settled"].includes(event.type) ||
+          event.type === "diagnostic" && ["native_result", "background_tasks"].includes(event.stage))) afterStop.push(event);
+      return wait(event.type, intervene);
+    };
+    const first = await outcome("first", f.send("first"));
+    // The script is Claude's answer on the process the first message started;
+    // once that process is stopped its reader hands over no more frames.
+    const [reader] = f.processes;
+    const feed = async frame => { if (reader && f.entry.process === reader) await reader.options.onEvent({ session_id: f.conversationId, ...frame, script: true }); };
+    for (const frame of frames(claudeNativeMessageId("first"))) await feed(frame);
+    await intervened;
+    // Only the script's waits are explored; the checks after it make none.
+    f.behavior.event = null;
+    assert.deepEqual(afterStop || [], [], "A stopped turn publishes nothing more");
+    if (written && f.entry.process === reader) {
+      const uuid = await written;
+      await feed({ type: "command_lifecycle", command_uuid: uuid, state: "queued" });
+      await feed({ type: "command_lifecycle", command_uuid: uuid, state: "started" });
+      await feed({ type: "result", subtype: "success", result: "Logs checked" });
+    }
+    for (const result of [first, ...(person ? [await person] : [])]) {
+      if (!result.error) continue;
+      assert.ok(result.error.code || result.error.delivery, `${result.id}: ${result.error.stack}`);
+      if (result.error.delivery !== "not-sent") undelivered.push(result.id);
+    }
+    // Once its process is stopped, every undelivered message is decided.
+    await f.owner.stopConversation(f.entry, "Checked.");
+    for (const id of undelivered) {
+      assert.notEqual((await f.owner.inspectAdmission(f.entry, { messageId: id })).admission, "unknown", id);
+    }
+    // The next message always works.
+    await f.send("last");
+    await f.frame({ type: "result", subtype: "success", result: "Last answer" });
+    const last = await f.entry.completion.promise;
+    assert.deepEqual([last.status, last.text], ["completed", "Last answer"]);
+  }, ["message", "stop", "stop, then a message"]);
+  assert.ok(waits.includes("admit-message") && waits.includes("before-state") && waits.includes("provider-update"), waits.join());
+});
+
+test("a message whose turn a Stop and the next message replace while it is prepared is not sent, and leaves the next turn running", async t => {
+  const f = await publishedClaudeFixture(t);
+  let person;
+  f.behavior.event = async (_entry, event) => {
+    if (event.type !== "before-state" || event.state !== "starting") return;
+    // While the host saves the first message's starting turn, the person
+    // presses Stop and sends another message, which starts a new Claude.
+    f.behavior.event = null;
+    await f.owner.stopConversation(f.entry, "Stopped.");
+    person = f.owner.send(f.entry, { message: "Also check the logs.", messageId: "person" });
+    await person;
+  };
+  await assert.rejects(f.send("first"), error => error.code === "conversation_claude_turn_superseded" && error.delivery === "not-sent");
+  assert.equal((await person).delivered, true);
+  assert.deepEqual(f.behavior.nativeInputs, ["Also check the logs."], "The first message is never written to the stopped Claude");
+  assert.equal(f.entry.process, f.processes[1], "The new Claude keeps running");
+  assert.equal(f.entry.turn.active, true);
+  await f.frame({ type: "result", subtype: "success", result: "Logs checked" });
+  assert.deepEqual([(await f.entry.completion.promise).status, (await f.entry.completion.promise).text], ["completed", "Logs checked"]);
+});
+
+test("a Stop while the host saves a message's admission leaves that turn stopped and the next message a new turn", async t => {
+  const f = await publishedClaudeFixture(t);
+  f.behavior.event = async (_entry, event) => {
+    if (event.type !== "admit-message") return;
+    f.behavior.event = null;
+    await f.owner.stopConversation(f.entry, "Stopped.");
+  };
+  await assert.rejects(f.send("first"), /Stopped/);
+  assert.deepEqual([f.entry.turn.active, f.entry.turn.state], [false, "interrupted"], "The stopped turn stays stopped");
+  assert.equal((await f.send("next")).deliveryMode, "new_turn");
+  await f.frame({ type: "result", subtype: "success", result: "Next answer" });
+  assert.deepEqual([(await f.entry.completion.promise).status, (await f.entry.completion.promise).text], ["completed", "Next answer"]);
 });
 
 test("Claude status retains active instructions and applies changed guidance once idle", async t => {
@@ -1952,6 +2300,85 @@ for (const cancelled of [false, true]) test(`Claude supplied native settlement r
   assert.equal(f.entry.process, null);
   assert.equal(f.entry.command, null);
   assert.throws(() => first.assertCompletionCurrent());
+});
+
+// Claude writes a person's message into its pipe; its acknowledgement and every
+// later frame arrive in order on the process's reader, never inside the write.
+// Whether a promise is still pending, read without waiting for it: a settled
+// promise's reaction runs before the probe's own.
+async function stillPending(promise) {
+  const settled = Symbol("settled");
+  const probe = Promise.resolve(promise).then(() => settled, () => settled);
+  return await Promise.race([probe, Promise.resolve().then(() => "pending")]) !== settled;
+}
+
+function holdClaudeWrites(native) {
+  const send = native.client.send;
+  const written = Promise.withResolvers();
+  native.client.send = async (_message, input) => {
+    native.client.send = send;
+    written.resolve(input.messageId);
+  };
+  return written.promise;
+}
+
+test("a person's message while Claude waits on background tasks is delivered, and so is the next one", { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t);
+  await sendCommon(f, "background-first");
+  f.setBeforeState(() => {});
+  await f.frame({ type: "system", subtype: "task_started", task_id: "build", task_type: "local_bash" });
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  f.setBeforeState(async (entry, event) => {
+    if (event.state !== "active" || entry.turn.phase !== "background") return;
+    f.setBeforeState(() => {});
+    entered.resolve();
+    await release.promise;
+  });
+  const written = holdClaudeWrites(f.entry.process);
+  const result = f.frame({ type: "result", subtype: "success", result: "Build started" });
+  await entered.promise;
+  const steering = f.conversation.send({ messageId: "while-waiting", text: "Also check the logs.", steer: true });
+  void steering.catch(() => {});
+  const uuid = await written;
+  release.resolve();
+  await result;
+  await f.frame({ type: "command_lifecycle", command_uuid: uuid, state: "queued" });
+  assert.equal((await steering).status, "accepted");
+  await f.frame({ type: "system", subtype: "task_notification", task_id: "build", status: "completed" });
+  await f.frame({ type: "command_lifecycle", command_uuid: uuid, state: "started" });
+  await f.frame({ type: "result", subtype: "success", result: "Logs checked" });
+  await f.conversation.wait();
+  assert.equal(f.entry.turn.state, "completed");
+  assert.equal((await f.conversation.send({ messageId: "after-background", text: "Next question" })).status, "accepted");
+});
+
+for (const [recorded, restarted] of [[false, false], [true, false], [false, true]]) test(`a message lost with its failed Claude process never blocks the next message, recorded=${recorded}${restarted ? ", Claude restarted" : ""}`, { timeout: 10_000 }, async t => {
+  const f = await suppliedCommonFixture(t);
+  await sendCommon(f, "failing-first");
+  f.setBeforeState(() => {});
+  const native = f.entry.process;
+  const written = holdClaudeWrites(native);
+  const steering = f.conversation.send({ messageId: "lost-with-process", text: "Also check the logs.", steer: true });
+  void steering.catch(() => {});
+  const uuid = await written;
+  if (recorded) {
+    // Claude saved the message in its history before its process ended.
+    const directory = path.join(f.context.workdir, "projects", f.context.workdir.replace(/[^a-zA-Z0-9]/gu, "-"));
+    await mkdir(directory, { recursive: true });
+    await appendFile(path.join(directory, `${f.conversationId}.jsonl`),
+      `${JSON.stringify({ type: "user", uuid, message: { content: "Also check the logs." } })}\n`);
+  }
+  // The process's reader reports its failure, as when Claude exits or one of its frames cannot be handled.
+  await native.options.onFailure(new Error("Claude exited unexpectedly."));
+  await assert.rejects(steering);
+  assert.equal(f.entry.process, null);
+  // A new Claude process can never record a prompt written to the one that failed.
+  if (restarted) assert.notEqual(await f.owner.ensureProcess(f.entry), native);
+  assert.equal((await f.conversation.send({ messageId: "after-failure", text: "Next question" })).status, "accepted");
+  const sent = (await f.binding.transcript.readConversationLog()).flatMap(turn => turn.messages).map(message => message.messageId);
+  assert.equal(sent.includes("lost-with-process"), recorded, "Only Claude's own record makes the lost message delivered");
+  assert.ok(sent.includes("after-failure"));
 });
 
 test("Claude supplied common checkpoint failure preserves original refusal and native cleanup", { timeout: 10_000 }, async t => {

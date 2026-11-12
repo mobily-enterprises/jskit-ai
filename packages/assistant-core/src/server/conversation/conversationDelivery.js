@@ -6,6 +6,14 @@ import { createConversationChangeover, conversationNativeMessages } from "./cont
 import { deliveryFailure, failure, stateErrorFields } from "./conversationRefusals.js";
 import { pendingSuccessor, retainedSegments, submittedMessage } from "./conversationReads.js";
 
+// An engine's receipt for an attempted message: accepted, proved never
+// admitted, or unknown. A proved non-admission settles the attempt; dropping it
+// would leave that one message to refuse every later one as unconfirmed.
+function nativeAdmission(observation) {
+  if (observation.accepted) return "accepted";
+  return observation.notAdmitted === true || observation.admission === "not-admitted" ? "not-admitted" : "unknown";
+}
+
 /** @typedef {import("./conversationEntries.js").ConversationEntry} ConversationEntry */
 /** @typedef {import("./conversationSending.js").ConversationRequest} ConversationRequest */
 
@@ -146,13 +154,13 @@ function createConversationDelivery({ storage, transcript, events, entries, read
           if (entry.conversation) {
             observation = await entry.provider.inspectAdmission({ messageId, threadId, context });
             await events.access(context, entry.id, request?.operation || "inspectDelivery", entry);
-            return { admission: observation.accepted ? "accepted" : "unknown" };
+            return { admission: nativeAdmission(observation) };
           }
           const { runtime } = await storage.read(entry.id, transaction => transaction.readMetadata());
           if (!threadId || threadId !== conversationNativeIdentity(runtime) || runtime.request?.messageId !== messageId) return null;
           observation = await entry.provider.inspectAdmission({ ...runtime.request, context, configuration: runtime.configuration });
           await events.access(context, entry.id, request?.operation || "inspectDelivery", entry);
-          return { admission: observation.accepted ? "accepted" : "unknown" };
+          return { admission: nativeAdmission(observation) };
         }
       }
     });

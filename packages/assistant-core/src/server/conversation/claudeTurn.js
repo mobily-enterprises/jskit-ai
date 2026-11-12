@@ -19,6 +19,23 @@ function nativeWorkSettled(entry) {
   return !entry.sending && !entry.process && !entry.executionId && !entry.command && !entry.stopPending;
 }
 
+// Whether Claude can still record a prompt its history lacks. A send or stop in
+// progress can, and so can the process the prompt was written to while that
+// process lives or its exit is unproven: a prompt written to a process since
+// proved stopped never arrives, even once another process runs. This server
+// records each prompt's process just before writing it (the latest 64; Claude
+// reads its input in order), so a prompt without a record was written, if at
+// all, by an earlier server: only that server's execution, while its exit is
+// unproven, can still record it.
+function promptCanStillArrive(entry, uuid) {
+  if (nativeWorkSettled(entry)) return false;
+  if (entry.sending || entry.stopPending) return true;
+  const written = entry.promptProcesses?.get(uuid);
+  if (!written) return Boolean(entry.executionId) && !runsNativeWork(entry);
+  return Boolean(written.process && written.process === entry.process ||
+    written.executionId && written.executionId === entry.executionId);
+}
+
 // Work this server is running: a send, command or stop in progress, a live
 // process, or a startup still lending cleanup. A restored execution with none
 // of these belongs to an earlier server; no Claude process outlives the
@@ -542,7 +559,7 @@ export function createClaudeConversationOwner({
     return { ...entry.nativeTurn.readResult(), ok: true,
       messages: [...messages.values()].map(message => ({ ...message,
         ...(message.userId ? { requestMessageId: requestIds.get(message.userId) || "" } : {}) })), text: current.text || history.text,
-      admitted, notAdmitted: !admitted && Boolean(input.messageId) && nativeWorkSettled(entry) };
+      admitted, notAdmitted: !admitted && Boolean(input.messageId) && !promptCanStillArrive(entry, claudeNativeMessageId(input.messageId)) };
   }
 
   async function inspectAdmission(entry, input) {
@@ -550,7 +567,7 @@ export function createClaudeConversationOwner({
     const history = await readHistory(entry);
     const turnId = claudeNativeMessageId(input.messageId);
     const accepted = history.userIds.includes(turnId);
-    const admission = accepted ? "accepted" : nativeWorkSettled(entry) ? "not-admitted" : "unknown";
+    const admission = accepted ? "accepted" : promptCanStillArrive(entry, turnId) ? "unknown" : "not-admitted";
     return { ok: true, admission, messageId: input.messageId,
       threadId: entry.id, turnId: accepted ? turnId : "" };
   }
@@ -682,6 +699,7 @@ export function createClaudeConversationOwner({
     readFinalAssistantResult,
     readHistory,
     nativeWorkSettled,
+    promptCanStillArrive,
     ensureReady,
     ensureProcess,
     readContextUsage,

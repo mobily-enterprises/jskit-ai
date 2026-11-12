@@ -370,6 +370,11 @@ Local functions
 Exports
 - `createClaudeCommandRun({ bound, preparation, send, interrupt })`
 
+### `src/server/conversation/claudeEntryStop.js`
+Exports
+- `setClaudeTurnState(entry, state, message = "")`
+- `stopClaudeEntryProcess(turn, reason = "", { preparing = false } = {})`
+
 ### `src/server/conversation/claudeHistory.js`
 Exports
 - `claudeNativeMessageId(id)`
@@ -399,7 +404,7 @@ Exports
 - `type ClaudeTurnProcess`
 Local functions
 - `steeringRefusal(message, { messageCode, finished })`
-- `setClaudeTurnState(entry, state, message = "")`
+- `unsentDelivery(error)`
 - `claudeTurnResult(entry, current)`
 - `claudeProviderChange(frame)`
 - `continuesClaudeTurn(frame)`
@@ -444,6 +449,8 @@ Exports
 ### `src/server/conversation/claudePromptDelivery.js`
 Exports
 - `createClaudePromptDelivery({ store, preparation, createError, onEvent, readHistory, bindAccount, ensureProcess, snapshot })`
+Local functions
+- `rememberPromptProcess(entry, uuid)`
 
 ### `src/server/conversation/claudeSessionCleanup.js`
 Exports
@@ -476,6 +483,7 @@ Exports
 - `type ClaudeConversationErrorFactory`
 Local functions
 - `nativeWorkSettled(entry)`
+- `promptCanStillArrive(entry, uuid)`
 - `runsNativeWork(entry)`
 
 ### `src/server/conversation/codexAccountReader.js`
@@ -1220,6 +1228,8 @@ Exports
 - `type ConversationEntry`
 - `type ConversationRequest`
 - `type ConversationDelivery`
+Local functions
+- `nativeAdmission(observation)`
 
 ### `src/server/conversation/conversationEntries.js`
 Exports

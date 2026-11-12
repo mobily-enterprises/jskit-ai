@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdir, mkdtemp, rename, rm, readFile, writeFile } from "node:fs/promises";
+import { chmod, mkdir, mkdtemp, rename, rm, readFile, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { createConversationRuntime, createFileConversationStorage, upgradeConversationRuntimeState } from "../src/server/conversation/index.js";
@@ -818,10 +818,13 @@ test("uncertain native delivery is reconciled from history without a second infe
   const binding = (await f.storage.read("conversation", transaction => transaction.readMetadata())).runtime.binding;
   const historyPath = path.join(f.directory, "claude", "projects", f.directory.replace(/[^a-zA-Z0-9]/gu, "-"), `${binding.conversationId}.jsonl`);
   // A production Send checks the previous receipt first. Keep that receipt
-  // genuinely unavailable while proving the unknown-delivery refusal.
-  await rename(historyPath, `${historyPath}.unavailable`);
+  // genuinely unavailable while proving the unknown-delivery refusal: Claude's
+  // history is there but cannot be read. (An absent history is Claude's proof
+  // that it never recorded the prompt, as for the dropped prompt below.)
+  const { mode } = await stat(historyPath);
+  await chmod(historyPath, 0o000);
   try { await assert.rejects(f.conversation.send(input), { code: "conversation_delivery_uncertain" }); }
-  finally { await rename(`${historyPath}.unavailable`, historyPath); }
+  finally { await chmod(historyPath, mode); }
   const receipt = await f.conversation.inspectDelivery({ messageId: "lost-ack" });
   assert.equal(receipt.status, "accepted");
   assert.equal(receipt.recovered, true);

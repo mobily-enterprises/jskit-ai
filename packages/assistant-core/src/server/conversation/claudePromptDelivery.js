@@ -3,6 +3,15 @@ import { claudeNativeMessageId } from "./claudeHistory.js";
 import { normalizeNullableText } from "./normalize.js";
 import { ignorePromptSending, ignoreReceipt } from "./nativeCommandCallbacks.js";
 
+// The process each recent prompt was written to. Only that process, while it
+// lives, can still record a prompt its history lacks (see promptCanStillArrive).
+function rememberPromptProcess(entry, uuid) {
+  entry.promptProcesses ||= new Map();
+  entry.promptProcesses.delete(uuid);
+  entry.promptProcesses.set(uuid, { process: entry.process, executionId: entry.executionId });
+  if (entry.promptProcesses.size > 64) entry.promptProcesses.delete(entry.promptProcesses.keys().next().value);
+}
+
 /**
  * Delivers an authored input to an entry's Claude process: duplicate checks,
  * preparation, steering, the new turn, and the native and persisted receipts.
@@ -78,6 +87,9 @@ export function createClaudePromptDelivery({
     if (input.signal?.aborted) {
       throw Object.assign(createError("The goal command was stopped before delivery.", { code: "conversation_claude_command_stopped" }), { delivery: "not-sent" });
     }
+    // The turn this input is for. A Stop or the next turn that replaces it while
+    // the input is prepared leaves the input unsent and that turn untouched.
+    let lease;
     if (steering) {
       if (command) {
         await command.beforeDispatch({ threadId: entry.id });
@@ -85,7 +97,7 @@ export function createClaudePromptDelivery({
       }
       // A mid-turn message is never an interrupt: Claude Code queues it and
       // reads it after the running tool call. Only explicit Stop interrupts.
-      try { await entry.nativeTurn.prepareSteering(); }
+      try { lease = await entry.nativeTurn.prepareSteering(); }
       catch (error) {
         if (!command) await entry.nativeTurn.stopProcess(error.message);
         // This precedes the input's pipe write: a refused steer is definitely not sent.
@@ -100,7 +112,7 @@ export function createClaudePromptDelivery({
     }
     if (!steering) {
       entry.renewal = renewal;
-      entry.nativeTurn.begin({ id: uuid, maxOutputCharacters: command ? command.maximumOutput : entry.profile?.limits.maxOutputCharacters });
+      lease = entry.nativeTurn.begin({ id: uuid, maxOutputCharacters: command ? command.maximumOutput : entry.profile?.limits.maxOutputCharacters });
       entry.observationError = "";
       entry.turn = { id: uuid, active: true, state: "starting", startedAt: new Date().toISOString(), updatedAt: new Date().toISOString(), error: "" };
       if (!command) entry.completion = Promise.withResolvers();
@@ -135,6 +147,9 @@ export function createClaudePromptDelivery({
         if (admission) conversationTurn = await admission;
         deliveryTiming?.("receipt-written");
       }
+      // A Stop or the next turn while the host saved this admission has already
+      // refused it: the turn's state now belongs to what replaced it.
+      if (!entry.nativeTurn.holds(lease)) return;
       if (!command) {
         await entry.nativeTurn.updateState("active");
         deliveryTiming?.("state-active");
@@ -170,10 +185,16 @@ export function createClaudePromptDelivery({
       if (input.signal?.aborted) {
         throw Object.assign(createError("The goal command was stopped before delivery.", { code: "conversation_claude_command_stopped" }), { delivery: "not-sent" });
       }
+      if (!entry.nativeTurn.holds(lease)) {
+        throw Object.assign(createError("A Stop or another message replaced this message's turn before it was sent.",
+          { code: "conversation_claude_turn_superseded" }), { delivery: "not-sent" });
+      }
+      rememberPromptProcess(entry, uuid);
       await entry.nativeTurn.send(command ? entry.process.client : native.client, command ? preparation.message(entry, input) : prompt,
         { messageId: uuid, accept, steer: steering, ...(command ? { timeoutMs: command.timeoutMs } : {}) });
     } catch (error) {
-      if (!command) await entry.nativeTurn.stopProcess(error.message);
+      // Only this input's own turn is cleaned up; one that replaced it is not.
+      if (!command && entry.nativeTurn.holds(lease)) await entry.nativeTurn.stopProcess(error.message);
       throw error;
     }
     return deliveryResult();

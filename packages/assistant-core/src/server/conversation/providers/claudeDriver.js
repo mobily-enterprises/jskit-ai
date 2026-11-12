@@ -508,7 +508,7 @@ export function createClaudeConversationDriver({
         const history = await owner.readHistory(entry);
         const nativeId = claudeNativeMessageId(input.messageId);
         const accepted = history.userIds.includes(nativeId);
-        return { accepted, notAdmitted: !accepted && owner.nativeWorkSettled(entry),
+        return { accepted, notAdmitted: !accepted && !owner.promptCanStillArrive(entry, nativeId),
           messages: history.messages.filter(message => message.userId === nativeId) };
       },
       steer: command => owner.steer(control, command, commandOptions),
