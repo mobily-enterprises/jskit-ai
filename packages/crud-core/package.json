@@ -22,7 +22,7 @@
   "dependencies": {
     "@jskit-ai/resource-core": "0.1.212",
     "@jskit-ai/resource-crud-core": "0.1.214",
-    "json-rest-api": "3.1.5",
+    "json-rest-api": "3.1.6",
     "json-rest-schema": "^1.0.20"
   },
   "description": "Shared server-side CRUD service, repository, route, and query helpers.",
