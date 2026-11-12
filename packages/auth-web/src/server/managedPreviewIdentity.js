@@ -269,37 +269,86 @@ async function login(fetchImpl, targetOrigin, identity, secret, session) {
   if (!fetchResponse.ok || payload?.ok !== true) {
     throw rejected(payload, fetchResponse, { setCookie, signedOut: true });
   }
-  return {
-    identity: {
-      displayName: String(payload.displayName || payload.username || "").trim(),
-      email: String(payload.email || identity.email || "").trim().toLowerCase(),
-      userId: String(payload.userId || identity.userId || "").trim(),
-      username: String(payload.username || "").trim()
-    },
-    // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
-    setCookie
+  // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
+  return { identity: payload, setCookie };
+}
+
+/**
+ * JSKIT's development exchange, the default: it signs the preview browser out, and for `login-as` back in through the
+ * development login-as route, so it needs both development values in the application's environment.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
+ * @returns {PreviewIdentityExchange}
+ */
+function developmentExchange(env) {
+  const devAuth = resolveDevAuthPolicyFromEnv(env);
+  if (!isDevAuthBootstrapEnabled(devAuth)) {
+    throw commandError(
+      "Managed preview identity is not enabled.",
+      "jskit_managed_preview_identity_disabled",
+      { statusCode: 403 }
+    );
+  }
+  if (!devAuth.secret) {
+    throw commandError(
+      "Managed preview identity secret is unavailable.",
+      "jskit_managed_preview_identity_secret_missing",
+      { statusCode: 500 }
+    );
+  }
+  return async ({ operation, identity, targetOrigin, fetchImpl }) => {
+    const session = await bootstrapSession(fetchImpl, targetOrigin);
+    const signedOutSession = await logout(fetchImpl, targetOrigin, session);
+    return operation === "logout"
+      ? signedOutSession
+      : login(fetchImpl, targetOrigin, identity, devAuth.secret, signedOutSession);
   };
 }
 
 /**
+ * The identity a sign-in reports: what the application answered, else what the request asked for.
+ * @param {Record<string, any> | null | undefined} answered
+ * @param {{ email?: string, userId?: string }} asked
+ */
+function signedInIdentity(answered, asked) {
+  return {
+    displayName: String(answered?.displayName || answered?.username || "").trim(),
+    email: String(answered?.email || asked.email || "").trim().toLowerCase(),
+    userId: String(answered?.userId || asked.userId || "").trim(),
+    username: String(answered?.username || "").trim()
+  };
+}
+
+/**
+ * How the preview browser is signed in or out: given the operation, the existing user a `login-as` names
+ * (`{ email }` or `{ userId }`, else null), the checked local target origin and the fetch to reach it with, it resolves
+ * with the Set-Cookie headers for the browser and, for `login-as`, what the application says about the user signed
+ * in. A refusal is an error whose `code`, `statusCode`, `setCookie` and `signedOut` the response reports.
+ * @typedef {(call: { operation: "login-as" | "logout", identity: { email?: string, userId?: string } | null, targetOrigin: string, fetchImpl: typeof fetch }) => Promise<{ setCookie: string[], identity?: Record<string, any> | null }>} PreviewIdentityExchange
+ */
+
+/**
  * Answers one preview identity request: signs the preview browser out, and for
  * `login-as` back in as an existing application user, through the development
- * exchange. The preview host names the protocol id and any hostnames, besides
+ * exchange, or through the application's own `exchange` when it has another
+ * way in. The preview host names the protocol id and any hostnames, besides
  * loopback, that it serves the application on.
  * @param {Record<string, any>} value The command's request, which is validated here.
  * @param {object} options
- * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env The application's environment, such as `process.env`.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} [options.env] The application's environment, such as
+ *   `process.env`, which the development exchange reads; required without `exchange`.
  * @param {typeof fetch} [options.fetchImpl]
  * @param {string} [options.protocol] The protocol id requests carry and responses echo.
  * @param {RegExp[]} [options.localHostnames] Hostnames, besides loopback, the application is served on.
+ * @param {PreviewIdentityExchange} [options.exchange] The application's own exchange, in place of the development one.
  */
 async function executeManagedPreviewIdentityRequest(value, {
   env,
   fetchImpl = globalThis.fetch,
   protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
-  localHostnames = []
+  localHostnames = [],
+  exchange
 }) {
-  if (!env) {
+  if (!env && !exchange) {
     throw new TypeError("executeManagedPreviewIdentityRequest requires the application's environment, such as process.env.");
   }
   let requestId = String(value?.requestId || "").trim();
@@ -314,42 +363,25 @@ async function executeManagedPreviewIdentityRequest(value, {
         { statusCode: 500 }
       );
     }
-    const devAuth = resolveDevAuthPolicyFromEnv(env);
-    if (!isDevAuthBootstrapEnabled(devAuth)) {
-      throw commandError(
-        "Managed preview identity is not enabled.",
-        "jskit_managed_preview_identity_disabled",
-        { statusCode: 403 }
-      );
-    }
-    if (!devAuth.secret) {
-      throw commandError(
-        "Managed preview identity secret is unavailable.",
-        "jskit_managed_preview_identity_secret_missing",
-        { statusCode: 500 }
-      );
-    }
+    const run = exchange || developmentExchange(env);
     const identity = request.operation === "login-as"
       ? identityFromSubject(request.subject)
       : null;
-    const session = await bootstrapSession(fetchImpl, request.targetOrigin);
-    const signedOutSession = await logout(fetchImpl, request.targetOrigin, session);
-    if (request.operation === "logout") {
-      return response(protocol, requestId, {
-        identity: null,
-        ok: true,
-        // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
-        setCookie: signedOutSession.setCookie,
-        signedOut: true
-      });
+    const result = await run({ operation: request.operation, identity, targetOrigin: request.targetOrigin, fetchImpl });
+    if (!Array.isArray(result?.setCookie)) {
+      throw commandError(
+        "Managed preview identity exchange returned no cookie list.",
+        "jskit_managed_preview_identity_exchange_invalid",
+        { statusCode: 502 }
+      );
     }
-    const result = await login(fetchImpl, request.targetOrigin, identity, devAuth.secret, signedOutSession);
+    const signedOut = request.operation === "logout";
     return response(protocol, requestId, {
-      identity: result.identity,
+      identity: signedOut ? null : signedInIdentity(result.identity, identity),
       ok: true,
       // readable-check: allow setter-seam - not a slot: setCookie is the preview identity protocol's list of Set-Cookie headers
       setCookie: result.setCookie,
-      signedOut: false
+      signedOut
     });
   } catch (error) {
     return failure(protocol, requestId, error);
@@ -359,12 +391,14 @@ async function executeManagedPreviewIdentityRequest(value, {
 /**
  * Reads one request from stdin and writes its response to stdout.
  * @param {object} options
- * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} options.env The application's environment, such as `process.env`.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} [options.env] The application's environment, such as
+ *   `process.env`, which the development exchange reads; required without `exchange`.
  * @param {typeof fetch} [options.fetchImpl]
  * @param {AsyncIterable<string | Buffer>} [options.stdin]
  * @param {{ write(text: string): unknown }} [options.stdout]
  * @param {string} [options.protocol] The protocol id requests carry and responses echo.
  * @param {RegExp[]} [options.localHostnames] Hostnames, besides loopback, the application is served on.
+ * @param {PreviewIdentityExchange} [options.exchange] The application's own exchange, in place of the development one.
  */
 async function runManagedPreviewIdentityCommand({
   env,
@@ -372,7 +406,8 @@ async function runManagedPreviewIdentityCommand({
   stdin = process.stdin,
   stdout = process.stdout,
   protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
-  localHostnames = []
+  localHostnames = [],
+  exchange
 }) {
   let request;
   try {
@@ -381,7 +416,7 @@ async function runManagedPreviewIdentityCommand({
     stdout.write(`${JSON.stringify(failure(protocol, "", error))}\n`);
     return 0;
   }
-  const result = await executeManagedPreviewIdentityRequest(request, { env, fetchImpl, protocol, localHostnames });
+  const result = await executeManagedPreviewIdentityRequest(request, { env, fetchImpl, protocol, localHostnames, exchange });
   stdout.write(`${JSON.stringify(result)}\n`);
   return 0;
 }

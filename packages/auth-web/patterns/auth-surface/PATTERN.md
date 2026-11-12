@@ -76,6 +76,16 @@ managed-preview identity library directly; it does not require a JSKIT CLI. A
 project without a managed host keeps the executable; it is inert unless both
 environment values are present.
 
+An application whose browsers get in another way, so that the development
+login-as route is unreachable (for example one that opens with its own key),
+passes its own `exchange` instead. It receives the operation, the existing
+user a `login-as` names (`{ email }` or `{ userId }`), the checked local target
+origin and the fetch to reach it with, and resolves with the browser's
+Set-Cookie headers and, for `login-as`, the user signed in; a refusal is an
+error with a `code` and `statusCode`. JSKIT still reads and checks the request
+and writes the response, and needs no development values then, so the
+declaration drops the two environment names.
+
 Choose local-auth storage through the installed capability provider. A
 database-backed application installs `@jskit-ai/auth-provider-local-db-core`,
 which provides `auth.local.backend`; no environment switch selects it. When no

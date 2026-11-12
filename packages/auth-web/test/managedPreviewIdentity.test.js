@@ -4,7 +4,8 @@ import test from "node:test";
 
 import {
   DEFAULT_PREVIEW_IDENTITY_PROTOCOL,
-  executeManagedPreviewIdentityRequest
+  executeManagedPreviewIdentityRequest,
+  runManagedPreviewIdentityCommand
 } from "../src/server/managedPreviewIdentity.js";
 
 const SECRET = "a".repeat(64);
@@ -195,4 +196,100 @@ test("the auth surface pattern ships the managed-preview login as standard", () 
     "- Secret environment: `AUTH_DEV_BYPASS_SECRET`",
     "- Runtimes: `nodejs`"
   ].join("\n")));
+});
+
+test("an application's own exchange signs the preview in instead of the development exchange", async () => {
+  const exchanged = [];
+  const request = {
+    operation: "login-as",
+    protocol: HOST_PROTOCOL,
+    requestId: "request-own",
+    subject: { kind: "selector", selector: { type: "email", value: "you@example.com" } },
+    target: { origin: "http://127.0.0.1:3000" }
+  };
+  const fetchImpl = async () => assert.fail("JSKIT's development exchange must not run");
+  const exchange = async (call) => {
+    exchanged.push(call);
+    return call.operation === "logout"
+      ? { setCookie: ["key=; Max-Age=0; Path=/"] }
+      : { identity: { displayName: "You", email: "You@Example.com" }, setCookie: ["key=k; Path=/; HttpOnly", "session=s; Path=/"] };
+  };
+
+  // No development exchange is enabled, and none is needed.
+  const signedIn = await executeManagedPreviewIdentityRequest(request, { ...HOST_OPTIONS, fetchImpl, exchange });
+  assert.equal(signedIn.ok, true);
+  assert.equal(signedIn.protocol, HOST_PROTOCOL);
+  assert.equal(signedIn.requestId, "request-own");
+  assert.equal(signedIn.signedOut, false);
+  assert.deepEqual(signedIn.identity, { displayName: "You", email: "you@example.com", userId: "", username: "" });
+  assert.deepEqual(signedIn.setCookie, ["key=k; Path=/; HttpOnly", "session=s; Path=/"]);
+  assert.deepEqual(exchanged[0], {
+    operation: "login-as",
+    identity: { email: "you@example.com" },
+    targetOrigin: "http://127.0.0.1:3000",
+    fetchImpl
+  });
+
+  const signedOut = await executeManagedPreviewIdentityRequest({ ...request, operation: "logout", subject: undefined }, {
+    ...HOST_OPTIONS,
+    fetchImpl,
+    exchange
+  });
+  assert.equal(signedOut.ok, true);
+  assert.equal(signedOut.signedOut, true);
+  assert.equal(signedOut.identity, null);
+  assert.deepEqual(signedOut.setCookie, ["key=; Max-Age=0; Path=/"]);
+  assert.equal(exchanged[1].identity, null);
+
+  // The request is checked before the exchange runs.
+  const remote = await executeManagedPreviewIdentityRequest({ ...request, target: { origin: "https://example.com" } }, {
+    ...HOST_OPTIONS,
+    exchange: async () => assert.fail("the exchange must not run")
+  });
+  assert.equal(remote.code, "jskit_managed_preview_identity_target_invalid");
+});
+
+test("an application's own exchange refuses with its own error, and must return its cookies", async () => {
+  const request = {
+    operation: "login-as",
+    protocol: HOST_PROTOCOL,
+    requestId: "request-refused",
+    subject: { kind: "selector", selector: { type: "email", value: "someone@example.com" } },
+    target: { origin: "http://localhost:3000" }
+  };
+  const refused = await executeManagedPreviewIdentityRequest(request, {
+    ...HOST_OPTIONS,
+    exchange: async () => {
+      throw Object.assign(new Error("This application has one person."), { code: "one_person", statusCode: 404 });
+    }
+  });
+  assert.deepEqual(
+    [refused.ok, refused.code, refused.error, refused.statusCode, refused.setCookie],
+    [false, "one_person", "This application has one person.", 404, []]
+  );
+
+  const cookieless = await executeManagedPreviewIdentityRequest(request, {
+    ...HOST_OPTIONS,
+    exchange: async () => ({ identity: { email: "someone@example.com" } })
+  });
+  assert.equal(cookieless.ok, false);
+  assert.equal(cookieless.code, "jskit_managed_preview_identity_exchange_invalid");
+});
+
+test("the preview identity command hands an application's exchange the request it reads", async () => {
+  const written = [];
+  const exitCode = await runManagedPreviewIdentityCommand({
+    protocol: HOST_PROTOCOL,
+    stdin: [Buffer.from(JSON.stringify({
+      operation: "logout",
+      protocol: HOST_PROTOCOL,
+      requestId: "request-command",
+      target: { origin: "http://localhost:3000" }
+    }))],
+    stdout: { write: (text) => written.push(text) },
+    exchange: async ({ operation }) => ({ setCookie: [`${operation}=done; Path=/`] })
+  });
+  assert.equal(exitCode, 0);
+  const answer = JSON.parse(written.join(""));
+  assert.deepEqual([answer.ok, answer.signedOut, answer.setCookie], [true, true, ["logout=done; Path=/"]]);
 });

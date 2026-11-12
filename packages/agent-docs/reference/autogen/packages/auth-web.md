@@ -329,8 +329,9 @@ Exports
 ### `src/server/managedPreviewIdentity.js`
 Exports
 - `DEFAULT_PREVIEW_IDENTITY_PROTOCOL`
-- `executeManagedPreviewIdentityRequest(value, { env, fetchImpl = globalThis.fetch, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] })`
-- `runManagedPreviewIdentityCommand({ env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [] })`
+- `executeManagedPreviewIdentityRequest(value, { env, fetchImpl = globalThis.fetch, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [], exchange })`
+- `runManagedPreviewIdentityCommand({ env, fetchImpl = globalThis.fetch, stdin = process.stdin, stdout = process.stdout, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL, localHostnames = [], exchange })`
+- `type PreviewIdentityExchange`
 Local functions
 - `commandError(message, code = "jskit_managed_preview_identity_failed", details = {})`
 - `response(protocol, requestId, values)`
@@ -348,6 +349,8 @@ Local functions
 - `bootstrapSession(fetchImpl, targetOrigin)`
 - `logout(fetchImpl, targetOrigin, session)`
 - `login(fetchImpl, targetOrigin, identity, secret, session)`
+- `developmentExchange(env)`
+- `signedInIdentity(answered, asked)`
 
 ### `src/server/routes/authRoutes.js`
 Exports

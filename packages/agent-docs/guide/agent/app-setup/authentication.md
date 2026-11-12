@@ -59,6 +59,12 @@ preview can sign its browser in as an existing account. Which accounts it may
 use stays the person's choice; the application never creates users for it, and
 the exchange is inert without both values.
 
+An application whose browsers get in another way, where the development
+login-as route is unreachable, passes `runManagedPreviewIdentityCommand` its own
+`exchange`, which signs the preview browser in or out and returns its
+Set-Cookie headers; its declaration then names no environment values (see the
+`auth/auth-surface` pattern).
+
 ## Server boundary
 
 `@jskit-ai/auth-core` exposes the policy, actor, extension, and action contracts.
