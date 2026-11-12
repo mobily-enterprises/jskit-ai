@@ -59,7 +59,8 @@ Local functions
 ### `src/server/lib/emailConfirmation.js`
 Exports
 - `CONFIRMATION_TOKEN_TTL_SECONDS`
-- `createLocalEmailConfirmation({ backend, config, confirmationSender, firstAccountSetup, invitationContextResolver, passwords, profileProjector, sessions })`
+- `confirmEveryRegistrationByLink()`
+- `createLocalEmailConfirmation({ backend, config, confirmationMode, confirmationSender, firstAccountSetup, invitationContextResolver, logger, passwords, profileProjector, sessions })`
 - `createLoggedConfirmationSender(logger)`
 - `createSimulatedConfirmationSender(logger)`
 Local functions
@@ -184,7 +185,7 @@ Exports
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, confirmationSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passwordStrategy, profileProjector, recoverySender })`
+- `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passwordStrategy, profileProjector, recoverySender })`
 
 ### `src/server/lib/sessions.js`
 Exports
@@ -235,6 +236,7 @@ Exports
 - `type AuthLocalPasswordStrategy`
 - `type AuthLocalRecoverySender`
 - `type AuthLocalConfirmationSender`
+- `type AuthLocalConfirmationMode`
 - `type AuthLocalConfig`
 - `type AuthLocalOAuthProvider`
 - `type AuthLocalFirstAccountSetup`

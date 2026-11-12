@@ -4,7 +4,7 @@ import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { createLocalAccounts } from "./accounts.js";
 import { PROVIDER_ID } from "./authPayloads.js";
-import { createLocalEmailConfirmation } from "./emailConfirmation.js";
+import { confirmEveryRegistrationByLink, createLocalEmailConfirmation } from "./emailConfirmation.js";
 import { createFirstAccountSetup } from "./firstAccountSetup.js";
 import { createLocalOAuthFlows } from "./oauthFlows.js";
 import { createLocalPasswordFlows } from "./passwordFlows.js";
@@ -18,6 +18,8 @@ import { createLocalSessions } from "./sessions.js";
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("../types.js").AuthLocalConfirmationMode} [dependencies.confirmationMode] The
+ *   `auth.local.confirmation-mode`; by default every registration waits for its link.
  * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
  *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender.
  * @param {import("../types.js").AuthLocalFirstAccountSetup} [dependencies.firstAccountSetup] The first
@@ -34,6 +36,7 @@ import { createLocalSessions } from "./sessions.js";
 function createLocalAuthService({
   backend,
   config,
+  confirmationMode = confirmEveryRegistrationByLink,
   confirmationSender,
   firstAccountSetup: givenFirstAccountSetup = null,
   invitationContextResolver,
@@ -100,9 +103,11 @@ function createLocalAuthService({
   const emailConfirmation = createLocalEmailConfirmation({
     backend,
     config,
+    confirmationMode,
     confirmationSender,
     firstAccountSetup,
     invitationContextResolver,
+    logger,
     passwords,
     profileProjector,
     sessions

@@ -26,7 +26,11 @@ purpose: any host can set it. The host sets it; a request never chooses it.
 - The server logs once at startup whether it acts for real. A production server
   that simulates logs a warning.
 - Local-password emails (confirmation and password reset) with an installed
-  sender are logged, not sent.
+  sender are logged, not sent: local auth uses its own simulated sender in
+  place of the application's, which never runs in a test copy. An application
+  that confirms new accounts at once while its email isn't set up uses
+  `auth.local.confirmation-mode`, which a test copy keeps (see
+  [Authentication](/guide/app-setup/authentication)).
 - Workspace invitations with a provided mailer are logged. The invitation
   answers `status: "simulated"`, and the inviter copies the link.
 - Accounts-hub email is logged, not sent.

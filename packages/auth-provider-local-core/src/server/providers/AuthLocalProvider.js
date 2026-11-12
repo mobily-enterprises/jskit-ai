@@ -6,7 +6,11 @@ import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { sideEffectsAreLive } from "@jskit-ai/kernel/shared/support/sideEffects";
 import { resolveLocalAuthConfig } from "../lib/config.js";
-import { createLoggedConfirmationSender, createSimulatedConfirmationSender } from "../lib/emailConfirmation.js";
+import {
+  confirmEveryRegistrationByLink,
+  createLoggedConfirmationSender,
+  createSimulatedConfirmationSender
+} from "../lib/emailConfirmation.js";
 import { createLocalFileBackend } from "../lib/fileBackend.js";
 import { createFirstAccountSetup } from "../lib/firstAccountSetup.js";
 import { createLoggedRecoverySender, createSimulatedRecoverySender } from "../lib/passwordFlows.js";
@@ -23,6 +27,7 @@ const AuthLocalProvider = defineProvider({
   },
   optional: {
     backend: "auth.local.backend",
+    confirmationMode: "auth.local.confirmation-mode",
     confirmationSender: "auth.local.confirmation-sender",
     passwordStrategy: "auth.local.password-strategy",
     profileProjector: "auth.profile.projector",
@@ -38,6 +43,8 @@ const AuthLocalProvider = defineProvider({
    * @param {object} dependencies
    * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
    * @param {import("../types.js").AuthLocalBackend | null} dependencies.backend The `auth.local.backend`, when one is installed.
+   * @param {import("../types.js").AuthLocalConfirmationMode | null} dependencies.confirmationMode The
+   *   `auth.local.confirmation-mode`, when one is installed.
    * @param {import("../types.js").AuthLocalConfirmationSender | null} dependencies.confirmationSender The
    *   `auth.local.confirmation-sender`, when one is installed.
    * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
@@ -48,7 +55,18 @@ const AuthLocalProvider = defineProvider({
    * @param {import("../types.js").AuthLocalRecoverySender | null} dependencies.recoverySender The `auth.local.recovery-sender`, when one is installed.
    */
   async boot(
-    { appRoot, backend, confirmationSender, env, extensions, logger, passwordStrategy, profileProjector, recoverySender },
+    {
+      appRoot,
+      backend,
+      confirmationMode,
+      confirmationSender,
+      env,
+      extensions,
+      logger,
+      passwordStrategy,
+      profileProjector,
+      recoverySender
+    },
     { outputs }
   ) {
     const fileBackend = backend === null;
@@ -59,11 +77,13 @@ const AuthLocalProvider = defineProvider({
     // A production server without accounts logs its setup code as it starts.
     const firstAccountSetup = createFirstAccountSetup({ backend: localBackend, config, logger });
     await firstAccountSetup.start();
-    // A test copy (SIDE_EFFECTS is not live) logs the emails an installed sender would send, and sends none.
+    // A test copy (SIDE_EFFECTS is not live) logs the emails an installed sender would send, and sends none, whatever
+    // the sender. The confirmation mode sends nothing, so a test copy keeps it.
     const live = sideEffectsAreLive(env);
     const baseService = createLocalAuthService({
       backend: localBackend,
       config,
+      confirmationMode: confirmationMode ?? confirmEveryRegistrationByLink,
       confirmationSender: emailConfirmationSender
         ? (live ? confirmationSender : createSimulatedConfirmationSender(logger))
         : createLoggedConfirmationSender(logger),

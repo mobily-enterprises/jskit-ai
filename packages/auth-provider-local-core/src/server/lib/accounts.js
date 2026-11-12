@@ -122,7 +122,8 @@ async function resolveRegistrationProfileOptions(invitationContextResolver, invi
 /**
  * The accounts of local auth: registering one (which waits for its email to
  * be confirmed while config.emailConfirmation is on, unless an invitation sent
- * to that email or the first account's setup code admits it), signing in with its
+ * to that email or the first account's setup code admits it, or the
+ * application's confirmation mode confirms it without a link), signing in with its
  * password (failures slow the account down, as config.signInThrottle says) or
  * as a dev user, and renaming it.
  * @param {object} dependencies
@@ -175,9 +176,10 @@ function createLocalAccounts({
     const profileOptions = await resolveRegistrationProfileOptions(invitationContextResolver, input.invitation, email);
     if (!config.selfRegistration) await admitClosedRegistration(profileOptions);
     const password = await passwords.hashPassword(input.password);
-    // The first account, admitted by the setup code only the operator can read, and an invited person need no link.
+    // The first account, admitted by the setup code only the operator can read, and an invited person need no link,
+    // nor does a registration the application's confirmation mode chose to confirm without one.
     const emailProven = firstAccount || invitationProvesEmail(profileOptions.invitation, email);
-    if (config.emailConfirmation && !emailProven) {
+    if (config.emailConfirmation && !emailProven && !(await emailConfirmation.confirmsWithoutLink(email))) {
       return emailConfirmation.begin({ email, displayName, password, invitation: normalizeInvitationInput(input.invitation) });
     }
     const result = await backend.withTransaction(async (tx) => {

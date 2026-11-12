@@ -113,6 +113,17 @@
  * @typedef {(delivery: { email: string, confirmationUrl: string }) => Promise<void>} AuthLocalConfirmationSender
  */
 
+/**
+ * The `auth.local.confirmation-mode` capability: the application's choice, for
+ * one registration that would wait for its email to be confirmed, of how it is
+ * confirmed. "link" sends the confirmation link, as without one; "without-link"
+ * creates the account and signs the person in at once, with an address nobody
+ * proved, for example while the application's email isn't set up. Any other
+ * answer means "link". It sends nothing, so a test copy keeps it, where it
+ * replaces the confirmation sender.
+ * @typedef {(registration: { email: string }) => Promise<"link" | "without-link">} AuthLocalConfirmationMode
+ */
+
 /** @typedef {ReturnType<typeof import("./lib/config.js").resolveLocalAuthConfig>} AuthLocalConfig */
 /** @typedef {AuthLocalConfig["oauthProviders"][number]} AuthLocalOAuthProvider */
 /** @typedef {ReturnType<typeof import("./lib/firstAccountSetup.js").createFirstAccountSetup>} AuthLocalFirstAccountSetup */

@@ -208,6 +208,54 @@ composition, pass the sender as `confirmationSender` to
 `resolveLocalAuthConfig()`; without one, pass
 `createLoggedConfirmationSender(logger)`.
 
+In a test copy (`SIDE_EFFECTS` is not `live`, see
+[Side effects and test copies](/guide/framework/side-effects)), local auth puts
+its own simulated sender in place of an installed
+`auth.local.confirmation-sender`, whatever that sender does: it sends nothing,
+logs each link for the person testing, and keeps the link out of the answer.
+The application's sender never runs there, so no code may depend on it having
+run, such as code that confirms a registration with the link its sender was
+given: in a test copy that code gets no link.
+
+An application that confirms new accounts at once while its email isn't set up
+says so with the optional `auth.local.confirmation-mode` capability, a function
+that receives `{ email }` for each registration that would wait for its link
+and answers `"link"` (send the link, as without the capability) or
+`"without-link"` (create the account and sign the person in at once, as a
+confirmed registration does, with the `auth.local.user.registered` hook). The
+account it creates has an address nobody proved, so answer `"without-link"`
+only when the application accepts that. Any other answer means `"link"` and
+logs a warning. Local auth asks only while email confirmation is on and the
+address isn't proven already (an invitation or the first account's setup
+code). The mode sends nothing, so a test copy keeps it and registers as the
+live copy does, while the sender is still replaced. It does not stand in for a
+sender: a production server still needs one, or
+`AUTH_LOCAL_EMAIL_CONFIRMATION=false`, and `"link"` registrations are sent
+through it. An application that never sends a link sets
+`AUTH_LOCAL_EMAIL_CONFIRMATION=false` instead.
+
+```js
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+
+// Beside the application's confirmation sender, which emails the link once email is set up.
+export const ConfirmationModeProvider = defineProvider({
+  id: "app.confirmation-mode",
+  requires: { mail: "app.mail" },
+  provides: { confirmationMode: "auth.local.confirmation-mode" },
+  /** @param {{ mail: import("@local/mail/server/types").AppMail }} capabilities */
+  setup({ mail }) {
+    /** @type {import("@jskit-ai/auth-provider-local-core/server/types").AuthLocalConfirmationMode} */
+    async function confirmationMode() {
+      return (await mail.isSetUp()) ? "link" : "without-link";
+    }
+    return { confirmationMode };
+  }
+});
+```
+
+For direct library composition, pass it as `confirmationMode` to
+`createLocalAuthService()`.
+
 | Env | Default | Meaning |
 | --- | --- | --- |
 | `AUTH_LOCAL_EMAIL_CONFIRMATION` | on | `false` registers and signs in at once, without confirming the email. |

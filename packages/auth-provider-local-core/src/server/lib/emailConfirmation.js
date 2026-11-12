@@ -5,6 +5,17 @@ import { buildAuthPayload } from "./authPayloads.js";
 import { createId, isExpiredIso, isoFromNow, randomToken, sha256Base64url } from "./tokens.js";
 
 const CONFIRMATION_TOKEN_TTL_SECONDS = 24 * 60 * 60;
+const CONFIRM_BY_LINK = "link";
+const CONFIRM_WITHOUT_LINK = "without-link";
+
+/**
+ * The confirmation mode while no `auth.local.confirmation-mode` is installed:
+ * every registration waits for its link.
+ * @type {import("../types.js").AuthLocalConfirmationMode}
+ */
+async function confirmEveryRegistrationByLink() {
+  return CONFIRM_BY_LINK;
+}
 
 /**
  * The confirmation sender while no `auth.local.confirmation-sender` is
@@ -64,15 +75,19 @@ function confirmationPasswordInvalidError() {
  * after a day; asking for a new link replaces it, and registering the email again replaces the waiting registration
  * whole, so a waiting registration never keeps the email from its owner. Confirming needs the link and the waiting
  * registration's password: the link proves the email and the password proves the registration, so whoever registered
- * an email, in whatever order, the account its link creates has a password the person confirming chose.
+ * an email, in whatever order, the account its link creates has a password the person confirming chose. The
+ * application's confirmation mode may instead confirm a registration without a link (confirmsWithoutLink).
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("../types.js").AuthLocalConfirmationMode} dependencies.confirmationMode The
+ *   `auth.local.confirmation-mode`, or confirmEveryRegistrationByLink.
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {import("../types.js").AuthLocalFirstAccountSetup} dependencies.firstAccountSetup
  * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
  *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender;
  *   in development without a sender, links also go in the response.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("../types.js").AuthLocalPasswords} dependencies.passwords
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
@@ -80,9 +95,11 @@ function confirmationPasswordInvalidError() {
 function createLocalEmailConfirmation({
   backend,
   config,
+  confirmationMode,
   confirmationSender,
   firstAccountSetup,
   invitationContextResolver,
+  logger,
   passwords,
   profileProjector,
   sessions
@@ -104,6 +121,23 @@ function createLocalEmailConfirmation({
     const confirmationUrl = `${config.appPublicUrl}/auth/login?confirmation_token=${encodeURIComponent(token)}`;
     await confirmationSender({ email, confirmationUrl });
     return confirmationDelivery === "dev-response" ? { confirmationUrl } : {};
+  }
+
+  /**
+   * True when the application's confirmation mode answers exactly "without-link" for this registration: it chose to
+   * create the account without proof of the address. Any other answer is a link; one that is neither answer is
+   * logged, since the application meant something else.
+   * @param {string} email
+   */
+  async function confirmsWithoutLink(email) {
+    const mode = await confirmationMode({ email });
+    if (mode !== CONFIRM_BY_LINK && mode !== CONFIRM_WITHOUT_LINK) {
+      logger.warn(
+        { mode: typeof mode === "string" ? mode : typeof mode },
+        'auth.local.confirmation-mode answered neither "link" nor "without-link", so the registration waits for its link.'
+      );
+    }
+    return mode === CONFIRM_WITHOUT_LINK;
   }
 
   /**
@@ -221,6 +255,7 @@ function createLocalEmailConfirmation({
   }
 
   return Object.freeze({
+    confirmsWithoutLink,
     begin,
     confirm,
     resend,
@@ -230,6 +265,7 @@ function createLocalEmailConfirmation({
 
 export {
   CONFIRMATION_TOKEN_TTL_SECONDS,
+  confirmEveryRegistrationByLink,
   createLocalEmailConfirmation,
   createLoggedConfirmationSender,
   createSimulatedConfirmationSender

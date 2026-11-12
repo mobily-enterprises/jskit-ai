@@ -96,6 +96,7 @@ async function createStartedApp({
   passwordStrategy = null,
   recoverySender = null,
   confirmationSender = null,
+  confirmationMode = null,
   invitationContextResolver = null,
   logger = null,
   configureExtensions = null
@@ -150,6 +151,7 @@ async function createStartedApp({
     ...(passwordStrategy ? { "auth.local.password-strategy": passwordStrategy } : {}),
     ...(recoverySender !== null ? { "auth.local.recovery-sender": recoverySender } : {}),
     ...(confirmationSender !== null ? { "auth.local.confirmation-sender": confirmationSender } : {}),
+    ...(confirmationMode !== null ? { "auth.local.confirmation-mode": confirmationMode } : {}),
   };
   const runtime = createCapabilityRuntime({
     inputs,
@@ -1598,4 +1600,153 @@ test("the confirmation sender emails the link, which is never returned or logged
   assert.equal(confirmed.actor.email, "mail@example.com");
   assert.ok(confirmed.session.access_token);
   assert.deepEqual(hooked, ["owner@example.com", "mail@example.com"]);
+});
+
+const CONFIRMATION_PASSWORD = "correct horse battery staple";
+const SIDE_EFFECTS_SETTINGS = Object.freeze([
+  Object.freeze({ name: "live", SIDE_EFFECTS: "live" }),
+  Object.freeze({ name: "a test copy", SIDE_EFFECTS: undefined })
+]);
+
+// A logger that keeps what local auth logs and warns.
+function recordingLogger() {
+  const infos = [];
+  const warnings = [];
+  return {
+    infos,
+    warnings,
+    logger: {
+      info: (details, message) => infos.push({ details, message }),
+      warn: (details, message) => warnings.push({ details, message }),
+      error() {},
+      debug() {}
+    }
+  };
+}
+
+// The emails a test copy logged as simulated, by recipient.
+function simulatedEmails(infos) {
+  return infos
+    .filter(({ details }) => details?.sideEffects === "simulate" && details.kind === "email")
+    .map(({ details }) => details.email);
+}
+
+// An app that confirms registrations at once while its email isn't set up says so, for each registration, through
+// auth.local.confirmation-mode. The mode sends nothing, so a test copy keeps it and answers as live does.
+test("a registration the app's confirmation mode confirms without a link signs in at once, live and in a test copy", async (t) => {
+  for (const { name, SIDE_EFFECTS } of SIDE_EFFECTS_SETTINGS) {
+    await t.test(name, async () => {
+      const sent = [];
+      const asked = [];
+      const hooked = [];
+      const { infos, logger } = recordingLogger();
+      const app = await createStartedApp({
+        env: { SIDE_EFFECTS, AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
+        confirmationSender: async (message) => { sent.push(message.email); },
+        confirmationMode: async ({ email }) => {
+          asked.push(email);
+          return "without-link";
+        },
+        logger,
+        configureExtensions(extensions, runtimeLogger) {
+          extensions.registerServiceDecorator(createLocalAuthRegisterHookDecorator({
+            logger: runtimeLogger,
+            hook: { hookId: "welcome", blocking: true, async handle({ actor }) { hooked.push(actor.email); } }
+          }));
+        }
+      });
+      const registered = await app.authService.register({ email: "Ada@example.com", password: CONFIRMATION_PASSWORD });
+      assert.equal(registered.requiresEmailConfirmation, false);
+      assert.equal(registered.actor.email, "ada@example.com");
+      assert.ok(registered.session.access_token);
+      assert.deepEqual(asked, ["ada@example.com"]);
+      assert.deepEqual(hooked, ["ada@example.com"]);
+      assert.deepEqual(sent, [], "nothing sent");
+      assert.deepEqual(simulatedEmails(infos), [], "nothing simulated");
+      const signedIn = await app.authService.login({ email: "ada@example.com", password: CONFIRMATION_PASSWORD });
+      assert.equal(signedIn.actor.email, "ada@example.com");
+    });
+  }
+});
+
+test("without a confirmation mode a registration waits for its link, which live sends and a test copy logs", async (t) => {
+  for (const { name, SIDE_EFFECTS } of SIDE_EFFECTS_SETTINGS) {
+    await t.test(name, async () => {
+      const sent = [];
+      const { infos, logger } = recordingLogger();
+      const app = await createStartedApp({
+        env: { SIDE_EFFECTS, AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
+        confirmationSender: async (message) => { sent.push(message.email); },
+        logger
+      });
+      const registered = await app.authService.register({ email: "bea@example.com", password: CONFIRMATION_PASSWORD });
+      assert.equal(registered.requiresEmailConfirmation, true);
+      assert.equal(registered.session, null);
+      assert.equal(Object.hasOwn(registered, "confirmationUrl"), false);
+      await assert.rejects(
+        app.authService.login({ email: "bea@example.com", password: CONFIRMATION_PASSWORD }),
+        { status: 403, code: "auth.login.emailUnconfirmed" }
+      );
+      const live = SIDE_EFFECTS === "live";
+      assert.deepEqual(sent, live ? ["bea@example.com"] : []);
+      assert.deepEqual(simulatedEmails(infos), live ? [] : ["bea@example.com"]);
+    });
+  }
+});
+
+test("a test copy never sends through the app's sender, whatever its confirmation mode answers", async () => {
+  const sent = [];
+  let emailSetUp = true;
+  const { infos, logger } = recordingLogger();
+  const app = await createStartedApp({
+    env: { SIDE_EFFECTS: undefined, AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
+    // A sender that sends real email: a test copy never calls it.
+    confirmationSender: async (message) => { sent.push(message.email); },
+    confirmationMode: async () => (emailSetUp ? "link" : "without-link"),
+    logger
+  });
+  const linked = await app.authService.register({ email: "cy@example.com", password: CONFIRMATION_PASSWORD });
+  assert.equal(linked.requiresEmailConfirmation, true);
+  emailSetUp = false;
+  const atOnce = await app.authService.register({ email: "dee@example.com", password: CONFIRMATION_PASSWORD });
+  assert.equal(atOnce.requiresEmailConfirmation, false);
+  assert.deepEqual(sent, [], "the app's sender never ran");
+  assert.deepEqual(simulatedEmails(infos), ["cy@example.com"]);
+});
+
+test("only the exact answer \"without-link\" confirms without a link, and a confirmation mode never stands in for a sender", async () => {
+  const notWithoutLink = [true, "WITHOUT-LINK", "without link", "", undefined, null, 1, { mode: "without-link" }, ["without-link"]];
+  let answer = "link";
+  const { warnings, logger } = recordingLogger();
+  const app = await createStartedApp({
+    env: { AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
+    confirmationSender: async () => {},
+    confirmationMode: async () => answer,
+    logger
+  });
+  const linked = await app.authService.register({ email: "link@example.com", password: CONFIRMATION_PASSWORD });
+  assert.equal(linked.requiresEmailConfirmation, true);
+  assert.deepEqual(warnings, []);
+  for (const [index, each] of notWithoutLink.entries()) {
+    answer = each;
+    const registered = await app.authService.register({ email: `user${index}@example.com`, password: CONFIRMATION_PASSWORD });
+    assert.equal(registered.requiresEmailConfirmation, true, `answer ${index}`);
+  }
+  assert.equal(warnings.length, notWithoutLink.length);
+  assert.ok(warnings.every(({ message }) => message.includes("auth.local.confirmation-mode")));
+
+  // In production a confirmation mode leaves the sender required, as without one.
+  await assert.rejects(
+    () => createStartedApp({
+      env: {
+        NODE_ENV: "production",
+        AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
+        AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+        AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
+        AUTH_LOCAL_EMAIL_CONFIRMATION: ""
+      },
+      confirmationMode: async () => "without-link"
+    }),
+    (error) => String(error.details?.cause?.message || error.message || "").includes("no auth.local.confirmation-sender")
+  );
 });

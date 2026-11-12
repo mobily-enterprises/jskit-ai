@@ -713,7 +713,7 @@
               },
               {
                 "subpath": "./server/types",
-                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender and auth.local.confirmation-sender capabilities, and of the configuration, passwords and sessions local auth's modules share."
+                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender, auth.local.confirmation-sender and auth.local.confirmation-mode capabilities, and of the configuration, passwords and sessions local auth's modules share."
               }
             ],
             "extensionCapabilities": [
@@ -722,7 +722,8 @@
               "auth.local.password-strategy",
               "auth.profile.projector",
               "auth.local.recovery-sender",
-              "auth.local.confirmation-sender"
+              "auth.local.confirmation-sender",
+              "auth.local.confirmation-mode"
             ]
           }
         }
