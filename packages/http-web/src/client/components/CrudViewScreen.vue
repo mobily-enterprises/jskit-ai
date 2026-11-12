@@ -3,6 +3,7 @@ import { computed, unref, watch } from "vue";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
 import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
+import { isRetryableLoadStatus } from "../composables/support/resourceLoadStateHelpers.js";
 import { useJskitText } from "../i18n.js";
 
 // A record page as Material 3 lays it out: Edit and the page's own actions in the top app bar, a header naming the
@@ -30,6 +31,8 @@ const recordTitle = computed(() => String(unref(props.screen.recordTitle) || "")
 const isNotFound = computed(() => Boolean(unref(view.value.isNotFound)));
 // Gone (not found) or no longer the reader's to see (403).
 const isUnavailable = computed(() => isNotFound.value || Number(unref(view.value.errorStatus)) === 403);
+// Retry only where trying again can help, as the load notice offers it: a refused load (401, 403, ...) has none.
+const canRetryLoad = computed(() => isRetryableLoadStatus(unref(view.value.errorStatus)));
 
 // A record that is unavailable when Up returns here sends the reader on to this page's parent instead.
 const { pageUnavailable } = useShellNavigation();
@@ -56,6 +59,7 @@ watch(isUnavailable, (unavailable) => {
       <v-icon icon="$cloudOff" size="48" />
       <p class="text-body-large">{{ view.loadError }}</p>
       <v-btn
+        v-if="canRetryLoad"
         color="secondary-container"
         prepend-icon="$refresh"
         :disabled="view.isFetching"

@@ -4,6 +4,7 @@ import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageActi
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
 import { useShellPageClose } from "@jskit-ai/shell-web/client/composables/useShellPageClose";
 import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
+import { isRetryableLoadStatus } from "../composables/support/resourceLoadStateHelpers.js";
 import { useJskitText } from "../i18n.js";
 
 // A new or edit page as Material 3 lays out a full-screen form: the top app bar's leading close (X) cancels, Save is
@@ -40,6 +41,8 @@ const props = defineProps({
 const { t, text } = useJskitText();
 const formRuntime = computed(() => props.screen.formRuntime);
 const addEdit = computed(() => props.screen.addEdit);
+// Trying again can help, as the load notice offers Retry: a refused load (403, 404, ...) has no Retry.
+const loadFailureIsRetryable = computed(() => isRetryableLoadStatus(unref(addEdit.value.errorStatus)));
 const formState = computed(() => props.screen.formState);
 const mode = computed(() => String(unref(props.screen.mode) || "new").trim() || "new");
 const saveLabel = computed(() =>
@@ -101,7 +104,7 @@ useShellPageClose({ label: () => t("jskit.http.actions.cancel"), close: cancel }
       <v-icon icon="$cloudOff" size="48" />
       <p class="text-body-large">{{ addEdit.loadError }}</p>
       <v-btn
-        v-if="addEdit.canRetryLoad"
+        v-if="addEdit.canRetryLoad && loadFailureIsRetryable"
         color="secondary-container"
         prepend-icon="$refresh"
         :disabled="addEdit.isFetching"

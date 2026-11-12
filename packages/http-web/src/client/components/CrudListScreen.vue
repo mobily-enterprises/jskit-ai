@@ -7,6 +7,7 @@ import ShellPrimaryAction from "@jskit-ai/shell-web/client/components/ShellPrima
 import CrudListBulkActionSurface from "./CrudListBulkActionSurface.vue";
 import CrudListFilterSurface from "./CrudListFilterSurface.vue";
 import CrudListRecordActionMenu from "./CrudListRecordActionMenu.vue";
+import { isRetryableLoadStatus } from "../composables/support/resourceLoadStateHelpers.js";
 import { useJskitText } from "../i18n.js";
 
 // Unset copy comes from the catalog; passed copy may be a message key.
@@ -43,6 +44,8 @@ const resolvedEmptyBody = computed(() =>
 const route = useRoute();
 const router = useRouter();
 const records = computed(() => props.screen.records);
+// Retry only where trying again can help, as the load notice offers it: a refused load (403, 404, ...) has none.
+const canRetryLoad = computed(() => isRetryableLoadStatus(unref(records.value.errorStatus)));
 const bulkActions = computed(() => props.screen.bulkActions);
 const rowActions = computed(() => props.screen.rowActions);
 const listFilters = computed(() => props.screen.listFilters);
@@ -164,6 +167,7 @@ function setSelectableRowsSelected(selected = true) {
         <v-icon icon="$cloudOff" size="48" class="crud-list-state__icon" />
         <p class="text-body-large">{{ resolvedLoadErrorBody }}</p>
         <v-btn
+          v-if="canRetryLoad"
           color="secondary-container"
           prepend-icon="$refresh"
           :disabled="records.isFetching"
