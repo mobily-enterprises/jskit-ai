@@ -2225,9 +2225,11 @@ Local functions
 ### `src/shared/conversation/questions.js`
 Exports
 - `latestAssistantMessageAwaitingUserReply(conversationLog = {})`
+- `latestAssistantQuestionsAwaitingUserReply(conversationLog = {}, { lookback = ASSISTANT_QUESTION_LOOKBACK } = {})`
 Local functions
 - `messageText(value = "")`
 - `conversationTurns(conversationLog = {})`
+- `asksPerson(text)`
 
 ### `src/shared/conversation/scrollFollowState.js`
 Exports

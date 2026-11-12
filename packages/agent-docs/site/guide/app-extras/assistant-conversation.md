@@ -1396,8 +1396,12 @@ picker, screenshot producer or project file browser remains an application tool.
 
 Set `questions` on `AssistantConversationClientElement`, or pass
 `questions: true` to `useAssistantConversation`, to enable ordinary chat answer
-fields. The retained conversation selects the latest authorized completed reply,
-ignores an in-progress reply and stops at a subsequent user message. It owns the
+fields. The retained conversation offers the newest questions the AI asked since
+the person's last message: it starts at the latest authorized completed reply,
+offers nothing while that reply is in progress, reads back over that reply and
+the AI's earlier replies and commentary, at most ten of them, and stops at a
+subsequent user message. A short message the AI adds after its questions, such
+as "I'll start once you've answered", therefore keeps the form. It owns the
 answers, choice, dismissal and submitted-form state; no application selector or
 reset watcher is needed.
 
@@ -1435,9 +1439,13 @@ For custom presentation, the same prop accepts an explicit question owner or the
 existing question adapter. `useAssistantQuestions` from
 `/client/conversation-questions` supplies the extracted answer state to a custom
 composer. Supply its authorized completed message and optional `extraChoice`;
-`latestAssistantMessageAwaitingUserReply` from `/shared/conversation` implements
-the standard message selection. A custom owner remains responsible for its
-message source and scope resets.
+`latestAssistantQuestionsAwaitingUserReply(conversationLog, { lookback })` from
+`/shared/conversation` implements the standard message selection, with
+`lookback` (the most AI messages it reads) defaulting to 10. A server that must
+know whether the AI is waiting for an answer can read the same message from its
+saved turns. `latestAssistantMessageAwaitingUserReply` returns the latest
+completed reply itself, questions or not. A custom owner remains responsible for
+its message source and scope resets.
 
 `AssistantQuestionInputs` renders numbered question fields and suggested-answer
 chips. Pass `questions`, optional `selectItems` keyed by question name, `choices`,

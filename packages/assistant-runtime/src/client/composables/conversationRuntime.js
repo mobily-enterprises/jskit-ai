@@ -2,7 +2,7 @@ import { computed, onScopeDispose, ref, shallowRef, toValue, watch } from "vue";
 import { toText } from "@jskit-ai/kernel/shared/support/normalize";
 import { createAssistantMessageDelivery, draftWithRestoredMessage, unmatchedOptimisticMessages } from "@jskit-ai/assistant-core/client/conversation-delivery";
 import { useAssistantQuestions } from "@jskit-ai/assistant-core/client/conversation-questions";
-import { latestAssistantMessageAwaitingUserReply } from "@jskit-ai/assistant-core/shared/conversation";
+import { latestAssistantQuestionsAwaitingUserReply } from "@jskit-ai/assistant-core/shared/conversation";
 import { failureMessage, isAccessDenied, resultError } from "../support/conversationFailures.js";
 import { subscribeAssistantConversation } from "../support/subscribeAssistantConversation.js";
 import { useJskitText } from "../i18n.js";
@@ -214,7 +214,7 @@ function createConversationRuntime({ identity, api, socket, actorKey, placement,
   // The form belongs to the conversation, including while only voice retains it.
   // Reader options control presentation; they do not retire its answer state.
   const questions = useAssistantQuestions({
-    message: () => available.value ? latestAssistantMessageAwaitingUserReply(turns.value) : "",
+    message: () => available.value ? latestAssistantQuestionsAwaitingUserReply(turns.value) : "",
     extraChoice: () => questionConfiguration.value?.extraChoice || null
   });
   let subscription = NO_SUBSCRIPTION;
