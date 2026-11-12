@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/resource-runtime",
-  "version": "0.2.27",
+  "version": "0.2.28",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
