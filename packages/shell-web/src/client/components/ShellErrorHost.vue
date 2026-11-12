@@ -82,7 +82,8 @@ const {
          `_disable-global-stack` keeps the snackbar out of Vuetify's overlay stack, as VTooltip keeps itself: on the
          stack, a message took the top from the dialog under it, so Escape and the browser's Back no longer closed that
          dialog. It is a private Vuetify prop, kept until Vuetify leaves snackbars off the stack itself; then it goes.
-         Since Vuetify 4.1.0 (vuetifyjs/vuetify#22796); the upstream issue's link is added here once it is filed. -->
+         Since Vuetify 4.1.0 (vuetifyjs/vuetify#22796). Reported upstream:
+         https://github.com/vuetifyjs/vuetify/issues/23392; remove the prop once a fixed Vuetify is pinned. -->
     <v-snackbar
       :model-value="snackbarOpen"
       class="shell-error-host__snackbar"
