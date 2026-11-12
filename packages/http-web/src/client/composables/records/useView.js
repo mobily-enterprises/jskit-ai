@@ -8,7 +8,10 @@ import {
 import { useViewCore } from "../runtime/useViewCore.js";
 import { useEndpointResource } from "../runtime/useEndpointResource.js";
 import { useOperationScope } from "../internal/useOperationScope.js";
-import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
+import {
+  createLoadRetryActionFactory,
+  setupOperationErrorReporting
+} from "../runtime/operationUiHelpers.js";
 import { createViewUiRuntime } from "../runtime/viewUiRuntime.js";
 import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
@@ -137,12 +140,9 @@ function useView({
     loadError,
     notFoundError: view.notFoundError,
     dedupeWindowMs: 0,
-    loadActionFactory: () => ({
-      label: t("jskit.http.actions.retry"),
-      dismissOnRun: true,
-      handler() {
-        void view.refresh();
-      }
+    loadActionFactory: createLoadRetryActionFactory({
+      errorStatus: view.errorStatus,
+      retry: view.refresh
     })
   });
 

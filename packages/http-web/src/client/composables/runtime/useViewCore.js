@@ -1,5 +1,6 @@
 import { computed } from "vue";
 import { watchResourceModelState } from "./modelStateHelpers.js";
+import { resolveLoadErrorStatus } from "../support/resourceLoadStateHelpers.js";
 import { useJskitText } from "../../i18n.js";
 
 const { t } = useJskitText();
@@ -39,7 +40,7 @@ function useViewCore({
   const error = computed(() => resource.query.error.value || null);
 
   // The HTTP status of the failed load, or 0.
-  const errorStatus = computed(() => Number(error.value?.status || 0));
+  const errorStatus = computed(() => resolveLoadErrorStatus(error.value));
   const isNotFound = computed(() => statusList.includes(errorStatus.value));
 
   const notFoundError = computed(() => {

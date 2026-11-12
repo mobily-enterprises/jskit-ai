@@ -1,6 +1,20 @@
 import { unref } from "vue";
 import { hasValue, isRecord, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
+// The HTTP status of a failed load, or 0 when it has none: the network failed, or the error came before any request.
+function resolveLoadErrorStatus(error) {
+  const status = Number(error?.status || 0);
+  return Number.isInteger(status) && status > 0 ? status : 0;
+}
+
+// Whether trying a failed load again may succeed: the network failed (no status), the request timed out (408), was
+// rate limited (429) or met a server error (5xx). The server answers any other refusal (401, 403, 404, 422, ...) the
+// same way again.
+function isRetryableLoadStatus(status) {
+  const value = Number(status) || 0;
+  return value === 0 || value === 408 || value === 429 || (value >= 500 && value <= 599);
+}
+
 function hasResolvedQueryData({ query = null, data = null } = {}) {
   const querySucceeded = Boolean(unref(query?.isSuccess));
   const hasDataPayload = unref(data) != null;
@@ -114,6 +128,8 @@ function mergeRequestRecoveryQueryMeta(queryOptions = null, requestRecovery = nu
 export {
   buildRequestRecoveryMeta,
   hasResolvedQueryData,
+  isRetryableLoadStatus,
   mergeQueryMeta,
-  mergeRequestRecoveryQueryMeta
+  mergeRequestRecoveryQueryMeta,
+  resolveLoadErrorStatus
 };

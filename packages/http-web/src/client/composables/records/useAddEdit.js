@@ -8,12 +8,14 @@ import { createAddEditUiRuntime } from "../runtime/addEditUiRuntime.js";
 import { useUiFeedback } from "../runtime/useUiFeedback.js";
 import { useFieldErrorBag } from "../runtime/useFieldErrorBag.js";
 import {
+  createLoadRetryActionFactory,
   setupRouteChangeCleanup,
   setupOperationErrorReporting
 } from "../runtime/operationUiHelpers.js";
 import {
   resolveResourceMessages
 } from "../support/scopeHelpers.js";
+import { resolveLoadErrorStatus } from "../support/resourceLoadStateHelpers.js";
 import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 import { useJskitText } from "../../i18n.js";
@@ -178,6 +180,7 @@ function useAddEdit({
     Boolean(isInitialLoading.value || isRefetching.value || !canSave.value || addEdit.saving.value)
   );
   const loadError = operationScope.loadError(endpointResource.loadError);
+  const errorStatus = computed(() => resolveLoadErrorStatus(endpointResource.query.error.value));
   const isLoading = operationScope.isLoading(endpointResource.isLoading);
   const canRetryLoad = computed(() => readEnabled !== false);
 
@@ -193,15 +196,11 @@ function useAddEdit({
     source: `${placementSource}.load`,
     loadError,
     dedupeWindowMs: 0,
-    loadActionFactory: () => canRetryLoad.value
-      ? {
-        label: t("jskit.http.actions.retry"),
-        dismissOnRun: true,
-        handler() {
-          void refresh();
-        }
-      }
-      : null
+    loadActionFactory: createLoadRetryActionFactory({
+      errorStatus,
+      retry: refresh,
+      enabled: canRetryLoad
+    })
   });
 
   return proxyRefs({

@@ -1,5 +1,9 @@
-import { watch } from "vue";
+import { toValue, watch } from "vue";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
+import { isRetryableLoadStatus } from "../support/resourceLoadStateHelpers.js";
+import { useJskitText } from "../../i18n.js";
+
+const { t } = useJskitText();
 
 function normalizeMessage(value) {
   return String(value || "").trim();
@@ -7,6 +11,31 @@ function normalizeMessage(value) {
 
 function noRetryAction() {
   return null;
+}
+
+/**
+ * A load notice's Retry, offered only while trying again may succeed (`isRetryableLoadStatus`): a load the server
+ * refused, such as a 403 or a 404, is refused again, so its notice offers no Retry.
+ * @param {object} options
+ * @param {import("vue").MaybeRefOrGetter<number>} options.errorStatus The failed load's HTTP status, or 0.
+ * @param {() => unknown} options.retry Loads again.
+ * @param {import("vue").MaybeRefOrGetter<boolean>} [options.enabled] False offers no Retry whatever the status.
+ * @returns {() => Record<string, any> | null}
+ */
+function createLoadRetryActionFactory({ errorStatus, retry, enabled = true }) {
+  return () => {
+    if (!toValue(enabled) || !isRetryableLoadStatus(toValue(errorStatus))) {
+      return null;
+    }
+
+    return {
+      label: t("jskit.http.actions.retry"),
+      dismissOnRun: true,
+      handler() {
+        void retry();
+      }
+    };
+  };
 }
 
 /** @param {import("../../types.js").OperationErrorReporting} [options] */
@@ -123,5 +152,6 @@ function setupRouteChangeCleanup({ enabled = true, route, feedback, onClear }) {
   );
 }
 
+export { createLoadRetryActionFactory };
 export { setupRouteChangeCleanup };
 export { setupOperationErrorReporting };

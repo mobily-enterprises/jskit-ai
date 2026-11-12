@@ -8,9 +8,13 @@ import {
 } from "../crud/crudLookupFieldLabelSupport.js";
 import { useListCore } from "../runtime/useListCore.js";
 import { useOperationScope } from "../internal/useOperationScope.js";
-import { setupOperationErrorReporting } from "../runtime/operationUiHelpers.js";
+import {
+  createLoadRetryActionFactory,
+  setupOperationErrorReporting
+} from "../runtime/operationUiHelpers.js";
 import { createListUiRuntime } from "../runtime/listUiRuntime.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
+import { resolveLoadErrorStatus } from "../support/resourceLoadStateHelpers.js";
 import {
   buildRequestQueryObject,
   createRequestQueryRuntime
@@ -431,6 +435,8 @@ function useList({
   const isFetching = operationScope.isLoading(list.isFetching);
   const isRefetching = computed(() => Boolean(isFetching.value && !isInitialLoading.value));
   const loadError = operationScope.loadError(list.loadError);
+  // The HTTP status of the failed load, or 0: a screen tells a refusal (403) from a network failure by it.
+  const errorStatus = computed(() => resolveLoadErrorStatus(list.query.error.value));
   const isLoading = operationScope.isLoading(list.isLoading);
   const listUiRuntime = createListUiRuntime({
     items: listItems,
@@ -447,12 +453,9 @@ function useList({
     source: `${placementSource}.load`,
     loadError,
     dedupeWindowMs: 0,
-    loadActionFactory: () => ({
-      label: t("jskit.http.actions.retry"),
-      dismissOnRun: true,
-      handler() {
-        void list.reload();
-      }
+    loadActionFactory: createLoadRetryActionFactory({
+      errorStatus,
+      retry: list.reload
     })
   });
 
@@ -465,6 +468,7 @@ function useList({
     isLoadingMore: list.isLoadingMore,
     hasMore: list.hasMore,
     loadError,
+    errorStatus,
     pages: list.pages,
     items: listItems,
     reload: list.reload,
