@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-oidc-core",
-  "version": "0.2.36",
+  "version": "0.2.37",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -20,8 +20,8 @@
     "openid-client": "6.8.8"
   },
   "devDependencies": {
-    "@jskit-ai/auth-provider-local-core": "0.2.25",
-    "@jskit-ai/auth-web": "0.2.33",
+    "@jskit-ai/auth-provider-local-core": "0.2.26",
+    "@jskit-ai/auth-web": "0.2.34",
     "oidc-provider": "9.12.2"
   },
   "description": "Sign in through any OpenID Connect issuer: self-registration or a static client, app-owned sessions, and back-channel logout.",
@@ -91,7 +91,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.2.21",
-    "@jskit-ai/kernel": "0.2.21"
+    "@jskit-ai/auth-core": "0.2.22",
+    "@jskit-ai/kernel": "0.2.22"
   }
 }
