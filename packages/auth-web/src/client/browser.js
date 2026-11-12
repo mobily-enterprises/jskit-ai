@@ -18,6 +18,11 @@ function pageLocation() {
   return pageWindow()?.location || null;
 }
 
+/** The page's clipboard; null outside a browser, and on a page the browser does not trust with it (one not on HTTPS). */
+function pageClipboard() {
+  return pageWindow()?.navigator.clipboard || null;
+}
+
 /**
  * Replaces the page with the one at `path`; does nothing outside a browser.
  * @param {string} path
@@ -30,6 +35,7 @@ function replacePage(path) {
 }
 
 export {
+  pageClipboard,
   pageDocument,
   pageLocation,
   pageWindow,

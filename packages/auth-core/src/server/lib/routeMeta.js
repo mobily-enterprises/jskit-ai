@@ -20,7 +20,8 @@ const DEFAULT_AUTH_POLICY_META = Object.freeze({
   ownerParam: null,
   userField: "id",
   ownerResolver: null,
-  csrfProtection: true
+  csrfProtection: true,
+  secondFactor: false
 });
 
 function resolveAuthPolicyMeta(input = {}) {
@@ -34,7 +35,9 @@ function resolveAuthPolicyMeta(input = {}) {
     userField: source.userField || "id",
     // readable-check: allow method-probe - data: a route's auth policy config may name an owner resolver
     ownerResolver: typeof source.ownerResolver === "function" ? source.ownerResolver : null,
-    csrfProtection: source.csrfProtection !== false
+    csrfProtection: source.csrfProtection !== false,
+    // The route's second factor requirement, as the kernel router checked it: false, true or { maxAgeSeconds }.
+    secondFactor: source.secondFactor || false
   };
 }
 

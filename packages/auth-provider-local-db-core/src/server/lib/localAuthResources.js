@@ -24,6 +24,11 @@ function idStartsWith(query, prefix, { column }) {
   query.whereRaw("substr(??, 1, ?) = ?", [column("id"), prefix.length, prefix]);
 }
 
+// Sessions that proved their account's second factor.
+function hasSecondFactorAt(query, _proved, { column }) {
+  query.whereNotNull(column("secondFactorAt"));
+}
+
 // auth_local_users: one row per local account, keyed by its text id.
 const localAuthUserResource = defineTableResource({
   name: "localAuthUsers",
@@ -52,13 +57,15 @@ const localAuthSessionResource = defineTableResource({
     purpose: text,
     expiresAt: dateTime,
     revokedAt: optionalDateTime,
+    secondFactorAt: optionalDateTime,
     createdAt: dateTime,
     updatedAt: dateTime
   },
   searchSchema: {
     // Every session of a user but one.
     exceptId: { type: "string", actualField: "id", filterOperator: "!=" },
-    expiresAtOrBefore
+    expiresAtOrBefore,
+    secondFactorProved: { type: "boolean", applyFilter: hasSecondFactorAt }
   }
 });
 
@@ -140,13 +147,35 @@ const localAuthRegistrationResource = defineTableResource({
   }
 });
 
+// auth_local_second_factors: an account's authenticator, keyed by the account's id; its secret is sealed with the
+// application's key and its recovery codes are kept as keyed hashes, comma-separated.
+const localAuthSecondFactorResource = defineTableResource({
+  name: "localAuthSecondFactors",
+  tableName: "auth_local_second_factors",
+  idProperty: "user_id",
+  ownership: "public",
+  foreignKeys: [{ columns: ["id"], referencedTableName: "auth_local_users" }],
+  schema: {
+    secretSealed: text,
+    confirmedAt: optionalDateTime,
+    lastUsedStep: { type: "integer" },
+    recoveryCodeHashes: text,
+    failures: { type: "integer" },
+    lastFailedAt: optionalDateTime,
+    lockedUntil: optionalDateTime,
+    createdAt: dateTime,
+    updatedAt: dateTime
+  }
+});
+
 const LOCAL_AUTH_RESOURCES = Object.freeze([
   localAuthUserResource,
   localAuthSessionResource,
   localAuthRecoveryResource,
   localAuthOAuthAttemptResource,
   localAuthSignInFailureResource,
-  localAuthRegistrationResource
+  localAuthRegistrationResource,
+  localAuthSecondFactorResource
 ]);
 
 export {
@@ -154,6 +183,7 @@ export {
   localAuthOAuthAttemptResource,
   localAuthRecoveryResource,
   localAuthRegistrationResource,
+  localAuthSecondFactorResource,
   localAuthSessionResource,
   localAuthSignInFailureResource,
   localAuthUserResource

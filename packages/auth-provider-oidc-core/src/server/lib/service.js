@@ -430,7 +430,15 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     setPasswordSignInEnabled: unsupported("setPasswordSignInEnabled"),
     startProviderLink: unsupported("startProviderLink"),
     unlinkProvider: unsupported("unlinkProvider"),
-    signOutOtherSessions: unsupported("signOutOtherSessions")
+    signOutOtherSessions: unsupported("signOutOtherSessions"),
+    getSecondFactorStatus: unsupported("getSecondFactorStatus"),
+    startSecondFactorSetup: unsupported("startSecondFactorSetup"),
+    confirmSecondFactorSetup: unsupported("confirmSecondFactorSetup"),
+    verifySecondFactor: unsupported("verifySecondFactor"),
+    replaceSecondFactorRecoveryCodes: unsupported("replaceSecondFactorRecoveryCodes"),
+    removeSecondFactor: unsupported("removeSecondFactor"),
+    listSecondFactors: unsupported("listSecondFactors"),
+    resetSecondFactor: unsupported("resetSecondFactor")
   });
 }
 

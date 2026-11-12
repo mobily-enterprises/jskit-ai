@@ -62,6 +62,11 @@ test("AuthSupabaseProvider exposes a configured provider-owned auth service", as
   assert.equal(authService.getCapabilities().provider.id, "supabase");
   assert.equal(authService.getCapabilities().features.appProfileProjection, false);
   assert.equal(authService.getCapabilities().features.password.methodToggle, false);
+  assert.equal(authService.getCapabilities().features.secondFactor, false);
+  assert.throws(() => authService.resetSecondFactor({ userId: "usr_1", byUserId: "usr_2" }), {
+    status: 501,
+    code: "AUTH_OPERATION_UNSUPPORTED"
+  });
   await runtime.shutdown();
 });
 

@@ -7,10 +7,17 @@ import initialMigration from "../../migrations/auth_local_db_initial.cjs";
 import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
 import protectionMigration from "../../migrations/auth_local_db_protection.cjs";
 import emailVerifiedMigration from "../../migrations/auth_local_db_users_email_verified.cjs";
+import secondFactorsMigration from "../../migrations/auth_local_db_users_second_factors.cjs";
 import { AuthLocalDatabaseBackendProvider } from "../../src/server/providers/AuthLocalDatabaseBackendProvider.js";
 
 // Every local auth migration, in order.
-const LOCAL_AUTH_MIGRATIONS = Object.freeze([initialMigration, oauthMigration, protectionMigration, emailVerifiedMigration]);
+const LOCAL_AUTH_MIGRATIONS = Object.freeze([
+  initialMigration,
+  oauthMigration,
+  protectionMigration,
+  emailVerifiedMigration,
+  secondFactorsMigration
+]);
 
 /**
  * The capabilities an application gives local auth's database backend, on the test's Knex: the database, an action

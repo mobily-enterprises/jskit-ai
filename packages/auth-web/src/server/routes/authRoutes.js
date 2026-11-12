@@ -24,7 +24,7 @@ import { DEFAULT_AUTH_RATE_LIMITS } from "../authRateLimits.js";
  * @param {import("../controllers/AuthController.js").AuthController} controller
  * @param {{
  *   includeDevLoginAs?: boolean,
- *   rateLimits?: ReturnType<typeof import("../authRateLimits.js").resolveAuthRateLimits>
+ *   rateLimits?: import("../types.js").AuthRateLimits
  * }} [options]
  */
 function buildRoutes(controller, { includeDevLoginAs = false, rateLimits = DEFAULT_AUTH_RATE_LIMITS } = {}) {

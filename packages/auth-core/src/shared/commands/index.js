@@ -12,3 +12,11 @@ export { authPasswordRecoveryCompleteCommand } from "./authPasswordRecoveryCompl
 export { authPasswordResetCommand } from "./authPasswordResetCommand.js";
 export { authLogoutCommand } from "./authLogoutCommand.js";
 export { authSessionReadCommand } from "./authSessionReadCommand.js";
+export {
+  authSecondFactorReadCommand,
+  authSecondFactorRecoveryCodesReplaceCommand,
+  authSecondFactorRemoveCommand,
+  authSecondFactorSetupConfirmCommand,
+  authSecondFactorSetupStartCommand,
+  authSecondFactorVerifyCommand
+} from "./authSecondFactorCommands.js";

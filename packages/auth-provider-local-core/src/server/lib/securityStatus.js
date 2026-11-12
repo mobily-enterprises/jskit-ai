@@ -4,7 +4,8 @@ import { AUTH_TEXTS, createAuthError } from "@jskit-ai/auth-core/server/authText
 import { hasPassword } from "./accounts.js";
 
 /**
- * The sign-in methods of an account: its password and each configured provider.
+ * The sign-in methods of an account: its password and each configured provider,
+ * and whether it has an authenticator set up as its second factor.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
@@ -15,10 +16,12 @@ function createLocalSecurityStatus({ backend, config, oauthProvidersById, sessio
   const { oauthProviders, oauthEnabled } = config;
 
   async function securityStatusForUser(userId) {
-    const { user, identities } = await backend.withTransaction(async (tx) => ({
+    const { user, identities, secondFactors } = await backend.withTransaction(async (tx) => ({
       user: await tx.users.findById(userId),
-      identities: oauthEnabled ? await tx.identities.listForUser(userId) : []
+      identities: oauthEnabled ? await tx.identities.listForUser(userId) : [],
+      secondFactors: config.secondFactorKey ? await tx.secondFactors.findMany([userId]) : []
     }));
+    const secondFactorEnrolled = secondFactors.some((factor) => factor.confirmedAt);
     const passwordSet = hasPassword(user);
     // Identities of a provider the app no longer configures cannot sign in.
     const linkedProviders = new Set(identities.map((identity) => identity.provider).filter((id) => oauthProvidersById.has(id)));
@@ -64,6 +67,11 @@ function createLocalSecurityStatus({ backend, config, oauthProvidersById, sessio
           signOutOtherSessions: true,
           linkProvider: oauthEnabled,
           unlinkProvider: oauthEnabled
+        },
+        mfa: {
+          status: secondFactorEnrolled ? "enabled" : "not_enabled",
+          enrolled: secondFactorEnrolled,
+          methods: secondFactorEnrolled ? ["totp"] : []
         }
       }
     );

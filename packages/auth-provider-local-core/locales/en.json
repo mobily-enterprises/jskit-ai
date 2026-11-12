@@ -47,6 +47,16 @@
           "identityTaken": "This {provider} account is already linked to another account.",
           "notLinked": "{provider} is not linked to this account.",
           "lastMethod": "Add a password or link another sign-in method before removing this one."
+        },
+        "secondFactor": {
+          "notSetUp": "No authenticator is set up for this account.",
+          "alreadySetUp": "An authenticator is already set up for this account. Remove it before setting up another.",
+          "setupNotStarted": "Start setting up the authenticator again.",
+          "proofRequired": "Enter a code from your authenticator app or one of your recovery codes.",
+          "codeInvalid": "That code is not right. Enter the code your authenticator app shows now.",
+          "codeUsed": "That code was already used. Wait for the next code from your authenticator app.",
+          "recoveryCodeInvalid": "That recovery code is not right, or it was already used.",
+          "locked": "Too many wrong codes. Try again in {count} minute. | Too many wrong codes. Try again in {count} minutes."
         }
       }
     }

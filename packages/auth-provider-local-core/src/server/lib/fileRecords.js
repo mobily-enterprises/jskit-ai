@@ -68,7 +68,8 @@ function parseSessions(content) {
   const sessions = [];
   for (const line of String(content || "").split("\n").filter(Boolean)) {
     const parts = splitLine(line, "session");
-    if (parts.length !== 9) {
+    // A session written before second factors has no tenth field: it has not proved one.
+    if (parts.length !== 9 && parts.length !== 10) {
       throw new Error("Invalid session record field count.");
     }
     sessions.push({
@@ -78,7 +79,8 @@ function parseSessions(content) {
       purpose: parts[5] || "normal",
       createdAt: decodeField(parts[6]),
       expiresAt: decodeField(parts[7]),
-      revokedAt: decodeField(parts[8] || "")
+      revokedAt: decodeField(parts[8] || ""),
+      secondFactorAt: decodeField(parts[9] || "")
     });
   }
   return sessions;
@@ -97,7 +99,8 @@ function serializeSessions(sessions) {
         session.purpose || "normal",
         encodeField(session.createdAt),
         encodeField(session.expiresAt),
-        encodeField(session.revokedAt || "")
+        encodeField(session.revokedAt || ""),
+        encodeField(session.secondFactorAt || "")
       ].join(":")
     )
     .join("\n") + (sessions.length > 0 ? "\n" : "");
@@ -254,6 +257,54 @@ function serializeSignInFailures(records) {
     .join("\n") + (records.length > 0 ? "\n" : "");
 }
 
+// An account's second factor: its sealed authenticator secret, when the first code confirmed it ("" while it is being
+// set up), the step of the last code accepted, the hashes of its unused recovery codes (comma-separated), and its
+// failed attempts as sign-in failures count them.
+function parseSecondFactors(content) {
+  const records = [];
+  for (const line of String(content || "").split("\n").filter(Boolean)) {
+    const parts = splitLine(line, "second_factor");
+    if (parts.length !== 12) {
+      throw new Error("Invalid second factor record field count.");
+    }
+    records.push({
+      userId: parts[2],
+      secretSealed: parts[3],
+      confirmedAt: decodeField(parts[4]),
+      lastUsedStep: Number(parts[5]),
+      recoveryCodes: parts[6] ? parts[6].split(",") : [],
+      failures: Number(parts[7]),
+      lastFailedAt: decodeField(parts[8]),
+      lockedUntil: decodeField(parts[9]),
+      createdAt: decodeField(parts[10]),
+      updatedAt: decodeField(parts[11])
+    });
+  }
+  return records;
+}
+
+function serializeSecondFactors(records) {
+  return [...records]
+    .sort((left, right) => String(left.userId).localeCompare(String(right.userId)))
+    .map((record) =>
+      [
+        "second_factor",
+        "v1",
+        record.userId,
+        record.secretSealed,
+        encodeField(record.confirmedAt || ""),
+        String(record.lastUsedStep || 0),
+        record.recoveryCodes.join(","),
+        String(record.failures || 0),
+        encodeField(record.lastFailedAt || ""),
+        encodeField(record.lockedUntil || ""),
+        encodeField(record.createdAt),
+        encodeField(record.updatedAt)
+      ].join(":")
+    )
+    .join("\n") + (records.length > 0 ? "\n" : "");
+}
+
 // A registration waiting for its email to be confirmed; the invitation fields
 // are empty when it came without one.
 function parseRegistrations(content) {
@@ -310,6 +361,7 @@ export {
   parseOAuthAttempts,
   parseRecovery,
   parseRegistrations,
+  parseSecondFactors,
   parseSessions,
   parseSignInFailures,
   parseUsers,
@@ -317,6 +369,7 @@ export {
   serializeOAuthAttempts,
   serializeRecovery,
   serializeRegistrations,
+  serializeSecondFactors,
   serializeSessions,
   serializeSignInFailures,
   serializeUsers

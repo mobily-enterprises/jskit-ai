@@ -15,6 +15,14 @@ import { authPasswordResetCommand } from "../src/shared/commands/authPasswordRes
 import { authLogoutCommand } from "../src/shared/commands/authLogoutCommand.js";
 import { authSessionReadCommand } from "../src/shared/commands/authSessionReadCommand.js";
 import { authDevLoginAsCommand } from "../src/shared/commands/authDevLoginAsCommand.js";
+import {
+  authSecondFactorReadCommand,
+  authSecondFactorRecoveryCodesReplaceCommand,
+  authSecondFactorRemoveCommand,
+  authSecondFactorSetupConfirmCommand,
+  authSecondFactorSetupStartCommand,
+  authSecondFactorVerifyCommand
+} from "../src/shared/commands/authSecondFactorCommands.js";
 import { catalogMessage, formatMessage, mergeCatalogs, messageKeyForCode } from "@jskit-ai/kernel/shared/i18n";
 import kernelEnglish from "@jskit-ai/kernel/locales/en.json" with { type: "json" };
 import authEnglish from "../locales/en.json" with { type: "json" };
@@ -33,7 +41,13 @@ test("auth commands expose canonical operation validator messages", () => {
     authPasswordRecoveryCompleteCommand,
     authPasswordResetCommand,
     authLogoutCommand,
-    authSessionReadCommand
+    authSessionReadCommand,
+    authSecondFactorReadCommand,
+    authSecondFactorSetupStartCommand,
+    authSecondFactorSetupConfirmCommand,
+    authSecondFactorVerifyCommand,
+    authSecondFactorRecoveryCodesReplaceCommand,
+    authSecondFactorRemoveCommand
   };
 
   for (const [label, command] of Object.entries(commands)) {
@@ -67,7 +81,13 @@ test("every auth command message is coded and its English renders from the catal
     authPasswordResetCommand,
     authLogoutCommand,
     authSessionReadCommand,
-    authDevLoginAsCommand
+    authDevLoginAsCommand,
+    authSecondFactorReadCommand,
+    authSecondFactorSetupStartCommand,
+    authSecondFactorSetupConfirmCommand,
+    authSecondFactorVerifyCommand,
+    authSecondFactorRecoveryCodesReplaceCommand,
+    authSecondFactorRemoveCommand
   ];
   const sources = commands.flatMap((command) => [
     [`${command.command}.messages`, command.operation.messages],
@@ -144,6 +164,18 @@ test("registration takes the first account's setup code and confirmation takes i
   // The link's code alone does not confirm: the registration's password is required.
   assert.deepEqual(Object.keys(confirmBody.create({ token: "code" }).errors), ["password"]);
   assert.deepEqual(Object.keys(confirmBody.create({ token: "code", password: "" }).errors), ["password"]);
+});
+
+test("confirming an authenticator takes its code, and a proof takes a code or a recovery code", () => {
+  const confirmBody = authSecondFactorSetupConfirmCommand.operation.body.schema;
+  assert.deepEqual(confirmBody.create({ code: "123 456" }).validatedObject, { code: "123 456" });
+  assert.deepEqual(Object.keys(confirmBody.create({}).errors), ["code"]);
+  const proofBody = authSecondFactorVerifyCommand.operation.body.schema;
+  assert.deepEqual(proofBody.create({ code: "123456" }).validatedObject, { code: "123456" });
+  assert.deepEqual(proofBody.create({ recoveryCode: "abcde-fghjk" }).validatedObject, { recoveryCode: "abcde-fghjk" });
+  assert.deepEqual(Object.keys(proofBody.create({ code: "1".repeat(17) }).errors), ["code"]);
+  assert.deepEqual(Object.keys(proofBody.create({ recoveryCode: "x".repeat(33) }).errors), ["recoveryCode"]);
+  assert.equal(authSecondFactorRemoveCommand.operation.body, authSecondFactorVerifyCommand.operation.body);
 });
 
 test("auth session and oauth start commands expose explicit nested response schemas", () => {

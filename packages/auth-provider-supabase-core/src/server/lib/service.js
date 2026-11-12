@@ -88,6 +88,9 @@ function createSupabaseAuthService({ config, profiles }) {
     throwUnsupportedAuthOperation("confirmRegistration");
   }
 
+  // Supabase keeps its own second factors, which JSKIT's second factor operations do not reach.
+  const unsupported = (operation) => () => throwUnsupportedAuthOperation(operation);
+
   function isDevAuthBootstrapEnabled() {
     return config.devAuth.enabled === true;
   }
@@ -136,7 +139,15 @@ function createSupabaseAuthService({ config, profiles }) {
     hasAccessTokenCookie: sessions.hasAccessTokenCookie,
     hasSessionCookie: sessions.hasSessionCookie,
     writeSessionCookies: sessions.writeSessionCookies,
-    clearSessionCookies: sessions.clearSessionCookies
+    clearSessionCookies: sessions.clearSessionCookies,
+    getSecondFactorStatus: unsupported("getSecondFactorStatus"),
+    startSecondFactorSetup: unsupported("startSecondFactorSetup"),
+    confirmSecondFactorSetup: unsupported("confirmSecondFactorSetup"),
+    verifySecondFactor: unsupported("verifySecondFactor"),
+    replaceSecondFactorRecoveryCodes: unsupported("replaceSecondFactorRecoveryCodes"),
+    removeSecondFactor: unsupported("removeSecondFactor"),
+    listSecondFactors: unsupported("listSecondFactors"),
+    resetSecondFactor: unsupported("resetSecondFactor")
   });
 }
 

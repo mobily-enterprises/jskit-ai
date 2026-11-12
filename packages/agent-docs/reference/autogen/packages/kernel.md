@@ -851,6 +851,7 @@ Local functions
 - `normalizePath(pathname)`
 - `normalizeRouteMiddleware(value, routeLabel)`
 - `normalizeRouteConfig(value, routeLabel)`
+- `normalizeRouteSecondFactor(value, auth, routeLabel)`
 - `normalizeRouteInternal(value, { method = "", path = "" } = {})`
 - `normalizeRouteInput(method, path, optionsOrHandler, maybeHandler)`
 

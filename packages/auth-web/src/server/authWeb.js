@@ -6,9 +6,9 @@ import { AuthWebService } from "./services/AuthWebService.js";
 
 /**
  * The auth web routes over the installed auth service: their service,
- * controller and route table. Routes are registered at setup, before the
- * deferred auth service exists, so dev login-as is read from the env with the
- * predicate the auth providers use.
+ * controller and route table, and every auth route's rate limit. Routes are
+ * registered at setup, before the deferred auth service exists, so dev
+ * login-as is read from the env with the predicate the auth providers use.
  * @param {object} dependencies
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} dependencies.authService
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
@@ -20,14 +20,16 @@ function createAuthWeb({ authService, env, config }) {
     devAuthBootstrapEnabled: isDevAuthBootstrapEnabled(resolveDevAuthPolicyFromEnv(env))
   });
   const controller = new AuthController({ service });
+  const rateLimits = resolveAuthRateLimits(config);
   const routes = buildRoutes(controller, {
     includeDevLoginAs: service.isDevLoginAsAvailable(),
-    rateLimits: resolveAuthRateLimits(config)
+    rateLimits
   });
   return Object.freeze({
     controller,
     routes: Object.freeze(routes),
-    service
+    service,
+    rateLimits
   });
 }
 

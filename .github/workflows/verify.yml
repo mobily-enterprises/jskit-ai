@@ -148,10 +148,10 @@ jobs:
           JSKIT_MATERIAL_BASELINES: "1"
         run: npx jskit test packages/shell-web/test/materialBaselines.browser.test.js packages/http-web/test/crudScreensMaterialBaselines.browser.test.js
 
-      - name: Verify sign-in behavior
+      - name: Verify sign-in and second-factor behavior
         env:
           JSKIT_AUTH_WEB_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/auth-web/test/signIn.browser.test.js
+        run: npx jskit test packages/auth-web/test/signIn.browser.test.js packages/auth-web/test/secondFactor.browser.test.js
 
       - name: Verify account settings behavior
         env:

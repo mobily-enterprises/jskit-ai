@@ -1,9 +1,9 @@
 import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 
 /**
- * The auth routes' default rate limits, per client address. Sign-in also limits
- * failed attempts per account, in the provider; these limits bound how fast one
- * address can try anything at all.
+ * The auth routes' default rate limits, per client address. Sign-in and the
+ * second factor also limit failed attempts per account, in the provider; these
+ * limits bound how fast one address can try anything at all.
  */
 const DEFAULT_AUTH_RATE_LIMITS = Object.freeze({
   register: Object.freeze({ max: 10, timeWindow: "1 minute" }),
@@ -17,7 +17,12 @@ const DEFAULT_AUTH_RATE_LIMITS = Object.freeze({
   devLoginAs: Object.freeze({ max: 30, timeWindow: "1 minute" }),
   passwordForgot: Object.freeze({ max: 5, timeWindow: "1 minute" }),
   passwordRecovery: Object.freeze({ max: 20, timeWindow: "1 minute" }),
-  passwordReset: Object.freeze({ max: 20, timeWindow: "1 minute" })
+  passwordReset: Object.freeze({ max: 20, timeWindow: "1 minute" }),
+  secondFactorSetup: Object.freeze({ max: 10, timeWindow: "1 minute" }),
+  secondFactorSetupConfirm: Object.freeze({ max: 10, timeWindow: "1 minute" }),
+  secondFactorVerify: Object.freeze({ max: 10, timeWindow: "1 minute" }),
+  secondFactorRecoveryCodes: Object.freeze({ max: 5, timeWindow: "1 minute" }),
+  secondFactorRemove: Object.freeze({ max: 5, timeWindow: "1 minute" })
 });
 
 /**

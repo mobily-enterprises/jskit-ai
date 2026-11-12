@@ -37,6 +37,9 @@ function normalizeRoutePolicyConfig(routeOptions, route) {
   if (Object.prototype.hasOwnProperty.call(sourceRoute, "csrfProtection")) {
     nextConfig.csrfProtection = sourceRoute.csrfProtection;
   }
+  if (sourceRoute.secondFactor) {
+    nextConfig.secondFactor = sourceRoute.secondFactor;
+  }
 
   return nextConfig;
 }

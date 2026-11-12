@@ -122,6 +122,12 @@ test("capabilities: one OIDC button, no password features, preview identity unch
   assert.equal(features.passwordRecovery.request, false);
   assert.equal(features.otp.login, false);
   assert.equal(features.devLoginAs, true);
+  // The identity provider asks for its own second factor; OIDC sign-in has none of JSKIT's.
+  assert.equal(features.secondFactor, false);
+  assert.throws(() => authService.verifySecondFactor({ cookies: {} }, { code: "123456" }), {
+    status: 501,
+    code: "AUTH_OPERATION_UNSUPPORTED"
+  });
 });
 
 test("auth-web's start and complete routes bind the attempt to the browser and return the page", async (t) => {

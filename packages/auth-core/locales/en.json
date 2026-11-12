@@ -50,6 +50,7 @@
         "otpTokenHashInvalid": "One-time token hash is invalid.",
         "otpTypeUnsupported": "Only email OTP verification is supported.",
         "recoveryCodeInvalid": "Recovery code is invalid.",
+        "secondFactorCodeRequired": "Enter the code from your authenticator app.",
         "recoveryTokenHashInvalid": "Recovery token hash is invalid.",
         "recoveryTypeUnsupported": "Only recovery links are supported.",
         "confirmationCodeRequired": "Enter the confirmation code or link from the email.",
@@ -70,6 +71,9 @@
         "notAllowlistedDefault": "This account is not allowed to access this application.",
         "blockedDefault": "This account has been blocked from accessing this application.",
         "unspecified": "This account cannot access this application."
+      },
+      "secondFactor": {
+        "required": "Confirm it's you with a code from your authenticator app."
       }
     }
   }

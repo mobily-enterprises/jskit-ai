@@ -77,6 +77,38 @@
  * @typedef {(path: string, options: { method?: string, body?: unknown }) => Promise<any>} AuthRequest
  */
 
+/**
+ * A second-factor proof: a code from the authenticator app, or one of the recovery codes.
+ * @typedef {{ code: string } | { recoveryCode: string }} SecondFactorProof
+ */
+
+/**
+ * The signed-in account's second factor, and when this session last proved it (ISO times, or null).
+ * @typedef {object} SecondFactorStatus
+ * @property {boolean} enrolled
+ * @property {string | null} enrolledAt
+ * @property {number} recoveryCodesLeft
+ * @property {string | null} verifiedAt
+ */
+
+/**
+ * An authenticator being set up: its secret in base32, shown once, and the otpauth address its QR code carries.
+ * @typedef {object} SecondFactorSetup
+ * @property {string} secret
+ * @property {string} otpauthUrl
+ * @property {string} issuer
+ * @property {string} accountName
+ */
+
+/**
+ * New recovery codes, shown once, and when the proof that made them was given.
+ * @typedef {object} SecondFactorRecoveryCodes
+ * @property {string[]} recoveryCodes
+ * @property {string} verifiedAt
+ */
+
+/** @typedef {ReturnType<typeof import("./composables/secondFactor/useSecondFactorStepUp.js").useSecondFactorStepUp>} SecondFactorStepUp */
+
 /** @typedef {ReturnType<typeof import("./composables/loginView/useLoginViewState.js").useLoginViewState>} LoginViewState */
 
 /** @typedef {ReturnType<typeof import("./composables/loginView/useLoginViewValidation.js").useLoginViewValidation>} LoginViewValidation */

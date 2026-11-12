@@ -8,6 +8,7 @@ export { default as DefaultSignOutView } from "./views/DefaultSignOutView.vue";
 export { default as DefaultResetPasswordView } from "./views/DefaultResetPasswordView.vue";
 export { default as AuthProfileWidget } from "./views/AuthProfileWidget.vue";
 export { default as AuthProfileMenuLinkItem } from "./views/AuthProfileMenuLinkItem.vue";
+export { useSecondFactorStepUp } from "./composables/secondFactor/useSecondFactorStepUp.js";
 export { useAuthStore } from "./stores/useAuthStore.js";
 export { useAuthGuardRuntime } from "./runtime/inject.js";
 export {

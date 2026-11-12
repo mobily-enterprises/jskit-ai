@@ -72,6 +72,28 @@ function signInWaitMs(record, now) {
 }
 
 /**
+ * A record's failures after one more: how many in a row (those older than a day
+ * are forgotten), the last one, and until when the next attempt must wait. The
+ * sign-in throttle counts an account email's failed sign-ins this way, and the
+ * second factor an account's wrong codes.
+ * @param {ReturnType<typeof resolveSignInThrottle>} throttle
+ * @param {{ failures: number, lastFailedAt: string } | null} record
+ * @param {number} now
+ */
+function nextFailures(throttle, record, now) {
+  const lastFailedAt = Date.parse(record?.lastFailedAt || "");
+  const recent = Number.isFinite(lastFailedAt) && now - lastFailedAt < FORGET_FAILURES_AFTER_MS;
+  const failures = (recent ? record.failures : 0) + 1;
+  const waits = failures - throttle.failuresBeforeWait + 1;
+  const waitMs = waits > 0 ? Math.min(throttle.maxWaitMs, throttle.firstWaitMs * 2 ** (waits - 1)) : 0;
+  return {
+    failures,
+    lastFailedAt: new Date(now).toISOString(),
+    lockedUntil: waitMs > 0 ? new Date(now + waitMs).toISOString() : ""
+  };
+}
+
+/**
  * The account's record after one more failed sign-in.
  * @param {ReturnType<typeof resolveSignInThrottle>} throttle
  * @param {{ failures: number, lastFailedAt: string } | null} record
@@ -79,17 +101,7 @@ function signInWaitMs(record, now) {
  * @param {number} now
  */
 function recordSignInFailure(throttle, record, email, now) {
-  const lastFailedAt = Date.parse(record?.lastFailedAt || "");
-  const recent = Number.isFinite(lastFailedAt) && now - lastFailedAt < FORGET_FAILURES_AFTER_MS;
-  const failures = (recent ? record.failures : 0) + 1;
-  const waits = failures - throttle.failuresBeforeWait + 1;
-  const waitMs = waits > 0 ? Math.min(throttle.maxWaitMs, throttle.firstWaitMs * 2 ** (waits - 1)) : 0;
-  return {
-    email,
-    failures,
-    lastFailedAt: new Date(now).toISOString(),
-    lockedUntil: waitMs > 0 ? new Date(now + waitMs).toISOString() : ""
-  };
+  return { email, ...nextFailures(throttle, record, now) };
 }
 
 /** Failure records whose last failure is old enough to forget. */
@@ -98,26 +110,37 @@ function forgottenFailuresBefore(now) {
 }
 
 /**
+ * A wait's refusal params: the minutes to wait, rounded up, and the exact
+ * seconds, which Retry-After also gives.
+ * @param {number} waitMs
+ */
+function waitParams(waitMs) {
+  const retryAfterSeconds = Math.max(1, Math.ceil(waitMs / 1000));
+  return { count: Math.ceil(retryAfterSeconds / 60), retryAfterSeconds };
+}
+
+/**
  * The refusal of a sign-in while its account waits, with the minutes to wait;
  * Retry-After gives the exact seconds.
  * @param {number} waitMs
  */
 function signInLockedError(waitMs) {
-  const seconds = Math.max(1, Math.ceil(waitMs / 1000));
-  const count = Math.ceil(seconds / 60);
-  const unit = count === 1 ? "minute" : "minutes";
-  return new AppError(429, `Too many failed sign-ins for this account. Try again in ${count} ${unit}.`, {
+  const params = waitParams(waitMs);
+  const unit = params.count === 1 ? "minute" : "minutes";
+  return new AppError(429, `Too many failed sign-ins for this account. Try again in ${params.count} ${unit}.`, {
     code: "auth.local.login.locked",
-    params: { count, retryAfterSeconds: seconds },
-    headers: { "retry-after": String(seconds) }
+    params,
+    headers: { "retry-after": String(params.retryAfterSeconds) }
   });
 }
 
 export {
   DEFAULT_SIGN_IN_THROTTLE,
   forgottenFailuresBefore,
+  nextFailures,
   recordSignInFailure,
   resolveSignInThrottle,
   signInLockedError,
-  signInWaitMs
+  signInWaitMs,
+  waitParams
 };

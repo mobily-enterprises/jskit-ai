@@ -17,12 +17,18 @@
     "./client/views/DefaultLoginView": "./src/client/views/DefaultLoginView.vue",
     "./client/views/DefaultResetPasswordView": "./src/client/views/DefaultResetPasswordView.vue",
     "./client/views/DefaultSignOutView": "./src/client/views/DefaultSignOutView.vue",
+    "./client/views/SecondFactorDialog": "./src/client/views/SecondFactorDialog.vue",
+    "./client/views/SecondFactorPrompt": "./src/client/views/SecondFactorPrompt.vue",
+    "./client/views/SecondFactorSettings": "./src/client/views/SecondFactorSettings.vue",
     "./client/runtime/authGuardRuntime": "./src/client/runtime/authGuardRuntime.js",
     "./client/runtime/authHttpClient": "./src/client/runtime/authHttpClient.js",
     "./client/runtime/oauthCallbackRuntime": "./src/client/runtime/oauthCallbackRuntime.js",
     "./client/runtime/useSignOut": "./src/client/runtime/useSignOut.js",
     "./test/playwright": "./src/test/playwright.js",
     "./locales/en.json": "./locales/en.json"
+  },
+  "dependencies": {
+    "uqr": "0.1.3"
   },
   "peerDependencies": {
     "@jskit-ai/auth-core": "0.2.21",
@@ -74,7 +80,7 @@
         "surfaces": [
           {
             "subpath": "./client",
-            "summary": "Exports auth web client provider, default auth views, and route/provider registration surface."
+            "summary": "Exports auth web client provider, default auth views, the second-factor step-up composable, and route/provider registration surface."
           },
           {
             "subpath": "./client/types",
@@ -156,6 +162,36 @@
             "method": "POST",
             "path": "/api/register",
             "summary": "Register a new user"
+          },
+          {
+            "method": "DELETE",
+            "path": "/api/second-factor",
+            "summary": "Remove the authenticator, with a proof"
+          },
+          {
+            "method": "GET",
+            "path": "/api/second-factor",
+            "summary": "Read the account's second factor and when this session proved it"
+          },
+          {
+            "method": "POST",
+            "path": "/api/second-factor/recovery-codes",
+            "summary": "Replace the recovery codes, with a proof: the new codes, shown once"
+          },
+          {
+            "method": "POST",
+            "path": "/api/second-factor/setup",
+            "summary": "Start setting up an authenticator app: its secret, shown once"
+          },
+          {
+            "method": "POST",
+            "path": "/api/second-factor/setup/confirm",
+            "summary": "Confirm the authenticator with its first code: the recovery codes, shown once"
+          },
+          {
+            "method": "POST",
+            "path": "/api/second-factor/verify",
+            "summary": "Prove the second factor for this session with a code or a recovery code"
           },
           {
             "method": "GET",

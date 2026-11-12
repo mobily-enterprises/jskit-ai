@@ -1,4 +1,4 @@
-import { ensureNonEmptyText, normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
+import { ensureNonEmptyText, isRecord, normalizeArray, normalizeObject, normalizeText } from "../../../shared/support/normalize.js";
 import { RouteDefinitionError } from "./errors.js";
 import { resolveRouteValidatorOptions } from "./routeValidator.js";
 import { resolveRouteLabel } from "./routeSupport.js";
@@ -32,6 +32,31 @@ function normalizeRouteConfig(value, routeLabel) {
     throw new RouteDefinitionError(`Route ${routeLabel} declares config.rateLimit; declare rateLimit on the route instead.`);
   }
   return config;
+}
+
+/**
+ * A route's `secondFactor`, checked when the route is defined: true asks for a
+ * second factor done at any time in the request's session, `{ maxAgeSeconds }`
+ * for one done within that many seconds. A route that asks for one must sign
+ * its caller in, so `auth` must be "required" or "own".
+ * @param {unknown} value
+ * @param {unknown} auth
+ * @param {string} routeLabel
+ * @returns {false | true | Readonly<{ maxAgeSeconds: number }>}
+ */
+function normalizeRouteSecondFactor(value, auth, routeLabel) {
+  if (value == null || value === false) {
+    return false;
+  }
+  const valid = value === true || (isRecord(value) && Object.keys(value).length === 1 &&
+    Number.isInteger(value.maxAgeSeconds) && value.maxAgeSeconds > 0);
+  if (!valid) {
+    throw new RouteDefinitionError(`Route ${routeLabel} secondFactor must be true or { maxAgeSeconds } with a positive integer.`);
+  }
+  if (auth !== "required" && auth !== "own") {
+    throw new RouteDefinitionError(`Route ${routeLabel} asks for a second factor, so its auth must be "required" or "own".`);
+  }
+  return value === true ? true : Object.freeze({ maxAgeSeconds: value.maxAgeSeconds });
 }
 
 function normalizeRouteInternal(value, { method = "", path = "" } = {}) {
@@ -124,6 +149,7 @@ class HttpRouter {
       userField: resolvedOptions.userField,
       ownerResolver: resolvedOptions.ownerResolver,
       csrfProtection: resolvedOptions.csrfProtection,
+      secondFactor: normalizeRouteSecondFactor(resolvedOptions.secondFactor, resolvedOptions.auth, routeLabel),
       bodyLimit: resolvedOptions.bodyLimit,
       rateLimit: normalizeRouteRateLimit(resolvedOptions.rateLimit, routeLabel),
       middleware: routeMiddleware,

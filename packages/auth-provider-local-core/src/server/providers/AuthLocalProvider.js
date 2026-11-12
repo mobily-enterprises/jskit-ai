@@ -15,6 +15,7 @@ import { createLocalFileBackend } from "../lib/fileBackend.js";
 import { createFirstAccountSetup } from "../lib/firstAccountSetup.js";
 import { createLoggedRecoverySender, createSimulatedRecoverySender } from "../lib/passwordFlows.js";
 import { scryptPasswordStrategy } from "../lib/passwords.js";
+import { createLoggedSecondFactorEvents } from "../lib/secondFactor.js";
 import { createLocalAuthService } from "../lib/service.js";
 
 const AuthLocalProvider = defineProvider({
@@ -31,7 +32,8 @@ const AuthLocalProvider = defineProvider({
     confirmationSender: "auth.local.confirmation-sender",
     passwordStrategy: "auth.local.password-strategy",
     profileProjector: "auth.profile.projector",
-    recoverySender: "auth.local.recovery-sender"
+    recoverySender: "auth.local.recovery-sender",
+    secondFactorEvents: "auth.local.second-factor-events"
   },
   provides: {
     authService: "auth.service"
@@ -53,6 +55,8 @@ const AuthLocalProvider = defineProvider({
    * @param {import("../types.js").AuthLocalPasswordStrategy | null} dependencies.passwordStrategy The `auth.local.password-strategy`, when one is installed.
    * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector | null} dependencies.profileProjector The `auth.profile.projector`, when one is installed.
    * @param {import("../types.js").AuthLocalRecoverySender | null} dependencies.recoverySender The `auth.local.recovery-sender`, when one is installed.
+   * @param {import("../types.js").AuthLocalSecondFactorEvents | null} dependencies.secondFactorEvents The
+   *   `auth.local.second-factor-events`, when one is installed.
    */
   async boot(
     {
@@ -65,7 +69,8 @@ const AuthLocalProvider = defineProvider({
       logger,
       passwordStrategy,
       profileProjector,
-      recoverySender
+      recoverySender,
+      secondFactorEvents
     },
     { outputs }
   ) {
@@ -94,7 +99,8 @@ const AuthLocalProvider = defineProvider({
       profileProjector: profileProjector ?? noAppProfiles,
       recoverySender: emailRecovery
         ? (live ? recoverySender : createSimulatedRecoverySender(logger))
-        : createLoggedRecoverySender(logger)
+        : createLoggedRecoverySender(logger),
+      secondFactorEvents: secondFactorEvents ?? createLoggedSecondFactorEvents(logger)
     });
     // readable-check: allow setter-seam - deferred until boot: auth.service is built after every setup has registered its auth extensions, and those setups already receive it
     attachDeferredAuthService(outputs.authService, extensions.decorateService(baseService));

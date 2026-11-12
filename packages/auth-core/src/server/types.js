@@ -15,6 +15,8 @@
  * @property {object | null} [session] The session to write with writeSessionCookies(), or null.
  * @property {boolean} [clearSession] True when the request's session cookies should be cleared.
  * @property {boolean} [transientFailure] True when authentication could not be decided at this time.
+ * @property {string} [secondFactorAt] When the request's session last proved its second factor, as ISO text, or ""
+ *   when it has not; the auth policy compares it with a route's `secondFactor`.
  * @property {boolean} [refreshRequired] True when the session must be refreshed first, which a caller
  *   that asked for no refresh (`refreshSession: false`), such as a realtime socket, cannot do.
  */
@@ -55,6 +57,48 @@
  * @property {boolean} [requireAuthentication] Refuses sockets that are not signed in.
  * @property {(input: { actor: AuthActor | null, event: { name: string, payload: any } }) => boolean | Promise<boolean>} [authorizeEvent]
  *   Answers true when the actor may receive the event.
+ */
+
+/**
+ * A proof of the second factor: an authenticator's current code, or one of
+ * the recovery codes; exactly one of the two.
+ * @typedef {{ code?: string, recoveryCode?: string }} AuthSecondFactorProof
+ */
+
+/**
+ * The signed-in person's second factor: whether an authenticator is set up and
+ * since when, how many recovery codes are left, and when the request's session
+ * last proved it (null when it has not).
+ * @typedef {object} AuthSecondFactorStatus
+ * @property {boolean} enrolled
+ * @property {string | null} enrolledAt
+ * @property {number} recoveryCodesLeft
+ * @property {string | null} verifiedAt
+ */
+
+/**
+ * A proof the provider accepted: when, by which kind of code, and how many
+ * recovery codes are left.
+ * @typedef {object} AuthSecondFactorVerification
+ * @property {string} verifiedAt
+ * @property {"code" | "recoveryCode"} method
+ * @property {number} recoveryCodesLeft
+ */
+
+/**
+ * New recovery codes, shown once, and when the session proved its second
+ * factor to get them.
+ * @typedef {{ recoveryCodes: string[], verifiedAt: string }} AuthSecondFactorRecoveryCodes
+ */
+
+/**
+ * A started authenticator setup: its secret in base32, shown once, and the
+ * otpauth:// address an authenticator app reads from a QR code.
+ * @typedef {object} AuthSecondFactorSetup
+ * @property {string} secret
+ * @property {string} otpauthUrl
+ * @property {string} issuer
+ * @property {string} accountName
  */
 
 /**
@@ -103,6 +147,22 @@
  * @property {(request: object, input: object) => Promise<object>} unlinkProvider
  * @property {(request: object) => Promise<object>} signOutOtherSessions
  * @property {(input: object, request: object | null) => Promise<object>} devLoginAs
+ * @property {(request: object) => Promise<AuthSecondFactorStatus>} getSecondFactorStatus
+ * @property {(request: object) => Promise<AuthSecondFactorSetup>} startSecondFactorSetup Starts setting up an
+ *   authenticator for the signed-in person, replacing a setup they have not confirmed.
+ * @property {(request: object, input: { code: string }) => Promise<AuthSecondFactorRecoveryCodes>} confirmSecondFactorSetup
+ *   Confirms the setup with a first code, answers its recovery codes once, and marks the request's session as having
+ *   proved its second factor.
+ * @property {(request: object, input: AuthSecondFactorProof) => Promise<AuthSecondFactorVerification>} verifySecondFactor
+ *   Marks the request's session as having proved its second factor.
+ * @property {(request: object, input: AuthSecondFactorProof) => Promise<AuthSecondFactorRecoveryCodes>}
+ *   replaceSecondFactorRecoveryCodes
+ * @property {(request: object, input: AuthSecondFactorProof) => Promise<{ ok: true }>} removeSecondFactor
+ * @property {(input: { userIds: string[] }) => Promise<{ userId: string, enrolledAt: string }[]>} listSecondFactors
+ *   The given accounts (provider user ids) that have an authenticator set up: for an application's own screens.
+ * @property {(input: { userId: string, byUserId: string }) => Promise<{ reset: boolean }>} resetSecondFactor
+ *   Removes an account's authenticator and recovery codes for the application, which decides who may: for an owner
+ *   whose staff lost their authenticator. `byUserId` names who reset it, for the audit event.
  * @property {(reply: object, result: object) => void} [writeOAuthStartCookies] Keeps the state of an OAuth sign-in that oauthStart() began.
  * @property {(reply: object) => void} [clearOAuthStartCookies]
  * @property {(request: object, options?: { everywhere?: boolean }) => Promise<any>} [logoutEverywhere]

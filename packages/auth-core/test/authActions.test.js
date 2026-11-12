@@ -5,6 +5,7 @@ import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createAuthActions } from "../src/server/actions/authActions.js";
+import { createSecondFactorActions } from "../src/server/actions/secondFactorActions.js";
 import { AuthFeature } from "../src/server/providers/AuthFeature.js";
 
 test("auth logout action delegates directly to the selected auth service", async () => {
@@ -40,6 +41,44 @@ test("shared dev login-as action passes the trusted request to auth.service", as
   assert.deepEqual(received, { input, request });
 });
 
+test("second factor actions hand the request's own session and the input to auth.service", async () => {
+  const calls = [];
+  const record = (name) => async (...args) => {
+    calls.push([name, ...args]);
+    return { name };
+  };
+  const authService = {
+    getSecondFactorStatus: record("getSecondFactorStatus"),
+    startSecondFactorSetup: record("startSecondFactorSetup"),
+    confirmSecondFactorSetup: record("confirmSecondFactorSetup"),
+    verifySecondFactor: record("verifySecondFactor"),
+    replaceSecondFactorRecoveryCodes: record("replaceSecondFactorRecoveryCodes"),
+    removeSecondFactor: record("removeSecondFactor")
+  };
+  const request = { id: "request-1" };
+  const actions = createSecondFactorActions({ authService });
+  assert.deepEqual(actions.map((action) => [action.id, action.kind, action.permission]), [
+    ["auth.secondFactor.read", "query", { require: "authenticated" }],
+    ["auth.secondFactor.setup.start", "command", { require: "authenticated" }],
+    ["auth.secondFactor.setup.confirm", "command", { require: "authenticated" }],
+    ["auth.secondFactor.verify", "command", { require: "authenticated" }],
+    ["auth.secondFactor.recoveryCodes.replace", "command", { require: "authenticated" }],
+    ["auth.secondFactor.remove", "command", { require: "authenticated" }]
+  ]);
+  assert.equal(actions.some((action) => action.channels.includes("automation")), false, "codes never reach automation");
+  for (const action of actions) {
+    await action.execute({ code: "123456" }, { requestMeta: { request } });
+  }
+  assert.deepEqual(calls, [
+    ["getSecondFactorStatus", request],
+    ["startSecondFactorSetup", request],
+    ["confirmSecondFactorSetup", request, { code: "123456" }],
+    ["verifySecondFactor", request, { code: "123456" }],
+    ["replaceSecondFactorRecoveryCodes", request, { code: "123456" }],
+    ["removeSecondFactor", request, { code: "123456" }]
+  ]);
+});
+
 test("AuthFeature contributes actions only when auth.service exists", async () => {
   let actions = null;
   const SelectedAuthProvider = defineProvider({
@@ -72,6 +111,7 @@ test("AuthFeature contributes actions only when auth.service exists", async () =
   });
   await runtime.start();
   assert.equal(actions.listDefinitions().some((definition) => definition.id === "auth.login.password"), true);
+  assert.equal(actions.listDefinitions().some((definition) => definition.id === "auth.secondFactor.verify"), true);
   assert.deepEqual(actions.getDefinition("auth.session.read").surfaces, ["*"]);
 
   let publicActions = null;

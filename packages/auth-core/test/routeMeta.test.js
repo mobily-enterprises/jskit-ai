@@ -14,7 +14,8 @@ test("withAuthPolicy applies stable defaults", () => {
       ownerParam: null,
       userField: "id",
       ownerResolver: null,
-      csrfProtection: true
+      csrfProtection: true,
+      secondFactor: false
     }
   });
 });
@@ -46,7 +47,8 @@ test("mergeAuthPolicy preserves existing config fields and adds auth policy defa
     ownerParam: null,
     userField: "id",
     ownerResolver: null,
-    csrfProtection: true
+    csrfProtection: true,
+    secondFactor: false
   });
 });
 

@@ -161,6 +161,112 @@ sign-in factor, and at least 8 when it is used with another factor; set
 
 The login page shows either refusal, translated, with the wait.
 
+## Second factor (local auth)
+
+Local auth offers a second factor: codes from an authenticator app (TOTP,
+RFC 6238), with ten single-use recovery codes for a person who loses the app.
+Each account has at most one authenticator. Requiring it is the application's
+choice, route by route or role by role; nothing asks for it by default.
+OIDC and Supabase sign-in answer `AUTH_OPERATION_UNSUPPORTED`, and
+`features.secondFactor` in the auth capabilities is false there.
+
+**Setting it up.** In production, set `AUTH_LOCAL_SECOND_FACTOR_KEY` to a
+random secret of at least 32 characters, and `APP_PUBLIC_URL`, whose host the
+authenticator app shows beside the codes; without the key a production server
+has no second factor. Outside production the session secret stands in for the
+key. The key seals each account's authenticator secret (AES-256-GCM, bound to
+the account) and keys the hashes of its recovery codes, so keep it: a factor
+sealed under one key does not open under another, and verifying it then fails
+as a server error until the factor is reset. With
+`@jskit-ai/auth-provider-local-db-core`, run `npm run db:migrate` (the
+`auth_local_second_factors` table and the sessions' `second_factor_at`
+column); the file store keeps factors in `second-factors.passwd`.
+
+**Asking for it.** A route asks with `secondFactor`, beside `auth: "required"`
+(or `"own"`): `true` for a second factor proved at any time in the session,
+`{ maxAgeSeconds }` for one proved that recently, for a dangerous action. A
+session that has not proved it is refused, after its CSRF token, sign-in and
+permission pass, with 403 `auth.secondFactor.required` (`params.maxAgeSeconds`
+when the route names one):
+
+```js
+router.register("GET", "/api/console/accounts", { auth: "required", permission: "console.read", secondFactor: true }, listAccounts);
+router.register("POST", "/api/console/refunds", { auth: "required", permission: "console.refund", secondFactor: { maxAgeSeconds: 300 } }, refund);
+```
+
+When the requirement depends on more than the route, such as the actor's role,
+an action asks for it itself; a call without a request (the server's own code)
+is refused too:
+
+```js
+import { requireSecondFactor } from "@jskit-ai/auth-core/server/secondFactor";
+import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+
+execute(input, context) {
+  if (isStaff(context.actor)) {
+    requireSecondFactor(resolveRequest(context), { maxAgeSeconds: 300 });
+  }
+  // ...
+}
+```
+
+**What the person does.** `@jskit-ai/auth-web` adds the routes under
+`/api/second-factor` and three components, each imported from its own path
+under `@jskit-ai/auth-web/client/views/` so that only a page that shows one
+loads it (the settings' QR code library included). `SecondFactorSettings`
+sets an authenticator up (a QR code and the key as text, shown once, then the
+app's first code), shows the recovery codes once, replaces them, and removes
+the authenticator, each with a code or a recovery code; an app places it as an
+account settings section, whose title names it ("Authenticator app").
+`SecondFactorPrompt` proves the session's second factor on a page of the app's.
+For a route that asks for a recent code, `useSecondFactorStepUp()` runs the
+request, and when it is refused with `auth.secondFactor.required` opens
+`SecondFactorDialog` and runs it again after the code; cancelling throws the
+refusal to the caller:
+
+```vue
+<script setup>
+import { useSecondFactorStepUp } from "@jskit-ai/auth-web/client";
+import SecondFactorDialog from "@jskit-ai/auth-web/client/views/SecondFactorDialog";
+
+const { open, run, verified, cancel } = useSecondFactorStepUp();
+const refund = () => run(() => api.refund(orderId));
+</script>
+
+<template>
+  <v-btn @click="refund">Refund</v-btn>
+  <SecondFactorDialog :open="open" @verified="verified" @cancel="cancel" />
+</template>
+```
+
+`isSecondFactorRequired(error)` from `@jskit-ai/auth-core/shared/authSecondFactor`
+tells that refusal apart elsewhere, such as a page that asks for the second
+factor before it shows anything.
+
+**Codes.** A code is accepted within one 30-second step either side of the
+server's clock, and only once: no code of an accepted step or an earlier one
+passes again (`auth.local.secondFactor.codeUsed`). Wrong codes make the
+account wait as failed sign-ins do, counted apart from them under the same
+`AUTH_LOCAL_SIGN_IN_*` settings: by default, after five the account waits 30
+seconds, doubling up to an hour (429 `auth.local.secondFactor.locked`,
+`params.count` minutes). Each route also
+has a per-address limit (`secondFactorSetup`, `secondFactorSetupConfirm` and
+`secondFactorVerify` 10 a minute, `secondFactorRecoveryCodes` and
+`secondFactorRemove` 5), set like the sign-in limits above. Removing the
+authenticator ends the second factor of every session of the account.
+
+**Owners and audit.** An owner whose staff lost their authenticator resets it
+from the application's own screen: `auth.service`'s
+`resetSecondFactor({ userId, byUserId })` removes the account's factor and its
+recovery codes, and `listSecondFactors({ userIds })` says which accounts have
+one. Who may do either is the application's decision. Every change and every
+failed attempt is an event (`setupStarted`, `setupConfirmed`, `verified`,
+`failed` with its `reason`, `recoveryCodesReplaced`, `removed`, `reset`) with
+the account id, the request's address and the time, never a secret or a code;
+an application that keeps an audit log installs the
+`auth.local.second-factor-events` capability, a function given each event after
+it is stored. Without one, local auth logs them.
+
 ## Email confirmation (local auth)
 
 Local auth confirms the email address of each account it registers by

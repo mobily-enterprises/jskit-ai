@@ -36,6 +36,8 @@ function normalizeActorResolution(result) {
   return {
     authenticated: Boolean(source.authenticated),
     actor: Object.hasOwn(source, "actor") ? source.actor : null,
+    // When the session last proved its second factor, as ISO text, or "".
+    secondFactorAt: typeof source.secondFactorAt === "string" ? source.secondFactorAt : "",
     transientFailure: Boolean(source.transientFailure)
   };
 }

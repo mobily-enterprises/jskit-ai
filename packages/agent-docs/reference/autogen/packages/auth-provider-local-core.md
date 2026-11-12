@@ -50,8 +50,9 @@ Exports
 Local functions
 - `resolveStoreDir(env, appRoot)`
 - `resolveSessionSecret(env, { storeDir, isProduction })`
+- `resolveSecondFactorKey(env, { isProduction, sessionSecret })`
 - `resolveSetupCode(env, { isProduction })`
-- `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled })`
+- `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled, productionSecondFactor })`
 - `resolveRecoveryDelivery(env, { emailRecovery, isProduction })`
 - `resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction, selfRegistration })`
 - `resolvePasswordMinLength(env)`
@@ -94,6 +95,7 @@ Exports
 - `parseOAuthAttempts(content)`
 - `parseRecovery(content)`
 - `parseRegistrations(content)`
+- `parseSecondFactors(content)`
 - `parseSessions(content)`
 - `parseSignInFailures(content)`
 - `parseUsers(content)`
@@ -101,6 +103,7 @@ Exports
 - `serializeOAuthAttempts(attempts)`
 - `serializeRecovery(records)`
 - `serializeRegistrations(records)`
+- `serializeSecondFactors(records)`
 - `serializeSessions(sessions)`
 - `serializeSignInFailures(records)`
 - `serializeUsers(users)`
@@ -129,6 +132,7 @@ Exports
 - `createLoggedConfirmationSender`
 - `createLoggedRecoverySender`
 - `createLocalFileBackend`
+- `createLoggedSecondFactorEvents`
 - `SETUP_CODE_ENV`
 - `SETUP_CODE_FILE`
 - `createFirstAccountSetup`
@@ -179,13 +183,42 @@ Local functions
 - `logNonBlockingHookFailure({ logger, hook, error })`
 - `runRegisterHook({ hook, result, logger })`
 
+### `src/server/lib/secondFactor.js`
+Exports
+- `createLocalSecondFactor({ backend, config, logger, secondFactorEvents, sessions })`
+- `createLoggedSecondFactorEvents(logger)`
+Local functions
+- `secondFactorError(refusal)`
+- `secondFactorLockedError(waitMs)`
+- `readProof(input)`
+
+### `src/server/lib/secondFactorCrypto.js`
+Exports
+- `__testables`
+- `buildOtpauthUrl({ secret, issuer, accountName })`
+- `deriveSecondFactorKeys(secondFactorKey)`
+- `findRecoveryCodeHash(hashes, hash)`
+- `hashRecoveryCode(keys, userId, code)`
+- `matchCodeStep(secret, code, nowMs)`
+- `newAuthenticatorSecret()`
+- `newRecoveryCode()`
+- `normalizeAuthenticatorCode(value)`
+- `normalizeRecoveryCode(value)`
+- `openSecret(keys, userId, sealed)`
+- `sealSecret(keys, userId, secret)`
+Local functions
+- `toBase32(bytes)`
+- `fromBase32(text)`
+- `stepAt(nowMs)`
+- `totpCodeAt(secret, step)`
+
 ### `src/server/lib/securityStatus.js`
 Exports
 - `createLocalSecurityStatus({ backend, config, oauthProvidersById, sessions })`
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passwordStrategy, profileProjector, recoverySender })`
+- `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passwordStrategy, profileProjector, recoverySender, secondFactorEvents })`
 
 ### `src/server/lib/sessions.js`
 Exports
@@ -203,10 +236,12 @@ Local functions
 Exports
 - `DEFAULT_SIGN_IN_THROTTLE`
 - `forgottenFailuresBefore(now)`
+- `nextFailures(throttle, record, now)`
 - `recordSignInFailure(throttle, record, email, now)`
 - `resolveSignInThrottle(env)`
 - `signInLockedError(waitMs)`
 - `signInWaitMs(record, now)`
+- `waitParams(waitMs)`
 Local functions
 - `readSetting(env, name, fallback)`
 
@@ -231,6 +266,9 @@ Exports
 Exports
 - `type AuthLocalBackendTransaction`
 - `type AuthLocalRegistration`
+- `type AuthLocalSecondFactor`
+- `type AuthLocalSecondFactorEvent`
+- `type AuthLocalSecondFactorEvents`
 - `type AuthLocalSignInFailures`
 - `type AuthLocalBackend`
 - `type AuthLocalPasswordStrategy`
@@ -268,6 +306,19 @@ Exports
 - `startOidcProvider({ account } = {})`
 Local functions
 - `readBody(req)`
+
+### `test-support/secondFactorScenario.js`
+Exports
+- `SCENARIO_START`
+- `SECOND_FACTOR_KEY`
+- `codeAt(secret, offset = 0)`
+- `exerciseSecondFactor(t, { service, events, storedText })`
+- `secondFactorServiceOptions({ env = {} } = {})`
+Local functions
+- `lockedFor(seconds)`
+- `now()`
+- `wrongCode(secret)`
+- `signIn(service, email)`
 
 ### `test-support/signInThrottleScenario.js`
 Exports

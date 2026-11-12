@@ -9,8 +9,21 @@ import { createFirstAccountSetup } from "./firstAccountSetup.js";
 import { createLocalOAuthFlows } from "./oauthFlows.js";
 import { createLocalPasswordFlows } from "./passwordFlows.js";
 import { normalizePasswordStrategy } from "./passwords.js";
+import { createLocalSecondFactor } from "./secondFactor.js";
 import { createLocalSecurityStatus } from "./securityStatus.js";
 import { createLocalSessions } from "./sessions.js";
+
+// A production server without AUTH_LOCAL_SECOND_FACTOR_KEY has no second factor: each operation is unsupported.
+const NO_SECOND_FACTOR = Object.freeze({
+  getSecondFactorStatus: () => throwUnsupportedAuthOperation("getSecondFactorStatus"),
+  startSecondFactorSetup: () => throwUnsupportedAuthOperation("startSecondFactorSetup"),
+  confirmSecondFactorSetup: () => throwUnsupportedAuthOperation("confirmSecondFactorSetup"),
+  verifySecondFactor: () => throwUnsupportedAuthOperation("verifySecondFactor"),
+  replaceSecondFactorRecoveryCodes: () => throwUnsupportedAuthOperation("replaceSecondFactorRecoveryCodes"),
+  removeSecondFactor: () => throwUnsupportedAuthOperation("removeSecondFactor"),
+  listSecondFactors: () => throwUnsupportedAuthOperation("listSecondFactors"),
+  resetSecondFactor: () => throwUnsupportedAuthOperation("resetSecondFactor")
+});
 
 /**
  * The `auth.service` of local auth, from the collaborators its provider
@@ -32,6 +45,8 @@ import { createLocalSessions } from "./sessions.js";
  *   `auth.profile.projector`, or noAppProfiles.
  * @param {import("../types.js").AuthLocalRecoverySender} dependencies.recoverySender The
  *   `auth.local.recovery-sender`, or one made by createLoggedRecoverySender.
+ * @param {import("../types.js").AuthLocalSecondFactorEvents} dependencies.secondFactorEvents The
+ *   `auth.local.second-factor-events`, or one made by createLoggedSecondFactorEvents.
  */
 function createLocalAuthService({
   backend,
@@ -43,7 +58,8 @@ function createLocalAuthService({
   logger,
   passwordStrategy,
   profileProjector,
-  recoverySender
+  recoverySender,
+  secondFactorEvents
 }) {
   const passwords = normalizePasswordStrategy(passwordStrategy);
   const firstAccountSetup = givenFirstAccountSetup ?? createFirstAccountSetup({ backend, config, logger });
@@ -86,7 +102,8 @@ function createLocalAuthService({
       securityStatus: true,
       signOutOtherSessions: true,
       appProfileProjection,
-      devLoginAs: isDevAuthBootstrapEnabled(config.devAuth)
+      devLoginAs: isDevAuthBootstrapEnabled(config.devAuth),
+      secondFactor: Boolean(config.secondFactorKey)
     }
   });
   // While the app has no account, its first one may register, and on a production server that asks for the setup code.
@@ -142,6 +159,10 @@ function createLocalAuthService({
     securityStatus,
     sessions
   });
+
+  const secondFactor = config.secondFactorKey
+    ? createLocalSecondFactor({ backend, config, logger, secondFactorEvents, sessions })
+    : NO_SECOND_FACTOR;
 
   function getCapabilities() {
     if (firstAccountSetup.isWaiting()) {
@@ -206,7 +227,15 @@ function createLocalAuthService({
     startProviderLink: oauthFlows.startProviderLink,
     unlinkProvider: oauthFlows.unlinkProvider,
     signOutOtherSessions: sessions.signOutOtherSessions,
-    logout: sessions.logout
+    logout: sessions.logout,
+    getSecondFactorStatus: secondFactor.getSecondFactorStatus,
+    startSecondFactorSetup: secondFactor.startSecondFactorSetup,
+    confirmSecondFactorSetup: secondFactor.confirmSecondFactorSetup,
+    verifySecondFactor: secondFactor.verifySecondFactor,
+    replaceSecondFactorRecoveryCodes: secondFactor.replaceSecondFactorRecoveryCodes,
+    removeSecondFactor: secondFactor.removeSecondFactor,
+    listSecondFactors: secondFactor.listSecondFactors,
+    resetSecondFactor: secondFactor.resetSecondFactor
   });
 }
 

@@ -21,8 +21,11 @@
  *   findById(sessionId: string): Promise<object | null>,
  *   findByTokenHash(tokenHash: string): Promise<object | null>,
  *   revoke(sessionId: string): Promise<object | null>,
- *   revokeForUser(userId: string, options?: object): Promise<number>
- * }} sessions
+ *   revokeForUser(userId: string, options?: object): Promise<number>,
+ *   markSecondFactorProved(sessionId: string, secondFactorAt: string): Promise<object | null>,
+ *   clearSecondFactorForUser(userId: string): Promise<number>
+ * }} sessions A session's `secondFactorAt` is when it last proved its second factor ("" when it has not):
+ *   `markSecondFactorProved` marks one session, `clearSecondFactorForUser` every session of the user.
  * @property {{
  *   create(input: object): Promise<object>,
  *   findByTokenHash(tokenHash: string): Promise<object | null>,
@@ -49,6 +52,14 @@
  *   transaction ends, so concurrent failures count one after another, `save` replaces the email's record and
  *   `deleteBefore` removes those whose last failure is older.
  * @property {{
+ *   find(userId: string): Promise<AuthLocalSecondFactor | null>,
+ *   findMany(userIds: string[]): Promise<AuthLocalSecondFactor[]>,
+ *   save(record: AuthLocalSecondFactor): Promise<AuthLocalSecondFactor>,
+ *   delete(userId: string): Promise<number>
+ * }} secondFactors One second factor per account; `find` holds the account's record until the transaction ends, so
+ *   concurrent codes are checked one after another, `findMany` reads without holding, and `save` replaces the
+ *   account's record.
+ * @property {{
  *   save(record: AuthLocalRegistration): Promise<AuthLocalRegistration>,
  *   findByEmail(email: string): Promise<AuthLocalRegistration | null>,
  *   findByTokenHash(tokenHash: string): Promise<AuthLocalRegistration | null>,
@@ -74,6 +85,53 @@
  */
 
 /**
+ * An account's second factor: its authenticator secret sealed with the
+ * application's key, when the first code confirmed it ("" while it is being
+ * set up), the 30-second step of the last code accepted (no code of that step
+ * or an earlier one is accepted again), the keyed hashes of its unused recovery
+ * codes, and its wrong codes as failed sign-ins count them. Times are ISO
+ * strings.
+ * @typedef {object} AuthLocalSecondFactor
+ * @property {string} userId
+ * @property {string} secretSealed
+ * @property {string} confirmedAt
+ * @property {number} lastUsedStep
+ * @property {string[]} recoveryCodes
+ * @property {number} failures
+ * @property {string} lastFailedAt
+ * @property {string} lockedUntil
+ * @property {string} createdAt
+ * @property {string} updatedAt
+ */
+
+/**
+ * One second factor event: an authenticator setup started or confirmed, a
+ * session's second factor verified (by a `code` or a `recoveryCode`, with the
+ * recovery codes left), a failed attempt (`reason`: codeInvalid, codeUsed,
+ * recoveryCodeInvalid or locked), the recovery codes replaced, the
+ * authenticator removed by its person, or reset by the application for the
+ * account `byUserId` names. `userId` is the local account's id, `ip` the
+ * request's address ("" for a reset), `at` an ISO time.
+ * @typedef {object} AuthLocalSecondFactorEvent
+ * @property {"setupStarted" | "setupConfirmed" | "verified" | "failed" | "recoveryCodesReplaced" | "removed" | "reset"} type
+ * @property {string} userId
+ * @property {string} ip
+ * @property {string} at
+ * @property {"code" | "recoveryCode"} [method]
+ * @property {number} [recoveryCodesLeft]
+ * @property {"codeInvalid" | "codeUsed" | "recoveryCodeInvalid" | "locked"} [reason]
+ * @property {string} [byUserId]
+ */
+
+/**
+ * The `auth.local.second-factor-events` capability: records each second
+ * factor event, for an application's audit log. It runs after the change is
+ * stored; when it fails, local auth logs the failure and the operation still
+ * answers. Without one, local auth logs each event.
+ * @typedef {(event: AuthLocalSecondFactorEvent) => Promise<void>} AuthLocalSecondFactorEvents
+ */
+
+/**
  * An account's recent failed sign-ins: how many, the last one, and when it may
  * try again ("" when it need not wait). Times are ISO strings.
  * @typedef {{ email: string, failures: number, lastFailedAt: string, lockedUntil: string }} AuthLocalSignInFailures
@@ -82,7 +140,7 @@
 /**
  * The `auth.local.backend` capability: where local auth keeps its users,
  * sessions, recovery tokens, linked identities, OAuth attempts, failed
- * sign-ins and unconfirmed registrations. Without
+ * sign-ins, unconfirmed registrations and second factors. Without
  * one, local auth keeps them in files under AUTH_LOCAL_STORE_DIR;
  * `@jskit-ai/auth-provider-local-db-core` provides one that keeps them in the
  * database. Each backend implements this contract.

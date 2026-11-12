@@ -8,6 +8,8 @@ import authCoreEnglish from "@jskit-ai/auth-core/locales/en.json" with { type: "
 import localEnglish from "../locales/en.json" with { type: "json" };
 import { createLocalAuthService, createLocalFileBackend } from "../src/server/lib/index.js";
 import { localServiceOptions } from "../test-support/localService.js";
+import { sessionCookies } from "../test-support/oauthHarness.js";
+import { SCENARIO_START, codeAt } from "../test-support/secondFactorScenario.js";
 
 const english = mergeCatalogs(authCoreEnglish, localEnglish);
 
@@ -76,4 +78,30 @@ test("local auth success texts carry a message code next to the English", async 
   const requested = await service.requestPasswordReset({ email: "ada@example.com" });
   assert.equal(requested.messageCode, "auth.local.recovery.requested");
   assert.equal(rendered(requested.messageCode, requested.messageParams), requested.message);
+});
+
+test("second factor refusals carry codes whose English is the thrown message", async (t) => {
+  t.mock.timers.enable({ apis: ["Date"], now: SCENARIO_START });
+  const service = await createService(t);
+  await service.register({ email: "ada@example.com", password: "correct horse" });
+  const cookies = sessionCookies((await service.login({ email: "ada@example.com", password: "correct horse" })).session);
+  const request = () => ({ cookies });
+  const coded = (code) => (error) => assertCoded(error, code);
+
+  await assert.rejects(service.verifySecondFactor(request(), { code: "123456" }), coded("auth.local.secondFactor.notSetUp"));
+  await assert.rejects(service.confirmSecondFactorSetup(request(), { code: "123456" }), coded("auth.local.secondFactor.setupNotStarted"));
+  const { secret } = await service.startSecondFactorSetup(request());
+  await service.confirmSecondFactorSetup(request(), { code: codeAt(secret) });
+  await assert.rejects(service.startSecondFactorSetup(request()), coded("auth.local.secondFactor.alreadySetUp"));
+  await assert.rejects(service.verifySecondFactor(request(), {}), coded("auth.local.secondFactor.proofRequired"));
+  await assert.rejects(service.verifySecondFactor(request(), { code: codeAt(secret) }), coded("auth.local.secondFactor.codeUsed"));
+  await assert.rejects(service.verifySecondFactor(request(), { recoveryCode: "abcde-fghjk" }),
+    coded("auth.local.secondFactor.recoveryCodeInvalid"));
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    await assert.rejects(service.verifySecondFactor(request(), { code: "12345" }), coded("auth.local.secondFactor.codeInvalid"));
+  }
+  await assert.rejects(service.verifySecondFactor(request(), { code: codeAt(secret, 1) }), (error) => {
+    assert.equal(error.message, "Too many wrong codes. Try again in 1 minute.");
+    return assertCoded(error, "auth.local.secondFactor.locked");
+  });
 });

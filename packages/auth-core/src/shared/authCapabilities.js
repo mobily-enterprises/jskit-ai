@@ -27,7 +27,15 @@ const AUTH_OPERATION_FEATURES = Object.freeze({
   startProviderLink: "providerLinking.start",
   unlinkProvider: "providerLinking.unlink",
   signOutOtherSessions: "signOutOtherSessions",
-  devLoginAs: "devLoginAs"
+  devLoginAs: "devLoginAs",
+  getSecondFactorStatus: "secondFactor",
+  startSecondFactorSetup: "secondFactor",
+  confirmSecondFactorSetup: "secondFactor",
+  verifySecondFactor: "secondFactor",
+  replaceSecondFactorRecoveryCodes: "secondFactor",
+  removeSecondFactor: "secondFactor",
+  listSecondFactors: "secondFactor",
+  resetSecondFactor: "secondFactor"
 });
 
 function normalizeBoolean(value, fallback = false) {
@@ -157,7 +165,9 @@ function normalizeAuthCapabilities(value = {}) {
       securityStatus: normalizeBoolean(featuresSource.securityStatus),
       signOutOtherSessions: normalizeBoolean(featuresSource.signOutOtherSessions),
       appProfileProjection: normalizeBoolean(featuresSource.appProfileProjection),
-      devLoginAs: normalizeBoolean(featuresSource.devLoginAs)
+      devLoginAs: normalizeBoolean(featuresSource.devLoginAs),
+      // Authenticator codes (TOTP) and recovery codes as a second factor, which routes and actions may ask for.
+      secondFactor: normalizeBoolean(featuresSource.secondFactor)
     })
   });
 }

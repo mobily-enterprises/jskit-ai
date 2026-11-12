@@ -12,7 +12,12 @@ const AUTH_PATHS = Object.freeze({
   PASSWORD_RESET: "/api/password/reset",
   DEV_LOGIN_AS: "/api/dev-auth/login-as",
   LOGOUT: "/api/logout",
-  SESSION: "/api/session"
+  SESSION: "/api/session",
+  SECOND_FACTOR: "/api/second-factor",
+  SECOND_FACTOR_SETUP: "/api/second-factor/setup",
+  SECOND_FACTOR_SETUP_CONFIRM: "/api/second-factor/setup/confirm",
+  SECOND_FACTOR_VERIFY: "/api/second-factor/verify",
+  SECOND_FACTOR_RECOVERY_CODES: "/api/second-factor/recovery-codes"
 });
 
 function buildAuthOauthStartPath(provider) {

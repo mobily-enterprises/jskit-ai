@@ -8,6 +8,7 @@ export {
   resolveAuthDeniedLoginMessage
 } from "./authDenied.js";
 export { AUTH_PATHS, buildAuthOauthStartPath } from "./authPaths.js";
+export { SECOND_FACTOR_REQUIRED, isSecondFactorRequired } from "./authSecondFactor.js";
 export {
   AUTH_PASSWORD_RECOVERY_DELIVERIES,
   AUTH_OPERATION_FEATURES,

@@ -75,7 +75,9 @@ function buildSessionPayload({ user, session, refreshToken, secret }) {
 
 /**
  * The sessions of local auth: creating one, authenticating a request from its
- * cookies, writing and clearing those cookies, and revoking sessions.
+ * cookies, writing and clearing those cookies, and revoking sessions. An
+ * authenticated request's answer names its session (`sessionId`) and when the
+ * session last proved its second factor (`secondFactorAt`, "" when it has not).
  * @param {object} dependencies
  * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
@@ -201,6 +203,8 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
             authenticated: true,
             ...authPayload,
             session: null,
+            sessionId: resolved.session.id,
+            secondFactorAt: resolved.session.secondFactorAt || "",
             sessionPurpose: resolved.session.purpose || "normal",
             clearSession: false,
             transientFailure: false
@@ -244,6 +248,8 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
         refreshToken,
         secret: config.sessionSecret
       }),
+      sessionId: resolved.session.id,
+      secondFactorAt: resolved.session.secondFactorAt || "",
       sessionPurpose: resolved.session.purpose || "normal",
       clearSession: false,
       transientFailure: false

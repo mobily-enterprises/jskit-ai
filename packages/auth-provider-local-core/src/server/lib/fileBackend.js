@@ -6,6 +6,7 @@ import {
   parseOAuthAttempts,
   parseRecovery,
   parseRegistrations,
+  parseSecondFactors,
   parseSessions,
   parseSignInFailures,
   parseUsers,
@@ -13,6 +14,7 @@ import {
   serializeOAuthAttempts,
   serializeRecovery,
   serializeRegistrations,
+  serializeSecondFactors,
   serializeSessions,
   serializeSignInFailures,
   serializeUsers
@@ -25,6 +27,7 @@ const IDENTITY_FILE = "identities.passwd";
 const OAUTH_ATTEMPT_FILE = "oauth-attempts.passwd";
 const SIGN_IN_FAILURE_FILE = "sign-in-failures.passwd";
 const REGISTRATION_FILE = "registrations.passwd";
+const SECOND_FACTOR_FILE = "second-factors.passwd";
 const LOCK_FILE = "store.lock";
 const JOURNAL_FILE = "transaction.journal";
 const LOCK_STALE_MS = 30_000;
@@ -81,7 +84,16 @@ function parseJournal(content) {
   }
   return parsed.files.map((entry) => {
     const name = String(entry?.name || "").trim();
-    const files = [USER_FILE, SESSION_FILE, RECOVERY_FILE, IDENTITY_FILE, OAUTH_ATTEMPT_FILE, SIGN_IN_FAILURE_FILE, REGISTRATION_FILE];
+    const files = [
+      USER_FILE,
+      SESSION_FILE,
+      RECOVERY_FILE,
+      IDENTITY_FILE,
+      OAUTH_ATTEMPT_FILE,
+      SIGN_IN_FAILURE_FILE,
+      REGISTRATION_FILE,
+      SECOND_FACTOR_FILE
+    ];
     if (!files.includes(name)) {
       throw new Error("Invalid local auth transaction journal file.");
     }
@@ -252,7 +264,8 @@ function createTx(state, touched) {
           ...clone(input),
           purpose: input.purpose || "normal",
           createdAt: input.createdAt || nowIso(),
-          revokedAt: input.revokedAt || ""
+          revokedAt: input.revokedAt || "",
+          secondFactorAt: input.secondFactorAt || ""
         };
         state.sessions.push(session);
         mark("sessions");
@@ -279,6 +292,28 @@ function createTx(state, touched) {
         for (const session of state.sessions) {
           if (session.userId === userId && session.id !== exceptSessionId && !session.revokedAt) {
             session.revokedAt = nowIso();
+            count += 1;
+          }
+        }
+        if (count > 0) {
+          mark("sessions");
+        }
+        return count;
+      },
+      async markSecondFactorProved(sessionId, secondFactorAt) {
+        const session = state.sessions.find((entry) => entry.id === sessionId);
+        if (!session) {
+          return null;
+        }
+        session.secondFactorAt = secondFactorAt;
+        mark("sessions");
+        return clone(session);
+      },
+      async clearSecondFactorForUser(userId) {
+        let count = 0;
+        for (const session of state.sessions) {
+          if (session.userId === userId && session.secondFactorAt) {
+            session.secondFactorAt = "";
             count += 1;
           }
         }
@@ -421,6 +456,33 @@ function createTx(state, touched) {
         return count;
       }
     }),
+    secondFactors: Object.freeze({
+      // The store lock holds every record until the transaction ends.
+      async find(userId) {
+        return clone(state.secondFactors.find((record) => record.userId === userId) || null);
+      },
+      async findMany(userIds) {
+        const wanted = new Set(userIds);
+        return clone(state.secondFactors.filter((record) => wanted.has(record.userId)));
+      },
+      async save(record) {
+        state.secondFactors = [
+          ...state.secondFactors.filter((entry) => entry.userId !== record.userId),
+          clone(record)
+        ];
+        mark("secondFactors");
+        return clone(record);
+      },
+      async delete(userId) {
+        const before = state.secondFactors.length;
+        state.secondFactors = state.secondFactors.filter((entry) => entry.userId !== userId);
+        const count = before - state.secondFactors.length;
+        if (count > 0) {
+          mark("secondFactors");
+        }
+        return count;
+      }
+    }),
     registrations: Object.freeze({
       async save(record) {
         state.registrations = [
@@ -473,7 +535,8 @@ function createLocalFileBackend({ storeDir }) {
         identities: parseIdentities(await readText(path.join(resolvedStoreDir, IDENTITY_FILE))),
         oauthAttempts: parseOAuthAttempts(await readText(path.join(resolvedStoreDir, OAUTH_ATTEMPT_FILE))),
         signInFailures: parseSignInFailures(await readText(path.join(resolvedStoreDir, SIGN_IN_FAILURE_FILE))),
-        registrations: parseRegistrations(await readText(path.join(resolvedStoreDir, REGISTRATION_FILE)))
+        registrations: parseRegistrations(await readText(path.join(resolvedStoreDir, REGISTRATION_FILE))),
+        secondFactors: parseSecondFactors(await readText(path.join(resolvedStoreDir, SECOND_FACTOR_FILE)))
       };
       const touched = new Set();
       const result = await callback(createTx(state, touched));
@@ -518,6 +581,12 @@ function createLocalFileBackend({ storeDir }) {
         commitEntries.push({
           name: REGISTRATION_FILE,
           content: serializeRegistrations(state.registrations)
+        });
+      }
+      if (touched.has("secondFactors")) {
+        commitEntries.push({
+          name: SECOND_FACTOR_FILE,
+          content: serializeSecondFactors(state.secondFactors)
         });
       }
       if (commitEntries.length > 0) {

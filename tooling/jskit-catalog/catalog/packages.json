@@ -709,11 +709,11 @@
               },
               {
                 "subpath": "./server/lib/index",
-                "summary": "Exports the local auth service and its configuration (createLocalAuthService, resolveLocalAuthConfig), the file backend, the password strategy helpers (scryptPasswordStrategy, normalizePasswordStrategy, hashPassword, verifyPassword), the logged recovery and confirmation senders (createLoggedRecoverySender, createLoggedConfirmationSender), the first account's setup code (createFirstAccountSetup, SETUP_CODE_FILE, SETUP_CODE_ENV), and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
+                "summary": "Exports the local auth service and its configuration (createLocalAuthService, resolveLocalAuthConfig), the file backend, the password strategy helpers (scryptPasswordStrategy, normalizePasswordStrategy, hashPassword, verifyPassword), the logged recovery and confirmation senders (createLoggedRecoverySender, createLoggedConfirmationSender), the first account's setup code (createFirstAccountSetup, SETUP_CODE_FILE, SETUP_CODE_ENV), the logged second factor events (createLoggedSecondFactorEvents), and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
               },
               {
                 "subpath": "./server/types",
-                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender, auth.local.confirmation-sender and auth.local.confirmation-mode capabilities, and of the configuration, passwords and sessions local auth's modules share."
+                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender, auth.local.confirmation-sender, auth.local.confirmation-mode and auth.local.second-factor-events capabilities, and of the configuration, passwords and sessions local auth's modules share."
               }
             ],
             "extensionCapabilities": [
@@ -723,7 +723,8 @@
               "auth.profile.projector",
               "auth.local.recovery-sender",
               "auth.local.confirmation-sender",
-              "auth.local.confirmation-mode"
+              "auth.local.confirmation-mode",
+              "auth.local.second-factor-events"
             ]
           }
         }
@@ -794,6 +795,9 @@
                 },
                 {
                   "tableName": "auth_local_registrations"
+                },
+                {
+                  "tableName": "auth_local_second_factors"
                 }
               ]
             }
@@ -1021,7 +1025,7 @@
             "surfaces": [
               {
                 "subpath": "./client",
-                "summary": "Exports auth web client provider, default auth views, and route/provider registration surface."
+                "summary": "Exports auth web client provider, default auth views, the second-factor step-up composable, and route/provider registration surface."
               },
               {
                 "subpath": "./client/types",
@@ -1103,6 +1107,36 @@
                 "method": "POST",
                 "path": "/api/register",
                 "summary": "Register a new user"
+              },
+              {
+                "method": "DELETE",
+                "path": "/api/second-factor",
+                "summary": "Remove the authenticator, with a proof"
+              },
+              {
+                "method": "GET",
+                "path": "/api/second-factor",
+                "summary": "Read the account's second factor and when this session proved it"
+              },
+              {
+                "method": "POST",
+                "path": "/api/second-factor/recovery-codes",
+                "summary": "Replace the recovery codes, with a proof: the new codes, shown once"
+              },
+              {
+                "method": "POST",
+                "path": "/api/second-factor/setup",
+                "summary": "Start setting up an authenticator app: its secret, shown once"
+              },
+              {
+                "method": "POST",
+                "path": "/api/second-factor/setup/confirm",
+                "summary": "Confirm the authenticator with its first code: the recovery codes, shown once"
+              },
+              {
+                "method": "POST",
+                "path": "/api/second-factor/verify",
+                "summary": "Prove the second factor for this session with a code or a recovery code"
               },
               {
                 "method": "GET",
@@ -1252,6 +1286,9 @@
         }
       },
       "packageJson": {
+        "dependencies": {
+          "uqr": "0.1.3"
+        },
         "peerDependencies": {
           "@jskit-ai/auth-core": "0.2.21",
           "@jskit-ai/http-runtime": "0.2.21",

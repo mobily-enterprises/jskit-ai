@@ -88,7 +88,12 @@ function normalizeAuthSecurityStatus(value = {}) {
   });
 }
 
-function buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus, { actions = {} } = {}) {
+/**
+ * @param {object} authMethodsStatus
+ * @param {{ actions?: object, mfa?: { status: string, enrolled: boolean, methods: string[] } }} [options] `mfa`, when
+ *   the provider has second factors, says whether the account has one set up.
+ */
+function buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus, { actions = {}, mfa } = {}) {
   const source = authMethodsStatus && typeof authMethodsStatus === "object" ? authMethodsStatus : {};
   return normalizeAuthSecurityStatus({
     authMethods: Array.isArray(source.methods) ? source.methods : [],
@@ -96,7 +101,8 @@ function buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus, { actions =
       minimumEnabledMethods: source.minimumEnabledMethods,
       enabledMethodsCount: source.enabledMethodsCount
     },
-    actions
+    actions,
+    mfa
   });
 }
 

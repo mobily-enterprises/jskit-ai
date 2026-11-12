@@ -27,10 +27,6 @@ Exports
 - `createLocalDbOwners({ resources, identities, context })`
 - `type LocalAuthHandles`
 Local functions
-- `requiredDateTime(value, fallback = nowIso())`
-- `optionalDateTime(value)`
-- `readDateTime(value, fallback = "")`
-- `text(value)`
 - `requireSessionConditions(onlyIf)`
 - `requireIdPrefix(idPrefix)`
 - `readPassword(record)`
@@ -46,11 +42,6 @@ Local functions
 - `sessionRecord(input = {})`
 - `recoveryRecord(input = {})`
 - `oauthAttemptRecord(input = {})`
-- `findOne(handle, field, value, options)`
-- `findById(handle, id, options)`
-- `deleteById(handle, id, options)`
-- `replaceFailures(failures, email, attributes, options)`
-- `patchExisting(handle, id, changes, options)`
 - `userRecords(users, options)`
 - `sessionRecords(sessions, options)`
 - `recoveryRecords(recovery, options)`
@@ -80,11 +71,32 @@ Exports
 - `localAuthOAuthAttemptResource`
 - `localAuthRecoveryResource`
 - `localAuthRegistrationResource`
+- `localAuthSecondFactorResource`
 - `localAuthSessionResource`
 - `localAuthSignInFailureResource`
 - `localAuthUserResource`
 Local functions
 - `idStartsWith(query, prefix, { column })`
+- `hasSecondFactorAt(query, _proved, { column })`
+
+### `src/server/lib/secondFactorRecords.js`
+Exports
+- `secondFactorRecords(secondFactors, options)`
+Local functions
+- `mapSecondFactor(record)`
+- `secondFactorRecord(input = {})`
+
+### `src/server/lib/tableRecords.js`
+Exports
+- `deleteById(handle, id, options)`
+- `findById(handle, id, options)`
+- `findOne(handle, field, value, options)`
+- `optionalDateTime(value)`
+- `patchExisting(handle, id, changes, options)`
+- `readDateTime(value, fallback = "")`
+- `replaceById(handle, id, attributes, options)`
+- `requiredDateTime(value, fallback = nowIso())`
+- `text(value)`
 
 ### `src/server/providers/AuthLocalDatabaseBackendProvider.js`
 Exports
@@ -113,5 +125,9 @@ Exports
 - None
 
 ### `migrations/auth_local_db_users_email_verified.cjs`
+Exports
+- None
+
+### `migrations/auth_local_db_users_second_factors.cjs`
 Exports
 - None

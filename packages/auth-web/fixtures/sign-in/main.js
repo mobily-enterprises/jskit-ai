@@ -1,4 +1,4 @@
-import { createApp, h } from "vue";
+import { createApp, h, ref } from "vue";
 import { createPinia } from "pinia";
 import { createRouter, createWebHistory, RouterView } from "vue-router";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
@@ -14,6 +14,10 @@ import AuthProfileWidget from "../../src/client/views/AuthProfileWidget.vue";
 import DefaultLoginView from "../../src/client/views/DefaultLoginView.vue";
 import DefaultResetPasswordView from "../../src/client/views/DefaultResetPasswordView.vue";
 import DefaultSignOutView from "../../src/client/views/DefaultSignOutView.vue";
+import SecondFactorDialog from "../../src/client/views/SecondFactorDialog.vue";
+import SecondFactorSettings from "../../src/client/views/SecondFactorSettings.vue";
+import { useSecondFactorStepUp } from "../../src/client/composables/secondFactor/useSecondFactorStepUp.js";
+import { authHttpRequest } from "../../src/client/runtime/authHttpClient.js";
 import { AuthWebClientProvider } from "../../src/client/providers/AuthWebClientProvider.js";
 import { useAuthStore } from "../../src/client/stores/useAuthStore.js";
 import PatternLoginPage from "../../patterns/auth-surface/example/src/pages/auth/login.vue";
@@ -70,6 +74,26 @@ const HomePage = {
     ]);
   }
 };
+// An application's console: its refund route asks for a code proved within five minutes, through the step-up dialog.
+const ConsolePage = {
+  setup() {
+    const { open, run, verified, cancel } = useSecondFactorStepUp();
+    const outcome = ref("");
+    async function refund() {
+      try {
+        await run(() => authHttpRequest("/api/console/refund", { method: "POST" }));
+        outcome.value = "Refunded";
+      } catch (error) {
+        outcome.value = `Refund failed: ${error.message}`;
+      }
+    }
+    return () => h("div", [
+      h(components.VBtn, { onClick: refund }, () => "Refund"),
+      h("p", { "data-testid": "console-outcome" }, outcome.value),
+      h(SecondFactorDialog, { open: open.value, onVerified: verified, onCancel: cancel })
+    ]);
+  }
+};
 // An app's brand in the auth views' brand slot: a pane's wordmark and line on wide windows, a compact row on phones.
 function branded(View) {
   return {
@@ -87,6 +111,8 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/home", component: HomePage },
+    { path: "/account/second-factor", component: SecondFactorSettings },
+    { path: "/console", component: ConsolePage },
     { path: "/auth/login", component: DefaultLoginView },
     { path: "/auth/reset-password", component: DefaultResetPasswordView },
     { path: "/auth/signout", component: DefaultSignOutView },

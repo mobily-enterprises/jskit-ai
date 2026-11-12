@@ -1,5 +1,6 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { createAuthWeb } from "./authWeb.js";
+import { registerSecondFactorRoutes } from "./routes/secondFactorRoutes.js";
 
 const AuthWebFeature = defineFeature({
   id: "auth.web",
@@ -25,6 +26,7 @@ const AuthWebFeature = defineFeature({
     for (const route of authWeb.routes) {
       http.router.register(route.method, route.path, route, route.handler);
     }
+    registerSecondFactorRoutes(http.router, { rateLimits: authWeb.rateLimits });
     return { authWeb };
   }
 });

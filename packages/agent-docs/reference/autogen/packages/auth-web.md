@@ -16,6 +16,7 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/client/browser.js`
 Exports
+- `pageClipboard()`
 - `pageDocument()`
 - `pageLocation()`
 - `pageWindow()`
@@ -89,6 +90,18 @@ Exports
 Local functions
 - `validationFieldMessages(validationResult)`
 
+### `src/client/composables/secondFactor/useSecondFactorProof.js`
+Exports
+- `useSecondFactorProof({ submit, onDone })`
+
+### `src/client/composables/secondFactor/useSecondFactorSettings.js`
+Exports
+- `useSecondFactorSettings()`
+
+### `src/client/composables/secondFactor/useSecondFactorStepUp.js`
+Exports
+- `useSecondFactorStepUp()`
+
 ### `src/client/composables/useDefaultResetPasswordView.js`
 Exports
 - `useDefaultResetPasswordView()`
@@ -112,6 +125,7 @@ Exports
 - `DefaultResetPasswordView`
 - `AuthProfileWidget`
 - `AuthProfileMenuLinkItem`
+- `useSecondFactorStepUp`
 - `useAuthStore`
 - `useAuthGuardRuntime`
 - `completeOAuthPopupSignIn`
@@ -128,6 +142,10 @@ Exports
 Local functions
 - `resolvePathnameFromLinkTarget(target = "")`
 - `resolveFallbackReturnTo({ currentFullPath = "", currentPath = "", currentHref = "", absolute = false } = {})`
+
+### `src/client/lib/qrCode.js`
+Exports
+- `qrCodePath(text)`
 
 ### `src/client/lib/returnToPath.js`
 Exports
@@ -237,6 +255,15 @@ Local functions
 - `openChannel(win)`
 - `sameOriginOpener(win)`
 
+### `src/client/runtime/secondFactorRequests.js`
+Exports
+- `confirmSecondFactorSetup(proof)`
+- `readSecondFactor()`
+- `removeSecondFactor(proof)`
+- `replaceSecondFactorRecoveryCodes(proof)`
+- `startSecondFactorSetup()`
+- `verifySecondFactor(proof)`
+
 ### `src/client/runtime/useLoginView.js`
 Exports
 - `useLoginView()`
@@ -271,6 +298,11 @@ Exports
 - `type AuthMobile`
 - `type AuthErrorRuntime`
 - `type AuthRequest`
+- `type SecondFactorProof`
+- `type SecondFactorStatus`
+- `type SecondFactorSetup`
+- `type SecondFactorRecoveryCodes`
+- `type SecondFactorStepUp`
 - `type LoginViewState`
 - `type LoginViewValidation`
 - `type AuthClient`
@@ -303,6 +335,27 @@ Exports
 ### `src/client/views/DefaultSignOutView.vue`
 Exports
 - None
+
+### `src/client/views/SecondFactorDialog.vue`
+Exports
+- None
+
+### `src/client/views/SecondFactorPrompt.vue`
+Exports
+- None
+
+### `src/client/views/SecondFactorProofForm.vue`
+Exports
+- None
+
+### `src/client/views/SecondFactorSettings.vue`
+Exports
+- None
+Local functions
+- `focusStep()`
+- `onRecoveryCodes(result)`
+- `onCodesSaved()`
+- `backToStatus()`
 
 ### `src/server/authRateLimits.js`
 Exports
@@ -356,6 +409,10 @@ Local functions
 Exports
 - `buildRoutes(controller, { includeDevLoginAs = false, rateLimits = DEFAULT_AUTH_RATE_LIMITS } = {})`
 
+### `src/server/routes/secondFactorRoutes.js`
+Exports
+- `registerSecondFactorRoutes(router, { rateLimits })`
+
 ### `src/server/services/AuthWebService.js`
 Exports
 - `AuthWebService`
@@ -363,6 +420,7 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type AuthWeb`
+- `type AuthRateLimits`
 
 ### fixtures
 

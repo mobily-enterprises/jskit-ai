@@ -73,6 +73,9 @@
             },
             {
               "tableName": "auth_local_registrations"
+            },
+            {
+              "tableName": "auth_local_second_factors"
             }
           ]
         }

@@ -357,7 +357,8 @@ const authCapabilitiesFeaturesOutputSchema = createSchema({
   securityStatus: { type: "boolean", required: true },
   signOutOtherSessions: { type: "boolean", required: true },
   appProfileProjection: { type: "boolean", required: true },
-  devLoginAs: { type: "boolean", required: true }
+  devLoginAs: { type: "boolean", required: true },
+  secondFactor: { type: "boolean", required: true }
 });
 
 const authCapabilitiesOutputSchema = createSchema({
@@ -470,6 +471,7 @@ const AUTH_FIELD_MESSAGES = deepFreeze({
   otpTokenHashInvalid: { code: "auth.validation.otpTokenHashInvalid", message: "One-time token hash is invalid." },
   otpTypeUnsupported: { code: "auth.validation.otpTypeUnsupported", message: "Only email OTP verification is supported." },
   recoveryCodeInvalid: { code: "auth.validation.recoveryCodeInvalid", message: "Recovery code is invalid." },
+  secondFactorCodeRequired: { code: "auth.validation.secondFactorCodeRequired", message: "Enter the code from your authenticator app." },
   recoveryTokenHashInvalid: {
     code: "auth.validation.recoveryTokenHashInvalid",
     message: "Recovery token hash is invalid."

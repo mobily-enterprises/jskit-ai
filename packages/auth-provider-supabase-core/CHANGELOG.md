@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The second-factor operations (`getSecondFactorStatus`, `startSecondFactorSetup`, `confirmSecondFactorSetup`, `verifySecondFactor`, `replaceSecondFactorRecoveryCodes`, `removeSecondFactor`, `listSecondFactors`, `resetSecondFactor`) answer `AUTH_OPERATION_UNSUPPORTED`, and `features.secondFactor` is false.
 - Reading the signed-in user for the security screen and account changes asks Supabase for a valid access token's user once instead of twice; it asks again only for the new token a session refresh issued.
 - A request with a valid access token synchronizes the app profile only when it is missing or no longer matches the token's email and display name (`onlyWhenChanged`), after one read instead of two plus a transaction; sign-in, account changes and a session refresh synchronize in full. Visible difference: a personal workspace, owner membership or settings row deleted while someone is signed in comes back at their next session refresh or sign-in instead of their next request.
 - `confirmRegistration` answers `AUTH_OPERATION_UNSUPPORTED`: Supabase confirms an email through its own link.

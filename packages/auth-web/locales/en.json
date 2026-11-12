@@ -124,6 +124,57 @@
       },
       "profile": {
         "guest": "Guest"
+      },
+      "secondFactor": {
+        "confirm": "Confirm",
+        "cancel": "Cancel",
+        "copied": "Copied.",
+        "copyFailed": "Could not copy. Select the text and copy it instead.",
+        "form": {
+          "code": "6-digit code",
+          "recoveryCode": "Recovery code",
+          "useRecoveryCode": "Use a recovery code",
+          "useCode": "Use a code from the app",
+          "failed": "Could not check the code."
+        },
+        "prompt": {
+          "title": "Confirm it's you",
+          "explain": "Enter the code your authenticator app shows now."
+        },
+        "settings": {
+          "off": "No authenticator app is set up. Set one up to confirm it's you with a code when a page asks for one.",
+          "setUp": "Set up authenticator",
+          "startFailed": "Could not start setting up the authenticator.",
+          "on": "Authenticator app set up on {date}.",
+          "codesLeft": "No recovery codes left: create new ones. | 1 recovery code left. | {count} recovery codes left.",
+          "newCodes": "New recovery codes",
+          "remove": "Remove authenticator",
+          "removed": "Authenticator removed.",
+          "loadFailed": "Could not load your authenticator settings.",
+          "retry": "Retry"
+        },
+        "setup": {
+          "title": "Set up an authenticator app",
+          "scan": "Scan this QR code with your authenticator app.",
+          "qrLabel": "QR code to add {account} to an authenticator app",
+          "typeKey": "Can't scan it? Enter this key in the app instead:",
+          "copyKey": "Copy key",
+          "enterCode": "Then enter the 6-digit code the app shows."
+        },
+        "codes": {
+          "title": "Save your recovery codes",
+          "explain": "If you lose your authenticator app, each of these codes confirms it's you once. They are shown only now: keep them somewhere safe.",
+          "listLabel": "Recovery codes",
+          "copy": "Copy codes",
+          "saved": "I've saved them"
+        },
+        "replace": {
+          "explain": "Enter a code to create new recovery codes. Your old recovery codes stop working.",
+          "submit": "Create new codes"
+        },
+        "remove": {
+          "explain": "Enter a code to remove the authenticator app. Pages that ask for a code won't open until you set one up again."
+        }
       }
     }
   }

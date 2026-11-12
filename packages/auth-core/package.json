@@ -11,6 +11,7 @@
     "./server/providers/AuthFeature": "./src/server/providers/AuthFeature.js",
     "./server/providers/AuthPolicyProvider": "./src/server/providers/AuthPolicyProvider.js",
     "./server/actions/authActions": "./src/server/actions/authActions.js",
+    "./server/actions/secondFactorActions": "./src/server/actions/secondFactorActions.js",
     "./server/authExtensions": "./src/server/authExtensions.js",
     "./server/noAppProfiles": "./src/server/noAppProfiles.js",
     "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
@@ -19,6 +20,7 @@
     "./server/authTexts": "./src/server/authTexts.js",
     "./server/booleanFlag": "./src/server/booleanFlag.js",
     "./server/devAuth": "./src/server/devAuth.js",
+    "./server/secondFactor": "./src/server/secondFactor.js",
     "./server/deferredAuthService": "./src/server/deferredAuthService.js",
     "./server/unsupportedOperation": "./src/server/unsupportedOperation.js",
     "./server/utils": "./src/server/utils.js",
@@ -37,6 +39,7 @@
     "./shared/signOutFlow": "./src/shared/signOutFlow.js",
     "./shared/authDenied": "./src/shared/authDenied.js",
     "./shared/authPaths": "./src/shared/authPaths.js",
+    "./shared/authSecondFactor": "./src/shared/authSecondFactor.js",
     "./shared/authConstraints": "./src/shared/authConstraints.js",
     "./shared/authCapabilities": "./src/shared/authCapabilities.js",
     "./shared/authSecurityStatus": "./src/shared/authSecurityStatus.js",
@@ -60,6 +63,7 @@
     "./shared/commands/authPasswordResetCommand": "./src/shared/commands/authPasswordResetCommand.js",
     "./shared/commands/authLogoutCommand": "./src/shared/commands/authLogoutCommand.js",
     "./shared/commands/authSessionReadCommand": "./src/shared/commands/authSessionReadCommand.js",
+    "./shared/commands/authSecondFactorCommands": "./src/shared/commands/authSecondFactorCommands.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {

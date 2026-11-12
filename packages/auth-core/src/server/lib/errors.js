@@ -4,7 +4,8 @@ const AUTH_POLICY_DENY_REASONS = Object.freeze({
   OWNER_UNRESOLVED: "owner_unresolved",
   FORBIDDEN_OWNER_MISMATCH: "forbidden_owner_mismatch",
   INVALID_AUTH_POLICY: "invalid_auth_policy",
-  FORBIDDEN_PERMISSION: "forbidden_permission"
+  FORBIDDEN_PERMISSION: "forbidden_permission",
+  SECOND_FACTOR_REQUIRED: "second_factor_required"
 });
 
 /**

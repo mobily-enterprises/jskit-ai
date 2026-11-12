@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Second factors in the database: the table `auth_local_second_factors` (one row per account, deleted with it) and the sessions' `second_factor_at` column, created by the new migration `auth_local_db_users_second_factors`, behind the backend contract's `secondFactors` collection and `sessions.markSecondFactorProved` / `sessions.clearSecondFactorForUser`. `LOCAL_AUTH_DB_TABLES.secondFactors` names the table, which the package owns.
 - `auth.local.recovery.consumeForUser(userId, { ...options, idPrefix })` consumes only the user's open tokens whose id starts with `idPrefix`, such as `"rec_"` for a password reset's, and requires it (a `TypeError` without one). It consumed every open token of the user, so an app's new sign-in link (its own `magic_…` tokens) cancelled an outstanding password reset, and a reset its links. The prefix is compared exactly, never as a LIKE pattern, through the recovery table's new server-only `idPrefix` filter. The backend's `recovery.consumeForUser(userId, { idPrefix })` takes it too.
 - `auth.local.sessions.update(sessionId, changes, { ...options, onlyIf })` changes the session only while it still has the `onlyIf` values (`userId`, `purpose`, `revokedAt`; others are refused), compared in the one UPDATE, and answers null, writing nothing, when it is missing or no longer matches. An app promotes a sign-in link's session with `onlyIf: { userId, purpose: "recovery", revokedAt: null }` instead of updating it unconditionally and checking afterwards. Its tests run on SQLite, MariaDB/MySQL and PostgreSQL (`tokenKinds*.test.js`; the PostgreSQL one in CI's PostgreSQL job).
 - Its table resources declare the foreign keys their migrations create (`foreignKeys`), so json-rest-api 3.1.0 can skip the visibility query a system-context read makes for a record such a key guarantees exists. `jskit test --databases` checks each against an app's test database: auth_local_sessions.user_id and auth_local_recovery.user_id to auth_local_users. `localAuthRecords.mysql.test.js` proves the declarations match the migrations on MariaDB.
@@ -16,4 +17,5 @@
 
 ### Upgrading
 
+- Run `npm run db:migrate` before the new version serves requests: every session read selects `second_factor_at`, so until the migration `auth_local_db_users_second_factors` has run every signed-in request fails with an unknown column.
 - Run `npm run db:migrate` before the new version serves requests: its account reads select `email_verified_at`, so until the migration has run every sign-in and account read fails with an unknown column. An application that added `email_verified_at` itself keeps its column (the migration leaves an existing one alone) and replaces its own writes with `markEmailVerified`.

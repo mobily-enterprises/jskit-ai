@@ -34,6 +34,16 @@ Exports
 Exports
 - `createAuthActions({ authService })`
 
+### `src/server/actions/secondFactorActions.js`
+Exports
+- `ACTION_CONFIRM_SECOND_FACTOR_SETUP`
+- `ACTION_READ_SECOND_FACTOR`
+- `ACTION_REMOVE_SECOND_FACTOR`
+- `ACTION_REPLACE_SECOND_FACTOR_RECOVERY_CODES`
+- `ACTION_START_SECOND_FACTOR_SETUP`
+- `ACTION_VERIFY_SECOND_FACTOR`
+- `createSecondFactorActions({ authService })`
+
 ### `src/server/authAccess.js`
 Exports
 - `createAuthAccess()`
@@ -209,6 +219,12 @@ Exports
 Exports
 - `AuthPolicyProvider`
 
+### `src/server/secondFactor.js`
+Exports
+- `isSecondFactorMet(secondFactorAt, requirement, now)`
+- `requireSecondFactor(request, requirement)`
+- `secondFactorRequiredParams(requirement)`
+
 ### `src/server/types.js`
 Exports
 - `type AuthAccess`
@@ -220,6 +236,11 @@ Exports
 - `type AuthProfileProjector`
 - `type AuthInvitationContextResolver`
 - `type AuthRealtimePolicy`
+- `type AuthSecondFactorProof`
+- `type AuthSecondFactorStatus`
+- `type AuthSecondFactorVerification`
+- `type AuthSecondFactorRecoveryCodes`
+- `type AuthSecondFactorSetup`
 - `type AuthLogoutResult`
 - `type AuthService`
 
@@ -330,10 +351,15 @@ Exports
 - `AUTH_PATHS`
 - `buildAuthOauthStartPath(provider)`
 
+### `src/shared/authSecondFactor.js`
+Exports
+- `SECOND_FACTOR_REQUIRED`
+- `isSecondFactorRequired(error)`
+
 ### `src/shared/authSecurityStatus.js`
 Exports
 - `normalizeAuthSecurityStatus(value = {})`
-- `buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus, { actions = {} } = {})`
+- `buildSecurityStatusFromAuthMethodsStatus(authMethodsStatus, { actions = {}, mfa } = {})`
 Local functions
 - `normalizeBoolean(value, fallback = false)`
 - `countEnabledMethods(methods)`
@@ -468,6 +494,15 @@ Exports
 - `AUTH_REGISTER_CONFIRM_MESSAGES`
 - `authRegisterConfirmCommand`
 
+### `src/shared/commands/authSecondFactorCommands.js`
+Exports
+- `authSecondFactorReadCommand`
+- `authSecondFactorRecoveryCodesReplaceCommand`
+- `authSecondFactorRemoveCommand`
+- `authSecondFactorSetupConfirmCommand`
+- `authSecondFactorSetupStartCommand`
+- `authSecondFactorVerifyCommand`
+
 ### `src/shared/commands/authSessionReadCommand.js`
 Exports
 - `sessionOutputValidator`
@@ -491,6 +526,12 @@ Exports
 - `authPasswordResetCommand`
 - `authLogoutCommand`
 - `authSessionReadCommand`
+- `authSecondFactorReadCommand`
+- `authSecondFactorRecoveryCodesReplaceCommand`
+- `authSecondFactorRemoveCommand`
+- `authSecondFactorSetupConfirmCommand`
+- `authSecondFactorSetupStartCommand`
+- `authSecondFactorVerifyCommand`
 
 ### `src/shared/index.js`
 Exports
@@ -503,6 +544,8 @@ Exports
 - `resolveAuthDeniedLoginMessage`
 - `AUTH_PATHS`
 - `buildAuthOauthStartPath`
+- `SECOND_FACTOR_REQUIRED`
+- `isSecondFactorRequired`
 - `AUTH_PASSWORD_RECOVERY_DELIVERIES`
 - `AUTH_OPERATION_FEATURES`
 - `normalizeAuthProviderId`

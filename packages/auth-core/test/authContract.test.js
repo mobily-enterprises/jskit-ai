@@ -98,6 +98,26 @@ test("normalizeAuthCapabilities returns one provider-neutral feature shape", () 
   );
 });
 
+test("the second factor is a capability of its own, which every second factor operation needs", () => {
+  const without = normalizeAuthCapabilities({ features: { password: { login: true } } });
+  const withSecondFactor = normalizeAuthCapabilities({ features: { secondFactor: true } });
+  assert.equal(without.features.secondFactor, false);
+  assert.equal(withSecondFactor.features.secondFactor, true);
+  for (const operation of [
+    "getSecondFactorStatus",
+    "startSecondFactorSetup",
+    "confirmSecondFactorSetup",
+    "verifySecondFactor",
+    "replaceSecondFactorRecoveryCodes",
+    "removeSecondFactor",
+    "listSecondFactors",
+    "resetSecondFactor"
+  ]) {
+    assert.equal(isAuthOperationSupported(without, operation), false, operation);
+    assert.equal(isAuthOperationSupported(withSecondFactor, operation), true, operation);
+  }
+});
+
 test("normalizeAuthActor builds the canonical actor", () => {
   const actor = normalizeAuthActor({
     provider: "supabase",

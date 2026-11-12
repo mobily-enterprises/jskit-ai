@@ -2,8 +2,19 @@ import { normalizeEmail } from "@jskit-ai/auth-core/server/utils";
 import { isDuplicateEntryError } from "@jskit-ai/database-runtime/shared/duplicateEntry";
 import { ConflictError } from "@jskit-ai/kernel/server/runtime/errors";
 import { passedOn } from "@jskit-ai/resource-runtime/server";
-import { nowIso, toDate } from "./dateTimes.js";
 import { IDENTITIES_TABLE } from "./identityStore.js";
+import { secondFactorRecords } from "./secondFactorRecords.js";
+import {
+  deleteById,
+  findById,
+  findOne,
+  optionalDateTime,
+  patchExisting,
+  readDateTime,
+  replaceById,
+  requiredDateTime,
+  text
+} from "./tableRecords.js";
 
 const TABLES = Object.freeze({
   users: "auth_local_users",
@@ -12,34 +23,12 @@ const TABLES = Object.freeze({
   identities: IDENTITIES_TABLE,
   oauthAttempts: "auth_local_oauth_attempts",
   signInFailures: "auth_local_sign_in_failures",
-  registrations: "auth_local_registrations"
+  registrations: "auth_local_registrations",
+  secondFactors: "auth_local_second_factors"
 });
 
 // The tables local sign-in keeps outside table resources, for an app test's expectEveryTableOwned infrastructureTables.
 const INFRASTRUCTURE_TABLES = Object.freeze([IDENTITIES_TABLE]);
-
-// One page of one record: a lookup by a unique field.
-const FIRST = Object.freeze({ size: 1 });
-
-// The ISO text written for a required timestamp: the value, or the fallback (now) when it has none.
-function requiredDateTime(value, fallback = nowIso()) {
-  return toDate(value || fallback).toISOString();
-}
-
-function optionalDateTime(value) {
-  return value ? toDate(value).toISOString() : null;
-}
-
-function readDateTime(value, fallback = "") {
-  if (!value) {
-    return fallback;
-  }
-  return toDate(value).toISOString();
-}
-
-function text(value) {
-  return String(value || "");
-}
 
 // A session's conditional update compares only whose session it is and where it stands.
 const SESSION_CONDITIONS = Object.freeze(["userId", "purpose", "revokedAt"]);
@@ -104,7 +93,8 @@ function mapSession(record) {
     purpose: String(record.purpose || "normal"),
     createdAt: readDateTime(record.createdAt),
     expiresAt: readDateTime(record.expiresAt),
-    revokedAt: readDateTime(record.revokedAt)
+    revokedAt: readDateTime(record.revokedAt),
+    secondFactorAt: readDateTime(record.secondFactorAt)
   };
 }
 
@@ -202,6 +192,7 @@ function sessionRecord(input = {}) {
     purpose: String(input.purpose || "normal"),
     expiresAt: requiredDateTime(input.expiresAt),
     revokedAt: optionalDateTime(input.revokedAt),
+    secondFactorAt: optionalDateTime(input.secondFactorAt),
     createdAt,
     updatedAt: requiredDateTime(input.updatedAt, createdAt)
   };
@@ -236,74 +227,6 @@ function oauthAttemptRecord(input = {}) {
 }
 
 /**
- * The record a unique field's value finds, or null; an empty value finds none.
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
- * @param {string} field
- * @param {unknown} value
- * @param {object} options
- */
-async function findOne(handle, field, value, options) {
-  const wanted = text(value);
-  if (!wanted) {
-    return null;
-  }
-  const { records } = await handle.query({ filters: { [field]: wanted }, page: FIRST }, options);
-  return records[0] || null;
-}
-
-/**
- * The record with this id, or null; an empty id finds none.
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
- * @param {unknown} id
- * @param {object} options
- */
-async function findById(handle, id, options) {
-  const wanted = text(id);
-  return wanted ? handle.get(wanted, {}, { ...options, missing: "skip" }) : null;
-}
-
-/**
- * Deletes the record with this id and answers 1, or 0 when it is missing: one DELETE, so of two concurrent deletes
- * only one answers 1.
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
- * @param {unknown} id
- * @param {object} options
- */
-async function deleteById(handle, id, options) {
-  const wanted = text(id);
-  return wanted && (await handle.delete(wanted, { ...options, missing: "skip" })) !== null ? 1 : 0;
-}
-
-/**
- * Writes an email's sign-in failure record: patches it when it exists, creates it otherwise. An upsert keyed on the
- * email would keep the later of two first failures counted at once, so they would count once; this create instead
- * fails the later one with a duplicate entry, and the backend runs that sign-in again on the row the first one made.
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} failures
- * @param {string} email
- * @param {Record<string, unknown>} attributes
- * @param {object} options
- */
-async function replaceFailures(failures, email, attributes, options) {
-  if (await failures.get(email, {}, { ...options, missing: "skip" })) {
-    await failures.patch(email, attributes, { ...options, returning: "none" });
-  } else {
-    await failures.create({ id: email, ...attributes }, { ...options, returning: "none" });
-  }
-}
-
-/**
- * Patches an existing record and answers it after the change; null when it is missing, which fails no transaction.
- * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} handle
- * @param {unknown} id
- * @param {Record<string, unknown>} changes
- * @param {object} options
- */
-async function patchExisting(handle, id, changes, options) {
-  const wanted = text(id);
-  return wanted ? handle.patch(wanted, changes, { ...options, missing: "skip" }) : null;
-}
-
-/**
  * Local auth's accounts.
  * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} users
  * @param {object} options
@@ -329,7 +252,7 @@ function userRecords(users, options) {
       return mapUser(await findOne(users, "email", email, options));
     },
     async hasAny() {
-      return (await users.query({ page: FIRST }, options)).records.length > 0;
+      return (await users.query({ page: { size: 1 } }, options)).records.length > 0;
     },
     async updatePassword(userId, passwordRecord) {
       return mapUser(await patchExisting(users, userId, { ...writePassword(passwordRecord), updatedAt: requiredDateTime() }, options));
@@ -415,6 +338,22 @@ function sessionRecords(sessions, options) {
     },
     async deleteExpired(now) {
       return sessions.deleteWhere({ expiresAtOrBefore: requiredDateTime(now) }, { ...options, returning: "count" });
+    },
+    async markSecondFactorProved(sessionId, secondFactorAt) {
+      const at = requiredDateTime(secondFactorAt);
+      return mapSession(await patchExisting(sessions, sessionId, { secondFactorAt: at, updatedAt: at }, options));
+    },
+    // Forgets every proof of the user's sessions, as when their second factor is removed; answers how many it changed.
+    async clearSecondFactorForUser(userId) {
+      const owner = text(userId);
+      if (!owner) {
+        return 0;
+      }
+      return sessions.patchWhere(
+        { userId: owner, secondFactorProved: true },
+        { secondFactorAt: null, updatedAt: requiredDateTime() },
+        { ...options, returning: "count" }
+      );
     }
   });
 }
@@ -514,7 +453,7 @@ function signInFailureRecords(failures, options) {
         lastFailedAt: requiredDateTime(input.lastFailedAt),
         lockedUntil: optionalDateTime(input.lockedUntil)
       };
-      await replaceFailures(failures, email, record, options);
+      await replaceById(failures, email, record, options);
       return mapSignInFailures({ id: email, ...record });
     },
     async clear(email) {
@@ -564,6 +503,7 @@ function registrationRecords(registrations, options) {
  * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthOAuthAttempts
  * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthSignInFailures
  * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthRegistrations
+ * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthSecondFactors
  */
 
 /**
@@ -585,7 +525,8 @@ function createRecords(resources, identities, options) {
     }),
     oauthAttempts: oauthAttemptRecords(resources.localAuthOAuthAttempts, options),
     signInFailures: signInFailureRecords(resources.localAuthSignInFailures, options),
-    registrations: registrationRecords(resources.localAuthRegistrations, options)
+    registrations: registrationRecords(resources.localAuthRegistrations, options),
+    secondFactors: secondFactorRecords(resources.localAuthSecondFactors, options)
   });
 }
 

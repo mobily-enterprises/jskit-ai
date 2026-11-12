@@ -2,6 +2,8 @@ import fastifyCookie from "@fastify/cookie";
 import fastifyCsrfProtection from "@fastify/csrf-protection";
 import { safeRequestUrl } from "@jskit-ai/kernel/server/runtime/requestUrl";
 import { isProductionEnv } from "@jskit-ai/kernel/server/runtime/runtimeMode";
+import { SECOND_FACTOR_REQUIRED } from "../../shared/authSecondFactor.js";
+import { isSecondFactorMet, secondFactorRequiredParams } from "../secondFactor.js";
 import { hostOnlyCookieName } from "../utils.js";
 
 import { assertAuthPolicyDeps, normalizeActorResolution } from "./authPolicySupport.js";
@@ -103,6 +105,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
     fastify.decorateRequest("workspace", null);
     fastify.decorateRequest("membership", null);
     fastify.decorateRequest("permissions", null);
+    fastify.decorateRequest("secondFactorAt", "");
 
     fastify.addHook("preHandler", async (request, reply) => {
       const pathname = request.raw.url || request.url || "/";
@@ -147,6 +150,7 @@ function authPolicyPlugin(deps = {}, options = {}) {
       }
 
       request.user = actorResolution.actor;
+      request.secondFactorAt = actorResolution.secondFactorAt;
       request.workspace = null;
       request.membership = null;
       request.permissions = [];
@@ -225,6 +229,21 @@ function authPolicyPlugin(deps = {}, options = {}) {
           });
           throw createError(403, "Forbidden.", { code: "auth.policy.permissionDenied" });
         }
+      }
+
+      if (meta.secondFactor && !isSecondFactorMet(actorResolution.secondFactorAt, meta.secondFactor, Date.now())) {
+        onPolicyDenied({
+          reason: AUTH_POLICY_DENY_REASONS.SECOND_FACTOR_REQUIRED,
+          statusCode: 403,
+          request,
+          meta,
+          actor: actorResolution.actor,
+          context
+        });
+        throw createError(403, SECOND_FACTOR_REQUIRED.message, {
+          code: SECOND_FACTOR_REQUIRED.code,
+          params: secondFactorRequiredParams(meta.secondFactor)
+        });
       }
     });
   };

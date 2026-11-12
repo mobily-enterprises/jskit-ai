@@ -45,6 +45,29 @@ function resolveSessionSecret(env, { storeDir, isProduction }) {
   return generated;
 }
 
+/** The fewest characters AUTH_LOCAL_SECOND_FACTOR_KEY may have. */
+const SECOND_FACTOR_KEY_MIN_CHARACTERS = 32;
+
+/**
+ * AUTH_LOCAL_SECOND_FACTOR_KEY: the application's key, from which local auth
+ * derives the keys that seal authenticator secrets and hash recovery codes.
+ * Outside production the session secret stands in for it. A production server
+ * without it has no second factor (""); one shorter than 32 characters stops
+ * startup.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
+ * @param {{ isProduction: boolean, sessionSecret: string }} options
+ */
+function resolveSecondFactorKey(env, { isProduction, sessionSecret }) {
+  const key = String(env.AUTH_LOCAL_SECOND_FACTOR_KEY || "").trim();
+  if (key) {
+    if (key.length < SECOND_FACTOR_KEY_MIN_CHARACTERS) {
+      throw new Error(`AUTH_LOCAL_SECOND_FACTOR_KEY must have at least ${SECOND_FACTOR_KEY_MIN_CHARACTERS} characters.`);
+    }
+    return key;
+  }
+  return isProduction ? "" : sessionSecret;
+}
+
 /**
  * AUTH_LOCAL_SETUP_CODE: the first account's setup code when a hosting tool
  * supplies it, so that every start and every server asks for the same code.
@@ -63,11 +86,13 @@ function resolveSetupCode(env, { isProduction }) {
 
 /**
  * APP_PUBLIC_URL, from which recovery and confirmation links and OAuth
- * redirect addresses are built. Emailed links and OAuth sign-in require it.
+ * redirect addresses are built, and whose host authenticator apps show beside
+ * a second factor's codes. Emailed links, OAuth sign-in and a production
+ * server's second factor require it.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ emailRecovery: boolean, emailedConfirmation: boolean, oauthEnabled: boolean }} options
+ * @param {{ emailRecovery: boolean, emailedConfirmation: boolean, oauthEnabled: boolean, productionSecondFactor: boolean }} options
  */
-function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled }) {
+function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled, productionSecondFactor }) {
   const configured = String(env.APP_PUBLIC_URL || "").trim();
   if (!configured) {
     if (emailRecovery) throw new Error("APP_PUBLIC_URL is required when local auth email recovery is configured.");
@@ -75,6 +100,9 @@ function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEna
       throw new Error("APP_PUBLIC_URL is required when local auth emails confirmation links.");
     }
     if (oauthEnabled) throw new Error("APP_PUBLIC_URL is required when local auth OAuth sign-in is configured.");
+    if (productionSecondFactor) {
+      throw new Error("APP_PUBLIC_URL is required when AUTH_LOCAL_SECOND_FACTOR_KEY is set: authenticator apps show its host.");
+    }
     return "http://localhost:5173";
   }
   let parsed;
@@ -177,17 +205,23 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
   // resolves, or as the first account.
   const selfRegistration = parseBooleanFlag(env.AUTH_LOCAL_SELF_REGISTRATION, true);
   const confirmationDelivery = resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction, selfRegistration });
+  const sessionSecret = resolveSessionSecret(env, { storeDir, isProduction });
+  const secondFactorKey = resolveSecondFactorKey(env, { isProduction, sessionSecret });
+  const appPublicUrl = resolveAppPublicUrl(env, {
+    emailRecovery,
+    emailedConfirmation: confirmationDelivery === "email",
+    oauthEnabled,
+    productionSecondFactor: isProduction && Boolean(secondFactorKey)
+  });
   return Object.freeze({
     storeDir,
     isProduction,
-    appPublicUrl: resolveAppPublicUrl(env, {
-      emailRecovery,
-      emailedConfirmation: confirmationDelivery === "email",
-      oauthEnabled
-    }),
+    appPublicUrl,
     oauthProviders,
     oauthEnabled,
-    sessionSecret: resolveSessionSecret(env, { storeDir, isProduction }),
+    sessionSecret,
+    // "" when the server has no second factor.
+    secondFactorKey,
     setupCode: resolveSetupCode(env, { isProduction }),
     recoveryDelivery,
     recoveryEnabled: recoveryDelivery !== "disabled",

@@ -18,7 +18,7 @@ const NO_PASSWORD = Object.freeze({ algorithm: "", version: "", salt: "", hash: 
 const CREATED = "2026-11-01T08:00:00.000Z";
 const ISO_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/u;
 const ACCOUNT_KEYS = ["id", "email", "displayName", "password", "createdAt", "updatedAt", "emailVerifiedAt", "disabled"];
-const SESSION_KEYS = ["id", "userId", "tokenHash", "purpose", "createdAt", "expiresAt", "revokedAt"];
+const SESSION_KEYS = ["id", "userId", "tokenHash", "purpose", "createdAt", "expiresAt", "revokedAt", "secondFactorAt"];
 const RECOVERY_KEYS = ["id", "userId", "tokenHash", "createdAt", "expiresAt", "usedAt"];
 
 /** The current second, as the second-precision timestamps keep it. */
@@ -43,7 +43,8 @@ test("accounts: create answers the account it wrote, reads find it by id and ema
     identities: "auth_local_identities",
     oauthAttempts: "auth_local_oauth_attempts",
     signInFailures: "auth_local_sign_in_failures",
-    registrations: "auth_local_registrations"
+    registrations: "auth_local_registrations",
+    secondFactors: "auth_local_second_factors"
   });
   assert.equal(await backend.withTransaction((tx) => tx.users.hasAny()), false);
 
@@ -151,7 +152,8 @@ test("sessions: create, reads, revoke once, revoke a user's live sessions but on
     purpose: "normal",
     createdAt: CREATED,
     expiresAt: "2026-12-01T00:00:00.000Z",
-    revokedAt: ""
+    revokedAt: "",
+    secondFactorAt: ""
   }, "a session without a purpose is a normal one");
   const preview = await backend.withTransaction((tx) => tx.sessions.create(session("ses_two", "usr_ada", "2026-12-01T00:00:00.000Z", { purpose: "dev-auth" })));
   assert.equal(preview.purpose, "dev-auth");
