@@ -43,6 +43,10 @@ const formRuntime = computed(() => props.screen.formRuntime);
 const addEdit = computed(() => props.screen.addEdit);
 // Trying again can help, as the load notice offers Retry: a refused load (403, 404, ...) has no Retry.
 const loadFailureIsRetryable = computed(() => isRetryableLoadStatus(unref(addEdit.value.errorStatus)));
+// A refused read says why: the server's message or a neutral text for its kind (the runtime's loadRefusalMessage).
+const loadErrorText = computed(() =>
+  String(unref(addEdit.value.loadRefusalMessage) || unref(addEdit.value.loadError) || "").trim()
+);
 const formState = computed(() => props.screen.formState);
 const mode = computed(() => String(unref(props.screen.mode) || "new").trim() || "new");
 const saveLabel = computed(() =>
@@ -102,7 +106,7 @@ useShellPageClose({ label: () => t("jskit.http.actions.cancel"), close: cancel }
 
     <div v-if="addEdit.loadError" class="crud-add-edit-form__state">
       <v-icon icon="$cloudOff" size="48" />
-      <p class="text-body-large">{{ addEdit.loadError }}</p>
+      <p class="text-body-large">{{ loadErrorText }}</p>
       <v-btn
         v-if="addEdit.canRetryLoad && loadFailureIsRetryable"
         color="secondary-container"

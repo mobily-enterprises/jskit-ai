@@ -62,8 +62,10 @@ const VUETIFY_STUBS = Object.freeze([
   "VSkeletonLoader", "VTable", "VTextField", "VTooltip"
 ]);
 
-// Whether the screen shows its Retry button, given its runtime's load error and `errorStatus`.
-async function showsRetry(screen, Component) {
+const HTML_ENTITIES = Object.freeze({ "&amp;": "&", "&lt;": "<", "&gt;": ">", "&quot;": "\"", "&#39;": "'" });
+
+// The screen's load-error state, given its runtime: the text it shows and whether it shows its Retry button.
+async function renderLoadError(screen, Component) {
   const app = createSSRApp({ render: () => h(Component, { screen }) });
   const router = createRouter({
     history: createMemoryHistory(),
@@ -76,8 +78,18 @@ async function showsRetry(screen, Component) {
     app.component(name, defineComponent({ setup: (_props, { slots }) => () => h("div", slots.default?.()) }));
   }
   const html = await renderToString(app);
-  assert.match(html, /Unable to load books\.|Check the connection/u, "The load-error state renders.");
-  return /<button[^>]*>[^<]*\bRetry\b/u.test(html);
+  const text = html.match(/<p class="text-body-large">([^<]*)<\/p>/u)?.[1];
+  assert.notEqual(text, undefined, "The load-error state renders.");
+  return {
+    text: text.replace(/&(?:amp|lt|gt|quot|#39);/gu, (entity) => HTML_ENTITIES[entity]),
+    retry: /<button[^>]*>[^<]*\bRetry\b/u.test(html)
+  };
+}
+
+async function showsRetry(screen, Component) {
+  const { text, retry } = await renderLoadError(screen, Component);
+  assert.match(text, /Unable to load books\.|Check the connection/u, "The load-error state renders.");
+  return retry;
 }
 
 // A status of `undefined` is a runtime that has no `errorStatus` (one a page builds), which keeps its Retry.
@@ -91,10 +103,11 @@ const LOAD_FAILURES = Object.freeze([
 ]);
 
 const SCREENS = Object.freeze({
-  list: (errorStatus) => ({
+  list: (errorStatus, { loadRefusalMessage } = {}) => ({
     records: {
       loadError: "Unable to load books.",
       ...(errorStatus === undefined ? {} : { errorStatus }),
+      ...(loadRefusalMessage === undefined ? {} : { loadRefusalMessage }),
       isFetching: false,
       showListSkeleton: false,
       searchEnabled: false,
@@ -107,10 +120,11 @@ const SCREENS = Object.freeze({
     selectableRows: [],
     resolveRecordTitle: (record) => record.title
   }),
-  view: (errorStatus) => ({
+  view: (errorStatus, { loadRefusalMessage } = {}) => ({
     view: {
       loadError: "Unable to load books.",
       ...(errorStatus === undefined ? {} : { errorStatus }),
+      ...(loadRefusalMessage === undefined ? {} : { loadRefusalMessage }),
       isNotFound: false,
       isLoading: false,
       isFetching: false,
@@ -119,7 +133,7 @@ const SCREENS = Object.freeze({
     editLocation: null,
     recordTitle: ""
   }),
-  addEdit: (errorStatus, { canRetryLoad = true } = {}) => ({
+  addEdit: (errorStatus, { canRetryLoad = true, loadRefusalMessage } = {}) => ({
     mode: "edit",
     saveLabel: "Save book",
     cancelTo: "",
@@ -127,6 +141,7 @@ const SCREENS = Object.freeze({
     addEdit: {
       loadError: "Unable to load books.",
       ...(errorStatus === undefined ? {} : { errorStatus }),
+      ...(loadRefusalMessage === undefined ? {} : { loadRefusalMessage }),
       canRetryLoad,
       isFetching: false,
       isSaving: false,
@@ -153,4 +168,38 @@ for (const [key, buildScreen] of Object.entries(SCREENS)) {
 
 test("CrudAddEditScreen still shows no Retry while its form reads no record", async () => {
   assert.equal(await showsRetry(SCREENS.addEdit(503, { canRetryLoad: false }), screens.addEdit), false);
+});
+
+// What each screen says after a failed load. `refusal` is the runtime's `loadRefusalMessage` for it: empty where trying
+// again may help, else the server's message or the neutral text for the refusal's kind.
+const LOAD_ERROR_TEXTS = Object.freeze([
+  { label: "a network failure", status: 0, refusal: "" },
+  { label: "a 503", status: 503, refusal: "" },
+  { label: "a 401 without a message", status: 401, refusal: "Sign in again to see this." },
+  { label: "a 403 without a message", status: 403, refusal: "You don't have access to this." },
+  { label: "a 404 without a message", status: 404, refusal: "This wasn't found." },
+  { label: "a 422 without a message", status: 422, refusal: "This couldn't be loaded." },
+  { label: "a 403 with the server's message", status: 403, refusal: "Only editors can read books." }
+]);
+// The text each screen showed before for a load trying again may fix: the list's connection advice, or the runtime's
+// load error.
+const RETRYABLE_TEXTS = Object.freeze({
+  list: "Check the connection and try again.",
+  view: "Unable to load books.",
+  addEdit: "Unable to load books."
+});
+
+for (const [key, buildScreen] of Object.entries(SCREENS)) {
+  for (const { label, status, refusal } of LOAD_ERROR_TEXTS) {
+    const expected = refusal || RETRYABLE_TEXTS[key];
+    test(`${SCREEN_NAMES[key]} says "${expected}" after ${label}`, async () => {
+      const { text } = await renderLoadError(buildScreen(status, { loadRefusalMessage: refusal }), screens[key]);
+      assert.equal(text, expected);
+    });
+  }
+}
+
+test("CrudListScreen gives a refusal from a runtime without loadRefusalMessage its load error, not the connection advice", async () => {
+  const { text } = await renderLoadError(SCREENS.list(403), screens.list);
+  assert.equal(text, "Unable to load books.");
 });

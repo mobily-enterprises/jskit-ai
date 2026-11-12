@@ -16,6 +16,7 @@ import {
   resolveResourceMessages
 } from "../support/scopeHelpers.js";
 import { resolveLoadErrorStatus } from "../support/resourceLoadStateHelpers.js";
+import { toLoadRefusalMessage } from "../support/errorMessageHelpers.js";
 import { createRequestQueryRuntime } from "../support/requestQueryRuntimeSupport.js";
 import { resolveRouteParamNamesInOrder } from "../support/routeTemplateHelpers.js";
 import { useJskitText } from "../../i18n.js";
@@ -182,6 +183,8 @@ function useAddEdit({
   const loadError = operationScope.loadError(endpointResource.loadError);
   // The HTTP status of the failed load, or 0: the form's Retry and its notice offer Retry only when it can help.
   const errorStatus = computed(() => resolveLoadErrorStatus(endpointResource.query.error.value));
+  // What the form says when the server refused its record read, or "" when trying again may help.
+  const loadRefusalMessage = computed(() => toLoadRefusalMessage(endpointResource.query.error.value));
   const isLoading = operationScope.isLoading(endpointResource.isLoading);
   const canRetryLoad = computed(() => readEnabled !== false);
 
@@ -209,6 +212,7 @@ function useAddEdit({
     canSave,
     loadError,
     errorStatus,
+    loadRefusalMessage,
     isInitialLoading,
     isFetching,
     isRefetching,

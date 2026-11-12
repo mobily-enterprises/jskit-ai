@@ -46,6 +46,13 @@ const router = useRouter();
 const records = computed(() => props.screen.records);
 // Retry only where trying again can help, as the load notice offers it: a refused load (403, 404, ...) has none.
 const canRetryLoad = computed(() => isRetryableLoadStatus(unref(records.value.errorStatus)));
+// The connection advice only where trying again can help; a refused load says why instead: the server's message or
+// a neutral text for its kind (the runtime's loadRefusalMessage), else the runtime's load error.
+const loadErrorText = computed(() =>
+  canRetryLoad.value
+    ? resolvedLoadErrorBody.value
+    : String(unref(records.value.loadRefusalMessage) || unref(records.value.loadError) || "").trim()
+);
 const bulkActions = computed(() => props.screen.bulkActions);
 const rowActions = computed(() => props.screen.rowActions);
 const listFilters = computed(() => props.screen.listFilters);
@@ -165,7 +172,7 @@ function setSelectableRowsSelected(selected = true) {
     <template v-else>
       <div v-if="records.loadError" class="crud-list-state">
         <v-icon icon="$cloudOff" size="48" class="crud-list-state__icon" />
-        <p class="text-body-large">{{ resolvedLoadErrorBody }}</p>
+        <p class="text-body-large">{{ loadErrorText }}</p>
         <v-btn
           v-if="canRetryLoad"
           color="secondary-container"

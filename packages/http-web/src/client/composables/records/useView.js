@@ -160,6 +160,7 @@ function useView({
     isNotFound: view.isNotFound,
     notFoundError: view.notFoundError,
     loadError,
+    loadRefusalMessage: view.loadRefusalMessage,
     refresh: view.refresh,
     resource: endpointResource,
     resolveFieldDisplay: resolveLookupFieldDisplayValue,

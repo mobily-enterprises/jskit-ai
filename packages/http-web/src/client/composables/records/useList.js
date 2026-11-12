@@ -15,6 +15,7 @@ import {
 import { createListUiRuntime } from "../runtime/listUiRuntime.js";
 import { asPlainObject } from "../support/scopeHelpers.js";
 import { resolveLoadErrorStatus } from "../support/resourceLoadStateHelpers.js";
+import { toLoadRefusalMessage } from "../support/errorMessageHelpers.js";
 import {
   buildRequestQueryObject,
   createRequestQueryRuntime
@@ -437,6 +438,8 @@ function useList({
   const loadError = operationScope.loadError(list.loadError);
   // The HTTP status of the failed load, or 0: a screen tells a refusal (403) from a network failure by it.
   const errorStatus = computed(() => resolveLoadErrorStatus(list.query.error.value));
+  // What the screen says when the server refused the load, or "" when trying again may help.
+  const loadRefusalMessage = computed(() => toLoadRefusalMessage(list.query.error.value));
   const isLoading = operationScope.isLoading(list.isLoading);
   const listUiRuntime = createListUiRuntime({
     items: listItems,
@@ -469,6 +472,7 @@ function useList({
     hasMore: list.hasMore,
     loadError,
     errorStatus,
+    loadRefusalMessage,
     pages: list.pages,
     items: listItems,
     reload: list.reload,

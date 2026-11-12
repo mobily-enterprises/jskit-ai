@@ -1,6 +1,7 @@
 import { computed } from "vue";
 import { watchResourceModelState } from "./modelStateHelpers.js";
 import { resolveLoadErrorStatus } from "../support/resourceLoadStateHelpers.js";
+import { toLoadRefusalMessage } from "../support/errorMessageHelpers.js";
 import { useJskitText } from "../../i18n.js";
 
 const { t } = useJskitText();
@@ -42,6 +43,8 @@ function useViewCore({
   // The HTTP status of the failed load, or 0.
   const errorStatus = computed(() => resolveLoadErrorStatus(error.value));
   const isNotFound = computed(() => statusList.includes(errorStatus.value));
+  // What the screen says when the server refused the read, or "" when trying again may help.
+  const loadRefusalMessage = computed(() => toLoadRefusalMessage(error.value));
 
   const notFoundError = computed(() => {
     if (!isNotFound.value) {
@@ -79,6 +82,7 @@ function useViewCore({
     isNotFound,
     notFoundError,
     loadError,
+    loadRefusalMessage,
     canView: resolvedCanView,
     refresh
   };

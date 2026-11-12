@@ -33,6 +33,10 @@ const isNotFound = computed(() => Boolean(unref(view.value.isNotFound)));
 const isUnavailable = computed(() => isNotFound.value || Number(unref(view.value.errorStatus)) === 403);
 // Retry only where trying again can help, as the load notice offers it: a refused load (401, 403, ...) has none.
 const canRetryLoad = computed(() => isRetryableLoadStatus(unref(view.value.errorStatus)));
+// A refused read says why: the server's message or a neutral text for its kind (the runtime's loadRefusalMessage).
+const loadErrorText = computed(() =>
+  String(unref(view.value.loadRefusalMessage) || unref(view.value.loadError) || "").trim()
+);
 
 // A record that is unavailable when Up returns here sends the reader on to this page's parent instead.
 const { pageUnavailable } = useShellNavigation();
@@ -57,7 +61,7 @@ watch(isUnavailable, (unavailable) => {
 
     <div v-if="view.loadError" class="crud-view-state">
       <v-icon icon="$cloudOff" size="48" />
-      <p class="text-body-large">{{ view.loadError }}</p>
+      <p class="text-body-large">{{ loadErrorText }}</p>
       <v-btn
         v-if="canRetryLoad"
         color="secondary-container"

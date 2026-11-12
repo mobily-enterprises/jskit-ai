@@ -326,6 +326,7 @@ Exports
 
 ### `src/client/composables/support/errorMessageHelpers.js`
 Exports
+- `toLoadRefusalMessage(error)`
 - `toQueryErrorMessage(error, fallbackMessage = "", defaultMessage = "")`
 - `toUiErrorMessage(error, fallbackMessage = "", defaultMessage = "")`
 - `toUiFieldErrors(error)`

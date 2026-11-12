@@ -58,13 +58,14 @@ async function waitFor(check, message) {
   assert.fail(message);
 }
 
-// Mounts one runtime whose every read fails with `status`, and records what it reports to the shell.
-async function mountFailingLoad(t, status, useRuntime) {
+// Mounts one runtime whose every read fails with `status` (and `message`, by default one of the server's own), and
+// records what it reports to the shell.
+async function mountFailingLoad(t, status, useRuntime, { message = `Contacts refused the read (${describeStatus(status)}).` } = {}) {
   const requests = [];
   const client = {
     async request(path) {
       requests.push(path);
-      const error = new Error(`Contacts refused the read (${describeStatus(status)}).`);
+      const error = new Error(message);
       if (status !== undefined) {
         error.status = status;
       }
@@ -198,4 +199,51 @@ for (const failure of [{ status: 503, retry: true }, { status: 403, retry: false
     assert.equal(mounted.runtime.canRetryLoad, true, "The form's own Retry button is unchanged.");
     await assertRetryLoadsAgain(mounted, assertRetryOffer(mounted, failure));
   });
+}
+
+// What a screen says about a refused load (`loadRefusalMessage`): the server's message when the error carries one,
+// else a neutral text for the refusal's kind; empty where trying again may help. A message of `null` is the one the
+// HTTP client builds when the server sent none ("Request failed with status 403.").
+const LOAD_REFUSALS = Object.freeze([
+  { label: "a network failure", status: undefined, message: "Network request failed.", refusal: "" },
+  { label: "a 503", status: 503, message: null, refusal: "" },
+  { label: "a 401 without a message", status: 401, message: null, refusal: "Sign in again to see this." },
+  { label: "a 403 without a message", status: 403, message: null, refusal: "You don't have access to this." },
+  { label: "a 404 without a message", status: 404, message: null, refusal: "This wasn't found." },
+  { label: "a 422 without a message", status: 422, message: null, refusal: "This couldn't be loaded." },
+  {
+    label: "a 403 with the server's message",
+    status: 403,
+    message: "Only editors can read contacts.",
+    refusal: "Only editors can read contacts."
+  }
+]);
+
+const REFUSAL_RUNTIMES = Object.freeze({
+  useList: (client) => useList(listOptions(client)),
+  useView: (client) => useView({
+    apiSuffix: "/contacts/7",
+    ownershipFilter: "public",
+    client,
+    queryKeyFactory: () => ["contacts", "7"]
+  }),
+  useAddEdit: (client) => useAddEdit({
+    apiSuffix: "/contacts/7",
+    ownershipFilter: "public",
+    client,
+    queryKeyFactory: () => ["contacts", "7", "edit"],
+    model: reactive({ name: "" })
+  })
+});
+
+for (const [name, useRuntime] of Object.entries(REFUSAL_RUNTIMES)) {
+  for (const { label, status, message, refusal } of LOAD_REFUSALS) {
+    test(`${name}: loadRefusalMessage after ${label} is ${refusal ? `"${refusal}"` : "empty"}`, async (t) => {
+      const mounted = await mountFailingLoad(t, status, useRuntime, {
+        message: message ?? `Request failed with status ${status}.`
+      });
+
+      assert.equal(mounted.runtime.loadRefusalMessage, refusal);
+    });
+  }
 }
