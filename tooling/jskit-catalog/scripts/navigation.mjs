@@ -301,6 +301,16 @@ function normalisePath(value) {
   return trimmed === "/" ? "/" : trimmed;
 }
 
+// Whether a literal path is one a page's route pattern serves: segment by segment, each `:param` stands for exactly
+// one non-empty segment and every other segment is the same text. /modules/:moduleKey serves /modules/incidents, not
+// /modules or /modules/incidents/open; a catch-all (:rest*) matches only its own text.
+function patternServes(pattern, literal) {
+  const patternSegments = pattern.split("/");
+  const literalSegments = literal.split("/");
+  return patternSegments.length === literalSegments.length && patternSegments.every((segment, index) =>
+    segment === literalSegments[index] || (/^:[\w$]+$/u.test(segment) && literalSegments[index] !== ""));
+}
+
 // unplugin-vue-router file routes: src/pages/home/suppliers/[supplierId]/edit.vue is home/suppliers/:supplierId/edit,
 // and an index file or folder adds no segment.
 function routeOf(file) {
@@ -555,12 +565,15 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
   const surfacePath = (file, surface) => normalisePath(routePattern(routeOf(file).slice(surface.pagesRoot.length)));
   const addressOf = (relative, surface) => normalisePath(routePattern(`${surface.pagesRoot}${relative}`));
   const shownOn = (owners, surface) => owners.length === 0 || owners.includes(surface.id) || owners.includes("*");
-  // A destination by its suffix on the surface, or by its address (`to`).
+  // A destination by its suffix on the surface, or by its address (`to`). A page with a dynamic route (one page for
+  // every module, at /modules/:moduleKey) is a destination when a destination's literal path is one it serves.
   const isDestination = (relative, surface) => navigation.destinations.some(({ suffix, to, surfaces: owners }) =>
-    to === undefined ? suffix === relative && shownOn(owners, surface) : to === addressOf(relative, surface));
+    to === undefined ? patternServes(relative, suffix) && shownOn(owners, surface) : patternServes(addressOf(relative, surface), to));
   // A global route's address is a destination when a link's `to` names it, or a suffix leads there on a surface.
   const isAddress = (address) => navigation.destinations.some(({ suffix, to, surfaces: owners }) =>
-    to === undefined ? surfaces.some((surface) => shownOn(owners, surface) && addressOf(suffix, surface) === address) : to === address);
+    to === undefined
+      ? surfaces.some((surface) => shownOn(owners, surface) && patternServes(address, addressOf(suffix, surface)))
+      : patternServes(address, to));
   // An App.vue that wraps every page in the shell's bar leaves no page outside it.
   const appShell = appFiles.includes("src/App.vue") && await drawsShellBar("src/App.vue");
   const judged = [];

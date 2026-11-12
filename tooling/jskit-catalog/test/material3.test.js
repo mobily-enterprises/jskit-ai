@@ -707,6 +707,48 @@ test("every inner shell page declares a parent and no main-navigation page decla
   });
 });
 
+// One page serves many main-navigation destinations: /modules/:moduleKey renders each module a placement names
+// literally. Each :param stands for exactly one segment, so the page is top-level and its deeper pages are not.
+const modulesApp = (modulePage) => ({
+  "package.json": SHELL_MANIFEST,
+  "config/public.js": "const config = {};\nconfig.surfaceDefinitions = {};\nconfig.surfaceDefinitions.admin = { id: \"admin\", pagesRoot: \"w/[workspaceSlug]/admin\" };\nexport { config };\n",
+  "src/placement.js": [
+    "addPlacement({ id: \"app.incidents\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"admin\"], props: { label: \"Incidents\", surface: \"admin\", scopedSuffix: \"/modules/incidents\", unscopedSuffix: \"/modules/incidents\" } });",
+    "addPlacement({ id: \"app.hazards\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"admin\"], props: { label: \"Hazards\", surface: \"admin\", scopedSuffix: \"/modules/hazards\", unscopedSuffix: \"/modules/hazards\" } });",
+    "addPlacement({ id: \"app.permits\", target: \"shell.secondary-nav\", kind: \"link\", surfaces: [\"admin\"], props: { label: \"Permits\", surface: \"admin\", scopedSuffix: \"/modules/permits?view=open\" } });",
+    ""
+  ].join("\n"),
+  "src/pages/w/[workspaceSlug]/admin.vue": SHELL_LAYOUT.replace("\"surface\": \"home\"", "\"surface\": \"admin\""),
+  "src/pages/w/[workspaceSlug]/admin/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/w/[workspaceSlug]/admin/modules/[moduleKey]/index.vue": modulePage,
+  "src/pages/w/[workspaceSlug]/admin/modules/[moduleKey]/settings.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/w/[workspaceSlug]/admin/modules/[moduleKey]/records/[recordId].vue": "<template>\n  <section />\n</template>\n"
+});
+
+test("a dynamic page that serves literal main-navigation destinations is top-level, and its deeper pages are not", async () => {
+  await withApp(modulesApp("<template>\n  <section />\n</template>\n"), async (root) => {
+    const result = await checkNavigation({ projectRoot: root });
+    assert.deepEqual(findingLines(result), [
+      "src/pages/w/[workspaceSlug]/admin/modules/[moduleKey]/records/[recordId].vue:1 nav/missing-parent",
+      "src/pages/w/[workspaceSlug]/admin/modules/[moduleKey]/settings.vue:1 nav/missing-parent"
+    ]);
+    assert.deepEqual(result.pages.map(({ route, topLevel }) => `${route}${topLevel ? " top" : ""}`).sort(), [
+      "/ top",
+      "/modules/:moduleKey top",
+      "/modules/:moduleKey/records/:recordId",
+      "/modules/:moduleKey/settings"
+    ]);
+  });
+  // A destination declares no parent, so the dynamic page that serves them declares none either.
+  await withApp(modulesApp(pageWith("definePage({ meta: { jskit: { parent: \"/\" } } });")), async (root) => {
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), [
+      "src/pages/w/[workspaceSlug]/admin/modules/[moduleKey]/index.vue:2 nav/top-level-parent",
+      "src/pages/w/[workspaceSlug]/admin/modules/[moduleKey]/records/[recordId].vue:1 nav/missing-parent",
+      "src/pages/w/[workspaceSlug]/admin/modules/[moduleKey]/settings.vue:1 nav/missing-parent"
+    ]);
+  });
+});
+
 // A Home link shown on the account surface too: it names its surface, so it leads to home's "/" from both.
 const accountApp = (homeLinkProps) => ({
   "package.json": SHELL_MANIFEST,
@@ -831,6 +873,30 @@ test("a package's routes are shell pages: inner ones declare a parent in package
   await withApp(packageRouteApp(appShell), async (root) => {
     const result = await checkNavigation({ projectRoot: root });
     assert.equal(result.findings.some(({ rule }) => rule === "nav/missing-shell-layout"), false);
+  });
+});
+
+test("a package's dynamic route that serves literal main-navigation destinations is top-level, and its deeper routes are not", async () => {
+  const manifest = { ...PACKAGE_MANIFEST, jskit: { metadata: { ui: { routes: [
+    { id: "modules.module", path: "/home/modules/:moduleKey", scope: "surface", surface: "home", componentKey: "shell" },
+    { id: "reports.report", path: "/reports/:reportKey", scope: "global", componentKey: "shell" },
+    { id: "reports.period", path: "/reports/:reportKey/:period", scope: "global", componentKey: "shell" }
+  ] } } } };
+  const placements = [
+    "addPlacement({ id: \"app.incidents\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"home\"], props: { surface: \"home\", scopedSuffix: \"/modules/incidents\" } });",
+    "addPlacement({ id: \"app.hazards\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"home\"], props: { surface: \"home\", scopedSuffix: \"/modules/hazards\" } });",
+    "addPlacement({ id: \"app.weekly\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"*\"], props: { label: \"Weekly\", to: \"/reports/weekly\" } });",
+    ""
+  ].join("\n");
+  await withApp(packageRouteApp({ "packages/manage/package.json": manifest, "src/placement.js": placements }), async (root) => {
+    const result = await checkNavigation({ projectRoot: root });
+    const periodLine = JSON.stringify(manifest, null, 2).split("\n").findIndex((line) => line.includes("\"id\": \"reports.period\"")) + 1;
+    assert.deepEqual(findingLines(result), [`packages/manage/package.json:${periodLine} nav/missing-parent`]);
+    assert.deepEqual(result.pages.filter(({ file }) => file.startsWith("packages/")).map(({ route, surface, topLevel }) => `${surface} ${route}${topLevel ? " top" : ""}`), [
+      "home /modules/:moduleKey top",
+      "global /reports/:reportKey top",
+      "global /reports/:reportKey/:period"
+    ]);
   });
 });
 

@@ -92,7 +92,13 @@ Exactly this, and nothing more:
    top-level: no arrow, a fresh trail. Placements are literal declarative data,
    one `addPlacement({ ... })` per destination with plain string `surface`,
    `scopedSuffix` and `unscopedSuffix`, never built by a helper, a spread or a
-   template, so a reader and `jskit check` can map every destination.
+   template, so a reader and `jskit check` can map every destination. One
+   dynamic page may serve several destinations: `modules/[moduleKey]/index.vue`
+   renders each module a placement names literally (`scopedSuffix:
+   "/modules/incidents"`, `"/modules/hazards"`), so it is top-level and declares
+   no parent. A literal destination is served by a page whose route matches it
+   segment by segment, each `:param` standing for exactly one segment; the
+   page's deeper pages (`modules/[moduleKey]/settings.vue`) are inner pages.
 3. **Every in-app link and navigation goes through JSKIT navigation:**
    `:to="paths.page('/suppliers')"` and `router.push(paths.page(...))` with
    `usePaths()`, the CRUD runtime's `resolveViewUrl()`, `resolveEditUrl()` and
@@ -128,7 +134,7 @@ Exactly this, and nothing more:
 | `nav/raw-link` | a hand-built in-app path in `to`, `href`, `router.push()`, `router.replace()` or a `to:`/`href:` object key outside a placement |
 | `nav/back-control` | any back control but the shell's Up that navigates the app: "Back to X", "← Suppliers", back arrows and navigating chevrons, breadcrumbs, a custom app-bar back button, a back component (`<ContextBackButton />` or `<page-back-link>`, and its import), a `goBack()`-style handler |
 | `nav/missing-parent` | an inner page of a shell surface without a declared parent, when it always renders under the shell's top app bar (a layout that also renders its pages without `ShellLayout`, such as a shop device's sign-in in a `v-if`, leaves its pages unjudged) |
-| `nav/top-level-parent` | a main-navigation destination that declares a parent |
+| `nav/top-level-parent` | a main-navigation destination that declares a parent, including a dynamic page whose route serves a literal destination (`/modules/:moduleKey` for `/modules/incidents`) |
 | `nav/placement-data` | a main-navigation placement that isn't literal data (no page is judged for a missing parent until it is) |
 | `nav/missing-shell-layout` | a page that declares a parent with no shell layout rendering it, so its title, Up and actions never show |
 | `nav/surface-parent` | a parent declared beside `jskit.surface`, which the shell never reads |

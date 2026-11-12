@@ -272,6 +272,7 @@ Local functions
 - `readMainNavigation(sources)`
 - `computedPlacementPart(placement)`
 - `normalisePath(value)`
+- `patternServes(pattern, literal)`
 - `routeOf(file)`
 - `routePattern(route)`
 - `readSurfaces(configSource, pageRoutes)`
