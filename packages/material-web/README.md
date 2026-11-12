@@ -130,6 +130,41 @@ Each one comes off when the upstream fix ships; its test says when.
   would make an inline style). shell-web's browser test "a virtual-scroll list
   in a dialog reaches its last item after the page around it re-renders"
   guards it; it fails with `VDialog: { VCard: {} }` in the defaults.
+- **Vuetify 4.3.2 and 4.3.3 (measured): idle loaders read layout as they
+  mount.** Every field built on `VField` (`v-text-field`, `v-select`,
+  `v-textarea` and the others) mounts an idle `VProgressLinear` in its loader
+  slot, and Vuetify's loaders (`VProgressLinear`, `VProgressCircular` and labs'
+  `VLoadingIndicator`) call `useElementIntersection(root)`, whose first check
+  runs at once and reads `getBoundingClientRect()`. In a form that writes a
+  style as it mounts, that is a forced layout per field: in this package's
+  browser test, 300 fields took 15.9 s to mount as Vuetify publishes them and
+  1.3 s patched. Upstream issue:
+  [vuetifyjs/vuetify#23393](https://github.com/vuetifyjs/vuetify/issues/23393).
+  material-web's install script (`scripts/patch-vuetify-loaders.mjs`, its
+  `postinstall`) passes `{ immediate: false }` to those three calls in the
+  installed Vuetify: its `lib/` modules and the builds `vuetify/dist/vuetify.js`
+  and `vuetify/dist/vuetify-labs.js` resolve to (`.esm.js`, `.cjs` and the UMD
+  build at that path). The intersection observer still reports what is in
+  view, so a loading field's bar still shows and a bar scrolled into view still
+  animates; no form needs a workaround of its own. `dist/vuetify.min.js` stays
+  as published: no export names it (it is the CDN script build), and its
+  minified names would need a looser match. So do Vuetify's other callers
+  (`VOtpInput`, `VAlert`'s auto-dismiss, `VInfiniteScroll`, `VParallax`). The
+  script patches a Vuetify copy only where it finds exactly the calls it
+  expects, all of them or none, and otherwise prints one line naming the issue
+  and changes nothing; a second run changes nothing, and it never fails an
+  install. It patches the Vuetify the installing project resolves and the
+  copies nested under that project's other packages.
+
+  The app's root `package.json` approves the script, as `jskit update` writes
+  it: `"allowScripts": { "@jskit-ai/material-web": true }`. Without it npm 11
+  runs it with a warning, and a strict install (`strict-allow-scripts`, as
+  JSKIT's CI runs) fails. An install with `--ignore-scripts` leaves Vuetify as
+  published; `npm rebuild @jskit-ai/material-web` patches it afterwards. The
+  browser test "300 fields mount with no layout read from their idle loaders
+  once patched; Vuetify as published reads one per field" fails once a Vuetify
+  release fixes the issue; then pin it and delete the script, its tests, the
+  `postinstall` and `jskit update`'s approval.
 
 ## Maintaining the icon set
 
