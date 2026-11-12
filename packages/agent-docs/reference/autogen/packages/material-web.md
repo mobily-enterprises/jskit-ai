@@ -53,3 +53,21 @@ Local functions
 - `resolveGlyph(iconSet, spec)`
 - `buildSymbols(iconSet)`
 - `main()`
+
+### `scripts/patch-vuetify-loaders.mjs`
+Exports
+- `ISSUE`
+- `LOADERS`
+- `PATCH`
+- `TARGETS`
+- `findVuetifyCopies(starts)`
+- `main({ env = process.env, cwd = process.cwd(), log = console.log } = {})`
+- `patchSource(source, loaders)`
+- `patchVuetify(directory)`
+Local functions
+- `findLoaderCall(source, name)`
+- `replaceFile(file, text)`
+- `isFile(file)`
+- `nearestVuetify(start)`
+- `nestedVuetify(nodeModules)`
+- `isEntrypoint()`

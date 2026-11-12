@@ -19,7 +19,9 @@ export default [
       "**/coverage/**",
       "**/.cache/**",
       "**/.jskit/**",
-      "packages/**/templates/**"
+      "packages/**/templates/**",
+      // Vuetify's own modules, as published, for material-web's install patch tests.
+      "packages/material-web/test/fixtures/vuetify-*/**"
     ]
   },
   ...baseConfig,

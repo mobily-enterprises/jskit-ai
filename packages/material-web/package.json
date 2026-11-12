@@ -34,7 +34,8 @@
     }
   },
   "scripts": {
-    "test": "jskit test",
+    "postinstall": "node ./scripts/patch-vuetify-loaders.mjs",
+    "test": "jskit test test/*.test.js",
     "symbols:generate": "node ./scripts/generate-symbols.mjs"
   }
 }
