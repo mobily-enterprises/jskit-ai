@@ -82,7 +82,7 @@ test("an active goal looks running, with its clock counting on from its running 
   assert.equal(running.label, "jskit.assistant.goal.goal");
   assert.match(running.chip, /<span class="assistant-goal__elapsed" aria-hidden="true">2:10:0\d<\/span>/u);
   assert.match(running.chip, /assistant-goal__light--running/u);
-  assert.match(running.panel, /role="status">jskit\.assistant\.goal\.running</u);
+  assert.match(running.panel, /role="status"[^>]*>jskit\.assistant\.goal\.running</u);
   // Between turns, or after a restart before its continuation starts, nothing
   // works on it: the chip says so, with no red light and no clock, and its
   // running time stays where the work stopped.
@@ -119,7 +119,7 @@ test("a goal stopped at its AI account's limit says so in a few words; its detai
   assert.equal(claude.label, "jskit.assistant.goal.usageLimited");
   assert.doesNotMatch(claude.chip, /assistant-goal__elapsed|assistant-goal__light--running|usageLimitedUntilHint/u);
   assert.match(claude.chip, /assistant-goal__light--paused/u, "a goal stopped at its limit shows the paused light");
-  assert.match(claude.panel, /role="status">jskit\.assistant\.goal\.usageLimited</u);
+  assert.match(claude.panel, /role="status"[^>]*>jskit\.assistant\.goal\.usageLimited</u);
   assert.match(claude.panel, new RegExp(`jskit\\.assistant\\.goal\\.usageLimitedUntilHint\\(${time}\\)<`, "u"));
   for (const action of ["pause", "resume", "cancel"]) {
     assert.match(claude.panel, new RegExp(`jskit\\.assistant\\.goal\\.${action}<`, "u"), `a waiting Claude goal offers ${action}`);
