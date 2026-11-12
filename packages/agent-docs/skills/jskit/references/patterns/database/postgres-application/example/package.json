@@ -9,7 +9,7 @@
     "test": "jskit test --databases"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.269",
-    "@jskit-ai/database-runtime-postgres": "0.1.266"
+    "@jskit-ai/database-runtime": "0.1.270",
+    "@jskit-ai/database-runtime-postgres": "0.1.267"
   }
 }
