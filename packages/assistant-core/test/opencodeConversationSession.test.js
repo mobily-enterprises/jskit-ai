@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
-import { createConversationRuntime, createFileConversationStorage } from "../src/server/conversation/index.js";
+import { createConversationRuntime, createConversationTranscript, createFileConversationStorage, createMemoryConversationStorage } from "../src/server/conversation/index.js";
 import { createLocalConversationExecution } from "../src/server/conversation/localExecution.js";
 import { createOpenCodeConversationDriver } from "../src/server/conversation/providers/opencodeDriver.js";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
@@ -685,6 +685,71 @@ test("unavailable or absent native admission remains unknown without replaying t
     assert.equal((await f.trace()).filter(item => item.url?.endsWith("/prompt_async")).length, 1);
   }
 });
+
+test("a bound OpenCode message its host proves never arrived is not sent and no longer blocks the next one", async t => {
+  for (const admission of ["unknown", "not-admitted"]) {
+    const f = await boundMainFixture(t, admission);
+    await assert.rejects(f.conversation.send({ messageId: "lost-id", text: "lost" }), /acknowledgement was lost/);
+    assert.equal((await f.conversation.read()).status, "unconfirmed");
+    if (admission === "unknown") {
+      await assert.rejects(f.conversation.inspectDelivery({ messageId: "lost-id" }), { code: "conversation_delivery_uncertain" });
+      assert.equal((await f.conversation.read()).status, "unconfirmed");
+      await assert.rejects(f.conversation.send({ messageId: "retry", text: "Hello" }), /uncertain delivery/);
+      assert.deepEqual(f.dispatched, ["lost-id"]);
+      continue;
+    }
+    const receipt = await f.conversation.inspectDelivery({ messageId: "lost-id" });
+    assert.equal(receipt.status, "not-sent");
+    assert.equal(receipt.messageId, "lost-id");
+    assert.equal((await f.conversation.read()).status, "ready");
+    assert.deepEqual(f.dispatched, ["lost-id"], "Inspection never resends the lost prompt");
+    await f.conversation.send({ messageId: "retry", text: "Hello" });
+    assert.deepEqual(f.dispatched, ["lost-id", "retry"]);
+  }
+});
+
+// A host-bound OpenCode Main through the common runtime. The host's prepared
+// inspection projects the native observation to `admission`; the stand-in native
+// owner keeps the shared runtime's prepared-message seam, finds the prompt absent
+// from complete history, and records each dispatch in place of /prompt_async.
+async function boundMainFixture(t, admission) {
+  const storage = createMemoryConversationStorage();
+  const transcript = createConversationTranscript({ storage });
+  const threadId = "ses_bound_main";
+  const dispatched = [];
+  let delivery;
+  const owner = { turns: new Map(), processes: new Map(), monitors: new Map(),
+    readSessionState: async () => ({ ok: true, thread: { id: threadId } }),
+    async sendPreparedMessage(prepared) {
+      const { messageId, message } = prepared.input;
+      dispatched.push(messageId);
+      await prepared.input.onPromptSending({ threadId });
+      if (messageId === "lost-id") throw new Error("The OpenCode prompt acknowledgement was lost.");
+      return prepared.project({ delivered: true, conversationTurn: await transcript.writeConversationUserMessage("main", { messageId, text: message }) });
+    },
+    inspectPreparedMessage: async prepared => prepared.project({ accepted: false, messages: [] }),
+    interruptPreparedTurn: async () => ({ ok: true }),
+    closeSession: async () => ({ ok: true }) };
+  const binding = { sessionId: "main", namespace: "bound-main", engine: "opencode", runtime: { store: {} },
+    native: { owner, acquire: async context => ({ key: "bound-main", options: context || {} }), preparation: {
+      cleanup: () => ({ sessionId: "main", options: {}, application: {} }),
+      interruption: async () => ({}),
+      message: async input => ({ key: "bound-main", input, project: value => value }),
+      inspection: async input => ({ threadId: input.threadId, inputMessageId: `msg_${input.messageId}`,
+        project: observation => ({ ok: true, admission: observation?.accepted ? "accepted" : admission,
+          messageId: input.messageId, threadId: input.threadId }) })
+    } },
+    admission() {}, prepareInput: async input => input,
+    read: async () => ({ threadId, configuration: { model: "native" }, turn: { active: false }, delivery }),
+    readStream: async () => ({ messages: [] }),
+    state: { read: async () => delivery, write: async value => { delivery = structuredClone(value); } },
+    transcript: { history: async () => [], readConversationLog: () => transcript.readConversationLog("main"),
+      hasMessage: id => transcript.conversationMessageIdExists("main", id),
+      writeUserMessage: input => transcript.writeConversationUserMessage("main", input) } };
+  const runtime = createConversationRuntime({ authorize: () => true, host: { conversation: () => binding } });
+  t.after(() => runtime.close());
+  return { conversation: await runtime.open({ id: "main", context: { actor: { id: "owner" } } }), dispatched };
+}
 
 test("accepted OpenCode output can be recovered after restart without repeating inference", async t => {
   const f = await fixture(t);

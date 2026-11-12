@@ -346,8 +346,10 @@ no longer restores the message as unconfirmed and a later send may dispatch it.
 The client marks only that exact uncertain message failed, preserving its
 payload, the draft and other uncertain messages. Inspection never submits or
 accepts it. Missing markers, a live process, incomplete cleanup and API-model
-requests remain conservative; Codex and OpenCode still report only accepted or
-unknown. A retired native request cannot be retried against its successor
+requests remain conservative. An OpenCode conversation bound to its host reports
+the proof when the host's prepared-message inspection answers
+`admission: "not-admitted"`; a standalone OpenCode conversation and Codex still
+report only accepted or unknown. A retired native request cannot be retried against its successor
 with the old ID; edit its words into a new authored message instead.
 
 Incoming saved-state updates refresh the history already loaded with **Load older

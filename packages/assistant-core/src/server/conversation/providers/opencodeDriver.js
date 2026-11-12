@@ -273,7 +273,8 @@ export function createOpenCodeConversationDriver({
         async inspectAdmission({ context, representation, ...input }) {
           const acquired = await supplied.acquire(context);
           const result = await supplied.owner.inspectPreparedMessage(await supplied.preparation.inspection(input, acquired.options));
-          return representation === "native" ? result : { accepted: result.admission === "accepted" };
+          return representation === "native" ? result
+            : { accepted: result.admission === "accepted", notAdmitted: result.admission === "not-admitted" };
         },
         async run(command) {
           if (disposed || current) throw Object.assign(new Error("This OpenCode conversation is closed or already working."), {
