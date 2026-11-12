@@ -118,6 +118,11 @@ jobs:
           JSKIT_CONNECTORS_WEB_BROWSER: "1"
         run: npx jskit test packages/connectors-web/test/selectTypeahead.browser.test.js
 
+      - name: Verify Vuetify's idle loaders read no layout once patched
+        env:
+          JSKIT_MATERIAL_WEB_BROWSER: "1"
+        run: npx jskit test packages/material-web/test/vuetifyIdleLoaders.browser.test.js
+
       - name: Verify shared assistant conversation UI
         env:
           JSKIT_ASSISTANT_CORE_BROWSER_INTEGRATION: "1"
