@@ -6,6 +6,7 @@ import { AuthPolicyProvider } from "@jskit-ai/auth-core/server/providers/AuthPol
 import { CrudContractsProvider } from "@jskit-ai/crud-core/server/crudContracts";
 import { defineCrudFeature } from "@jskit-ai/crud-core/server/defineCrudFeature";
 import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
+import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { HttpProvider } from "@jskit-ai/kernel/server/http";
 import { createBootstrapRuntime } from "@jskit-ai/kernel/server/runtime";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
@@ -16,6 +17,7 @@ import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentity
 import { WorkspacesFeature } from "../src/server/WorkspacesFeature.js";
 import { WorkspacesIntegrationsProvider } from "../src/server/WorkspacesIntegrationsProvider.js";
 import { WORKSPACE_CRUD_SCOPE } from "../src/server/support/workspaceCrud.js";
+import { workspaceSlugParamsValidator } from "../src/server/common/validators/routeParamsValidator.js";
 
 // A workspace CRUD list served as an application serves it: Fastify, the auth policy plugin, the HTTP runtime's
 // visibility resolvers, the action context contributors and a CRUD feature on a workspace surface, over the users and
@@ -41,6 +43,44 @@ const IssuesFeature = defineCrudFeature({
   operations: ["list"],
   surface: "app",
   scope: WORKSPACE_CRUD_SCOPE
+});
+
+// A hand-written route with contextPolicy "optional" and no permission: the auth policy resolves the workspace context
+// without requiring membership, and the action's context contributor resolves it again requiring it.
+const ACTION_READ_NOTICE = "test.workspace-notice.read";
+const NoticeFeature = defineFeature({
+  id: "test.workspace-notice",
+  requires: { http: "runtime.http" },
+  setup({ http }) {
+    http.router.register(
+      "GET",
+      "/api/w/:workspaceSlug/notice",
+      {
+        auth: "required",
+        surface: "app",
+        visibility: "workspace",
+        contextPolicy: "optional",
+        meta: { summary: "Reads the workspace's notice." },
+        params: workspaceSlugParamsValidator
+      },
+      async function readNotice(request, reply) {
+        reply.code(200).send(await request.executeAction({ actionId: ACTION_READ_NOTICE, input: request.input.params }));
+      }
+    );
+    return {};
+  },
+  actions: [
+    Object.freeze({
+      id: ACTION_READ_NOTICE,
+      version: 1,
+      kind: "query",
+      channels: ["api"],
+      surfaces: ["app"],
+      input: workspaceSlugParamsValidator,
+      output: null,
+      execute: (_input, context) => ({ workspaceId: context.workspace.id, roleSid: context.membership.roleSid })
+    })
+  ]
 });
 
 const config = Object.freeze({
@@ -89,7 +129,8 @@ async function issuesApp(t) {
       WorkspacesFeature,
       WorkspacesIntegrationsProvider,
       CrudContractsProvider,
-      IssuesFeature
+      IssuesFeature,
+      NoticeFeature
     ],
     requires: { profiles: "users.profiles", workspaces: "workspaces.core", memberships: "workspaces.memberships" },
     inputs: {
@@ -123,15 +164,17 @@ async function issuesApp(t) {
     { workspace_id: other.id, title: "Another workspace's issue" }
   ]);
 
-  async function list(user, slug = workspace.slug) {
+  async function get(user, slug, suffix) {
     const { result: response, queries } = await countQueries(knex, () => app.inject({
       method: "GET",
-      url: `/api/w/${slug}/issues`,
+      url: `/api/w/${slug}/${suffix}`,
       headers: user ? { "x-test-user": user.id } : {}
     }));
     return { response, queries };
   }
-  return { list, owner, member, guest, outsider, workspace };
+  const list = (user, slug = workspace.slug) => get(user, slug, "issues");
+  const notice = (user, slug = workspace.slug) => get(user, slug, "notice");
+  return { list, notice, owner, member, guest, outsider, workspace };
 }
 
 // The statements of one read of the workspace context, whatever the database quotes its names with: the workspace by
@@ -179,4 +222,26 @@ test("a workspace CRUD list request refuses as strictly as before", async (t) =>
     assert.equal(reading(queries, "issues").length, 0, `${label} reads no issue: ${queries.join("\n")}`);
     assert.ok(reading(queries, "workspace").length <= 1, `${label} reads the workspace at most once: ${queries.join("\n")}`);
   }
+});
+
+test("a route whose auth policy and action context differ in requiring membership reads the context once", async (t) => {
+  const { notice, owner, member, outsider, workspace } = await issuesApp(t);
+
+  for (const [user, roleSid] of [[owner, "owner"], [member, "member"]]) {
+    const { response, queries } = await notice(user);
+    assert.equal(response.statusCode, 200, response.body);
+    assert.deepEqual(response.json(), { workspaceId: workspace.id, roleSid });
+    const statements = queries.join("\n");
+    t.diagnostic(`a contextPolicy "optional" request for the ${roleSid} sends ${queries.length} statements`);
+    // Before, the auth policy's read (membership optional) and the action context's (membership required) were two.
+    assert.equal(reading(queries, "workspace").length, 1, statements);
+    assert.equal(reading(queries, "membership").length, 1, statements);
+    assert.equal(reading(queries, "settings").length, 1, statements);
+  }
+
+  // The shared read still refuses a non-member where membership is required.
+  const { response, queries } = await notice(outsider);
+  assert.equal(response.statusCode, 403, response.body);
+  assert.equal(response.body.includes("workspaces.workspace.accessDenied"), true, response.body);
+  assert.equal(reading(queries, "workspace").length, 1, queries.join("\n"));
 });

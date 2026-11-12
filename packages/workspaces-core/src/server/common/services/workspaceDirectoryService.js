@@ -248,48 +248,52 @@ function createService({
     return returnJsonApiData(await workspacesRepository.updateById(workspaceContext.workspace.id, patch, options));
   }
 
-  // The checks that run before a request's handler (its auth policy, its route visibility and its
-  // action context) each need the request's workspace context. They pass the request and share one
-  // resolution for the same user, slug and membership requirement, instead of reading the workspace, the
-  // membership and the settings again for each check. A call without a request resolves on
-  // its own.
+  // The checks that run before a request's handler (its auth policy, its route visibility and its action context) each
+  // need the request's workspace context, some requiring membership and some not (a route with contextPolicy
+  // "optional" and no permission). They pass the request and share one read of the workspace, the user's membership
+  // and the settings for the same user and slug; each call then applies its own membership requirement. A call
+  // without a request reads on its own.
   const requestWorkspaceContexts = new WeakMap();
 
   /**
+   * A surface that requires membership refuses an anonymous visitor (401) and a non-member (403); one that does not (a
+   * public payment link) resolves the workspace for them with no membership and no permissions.
    * @param {{ id?: unknown } | null} user
    * @param {string} workspaceSlug
    * @param {{ request?: object, requireMembership?: boolean }} [options]
    */
-  function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
+  async function resolveWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
+    const requireMembership = options.requireMembership !== false;
+    if (requireMembership && !normalizeRecordId(user?.id, { fallback: null })) {
+      throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });
+    }
+    const workspaceContext = await readRequestWorkspaceContext(user, workspaceSlug, options);
+    if (requireMembership && !workspaceContext.membership) {
+      throw new AppError(403, "You do not have access to this workspace.", { code: "workspaces.workspace.accessDenied" });
+    }
+    return workspaceContext;
+  }
+
+  function readRequestWorkspaceContext(user, workspaceSlug, options) {
     const request = options.request;
     if (!request || typeof request !== "object") {
       return readWorkspaceContextForUserBySlug(user, workspaceSlug, options);
     }
-    const key = [
-      normalizeRecordId(user?.id, { fallback: "" }),
-      normalizeLowerText(workspaceSlug),
-      options.requireMembership !== false
-    ].join("\0");
-    let resolutions = requestWorkspaceContexts.get(request);
-    if (!resolutions) {
-      resolutions = new Map();
-      requestWorkspaceContexts.set(request, resolutions);
+    const key = `${normalizeRecordId(user?.id, { fallback: "" })}\0${normalizeLowerText(workspaceSlug)}`;
+    let reads = requestWorkspaceContexts.get(request);
+    if (!reads) {
+      reads = new Map();
+      requestWorkspaceContexts.set(request, reads);
     }
-    if (!resolutions.has(key)) {
-      resolutions.set(key, readWorkspaceContextForUserBySlug(user, workspaceSlug, options));
+    if (!reads.has(key)) {
+      reads.set(key, readWorkspaceContextForUserBySlug(user, workspaceSlug, options));
     }
-    return resolutions.get(key);
+    return reads.get(key);
   }
 
-  // A surface that requires membership refuses an anonymous visitor (401); one that does not (a public payment link)
-  // resolves the workspace for them with no membership and no permissions, as it does for a signed-in non-member.
+  // The workspace, the user's active membership (null for an anonymous visitor or a non-member) and the settings.
   async function readWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
-    const requireMembership = options.requireMembership !== false;
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
-    if (!normalizedUserId && requireMembership) {
-      throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });
-    }
-
     if (resolvedTenancyMode === TENANCY_MODE_NONE) {
       throw new AppError(403, "Workspace context is disabled.", { code: "workspaces.workspace.contextDisabled" });
     }
@@ -314,10 +318,6 @@ function createService({
 
     if (!membershipIsActive && actorOwnsWorkspace) {
       membership = await workspaceMembershipsRepository.ensureOwnerMembership(workspace.id, normalizedUserId, options);
-    }
-
-    if ((!membership || normalizeLowerText(membership.status) !== "active") && requireMembership) {
-      throw new AppError(403, "You do not have access to this workspace.", { code: "workspaces.workspace.accessDenied" });
     }
 
     if (!membership || normalizeLowerText(membership.status) !== "active") {

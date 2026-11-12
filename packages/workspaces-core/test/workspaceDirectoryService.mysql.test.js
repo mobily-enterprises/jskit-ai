@@ -218,10 +218,11 @@ test("the workspace context answers a member's workspace, membership, permission
     errorWith(403, "workspaces.workspace.contextDisabled", "Workspace context is disabled."));
 
   const request = {};
-  const shared = directory.resolveWorkspaceContextForUserBySlug(owner, "context-team", { request });
-  assert.equal(directory.resolveWorkspaceContextForUserBySlug(owner, "Context-Team", { request }), shared,
-    "one request reads one context for the same user and slug");
-  await shared;
+  const [shared, again] = await Promise.all([
+    directory.resolveWorkspaceContextForUserBySlug(owner, "context-team", { request }),
+    directory.resolveWorkspaceContextForUserBySlug(owner, "Context-Team", { request })
+  ]);
+  assert.equal(again, shared, "one request reads one context for the same user and slug");
 });
 
 test("get and update read the context first and save only the patchable fields", async () => {

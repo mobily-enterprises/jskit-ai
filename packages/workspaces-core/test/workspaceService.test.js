@@ -802,11 +802,12 @@ test("one request's auth policy and action context share one workspace context r
   await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha");
   assert.equal(calls.findBySlug, 4, "A call without a request resolves each time");
   const request = {};
-  await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request });
-  await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request, requireMembership: false });
+  const required = await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request });
+  const optional = await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request, requireMembership: false });
+  assert.equal(optional, required, "Another membership requirement shares the read");
   await service.resolveWorkspaceContextForUserBySlug({ ...user, id: "8" }, "team-alpha", { request });
   await service.resolveWorkspaceContextForUserBySlug(user, "team-alpha", { request });
-  assert.equal(calls.findBySlug, 7, "Another membership requirement or user resolves on its own");
+  assert.equal(calls.findBySlug, 6, "Another user resolves on its own");
 });
 
 test("workspaceService.getWorkspaceForAuthenticatedUser resolves workspace from slug context", async () => {
