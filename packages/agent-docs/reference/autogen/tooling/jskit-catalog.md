@@ -353,6 +353,7 @@ Local functions
 - `preparePackageLockForInstall(projectRoot, manifests, packageLockPath)`
 - `findImports(root, packageIds)`
 - `installedPackageMigrations(root)`
+- `approveInstallScripts(manifest, declared)`
 
 ### `scripts/test-budget.mjs`
 Exports

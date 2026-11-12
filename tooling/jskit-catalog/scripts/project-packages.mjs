@@ -21,6 +21,10 @@ const RETIRED_PACKAGES = Object.freeze({
     importFrom: "@jskit-ai/resource-runtime/server (its types from @jskit-ai/resource-runtime/server/types)"
   })
 });
+// JSKIT packages with an install script, which the update approves in the root's allowScripts so that npm runs it and a
+// strict install (npm's strict-allow-scripts) accepts it: material-web's patches Vuetify's idle loaders
+// (vuetifyjs/vuetify#23393; its README, Upstream workarounds).
+const INSTALL_SCRIPT_PACKAGES = Object.freeze(["@jskit-ai/material-web"]);
 const SOURCE_FILE_PATTERN = /\.(?:[cm]?[jt]s|vue)$/u;
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "build", "coverage"]);
 const CHECK_SCRIPT = "jskit check";
@@ -465,6 +469,24 @@ async function installedPackageMigrations(root) {
 }
 
 /**
+ * Approves, in the root manifest's allowScripts, the install script of each JSKIT package in `declared` that has one,
+ * unless the app already allows it by name or denies it in any entry.
+ * @param {Record<string, any>} manifest the root manifest, changed in place
+ * @param {Set<string>} declared
+ * @returns {boolean} whether it changed
+ */
+function approveInstallScripts(manifest, declared) {
+  const allowScripts = manifest.allowScripts && typeof manifest.allowScripts === "object" ? manifest.allowScripts : {};
+  const denied = (packageId) => Object.entries(allowScripts)
+    .some(([entry, allowed]) => allowed === false && (entry === packageId || entry.startsWith(`${packageId}@`)));
+  const approve = INSTALL_SCRIPT_PACKAGES.filter((packageId) => declared.has(packageId) && allowScripts[packageId] !== true &&
+    !denied(packageId));
+  for (const packageId of approve) allowScripts[packageId] = true;
+  if (approve.length > 0) manifest.allowScripts = allowScripts;
+  return approve.length > 0;
+}
+
+/**
  * Pins a project's JSKIT dependencies to the catalog and installs them; a
  * failed install or check restores the manifests, lockfile and node_modules.
  * @param {object} options
@@ -514,6 +536,9 @@ async function updateProject({
     );
   }
 
+  const declaredPackageIds = new Set(
+    declarations.map((entry) => entry.packageId).filter((packageId) => !retiredPackageIds.includes(packageId))
+  );
   const catalogVersion = normalizedCatalog.versions.get(CATALOG_PACKAGE_ID);
   if (!catalogVersion) {
     throw new Error(`Coordinated catalog is missing ${CATALOG_PACKAGE_ID}.`);
@@ -556,6 +581,9 @@ async function updateProject({
       }
       if (!next.scripts["jskit:check"]) {
         next.scripts["jskit:check"] = CHECK_SCRIPT;
+        changed = true;
+      }
+      if (approveInstallScripts(next, declaredPackageIds)) {
         changed = true;
       }
     }

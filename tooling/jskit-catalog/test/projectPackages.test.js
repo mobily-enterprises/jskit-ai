@@ -222,6 +222,41 @@ test("project updates align root and workspace declarations without changing non
   });
 });
 
+test("project updates approve material-web's install script in the root's allowScripts, wherever the app declares it, and keep a denial", async () => {
+  const catalog = {
+    ...CATALOG,
+    release: { ...CATALOG.release, packages: { ...CATALOG.release.packages, "@jskit-ai/material-web": "0.1.6" } }
+  };
+  await withProject(async (projectRoot) => {
+    const rootManifestPath = path.join(projectRoot, "package.json");
+    await writeJson(rootManifestPath, {
+      name: "example-app",
+      private: true,
+      workspaces: ["apps/*"],
+      allowScripts: { fsevents: true },
+      dependencies: { "@jskit-ai/shell-web": "0.1.4" }
+    });
+    await writeJson(path.join(projectRoot, "apps/admin/package.json"), {
+      name: "admin",
+      dependencies: { "@jskit-ai/material-web": "0.1.5" }
+    });
+
+    await updateProject({ projectRoot, catalog, install: false });
+    assert.deepEqual((await readJson(rootManifestPath)).allowScripts, { fsevents: true, "@jskit-ai/material-web": true });
+    assert.deepEqual((await updateProject({ projectRoot, catalog, install: false })).changedFiles, []);
+
+    await writeJson(rootManifestPath, { ...(await readJson(rootManifestPath)), allowScripts: { "@jskit-ai/material-web@0.1.6": false } });
+    assert.deepEqual((await updateProject({ projectRoot, catalog, install: false })).changedFiles, []);
+    assert.deepEqual((await readJson(rootManifestPath)).allowScripts, { "@jskit-ai/material-web@0.1.6": false });
+  });
+  await withProject(async (projectRoot) => {
+    const rootManifestPath = path.join(projectRoot, "package.json");
+    await writeJson(rootManifestPath, { name: "example-app", dependencies: { "@jskit-ai/shell-web": "0.1.2" } });
+    await updateProject({ projectRoot, catalog, install: false });
+    assert.equal((await readJson(rootManifestPath)).allowScripts, undefined);
+  });
+});
+
 test("a project update lists the package migrations its install added, which the app must run before it serves requests", async () => {
   await withProject(async (projectRoot) => {
     await writeJson(path.join(projectRoot, "package.json"), {
