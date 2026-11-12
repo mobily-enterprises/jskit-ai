@@ -1269,20 +1269,24 @@ after a successful Start or Cancel and stays open after Pause and Resume. `pendi
 disables Set and Resume; `stopPending` disables Pause and Cancel, which the
 supplied binding never blocks on message sending or unknown delivery.
 
-An active goal flashes red; a paused goal stays orange. `elapsedSeconds` is the
+An active goal flashes red; a paused goal, and one stopped at its AI account's
+limit, stays orange. `elapsedSeconds` is the
 accumulated **active running time**, and `sampledAt` is its sample time in epoch
 **milliseconds**. The UI adds time only while active. Omit elapsed time if the
 backend cannot supply it truthfully. Only an active goal's chip shows its clock;
 a `paused`, `blocked`, `usageLimited` or `budgetLimited` goal's chip shows its
 status label (for example "Goal paused") instead, and its details keep the
-elapsed time. A `usageLimited` goal is waiting at its AI account's limit: its
-label names the limit and, from an optional `resetsAt` (epoch **seconds**), when it
-resets ("Waiting: AI usage limit, resets at 05:00", with the day when the reset is
-not today); with `outOfCredit: true` it reads "Out of credit: top up or switch AI
-account". Its details say the goal does not continue by itself and offer Resume
-and Cancel, and Pause when `pauseBlocked` is set. In a narrow conversation pane
-the clock hides and a long label ends in an ellipsis; the light stays visible
-and details retain the time and full label. Reduced motion uses
+elapsed time. Every chip label is a few words; why the goal stopped, until when
+and what to do are in its details. A `usageLimited` goal stopped at its AI
+account's limit: its chip reads "Goal paused: usage limit", or "Goal paused: no
+credit" with `outOfCredit: true`. Its details say what happened and, from an
+optional `resetsAt` (epoch **seconds**), when the limit resets ("The AI account
+reached its usage limit, which resets at 05:00", with the day when the reset is
+not today), that the goal does not continue by itself and what to do (top up or
+switch AI account when out of credit), and offer Resume and Cancel, and Pause
+when `pauseBlocked` is set. In a narrow conversation pane the clock hides and a
+long label ends in an ellipsis; the light stays visible and details retain the
+time and full label. Reduced motion uses
 a steady red light. Pause follows the command's declared behavior:
 `pauseInterruptsTurn: true` means it stops the current turn and keeps the goal;
 otherwise it prevents further automatic turns while Stop interrupts current work.

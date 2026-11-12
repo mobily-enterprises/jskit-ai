@@ -113,7 +113,8 @@
         "notRunning": "Goal not running",
         "notRunningHint": "Nothing is working on this goal right now. Your next message continues it.",
         "objective": "Goal objective",
-        "outOfCredit": "Out of credit: top up or switch AI account",
+        "outOfCredit": "Goal paused: no credit",
+        "outOfCreditHint": "The AI account is out of credit. The goal does not continue by itself: top up or switch AI account, then choose Resume goal.",
         "pause": "Pause goal",
         "pauseInterruptsTurn": "Pause stops the current turn and keeps the goal for later.",
         "pausePreventsTurns": "Pausing prevents further automatic turns. Use Stop to interrupt the current turn.",
@@ -128,9 +129,9 @@
         "starting": "Starting…",
         "tokenBudget": "Token budget (optional)",
         "unavailable": "Goal unavailable",
-        "usageLimited": "Waiting: AI usage limit",
-        "usageLimitedHint": "The goal does not continue by itself. Choose Resume goal once the AI account can work again.",
-        "usageLimitedUntil": "Waiting: AI usage limit, resets at {time}"
+        "usageLimited": "Goal paused: usage limit",
+        "usageLimitedHint": "The AI account reached its usage limit. The goal does not continue by itself: choose Resume goal once the AI account can work again.",
+        "usageLimitedUntilHint": "The AI account reached its usage limit, which resets at {time}. The goal does not continue by itself: choose Resume goal once it resets."
       },
       "longText": {
         "details": "Details",

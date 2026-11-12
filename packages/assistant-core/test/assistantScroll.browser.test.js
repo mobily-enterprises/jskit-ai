@@ -1028,6 +1028,57 @@ test("optional goals show running, not running and paused lights, count only wor
 });
 
 
+test("a stopped goal's chip says why in a few words on one line, at desktop and phone widths, and its details explain the stop", {
+  skip: !RUN_BROWSER_TEST,
+  timeout: 60_000
+}, async (t) => {
+  const { vite, browser } = await openFixture(t);
+  try {
+    for (const width of [1280, 390]) {
+      const page = await browser.newPage({ viewport: { width, height: 844 } });
+      await page.goto(`${vite.baseURL}/?conversation=1&goal=1`);
+      await page.getByRole("button", { name: "Set goal", exact: true }).click();
+      await page.getByRole("textbox", { name: "Goal objective" }).fill("Complete the shared assistant.");
+      await page.getByRole("button", { name: "Start goal", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Goal running", exact: true })).toHaveAttribute("aria-expanded", "false");
+      for (const [stop, chipText, details] of [
+        ["Stop goal at usage limit", "Goal paused: usage limit",
+          /The AI account reached its usage limit, which resets at \S+ \d\d:\d\d\. The goal does not continue by itself/u],
+        ["Stop goal at usage limit without reset", "Goal paused: usage limit", /The AI account reached its usage limit\. The goal does not continue by itself/u],
+        ["Stop goal out of credit", "Goal paused: no credit", /The AI account is out of credit\. The goal does not continue by itself: top up or switch AI account/u],
+        ["Stop goal at budget", "Goal budget reached", /Complete the shared assistant\./u],
+        ["Block goal with long explanation", "Goal blocked", /An explanation of the blocker\./u]
+      ]) {
+        await page.getByRole("button", { name: stop, exact: true }).evaluate(element => element.click());
+        const chip = page.getByRole("button", { name: chipText, exact: true });
+        await expect(chip.locator(".assistant-goal__label")).toHaveText(chipText);
+        // One line, shown whole (no ellipsis), inside the conversation's width.
+        const fit = () => chip.evaluate(element => {
+          const label = element.querySelector(".assistant-goal__label");
+          const lines = document.createRange();
+          lines.selectNodeContents(label);
+          const pane = element.closest(".assistant-conversation") || document.body;
+          return { lines: new Set(Array.from(lines.getClientRects(), rect => Math.round(rect.top))).size,
+            whole: label.scrollWidth <= label.clientWidth, inside: element.getBoundingClientRect().right <= pane.getBoundingClientRect().right + 0.5 };
+        });
+        await expect.poll(fit).toEqual({ lines: 1, whole: true, inside: true }).catch(async failure => {
+          failure.message += `\n${stop} at ${width} px: ${JSON.stringify(await fit())}`;
+          throw failure;
+        });
+        await chip.click();
+        const panel = page.locator(".assistant-goal__details");
+        await expect(panel.getByRole("status")).toHaveText(chipText);
+        await expect(panel).toContainText(details);
+        await page.keyboard.press("Escape");
+        await expect(panel).toBeHidden();
+      }
+      await page.close();
+    }
+  } finally {
+    await browser.close();
+  }
+});
+
 test("shared model choices and file delivery preserve a responsive composer", {
   skip: !RUN_BROWSER_TEST,
   timeout: 60_000

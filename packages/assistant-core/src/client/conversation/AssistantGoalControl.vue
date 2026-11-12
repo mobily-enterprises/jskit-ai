@@ -22,18 +22,22 @@ const active = computed(() => goal.value?.status === "active");
 const running = computed(() => active.value && props.state.working === true);
 // A Start stays Starting… until the server's goal shows it, even while closed.
 const starting = computed(() => props.state.action === "set");
-// A goal waiting at its AI account's limit names it, with the reset time when
-// the engine reports one (with its day when that is not today).
+// A goal waiting at its AI account's limit says why in a few words; its details
+// say when the limit resets (with its day when that is not today) and what to do.
 const resetTime = computed(() => {
   if (!Number.isSafeInteger(goal.value?.resetsAt)) return "";
   const reset = new Date(goal.value.resetsAt * 1000);
   const time = `${String(reset.getHours()).padStart(2, "0")}:${String(reset.getMinutes()).padStart(2, "0")}`;
   return reset.toDateString() === new Date().toDateString() ? time : `${reset.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
 });
+const limitHint = computed(() => goal.value?.status !== "usageLimited" ? ""
+  : goal.value.outOfCredit ? t("jskit.assistant.goal.outOfCreditHint")
+    : resetTime.value ? t("jskit.assistant.goal.usageLimitedUntilHint", { time: resetTime.value }) : t("jskit.assistant.goal.usageLimitedHint"));
+// Every status label is a few words, as the chip shows it beside the message
+// box: what happened, when it continues and what to do belong in the details.
 const statusLabel = computed(() => goal.value?.status === "usageLimited" && goal.value.outOfCredit ? t("jskit.assistant.goal.outOfCredit")
-  : goal.value?.status === "usageLimited" && resetTime.value ? t("jskit.assistant.goal.usageLimitedUntil", { time: resetTime.value })
-    : active.value && !running.value ? t("jskit.assistant.goal.notRunning")
-      : t(Object.hasOwn(STATUS_KEYS, goal.value?.status ?? "") ? STATUS_KEYS[goal.value.status] : "jskit.assistant.goal.set"));
+  : active.value && !running.value ? t("jskit.assistant.goal.notRunning")
+    : t(Object.hasOwn(STATUS_KEYS, goal.value?.status ?? "") ? STATUS_KEYS[goal.value.status] : "jskit.assistant.goal.set"));
 const label = computed(() => props.state.loading ? t("jskit.assistant.goal.loading") : props.state.available === false ? t("jskit.assistant.goal.unavailable")
   : starting.value ? t("jskit.assistant.goal.starting") : statusLabel.value);
 // The clock is the time spent working on the goal: the engine's running time
@@ -89,7 +93,7 @@ async function cancelGoal() {
   <v-menu v-if="state && state.enabled !== false" v-model="open" location="top" width="360" max-width="calc(100vw - 24px)" :close-on-content-click="false">
     <template #activator="{ props: menuProps }">
       <v-btn v-bind="menuProps" class="assistant-goal" size="small" variant="text" :aria-label="label" :title="[label, elapsedText, goal?.objective].filter(Boolean).join('\n')">
-        <span v-if="goal" class="assistant-goal__light" :class="{ 'assistant-goal__light--running': running, 'assistant-goal__light--paused': goal.status === 'paused' }" aria-hidden="true" />
+        <span v-if="goal" class="assistant-goal__light" :class="{ 'assistant-goal__light--running': running, 'assistant-goal__light--paused': ['paused', 'usageLimited'].includes(goal.status) }" aria-hidden="true" />
         <span class="assistant-goal__label">{{ chipLabel }}</span>
         <span v-if="elapsed && running" class="assistant-goal__elapsed" aria-hidden="true">{{ elapsed }}</span>
       </v-btn>
@@ -103,7 +107,7 @@ async function cancelGoal() {
       <p v-if="goal?.reason" class="text-body-small my-2">{{ goal.reason }}</p>
       <p v-if="elapsed" class="text-body-small my-2">{{ elapsedText }}</p>
       <p v-if="active && !running" class="text-body-small my-2">{{ t('jskit.assistant.goal.notRunningHint') }}</p>
-      <p v-if="goal?.status === 'usageLimited'" class="text-body-small mt-2">{{ t('jskit.assistant.goal.usageLimitedHint') }}</p>
+      <p v-if="limitHint" class="text-body-small mt-2">{{ limitHint }}</p>
       <p v-if="active || goal?.status === 'paused'" class="text-body-small mt-2">{{ state.pauseInterruptsTurn ? t('jskit.assistant.goal.pauseInterruptsTurn') : t('jskit.assistant.goal.pausePreventsTurns') }}</p>
       <p v-if="goal && goal.status !== 'complete' && state.cancel" class="text-body-small mt-2">{{ state.cancelInterruptsTurn ? t('jskit.assistant.goal.cancelInterruptsTurn') : t('jskit.assistant.goal.cancelRemovesGoal') }}</p>
       <form v-if="canSet" class="assistant-goal__form mt-2" @submit.prevent="setGoal">

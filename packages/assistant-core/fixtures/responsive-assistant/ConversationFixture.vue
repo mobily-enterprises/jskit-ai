@@ -188,6 +188,10 @@ const adapter = reactive({
         <button @click="goalEnabled = !goalEnabled">Toggle goals</button>
         <button v-if="goal" @click="goal = { ...goal, status: 'blocked', reason: 'An explanation of the blocker. '.repeat(200) }">Block goal with long explanation</button>
         <button v-if="goal" @click="goal = { ...goal, status: 'complete' }">Complete goal</button>
+        <button v-if="goal" @click="goal = { ...goal, status: 'usageLimited', resetsAt: Math.floor(Date.now() / 1000) + 3 * 24 * 60 * 60, outOfCredit: false }">Stop goal at usage limit</button>
+        <button v-if="goal" @click="goal = { ...goal, status: 'usageLimited', resetsAt: undefined, outOfCredit: false }">Stop goal at usage limit without reset</button>
+        <button v-if="goal" @click="goal = { ...goal, status: 'usageLimited', resetsAt: undefined, outOfCredit: true }">Stop goal out of credit</button>
+        <button v-if="goal" @click="goal = { ...goal, status: 'budgetLimited' }">Stop goal at budget</button>
         <template v-if="previewFixture">
           <button @click="temporaryWords = 'Exact temporary words'; temporaryPresent = true; temporaryEditing = false">Add temporary message</button>
           <button @click="newerWords = 'Keep newer live words'; newerPresent = true; newerEditing = false">Add newer temporary message</button>
