@@ -7,6 +7,7 @@ function useUiFeedback({
   initialType = "success",
   source = "http-web.ui-feedback",
   successChannel = "",
+  warningChannel = "",
   errorChannel = "",
   dedupeWindowMs = 2000
 } = {}) {
@@ -44,8 +45,9 @@ function useUiFeedback({
     message.value = "";
   }
 
-  function success(nextMessage = "") {
-    messageType.value = "success";
+  // An action that did its work: a success, or a warning when it did it with a catch the person should act on.
+  function reportDone(severity, channel, nextMessage) {
+    messageType.value = severity;
     const normalizedMessage = String(nextMessage || "").trim();
     message.value = normalizedMessage;
     dismissLastErrorPresentation();
@@ -57,11 +59,19 @@ function useUiFeedback({
       source: normalizedSource,
       message: normalizedMessage,
       intent: "action-feedback",
-      severity: "success",
-      channel: successChannel,
-      dedupeKey: `${normalizedSource}:success:${normalizedMessage}`,
+      severity,
+      channel,
+      dedupeKey: `${normalizedSource}:${severity}:${normalizedMessage}`,
       dedupeWindowMs
     });
+  }
+
+  function success(nextMessage = "") {
+    reportDone("success", successChannel, nextMessage);
+  }
+
+  function warning(nextMessage = "") {
+    reportDone("warning", warningChannel, nextMessage);
   }
 
   function error(errorValue, fallbackMessage = "") {
@@ -92,6 +102,7 @@ function useUiFeedback({
     messageType,
     clear,
     success,
+    warning,
     error
   };
 }

@@ -113,6 +113,7 @@
  * @property {string} [initialType]
  * @property {string} [source]
  * @property {string} [successChannel]
+ * @property {string} [warningChannel]
  * @property {string} [errorChannel]
  * @property {number} [dedupeWindowMs]
  */

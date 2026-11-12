@@ -165,15 +165,30 @@ function useWorkspaceMembersActions({
       createdInviteDeliveryStatus.value = String(delivery.status || "").trim().toLowerCase();
       forms.invite.email = "";
       await workspaceInvitesList.reload();
-      if (createdInviteDeliveryStatus.value === "sent") {
-        inviteFeedback.success(t("jskit.workspaces.members.inviteSent"));
-      } else if (createdInviteDeliveryStatus.value === "failed") {
-        inviteFeedback.success(t("jskit.workspaces.members.inviteCreatedDeliveryFailed"));
-      } else {
-        inviteFeedback.success(t("jskit.workspaces.members.inviteCreated"));
-      }
+      reportInviteDelivery(createdInviteDeliveryStatus.value);
     } catch (error) {
       inviteFeedback.error(error, t("jskit.workspaces.members.createInviteFailed"));
+    }
+  }
+
+  // The notice for each delivery status the server answers. Only `sent` says an email went out; the others send the
+  // person to the invite link the panel shows with its Copy button. A status this client does not know claims nothing.
+  function reportInviteDelivery(deliveryStatus) {
+    switch (deliveryStatus) {
+      case "sent":
+        inviteFeedback.success(t("jskit.workspaces.members.inviteSent"));
+        return;
+      case "simulated":
+        inviteFeedback.success(t("jskit.workspaces.members.inviteCreatedSimulated"));
+        return;
+      case "mailer_unconfigured":
+        inviteFeedback.success(t("jskit.workspaces.members.inviteCreatedMailerUnconfigured"));
+        return;
+      case "failed":
+        inviteFeedback.warning(t("jskit.workspaces.members.inviteCreatedDeliveryFailed"));
+        return;
+      default:
+        inviteFeedback.success(t("jskit.workspaces.members.inviteCreated"));
     }
   }
 

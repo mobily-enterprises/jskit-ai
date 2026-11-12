@@ -37,6 +37,8 @@
         "memberIdInvalid": "Member user id is invalid.",
         "inviteSent": "Invite sent.",
         "inviteCreatedDeliveryFailed": "Invite created, but email delivery failed. Copy the invite link to share it.",
+        "inviteCreatedSimulated": "Invite created. This is a test copy, so no email was sent: copy the link to share it.",
+        "inviteCreatedMailerUnconfigured": "Invite created. Email isn't set up, so no email was sent: copy the link to share it.",
         "inviteCreated": "Invite created. Copy the invite link to share it.",
         "linkReady": "Invite link ready to copy.",
         "linkCopied": "Invite link copied.",
