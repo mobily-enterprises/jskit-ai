@@ -22,22 +22,28 @@ const active = computed(() => goal.value?.status === "active");
 const running = computed(() => active.value && props.state.working === true);
 // A Start stays Starting… until the server's goal shows it, even while closed.
 const starting = computed(() => props.state.action === "set");
+// A time in epoch seconds as its hour and minute, with its day when that is not today.
+const clockTime = seconds => {
+  if (!Number.isSafeInteger(seconds)) return "";
+  const at = new Date(seconds * 1000);
+  const time = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
+  return at.toDateString() === new Date().toDateString() ? time : `${at.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
+};
 // A goal waiting at its AI account's limit says why in a few words; its details
-// say when the limit resets (with its day when that is not today) and what to do.
-const resetTime = computed(() => {
-  if (!Number.isSafeInteger(goal.value?.resetsAt)) return "";
-  const reset = new Date(goal.value.resetsAt * 1000);
-  const time = `${String(reset.getHours()).padStart(2, "0")}:${String(reset.getMinutes()).padStart(2, "0")}`;
-  return reset.toDateString() === new Date().toDateString() ? time : `${reset.toLocaleDateString(undefined, { weekday: "short" })} ${time}`;
-});
+// say when the limit resets and what to do. When the host continues the goal by
+// itself once the limit has reset (resumesAt), they say when it continues instead.
+const resumeTime = computed(() => goal.value?.status === "usageLimited" && !goal.value.outOfCredit ? clockTime(goal.value.resumesAt) : "");
+const resetTime = computed(() => clockTime(goal.value?.resetsAt));
 const limitHint = computed(() => goal.value?.status !== "usageLimited" ? ""
   : goal.value.outOfCredit ? t("jskit.assistant.goal.outOfCreditHint")
-    : resetTime.value ? t("jskit.assistant.goal.usageLimitedUntilHint", { time: resetTime.value }) : t("jskit.assistant.goal.usageLimitedHint"));
+    : resumeTime.value ? t("jskit.assistant.goal.usageLimitedResumesHint", { time: resumeTime.value })
+      : resetTime.value ? t("jskit.assistant.goal.usageLimitedUntilHint", { time: resetTime.value }) : t("jskit.assistant.goal.usageLimitedHint"));
 // Every status label is a few words, as the chip shows it beside the message
 // box: what happened, when it continues and what to do belong in the details.
 const statusLabel = computed(() => goal.value?.status === "usageLimited" && goal.value.outOfCredit ? t("jskit.assistant.goal.outOfCredit")
-  : active.value && !running.value ? t("jskit.assistant.goal.notRunning")
-    : t(Object.hasOwn(STATUS_KEYS, goal.value?.status ?? "") ? STATUS_KEYS[goal.value.status] : "jskit.assistant.goal.set"));
+  : resumeTime.value ? t("jskit.assistant.goal.usageLimitedResumes")
+    : active.value && !running.value ? t("jskit.assistant.goal.notRunning")
+      : t(Object.hasOwn(STATUS_KEYS, goal.value?.status ?? "") ? STATUS_KEYS[goal.value.status] : "jskit.assistant.goal.set"));
 const label = computed(() => props.state.loading ? t("jskit.assistant.goal.loading") : props.state.available === false ? t("jskit.assistant.goal.unavailable")
   : starting.value ? t("jskit.assistant.goal.starting") : statusLabel.value);
 // The clock is the time spent working on the goal: the engine's running time

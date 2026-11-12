@@ -74,6 +74,7 @@ Exports
 Exports
 - None
 Local functions
+- `clockTime(seconds)`
 - `setGoal()`
 - `cancelGoal()`
 

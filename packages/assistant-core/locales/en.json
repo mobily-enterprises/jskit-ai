@@ -131,6 +131,8 @@
         "unavailable": "Goal unavailable",
         "usageLimited": "Goal paused: usage limit",
         "usageLimitedHint": "The AI account reached its usage limit. The goal does not continue by itself: choose Resume goal once the AI account can work again.",
+        "usageLimitedResumes": "Goal waits: usage limit",
+        "usageLimitedResumesHint": "The AI account reached its usage limit. The goal continues by itself at {time}, once the limit has reset; choose Resume goal to try sooner.",
         "usageLimitedUntilHint": "The AI account reached its usage limit, which resets at {time}. The goal does not continue by itself: choose Resume goal once it resets."
       },
       "longText": {

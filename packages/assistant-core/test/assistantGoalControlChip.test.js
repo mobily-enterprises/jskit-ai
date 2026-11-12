@@ -143,6 +143,32 @@ test("a goal stopped at its AI account's limit says so in a few words; its detai
   assert.match(credit.panel, /jskit\.assistant\.goal\.resume</u);
 });
 
+test("a goal its host continues by itself once the usage limit has reset says when, in the details, and can still be resumed sooner", async () => {
+  const control = await importControl();
+  const resume = new Date();
+  resume.setSeconds(0, 0);
+  const time = `${String(resume.getHours()).padStart(2, "0")}:${String(resume.getMinutes()).padStart(2, "0")}`;
+  const waiting = { objective: "Finish every check", status: "usageLimited", createdAt: startedTwoHoursAgo,
+    resetsAt: resume.getTime() / 1000 - 60, resumesAt: resume.getTime() / 1000 };
+  const claude = await render(control, waiting, { pauseBlocked: true });
+  assert.equal(claude.label, "jskit.assistant.goal.usageLimitedResumes");
+  assert.doesNotMatch(claude.chip, /assistant-goal__elapsed|assistant-goal__light--running|Hint/u);
+  assert.match(claude.chip, /assistant-goal__light--paused/u, "a goal waiting for its limit keeps the waiting light");
+  assert.match(claude.panel, new RegExp(`jskit\\.assistant\\.goal\\.usageLimitedResumesHint\\(${time}\\)<`, "u"));
+  assert.doesNotMatch(claude.panel, /usageLimitedUntilHint/u, "the details say when it continues, not that it waits for the person");
+  for (const action of ["pause", "resume", "cancel"]) {
+    assert.match(claude.panel, new RegExp(`jskit\\.assistant\\.goal\\.${action}<`, "u"), `a goal waiting to continue offers ${action}`);
+  }
+  // Out of credit never continues by itself, whatever the host says.
+  const credit = await render(control, { ...waiting, outOfCredit: true }, { pauseBlocked: true });
+  assert.equal(credit.label, "jskit.assistant.goal.outOfCredit");
+  assert.match(credit.panel, /jskit\.assistant\.goal\.outOfCreditHint</u);
+  const english = await render(await importControl("english"), waiting, { pauseBlocked: true });
+  assert.equal(english.label, "Goal waits: usage limit");
+  assert.match(english.panel, new RegExp(`The AI account reached its usage limit\\. The goal continues by itself at ${time}, ` +
+    "once the limit has reset; choose Resume goal to try sooner\\.", "u"));
+});
+
 // The chip sits beside the message box, on a phone too: each of its labels is a
 // few words, and anything longer (why, until when, what to do) is in the details.
 const CHIP_LABEL_MAX_CHARACTERS = 24;
@@ -162,6 +188,7 @@ test("every goal chip label is a few words, while the details explain a stop in 
     ["blocked", { ...goal, status: "blocked", reason: "An explanation of the blocker. ".repeat(40) }, {}],
     ["at its usage limit", { ...goal, status: "usageLimited", resetsAt: reset }, { pauseBlocked: true }],
     ["at its usage limit with no reset time", { ...goal, status: "usageLimited" }, { pauseBlocked: true }],
+    ["waiting to continue once its usage limit has reset", { ...goal, status: "usageLimited", resetsAt: reset, resumesAt: reset + 60 }, { pauseBlocked: true }],
     ["out of credit", { ...goal, status: "usageLimited", outOfCredit: true }, { pauseBlocked: true }],
     ["at its token budget", { ...goal, status: "budgetLimited" }, {}],
     ["complete", { ...goal, status: "complete" }, {}]

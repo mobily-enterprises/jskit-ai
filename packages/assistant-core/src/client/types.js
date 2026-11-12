@@ -48,9 +48,12 @@
  * @property {boolean} [cancelInterruptsTurn]
  * @property {boolean} [tokenBudgetSupported]
  * @property {string} [error]
- * @property {{ status: string, objective?: string, elapsedSeconds?: number, sampledAt?: number, createdAt?: string } | null} [goal]
+ * @property {{ status: string, objective?: string, elapsedSeconds?: number, sampledAt?: number, createdAt?: string,
+ *   resetsAt?: number, outOfCredit?: boolean, resumesAt?: number } | null} [goal]
  *   elapsedSeconds is the time spent working on the goal as of sampledAt (milliseconds); its clock adds the time
- *   since only while the conversation is working on an active goal.
+ *   since only while the conversation is working on an active goal. A goal waiting at its AI account's usage limit
+ *   (usageLimited) may say when the limit resets (resetsAt, epoch seconds) or that the account is out of credit; a
+ *   host that continues it by itself once the limit has reset says when (resumesAt, epoch seconds).
  * @property {((input: { objective: string, tokenBudget?: number }) => unknown) | null} [set]
  *   Starts a goal; absent while starting one is not allowed, so Start stays disabled.
  * @property {() => unknown} [pause]
