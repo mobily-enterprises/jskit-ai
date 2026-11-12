@@ -194,9 +194,10 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // two-destination navigation, snackbar placement, global page paths and brand marks; 63 and 41 KiB since the skill
   // routes table work to the data-access and database-layer references and CRUD names the table resource; 64 KiB
   // since an include names a link by its relationship, which the boot enforces; 65 KiB since in-page navigation to
-  // a named place is labelled with its destination).
+  // a named place is labelled with its destination; 42 KiB since a dynamic page that serves literal destinations is
+  // top-level).
   assert.ok(Buffer.byteLength(operationalSource) <= 65 * 1024);
-  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 41 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 42 * 1024);
 });
 
 test("the published JSKIT skill remains self-contained after relocation", async (t) => {
