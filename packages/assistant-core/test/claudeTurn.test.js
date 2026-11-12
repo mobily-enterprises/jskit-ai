@@ -150,6 +150,9 @@ function claudeGoalFrames(condition) {
     local(`${prefix}-set`, `${prefix}-command`, seconds + 0.003, condition, `Goal set: ${condition}`),
     { type: "user", uuid: `${prefix}-meta`, parentUuid: `${prefix}-set`, timestamp: at(seconds + 0.004), isMeta: true, message: { role: "user", content: "Work on the goal." } }];
   return { at, set, answer, attachment, command, local, sentinel,
+    // Claude 2.1.322 saves this when it starts again after a request a restart cut off.
+    placeholder: (uuid, parentUuid, seconds) => ({ type: "assistant", uuid, parentUuid, timestamp: at(seconds), isApiErrorMessage: false,
+      message: { id: `api-${uuid}`, model: "<synthetic>", role: "assistant", content: [{ type: "text", text: "No response requested." }] } }),
     toolUse: (uuid, parentUuid, seconds) => answer(uuid, parentUuid, seconds, [{ type: "tool_use", id: `tool-${uuid}`, name: "Bash", input: { command: "npm test" } }]),
     toolResult: (uuid, parentUuid, seconds) => ({ type: "user", uuid, parentUuid, timestamp: at(seconds),
       message: { role: "user", content: [{ type: "tool_result", tool_use_id: `tool-${parentUuid}`, content: "ok" }] }, toolUseResult: { stdout: "ok" } }),
@@ -215,8 +218,10 @@ test("a Claude goal's running time counts only the time Claude spent working, ca
   assert.equal(Math.round(goal.timeUsedSeconds), 100);
   assert.equal(goal.updatedAt, Date.parse(f.at(3600)) / 1000, "its running time is current as of the latest history");
   await append(f.answer("next-answer", "next", 3630));
-  // The server stopped mid-turn; its restart sends the goal again an hour later. That gap does not count.
-  await append(f.toolUse("cut", "next-answer", 3640), f.set("restart", "cut", 7200), f.answer("restart-answer", "restart-meta", 7260));
+  // The server stopped mid-turn; its restart sends the goal again an hour later. That gap does not
+  // count, though Claude saves its no-response placeholder for the cut-off request just before.
+  await append(f.toolUse("cut", "next-answer", 3640), f.placeholder("cut-placeholder", "cut", 7199.7),
+    f.set("restart", "cut-placeholder", 7200), f.answer("restart-answer", "restart-meta", 7260));
   assert.equal(Math.round((await read()).timeUsedSeconds), 100 + 40 + 60);
   // Compacting the context is work, and timestamps running backwards subtract nothing.
   await append(f.compaction("restart-answer", 7300), f.answer("compacted", "credential", 7320));

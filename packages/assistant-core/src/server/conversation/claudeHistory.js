@@ -99,15 +99,20 @@ async function claudeHistoryPath({ configRoot, workdir, conversationId }) {
   return null;
 }
 
+// Claude saves this non-error synthetic carrier when it starts again after an
+// interrupted request: a stopped request, or a process that ended mid-turn. Its
+// native placeholder classifier uses this exact provenance; real model replies
+// and API errors with the same wording remain ordinary output.
+function claudeNoResponsePlaceholder(frame) {
+  const content = frame.message?.content;
+  return frame.type === "assistant" && frame.message?.model === "<synthetic>" && !frame.isApiErrorMessage &&
+    Array.isArray(content) && content.length === 1 && content[0]?.type === "text" && content[0].text === "No response requested.";
+}
+
 function claudeMessageBlocks(frame, { includeNested = false, commentary = false } = {}) {
   if (frame.type !== "assistant" || frame.parent_tool_use_id && !includeNested) return [];
   const content = frame.message?.content;
-  if (!Array.isArray(content)) return [];
-  // Claude's native placeholder classifier excludes this non-error synthetic
-  // carrier after an interrupted request. Real model replies and API errors
-  // with the same wording remain ordinary output.
-  if (frame.message.model === "<synthetic>" && !frame.isApiErrorMessage && content.length === 1 &&
-      content[0]?.type === "text" && content[0].text === "No response requested.") return [];
+  if (!Array.isArray(content) || claudeNoResponsePlaceholder(frame)) return [];
   // Native frames split one API message into blocks with distinct UUIDs.
   const messageId = frame.uuid || frame.message.id;
   if (!messageId) return [];
@@ -277,10 +282,12 @@ async function readClaudeHistory(options) {
     // Claude saves its history as it works, so the time up to each frame it
     // saves itself is the goal's running time. The wait before a message the
     // person or the host sent (between turns, while paused, or across a
-    // restart) is not.
+    // restart) is not, nor the wait before the placeholder Claude saves when it
+    // starts again after an interrupted request: that spans a stopped server.
     const at = ["user", "assistant", "attachment", "system"].includes(frame.type) ? Date.parse(frame.timestamp) / 1000 : NaN;
     if (Number.isFinite(at)) {
-      const waited = claudeAuthoredMessage(frame) || frame.type === "attachment" && commandedSentinels.has(frame.uuid);
+      const waited = claudeAuthoredMessage(frame) || claudeNoResponsePlaceholder(frame) ||
+        frame.type === "attachment" && commandedSentinels.has(frame.uuid);
       if (goal?.status === "active" && !waited && at > lastAt) goal.timeUsedSeconds += at - lastAt;
       lastAt = Number.isFinite(lastAt) ? Math.max(lastAt, at) : at;
       if (goal?.status === "active") goal.updatedAt = lastAt;
