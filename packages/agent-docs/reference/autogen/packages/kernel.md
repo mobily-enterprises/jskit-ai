@@ -908,6 +908,7 @@ Local functions
 - `normalizeAdvancedFastifySchema(value, { context = "route validator" } = {})`
 - `normalizeRouteValidatorMeta(value, { context = "route validator" } = {})`
 - `normalizeRouteValidatorDefinition(sourceDefinition, { context = "route validator" } = {})`
+- `createRequestBodyInputTransform(validateBody)`
 
 ### `server/http/responseSerializerFactory.js`
 Exports

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A `useCommand()` DELETE sends its parsed input as the request body when the command declares an `input` schema or a `buildRawPayload`, so a DELETE that needs a reason or a confirmation reaches the server with it. Before, the client parsed the input and then dropped it for every DELETE, and a route that required a body answered 500. A DELETE that declares neither still sends no body, and `buildCommandPayload` still decides the body when given.
 - The CRUD list screen, form lookups and list-filter lookups no longer pass `search: { mode: "query" }`: a list's search runs on the server only, so they leave the mode out, as the guide says to. They search on the server as before.
 - **Breaking.** `useList`'s search runs on the server only: `search: { mode: "local" }`, which filtered the page the list had loaded in the browser and so missed every row past it, throws naming the server search, and so does `search.fields`, which only that mode read: the resource's `searchSchema.q` names the fields a search reads. Upgrading: drop the mode and give the resource `searchSchema.q`, which the list's search sends as `q`.
 - `CrudListFilterControls` applies a typed record id or number-range bound when the person pauses (400 ms), presses Enter or leaves the field, instead of on every key, so typing `1500` asks for one list rather than four; clearing a field applies at once.

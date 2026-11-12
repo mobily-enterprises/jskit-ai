@@ -206,7 +206,7 @@
  * @property {UiFeedback} feedback
  * @property {unknown} [input]
  * @property {(model: any, context: Record<string, any>) => Record<string, any>} [buildRawPayload]
- * @property {(parsedInput: any, context: Record<string, any>) => unknown} [buildCommandPayload] Without it a command sends its parsed input, and nothing for DELETE.
+ * @property {(parsedInput: any, context: Record<string, any>) => unknown} [buildCommandPayload] Without it a command sends its parsed input; a DELETE sends it only when the command declares `input` or `buildRawPayload`, and otherwise no body.
  * @property {(parsedInput: any, context: Record<string, any>) => Record<string, any>} [buildCommandOptions]
  * @property {(response: any, context: Record<string, any>) => unknown} [onRunSuccess]
  * @property {(error: unknown, context: Record<string, any>) => unknown} [onRunError]

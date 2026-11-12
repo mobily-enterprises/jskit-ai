@@ -824,6 +824,14 @@ for anything that reads or writes the domain.**
   address and refuses with 429, `kernel.http.rateLimited` and `Retry-After`.
   A limit worth changing per application is read from its config, as
   `config.auth.rateLimits` is.
+- A route's `body` is validated by the kernel, on every method, DELETE
+  included. A request without a body is validated as an empty one: a body
+  validated in `create` or `replace` mode answers 400 `validation_failed`
+  naming its required fields, and one in the default `patch` mode, or with no
+  required fields, reaches the handler as `{}`. A body that is not a JSON
+  object answers 400 with the field error `request: "must be object"`. On the
+  client, a `useCommand()` DELETE sends its parsed input as the body when the
+  command declares `input` or `buildRawPayload`.
 
 Why: an action is the one place a domain operation's policy, input and
 events are declared.

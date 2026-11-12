@@ -1,6 +1,7 @@
 import { deepFreeze } from "../../../shared/support/deepFreeze.js";
 import { normalizeObject, normalizeText, isRecord } from "../../../shared/support/normalize.js";
 import {
+  buildSchemaValidationError,
   normalizeSingleSchemaDefinition,
   resolveSchemaTransportSchemaDefinition,
   validateSchemaPayload
@@ -235,6 +236,26 @@ function normalizeRouteValidatorDefinition(sourceDefinition, { context = "route 
   return Object.freeze(normalized);
 }
 
+// The body schema replaces Fastify's (routeRegistration strips it), and json-rest-schema refuses anything but an
+// object, so the body is checked here as Fastify's schema would: a request without one is validated as an empty body,
+// whose required fields answer 400 naming them (a DELETE sent without its body among them), and a body that is not a
+// JSON object answers 400 too, instead of a 500 from the refusal.
+function createRequestBodyInputTransform(validateBody) {
+  return (payload) => {
+    if (payload === undefined) {
+      return validateBody({});
+    }
+    if (!isRecord(payload)) {
+      throw buildSchemaValidationError({
+        fieldErrors: { request: "must be object" },
+        fieldErrorCodes: { request: { code: "kernel.validation.type", params: { type: "object" } } },
+        statusCode: 400
+      });
+    }
+    return validateBody(payload);
+  };
+}
+
 function compileRouteValidator(validator, { context = "route validator" } = {}) {
   const normalizedValidator = normalizeRouteValidatorDefinition(validator, { context });
   const schema = {};
@@ -260,10 +281,10 @@ function compileRouteValidator(validator, { context = "route validator" } = {}) 
       defaultMode: "patch",
       context: "route validator.body"
     });
-    input.body = createJsonRestSchemaInputTransform(normalizedValidator.body, {
+    input.body = createRequestBodyInputTransform(createJsonRestSchemaInputTransform(normalizedValidator.body, {
       defaultMode: "patch",
       context: "route validator.body"
-    });
+    }));
   }
 
   if (normalizedValidator.query) {

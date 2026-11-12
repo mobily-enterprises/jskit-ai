@@ -10,6 +10,9 @@ Use when:
 Rules:
 
 - Prefer `useCommand()` for live actions.
+- A `useCommand()` with `writeMethod: "DELETE"` sends its parsed input as the
+  request body when it declares `input` or `buildRawPayload`, and no body when
+  it declares neither; a route that validates a DELETE body needs one of them.
 - Prefer form runtimes such as `useCrudAddEdit()` or `useAddEdit()` for real forms.
 - Prefer `useCrudList()` and `useCrudView()` for routed CRUD loading and URL resolution.
 - For ordinary routed CRUD record deletion, start from the package-owned CRUD

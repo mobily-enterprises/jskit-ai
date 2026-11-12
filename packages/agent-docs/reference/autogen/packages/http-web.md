@@ -286,7 +286,7 @@ Local functions
 
 ### `src/client/composables/runtime/useCommandCore.js`
 Exports
-- `useCommandCore({ model, resource, writeMethod = "POST", canRun, fieldBag, feedback, input, buildRawPayload = emptyRecord, buildCommandPayload, buildCommandOptions = emptyRecord, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {} })`
+- `useCommandCore({ model, resource, writeMethod = "POST", canRun, fieldBag, feedback, input, buildRawPayload, buildCommandPayload, buildCommandOptions = emptyRecord, onRunSuccess, onRunError, suppressSuccessMessage = false, messages = {} })`
 
 ### `src/client/composables/runtime/useEndpointResource.js`
 Exports

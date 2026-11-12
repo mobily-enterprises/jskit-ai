@@ -15,7 +15,7 @@ function useCommandCore({
   fieldBag,
   feedback,
   input,
-  buildRawPayload = emptyRecord,
+  buildRawPayload,
   buildCommandPayload,
   buildCommandOptions = emptyRecord,
   onRunSuccess,
@@ -25,6 +25,10 @@ function useCommandCore({
 }) {
   const queryClient = useQueryClient();
   const normalizedWriteMethod = String(writeMethod || "POST").trim().toUpperCase();
+  // A DELETE sends its parsed input as its body only when the command declares one, by an input schema or a raw
+  // payload builder; every other method always sends it.
+  const sendsParsedInput = normalizedWriteMethod !== "DELETE" || Boolean(input) || buildRawPayload !== undefined;
+  const readRawPayload = buildRawPayload ?? emptyRecord;
 
   const running = resource.isSaving;
   const fieldErrors = fieldBag.errors;
@@ -39,7 +43,7 @@ function useCommandCore({
     feedback.clear();
     fieldBag.clear();
 
-    const rawPayload = buildRawPayload(model, {
+    const rawPayload = readRawPayload(model, {
       queryClient,
       resource,
       context
@@ -57,7 +61,7 @@ function useCommandCore({
     }
 
     const { parsedInput } = validationResult;
-    // readable-check: allow method-probe - optional operation: without buildCommandPayload a command sends its parsed input, and nothing for DELETE
+    // readable-check: allow method-probe - optional operation: without buildCommandPayload a command sends its parsed input
     const payload = typeof buildCommandPayload === "function"
       ? buildCommandPayload(parsedInput, {
           rawPayload,
@@ -65,7 +69,7 @@ function useCommandCore({
           resource,
           context
         })
-      : (normalizedWriteMethod === "DELETE" ? undefined : parsedInput);
+      : (sendsParsedInput ? parsedInput : undefined);
 
     const options = buildCommandOptions(parsedInput, {
       rawPayload,

@@ -4,6 +4,7 @@ import { QueryClient, QueryObserver, VueQueryPlugin } from "@tanstack/vue-query"
 import { createSSRApp, h } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { routeLocationKey } from "vue-router";
+import { createSchema } from "json-rest-schema";
 
 import {
   buildEndpointReadRequestOptions,
@@ -596,8 +597,65 @@ test("commands use public CRUD resource access without a CSRF session preflight"
     assert.equal(calls.length, 1);
     assert.equal(calls[0][0], "/api/books/1");
     assert.equal(calls[0][1].method, "DELETE");
+    assert.equal(calls[0][1].body, undefined);
     assert.equal(Object.hasOwn(calls[0][1], "csrf"), false);
   } finally {
     configureHttpWebClient();
   }
+});
+
+// Runs one DELETE command with the given options and answers the request it sent.
+async function sendDeleteCommand(options) {
+  const calls = [];
+  let command = null;
+  configureHttpWebClient({
+    fetchImpl: async (url, request) => {
+      calls.push([url, request]);
+      return { ok: true, status: 204, headers: { get: () => "" }, json: async () => ({}) };
+    }
+  });
+  try {
+    const app = createSSRApp({
+      setup() {
+        command = useCommand({
+          access: "always",
+          apiSuffix: "/saved-views/7",
+          writeMethod: "DELETE",
+          resource: { apiAccess: "public" },
+          ...options
+        });
+        return () => h("div");
+      }
+    });
+    app.provide(routeLocationKey, { path: "/" });
+    app.use(VueQueryPlugin, { queryClient: new QueryClient() });
+    await renderToString(app);
+    await command.run();
+  } finally {
+    configureHttpWebClient();
+  }
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0][1].method, "DELETE");
+  return calls[0][1];
+}
+
+test("a DELETE command sends its parsed input as the body when it declares input or buildRawPayload", async () => {
+  const input = {
+    schema: createSchema({ reason: { type: "string", required: true }, copies: { type: "number" } }),
+    mode: "create"
+  };
+
+  const validated = await sendDeleteCommand({ input, buildRawPayload: () => ({ reason: "duplicate", copies: "2" }) });
+  assert.equal(validated.headers["Content-Type"], "application/json");
+  assert.deepEqual(JSON.parse(validated.body), { reason: "duplicate", copies: 2 });
+
+  const raw = await sendDeleteCommand({ buildRawPayload: () => ({ force: true }) });
+  assert.deepEqual(JSON.parse(raw.body), { force: true });
+
+  const schemaOnly = await sendDeleteCommand({ input: { schema: createSchema({ note: { type: "string" } }) } });
+  assert.deepEqual(JSON.parse(schemaOnly.body), {});
+
+  // A buildCommandPayload still decides the body itself.
+  const built = await sendDeleteCommand({ input, buildRawPayload: () => ({ reason: "x" }), buildCommandPayload: () => undefined });
+  assert.equal(built.body, undefined);
 });

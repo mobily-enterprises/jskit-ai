@@ -41,6 +41,7 @@ function createRouteApp(t, routes) {
       path,
       ...resolveRouteValidatorOptions({ method, path, options }),
       ...(transport ? { transport } : {}),
+      middleware: [],
       handler
     })),
     actions: { execute() {} }
@@ -92,6 +93,59 @@ test("a body schema failure on a plain JSON route is a validation error with cod
   for (const [field, coded] of Object.entries(payload.details.fieldErrorCodes)) {
     assertCatalogRenders(coded, payload.fieldErrors[field]);
   }
+});
+
+// The kernel validates a route's body itself (Fastify's body schema is stripped), so a request without one, as a
+// DELETE often is, or with one that is not an object, answers 400 as Fastify would, never a 500.
+test("a route's body answers 400 when it is missing or not an object, naming the required fields", async (t) => {
+  const received = [];
+  const app = createRouteApp(t, [{
+    method: "DELETE",
+    path: "/saved-views/:viewId",
+    options: {
+      body: { schema: createSchema({ reason: { type: "string", required: true } }), mode: "create" }
+    },
+    handler: async (request, reply) => reply.send({ deleted: request.input.body.reason })
+  }, {
+    method: "DELETE",
+    path: "/drafts/:draftId",
+    options: { body: { schema: createSchema({ note: { type: "string" } }) } },
+    handler: async (request, reply) => {
+      received.push(request.input.body);
+      return reply.send({ ok: true });
+    }
+  }]);
+
+  const missing = await app.inject({ method: "DELETE", url: "/saved-views/7" });
+  assert.equal(missing.statusCode, 400);
+  const missingPayload = missing.json();
+  assert.equal(missingPayload.code, "validation_failed");
+  assert.deepEqual(missingPayload.fieldErrors, { reason: "Field is required" });
+  assert.deepEqual(missingPayload.details.fieldErrorCodes, { reason: { code: "kernel.validation.field.required", params: {} } });
+  assertCatalogRenders(missingPayload.details.fieldErrorCodes.reason, missingPayload.fieldErrors.reason);
+
+  for (const payload of ["null", "[]", "\"text\"", "7"]) {
+    const response = await app.inject({
+      method: "DELETE",
+      url: "/saved-views/7",
+      headers: { "content-type": "application/json" },
+      payload
+    });
+    assert.equal(response.statusCode, 400, payload);
+    const body = response.json();
+    assert.equal(body.code, "validation_failed", payload);
+    assert.deepEqual(body.fieldErrors, { request: "must be object" }, payload);
+    assertCatalogRenders(body.details.fieldErrorCodes.request, body.fieldErrors.request);
+  }
+
+  const sent = await app.inject({ method: "DELETE", url: "/saved-views/7", payload: { reason: "duplicate" } });
+  assert.equal(sent.statusCode, 200);
+  assert.deepEqual(sent.json(), { deleted: "duplicate" });
+
+  // A body whose fields are all optional is empty when the request has none.
+  const optional = await app.inject({ method: "DELETE", url: "/drafts/3" });
+  assert.equal(optional.statusCode, 200);
+  assert.deepEqual(received, [{}]);
 });
 
 test("a record id params failure is reported by Fastify with its pattern code", async (t) => {
