@@ -175,6 +175,7 @@ function createService({
         t: (key, params) => i18n.t(locale, key, params)
       });
       const result = await workspaceInviteMailer.sendWorkspaceInvite({
+        inviteId: normalizeRecordId(invite.id, { fallback: "" }),
         email: invite.email,
         inviteUrl,
         workspace: mapMembersWorkspace(workspace),

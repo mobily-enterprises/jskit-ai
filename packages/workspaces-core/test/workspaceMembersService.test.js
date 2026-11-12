@@ -351,6 +351,9 @@ test("workspaceMembersService.createInvite sends generated invite URLs through t
   assert.equal(templateCalls[0].inviteUrl, response.inviteUrl);
   assert.equal(templateCalls[0].locale, "en");
   assert.equal(mailerCalls.length, 1);
+  // The mailer is told which saved invitation it sends, and in which workspace.
+  assert.equal(mailerCalls[0].payload.inviteId, "88");
+  assert.equal(mailerCalls[0].payload.workspace.id, "7");
   assert.equal(mailerCalls[0].payload.locale, "en");
   assert.equal(mailerCalls[0].payload.email, "invitee@example.com");
   assert.equal(mailerCalls[0].payload.inviteUrl, response.inviteUrl);

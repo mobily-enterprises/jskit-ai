@@ -30,10 +30,11 @@
 
 /**
  * The `workspaces.invite-mailer` capability: a feature that provides it sends
- * workspace invitation email. Its result is the delivery outcome; the status
- * defaults to "sent".
+ * workspace invitation email. It is told which saved invitation it sends
+ * (`inviteId`, its `workspace_invites` row, in `workspace.id`'s workspace).
+ * Its result is the delivery outcome; the status defaults to "sent".
  * @typedef {object} WorkspaceInviteMailer
- * @property {(message: { email: string, inviteUrl: string, workspace: object, inviter: object | null, roleSid: string, expiresAt: string, locale: string, message: object }, options?: object) => Promise<{ status?: string, message?: string, messageCode?: string, messageParams?: object, providerMessageId?: string } | void>} sendWorkspaceInvite
+ * @property {(message: { inviteId: string, email: string, inviteUrl: string, workspace: { id: string, slug: string, name: string, ownerUserId: string, avatarUrl: string }, inviter: object | null, roleSid: string, expiresAt: string, locale: string, message: object }, options?: object) => Promise<{ status?: string, message?: string, messageCode?: string, messageParams?: object, providerMessageId?: string } | void>} sendWorkspaceInvite
  */
 
 /**

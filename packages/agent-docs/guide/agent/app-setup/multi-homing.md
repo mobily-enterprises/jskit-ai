@@ -228,9 +228,12 @@ To send invitation email, provide the optional `workspaces.invite-mailer`
 capability from one of the application's providers. Without one, invitations
 are still created and delivery reports `mailer_unconfigured`. The mailer, typed
 `WorkspaceInviteMailer` in `@jskit-ai/workspaces-core/server/types`, is an
-object whose `sendWorkspaceInvite(message, options)` receives `{ email,
-inviteUrl, workspace, inviter, roleSid, expiresAt, message }`, where the inner
-`message` is the rendered `{ subject, text, html }`:
+object whose `sendWorkspaceInvite(message, options)` receives `{ inviteId,
+email, inviteUrl, workspace, inviter, roleSid, expiresAt, locale, message }`,
+where the inner `message` is the rendered `{ subject, text, html }`. `inviteId`
+is the saved invitation's id and `workspace.id` its workspace's, so a mailer
+that holds email until delivery is set up can record which invitation each one
+belongs to without reading `workspace_invites`:
 
 ```js
 const InviteMailerProvider = defineProvider({
