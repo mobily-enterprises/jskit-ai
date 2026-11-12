@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { markRaw, nextTick, shallowRef } from "vue";
+import { markRaw, nextTick, ref, shallowRef } from "vue";
 import { createPinia } from "pinia";
 import { useShellErrorHost } from "../src/client/composables/useShellErrorHost.js";
 import { SHELL_WEB_ERROR_RUNTIME_KEY } from "../src/client/error/inject.js";
@@ -8,15 +8,18 @@ import { createErrorPresentationStore } from "../src/client/error/store.js";
 import { useShellErrorPresentationStore } from "../src/client/stores/useShellErrorPresentationStore.js";
 import { mountComposable } from "./support/mountComposable.js";
 
-function mountHost(t, { top = 0 } = {}) {
+function mountHost(t, { top = 0, width = 1280 } = {}) {
   const heights = new Map();
+  // The open modal surfaces the page holds, by the selector the host looks them up with.
+  const openSurfaces = [];
   globalThis.document = {
     documentElement: {
       style: {
         setProperty: (name, value) => heights.set(name, value),
         removeProperty: (name) => heights.delete(name)
       }
-    }
+    },
+    querySelector: (selector) => openSurfaces.find((surface) => selector.split(", ").includes(surface)) || null
   };
   const observers = [];
   globalThis.ResizeObserver = class {
@@ -43,14 +46,16 @@ function mountHost(t, { top = 0 } = {}) {
   useShellErrorPresentationStore(pinia).attachRuntimeStore(store);
   const reports = [];
   const layoutRect = shallowRef({ top, left: 0, right: 0, bottom: 0 });
+  const windowWidth = ref(width);
   const { app, result } = mountComposable(useShellErrorHost, {
     plugins: [pinia],
     provide: [
       [SHELL_WEB_ERROR_RUNTIME_KEY, { report: (event) => reports.push(event) }],
-      [Symbol.for("vuetify:layout"), { mainRect: layoutRect }]
+      [Symbol.for("vuetify:layout"), { mainRect: layoutRect }],
+      [Symbol.for("vuetify:display"), { width: windowWidth, mobile: ref(false) }]
     ]
   });
-  return { app, heights, host: result, layoutRect, observers, reports, store };
+  return { app, heights, host: result, layoutRect, observers, openSurfaces, reports, store, windowWidth };
 }
 
 test("snackbars show one at a time and the next opens after the last one leaves", async (t) => {
@@ -76,6 +81,35 @@ test("snackbars show one at a time and the next opens after the last one leaves"
   host.onSnackbarAfterLeave();
   assert.equal(host.displayedSnackbarEntry.value, null);
   assert.equal(host.snackbarOpen.value, false);
+  app.unmount();
+});
+
+test("a message that shows over an open modal surface sits at the top of a compact window", async (t) => {
+  const { app, host, openSurfaces, store, windowWidth } = mountHost(t, { width: 390 });
+  store.present("snackbar", { message: "Shown over the page" });
+  await nextTick();
+  assert.equal(host.snackbarLocation.value, "bottom start");
+  host.onSnackbarModelValue(false);
+  await nextTick();
+  host.onSnackbarAfterLeave();
+
+  for (const surface of [".v-dialog.v-overlay--active", ".v-navigation-drawer--temporary.v-navigation-drawer--active"]) {
+    openSurfaces.splice(0, openSurfaces.length, surface);
+    store.present("snackbar", { message: "Shown over a modal surface" });
+    await nextTick();
+    assert.equal(host.snackbarLocation.value, "top", surface);
+    // Wider windows keep it at the bottom start: a centred surface ends above the window's bottom edge.
+    windowWidth.value = 1024;
+    assert.equal(host.snackbarLocation.value, "bottom start", surface);
+    windowWidth.value = 390;
+    // It keeps its place while it shows, though the surface closes under it.
+    openSurfaces.length = 0;
+    await nextTick();
+    assert.equal(host.snackbarLocation.value, "top", surface);
+    host.onSnackbarModelValue(false);
+    await nextTick();
+    host.onSnackbarAfterLeave();
+  }
   app.unmount();
 });
 

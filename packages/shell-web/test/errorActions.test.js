@@ -53,7 +53,8 @@ function fixture(t) {
   useShellErrorPresentationStore(pinia).attachRuntimeStore(store);
   app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, runtime);
   app.provide(Symbol.for("vuetify:layout"), { mainRect: shallowRef({ top: 0, left: 0, right: 0, bottom: 0 }) });
-  globalThis.document = { documentElement: { style: { removeProperty() {} } } };
+  app.provide(Symbol.for("vuetify:display"), { width: shallowRef(1280), mobile: shallowRef(false) });
+  globalThis.document = { documentElement: { style: { removeProperty() {} } }, querySelector: () => null };
   for (const name of ["VSnackbar", "VDialog", "VCard", "VCardTitle", "VCardText", "VCardActions", "VSpacer", "VAlert", "VBtn"]) {
     app.component(name, defineComponent({ setup: (_props, { slots }) => () =>
       h(name, {}, [slots.default?.(), slots.actions?.()]) }));

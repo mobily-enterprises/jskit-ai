@@ -18,6 +18,7 @@ import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
 import FeedbackPage from "./FeedbackPage.vue";
+import DialogFeedbackPage from "./DialogFeedbackPage.vue";
 import ReportsPage from "./ReportsPage.vue";
 import ScreenPage from "./ScreenPage.vue";
 import StudioPage from "./StudioPage.vue";
@@ -347,6 +348,7 @@ const routes = [
   { path: "/w/:workspaceSlug/admin/:section?", component: ScreenPage, meta: { title: "Admin surface" } },
   { path: "/help", component: ScreenPage, meta: { title: "Help and support" } },
   { path: "/solo", component: ScreenPage, meta: { title: "Solo", jskit: { title: "Solo" } } },
+  { path: "/solo/settings", component: DialogFeedbackPage, meta: { jskit: { title: "Settings", parent: "/" } } },
   { path: "/home/reports", redirect: "/home/reports/overview" },
   { path: "/home/reports/:section", component: ReportsPage, meta: { jskit: { title: "Reports" } } },
   { path: "/home/feedback", component: FeedbackPage, meta: { jskit: { title: "Integration" } } },

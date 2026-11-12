@@ -22,6 +22,7 @@ const {
   onSnackbarAfterLeave,
   onSnackbarModelValue,
   runAction,
+  snackbarLocation,
   snackbarOpen
 } = useShellErrorHost();
 </script>
@@ -75,11 +76,18 @@ const {
     <!-- Material 3 keeps a snackbar clear of the actions it reports on. Vuetify places it inside the layout, above the
          navigation bar and a FAB that takes layout room (`<v-fab app layout>`). On a phone it is centred there; on
          wider windows it starts at the content's start edge and takes at most half its width, clear of end-aligned
-         FABs and form actions (Save), so a person can press Save again while it shows. -->
+         FABs and form actions (Save), so a person can press Save again while it shows. On a phone a message that
+         shows while a dialog, a bottom sheet or a temporary drawer is open goes to the top, clear of that surface's
+         actions at its bottom.
+         `_disable-global-stack` keeps the snackbar out of Vuetify's overlay stack, as VTooltip keeps itself: on the
+         stack, a message took the top from the dialog under it, so Escape and the browser's Back no longer closed that
+         dialog. It is a private Vuetify prop, kept until Vuetify leaves snackbars off the stack itself; then it goes.
+         Vuetify issue: TBD -->
     <v-snackbar
       :model-value="snackbarOpen"
       class="shell-error-host__snackbar"
-      location="bottom start"
+      :location="snackbarLocation"
+      :_disable-global-stack="true"
       :timeout="resolveTimeout(displayedSnackbarEntry)"
       :vertical="actionsFor(displayedSnackbarEntry).length > 1"
       @update:model-value="onSnackbarModelValue"
@@ -187,7 +195,8 @@ const {
 }
 
 /* The snackbar is teleported out of this component, so its rules are written for its own classes. Compact windows
-   (below 600dp) centre it; wider ones keep it at the start, at most half the content's width. */
+   (below 600dp) centre it, at the bottom or, over a modal surface, at the top; wider ones keep it at the start, at
+   most half the content's width. */
 @media (max-width: 599.98px) {
   :global(.shell-error-host__snackbar.v-snackbar--start) {
     justify-content: center;

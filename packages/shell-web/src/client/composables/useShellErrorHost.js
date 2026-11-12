@@ -4,8 +4,19 @@ import { useShellWebErrorRuntime } from "../error/inject.js";
 import { resolveBannerPlacement } from "../error/presentation.js";
 import { useShellErrorPresentationStore } from "../stores/useShellErrorPresentationStore.js";
 import { useJskitText } from "../i18n.js";
+import { useShellWindowSizeClass } from "./useShellWindowSizeClass.js";
 
 const BANNER_INLINE_HEIGHT_PROPERTY = "--shell-error-banners-inline-height";
+// The modal surfaces that keep their actions at their bottom edge on a compact window, where the snackbar shows: an
+// open dialog (a bottom sheet is one) and an open temporary navigation drawer.
+const MODAL_SURFACE_SELECTOR = [
+  ".v-dialog.v-overlay--active",
+  ".v-navigation-drawer--temporary.v-navigation-drawer--active"
+].join(", ");
+
+function isModalSurfaceOpen() {
+  return document.querySelector(MODAL_SURFACE_SELECTOR) !== null;
+}
 
 function isSameSnackbarEntry(left = null, right = null) {
   return Boolean(left?.id && right?.id && left.id === right.id);
@@ -63,6 +74,11 @@ function useShellErrorHost() {
 
   onBeforeUnmount(stopObservingBanners);
   const snackbarOpen = ref(false);
+  // Material 3 keeps a snackbar clear of the actions it reports on. A message that shows while a modal surface is
+  // open sits at the top of a compact window, clear of the surface's actions, and keeps that place until it leaves.
+  const { isCompact } = useShellWindowSizeClass();
+  const snackbarOverModalSurface = ref(false);
+  const snackbarLocation = computed(() => (isCompact.value && snackbarOverModalSurface.value ? "top" : "bottom start"));
 
   function hasSnackbarEntry(entry = null) {
     if (!entry?.id) {
@@ -80,6 +96,7 @@ function useShellErrorHost() {
       return;
     }
 
+    snackbarOverModalSurface.value = isModalSurfaceOpen();
     displayedSnackbarEntry.value = nextEntry;
     snackbarOpen.value = true;
   }
@@ -102,7 +119,10 @@ function useShellErrorHost() {
       snackbarOpen.value = false;
     },
     {
-      immediate: true
+      immediate: true,
+      // After the page has rendered, so a dialog that closed with the change that reported the message (a saved
+      // form) no longer counts as open.
+      flush: "post"
     }
   );
 
@@ -164,6 +184,7 @@ function useShellErrorHost() {
     onSnackbarAfterLeave,
     onSnackbarModelValue,
     runAction,
+    snackbarLocation,
     snackbarOpen
   };
 }

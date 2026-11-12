@@ -180,6 +180,7 @@ Local functions
 Exports
 - `useShellErrorHost()`
 Local functions
+- `isModalSurfaceOpen()`
 - `isSameSnackbarEntry(left = null, right = null)`
 - `publishInlineBannerHeight(height = 0)`
 
@@ -735,6 +736,12 @@ Exports
 - None
 Local functions
 - `jumpToLastBooking()`
+
+### `fixtures/adaptive-shell/src/DialogFeedbackPage.vue`
+Exports
+- None
+Local functions
+- `save()`
 
 ### `fixtures/adaptive-shell/src/FeedbackPage.vue`
 Exports

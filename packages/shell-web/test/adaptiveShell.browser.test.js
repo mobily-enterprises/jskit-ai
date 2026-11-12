@@ -505,6 +505,73 @@ test("a snackbar never covers the FAB, the navigation bar or a form's Save, so S
   }
 });
 
+// A message reported from a dialog that stays open (a Save that keeps editing) shows while the dialog is up. On a
+// phone, on a surface with no navigation bar, the dialog's actions sit at the bottom of the window, where a snackbar
+// shows, so the snackbar goes to the top, clear of them. And the snackbar stays out of Vuetify's overlay stack: on it, the message took the top from the
+// dialog, so Escape and the browser's Back no longer closed the dialog.
+test("a snackbar over a phone's dialog sits clear of its actions, and Escape and Back still close the dialog", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  // Closed with the browser, which the fixture's after hook closes however the test ends.
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 390, height: 844 } });
+  const box = (locator) => locator.evaluate((element) => {
+    const rect = element.getBoundingClientRect();
+    return { top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right };
+  });
+  const dialog = page.getByTestId("fixture-feedback-dialog");
+  const snackbar = page.locator(".shell-error-host__snackbar .v-snackbar__wrapper");
+  const settled = (locator) => locator.evaluate((element) => Promise.all(element.closest(".v-overlay").getAnimations({ subtree: true })
+    .filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime ?? Infinity))
+    .map((animation) => animation.finished.catch(() => null))));
+  async function saveInOpenDialog() {
+    await page.getByTestId("fixture-open-dialog").click();
+    await expect(dialog).toBeVisible();
+    await settled(dialog);
+    await page.getByTestId("fixture-dialog-save").click();
+    await expect(snackbar).toBeVisible();
+    await settled(snackbar);
+  }
+
+  // Two steps into the page, so Back has an entry to return to: Vuetify's overlays ignore a Back to the page's first
+  // entry, which the router replaced as it started.
+  await page.goto("/solo/settings");
+  await expect(page.getByTestId("jskit-shell-bottom-nav")).toHaveCount(0);
+  for (const step of ["1", "2"]) {
+    await page.getByRole("link", { name: "Next step", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`/solo/settings\\?step=${step}$`, "u"));
+  }
+  await saveInOpenDialog();
+  const shown = await box(snackbar);
+  const actions = await box(dialog.locator(".v-card-actions"));
+  assert.ok(actions.bottom > 844 * 0.75, `The dialog's actions sit at the window's bottom: ${JSON.stringify(actions)}`);
+  for (const name of ["fixture-dialog-save", "fixture-dialog-close"]) {
+    assert.equal(overlaps(shown, await box(page.getByTestId(name))), false, `The snackbar covers ${name}: ${JSON.stringify(shown)}`);
+  }
+  assert.ok(shown.bottom <= actions.top, `The snackbar sits above the dialog's actions: ${JSON.stringify({ shown, actions })}`);
+  // The dialog's Close and the snackbar's Dismiss both answer while the message shows.
+  await page.getByTestId("fixture-dialog-close").click();
+  await expect(dialog).toBeHidden();
+  await snackbar.getByRole("button", { name: "Dismiss", exact: true }).click();
+  await expect(snackbar).toBeHidden();
+
+  // Escape closes the dialog under a message that stays, as it does with none.
+  await saveInOpenDialog();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(snackbar).toBeVisible();
+  await snackbar.getByRole("button", { name: "Dismiss", exact: true }).click();
+  await expect(snackbar).toBeHidden();
+
+  // The browser's Back closes the dialog and stays on the page.
+  await saveInOpenDialog();
+  await page.goBack();
+  await expect(dialog).toBeHidden();
+  await expect(page).toHaveURL(/\/solo\/settings\?step=2$/u);
+  await expect(snackbar).toBeVisible();
+});
+
 // The drawer fits a long name in its identity (a workspace switcher, say) as well as its labels.
 test("the drawer is wide enough for its identity's name", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
