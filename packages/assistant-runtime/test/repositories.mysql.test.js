@@ -245,10 +245,14 @@ test("listForActorScope pages newest first by id, within one actor, surface and 
   assert.match(capped.nextCursor, ID);
 });
 
-test("a conversation's transcript state is kept apart from its record, and written with the record's changes in one statement", async () => {
+test("a conversation's transcript state is kept apart from its record's fields, and written with the record's changes in one statement", async () => {
   requireTestDatabase(process.env);
   const conversations = store.conversations;
-  const made = await conversations.create({ surfaceId: "home", createdByUserId: 51 });
+  const created = await conversations.create({ surfaceId: "home", createdByUserId: 51 });
+  // The record as last changed long ago, so the updatedAt each write stamps shows whatever the clock says.
+  await knex("assistant_conversations").where({ id: created.id }).update({ updated_at: new Date("2026-01-02T03:04:05.000Z") });
+  const made = await conversations.findById(created.id);
+  assert.equal(made.updatedAt, "2026-01-02T03:04:05.000Z");
   const transcriptOf = async (id, options) => {
     const found = await conversations.findWithTranscriptState(id, options);
     return found && { revision: found.revision, summary: found.summary };
@@ -258,7 +262,10 @@ test("a conversation's transcript state is kept apart from its record, and writt
   assert.deepEqual(await conversations.findWithTranscriptState(made.id), { conversation: made, revision: "", summary: null });
   await conversations.writeTranscriptState(made.id, { revision: "r1", summary: { text: "The summary.", throughTurnId: "000003" } });
   assert.deepEqual(await transcriptOf(made.id), { revision: "r1", summary: { text: "The summary.", throughTurnId: "000003" } });
-  assert.deepEqual(await conversations.findById(made.id), made, "the record does not show it");
+  const record = await conversations.findById(made.id);
+  assert.deepEqual({ ...record, updatedAt: made.updatedAt }, made, "the record does not show it");
+  assert.deepEqual(Object.keys(record).filter((key) => /transcript|summary|revision/iu.test(key)), [], "nor has a key for it");
+  assert.ok(record.updatedAt > made.updatedAt, "a write of the transcript state alone stamps updatedAt, as every handle write does");
   await conversations.writeTranscriptState(made.id, { revision: "r2", summary: null });
   assert.deepEqual(await transcriptOf(made.id), { revision: "r2", summary: null });
   await conversations.writeTranscriptState(made.id, { revision: "r3", summary: { text: "", throughTurnId: "" } });
@@ -278,7 +285,7 @@ test("a conversation's transcript state is kept apart from its record, and writt
   assert.deepEqual({ ...locked, conversation: { ...locked.conversation, updatedAt: "" } }, {
     conversation: { ...made, title: "Renamed", messageCount: 2, updatedAt: "" }, revision: "r4", summary: null
   });
-  assert.notEqual(locked.conversation.updatedAt, "", "the record's changes stamp updatedAt");
+  assert.ok(locked.conversation.updatedAt > made.updatedAt, "the record's changes stamp updatedAt");
   await assert.rejects(conversations.writeTranscriptState("nope", { revision: "r", summary: null }),
     { name: "TypeError", message: "writeTranscriptState requires conversationId." });
   assert.equal(await conversations.writeTranscriptState("999999999", { revision: "r", summary: null }), undefined, "an unknown id is written silently");

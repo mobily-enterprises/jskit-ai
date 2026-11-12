@@ -70,7 +70,8 @@ function rethrowLockError(error) {
   throw error;
 }
 
-// A record patch as stored fields, with updatedAt stamped when anything changes.
+// A record patch as stored fields, with updatedAt when anything changes. The handle stamps updatedAt on every write
+// anyway, so a write of the transcript state alone (writeTranscriptState) moves it too.
 function conversationChanges(patch) {
   const changes = {};
 
@@ -231,7 +232,8 @@ function createRepository({ conversations, systemContext }) {
 
   /**
    * Writes the transcript's revision and summary and, in the same statement, the record changes of `changes` (as
-   * updateById takes them), so a save that appends messages updates its conversation once. An unknown id writes nothing.
+   * updateById takes them), so a save that appends messages updates its conversation once. Like every handle write, it
+   * stamps the record's updatedAt, with changes or without. An unknown id writes nothing.
    * @param {unknown} conversationId
    * @param {{ revision: string, summary: { text: string, throughTurnId: string } | null, changes?: Record<string, unknown> }} state
    * @param {{ context?: object | null, trx?: object | null }} [options]
