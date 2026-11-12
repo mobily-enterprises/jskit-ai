@@ -44,6 +44,7 @@ Exports
 
 ### `src/server/filterJoinSources.js`
 Exports
+- `callOptionsOf(jsonRestContext)`
 - `filterJoinSources(featureId, resource, searchSchema)`
 - `joinSourceHooks({ resourceName, declared, ownerOf })`
 - `withCallOptions(jsonRestContext, options)`
@@ -80,6 +81,7 @@ Exports
 - `matchesNoRow(filters, schemaInfo)`
 - `missingOf(name, caller, missing = "throw")`
 - `refuseConditions(name, method, options, keys, instead)`
+- `refuseTransactionPlace(name, { outermost, joinOnly }, joined)`
 - `requireConditionValues(name, method, options, keys)`
 - `requireDefinedFilters(name, caller, filters, path = "filters")`
 - `requireOwners(name, ownership, context)`
@@ -235,7 +237,7 @@ Exports
 Local functions
 - `ownedEntry(entry, featureId)`
 - `crossTableFilters(scopeOptions)`
-- `applyGrouped(policy, args)`
+- `applyGrouped(policy, args, label)`
 
 ### `src/server/ResourceRuntimeProvider.js`
 Exports

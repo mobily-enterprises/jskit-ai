@@ -4,7 +4,7 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 import { isTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { callerOf, createSystemContext } from "./contexts.js";
 import { DuplicateOwnerError } from "./errors.js";
-import { filterJoinSources, joinSourceHooks } from "./filterJoinSources.js";
+import { callOptionsOf, filterJoinSources, joinSourceHooks } from "./filterJoinSources.js";
 import { createResourceHandle } from "./resourceHandle.js";
 import { resourceScopeOptions } from "./resourceHost.js";
 
@@ -64,20 +64,38 @@ function crossTableFilters(scopeOptions) {
     }));
 }
 
+// The calls a row policy makes on its query: where, andWhere and orWhere and their kin (whereIn, whereExists, whereNot,
+// orWhereNull...). They replay inside one where group, where Knex compiles predicates only: a join there is dropped
+// without a word, and the policy would no longer narrow the rows. Any other call is refused.
+const POLICY_CALL = /^(?:where|andWhere|orWhere)/u;
+
 /**
  * Applies one row policy, the owner's or a contribution, inside its own
  * parenthesised group, so whatever it writes (an orWhere among it) only narrows
  * the rows ownership and the other policies left.
- * The policy writes to a recorder; its calls replay inside `query.where(...)`.
+ * The policy writes to a recorder; its calls replay inside `query.where(...)`. A call other than a where call (see
+ * POLICY_CALL) throws a TypeError naming the policy, when the policy makes it.
  * @param {Function} policy
  * @param {Record<string, any>} args
+ * @param {string} label The policy, for the message: its feature and the resource it narrows.
  */
-async function applyGrouped(policy, args) {
+async function applyGrouped(policy, args, label) {
   const calls = [];
   const recorder = new Proxy({}, {
     get(_target, method) {
-      if (method === "then") {
+      if (method === "then" || typeof method === "symbol") {
         return undefined;
+      }
+      if (!POLICY_CALL.test(method)) {
+        return () => {
+          throw new TypeError(
+            `${label} calls query.${method}(), which a row policy cannot use: its calls run inside one where group, where ` +
+              "Knex compiles predicates only and drops a join, so the policy would no longer narrow the rows. A row policy " +
+              "narrows with where calls (where, andWhere, orWhere, whereIn, whereExists, whereNot and their kin). To narrow " +
+              "through another table, tie a subquery to the row: query.whereExists(ownTable(name).select(1).join(...)" +
+              ".whereColumn(...)), or the same over another owner's joinSource({ alias }, options)."
+          );
+        };
       }
       return (...callArgs) => {
         calls.push([method, callArgs]);
@@ -158,24 +176,30 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
 
   // The owner's policy, then every contribution, each in its own group ANDed with ownership: a policy only narrows.
   // Each gets who the call runs for as `caller` (see callerOf), its one way to tell: json-rest-api's own `system` flag
-  // is left out. The owner's policy also gets the owning feature's dependencies as `requires`; a contribution is a
-  // function its feature built in setup, with its own.
+  // is left out. Each gets the call's own options as `options`, `{ context, trx }` as the caller passed them, to pass
+  // on to an owner it reads (another owner's joinSource), never one built by hand. The owner's policy also gets the
+  // owning feature's dependencies as `requires`; a contribution is a function its feature built in setup, with its own.
   function composedRowPolicy(featureId, entry, contributions, requires) {
     if (!entry.rowPolicy && !entry.acceptsContributions) {
       return undefined;
     }
+    const resourceName = entry.resource.name;
+    const labelOf = (policyFeatureId, policy, relation) =>
+      `Feature "${policyFeatureId}" row policy ${policy.name ? `${policy.name} ` : ""}${relation} "${resourceName}"`;
     return async function ownedRowPolicy(jsonRestArgs) {
-      const args = { ...jsonRestArgs };
+      const args = { ...jsonRestArgs, options: callOptionsOf(jsonRestArgs.context) };
       delete args.system;
       const caller = callerOf(args.context);
       if (entry.rowPolicy) {
-        const result = await applyGrouped(entry.rowPolicy, { ...args, caller, ownTable: ownTableReader(featureId, args.db), requires });
+        const policyArgs = { ...args, caller, ownTable: ownTableReader(featureId, args.db), requires };
+        const result = await applyGrouped(entry.rowPolicy, policyArgs, labelOf(featureId, entry.rowPolicy, "for"));
         if (result !== true) {
           return result;
         }
       }
       for (const contribution of contributions) {
-        const result = await applyGrouped(contribution.policy, { ...args, caller, ownTable: ownTableReader(contribution.featureId, args.db) });
+        const policyArgs = { ...args, caller, ownTable: ownTableReader(contribution.featureId, args.db) };
+        const result = await applyGrouped(contribution.policy, policyArgs, labelOf(contribution.featureId, contribution.policy, "contributed to"));
         if (result !== true) {
           return result;
         }

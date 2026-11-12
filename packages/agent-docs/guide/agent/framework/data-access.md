@@ -463,6 +463,38 @@ async function noticeVisibilityPolicy({ query, caller, context, column, value })
 }
 ```
 
+A policy narrows with `where` calls only: `where`, `andWhere`, `orWhere` and
+their kin (`whereIn`, `whereExists`, `whereNot`, `orWhereNull`...). Its calls
+run inside one parenthesised `where` group, where Knex compiles predicates and
+drops a join without a word, which would leave the policy hiding nothing; any
+other call (`join`, `leftJoin`, `select`) throws a TypeError naming the
+feature, the policy and the table. To narrow through another table, tie a
+subquery to the row with `whereExists`: over `ownTable(name)`, which may join
+the owner's other tables, or over another owner's join source. A policy is told
+the call's `options`, `{ context, trx }` as the caller passed them, and passes
+them on unchanged to `joinSource({ alias }, options)`, so the join source reads
+in the caller's scope and transaction; never build them by hand.
+
+```js
+// good: a member of the document's team sees it, through the teams owner's join source
+async function teamDocumentsPolicy({ query, caller, column, options, requires }) {
+  if (caller.kind !== "user") {
+    return caller.kind !== "anonymous";
+  }
+  const member = await requires.teams.joinSource({ alias: "tm" }, options);
+  query.whereExists(
+    member.query.select(1).whereColumn(member.column("teamId"), column("teamId")).where(member.column("userId"), caller.userId)
+  );
+  return true;
+}
+
+// bad: a join inside the policy, which Knex would drop from the where group; it throws
+function teamDocumentsPolicy({ query, caller, column }) {
+  query.join("team_members as tm", "tm.team_id", column("teamId")).where("tm.user_id", caller.userId);
+  return true;
+}
+```
+
 A rule that depends on the caller's role reads `context.permissions` with
 `hasPermission(context.permissions, "bookings.view-all")` from
 `@jskit-ai/kernel/shared/support`, never with `includes()`. A role may hold
@@ -761,6 +793,47 @@ entries to), pass `lockMode: "noKeyUpdate"` to `lock`, `lockMany`,
 is `FOR NO KEY UPDATE`, which still keeps every other lock and write of the row
 out but lets those inserts through; MySQL, MariaDB and SQLite lock as for the
 default `"update"`. Any other value throws a `TypeError` before anything runs.
+
+A check that only reads rows, and needs them unchanged until the transaction
+ends while other checks read them at once (is the membership still active
+while this document is filed under it?), takes a shared lock: `lockMode:
+"share"` on `lock`, `lockMany` or `lockWhere`, and so on an owner API that
+passes its options on, such as `workspaces.lock(workspaceId, { ...txOptions,
+lockMode: "share" })` or
+`workspaces.memberships.lockByWorkspaceIdAndUserId(workspaceId, userId, {
+...txOptions, lockMode: "share" })`. It is `FOR SHARE` on PostgreSQL and `LOCK
+IN SHARE MODE` on MySQL and MariaDB: other reads, shared locks and inserts of
+rows that reference the locked ones go on, and an update, a delete or an
+exclusive lock of them waits until the transaction ends; SQLite still runs one
+transaction at a time. Never write a row the transaction holds shared: two
+transactions that each hold it shared and then write it wait for each other,
+and the database fails one as a deadlock. Lock a row the work will write with
+the default `"update"` from the start. `claim`, `patchWhere` and
+`lockOrCreate` refuse `"share"` with a `TypeError`, since they take or write
+their rows.
+
+```js
+// good: concurrent filings check the membership at once; a change to it waits until this commits
+const file = (input, options) => documents.withTransaction(options, async (txOptions) => {
+  const membership = await memberships.lock(input.membershipId, { ...txOptions, lockMode: "share", fields: ["status"] });
+  if (membership.status !== "active") {
+    throw new ConflictError("documents.membershipInactive");
+  }
+  return documents.create(input, txOptions);
+});
+
+// bad: the transaction holds the membership shared, then writes it; two such filings deadlock
+await memberships.patch(input.membershipId, { lastFiledAt: new Date() }, txOptions);
+```
+
+Locks stay on the owner's handle and its owner API. A `scopedQuery()` or
+`joinSource()` builder takes no lock, and a row policy is not told a read's
+lock mode: it says which rows a caller may see, the same for every read. Rows
+of several owners are never locked in one statement over a join, which on
+MySQL and MariaDB locks every joined row the read examines: lock each owner's
+rows with its own `lock`, `lockMany` or `lockWhere`, the owners in one fixed
+order on every path (a parent's owner before its children's), so two
+transactions never take them in opposite orders.
 
 A record that a person edits from a form it read earlier carries a version
 number: the table resource names it with `lockVersionField`, an integer field
@@ -1217,10 +1290,30 @@ three more times, so the work must
 be safe to repeat: an HTTP call or an email goes after commit, or into an
 outbox row written inside it. Work that cannot be repeated passes `{ ...options, retry: false }`, and work that must
 commit before its caller goes on passes `{ ...options, outermost: true }`.
-Code never asks whether it runs in a transaction: `withTransaction` joins the
-caller's, `outermost` refuses one, and `lock`, `lockMany`, `lockWhere` and
-`claim` refuse to run outside one; `lockOrCreate` opens its own (and retries a
-lost insert race only then).
+Work that must commit or roll back with its caller's transaction, and so must
+never open one of its own, passes `{ ...options, joinOnly: true }`: called
+outside a transaction it throws a TypeError before the work runs. Code never
+asks whether it runs in a transaction: `withTransaction` joins the caller's,
+`outermost` refuses one, `joinOnly` requires one, and `lock`, `lockMany`,
+`lockWhere` and `claim` refuse to run outside one; `lockOrCreate` opens its own
+(and retries a lost insert race only then).
+
+```js
+// good: both moves land with the caller's transaction, or neither does
+async function moveStock(transfer, options) {
+  return stock.withTransaction({ ...options, joinOnly: true }, async (txOptions) => {
+    await stock.patch(transfer.fromId, { quantity: transfer.fromQuantity }, txOptions);
+    await stock.patch(transfer.toId, { quantity: transfer.toQuantity }, txOptions);
+  });
+}
+
+// bad: asks whether it runs in a transaction by reading it out of options
+async function moveStock(transfer, options) {
+  if (!options.trx) throw new Error("moveStock runs inside its caller's transaction");
+  await stock.patch(transfer.fromId, { quantity: transfer.fromQuantity }, options);
+  await stock.patch(transfer.toId, { quantity: transfer.toQuantity }, options);
+}
+```
 
 When the work throws, the transaction rolls back and the caller gets the
 work's own error, with its status and code, reporting `transactionOutcome:
@@ -1505,7 +1598,7 @@ server code is server code. Neither `eslint-disable`, an inline
 | Rule | Reports | Section |
 | --- | --- | --- |
 | `jskit/no-direct-knex` | a table reached by name with Knex, a `.knex` read or `knex` destructured, a transaction opened by hand | [The resource is the only door](#the-resource-is-the-only-door) |
-| `jskit/no-transaction-reader` | `options.trx`, `trx \|\| knex`, a `trx = knex` default, `trx` destructured from options, any key but `context` and `trx` read from the `txOptions` work receives | [Transactions](#transactions) |
+| `jskit/no-transaction-reader` | `options.trx`, `trx \|\| knex`, a `trx = knex` default, `trx` destructured from options, any key but `context` and `trx` read from the `txOptions` work receives; a read an `if` tests before throwing points to `joinOnly` or `outermost` | [Transactions](#transactions) |
 | `jskit/no-hand-scope` | a hand-written `where` on `workspace_id` or `workspaceId` | [Layer 1: the table resource](#layer-1-the-table-resource) |
 | `jskit/sql-literal` | raw SQL built from strings or templates instead of one literal with bindings | [Layer 5: reports the resource cannot express](#layer-5-reports-the-resource-cannot-express) |
 | `jskit/no-hand-context` | a system context made with `createSystemContext` or `declareSystemScope`, a context's `scopeValues` written by hand | [Background work](#background-work) |

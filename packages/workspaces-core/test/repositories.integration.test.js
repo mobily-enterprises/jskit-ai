@@ -312,6 +312,37 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     );
   });
 
+  test("workspaces.lock and memberships.lockByWorkspaceIdAndUserId take lockMode share, and refuse another mode before any statement", async () => {
+    const owner = await createProfile("Ada");
+    const workspace = await workspaces.insert({ slug: "shared", name: "Shared", ownerUserId: owner.id });
+    await memberships.ensureOwnerMembership(workspace.id, owner.id);
+    // A read check that needs the workspace and the membership unchanged until it commits holds them shared.
+    const { result, sql } = await statementsOf(() => workspaces.withTransaction({}, async (txOptions) => {
+      const shared = { ...txOptions, lockMode: "share" };
+      return [
+        await workspaces.lock(workspace.id, shared),
+        (await memberships.lockByWorkspaceIdAndUserId(workspace.id, owner.id, shared))?.userId
+      ];
+    }));
+    assert.deepEqual(result, [{ id: workspace.id }, owner.id]);
+    const locking = sql.filter((statement) => /\bfor (?:update|share|no key update)\b|\block in share mode\b/iu.test(statement));
+    const clause = { pg: /\bfor share\b/iu, mysql2: /\block in share mode\b/iu }[configuration.client];
+    if (clause) {
+      // PostgreSQL's lockWhere reads its rows again after the lock, so the membership's lock may be two statements.
+      assert.ok(locking.some((statement) => /\bfrom [`"]?workspaces[`"]? /u.test(statement)), sql.join(" | "));
+      assert.ok(locking.some((statement) => /\bfrom [`"]?workspace_memberships[`"]? /u.test(statement)), sql.join(" | "));
+      assert.ok(locking.every((statement) => clause.test(statement)), locking.join(" | "));
+    } else {
+      assert.deepEqual(locking, [], "SQLite takes its write lock, not a row lock");
+    }
+    const refused = await statementsOf(() => workspaces.withTransaction({}, async (txOptions) => {
+      const exclusive = { ...txOptions, lockMode: "exclusive" };
+      await assert.rejects(workspaces.lock(workspace.id, exclusive), { name: "TypeError", message: /lockMode is "update" \(the default\), "noKeyUpdate" or "share"/u });
+      await assert.rejects(memberships.lockByWorkspaceIdAndUserId(workspace.id, owner.id, exclusive), { name: "TypeError", message: /lockMode is "update" \(the default\), "noKeyUpdate" or "share"/u });
+    }));
+    assert.equal(refused.sql.filter((statement) => /^\s*select\b/iu.test(statement)).length, 0, refused.sql.join(" | "));
+  });
+
   test("another owner's report joins the workspaces' and memberships' join sources in one statement, each keeping its filters and the report its scope", async (t) => {
     // Another feature's workspace-owned table, whose report reads each row's workspace slug and active membership.
     await knex.schema.createTable("test_reminders", (table) => {

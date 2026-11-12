@@ -37,14 +37,47 @@ function txOptionsParameter(node) {
   return { work, parameter: parameter?.type === "AssignmentPattern" ? parameter.left : parameter };
 }
 
+const NULLISH = (node) => (node?.type === "Literal" && node.value === null) || (node?.type === "Identifier" && node.name === "undefined");
+
+// What an `if` that tests a transaction read and throws asks for: "joinOnly" when it throws without one (`if
+// (!options.trx) throw ...`, `if (options.trx == null) { throw ... }`), "outermost" when it throws inside one (`if
+// (options.trx) throw ...`), also inside && or ||. Null for any other read.
+function transactionRequirement(node) {
+  let test = node;
+  let present = true;
+  for (;;) {
+    const parent = test.parent;
+    if (parent?.type === "UnaryExpression" && parent.operator === "!") {
+      present = !present;
+    } else if (parent?.type === "BinaryExpression" && ["==", "===", "!=", "!=="].includes(parent.operator) &&
+      NULLISH(parent.left === test ? parent.right : parent.left)) {
+      present = parent.operator.startsWith("!") ? present : !present;
+    } else if (parent?.type !== "ChainExpression" && parent?.type !== "LogicalExpression") {
+      break;
+    }
+    test = parent;
+  }
+  const statement = test.parent;
+  if (statement?.type !== "IfStatement" || statement.test !== test) {
+    return null;
+  }
+  const { consequent } = statement;
+  const throws = consequent.type === "ThrowStatement" || (consequent.type === "BlockStatement" && consequent.body.some(({ type }) => type === "ThrowStatement"));
+  return throws ? (present ? "outermost" : "joinOnly") : null;
+}
+
 // The transaction travels inside the call's options and nobody reads it by hand: not `options.trx`, not `{ trx }`, not
 // `trx = knex`, not `options.transaction`. The handle joins options.trx itself, and withTransaction(options, work)
 // hands work its txOptions. Those hold `{ context, trx }` and nothing else, so a key work reads from them, the
 // application's own included (`txOptions.checkout`, or `options.checkout` where work's parameter shadows the method's
-// options), is always undefined there.
+// options), is always undefined there. Code that requires its caller's transaction (`if (!options.trx) throw`) runs
+// its work in withTransaction({ ...options, joinOnly: true }, work) instead, which refuses a call outside one, and code
+// that refuses one (`if (options.trx) throw`) in withTransaction({ ...options, outermost: true }, work).
 const noTransactionReader = Object.freeze({
   meta: ruleMeta("Disallow reading the transaction out of a call's options by hand.", {
     handRead: `{{text}} reads the transaction by hand. Pass the call's options on untouched: every handle call joins options.trx itself, and withTransaction(options, work) hands work its txOptions. ${HINT}`,
+    joinOnly: `{{text}} checks by hand that the call runs in its caller's transaction. Run the work in withTransaction({ ...options, joinOnly: true }, work), which joins the caller's transaction and refuses a call outside one; code never asks whether it runs in a transaction. ${HINT}`,
+    outermost: `{{text}} checks by hand that the call runs outside a transaction. Run the work in withTransaction({ ...options, outermost: true }, work), which opens its own transaction and refuses a call inside one; code never asks whether it runs in a transaction. ${HINT}`,
     knexDefault: `{{text}} falls back to Knex when no transaction is passed. Take the call's options and pass them on; the handle joins the transaction when there is one. ${HINT}`,
     txOptionsKey: `{{text}} reads {{key}} from the transaction options the work receives, which are { context, trx } and nothing else, so it is undefined there. Read it from the method's own options, and name the work's parameter txOptions. ${HINT}`
   }, "transactions", DATA_ACCESS_GUIDE_URL),
@@ -80,7 +113,8 @@ const noTransactionReader = Object.freeze({
           return;
         }
         if (node.property.name === "trx" || (node.property.name === "transaction" && isOptionsObject(node.object))) {
-          context.report({ node, messageId: "handRead", data: { text: compactText(sourceCode, node) } });
+          const messageId = transactionRequirement(node) ?? "handRead";
+          context.report({ node, messageId, data: { text: compactText(sourceCode, node) } });
         }
       },
       Property(node) {

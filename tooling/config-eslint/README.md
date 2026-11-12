@@ -141,7 +141,10 @@ the [data-access guide](https://mobily-enterprises.github.io/jskit-ai/guide/fram
   `lockOrCreate(row, options, (record, txOptions) => ...)`'s second), which
   hold `{ context, trx }` only, so an application's own key read there
   (`txOptions.checkout`, or `options.checkout` where the parameter shadows the
-  method's options) is always undefined.
+  method's options) is always undefined. A read that an `if` tests before
+  throwing points to the setting that says it: `if (!options.trx) throw ...` to
+  `withTransaction({ ...options, joinOnly: true }, work)`, `if (options.trx)
+  throw ...` to `withTransaction({ ...options, outermost: true }, work)`.
 - `jskit/sql-literal`: raw SQL (`raw`, `whereRaw`, `orderByRaw`, ...) that is
   not one literal, and a literal with `?` placeholders but no bindings.
 - `jskit/no-hand-scope`: `workspace_id` (or `<table>.workspace_id`) given to a

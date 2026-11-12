@@ -15,6 +15,9 @@ new RuleTester().run("jskit/no-transaction-reader", noTransactionReader, {
     "const next = { ...options, lockVersion: 2 };",
     // Settings ride in the options the call received, spread with the setting.
     "function once(options, work) { return lots.withTransaction({ ...options, retry: false }, work); }",
+    // Work that must run in its caller's transaction, or outside any, says so as a setting, never by reading trx.
+    "const settle = (input, options) => lots.withTransaction({ ...options, joinOnly: true }, async (txOptions) => lots.patch(input.id, input.changes, txOptions));",
+    "const mail = (input, options) => lots.withTransaction({ ...options, outermost: true }, async (txOptions) => lots.create(input, txOptions));",
     "function takeOne(options) { return queue.claim({ filters: { due: true }, take: 1 }, { ...options, missing: \"skip\" }); }",
     "const { context } = options;",
     "const reference = payment.transaction.id;",
@@ -51,6 +54,21 @@ new RuleTester().run("jskit/no-transaction-reader", noTransactionReader, {
       errors: [
         { messageId: "txOptionsKey", data: { text: "skipEmail", key: "skipEmail" }, line: 1 },
         { messageId: "txOptionsKey", data: { text: "txOptions.limit", key: "limit" }, line: 2 }
+      ]
+    },
+    {
+      // A hand check that the call runs in its caller's transaction, or outside any, points to joinOnly or outermost.
+      code: [
+        "function settle(input, options) { if (!options.trx) { throw new TypeError(\"settle needs the caller's transaction\"); } return lots.patch(input.id, input, options); }",
+        "function post(input, options) { if (options?.trx == null || !input) throw new Error(\"no transaction\"); return lots.create(input, options); }",
+        "function send(input, options) { if (options.trx) throw new Error(\"commits first\"); return lots.create(input, options); }",
+        "function check(options) { if (options.trx !== undefined) { log(\"joined\"); } }"
+      ].join("\n"),
+      errors: [
+        { messageId: "joinOnly", data: { text: "options.trx" }, line: 1 },
+        { messageId: "joinOnly", data: { text: "options?.trx" }, line: 2 },
+        { messageId: "outermost", data: { text: "options.trx" }, line: 3 },
+        { messageId: "handRead", data: { text: "options.trx" }, line: 4 }
       ]
     },
     {

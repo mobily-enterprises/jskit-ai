@@ -350,6 +350,8 @@ Local functions
 - `isKnexValue(node)`
 - `isOptionsObject(node)`
 - `txOptionsParameter(node)`
+- `NULLISH(node)`
+- `transactionRequirement(node)`
 
 ### `plugin/rules/oneLineAction.js`
 Exports

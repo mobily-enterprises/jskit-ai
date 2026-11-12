@@ -13,8 +13,8 @@ import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
 import { GroupLimitError, PageSizeError, StaleRecordError, UnpagedQueryError } from "./errors.js";
 import {
-  formatOf, matchesNoRow, missingOf, passedOn, refuseConditions, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions,
-  requireReadParams, requireUpsertRows, whereSelection
+  formatOf, matchesNoRow, missingOf, passedOn, refuseConditions, refuseTransactionPlace, requireConditionValues, requireDefinedFilters, requireOwners,
+  requirePatchConditions, requireReadParams, requireUpsertRows, whereSelection
 } from "./handleGuards.js";
 import {
   aggregateMeasures,
@@ -180,12 +180,12 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
    * (`returning`, `missing`, `format`...), which was for the call it was named on. When work throws, the caller gets work's
    * own error; a failed write inside it, or a failed commit, arrives as
    * json-rest-api's RestApiWriteError with the transaction's outcome.
-   * Settings ride in options: `{ ...options, retry: false }` runs work once, for
-   * work that cannot be repeated (it calls a provider); `{ ...options,
-   * outermost: true }` refuses a call inside a transaction, for work that must
-   * commit before the caller goes on (mail sent after it, say).
+   * Settings ride in options: `{ ...options, retry: false }` runs work once, for work that cannot be repeated (it calls a
+   * provider); `{ ...options, outermost: true }` refuses a call inside a transaction, for work that must commit before
+   * the caller goes on (mail sent after it, say); `{ ...options, joinOnly: true }` refuses a call outside one, for work
+   * that must commit or roll back with its caller's (see refuseTransactionPlace).
    * @template T
-   * @param {{ trx?: object | null, context?: object | null, retry?: boolean, outermost?: boolean }} options
+   * @param {{ trx?: object | null, context?: object | null, retry?: boolean, outermost?: boolean, joinOnly?: boolean }} options
    * @param {(txOptions: Readonly<{ context?: object | null, trx: object }>) => Promise<T> | T} work
    * @returns {Promise<T>}
    */
@@ -193,12 +193,11 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
     if (rest.length > 0) {
       throw new TypeError(`${name}.withTransaction() takes (options, work); settings ride in options: withTransaction({ ...options, retry: false }, work).`);
     }
-    const { retry = true, outermost = false, ...callOptions } = options;
+    const { retry = true, outermost = false, joinOnly = false, ...callOptions } = options;
     requireHandleTransaction(name, callOptions);
-    if (inTransaction(callOptions)) {
-      if (outermost) {
-        throw new TypeError(`${name}.withTransaction() outermost work commits before it answers, so it cannot run inside the caller's transaction.`);
-      }
+    const joined = inTransaction(callOptions);
+    refuseTransactionPlace(name, { outermost, joinOnly }, joined);
+    if (joined) {
       return work(passedOn(callOptions));
     }
     const run = () => openTransaction(api, callOptions, work);

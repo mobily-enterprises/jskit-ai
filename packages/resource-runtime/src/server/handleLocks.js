@@ -9,10 +9,22 @@ import { resolveJsonRestCollectionRelationships } from "./jsonRestValues.js";
 // reference it (a foreign key's check takes FOR KEY SHARE); MySQL, MariaDB and SQLite have no weaker exclusive lock and
 // lock as for "update".
 const LOCK_MODES = Object.freeze(["update", "noKeyUpdate"]);
+// lock, lockMany and lockWhere also take "share": FOR SHARE (LOCK IN SHARE MODE on MySQL and MariaDB), which other
+// reads and shared locks pass and writes and exclusive locks wait for, for a read check whose rows must not change until
+// the transaction ends. A row held shared is never written in the same transaction: two transactions that each hold it
+// shared and then write it deadlock.
+const SHARED_LOCK_MODES = Object.freeze([...LOCK_MODES, "share"]);
+// Why the methods that take or write their rows refuse "share".
+const NO_SHARE = Object.freeze({
+  claim: "a claimed row is taken to be worked on, and a shared lock would let another worker claim it too",
+  patchWhere: "it writes the rows it selects, and two transactions that each hold a row shared and then write it deadlock",
+  lockOrCreate: "its work writes the record it locks, and two transactions that each hold it shared and then write it deadlock"
+});
 
 /**
  * json-rest-api's lock mode for a locking read: none when the call names none, so json-rest-api takes its default.
- * Another value is a TypeError naming the handle method, before anything runs.
+ * Another value is a TypeError naming the handle method, before anything runs: "share" too for claim, patchWhere and
+ * lockOrCreate, which take or write their rows.
  * @param {string} name The resource's name.
  * @param {string} caller The handle method, for the message.
  * @param {unknown} lockMode
@@ -21,8 +33,13 @@ function lockModeOf(name, caller, lockMode) {
   if (lockMode === undefined) {
     return {};
   }
-  if (!LOCK_MODES.includes(/** @type {string} */ (lockMode))) {
-    throw new TypeError(`${name}.${caller}() lockMode is "update" (the default) or "noKeyUpdate". Received: ${JSON.stringify(lockMode)}`);
+  const refusal = Object.hasOwn(NO_SHARE, caller) ? NO_SHARE[/** @type {keyof typeof NO_SHARE} */ (caller)] : null;
+  if (lockMode === "share" && refusal) {
+    throw new TypeError(`${name}.${caller}() takes lockMode "update" (the default) or "noKeyUpdate", not "share": ${refusal}.`);
+  }
+  if (!(refusal ? LOCK_MODES : SHARED_LOCK_MODES).includes(/** @type {string} */ (lockMode))) {
+    const modes = refusal ? '"update" (the default) or "noKeyUpdate"' : '"update" (the default), "noKeyUpdate" or "share"';
+    throw new TypeError(`${name}.${caller}() lockMode is ${modes}. Received: ${JSON.stringify(lockMode)}`);
   }
   return { lockMode };
 }
@@ -210,11 +227,12 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
    * left out with `missing: "skip"`. MySQL locks every listed id, a hidden one too: take ids from scoped reads.
    * `fields` names the fields the lock reads, so a belongs-to field left out costs no check that its related
    * record is visible; without it every field is read. `lockMode: "noKeyUpdate"` takes PostgreSQL's FOR NO KEY
-   * UPDATE, so other transactions may still insert rows that reference the locked ones (see LOCK_MODES).
+   * UPDATE, so other transactions may still insert rows that reference the locked ones (see LOCK_MODES), and
+   * `lockMode: "share"` a shared lock, which other reads and shared locks pass, for rows this transaction only reads.
    * `include` names belongs-to relationships whose records are locked after the rows, through their own tables'
    * handles, and nested as a read's include nests them (see withLockedIncludes).
    * @param {unknown[]} ids
-   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip", fields?: string[], lockMode?: "update" | "noKeyUpdate", include?: string | string[] }} options
+   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip", fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[] }} options
    */
   async function lockMany(ids, options) {
     return lockRead("lockMany", "lockByIds", { ids, ...(options.missing ? { missing: options.missing } : {}) }, options);
@@ -231,7 +249,7 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
    * json-rest-api's not-found error, or answers null with `missing: "skip"`.
    * `fields` reads only the fields the work needs, and `lockMode` picks the lock (see lockMany).
    * @param {unknown} id
-   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip", fields?: string[], lockMode?: "update" | "noKeyUpdate", include?: string | string[] }} options
+   * @param {{ context?: object | null, trx: object, missing?: "throw" | "skip", fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[] }} options
    */
   async function lock(id, options) {
     missingOf(name, "lock", options.missing);
@@ -248,7 +266,7 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
    * with the ownership columns (no owners: with a filtered column), or it refuses.
    * `fields` reads only the fields the work needs, and `lockMode` picks the lock (see lockMany).
    * @param {object} filters
-   * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate", include?: string | string[] }} options
+   * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[] }} options
    */
   async function lockWhere(filters, options) {
     requireDefinedFilters(name, "lockWhere", filters);

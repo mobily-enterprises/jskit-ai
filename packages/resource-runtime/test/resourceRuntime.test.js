@@ -514,7 +514,12 @@ test("lockOrCreate() runs work on the locked record, creating it first when miss
   knex.on("query", counted);
   await assert.rejects(resources.counters.lockOrCreate({ id: "moded", value: 0 }, { ...options, lockMode: "share" }, bump), {
     name: "TypeError",
-    message: 'counters.lockOrCreate() lockMode is "update" (the default) or "noKeyUpdate". Received: "share"'
+    message: 'counters.lockOrCreate() takes lockMode "update" (the default) or "noKeyUpdate", not "share": its work writes the record it ' +
+      "locks, and two transactions that each hold it shared and then write it deadlock."
+  });
+  await assert.rejects(resources.counters.lockOrCreate({ id: "moded", value: 0 }, { ...options, lockMode: "exclusive" }, bump), {
+    name: "TypeError",
+    message: 'counters.lockOrCreate() lockMode is "update" (the default) or "noKeyUpdate". Received: "exclusive"'
   });
   knex.off("query", counted);
   assert.deepEqual(statements, []);
@@ -775,6 +780,30 @@ test("withTransaction() rethrows its work's own error, and takes its settings in
     await assert.rejects(notes.withTransaction({ ...txOptions, outermost: true }, () => null), /cannot run inside the caller's transaction/u);
     assert.equal(await notes.withTransaction(txOptions, () => "joined"), "joined");
   });
+  // joinOnly work commits or rolls back with its caller's transaction, so a call outside one is refused before the work
+  // runs, and inside one it joins: its write rolls back with the caller's.
+  let ran = false;
+  await assert.rejects(notes.withTransaction({ context: WORKSPACE_A, joinOnly: true }, () => {
+    ran = true;
+  }), {
+    name: "TypeError",
+    message: "notes.withTransaction() joinOnly work commits or rolls back with its caller's transaction, and this call has none: call " +
+      "it from inside the caller's withTransaction(options, work), passing on the txOptions it gives work."
+  });
+  assert.equal(ran, false);
+  await assert.rejects(notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    await notes.withTransaction({ ...txOptions, joinOnly: true }, async (joined) => {
+      assert.equal(joined.trx, txOptions.trx);
+      assert.equal(Object.hasOwn(joined, "joinOnly"), false);
+      await notes.create({ title: "joined, then undone" }, joined);
+    });
+    throw failure;
+  }), (error) => error === failure);
+  assert.equal((await notes.queryAll({}, { context: WORKSPACE_A })).length, 0);
+  await assert.rejects(notes.withTransaction({ context: WORKSPACE_A, outermost: true, joinOnly: true }, () => null), {
+    name: "TypeError",
+    message: "notes.withTransaction() takes outermost or joinOnly, not both: outermost work opens its own transaction, joinOnly work never does."
+  });
 });
 
 test("findOrCreate() answers the record with the id, creating it only when it is missing", async (t) => {
@@ -843,28 +872,41 @@ test("locks need a transaction and take only the caller's rows", async (t) => {
   await assert.rejects(notes.withTransaction({ context: WORKSPACE_A }, (txOptions) => notes.lock(other.id, txOptions)), notFound);
 });
 
-test("every lock and patchWhere take lockMode \"update\" or \"noKeyUpdate\" and reach the same rows; another is refused before any statement", async (t) => {
+test("every lock and patchWhere take lockMode \"update\" or \"noKeyUpdate\", and lock, lockMany and lockWhere \"share\", reaching the same rows; another is refused before any statement", async (t) => {
   const { knex, notes } = await createFixture(t);
   const [a] = await notes.createMany([{ title: "a", status: "queued" }], { context: WORKSPACE_A, returning: "ids" });
   const statements = [];
   const counted = ({ sql }) => statements.push(sql);
   await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
-    for (const lockMode of ["update", "noKeyUpdate"]) {
+    for (const lockMode of ["update", "noKeyUpdate", "share"]) {
       const options = { ...txOptions, lockMode };
       assert.equal((await notes.lock(a, options)).title, "a", lockMode);
       assert.deepEqual((await notes.lockMany([a], options)).map(({ title }) => title), ["a"], lockMode);
       assert.deepEqual((await notes.lockWhere({ status: "queued" }, options)).map(({ title }) => title), ["a"], lockMode);
+      if (lockMode === "share") continue;
       assert.deepEqual((await notes.claim({ filters: { status: "queued" } }, options)).map(({ title }) => title), ["a"], lockMode);
       assert.equal(await notes.patchWhere({ status: "queued" }, { title: "a" }, { ...options, returning: "count" }), 1, lockMode);
     }
     knex.on("query", counted);
-    const options = { ...txOptions, lockMode: "share" };
-    const refused = (method) => ({ name: "TypeError", message: `notes.${method}() lockMode is "update" (the default) or "noKeyUpdate". Received: "share"` });
-    await assert.rejects(notes.lock(a, options), refused("lock"));
-    await assert.rejects(notes.lockMany([a], options), refused("lockMany"));
-    await assert.rejects(notes.lockWhere({ status: "queued" }, options), refused("lockWhere"));
-    await assert.rejects(notes.claim({ filters: { status: "queued" } }, options), refused("claim"));
-    await assert.rejects(notes.patchWhere({ status: "queued" }, { title: "b" }, options), refused("patchWhere"));
+    const shared = { ...txOptions, lockMode: "share" };
+    const writes = "two transactions that each hold a row shared and then write it deadlock";
+    await assert.rejects(notes.claim({ filters: { status: "queued" } }, shared), {
+      name: "TypeError",
+      message: 'notes.claim() takes lockMode "update" (the default) or "noKeyUpdate", not "share": a claimed row is taken to be worked ' +
+        "on, and a shared lock would let another worker claim it too."
+    });
+    await assert.rejects(notes.patchWhere({ status: "queued" }, { title: "b" }, shared), {
+      name: "TypeError",
+      message: `notes.patchWhere() takes lockMode "update" (the default) or "noKeyUpdate", not "share": it writes the rows it selects, and ${writes}.`
+    });
+    const exclusive = { ...txOptions, lockMode: "exclusive" };
+    const refused = (method, modes) => ({ name: "TypeError", message: `notes.${method}() lockMode is ${modes}. Received: "exclusive"` });
+    const withShare = '"update" (the default), "noKeyUpdate" or "share"';
+    await assert.rejects(notes.lock(a, exclusive), refused("lock", withShare));
+    await assert.rejects(notes.lockMany([a], exclusive), refused("lockMany", withShare));
+    await assert.rejects(notes.lockWhere({ status: "queued" }, exclusive), refused("lockWhere", withShare));
+    await assert.rejects(notes.claim({ filters: { status: "queued" } }, exclusive), refused("claim", '"update" (the default) or "noKeyUpdate"'));
+    await assert.rejects(notes.patchWhere({ status: "queued" }, { title: "b" }, exclusive), refused("patchWhere", '"update" (the default) or "noKeyUpdate"'));
     knex.off("query", counted);
     // Nothing reached the database, so the transaction goes on (on PostgreSQL a failed statement would end it).
     assert.equal((await notes.lock(a, txOptions)).title, "a");
@@ -1156,6 +1198,151 @@ test("row policies read their own tables read-only, and contributions only narro
 
   const { records } = await owned.rooms.query({ page: { size: 10 } }, { context: { userId: 7 } });
   assert.deepEqual(records.map(({ name }) => name), ["general", "banned"]);
+});
+
+// Teams with members, and documents filed under a team, each table in its workspace. Ada (7) is in the active team,
+// Grace (8) only in the archived one.
+async function teamDocuments(t, { owns, documentsPolicy, contribution }) {
+  const knex = await testKnex(t);
+  await knex.schema.createTable("teams", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.string("status");
+  });
+  await knex.schema.createTable("team_members", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.integer("team_id");
+    table.integer("user_id");
+  });
+  await knex.schema.createTable("documents", (table) => {
+    table.increments("id");
+    table.integer("workspace_id");
+    table.integer("team_id");
+    table.string("title");
+  });
+  await knex("teams").insert([{ workspace_id: 1, status: "active" }, { workspace_id: 1, status: "archived" }, { workspace_id: 2, status: "active" }]);
+  await knex("team_members").insert([
+    { workspace_id: 1, team_id: 1, user_id: 7 },
+    { workspace_id: 1, team_id: 2, user_id: 7 },
+    { workspace_id: 1, team_id: 2, user_id: 8 },
+    { workspace_id: 2, team_id: 3, user_id: 8 }
+  ]);
+  await knex("documents").insert([
+    { workspace_id: 1, team_id: 1, title: "plan" },
+    { workspace_id: 1, team_id: 2, title: "old plan" },
+    { workspace_id: 2, team_id: 3, title: "elsewhere" }
+  ]);
+  const owned = (name, tableName, fields) => defineTableResource({
+    name,
+    tableName,
+    ownership: "workspace",
+    defaultSort: ["id"],
+    schema: {
+      id: { type: "id", primary: true },
+      workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+      ...fields
+    }
+  });
+  const teamsTable = owned("teams", "teams", { status: { type: "string" } });
+  const membersTable = owned("teamMembers", "team_members", {
+    teamId: { type: "integer", storage: { column: "team_id" } },
+    userId: { type: "integer", storage: { column: "user_id" } }
+  });
+  const documentsTable = owned("documents", "documents", { teamId: { type: "integer", storage: { column: "team_id" } }, title: { type: "string" } });
+  const runtime = await createTestResourceRuntime({ knex });
+  const documentsEntry = { resource: documentsTable, rowPolicy: documentsPolicy, acceptsContributions: Boolean(contribution) };
+  if (owns === "together") {
+    const handles = await runtime.own("documents.feature", [documentsEntry, teamsTable, membersTable]);
+    return { knex, ...handles };
+  }
+  const teams = await runtime.own("teams.feature", [teamsTable, membersTable]);
+  const { documents } = await runtime.own("documents.feature", [documentsEntry], { requires: { members: teams.teamMembers } });
+  if (contribution) {
+    teams.contributeRowPolicy("documents", contribution);
+  }
+  return { knex, documents, ...teams };
+}
+
+const ADA = Object.freeze({ ...WORKSPACE_A, actor: Object.freeze({ id: "7" }) });
+const GRACE = Object.freeze({ ...WORKSPACE_A, actor: Object.freeze({ id: "8" }) });
+
+test("a row policy narrows with where calls only: a join, which Knex would drop from the policy's where group, throws naming the policy", async (t) => {
+  const joinedTeams = ({ query, column, caller }) => {
+    query.join("team_members as tm", "tm.team_id", column("teamId")).where("tm.user_id", caller.userId);
+    return true;
+  };
+  const owner = await teamDocuments(t, { owns: "together", documentsPolicy: joinedTeams });
+  for (const read of [() => owner.documents.queryAll({}, { context: ADA }), () => owner.documents.scopedQuery({}, { context: ADA })]) {
+    await assert.rejects(read(), {
+      name: "TypeError",
+      message: /^Feature "documents\.feature" row policy joinedTeams for "documents" calls query\.join\(\), which a row policy cannot use: .* query\.whereExists\(ownTable\(name\)/u
+    });
+  }
+  // A contribution is held to the same, by its own feature's name; select and its kin are no where call either.
+  const firstTeamOnly = ({ query }) => {
+    query.select("team_id").where("team_id", 1);
+    return true;
+  };
+  const contributed = await teamDocuments(t, { documentsPolicy: () => true, contribution: firstTeamOnly });
+  await assert.rejects(contributed.documents.queryAll({}, { context: ADA }), {
+    name: "TypeError",
+    message: /^Feature "teams\.feature" row policy firstTeamOnly contributed to "documents" calls query\.select\(\), which a row policy cannot use/u
+  });
+});
+
+test("a row policy narrows through a join with whereExists over its own tables, which keeps the join's narrowing", async (t) => {
+  // The subquery joins the member's team and keeps only active ones in the join's own condition: a subquery compiled
+  // without its join would let Ada see the archived team's document too.
+  const activeTeamMember = ({ query, column, caller, ownTable }) => {
+    if (caller.kind !== "user") {
+      return caller.kind !== "anonymous";
+    }
+    query.whereExists(ownTable("teamMembers")
+      .select(1)
+      .join("teams", (join) => join.on("teams.id", "team_members.team_id").andOnVal("teams.status", "=", "active"))
+      .whereColumn("team_members.team_id", column("teamId"))
+      .where("team_members.user_id", caller.userId));
+    return true;
+  };
+  const { documents } = await teamDocuments(t, { owns: "together", documentsPolicy: activeTeamMember });
+  const titles = async (context) => (await documents.queryAll({}, { context })).map(({ title }) => title);
+  assert.deepEqual(await titles(ADA), ["plan"]);
+  assert.deepEqual(await titles(GRACE), []);
+  assert.deepEqual(await titles(WORKSPACE_A), []);
+});
+
+test("a row policy is told the call's options, and reads another owner's join source in the caller's scope and transaction", async (t) => {
+  const seen = [];
+  const teamDocumentsPolicy = async ({ query, column, caller, options, requires }) => {
+    seen.push(options);
+    if (caller.kind !== "user") {
+      return caller.kind !== "anonymous";
+    }
+    const member = await requires.members.joinSource({ alias: "tm" }, options);
+    query.whereExists(member.query.select(1).whereColumn(member.column("teamId"), column("teamId")).where(member.column("userId"), caller.userId));
+    return true;
+  };
+  const { knex, documents, teamMembers } = await teamDocuments(t, { documentsPolicy: teamDocumentsPolicy });
+  // A document of workspace 1 filed under workspace 2's team, where Grace is a member.
+  await knex("documents").insert({ workspace_id: 1, team_id: 3, title: "misfiled" });
+  const titles = async (options) => (await documents.queryAll({}, options)).map(({ title }) => title);
+  assert.deepEqual(await titles({ context: ADA }), ["plan", "old plan"]);
+  assert.deepEqual(seen, [{ context: ADA, trx: null }]);
+  assert.ok(Object.isFrozen(seen[0]));
+  // Grace's membership of workspace 2's team stays there: the join source reads in the caller's workspace.
+  assert.deepEqual(await titles({ context: GRACE }), ["old plan"]);
+  // Inside a transaction the join source reads there: Grace sees the active team's document as soon as her uncommitted
+  // membership exists, and a write's read-back runs the policy with the transaction too.
+  seen.length = 0;
+  await documents.withTransaction({ context: GRACE }, async (txOptions) => {
+    await teamMembers.create({ teamId: 1, userId: 8 }, txOptions);
+    assert.deepEqual(await titles(txOptions), ["plan", "old plan"]);
+    assert.equal((await documents.create({ teamId: 1, title: "draft" }, txOptions)).title, "draft");
+    assert.ok(seen.length >= 2);
+    assert.ok(seen.every((options) => options.trx === txOptions.trx && options.context === GRACE));
+  });
+  assert.deepEqual(await titles({ context: ADA }), ["plan", "old plan", "draft"]);
 });
 
 test("a row policy is told who the call runs for: a system context, a job it derived, a signed-in user or no one", async (t) => {

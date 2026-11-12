@@ -9,8 +9,8 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 // while a join source is built asynchronously in the caller's scope, so a filtering hook builds the join sources the
 // read's filters use first, from the call's own options, and applyFilter takes a fresh copy of one each time it asks.
 
-// The call options a handle's json-rest-api context carries for the join sources its filters build: the caller's
-// context and transaction, as the caller passed them. Module-private, so nothing but a handle sets it.
+// The call options a handle's json-rest-api context carries for the join sources its filters and its row policy build:
+// the caller's context and transaction, as the caller passed them. Module-private, so nothing but a handle sets it.
 const CALL_OPTIONS = Symbol("jskit.resources.callOptions");
 // The join sources a read's filters use, built by the filtering hook: by resource name, filter and alias.
 const PREPARED_SOURCES = Symbol("jskit.resources.filterJoinSources");
@@ -28,6 +28,16 @@ const SELECTING_PURPOSES = new Set(["bulk-write", "lock", "claim"]);
 function withCallOptions(jsonRestContext, options) {
   jsonRestContext[CALL_OPTIONS] = Object.freeze({ context: options.context ?? null, trx: options.trx ?? null });
   return jsonRestContext;
+}
+
+/**
+ * The call options a json-rest-api context carries (see withCallOptions): frozen `{ context, trx }`, or undefined for
+ * a context no handle built.
+ * @param {unknown} jsonRestContext
+ * @returns {Readonly<{ context: object | null, trx: object | null }> | undefined}
+ */
+function callOptionsOf(jsonRestContext) {
+  return isRecord(jsonRestContext) ? /** @type {any} */ (jsonRestContext)[CALL_OPTIONS] : undefined;
 }
 
 /**
@@ -174,4 +184,4 @@ function joinSourceHooks({ resourceName, declared, ownerOf }) {
   };
 }
 
-export { filterJoinSources, joinSourceHooks, withCallOptions };
+export { callOptionsOf, filterJoinSources, joinSourceHooks, withCallOptions };

@@ -154,3 +154,39 @@ test("a lock's include reads the records committed after the transaction's snaps
   assert.deepEqual(read.locked.map(({ guest, ticketId, ticket }) => [guest, ticketId !== null && ticketId === ticket?.id, ticket?.number ?? null]), [["first", true, "T1"]]);
   assert.deepEqual(read.after, []);
 });
+
+test("lock, lockMany and lockWhere with lockMode share let another transaction share-lock the row, and hold its writes and exclusive locks", async (t) => {
+  const { seats, bookings } = await database(t, "da_lr_share");
+  const [seatId] = await seats.createMany([{ code: "A1" }], { ...WORKSPACE, returning: "ids" });
+  const bookingId = await bookings.create({ seatId, guest: "first" }, { ...WORKSPACE, returning: "id" });
+  // What another transaction does while the row is held shared: it gives up after 1 s (ER_LOCK_WAIT_TIMEOUT) when it
+  // would wait.
+  const meanwhile = (work) => bookings.withTransaction({ ...WORKSPACE, retry: false }, async (tx) => {
+    await tx.trx.raw("SET SESSION innodb_lock_wait_timeout = 1");
+    await work(tx);
+  }).then(() => "proceeds", (error) => error.code);
+  const others = {
+    "shared lock": (tx) => bookings.lock(bookingId, { ...tx, lockMode: "share" }),
+    "exclusive lock": (tx) => bookings.lock(bookingId, tx),
+    write: (tx) => bookings.patch(bookingId, { guest: "other" }, { ...tx, returning: "none" })
+  };
+  const lockers = {
+    lock: (tx) => bookings.lock(bookingId, tx),
+    lockMany: (tx) => bookings.lockMany([bookingId], tx),
+    lockWhere: (tx) => bookings.lockWhere({ seatIds: [seatId] }, tx)
+  };
+  const outcomes = {};
+  for (const [name, locker] of Object.entries(lockers)) {
+    outcomes[name] = await bookings.withTransaction(WORKSPACE, async (tx) => {
+      assert.deepEqual((await locker({ ...tx, lockMode: "share" })).length ?? 1, 1, name);
+      const seen = {};
+      for (const [what, work] of Object.entries(others)) {
+        seen[what] = await meanwhile(work);
+      }
+      return seen;
+    });
+  }
+  const shared = { "shared lock": "proceeds", "exclusive lock": "ER_LOCK_WAIT_TIMEOUT", write: "ER_LOCK_WAIT_TIMEOUT" };
+  assert.deepEqual(outcomes, { lock: shared, lockMany: shared, lockWhere: shared });
+  assert.deepEqual((await bookings.queryAll({}, WORKSPACE)).map(({ guest }) => guest), ["first"]);
+});

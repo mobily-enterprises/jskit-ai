@@ -343,3 +343,49 @@ test("a lock or patchWhere with lockMode noKeyUpdate lets another transaction ad
   ])));
   assert.equal(Number((await knex("entries").count({ count: "*" }).first()).count), 6);
 });
+
+test("lock, lockMany and lockWhere with lockMode share let another transaction read and share-lock the row, and hold its writes and exclusive locks", { skip }, async (t) => {
+  const { knex, slots } = await database(t);
+  const [slot] = (await slots.createMany([{ status: "open" }], { ...WORKSPACE, returning: "ids" })).map(String);
+  // What another transaction does while the row is held shared: it gives up after 500 ms (55P03) when it would wait.
+  const meanwhile = async (work) => {
+    const { error } = await settle(() => knex.transaction(async (trx) => {
+      await trx.raw("SET LOCAL lock_timeout = '500ms'");
+      await work(trx);
+    }));
+    return error ? error.code : "proceeds";
+  };
+  const others = {
+    read: (trx) => trx("slots").where({ id: slot }),
+    "shared lock": (trx) => trx("slots").where({ id: slot }).forShare(),
+    "exclusive lock": (trx) => trx("slots").where({ id: slot }).forUpdate(),
+    write: (trx) => trx("slots").where({ id: slot }).update({ taken_by: "other" })
+  };
+  const lockers = {
+    lock: (txOptions) => slots.lock(slot, txOptions),
+    lockMany: (txOptions) => slots.lockMany([slot], txOptions),
+    lockWhere: (txOptions) => slots.lockWhere({ status: "open" }, txOptions)
+  };
+  const outcomes = {};
+  for (const [name, locker] of Object.entries(lockers)) {
+    const statements = [];
+    const recorded = ({ sql }) => statements.push(sql);
+    outcomes[name] = await slots.withTransaction(WORKSPACE, async (txOptions) => {
+      knex.on("query", recorded);
+      try {
+        await locker({ ...txOptions, lockMode: "share" });
+      } finally {
+        knex.off("query", recorded);
+      }
+      assert.ok(statements.some((sql) => /\bfor share\b/iu.test(sql)) && !statements.some((sql) => /\bfor (?:no key )?update\b/iu.test(sql)), `${name}: ${statements.join(" | ")}`);
+      const seen = {};
+      for (const [what, work] of Object.entries(others)) {
+        seen[what] = await meanwhile(work);
+      }
+      return seen;
+    });
+  }
+  const shared = { read: "proceeds", "shared lock": "proceeds", "exclusive lock": "55P03", write: "55P03" };
+  assert.deepEqual(outcomes, { lock: shared, lockMany: shared, lockWhere: shared });
+  assert.equal((await knex("slots").where({ id: slot }).first()).taken_by, null);
+});

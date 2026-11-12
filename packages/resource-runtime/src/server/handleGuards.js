@@ -227,7 +227,30 @@ function matchesNoRow(filters, schemaInfo) {
   return Object.entries(filters).some(([key, value]) => Array.isArray(value) && value.length === 0 && search[key]?.filterOperator === "in");
 }
 
+/**
+ * Refuses a withTransaction() call that runs where its setting says its work cannot, before the work runs: `outermost`
+ * work commits before it answers, so never inside the caller's transaction; `joinOnly` work commits or rolls back with
+ * the caller's, so never outside one, and never opens a transaction of its own. Both at once is a TypeError too.
+ * @param {string} name The resource's name.
+ * @param {{ outermost: boolean, joinOnly: boolean }} settings
+ * @param {boolean} joined Whether the call runs in its caller's transaction.
+ */
+function refuseTransactionPlace(name, { outermost, joinOnly }, joined) {
+  if (outermost && joinOnly) {
+    throw new TypeError(`${name}.withTransaction() takes outermost or joinOnly, not both: outermost work opens its own transaction, joinOnly work never does.`);
+  }
+  if (outermost && joined) {
+    throw new TypeError(`${name}.withTransaction() outermost work commits before it answers, so it cannot run inside the caller's transaction.`);
+  }
+  if (joinOnly && !joined) {
+    throw new TypeError(
+      `${name}.withTransaction() joinOnly work commits or rolls back with its caller's transaction, and this call has none: ` +
+        "call it from inside the caller's withTransaction(options, work), passing on the txOptions it gives work."
+    );
+  }
+}
+
 export {
-  formatOf, matchesNoRow, missingOf, refuseConditions, requireConditionValues, requireDefinedFilters, requireOwners, requirePatchConditions,
-  requireReadParams, requireUpsertRows, passedOn, whereSelection
+  formatOf, matchesNoRow, missingOf, refuseConditions, refuseTransactionPlace, requireConditionValues, requireDefinedFilters, requireOwners,
+  requirePatchConditions, requireReadParams, requireUpsertRows, passedOn, whereSelection
 };
