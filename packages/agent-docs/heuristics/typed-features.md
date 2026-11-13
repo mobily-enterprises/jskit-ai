@@ -27,6 +27,8 @@ ends with the same link.
   - [Environment from the caller](../site/guide/framework/typed-features.md#environment-from-the-caller)
 - `setProvider`, `attach*`, any `set<Name>()` that fills a slot, `X | null` below the hook, `deferred until boot: <reason>` (`jskit/no-slot-setter`)
   - [Optional tokens](../site/guide/framework/typed-features.md#optional-tokens)
+- `Provider capability cycle detected` that only a row policy or another call-time read closes, `late:`, `read its late requirement ... before every provider booted`, `late-requires missing capability`
+  - [Late requirements](../site/guide/framework/typed-features.md#late-requirements)
 - a module-level `register<Name>()`, `let x` or a `WeakMap` filled in `boot()` (`jskit/no-module-registry`)
   - [Owned state](../site/guide/framework/typed-features.md#owned-state)
 - `shutdown()` with `?.()` or `?? []`

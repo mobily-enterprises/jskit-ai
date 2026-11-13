@@ -433,10 +433,13 @@ request, `{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
 `reason`, for background work. A job names a user only as `actorId`, the
 person it works for ([below](#background-work)), so never read a missing actor
 as an anonymous request. The owner's policy also receives the capabilities its
-feature requires (and its optional ones), by local name, as `requires`, the
-same ones its setup receives: a policy that needs another feature's answer
-declares that feature's capability in `requires` and reads `requires.<name>`.
-It runs on every read, so what it asks there must be cheap.
+feature requires (and its optional and late ones), by local name, as
+`requires`, the same ones its setup receives: a policy that needs another
+feature's answer declares that feature's capability in `requires` and reads
+`requires.<name>`. When that feature requires the policy's own feature, the
+two form a ring; the policy's feature declares the capability `late` instead
+([Capability cycles](#capability-cycles)). A policy runs on every read, so
+what it asks there must be cheap.
 
 ```js
 // good: one predicate on the row being read
@@ -1423,7 +1426,8 @@ without it.
 
 A capability cycle is a ring of requires: feature A requires a capability that
 feature B provides while B, directly or through others, requires one that A
-provides. An `optional` require closes a ring as a required one does. The
+provides. An `optional` require closes a ring as a required one does; a
+`late` one does not ([below](#late-requirements)). The
 kernel sets features up in the order their requires give, so it cannot start a
 ring: boot fails before any setup, naming it,
 `Provider capability cycle detected: children -> parents -> children.`
@@ -1447,9 +1451,73 @@ Keep every require pointing one way:
   definitions, move those table resources into a package of their own that
   holds only shared definitions and depends on neither.
 - Never break a ring with a value handed over later (a setter, a capability
-  looked up at call time): a call's destination then depends on what ran
-  before. A setter kept until the split carries typed features' `cycle:`
+  looked up by name at call time): a call's destination then depends on what
+  ran before. A setter kept until the split carries typed features' `cycle:`
   exception ([Optional tokens](/guide/framework/typed-features#optional-tokens)).
+
+### Late requirements
+
+A ring that only a read at call time closes, most often a row policy's, and
+that you cannot or do not want to split, is broken with a late requirement:
+the kernel's declared alternative to a setter. An audit history whose row
+policy narrows through the evidence files' owner, while the evidence owner
+records each change in the audit history, is one: the evidence feature
+requires `audit.history` as usual, and the audit feature declares
+`late: { evidence: "evidence.files" }`.
+
+- A late requirement takes no part in the order features start in, nor in the
+  cycle check, so the ring starts. The kernel resolves it once, after every
+  feature's `boot()`: its destination is declared, so it never depends on what
+  ran before.
+- It is read at call time only: in a row policy (`requires.evidence`), a
+  request handler, or a method setup builds that runs later, which keeps the
+  capabilities object and reads the name when it runs. A read before every
+  feature has booted (in setup or boot, or a late name destructured in setup's
+  parameters) throws `Provider "audit" read its late requirement "evidence"
+  (capability "evidence.files") before every provider booted: ...`, which
+  says where it may be read. A shutdown reads it only after a start that
+  finished.
+- It is required: when no feature or runtime input provides it, start fails at
+  the end of boot, `Provider "audit" late-requires missing capability
+  "evidence.files": no provider or runtime input provides it.`, and stops what
+  started, as any startup failure does. The package manifest lists it under
+  `requires`.
+- A feature never late-requires a capability it provides, nor one it already
+  requires or takes as optional.
+- The one-way rules above still come first: split the ring when you can. A
+  ring that both features' setup or boot needs cannot be broken this way,
+  since a late requirement is never read there.
+
+```js
+// good: the audit history's row policy reads the evidence owner's join source at call time
+const AuditFeature = defineFeature({
+  id: "audit",
+  owns: [{ resource: auditEntryResource, rowPolicy: auditEntriesPolicy }],
+  late: {
+    evidence: "evidence.files"
+  },
+  provides: {
+    history: "audit.history"
+  },
+  setup({ resources }) {
+    return { history: createAuditHistory({ entries: resources.auditEntries }) };
+  }
+});
+
+async function auditEntriesPolicy({ query, caller, column, options, requires }) {
+  if (caller.kind !== "user") {
+    return caller.kind !== "anonymous";
+  }
+  const file = await requires.evidence.joinSource({ alias: "ef" }, options);
+  query.whereExists(file.query.select(1).whereColumn(file.column("id"), column("evidenceFileId")));
+  return true;
+}
+
+// bad: the late name destructured in setup, before every feature has booted; boot fails
+setup({ resources, evidence }) {
+  return { history: createAuditHistory({ entries: resources.auditEntries, evidence }) };
+}
+```
 
 ## Check and judge
 

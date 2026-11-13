@@ -27,8 +27,9 @@ rule in [client features](/guide/framework/client-features).
 > so each call has exactly one visible destination for a reader and for the
 > code map.
 
-- A **capability** is a value a feature `provides`, `requires` or may use
-  (`optional`), named by a **token** such as `"feature.invoices"`.
+- A **capability** is a value a feature `provides`, `requires`, may use
+  (`optional`) or requires once every feature has booted (`late`), named by a
+  **token** such as `"feature.invoices"`.
 - A **collaborator** is an object or function with behaviour that code calls:
   a service, store, repository, runtime, router, publisher, catalogue, logger
   or clock. Plain data (an input, a record, a list, an options bag) is not one.
@@ -45,8 +46,8 @@ it reports the call as exact instead of guessing from the method name.
 ### Feature files
 
 **A `defineFeature` lives in `<Name>Feature.js`, its keys in one order, one
-per line: `id, domain, owns, systemScope, requires, optional, provides,
-setup, actions, boot, shutdown`.** A `defineProvider` lives in `<Name>Provider.js`.
+per line: `id, domain, owns, systemScope, requires, optional, late,
+provides, setup, actions, boot, shutdown`.** A `defineProvider` lives in `<Name>Provider.js`.
 
 - `setup` builds each provided value with a named `create<Name>` factory from
   a module of its own, never inline. It returns exactly the keys `provides`
@@ -84,8 +85,8 @@ actions: ({ invoices }) => [{ id: "invoices.list", execute: () => invoices.list(
 **A package's manifest, `jskit.capabilities` in its `package.json`, lists
 exactly what its features provide, and every capability they require beyond
 the kernel's own (`runtime.actions`, `runtime.events`, `runtime.http`,
-`runtime.bootstrap`) and those the package provides itself.** Optional
-capabilities are not required. A requirement no feature has stays only when
+`runtime.bootstrap`) and those the package provides itself.** Late
+capabilities are required; optional ones are not. A requirement no feature has stays only when
 the package needs it at install time, such as the database its migrations
 need.
 
@@ -259,7 +260,8 @@ function createMailer({ env = process.env } = {}) {
 - When the slot's supplier requires the slot's owner, the two form a cycle.
   Split the part of the owner the supplier needs into its own feature. Until
   then the setter stays, with a `cycle:` [exception comment](#exceptions), and
-  is cleared at shutdown.
+  is cleared at shutdown. A value with no default that the owner reads only
+  when called is no slot: it is a [late requirement](#late-requirements).
 
 Why: a slot filled later makes a call's destination depend on what ran
 before.
@@ -287,6 +289,46 @@ let numbering = sequentialNumbering;
 function setNumbering(next) {
   numbering = next;
 }
+```
+
+### Late requirements
+
+**A capability that closes a ring and is read only when called, such as by a
+row policy, is `late`: the kernel resolves it once every feature has booted,
+and code reads it from the capabilities object at call time, never in
+`setup()` or `boot()`.**
+
+- Split the ring first ([capability cycles](/guide/framework/data-access#capability-cycles)).
+  A late requirement is for a ring a call-time read closes, after splitting
+  is not possible or not wanted.
+- `late` maps local names to tokens, as `requires` does, with names no other
+  map of the feature uses. It never names a token the feature provides,
+  requires or takes as optional.
+- It is required: when nothing provides it, start-up fails at the end of
+  boot, naming the feature and the token, and the package manifest lists it.
+- A row policy reads it from `requires`
+  ([data access](/guide/framework/data-access#late-requirements)). A value
+  `setup()` builds receives the capabilities object, typed, and reads the
+  late name in its methods; `setup()` never destructures it. A read before
+  every feature has booted throws, naming the feature, the name and the token.
+
+Why: the token is declared and the kernel resolves it once, so a call's
+destination never depends on what ran before, as it does with a setter.
+
+```js
+// good: the token declared late; the factory reads it when a report runs
+late: {
+  evidence: "evidence.files"
+},
+/** @param {{ resources: { auditEntries: import("@jskit-ai/resource-runtime/server/types").ResourceHandle }, evidence: import("@local/evidence/server/types").EvidenceFiles }} capabilities */
+setup(capabilities) {
+  return { reports: createAuditReports({ capabilities }) };
+},
+
+// bad: destructured in setup, before every feature has booted; start-up fails
+setup({ resources, evidence }) {
+  return { reports: createAuditReports({ entries: resources.auditEntries, evidence }) };
+},
 ```
 
 ### Owned state
@@ -1159,7 +1201,7 @@ Why: the limits measure code a person reads; a table is scanned, not read.
 an object that spans lines, braces once an `if` spans lines.** `eslint --fix`
 applies it.
 
-- A returned frozen result and a `requires`, `optional` or `provides` map put
+- A returned frozen result and a `requires`, `optional`, `late` or `provides` map put
   each property on its own line. A short leaf literal of at most three scalar
   properties (`{ type: "string", required: true }`) may stay on one line.
 - Long prose stays inline in its string or template; never split a sentence
@@ -1302,7 +1344,7 @@ Every finding ends with a link to the section of this page that explains it.
 | `jskit/no-patched-error` | `Object.assign(new Error(…), { statusCode })`, or an error builder's result given its status afterwards | [One construction per error](#one-construction-per-error) |
 | `jskit/no-test-only-export` | an export whose name says only tests use it (`…ForTests`, `__reset…`; `__testables` aside) | [No test-only exports](#no-test-only-exports) |
 | `jskit/narrow-in-query` | `.filter()`, `.find()`, `.some()`, `.every()`, `.slice()`, a lone `.length` or a loop that skips with `continue`, over the rows a read in the same function answered and uses no other way | [Narrow in the query](#narrow-in-the-query) |
-| `jskit/one-property-per-line` | two properties on one line in a returned `Object.freeze({ … })` or a `requires` / `optional` / `provides` map (`eslint --fix` splits them) | [Formatter](#formatter) |
+| `jskit/one-property-per-line` | two properties on one line in a returned `Object.freeze({ … })` or a `requires` / `optional` / `late` / `provides` map (`eslint --fix` splits them) | [Formatter](#formatter) |
 | `jskit/jsdoc-description-inside` | a `//` description directly above a `/** */` block | [Comments](#comments) |
 | `jskit/allow-comment-form` | a `readable-check: allow` reason without a prefix from the table below, or one that cites tests or the state of a project | [Exceptions](#exceptions) |
 | `max-lines`, `max-lines-per-function` | files over 750 lines, functions over 600 | [Size limits](#size-limits) |

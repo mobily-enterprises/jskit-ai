@@ -36,6 +36,7 @@ Package composition:
 - a package that narrows visibility further depends on the resource owner and calls `resources.contributeRowPolicy(name, policy)` on the handles its own `owns` gave it; a contribution is ANDed with the owner's policy inside its own group, so it can only narrow
 - a contribution never grants visibility: wider visibility (shared rows, grants another package records) is a rule in the owner's own policy over its own tables, and a contribution narrows every read of the table, every feature's included, so a rule for one surface is an owner API method instead
 - the resource owner does not import contributing packages
+- a policy that narrows through another owner's join source, when that owner requires the policy's own feature, declares the owner's capability `late` and reads `requires.<name>` at call time: the kernel resolves it once every feature has booted ([Late requirements](../site/guide/framework/data-access.md#late-requirements))
 - do not use module-global mutable registries
 
 Example, "your rooms or shared rooms":
