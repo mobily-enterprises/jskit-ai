@@ -3,7 +3,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizePositiveInteger, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
-import { validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
+import { errorFieldErrors, validateSchemaPayload } from "@jskit-ai/kernel/shared/validators";
 import { resolveWorkspaceSlug } from "./resolveWorkspaceSlug.js";
 import { AUTOMATION_CHANNEL, normalizePermissionSpec, resolveActionToolEntries } from "./serviceToolEntries.js";
 
@@ -259,14 +259,12 @@ function truncateDescription(value, maxLength = 240) {
   return `${description.slice(0, Math.max(1, maxLength - 1))}…`;
 }
 
+// A refusal's message, followed by its field errors when it is a validation error: the field errors the HTTP
+// layer shows a person, whether the action's input check or the action itself refused.
 function resolveValidationFailureMessage(error) {
   const baseMessage = normalizeText(error?.message, { fallback: "Validation failed." });
-  if (normalizeText(error?.code).toUpperCase() !== "ACTION_VALIDATION_FAILED") {
-    return baseMessage;
-  }
-
-  const fieldErrors = error?.details?.fieldErrors;
-  if (!fieldErrors || typeof fieldErrors !== "object" || Array.isArray(fieldErrors)) {
+  const fieldErrors = errorFieldErrors(error)?.fieldErrors;
+  if (!fieldErrors) {
     return baseMessage;
   }
 

@@ -698,11 +698,14 @@ answer in the existing chat rows.
 
 Replies run on the agent engine (`@jskit-ai/agent`), up to 40 steps by default, so
 catalog search, contract lookup and execution can complete in one turn. A failed
-action reaches the model as its error. A reply that runs out of steps ends with
-the model's own account of what it did and what is left. The engine's checks send
-a reply back once when it leaks markup, stops at announcing its next step (“Let me
-query…”), or claims an action no tool performed. Long conversations are summarised
-rather than refused; see the conversation runtime guide.
+action reaches the model as its error: a refusal with its message and, for a
+validation error, the field errors a person would see on screen, so the model can
+say what to fix; an internal failure only as `Tool call failed.` A reply that runs
+out of steps ends with the model's own account of what it did and what is left.
+The engine's checks send a reply back once when it leaks markup, stops at
+announcing its next step (“Let me query…”), or claims an action no tool
+performed. Long conversations are summarised rather than refused; see the
+conversation runtime guide.
 
 Every request carries the current date and time in UTC in the engine's state
 note, so no turn needs an extra action to learn it, and no action runs before

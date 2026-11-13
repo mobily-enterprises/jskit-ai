@@ -5,6 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
 import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createConversationRuntime, createFileConversationStorage } from "../src/server/conversation/index.js";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 import { createConversationTools } from "../src/server/conversation/tools.js";
@@ -81,7 +82,11 @@ test("an unsaved call runs once from the turn's memory, is never saved, announce
   assert.throws(() => createConversationTools({ ...hooks, offerUnsaved: "yes" }), /explicit server-side boolean/);
 });
 
-test("a saved conversation, its events, logs and later turns hold neither an unsaved call nor its result", async t => {
+/**
+ * Two turns of a conversation whose first reply calls the unsaved action and a saved one: what each model call was
+ * sent, the turns, the conversation as read, and everything the runtime emitted, logged, printed and stored.
+ */
+async function runTwoTurns(t, execute) {
   const directory = await mkdtemp(join(tmpdir(), "jskit-unsaved-tools-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
   const logs = [];
@@ -89,7 +94,7 @@ test("a saved conversation, its events, logs and later turns hold neither an uns
   const printed = [];
   for (const method of ["log", "info", "warn", "error", "debug"]) t.mock.method(console, method, (...entry) => { printed.push(entry); });
   const requests = [];
-  const runtime = createConversationRuntime({ storage: createFileConversationStorage({ directory }), actions: surveyActions({ logger }),
+  const runtime = createConversationRuntime({ storage: createFileConversationStorage({ directory }), actions: surveyActions({ logger, execute }),
     authorize: () => true,
     connections: { resolve: async () => ({ providerId: "test", model: "exact-model", sdkPackage: "@ai-sdk/openai-compatible", apiKey: "test", baseURL: "http://test.invalid/v1" }) },
     fetch: (_url, request) => {
@@ -110,6 +115,11 @@ test("a saved conversation, its events, logs and later turns hold neither an uns
   const next = await conversation.wait();
   const read = await conversation.read();
   await runtime.close();
+  return { requests, first, next, read, events, logs, printed, stored: await filesUnder(directory) };
+}
+
+test("a saved conversation, its events, logs and later turns hold neither an unsaved call nor its result", async t => {
+  const { requests, first, next, read, events, logs, printed, stored } = await runTwoTurns(t);
 
   assert.equal(first.error, "");
   assert.match(requests[0].tools.find(tool => tool.function.name === "surveys_open").function.description,
@@ -121,7 +131,6 @@ test("a saved conversation, its events, logs and later turns hold neither an uns
 
   assert.deepEqual(first.conversationLog[0].metadata.applicationTools.map(call => call.name), ["numbers_add"]);
   assert.deepEqual(leaks([first, next, read]), [], "Neither the turn records nor the conversation as read hold them");
-  const stored = await filesUnder(directory);
   assert.ok(stored.includes(SAVED_ID), "The saved call is on disk, so this search reads what storage wrote");
   assert.deepEqual(leaks(stored), []);
   assert.equal(stored.includes("surveys_open") || stored.includes("surveys.open"), false, "Storage never names the unsaved tool");
@@ -133,4 +142,21 @@ test("a saved conversation, its events, logs and later turns hold neither an uns
   assert.equal(JSON.stringify(logs).includes("surveys"), false, "The unsaved one leaves no log line");
   assert.deepEqual(leaks(printed), []);
   assert.equal(JSON.stringify(printed).includes("surveys"), false);
+});
+
+test("an unsaved action's validation refusal tells the live reply why, and nothing stored, emitted, logged or sent later", async t => {
+  const reason = "refusal-marker-91c4";
+  const { requests, first, next, read, events, logs, printed, stored } = await runTwoTurns(t, async () => {
+    throw createValidationError({ code: `No open survey uses this code (${reason}).` });
+  });
+
+  assert.equal(first.error, "", "A refusal is the action's answer, so the reply goes on");
+  assert.ok(JSON.stringify(requests[1].messages).includes(`code: No open survey uses this code (${reason}).`),
+    "The live reply's model reads the refusal's reason");
+  assert.ok(stored.includes(SAVED_ID), "The saved call is on disk, so this search reads what storage wrote");
+  for (const [place, value] of Object.entries({ stored, later: requests[2].messages, turns: [first, next], read, events, logs, printed })) {
+    assert.equal(JSON.stringify(value).includes(reason), false, `The refusal never reaches ${place}`);
+    assert.deepEqual(leaks(value), [], `nor its call, in ${place}`);
+  }
+  assert.equal(stored.includes("surveys_open") || stored.includes("surveys.open"), false, "Storage never names the unsaved tool");
 });

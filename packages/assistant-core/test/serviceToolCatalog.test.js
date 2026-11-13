@@ -3,7 +3,7 @@ import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
 import { createActionCatalogue, isExecutionLogged } from "@jskit-ai/kernel/server/actions";
-import { createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
+import { AppError, createValidationError, DomainValidationError, NotFoundError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 
 function schema(fields = {}, mode = "patch") {
@@ -313,6 +313,79 @@ test("assistant tools give the model the field and the type to use when an actio
     }
   });
   assert.equal(executed, false);
+});
+
+test("an action's own validation refusal reaches the model with its reason and field errors, as a person sees them", async () => {
+  let refusal = null;
+  const actions = createActions([action({ kind: "command", execute: async () => { throw refusal; } })]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+  const call = () => catalog.executeToolCall({ toolName: toolSet.tools[0].name, argumentsText: "{}", context, toolSet });
+
+  // Rules no input schema states, which the action checks against its records as it runs.
+  refusal = createValidationError({
+    parcels: "The parcel weights add up to 12 kg, not the 15 kg recorded.",
+    note: "Add a note when the inspection fails."
+  });
+  assert.deepEqual(await call(), {
+    ok: false,
+    error: {
+      code: "validation_failed",
+      message: "Validation failed. note: Add a note when the inspection fails. " +
+        "parcels: The parcel weights add up to 12 kg, not the 15 kg recorded.",
+      status: 400
+    }
+  });
+
+  refusal = new DomainValidationError(
+    { fieldErrors: { grade: "A shipment that mixes two sources cannot be graded premium." } },
+    { message: "This shipment cannot be graded." }
+  );
+  assert.deepEqual(await call(), {
+    ok: false,
+    error: {
+      code: "domain_validation_failed",
+      message: "This shipment cannot be graded. grade: A shipment that mixes two sources cannot be graded premium.",
+      status: 422
+    }
+  });
+});
+
+test("an internal failure, a permission refusal and a not-found refusal stay as generic as before", async () => {
+  let failure = null;
+  const actions = createActions([
+    action({
+      kind: "command",
+      execute: async (_input, context) => {
+        if (failure) throw failure;
+        // An action that runs another the caller may not: the action runtime's own permission refusal.
+        return actions.execute({ actionId: "demo.books.audit", version: 1, input: {}, context });
+      }
+    }),
+    action({ id: "demo.books.audit", permission: { require: "all", permissions: ["books.audit"] } })
+  ]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+  const call = () => catalog.executeToolCall({ toolName: "demo_books_list", argumentsText: "{}", context, toolSet });
+
+  const refused = await call();
+  assert.deepEqual(refused, { ok: false, error: { code: "ACTION_PERMISSION_DENIED", message: "Forbidden.", status: 403 } });
+  assert.equal(JSON.stringify(refused).includes("books.audit"), false, "Never the action or the permission refused");
+
+  failure = new NotFoundError("Not found.", { details: { resourceId: "shipment-4471" } });
+  assert.deepEqual(await call(), { ok: false, error: { code: "not_found", message: "Not found.", status: 404 } });
+
+  failure = Object.assign(new Error("connect ECONNREFUSED 10.0.0.5:5432"), { stack: "Error: at private/database.js:7" });
+  assert.deepEqual(await call(), { ok: false, error: { code: "assistant_tool_failed", message: "Tool call failed.", status: 500 } });
+
+  // A server fault stays hidden even when it carries field errors.
+  failure = new AppError(500, "Column private_notes is missing.", {
+    code: "internal_server_error",
+    details: { fieldErrors: { private_notes: "Unknown column." } }
+  });
+  assert.deepEqual(await call(), { ok: false, error: { code: "internal_server_error", message: "Tool call failed.", status: 500 } });
 });
 
 test("large authorized catalogs use compact paged discovery, exact contracts, and gated execution", async () => {
