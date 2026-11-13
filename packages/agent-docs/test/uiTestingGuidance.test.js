@@ -71,17 +71,20 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "crud-form-actions.md",
     "crud-operations.md",
     "data-access.md",
+    "data-pass.md",
     "database-layer.md",
     "existing-application-migration.md",
     "material-3.md",
     "multi-homing.md",
     "pattern-index.md",
+    "quality-pass.md",
     "sanity-checks.md",
     "side-effects.md",
     "translation.md",
     "typed-features.md",
     "ui-operations.md",
     "ui-pass.md",
+    "visual-identity.md",
   ]);
   assert.deepEqual(
     referenceEntries.filter((entry) => entry.isDirectory()).map((entry) => entry.name).sort(),
@@ -180,6 +183,16 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(uiPassReference, /390, 768 and 1280 wide, in\s+light and dark/u);
   assert.match(uiPassReference, /Navigation is must-fix at every scope/u);
   assert.equal(uiPassReference.match(/^Example: /gmu)?.length, 3);
+  const passReference = (file) => references.find((reference) => reference.file === file).source;
+  const identityReference = passReference("visual-identity.md");
+  assert.match(identityReference, /`src\/theme\/palettes\.js`/u);
+  assert.match(identityReference, /\[Material 3 rules\]\(material-3\.md\)/u);
+  assert.match(identityReference, /report it at `@jskit-ai\/material-web`; never add app\s+CSS for it/u);
+  assert.match(passReference("quality-pass.md"), /`serverMessage\(error\)`/u);
+  const dataReference = passReference("data-pass.md");
+  assert.match(dataReference, /^## PostgreSQL$/mu);
+  assert.match(dataReference, /^## MySQL$/mu);
+  assert.match(dataReference, /\(database-layer\.md#mysql-and-mariadb-failures-can-leave-partial-schema\)/u);
   assert.doesNotMatch(operationalSource, /@jskit-ai\/create-app|crud-server-generator|crud-ui-generator|ui-generator/u);
   assert.doesNotMatch(operationalSource, /\.jskit\/APP_BLUEPRINT|\.jskit\/WORKBOARD/u);
   assert.doesNotMatch(
@@ -195,8 +208,8 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // routes table work to the data-access and database-layer references and CRUD names the table resource; 64 KiB
   // since an include names a link by its relationship, which the boot enforces; 65 KiB since in-page navigation to
   // a named place is labelled with its destination; 42 KiB since a dynamic page that serves literal destinations is
-  // top-level).
-  assert.ok(Buffer.byteLength(operationalSource) <= 65 * 1024);
+  // top-level; 66 KiB since the skill routes the identity, quality and data passes to their own references).
+  assert.ok(Buffer.byteLength(operationalSource) <= 66 * 1024);
   assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 42 * 1024);
 });
 

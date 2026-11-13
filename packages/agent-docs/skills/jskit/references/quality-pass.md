@@ -1,0 +1,94 @@
+<!-- Generated from `packages/agent-docs/site/guide/framework/quality-pass.md`. -->
+
+# Quality pass
+
+A quality pass makes an app hold up in use. Genesis's quality pass skill
+(`genesis-quality-pass`) holds the method: list each screen's states, make each
+one right, try the edge cases, explain every refusal, check accessibility
+basics, and prove it by using the app. This page says where each of those lives
+in a JSKIT app. The rules it applies are already in [Material 3](material-3.md),
+[UI operations](ui-operations.md) and the [sanity checks](sanity-checks.md).
+
+## States on every screen
+
+- **Loading:** Material skeletons with the geometry of the content they stand
+  for, never a spinner; an action keeps a stable label while it runs and
+  cannot be sent twice ([Components, state, and feedback](material-3.md#components-state-and-feedback)).
+  Ordinary reads stop after 30 seconds, so a slow read ends in its error state.
+- **Empty:** a list's empty state carries an icon, a line saying what would be
+  there and one action, such as New; with filters or a search applied it
+  offers clearing them instead. An app with an identity uses its
+  `EmptyArt.vue` ([Visual identity](visual-identity.md)).
+- **Errors** stay with their owner: a resource that cannot load shows a stable
+  in-page error with Retry; a field's error sits beside the field, from the
+  server's `details.fieldErrors`; a command's failure goes through the shell's
+  action feedback and snackbar path (`ShellErrorHost`), never as an alert that
+  pushes the page down. The person's input stays in the form.
+- **Refused by permission:** a screen the person may not use says so and
+  offers a way out; an action the person may not take is not offered, or is
+  explained where it shows.
+
+## Every refusal explained
+
+- On the server, each refusal is `new AppError(status, message, { code, params
+  })` with a code of its own, one per sentence
+  ([Refusals carry their own code](typed-features.md#refusals-carry-their-own-code)).
+  Its English says what was refused, why, and what the person can do:
+  "That slug is taken. Choose another name.", not "Conflict.".
+- On the client, `serverMessage(error)` and `fieldErrorMessages(error)` from
+  `useJskitText()` show it, translated by its code
+  ([How errors are shown](translation.md#how-errors-are-shown)).
+  A generic "Something went wrong" in place of a coded refusal is a defect.
+- To find them, list every `AppError` (and subclass) the scope's actions,
+  services and routes throw, trigger each one from the screen, and read what
+  the person sees. A caller without permission gets a 403 with no field errors
+  ([Inputs and access](sanity-checks.md#inputs-and-access)).
+- A CRUD list that sends a query key its feature does not declare is refused
+  with `crud.query.undeclaredKeys`, and the person sees only that nothing
+  loaded. Declare the filter
+  ([Narrow in the query](data-access.md#narrow-in-the-query)).
+
+## Edge cases in a JSKIT app
+
+- **Long text:** button labels end in an ellipsis with the full text as
+  `title`; table cells end in an ellipsis; a list never scrolls sideways at any
+  width.
+- **Double submit:** click Save twice quickly; the command's pending state
+  must send one request.
+- **Session and tabs:** sign out in another tab and come back; let the session
+  expire mid-form. The auth guard sends the person to sign-in and back.
+- **Time:** dates follow [strict temporal values](crud-operations.md#strict-temporal-values);
+  try a value near midnight and in another time zone.
+- **Roles:** sign in as the least-privileged role and walk each flow; Up stays
+  inside the app on a page opened from a link.
+
+## Accessibility in a JSKIT app
+
+`@jskit-ai/material-web` ships 48dp touch targets, visible focus and reduced
+motion. The app supplies the rest the [Material 3 rules](material-3.md)
+list: an accessible name for each icon control (a `ShellPageAction`'s `label`
+is its name), labels on fields, `aria-pressed` filter chips,
+`role="radiogroup"` choices, menu roles, badge labels, and status never shown
+by colour alone. In Playwright, `getByRole(role, { name })` finds a control
+only when it has a name, so a locator that needs a CSS selector points at an
+unnamed control.
+
+## Use the app
+
+- Drive the app in the host's managed Preview, or with Playwright as
+  [UI operations](ui-operations.md#browser-verification) describes;
+  the host's preview identity signs you in.
+- Force each state from the browser test:
+  `page.route("**/api/orders**", (route) => route.fulfill({ status: 500, json: { error: "…", code: "…" } }))`
+  for a failure, `route.abort()` or `context.setOffline(true)` for a dropped
+  connection, a delayed `route.continue()` for a slow one, and a fresh
+  `BROWSER_TEST_DB_NAME` fixture with no rows for first use.
+- Seed realistic data in the browser fixture database: hundreds of rows and
+  long names.
+- Walk each flow once with the keyboard only (`page.keyboard.press("Tab")`).
+- Take screenshots at 390, 768 and 1280 wide, in light and dark, as the
+  [UI pass](ui-pass.md) shows, and look at each one.
+- Lock each fix in at the cheapest level ([Tests](sanity-checks.md#tests)):
+  a state or a message in a Vitest component test, a refusal's status and code
+  in a server test, a flow in the Playwright spec that already reaches that
+  screen. Then run `npm run verify`.

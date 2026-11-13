@@ -35,6 +35,12 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Material 3](/guide/framework/material-3)
 - [UI pass](/guide/framework/ui-pass): make a task's changes, a section or the
   whole app exact Material 3
+- [Visual identity](/guide/framework/visual-identity): where an identity pass's
+  theme, content colours, artwork, logo, loading screen and sign-in live
+- [Quality pass](/guide/framework/quality-pass): loading, empty, error and
+  refused states, edge cases and accessibility, checked by using the app
+- [Data pass](/guide/framework/data-pass): query counts, constraints,
+  migrations and indexes at realistic sizes, on PostgreSQL and MySQL
 - [Sanity checks](/guide/framework/sanity-checks): JSKIT's own pitfalls, and
   the JSKIT calls that check data access, tests, a refactor, a screen or a
   deployment before calling it done
