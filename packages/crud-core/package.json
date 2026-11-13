@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/crud-core",
-  "version": "0.2.32",
+  "version": "0.2.33",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"

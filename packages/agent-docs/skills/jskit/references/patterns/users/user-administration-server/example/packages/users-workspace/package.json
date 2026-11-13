@@ -10,10 +10,10 @@
     "./shared": "./src/shared/index.js"
   },
   "dependencies": {
-    "@jskit-ai/crud-core": "0.2.32",
+    "@jskit-ai/crud-core": "0.2.33",
     "@jskit-ai/resource-crud-core": "0.1.215",
-    "@jskit-ai/users-core": "0.2.37",
-    "@jskit-ai/workspaces-core": "0.2.37"
+    "@jskit-ai/users-core": "0.2.38",
+    "@jskit-ai/workspaces-core": "0.2.38"
   },
   "peerDependencies": {
     "@jskit-ai/kernel": "0.2.22",

@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-oidc-core",
-  "version": "0.2.38",
+  "version": "0.2.39",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -20,7 +20,7 @@
     "openid-client": "6.8.8"
   },
   "devDependencies": {
-    "@jskit-ai/auth-provider-local-core": "0.2.27",
+    "@jskit-ai/auth-provider-local-core": "0.2.28",
     "@jskit-ai/auth-web": "0.2.35",
     "oidc-provider": "9.12.2"
   },
