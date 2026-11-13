@@ -12,7 +12,7 @@
   "dependencies": {
     "@jskit-ai/crud-core": "0.2.37",
     "@jskit-ai/resource-crud-core": "0.1.219",
-    "@jskit-ai/users-core": "0.2.42"
+    "@jskit-ai/users-core": "0.2.43"
   },
   "jskit": {
     "kind": "runtime",
