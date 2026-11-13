@@ -259,6 +259,7 @@ test("helper ownership ledger serializes stale-lock recovery across module insta
   const staleVerified = deferred();
   const releaseStaleRecovery = deferred();
   const contenderBlocked = deferred();
+  const contenderTookLock = deferred();
   let contenderAcquired = false;
   let firstWrite = null;
   let secondWrite = null;
@@ -280,6 +281,7 @@ test("helper ownership ledger serializes stale-lock recovery across module insta
       observeLock: ({ stage }) => {
         if (stage === "host-acquired") {
           contenderAcquired = true;
+          contenderTookLock.resolve();
         }
         if (stage === "host-contended") {
           contenderBlocked.resolve();
@@ -299,39 +301,26 @@ test("helper ownership ledger serializes stale-lock recovery across module insta
 
     const record = ownershipRecord(root);
     firstWrite = firstLedger.write(record);
-    let staleTimeout;
-    try {
-      await Promise.race([
-        staleVerified.promise,
-        new Promise((_, reject) => {
-          staleTimeout = setTimeout(
-            () => reject(new Error("First ledger did not reach stale-lock verification.")),
-            1000
-          );
-        }),
-        firstWrite.then(
-          () => Promise.reject(new Error("First ledger completed before stale-lock verification.")),
-          (error) => Promise.reject(error)
-        )
-      ]);
-    } finally {
-      clearTimeout(staleTimeout);
-    }
+    // Each write reaches its lock stage after synced writes, whose time is the disk's: wait for the stage itself,
+    // or for the write to settle without it, never for a fixed window.
+    await Promise.race([
+      staleVerified.promise,
+      firstWrite.then(
+        () => Promise.reject(new Error("First ledger completed before stale-lock verification.")),
+        (error) => Promise.reject(error)
+      )
+    ]);
     secondWrite = secondLedger.write(record);
-    let contentionTimeout;
-    try {
-      await Promise.race([
-        contenderBlocked.promise,
-        new Promise((_, reject) => {
-          contentionTimeout = setTimeout(
-            () => reject(new Error("Competing ledger did not reach the host lock.")),
-            1000
-          );
-        })
-      ]);
-    } finally {
-      clearTimeout(contentionTimeout);
-    }
+    await Promise.race([
+      contenderBlocked.promise,
+      contenderTookLock.promise.then(
+        () => Promise.reject(new Error("Competing ledger took the host lock during stale-lock recovery."))
+      ),
+      secondWrite.then(
+        () => Promise.reject(new Error("Competing ledger completed before reaching the host lock.")),
+        (error) => Promise.reject(error)
+      )
+    ]);
     assert.equal(contenderAcquired, false);
 
     releaseStaleRecovery.resolve();
