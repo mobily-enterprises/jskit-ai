@@ -1025,3 +1025,90 @@ test("request maps network errors to normalized transport error", async () => {
     (error) => error.status === 0 && error.message === "Network request failed." && error.cause === networkFailure
   );
 });
+
+/**
+ * A client whose every answer is the one given, after a CSRF session read for a write, and the requests it sent.
+ * @param {() => Response} answer
+ */
+function fileClient(answer) {
+  const calls = [];
+  const client = createHttpClient({
+    fetchImpl: async (url, options) => {
+      calls.push([url, options]);
+      return url === "/api/session" ? Response.json({ csrfToken: "csrf-file" }) : answer();
+    }
+  });
+  return { client, calls };
+}
+
+/**
+ * The file name request() reads from a file answer with this Content-Disposition (none when null).
+ * @param {string | null} disposition
+ */
+async function fileNameOf(disposition) {
+  const headers = { "Content-Type": "text/plain" };
+  if (disposition !== null) {
+    headers["Content-Disposition"] = disposition;
+  }
+  const { client } = fileClient(() => new Response("x", { headers }));
+  const { fileName } = await client.request("/api/file", { response: "file" });
+  return fileName;
+}
+
+test("request answers response \"file\" with the body as a Blob, its file name and its content type", async () => {
+  const csv = "id,at,action\n1,2026-11-13T09:00:00.000Z,audit.export\n";
+  const { client, calls } = fileClient(() => new Response(csv, {
+    headers: {
+      "Content-Type": "text/csv; charset=utf-8",
+      "Content-Disposition": "attachment; filename=\"audit-2026-11-13.csv\""
+    }
+  }));
+  const answer = await client.request("/api/export", { method: "POST", body: { reason: "Quarterly review" }, response: "file" });
+  assert.ok(answer.blob instanceof Blob);
+  assert.equal(await answer.blob.text(), csv);
+  assert.equal(answer.fileName, "audit-2026-11-13.csv");
+  assert.equal(answer.contentType, "text/csv; charset=utf-8");
+  // A write still carries its CSRF token and JSON body; the option itself is not fetch's.
+  assert.equal(calls[1][1].headers["csrf-token"], "csrf-file");
+  assert.equal(calls[1][1].body, JSON.stringify({ reason: "Quarterly review" }));
+  assert.equal("response" in calls[1][1], false);
+  await assert.rejects(client.request("/api/export", { response: "blob" }), /response must be "file" or left out/u);
+  await assert.rejects(client.requestStream("/api/export", { response: "file" }), /ask request\(\) for a file/u);
+});
+
+test("a file request's refusal throws the usual error, read from its JSON body", async () => {
+  const refusals = [
+    [403, { error: "Confirm it's you first.", code: "auth.secondFactor.required" }],
+    [422, { error: "More than 50,000 rows match: narrow the filter.", code: "audit_export_too_large", details: { limit: 50_000 } }]
+  ];
+  for (const [status, body] of refusals) {
+    const { client } = fileClient(() => Response.json(body, { status }));
+    await assert.rejects(client.request("/api/export", { method: "POST", body: {}, response: "file" }), (error) => {
+      assert.equal(error.status, status);
+      assert.equal(error.code, body.code);
+      assert.equal(error.message, body.error);
+      assert.deepEqual(error.details, body.details ?? null);
+      return true;
+    });
+  }
+});
+
+test("a file answer's name comes from Content-Disposition, the RFC 5987 filename* winning over filename", async () => {
+  assert.equal(await fileNameOf("attachment; filename=audit.csv"), "audit.csv");
+  assert.equal(await fileNameOf("attachment; filename=\"audit 2026.csv\""), "audit 2026.csv");
+  assert.equal(await fileNameOf("attachment; filename=\"a \\\"b\\\"; c.csv\""), "a \"b\"; c.csv");
+  assert.equal(await fileNameOf("attachment; FILENAME*=UTF-8''%E2%82%AC%20rates.csv"), "€ rates.csv");
+  assert.equal(await fileNameOf("attachment; filename=\"rates.csv\"; filename*=UTF-8''%E2%82%AC%20rates.csv"), "€ rates.csv");
+  assert.equal(await fileNameOf("attachment; filename*=UTF-8''%E2%82%AC%20rates.csv; filename=\"rates.csv\""), "€ rates.csv");
+  // An extended name that cannot be read (bad percent-encoding, another charset) leaves the plain one.
+  assert.equal(await fileNameOf("attachment; filename=\"rates.csv\"; filename*=UTF-8''%E2%82"), "rates.csv");
+  assert.equal(await fileNameOf("attachment; filename=\"rates.csv\"; filename*=x-unknown''r.csv"), "rates.csv");
+  // A `filename=` inside another parameter's quoted value is not the file's name.
+  assert.equal(await fileNameOf("attachment; title=\"x; filename=evil.csv\"; filename=good.csv"), "good.csv");
+});
+
+test("a file answer that names no file has a null file name", async () => {
+  for (const disposition of [null, "attachment", "inline", "attachment; filename=\"\"", "attachment; filename*=UTF-8''"]) {
+    assert.equal(await fileNameOf(disposition), null, String(disposition));
+  }
+});

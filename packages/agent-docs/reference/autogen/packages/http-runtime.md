@@ -56,6 +56,7 @@ Exports
 Local functions
 - `requestSignalWithDeadline(signal, timeoutMs)`
 - `normalizeMethod(method)`
+- `wantsFileResponse(response)`
 - `resolveUnsafeMethods(methods)`
 - `fetchWithGlobalFetch(url, config)`
 - `keepRequestUrl(url)`
@@ -111,9 +112,14 @@ Local functions
 Exports
 - `emitNdjsonLine(line, handlers)`
 - `parseJsonSafely(response, signal)`
+- `readFileResponse(response, contentType)`
 - `readNdjsonStream(response, handlers)`
 - `readNdjsonText(response, handlers)`
 - `type NdjsonHandlers`
+Local functions
+- `dispositionValue(raw)`
+- `extendedDispositionValue(raw)`
+- `contentDispositionFileName(header)`
 
 ### `src/shared/clientRuntime/retry.js`
 Exports

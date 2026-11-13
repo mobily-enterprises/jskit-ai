@@ -2,7 +2,7 @@ import { buildHttpError, buildNetworkError } from "./errors.js";
 import { hasHeader, setHeaderIfMissing } from "./headers.js";
 import { shouldRetryForCsrfFailure } from "./retry.js";
 import { appendQueryString, isRecord } from "@jskit-ai/kernel/shared/support";
-import { parseJsonSafely, readNdjsonStream, readNdjsonText } from "./responseBody.js";
+import { parseJsonSafely, readFileResponse, readNdjsonStream, readNdjsonText } from "./responseBody.js";
 import {
   JSON_API_CONTENT_TYPE,
   decodeJsonApiResourceDocument,
@@ -27,6 +27,17 @@ function normalizeMethod(method) {
   return String(method || "GET")
     .trim()
     .toUpperCase();
+}
+
+/**
+ * True when a request asks for its answer as a file (`response: "file"`); any other value but none is refused.
+ * @param {unknown} response
+ */
+function wantsFileResponse(response) {
+  if (response !== undefined && response !== "file") {
+    throw new TypeError("Request response must be \"file\" or left out.");
+  }
+  return response === "file";
 }
 
 function resolveUnsafeMethods(methods) {
@@ -307,8 +318,13 @@ function createHttpClient({
       query: requestQuery,
       csrf: requestCsrf,
       timeoutMs: requestTimeoutMs,
+      response: requestResponse,
       ...forwardedRequestOptions
     } = requestOptions;
+    const file = wantsFileResponse(requestResponse);
+    if (file && stream) {
+      throw new TypeError("requestStream() reads NDJSON: ask request() for a file.");
+    }
     const csrfEnabled = csrf.enabled && requestCsrf !== false;
     const requestUrl = appendRequestQueryToUrl(url, requestQuery, transport);
     const resolvedRequestUrl = await resolveRequestUrl(requestUrl, {
@@ -369,12 +385,13 @@ function createHttpClient({
       config,
       state: resolvedState,
       csrfEnabled,
+      file,
       transport,
       url: resolvedRequestUrl
     };
   }
 
-  async function executePreparedRequest(url, config, { method, state }, onNetworkFailure) {
+  async function executePreparedRequest(url, config, { method, state, file }, onNetworkFailure) {
     config.signal?.throwIfAborted();
     let response;
     try {
@@ -382,6 +399,18 @@ function createHttpClient({
     } catch (cause) {
       config.signal?.throwIfAborted();
       return onNetworkFailure(cause);
+    }
+
+    if (file && response.ok) {
+      // The body is the file: request() reads it as one, so it is not read as JSON here (which would use it up).
+      return {
+        response,
+        data: {},
+        contentType: String(response.headers.get("content-type") || ""),
+        isJson: false,
+        method,
+        state
+      };
     }
 
     const { contentType, isJson, data } = await parseJsonSafely(response, config.signal);
@@ -496,6 +525,7 @@ function createHttpClient({
         method,
         state: resolvedState,
         result,
+        file: requestContext.file,
         transport: requestContext.transport
       }
     };
@@ -534,6 +564,7 @@ function createHttpClient({
       method,
       state: resolvedState,
       result,
+      file,
       transport
     } = execution.value;
 
@@ -550,6 +581,22 @@ function createHttpClient({
         stream: false
       });
       return null;
+    }
+
+    if (file) {
+      const fileAnswer = await readFileResponse(result.response, result.contentType);
+      await onSuccess({
+        url,
+        method,
+        state: resolvedState,
+        response: result.response,
+        data: fileAnswer,
+        rawData: null,
+        contentType: result.contentType,
+        isJson: false,
+        stream: false
+      });
+      return fileAnswer;
     }
 
     let responseData = result.data;

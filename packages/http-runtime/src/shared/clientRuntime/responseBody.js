@@ -103,4 +103,67 @@ async function readNdjsonStream(response, handlers) {
   }
 }
 
-export { emitNdjsonLine, parseJsonSafely, readNdjsonStream, readNdjsonText };
+
+/**
+ * A Content-Disposition parameter's value: a quoted string without its quotes and escapes, anything else trimmed.
+ * @param {string} raw
+ */
+function dispositionValue(raw) {
+  const text = raw.trim();
+  if (text.length >= 2 && text.startsWith("\"") && text.endsWith("\"")) {
+    return text.slice(1, -1).replace(/\\(.)/gu, "$1");
+  }
+  return text;
+}
+
+/**
+ * An RFC 8187 extended value (`UTF-8''%E2%82%AC%20rates.csv`) decoded, or null when it is not UTF-8 or is malformed.
+ * @param {string} raw
+ */
+function extendedDispositionValue(raw) {
+  const match = /^utf-8'[^']*'(.+)$/iu.exec(raw);
+  if (!match) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * The file name a Content-Disposition header gives, or null when it gives none. As RFC 6266 asks, the extended
+ * `filename*` wins over the plain `filename` when both are present and the extended one can be read.
+ * @param {string | null} header
+ */
+function contentDispositionFileName(header) {
+  const parameters = new Map();
+  // Each parameter after a `;`, its value a quoted string (which may hold `;`) or a token: a parameter's first
+  // occurrence counts.
+  for (const [, name, value] of String(header || "").matchAll(/;\s*([^\s=;]+)\s*=\s*("(?:[^"\\]|\\.)*"|[^;]*)/gu)) {
+    const key = name.toLowerCase();
+    if (!parameters.has(key)) {
+      parameters.set(key, dispositionValue(value));
+    }
+  }
+  const extended = parameters.has("filename*") ? extendedDispositionValue(parameters.get("filename*")) : null;
+  return extended || parameters.get("filename") || null;
+}
+
+/**
+ * A file answer: its body as a Blob, the file name its Content-Disposition gives (null when none) and its content
+ * type.
+ * @param {Response} response
+ * @param {string} contentType
+ */
+async function readFileResponse(response, contentType) {
+  const blob = await response.blob();
+  return Object.freeze({
+    blob,
+    fileName: contentDispositionFileName(response.headers.get("content-disposition")),
+    contentType
+  });
+}
+
+export { emitNdjsonLine, parseJsonSafely, readFileResponse, readNdjsonStream, readNdjsonText };
