@@ -240,8 +240,7 @@ function createLocalAccounts({
       if (failures) {
         await tx.signInFailures.clear(email);
       }
-      const session = await sessions.createSessionForUser(tx, user);
-      return { payload: await buildAuthPayload({ user, session, profileProjector }) };
+      return { user, session: await sessions.createSessionForUser(tx, user) };
     });
     // Refused after the transaction, so the failure it records is kept.
     if (outcome.waitMs) {
@@ -253,7 +252,9 @@ function createLocalAccounts({
     if (outcome.unconfirmed) {
       throw createAuthError(AUTH_TEXTS.emailUnconfirmed);
     }
-    return outcome.payload;
+    // After the transaction, as register does: the profile projector works in transactions of its own, so a sign-in
+    // that synchronized the profile inside this one held two database connections at once.
+    return buildAuthPayload({ user: outcome.user, session: outcome.session, profileProjector });
   }
 
   function devAuthBootstrapEnabled() {
@@ -271,23 +272,24 @@ function createLocalAccounts({
       });
     }
 
-    return backend.withTransaction(async (tx) => {
-      let user = userId ? await tx.users.findById(userId) : null;
-      if (!user && email) {
-        user = await tx.users.findByEmail(email);
-      }
-      if (!user || user.disabled) {
-        throw devLoginAsUserNotFound({ email, userId });
-      }
-      const appProfile = await findExistingAppProfile(user, profileProjector);
-      if (appProfileProjection && !appProfile) {
-        throw devLoginAsUserNotFound({ email, userId });
-      }
-      const session = await sessions.createSessionForUser(tx, user, {
-        purpose: DEV_AUTH_SESSION_PURPOSE
-      });
-      return buildAuthResult({ user, session, appProfile });
+    // The user is found, its app profile read and its session created one after the other, never the profile inside a
+    // transaction: the profile projector reads on a connection of its own, so a sign-in that read it inside one held
+    // two database connections at once, and as many sign-ins at once as the pool has connections waited for ever.
+    const user = await backend.withTransaction(async (tx) => {
+      const userById = userId ? await tx.users.findById(userId) : null;
+      return userById || (email ? tx.users.findByEmail(email) : null);
     });
+    if (!user || user.disabled) {
+      throw devLoginAsUserNotFound({ email, userId });
+    }
+    const appProfile = await findExistingAppProfile(user, profileProjector);
+    if (appProfileProjection && !appProfile) {
+      throw devLoginAsUserNotFound({ email, userId });
+    }
+    const session = await backend.withTransaction((tx) => sessions.createSessionForUser(tx, user, {
+      purpose: DEV_AUTH_SESSION_PURPOSE
+    }));
+    return buildAuthResult({ user, session, appProfile });
   }
 
   async function updateDisplayName(request, input) {
@@ -299,13 +301,12 @@ function createLocalAccounts({
     if (!displayName) {
       throw createAuthError(AUTH_TEXTS.displayNameRequired);
     }
-    const changed = await backend.withTransaction(async (tx) => {
-      const user = await tx.users.updateProfile(authResult.actor.providerUserId, { displayName });
-      if (!user) {
-        throw createAuthError(AUTH_TEXTS.sessionRequired);
-      }
-      return buildProfileChangePayload({ user, profileProjector });
-    });
+    const user = await backend.withTransaction((tx) => tx.users.updateProfile(authResult.actor.providerUserId, { displayName }));
+    if (!user) {
+      throw createAuthError(AUTH_TEXTS.sessionRequired);
+    }
+    // After the transaction, so the request holds one database connection at a time (see login).
+    const changed = await buildProfileChangePayload({ user, profileProjector });
     sessions.updateRequestActor(request, changed.actor);
     return changed;
   }

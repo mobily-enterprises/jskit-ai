@@ -30,8 +30,8 @@ function createReplyFixture() {
 }
 
 // The database backend on a migrated SQLite database, counting the transactions it opens.
-async function createDbBackendFixture(t) {
-  const records = await openSqliteLocalAuth(t);
+async function createDbBackendFixture(t, options) {
+  const records = await openSqliteLocalAuth(t, options);
   const transactions = { count: 0 };
   records.knex.on("query", ({ sql }) => {
     if (/^begin/iu.test(String(sql))) {
@@ -268,6 +268,55 @@ test("local database auth uses the shared native login-as session contract", asy
   assert.equal(authenticated.authenticated, true);
   assert.equal(authenticated.actor.email, "preview-db@example.com");
   assert.equal(authenticated.sessionPurpose, "dev-auth");
+});
+
+// The application's profiles, read and synchronized on the database's own pool outside local auth's transactions, as
+// users-core's profile projector does.
+function poolProfileProjector(knex) {
+  async function profileOf(identity) {
+    await knex.raw("select 1");
+    return { ...identity, id: `profile-${identity.id}`, profileSource: "users" };
+  }
+  return { findByIdentity: profileOf, syncIdentityProfile: profileOf };
+}
+
+// Before, each of these read or synchronized the app profile inside its transaction, on a second connection, so on a
+// pool of N connections N of them at once each held one and waited for ever for another; on a pool of one, a single
+// sign-in did. A query waits 2 s for the connection, so such a sign-in fails with knex's timeout instead of hanging.
+test("local sign-in reads the app profile outside its transactions, so sign-ins at once on a one-connection pool finish", async (t) => {
+  const { backend, knex } = await createDbBackendFixture(t, { acquireConnectionTimeout: 2000 });
+  assert.equal(knex.client.pool.max, 1, "SQLite's pool has one connection.");
+  const password = await hashPassword("stored password value");
+  await backend.withTransaction(async (tx) => {
+    for (const name of ["ada", "grace"]) {
+      await tx.users.create({ id: `usr_${name}`, email: `${name}@example.com`, displayName: name, password });
+    }
+  });
+  const authService = createService(backend, {
+    env: { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: DEV_AUTH_SECRET },
+    profileProjector: poolProfileProjector(knex)
+  });
+
+  const devSignIns = await Promise.all(["ada", "grace"].map((name) =>
+    authService.devLoginAs({ email: `${name}@example.com` }, createLocalRequest({ exchange: true }))));
+  assert.deepEqual(devSignIns.map((result) => [result.actor.appUserId, result.session.purpose]),
+    [["profile-usr_ada", "dev-auth"], ["profile-usr_grace", "dev-auth"]]);
+
+  const signIns = await Promise.all(["ada", "grace"].map((name) =>
+    authService.login({ email: `${name}@example.com`, password: "stored password value" })));
+  assert.deepEqual(signIns.map((result) => result.actor.appUserId), ["profile-usr_ada", "profile-usr_grace"]);
+
+  const reset = await authService.requestPasswordReset({ email: "ada@example.com" });
+  const recovered = await authService.completePasswordRecovery({
+    code: new URL(reset.recoveryUrl).searchParams.get("token"),
+    type: "recovery"
+  });
+  assert.equal(recovered.session.purpose, "recovery");
+
+  const reply = createReplyFixture();
+  authService.writeSessionCookies(reply, signIns[1].session);
+  const renamed = await authService.updateDisplayName({ cookies: reply.cookies }, { displayName: "Grace H." });
+  assert.equal(renamed.profile.displayName, "Grace H.");
 });
 
 test("local auth DB backend works with custom password strategy", async (t) => {

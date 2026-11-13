@@ -98,7 +98,7 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
       throw createAuthError(AUTH_TEXTS.recoveryTokenRequired);
     }
     const tokenInvalid = () => new AppError(401, "Recovery token is invalid or expired.", { code: "auth.local.recovery.tokenInvalid" });
-    return backend.withTransaction(async (tx) => {
+    const { user, session } = await backend.withTransaction(async (tx) => {
       const recovery = await tx.recovery.findByTokenHash(sha256Base64url(token));
       if (!recovery || recovery.usedAt || isExpiredIso(recovery.expiresAt)) {
         throw tokenInvalid();
@@ -111,12 +111,17 @@ function createLocalPasswordFlows({ backend, config, passwords, profileProjector
       if (!user || user.disabled) {
         throw tokenInvalid();
       }
-      const session = await sessions.createSessionForUser(tx, user, {
-        purpose: "recovery",
-        ttlSeconds: RECOVERY_SESSION_TTL_SECONDS
-      });
-      return buildAuthPayload({ user, session, profileProjector });
+      return {
+        user,
+        session: await sessions.createSessionForUser(tx, user, {
+          purpose: "recovery",
+          ttlSeconds: RECOVERY_SESSION_TTL_SECONDS
+        })
+      };
     });
+    // After the transaction, so the request holds one database connection at a time: the profile projector works in
+    // transactions of its own.
+    return buildAuthPayload({ user, session, profileProjector });
   }
 
   async function resetPassword(input, request) {

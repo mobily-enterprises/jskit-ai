@@ -90,9 +90,15 @@ async function startLocalAuthRecords(knex) {
  * A migrated in-memory SQLite database of the test's own, which enforces its foreign keys and is closed after the
  * test.
  * @param {import("node:test").TestContext} context
+ * @param {{ acquireConnectionTimeout?: number }} [options] how long a query waits for the pool's one connection
  */
-async function openMigratedSqlite(context) {
-  const knex = createKnex({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
+async function openMigratedSqlite(context, { acquireConnectionTimeout = 60_000 } = {}) {
+  const knex = createKnex({
+    client: "better-sqlite3",
+    connection: { filename: ":memory:" },
+    useNullAsDefault: true,
+    acquireConnectionTimeout
+  });
   context.after(() => knex.destroy());
   await knex.raw("PRAGMA foreign_keys = ON");
   for (const migration of LOCAL_AUTH_MIGRATIONS) {
@@ -104,9 +110,10 @@ async function openMigratedSqlite(context) {
 /**
  * Local auth's records in a migrated in-memory SQLite database of the test's own.
  * @param {import("node:test").TestContext} context
+ * @param {Parameters<typeof openMigratedSqlite>[1]} [options]
  */
-async function openSqliteLocalAuth(context) {
-  const knex = await openMigratedSqlite(context);
+async function openSqliteLocalAuth(context, options) {
+  const knex = await openMigratedSqlite(context, options);
   return Object.freeze({ knex, ...(await startLocalAuthRecords(knex)) });
 }
 
