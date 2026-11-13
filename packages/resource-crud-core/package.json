@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/resource-crud-core",
-  "version": "0.1.216",
+  "version": "0.1.217",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -14,7 +14,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/resource-core": "0.1.214"
+    "@jskit-ai/resource-core": "0.1.215"
   },
   "description": "CRUD contracts on table resources, with their field, lookup, filter, and namespace support.",
   "jskit": {
@@ -35,6 +35,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.23"
+    "@jskit-ai/kernel": "0.2.24"
   }
 }
