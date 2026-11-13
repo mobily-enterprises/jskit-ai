@@ -486,7 +486,12 @@ test("accepted Codex output is recovered after a restart without resending the r
     record.turns[0][1].metadata.runtime.status === "running" &&
     record.turns[0][1].messages.some(message => message.role === "commentary" && message.text === "Checking the numbers.") &&
     !record.turns[0][1].messages.some(message => message.role === "assistant"));
-  assert.ok(checkpoint);
+  assert.ok(checkpoint, "No checkpoint held the running turn with its commentary and no answer. Each checkpoint's turn " +
+    "(status, native turn id, messages): " + JSON.stringify(f.checkpoints.map(record => {
+      const turn = record.turns[0]?.[1];
+      return [turn?.metadata?.runtime?.status ?? "none", turn?.metadata?.runtime?.nativeTurnId ? "set" : "unset",
+        (turn?.messages || []).map(message => message.role === "commentary" ? `commentary "${message.text}"` : message.role)];
+    })));
   await f.restore(checkpoint);
   const reopened = await f.runtime().open({ id: "conversation" });
   const receipt = await reopened.inspectDelivery({ messageId: input.messageId });
