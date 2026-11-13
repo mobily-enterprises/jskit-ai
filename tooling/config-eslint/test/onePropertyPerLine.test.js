@@ -30,6 +30,11 @@ new RuleTester().run("jskit/one-property-per-line", onePropertyPerLine, {
       errors: [{ messageId: "sharedLine", data: { place: "The requires map of defineFeature()", line: 3 } }]
     },
     {
+      code: "const feature = defineFeature({\n  id: \"audit\",\n  late: { evidence: \"evidence.files\", notes: \"notes.files\" }\n});",
+      output: "const feature = defineFeature({\n  id: \"audit\",\n  late: {\n    evidence: \"evidence.files\",\n    notes: \"notes.files\"\n  }\n});",
+      errors: [{ messageId: "sharedLine", data: { place: "The late map of defineFeature()", line: 3 } }]
+    },
+    {
       code: "const provider = defineProvider({ id: \"x\", optional: { clock: \"x.clock\", mailer: \"x.mailer\" } });",
       output: "const provider = defineProvider({ id: \"x\", optional: {\n  clock: \"x.clock\",\n  mailer: \"x.mailer\"\n} });",
       errors: [{ messageId: "sharedLine", data: { place: "The optional map of defineProvider()", line: 1 } }]

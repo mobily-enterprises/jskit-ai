@@ -38,14 +38,18 @@
 
 /**
  * A capability provider. Its lifecycle hooks receive the capabilities it
- * requires and the optional ones that are installed, by local name.
+ * requires, the optional ones that are installed and its late ones, by local name.
  * @typedef {object} ProviderDefinition
  * @property {string} id
  * @property {Record<string, string>} [requires]
  * @property {Record<string, string>} [optional]
+ * @property {Record<string, string>} [late] Required capabilities that take no part in the order providers start in,
+ *   so a ring they close starts: each is resolved once, after every provider's boot(), and start() fails when none
+ *   provides it. Its local name is a getter that throws until then, so it is read at call time (in a row policy or a
+ *   request handler), never in setup() or boot(), and never destructured in setup().
  * @property {Record<string, string>} [provides]
- * @property {Record<string, string>} [hints] What to register when a required capability is missing, keyed by its id;
- *   the startup error adds it.
+ * @property {Record<string, string>} [hints] What to register when a required or late capability is missing, keyed by
+ *   its id; the startup error adds it.
  * @property {(dependencies: any, context: ProviderSetupContext) => any} setup Returns the provided capabilities, by local name.
  * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [boot]
  * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [shutdown]
@@ -74,21 +78,23 @@
 
 /**
  * A feature: a provider that can also register actions. Its hooks receive the
- * capabilities it requires and the optional ones that are installed, by local
- * name; actions() also receives the capabilities setup() returned.
+ * capabilities it requires, the optional ones that are installed and its late
+ * ones, by local name; actions() also receives the capabilities setup() returned.
  * @typedef {object} FeatureDefinition
  * @property {string} id
  * @property {string} [domain]
  * @property {Record<string, string>} [requires]
  * @property {Record<string, string>} [optional]
+ * @property {Record<string, string>} [late] Required capabilities resolved once every feature has booted, outside the
+ *   start order, as ProviderDefinition's `late`: read at call time, such as in a row policy's `requires`.
  * @property {Record<string, string>} [provides]
- * @property {Record<string, string>} [hints] What to register when a required capability is missing, keyed by its id.
+ * @property {Record<string, string>} [hints] What to register when a required or late capability is missing, keyed by its id.
  * @property {(dependencies: any, context: FeatureSetupContext) => any} [setup] Returns the provided capabilities, by local name.
  * @property {ReadonlyArray<object> | ((dependencies: any, context: FeatureSetupContext) => ReadonlyArray<object> | Promise<ReadonlyArray<object>>)} [actions]
  * @property {Record<string, any>} [actionDefaults]
  * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [boot]
  * @property {((dependencies: any, context: ProviderLifecycleContext) => any) | null} [shutdown]
- * @property {ReadonlyArray<object>} [owns] The table resources this feature owns, each a table resource or `{ resource, ...serverOnlyExtras }`. Its setup() receives their handles as `resources`, by resource name, and it is the only feature that does. An entry's `rowPolicy` receives the capabilities the feature requires (and its optional ones), by local name, as `requires`.
+ * @property {ReadonlyArray<object>} [owns] The table resources this feature owns, each a table resource or `{ resource, ...serverOnlyExtras }`. Its setup() receives their handles as `resources`, by resource name, and it is the only feature that does. An entry's `rowPolicy` receives the capabilities the feature requires (and its optional and late ones), by local name, as `requires`.
  * @property {string} [systemScope] Why this feature works across every workspace and user, such as a background job. Its setup() receives `systemContext(reason)`.
  */
 

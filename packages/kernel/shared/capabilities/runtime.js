@@ -95,7 +95,14 @@ function buildProviderOrder(providers, inputCapabilities) {
   return Object.freeze(ordered);
 }
 
-function resolveProviderDependencies(provider, capabilities) {
+/**
+ * What a provider's hooks receive, by local name: its required and optional capabilities as values, and each late
+ * requirement as a getter that refuses a read until start() has resolved it, once every provider has booted.
+ * @param {ReturnType<typeof defineProvider>} provider
+ * @param {Map<string, unknown>} capabilities
+ * @param {{ values: Readonly<Record<string, unknown>> | null }} late The provider's late requirements once resolved.
+ */
+function resolveProviderDependencies(provider, capabilities, late) {
   const dependencies = {};
   for (const [localName, capabilityId] of Object.entries(provider.requires)) {
     if (!capabilities.has(capabilityId)) {
@@ -106,7 +113,38 @@ function resolveProviderDependencies(provider, capabilities) {
   for (const [localName, capabilityId] of Object.entries(provider.optional)) {
     dependencies[localName] = capabilities.has(capabilityId) ? capabilities.get(capabilityId) : null;
   }
+  for (const [localName, capabilityId] of Object.entries(provider.late)) {
+    Object.defineProperty(dependencies, localName, {
+      enumerable: true,
+      get() {
+        if (late.values === null) {
+          throw new Error(`Provider "${provider.id}" read its late requirement "${localName}" (capability "${capabilityId}") before every provider booted: a late requirement can only be read at call time after boot, such as inside a row policy or a request handler, never in setup or boot, and never destructured in setup.`);
+        }
+        return late.values[localName];
+      }
+    });
+  }
   return Object.freeze(dependencies);
+}
+
+/**
+ * A provider's late requirements, by local name, from the capabilities every provider has provided once all have
+ * booted: a missing one fails start(), naming the provider and the capability.
+ * @param {ReturnType<typeof defineProvider>} provider
+ * @param {Map<string, unknown>} capabilities
+ */
+function resolveLateDependencies(provider, capabilities) {
+  const values = {};
+  for (const [localName, capabilityId] of Object.entries(provider.late)) {
+    if (!capabilities.has(capabilityId)) {
+      const hint = provider.hints[capabilityId];
+      throw new Error(
+        `Provider "${provider.id}" late-requires missing capability "${capabilityId}": no provider or runtime input provides it.${hint ? ` ${hint}` : ""}`
+      );
+    }
+    values[localName] = capabilities.get(capabilityId);
+  }
+  return Object.freeze(values);
 }
 
 /**
@@ -201,7 +239,8 @@ function createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } =
 
     try {
       for (const provider of providerOrder) {
-        const dependencies = resolveProviderDependencies(provider, capabilities);
+        const late = { values: null };
+        const dependencies = resolveProviderDependencies(provider, capabilities, late);
         const outputs = normalizeProviderOutputs(
           provider,
           await provider.setup(dependencies, Object.freeze({ profile: normalizedProfile }))
@@ -209,7 +248,7 @@ function createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } =
         for (const [localName, capabilityId] of Object.entries(provider.provides)) {
           capabilities.set(capabilityId, outputs[localName]);
         }
-        providerStates.set(provider.id, Object.freeze({ dependencies, outputs }));
+        providerStates.set(provider.id, Object.freeze({ dependencies, outputs, late }));
       }
 
       for (const provider of providerOrder) {
@@ -220,6 +259,13 @@ function createCapabilityRuntime({ providers = [], inputs = {}, profile = "" } =
             profile: normalizedProfile
           }));
         }
+      }
+
+      // Late requirements take no part in the order above, so a ring one closes starts; each resolves once, here,
+      // after every boot, and all of them or none do.
+      const lateValues = providerOrder.map((provider) => resolveLateDependencies(provider, capabilities));
+      for (const [index, provider] of providerOrder.entries()) {
+        providerStates.get(provider.id).late.values = lateValues[index];
       }
 
       lifecycleState = "started";

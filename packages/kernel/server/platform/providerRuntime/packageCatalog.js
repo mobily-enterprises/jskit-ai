@@ -187,9 +187,9 @@ function manifestCapabilityIds(list) {
 }
 
 /**
- * The capability ids a package's providers name under one key (`requires`, `optional` or `provides`).
+ * The capability ids a package's providers name under one key (`requires`, `optional`, `late` or `provides`).
  * @param {ReadonlyArray<ProviderDefinition>} providers
- * @param {"requires" | "optional" | "provides"} key
+ * @param {"requires" | "optional" | "late" | "provides"} key
  */
 function providerCapabilityIds(providers, key) {
   return new Set(providers.flatMap((provider) => Object.values(provider[key])));
@@ -198,7 +198,8 @@ function providerCapabilityIds(providers, key) {
 /**
  * Where a package's manifest (`jskit.capabilities`) and the server providers it declares disagree. The manifest
  * provides exactly what the providers provide, client capabilities aside. It requires every capability a provider
- * requires, apart from the kernel's own and those the package provides; optional ones are never required. A manifest
+ * requires, late ones included, apart from the kernel's own and those the package provides; optional ones are never
+ * required. A manifest
  * requirement no provider has may be an install-time one, such as the database a migration needs.
  * @param {{ packageMetadata?: { capabilities?: { provides?: unknown, requires?: unknown } } }} packageEntry
  * @param {ReadonlyArray<ProviderDefinition>} packageProviders
@@ -209,7 +210,10 @@ function manifestCapabilityDrift(packageEntry, packageProviders) {
   const manifestProvides = [...manifestCapabilityIds(manifest?.provides)].filter((id) => !CLIENT_CAPABILITY.test(id));
   const manifestRequires = manifestCapabilityIds(manifest?.requires);
   const provided = providerCapabilityIds(packageProviders, "provides");
-  const required = providerCapabilityIds(packageProviders, "requires");
+  const required = new Set([
+    ...providerCapabilityIds(packageProviders, "requires"),
+    ...providerCapabilityIds(packageProviders, "late")
+  ]);
   return Object.freeze({
     manifestProvides: sortStrings(manifestProvides),
     provided: sortStrings([...provided]),

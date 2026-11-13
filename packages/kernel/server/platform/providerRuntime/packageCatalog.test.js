@@ -134,6 +134,28 @@ test("a manifest's drift names each capability to add or remove, the kernel's ow
   });
 });
 
+test("a late requirement is one the manifest lists, unless the package provides it itself", () => {
+  const auditProvider = defineProvider({
+    id: "feature.audit",
+    late: {
+      evidence: "feature.evidence",
+      notes: "feature.notes"
+    },
+    provides: {
+      audit: "feature.audit"
+    },
+    setup() {
+      return { audit: {} };
+    }
+  });
+  const notesProvider = defineProvider({ id: "feature.notes", provides: { notes: "feature.notes" }, setup: () => ({ notes: {} }) });
+  const manifest = (requires) => booksPackage({ provides: ["feature.audit", "feature.notes"], requires });
+
+  assert.deepEqual(manifestCapabilityDrift(manifest([]), [auditProvider, notesProvider]).unlistedRequires, ["feature.evidence"]);
+  const listed = manifestCapabilityDrift(manifest(["feature.evidence"]), [auditProvider, notesProvider]);
+  assert.deepEqual([listed.unlistedRequires, listed.extraRequires], [[], []]);
+});
+
 test("a package's drift loads its declared server providers, and is null for a package that declares none", async (t) => {
   const packageRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-manifest-drift-"));
   t.after(() => rm(packageRoot, { recursive: true, force: true }));

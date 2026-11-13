@@ -48,7 +48,7 @@ function normalizeCapabilityMap(value, label) {
  * What to do about each required capability when no provider gives it, keyed by capability id: the text the startup
  * error adds, such as the feature to register.
  * @param {unknown} value
- * @param {Readonly<Record<string, string>>} requires
+ * @param {Readonly<Record<string, string>>} requires The provider's requires and late maps, by local name.
  * @param {string} providerId
  */
 function normalizeHints(value, requires, providerId) {
@@ -87,6 +87,27 @@ function assertDistinctLocalNames(maps) {
   }
 }
 
+/**
+ * Refuses a late requirement of a capability the provider provides, or receives already through requires or
+ * optional: a late requirement only closes a ring through another provider.
+ * @param {string} providerId
+ * @param {Readonly<Record<string, string>>} late
+ * @param {Readonly<Record<string, Readonly<Record<string, string>>>>} others The requires, optional and provides
+ *   maps, by key.
+ */
+function assertLateCapabilitiesUnique(providerId, late, others) {
+  for (const capabilityId of Object.values(late)) {
+    for (const [kind, entries] of Object.entries(others)) {
+      if (!Object.values(entries).includes(capabilityId)) {
+        continue;
+      }
+      throw new TypeError(kind === "provides"
+        ? `Provider "${providerId}" cannot late-require capability "${capabilityId}" that it provides.`
+        : `Provider "${providerId}" names capability "${capabilityId}" under both late and ${kind}.`);
+    }
+  }
+}
+
 function normalizeLifecycleMethod(value, label) {
   if (value == null) {
     return null;
@@ -106,6 +127,7 @@ function defineProvider({
   id,
   requires = {},
   optional = {},
+  late = {},
   provides = {},
   hints = {},
   setup,
@@ -115,11 +137,18 @@ function defineProvider({
   const providerId = normalizeArchitectureId(id, "Provider id");
   const normalizedRequires = normalizeCapabilityMap(requires, `${providerId}.requires`);
   const normalizedOptional = normalizeCapabilityMap(optional, `${providerId}.optional`);
+  const normalizedLate = normalizeCapabilityMap(late, `${providerId}.late`);
   const normalizedProvides = normalizeCapabilityMap(provides, `${providerId}.provides`);
   assertDistinctLocalNames({
     requires: normalizedRequires,
     optional: normalizedOptional,
+    late: normalizedLate,
     provides: normalizedProvides
+  });
+  assertLateCapabilitiesUnique(providerId, normalizedLate, {
+    provides: normalizedProvides,
+    requires: normalizedRequires,
+    optional: normalizedOptional
   });
 
   const setupMethod = normalizeLifecycleMethod(setup, `${providerId}.setup`);
@@ -131,8 +160,9 @@ function defineProvider({
     id: providerId,
     requires: normalizedRequires,
     optional: normalizedOptional,
+    late: normalizedLate,
     provides: normalizedProvides,
-    hints: normalizeHints(hints, normalizedRequires, providerId),
+    hints: normalizeHints(hints, { ...normalizedRequires, ...normalizedLate }, providerId),
     setup: setupMethod,
     boot: normalizeLifecycleMethod(boot, `${providerId}.boot`),
     shutdown: normalizeLifecycleMethod(shutdown, `${providerId}.shutdown`)

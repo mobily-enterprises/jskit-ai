@@ -36,9 +36,16 @@ function applyActionDefaults(actions, defaults, featureId) {
 const RESOURCE_RUNTIME = "runtime.resources";
 const RESERVED_LOCAL_NAMES = Object.freeze(["actionCatalogue", "resourceRuntime", "resources", "systemContext"]);
 
-function withoutActionCatalogue(dependencies) {
-  const { actionCatalogue, resourceRuntime, ...featureDependencies } = dependencies;
-  return Object.freeze(featureDependencies);
+/**
+ * A frozen copy of the dependencies the runtime gave the feature, without the kernel's own (the action catalogue and
+ * the resource runtime), with `added` put in. It is copied by property descriptors, so each late requirement stays the
+ * runtime's getter, read at call time: a spread or rest copy would read it now, before boot, and throw.
+ * @param {Readonly<Record<string, any>>} dependencies
+ * @param {Readonly<Record<string, any>>} [added]
+ */
+function withoutActionCatalogue(dependencies, added = {}) {
+  const { actionCatalogue, resourceRuntime, ...descriptors } = Object.getOwnPropertyDescriptors(dependencies);
+  return Object.freeze(Object.defineProperties({}, { ...descriptors, ...Object.getOwnPropertyDescriptors(added) }));
 }
 
 /**
@@ -95,7 +102,8 @@ function normalizeSystemScope(systemScope, featureId) {
  * dependencies (`requires`), as setup does.
  * @param {Record<string, any>} dependencies
  * @param {{ featureId: string, owns: ReadonlyArray<object> | null, systemScope: string | null }} featureResources
- * @param {Readonly<Record<string, any>>} requires The capabilities the feature requires, and its optional ones, by local name.
+ * @param {Readonly<Record<string, any>>} requires The capabilities the feature requires, its optional ones and its late
+ *   ones, by local name; a row policy reads a late one at call time.
  */
 async function resourceDependencies({ resourceRuntime }, { featureId, owns, systemScope }, requires) {
   return {
@@ -113,6 +121,7 @@ function defineFeature({
   domain = id,
   requires = {},
   optional = {},
+  late = {},
   provides = {},
   hints = {},
   setup = () => ({}),
@@ -124,13 +133,13 @@ function defineFeature({
   systemScope = undefined
 } = {}) {
   for (const localName of RESERVED_LOCAL_NAMES) {
-    if (Object.hasOwn(requires, localName) || Object.hasOwn(optional, localName)) {
+    if ([requires, optional, late].some((names) => Object.hasOwn(names, localName))) {
       throw new TypeError(`Feature dependencies reserve the local names ${RESERVED_LOCAL_NAMES.join(", ")}.`);
     }
   }
   const featureId = String(id || "");
   // Compared as the runtime resolves it, so "Runtime.Resources" or " runtime.resources" is refused as well.
-  if ([...Object.values(requires), ...Object.values(optional)].some((capability) => capabilityKey(capability) === RESOURCE_RUNTIME)) {
+  if ([requires, optional, late].flatMap(Object.values).some((capability) => capabilityKey(capability) === RESOURCE_RUNTIME)) {
     throw new TypeError(
       `Feature "${featureId}" must not require ${RESOURCE_RUNTIME}: it receives handles for the resources it owns, and a system context with systemScope.`
     );
@@ -158,6 +167,7 @@ function defineFeature({
       ...(featureResources.owns || featureResources.systemScope ? { resourceRuntime: RESOURCE_RUNTIME } : {})
     },
     optional,
+    late,
     provides,
     hints: {
       ...(featureResources.owns || featureResources.systemScope
@@ -171,21 +181,15 @@ function defineFeature({
       const featureContext = declaresActions
         ? Object.freeze({ ...context, actionCatalogue })
         : contextWithoutActionCatalogue(context, featureId);
-      const setupDependencies = Object.freeze({
-        ...featureDependencies,
-        ...(await resourceDependencies(dependencies, featureResources, featureDependencies))
-      });
+      const setupDependencies = withoutActionCatalogue(
+        dependencies,
+        await resourceDependencies(dependencies, featureResources, featureDependencies)
+      );
       const outputs = normalizeProviderOutputs(
         { id: featureId, provides },
         await setup(setupDependencies, featureContext)
       );
-      const featureActions = await actionFactory(
-        Object.freeze({
-          ...featureDependencies,
-          ...outputs
-        }),
-        featureContext
-      );
+      const featureActions = await actionFactory(withoutActionCatalogue(dependencies, outputs), featureContext);
       if (!Array.isArray(featureActions)) {
         throw new TypeError(`Feature "${featureId}" actions() must return an array.`);
       }

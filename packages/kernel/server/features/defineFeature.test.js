@@ -428,3 +428,85 @@ test("owns, systemScope and the reserved names are checked when the feature is d
     );
   }
 });
+
+test("a feature's late requirement reaches its setup, actions, boot, shutdown and row policies, read at call time once every feature has booted", async () => {
+  let policyRequires = null;
+  const resourceRuntime = defineProvider({
+    id: "test.resources",
+    provides: { resources: "runtime.resources" },
+    setup: () => ({
+      resources: Object.freeze({
+        own(_featureId, _owns, { requires }) {
+          policyRequires = requires;
+          return { auditEntries: { handleFor: "auditEntries" } };
+        },
+        declareSystemScope: () => (reason) => ({ system: true, reason })
+      })
+    })
+  });
+  const evidence = Object.freeze({ name: "evidence" });
+  const received = {};
+  // The audit history's row policy narrows through the evidence, whose feature requires the audit history: a ring.
+  const AuditFeature = defineFeature({
+    id: "feature.audit",
+    owns: [{ name: "auditEntries" }],
+    late: { evidence: "feature.evidence" },
+    provides: { audit: "feature.audit" },
+    setup(dependencies) {
+      received.setup = dependencies;
+      assert.throws(() => dependencies.evidence, {
+        message: 'Provider "feature.audit" read its late requirement "evidence" (capability "feature.evidence") before every provider booted: a late requirement can only be read at call time after boot, such as inside a row policy or a request handler, never in setup or boot, and never destructured in setup.'
+      });
+      return { audit: Object.freeze({ evidenceName: () => dependencies.evidence.name }) };
+    },
+    actions(dependencies) {
+      received.actions = dependencies;
+      return [];
+    },
+    boot(dependencies) {
+      received.boot = dependencies;
+    },
+    shutdown(dependencies) {
+      received.shutdownEvidence = dependencies.evidence;
+    }
+  });
+  const EvidenceFeature = defineFeature({
+    id: "feature.evidence",
+    requires: { audit: "feature.audit" },
+    provides: { evidence: "feature.evidence" },
+    setup: () => ({ evidence })
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [EventProvider, ActionProvider, resourceRuntime, EvidenceFeature, AuditFeature]
+  });
+  await runtime.start();
+
+  for (const [hook, dependencies] of Object.entries({ ...received, rowPolicy: policyRequires })) {
+    assert.equal(dependencies.evidence, evidence, hook);
+  }
+  assert.deepEqual(Object.keys(received.setup), ["evidence", "resources"]);
+  assert.deepEqual(Object.keys(received.actions), ["evidence", "audit"]);
+  assert.deepEqual(Object.keys(received.boot), ["evidence"]);
+  assert.deepEqual(Object.keys(policyRequires), ["evidence"]);
+  await runtime.shutdown();
+  assert.equal(received.shutdownEvidence, evidence);
+});
+
+test("a feature's late requirements are refused as its requires are: the reserved names, runtime.resources and its own capability", () => {
+  for (const spelling of ["runtime.resources", " Runtime.Resources "]) {
+    assert.throws(
+      () => defineFeature({ id: "feature.x", late: { store: spelling } }),
+      /must not require runtime\.resources: it receives handles for the resources it owns/u
+    );
+  }
+  for (const localName of ["actionCatalogue", "resourceRuntime", "resources", "systemContext"]) {
+    assert.throws(
+      () => defineFeature({ id: "feature.x", late: { [localName]: "app.thing" } }),
+      /reserve the local names actionCatalogue, resourceRuntime, resources, systemContext/u
+    );
+  }
+  assert.throws(() => defineFeature({ id: "feature.x", late: { self: "feature.x" }, provides: { x: "feature.x" } }), {
+    message: 'Provider "feature.x" cannot late-require capability "feature.x" that it provides.'
+  });
+});

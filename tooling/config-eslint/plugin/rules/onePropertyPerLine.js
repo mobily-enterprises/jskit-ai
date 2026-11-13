@@ -1,7 +1,7 @@
 import { createReporter, isFreezeCall, keyName, ruleMeta } from "../support.js";
 
 const DEFINITION_CALLS = new Set(["defineFeature", "defineProvider"]);
-const TOKEN_MAPS = new Set(["requires", "optional", "provides"]);
+const TOKEN_MAPS = new Set(["requires", "optional", "late", "provides"]);
 
 function calleeName(call) {
   if (call.callee.type === "Identifier") {
@@ -12,7 +12,7 @@ function calleeName(call) {
 
 /**
  * Where an object literal must hold one property per line, named for the message, or "" elsewhere: the frozen
- * object a return statement returns, and a feature's or provider's requires, optional and provides maps.
+ * object a return statement returns, and a feature's or provider's requires, optional, late and provides maps.
  * @param {import("estree").ObjectExpression & { parent?: any }} object
  */
 function checkedPlace(object) {
