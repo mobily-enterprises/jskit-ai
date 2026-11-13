@@ -23,7 +23,9 @@ function buildScopeInput(scopeInput, request) {
  * Refuses a list request that names a query key its route does not take. Fastify's validation drops an undeclared
  * query key without a word, so a filter the list does not know (`filter[status]`) would answer every row, as if it
  * were never sent: the keys the request names that validation left out of request.query are the undeclared ones.
- * @param {{ url?: string, query?: object, routeOptions?: { schema?: { querystring?: { properties?: object } } } }} request
+ * The key comes from the page's code, not from anything the person did, so the refusal tells them only that nothing
+ * was loaded; what a developer needs to fix it goes to the error's details and the server log.
+ * @param {{ url?: string, query?: object, routeOptions?: { schema?: { querystring?: { properties?: object } } }, log: { warn: (fields: object, message: string) => void } }} request
  */
 function refuseUndeclaredListQuery(request) {
   const url = String(request.url || "");
@@ -40,12 +42,16 @@ function refuseUndeclaredListQuery(request) {
   // A sparse fieldset key is taken by pattern, one per JSON:API type: `fields[<type>]`.
   const patterns = Object.keys(querystring.patternProperties || {}).map((pattern) => (pattern.startsWith("^fields") ? "fields[<type>]" : pattern));
   const known = [...Object.keys(querystring.properties || {}), ...patterns].join(", ") || "none";
-  const params = { unknown: unknown.join(", "), known };
+  const reason =
+    `This list does not take ${unknown.join(", ")}: an undeclared query key would be dropped, and the list would answer ` +
+    `as if it had not been sent. It takes ${known}. To filter on a field, add it to the feature's ` +
+    "listFilterQueryValidator and the resource's searchSchema; to search, send filter[q] and give the resource " +
+    "searchSchema.q.";
+  request.log.warn({ code: "crud.query.undeclaredKeys", unknown, known }, reason);
   throw new AppError(400,
-    `This list does not take ${params.unknown}: an undeclared query key would be dropped, and the list would answer as ` +
-    `if it had not been sent. It takes ${known}. To filter on a field, add it to the feature's listFilterQueryValidator ` +
-    "and the resource's searchSchema; to search, send filter[q] and give the resource searchSchema.q.",
-    { code: "crud.query.undeclaredKeys", params });
+    "This page asked for something the server doesn't recognise, so nothing was loaded. Reload the page; if it keeps " +
+    "happening, tell support.",
+    { code: "crud.query.undeclaredKeys", details: { reason, unknown, known } });
 }
 
 function buildCustomActionInput(scopeInput, route, request) {

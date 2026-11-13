@@ -58,9 +58,12 @@ async function waitFor(check, message) {
   assert.fail(message);
 }
 
-// Mounts one runtime whose every read fails with `status` (and `message`, by default one of the server's own), and
-// records what it reports to the shell.
-async function mountFailingLoad(t, status, useRuntime, { message = `Contacts refused the read (${describeStatus(status)}).` } = {}) {
+// Mounts one runtime whose every read fails with `status` (and `message`, by default one of the server's own, and the
+// server's `code` when given), and records what it reports to the shell.
+async function mountFailingLoad(t, status, useRuntime, {
+  message = `Contacts refused the read (${describeStatus(status)}).`,
+  code
+} = {}) {
   const requests = [];
   const client = {
     async request(path) {
@@ -68,6 +71,9 @@ async function mountFailingLoad(t, status, useRuntime, { message = `Contacts ref
       const error = new Error(message);
       if (status !== undefined) {
         error.status = status;
+      }
+      if (code) {
+        error.code = code;
       }
       throw error;
     }
@@ -247,3 +253,18 @@ for (const [name, useRuntime] of Object.entries(REFUSAL_RUNTIMES)) {
     });
   }
 }
+
+// A list that asks for a query key it does not take (crud-core's 400 crud.query.undeclaredKeys): the person reads the
+// server's plain sentence and is offered no Retry, since the same page asks for the same key again.
+test("useCrudList: a 400 for a query key the list does not take says the server's plain sentence and offers no Retry", async (t) => {
+  const sentence = "This page asked for something the server doesn't recognise, so nothing was loaded. Reload the page; " +
+    "if it keeps happening, tell support.";
+  const mounted = await mountFailingLoad(t, 400, (client) => useCrudList(listOptions(client)), {
+    message: sentence,
+    code: "crud.query.undeclaredKeys"
+  });
+
+  assertRetryOffer(mounted, { status: 400, retry: false });
+  assert.equal(mounted.runtime.errorStatus, 400);
+  assert.equal(mounted.runtime.loadRefusalMessage, sentence);
+});

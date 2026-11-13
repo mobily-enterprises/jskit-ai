@@ -203,3 +203,13 @@ test("CrudListScreen gives a refusal from a runtime without loadRefusalMessage i
   const { text } = await renderLoadError(SCREENS.list(403), screens.list);
   assert.equal(text, "Unable to load books.");
 });
+
+// crud-core's 400 for a query key the list does not take (crud.query.undeclaredKeys): the list shows the server's
+// plain sentence, which useCrudList gives as its loadRefusalMessage, and no Retry button.
+test("CrudListScreen shows the plain sentence and no Retry after a 400 for a query key the list does not take", async () => {
+  const sentence = "This page asked for something the server doesn't recognise, so nothing was loaded. Reload the page; " +
+    "if it keeps happening, tell support.";
+  const { text, retry } = await renderLoadError(SCREENS.list(400, { loadRefusalMessage: sentence }), screens.list);
+  assert.equal(text, sentence);
+  assert.equal(retry, false);
+});

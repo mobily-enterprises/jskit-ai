@@ -36,7 +36,9 @@ async function listApp(t) {
     access: "public",
     operations: ["list"]
   }));
-  const app = Fastify();
+  // The server's warnings, as the lines its logger writes.
+  const warnings = [];
+  const app = Fastify({ logger: { level: "warn", stream: { write: (line) => warnings.push(JSON.parse(line)) } } });
   t.after(() => app.close());
   registerApiErrorHandler(app);
   const listed = [];
@@ -50,11 +52,11 @@ async function listApp(t) {
       }
     }
   });
-  return { app, listed };
+  return { app, listed, warnings };
 }
 
 test("a CRUD list refuses a query key it does not take, which Fastify's validation would drop unseen", async (t) => {
-  const { app, listed } = await listApp(t);
+  const { app, listed, warnings } = await listApp(t);
 
   const searched = await app.inject({ method: "GET", url: "/api/notes?filter%5Bq%5D=Ada" });
   assert.equal(searched.statusCode, 200, searched.body);
@@ -69,16 +71,26 @@ test("a CRUD list refuses a query key it does not take, which Fastify's validati
   assert.equal(listed.length, 2);
 
   // Before, both answered every row: validation dropped the filter and the list never saw it.
-  for (const url of ["/api/notes?filter%5Bstatus%5D=open", "/api/notes?filter%5Bq%5D=Ada&status=open"]) {
+  const english = mergeCatalogs(kernelEnglish, crudEnglish);
+  for (const [url, unknownKey] of [["/api/notes?filter%5Bstatus%5D=open", "filter[status]"], ["/api/notes?filter%5Bq%5D=Ada&status=open", "status"]]) {
+    warnings.length = 0;
     const response = await app.inject({ method: "GET", url });
     assert.equal(response.statusCode, 400, url);
     const [error] = response.json().errors;
     assert.equal(error.code, "crud.query.undeclaredKeys", url);
-    assert.match(error.title, /does not take (filter\[status\]|status):/u, url);
-    assert.match(error.title, /It takes .*filter\[q\].*fields\[<type>\]/u, url);
-    // The client shows the code's sentence in the user's language: the English sent is the catalog's.
-    const english = mergeCatalogs(kernelEnglish, crudEnglish);
-    assert.equal(formatMessage(catalogMessage(english, messageKeyForCode(error.code)), error.meta.params), error.title, url);
+    // The person reads a plain sentence; the client shows the code's sentence in their language, as the English sent
+    // is the catalog's. Before, it was the developer's text below, which a list screen showed as its notice.
+    assert.equal(error.title,
+      "This page asked for something the server doesn't recognise, so nothing was loaded. Reload the page; if it " +
+      "keeps happening, tell support.", url);
+    assert.equal(formatMessage(catalogMessage(english, messageKeyForCode(error.code)), {}), error.title, url);
+    assert.doesNotMatch(response.body, /listFilterQueryValidator|does not take/u, url);
+    // What a developer needs to fix it is in the server log.
+    assert.equal(warnings.length, 1, url);
+    assert.equal(warnings[0].code, "crud.query.undeclaredKeys", url);
+    assert.deepEqual(warnings[0].unknown, [unknownKey], url);
+    assert.match(warnings[0].msg, new RegExp(`does not take ${unknownKey.replace(/[[\]]/gu, "\\$&")}:`, "u"), url);
+    assert.match(warnings[0].msg, /It takes .*filter\[q\].*fields\[<type>\].*listFilterQueryValidator/u, url);
   }
   assert.equal(listed.length, 2);
 });

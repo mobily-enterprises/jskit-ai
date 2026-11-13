@@ -1095,7 +1095,10 @@ then narrowed is also wrong, since the row wanted can sit past it.
   it.
 - A CRUD list refuses a query key it does not take with a 400
   (`crud.query.undeclaredKeys`). A list filter is declared in the feature's
-  `listFilterQueryValidator` and the resource's searchSchema.
+  `listFilterQueryValidator` and the resource's searchSchema. The person sees
+  only that nothing was loaded and to reload or tell support, with no Retry;
+  the keys refused, the keys the list takes and how to declare one are in the
+  server log, as a warning, and in the error's `details`.
 - Prove a capped read with a test that seeds past the cap and makes the row
   the cap leaves out (the oldest, for a newest-first read) the one that
   matches: the read that asks for it finds it; a read narrowed in code does

@@ -11,7 +11,7 @@
         "fieldsKeysInvalid": "fields keys must be JSON:API resource types. Allowed keys: {allowedTypes}.",
         "fieldsKeysInvalidWithAliases": "fields keys must be JSON:API resource types. Allowed keys: {allowedTypes}. Relationship aliases are invalid keys; {aliasGuidance}.",
         "fieldsNotShown": "fields[{type}] may name only what this read's includes show of {type}: {shown}. It names {fields}.",
-        "undeclaredKeys": "This list does not take {unknown}: an undeclared query key would be dropped, and the list would answer as if it had not been sent. It takes {known}. To filter on a field, add it to the feature's listFilterQueryValidator and the resource's searchSchema; to search, send filter[q] and give the resource searchSchema.q."
+        "undeclaredKeys": "This page asked for something the server doesn't recognise, so nothing was loaded. Reload the page; if it keeps happening, tell support."
       }
     }
   }
