@@ -176,6 +176,8 @@ Exports
 Local functions
 - `parseI18nArgs(options, positionals)`
 - `parseMaterial3Args(options, positionals)`
+- `parsePackageArgs(options, positionals)`
+- `runPackageNix({ projectRoot })`
 - `runMaterial3({ projectRoot, paths })`
 - `runI18n({ subcommand, locale, projectRoot })`
 - `readCatalog()`
@@ -284,6 +286,35 @@ Local functions
 - `rendersOutsideLayouts(code, name)`
 - `judgePackageRoute(route, { surfaces, appShell, drawsShellBar, isDestination, isAddress, readable, report })`
 - `pageKey(file)`
+
+### `scripts/nix-app.mjs`
+Exports
+- `formatEnvFile(settings)`
+- `main(argv = process.argv.slice(2))`
+Local functions
+- `isObject(value)`
+- `scriptEnvironment({ app, envFile })`
+- `scriptOf(app, name)`
+- `replaceWithScript({ app, shell, envFile, name, first })`
+- `check({ envFile, wait })`
+- `prepare({ settings, envFile, user })`
+- `npmCache(list, cache)`
+- `isCliEntrypoint(argvPath = process.argv[1])`
+
+### `scripts/package-nix.mjs`
+Exports
+- `PACKAGE_NIX_MARKER`
+- `checkPackageNix({ projectRoot })`
+- `formatPackageNixReport(result)`
+- `nixPackageName(name)`
+- `packageNix({ projectRoot })`
+- `renderPackageNix()`
+Local functions
+- `isObject(value)`
+- `lockIssues(packages)`
+- `readJson(file)`
+- `analyseApp(projectRoot)`
+- `readPackageNix(projectRoot)`
 
 ### `scripts/package-routes.mjs`
 Exports

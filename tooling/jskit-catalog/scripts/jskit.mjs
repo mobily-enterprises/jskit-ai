@@ -14,6 +14,7 @@ import {
 import { checkDataAccess, formatDataAccessReport } from "./data-access.mjs";
 import { checkManifestCapabilities, formatManifestCapabilitiesReport } from "./manifest-capabilities.mjs";
 import { checkMaterial3, formatMaterial3Report } from "./material3.mjs";
+import { checkPackageNix, formatPackageNixReport, packageNix } from "./package-nix.mjs";
 import { checkProject, updateProject } from "./project-packages.mjs";
 import { runTests } from "./test-command.mjs";
 import { checkTestRuns, formatTestRunsReport } from "./test-runs.mjs";
@@ -31,6 +32,7 @@ function usage() {
     "  jskit check m3 [<path> ...] [--root <path>]",
     "  jskit i18n export <locale> [--root <path>]",
     "  jskit i18n check <locale> [--root <path>]",
+    "  jskit package nix [--root <path>]",
     "  jskit test [node options] [files or globs]",
     "",
     "Commands:",
@@ -54,7 +56,10 @@ function usage() {
     "               data-access lint rules for review. It fails when an application package's manifest",
     "               (jskit.capabilities) misses a capability its features (server providers) provide or require, or",
     "               provides one none of them does (manifest/capabilities), and lists each requirement no feature has,",
-    "               which only install time may need, for review.",
+    "               which only install time may need, for review. When the app has a package.nix that jskit package nix",
+    "               wrote, it fails when that file is not the one this release writes (package/nix-current), when",
+    "               package.json lacks what the package needs (package/nix-manifest), or when package-lock.json names a",
+    "               dependency a build with no network cannot fetch by its hash (package/nix-offline).",
     "  check m3     Check application UI source against the JSKIT Material 3 guide alone, with each finding's guide",
     "               section and every exception: the whole app, or only the given files and directories (a section,",
     "               or a task's changed files). Plain jskit check applies the same rules to the whole app.",
@@ -62,6 +67,13 @@ function usage() {
     "               for translators, keeping existing translations and extra keys.",
     "  i18n check   Compare src/locales/<locale>/jskit.json with the installed packages' English; fail on missing keys,",
     "               invalid messages or placeholder mismatches, and list extra keys and untranslated messages.",
+    "  package nix  Write package.nix, which builds the app as one Nix package with no network access: npm installs",
+    "               package-lock.json from tarballs Nix fetched by their integrity hashes, runs the install scripts",
+    "               and the build script, and the package keeps the app with its production dependencies. Its bin/",
+    "               holds <name> (the start script), <name>-check, <name>-prepare and, with a db:migrate script,",
+    "               <name>-migrate. The file is the same for every app, so a changed lock file needs no new one. It",
+    "               writes nothing when the lock names a dependency it cannot fetch that way (git, a local file, no",
+    "               integrity hash), the app has no start script, or a package.nix it did not write is there.",
     "  test         Run node --test with these arguments, test files in parallel within the machine's test budget:",
     "               V64_TEST_CONCURRENCY when it is a positive whole number, otherwise half of the machine's CPUs",
     "               (at least 1). A file whose first line is `// jskit-test: alone - <reason>` runs after the others,",
@@ -98,7 +110,7 @@ function parseArgs(argv = []) {
       options.help = true;
       continue;
     }
-    if ((command === "i18n" || command === "check") && argument && !argument.startsWith("-")) {
+    if ((command === "i18n" || command === "check" || command === "package") && argument && !argument.startsWith("-")) {
       positionals.push(argument);
       continue;
     }
@@ -132,6 +144,9 @@ function parseArgs(argv = []) {
   }
   if (command === "i18n") {
     return parseI18nArgs(options, positionals);
+  }
+  if (command === "package") {
+    return parsePackageArgs(options, positionals);
   }
   if (command === "check" && positionals.length > 0) {
     return parseMaterial3Args(options, positionals);
@@ -189,6 +204,40 @@ function parseMaterial3Args(options, positionals) {
   };
 }
 
+function parsePackageArgs(options, positionals) {
+  const [kind, unexpected] = positionals;
+  if (!kind) {
+    throw new Error(usage());
+  }
+  if (kind !== "nix") {
+    throw new Error(`Unknown argument: ${kind}`);
+  }
+  if (unexpected !== undefined) {
+    throw new Error(`Unknown argument: ${unexpected}`);
+  }
+  if (options.additionalManifests) {
+    throw new Error("--manifest is only valid with jskit update and jskit check.");
+  }
+  if (!options.install) {
+    throw new Error("--no-install is only valid with jskit update.");
+  }
+  return { command: "package-nix", projectRoot: options.projectRoot };
+}
+
+async function runPackageNix({ projectRoot }) {
+  const result = await packageNix({ projectRoot });
+  if (!result.ok) {
+    throw new Error(`jskit package nix wrote nothing:\n- ${result.issues.join("\n- ")}`);
+  }
+  const node = result.node ? `Node.js ${result.node}` : "Nixpkgs' default Node.js (package.json names no engines.node)";
+  process.stdout.write([
+    `${result.changed ? "Wrote package.nix" : "package.nix is already current"}: ${result.name} ${result.version} on ${node}, ` +
+      `${result.downloads} npm downloads pinned by package-lock.json. Commit it; it needs no change when the lock does.`,
+    "Its programs, in the package's bin/:",
+    ...result.programs.map(({ name, does }) => `- ${name} ${does}`)
+  ].join("\n") + "\n");
+}
+
 async function runMaterial3({ projectRoot, paths }) {
   const result = await checkMaterial3({ projectRoot, paths });
   const report = formatMaterial3Report(result);
@@ -228,6 +277,10 @@ async function main(argv = process.argv.slice(2)) {
   }
   if (options.command === "check-m3") {
     await runMaterial3(options);
+    return;
+  }
+  if (options.command === "package-nix") {
+    await runPackageNix(options);
     return;
   }
   if (options.command === "test") {
@@ -280,6 +333,7 @@ async function main(argv = process.argv.slice(2)) {
   const tests = await checkTestRuns({ projectRoot: options.projectRoot, manifests: result.manifests });
   const data = await checkDataAccess({ projectRoot: options.projectRoot });
   const capabilities = await checkManifestCapabilities({ projectRoot: options.projectRoot, manifests: result.manifests });
+  const nixPackage = await checkPackageNix({ projectRoot: options.projectRoot });
   // The data rules first: a graph that fails on many pin versions would otherwise bury them.
   const reports = [
     formatDataAccessReport(data),
@@ -289,9 +343,10 @@ async function main(argv = process.argv.slice(2)) {
       : `JSKIT project graph is inconsistent:\n- ${result.issues.join("\n- ")}`,
     formatMaterial3Report(ui),
     formatTestRunsReport(tests),
-    formatManifestCapabilitiesReport(capabilities)
+    formatManifestCapabilitiesReport(capabilities),
+    formatPackageNixReport(nixPackage)
   ];
-  if (!result.ok || !ui.ok || !tests.ok || !data.ok || !capabilities.ok) {
+  if (!result.ok || !ui.ok || !tests.ok || !data.ok || !capabilities.ok || !nixPackage.ok) {
     throw new Error(reports.join("\n"));
   }
   process.stdout.write(`${reports.join("\n")}\n`);

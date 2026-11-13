@@ -5,7 +5,8 @@
   "type": "module",
   "files": [
     "catalog",
-    "scripts"
+    "scripts",
+    "nix"
   ],
   "bin": {
     "jskit": "scripts/jskit.mjs"

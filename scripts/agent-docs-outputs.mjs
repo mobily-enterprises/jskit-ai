@@ -18,6 +18,7 @@ const JSKIT_SKILL_GUIDES = Object.freeze({
   "app-setup/database-layer.md": "database-layer.md",
   "app-setup/existing-application-migration.md": "existing-application-migration.md",
   "app-setup/multi-homing.md": "multi-homing.md",
+  "app-setup/package-with-nix.md": "package-with-nix.md",
   "framework/application-operations.md": "app-operations.md",
   "framework/client-features.md": "client-features.md",
   "framework/crud-form-actions.md": "crud-form-actions.md",

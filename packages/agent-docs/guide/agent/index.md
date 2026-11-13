@@ -11,6 +11,8 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Quickstart](/guide/app-setup/quickstart)
 - [Application foundations](/guide/app-setup/initial-scaffolding)
 - [Upgrade JSKIT](/guide/app-setup/upgrading-jskit)
+- [Package an app with Nix](/guide/app-setup/package-with-nix): for a host that
+  runs apps only as Nix packages, built with no network access
 - [Move an app to the Material 3 defaults](/guide/app-setup/material-3-migration)
 - [Migrate an existing application](/guide/app-setup/existing-application-migration)
 - [A more interesting shell](/guide/app-setup/a-more-interesting-shell)

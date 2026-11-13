@@ -1,0 +1,96 @@
+@MARKER@ (@jskit-ai/jskit-catalog). Do not edit it: run that command again.
+# This JSKIT app as one Nix package, built with no network access from package.json and package-lock.json alone. Each
+# npm download is fetched by the integrity hash package-lock.json gives it, so a changed lock file needs no change here
+# and no hash to update. npm installs the lock from those files, runs the install scripts (node-gyp compiles a native
+# addon against this Node), then the build script; the package keeps the app with its production dependencies and,
+# in bin/, its programs. The JSKIT guide's "Package an App with Nix" describes them.
+{ pkgs }:
+let
+  inherit (pkgs) lib;
+  manifest = lib.importJSON ./package.json;
+  lock = lib.importJSON ./package-lock.json;
+  scripts = manifest.scripts or { };
+  # package.json's name without its scope, as a program name.
+  name = lib.stringAsChars (c: if builtins.match "[a-z0-9-]" c == null then "-" else c)
+    (lib.toLower (lib.last (lib.splitString "/" manifest.name)));
+  # The Node.js major version engines.node names first (26 in "26.x"), else Nixpkgs' default Node.js.
+  nodeMajor = builtins.match "[^0-9]*([0-9]+).*" (manifest.engines.node or "");
+  nodejs = if nodeMajor == null then pkgs.nodejs else pkgs."nodejs_${builtins.head nodeMajor}";
+  # Every package npm downloads, each fetched by the first hash of its integrity: not a workspace link, nor a package
+  # bundled inside another.
+  downloads = lib.filterAttrs (key: entry: builtins.match "https?://.*" (entry.resolved or "") != null && entry ? integrity)
+    lock.packages;
+  fetch = entry: pkgs.fetchurl {
+    name = lib.strings.sanitizeDerivationName (baseNameOf entry.resolved);
+    url = entry.resolved;
+    hash = builtins.head (lib.splitString " " entry.integrity);
+  };
+  tarballs = pkgs.writeText "${name}-npm-tarballs"
+    (lib.concatStrings (lib.unique (lib.mapAttrsToList (key: entry: "${entry.integrity} ${fetch entry}\n") downloads)));
+  # The app's sources, without what a checkout may hold that the build must not see: installed and built files, local
+  # state and secrets.
+  root = toString ./.;
+  source = lib.cleanSourceWith {
+    name = "${name}-source";
+    src = ./.;
+    filter = file: type:
+      let
+        base = baseNameOf file;
+        top = dirOf (toString file) == root;
+      in
+      !(builtins.elem base [ "node_modules" ".git" ]
+        || (top && builtins.elem base [ "dist" ".jskit" "coverage" "test-results" "playwright-report" ])
+        || (top && type == "symlink" && lib.hasPrefix "result" base)
+        || (top && (base == ".env" || (lib.hasPrefix ".env." base && base != ".env.example"))));
+  };
+  # @jskit-ai/jskit-catalog's scripts/nix-app.mjs, which the programs run (and the build, to fill npm's cache).
+  launcher = pkgs.writeText "jskit-app.mjs" ''
+@LAUNCHER@
+  '';
+in
+pkgs.stdenv.mkDerivation {
+  pname = name;
+  version = manifest.version or "0.0.0";
+  src = source;
+  nativeBuildInputs = [ nodejs pkgs.python3 pkgs.makeWrapper ];
+  env = {
+    npm_config_offline = "true";
+    npm_config_audit = "false";
+    npm_config_fund = "false";
+    npm_config_update_notifier = "false";
+    npm_config_nodedir = "${nodejs}";
+  };
+  dontStrip = true;
+  configurePhase = ''
+    runHook preConfigure
+    export HOME="$TMPDIR" npm_config_cache="$TMPDIR/npm-cache"
+    node ${launcher} npm-cache ${tarballs} "$npm_config_cache"
+    npm ci --ignore-scripts
+    patchShebangs node_modules
+    npm rebuild
+    patchShebangs node_modules
+    runHook postConfigure
+  '';
+  buildPhase = ''
+    runHook preBuild
+    ${lib.optionalString (scripts ? build) "npm run build"}
+    runHook postBuild
+  '';
+  installPhase = ''
+    runHook preInstall
+    npm prune --omit=dev
+    mkdir -p "$out/lib" "$out/libexec/${name}"
+    cp -r . "$out/lib/${name}"
+    cp ${launcher} "$out/libexec/${name}/jskit-app.mjs"
+    program() {
+      makeWrapper ${lib.getExe nodejs} "$out/bin/$1" --add-flags \
+        "$out/libexec/${name}/jskit-app.mjs $2 --app $out/lib/${name} --shell ${pkgs.runtimeShell}"
+    }
+    program ${name} serve
+    program ${name}-check check
+    program ${name}-prepare prepare
+    ${lib.optionalString (scripts ? "db:migrate") "program ${name}-migrate migrate"}
+    runHook postInstall
+  '';
+  meta.mainProgram = name;
+}

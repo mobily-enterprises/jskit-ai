@@ -76,6 +76,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "existing-application-migration.md",
     "material-3.md",
     "multi-homing.md",
+    "package-with-nix.md",
     "pattern-index.md",
     "quality-pass.md",
     "sanity-checks.md",
