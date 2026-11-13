@@ -155,6 +155,7 @@ defineExpose({ focus: () => conversation.value?.focus() });
       <template #message-actions="{ message }">
         <p v-if="message.status === 'failed' && message.error" class="assistant-surface__message-error" role="status">{{ message.error }}</p>
         <p v-if="message.status === 'interrupted'" class="assistant-surface__notice" role="status">{{ t("jskit.assistant.runtime.surface.responseCanceled") }}</p>
+        <slot name="message-actions" :message="message" />
       </template>
       <template #composer-feedback>
         <p v-if="state.error && !state.messages.some((message) => message.error === state.error)" class="assistant-surface__message-error" role="status">{{ state.error }}</p>

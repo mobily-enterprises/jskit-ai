@@ -216,16 +216,18 @@ Local functions
 ### `src/server/createAssistantRuntime.js`
 Exports
 - `createAssistantAiClientFactory(config = {})`
-- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, repositories, env, aiConnections, attachments, personContext, logger, workspaces })`
-- `createAssistantConversationRuntime({ conversationsRepository, messagesRepository, aiClientFactory, toolCatalog, attachments })`
+- `createAssistantRuntime({ actionCatalogue, config, consoleRuntime, repositories, env, aiConnections, attachments, personContext, turnGuard, logger, workspaces })`
+- `createAssistantConversationRuntime({ storage, conversationsRepository, aiClientFactory, toolCatalog, attachments })`
 - `type AssistantAttachments`
 - `type AssistantAiClientFactory`
 - `type AssistantPersonContext`
+- `type AssistantTurnGuard`
 - `type AssistantConfigRepository`
 - `type ConversationsRepository`
 - `type MessagesRepository`
 - `type TurnRequestsRepository`
 - `type SurfaceAwareToolCatalog`
+- `type SqlConversationStorage`
 - `type AiConnectionResolver`
 
 ### `src/server/createAssistantSettingsActions.js`
@@ -360,14 +362,16 @@ Exports
 
 ### `src/server/services/chatService.js`
 Exports
-- `createChatService({ conversationRuntime, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, personContextPrompt, appConfig, workspaceScopeSupport, logger = silentLogger })`
+- `createChatService({ conversationRuntime, conversationStorage, aiClientFactory, turnRequests, attachments, transcriptService, serviceToolCatalog, assistantConfigService, personContextPrompt, turnAdmission, appConfig, workspaceScopeSupport, logger = silentLogger })`
 - `type AssistantAiClientFactory`
 - `type AssistantAttachments`
 - `type AssistantConfigService`
 - `type ConversationRuntime`
 - `type PersonContextPrompt`
+- `type SqlConversationStorage`
 - `type SurfaceAwareToolCatalog`
 - `type TranscriptService`
+- `type TurnAdmission`
 - `type TurnRequestsRepository`
 - `type WorkspaceScopeSupport`
 Local functions
@@ -454,6 +458,13 @@ Exports
 Local functions
 - `truncateFacts(facts)`
 
+### `src/server/support/turnGuard.js`
+Exports
+- `NO_TURN_GUARD`
+- `createTurnAdmission({ turnGuard, logger })`
+Local functions
+- `describeDecision(value)`
+
 ### `src/server/types.js`
 Exports
 - `type HostedAssistant`
@@ -466,6 +477,8 @@ Exports
 - `type AssistantAiClientFactory`
 - `type SurfaceAwareToolCatalog`
 - `type PersonContextPrompt`
+- `type TurnAdmission`
+- `type SqlConversationStorage`
 - `type AssistantConfigRepository`
 - `type ConversationsRepository`
 - `type MessagesRepository`
@@ -475,6 +488,8 @@ Exports
 - `type ConversationAccess`
 - `type AssistantAttachments`
 - `type AssistantPersonContext`
+- `type AssistantTurnDecision`
+- `type AssistantTurnGuard`
 
 ### `src/shared/assistantRuntimeConfig.js`
 Exports

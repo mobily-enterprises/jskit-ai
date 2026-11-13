@@ -106,6 +106,7 @@ function mapTranscriptEntriesToAssistantState(entries) {
 
       messages.push({
         id: messageId,
+        storedId: transcriptId,
         role,
         kind: "chat",
         text,

@@ -138,8 +138,10 @@ function buildAssistantActionContext(context = {}, assistantSurface = {}) {
 /** @typedef {import("../types.js").AssistantConfigService} AssistantConfigService */
 /** @typedef {import("../types.js").ConversationRuntime} ConversationRuntime */
 /** @typedef {import("../types.js").PersonContextPrompt} PersonContextPrompt */
+/** @typedef {import("../types.js").SqlConversationStorage} SqlConversationStorage */
 /** @typedef {import("../types.js").SurfaceAwareToolCatalog} SurfaceAwareToolCatalog */
 /** @typedef {import("../types.js").TranscriptService} TranscriptService */
+/** @typedef {import("../types.js").TurnAdmission} TurnAdmission */
 /** @typedef {import("../types.js").TurnRequestsRepository} TurnRequestsRepository */
 /** @typedef {import("../types.js").WorkspaceScopeSupport} WorkspaceScopeSupport */
 
@@ -148,6 +150,7 @@ function buildAssistantActionContext(context = {}, assistantSurface = {}) {
  * recorded once per message id, so a repeated request replays its saved outcome.
  * @param {object} dependencies
  * @param {ConversationRuntime} dependencies.conversationRuntime
+ * @param {SqlConversationStorage} dependencies.conversationStorage The storage under the conversation runtime.
  * @param {AssistantAiClientFactory} dependencies.aiClientFactory
  * @param {TurnRequestsRepository} dependencies.turnRequests
  * @param {AssistantAttachments | null} [dependencies.attachments]
@@ -155,12 +158,14 @@ function buildAssistantActionContext(context = {}, assistantSurface = {}) {
  * @param {SurfaceAwareToolCatalog} dependencies.serviceToolCatalog
  * @param {AssistantConfigService} dependencies.assistantConfigService
  * @param {PersonContextPrompt} dependencies.personContextPrompt
+ * @param {TurnAdmission} dependencies.turnAdmission
  * @param {Record<string, any>} dependencies.appConfig
  * @param {WorkspaceScopeSupport | null} [dependencies.workspaceScopeSupport]
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} [dependencies.logger]
  */
 function createChatService({
   conversationRuntime,
+  conversationStorage,
   aiClientFactory,
   turnRequests,
   attachments,
@@ -168,6 +173,7 @@ function createChatService({
   serviceToolCatalog,
   assistantConfigService,
   personContextPrompt,
+  turnAdmission,
   appConfig,
   workspaceScopeSupport,
   logger = silentLogger
@@ -258,10 +264,11 @@ function createChatService({
     const request = { ...source, integrationId: normalizeText(payload.integrationId) };
     const existing = await turnRequests.find(scope, source.messageId);
     if (existing) return replayRequest(existing, request, options.streamWriter);
-    const aiClient = await aiClientFactory.resolveClient(assistantSurface.targetSurfaceId, {
-      context: assistantContext, integrationId: payload.integrationId
-    });
-    if (!aiClient.enabled) throw new AppError(503, "Assistant provider is not configured.", { code: "assistant.runtime.provider.notConfigured" });
+    // The application's turn guard decides each new turn before anything is saved or sent. Its
+    // fixed reply answers the turn without the model, so that turn needs no AI connection.
+    const fixedReply = await turnAdmission.fixedReply({ targetSurfaceId: assistantSurface.targetSurfaceId, context: assistantContext,
+      input: source.input, conversationId: source.conversationId, messageId: source.messageId });
+    const aiClient = fixedReply === null ? await resolveEnabledClient() : null;
     const claim = await turnRequests.claim(scope, request);
     if (!claim.acquired) return replayRequest(claim, request, options.streamWriter);
     const response = {};
@@ -281,7 +288,7 @@ function createChatService({
     };
     let result;
     try {
-      result = await executeTurn();
+      result = fixedReply === null ? await executeTurn() : await executeFixedReply(fixedReply);
     } catch (thrown) {
       // A database error is saved, so replayed, only as its stand-in; the route answers and logs the error itself.
       const error = hideDatabaseError(thrown);
@@ -297,15 +304,24 @@ function createChatService({
     if (response.done) output.sendDone(response.done);
     return result;
 
-    async function executeTurn() {
+    async function resolveEnabledClient() {
+      const client = await aiClientFactory.resolveClient(assistantSurface.targetSurfaceId, {
+        context: assistantContext, integrationId: payload.integrationId
+      });
+      if (!client.enabled) throw new AppError(503, "Assistant provider is not configured.", { code: "assistant.runtime.provider.notConfigured" });
+      return client;
+    }
+
+    // The turn's conversation: the one the request names, or a new one.
+    async function openTurnConversation({ provider, model }) {
       const conversationResult = await transcriptService.createConversationForTurn(
         assistantSurface,
         workspace,
         actor,
         {
           conversationId: source.conversationId,
-          provider: aiClient.provider,
-          model: aiClient.defaultModel,
+          provider,
+          model,
           surfaceId: assistantSurface.targetSurfaceId,
           messageId: source.messageId
         },
@@ -315,10 +331,34 @@ function createChatService({
       );
 
       const conversation = conversationResult.conversation;
-      const conversationId = conversation?.id;
-      if (!conversationId) {
+      if (!conversation?.id) {
         throw new AppError(500, "Assistant failed to create conversation.", { code: "assistant.runtime.conversation.createFailed" });
       }
+      return conversation;
+    }
+
+    // A completed turn's answer and its end, which names the turn's two saved messages.
+    async function sendCompletedAnswer(conversationId, text) {
+      const storedMessageIds = await conversationStorage.storedMessageIds(conversationId, source.messageId);
+      streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text });
+      streamWriter.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: source.messageId, status: "completed", storedMessageIds });
+      return { conversationId, messageId: source.messageId, status: "completed" };
+    }
+
+    // The turn guard's reply answers the turn: the message and the reply are saved as one
+    // completed turn, and the model is never called.
+    async function executeFixedReply(reply) {
+      const { id: conversationId } = await openTurnConversation({ provider: "", model: "" });
+      await conversationStorage.recordReply(conversationId, { messageId: source.messageId, text: source.input, reply });
+      await transcriptService.completeConversation(assistantSurface, conversationId, { status: "completed" },
+        { context: assistantContext, workspace });
+      streamWriter.sendMeta({ type: ASSISTANT_STREAM_EVENT_TYPES.META, messageId: source.messageId, conversationId });
+      return sendCompletedAnswer(conversationId, reply);
+    }
+
+    async function executeTurn() {
+      const conversation = await openTurnConversation({ provider: aiClient.provider, model: aiClient.defaultModel });
+      const conversationId = conversation.id;
 
       const resolvedAttachments = [];
       async function prepareAttachments(attachmentIds) {
@@ -418,9 +458,7 @@ function createChatService({
           if (!text) throw new AppError(502, "Assistant returned no output.", { code: "assistant.runtime.request.noOutput" });
           await transcriptService.completeConversation(assistantSurface, conversationId,
             { status: "completed", metadata: turn.metadata?.completion || {} }, { context: assistantContext, workspace });
-          streamWriter.sendAssistantMessage({ type: ASSISTANT_STREAM_EVENT_TYPES.ASSISTANT_MESSAGE, text });
-          streamWriter.sendDone({ type: ASSISTANT_STREAM_EVENT_TYPES.DONE, messageId: source.messageId, status: "completed" });
-          return { conversationId, messageId: source.messageId, status: "completed" };
+          return await sendCompletedAnswer(conversationId, text);
         } catch (thrown) {
           const aborted = isAbortError(thrown) || options.abortSignal?.aborted;
           const status = aborted ? "aborted" : "failed";

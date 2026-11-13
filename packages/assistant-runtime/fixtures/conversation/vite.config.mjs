@@ -4,6 +4,8 @@ import { createChatService } from "../../src/server/services/chatService.js";
 import { NO_PERSON_CONTEXT, createPersonContextPrompt } from "../../src/server/support/personContext.js";
 import { ASSISTANT_STREAM_WRITER_METHODS } from "../../src/server/support/assistantStreamWriter.js";
 import { createAssistantConversationRuntime } from "../../src/server/createAssistantRuntime.js";
+import { createSqlConversationStorage } from "../../src/server/sqlConversationStorage.js";
+import { NO_TURN_GUARD, createTurnAdmission } from "../../src/server/support/turnGuard.js";
 import { createMemoryAssistantRows } from "../../test/support/memoryAssistantRows.js";
 import { createScriptedModel } from "../../test/support/scriptedModel.js";
 import { defineConfig } from "vite";
@@ -95,12 +97,15 @@ export default defineConfig({
               appConfig: { surfaceDefinitions: { admin: { id: "admin", enabled: true, requiresWorkspace: false, accessPolicyId: "public" } },
                 assistantSurfaces: { admin: { settingsSurfaceId: "admin", configScope: "global" } } }
             };
+            const rows = createMemoryAssistantRows({ id: "100", surfaceId: "admin", messages: transcript });
+            const conversationStorage = createSqlConversationStorage(rows);
             const conversationRuntime = createAssistantConversationRuntime({
-              ...createMemoryAssistantRows({ id: "100", surfaceId: "admin", messages: transcript }),
+              storage: conversationStorage, conversationsRepository: rows.conversationsRepository,
               aiClientFactory: dependencies.aiClientFactory, toolCatalog: dependencies.serviceToolCatalog,
               attachments: dependencies.attachments
             });
-            const service = createChatService({ ...dependencies, conversationRuntime });
+            const service = createChatService({ ...dependencies, conversationRuntime, conversationStorage,
+              turnAdmission: createTurnAdmission({ turnGuard: NO_TURN_GUARD, logger: silentLogger }) });
             const streamWriter = Object.fromEntries(ASSISTANT_STREAM_WRITER_METHODS.map(method => [method, event => send(stream, event)]));
             try { await service.streamChat({ ...payload, targetSurfaceId: "admin" }, { streamWriter, abortSignal: controller.signal, context: { actor: { id: "1" } } }); }
             catch (error) { if (!res.destroyed) send(stream, { type: "error", message: error.message }); }

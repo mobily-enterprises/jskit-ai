@@ -37,7 +37,11 @@ function switchWorkspace() { router.push({ query: { workspace: workspace.value =
           <button @click="theme.change(theme.global.name.value === 'dark' ? 'light' : 'dark')">Toggle theme</button>
         </nav>
         <div class="fixture__panes" :class="{ 'fixture__panes--compact': compact }">
-          <AssistantSurfaceClientElement v-if="mounted" v-model:integration-id="integrationId" :connections="[{ id: 'quick', label: 'Quick model' }, { id: 'deep', label: 'Deep model' }]" :attachments="route.query.files ? attachments : null" :surface-id="surface" :layout="compact ? 'compact' : 'page'" assistant-label="Fixture assistant" />
+          <AssistantSurfaceClientElement v-if="mounted" v-model:integration-id="integrationId" :connections="[{ id: 'quick', label: 'Quick model' }, { id: 'deep', label: 'Deep model' }]" :attachments="route.query.files ? attachments : null" :surface-id="surface" :layout="compact ? 'compact' : 'page'" assistant-label="Fixture assistant">
+            <template v-if="route.query.actions" #message-actions="{ message }">
+              <button class="fixture-report" type="button" :data-role="message.role" :data-stored-id="message.storedId ?? ''">Report</button>
+            </template>
+          </AssistantSurfaceClientElement>
           <AssistantSurfaceClientElement v-if="second" surface-id="console" assistant-label="Second assistant" />
         </div>
       </div>

@@ -11,15 +11,18 @@ import { createTranscriptService } from "./services/transcriptService.js";
 import { resolveAssistantAiConfig, resolveAssistantServerConfig } from "./support/assistantServerConfig.js";
 import { createSurfaceAwareToolCatalog } from "./support/createSurfaceAwareToolCatalog.js";
 import { createPersonContextPrompt } from "./support/personContext.js";
+import { createTurnAdmission } from "./support/turnGuard.js";
 
 /** @typedef {import("./types.js").AssistantAttachments} AssistantAttachments */
 /** @typedef {import("./types.js").AssistantAiClientFactory} AssistantAiClientFactory */
 /** @typedef {import("./types.js").AssistantPersonContext} AssistantPersonContext */
+/** @typedef {import("./types.js").AssistantTurnGuard} AssistantTurnGuard */
 /** @typedef {import("./types.js").AssistantConfigRepository} AssistantConfigRepository */
 /** @typedef {import("./types.js").ConversationsRepository} ConversationsRepository */
 /** @typedef {import("./types.js").MessagesRepository} MessagesRepository */
 /** @typedef {import("./types.js").TurnRequestsRepository} TurnRequestsRepository */
 /** @typedef {import("./types.js").SurfaceAwareToolCatalog} SurfaceAwareToolCatalog */
+/** @typedef {import("./types.js").SqlConversationStorage} SqlConversationStorage */
 /** @typedef {import("@jskit-ai/connectors-catalog/server/types").AiConnectionResolver} AiConnectionResolver */
 
 /**
@@ -85,6 +88,7 @@ function createAssistantAiClientFactory(config = {}) {
  * @param {AiConnectionResolver | null} dependencies.aiConnections
  * @param {AssistantAttachments | null} dependencies.attachments
  * @param {AssistantPersonContext} dependencies.personContext
+ * @param {AssistantTurnGuard} dependencies.turnGuard
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("@jskit-ai/workspaces-core/server/types").WorkspacesCore | null} dependencies.workspaces
  */
@@ -97,6 +101,7 @@ function createAssistantRuntime({
   aiConnections,
   attachments,
   personContext,
+  turnGuard,
   logger,
   workspaces
 }) {
@@ -116,11 +121,14 @@ function createAssistantRuntime({
     workspaceScopeSupport
   });
   const transcriptService = createTranscriptService({ conversationsRepository, messagesRepository });
+  // The runtime and the chat service share one storage, so the rows one saves are in the other's cache.
+  const conversationStorage = createSqlConversationStorage({ conversationsRepository, messagesRepository });
   const conversationRuntime = createAssistantConversationRuntime({
-    conversationsRepository, messagesRepository, aiClientFactory, toolCatalog, attachments
+    storage: conversationStorage, conversationsRepository, aiClientFactory, toolCatalog, attachments
   });
   const chatService = createChatService({
     conversationRuntime,
+    conversationStorage,
     turnRequests,
     attachments,
     aiClientFactory,
@@ -128,6 +136,7 @@ function createAssistantRuntime({
     serviceToolCatalog: toolCatalog,
     assistantConfigService: configService,
     personContextPrompt: createPersonContextPrompt({ personContext, logger }),
+    turnAdmission: createTurnAdmission({ turnGuard, logger }),
     appConfig: config,
     workspaceScopeSupport,
     logger
@@ -150,15 +159,15 @@ function createAssistantRuntime({
  * Internal SQL composition: the facade supplies the authenticated action
  * context; the model's history is the conversation's saved history, never the browser's.
  * @param {object} dependencies
+ * @param {SqlConversationStorage} dependencies.storage
  * @param {ConversationsRepository} dependencies.conversationsRepository
- * @param {MessagesRepository} dependencies.messagesRepository
  * @param {AssistantAiClientFactory} dependencies.aiClientFactory
  * @param {SurfaceAwareToolCatalog} dependencies.toolCatalog
  * @param {AssistantAttachments | null} [dependencies.attachments]
  */
-function createAssistantConversationRuntime({ conversationsRepository, messagesRepository, aiClientFactory, toolCatalog, attachments }) {
+function createAssistantConversationRuntime({ storage, conversationsRepository, aiClientFactory, toolCatalog, attachments }) {
   return createConversationRuntime({
-    storage: createSqlConversationStorage({ conversationsRepository, messagesRepository }),
+    storage,
     async authorize({ context, conversationId }) {
       const request = context?.assistantRequest;
       if (!request || request.conversation.id !== conversationId) return false;

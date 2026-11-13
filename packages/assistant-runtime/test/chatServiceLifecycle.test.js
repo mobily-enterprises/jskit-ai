@@ -6,6 +6,8 @@ import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { createChatService } from "../src/server/services/chatService.js";
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
 import { NO_PERSON_CONTEXT, PERSON_CONTEXT_MAX_CHARACTERS, createPersonContextPrompt } from "../src/server/support/personContext.js";
+import { NO_TURN_GUARD, createTurnAdmission } from "../src/server/support/turnGuard.js";
+import { createSqlConversationStorage } from "../src/server/sqlConversationStorage.js";
 import { createMemoryAssistantRows } from "./support/memoryAssistantRows.js";
 import { createScriptedModel } from "./support/scriptedModel.js";
 
@@ -184,11 +186,15 @@ function createHarness(completions, { executeToolCall = null, tools: configuredT
     logger: logged.logger,
     ...(workspace ? { workspaceScopeSupport: { resolveWorkspace: () => workspace } } : {})
   };
+  const rows = createMemoryAssistantRows({ messages: transcriptMessages, workspaceId: workspace?.id ?? null });
+  const conversationStorage = createSqlConversationStorage(rows);
   const conversationRuntime = createAssistantConversationRuntime({
-    ...createMemoryAssistantRows({ messages: transcriptMessages, workspaceId: workspace?.id ?? null }),
+    storage: conversationStorage, conversationsRepository: rows.conversationsRepository,
     aiClientFactory: dependencies.aiClientFactory, toolCatalog: dependencies.serviceToolCatalog, attachments
   });
-  const chatService = createChatService({ ...dependencies, conversationRuntime: wrapRuntime(conversationRuntime) });
+  const chatService = createChatService({ ...dependencies, conversationStorage,
+    turnAdmission: createTurnAdmission({ turnGuard: NO_TURN_GUARD, logger: logged.logger }),
+    conversationRuntime: wrapRuntime(conversationRuntime) });
 
   const streamWriter = {};
   for (const method of [

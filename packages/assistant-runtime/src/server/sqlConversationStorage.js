@@ -259,10 +259,45 @@ function createSqlConversationStorage({ conversationsRepository, messagesReposit
     });
   }
 
+  /**
+   * Saves a person's message and the application's fixed answer to it as one completed turn,
+   * without running the conversation: a turn guard's reply. The turn is the application's own,
+   * as an existing transcript's turns are, so it belongs to no runtime segment, and the
+   * conversation's later turns read it as history.
+   * @param {string} id
+   * @param {{ messageId: string, text: string, reply: string }} turn
+   */
+  function recordReply(id, { messageId, text, reply }) {
+    return write(id, async transaction => {
+      const turnId = await transaction.nextTurnId();
+      const at = new Date().toISOString();
+      await transaction.appendMessage(turnId, { role: "user", origin: "user", messageId, text, at });
+      await transaction.appendMessage(turnId, { role: "assistant", messageId: `${turnId}:reply`, text: reply, at });
+    });
+  }
+
+  /**
+   * The row ids of the person's message `messageId` and of the answer saved with it.
+   * @param {string} id
+   * @param {string} messageId
+   * @returns {Promise<{ user: string, assistant: string }>}
+   */
+  function storedMessageIds(id, messageId) {
+    return conversationsRepository.transaction(async txOptions => {
+      const { projection } = await load(id, txOptions);
+      const group = [...projection.groups.values()].find(entry => entry.anchor.clientMessageSid === messageId);
+      const answer = group?.messages.find(row => row.role === "assistant");
+      if (!answer) throw new Error(`Conversation ${id} has no saved answer to message ${messageId}.`);
+      return { user: group.anchor.id, assistant: answer.id };
+    });
+  }
+
   return Object.freeze({
     read,
     write,
-    preflight
+    preflight,
+    recordReply,
+    storedMessageIds
   });
 }
 

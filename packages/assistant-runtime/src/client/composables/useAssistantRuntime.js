@@ -497,8 +497,9 @@ function useAssistantRuntime({ api, surfaceId = "", integrationId = "" }) {
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.META && Object.hasOwn(event || {}, "conversationId")) {
               if (!accepted) {
                 accepted = true;
-                appendMessage({ id: messageId, role: "user", kind: "chat", text: normalizedInput, attachments, status: "done" });
-                appendMessage({ id: assistantMessageId, role: "assistant", kind: "chat", text: "", status: "streaming" });
+                // A message's storedId, its saved row's id, arrives with the turn's end.
+                appendMessage({ id: messageId, storedId: null, role: "user", kind: "chat", text: normalizedInput, attachments, status: "done" });
+                appendMessage({ id: assistantMessageId, storedId: null, role: "assistant", kind: "chat", text: "", status: "streaming" });
                 delivery.reconcile([{ user: { messageId } }]);
                 onAccepted();
                 admission.resolve(true);
@@ -584,6 +585,10 @@ function useAssistantRuntime({ api, surfaceId = "", integrationId = "" }) {
 
             if (eventType === ASSISTANT_STREAM_EVENT_TYPES.DONE) {
               streamDoneStatus = normalizeText(event?.status).toLowerCase();
+              // A completed turn names its two saved messages.
+              const storedMessageIds = normalizeObject(event?.storedMessageIds);
+              if (storedMessageIds.user) updateMessage(messageId, { storedId: String(storedMessageIds.user) });
+              if (storedMessageIds.assistant) updateMessage(assistantMessageId, { storedId: String(storedMessageIds.assistant) });
             }
           }
         }

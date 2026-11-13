@@ -9,6 +9,8 @@ import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createChatService } from "../src/server/services/chatService.js";
 import { NO_PERSON_CONTEXT, createPersonContextPrompt } from "../src/server/support/personContext.js";
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
+import { NO_TURN_GUARD, createTurnAdmission } from "../src/server/support/turnGuard.js";
+import { createSqlConversationStorage } from "../src/server/sqlConversationStorage.js";
 import { createMemoryAssistantRows } from "./support/memoryAssistantRows.js";
 import { createScriptedModel } from "./support/scriptedModel.js";
 import { createTestAssistantStore } from "./support/assistantStore.js";
@@ -90,11 +92,14 @@ function service(repository, { provider, transcript = [] } = {}) {
       assistantSurfaces: { assistant: { settingsSurfaceId: "assistant", configScope: "global" } }
     }
   };
+  const rows = createMemoryAssistantRows({ id: "100", messages: transcript });
+  const conversationStorage = createSqlConversationStorage(rows);
   const conversationRuntime = createAssistantConversationRuntime({
-    ...createMemoryAssistantRows({ id: "100", messages: transcript }),
+    storage: conversationStorage, conversationsRepository: rows.conversationsRepository,
     aiClientFactory: dependencies.aiClientFactory, toolCatalog: dependencies.serviceToolCatalog
   });
-  return createChatService({ ...dependencies, conversationRuntime });
+  return createChatService({ ...dependencies, conversationRuntime, conversationStorage,
+    turnAdmission: createTurnAdmission({ turnGuard: NO_TURN_GUARD, logger: silentLogger }) });
 }
 
 function run(chat, input = request, { events = [], disconnectAfterCompletion = false } = {}) {

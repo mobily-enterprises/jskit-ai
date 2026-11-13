@@ -12,6 +12,8 @@
 /** @typedef {ReturnType<typeof import("./createAssistantRuntime.js").createAssistantAiClientFactory>} AssistantAiClientFactory */
 /** @typedef {ReturnType<typeof import("./support/createSurfaceAwareToolCatalog.js").createSurfaceAwareToolCatalog>} SurfaceAwareToolCatalog */
 /** @typedef {ReturnType<typeof import("./support/personContext.js").createPersonContextPrompt>} PersonContextPrompt A conversation's system prompt with the application's facts about the person. */
+/** @typedef {ReturnType<typeof import("./support/turnGuard.js").createTurnAdmission>} TurnAdmission The application's turn guard, held to its contract. */
+/** @typedef {ReturnType<typeof import("./sqlConversationStorage.js").createSqlConversationStorage>} SqlConversationStorage The database-backed assistant's conversation storage over its SQL rows. */
 /** @typedef {ReturnType<typeof import("./repositories/assistantConfigRepository.js").createRepository>} AssistantConfigRepository */
 /** @typedef {ReturnType<typeof import("./repositories/conversationsRepository.js").createRepository>} ConversationsRepository */
 /** @typedef {ReturnType<typeof import("./repositories/messagesRepository.js").createRepository>} MessagesRepository */
@@ -54,6 +56,29 @@
  * @typedef {object} AssistantPersonContext
  * @property {(request: { targetSurfaceId: string, context: object, workspace: object | null }) => string | Promise<string>} resolve
  *   The facts for the actor in `context` on that surface and workspace.
+ */
+
+/**
+ * What an application's turn guard decides for one turn: run it, or answer it with this text.
+ * @typedef {{ allowed: true } | { reply: string }} AssistantTurnDecision
+ */
+
+/**
+ * The `assistant.turnGuard` capability: the application's decision on each new turn of the
+ * database-backed assistant, made with the person's message before anything is saved or sent
+ * and before the AI connection is resolved.
+ *
+ * `{ allowed: true }` runs the turn as usual. `{ reply }` answers it with that text: the
+ * message and the reply are saved and streamed as an ordinary completed turn, and the model is
+ * never called. An `AppError` it throws refuses the turn with its status, code and details, and
+ * nothing is saved. Any other value is a programming error that fails the turn. A replayed
+ * message id never reaches `admit`, but two simultaneous requests with one new message id can
+ * both reach it before one of them claims the turn, so a guard that counts turns counts each
+ * `messageId` once.
+ * @typedef {object} AssistantTurnGuard
+ * @property {(request: { targetSurfaceId: string, context: object, input: string, conversationId: string | null, messageId: string }) => AssistantTurnDecision | Promise<AssistantTurnDecision>} admit
+ *   The decision for the actor in `context` sending `input` as `messageId`, in the conversation
+ *   `conversationId` (null for a new one).
  */
 
 export {};

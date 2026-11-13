@@ -150,6 +150,8 @@ test("numeric persisted identities and distinct equal-text replies remain distin
   ]);
   const turns = mapAssistantConversationTurns(restored.messages);
   assert.deepEqual(turns.map((turn) => turn.assistant.messageId), ["transcript_2", "transcript_3"]);
+  // A restored message's storedId is its saved row's id, which an application's message actions act on.
+  assert.deepEqual(restored.messages.map((message) => message.storedId), ["1", "2", "3"]);
 });
 
 test("restored tool calls retain their association with the reply they preceded", async () => {

@@ -5,6 +5,7 @@ import { createHostedAssistant } from "./hostedAssistant.js";
 import { registerRoutes } from "./registerRoutes.js";
 import { registerConversationSubscriptions } from "./registerConversationSubscriptions.js";
 import { NO_PERSON_CONTEXT } from "./support/personContext.js";
+import { NO_TURN_GUARD } from "./support/turnGuard.js";
 
 /** @typedef {import("./types.js").AssistantRuntime} AssistantRuntime */
 /** @typedef {import("./types.js").ConversationAccess} ConversationAccess */
@@ -56,6 +57,7 @@ const AssistantFeature = defineFeature({
     aiConnections: "integrations.ai",
     attachments: "assistant.attachments",
     personContext: "assistant.personContext",
+    turnGuard: "assistant.turnGuard",
     consoleRuntime: "console.core",
     workspaces: "workspaces.core"
   },
@@ -74,7 +76,8 @@ const AssistantFeature = defineFeature({
         throw new TypeError("assistant.conversations requires createConversationRuntime().");
       }
       // A host that supplies its conversations builds their instructions, so it
-      // composes assistant.personContext into them itself, with createPersonContextPrompt.
+      // composes assistant.personContext into them itself, with createPersonContextPrompt;
+      // assistant.turnGuard guards only the database-backed assistant's turns.
       assistant = createHostedAssistant({ conversationRuntime, assistantConfigService: assistantConfigService || null });
     } else {
       // The database-backed assistant keeps its rows through AssistantStoreFeature's repositories.
@@ -93,6 +96,7 @@ const AssistantFeature = defineFeature({
         aiConnections: dependencies.aiConnections || null,
         attachments: dependencies.attachments || null,
         personContext: dependencies.personContext ?? NO_PERSON_CONTEXT,
+        turnGuard: dependencies.turnGuard ?? NO_TURN_GUARD,
         logger: dependencies.logger,
         workspaces: dependencies.workspaces || null,
         repositories: dependencies.repositories

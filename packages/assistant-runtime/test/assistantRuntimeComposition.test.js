@@ -47,6 +47,7 @@ test("assistant services compose with supplied repositories without database imp
       },
       env: {},
       personContext: { resolve: () => "" },
+      turnGuard: { admit: () => ({ allowed: true }) },
       logger: { debug() {}, info() {}, warn() {}, error() {} }
     });
 

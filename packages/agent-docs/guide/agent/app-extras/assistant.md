@@ -457,6 +457,97 @@ The supplied conversation routes open a conversation without a configuration,
 so the host notices a change where it opens the conversation for the person, or
 configures the person's open conversations when their profile changes.
 
+### Turn guard
+
+An application can decide each new turn of the database-backed assistant before
+anything is saved or sent, such as a topic check that answers off-topic
+questions itself or a weekly message limit, by providing the optional
+`assistant.turnGuard` capability from one of its features. Its `admit` returns
+the decision for the person's message:
+
+```js
+// src/server/MessageLimitFeature.js
+import { defineFeature } from "@jskit-ai/kernel/server/features";
+import { createTurnGuard } from "./turnGuard.js";
+
+const MessageLimitFeature = defineFeature({
+  id: "messages.limit",
+  requires: {
+    usage: "messages.usage"
+  },
+  provides: {
+    turnGuard: "assistant.turnGuard"
+  },
+  /** @param {{ usage: import("./types.js").MessageUsage }} capabilities */
+  setup({ usage }) {
+    return { turnGuard: createTurnGuard({ usage }) };
+  }
+});
+
+export { MessageLimitFeature };
+
+// src/server/turnGuard.js
+import { resolveActor } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+import { AppError } from "@jskit-ai/kernel/server/runtime";
+import { isOnTopic } from "./topics.js";
+
+/** @param {{ usage: import("./types.js").MessageUsage }} dependencies */
+function createTurnGuard({ usage }) {
+  /** @param {{ targetSurfaceId: string, context: object, input: string, conversationId: string | null, messageId: string }} request */
+  async function admit({ context, input, messageId }) {
+    // Counted once per message ID: a resent message is not counted again.
+    const week = await usage.countMessage({ userId: resolveActor(context).id, messageId });
+    if (week.count > week.limit) {
+      throw new AppError(429, "You have used this week's messages.", {
+        code: "weekly_limit",
+        details: { resetsOn: week.resetsOn }
+      });
+    }
+    if (!isOnTopic(input)) return { reply: "I can only help with questions about your orders." };
+    return { allowed: true };
+  }
+
+  return Object.freeze({
+    admit
+  });
+}
+
+export { createTurnGuard };
+```
+
+`admit({ targetSurfaceId, context, input, conversationId, messageId })`
+receives the surface, the request context with its actor, the message's text,
+the conversation it continues (`null` for a new one) and the message's ID. It
+returns one of two decisions, or a promise of one:
+
+- **`{ allowed: true }`** runs the turn as usual.
+- **`{ reply }`** answers the turn with that text instead of the model. The
+  message and the reply are saved as one completed turn and streamed like any
+  other answer, so they appear in the conversation's history, are restored with
+  it and are part of what the model reads on later turns. The model is never
+  called, and the turn resolves no AI connection, so it works even while none
+  is configured. The turn saves the message's text; files attached to it are
+  not read or saved.
+- **A thrown `AppError` refuses the turn** with its status, code and details,
+  as the route's error response, before any stream starts. Nothing is saved,
+  so the same message sent again is a new turn that `admit` decides again. The
+  example's limit answers 429 with code `weekly_limit` and `{ resetsOn }`.
+- **Anything else is a programming error.** Another value, such as
+  `{ allowed: false }` or an empty reply, fails the turn with a 500, and the
+  server logs an error naming the value it returned.
+
+Each new turn asks `admit` once, after its message ID is checked for a replay
+and before the turn is claimed. A replayed message ID answers from its saved
+turn and never calls `admit` again. Two simultaneous requests with the same new
+message ID can both pass the replay check and both call `admit`; only one of
+them then claims the turn, and the other answers as a replay of it. A guard that
+counts messages therefore counts each `messageId` once, for example with a
+unique key on it.
+
+Without `assistant.turnGuard`, every turn runs as before. An application that
+supplies its own `assistant.conversations` decides its turns where it sends
+them, so `AssistantFeature` does not read `assistant.turnGuard` there.
+
 ### Database surface action tools
 
 The assistant reads automation-capable actions from `runtime.actions`. It keeps
@@ -735,7 +826,9 @@ Apply the package migrations before running the updated server. The runtime owns
 message-ID key. The database arbitrates concurrent requests across server
 processes before provider or tool execution. A reused ID with a different request
 returns a conflict. An identical retry replays the recorded answer or failure
-without calling the provider or tools again, including after a process restart.
+without calling the provider or tools again, including after a process restart,
+and without asking an application's turn guard again (see Turn guard above for
+two simultaneous first sends).
 Pre-stream `AppError` failures retain their public code and details in the same
 request receipt. `ACTION_PERMISSION_DENIED` details remain private, and arbitrary
 non-`AppError` diagnostics are not added to the receipt. Older failure receipts
@@ -777,6 +870,11 @@ provider settings, authorization scope and action tools. Its adapter maps
 `streaming` to `inProgress`, `done` to `completed`, `error` to `failed`, and
 `canceled` to `interrupted`. Existing message IDs stay stable while text streams.
 Restored entries retain their database IDs; equal text is not a duplicate ID.
+Each message's `storedId` is its saved row's ID: a restored message has it at
+once, and a message sent in this view gets it when its turn completes (the
+server's `done` event names the turn's two saved messages in
+`storedMessageIds`). An unsaved message, such as a failed or stopped reply,
+has `storedId: null`.
 Tool activity shows the existing tool name and status, never raw arguments or
 results. No provider reasoning is invented.
 
@@ -841,7 +939,22 @@ conversations are available through the Conversations dialog at every width.
 The current title remains visible. Activity opens the current tool-status list;
 setting `showToolActivity` to false hides presentation only. The
 `composer-tools` slot receives `{ runtime }` for application-owned supplementary
-controls. The element exposes `focus()` so a drawer owner can focus it once when
+controls. The `message-actions` slot renders application-owned controls under
+each assistant reply, after the reply's failed or stopped notice, and receives
+`{ message }` with the reply's `id`, `storedId` and `role`:
+
+```vue
+<AssistantSurfaceClientElement surface-id="home">
+  <template #message-actions="{ message }">
+    <v-btn v-if="message.storedId" size="small" variant="text" @click="report(message.storedId)">
+      {{ t("orders.assistant.report") }}
+    </v-btn>
+  </template>
+</AssistantSurfaceClientElement>
+```
+
+Act on `storedId`, which the server knows; `id` is the view's own identity for
+the message. The element exposes `focus()` so a drawer owner can focus it once when
 opened and restore focus to the opener when closed.
 
 Page layout fills the viewport below its actual position, reserving the Vuetify

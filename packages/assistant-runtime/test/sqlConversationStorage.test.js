@@ -20,11 +20,14 @@ import { createTranscriptService } from "../src/server/services/transcriptServic
 import { createChatService } from "../src/server/services/chatService.js";
 import { createSurfaceAwareToolCatalog } from "../src/server/support/createSurfaceAwareToolCatalog.js";
 import { NO_PERSON_CONTEXT, createPersonContextPrompt } from "../src/server/support/personContext.js";
+import { NO_TURN_GUARD, createTurnAdmission } from "../src/server/support/turnGuard.js";
 import { createScriptedModel } from "./support/scriptedModel.js";
 import { createTestAssistantStore } from "./support/assistantStore.js";
 
 // The chat service of an application that supplies no facts about the person.
 const NO_FACTS = createPersonContextPrompt({ personContext: NO_PERSON_CONTEXT, logger: silentLogger });
+// The chat service of an application that supplies no turn guard.
+const ADMIT_EVERY_TURN = createTurnAdmission({ turnGuard: NO_TURN_GUARD, logger: silentLogger });
 
 async function fixture(t) {
   const directory = await mkdtemp(path.join(tmpdir(), "assistant-sql-runtime-"));
@@ -192,6 +195,7 @@ test("the SQL facade uses common inference and durable tool rows, and the model'
   const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
   t.after(() => runtime.close());
   const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
+    conversationStorage: f.storage, turnAdmission: ADMIT_EVERY_TURN,
     transcriptService: createTranscriptService(f), turnRequests: f.turnRequests,
     assistantConfigService: { resolveSystemPrompt: async () => "Retained SQL instructions" },
     personContextPrompt: NO_FACTS,
@@ -249,6 +253,7 @@ test("the SQL facade replays historical inspection failures with their exact pub
   t.after(() => runtime.close());
   const turnRequests = f.turnRequests;
   const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
+    conversationStorage: f.storage, turnAdmission: ADMIT_EVERY_TURN,
     transcriptService: createTranscriptService(f), turnRequests,
     assistantConfigService: { resolveSystemPrompt: async () => "Read the supplied context" },
     personContextPrompt: NO_FACTS,
@@ -360,6 +365,7 @@ for (const shape of ["orphan-output", "orphan-tool-result", "unconfirmed-tool"])
     t.after(() => runtime.close());
     const turnRequests = f.turnRequests;
     const dependencies = { conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
+      conversationStorage: f.storage, turnAdmission: ADMIT_EVERY_TURN,
       transcriptService: createTranscriptService(f), turnRequests,
       assistantConfigService: { resolveSystemPrompt: async () => "Read only the admitted request" },
       personContextPrompt: NO_FACTS,
@@ -634,6 +640,7 @@ test("the SQL facade stores, streams, exports and logs no unsaved call or result
   const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
   t.after(() => runtime.close());
   const service = createChatService({ conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
+    conversationStorage: f.storage, turnAdmission: ADMIT_EVERY_TURN,
     transcriptService: createTranscriptService(f), turnRequests: f.turnRequests,
     assistantConfigService: { resolveSystemPrompt: async () => "" }, personContextPrompt: NO_FACTS,
     appConfig: { surfaceDefinitions: { assistant: { enabled: true, requiresWorkspace: false } },

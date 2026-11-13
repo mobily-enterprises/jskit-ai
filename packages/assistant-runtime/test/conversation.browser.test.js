@@ -297,6 +297,66 @@ test("the ready-made UI streams from the real chat service with selected AI conn
   assert.equal(state.transcript.filter(message => message.role === "assistant").length, 1);
 });
 
+test("an application's message actions show under each reply with its saved id and role, beside the failed and canceled notices", {
+  skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1", timeout: 90_000
+}, async (t) => {
+  const vite = await startViteFixture({ fixtureRoot });
+  t.after(() => stopProcess(vite));
+  const browser = await chromium.launch(createChromiumLaunchOptions());
+  t.after(() => browser.close());
+  const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  const input = page.getByRole("textbox", { name: "Message AI assistant" });
+  const send = page.getByRole("button", { name: "Send message", exact: true });
+  const stop = page.getByRole("button", { name: "Stop", exact: true });
+  const advance = (query = "") => page.request.get(`${vite.baseURL}/fixture/next${query}`);
+  const replies = page.locator(".assistant-transcript__message--assistant");
+  // Each application action's [role, stored id], in transcript order.
+  const reports = () => page.locator(".fixture-report").evaluateAll(buttons => buttons.map(button => [button.dataset.role, button.dataset.storedId]));
+  try {
+    await page.goto(`${vite.baseURL}/?actions=1`);
+    await input.fill("This answer fails");
+    await send.click();
+    await expect(stop).toBeVisible();
+    await advance();
+    await advance("?fail=1");
+    const failed = replies.filter({ has: page.locator(".assistant-surface__message-error") });
+    await expect(failed.locator(".assistant-surface__message-error")).toHaveText("Fixture provider failed.");
+    await expect(failed.locator(".fixture-report")).toHaveCount(1);
+
+    await input.fill("This answer is canceled");
+    await send.click();
+    await expect(stop).toBeVisible();
+    await stop.click();
+    const canceled = replies.filter({ has: page.locator(".assistant-surface__notice") });
+    await expect(canceled.locator(".assistant-surface__notice")).toHaveText("Response canceled. A tool already running may still finish.");
+    await expect(canceled.locator(".fixture-report")).toHaveCount(1);
+    // Neither reply was saved, so neither has a stored id.
+    assert.deepEqual(await reports(), [["assistant", ""], ["assistant", ""]]);
+
+    // A reply the chat service streams gets its saved row's id when its turn ends.
+    await page.request.get(`${vite.baseURL}/fixture/service`);
+    await input.fill("Save this answer");
+    await send.click();
+    await advance();
+    await expect(page.getByText("Partial answer", { exact: true })).toHaveCount(2);
+    assert.deepEqual(await reports(), [["assistant", ""], ["assistant", ""], ["assistant", ""]]);
+    await advance("?finish=1");
+    await expect(page.getByText("Partial answer completed.", { exact: true })).toHaveCount(1);
+    await expect.poll(reports).toEqual([["assistant", ""], ["assistant", ""], ["assistant", "2"]]);
+
+    // Restored replies carry their saved rows' ids.
+    await page.getByRole("button", { name: "Conversations", exact: true }).click();
+    await page.getByText("Saved conversation", { exact: true }).click();
+    await expect(page.getByText("Saved 1 message 70.", { exact: false })).toBeVisible();
+    await expect.poll(reports).toEqual(Array.from({ length: 35 }, (_, index) => ["assistant", String(2 * index + 2)]));
+    assert.deepEqual(errors, []);
+  } catch (error) {
+    throw new Error(`${error.message}\nPage errors: ${JSON.stringify(errors)}\n${vite.readOutput()}`, { cause: error });
+  }
+});
+
 test("pending delivery appears immediately and retries the original request without replacing a newer draft", {
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
   timeout: 60_000
