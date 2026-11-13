@@ -104,8 +104,22 @@ const INVITE_NOTICES = Object.freeze([
       message: "Invite created, but email delivery failed. Copy the invite link to share it."
     }
   },
+  // An application that holds invitations until its email is set up, and sends them then.
   {
-    delivery: { status: "queued", message: "A status this client does not know yet." },
+    delivery: { status: "held", message: "Held until email is set up." },
+    notice: {
+      style: "success",
+      message: "Invite created. Email isn't set up yet, so it will be sent once it is: copy the link to share it now."
+    }
+  },
+  // A status this client does not know shows the server's own message, which only the server can word; without one,
+  // the neutral text, which claims no email.
+  {
+    delivery: { status: "queued", message: "Invite queued: it goes out within the hour." },
+    notice: { style: "success", message: "Invite queued: it goes out within the hour." }
+  },
+  {
+    delivery: { status: "deferred" },
     notice: { style: "success", message: "Invite created. Copy the invite link to share it." }
   }
 ]);

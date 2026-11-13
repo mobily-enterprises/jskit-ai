@@ -227,16 +227,22 @@ capability from one of the application's providers. Without one, invitations
 are still created and delivery reports `mailer_unconfigured`. After **Send
 invite**, the Members panel's notice follows the delivery status: `sent` says
 the invite was sent; `simulated` (a test copy, whose `SIDE_EFFECTS` is not
-`live`) and `mailer_unconfigured` say no email was sent; `failed` is a warning
-that the email failed. Each of those three points to the invite link, which
-the panel shows under the form with its **Copy** button. A status the panel
-does not know says only that the invite was created. The mailer, typed
+`live`) and `mailer_unconfigured` say no email was sent; `held` says email
+isn't set up yet, so the invite will be sent once it is; `failed` is a warning
+that the email failed. Each of those four points to the invite link, which
+the panel shows under the form with its **Copy** button. For a status the
+panel does not know, it shows the delivery result's own `message` (in the
+person's language when its `messageCode` has a translation), and without one
+says only that the invite was created. The mailer, typed
 `WorkspaceInviteMailer` in `@jskit-ai/workspaces-core/server/types`, is an
 object whose `sendWorkspaceInvite(message, options)` receives `{ inviteId,
 email, inviteUrl, workspace, inviter, roleSid, expiresAt, locale, message }`,
-where the inner `message` is the rendered `{ subject, text, html }`. `inviteId`
-is the saved invitation's id and `workspace.id` its workspace's, so a mailer
-that holds email until delivery is set up can record which invitation each one
+where the inner `message` is the rendered `{ subject, text, html }`, and
+answers `{ status, message, messageCode, messageParams, providerMessageId }`
+(every field optional; the status defaults to `sent`). A mailer that holds
+email until the application's email is set up, and sends it then, answers
+`status: "held"`. `inviteId` is the saved invitation's id and `workspace.id`
+its workspace's, so such a mailer can record which invitation each email
 belongs to without reading `workspace_invites`:
 
 ```js

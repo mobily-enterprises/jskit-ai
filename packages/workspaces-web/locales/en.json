@@ -39,6 +39,7 @@
         "inviteCreatedDeliveryFailed": "Invite created, but email delivery failed. Copy the invite link to share it.",
         "inviteCreatedSimulated": "Invite created. This is a test copy, so no email was sent: copy the link to share it.",
         "inviteCreatedMailerUnconfigured": "Invite created. Email isn't set up, so no email was sent: copy the link to share it.",
+        "inviteCreatedHeld": "Invite created. Email isn't set up yet, so it will be sent once it is: copy the link to share it now.",
         "inviteCreated": "Invite created. Copy the invite link to share it.",
         "linkReady": "Invite link ready to copy.",
         "linkCopied": "Invite link copied.",

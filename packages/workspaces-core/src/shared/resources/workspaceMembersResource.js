@@ -117,10 +117,12 @@ const workspaceInviteCreateOutputSchema = createSchema({
     type: "object",
     required: true,
     schema: createSchema({
+      // The invite mailer's own status: the members panel words sent, simulated, mailer_unconfigured, held and failed
+      // itself, and shows the message of any other.
       status: {
         type: "string",
         required: true,
-        enum: ["sent", "simulated", "failed", "mailer_unconfigured"]
+        minLength: 1
       },
       message: {
         type: "string",

@@ -37,7 +37,7 @@ function useWorkspaceMembersActions({
   workspaceMembersList,
   workspaceInvitesList
 }) {
-  const { t } = useJskitText();
+  const { t, serverMessage } = useJskitText();
   const inviteFeedback = useUiFeedback();
   const membersFeedback = useUiFeedback();
   const teamFeedback = useUiFeedback();
@@ -165,15 +165,16 @@ function useWorkspaceMembersActions({
       createdInviteDeliveryStatus.value = String(delivery.status || "").trim().toLowerCase();
       forms.invite.email = "";
       await workspaceInvitesList.reload();
-      reportInviteDelivery(createdInviteDeliveryStatus.value);
+      reportInviteDelivery(createdInviteDeliveryStatus.value, delivery);
     } catch (error) {
       inviteFeedback.error(error, t("jskit.workspaces.members.createInviteFailed"));
     }
   }
 
   // The notice for each delivery status the server answers. Only `sent` says an email went out; the others send the
-  // person to the invite link the panel shows with its Copy button. A status this client does not know claims nothing.
-  function reportInviteDelivery(deliveryStatus) {
+  // person to the invite link the panel shows with its Copy button. `held` is an email the application sends once its
+  // email is set up. A status this client does not know shows the server's own message, else claims nothing.
+  function reportInviteDelivery(deliveryStatus, delivery) {
     switch (deliveryStatus) {
       case "sent":
         inviteFeedback.success(t("jskit.workspaces.members.inviteSent"));
@@ -184,11 +185,14 @@ function useWorkspaceMembersActions({
       case "mailer_unconfigured":
         inviteFeedback.success(t("jskit.workspaces.members.inviteCreatedMailerUnconfigured"));
         return;
+      case "held":
+        inviteFeedback.success(t("jskit.workspaces.members.inviteCreatedHeld"));
+        return;
       case "failed":
         inviteFeedback.warning(t("jskit.workspaces.members.inviteCreatedDeliveryFailed"));
         return;
       default:
-        inviteFeedback.success(t("jskit.workspaces.members.inviteCreated"));
+        inviteFeedback.success(serverMessage(delivery, t("jskit.workspaces.members.inviteCreated")));
     }
   }
 
