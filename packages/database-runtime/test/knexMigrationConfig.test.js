@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -17,17 +18,20 @@ const connectionEnvironment = Object.freeze({
   DB_PASSWORD: "secret"
 });
 
-test("createKnexMigrationConfig fixes MySQL without requiring DB_CLIENT", () => {
+test("createKnexMigrationConfig fixes MySQL without requiring DB_CLIENT", (context) => {
+  const appRoot = mkdtempSync(path.join(os.tmpdir(), "jskit-app-mysql-"));
+  context.after(() => rmSync(appRoot, { recursive: true, force: true }));
+  mkdirSync(path.join(appRoot, "migrations"));
   const config = createKnexMigrationConfig({
     client: "mysql2",
     environment: connectionEnvironment,
-    appRoot: "/srv/catalogue"
+    appRoot
   });
 
   assert.equal(config.client, "mysql2");
   assert.equal(config.connection.port, 3306);
   assert.equal(config.pool, undefined);
-  assert.deepEqual(config.migrations.directory, ["/srv/catalogue/migrations"]);
+  assert.deepEqual(config.migrations.directory, [path.join(appRoot, "migrations")]);
 });
 
 test("an application without migrations/constraints/ migrates, and its constraints run once the directory exists", async (context) => {
@@ -63,6 +67,31 @@ test("an application without migrations/constraints/ migrates, and its constrain
   });
 });
 
+test("an application without migrations/ migrates the tables its packages hold", async (context) => {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-app-no-migrations-"));
+  context.after(() => rm(appRoot, { recursive: true, force: true }));
+  const packageRoot = path.join(appRoot, "node_modules", "@example", "ledger-core");
+  await mkdir(path.join(packageRoot, "migrations"), { recursive: true });
+  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({ dependencies: { "@example/ledger-core": "1.0.0" } }));
+  await writeFile(path.join(packageRoot, "package.json"), JSON.stringify({
+    name: "@example/ledger-core",
+    version: "1.0.0",
+    jskit: { kind: "runtime", migrations: { directories: ["migrations"] } }
+  }));
+  await writeFile(path.join(packageRoot, "migrations", "20260101000000_entries.cjs"),
+    "exports.up = (knex) => knex.schema.createTable(\"entries\", (table) => table.increments(\"id\"));\nexports.down = () => {};\n");
+
+  const { migrations } = await createKnexMigrationConfigFromApp({ client: "pg", environment: connectionEnvironment, appRoot });
+  assert.deepEqual(migrations.directory, [path.join(packageRoot, "migrations")]);
+  const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true, migrations });
+  try {
+    await knex.migrate.latest();
+    assert.deepEqual(await knex("knex_migrations").orderBy("id").pluck("name"), ["20260101000000_entries.cjs"]);
+  } finally {
+    await knex.destroy();
+  }
+});
+
 test("createKnexMigrationConfig fixes PostgreSQL without requiring DB_CLIENT", () => {
   const config = createKnexMigrationConfig({
     client: "pg",
@@ -90,6 +119,7 @@ test("installed package migrations run from their owning packages without copied
   });
 
   const packageRoot = path.join(appRoot, "node_modules", "@example", "accounts-core");
+  await mkdir(path.join(appRoot, "migrations"), { recursive: true });
   await mkdir(path.join(packageRoot, "migrations", "constraints"), { recursive: true });
   await writeFile(path.join(appRoot, "package.json"), JSON.stringify({
     dependencies: { "@example/accounts-core": "1.0.0" }
@@ -292,6 +322,8 @@ test("a package's migrations and constraints run after those of the packages its
     directoryOf["@example/notes-core:migrations"]
   ];
   assert.deepEqual(await discoverPackageMigrationDirectories({ appRoot }), packageDirectories);
+  // The application's own migrations run after every package's and before any constraints.
+  await mkdir(path.join(appRoot, "migrations"));
   const { migrations } = await createKnexMigrationConfigFromApp({ client: "mysql2", environment: connectionEnvironment, appRoot });
   assert.deepEqual(migrations.directory, [
     ...packageDirectories,

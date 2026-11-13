@@ -33,7 +33,8 @@ function createKnexMigrationConfig({
   }
   const dialectId = normalizeDatabaseClient(client);
   const resolvedMigrationsDirectory = path.resolve(appRoot, migrationsDirectory);
-  // An application needs no constraints/ until it has a constraint; Knex refuses a missing directory.
+  // An application needs no migrations/ until it has a migration of its own (its packages may hold all its tables), and
+  // no constraints/ until it has a constraint; Knex refuses a missing directory.
   const applicationConstraintsDirectory = path.join(resolvedMigrationsDirectory, "constraints");
   const pool = resolveKnexPool(dialectId);
 
@@ -50,7 +51,7 @@ function createKnexMigrationConfig({
       // can then reference application tables such as users.
       directory: [
         ...packageMigrationDirectories.map((directory) => path.resolve(directory)),
-        resolvedMigrationsDirectory,
+        ...(existsSync(resolvedMigrationsDirectory) ? [resolvedMigrationsDirectory] : []),
         ...packageConstraintDirectories.map((directory) => path.resolve(directory)),
         ...(existsSync(applicationConstraintsDirectory) ? [applicationConstraintsDirectory] : [])
       ],
