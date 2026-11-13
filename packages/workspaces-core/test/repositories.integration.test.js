@@ -90,6 +90,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   let userSettings;
   let workspaces;
   let memberships;
+  let membershipTable;
   let invites;
   let memberPages;
   let settings;
@@ -130,6 +131,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     }));
     ({ profiles, userSettings, profileProjector, usersExtensions } = capabilities);
     const resources = await runtime.own("workspaces.core", WORKSPACES_TABLES);
+    membershipTable = resources.workspaceMemberships;
     ({ workspaces, memberships } = createWorkspaceRecords(resources));
     invites = createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
     memberPages = createMemberPagesRepository({ workspaceMemberships: resources.workspaceMemberships, userProfiles: profiles });
@@ -328,7 +330,8 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     const locking = sql.filter((statement) => /\bfor (?:update|share|no key update)\b|\block in share mode\b/iu.test(statement));
     const clause = { pg: /\bfor share\b/iu, mysql2: /\block in share mode\b/iu }[configuration.client];
     if (clause) {
-      // PostgreSQL's lockWhere reads its rows again after the lock, so the membership's lock may be two statements.
+      // One locking read of each table, in the shared mode: the membership's lockWhere takes its one row with limit: 1.
+      assert.equal(locking.length, 2, locking.join(" | "));
       assert.ok(locking.some((statement) => /\bfrom [`"]?workspaces[`"]? /u.test(statement)), sql.join(" | "));
       assert.ok(locking.some((statement) => /\bfrom [`"]?workspace_memberships[`"]? /u.test(statement)), sql.join(" | "));
       assert.ok(locking.every((statement) => clause.test(statement)), locking.join(" | "));
@@ -341,6 +344,48 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       await assert.rejects(memberships.lockByWorkspaceIdAndUserId(workspace.id, owner.id, exclusive), { name: "TypeError", message: /lockMode is "update" \(the default\), "noKeyUpdate" or "share"/u });
     }));
     assert.equal(refused.sql.filter((statement) => /^\s*select\b/iu.test(statement)).length, 0, refused.sql.join(" | "));
+  });
+
+  test("memberships.lockByWorkspaceIdAndUserId sends what the membership's lock(id) sends, among 10 and 200 members", async () => {
+    const usernames = Array.from({ length: 210 }, (_, index) => `locker-${String(index).padStart(3, "0")}`);
+    const users = await insertUsers(usernames);
+    const ownerId = users.get("locker-000");
+    const small = await workspaces.insert({ slug: "lock-small", name: "Lock Small", ownerUserId: ownerId });
+    const large = await workspaces.insert({ slug: "lock-large", name: "Lock Large", ownerUserId: ownerId });
+    const membership = (workspaceId, username) => ({
+      workspace_id: workspaceId,
+      user_id: users.get(username),
+      role_sid: users.get(username) === ownerId ? "owner" : "member",
+      status: "active"
+    });
+    await insertRows("workspace_memberships", [
+      ...usernames.slice(0, 10).map((username) => membership(small.id, username)),
+      ...["locker-000", ...usernames.slice(10, 210)].map((username) => membership(large.id, username))
+    ]);
+    // The statements a lock sends inside its transaction.
+    const statementsIn = async (lock) => {
+      // MariaDB and MySQL read a table's indexes once per process and set of filtered columns: not this measure.
+      await workspaces.withTransaction({}, lock);
+      return workspaces.withTransaction({}, async (txOptions) => {
+        const { result, statements } = await statementsOf(() => lock(txOptions));
+        assert.ok(result);
+        return statements;
+      });
+    };
+    const costs = [];
+    for (const [workspace, username] of [[small, "locker-004"], [large, "locker-150"]]) {
+      const userId = users.get(username);
+      const { id } = await memberships.findByWorkspaceIdAndUserId(workspace.id, userId);
+      costs.push({
+        lock: await statementsIn((txOptions) => membershipTable.lock(id, txOptions)),
+        lockByWorkspaceIdAndUserId: await statementsIn((txOptions) => memberships.lockByWorkspaceIdAndUserId(workspace.id, userId, txOptions))
+      });
+    }
+    // SQLite's first lock in a transaction takes its write lock first, and reads the two links it shows, as it enforces
+    // foreign keys only on connections that turn them on. Elsewhere the links' foreign keys answer for them: the
+    // workspaces and the profiles are public tables with no row policy.
+    const cost = configuration.client === "better-sqlite3" ? 4 : 1;
+    assert.deepEqual(costs, [{ lock: cost, lockByWorkspaceIdAndUserId: cost }, { lock: cost, lockByWorkspaceIdAndUserId: cost }]);
   });
 
   test("another owner's report joins the workspaces' and memberships' join sources in one statement, each keeping its filters and the report its scope", async (t) => {

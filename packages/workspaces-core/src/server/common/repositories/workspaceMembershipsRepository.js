@@ -90,7 +90,8 @@ function createRepository({ workspaceMemberships }) {
 
   /**
    * The membership as findByWorkspaceIdAndUserId reads it, locked until the caller's transaction ends, or null. Another
-   * change of the same membership that locks it first waits, and then reads what this one left.
+   * change of the same membership that locks it first waits, and then reads what this one left. The workspace and the
+   * user are the table's unique key, so the lock takes its one row with `limit: 1`: one statement, as lock(id) is.
    * @param {unknown} workspaceId
    * @param {unknown} userId
    * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options The caller's transaction.
@@ -102,7 +103,8 @@ function createRepository({ workspaceMemberships }) {
       return null;
     }
 
-    const [row] = await workspaceMemberships.lockWhere({ workspace: normalizedWorkspaceId, user: normalizedUserId }, options);
+    const filters = { workspace: normalizedWorkspaceId, user: normalizedUserId };
+    const [row] = await workspaceMemberships.lockWhere(filters, { ...options, limit: 1 });
     return normalizeMembershipRecord(row || null);
   }
 
