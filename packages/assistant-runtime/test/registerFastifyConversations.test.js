@@ -6,6 +6,11 @@ import { createConversationRuntime, createMemoryConversationStorage } from "@jsk
 import { createSocketIoClient } from "@jskit-ai/realtime/client/runtime";
 import { registerFastifyConversations } from "../src/server/registerFastifyConversations.js";
 import { ASSISTANT_CONVERSATION_EVENT, ASSISTANT_CONVERSATION_SUBSCRIBE } from "../src/shared/conversationRealtime.js";
+// The routes load realtime's provider, and the API engine its AI client, the first time they need them. Loading both
+// with the file keeps that import, which takes seconds on a cold or busy machine, out of the 20 s the test's own work
+// is bounded by.
+import "@jskit-ai/realtime/server/RealtimeProvider";
+import "../../assistant-core/src/server/lib/aiConnectionClient.js";
 
 const config = {
   surfaceDefinitions: { home: { enabled: true, requiresWorkspace: false } },
