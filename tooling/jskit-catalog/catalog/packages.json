@@ -14,6 +14,7 @@
       "@jskit-ai/assistant-voice": "0.2.65",
       "@jskit-ai/assistant-voice-sherpa": "0.1.112",
       "@jskit-ai/auth-core": "0.2.28",
+      "@jskit-ai/auth-pass": "0.1.0",
       "@jskit-ai/auth-provider-local-core": "0.2.33",
       "@jskit-ai/auth-provider-local-db-core": "0.1.182",
       "@jskit-ai/auth-provider-oidc-core": "0.2.45",
@@ -644,10 +645,6 @@
                 "summary": "Exports server auth access, shared auth action, and Fastify auth policy providers plus server auth utility modules."
               },
               {
-                "subpath": "./server/passSignIn",
-                "summary": "One-time signed passes: signPass for the issuer's server (Ed25519, one person, one audience, one resource, about 60 seconds), verifyPass for the application, and resolvePassSignInFromEnv, which reads AUTH_PASS_PUBLIC_KEY, AUTH_PASS_AUDIENCE and AUTH_PASS_RESOURCE."
-              },
-              {
                 "subpath": "./shared",
                 "summary": "Exports shared auth client helpers (createApi and runAuthSignOutFlow), with structured subpaths at ./shared/authApi and ./shared/signOutFlow."
               },
@@ -671,6 +668,29 @@
           "@fastify/csrf-protection": "^8.0.1",
           "json-rest-schema": "^1.0.20"
         },
+        "peerDependencies": {
+          "@jskit-ai/kernel": "0.2.26"
+        }
+      }
+    },
+    {
+      "packageId": "@jskit-ai/auth-pass",
+      "version": "0.1.0",
+      "description": "One-time signed sign-in passes (Ed25519, one person, one application, one resource, about a minute): signPass for the issuer, verifyPass and its refusals for the application. It installs no providers, so an application with its own sign-in can check passes with it alone.",
+      "jskit": {
+        "kind": "runtime",
+        "metadata": {
+          "apiSummary": {
+            "surfaces": [
+              {
+                "subpath": "./server",
+                "summary": "One-time signed passes: signPass for the issuer's server (Ed25519, one person, one audience, one resource, about 60 seconds), verifyPass for the application, resolvePassSignInFromEnv, which reads AUTH_PASS_PUBLIC_KEY, AUTH_PASS_AUDIENCE and AUTH_PASS_RESOURCE, and PASS_TEXTS with createPassError, the refusals (auth.pass.*) an application throws for a used pass or one naming nobody it knows."
+              }
+            ]
+          }
+        }
+      },
+      "packageJson": {
         "peerDependencies": {
           "@jskit-ai/kernel": "0.2.26"
         }
@@ -736,6 +756,7 @@
       },
       "packageJson": {
         "dependencies": {
+          "@jskit-ai/auth-pass": "0.1.0",
           "openid-client": "6.8.8"
         },
         "peerDependencies": {
@@ -1299,6 +1320,7 @@
       },
       "packageJson": {
         "dependencies": {
+          "@jskit-ai/auth-pass": "0.1.0",
           "uqr": "0.1.3"
         },
         "peerDependencies": {

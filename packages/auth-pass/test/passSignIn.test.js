@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync, sign } from "node:crypto";
 import test from "node:test";
-import { resolvePassSignInFromEnv, signPass, verifyPass } from "../src/server/passSignIn.js";
+import { resolvePassSignInFromEnv, signPass, verifyPass } from "../src/server/index.js";
 
 const NOW = Date.parse("2026-11-13T10:00:00.000Z");
 const issuer = generateKeyPairSync("ed25519");

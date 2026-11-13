@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { generateKeyPairSync } from "node:crypto";
-import { signPass } from "@jskit-ai/auth-core/server/passSignIn";
+import { signPass } from "@jskit-ai/auth-pass/server";
 import { NO_PASSWORD } from "../src/server/lib/accounts.js";
 
 /**

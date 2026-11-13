@@ -1,5 +1,5 @@
 import { createPublicKey, randomBytes, sign, verify } from "node:crypto";
-import { AUTH_TEXTS, createAuthError } from "./authTexts.js";
+import { PASS_TEXTS, createPassError } from "./passTexts.js";
 
 // A one-time sign-in pass: a short-lived token a trusted issuer signs with its Ed25519 key, naming one person
 // (`sub`), the application it is for (`aud`), one resource of that application (`resource`) and its own id (`jti`),
@@ -158,29 +158,29 @@ function verifyPass(token, { publicKey, audience, resource }, now = Date.now()) 
   const parts = typeof token === "string" && token.length <= PASS_MAX_LENGTH ? token.split(".") : [];
   const header = parts.length === 3 ? parseBase64urlJson(parts[0]) : null;
   if (header?.alg !== PASS_ALGORITHM || header.typ !== PASS_TYPE) {
-    throw createAuthError(AUTH_TEXTS.passMalformed);
+    throw createPassError(PASS_TEXTS.passMalformed);
   }
   if (!verify(null, Buffer.from(`${parts[0]}.${parts[1]}`), publicKey, Buffer.from(parts[2], "base64url"))) {
-    throw createAuthError(AUTH_TEXTS.passBadSignature);
+    throw createPassError(PASS_TEXTS.passBadSignature);
   }
   const claims = parseBase64urlJson(parts[1]);
   if (!claims || ![claims.jti, claims.sub, claims.aud, claims.resource].every(isClaimText) ||
     !isClaimSeconds(claims.iat) || !isClaimSeconds(claims.exp)) {
-    throw createAuthError(AUTH_TEXTS.passMalformed);
+    throw createPassError(PASS_TEXTS.passMalformed);
   }
   if (claims.aud !== audience) {
-    throw createAuthError(AUTH_TEXTS.passWrongAudience);
+    throw createPassError(PASS_TEXTS.passWrongAudience);
   }
   if (claims.resource !== resource) {
-    throw createAuthError(AUTH_TEXTS.passWrongResource);
+    throw createPassError(PASS_TEXTS.passWrongResource);
   }
   const nowSeconds = Math.floor(now / 1000);
   if (claims.exp + PASS_CLOCK_SKEW_SECONDS <= nowSeconds) {
-    throw createAuthError(AUTH_TEXTS.passExpired);
+    throw createPassError(PASS_TEXTS.passExpired);
   }
   const lifetime = claims.exp - claims.iat;
   if (claims.iat - PASS_CLOCK_SKEW_SECONDS > nowSeconds || lifetime < 1 || lifetime > PASS_MAX_LIFETIME_SECONDS) {
-    throw createAuthError(AUTH_TEXTS.passMalformed);
+    throw createPassError(PASS_TEXTS.passMalformed);
   }
   return Object.freeze({
     id: claims.jti,

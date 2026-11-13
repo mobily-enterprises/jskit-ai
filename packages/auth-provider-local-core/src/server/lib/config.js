@@ -1,6 +1,6 @@
 import { parseBooleanFlag } from "@jskit-ai/auth-core/server/booleanFlag";
 import { assertDevAuthPolicy, resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth-core/server/devAuth";
-import { resolvePassSignInFromEnv } from "@jskit-ai/auth-core/server/passSignIn";
+import { resolvePassSignInFromEnv } from "@jskit-ai/auth-pass/server";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";

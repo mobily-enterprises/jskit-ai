@@ -1,5 +1,5 @@
 import { isDevAuthBootstrapEnabled, resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth-core/server/devAuth";
-import { resolvePassSignInFromEnv } from "@jskit-ai/auth-core/server/passSignIn";
+import { resolvePassSignInFromEnv } from "@jskit-ai/auth-pass/server";
 import { resolveAuthRateLimits } from "./authRateLimits.js";
 import { AuthController } from "./controllers/AuthController.js";
 import { buildRoutes } from "./routes/authRoutes.js";

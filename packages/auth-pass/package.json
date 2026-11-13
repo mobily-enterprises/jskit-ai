@@ -1,0 +1,29 @@
+{
+  "name": "@jskit-ai/auth-pass",
+  "version": "0.1.0",
+  "type": "module",
+  "description": "One-time signed sign-in passes (Ed25519, one person, one application, one resource, about a minute): signPass for the issuer, verifyPass and its refusals for the application. It installs no providers, so an application with its own sign-in can check passes with it alone.",
+  "scripts": {
+    "test": "jskit test"
+  },
+  "exports": {
+    "./server": "./src/server/index.js",
+    "./locales/en.json": "./locales/en.json"
+  },
+  "peerDependencies": {
+    "@jskit-ai/kernel": "0.2.26"
+  },
+  "jskit": {
+    "kind": "runtime",
+    "metadata": {
+      "apiSummary": {
+        "surfaces": [
+          {
+            "subpath": "./server",
+            "summary": "One-time signed passes: signPass for the issuer's server (Ed25519, one person, one audience, one resource, about 60 seconds), verifyPass for the application, resolvePassSignInFromEnv, which reads AUTH_PASS_PUBLIC_KEY, AUTH_PASS_AUDIENCE and AUTH_PASS_RESOURCE, and PASS_TEXTS with createPassError, the refusals (auth.pass.*) an application throws for a used pass or one naming nobody it knows."
+          }
+        ]
+      }
+    }
+  }
+}

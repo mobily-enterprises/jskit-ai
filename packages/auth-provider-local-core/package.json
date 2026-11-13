@@ -12,6 +12,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
+    "@jskit-ai/auth-pass": "0.1.0",
     "openid-client": "6.8.8"
   },
   "description": "Local auth provider with a file backend default, no database requirement, and optional Google, Microsoft and GitHub sign-in.",

@@ -78,9 +78,9 @@
 
 /**
  * The `auth.local.pass-identity` capability: the application's mapping from a verified one-time pass
- * (`@jskit-ai/auth-core/server/passSignIn`) to the local account it signs in, by the account's id, or null when the
+ * (`@jskit-ai/auth-pass/server`) to the local account it signs in, by the account's id, or null when the
  * pass's subject has none, which refuses the pass as unmapped. Required while AUTH_PASS_PUBLIC_KEY is set.
- * @typedef {(pass: import("@jskit-ai/auth-core/server/passSignIn").AuthPass) => Promise<string | null>} AuthLocalPassIdentity
+ * @typedef {(pass: import("@jskit-ai/auth-pass/server").AuthPass) => Promise<string | null>} AuthLocalPassIdentity
  */
 
 /**

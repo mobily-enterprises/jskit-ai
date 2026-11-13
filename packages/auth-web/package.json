@@ -28,6 +28,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
+    "@jskit-ai/auth-pass": "0.1.0",
     "uqr": "0.1.3"
   },
   "peerDependencies": {

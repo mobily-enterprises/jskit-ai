@@ -65,15 +65,6 @@
       "password": {
         "updatedSignIn": "Password updated. Sign in with your new password."
       },
-      "pass": {
-        "malformed": "This sign-in pass is not a valid pass.",
-        "badSignature": "This sign-in pass was not signed by the trusted issuer.",
-        "expired": "This sign-in pass has expired. Open the app again from where you came.",
-        "wrongAudience": "This sign-in pass is for another application.",
-        "wrongResource": "This sign-in pass is for another resource.",
-        "replayed": "This sign-in pass was already used. Open the app again from where you came.",
-        "unmapped": "This sign-in pass names a person who has no account here."
-      },
       "denied": {
         "notAllowlisted": "Sign-in succeeded, but this account is not allowed to access this application.",
         "blocked": "Sign-in succeeded, but this account has been blocked from accessing this application.",

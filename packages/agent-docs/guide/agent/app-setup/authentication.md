@@ -596,13 +596,14 @@ accepted; the file backend keeps them in `passes.passwd` in its store. A pass
 signs in an ordinary session: it does not prove a second factor, which a route
 that asks for one still asks for.
 
-The issuer signs passes with `signPass` from
-`@jskit-ai/auth-core/server/passSignIn`, or with any JOSE library: a pass is a
-compact JWS with the header `{ "alg": "EdDSA", "typ": "pass+jwt" }` and the
-claims above plus `iat` and `exp`, in seconds.
+The pass itself is `@jskit-ai/auth-pass`, a package that installs no providers.
+The issuer signs passes with `signPass` from `@jskit-ai/auth-pass/server`, or
+with any JOSE library: a pass is a compact JWS with the header
+`{ "alg": "EdDSA", "typ": "pass+jwt" }` and the claims above plus `iat` and
+`exp`, in seconds.
 
 ```js
-import { signPass } from "@jskit-ai/auth-core/server/passSignIn";
+import { signPass } from "@jskit-ai/auth-pass/server";
 
 // On the issuer's server, which alone holds the private key (a KeyObject or PEM).
 const pass = signPass({ privateKey, subject: "ada@example.com", audience: "editor", resource: "machine-7" });
@@ -617,6 +618,17 @@ starts with it, and passes signed with the old key are refused. A person who
 holds a valid pass of their own could post it from another person's browser
 and sign that browser in as themselves, as with any sign-in link, so an issuer
 signs passes only for its signed-in person, just before posting them.
+
+An application with a sign-in of its own, not local auth, checks passes with
+`@jskit-ai/auth-pass/server` alone. Depending on it installs nothing, while
+depending on auth-core would install auth-core's auth policy, CSRF and auth
+actions in that application. `resolvePassSignInFromEnv(env)` reads the same
+three settings (null without the key). `verifyPass(token, settings)` answers
+the verified pass or throws one of the refusals above. Single use and the
+mapping are then the application's: it records `pass.id` until
+`pass.usableUntil` and throws `createPassError(PASS_TEXTS.passReplayed)` for a
+pass it saw before, then `createPassError(PASS_TEXTS.passUnmapped)` for a
+subject it does not know.
 
 ## Application-owned recovery email
 
