@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/payments-core",
-  "version": "0.2.23",
+  "version": "0.2.24",
   "type": "module",
   "description": "Application-owned payment configuration, subscription access and transactional usage credits.",
   "exports": {
@@ -23,7 +23,7 @@
     "test": "jskit test"
   },
   "dependencies": {
-    "@jskit-ai/resource-core": "0.1.216",
+    "@jskit-ai/resource-core": "0.1.217",
     "@paddle/paddle-node-sdk": "3.10.0",
     "ajv": "8.20.0",
     "stripe": "22.6.2"
@@ -69,9 +69,9 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/database-runtime": "0.1.274",
-    "@jskit-ai/kernel": "0.2.25",
-    "@jskit-ai/resource-runtime": "0.2.32"
+    "@jskit-ai/database-runtime": "0.1.275",
+    "@jskit-ai/kernel": "0.2.26",
+    "@jskit-ai/resource-runtime": "0.2.33"
   },
   "peerDependenciesMeta": {
     "@jskit-ai/database-runtime": {

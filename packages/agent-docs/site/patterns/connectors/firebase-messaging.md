@@ -166,6 +166,6 @@ with a setter after construction, or keep a module-level registry.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/connectors-catalog@0.2.35`
+- Owner: `@jskit-ai/connectors-catalog@0.2.36`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/connectors-catalog/patterns/firebase-messaging/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/connectors-catalog/patterns/firebase-messaging/example)
