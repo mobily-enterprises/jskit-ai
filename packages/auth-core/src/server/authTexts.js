@@ -16,7 +16,15 @@ const AUTH_TEXTS = Object.freeze({
   devUserNotFound: Object.freeze({ status: 400, code: "auth.dev.userNotFound" }),
   displayNameRequired: Object.freeze({ status: 400, code: "auth.profile.displayNameRequired" }),
   recoveryTokenRequired: Object.freeze({ status: 400, code: "auth.recovery.tokenRequired" }),
-  passwordUpdatedSignIn: Object.freeze({ code: "auth.password.updatedSignIn" })
+  passwordUpdatedSignIn: Object.freeze({ code: "auth.password.updatedSignIn" }),
+  // A one-time sign-in pass that was refused (passSignIn.js), one entry per reason.
+  passMalformed: Object.freeze({ status: 401, code: "auth.pass.malformed" }),
+  passBadSignature: Object.freeze({ status: 401, code: "auth.pass.badSignature" }),
+  passExpired: Object.freeze({ status: 401, code: "auth.pass.expired" }),
+  passWrongAudience: Object.freeze({ status: 401, code: "auth.pass.wrongAudience" }),
+  passWrongResource: Object.freeze({ status: 401, code: "auth.pass.wrongResource" }),
+  passReplayed: Object.freeze({ status: 401, code: "auth.pass.replayed" }),
+  passUnmapped: Object.freeze({ status: 403, code: "auth.pass.unmapped" })
 });
 
 function authText({ code } = {}, params = {}) {

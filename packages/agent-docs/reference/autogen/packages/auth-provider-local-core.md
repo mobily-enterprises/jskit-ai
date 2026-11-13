@@ -93,6 +93,7 @@ Local functions
 Exports
 - `parseIdentities(content)`
 - `parseOAuthAttempts(content)`
+- `parsePasses(content)`
 - `parseRecovery(content)`
 - `parseRegistrations(content)`
 - `parseSecondFactors(content)`
@@ -101,6 +102,7 @@ Exports
 - `parseUsers(content)`
 - `serializeIdentities(identities)`
 - `serializeOAuthAttempts(attempts)`
+- `serializePasses(records)`
 - `serializeRecovery(records)`
 - `serializeRegistrations(records)`
 - `serializeSecondFactors(records)`
@@ -155,6 +157,11 @@ Local functions
 ### `src/server/lib/oauthFlows.js`
 Exports
 - `createLocalOAuthFlows({ backend, config, firstAccountSetup, logger, oauthProvidersById, profileProjector, securityStatus, sessions })`
+
+### `src/server/lib/passSignIn.js`
+Exports
+- `createLocalPassSignIn({ backend, config, passIdentity, profileProjector, sessions })`
+- `noPassIdentities()`
 
 ### `src/server/lib/passwordFlows.js`
 Exports
@@ -218,7 +225,7 @@ Exports
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passwordStrategy, profileProjector, recoverySender, secondFactorEvents })`
+- `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passIdentity = noPassIdentities, passwordStrategy, profileProjector, recoverySender, secondFactorEvents })`
 
 ### `src/server/lib/sessions.js`
 Exports
@@ -265,6 +272,7 @@ Exports
 ### `src/server/types.js`
 Exports
 - `type AuthLocalBackendTransaction`
+- `type AuthLocalPassIdentity`
 - `type AuthLocalRegistration`
 - `type AuthLocalSecondFactor`
 - `type AuthLocalSecondFactorEvent`
@@ -306,6 +314,16 @@ Exports
 - `startOidcProvider({ account, appUrl = APP_URL, consentPage = false } = {})`
 Local functions
 - `readBody(req)`
+
+### `test-support/passSignInScenario.js`
+Exports
+- `createPassIssuer()`
+- `exercisePassSignIn(service, { backend, issuer })`
+- `passIdentityByEmail(backend)`
+- `passwordlessAccount({ id, email, displayName, disabled = false })`
+- `sessionCookies(session)`
+Local functions
+- `refused(code, status = 401)`
 
 ### `test-support/secondFactorScenario.js`
 Exports

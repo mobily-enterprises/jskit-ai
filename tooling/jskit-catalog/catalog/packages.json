@@ -644,6 +644,10 @@
                 "summary": "Exports server auth access, shared auth action, and Fastify auth policy providers plus server auth utility modules."
               },
               {
+                "subpath": "./server/passSignIn",
+                "summary": "One-time signed passes: signPass for the issuer's server (Ed25519, one person, one audience, one resource, about 60 seconds), verifyPass for the application, and resolvePassSignInFromEnv, which reads AUTH_PASS_PUBLIC_KEY, AUTH_PASS_AUDIENCE and AUTH_PASS_RESOURCE."
+              },
+              {
                 "subpath": "./shared",
                 "summary": "Exports shared auth client helpers (createApi and runAuthSignOutFlow), with structured subpaths at ./shared/authApi and ./shared/signOutFlow."
               },
@@ -713,7 +717,7 @@
               },
               {
                 "subpath": "./server/types",
-                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender, auth.local.confirmation-sender, auth.local.confirmation-mode and auth.local.second-factor-events capabilities, and of the configuration, passwords and sessions local auth's modules share."
+                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender, auth.local.confirmation-sender, auth.local.confirmation-mode, auth.local.second-factor-events and auth.local.pass-identity capabilities, and of the configuration, passwords and sessions local auth's modules share."
               }
             ],
             "extensionCapabilities": [
@@ -724,7 +728,8 @@
               "auth.local.recovery-sender",
               "auth.local.confirmation-sender",
               "auth.local.confirmation-mode",
-              "auth.local.second-factor-events"
+              "auth.local.second-factor-events",
+              "auth.local.pass-identity"
             ]
           }
         }
@@ -797,6 +802,9 @@
                 },
                 {
                   "tableName": "auth_local_second_factors"
+                },
+                {
+                  "tableName": "auth_local_used_passes"
                 }
               ]
             }
@@ -996,6 +1004,7 @@
             "auth.service",
             "runtime.config",
             "runtime.env",
+            "runtime.fastify",
             "runtime.http"
           ]
         },
@@ -1070,6 +1079,11 @@
                 "method": "POST",
                 "path": "/api/login/otp/verify",
                 "summary": "Verify one-time email login code and create session"
+              },
+              {
+                "method": "POST",
+                "path": "/api/login/pass",
+                "summary": "Sign in with a one-time signed pass posted as a form, when AUTH_PASS_PUBLIC_KEY is set"
               },
               {
                 "method": "POST",

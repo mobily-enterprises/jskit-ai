@@ -74,6 +74,7 @@ Exports
 - `localAuthSecondFactorResource`
 - `localAuthSessionResource`
 - `localAuthSignInFailureResource`
+- `localAuthUsedPassResource`
 - `localAuthUserResource`
 Local functions
 - `idStartsWith(query, prefix, { column })`
@@ -98,6 +99,10 @@ Exports
 - `requiredDateTime(value, fallback = nowIso())`
 - `text(value)`
 
+### `src/server/lib/usedPassRecords.js`
+Exports
+- `usedPassRecords(usedPasses, options)`
+
 ### `src/server/providers/AuthLocalDatabaseBackendProvider.js`
 Exports
 - `AuthLocalDatabaseBackendProvider`
@@ -121,6 +126,10 @@ Exports
 - None
 
 ### `migrations/auth_local_db_protection.cjs`
+Exports
+- None
+
+### `migrations/auth_local_db_used_passes.cjs`
 Exports
 - None
 

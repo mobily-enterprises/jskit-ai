@@ -13,6 +13,7 @@ import {
 } from "../lib/emailConfirmation.js";
 import { createLocalFileBackend } from "../lib/fileBackend.js";
 import { createFirstAccountSetup } from "../lib/firstAccountSetup.js";
+import { noPassIdentities } from "../lib/passSignIn.js";
 import { createLoggedRecoverySender, createSimulatedRecoverySender } from "../lib/passwordFlows.js";
 import { scryptPasswordStrategy } from "../lib/passwords.js";
 import { createLoggedSecondFactorEvents } from "../lib/secondFactor.js";
@@ -30,6 +31,7 @@ const AuthLocalProvider = defineProvider({
     backend: "auth.local.backend",
     confirmationMode: "auth.local.confirmation-mode",
     confirmationSender: "auth.local.confirmation-sender",
+    passIdentity: "auth.local.pass-identity",
     passwordStrategy: "auth.local.password-strategy",
     profileProjector: "auth.profile.projector",
     recoverySender: "auth.local.recovery-sender",
@@ -52,6 +54,8 @@ const AuthLocalProvider = defineProvider({
    * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
    * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} dependencies.extensions
    * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+   * @param {import("../types.js").AuthLocalPassIdentity | null} dependencies.passIdentity The `auth.local.pass-identity`,
+   *   when one is installed: required while AUTH_PASS_PUBLIC_KEY turns on pass sign-in.
    * @param {import("../types.js").AuthLocalPasswordStrategy | null} dependencies.passwordStrategy The `auth.local.password-strategy`, when one is installed.
    * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector | null} dependencies.profileProjector The `auth.profile.projector`, when one is installed.
    * @param {import("../types.js").AuthLocalRecoverySender | null} dependencies.recoverySender The `auth.local.recovery-sender`, when one is installed.
@@ -67,6 +71,7 @@ const AuthLocalProvider = defineProvider({
       env,
       extensions,
       logger,
+      passIdentity,
       passwordStrategy,
       profileProjector,
       recoverySender,
@@ -78,6 +83,9 @@ const AuthLocalProvider = defineProvider({
     const emailRecovery = recoverySender !== null;
     const emailConfirmationSender = confirmationSender !== null;
     const config = resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender });
+    if (config.passSignIn && passIdentity === null) {
+      throw new Error("AUTH_PASS_PUBLIC_KEY turns on one-time pass sign-in, and no auth.local.pass-identity is installed to name the account each pass signs in. Install one, or unset AUTH_PASS_PUBLIC_KEY.");
+    }
     const localBackend = fileBackend ? createLocalFileBackend({ storeDir: config.storeDir }) : backend;
     // A production server without accounts logs its setup code as it starts.
     const firstAccountSetup = createFirstAccountSetup({ backend: localBackend, config, logger });
@@ -95,6 +103,7 @@ const AuthLocalProvider = defineProvider({
       firstAccountSetup,
       invitationContextResolver: extensions.resolveInvitationContextResolver(),
       logger,
+      passIdentity: passIdentity ?? noPassIdentities,
       passwordStrategy: passwordStrategy ?? scryptPasswordStrategy,
       profileProjector: profileProjector ?? noAppProfiles,
       recoverySender: emailRecovery

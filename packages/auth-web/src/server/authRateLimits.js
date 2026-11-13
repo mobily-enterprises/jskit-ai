@@ -12,6 +12,7 @@ const DEFAULT_AUTH_RATE_LIMITS = Object.freeze({
   login: Object.freeze({ max: 10, timeWindow: "1 minute" }),
   loginOtpRequest: Object.freeze({ max: 10, timeWindow: "1 minute" }),
   loginOtpVerify: Object.freeze({ max: 10, timeWindow: "1 minute" }),
+  passSignIn: Object.freeze({ max: 20, timeWindow: "1 minute" }),
   oauthStart: Object.freeze({ max: 20, timeWindow: "1 minute" }),
   oauthComplete: Object.freeze({ max: 20, timeWindow: "1 minute" }),
   devLoginAs: Object.freeze({ max: 30, timeWindow: "1 minute" }),

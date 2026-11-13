@@ -5,6 +5,7 @@ const AUTH_PATHS = Object.freeze({
   LOGIN: "/api/login",
   LOGIN_OTP_REQUEST: "/api/login/otp/request",
   LOGIN_OTP_VERIFY: "/api/login/otp/verify",
+  LOGIN_PASS: "/api/login/pass",
   OAUTH_START_TEMPLATE: "/api/oauth/:provider/start",
   OAUTH_COMPLETE: "/api/oauth/complete",
   PASSWORD_FORGOT: "/api/password/forgot",

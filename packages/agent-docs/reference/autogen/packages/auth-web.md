@@ -411,6 +411,12 @@ Local functions
 Exports
 - `buildRoutes(controller, { includeDevLoginAs = false, rateLimits = DEFAULT_AUTH_RATE_LIMITS } = {})`
 
+### `src/server/routes/passSignInRoutes.js`
+Exports
+- `registerPassSignInRoutes(fastify, { service, rateLimit })`
+Local functions
+- `parseForm(_request, body, done)`
+
 ### `src/server/routes/secondFactorRoutes.js`
 Exports
 - `registerSecondFactorRoutes(router, { rateLimits })`

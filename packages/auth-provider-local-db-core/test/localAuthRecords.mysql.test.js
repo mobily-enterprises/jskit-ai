@@ -44,7 +44,8 @@ test("accounts: create answers the account it wrote, reads find it by id and ema
     oauthAttempts: "auth_local_oauth_attempts",
     signInFailures: "auth_local_sign_in_failures",
     registrations: "auth_local_registrations",
-    secondFactors: "auth_local_second_factors"
+    secondFactors: "auth_local_second_factors",
+    passes: "auth_local_used_passes"
   });
   assert.equal(await backend.withTransaction((tx) => tx.users.hasAny()), false);
 

@@ -203,6 +203,19 @@ Exports
 Exports
 - `noAppProfiles`
 
+### `src/server/passSignIn.js`
+Exports
+- `resolvePassSignInFromEnv(env)`
+- `signPass({ privateKey, subject, audience, resource, id = randomBytes(18).toString("base64url"), lifetimeSeconds = PASS_LIFETIME_SECONDS, now = Date.now() })`
+- `verifyPass(token, { publicKey, audience, resource }, now = Date.now())`
+- `type AuthPass`
+Local functions
+- `base64urlJson(value)`
+- `parseBase64urlJson(part)`
+- `isClaimText(value)`
+- `isClaimSeconds(value)`
+- `readPassPublicKey(text)`
+
 ### `src/server/providers/AuthAccessProvider.js`
 Exports
 - `AuthAccessProvider`

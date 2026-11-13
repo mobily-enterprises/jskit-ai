@@ -120,6 +120,8 @@ function branded(View) {
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    // The app's home, where a pass sign-in goes.
+    { path: "/", redirect: "/home" },
     { path: "/home", component: HomePage },
     { path: "/account/second-factor", component: SecondFactorPage },
     { path: "/console", component: ConsolePage },

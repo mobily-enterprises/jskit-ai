@@ -6,15 +6,17 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 import initialMigration from "../../migrations/auth_local_db_initial.cjs";
 import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
 import protectionMigration from "../../migrations/auth_local_db_protection.cjs";
+import usedPassesMigration from "../../migrations/auth_local_db_used_passes.cjs";
 import emailVerifiedMigration from "../../migrations/auth_local_db_users_email_verified.cjs";
 import secondFactorsMigration from "../../migrations/auth_local_db_users_second_factors.cjs";
 import { AuthLocalDatabaseBackendProvider } from "../../src/server/providers/AuthLocalDatabaseBackendProvider.js";
 
-// Every local auth migration, in order.
+// Every local auth migration, in the order Knex runs their files.
 const LOCAL_AUTH_MIGRATIONS = Object.freeze([
   initialMigration,
   oauthMigration,
   protectionMigration,
+  usedPassesMigration,
   emailVerifiedMigration,
   secondFactorsMigration
 ]);
@@ -87,15 +89,16 @@ async function startLocalAuthRecords(knex) {
 }
 
 /**
- * A migrated in-memory SQLite database of the test's own, which enforces its foreign keys and is closed after the
- * test.
+ * A migrated SQLite database of the test's own, in memory unless `filename` names a file, which enforces its foreign
+ * keys and is closed after the test.
  * @param {import("node:test").TestContext} context
- * @param {{ acquireConnectionTimeout?: number }} [options] how long a query waits for the pool's one connection
+ * @param {{ acquireConnectionTimeout?: number, filename?: string }} [options] how long a query waits for the pool's one
+ *   connection, and the database file
  */
-async function openMigratedSqlite(context, { acquireConnectionTimeout = 60_000 } = {}) {
+async function openMigratedSqlite(context, { acquireConnectionTimeout = 60_000, filename = ":memory:" } = {}) {
   const knex = createKnex({
     client: "better-sqlite3",
-    connection: { filename: ":memory:" },
+    connection: { filename },
     useNullAsDefault: true,
     acquireConnectionTimeout
   });

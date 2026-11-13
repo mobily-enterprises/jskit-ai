@@ -4,6 +4,7 @@ import { ConflictError } from "@jskit-ai/kernel/server/runtime/errors";
 import {
   parseIdentities,
   parseOAuthAttempts,
+  parsePasses,
   parseRecovery,
   parseRegistrations,
   parseSecondFactors,
@@ -12,6 +13,7 @@ import {
   parseUsers,
   serializeIdentities,
   serializeOAuthAttempts,
+  serializePasses,
   serializeRecovery,
   serializeRegistrations,
   serializeSecondFactors,
@@ -28,6 +30,7 @@ const OAUTH_ATTEMPT_FILE = "oauth-attempts.passwd";
 const SIGN_IN_FAILURE_FILE = "sign-in-failures.passwd";
 const REGISTRATION_FILE = "registrations.passwd";
 const SECOND_FACTOR_FILE = "second-factors.passwd";
+const PASS_FILE = "passes.passwd";
 const LOCK_FILE = "store.lock";
 const JOURNAL_FILE = "transaction.journal";
 const LOCK_STALE_MS = 30_000;
@@ -92,7 +95,8 @@ function parseJournal(content) {
       OAUTH_ATTEMPT_FILE,
       SIGN_IN_FAILURE_FILE,
       REGISTRATION_FILE,
-      SECOND_FACTOR_FILE
+      SECOND_FACTOR_FILE,
+      PASS_FILE
     ];
     if (!files.includes(name)) {
       throw new Error("Invalid local auth transaction journal file.");
@@ -516,6 +520,26 @@ function createTx(state, touched) {
         }
         return count;
       }
+    }),
+    passes: Object.freeze({
+      // The store lock holds every record until the transaction ends, so of two uses of one pass only the first records it.
+      async use({ id, expiresAt }) {
+        if (state.passes.some((record) => record.id === id)) {
+          return false;
+        }
+        state.passes.push({ id, expiresAt });
+        mark("passes");
+        return true;
+      },
+      async deleteExpired(now) {
+        const before = state.passes.length;
+        state.passes = state.passes.filter((record) => Date.parse(record.expiresAt) > Date.parse(now));
+        const count = before - state.passes.length;
+        if (count > 0) {
+          mark("passes");
+        }
+        return count;
+      }
     })
   });
 }
@@ -536,7 +560,8 @@ function createLocalFileBackend({ storeDir }) {
         oauthAttempts: parseOAuthAttempts(await readText(path.join(resolvedStoreDir, OAUTH_ATTEMPT_FILE))),
         signInFailures: parseSignInFailures(await readText(path.join(resolvedStoreDir, SIGN_IN_FAILURE_FILE))),
         registrations: parseRegistrations(await readText(path.join(resolvedStoreDir, REGISTRATION_FILE))),
-        secondFactors: parseSecondFactors(await readText(path.join(resolvedStoreDir, SECOND_FACTOR_FILE)))
+        secondFactors: parseSecondFactors(await readText(path.join(resolvedStoreDir, SECOND_FACTOR_FILE))),
+        passes: parsePasses(await readText(path.join(resolvedStoreDir, PASS_FILE)))
       };
       const touched = new Set();
       const result = await callback(createTx(state, touched));
@@ -587,6 +612,12 @@ function createLocalFileBackend({ storeDir }) {
         commitEntries.push({
           name: SECOND_FACTOR_FILE,
           content: serializeSecondFactors(state.secondFactors)
+        });
+      }
+      if (touched.has("passes")) {
+        commitEntries.push({
+          name: PASS_FILE,
+          content: serializePasses(state.passes)
         });
       }
       if (commitEntries.length > 0) {

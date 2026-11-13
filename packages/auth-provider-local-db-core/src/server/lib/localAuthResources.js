@@ -168,6 +168,20 @@ const localAuthSecondFactorResource = defineTableResource({
   }
 });
 
+// auth_local_used_passes: a one-time sign-in pass already used, keyed by the hash of its id, until it expires.
+const localAuthUsedPassResource = defineTableResource({
+  name: "localAuthUsedPasses",
+  tableName: "auth_local_used_passes",
+  ownership: "public",
+  schema: {
+    expiresAt: dateTime,
+    createdAt: dateTime
+  },
+  searchSchema: {
+    expiresAtOrBefore
+  }
+});
+
 const LOCAL_AUTH_RESOURCES = Object.freeze([
   localAuthUserResource,
   localAuthSessionResource,
@@ -175,7 +189,8 @@ const LOCAL_AUTH_RESOURCES = Object.freeze([
   localAuthOAuthAttemptResource,
   localAuthSignInFailureResource,
   localAuthRegistrationResource,
-  localAuthSecondFactorResource
+  localAuthSecondFactorResource,
+  localAuthUsedPassResource
 ]);
 
 export {
@@ -186,5 +201,6 @@ export {
   localAuthSecondFactorResource,
   localAuthSessionResource,
   localAuthSignInFailureResource,
+  localAuthUsedPassResource,
   localAuthUserResource
 };

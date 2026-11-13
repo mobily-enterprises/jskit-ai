@@ -52,6 +52,7 @@
         "auth.service",
         "runtime.config",
         "runtime.env",
+        "runtime.fastify",
         "runtime.http"
       ]
     },
@@ -126,6 +127,11 @@
             "method": "POST",
             "path": "/api/login/otp/verify",
             "summary": "Verify one-time email login code and create session"
+          },
+          {
+            "method": "POST",
+            "path": "/api/login/pass",
+            "summary": "Sign in with a one-time signed pass posted as a form, when AUTH_PASS_PUBLIC_KEY is set"
           },
           {
             "method": "POST",

@@ -68,6 +68,19 @@
  * }} registrations Registrations waiting for their email to be confirmed, one per
  *   email; `save` replaces the email's registration. Saved only while
  *   AUTH_LOCAL_EMAIL_CONFIRMATION is on; a sign-in reads them whatever it says.
+ * @property {{
+ *   use(input: { id: string, expiresAt: string }): Promise<boolean>,
+ *   deleteExpired(now: string): Promise<number>
+ * }} passes The one-time passes already used, by the hash of each pass's id: `use` records one and answers true, or
+ *   answers false when it was recorded before, also when another server recorded it at the same moment; a record is
+ *   kept until `expiresAt` (its pass's `usableUntil`), and `deleteExpired` removes those whose time has come.
+ */
+
+/**
+ * The `auth.local.pass-identity` capability: the application's mapping from a verified one-time pass
+ * (`@jskit-ai/auth-core/server/passSignIn`) to the local account it signs in, by the account's id, or null when the
+ * pass's subject has none, which refuses the pass as unmapped. Required while AUTH_PASS_PUBLIC_KEY is set.
+ * @typedef {(pass: import("@jskit-ai/auth-core/server/passSignIn").AuthPass) => Promise<string | null>} AuthLocalPassIdentity
  */
 
 /**
@@ -140,7 +153,7 @@
 /**
  * The `auth.local.backend` capability: where local auth keeps its users,
  * sessions, recovery tokens, linked identities, OAuth attempts, failed
- * sign-ins, unconfirmed registrations and second factors. Without
+ * sign-ins, unconfirmed registrations, second factors and used one-time passes. Without
  * one, local auth keeps them in files under AUTH_LOCAL_STORE_DIR;
  * `@jskit-ai/auth-provider-local-db-core` provides one that keeps them in the
  * database. Each backend implements this contract.

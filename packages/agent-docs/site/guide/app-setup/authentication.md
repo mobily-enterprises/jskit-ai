@@ -98,7 +98,7 @@ request over it is refused with status 429, the code `kernel.http.rateLimited`
 defaults, per minute: `login`, `register`, `registerConfirm`,
 `loginOtpRequest` and `loginOtpVerify` 10; `registerConfirmationResend` and
 `passwordForgot` 5;
-`oauthStart`, `oauthComplete`, `passwordRecovery` and `passwordReset` 20;
+`oauthStart`, `oauthComplete`, `passSignIn`, `passwordRecovery` and `passwordReset` 20;
 `devLoginAs` 30. Change one in the application's server configuration;
 `false` removes it:
 
@@ -507,6 +507,114 @@ generated production secret. The server then asks for that code at every start
 and on every server, writes no `first-account-setup-code` file, and logs only
 that the code is in `AUTH_LOCAL_SETUP_CODE`, never the code itself. Outside
 production the variable is ignored.
+
+## One-time pass sign-in (local auth)
+
+An application whose people already signed in somewhere else, such as a
+hosting site that opens each person's own server, can let that site sign them
+in with no second password. The site, the issuer, signs a pass with its
+Ed25519 private key; the application holds only the public key. A pass names
+one person (`sub`), the application it is for (`aud`), one resource of that
+application (`resource`, such as the one server it runs on) and its own id
+(`jti`), and lasts a minute. The person's browser posts it to the application,
+which signs in the account the pass names, once.
+
+Three settings turn it on; without the key nothing changes: there is no pass
+route and password sign-in stays as it is.
+
+| Env | Meaning |
+| --- | --- |
+| `AUTH_PASS_PUBLIC_KEY` | The issuer's Ed25519 public key: a PEM block, or its base64 DER on one line (the PEM body without its header lines). |
+| `AUTH_PASS_AUDIENCE` | The application every pass must name, such as `editor`. Required with the key. |
+| `AUTH_PASS_RESOURCE` | The one resource every pass must name, such as this server's name. Required with the key. |
+
+The application says which account a pass signs in with the
+`auth.local.pass-identity` capability, a function given the verified pass
+(`{ id, subject, audience, resource, issuedAt, expiresAt, usableUntil }`) that
+answers the local account's id, or null when its subject has none here. With
+the key set and no mapping installed, startup stops saying so.
+
+```js
+import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
+
+export const PassIdentityProvider = defineProvider({
+  id: "app.pass-identity",
+  requires: { accounts: "auth.local.accounts" },
+  provides: { passIdentity: "auth.local.pass-identity" },
+  /** @param {{ accounts: import("@jskit-ai/auth-provider-local-db-core/server/types").AuthLocalAccounts }} capabilities */
+  setup({ accounts }) {
+    /** @type {import("@jskit-ai/auth-provider-local-core/server/types").AuthLocalPassIdentity} */
+    async function passIdentity(pass) {
+      // This issuer names each person by the email of their account here.
+      return (await accounts.findByEmail(pass.subject))?.id ?? null;
+    }
+    return { passIdentity };
+  }
+});
+```
+
+For direct library composition, pass it as `passIdentity` to
+`createLocalAuthService()`, whose `signInWithPass({ pass })` signs in and
+answers as `login` does.
+
+The browser posts the pass as the form field `pass` to `POST /api/login/pass`,
+from a page of the issuer's that submits itself, so the pass never sits in an
+address, a history or a log:
+
+```html
+<form method="post" action="https://app.example.com/api/login/pass">
+  <input type="hidden" name="pass" value="PASS">
+</form>
+<script>document.forms[0].submit();</script>
+```
+
+A pass that signs in sets the session cookies and answers `303` to `/`. The pass
+authenticates the post, so the route takes no CSRF token, and it is limited per
+client address like the other sign-in routes (`passSignIn`, 20 a minute). A
+refused pass answers `303` to `/auth/login` with `error=sign_in_unavailable`,
+the reason in `error_description` and its code in `error_code`, and the sign-in
+page shows the reason:
+
+| Code | Status | Reason |
+| --- | --- | --- |
+| `auth.pass.malformed` | 401 | Not a pass, issued over 30 seconds ahead of this server's clock, or meant to last over five minutes. |
+| `auth.pass.badSignature` | 401 | Not signed by the issuer's key, or changed after signing. |
+| `auth.pass.wrongAudience` | 401 | For another application. |
+| `auth.pass.wrongResource` | 401 | For another resource. |
+| `auth.pass.expired` | 401 | Expired (30 seconds of clock difference are allowed). |
+| `auth.pass.replayed` | 401 | Already used, on this server or another sharing its store. |
+| `auth.pass.unmapped` | 403 | The mapping names no account, or a disabled one. |
+
+Each pass signs in once. Local auth records each pass it accepts, by the hash
+of its id, until it could no longer be used anyway (30 seconds after it
+expired), before it asks the mapping: an unmapped pass is used up too. The
+database backend keeps them in `auth_local_used_passes` (run
+`npm run db:migrate`), so every server on the database refuses a pass another
+accepted; the file backend keeps them in `passes.passwd` in its store. A pass
+signs in an ordinary session: it does not prove a second factor, which a route
+that asks for one still asks for.
+
+The issuer signs passes with `signPass` from
+`@jskit-ai/auth-core/server/passSignIn`, or with any JOSE library: a pass is a
+compact JWS with the header `{ "alg": "EdDSA", "typ": "pass+jwt" }` and the
+claims above plus `iat` and `exp`, in seconds.
+
+```js
+import { signPass } from "@jskit-ai/auth-core/server/passSignIn";
+
+// On the issuer's server, which alone holds the private key (a KeyObject or PEM).
+const pass = signPass({ privateKey, subject: "ada@example.com", audience: "editor", resource: "machine-7" });
+```
+
+Make the key pair with
+`openssl genpkey -algorithm ed25519 -out pass-issuer.pem`, and the public key
+the application is given with
+`openssl pkey -in pass-issuer.pem -pubout`. The application trusts one key: to
+change it, the issuer starts signing with the new key as the application
+starts with it, and passes signed with the old key are refused. A person who
+holds a valid pass of their own could post it from another person's browser
+and sign that browser in as themselves, as with any sign-in link, so an issuer
+signs passes only for its signed-in person, just before posting them.
 
 ## Application-owned recovery email
 

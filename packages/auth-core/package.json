@@ -20,6 +20,7 @@
     "./server/authTexts": "./src/server/authTexts.js",
     "./server/booleanFlag": "./src/server/booleanFlag.js",
     "./server/devAuth": "./src/server/devAuth.js",
+    "./server/passSignIn": "./src/server/passSignIn.js",
     "./server/secondFactor": "./src/server/secondFactor.js",
     "./server/deferredAuthService": "./src/server/deferredAuthService.js",
     "./server/unsupportedOperation": "./src/server/unsupportedOperation.js",
@@ -127,6 +128,10 @@
           {
             "subpath": "./server",
             "summary": "Exports server auth access, shared auth action, and Fastify auth policy providers plus server auth utility modules."
+          },
+          {
+            "subpath": "./server/passSignIn",
+            "summary": "One-time signed passes: signPass for the issuer's server (Ed25519, one person, one audience, one resource, about 60 seconds), verifyPass for the application, and resolvePassSignInFromEnv, which reads AUTH_PASS_PUBLIC_KEY, AUTH_PASS_AUDIENCE and AUTH_PASS_RESOURCE."
           },
           {
             "subpath": "./shared",

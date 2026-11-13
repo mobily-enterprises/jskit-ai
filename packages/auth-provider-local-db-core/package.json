@@ -75,6 +75,9 @@
             },
             {
               "tableName": "auth_local_second_factors"
+            },
+            {
+              "tableName": "auth_local_used_passes"
             }
           ]
         }

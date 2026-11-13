@@ -1,5 +1,6 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { createAuthWeb } from "./authWeb.js";
+import { registerPassSignInRoutes } from "./routes/passSignInRoutes.js";
 import { registerSecondFactorRoutes } from "./routes/secondFactorRoutes.js";
 
 const AuthWebFeature = defineFeature({
@@ -9,6 +10,7 @@ const AuthWebFeature = defineFeature({
     authService: "auth.service",
     config: "runtime.config",
     env: "runtime.env",
+    fastify: "runtime.fastify",
     http: "runtime.http"
   },
   provides: {
@@ -28,6 +30,19 @@ const AuthWebFeature = defineFeature({
     }
     registerSecondFactorRoutes(http.router, { rateLimits: authWeb.rateLimits });
     return { authWeb };
+  },
+  /**
+   * The pass sign-in route takes a form body, so it has a Fastify scope of its own, registered once runtime.http has
+   * started: the routes' rate limiter is registered by then, and limits it too.
+   * @param {object} capabilities
+   * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify} capabilities.fastify
+   * @param {{ outputs: { authWeb: import("./types.js").AuthWeb } }} lifecycle
+   */
+  async boot({ fastify }, { outputs }) {
+    const { authWeb } = outputs;
+    if (authWeb.passSignIn) {
+      await registerPassSignInRoutes(fastify, { service: authWeb.service, rateLimit: authWeb.rateLimits.passSignIn });
+    }
   }
 });
 

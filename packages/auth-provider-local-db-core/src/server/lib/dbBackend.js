@@ -4,6 +4,7 @@ import { ConflictError } from "@jskit-ai/kernel/server/runtime/errors";
 import { passedOn } from "@jskit-ai/resource-runtime/server";
 import { IDENTITIES_TABLE } from "./identityStore.js";
 import { secondFactorRecords } from "./secondFactorRecords.js";
+import { usedPassRecords } from "./usedPassRecords.js";
 import {
   deleteById,
   findById,
@@ -24,7 +25,8 @@ const TABLES = Object.freeze({
   oauthAttempts: "auth_local_oauth_attempts",
   signInFailures: "auth_local_sign_in_failures",
   registrations: "auth_local_registrations",
-  secondFactors: "auth_local_second_factors"
+  secondFactors: "auth_local_second_factors",
+  passes: "auth_local_used_passes"
 });
 
 // The tables local sign-in keeps outside table resources, for an app test's expectEveryTableOwned infrastructureTables.
@@ -504,6 +506,7 @@ function registrationRecords(registrations, options) {
  * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthSignInFailures
  * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthRegistrations
  * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthSecondFactors
+ * @property {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} localAuthUsedPasses
  */
 
 /**
@@ -526,7 +529,8 @@ function createRecords(resources, identities, options) {
     oauthAttempts: oauthAttemptRecords(resources.localAuthOAuthAttempts, options),
     signInFailures: signInFailureRecords(resources.localAuthSignInFailures, options),
     registrations: registrationRecords(resources.localAuthRegistrations, options),
-    secondFactors: secondFactorRecords(resources.localAuthSecondFactors, options)
+    secondFactors: secondFactorRecords(resources.localAuthSecondFactors, options),
+    passes: usedPassRecords(resources.localAuthUsedPasses, options)
   });
 }
 

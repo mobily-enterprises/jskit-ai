@@ -165,6 +165,8 @@
  *   whose staff lost their authenticator. `byUserId` names who reset it, for the audit event.
  * @property {(reply: object, result: object) => void} [writeOAuthStartCookies] Keeps the state of an OAuth sign-in that oauthStart() began.
  * @property {(reply: object) => void} [clearOAuthStartCookies]
+ * @property {(input: { pass: string }) => Promise<object>} [signInWithPass] Signs in the account a one-time signed pass
+ *   names (`@jskit-ai/auth-core/server/passSignIn`), once per pass; local auth has it, with AUTH_PASS_PUBLIC_KEY set.
  * @property {(request: object, options?: { everywhere?: boolean }) => Promise<any>} [logoutEverywhere]
  * @property {() => object} [getSettingsProfileAuthInfo] What the account settings show about the provider's profile.
  * @property {() => object} [getOAuthProviderCatalog] The OAuth providers the sign-in screen offers.

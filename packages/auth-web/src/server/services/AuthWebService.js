@@ -1,3 +1,4 @@
+import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { AUTH_ACTION_IDS } from "../constants/authActionIds.js";
 
@@ -118,6 +119,19 @@ class AuthWebService {
       actionId: AUTH_ACTION_IDS.PASSWORD_RESET,
       input: payload
     });
+  }
+
+  /**
+   * Signs in the account a one-time signed pass names; a provider without pass sign-in refuses it as unsupported.
+   * @param {{ pass: string }} input
+   */
+  async signInWithPass(input) {
+    const { authService } = this;
+    // readable-check: allow method-probe - optional operation: signInWithPass is an optional auth.service operation
+    if (typeof authService.signInWithPass !== "function") {
+      return throwUnsupportedAuthOperation("signInWithPass");
+    }
+    return authService.signInWithPass(input);
   }
 
   writeSessionCookies(reply, session) {

@@ -356,9 +356,33 @@ function serializeRegistrations(records) {
     .join("\n") + (records.length > 0 ? "\n" : "");
 }
 
+// A used one-time pass: the hash of its id, and until when it is kept.
+function parsePasses(content) {
+  const records = [];
+  for (const line of String(content || "").split("\n").filter(Boolean)) {
+    const parts = splitLine(line, "pass");
+    if (parts.length !== 4) {
+      throw new Error("Invalid pass record field count.");
+    }
+    records.push({
+      id: parts[2],
+      expiresAt: decodeField(parts[3])
+    });
+  }
+  return records;
+}
+
+function serializePasses(records) {
+  return [...records]
+    .sort((left, right) => String(left.id).localeCompare(String(right.id)))
+    .map((record) => ["pass", "v1", record.id, encodeField(record.expiresAt)].join(":"))
+    .join("\n") + (records.length > 0 ? "\n" : "");
+}
+
 export {
   parseIdentities,
   parseOAuthAttempts,
+  parsePasses,
   parseRecovery,
   parseRegistrations,
   parseSecondFactors,
@@ -367,6 +391,7 @@ export {
   parseUsers,
   serializeIdentities,
   serializeOAuthAttempts,
+  serializePasses,
   serializeRecovery,
   serializeRegistrations,
   serializeSecondFactors,

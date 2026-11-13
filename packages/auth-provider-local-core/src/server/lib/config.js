@@ -1,5 +1,6 @@
 import { parseBooleanFlag } from "@jskit-ai/auth-core/server/booleanFlag";
 import { assertDevAuthPolicy, resolveDevAuthPolicyFromEnv } from "@jskit-ai/auth-core/server/devAuth";
+import { resolvePassSignInFromEnv } from "@jskit-ai/auth-core/server/passSignIn";
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
@@ -233,6 +234,8 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
     emailConfirmation: confirmationDelivery !== "off",
     passwordMinLength: resolvePasswordMinLength(env),
     signInThrottle: resolveSignInThrottle(env),
+    // The trusted issuer's key, audience and resource of one-time pass sign-in (AUTH_PASS_*), or null while it is off.
+    passSignIn: resolvePassSignInFromEnv(env),
     devAuth
   });
 }

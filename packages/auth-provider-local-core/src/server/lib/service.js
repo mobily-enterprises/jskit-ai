@@ -7,6 +7,7 @@ import { PROVIDER_ID } from "./authPayloads.js";
 import { confirmEveryRegistrationByLink, createLocalEmailConfirmation } from "./emailConfirmation.js";
 import { createFirstAccountSetup } from "./firstAccountSetup.js";
 import { createLocalOAuthFlows } from "./oauthFlows.js";
+import { createLocalPassSignIn, noPassIdentities } from "./passSignIn.js";
 import { createLocalPasswordFlows } from "./passwordFlows.js";
 import { normalizePasswordStrategy } from "./passwords.js";
 import { createLocalSecondFactor } from "./secondFactor.js";
@@ -25,6 +26,11 @@ const NO_SECOND_FACTOR = Object.freeze({
   resetSecondFactor: () => throwUnsupportedAuthOperation("resetSecondFactor")
 });
 
+// Without AUTH_PASS_PUBLIC_KEY no pass signs anyone in.
+const NO_PASS_SIGN_IN = Object.freeze({
+  signInWithPass: () => throwUnsupportedAuthOperation("signInWithPass")
+});
+
 /**
  * The `auth.service` of local auth, from the collaborators its provider
  * resolved once.
@@ -39,6 +45,8 @@ const NO_SECOND_FACTOR = Object.freeze({
  *   account's setup code, already started by the provider; by default, one that starts on first use.
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+ * @param {import("../types.js").AuthLocalPassIdentity} [dependencies.passIdentity] The `auth.local.pass-identity`,
+ *   which names the account a one-time pass signs in; by default none, so every pass is refused as unmapped.
  * @param {import("../types.js").AuthLocalPasswordStrategy} dependencies.passwordStrategy The
  *   `auth.local.password-strategy`, or scryptPasswordStrategy.
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector The
@@ -56,6 +64,7 @@ function createLocalAuthService({
   firstAccountSetup: givenFirstAccountSetup = null,
   invitationContextResolver,
   logger,
+  passIdentity = noPassIdentities,
   passwordStrategy,
   profileProjector,
   recoverySender,
@@ -164,6 +173,10 @@ function createLocalAuthService({
     ? createLocalSecondFactor({ backend, config, logger, secondFactorEvents, sessions })
     : NO_SECOND_FACTOR;
 
+  const passSignIn = config.passSignIn
+    ? createLocalPassSignIn({ backend, config, passIdentity, profileProjector, sessions })
+    : NO_PASS_SIGN_IN;
+
   function getCapabilities() {
     if (firstAccountSetup.isWaiting()) {
       return capabilitiesWaitingForFirstAccount;
@@ -210,6 +223,7 @@ function createLocalAuthService({
     resendRegisterConfirmation,
     confirmRegistration,
     login: accounts.login,
+    signInWithPass: passSignIn.signInWithPass,
     requestOtpLogin,
     verifyOtpLogin,
     writeOAuthStartCookies: oauthFlows.writeOAuthStartCookies,
