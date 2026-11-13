@@ -86,7 +86,9 @@ function resolveFileDependencyRoot(appRoot, specifier = "") {
 }
 
 // The directory holding the package's package.json, looked up as Node resolves it from the package that depends on
-// it, or "" when none is installed.
+// it (the app itself for a direct dependency), or "" when none is installed. Like Node, the lookup climbs every
+// directory above the depender, so an app that is an npm workspace finds the packages npm hoisted to the workspace
+// root's node_modules.
 async function resolveInstalledPackageRoot({ appRoot, packageId, parentPackageRoot = "" }) {
   const candidates = [];
   const seen = new Set();
@@ -98,19 +100,17 @@ async function resolveInstalledPackageRoot({ appRoot, packageId, parentPackageRo
     }
   };
 
-  if (parentPackageRoot) {
-    let currentRoot = path.resolve(parentPackageRoot);
-    while (true) {
-      // As in Node's resolution, a directory named node_modules has no node_modules of its own.
-      if (path.basename(currentRoot) !== "node_modules") {
-        appendCandidate(path.join(currentRoot, "node_modules", ...packageId.split("/")));
-      }
-      const parentRoot = path.dirname(currentRoot);
-      if (parentRoot === currentRoot) {
-        break;
-      }
-      currentRoot = parentRoot;
+  let currentRoot = path.resolve(parentPackageRoot || appRoot);
+  while (true) {
+    // As in Node's resolution, a directory named node_modules has no node_modules of its own.
+    if (path.basename(currentRoot) !== "node_modules") {
+      appendCandidate(path.join(currentRoot, "node_modules", ...packageId.split("/")));
     }
+    const parentRoot = path.dirname(currentRoot);
+    if (parentRoot === currentRoot) {
+      break;
+    }
+    currentRoot = parentRoot;
   }
   appendCandidate(path.resolve(appRoot, "node_modules", ...packageId.split("/")));
 
@@ -143,8 +143,11 @@ async function resolvePackageRoots({
 
   if (!sourcePackageRoot && foundPackageRoot) {
     try {
+      // A package whose directory lies outside the node_modules it was found in (a link npm made for a workspace or a
+      // file: dependency) is a local package.
       const resolvedRoot = await realpath(installedPackageRoot);
-      const relativeToNodeModules = path.relative(path.resolve(appRoot, "node_modules"), resolvedRoot);
+      const nodeModulesRoot = path.resolve(foundPackageRoot, ...packageId.split("/").map(() => ".."));
+      const relativeToNodeModules = path.relative(nodeModulesRoot, resolvedRoot);
       if (
         relativeToNodeModules === ".." ||
         relativeToNodeModules.startsWith(`..${path.sep}`) ||

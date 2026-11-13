@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import fsPromises, { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import fsPromises, { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { syncBuiltinESMExports } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -90,6 +90,35 @@ test("discoverInstalledPackages resolves file tarballs from node_modules", async
   assert.equal(packages[0].packageId, "@jskit-ai/shell-web");
   assert.equal(packages[0].packageRoot, installedPackageRoot);
   assert.equal(packages[0].sourceType, "npm-package");
+});
+
+test("discoverInstalledPackages finds an npm workspace app's packages where npm hoisted them, as Node does", async (context) => {
+  const workspaceRoot = await mkdtemp(path.join(tmpdir(), "jskit-installed-package-workspace-"));
+  context.after(() => rm(workspaceRoot, { recursive: true, force: true }));
+  const appRoot = path.join(workspaceRoot, "app");
+  const hoisted = (name) => path.join(workspaceRoot, "node_modules", ...name.split("/"));
+  const localSource = path.join(workspaceRoot, "packages", "local");
+  for (const directory of [appRoot, hoisted("@example/runtime"), hoisted("@example/shared"), localSource, path.dirname(hoisted("@example/local"))]) {
+    await mkdir(directory, { recursive: true });
+  }
+  await symlink(localSource, hoisted("@example/local"), "dir");
+  await writeFile(path.join(workspaceRoot, "package.json"), JSON.stringify({ name: "workspace", workspaces: ["app", "packages/local"] }));
+  await writeFile(
+    path.join(appRoot, "package.json"),
+    JSON.stringify({ name: "app", dependencies: { "@example/runtime": "1.0.0", "@example/local": "1.0.0" } })
+  );
+  const manifest = (name, dependencies = {}) => JSON.stringify({ name, version: "1.0.0", dependencies, jskit: { kind: "runtime" } });
+  await writeFile(path.join(hoisted("@example/runtime"), "package.json"), manifest("@example/runtime"));
+  await writeFile(path.join(hoisted("@example/shared"), "package.json"), manifest("@example/shared"));
+  await writeFile(path.join(localSource, "package.json"), manifest("@example/local", { "@example/shared": "1.0.0" }));
+
+  const packages = await discoverInstalledPackages({ appRoot });
+  const found = Object.fromEntries(packages.map((entry) => [entry.packageId, [entry.sourceType, entry.packageRoot]]));
+  assert.deepEqual(found, {
+    "@example/local": ["local-package", localSource],
+    "@example/runtime": ["npm-package", hoisted("@example/runtime")],
+    "@example/shared": ["npm-package", hoisted("@example/shared")]
+  });
 });
 
 test("discoverInstalledPackages excludes development-only packages from runtime composition", async (context) => {
