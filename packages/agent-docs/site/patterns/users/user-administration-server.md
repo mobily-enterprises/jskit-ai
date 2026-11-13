@@ -136,6 +136,6 @@ isolation, missing records, null/cleared fields, filtering, and pagination.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/users-core@0.2.36`
+- Owner: `@jskit-ai/users-core@0.2.37`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/users-core/patterns/user-administration-server/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/users-core/patterns/user-administration-server/example)
