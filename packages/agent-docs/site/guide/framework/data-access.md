@@ -42,6 +42,7 @@ through its handle's calls, and every call takes the call's `options` last:
 | `patchMany(rows, options)` | many records, each with its own changes |
 | `patchWhere(filters, changes, options)`, `deleteWhere(filters, options)` | every matching row |
 | `lock(id, txOptions)`, `lockMany(ids, txOptions)`, `lockWhere(filters, txOptions)` | rows locked until the transaction ends |
+| `lockPages(filters, txOptions)` | every matching row locked, handed over a page at a time ([Layer 4](#layer-4-locks)) |
 | `lockOrCreate({ id, ...initial }, options, work)` | a keyed record locked, created first when missing, for `work` |
 | `claim({ filters, sort, take }, txOptions)` | the next rows no other worker holds |
 | `withTransaction(options, work)` | one transaction; `work` gets its `txOptions` |
@@ -866,6 +867,43 @@ const [booked] = await bookings.queryAll({ filters: { seatIds: [seatId] }, take:
 await seats.lock(seatId, txOptions);
 ```
 
+A whole set of rows the work decides on (a register's entries, an account's
+movements) is read the same way: every writer of the set first locks the one
+row that governs it (the register, the account), and the work locks that row
+before its first plain read. The plain reads after it (`queryAll`,
+`queryPages`, `aggregate`) are then current and stay so until commit, at any
+size, for one statement more. Work that joins its caller's transaction cannot
+know whether the caller already read plainly, and on MySQL and MariaDB a lock
+taken after that no longer moves the snapshot, so it reads the set with
+locking reads, which see the latest rows whatever the snapshot:
+`lockPages(filters, txOptions)` locks every row the filters select, a page of
+up to 1,000 (`pageSize`) at a time, in id order, each page one locking read
+after the last id of the page before. It still locks the governing row first,
+since PostgreSQL keeps no new row out of a page already locked. In a request it
+throws past the request row limit, as `queryPages` does. Isolation is not the
+tool: MySQL and MariaDB fix it when a transaction starts, and READ COMMITTED
+alone reads each page at a different moment. `patchWhere` and `deleteWhere`
+select their rows with a locking read on MySQL and MariaDB, so they too see
+what committed after the transaction's first plain read. With MariaDB's
+`innodb_snapshot_isolation` on, a locking read that meets a row changed since
+the snapshot fails (errno 1020) instead, and `withTransaction` runs the work
+again when it opened the transaction.
+
+```js
+// good: inside the caller's transaction, the register locked, then every entry locked and read as it is now
+const closeRegister = (registerId, options) => registers.withTransaction({ ...options, joinOnly: true }, async (txOptions) => {
+  await registers.lock(registerId, { ...txOptions, lockMode: "share", fields: ["id"] });
+  let total = 0;
+  for await (const page of entries.lockPages({ registerId }, { ...txOptions, lockMode: "share", fields: ["amount"] })) {
+    total += page.reduce((sum, entry) => sum + entry.amount, 0);
+  }
+  return total;
+});
+
+// bad: a plain read inside a joined transaction reads the caller's snapshot, which can miss entries
+const all = await entries.queryAll({ filters: { registerId } }, txOptions);
+```
+
 On MySQL and MariaDB a locking read locks every row it examines, so two rules
 apply there. Lock ids taken from your own scoped reads, never a list straight
 from a request: every id listed is locked, a hidden one too, before it is left
@@ -878,6 +916,8 @@ the ownership columns and the columns the filters fix to one value, it holds
 the sort's columns, ascending, and then nothing but the id, and the sort's
 fields go one way (all ascending or all descending). A unique key the filters
 fix whole, as a membership's workspace and user are, needs nothing more.
+`lockPages` locks in id order, so its index holds nothing after the ownership
+columns and the columns the filters fix but the id.
 
 A worker taking the next job uses `claim({ filters, sort, take }, txOptions)`,
 which skips rows another worker holds. A record that serializes work on a key
@@ -1413,7 +1453,7 @@ never open one of its own, passes `{ ...options, joinOnly: true }`: called
 outside a transaction it throws a TypeError before the work runs. Code never
 asks whether it runs in a transaction: `withTransaction` joins the caller's,
 `outermost` refuses one, `joinOnly` requires one, and `lock`, `lockMany`,
-`lockWhere` and `claim` refuse to run outside one; `lockOrCreate` opens its own
+`lockWhere`, `lockPages` and `claim` refuse to run outside one; `lockOrCreate` opens its own
 (and retries a lost insert race only then).
 
 ```js

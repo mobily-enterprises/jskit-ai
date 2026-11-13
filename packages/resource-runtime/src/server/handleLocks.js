@@ -1,4 +1,6 @@
 import { detectDialectFromClient } from "@jskit-ai/database-runtime/shared";
+import { isJobContext } from "./contexts.js";
+import { RowLimitError } from "./errors.js";
 import { checkBlobReads, namedBlobs } from "./handleBlobs.js";
 import { missingOf, requireDefinedFilters } from "./handleGuards.js";
 import { defaultFieldList, handleRecords, includedRelationships, sparseFieldset, textList } from "./handleRecords.js";
@@ -47,6 +49,9 @@ function lockModeOf(name, caller, lockMode) {
 // The most rows one read of the locked rows' links names, as the lock itself reads its ids in chunks of 1,000.
 const LINKS_PER_READ = 1000;
 
+// The most rows a page of lockPages() locks: json-rest-api's most for one lockWhere.
+const MAX_LOCK_PAGE = 1000;
+
 /**
  * The relationships a locking read includes, each a belongs-to field of the resource named by its relationship (`as`,
  * or the field's own name): `{ relationshipName, field, target, below }`, `below` the include paths under it. A lock
@@ -78,7 +83,7 @@ function lockedIncludes(resource, caller, include) {
 }
 
 /**
- * A handle's locking reads: lock, lockMany, lockWhere and claim. Each needs the
+ * A handle's locking reads: lock, lockMany, lockWhere, lockPages and claim. Each needs the
  * caller's transaction (`options.trx`), locks only rows the caller may see, and
  * reads the fields `options.fields` names, or every field a one-record read
  * answers, so a belongs-to field left out costs no check that its related
@@ -98,8 +103,9 @@ function lockedIncludes(resource, caller, include) {
  *   owned tables by resource name, which lock included records.
  * @param {(name: string) => ({ schema: Record<string, any>, relationships?: Record<string, any> } | null)} dependencies.resourceNamed
  *   The application's table resources by name, whose collections an included record leaves out.
+ * @param {{ requestRowLimit: number }} dependencies.settings The most rows lockPages() locks in a request context.
  */
-function createLockReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, handleNamed, resourceNamed }) {
+function createLockReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, handleNamed, resourceNamed, settings }) {
   /**
    * The collections of a related table an included record leaves out, as a read's include does (see handleRecord):
    * every one it does not include itself.
@@ -283,6 +289,54 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
   }
 
   /**
+   * Locks every row the filters select, as lockWhere locks them, a page at a time: `for await (const records of
+   * lockPages(filters, txOptions))`. Each page is one locking read of up to `pageSize` rows (1 to 1,000, the
+   * default) in id order, after the last id of the page before, locked until the transaction ends. A locking read
+   * sees the latest committed rows whatever the transaction's snapshot, so this reads more rows than one lockWhere
+   * locks as they stand now, also inside a transaction that has already read plainly (MySQL and MariaDB keep the
+   * snapshot of a transaction's first plain read). The pages are locked one after another, and PostgreSQL keeps no
+   * new row out of a page already locked: when the whole set must stay as read until commit, every writer of those
+   * rows first locks one row that governs them (their parent, say), and so does this work, before it reads. On MySQL
+   * and MariaDB it needs an index that reads in id order after the ownership columns and the filters' single-value
+   * equalities. In a request it throws RowLimitError past the request row limit, as queryPages() does; background
+   * work locks without one. `fields`, `lockMode` and `include` are lockWhere's; it takes no sort or limit.
+   * @param {object} filters
+   * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[], pageSize?: number }} options
+   * @returns {AsyncGenerator<object[], void, undefined>}
+   */
+  async function* lockPages(filters, options) {
+    requireDefinedFilters(name, "lockPages", filters);
+    const { pageSize = MAX_LOCK_PAGE, sort, limit, ...lockOptions } = options;
+    if (sort !== undefined || limit !== undefined) {
+      throw new TypeError(`${name}.lockPages() locks in id order, a page of pageSize rows at a time, so it takes no sort or limit.`);
+    }
+    if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_LOCK_PAGE) {
+      throw new TypeError(`${name}.lockPages() pageSize is an integer from 1 to ${MAX_LOCK_PAGE}. Received: ${JSON.stringify(pageSize)}`);
+    }
+    const rowLimit = isJobContext(options.context) ? undefined : settings.requestRowLimit;
+    let rows = 0;
+    for (let after; ;) {
+      const page = await lockRead("lockPages", "lockWhere", { filters, limit: pageSize, ...(after === undefined ? {} : { after }) }, lockOptions);
+      // A page after an id never holds it. A storage that ignored `after` would answer the first page again and
+      // again, and background work, which has no row limit, would page forever.
+      if (after !== undefined && page.some((record) => record.id === after)) {
+        throw new Error(`${name}.lockPages() read the row ${JSON.stringify(after)} again in the page after it: its storage does not page lockWhere by after, so its pages would never end.`);
+      }
+      rows += page.length;
+      if (rowLimit !== undefined && rows > rowLimit) {
+        throw new RowLimitError(name, rowLimit, undefined, "lockPages");
+      }
+      if (page.length > 0) {
+        yield page;
+      }
+      if (page.length < pageSize) {
+        return;
+      }
+      after = page.at(-1).id;
+    }
+  }
+
+  /**
    * Takes up to `take` (default 1) of the rows the filters select that no
    * other transaction holds, in `sort` order, locked until the transaction ends.
    * `fields` reads only the fields the work needs, and `lockMode` picks the lock (see lockMany).
@@ -309,6 +363,7 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
     lock,
     lockMany,
     lockWhere,
+    lockPages,
     claim
   });
 }

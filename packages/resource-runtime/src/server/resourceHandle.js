@@ -157,8 +157,8 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
   const hiddenFields = createHiddenFieldReads({ resource, scopedQuery, column });
   // The table as a join source, with its visible columns only (see handleHidden.js).
   const joinSource = createJoinSource({ api, resource, jsonRest, scopedQuery, column });
-  // lock, lockMany, lockWhere and claim (see handleLocks.js).
-  const { lock, lockMany, lockWhere, claim } = createLockReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, handleNamed, resourceNamed });
+  // lock, lockMany, lockWhere, lockPages and claim (see handleLocks.js).
+  const { lock, lockMany, lockWhere, lockPages, claim } = createLockReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, handleNamed, resourceNamed, settings });
 
   /**
    * Runs work in the caller's transaction (`options.trx`), or in one it opens,
@@ -724,6 +724,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
     lock,
     lockMany,
     lockWhere,
+    lockPages,
     lockOrCreate: lockOrCreateRecord,
     claim,
     changeHorizon,

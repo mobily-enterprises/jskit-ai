@@ -93,7 +93,7 @@ class RowLimitError extends AppError {
    * @param {string} resourceName
    * @param {number} rowLimit
    * @param {unknown} [cause]
-   * @param {"queryAll" | "queryPages"} [caller]
+   * @param {"queryAll" | "queryPages" | "lockPages"} [caller]
    */
   constructor(resourceName, rowLimit, cause, caller = "queryAll") {
     super(
