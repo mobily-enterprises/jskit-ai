@@ -1,3 +1,5 @@
+import { jsonApiResultValue } from "@jskit-ai/http-runtime/shared";
+import { createEntityChangedActionEvent } from "@jskit-ai/kernel/server/actions";
 import { emptyInputValidator } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { composeSchemaDefinitions } from "@jskit-ai/kernel/shared/validators";
 import { workspaceCrud } from "../../shared/resources/workspaceResource.js";
@@ -7,6 +9,15 @@ import { resolveActionUser } from "@jskit-ai/users-core/server/resolveActionUser
 function workspaceAssistantSummary({ id, slug, name, ownerUserId, avatarUrl }) {
   return { id, slug, name, ownerUserId, avatarUrl };
 }
+
+// A workspace made or changed (its name, its avatar) is an entity change of the workspace itself, for the application's
+// listeners on runtime.events; the workspace's id is the action's answer's.
+const workspaceChanged = (operation) => Object.freeze([createEntityChangedActionEvent({
+  source: "workspace",
+  entity: "workspace",
+  operation,
+  entityId: ({ result }) => jsonApiResultValue(result)?.id
+})]);
 
 const workspaceUpdateInputValidator = composeSchemaDefinitions([
   workspaceSlugParamsValidator,
@@ -37,6 +48,7 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
           transformResult: (result) => workspaceAssistantSummary(result.value)
         }
       },
+      events: workspaceChanged("created"),
       execute: (input, context) => workspaceService.createWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input,
@@ -114,6 +126,7 @@ function createWorkspaceDirectoryActions({ workspaceService }) {
           transformResult: (result) => workspaceAssistantSummary(result.value)
         }
       },
+      events: workspaceChanged("updated"),
       execute: (input, context) => workspaceService.updateWorkspaceForAuthenticatedUser(
         resolveActionUser(context, input),
         input.workspaceSlug,

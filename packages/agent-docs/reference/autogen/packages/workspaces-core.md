@@ -197,6 +197,7 @@ Exports
 - `createWorkspaceDirectoryActions({ workspaceService })`
 Local functions
 - `workspaceAssistantSummary({ id, slug, name, ownerUserId, avatarUrl })`
+- `workspaceChanged(operation)`
 
 ### `src/server/workspaceDirectory/workspaceDirectoryRoutes.js`
 Exports

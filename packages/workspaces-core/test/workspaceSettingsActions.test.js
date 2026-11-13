@@ -84,6 +84,26 @@ test("workspace mutation actions declare their domain and bootstrap changes expl
   assert.deepEqual(events[0].realtime.payload, { workspaceSlug: "acme" });
 });
 
+test("making and changing a workspace are entity changes of the workspace, named by the id the action answers", async () => {
+  const context = { actor: { id: 7 }, requestMeta: {} };
+  const [create, update] = ["workspace.workspaces.create", "workspace.workspaces.update"]
+    .map((id) => workspaceDirectoryActionSpecifications.find((action) => action.id === id));
+  assert.deepEqual([create.events.length, update.events.length], [1, 1]);
+  const [created] = await Promise.all(create.events.map((builder) => builder({
+    input: { name: "Acme" },
+    result: returnJsonApiData({ id: "11", slug: "acme", name: "Acme", ownerUserId: "7" }),
+    context
+  })));
+  assert.deepEqual([created.type, created.source, created.entity, created.operation, created.entityId], ["entity.changed", "workspace", "workspace", "created", "11"]);
+  assert.equal(created.realtime, undefined);
+  const [updated] = await Promise.all(update.events.map((builder) => builder({
+    input: { workspaceSlug: "acme", name: "Acme Ltd" },
+    result: returnJsonApiData({ id: "11", slug: "acme", name: "Acme Ltd", ownerUserId: "7" }),
+    context
+  })));
+  assert.deepEqual([updated.entity, updated.operation, updated.entityId], ["workspace", "updated", "11"]);
+});
+
 test("workspace invite actions reach the invite's recipient through the members service, once per event", async () => {
   const lookups = [];
   const [create, revoke] = ["workspace.invite.create", "workspace.invite.revoke"].map((id) => createWorkspaceMembersActions({
