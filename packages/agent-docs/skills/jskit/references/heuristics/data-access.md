@@ -11,6 +11,7 @@ Pick the layer ([Data access](../data-access.md)):
 - Screens over HTTP: a CRUD contract on the same table resource.
 - Many rows from one action: `createMany`, `patchMany`, `patchWhere`, `deleteWhere`; never a loop of single writes.
 - Two requests could change the same rows: `lockMany` inside `withTransaction`, rows in id order.
+- A table counted but never read back (anonymous participation): a `crypto.randomUUID()` id, a unique index on the identifying columns, and an owner API of insert (`createMany` with `onConflict` ignore) and count only.
 - Work inside `withTransaction`: `txOptions` is only `{ context, trx }`, so a key the work needs, the app's own included, comes from the method's `options`, and a write on the method's own table gets `{ ...options, ...txOptions }` so the caller's `returning`, `missing` or `format` reaches it.
 - A change only while a row still holds a value (open to booked, once): `patch` with `onlyIf`, or `patchWhere` with that value in its filters (a compare-and-set on every database, so of two concurrent writers one wins); a filter on a related table is refused on MySQL and MariaDB (`selection_cross_table`), so filter on the row's own columns, after locking the related rows with `lockMany`, or use `claim`.
 - Only some of the rows, one row, whether one exists: in the read (a searchSchema filter, `take: 1` or a page of size 1), never `.filter()`, `.find()`, `.some()`, `.slice()` or `.length` over the rows it answered ([Narrow in the query](../data-access.md#narrow-in-the-query)).

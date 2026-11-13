@@ -92,20 +92,24 @@ function whereSelection(name, operation, filters, options) {
 }
 
 /**
- * An upsert matches rows by its conflict keys alone, so its rows carry no id, which could name another owner's
+ * An upsert matches rows by its conflict keys alone. A merge's rows carry no id, which could name another owner's
  * record, unless the id is the one key: json-rest-api allows that only on a table with no owners and no row policy.
+ * An ignore's rows may carry one, for a table whose ids the caller makes (a random uuid): a row its keys match writes
+ * nothing and keeps its stored id, a new row takes the given id, and an id that is already another row's fails the
+ * batch, as json-rest-api skips only a clash on the keys' unique index.
  * @param {string} name
  * @param {unknown[]} rows
- * @param {{ keys?: unknown }} onConflict
+ * @param {{ keys?: unknown, action?: unknown }} onConflict
  * @param {string | undefined} idProperty
  */
 function requireUpsertRows(name, rows, onConflict, idProperty) {
   const keys = Array.isArray(onConflict.keys) ? onConflict.keys : [];
   const byId = keys.length === 1 && (keys[0] === "id" || keys[0] === idProperty);
-  if (!byId && rows.some((row) => isRecord(row) && Object.hasOwn(row, "id"))) {
+  if (!byId && onConflict.action !== "ignore" && rows.some((row) => isRecord(row) && Object.hasOwn(row, "id"))) {
     throw new TypeError(
-      `${name}.createMany() with onConflict takes rows without an id; the conflict keys find the existing rows. ` +
-        "Only onConflict: { keys: [\"id\"] }, on a table with no owners, matches rows by their id."
+      `${name}.createMany() with onConflict merge takes rows without an id; the conflict keys find the existing rows. ` +
+        "Only onConflict: { keys: [\"id\"] }, on a table with no owners, matches rows by their id, and an ignore's rows " +
+        "may carry the ids of the rows it inserts."
     );
   }
 }

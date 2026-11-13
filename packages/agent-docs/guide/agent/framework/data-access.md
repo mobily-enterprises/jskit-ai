@@ -333,6 +333,43 @@ code reads by the key with a filter and writes by it with an upsert,
 guide](/guide/app-setup/existing-application-migration#moving-hand-written-sql-behind-resources)
 has the migration for a table that exists already.
 
+A table its feature counts but must never read back row by row (who took part
+in an anonymous survey whose answers are stored without names) takes a `uuid`
+primary key the code makes with `crypto.randomUUID()`, never a sequence, and a
+unique index on the columns that identify a row, the ownership column among
+them. A random v4 id carries no time and no order, and MySQL and MariaDB store
+rows in primary key order, so the stored order is random too; a sequence or a
+time-ordered id (UUIDv7, or the v1 that MySQL's and MariaDB's `UUID()` makes)
+would let whoever reads the rows match them to the order of the answers.
+PostgreSQL's heap keeps the order rows were inserted in, which a direct read
+of the table shows whatever the key, so the protection that holds everywhere is
+that no code reads the rows: the owning feature offers only an insert and a
+count, functions of its own over its handle, and ownership keeps every other
+feature from reading the table.
+
+```js
+import { randomUUID } from "node:crypto";
+
+// the owning feature's whole API over the table: record that a member took part, and count who did
+const recordParticipation = ({ recordId, userId }, options) =>
+  participations.createMany([{ id: randomUUID(), recordId, userId }], {
+    ...options,
+    onConflict: { keys: ["workspaceId", "recordId", "userId"], action: "ignore" }
+  });
+const countParticipants = async (recordId, options) => {
+  const [{ participants }] = await participations.aggregate({ measures: { participants: { count: "*" } }, filters: { recordId } }, options);
+  return participants;
+};
+```
+
+`onConflict` ignore makes a second participation a no-op that keeps the stored
+row and its id, and a new row takes the id it brings. Only a clash on the keys'
+unique index is ignored, so an id that is already another row's still fails.
+Plain `create({ id: randomUUID(), recordId, userId }, options)` refuses the
+second participation instead, with the unique key's error; inside a
+transaction the failed insert fails the whole transaction (PostgreSQL aborts it
+at once), so work that must go on uses the ignore.
+
 A route that reads or writes without an action (a provider's callback, a
 download it streams) takes its options from `await request.callOptions()`: the
 context the same request's action would get, its user, workspace and route
@@ -736,11 +773,14 @@ could update or hide another workspace's row. `merge` is refused under a row
 policy; use `ignore`, then `patchMany`. A table with no owners and no row
 policy, keyed by a natural id such as an email, may key the upsert on the id
 alone: `onConflict: { keys: ["id"], action: "merge" }`, with an id on every
-row, creates the record or replaces the fields given in one statement. Of two
-upserts at once the later stays, so a counter that must count both is created
-plainly and its duplicate retried instead. Inserting and catching the
-duplicate works only outside a transaction: inside one, the failed insert
-fails the whole transaction, so use an upsert there.
+row, creates the record or replaces the fields given in one statement. A merge's
+rows carry no other id; an `ignore`'s may, for ids the code makes (a random
+`uuid`): a new row takes its own, and a row the keys match keeps the stored one
+(see the count-only table above). Of two upserts at once the later stays, so a
+counter that must count both is created plainly and its duplicate retried
+instead. Inserting and catching the duplicate works only outside a transaction:
+inside one, the failed insert fails the whole transaction, so use an upsert
+there.
 
 A transaction whose insert loses a race for a unique key (another request with
 the same idempotency key committed first) runs once more:

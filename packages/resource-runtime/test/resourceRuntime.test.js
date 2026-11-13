@@ -418,7 +418,7 @@ test("an upsert on a table with no owners may key on the id alone; an owned tabl
   ]);
   await assert.rejects(
     resources.settings.createMany([{ id: "theme", value: "x" }], { ...system, onConflict: { keys: ["id", "value"], action: "merge" } }),
-    /onConflict takes rows without an id/u
+    /onConflict merge takes rows without an id/u
   );
   // On a workspace table the conflict keys must hold the owner, so json-rest-api refuses the id alone.
   await assert.rejects(notes.createMany([{ id: 1, title: "a" }], { context: WORKSPACE_A, onConflict: { keys: ["id"], action: "merge" } }));
@@ -430,8 +430,8 @@ test("an upsert finds rows by its conflict keys alone, never by an id, and stays
   await knex.schema.alterTable("notes", (table) => table.unique(["workspace_id", "title"]));
   const upsert = { keys: ["workspaceId", "title"], action: "merge", merge: ["status"] };
   await assert.rejects(
-    notes.createMany([{ id: 1, title: "a" }], { context: WORKSPACE_A, onConflict: { ...upsert, action: "ignore" } }),
-    /onConflict takes rows without an id/u
+    notes.createMany([{ id: 1, title: "a" }], { context: WORKSPACE_A, onConflict: upsert }),
+    /onConflict merge takes rows without an id/u
   );
   await assert.rejects(
     notes.createMany([{ title: "a" }, { title: "a", status: "done" }], { context: WORKSPACE_A, onConflict: upsert }),
