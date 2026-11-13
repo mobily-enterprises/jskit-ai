@@ -1,5 +1,6 @@
 import { isLostDuplicateInsertRace, toIsoString } from "@jskit-ai/database-runtime/shared";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
+import { isSystemContext } from "@jskit-ai/resource-runtime/server";
 
 function normalizeWorkspaceRecord(payload = null) {
   if (!payload || typeof payload !== "object") {
@@ -96,6 +97,42 @@ function createRepository({ workspaces, workspaceMemberships }) {
     }
     const rows = await workspaces.queryAll({ filters: { id: ids } }, options);
     return rows.map((row) => normalizeWorkspaceRecord(row)).filter(Boolean).sort(byId);
+  }
+
+  /**
+   * One page of the workspaces that are not deleted, for background work across all of them: in id order, those after
+   * `afterId` (from the first when it is null or left out), at most `limit`, each as `{ id, slug }`. Work over every
+   * workspace passes the last id of each page as the next page's `afterId`; a page shorter than `limit` is the last.
+   * Each page is one statement, however many workspaces there are. Only a system context calls it (`{ context:
+   * systemContext(reason) }`): any other context, one that forWorkspace or its kin derived too, is refused before any
+   * statement, as are an `afterId` that is no workspace id and a `limit` that is not a whole number from 1 to the
+   * workspaces' page limit (pageLimits().request, 100 unless the application sets another).
+   * @param {{ afterId?: unknown, limit: number }} page
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} options
+   * @returns {Promise<Array<{ id: string, slug: string }>>}
+   */
+  async function listForSystem({ afterId = null, limit } = {}, options = {}) {
+    if (!isSystemContext(options.context)) {
+      throw new TypeError("workspaces.listForSystem() runs only in a system context: pass { context: systemContext(reason) }.");
+    }
+    const pageLimit = workspaces.pageLimits().request;
+    if (!Number.isSafeInteger(limit) || limit < 1 || limit > pageLimit) {
+      throw new TypeError(`workspaces.listForSystem() limit is a whole number from 1 to ${pageLimit}. Received: ${String(limit)}`);
+    }
+    const after = normalizeRecordId(afterId, { fallback: null });
+    if (afterId !== null && !after) {
+      throw new TypeError(
+        "workspaces.listForSystem() afterId is the id of the last workspace of the page before, or null for the first page. " +
+          `Received: ${String(afterId)}`
+      );
+    }
+    const { records } = await workspaces.query({
+      filters: after ? { deletedAt: null, idAfter: after } : { deletedAt: null },
+      sort: ["id"],
+      fields: ["slug"],
+      page: { size: limit }
+    }, options);
+    return records.map((record) => ({ id: normalizeRecordId(record.id, { fallback: null }), slug: normalizeText(record.slug) }));
   }
 
   async function findPersonalByOwnerUserId(userId, options = {}) {
@@ -236,6 +273,7 @@ function createRepository({ workspaces, workspaceMemberships }) {
     joinSource: workspaces.joinSource,
     findById,
     listByIds,
+    listForSystem,
     findBySlug,
     listSlugsIn,
     findPersonalByOwnerUserId,

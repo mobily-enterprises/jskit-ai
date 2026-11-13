@@ -82,7 +82,9 @@ const workspaceResource = defineTableResource({
     slug: { type: "string", actualField: "slug", filterOperator: "=" },
     slugs: { type: "array", actualField: "slug", filterOperator: "in", items: { type: "string" } },
     owner: { type: "id", actualField: "owner_user_id", filterOperator: "=" },
-    isPersonal: { type: "boolean", actualField: "is_personal", filterOperator: "=" }
+    isPersonal: { type: "boolean", actualField: "is_personal", filterOperator: "=" },
+    // The workspaces after one id: the next page of workspaces.listForSystem.
+    idAfter: { type: "id", actualField: "id", filterOperator: ">" }
   },
   schema: {
     slug: {

@@ -1396,6 +1396,27 @@ const SettlementFeature = defineFeature({
     }
   }
   ```
+- A job whose units are the workspaces themselves (each workspace's daily
+  digest, whether or not it has rows yet) pages through them with the
+  `workspaces` owner API, never the table by name:
+  `workspaces.listForSystem({ afterId, limit }, { context: systemContext(reason) })`
+  answers the `{ id, slug }` of the workspaces that are not deleted, in id
+  order, after `afterId` (from the first when it is null), at most `limit` (1 to
+  `pageLimits().request`, 100 by default). Each page is one statement however
+  many workspaces there are: pass a page's last id as the next `afterId`, and a
+  page shorter than `limit` is the last. Any other context, a `forWorkspace`
+  job's too, is refused, as are an `afterId` that is no workspace id and a
+  `limit` out of range:
+
+  ```js
+  // requires: { workspaceRecords: "workspaces" }; the feature declares systemScope
+  for (let afterId = null; ;) {
+    const page = await workspaceRecords.listForSystem({ afterId, limit: 100 }, { context: systemContext("send every workspace's daily digest") });
+    for (const { id } of page) await sendDigest({ context: systemContext("send every workspace's daily digest").forWorkspace(id) });
+    if (page.length < 100) break;
+    afterId = page.at(-1).id;
+  }
+  ```
 - A job that must learn each row's owner across workspaces names the hidden
   ownership field in its read's `fields`, `queryAll({ filters, fields:
   ["workspaceId", "email"] }, { context })`, as a system context may do through
@@ -1526,6 +1547,9 @@ workspaces. A report that reads people, their settings, workspaces or
 memberships beside its own rows joins `joinSource({ alias, filters },
 options)` of `users.profiles`, `users.settings`, `workspaces` or
 `workspaces.memberships` ([Layer 5](#layer-5-reports-the-resource-cannot-express)).
+A background job that visits every workspace pages them with
+`workspaces.listForSystem({ afterId, limit }, options)`, in its system context
+([Background work](#background-work)).
 
 An app that had a table resource of its own over a JSKIT table (such as
 `users`) deletes it: its CRUD contract is built on the package's table resource

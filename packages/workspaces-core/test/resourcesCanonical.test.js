@@ -60,11 +60,13 @@ test("each workspaces-core table is one table resource, and only workspaces and 
 
 // Their id filter is every handle's own, which takes one id or a list.
 test("workspaces-core repository filters are declared on canonical resources", () => {
-  assert.deepEqual(Object.keys(workspaceResource.searchSchema), ["slug", "slugs", "owner", "isPersonal"]);
+  assert.deepEqual(Object.keys(workspaceResource.searchSchema), ["slug", "slugs", "owner", "isPersonal", "idAfter"]);
   assert.equal(workspaceResource.searchSchema.slug.actualField, "slug");
   assert.equal(workspaceResource.searchSchema.slugs.actualField, "slug");
   assert.equal(workspaceResource.searchSchema.slugs.filterOperator, "in");
   assert.equal(workspaceResource.searchSchema.owner.actualField, "owner_user_id");
+  assert.equal(workspaceResource.searchSchema.idAfter.actualField, "id");
+  assert.equal(workspaceResource.searchSchema.idAfter.filterOperator, ">");
 
   assert.deepEqual(Object.keys(workspaceMembershipsResource.searchSchema), ["workspace", "user", "users", "status"]);
   assert.equal(workspaceMembershipsResource.searchSchema.workspace.actualField, "workspace_id");

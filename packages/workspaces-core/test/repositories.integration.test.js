@@ -91,6 +91,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   let workspaces;
   let memberships;
   let membershipTable;
+  let workspaceTable;
   let invites;
   let memberPages;
   let settings;
@@ -132,6 +133,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     ({ profiles, userSettings, profileProjector, usersExtensions } = capabilities);
     const resources = await runtime.own("workspaces.core", WORKSPACES_TABLES);
     membershipTable = resources.workspaceMemberships;
+    workspaceTable = resources.workspaces;
     ({ workspaces, memberships } = createWorkspaceRecords(resources));
     invites = createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
     memberPages = createMemberPagesRepository({ workspaceMemberships: resources.workspaceMemberships, userProfiles: profiles });
@@ -313,6 +315,118 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       (error) => error.code === "REST_API_RESOURCE" && error.subtype === "not_found"
     );
   });
+
+  // The system context of a test job that walks every workspace.
+  const walkContext = () => runtime.declareSystemScope("test.workspace-walk", "walk every workspace")("list every workspace a page at a time");
+
+  // `count` workspaces `${prefix}-000`, `${prefix}-001`, ... owned by one user, inserted in that order.
+  async function insertNamedWorkspaces(prefix, count, ownerUserId) {
+    await insertRows("workspaces", Array.from({ length: count }, (_, index) => ({
+      slug: `${prefix}-${String(index).padStart(3, "0")}`,
+      name: `${prefix} ${index}`,
+      owner_user_id: ownerUserId,
+      is_personal: false
+    })));
+  }
+
+  // Every page listForSystem answers, from the first, each page's last id the next page's afterId.
+  async function walkWorkspaces(limit, options) {
+    const pages = [];
+    for (let afterId = null; ;) {
+      const page = await workspaces.listForSystem({ afterId, limit }, options);
+      pages.push(page);
+      if (page.length < limit) return pages;
+      afterId = page.at(-1).id;
+    }
+  }
+
+  test("workspaces.listForSystem answers the workspaces that are not deleted, in id order, a page at a time, inside a transaction too", async () => {
+    const ownerUserId = (await insertUsers(["walker"])).get("walker");
+    await insertNamedWorkspaces("walk", 12, ownerUserId);
+    const all = (await knex("workspaces").orderBy("id").select("id", "slug")).map(({ id, slug }) => ({ id: String(id), slug }));
+    const deletedSlugs = ["walk-003", "walk-007"];
+    for (const { id } of all.filter(({ slug }) => deletedSlugs.includes(slug))) {
+      await workspaces.updateById(id, { deletedAt: new Date().toISOString() });
+    }
+    const kept = all.filter(({ slug }) => !deletedSlugs.includes(slug));
+    const system = { context: walkContext() };
+
+    const pages = await walkWorkspaces(4, system);
+    assert.deepEqual(pages.map((page) => page.length), [4, 4, 2]);
+    assert.deepEqual(pages.flat(), kept, "Every workspace that is not deleted, once, in id order, as { id, slug }");
+    assert.deepEqual(await workspaces.listForSystem({ afterId: kept.at(-1).id, limit: 4 }, system), []);
+    assert.deepEqual(await workspaces.listForSystem({ limit: 2 }, system), kept.slice(0, 2), "No afterId is the first page");
+    // An afterId naming a deleted workspace answers the workspaces after it.
+    assert.deepEqual(await workspaces.listForSystem({ afterId: all[3].id, limit: 2 }, system), kept.slice(3, 5));
+
+    await workspaces.withTransaction(system, async (txOptions) => {
+      const created = await workspaces.insert({ slug: "walk-new", name: "Walk new", ownerUserId }, txOptions);
+      const page = await workspaces.listForSystem({ afterId: kept.at(-1).id, limit: 4 }, txOptions);
+      assert.deepEqual(page, [{ id: created.id, slug: "walk-new" }]);
+    });
+  });
+
+  test("workspaces.listForSystem reads one page in one statement among 10 workspaces and among 200", async (t) => {
+    const ownerUserId = (await insertUsers(["walker"])).get("walker");
+    const system = { context: walkContext() };
+    const limit = workspaceTable.pageLimits().request;
+    // A first page, and the page after the third workspace.
+    const pageReads = async () => {
+      const ids = (await knex("workspaces").orderBy("id").select("id")).map(({ id }) => String(id));
+      const first = await statementsOf(() => workspaces.listForSystem({ limit }, system));
+      const later = await statementsOf(() => workspaces.listForSystem({ afterId: ids[2], limit }, system));
+      assert.deepEqual(first.result.map(({ id }) => id), ids.slice(0, limit));
+      assert.deepEqual(later.result.map(({ id }) => id), ids.slice(3, 3 + limit));
+      return { first, later };
+    };
+
+    await insertNamedWorkspaces("few", 10, ownerUserId);
+    const few = await pageReads();
+    await insertNamedWorkspaces("many", 190, ownerUserId);
+    const many = await pageReads();
+    t.diagnostic(
+      `listForSystem (limit ${limit}): a first page sends ${few.first.statements} statement(s) among 10 workspaces and ` +
+        `${many.first.statements} among 200, a later page ${few.later.statements} and ${many.later.statements}: ${many.later.sql.join(" | ")}`
+    );
+    assert.equal(few.first.result.length, 10);
+    assert.equal(many.first.result.length, limit);
+    assert.equal(many.first.statements, few.first.statements, "A first page costs the same among 10 workspaces and among 200");
+    assert.equal(many.later.statements, few.later.statements, "A later page costs the same among 10 workspaces and among 200");
+    assert.equal(many.first.statements, 1, many.first.sql.join(" | "));
+    assert.equal(many.later.statements, 1, many.later.sql.join(" | "));
+  });
+
+  test("workspaces.listForSystem refuses a context that is not a system context, an afterId that is no workspace id and a limit out of range, before any statement", async () => {
+    const owner = await createProfile("Ada");
+    const workspace = await workspaces.insert({ slug: "only", name: "Only", ownerUserId: owner.id });
+    const systemContext = walkContext();
+    const pageLimit = workspaceTable.pageLimits().request;
+    const notSystem = /runs only in a system context/u;
+    const refusals = [
+      ["no context", { limit: 10 }, {}, notSystem],
+      ["no options", { limit: 10 }, undefined, notSystem],
+      ["a signed-in request's context", { limit: 10 }, { context: { actor: { id: owner.id } } }, notSystem],
+      ["a workspace job's context", { limit: 10 }, { context: systemContext.forWorkspace(workspace.id) }, notSystem],
+      ["a user job's context", { limit: 10 }, { context: systemContext.forUser(owner.id) }, notSystem],
+      ...[undefined, null, 0, -1, 1.5, "10", Number.NaN, Number.POSITIVE_INFINITY, pageLimit + 1].map((limit) => [
+        `limit ${String(limit)}`, { limit }, { context: systemContext }, /limit is a whole number from 1 to /u
+      ]),
+      ...["", "abc", "0", "-1", "1.5", 0, -1, 1.5, true, {}].map((afterId) => [
+        `afterId ${JSON.stringify(afterId)}`, { afterId, limit: 10 }, { context: systemContext }, /afterId is the id of the last workspace/u
+      ])
+    ];
+    for (const [label, page, options, message] of refusals) {
+      const { statements, sql } = await statementsOf(() => assert.rejects(workspaces.listForSystem(page, options), (error) => {
+        assert.ok(error instanceof TypeError, `${label}: ${error}`);
+        assert.match(error.message, message, label);
+        return true;
+      }));
+      assert.equal(statements, 0, `${label} is refused before any statement: ${sql.join(" | ")}`);
+    }
+    const page = await workspaces.listForSystem({ afterId: null, limit: pageLimit }, { context: systemContext });
+    assert.deepEqual(page, [{ id: workspace.id, slug: "only" }]);
+  });
+
 
   test("workspaces.lock and memberships.lockByWorkspaceIdAndUserId take lockMode share, and refuse another mode before any statement", async () => {
     const owner = await createProfile("Ada");
