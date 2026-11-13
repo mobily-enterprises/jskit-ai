@@ -258,19 +258,28 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
   }
 
   /**
-   * Locks the caller's rows the filters select until the transaction ends, in id
-   * order, and answers them; it waits for transactions holding them, so a row that
-   * starts to match meanwhile is locked too. At most 1,000 rows (RestApiRowLimitError
-   * past that). It does not lock rows inserted later: unique numbers take a unique
-   * index, or a counter row taken with lock(). On MySQL it needs an index starting
-   * with the ownership columns (no owners: with a filtered column), or it refuses.
+   * Locks the caller's rows the filters select until the transaction ends and answers them; it waits for
+   * transactions holding them, so a row that starts to match meanwhile is locked too. At most 1,000 rows
+   * (RestApiRowLimitError past that). It does not lock rows inserted later: unique numbers take a unique index, or a
+   * counter row taken with lock(). On MySQL it needs an index starting with the ownership columns (no owners: with a
+   * filtered column), or it refuses.
+   * Without `sort` or `limit` it locks in id order, on MySQL and MariaDB in the order of that index. `sort` (stored
+   * fields, "-" for descending) locks and answers the rows in that order, then by id, so every writer that locks
+   * them takes them in one order; `limit` locks only the first `limit` of them (1 to 1,000), by `sort` or else by
+   * id: `limit: 1` locks one row by a unique key in one statement, as lock(id) does. On MySQL and MariaDB either
+   * needs an index that reads in that order: after the ownership columns and the filters' single-value equalities,
+   * the sort's columns.
    * `fields` reads only the fields the work needs, and `lockMode` picks the lock (see lockMany).
    * @param {object} filters
-   * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[] }} options
+   * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[], sort?: string | string[], limit?: number }} options
    */
   async function lockWhere(filters, options) {
     requireDefinedFilters(name, "lockWhere", filters);
-    return lockRead("lockWhere", "lockWhere", { filters }, options);
+    return lockRead("lockWhere", "lockWhere", {
+      filters,
+      ...(options.sort === undefined ? {} : { sort: textList(options.sort) }),
+      ...(options.limit === undefined ? {} : { limit: options.limit })
+    }, options);
   }
 
   /**
