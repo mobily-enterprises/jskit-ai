@@ -326,6 +326,66 @@ test("a feature with systemScope declares it and gets the resource runtime's sys
   assert.deepEqual(systemContext("close the week's leagues"), { system: true, reason: "close the week's leagues" });
 });
 
+test("a feature that declares no actions needs no action catalogue, so the action policy can require what it provides", async () => {
+  const written = [];
+  const auditFeature = defineFeature({
+    id: "feature.audit",
+    provides: { audit: "test.audit" },
+    setup() {
+      return { audit: Object.freeze({ write: (entry) => written.push(entry) }) };
+    }
+  });
+  const policyProvider = defineProvider({
+    id: "test.policy",
+    requires: { audit: "test.audit" },
+    provides: { policy: "runtime.actions.policy" },
+    setup({ audit }) {
+      return {
+        policy: Object.freeze({
+          input: (definition) => definition.input,
+          async execute({ definition, input, context, run }) {
+            const result = await run(input, context);
+            audit.write(definition.id);
+            return result;
+          }
+        })
+      };
+    }
+  });
+  const booksFeature = defineFeature({
+    id: "feature.books",
+    actionDefaults: { channels: ["api"], surfaces: ["app"] },
+    actions: () => [{ id: "books.count", kind: "query", input: emptyInput(), execute: async () => 3 }]
+  });
+  let actions = null;
+  const observer = defineProvider({
+    id: "test.observer",
+    requires: { actionCatalogue: "runtime.actions" },
+    setup({ actionCatalogue }) {
+      actions = actionCatalogue;
+    }
+  });
+  const runtime = createCapabilityRuntime({
+    inputs: { "runtime.logger": silentLogger },
+    providers: [observer, booksFeature, policyProvider, auditFeature, EventProvider, ActionProvider]
+  });
+  await runtime.start();
+
+  assert.equal(await actions.execute({ actionId: "books.count", context: { channel: "api", surface: "app" } }), 3);
+  assert.deepEqual(written, ["books.count"]);
+
+  let reading = null;
+  const reader = defineFeature({
+    id: "feature.reader",
+    setup(dependencies, context) {
+      reading = () => context.actionCatalogue;
+      return {};
+    }
+  });
+  await createCapabilityRuntime({ inputs: { "runtime.logger": silentLogger }, providers: [reader] }).start();
+  assert.throws(reading, /Feature "feature\.reader" declares no actions, so its context has no action catalogue: require "runtime\.actions"/u);
+});
+
 test("owns and systemScope need the resource runtime; other features do not", async () => {
   for (const feature of [
     defineFeature({ id: "feature.owner", owns: [{ name: "receivals" }] }),

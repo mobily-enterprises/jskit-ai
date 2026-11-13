@@ -42,6 +42,20 @@ function withoutActionCatalogue(dependencies) {
 }
 
 /**
+ * The context of a feature that declares no actions: it has no action catalogue, and reading one names the fix
+ * instead of answering undefined.
+ */
+function contextWithoutActionCatalogue(context, featureId) {
+  return Object.freeze(Object.defineProperty({ ...context }, "actionCatalogue", {
+    get() {
+      throw new Error(
+        `Feature "${featureId}" declares no actions, so its context has no action catalogue: require "runtime.actions" to use one.`
+      );
+    }
+  }));
+}
+
+/**
  * The table resources a feature owns: each a table resource, or
  * `{ resource, ...serverOnlyExtras }` such as its row policy and write hooks.
  * The resource runtime checks the entries; the kernel only passes them on.
@@ -127,6 +141,9 @@ function defineFeature({
   }
 
   const actionFactory = normalizeActionFactory(actions, featureId);
+  // Only a feature that can register actions needs the action catalogue. One that declares none can then be required
+  // by the application's action policy, which the catalogue itself requires.
+  const declaresActions = typeof actions === "function" || (Array.isArray(actions) && actions.length > 0);
   const featureResources = {
     featureId,
     owns: normalizeOwns(owns, featureId),
@@ -137,7 +154,7 @@ function defineFeature({
     id,
     requires: {
       ...requires,
-      actionCatalogue: "runtime.actions",
+      ...(declaresActions ? { actionCatalogue: "runtime.actions" } : {}),
       ...(featureResources.owns || featureResources.systemScope ? { resourceRuntime: RESOURCE_RUNTIME } : {})
     },
     optional,
@@ -151,7 +168,9 @@ function defineFeature({
     async setup(dependencies, context) {
       const { actionCatalogue } = dependencies;
       const featureDependencies = withoutActionCatalogue(dependencies);
-      const featureContext = Object.freeze({ ...context, actionCatalogue });
+      const featureContext = declaresActions
+        ? Object.freeze({ ...context, actionCatalogue })
+        : contextWithoutActionCatalogue(context, featureId);
       const setupDependencies = Object.freeze({
         ...featureDependencies,
         ...(await resourceDependencies(dependencies, featureResources, featureDependencies))

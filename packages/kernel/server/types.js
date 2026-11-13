@@ -68,7 +68,8 @@
  * What a feature's setup() and actions() receive besides their dependencies.
  * @typedef {object} FeatureSetupContext
  * @property {string} profile
- * @property {ActionCatalogue} actionCatalogue
+ * @property {ActionCatalogue} actionCatalogue Only for a feature that declares actions; a feature that declares none
+ *   does not require `runtime.actions`, and reading this names the fix.
  */
 
 /**
