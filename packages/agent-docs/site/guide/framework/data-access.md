@@ -979,9 +979,25 @@ SHARE OF` at all, and its `LOCK IN SHARE MODE` covers every row the statement
 examines, in every table. A report that needs another
 owner's rows unchanged until it commits first locks them through that owner's
 handle or owner API with `lockMode: "share"` (by a unique key with `limit:
-1`), then reads its join. A row policy is not told a read's lock mode, and
-never takes a lock: it says which rows a caller may see, the same for every
-read, and the lock call it narrows takes its own mode. Rows
+1`), then reads its join. A row policy is not told a read's lock mode and
+writes no lock clause: it says which rows a caller may see, the same for every
+read. In a lock (`lock`, `lockMany`, `lockWhere`, `lockPages`), json-rest-api
+gives each subquery of the policy (an `ownTable` read, another owner's
+`joinSource`) a shared lock, `FOR SHARE` or `LOCK IN SHARE MODE`, whatever the
+lock's mode. A plain subquery there decides from a snapshot: on MySQL and
+MariaDB the one the transaction's first plain read fixed, so a member removed
+since would still lock the rows, and on PostgreSQL, after the lock waited for
+its row, the one its statement began with. The shared lock reads the
+membership and grant rows as last committed, waits for a transaction changing
+them, and keeps them unchanged until commit, while other locks that read them
+go on at once: exclusive locks there would make every lock that reads one
+membership wait for the others. So a change to a membership waits for the
+locks that read it, and work that locks through a policy and then writes a row
+the policy read can deadlock with work doing the same (the database fails one,
+and `withTransaction` runs it again). Give the policy's subqueries an index
+that finds the deciding rows directly, since on MySQL and MariaDB a locking
+subquery locks every row it examines. `claim` keeps its policy's subqueries
+plain reads. Rows
 of several owners are never locked in one statement over a join, which on
 MySQL and MariaDB locks every joined row the read examines: lock each owner's
 rows with its own `lock`, `lockMany` or `lockWhere`, the owners in one fixed
