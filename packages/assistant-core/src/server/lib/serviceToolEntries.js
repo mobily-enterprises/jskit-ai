@@ -15,9 +15,6 @@ function normalizeAssistantExtension(value) {
   if (source.transformResult != null && typeof source.transformResult !== "function") {
     throw new TypeError("extensions.assistant.transformResult must be a function when provided.");
   }
-  if (source.unsaved !== undefined && typeof source.unsaved !== "boolean") {
-    throw new TypeError("extensions.assistant.unsaved must be a boolean when provided.");
-  }
 
   return Object.freeze({
     description: normalizeText(source.description),
@@ -173,6 +170,12 @@ function resolveActionBackedToolEntries(actions) {
     const actionId = normalizeText(action.id);
     if (!actionId) {
       continue;
+    }
+    // A wrong privacy declaration stops the catalogue: leaving the action out would hide the mistake.
+    const declaredUnsaved = action.extensions?.assistant?.unsaved;
+    if (declaredUnsaved !== undefined && typeof declaredUnsaved !== "boolean") {
+      const shown = typeof declaredUnsaved === "string" ? JSON.stringify(declaredUnsaved) : String(declaredUnsaved);
+      throw new TypeError(`Action "${actionId}" sets extensions.assistant.unsaved to ${shown}: it must be true or false.`);
     }
 
     let assistantExtension = null;

@@ -256,7 +256,7 @@ test("defineCrudFeature makes workspace scope and permissions explicit", async (
   await runtime.shutdown();
 });
 
-test("a scoped CRUD custom action's input keeps its own mode, and one without a mode is create", async () => {
+test("a scoped CRUD custom action's input keeps its own mode, one without a mode is create, and its extensions reach the action", async () => {
   const routes = [];
   const feature = defineCrudFeature({
     crud: createBookResource({ ownership: "workspace" }),
@@ -271,6 +271,7 @@ test("a scoped CRUD custom action's input keeps its own mode, and one without a 
     actions: {
       archive: {
         input: { schema: createSchema({ recordId: { type: "string", required: true } }) },
+        extensions: { assistant: { unsaved: true } },
         execute: ({ input }) => input
       },
       rename: {
@@ -299,6 +300,8 @@ test("a scoped CRUD custom action's input keeps its own mode, and one without a 
   assert.equal(archive.mode, "create");
   assert.deepEqual(Object.keys(archive.schema.getFieldDefinitions()), ["workspaceSlug", "recordId"]);
   assert.equal(rename.mode, "patch");
+  assert.deepEqual(actions.getDefinition("crud.books.archive").extensions, { assistant: { unsaved: true } },
+    "A custom action can be an unsaved assistant tool");
   await runtime.shutdown();
 });
 

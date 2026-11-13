@@ -675,6 +675,11 @@ discovery, within the same eight); discovery never finds it. The Claude, Codex
 and OpenCode engines save every tool call in their own history, so they never
 offer it ([unsaved tools](./assistant-conversation.md#unsaved-tools)).
 
+Any value other than `true` or `false` stops the catalogue with an error naming
+the action, instead of leaving the action out. A JSON:API CRUD feature's custom
+action declares it the same way, in its `extensions`; the generated list, view,
+create, update and delete actions cannot carry it.
+
 Two things stay the app's. The model's own words are saved like any reply: its
 answer, its commentary or its account at the step limit can restate what the
 tool returned, so the description should say what the model may repeat. The

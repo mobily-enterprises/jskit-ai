@@ -836,6 +836,9 @@ test("unsaved actions say so, are offered directly only to a caller that keeps t
     [["demo.private-9.read", "At most 8 actions are offered directly beside action discovery."]]);
 
   const misdeclared = createServiceToolCatalog(createActions([action({ id: "demo.surveys.open", extensions: { assistant: { unsaved: "yes" } } })]));
-  assert.deepEqual(misdeclared.resolveToolSet(context, { offerUnsaved: true }).tools, [], "A malformed declaration is never offered");
+  assert.throws(() => misdeclared.resolveToolSet(context), {
+    name: "TypeError",
+    message: 'Action "demo.surveys.open" sets extensions.assistant.unsaved to "yes": it must be true or false.'
+  }, "A malformed declaration stops the catalogue instead of dropping the action");
   assert.throws(() => catalog.resolveToolSet(context, { offerUnsaved: "yes" }), /offerUnsaved must be a boolean/);
 });
