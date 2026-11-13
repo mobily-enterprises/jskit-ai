@@ -452,6 +452,12 @@ Local functions
 
 ### migrations
 
+### `migrations/workspaces_core_indexes_by_user.cjs`
+Exports
+- None
+Local functions
+- `foreignKeysAreIndexed(knex)`
+
 ### `migrations/workspaces_core_initial.cjs`
 Exports
 - None
