@@ -284,6 +284,13 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
                   turn.updatedAt = new Date().toISOString();
                   await writeRun(turn, turn.state);
                 }
+                // A steered input's output belongs to its own request only once
+                // that admission commits. Until then the earlier request is still
+                // the current one and would take the output as its own.
+                const admission = turn.admission;
+                await admission?.promise;
+                signal.throwIfAborted();
+                if (admission !== turn.admission || inputMessageId !== normalizeNullableText(turn.inputMessageId)) return;
                 return projectMessages(messages, { inputMessageId, streaming: true });
               },
               readFailure: events.readFailure,

@@ -147,9 +147,11 @@ async function fixture(t, options = {}) {
         if (text === "rejected") return reply({ message: "Native request rejected" }, 422);
         if (!${Boolean(options.unobservedInput)}) session.messages.push(row("user", body.messageID, body.parts));
         save();
+        // A steer's first output can exist before OpenCode's acknowledgement reaches the bridge.
+        const acknowledgeAfterOutput = ${Boolean(options.steerOutputBeforeAcknowledgement)} && busy.has(session.id);
         busy.add(session.id);
         if (text === "lost") return;
-        reply(null, 204);
+        if (!acknowledgeAfterOutput) reply(null, 204);
         if (text === "wait") return;
         if (text === "steering") {
           session.messages.push(row("assistant", randomUUID(), [{ type: "text", text: "Initial progress" }], { parentID: body.messageID }));
@@ -225,6 +227,7 @@ async function fixture(t, options = {}) {
         log({ system: output.system, sessionId: session.id });
         const answer = row("assistant", randomUUID(), [{ type: "reasoning", text: "Reasoning summary" }, { type: "text", text: "Answer: " }]);
         session.messages.push(answer); save();
+        if (acknowledgeAfterOutput) reply(null, 204);
         const complete = () => {
           answer.parts[1].text = answerText;
           answer.info.finish = "stop"; answer.info.time.completed = Date.now(); save();
@@ -464,7 +467,43 @@ test("a model that keeps calling refused native tools fails visibly and stops it
 });
 
 test("OpenCode steering follows the newly admitted input in the same native conversation", async t => {
-  const f = await fixture(t);
+  // A steer's first output can exist before the bridge commits the steer's admission, and a
+  // native history poll can return it in between. Make that order certain on any machine:
+  // once the steer is about to be sent, polls wait for its acknowledgement, which comes when
+  // its output exists, and its admission commit waits for such a poll to return.
+  let steer = null;
+  const nativeFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    const held = steer;
+    const route = new URL(url).pathname;
+    const poll = held && init.method === "GET" && route.endsWith("/message");
+    if (poll) await held.acknowledgement.promise;
+    const response = await nativeFetch(url, init);
+    if (held && route.endsWith("/prompt_async")) {
+      held.acknowledged = true;
+      held.acknowledgement.resolve();
+    }
+    if (!poll) return response;
+    // The whole reply is read here, so the bridge handles it without waiting on the network.
+    const body = await response.text();
+    held.read.resolve(body);
+    return new Response(body, { status: response.status, statusText: response.statusText, headers: response.headers });
+  };
+  t.after(() => { globalThis.fetch = nativeFetch; });
+  const steering = { messageId: "after", text: "Continue differently", steer: true };
+  const f = await fixture(t, {
+    steerOutputBeforeAcknowledgement: true,
+    // At this stage the OpenCode monitor already follows the steered input.
+    onDeliveryTiming({ messageId, stage }) {
+      if (!steer && messageId === steering.messageId && stage === "runtime-ready") {
+        steer = { acknowledged: false, acknowledgement: Promise.withResolvers(), read: Promise.withResolvers() };
+      }
+    },
+    async authorize({ operation }) {
+      if (operation === "steer" && steer?.acknowledged) await steer.read.promise;
+      return true;
+    }
+  });
   const started = Promise.withResolvers();
   const events = [];
   await f.conversation.subscribe(event => {
@@ -473,8 +512,8 @@ test("OpenCode steering follows the newly admitted input in the same native conv
   });
   await f.conversation.send({ messageId: "before", text: "steering" });
   await started.promise;
-  const steering = { messageId: "after", text: "Continue differently", steer: true };
   const [one, two] = await Promise.all([f.conversation.send(steering), f.conversation.send(steering)]);
+  assert.match(await steer.read.promise, /Answer: /u, "The poll the admission waited for returned the steered output");
   assert.equal(one.turnId, two.turnId);
   const state = await f.conversation.wait();
   assert.equal(state.error, "");
