@@ -16,11 +16,13 @@ Use this on demand; do not load the full index at startup.
 
 ### `src/client/browser.js`
 Exports
+- `pageActiveElement()`
 - `pageClipboard()`
 - `pageDocument()`
 - `pageLocation()`
 - `pageWindow()`
 - `replacePage(path)`
+- `saveTextFile(fileName, text)`
 
 ### `src/client/composables/loginView/confirmationLink.js`
 Exports

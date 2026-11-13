@@ -74,6 +74,16 @@ const HomePage = {
     ]);
   }
 };
+// An account settings section with the authenticator, which counts the times the person said they saved new codes.
+const SecondFactorPage = {
+  setup() {
+    const codesSaved = ref(0);
+    return () => h("div", [
+      h(SecondFactorSettings, { onCodesSaved: () => { codesSaved.value += 1; } }),
+      h("p", { "data-testid": "codes-saved" }, `Codes saved: ${codesSaved.value}`)
+    ]);
+  }
+};
 // An application's console: its refund route asks for a code proved within five minutes, through the step-up dialog.
 const ConsolePage = {
   setup() {
@@ -111,7 +121,7 @@ const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: "/home", component: HomePage },
-    { path: "/account/second-factor", component: SecondFactorSettings },
+    { path: "/account/second-factor", component: SecondFactorPage },
     { path: "/console", component: ConsolePage },
     { path: "/auth/login", component: DefaultLoginView },
     { path: "/auth/reset-password", component: DefaultResetPasswordView },

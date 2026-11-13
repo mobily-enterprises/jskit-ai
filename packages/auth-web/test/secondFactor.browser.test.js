@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import process from "node:process";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -95,7 +96,7 @@ async function finish(api) {
   await api.page.close();
 }
 
-test("on a phone, setting up an authenticator shows its QR code and key, a wrong code beside the field, and the recovery codes once", options, async () => {
+test("on a phone, setting up an authenticator shows its QR code and key, a wrong code beside the field, and the recovery codes once, to download, telling the page when they are saved", options, async () => {
   const api = await openApp({
     "GET /api/second-factor": [refused(503, "", "Service unavailable."), { json: NOT_ENROLLED }, { json: ENROLLED }],
     "POST /api/second-factor/setup": [{
@@ -133,7 +134,14 @@ test("on a phone, setting up an authenticator shows its QR code and key, a wrong
   await expect(codesTitle).toBeFocused();
   await expect(page.getByRole("list", { name: "Recovery codes" }).getByRole("listitem")).toHaveText(RECOVERY_CODES);
   await fitsTheScreen(page);
+  // The codes download as a text file, one a line.
+  const [saved] = await Promise.all([page.waitForEvent("download"), page.getByRole("button", { name: "Download codes" }).click()]);
+  assert.equal(saved.suggestedFilename(), "recovery-codes.txt");
+  assert.equal(await readFile(await saved.path(), "utf8"), `${RECOVERY_CODES.join("\n")}\n`);
+  // The page hears that the codes are saved once the person says so, not before.
+  await expect(page.getByTestId("codes-saved")).toHaveText("Codes saved: 0");
   await page.getByRole("button", { name: "I've saved them" }).click();
+  await expect(page.getByTestId("codes-saved")).toHaveText("Codes saved: 1");
   await expect(page.getByText(/^Authenticator app set up on /u)).toBeFocused();
   await expect(page.getByText("10 recovery codes left.")).toBeVisible();
   await expect(page.getByText(RECOVERY_CODES[0])).toHaveCount(0);
@@ -182,7 +190,7 @@ test("removing the authenticator takes a code or a recovery code, shows a wait b
   await finish(api);
 });
 
-test("a route that asks for a fresh code opens the step-up dialog, runs again after the code, and Escape cancels it", options, async () => {
+test("a route that asks for a fresh code opens the step-up dialog, runs again after the code, and Escape cancels it, focus returning to the control each time", options, async () => {
   const api = await openApp({
     "POST /api/console/refund": [REQUIRED, { json: { refunded: true } }, REQUIRED],
     "POST /api/second-factor/verify": [
@@ -205,12 +213,15 @@ test("a route that asks for a fresh code opens the step-up dialog, runs again af
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("console-outcome")).toHaveText("Refunded");
   await expect(dialog).toBeHidden();
+  // Focus is back on the control that sent the request, after a code as after cancelling.
+  await expect(page.getByRole("button", { name: "Refund" })).toBeFocused();
 
-  await page.getByRole("button", { name: "Refund" }).click();
+  await page.keyboard.press("Enter");
   await expect(dialog.getByLabel("6-digit code")).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId("console-outcome")).toHaveText("Refund failed: Confirm it's you with a code from your authenticator app.");
+  await expect(page.getByRole("button", { name: "Refund" })).toBeFocused();
 
   assert.equal(bodiesOf(api, "POST /api/console/refund").length, 3);
   assert.deepEqual(bodiesOf(api, "POST /api/second-factor/verify"), [{ code: "000000" }, { code: "123456" }]);

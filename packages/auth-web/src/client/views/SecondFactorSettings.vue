@@ -10,6 +10,9 @@
         <v-btn v-if="canCopy" variant="text" prepend-icon="$contentCopy" @click="copy(recoveryCodes.join('\n'))">
           {{ t("jskit.auth.secondFactor.codes.copy") }}
         </v-btn>
+        <v-btn variant="text" prepend-icon="$download" @click="download">
+          {{ t("jskit.auth.secondFactor.codes.download") }}
+        </v-btn>
         <v-btn color="primary" variant="flat" @click="onCodesSaved">{{ t("jskit.auth.secondFactor.codes.saved") }}</v-btn>
       </div>
     </div>
@@ -126,7 +129,10 @@ import {
 } from "../runtime/secondFactorRequests.js";
 
 // The signed-in person's authenticator app: setting one up, its recovery codes, and removing it. An account settings
-// section places it; the section's title names it.
+// section places it; the section's title names it. `codes-saved` tells the page that the person said they saved a new
+// set of recovery codes (the last step of setting one up, or of replacing its codes), so a page that asked for an
+// authenticator before it goes on, such as a console's way in, can go on.
+const emit = defineEmits(["codes-saved"]);
 const { formatDate, t } = useJskitText();
 const {
   load,
@@ -144,7 +150,8 @@ const {
   codesSaved,
   removed,
   showStep,
-  copy
+  copy,
+  download
 } = useSecondFactorSettings();
 
 // After a step ends, focus moves to the start of the next, so a keyboard or screen reader carries on from there.
@@ -163,6 +170,7 @@ function onRecoveryCodes(result) {
 
 function onCodesSaved() {
   codesSaved();
+  emit("codes-saved");
   void focusStep();
 }
 

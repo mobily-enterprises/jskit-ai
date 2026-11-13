@@ -245,14 +245,19 @@ execute(input, context) {
 under `@jskit-ai/auth-web/client/views/` so that only a page that shows one
 loads it (the settings' QR code library included). `SecondFactorSettings`
 sets an authenticator up (a QR code and the key as text, shown once, then the
-app's first code), shows the recovery codes once, replaces them, and removes
-the authenticator, each with a code or a recovery code; an app places it as an
-account settings section, whose title names it ("Authenticator app").
+app's first code), shows the recovery codes once (to copy, or to download as
+`recovery-codes.txt`), replaces them, and removes the authenticator, each with
+a code or a recovery code; an app places it as an account settings section,
+whose title names it ("Authenticator app"). It emits `codes-saved` when the
+person says they saved a new set of codes, so a page that needs an
+authenticator before it goes on, such as a console's way in, goes on then.
 `SecondFactorPrompt` proves the session's second factor on a page of the app's.
 For a route that asks for a recent code, `useSecondFactorStepUp()` runs the
 request, and when it is refused with `auth.secondFactor.required` opens
 `SecondFactorDialog` and runs it again after the code; cancelling throws the
-refusal to the caller:
+refusal to the caller. The dialog gives focus back to the element that had it
+when it opened (the control that sent the request), after the code as after a
+cancel:
 
 ```vue
 <script setup>

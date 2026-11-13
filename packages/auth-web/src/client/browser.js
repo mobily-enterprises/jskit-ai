@@ -23,6 +23,33 @@ function pageClipboard() {
   return pageWindow()?.navigator.clipboard || null;
 }
 
+/** The element that has the page's focus; null outside a browser. */
+function pageActiveElement() {
+  return pageDocument()?.activeElement || null;
+}
+
+/**
+ * Has the browser save `text` as a file named `fileName`; does nothing outside a browser.
+ * @param {string} fileName
+ * @param {string} text
+ */
+function saveTextFile(fileName, text) {
+  const window = pageWindow();
+  const document = pageDocument();
+  if (!window || !document) {
+    return;
+  }
+  const url = window.URL.createObjectURL(new window.Blob([text], { type: "text/plain;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = fileName;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  // After the click has started the download, which reads the file first.
+  window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
+}
+
 /**
  * Replaces the page with the one at `path`; does nothing outside a browser.
  * @param {string} path
@@ -35,9 +62,11 @@ function replacePage(path) {
 }
 
 export {
+  pageActiveElement,
   pageClipboard,
   pageDocument,
   pageLocation,
   pageWindow,
-  replacePage
+  replacePage,
+  saveTextFile
 };

@@ -18,16 +18,38 @@
 </template>
 
 <script setup>
+import { nextTick, watch } from "vue";
 import SecondFactorPrompt from "./SecondFactorPrompt.vue";
+import { pageActiveElement } from "../browser.js";
 import { useJskitText } from "../i18n.js";
 
 // The step-up dialog: bind `open`, `verified` and `cancel` to useSecondFactorStepUp()'s. Escape and a click outside
 // cancel, as the Cancel button does.
-defineProps({
+const props = defineProps({
   open: { type: Boolean, required: true }
 });
 const emit = defineEmits(["verified", "cancel"]);
 const { t } = useJskitText();
+
+/**
+ * A request opens the dialog, not a button of its own, so the dialog has no activator to give focus back to: it keeps
+ * the element that had focus when it opened (the control that sent the request) and focuses it again once it closes,
+ * verified or cancelled, so a keyboard carries on where it was.
+ * @type {HTMLElement | null}
+ */
+let returnFocusTo = null;
+watch(() => props.open, async (open) => {
+  if (open) {
+    returnFocusTo = /** @type {HTMLElement | null} */ (pageActiveElement());
+    return;
+  }
+  const element = returnFocusTo;
+  returnFocusTo = null;
+  await nextTick();
+  if (element?.isConnected) {
+    element.focus({ preventScroll: true });
+  }
+});
 </script>
 
 <style scoped>

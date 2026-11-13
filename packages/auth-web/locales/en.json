@@ -166,6 +166,7 @@
           "explain": "If you lose your authenticator app, each of these codes confirms it's you once. They are shown only now: keep them somewhere safe.",
           "listLabel": "Recovery codes",
           "copy": "Copy codes",
+          "download": "Download codes",
           "saved": "I've saved them"
         },
         "replace": {

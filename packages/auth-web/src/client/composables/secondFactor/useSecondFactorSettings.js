@@ -1,11 +1,12 @@
 import { computed, onMounted, ref } from "vue";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
-import { pageClipboard } from "../../browser.js";
+import { pageClipboard, saveTextFile } from "../../browser.js";
 import { useJskitText } from "../../i18n.js";
 import { qrCodePath } from "../../lib/qrCode.js";
 import { readSecondFactor, startSecondFactorSetup } from "../../runtime/secondFactorRequests.js";
 
 const SOURCE = "auth-web.second-factor-settings";
+const RECOVERY_CODES_FILE = "recovery-codes.txt";
 
 /**
  * The signed-in person's authenticator app: its state, read on mount (`load` is "loading", "ready" or "error"), and
@@ -97,6 +98,11 @@ function useSecondFactorSettings() {
     }
   }
 
+  /** Saves the recovery codes shown as a text file, one code a line, for a person who keeps them as a file. */
+  function download() {
+    saveTextFile(RECOVERY_CODES_FILE, `${recoveryCodes.value.join("\n")}\n`);
+  }
+
   onMounted(reload);
 
   return {
@@ -115,7 +121,8 @@ function useSecondFactorSettings() {
     codesSaved,
     removed,
     showStep,
-    copy
+    copy,
+    download
   };
 }
 
