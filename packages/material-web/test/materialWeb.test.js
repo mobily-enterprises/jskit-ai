@@ -252,6 +252,13 @@ test("sliders and range sliders are Material 3's pill sliders, primary with a se
   assert.deepEqual(defaults.VRangeSlider, slider);
 });
 
+test("a linear progress indicator's track is secondary-container", () => {
+  const { defaults } = createMaterialVuetifyOptions();
+  // Only the track: `color` stays the app's, so its color prop still sets the bar and the stop, and a loader in a
+  // coloured bar or card keeps the text colour it inherits. loading.browser.test.js measures what Vuetify then draws.
+  assert.deepEqual(defaults.VProgressLinear, { bgColor: "secondary-container" });
+});
+
 test("material.css draws cards, a dialog's card and a bottom sheet's card", async () => {
   const css = await readFile(path.join(PACKAGE_ROOT, "src/client/material.css"), "utf8");
   assert.match(css, /\n {2}\.v-card \{\s*border-radius: 12px;\s*\}/u);

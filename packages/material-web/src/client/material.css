@@ -435,6 +435,25 @@
     opacity: calc(var(--v-activated-opacity) * var(--v-theme-overlay-multiplier));
   }
 
+  /* A skeleton loader's bones (text, heading, avatar, image, button, chip, divider, ossein) are
+     surface-container-highest, Material 3's most emphasized neutral container, a pale placeholder in light and dark.
+     Vuetify draws them in on-surface at the border opacity, which the outline roles keep at full strength, so every
+     bone was solid on-surface, near black in light. Each bone's shimmer (its ::after) still sweeps over it. Forced
+     colours keep Vuetify's canvastext bones, restated here since this rule outranks Vuetify's. */
+  .v-skeleton-loader :is(.v-skeleton-loader__avatar, .v-skeleton-loader__button, .v-skeleton-loader__chip,
+    .v-skeleton-loader__divider, .v-skeleton-loader__heading, .v-skeleton-loader__image, .v-skeleton-loader__ossein,
+    .v-skeleton-loader__text) {
+    background-color: rgb(var(--v-theme-surface-container-highest));
+  }
+
+  @media (forced-colors: active) {
+    .v-skeleton-loader :is(.v-skeleton-loader__avatar, .v-skeleton-loader__button, .v-skeleton-loader__chip,
+      .v-skeleton-loader__divider, .v-skeleton-loader__heading, .v-skeleton-loader__image,
+      .v-skeleton-loader__ossein, .v-skeleton-loader__text) {
+      background-color: canvastext;
+    }
+  }
+
   /* A shown placeholder is on-surface-variant at full strength, as Material 3's text field and search bar draw it,
      instead of Vuetify's faded on-surface (2.2:1). A labelled field still hides it until the field is active. */
   .v-field:is(.v-field--active, .v-field--no-label) :is(input, textarea)::placeholder {

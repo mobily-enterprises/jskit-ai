@@ -1,12 +1,12 @@
 // JSKIT's Material 3 component defaults, on top of Vuetify's md3 blueprint: full-shape filled buttons, cards that rest
 // flat on surface-container-low, flat expansion panels, outlined fields, 8dp chips that close with $close, segmented buttons and
 // filter chips that select in secondary-container, the inverse-surface snackbar, the Material switch, Material 3's
-// slider (Vuetify's pill variant) with a secondary-container inactive track, and the 16dp primary-container FAB. A
-// number for `rounded` is an exact corner in dp. Card, dialog and bottom sheet corners and colours, a menu's own list,
-// and the sizes and states props cannot set, are in material.css. No VMenu sub-component
-// defaults: under them, in Vuetify 4.2.1 to 4.3.2, an ancestor's re-render makes the menu's virtual list lose its item
-// heights, so a v-select's typeahead never scrolls to its match (https://github.com/vuetifyjs/vuetify/issues/23366;
-// README, Upstream workarounds).
+// slider (Vuetify's pill variant) with a secondary-container inactive track, the linear progress indicator's
+// secondary-container track, and the 16dp primary-container FAB. A number for `rounded` is an exact corner in dp.
+// Card, dialog and bottom sheet corners and colours, a menu's own list, skeleton loader bones, and the sizes and states
+// props cannot set, are in material.css. No VMenu sub-component defaults: under them, in Vuetify 4.2.1 to 4.3.2, an
+// ancestor's re-render makes the menu's virtual list lose its item heights, so a v-select's typeahead never scrolls to
+// its match (https://github.com/vuetifyjs/vuetify/issues/23366; README, Upstream workarounds).
 const materialDefaults = Object.freeze({
   VAppBar: {
     color: "surface",
@@ -84,6 +84,13 @@ const materialDefaults = Object.freeze({
     color: "primary",
     trackColor: "secondary-container",
     variant: "pill"
+  },
+  // Material 3's linear progress indicator: a secondary-container track beside the primary active indicator and stop.
+  // Vuetify draws the track in the bar's own colour at the border opacity, which the outline roles keep at full
+  // strength, so the track was as solid as the bar. An app's color prop still sets the bar and the stop, and its
+  // bg-color the track.
+  VProgressLinear: {
+    bgColor: "secondary-container"
   },
   VRangeSlider: {
     color: "primary",
