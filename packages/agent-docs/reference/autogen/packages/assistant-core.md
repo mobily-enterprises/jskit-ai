@@ -1525,6 +1525,8 @@ Local functions
 ### `src/server/conversation/openCodeSessionTurns.js`
 Exports
 - `createOpenCodeSessionTurns({ processes, monitors, turns, processOwner, turnMonitor })`
+Local functions
+- `openCodeAdmission()`
 
 ### `src/server/conversation/openCodeTemporaryConversations.js`
 Exports
