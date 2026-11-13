@@ -244,7 +244,6 @@ test("bootstrap placement runtime contributes workspace slug to shared bootstrap
       workspaceSlug: "acme"
     },
     meta: {
-      path: "/w/acme/dashboard",
       workspaceSlug: "acme"
     }
   });
@@ -607,6 +606,63 @@ test("bootstrap placement runtime tracks status per workspace slug across route 
   assert.equal(context.workspaceBootstrapStatuses?.acme, WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
   assert.equal(context.workspaceBootstrapStatuses?.zen, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
   assert.deepEqual(router.replaceCalls, ["/w/zen"]);
+});
+
+// The person taps another page of the workspace before its bootstrap answer arrives. Before, the answer was dropped
+// because the page had changed, and the move asked nothing again, so the person kept no permissions until a reload.
+test("bootstrap placement runtime applies an answer that arrives after a move to another page of the same workspace", async () => {
+  const placementRuntime = createPlacementRuntimeStub();
+  const router = createRouterStub("/w/acme/dashboard");
+  const bootstrapRuntime = createBootstrapRuntimeStub();
+  const runtime = createTestRuntime({ placementRuntime, bootstrapRuntime, router });
+  const workspaces = [{ id: "1", slug: "acme", name: "Acme Workspace" }];
+
+  await runtime.initialize();
+  const request = runtime.resolveBootstrapRequest();
+  await router.push("/w/acme/members");
+  await flushTasks();
+  assert.deepEqual(bootstrapRuntime.calls, [], "A move within the workspace asks nothing again.");
+
+  await runtime.applyBootstrapPayload({
+    request,
+    payload: {
+      session: { authenticated: true, userId: "7" },
+      workspaces,
+      permissions: ["workspace.members.view", "workspace.members.invite"]
+    }
+  });
+
+  const context = placementRuntime.getContext();
+  assert.deepEqual(context.permissions, ["workspace.members.view", "workspace.members.invite"]);
+  assert.equal(context.workspace?.slug, "acme");
+  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
+
+  // An answer for a workspace the route has left is still dropped: the move there asked again.
+  await router.push("/w/zen/dashboard");
+  await flushTasks();
+  await runtime.applyBootstrapPayload({
+    request,
+    payload: { session: { authenticated: true, userId: "7" }, workspaces, permissions: ["workspace.settings.view"] }
+  });
+  assert.deepEqual(bootstrapRuntime.calls, ["route"]);
+  assert.deepEqual(placementRuntime.getContext().permissions, ["workspace.members.view", "workspace.members.invite"]);
+});
+
+test("bootstrap placement runtime applies a refusal that arrives after a move to another page of the same workspace", async () => {
+  for (const [statusCode, status] of [[403, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN], [404, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND]]) {
+    const placementRuntime = createPlacementRuntimeStub();
+    placementRuntime.setContext({ permissions: ["workspace.members.view"] }, { source: "test.seed" });
+    const router = createRouterStub("/w/acme/dashboard");
+    const runtime = createTestRuntime({ placementRuntime, router });
+
+    await runtime.initialize();
+    const request = runtime.resolveBootstrapRequest();
+    await router.push("/w/acme/members");
+    await runtime.handleBootstrapError({ request, error: createErrorWithStatus(statusCode) });
+
+    assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), status, `HTTP ${statusCode}`);
+    assert.deepEqual(placementRuntime.getContext().permissions, [], `HTTP ${statusCode}`);
+  }
 });
 
 test("bootstrap placement runtime uses requestedWorkspace status and keeps global workspace list on inaccessible slug", async () => {

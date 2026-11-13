@@ -2,9 +2,17 @@ import { useQueryClient } from "@tanstack/vue-query";
 import { validateOperationInput } from "./operationValidationHelpers.js";
 import { toUiFieldErrors } from "../support/errorMessageHelpers.js";
 import { emptyRecord } from "../support/scopeHelpers.js";
-import { useJskitText } from "../../i18n.js";
+import { createTextError, useJskitText } from "../../i18n.js";
 
 const { t, text } = useJskitText();
+
+// The error the server answers a request the person's permissions do not allow, for a run refused before it sends one.
+function permissionRefusal() {
+  return Object.assign(createTextError("jskit.errors.ACTION_PERMISSION_DENIED"), {
+    status: 403,
+    code: "ACTION_PERMISSION_DENIED"
+  });
+}
 
 /** @param {import("../../types.js").CommandCoreOptions} options */
 function useCommandCore({
@@ -36,12 +44,19 @@ function useCommandCore({
   const messageType = feedback.messageType;
 
   async function run(context = {}) {
-    if (!canRun.value || running.value) {
+    if (running.value) {
       return null;
     }
 
     feedback.clear();
     fieldBag.clear();
+
+    // The person's permissions do not allow the command, so it sends nothing and says so through its feedback, as the
+    // server's refusal of the request would. It still answers null, and onRunError does not run: nothing was sent.
+    if (!canRun.value) {
+      feedback.error(permissionRefusal(), text(messages.error) || t("jskit.http.feedback.actionFailed"));
+      return null;
+    }
 
     const rawPayload = readRawPayload(model, {
       queryClient,

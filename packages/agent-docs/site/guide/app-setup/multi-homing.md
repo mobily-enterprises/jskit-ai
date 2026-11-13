@@ -338,6 +338,13 @@ before removing or renaming a reported grant, search the code for it
 such as `crud.${resource}.list`). If the application checks it, list it in
 `customPermissions`; remove the grant only when nothing uses it.
 
+In the browser, a command names the permission it needs as
+`useCommand({ runPermissions })`. While the person lacks it, the command's
+`canRun` is false and `run()` sends nothing: it shows the notice the server's
+refusal shows (a 403 `ACTION_PERMISSION_DENIED`, "Forbidden.") through the
+command's feedback, and resolves `null`. Hide or disable the control from
+`canRun`, so the notice is the exception.
+
 ## Role display labels
 
 Set optional `label` strings in the existing `roleCatalog.roles` definitions,
@@ -589,6 +596,10 @@ The route slug, selected workspace, query keys, and server scope stay aligned.
 Invalid workspace URLs show a deliberate not-found/forbidden state instead of
 silently selecting another workspace. The browser waits for the server's answer
 about an unknown slug before deciding, so the surface can show that state.
+The bootstrap answer, which carries the workspace and the person's permissions
+in it, belongs to the workspace, not to a page: it still applies when the
+person has moved to another page of the same workspace before it arrives, and a
+move to another workspace asks again.
 
 ### Surfaces and where `/` lands
 

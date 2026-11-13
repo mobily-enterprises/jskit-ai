@@ -262,31 +262,25 @@ function createBootstrapPlacementRuntime({
     );
   }
 
-  function normalizeBootstrapRequestContext(request) {
+  function requestedWorkspaceSlug(request) {
     const meta = request?.meta && typeof request.meta === "object" ? request.meta : {};
     const query = request?.query && typeof request.query === "object" ? request.query : {};
-    return Object.freeze({
-      path: String(meta.path || "").trim(),
-      workspaceSlug: normalizeLowerText(meta.workspaceSlug || query.workspaceSlug)
-    });
+    return normalizeLowerText(meta.workspaceSlug || query.workspaceSlug);
   }
 
+  // The bootstrap answers for a workspace, not a page: its request names only the workspace slug, and its answer (the
+  // workspace, its settings, the person's permissions in it) depends on nothing else, so nothing in it is particular
+  // to the page that asked. An answer for the workspace the route is in applies after a move to another of its pages,
+  // which asks nothing again; one for a workspace the route has left is dropped, as the move there asked again.
   function isCurrentRequestTarget(request = {}) {
-    const requested = normalizeBootstrapRequestContext(request);
-    const currentState = resolveRouteState(placementRuntime, router);
-    if (requested.path && requested.path !== currentState.path) {
-      return false;
-    }
-    return requested.workspaceSlug === normalizeLowerText(currentState.workspaceSlug);
+    return requestedWorkspaceSlug(request) === normalizeLowerText(resolveRouteState(placementRuntime, router).workspaceSlug);
   }
 
   function resolveBootstrapRequest() {
-    const state = resolveRouteState(placementRuntime, router);
-    const workspaceSlug = normalizeLowerText(state.workspaceSlug);
+    const workspaceSlug = normalizeLowerText(resolveRouteState(placementRuntime, router).workspaceSlug);
     return Object.freeze({
       query: workspaceSlug ? Object.freeze({ workspaceSlug }) : Object.freeze({}),
       meta: Object.freeze({
-        path: state.path,
         workspaceSlug
       })
     });
@@ -330,41 +324,32 @@ function createBootstrapPlacementRuntime({
     }
 
     const normalizedSource = normalizeBootstrapSource(source);
-    const requested = normalizeBootstrapRequestContext(request);
-    const stateAtApply = resolveRouteState(placementRuntime, router);
+    const workspaceSlug = requestedWorkspaceSlug(request);
     const statusCode = resolveErrorStatusCode(error);
 
     if (statusCode === 401) {
-      if (requested.workspaceSlug) {
-        setWorkspaceBootstrapStatus(requested.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED, normalizedSource);
+      if (workspaceSlug) {
+        setWorkspaceBootstrapStatus(workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_UNAUTHENTICATED, normalizedSource);
       }
       clearWorkspacePlacementContext(normalizedSource);
       applyUnauthenticatedTheme(reason);
       return null;
     }
 
-    if (statusCode === 403) {
-      if (requested.workspaceSlug) {
-        setWorkspaceBootstrapStatus(requested.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN, normalizedSource);
+    if (statusCode === 403 || statusCode === 404) {
+      if (workspaceSlug) {
+        setWorkspaceBootstrapStatus(
+          workspaceSlug,
+          statusCode === 403 ? WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN : WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND,
+          normalizedSource
+        );
       }
-      if (requested.path === stateAtApply.path) {
-        clearWorkspacePlacementContext(normalizedSource);
-      }
+      clearWorkspacePlacementContext(normalizedSource);
       return null;
     }
 
-    if (statusCode === 404) {
-      if (requested.workspaceSlug) {
-        setWorkspaceBootstrapStatus(requested.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND, normalizedSource);
-      }
-      if (requested.path === stateAtApply.path) {
-        clearWorkspacePlacementContext(normalizedSource);
-      }
-      return null;
-    }
-
-    if (requested.workspaceSlug) {
-      setWorkspaceBootstrapStatus(requested.workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_ERROR, normalizedSource);
+    if (workspaceSlug) {
+      setWorkspaceBootstrapStatus(workspaceSlug, WORKSPACE_BOOTSTRAP_STATUS_ERROR, normalizedSource);
     }
 
     logger.warn(

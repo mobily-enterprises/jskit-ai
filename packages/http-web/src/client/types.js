@@ -311,7 +311,9 @@
  * @property {string} [surfaceId]
  * @property {string} [access]
  * @property {ApiSuffix} [apiSuffix]
- * @property {string | string[]} [runPermissions]
+ * @property {string | string[]} [runPermissions] The permissions, any one of which lets the person run the command.
+ *   Without one, `canRun` is false and `run()` sends nothing: it shows the server's 403 notice through the command's
+ *   feedback and resolves null.
  * @property {string} [writeMethod]
  * @property {HttpClient} [client]
  * @property {CrudResource | null} [resource]
