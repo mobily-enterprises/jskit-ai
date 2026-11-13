@@ -3006,3 +3006,26 @@ test("completed Claude marked native recovery retains admission but rejects wire
     assert.equal(f.effects(), 0);
   } finally { await f.close(); }
 });
+
+// Claude Code saves every tool call and result in its own session files, so an unsaved action
+// is never offered to it: discovery leaves it out, and nothing Claude saves can name it.
+test("Claude never reaches an unsaved action: its search leaves it out and its receipts never name it", async t => {
+  let unsavedRuns = 0;
+  const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
+  const actions = createActionCatalogue();
+  const contract = { kind: "query", channels: ["automation"], surfaces: ["app"], permission: { require: "all", permissions: ["numbers.read"] },
+    input: { schema: createSchema({}), mode: "replace" }, output: { schema: createSchema({ value: { type: "number", required: true } }), mode: "replace" } };
+  actions.register({ contributorId: "test.tools", domain: "numbers", actions: [
+    { id: "numbers.read", version: 1, ...contract, execute: async () => ({ value: 42 }) },
+    { id: "numbers.private", version: 1, ...contract, extensions: { assistant: { unsaved: true } },
+      execute: async () => { unsavedRuns += 1; return { value: 7 }; } }
+  ] });
+  const f = await fixture(t, { context, actions });
+  await f.conversation.send({ messageId: "tool-turn", text: "tools" });
+  const turn = (await f.conversation.wait()).conversationLog[0];
+  assert.equal(turn.metadata.runtime.status, "complete");
+  assert.deepEqual(turn.metadata.applicationTools[0].result.result.items.map(item => item.actionId), ["numbers.read"],
+    "The search finds only the saved action");
+  assert.equal(JSON.stringify(turn).includes("numbers.private"), false);
+  assert.equal(unsavedRuns, 0);
+});

@@ -1596,6 +1596,7 @@ Exports
 Local functions
 - `toolOutput(result)`
 - `ignoreEvent()`
+- `keepingNothing(params)`
 - `stateNote()`
 - `content(message)`
 - `providerCallId(id)`
@@ -1737,8 +1738,9 @@ Exports
 
 ### `src/server/conversation/tools.js`
 Exports
-- `createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [], authorize = authorizeTransientCall, save = saveTransientCalls, emit = announceTransientCall, maximumCalls = 32, discoveryOnly = false, transient = false, propagateErrors = false })`
+- `createConversationTools({ catalog, toolSet: retainedToolSet, context, prepareContext, signal: turnSignal, previousCalls = [], authorize = authorizeTransientCall, save = saveTransientCalls, emit = announceTransientCall, maximumCalls = 32, discoveryOnly = false, offerUnsaved = false, unsavedRefusal = "", transient = false, propagateErrors = false })`
 Local functions
+- `outcomeUnknown(unsaved)`
 - `authorizeTransientCall()`
 - `saveTransientCalls()`
 - `announceTransientCall()`

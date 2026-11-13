@@ -139,6 +139,9 @@ function createConversationTurns({ storage, streams, events, entries, reads, del
             } } : {}) }));
         } } : {}),
         maximumCalls: maximumToolCalls, discoveryOnly: driver.toolDiscovery === true,
+        // Only an engine whose whole history the runtime owns says it has no reason to refuse
+        // unsaved tools; an engine that keeps its own history names why it can't.
+        offerUnsaved: driver.unsavedToolsRefusal === "", unsavedRefusal: driver.unsavedToolsRefusal || "",
         authorize: () => events.access(request.context, entry.id, "tool", entry),
         save: calls => {
           if (!request.accepted) throw new Error("The engine requested an application tool before admitting the message.");

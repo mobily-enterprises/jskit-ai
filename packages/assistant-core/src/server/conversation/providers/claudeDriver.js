@@ -555,6 +555,7 @@ export function createClaudeConversationDriver({
   return Object.freeze({
     admissionBeforeDispatch: false,
     toolDiscovery: true,
+    unsavedToolsRefusal: "Claude Code saves every tool call and its result in its own session files, where the app cannot remove them.",
     attachmentTypes: ["text", "image"],
     capabilities: Object.freeze({ streaming: true, cancellation: true, instructions: true,
       configuration: true, history: true, steering: true, ...goalCapabilities,

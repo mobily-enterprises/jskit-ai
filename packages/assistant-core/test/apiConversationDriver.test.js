@@ -268,3 +268,38 @@ test("a long turn's old action results give way within the model's window", asyn
   assert.match(last, /was left out to save room/u);
   assert.match(last, /\\"page\\":22/u, "the newest results stay");
 });
+
+// OpenAI's and xAI's Responses APIs keep each request and its answer unless a request says not
+// to; the provider's 400 ends each reply after its first request, which is all this reads.
+test("a reply offering an unsaved tool asks the Responses APIs to keep nothing; one without leaves the default", async () => {
+  const stored = async (sdkPackage, unsaved) => {
+    const bodies = [];
+    const driver = createApiConversationDriver({ connections: { resolve: async () => ({ providerId: "test", model: "exact-model",
+      sdkPackage, apiKey: "test" }) }, fetch: async (_url, request) => {
+      bodies.push(JSON.parse(request.body));
+      return Response.json({ error: { message: "Stopped by the test", type: "invalid_request_error" } }, { status: 400 });
+    } });
+    const descriptors = [{ name: "surveys_open", unsaved, parameters: { type: "object" } }];
+    await assert.rejects(driver.run({ configuration: { systemPrompt: "Use the supplied actions.", integrationId: "assistant" },
+      context: {}, input: { messageId: "request", text: "Which surveys are open?" }, history: [],
+      signal: new AbortController().signal, beforeDispatch: async () => {}, accept: async () => {}, onMessage: async () => {},
+      tools: { descriptors, schemas: descriptors.map(schema), maximumArgumentBytes: 32768, execute: () => assert.fail("Nothing runs") } }),
+    /Stopped by the test/);
+    assert.equal(bodies.length, 1);
+    return bodies[0].store;
+  };
+  assert.equal(await stored("@ai-sdk/openai", true), false);
+  assert.equal(await stored("@ai-sdk/xai", true), false);
+  assert.equal(await stored("@ai-sdk/openai", false), undefined, "A reply without unsaved tools is sent as before");
+});
+
+test("a step that only ran unsaved tools takes no reply number, so the saved ids show no gap", async () => {
+  const descriptors = [{ name: "surveys_open", unsaved: true, parameters: { type: "object" } },
+    { name: "action_execute", parameters: { type: "object" } }];
+  const f = fixture({ descriptors, reply: round => round === 1 ? { call: "surveys_open", id: "private_call" }
+    : round === 2 ? { call: "action_execute", id: "saved_call" } : { text: "Done." } });
+  await f.run();
+  assert.deepEqual(f.executions.map(({ id }) => id), ["reply-1:private_call", "reply-1:saved_call"]);
+  assert.deepEqual(f.messages.filter(message => message.complete).map(({ id }) => id), ["reply-2"],
+    "The answer is numbered as if the private step never happened");
+});

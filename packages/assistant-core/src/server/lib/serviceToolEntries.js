@@ -6,6 +6,8 @@ import { resolveSchemaTransportSchemaDefinition } from "@jskit-ai/kernel/shared/
 // input and output schemas, minus the barred and excluded ones, each under one unique tool name.
 
 const AUTOMATION_CHANNEL = "automation";
+// What an unsaved tool's description adds for the model.
+const UNSAVED_TOOL_NOTE = "Private: its call and result are kept only for this reply, so call it again when a later message needs them.";
 
 function normalizeAssistantExtension(value) {
   const source = value && typeof value === "object" && !Array.isArray(value) ? value : {};
@@ -13,11 +15,16 @@ function normalizeAssistantExtension(value) {
   if (source.transformResult != null && typeof source.transformResult !== "function") {
     throw new TypeError("extensions.assistant.transformResult must be a function when provided.");
   }
+  if (source.unsaved !== undefined && typeof source.unsaved !== "boolean") {
+    throw new TypeError("extensions.assistant.unsaved must be a boolean when provided.");
+  }
 
   return Object.freeze({
     description: normalizeText(source.description),
     exclude: normalizeText(source.exclude),
     alwaysAvailable: source.alwaysAvailable === true,
+    // Its calls and results stay in the live turn: nothing saves, sends or logs them.
+    unsaved: source.unsaved === true,
     output: Object.hasOwn(source, "output") ? source.output : null,
     transformResult: source.transformResult ?? null
   });
@@ -201,6 +208,7 @@ function resolveActionBackedToolEntries(actions) {
       toolBaseName: actionId,
       description: assistantExtension.description || `Run ${actionId}.`,
       alwaysAvailable: assistantExtension.alwaysAvailable,
+      unsaved: assistantExtension.unsaved,
       inputSchema,
       outputDefinition,
       outputSchema,
@@ -243,14 +251,17 @@ function resolveActionToolEntries(
     }
 
     const toolName = resolveUniqueToolName(actionEntry.toolBaseName, usedToolNames);
+    const description = normalizeText(actionEntry.description) || `Run ${actionId}.`;
     entries.push(
       Object.freeze({
         descriptor: Object.freeze({
           name: toolName,
           actionId,
           actionVersion: Number(actionEntry.actionVersion) || null,
-          description: normalizeText(actionEntry.description) || `Run ${actionId}.`,
+          // Later replies never see an unsaved call, so the model learns that from the tool itself.
+          description: actionEntry.unsaved ? `${description} ${UNSAVED_TOOL_NOTE}` : description,
           alwaysAvailable: actionEntry.alwaysAvailable === true,
+          unsaved: actionEntry.unsaved === true,
           parameters: actionEntry.inputSchema,
           outputSchema: actionEntry.outputSchema
         }),

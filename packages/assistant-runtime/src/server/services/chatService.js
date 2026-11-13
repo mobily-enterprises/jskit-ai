@@ -336,7 +336,9 @@ function createChatService({
         resolvedAttachments.push({ attachmentIds: [...attachmentIds], files });
       }
       await prepareAttachments(source.attachmentIds);
-      const toolSet = serviceToolCatalog.resolveToolSet(assistantContext);
+      // The tools this surface's API conversation offers, its unsaved ones among them: the
+      // runtime owns that engine's whole history.
+      const toolSet = serviceToolCatalog.resolveToolSet(assistantContext, { offerUnsaved: true });
       const customSystemPrompt = await assistantConfigService.resolveSystemPrompt(
         assistantSurface, workspace, { surface: assistantSurface.targetSurfaceId },
         { context: assistantContext, input: payload }

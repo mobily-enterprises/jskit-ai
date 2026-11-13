@@ -363,6 +363,7 @@ export function createOpenCodeConversationDriver({
 
   return Object.freeze({
     toolDiscovery: true,
+    unsavedToolsRefusal: "OpenCode saves every tool call and its result in its own session storage, where the app cannot remove them.",
     attachmentTypes: ["text", "image", "localFile"],
     capabilities: Object.freeze({ streaming: true, cancellation: true, history: true,
       instructions: true, configuration: true, steering: true, goals: false, attachments: true, tools: true, nativeTools, structuredOutput: true }),

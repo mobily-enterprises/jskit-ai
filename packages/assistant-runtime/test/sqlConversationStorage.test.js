@@ -1,9 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readdir, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import knex from "knex";
+import { createSchema } from "json-rest-schema";
+import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
 import { AppError } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createConversationTranscript } from "@jskit-ai/assistant-core/server/conversation";
@@ -16,6 +18,7 @@ import { createSqlConversationStorage } from "../src/server/sqlConversationStora
 import { createAssistantConversationRuntime } from "../src/server/createAssistantRuntime.js";
 import { createTranscriptService } from "../src/server/services/transcriptService.js";
 import { createChatService } from "../src/server/services/chatService.js";
+import { createSurfaceAwareToolCatalog } from "../src/server/support/createSurfaceAwareToolCatalog.js";
 import { NO_PERSON_CONTEXT, createPersonContextPrompt } from "../src/server/support/personContext.js";
 import { createScriptedModel } from "./support/scriptedModel.js";
 import { createTestAssistantStore } from "./support/assistantStore.js";
@@ -54,7 +57,7 @@ async function fixture(t) {
   await claimsMigration.up(first.db);
   await first.db.raw("PRAGMA journal_mode = WAL");
   const conversation = actor => first.conversationsRepository.create({ createdByUserId: actor || "1", surfaceId: "assistant", metadata: {} });
-  return { ...first, connect, conversation };
+  return { ...first, connect, conversation, directory };
 }
 
 async function rows(db) {
@@ -590,4 +593,85 @@ test("the summary and the last turn it covers are saved on the conversation row,
   await restarted.storage.write(conversation.id, transaction => transaction.writeSummary({ text: "Turns one to four.", throughTurnId: "000004" }));
   assert.deepEqual(await f.storage.read(conversation.id, transaction => transaction.readSummary()),
     { text: "Turns one to four.", throughTurnId: "000004" }, "Another server's summary is read at once");
+});
+
+// An app's anonymous-survey listing, declared unsaved: its call id, argument and result are each
+// unique, so any copy of one in a table, the database files, the stream, the export, a log or a
+// later turn's request is a leak. A saved action beside it shows each search reads real output.
+test("the SQL facade stores, streams, exports and logs no unsaved call or result, and later turns never read them", async t => {
+  const f = await fixture(t);
+  const conversation = await f.conversation();
+  const PRIVATE = { id: "callprivate41d7", argument: "argument-marker-93b5", result: "result-marker-602e" };
+  const SAVED_ID = "callsaved08c3";
+  const leaks = value => Object.values(PRIVATE).filter(marker => (typeof value === "string" ? value : JSON.stringify(value)).includes(marker));
+  const logs = [];
+  const logger = Object.fromEntries(["debug", "info", "warn", "error"].map(level => [level, (...entry) => { logs.push([level, ...entry]); }]));
+  const printed = [];
+  for (const method of ["log", "info", "warn", "error", "debug"]) t.mock.method(console, method, (...entry) => { printed.push(entry); });
+  const actions = createActionCatalogue({ logger });
+  const query = { version: 1, kind: "query", channels: ["automation"], surfaces: ["assistant"], permission: { require: "authenticated" } };
+  actions.register({ contributorId: "test.tools", domain: "test", actions: [
+    { id: "surveys.open", ...query, extensions: { assistant: { unsaved: true } },
+      input: { schema: createSchema({ code: { type: "string", required: true } }), mode: "replace" },
+      output: { schema: createSchema({ surveys: { type: "string", required: true } }), mode: "replace" },
+      execute: async ({ code }) => ({ surveys: code === PRIVATE.argument ? PRIVATE.result : "none" }) },
+    { id: "inventory.lookup", ...query, input: { schema: createSchema({}), mode: "replace" },
+      output: { schema: createSchema({ found: { type: "number", required: true } }), mode: "replace" }, execute: async () => ({ found: 1 }) }
+  ] });
+  const catalog = createSurfaceAwareToolCatalog(actions);
+  const requests = [];
+  const aiClientFactory = { resolveClient: () => ({ enabled: true, provider: "test", defaultModel: "fixture-model",
+    model: createScriptedModel(body => {
+      requests.push(structuredClone(body));
+      const calls = requests.length === 1;
+      return (async function* () {
+        yield { choices: [{ delta: calls ? { tool_calls: [
+          { index: 0, id: PRIVATE.id, function: { name: "surveys_open", arguments: JSON.stringify({ code: PRIVATE.argument }) } },
+          { index: 1, id: SAVED_ID, function: { name: "inventory_lookup", arguments: "{}" } }
+        ] } : { content: "One item is in stock." }, finish_reason: calls ? "tool_calls" : "stop" }] };
+      })();
+    }, { model: "fixture-model" }) }) };
+  const runtime = createAssistantConversationRuntime({ ...f, aiClientFactory, toolCatalog: catalog });
+  t.after(() => runtime.close());
+  const service = createChatService({ conversationRuntime: runtime, aiClientFactory, serviceToolCatalog: catalog,
+    transcriptService: createTranscriptService(f), turnRequests: f.turnRequests,
+    assistantConfigService: { resolveSystemPrompt: async () => "" }, personContextPrompt: NO_FACTS,
+    appConfig: { surfaceDefinitions: { assistant: { enabled: true, requiresWorkspace: false } },
+      assistantSurfaces: { assistant: { settingsSurfaceId: "assistant", configScope: "global" } } } });
+  const events = [];
+  const options = { context: { actor: { id: "1" } }, input: { targetSurfaceId: "assistant" }, streamWriter: Object.fromEntries(
+    ["sendMeta", "sendAssistantDelta", "sendAssistantMessage", "sendToolCall", "sendToolResult", "sendError", "sendDone"]
+      .map(name => [name, event => events.push({ name, event })])) };
+  const send = (messageId, input) => service.streamChat({ targetSurfaceId: "assistant", conversationId: conversation.id, messageId, input }, options);
+  assert.equal((await send("first", "Which surveys are open, and is the item in stock?")).status, "completed");
+  assert.equal((await send("next", "What did you find?")).status, "completed");
+
+  assert.equal(requests.length, 3);
+  assert.match(requests[0].tools.find(tool => tool.function.name === "surveys_open").function.description, /Private: its call and result are kept only for this reply/u);
+  assert.match(requests[0].messages[0].content, /Available tools: inventory_lookup, surveys_open\./u, "The surface's prompt lists the tools its conversation offers");
+  assert.ok(JSON.stringify(requests[1].messages).includes(PRIVATE.result), "The live turn's model sees the result");
+  // The system prompt lists the tools on offer, the same whether or not one is used.
+  const later = requests[2].messages.slice(1);
+  assert.deepEqual(leaks(later), [], "A later turn sees neither the call nor the result");
+  assert.equal(JSON.stringify(later).includes("surveys_open"), false, "nor that the tool was used");
+  assert.ok(JSON.stringify(later).includes(SAVED_ID), "while the saved call is in its history");
+
+  const tables = (await f.db.raw("SELECT name FROM sqlite_master WHERE type = 'table'")).map(row => row.name);
+  const everything = Object.fromEntries(await Promise.all(tables.map(async table => [table, await f.db(table)])));
+  assert.ok(JSON.stringify(everything).includes(SAVED_ID), "The saved call is in the tables, so this search reads what storage wrote");
+  assert.deepEqual(leaks(everything), []);
+  assert.deepEqual(everything.assistant_messages.filter(row => row.kind === "tool_call").map(row => JSON.parse(row.metadata_json).tool), ["inventory_lookup"]);
+  let files = "";
+  for (const name of await readdir(f.directory)) files += await readFile(path.join(f.directory, name), "latin1");
+  assert.ok(files.includes(SAVED_ID));
+  assert.deepEqual(leaks(files), [], "Nor do the database files");
+
+  const exported = await service.getConversationMessages(conversation.id, {}, options);
+  assert.ok(JSON.stringify(exported).includes(SAVED_ID));
+  assert.deepEqual(leaks(exported), [], "Nor the conversation's export");
+  assert.deepEqual(events.filter(({ name }) => name === "sendToolCall").map(({ event }) => event.name), ["inventory_lookup"]);
+  assert.deepEqual(leaks(events), [], "Nor the stream");
+  assert.ok(logs.some(entry => entry[2] === "action.execution" && entry[1].action === "inventory.lookup"));
+  assert.equal(JSON.stringify(logs).includes("surveys"), false, "Nor the action log");
+  assert.deepEqual(leaks(printed), []);
 });

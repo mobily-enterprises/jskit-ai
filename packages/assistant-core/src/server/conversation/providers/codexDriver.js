@@ -647,6 +647,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
     // discovery entry points stay stable while the authorized action set changes.
     toolDiscovery: true,
     canonicalTranscript: true,
+    unsavedToolsRefusal: "Codex saves every tool call and its result in its own thread history, where the app cannot remove them.",
     attachmentTypes: ["text", "image", "localFile"],
     capabilities: Object.freeze({ streaming: true, cancellation: true, history: true,
       instructions: true, configuration: true, steering: true, ...goalCapabilities,

@@ -28,6 +28,14 @@ const toolOutput = result => result.ok ? result.result ?? null : { error: result
 /** A turn whose caller follows no phase events. */
 function ignoreEvent() {}
 
+// OpenAI's and xAI's Responses APIs keep each request and its answer on their servers unless told
+// not to. A reply that offers an unsaved tool asks them to keep nothing, so no copy of its calls outlives it.
+function keepingNothing(params) {
+  const options = params.providerOptions || {};
+  return { ...params, providerOptions: { ...options,
+    openai: { ...options.openai, store: false }, xai: { ...options.xai, store: false } } };
+}
+
 // The engine's state note: what the system knows for certain this turn. It carries
 // the time, so no turn needs an extra action to learn it.
 function stateNote() {
@@ -93,6 +101,8 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
   const window = windowLimits(contextTokens);
   const driver = Object.freeze({
     admissionBeforeDispatch: true,
+    // The runtime owns this engine's whole history, so it keeps unsaved calls in the live reply.
+    unsavedToolsRefusal: "",
     attachmentTypes: ["text", "image", "file"],
     capabilities: Object.freeze({ streaming: true, cancellation: true, instructions: true,
       configuration: true, history: true, steering: false, goals: false, attachments: true, tools: true, nativeTools: false, structuredOutput: false }),
@@ -140,11 +150,13 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       // actions run only once its model call has ended, so they are all said by then.
       let admitted = false;
       let stepWords = "";
+      // The tools whose calls and results stay in this reply alone.
+      const unsavedTools = new Set((tools?.descriptors || []).filter(tool => tool.unsaved === true).map(tool => tool.name));
       const model = wrapLanguageModel({ model: await authorize(), middleware: [
         { specificationVersion: "v4", async transformParams({ params }) {
           if (admitted) await authorize().catch(error => { throw fail(error); });
           admitted = true;
-          return params;
+          return unsavedTools.size ? keepingNothing(params) : params;
         }, async wrapStream({ doStream }) {
           const result = await doStream();
           stepWords = "";
@@ -159,6 +171,17 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       await accept();
 
       let step = 0;
+      // The reply's messages and saved calls are numbered (reply-N) by step. A step that only ran
+      // unsaved tools, showing no words and saving no call, takes no number, so no gap in the saved
+      // ids tells that it happened.
+      let numbered = 0;
+      let stepShows = false;
+      let stepRanUnsaved = false;
+      const label = () => `reply-${numbered + 1}`;
+      async function say(message) {
+        stepShows = true;
+        await onMessage(message);
+      }
       const repeats = {};
       async function runTool(call) {
         // A step's progress is shown and held to its limits before any of its actions
@@ -170,8 +193,10 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       }
       /** One engine tool call, recorded under its step, with the model-facing result. */
       function runEngineTool(name, value, { toolCallId }) {
+        if (unsavedTools.has(name)) stepRanUnsaved = true;
+        else stepShows = true;
         return runTool({
-          id: `reply-${step + 1}:${toolCallId}`, name, arguments: JSON.stringify(value ?? {}) }).then(toolOutput);
+          id: `${label()}:${toolCallId}`, name, arguments: JSON.stringify(value ?? {}) }).then(toolOutput);
       }
       const engineTools = Object.fromEntries((tools?.schemas || []).map(({ function: tool }) => {
         // The engine's copy of the frozen definition is the one its repeat reminder wraps.
@@ -227,9 +252,10 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         : rest.startsWith(`${said}\n\n`) ? rest.slice(said.length + 2) : rest, text) || text;
       // A step whose actions run completes as commentary before the first of them;
       // one whose calls don't run (an action it wasn't given) does when it ends.
-      let progress = { id: "", words: "", shown: null };
+      const NO_PROGRESS = Object.freeze({ id: "", words: "", shown: null });
+      let progress = NO_PROGRESS;
       function stepProgress() {
-        const id = `reply-${step + 1}`;
+        const id = label();
         if (progress.id !== id) progress = { id, words: stepWords, shown: showProgress(id, stepWords) };
         return progress.shown;
       }
@@ -238,18 +264,29 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         const text = withoutMarkup(words);
         if (maximumToolProgress !== undefined && text.length > maximumToolProgress) throw new Error(PROGRESS_LIMIT);
         if (answer === id) answer = "";
-        if (text) await onMessage({ id, outputId: id, role: "commentary", text, complete: true });
+        if (text) await say({ id, outputId: id, role: "commentary", text, complete: true });
       }
       async function onText(text) {
         overLimit ||= text.length > maximumOutput;
         const visible = withoutMarkup(text);
         // Words streamed after their step's progress was shown are already in it.
-        if (!visible || overLimit || progress.id === `reply-${step + 1}`) return;
-        answer = `reply-${step + 1}`;
-        await onMessage({ id: answer, outputId: answer, role: "assistant", text: visible, complete: false });
+        if (!visible || overLimit || progress.id === label()) return;
+        answer = label();
+        await say({ id: answer, outputId: answer, role: "assistant", text: visible, complete: false });
       }
       async function onStep(result) {
-        const id = `reply-${++step}`;
+        step += 1;
+        const id = label();
+        try { return await settleStep(result, id); }
+        finally {
+          if (stepShows || !stepRanUnsaved) numbered += 1;
+          // A step that only ran unsaved tools leaves its number, and a fresh progress, to the next one.
+          else if (progress.id === id) progress = NO_PROGRESS;
+          stepShows = false;
+          stepRanUnsaved = false;
+        }
+      }
+      async function settleStep(result, id) {
         if (overLimit) return fail(new Error(OUTPUT_LIMIT));
         if (result.finishReason === "length") return fail(new Error("The model reached its output token limit before completing the answer. Increase maxOutputTokens in the conversation limits."));
         if (!result.toolCalls.length) return;
@@ -259,7 +296,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
         if (!text) return;
         shown.push(...result.content.filter(part => part.type === "text").map(part => part.text.trim()).filter(Boolean));
         if (progress.id === id && progress.words === result.text) return;
-        await onMessage({ id, outputId: id, role: "commentary", text, complete: true });
+        await say({ id, outputId: id, role: "commentary", text, complete: true });
       }
       const pass = async history => {
         const result = await runLoop({ model, name: NAME, instructions: configuration.systemPrompt, history, tools: engineTools,
@@ -297,7 +334,7 @@ export function createApiConversationDriver({ connections, apiClientFactory, fet
       text = withoutMarkup(text);
       if (text.length > maximumOutput) throw new Error(OUTPUT_LIMIT);
       if (text) {
-        const id = answer || `reply-${step + 1}`;
+        const id = answer || label();
         await onMessage({ id, outputId: id, role: "assistant", text, complete: true });
       }
       return { metadata: { ...(unfinished ? { unfinished } : {}), ...(check ? { check } : {}) } };

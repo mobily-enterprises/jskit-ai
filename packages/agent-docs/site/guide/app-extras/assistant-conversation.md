@@ -2653,6 +2653,39 @@ defaults (32 KiB and 48 KiB). These bounds also apply during streaming and befor
 call reservation; discovery switches to bounded catalogue entry points using the
 existing `maxDirectTools` and `discoveryPageSize` settings.
 
+#### Unsaved tools
+
+An action declaring `extensions.assistant.unsaved: true` is an unsaved tool: its
+call and result live only in the turn's memory. The runtime saves no reservation
+or result for it, publishes no `tool` event and leaves it out of
+`metadata.applicationTools`, so a turn whose only calls were unsaved saves the
+same `applicationTools: []` as a turn without calls. A repeated call id reads the
+turn's memory. A lost outcome ends the turn with the generic
+`assistant.turn.requestIncomplete` error, which names no tool. The kernel writes
+no `action.execution` log line for the call.
+
+The history holds no placeholder: one would sit beside the turn's dated message
+and tell when the tool ran. Instead the tool's description carries a fixed note
+that its call and result are kept only for this reply, so the model calls it again
+when a later message needs them. A step that only ran unsaved tools takes no
+`reply-N` number, so the saved message and call ids show no gap.
+
+Only an engine whose whole history the runtime owns offers an unsaved tool. Each
+driver declares `unsavedToolsRefusal`: empty for the API engine, and a plain
+reason for the others, since Claude Code's session files, Codex's thread rollouts
+and OpenCode's session store each hold every tool call and its result, out of the
+app's reach. The catalogue's `resolveToolSet(context, { offerUnsaved,
+unsavedRefusal })` offers unsaved tools only when `offerUnsaved` is true, and only
+directly: the discovery tools never search, describe or run one. Each tool set
+lists what it holds back in `withheld`, as `{ name, actionId, reason }`.
+`createConversationTools()` refuses a supplied tool set that offers an unsaved
+tool unless its `offerUnsaved` is true, so completed-response, bounded-task and
+goal paths never save one.
+
+A reply that offers an unsaved tool asks OpenAI's and xAI's Responses APIs not to
+store the request (`store: false`). Other providers keep requests as their own
+data-retention terms say, which is outside the app.
+
 ### Steering an active native turn
 
 Codex, Claude and OpenCode report `capabilities.steering: true`. Send a distinct

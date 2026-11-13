@@ -9,6 +9,8 @@ import { createCodexConversationDriver } from "../src/server/conversation/provid
 import { createOpenCodeSharedRuntime } from "../src/server/conversation/openCodeRuntime.js";
 import { openCodeServerForDirectory } from "../src/server/conversation/openCodeNativeSession.js";
 import { createOpenCodeConversationDriver } from "../src/server/conversation/providers/opencodeDriver.js";
+import { createApiConversationDriver } from "../src/server/conversation/providers/api.js";
+import { createClaudeConversationDriver } from "../src/server/conversation/providers/claudeDriver.js";
 import { eventually } from "./fixtures/eventually.js";
 
 test("native storage policy distinguishes locked deletion from host writer exclusion", () => {
@@ -20,6 +22,19 @@ test("native storage policy distinguishes locked deletion from host writer exclu
   for (const engine of ["api", "unknown", "toString", "__proto__", undefined]) {
     assert.throws(() => nativeConversationStoragePolicy(engine), /Unsupported/u);
   }
+});
+
+// Each native host saves every tool call and result in its own history (Claude Code's session
+// files, Codex's thread rollouts, OpenCode's session store), so none is offered an unsaved tool.
+test("engines that keep their own history refuse unsaved tools with a plain reason; the API engine offers them", () => {
+  assert.equal(createApiConversationDriver({ connections: { resolve() {} } }).unsavedToolsRefusal, "");
+  const refusals = [createClaudeConversationDriver({ host: { workdir: "/tmp", env: { HOME: "/tmp" } } }), createCodexConversationDriver({ host: {} }),
+    createOpenCodeConversationDriver({ connections: { resolve() {} }, host: { workdir: "/tmp" } })].map(driver => driver.unsavedToolsRefusal);
+  assert.deepEqual(refusals, [
+    "Claude Code saves every tool call and its result in its own session files, where the app cannot remove them.",
+    "Codex saves every tool call and its result in its own thread history, where the app cannot remove them.",
+    "OpenCode saves every tool call and its result in its own session storage, where the app cannot remove them."
+  ]);
 });
 
 test("native writer recognition handles executables and node entry points without matching similar names", () => {

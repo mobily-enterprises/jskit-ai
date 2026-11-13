@@ -648,6 +648,38 @@ the three discovery tools. Permission, surface, channel, actor, and trusted
 workspace enforcement remain unchanged. Other actions still require contract
 lookup before discovery-mode execution.
 
+An action whose call must not outlive the reply declares itself unsaved. For
+example, listing the anonymous surveys open to a person: a saved "listed the
+surveys open to them at 10:42" could be matched against when an anonymous answer
+was given.
+
+```js
+extensions: {
+  assistant: {
+    unsaved: true
+  }
+}
+```
+
+Its call and result reach the model only within the live turn. Nothing saves,
+streams, logs or exports them, and a later turn never reads them: the
+conversation's message rows, turn requests, export and timeline hold no trace of
+the call, not even a placeholder. Instead the tool's description tells the model,
+the same way in every reply, that its call and result are kept only for this
+reply, so a later reply calls it again when it needs it. The catalogue marks the
+tool `unsaved: true`, so an app test can assert it. Only the API engine offers
+it, and only as a direct tool (ahead of `alwaysAvailable` actions beside
+discovery, within the same eight); discovery never finds it. The Claude, Codex
+and OpenCode engines save every tool call in their own history, so they never
+offer it ([unsaved tools](./assistant-conversation.md#unsaved-tools)).
+
+Two things stay the app's. The model's own words are saved like any reply: its
+answer, its commentary or its account at the step limit can restate what the
+tool returned, so the description should say what the model may repeat. The
+action's own logs, events and writes stay the app's; `isExecutionLogged(context)`
+from `@jskit-ai/kernel/server/actions` is false during an unsaved call, so the
+action and its policy can keep their own logs quiet too.
+
 ### Database surface conversation lifecycle
 
 The client receives answer text incrementally and shows working status before

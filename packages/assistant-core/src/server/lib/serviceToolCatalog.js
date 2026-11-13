@@ -1,3 +1,4 @@
+import { withoutExecutionLog } from "@jskit-ai/kernel/server/actions";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
@@ -8,6 +9,12 @@ import { AUTOMATION_CHANNEL, normalizePermissionSpec, resolveActionToolEntries }
 
 const DEFAULT_MAX_DIRECT_TOOLS = 32;
 const MAX_ALWAYS_AVAILABLE_TOOLS = 8;
+// Why a tool set leaves out an unsaved action.
+const UNSAVED_REFUSALS = Object.freeze({
+  notOffered: "This assistant does not keep unsaved tool calls out of what it saves, so it is not offered here.",
+  discoveryOnly: "Only the discovery tools are offered here, and an unsaved action is never discoverable.",
+  directLimit: `At most ${MAX_ALWAYS_AVAILABLE_TOOLS} actions are offered directly beside action discovery.`
+});
 const DEFAULT_DISCOVERY_PAGE_SIZE = 10;
 const MAX_DISCOVERY_PAGE_SIZE = 20;
 const DEFAULT_MAX_TOOL_ARGUMENT_BYTES = 32 * 1024;
@@ -425,22 +432,44 @@ function createServiceToolCatalog(
     return Object.freeze(entries.sort((left, right) => left.descriptor.actionId.localeCompare(right.descriptor.actionId)));
   }
 
-  function resolveToolSet(context = {}, { discoveryOnly = false } = {}) {
-    const actionEntries = resolveAuthorizedEntries(context);
-    const useDiscovery = discoveryOnly || actionEntries.length > maxDirectTools;
-    const alwaysAvailableEntries = useDiscovery && !discoveryOnly
-      ? actionEntries
-          .filter((entry) => entry.descriptor.alwaysAvailable === true)
+  /**
+   * The tools one caller offers its model. An unsaved action is offered only when the caller keeps
+   * its calls in the live turn (`offerUnsaved`), and only as a direct tool: through discovery its id,
+   * input and result would ride in the discovery calls, which are saved. Otherwise the tool set lists
+   * it in `withheld`, with the reason: `unsavedRefusal`, the caller's own, or the catalogue's.
+   * @param {object} [context]
+   * @param {{ discoveryOnly?: boolean, offerUnsaved?: boolean, unsavedRefusal?: string }} [options]
+   */
+  function resolveToolSet(context = {}, { discoveryOnly = false, offerUnsaved = false, unsavedRefusal = "" } = {}) {
+    if (typeof offerUnsaved !== "boolean") throw new TypeError("offerUnsaved must be a boolean.");
+    const authorizedEntries = resolveAuthorizedEntries(context);
+    // Discovery searches, describes and runs only the actions whose calls may be saved.
+    const actionEntries = authorizedEntries.filter((entry) => entry.descriptor.unsaved !== true);
+    const unsavedEntries = offerUnsaved && !discoveryOnly
+      ? authorizedEntries.filter((entry) => entry.descriptor.unsaved === true) : [];
+    // The mode follows what this caller could be offered, so a withheld action never tips it into discovery.
+    const useDiscovery = discoveryOnly || actionEntries.length + unsavedEntries.length > maxDirectTools;
+    // Beside discovery, the unsaved actions come first among the few offered directly.
+    const directBesideDiscovery = useDiscovery && !discoveryOnly
+      ? [...unsavedEntries, ...actionEntries.filter((entry) => entry.descriptor.alwaysAvailable === true)]
           .filter((entry) => !Object.values(DISCOVERY_TOOL_NAMES).includes(entry.descriptor.name))
           .slice(0, MAX_ALWAYS_AVAILABLE_TOOLS)
       : [];
-    const alwaysAvailableEntrySet = new Set(alwaysAvailableEntries);
+    const directEntries = useDiscovery
+      ? directBesideDiscovery
+      : authorizedEntries.filter((entry) => entry.descriptor.unsaved !== true || offerUnsaved);
+    const directEntrySet = new Set(directEntries);
+    const refusal = !offerUnsaved ? normalizeText(unsavedRefusal) || UNSAVED_REFUSALS.notOffered
+      : discoveryOnly ? UNSAVED_REFUSALS.discoveryOnly : UNSAVED_REFUSALS.directLimit;
+    const withheld = authorizedEntries
+      .filter((entry) => entry.descriptor.unsaved === true && !directEntrySet.has(entry))
+      .map((entry) => Object.freeze({ name: entry.descriptor.name, actionId: entry.descriptor.actionId, reason: refusal }));
     const tools = useDiscovery
       ? [
           ...DISCOVERY_TOOL_DESCRIPTORS,
-          ...alwaysAvailableEntries.map((entry) => entry.descriptor)
+          ...directBesideDiscovery.map((entry) => entry.descriptor)
         ]
-      : actionEntries.map((entry) => entry.descriptor);
+      : directEntries.map((entry) => entry.descriptor);
     const byName = new Map();
     for (const descriptor of tools) {
       byName.set(descriptor.name, descriptor);
@@ -449,15 +478,16 @@ function createServiceToolCatalog(
     const toolSet = Object.freeze({
       tools: Object.freeze(tools),
       byName,
+      withheld: Object.freeze(withheld),
       limits
     });
     const actionEntriesById = new Map();
     const directEntriesByToolName = new Map();
     for (const entry of actionEntries) {
       actionEntriesById.set(entry.descriptor.actionId.toLowerCase(), entry);
-      if (!useDiscovery || alwaysAvailableEntrySet.has(entry)) {
-        directEntriesByToolName.set(entry.descriptor.name, entry);
-      }
+    }
+    for (const entry of directEntries) {
+      directEntriesByToolName.set(entry.descriptor.name, entry);
     }
     toolSetStates.set(toolSet, {
       mode: useDiscovery ? "discovery" : "direct",
@@ -557,10 +587,12 @@ function createServiceToolCatalog(
   async function executeActionEntry(entry, input = {}, context = {}) {
     if (!actionAvailable(entry, context)) throw createToolError(404, "assistant_action_unknown", "Action is not available.");
     const actionInput = createActionInput(entry, input, context);
-    const executionContext = {
+    const automationContext = {
       ...context,
       channel: AUTOMATION_CHANNEL
     };
+    // An unsaved call leaves no line in the action execution log either.
+    const executionContext = entry.descriptor.unsaved ? withoutExecutionLog(automationContext) : automationContext;
     const rawResult = await actions.execute({
       actionId: entry.descriptor.actionId,
       version: entry.descriptor.actionVersion || null,

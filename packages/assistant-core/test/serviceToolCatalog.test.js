@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createSchema } from "json-rest-schema";
 
-import { createActionCatalogue } from "@jskit-ai/kernel/server/actions";
+import { createActionCatalogue, isExecutionLogged } from "@jskit-ai/kernel/server/actions";
 import { createValidationError } from "@jskit-ai/kernel/server/runtime/errors";
 import { createServiceToolCatalog } from "../src/server/lib/serviceToolCatalog.js";
 
@@ -773,4 +773,69 @@ test("synchronous failure observers preserve thrown identity and exclude unknown
   });
   assert.equal(executions, 2);
   assert.equal(failures.length, 1, "no-callback safe failure conversion keeps its original behavior");
+});
+
+test("unsaved actions say so, are offered directly only to a caller that keeps them, run unlogged and are never discoverable", async () => {
+  const runs = [];
+  const run = (actionId) => async (_input, context) => {
+    runs.push({ actionId, logged: isExecutionLogged(context) });
+    return { ok: true };
+  };
+  const definitions = [
+    action({ id: "demo.surveys.open", execute: run("demo.surveys.open"),
+      extensions: { assistant: { unsaved: true, description: "List the surveys open to this person." } } }),
+    action({ id: "demo.books.list", execute: run("demo.books.list") })
+  ];
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const catalog = createServiceToolCatalog(createActions(definitions));
+  const discoveryNames = ["assistant_action_search", "assistant_action_contract", "assistant_action_execute"];
+  const call = (toolSet, toolName, payload = {}) => catalog.executeToolCall({ toolName, argumentsText: JSON.stringify(payload), context, toolSet });
+
+  const offered = catalog.resolveToolSet(context, { offerUnsaved: true });
+  const privateTool = offered.tools.find((entry) => entry.actionId === "demo.surveys.open");
+  assert.equal(privateTool.unsaved, true, "The catalogue says the tool is unsaved, so an app test can assert it");
+  assert.equal(offered.tools.find((entry) => entry.actionId === "demo.books.list").unsaved, false);
+  assert.equal(privateTool.description,
+    "List the surveys open to this person. Private: its call and result are kept only for this reply, so call it again when a later message needs them.");
+  assert.deepEqual(offered.withheld, []);
+  assert.deepEqual(await call(offered, privateTool.name), { ok: true, result: { ok: true } });
+  assert.deepEqual(await call(offered, "demo_books_list"), { ok: true, result: { ok: true } });
+  assert.deepEqual(runs.splice(0), [{ actionId: "demo.surveys.open", logged: false }, { actionId: "demo.books.list", logged: true }],
+    "Only the unsaved action's execution is marked unlogged");
+
+  const notKept = catalog.resolveToolSet(context);
+  assert.deepEqual(notKept.tools.map((entry) => entry.actionId), ["demo.books.list"]);
+  assert.deepEqual(notKept.withheld, [{ name: privateTool.name, actionId: "demo.surveys.open",
+    reason: "This assistant does not keep unsaved tool calls out of what it saves, so it is not offered here." }]);
+  assert.equal(catalog.resolveToolSet(context, { unsavedRefusal: "This host saves its own history." }).withheld[0].reason,
+    "This host saves its own history.", "A caller names its own reason");
+  assert.equal((await call(notKept, privateTool.name)).error.code, "assistant_tool_unknown");
+  assert.equal((await catalog.executeToolCall({ toolName: privateTool.name, argumentsText: "{}", context })).error.code,
+    "assistant_tool_unknown", "A call without a tool set never reaches it");
+
+  const discovery = catalog.resolveToolSet(context, { discoveryOnly: true, offerUnsaved: true });
+  assert.deepEqual(discovery.tools.map((entry) => entry.name), discoveryNames);
+  assert.equal(discovery.withheld[0].reason, "Only the discovery tools are offered here, and an unsaved action is never discoverable.");
+  const found = await call(discovery, "assistant_action_search", { query: "surveys" });
+  assert.equal(found.result.total, 0);
+  assert.equal(JSON.stringify((await call(discovery, "assistant_action_search", {})).result).includes("surveys"), false);
+  assert.equal((await call(discovery, "assistant_action_contract", { actionId: "demo.surveys.open", version: 1 })).error.code, "assistant_action_unknown");
+  assert.equal((await call(discovery, "assistant_action_execute", { actionId: "demo.surveys.open", version: 1, input: {} })).ok, false);
+  assert.deepEqual(runs, [], "Discovery never runs an unsaved action");
+
+  const crowded = createServiceToolCatalog(createActions(definitions), { maxDirectTools: 1 });
+  assert.deepEqual(crowded.resolveToolSet(context, { offerUnsaved: true }).tools.map((entry) => entry.name), [...discoveryNames, privateTool.name],
+    "Beside discovery an unsaved action is offered directly");
+  assert.deepEqual(crowded.resolveToolSet(context).tools.map((entry) => entry.name), ["demo_books_list"],
+    "A withheld action does not tip a caller into discovery");
+  const many = createServiceToolCatalog(createActions(Array.from({ length: 9 }, (_, index) => action({
+    id: `demo.private-${index + 1}.read`, extensions: { assistant: { unsaved: true } } }))), { maxDirectTools: 0 });
+  const bounded = many.resolveToolSet(context, { offerUnsaved: true });
+  assert.equal(bounded.tools.length, discoveryNames.length + 8);
+  assert.deepEqual(bounded.withheld.map((entry) => [entry.actionId, entry.reason]),
+    [["demo.private-9.read", "At most 8 actions are offered directly beside action discovery."]]);
+
+  const misdeclared = createServiceToolCatalog(createActions([action({ id: "demo.surveys.open", extensions: { assistant: { unsaved: "yes" } } })]));
+  assert.deepEqual(misdeclared.resolveToolSet(context, { offerUnsaved: true }).tools, [], "A malformed declaration is never offered");
+  assert.throws(() => catalog.resolveToolSet(context, { offerUnsaved: "yes" }), /offerUnsaved must be a boolean/);
 });
