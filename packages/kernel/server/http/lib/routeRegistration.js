@@ -305,7 +305,13 @@ function registerRoutes(fastify, { routes, actions }) {
 
         await executeMiddlewareStack(route.middleware, request, reply, sending);
         if (!sending.started && !reply.sent) {
-          await route.handler(request, reply);
+          const result = await route.handler(request, reply);
+          // A handler answers by sending its reply or by returning its result, as an action route returns its
+          // action's. The router sends a returned result unless the handler started a send itself, which only the
+          // router can tell: a send can still be finishing after it returns.
+          if (result !== undefined && !sending.started && !reply.sent) {
+            reply.send(result);
+          }
         }
         // A started send can still be finishing, its refused response waiting on an onError hook before the error
         // handler answers; returning the reply makes Fastify wait for it instead of sending the reply again itself,
