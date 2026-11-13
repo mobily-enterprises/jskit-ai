@@ -7,6 +7,7 @@ import { toRegisteredContributor } from "./actionDefinitions.js";
 import { noActionPolicy } from "./actionPolicy.js";
 import { silentLogger } from "../runtime/logger.js";
 import { createValidationError } from "../runtime/errors.js";
+import { isExecutionLogged, withoutExecutionLog } from "./executionContext.js";
 
 /**
  * A registry of contributors registered as the catalogue registers them, without a
@@ -517,4 +518,24 @@ test("action registry logs one debug entry per outcome and returns the result di
       { action: "tests.run", version: 1, channel: "api", surface: "app", requestId: "req-1", durationMs: "number", outcome: "failure", errorCode: "TEST_FAILED", message: "action.execution" }
     ]
   );
+});
+
+test("an execution whose context is marked unlogged leaves no log entry, and the action can tell", async () => {
+  const entries = [];
+  const logger = { debug: (payload, message) => entries.push({ payload, message }) };
+  const seen = [];
+  const registry = createSingleActionRegistry({
+    async execute(_input, context) {
+      seen.push(isExecutionLogged(context));
+      return { ok: true };
+    }
+  }, { logger });
+  const context = { channel: "api", surface: "app", requestMeta: { requestId: "req-quiet" } };
+
+  assert.deepEqual(await registry.execute({ actionId: "tests.run", context: withoutExecutionLog(context) }), { ok: true });
+  assert.deepEqual(entries, [], "An unlogged execution writes no action.execution entry");
+  assert.deepEqual(await registry.execute({ actionId: "tests.run", context }), { ok: true });
+  assert.equal(entries.length, 1, "An ordinary execution still logs");
+  assert.deepEqual(seen, [false, true]);
+  assert.equal(JSON.stringify(withoutExecutionLog(context)), JSON.stringify(context), "The marker never reaches a serialized context");
 });

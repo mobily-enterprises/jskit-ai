@@ -56,6 +56,27 @@ function copyPassthroughContextEntries(source = {}) {
   return passthrough;
 }
 
+// A private marker, so it never reaches anything a context is serialized into.
+const UNLOGGED_EXECUTION = Symbol("jskit.actions.unloggedExecution");
+
+/**
+ * The same context for an execution that leaves no line in the action execution log: its caller
+ * keeps every trace of the call out of what it saves (an assistant's unsaved tool). The action and
+ * the action policy read it with isExecutionLogged, to keep their own logs quiet too.
+ * @param {object} [context]
+ */
+function withoutExecutionLog(context = {}) {
+  return { ...context, [UNLOGGED_EXECUTION]: true };
+}
+
+/**
+ * Whether an execution with this context is written to the action execution log.
+ * @param {unknown} context
+ */
+function isExecutionLogged(context) {
+  return !(context && typeof context === "object" && context[UNLOGGED_EXECUTION] === true);
+}
+
 /**
  * An execution's channel: the one it names, else "internal".
  * @param {unknown} value
@@ -79,4 +100,4 @@ function normalizeExecutionContext(context = {}) {
   });
 }
 
-export { normalizeActionChannel, normalizeExecutionContext };
+export { isExecutionLogged, normalizeActionChannel, normalizeExecutionContext, withoutExecutionLog };

@@ -700,8 +700,10 @@ Exports
 
 ### `server/actions/executionContext.js`
 Exports
+- `isExecutionLogged(context)`
 - `normalizeActionChannel(value)`
 - `normalizeExecutionContext(context = {})`
+- `withoutExecutionLog(context = {})`
 Local functions
 - `copyRecord(value)`
 - `normalizeActor(actor)`
@@ -714,6 +716,8 @@ Exports
 - `ACTION_INPUT_DEFAULT_MODE`
 - `ActionProvider`
 - `createEntityChangedActionEvent`
+- `isExecutionLogged`
+- `withoutExecutionLog`
 
 ### `server/actions/pipeline.js`
 Exports

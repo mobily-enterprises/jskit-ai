@@ -23,7 +23,9 @@ const BARREL_EXPECTATIONS = Object.freeze([
       "ACTION_INPUT_DEFAULT_MODE",
       "ActionProvider",
       "createActionCatalogue",
-      "createEntityChangedActionEvent"
+      "createEntityChangedActionEvent",
+      "isExecutionLogged",
+      "withoutExecutionLog"
     ])
   }),
   Object.freeze({

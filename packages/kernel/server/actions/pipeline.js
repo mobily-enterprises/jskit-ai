@@ -5,7 +5,7 @@ import {
   normalizeActionInput,
   normalizeActionOutput
 } from "./policies.js";
-import { normalizeExecutionContext } from "./executionContext.js";
+import { isExecutionLogged, normalizeExecutionContext } from "./executionContext.js";
 
 /** @typedef {import("../types.js").ActionDefinition} ActionDefinition */
 /** @typedef {import("../types.js").ActionPolicy} ActionPolicy */
@@ -32,6 +32,7 @@ async function publishActionEvents(events, builders, execution) {
  * @param {{ definition: any, context: any, outcome: string, startedAt: number, errorCode?: string | null }} execution
  */
 function logActionExecution(logger, { definition, context, outcome, startedAt, errorCode = null }) {
+  if (!isExecutionLogged(context)) return;
   logger.debug(
     {
       action: definition.id,
