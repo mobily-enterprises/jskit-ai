@@ -16,7 +16,7 @@
   },
   "appBar": {
     "height": 64,
-    "width": 1280,
+    "width": 1093,
     "backgroundColor": "rgb(15, 21, 18)",
     "color": "rgb(222, 228, 223)",
     "borderTopLeftRadius": "0px",
@@ -69,7 +69,7 @@
   "railIndicator": null,
   "railLabel": null,
   "drawer": {
-    "height": 836,
+    "height": 900,
     "width": 187,
     "backgroundColor": "rgb(15, 21, 18)",
     "color": "rgb(222, 228, 223)",

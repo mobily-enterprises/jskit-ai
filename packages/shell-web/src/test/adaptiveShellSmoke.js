@@ -238,6 +238,63 @@ async function readNavigationIconCenters(drawer, expect) {
   return centers;
 }
 
+// Material 3 runs the navigation rail and the standard drawer the window's full height beside the top app bar, never
+// under it: their menu control sits in the page title's row and their destinations start right below that row, after
+// the identity (a workspace switcher) when the drawer shows one. Lists what differs; nothing when the layout is right.
+function readNavigationBesideAppBar(navigation) {
+  return navigation.evaluate((element) => {
+    const box = (node) => {
+      const rect = node?.getBoundingClientRect();
+      return rect && rect.width > 0 && rect.height > 0 ? rect : null;
+    };
+    const px = (value) => `${Math.round(value * 10) / 10}px`;
+    const centre = (rect) => rect.top + rect.height / 2;
+    const appBar = box(document.querySelector("[data-testid=jskit-shell-app-bar]"));
+    const title = box(document.querySelector("[data-testid=jskit-shell-app-bar] [data-testid=jskit-shell-page-title]"));
+    const toggle = box(element.querySelector("[data-testid=jskit-shell-nav-toggle]"));
+    const identity = box(element.querySelector(".shell-layout__identity"));
+    const destination = box(element.querySelector("a.shell-menu-link-item[href]"));
+    const missing = Object.entries({ appBar, title, toggle, destination })
+      .filter(([, rect]) => !rect)
+      .map(([name]) => `no visible ${name}`);
+    if (missing.length > 0) {
+      return missing;
+    }
+    const problems = [];
+    const navigationBox = element.getBoundingClientRect();
+    const below = navigationBox.top - appBar.top;
+    if (Math.abs(below) > 1) {
+      problems.push(`the navigation starts ${px(below)} below the top app bar's top instead of beside it`);
+    }
+    const overlap = Math.min(navigationBox.right, appBar.right) - Math.max(navigationBox.left, appBar.left);
+    if (overlap > 1) {
+      problems.push(`the top app bar spans ${px(overlap)} of the navigation's width`);
+    }
+    const offset = centre(toggle) - centre(title);
+    if (Math.abs(offset) > 1) {
+      problems.push(`the menu control's centre is ${px(offset)} from the page title's`);
+    }
+    const rows = identity
+      ? [["identity", identity, appBar.bottom], ["first destination", destination, identity.bottom]]
+      : [["first destination", destination, appBar.bottom]];
+    for (const [name, rect, rowEnd] of rows) {
+      const gap = rect.top - rowEnd;
+      if (Math.abs(gap) > 1) {
+        problems.push(`the ${name} starts ${px(gap)} below the row above it`);
+      }
+    }
+    return problems;
+  });
+}
+
+async function expectNavigationBesideAppBar(navigation, expect) {
+  const presentation = await navigation.getAttribute("data-presentation");
+  await expect.poll(() => readNavigationBesideAppBar(navigation), {
+    message: `The ${presentation || "navigation"} must run the window's full height beside the top app bar, its menu ` +
+      "control in the page title's row and its destinations right below it."
+  }).toEqual([]);
+}
+
 function isRequestedOrDescendantLocation(actualUrl, targetUrl) {
   const normalizePathname = (value) => {
     const pathname = String(value || "/");
@@ -376,6 +433,7 @@ async function runAdaptiveShellSmokeCase({
     await expect(rail).toBeVisible();
     await expectElementVisibility(page, expect, "jskit-shell-drawer", false);
     await expectDrawerWidth(rail, expect, drawer, "data-rail-width");
+    await expectNavigationBesideAppBar(rail, expect);
     await toggle.click();
     await expect(drawer).toHaveAttribute("data-presentation", "modal");
     await expectElementVisibility(page, expect, "jskit-shell-drawer", true);
@@ -393,6 +451,7 @@ async function runAdaptiveShellSmokeCase({
     }
     await expect(drawer).toHaveAttribute("data-presentation", "drawer");
     await expectDrawerWidth(drawer, expect, drawer, "data-drawer-width");
+    await expectNavigationBesideAppBar(drawer, expect);
     await expectContentAwareDrawerFit(drawer, expect);
     const expandedIconCenters = await readNavigationIconCenters(drawer, expect);
     await page.keyboard.press("Escape");
@@ -401,6 +460,7 @@ async function runAdaptiveShellSmokeCase({
     await toggle.click();
     await expect(drawer).toHaveAttribute("data-presentation", "rail");
     await expectDrawerWidth(drawer, expect, drawer, "data-rail-width");
+    await expectNavigationBesideAppBar(drawer, expect);
     await expectCentredRailNavigation(page, drawer, expect, expandedIconCenters);
     await expectNoHorizontalOverflow(page, expect);
   }
@@ -427,6 +487,7 @@ function runAdaptiveShellSmoke({
 
 export {
   DEFAULT_VIEWPORTS,
+  expectNavigationBesideAppBar,
   isRequestedOrDescendantLocation,
   runAdaptiveShellSmoke,
   runAdaptiveShellSmokeCase

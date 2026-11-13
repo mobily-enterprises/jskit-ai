@@ -260,6 +260,9 @@ onBeforeUnmount(() => {
     <span class="shell-layout__pull-refresh-label">{{ pullRefreshLabel }}</span>
   </div>
 
+  <!-- Material 3 runs the rail and the standard drawer the window's full height beside the top app bar, so they come
+       before it in the layout (order -1) and their menu control shares the page title's row. A modal drawer comes first
+       of all (order -2): it opens from the window's edge over the rail and the app bar. -->
   <v-navigation-drawer
     v-if="showsMediumRail"
     class="shell-layout__rail"
@@ -268,6 +271,7 @@ onBeforeUnmount(() => {
     :style="navigationStyle"
     permanent
     rail
+    :order="-1"
     :rail-width="resolvedRailWidth"
     color="surface"
   >
@@ -292,7 +296,6 @@ onBeforeUnmount(() => {
     </ShellNavigationScope>
   </v-navigation-drawer>
 
-  <!-- A modal drawer is the outermost layout item, so it opens from the window's edge over the rail and app bar. -->
   <v-navigation-drawer
     v-if="hasDrawer"
     id="jskit-shell-drawer"
@@ -309,7 +312,7 @@ onBeforeUnmount(() => {
     :color="modalLayout ? 'surface-container-low' : 'surface'"
     :temporary="modalLayout"
     :permanent="!modalLayout"
-    :order="modalLayout ? -1 : 0"
+    :order="modalLayout ? -2 : -1"
     :width="resolvedDrawerWidth"
     :rail="drawerPresentation.rail"
     :rail-width="resolvedRailWidth"
@@ -490,13 +493,14 @@ onBeforeUnmount(() => {
   border: 0;
 }
 
+/* The menu control's row is the top app bar's (64dp), so it sits beside the page title and the destinations start
+   right below it. */
 .shell-layout__rail-header,
 .shell-layout__drawer-header {
   align-items: center;
   display: flex;
   gap: 4px;
-  min-height: 56px;
-  padding-block: 4px;
+  min-height: 64px;
 }
 
 .shell-layout__rail-header,

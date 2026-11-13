@@ -12,6 +12,7 @@ import {
 import { materialSymbols } from "@jskit-ai/material-web/client/symbols";
 import {
   DEFAULT_VIEWPORTS,
+  expectNavigationBesideAppBar,
   runAdaptiveShellSmokeCase
 } from "../src/test/adaptiveShellSmoke.js";
 import { pressShellBack, shellBackButton, shellPageTitle } from "../src/test/shellNavigation.js";
@@ -318,6 +319,59 @@ test("the shared smoke case passes a phone shell whose destinations are all in t
   await runAdaptiveShellSmokeCase({ page, expect, smokePath: "/w/acme/admin/bookings", viewport: compact });
   await expect(page.getByTestId("jskit-shell-drawer")).toHaveCount(0);
   await expect(page.getByTestId("jskit-shell-nav-toggle")).toHaveCount(0);
+  await page.close();
+});
+
+// Material 3 runs the rail and the standard drawer the window's full height beside the top app bar: their menu control
+// shares the page title's row, the destinations start right below it, and an inner page keeps its Up arrow in the bar.
+// A phone keeps its navigation bar and its modal drawer, opened from the app bar over everything.
+test("the rail and the drawer run the window's full height beside the top app bar, their menu control in the title's row", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 1280, height: 900 } });
+  const appBar = page.getByTestId("jskit-shell-app-bar");
+  const drawer = page.getByTestId("jskit-shell-drawer");
+  const toggle = page.getByTestId("jskit-shell-nav-toggle");
+
+  await page.goto("/home");
+  await expect(drawer).toHaveAttribute("data-presentation", "drawer");
+  await expectNavigationBesideAppBar(drawer, expect);
+  await toggle.click();
+  await expect(drawer).toHaveAttribute("data-presentation", "rail");
+  await expectNavigationBesideAppBar(drawer, expect);
+
+  // An identity at the drawer's top (a workspace switcher) takes the row under the title's, the destinations the next.
+  await page.goto("/home?identity=Northwind");
+  await expect(drawer).toHaveAttribute("data-presentation", "drawer");
+  await expect(drawer.getByRole("button", { name: "Northwind" })).toBeVisible();
+  await expectNavigationBesideAppBar(drawer, expect);
+
+  await page.goto("/home/contacts/ada");
+  await expect(shellPageTitle(page)).toHaveText("Ada Lovelace");
+  await expect(appBar.getByTestId("jskit-shell-back")).toBeVisible();
+  await expectNavigationBesideAppBar(drawer, expect);
+
+  await page.setViewportSize({ width: 768, height: 1024 });
+  await page.goto("/home");
+  await expectNavigationBesideAppBar(page.getByTestId("jskit-shell-rail"), expect);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/home");
+  await expect(page.getByTestId("jskit-shell-bottom-nav")).toBeVisible();
+  await expect(drawer).toHaveAttribute("data-presentation", "modal");
+  await expect(appBar.getByTestId("jskit-shell-nav-toggle")).toBeVisible();
+  assert.deepEqual(await appBar.boundingBox(), { x: 0, y: 0, width: 390, height: 64 });
+  await toggle.click();
+  await expect.poll(async () => {
+    const box = await drawer.boundingBox();
+    // What the window shows at the bar's leading corner once the drawer is open: the drawer, over the app bar.
+    const onTop = await page.evaluate(() => Boolean(document.elementFromPoint(8, 32)?.closest("[data-testid=jskit-shell-drawer]")));
+    return { x: box?.x, y: box?.y, onTop };
+  }).toEqual({ x: 0, y: 0, onTop: true });
+  await page.keyboard.press("Escape");
+  await expect(toggle).toBeFocused();
   await page.close();
 });
 
