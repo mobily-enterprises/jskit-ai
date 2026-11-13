@@ -257,7 +257,7 @@ async function fixture(t, options = {}) {
         modelLimits: { context: 32000, output: 4000 }, apiKey: key })) },
       host: { workdir: directory, env: { ...process.env, UNRELATED_SECRET: "must-not-inherit" },
         commands: { opencode: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper, opencode: options.opencode },
-      limits: { admissionTimeoutMs: 250, ...options.limits } });
+      limits: { ...options.limits } });
     runtimes.push(value);
     return value;
   };
@@ -269,7 +269,7 @@ async function fixture(t, options = {}) {
         modelLimits: { context: 32000, output: 4000 }, apiKey: key })) },
       host: { workdir: directory, env: { ...process.env, UNRELATED_SECRET: "must-not-inherit" },
         commands: { opencode: command }, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper, opencode: options.opencode },
-      limits: { admissionTimeoutMs: 250, ...options.limits }
+      limits: { ...options.limits }
     },
     binding: () => storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding),
     releasePartialAnswer: () => writeFile(partialSeen, ""),
@@ -538,8 +538,12 @@ test("OpenCode steering rejection does not abandon the existing turn", async t =
   assert.equal((await f.conversation.wait()).conversationLog.length, 2);
 });
 
+// A test whose native acknowledgement or event connection never arrives waits out this admission deadline; every
+// other test keeps the product's, which only a hang reaches.
+const lostAdmission = { admissionTimeoutMs: 250 };
+
 test("lost OpenCode steering acknowledgement retains a recoverable receipt without resending", async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { limits: lostAdmission });
   await f.conversation.send({ messageId: "before", text: "wait" });
   const steering = { messageId: "lost-steering", text: "lost", steer: true };
   await assert.rejects(f.conversation.send(steering));
@@ -703,7 +707,7 @@ test("cancel drains the owned OpenCode process before another native turn", asyn
 });
 
 test("a lost native acknowledgement is inspected by exact message identity without resending", async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { limits: lostAdmission });
   await assert.rejects(f.conversation.send({ messageId: "lost-id", text: "lost" }));
   assert.equal((await f.conversation.read()).status, "unconfirmed");
   const receipt = await f.conversation.inspectDelivery({ messageId: "lost-id" });
@@ -714,7 +718,7 @@ test("a lost native acknowledgement is inspected by exact message identity witho
 
 test("unavailable or absent native admission remains unknown without replaying the request", async t => {
   for (const options of [{ historyUnavailable: true }, { unobservedInput: true }]) {
-    const f = await fixture(t, options);
+    const f = await fixture(t, { ...options, limits: lostAdmission });
     await assert.rejects(f.conversation.send({ messageId: "lost-id", text: "lost" }));
     assert.deepEqual(await f.conversation.inspectDelivery({ messageId: "lost-id" }), {
       status: "unknown", messageId: "lost-id"
@@ -843,7 +847,7 @@ test("loss of the event connection fails accepted work and proves process cleanu
 });
 
 test("event readiness failure does not submit a native message", async t => {
-  const f = await fixture(t, { eventWait: true });
+  const f = await fixture(t, { eventWait: true, limits: lostAdmission });
   await assert.rejects(f.conversation.send(input), /admission deadline/);
   assert.equal((await f.conversation.read()).conversationLog.length, 0);
   assert.equal((await f.trace()).filter(item => item.url?.endsWith("/prompt_async")).length, 0);
@@ -1088,7 +1092,7 @@ test("OpenCode explicit selection recovers an older mismatched configuration wit
 });
 
 test("OpenCode provider selection retains an uncertain predecessor without resending its authored ID", async t => {
-  const f = await fixture(t, { unobservedInput: true, resolve: async ({ integrationId }) => ({
+  const f = await fixture(t, { unobservedInput: true, limits: lostAdmission, resolve: async ({ integrationId }) => ({
     providerId: integrationId, model: "test-model", sdkPackage: "@ai-sdk/openai-compatible",
     modelLimits: { context: 32000, output: 4000 }, apiKey: `key-${integrationId}`
   }) });
@@ -1108,7 +1112,7 @@ test("OpenCode provider selection retains an uncertain predecessor without resen
 
 
 test("OpenCode fresh native selection retains an uncertain predecessor without resending its authored ID", async t => {
-  const f = await fixture(t, { unobservedInput: true });
+  const f = await fixture(t, { unobservedInput: true, limits: lostAdmission });
   await assert.rejects(f.conversation.send({ messageId: "unknown-old-id", text: "lost" }));
   const before = await f.conversation.wait();
   const metadata = await f.storage.read("conversation", tx => tx.readMetadata());
