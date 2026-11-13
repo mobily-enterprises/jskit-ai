@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime-mysql",
-  "version": "0.1.271",
+  "version": "0.1.272",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -55,7 +55,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/database-runtime": "0.1.273",
-    "@jskit-ai/kernel": "0.2.24"
+    "@jskit-ai/database-runtime": "0.1.274",
+    "@jskit-ai/kernel": "0.2.25"
   }
 }

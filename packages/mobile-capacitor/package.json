@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/mobile-capacitor",
-  "version": "0.2.33",
+  "version": "0.2.34",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -60,7 +60,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.24",
-    "@jskit-ai/shell-web": "0.2.33"
+    "@jskit-ai/kernel": "0.2.25",
+    "@jskit-ai/shell-web": "0.2.34"
   }
 }
