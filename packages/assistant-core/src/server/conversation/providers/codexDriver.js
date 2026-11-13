@@ -31,6 +31,14 @@ import { createCodexDriverTurns, goalValue } from "./codexDriverTurns.js";
  * @property {object | undefined} observationTarget
  */
 
+/**
+ * How long a started Codex app-server has to answer before its start fails: a hang bound, not a latency budget.
+ * Starting the app-server is not admitting a message, so a busy host must not turn the conversation's admission
+ * deadline (`limits.admissionTimeoutMs`) into the start's; OpenCode's start keeps its own bound too
+ * (OPENCODE_READY_TIMEOUT_MS).
+ */
+const CODEX_DRIVER_READY_TIMEOUT_MS = 30_000;
+
 const goalCapabilities = Object.freeze({ goals: true, goalBudgets: true,
   goalCommands: Object.freeze({
     set: Object.freeze({ delivery: "control", interruptsTurn: false }),
@@ -163,7 +171,7 @@ export function createCodexConversationDriver({ connections, host = {}, limits =
     };
     const configuration = { commandHookCommand: host.commandWrapper ? codexCommandHookCommand(host.commandWrapper) : undefined };
     const parameters = { runtimeDir, codexCommand: command, env, workdir: "", terminalEnv: {},
-      readyTimeoutMs: limits.admissionTimeoutMs || 30_000,
+      readyTimeoutMs: CODEX_DRIVER_READY_TIMEOUT_MS,
       compatibility: { attachmentHostRoot: "", executionContextHash: scope, runtimesHash: hash([command, configuration]) } };
     return { credentials, execution: processExecution, configuration, parameters,
       runtime: createCodexAppServerRuntime({ credentials, execution: processExecution, configuration }) };

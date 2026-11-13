@@ -591,7 +591,7 @@ for (const deferBudgetCompletion of [false, true]) test(deferBudgetCompletion
   const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
   let calls = 0;
   const f = await fixture(t, { actions: applicationActions(async () => ({ value: ++calls })), context,
-    nativeGoalObjective: "tools goal", limits: { admissionTimeoutMs: 30_000, maxToolCalls: 3 }, deferBudgetCompletion });
+    nativeGoalObjective: "tools goal", limits: { maxToolCalls: 3 }, deferBudgetCompletion });
   await f.conversation.send({ messageId: "bounded-goal", text: "native-goal" });
   const state = await f.conversation.wait();
   const trace = await f.trace();
@@ -820,11 +820,15 @@ test("Codex refuses dispatch when its required command hook is missing", async t
   assert.equal((await f.trace()).some(row => row.method === "thread/start"), false);
 });
 
+// A test whose native acknowledgement never arrives waits out this admission deadline; every other test keeps the
+// product's, which only a hang reaches.
+const lostAcknowledgement = { admissionTimeoutMs: 2000 };
+
 test("Codex receives authorized image content and retains receipts through uncertain admission", async t => {
   const image = Buffer.from("authorized-image");
   const receipt = { attachmentId: "picture", fileName: "picture.png", size: image.length };
   let reads = 0;
-  const f = await fixture(t, { attachments: { resolve: async () => {
+  const f = await fixture(t, { limits: lostAcknowledgement, attachments: { resolve: async () => {
     reads++;
     return { attachments: [receipt], content: [{ type: "image", image, mediaType: "image/png" }] };
   } } });
@@ -1254,7 +1258,7 @@ async function fixture(t, options = {}) {
       onDeliveryTiming: options.onDeliveryTiming,
       actions: options.actions, connections: options.connections, fetch: options.fetch, attachments: options.attachments,
       host: { workdir: directory, runtimeDirectory: directory, env, commands: { codex: command }, execution, nativeTools, commandWrapper: options.commandWrapper },
-      limits: { admissionTimeoutMs: 2000, ...options.limits } });
+      limits: { ...options.limits } });
     runtimes.push(value);
     return value;
   }
@@ -1263,7 +1267,7 @@ async function fixture(t, options = {}) {
   return { directory, storage, account, runtime, first, conversation, checkpoints,
     driverOptions: { connections: options.connections,
       host: { workdir: directory, runtimeDirectory: directory, env, commands: { codex: command }, execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
-      limits: { admissionTimeoutMs: 2000, ...options.limits } },
+      limits: { ...options.limits } },
     async restore(checkpoint) {
       assert.ok(checkpoint);
       await first.close();
@@ -1380,7 +1384,7 @@ test("Codex steering rejection leaves the active turn available and checks autho
 });
 
 test("lost Codex steering acknowledgement keeps its own durable request without resending", async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { limits: lostAcknowledgement });
   await f.conversation.send({ messageId: "before", text: "wait" });
   const input = { messageId: "lost-steering", text: "lost-steer", steer: true };
   await assert.rejects(f.conversation.send(input), /timed out/);
@@ -1795,7 +1799,7 @@ test("a Codex binding with no saved run reads ready, and Stop and selection star
 });
 
 test("lost Codex acknowledgement stays uncertain until native history proves the exact message", async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { limits: lostAcknowledgement });
   const lost = { messageId: "lost-id", text: "lost" };
   await assert.rejects(f.conversation.send(lost), /timed out/);
   assert.equal((await f.conversation.read()).status, "unconfirmed");
@@ -1860,7 +1864,7 @@ test("cancel during a shared Codex handshake releases its caller and leaves star
   const gateDirectory = await mkdtemp(path.join(tmpdir(), "jskit-codex-startup-gate-"));
   t.after(() => rm(gateDirectory, { recursive: true, force: true }));
   const gate = path.join(gateDirectory, "ready");
-  const f = await fixture(t, { environment: { TEST_STARTUP_WAIT: gate }, limits: { admissionTimeoutMs: 30_000 } });
+  const f = await fixture(t, { environment: { TEST_STARTUP_WAIT: gate } });
   const sending = f.conversation.send(input);
   sending.catch(() => {});
   const deadline = Date.now() + 3000;
@@ -2017,7 +2021,7 @@ test("steering resolves current attachment access and saves only its authorized 
 test("an uncertain application effect cannot become successful when steering has already produced an answer", async t => {
   const entered = Promise.withResolvers(), complete = Promise.withResolvers();
   const actions = applicationActions(async () => { entered.resolve(); return complete.promise; });
-  const f = await fixture(t, { actions, limits: { admissionTimeoutMs: 30_000 },
+  const f = await fixture(t, { actions,
     context: { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] } });
   await f.conversation.send({ messageId: "original-tools", text: "tools" });
   await entered.promise;
@@ -2210,7 +2214,7 @@ test("select returns to retained native history after restart and sends all miss
 });
 
 test("an uncertain native receipt stays with its engine while another engine can work", async t => {
-  const f = await fixture(t, apiOptions());
+  const f = await fixture(t, { ...apiOptions(), limits: lostAcknowledgement });
   const lost = { messageId: "lost-id", text: "lost" };
   await assert.rejects(f.conversation.send(lost), /timed out/);
   await select(f.conversation, "api", "choose-api");
@@ -2748,7 +2752,7 @@ async function boundCodexToolsFixture(t, options = {}) {
       for (const cleanup of cleanups) await cleanup();
     }
   });
-  const f = await fixture({ after: callback => cleanups.push(callback) }, { limits: { admissionTimeoutMs: 30_000, ...options.limits } });
+  const f = await fixture({ after: callback => cleanups.push(callback) }, { limits: options.limits });
   await f.conversation.send({ messageId: "original-process-seed", text: "Hello" });
   await f.conversation.wait();
   assert.ok(sharedProvider);
@@ -2852,7 +2856,6 @@ async function boundCodexToolsFixture(t, options = {}) {
         preparation: { cleanup: () => ({}) } }
     });
   }
-  f.driverOptions.limits = { admissionTimeoutMs: 2000, ...options.limits };
   const runtime = createConversationRuntime({ engine: "codex", toolCatalog: catalog, authorize: () => true,
     host: { ...f.driverOptions.host, conversation: ({ id }) => bindings.get(id) } });
   boundRuntime = runtime;
@@ -3684,7 +3687,7 @@ async function completedCodexWireFixture(t, value, options = {}) {
   const context = { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] };
   const f = await fixture(t, { ...options, actions, context, structuredResponse: value,
     configuration: { ...configuration, outputSchema: options.outputSchema || completedCodexWireSchema },
-    limits: { admissionTimeoutMs: 30_000, maxFinalReplyCharacters: 16000, maxOutputCharacters: 1670455, ...options.limits } });
+    limits: { maxFinalReplyCharacters: 16000, maxOutputCharacters: 1670455, ...options.limits } });
   await f.first.close();
   let runtime, conversation;
   async function reopen() {
@@ -3843,7 +3846,7 @@ test("ordinary Codex oversized native arguments retain exact failed-cleanup cust
   const oversized = "x".repeat(262_145);
   const f = await fixture(t, { actions: applicationActions(async () => { effects++; return { value: 42 }; }), context,
     oversizedNativeToolInput: { value: oversized }, holdAfterToolRefusal: true,
-    limits: { admissionTimeoutMs: 30_000, maxToolArgumentBytes: 262_144 } });
+    limits: { maxToolArgumentBytes: 262_144 } });
   const peer = await f.first.open({ id: "size-peer", configuration, context });
   const historyPath = path.join(f.directory, "history.json");
   refusalPath = historyPath + ".refuse-interrupt";
@@ -3974,7 +3977,7 @@ for (const delayMs of [1000, 2000]) {
       actions: applicationActions(async () => { effects++; return { value: 42 }; }),
       context: { actor: { id: "owner" }, surface: "app", permissions: ["numbers.read"] },
       completionBeforeDelayedFinal: { readDelayMs: 600, delayMs, text },
-      limits: { admissionTimeoutMs: 30_000, codexFinalizingGraceMs: 500,
+      limits: { codexFinalizingGraceMs: 500,
         codexFinalizingGraceAfterHistoryRead: true, codexFailureDetailGraceMs: 500 }
     });
     let firstError;
@@ -4062,7 +4065,7 @@ test("bound Codex tool callbacks re-enter captured control after the socket open
   const control = Object.freeze({ access: "control", active: true });
   const entered = Promise.withResolvers(), release = Promise.withResolvers();
   let hold = true;
-  const f = await boundCodexToolsFixture(t, { limits: { admissionTimeoutMs: 30_000 }, execute: async actual => {
+  const f = await boundCodexToolsFixture(t, { execute: async actual => {
     assert.equal(contexts.getStore(), control, "native calls must not borrow the expired opening WRITE callback");
     assert.equal(actual.actor.id, "bound-owner", "each tool retains the original request actor");
     actual.boundAdmission.assertCurrent();
