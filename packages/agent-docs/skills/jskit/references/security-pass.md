@@ -1,0 +1,131 @@
+<!-- Generated from `packages/agent-docs/site/guide/framework/security-pass.md`. -->
+
+# Security pass
+
+A security pass makes an app refuse what it should. Genesis's security pass
+skill (`genesis-security-pass`) holds the method: map every way in, work
+through authorization, sign-in, input, secrets, production settings and
+dependencies, prove each finding by sending the input that breaks it, and keep
+a test that fails without each fix. This page says where each of those lives in
+a JSKIT app. The rules it applies are already in [Typed features](typed-features.md),
+[Data access](data-access.md), [Authentication](/guide/app-setup/authentication),
+[Workspace tenancy](multi-homing.md) and the [sanity checks](sanity-checks.md).
+
+## Who may call each route and action
+
+- A route's `auth` is `"public"` unless it says otherwise, so a route
+  registered without `auth` answers anyone. List every `/api` route with its
+  `auth` (`"required"`, or `"own"` with `ownerParam` naming the route parameter
+  that must be the signed-in user's id) and its `permission`, and keep each
+  public route public on purpose.
+- A workspace route registers under `/api/w/:workspaceSlug/...` with
+  `contextPolicy: "required"`: the server resolves the workspace and the
+  caller's membership from the slug and the session, and answers 404 or 403
+  before the handler runs
+  ([Workspace-scoped features and routes](multi-homing.md#workspace-scoped-features-and-routes)).
+- A surface's access policy guards pages in the browser only; the server reads
+  just `requireWorkspaceMembership: false` from it. A page hidden by
+  `requireAnyPermissions`, or a command whose `useCommand({ runPermissions })`
+  is false, still needs the route's own `auth` and `permission`.
+- An action's `permission` is checked by the kernel before its input. A route
+  that bypasses actions, reading with `await request.callOptions()`, runs no
+  action permission, so its own `auth` and `permission` are its only gate
+  ([Layer 1](data-access.md#layer-1-the-table-resource)).
+  An action on the `automation` channel is a tool the assistant may call as
+  the typing user.
+- A rule that depends on the role reads `hasPermission(context.permissions, …)`,
+  never `includes()`, which misses `*` and `bookings.*` grants, and lists the
+  permission in `roleCatalog.customPermissions`
+  ([Role permissions](multi-homing.md#role-permissions)).
+
+## Rows stay in their workspace
+
+- A table resource's `ownership` (`workspace`, `user`, `workspace_user`,
+  `workspace_or_shared`, `system` or `public`) and its row policy scope every
+  handle call to the call's `options.context`, and only the owner feature
+  reaches the table ([The resource is the only door](data-access.md#the-resource-is-the-only-door)).
+  Knex past the handle, a repository that drops the call's `options`, or a
+  context built by hand skips that scope: search for each. Confirm every
+  `public` table is meant to be read by anyone.
+- Who acts is `resolveActor(context)`; the workspace comes from the context
+  only, never from the body or another input
+  ([Request context](typed-features.md#request-context)). A row
+  policy decides from `caller` and the server-resolved `context.workspace`,
+  `context.membership` and `context.permissions`, never from request input.
+- Jobs declare `systemScope` and narrow `systemContext(reason)` with
+  `forWorkspace`, `forUser` or `forWorkspaceUser`; work done as one member runs
+  in `workspaces.memberContext(…)`, which refuses a removed member as their
+  request would ([Background work](data-access.md#background-work)).
+- `expectScoped()` from `@jskit-ai/resource-runtime/test` runs a path as owner
+  A before and after seeding owner B, and fails when B's rows change A's answer
+  or B's rows change ([Tests](data-access.md#tests)). Give each
+  workspace path one.
+
+## Sign-in, sessions and limits
+
+- Auth's routes are limited per client address, and local auth makes an
+  account wait after repeated failures; both are on by default.
+  `config.auth.rateLimits` changes a limit and `false` removes one: a removed
+  limit is a finding unless the person chose it. Behind a proxy,
+  `TRUSTED_PROXIES` names it, or every client shares one count
+  ([Sign-in protection](/guide/app-setup/authentication#sign-in-protection)).
+- Any other route that repetition can abuse (sending email or codes,
+  invitations, costly reads, calls to a paid service) declares
+  `rateLimit: { max, timeWindow }`, refused with 429 `kernel.http.rateLimited`.
+  Each limit gets a test expecting the 429.
+- Sign-in cookies are httpOnly, and in production `Secure` with the `__Host-`
+  prefix; `AUTH_COOKIE_SAME_SITE` is `lax` or `strict`
+  ([Sign-in cookies and SameSite](/guide/app-setup/authentication#sign-in-cookies-and-samesite)).
+  Every unsafe `/api` method checks its CSRF token unless the route sets
+  `csrfProtection: false`; each route that does must authenticate its request
+  another way, as the pass sign-in route does with its signed pass.
+- A dangerous action asks for a recent second factor with `secondFactor`
+  where the app uses one, and password-only sign-in sets
+  `AUTH_LOCAL_PASSWORD_MIN_LENGTH=15`
+  ([Second factor](/guide/app-setup/authentication#second-factor-local-auth)).
+- Password recovery and a new confirmation link answer the same whether or not
+  an account exists. Give the app's own invitation, lookup and sign-up routes
+  the same answer.
+
+## Production settings and secrets
+
+- `NODE_ENV=production`, set by the Deployment's Serve step, is JSKIT's only
+  production switch. There local auth requires `AUTH_LOCAL_SESSION_SECRET`,
+  refuses `AUTH_DEV_BYPASS_ENABLED` and `AUTH_LOCAL_RECOVERY_DEV_OUTPUT`, and
+  refuses to start without a confirmation sender while anyone may register
+  ([Production settings](sanity-checks.md#production-settings)).
+- On an empty production database the first account needs the setup code
+  (403 `auth.local.setup.codeRequired`), so whoever reaches a new deployment
+  first cannot own it. A registration or admin bootstrap of the app's own
+  needs the same protection
+  ([The first account in production](/guide/app-setup/authentication#the-first-account-in-production-local-auth)).
+- `AUTH_LOCAL_SESSION_SECRET` and every other secret live in private Env, read
+  on the server, and the Deployment generates the session secret. Nothing
+  secret goes in `config/public.js`, which the browser imports, or in a
+  committed `.env` file or example.
+- An internal failure is a plain `Error`, which the caller sees as "Internal
+  server error."; an `AppError`'s message is shown at any status, so it never
+  carries internals
+  ([Internal failures are plain errors](typed-features.md#internal-failures-are-plain-errors)).
+- `config.securityHeaders` sets the security headers. Production adds
+  transport security, framing protection and a content security policy that is
+  reported, not enforced, by default; enforce it once the pages run without
+  violations, and read the headers on a production build
+  ([Security headers](/guide/app-setup/initial-scaffolding#security-headers)).
+
+## Try each refusal
+
+- Boot the server in a route test and sign each person in over `app.inject`,
+  one cookie jar each, sending the session's `csrfToken` as `csrf-token` with
+  every write ([Tests](data-access.md#tests)).
+- Send each attack and expect its refusal: no session (401
+  `auth.session.required`), a member without the route's permission (403), a
+  slug of a workspace the caller is not in (403), another workspace's record id
+  and `workspaceId` in the body (refused, or answered in the caller's own
+  workspace), a write without `csrf-token`, and one request past each
+  `rateLimit` (429). A body that does not validate, sent without a session,
+  must get the refusal, not field errors.
+- Production settings: start the server with `NODE_ENV=production` and the
+  test database, and check that it stops without `AUTH_LOCAL_SESSION_SECRET`,
+  that registering asks for the setup code, and the response headers.
+- Run `npm audit` and `npm run verify`.

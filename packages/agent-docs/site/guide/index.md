@@ -41,6 +41,9 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
   refused states, edge cases and accessibility, checked by using the app
 - [Data pass](/guide/framework/data-pass): query counts, constraints,
   migrations and indexes at realistic sizes, on PostgreSQL and MySQL
+- [Security pass](/guide/framework/security-pass): route permissions,
+  workspace scoping, rate limits, sessions, the first account and production
+  settings, each refusal tried
 - [Sanity checks](/guide/framework/sanity-checks): JSKIT's own pitfalls, and
   the JSKIT calls that check data access, tests, a refactor, a screen or a
   deployment before calling it done

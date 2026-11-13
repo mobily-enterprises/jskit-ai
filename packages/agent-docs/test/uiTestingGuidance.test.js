@@ -79,6 +79,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "pattern-index.md",
     "quality-pass.md",
     "sanity-checks.md",
+    "security-pass.md",
     "side-effects.md",
     "translation.md",
     "typed-features.md",
@@ -193,6 +194,13 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(dataReference, /^## PostgreSQL$/mu);
   assert.match(dataReference, /^## MySQL$/mu);
   assert.match(dataReference, /\(database-layer\.md#mysql-and-mariadb-failures-can-leave-partial-schema\)/u);
+  const securityReference = passReference("security-pass.md");
+  assert.match(securityReference, /A route's `auth` is `"public"` unless it says otherwise/u);
+  assert.match(securityReference, /`expectScoped\(\)`/u);
+  assert.match(securityReference, /`config\.auth\.rateLimits`/u);
+  assert.match(securityReference, /`AUTH_LOCAL_SESSION_SECRET`/u);
+  assert.match(securityReference, /\[Request context\]\(typed-features\.md#request-context\)/u);
+  assert.match(skill, /\[security pass\]\(references\/security-pass\.md\)/u);
   assert.doesNotMatch(operationalSource, /@jskit-ai\/create-app|crud-server-generator|crud-ui-generator|ui-generator/u);
   assert.doesNotMatch(operationalSource, /\.jskit\/APP_BLUEPRINT|\.jskit\/WORKBOARD/u);
   assert.doesNotMatch(

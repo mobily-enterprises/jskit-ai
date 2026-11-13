@@ -67,6 +67,7 @@ export default defineConfig({
             { text: "Visual Identity", link: "/guide/framework/visual-identity" },
             { text: "Quality Pass", link: "/guide/framework/quality-pass" },
             { text: "Data Pass", link: "/guide/framework/data-pass" },
+            { text: "Security Pass", link: "/guide/framework/security-pass" },
             { text: "Sanity Checks", link: "/guide/framework/sanity-checks" },
             { text: "Side Effects", link: "/guide/framework/side-effects" },
             { text: "Translating an App", link: "/guide/framework/translation" },
