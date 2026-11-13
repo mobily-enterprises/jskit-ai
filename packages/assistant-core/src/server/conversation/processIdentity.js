@@ -6,6 +6,8 @@ import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 
 const execFileAsync = promisify(execFile);
+/** How many processes a Linux identity scan reads at once. */
+const LINUX_PROCESS_SCAN_BATCH = 32;
 
 // Fixed locale and zone make `lstart` parseable and stable across restarts.
 async function runPs(args) {
@@ -153,39 +155,47 @@ export function createConversationProcessIdentity({
     return entry ? entry.slice(name.length + 1) : "";
   }
 
+  /** One process's record, or null when it has gone or is a zombie. */
+  async function linuxProcessRecord(name) {
+    const statValue = await readFile(`/proc/${name}/stat`, "utf8").catch(() => "");
+    const processStat = linuxProcessStat(statValue);
+    if (!processStat || processStat.state === "Z") {
+      return null;
+    }
+    let environment = null;
+    let environmentReadable = true;
+    try {
+      environment = await readFile(`/proc/${name}/environ`);
+    } catch (error) {
+      if (String(error?.code || "") === "ENOENT") {
+        return null;
+      }
+      environmentReadable = false;
+    }
+    const entries = environmentReadable ? environment.toString("utf8").split("\0") : [];
+    return {
+      ...processStat,
+      commandHash: environmentValue(entries, commandHashEnvironmentName),
+      environmentReadable,
+      pid: Number(name),
+      runtimeToken: environmentValue(entries, runtimeTokenEnvironmentName)
+    };
+  }
+
   async function linuxProcessRecords() {
-    const records = [];
-    const entries = await readdir("/proc", {
+    const names = (await readdir("/proc", {
       withFileTypes: true
-    }).catch(() => []);
-    for (const entry of entries) {
-      if (!entry.isDirectory() || !/^\d+$/u.test(entry.name)) {
-        continue;
-      }
-      const pid = Number(entry.name);
-      const statValue = await readFile(`/proc/${entry.name}/stat`, "utf8").catch(() => "");
-      const processStat = linuxProcessStat(statValue);
-      if (!processStat || processStat.state === "Z") {
-        continue;
-      }
-      let environment = null;
-      let environmentReadable = true;
-      try {
-        environment = await readFile(`/proc/${entry.name}/environ`);
-      } catch (error) {
-        if (String(error?.code || "") === "ENOENT") {
-          continue;
+    }).catch(() => [])).filter((entry) => entry.isDirectory() && /^\d+$/u.test(entry.name)).map((entry) => entry.name);
+    // Every process is read, since a runtime's processes can leave its group. Read one at a time, each of the
+    // scan's two reads per process waited behind the host's other file work, and on a busy host a scan took a
+    // third of a second; a bounded batch keeps the open files few and the reads overlapped.
+    const records = [];
+    for (let index = 0; index < names.length; index += LINUX_PROCESS_SCAN_BATCH) {
+      for (const record of await Promise.all(names.slice(index, index + LINUX_PROCESS_SCAN_BATCH).map(linuxProcessRecord))) {
+        if (record) {
+          records.push(record);
         }
-        environmentReadable = false;
       }
-      const entries = environmentReadable ? environment.toString("utf8").split("\0") : [];
-      records.push({
-        ...processStat,
-        commandHash: environmentValue(entries, commandHashEnvironmentName),
-        environmentReadable,
-        pid,
-        runtimeToken: environmentValue(entries, runtimeTokenEnvironmentName)
-      });
     }
     return records;
   }
