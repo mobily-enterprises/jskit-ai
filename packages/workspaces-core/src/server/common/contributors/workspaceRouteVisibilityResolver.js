@@ -2,6 +2,8 @@ import { normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/suppor
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { resolveActor, resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 
+// A workspace route's visibility context, before the HTTP runtime adds its visibility: a member context
+// (workspaceMemberContext.js) has a `workspace_user` route's.
 function buildVisibilityContribution({ visibility, scopeOwnerId = null, userId = null } = {}) {
   const requiresActorScope = visibility === "workspace_user";
   const contribution = {
@@ -79,4 +81,4 @@ function createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMem
   });
 }
 
-export { createWorkspaceRouteVisibilityResolver };
+export { buildVisibilityContribution, createWorkspaceRouteVisibilityResolver };

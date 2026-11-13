@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import Fastify from "fastify";
+import { normalizeAuthActor } from "@jskit-ai/auth-core/server/authActor";
 import { AuthExtensionsProvider } from "@jskit-ai/auth-core/server/providers/AuthExtensionsProvider";
 import { AuthPolicyProvider } from "@jskit-ai/auth-core/server/providers/AuthPolicyProvider";
 import { CrudContractsProvider } from "@jskit-ai/crud-core/server/crudContracts";
 import { defineCrudFeature } from "@jskit-ai/crud-core/server/defineCrudFeature";
 import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
+import { jsonApiResultValue } from "@jskit-ai/http-runtime/shared/validators/jsonApiResult";
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { HttpProvider } from "@jskit-ai/kernel/server/http";
 import { createBootstrapRuntime } from "@jskit-ai/kernel/server/runtime";
@@ -103,20 +106,79 @@ const config = Object.freeze({
   }
 });
 
-// The signed-in user is the profile the test names in a header, as a session would name it.
-const headerAuthService = Object.freeze({
-  async authenticateRequest(request) {
-    const id = String(request.headers["x-test-user"] || "");
-    return id
-      ? { authenticated: true, actor: { id, email: `${id}@example.com`, displayName: id }, transientFailure: false }
-      : { authenticated: false, actor: null, transientFailure: false };
-  }
+// A workspace_user route whose action answers what a member's code reads from its context, to set a member context's
+// beside the request's.
+const ACTION_READ_CONTEXT = "test.workspace-context.read";
+const ContextFeature = defineFeature({
+  id: "test.workspace-context",
+  requires: { http: "runtime.http" },
+  setup({ http }) {
+    http.router.register(
+      "GET",
+      "/api/w/:workspaceSlug/context",
+      {
+        auth: "required",
+        surface: "app",
+        visibility: "workspace_user",
+        meta: { summary: "Reads the member's context." },
+        params: workspaceSlugParamsValidator
+      },
+      async function readContext(request, reply) {
+        reply.code(200).send(await request.executeAction({ actionId: ACTION_READ_CONTEXT, input: request.input.params }));
+      }
+    );
+    return {};
+  },
+  actions: [
+    Object.freeze({
+      id: ACTION_READ_CONTEXT,
+      version: 1,
+      kind: "query",
+      channels: ["api", "internal"],
+      surfaces: ["app"],
+      input: workspaceSlugParamsValidator,
+      output: null,
+      execute: (_input, context) => ({
+        actorId: resolveActorId(context),
+        actor: context.actor,
+        workspace: context.workspace,
+        membership: context.membership,
+        permissions: context.permissions,
+        visibilityContext: context.visibilityContext,
+        requestVisibilityContext: context.requestMeta.visibilityContext,
+        resolvedWorkspaceContext: context.requestMeta.resolvedWorkspaceContext
+      })
+    })
+  ]
 });
+
+// The signed-in user is the profile the test names in a header, as a session would name it, with the actor the local
+// sign-in provider builds from its account and the profile.
+function headerAuthService(signedIn) {
+  return Object.freeze({
+    async authenticateRequest(request) {
+      const profile = signedIn.get(String(request.headers["x-test-user"] || ""));
+      if (!profile) {
+        return { authenticated: false, actor: null, transientFailure: false };
+      }
+      const actor = normalizeAuthActor({
+        provider: "local",
+        providerUserId: profile.authProviderUserSid,
+        email: profile.email,
+        displayName: profile.displayName,
+        appUserId: profile.id,
+        profileSource: "users"
+      });
+      return { authenticated: true, actor, transientFailure: false };
+    }
+  });
+}
 
 async function issuesApp(t) {
   const knex = await createPackageTestKnex(t, { environment: process.env });
   const app = Fastify();
   t.after(() => app.close());
+  const signedIn = new Map();
   const started = await startTestFeatures({
     knex,
     createTables: true,
@@ -130,11 +192,12 @@ async function issuesApp(t) {
       WorkspacesIntegrationsProvider,
       CrudContractsProvider,
       IssuesFeature,
-      NoticeFeature
+      NoticeFeature,
+      ContextFeature
     ],
-    requires: { profiles: "users.profiles", workspaces: "workspaces.core", memberships: "workspaces.memberships" },
+    requires: { profiles: "users.profiles", workspaces: "workspaces.core", memberships: "workspaces.memberships", actions: "runtime.actions" },
     inputs: {
-      "auth.service": headerAuthService,
+      "auth.service": headerAuthService(signedIn),
       "runtime.app-root": process.cwd(),
       "runtime.bootstrap": createBootstrapRuntime(),
       "runtime.config": config,
@@ -143,13 +206,17 @@ async function issuesApp(t) {
     }
   });
   t.after(started.stop);
-  const { profiles, workspaces, memberships } = started.capabilities;
-  const person = (name) => profiles.upsert({
-    authProvider: "local",
-    authProviderUserSid: `identity-${name}`,
-    email: `${name}@example.com`,
-    displayName: name
-  });
+  const { profiles, workspaces, memberships, actions } = started.capabilities;
+  const person = async (name) => {
+    const profile = await profiles.upsert({
+      authProvider: "local",
+      authProviderUserSid: `identity-${name}`,
+      email: `${name}@example.com`,
+      displayName: name
+    });
+    signedIn.set(profile.id, profile);
+    return profile;
+  };
   const owner = await person("owner");
   const member = await person("member");
   const guest = await person("guest");
@@ -174,7 +241,17 @@ async function issuesApp(t) {
   }
   const list = (user, slug = workspace.slug) => get(user, slug, "issues");
   const notice = (user, slug = workspace.slug) => get(user, slug, "notice");
-  return { list, notice, owner, member, guest, outsider, workspace };
+  const context = (user, slug = workspace.slug) => get(user, slug, "context");
+  // A background job of a feature with a system scope, running one action as a member of the workspace.
+  const systemContext = started.resources.declareSystemScope("test.member-jobs", "act for members of every workspace");
+  async function runAsMember(user, actionId) {
+    const member = await workspaces.memberContext(
+      { workspaceId: workspace.id, userId: user.id },
+      { context: systemContext("run a member's action") }
+    );
+    return countQueries(knex, () => actions.execute({ actionId, input: { workspaceSlug: workspace.slug }, context: { ...member, surface: "app" } }));
+  }
+  return { list, notice, context, runAsMember, owner, member, guest, outsider, workspace };
 }
 
 // The statements of one read of the workspace context, whatever the database quotes its names with: the workspace by
@@ -244,4 +321,39 @@ test("a route whose auth policy and action context differ in requiring membershi
   assert.equal(response.statusCode, 403, response.body);
   assert.equal(response.body.includes("workspaces.workspace.accessDenied"), true, response.body);
   assert.equal(reading(queries, "workspace").length, 1, queries.join("\n"));
+});
+
+test("a member context runs an action in the context the member's own request runs it in", async (t) => {
+  const { context, runAsMember, owner, member, guest } = await issuesApp(t);
+
+  for (const [user, roleSid] of [[owner, "owner"], [member, "member"], [guest, "guest"]]) {
+    const { response } = await context(user);
+    assert.equal(response.statusCode, 200, response.body);
+    const request = response.json();
+    assert.equal(request.actorId, user.id);
+    assert.equal(request.membership.roleSid, roleSid);
+    assert.equal(request.visibilityContext.userId, user.id);
+    const { result } = await runAsMember(user, ACTION_READ_CONTEXT);
+    // The actor, the workspace, the membership, its permissions, the visibility and the whole resolution, as JSON.
+    assert.deepEqual(JSON.parse(JSON.stringify(result)), request, `${roleSid}: the member context's action sees the request's context`);
+  }
+});
+
+test("a member context lists the member's workspace's rows as the member's request does, and is refused where the request is", async (t) => {
+  const { list, runAsMember, owner, member, guest } = await issuesApp(t);
+
+  for (const user of [owner, member]) {
+    const { response } = await list(user);
+    assert.equal(response.statusCode, 200, response.body);
+    // The list action answers a tagged JSON:API document, which the route's transport sends without its links.
+    const document = jsonApiResultValue((await runAsMember(user, "crud.issues.list")).result);
+    const records = (data) => data.map(({ type, id, attributes }) => ({ type, id, attributes }));
+    assert.deepEqual(document.data.map((record) => record.attributes.title).sort(), ["Door sticks", "Lamp flickers"]);
+    assert.deepEqual(records(JSON.parse(JSON.stringify(document.data))), records(response.json().data));
+  }
+
+  const { response } = await list(guest);
+  assert.equal(response.statusCode, 403, response.body);
+  assert.equal(response.body.includes("ACTION_PERMISSION_DENIED"), true, response.body);
+  await assert.rejects(runAsMember(guest, "crud.issues.list"), (error) => error.status === 403 && error.code === "ACTION_PERMISSION_DENIED");
 });

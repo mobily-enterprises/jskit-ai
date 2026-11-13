@@ -58,7 +58,9 @@ owns: [{
 
 A policy is told who the call runs for as `caller`: `user`, `anonymous`,
 `system` or `job`. Background work is `system` or `job`, never a missing user,
-and a job names its person only as `caller.actorId`. A policy hides a row from
+and a job names its person only as `caller.actorId`; work done as one member
+(`workspaces.memberContext`) is that member's `user`, as at their request. A
+policy hides a row from
 every read, including other tables' links to it, so narrowing what one screen
 lists is a filter on that screen's read.
 

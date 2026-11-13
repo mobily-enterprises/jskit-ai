@@ -10,6 +10,7 @@ import { createRepository as createWorkspaceMembershipsRepository } from "./comm
 import { createRepository as createWorkspaceMemberPagesRepository } from "./common/repositories/workspaceMemberPagesRepository.js";
 import { createRepository as createWorkspacesRepository } from "./common/repositories/workspacesRepository.js";
 import { createService as createWorkspaceService } from "./common/services/workspaceDirectoryService.js";
+import { createWorkspaceMemberContexts } from "./common/services/workspaceMemberContext.js";
 import { createWorkspacesServerI18n } from "./i18n.js";
 import { createWorkspaceInviteUrlBuilder } from "./workspaceMembers/workspaceInviteUrls.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembers/workspaceMembersService.js";
@@ -70,8 +71,8 @@ function createWorkspaceRecords(resources) {
 }
 
 /**
- * The `workspaces.core` capability: the workspace services and the invite and
- * settings repositories, built from the runtime config.
+ * The `workspaces.core` capability: the workspace services, the invite and
+ * settings repositories and `memberContext`, built from the runtime config.
  * @param {object} dependencies
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
  * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
@@ -158,11 +159,14 @@ function createWorkspacesRuntime({
     workspaceInvitationsEnabled: invitationsEnabled,
     roleCatalog
   });
+  const memberContexts = createWorkspaceMemberContexts({ workspaceService, userProfiles });
 
   return Object.freeze({
     enabled: tenancyProfile.workspace.enabled === true,
     invitationsEnabled,
     selfCreateEnabled: tenancyProfile.workspace.allowSelfCreate === true,
+    // The context of one member of one workspace, for background work done as that member.
+    memberContext: memberContexts.memberContext,
     // The workspace route support the assistant runtime reads.
     scope: Object.freeze({
       params: workspaceSlugParamsValidator,

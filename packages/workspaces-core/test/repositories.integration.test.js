@@ -4,8 +4,9 @@ import knexLib from "knex";
 import { findDuplicateEntryError } from "@jskit-ai/database-runtime/shared";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
-import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
+import { checkForeignKeys, isSystemContext } from "@jskit-ai/resource-runtime/server";
 import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
 import { userProfileTableResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
 import { userSettingsTableResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
@@ -27,6 +28,7 @@ import { unconfiguredWorkspaceInviteMailer } from "../src/server/workspaceMember
 import { createWorkspaceInviteUrlBuilder } from "../src/server/workspaceMembers/workspaceInviteUrls.js";
 import { createService as createMembersService } from "../src/server/workspaceMembers/workspaceMembersService.js";
 import { buildWorkspaceName, createService as createDirectoryService } from "../src/server/common/services/workspaceDirectoryService.js";
+import { createWorkspaceMemberContexts } from "../src/server/common/services/workspaceMemberContext.js";
 import { noWorkspaceCreatedParticipant } from "../src/server/workspaceDirectory/noWorkspaceCreatedParticipant.js";
 import { resolveTenancyProfile } from "../src/shared/tenancyProfile.js";
 import { createWorkspacesServerI18n } from "../src/server/i18n.js";
@@ -427,6 +429,217 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.deepEqual(page, [{ id: workspace.id, slug: "only" }]);
   });
 
+  // The system context of a test job that acts for each member of a workspace.
+  const memberJobContext = () => runtime.declareSystemScope("test.member-jobs", "act for members of every workspace")("start each member's assigned records");
+
+  // The directory service as workspacesRuntime builds it, with roles that grant different permissions, and its member
+  // contexts.
+  function memberDirectory(tenancyMode = "workspaces") {
+    const directory = createDirectoryService({
+      tenancyProfile: resolveTenancyProfile({ tenancyMode }),
+      roleCatalog: createWorkspaceRoleCatalog({
+        roleCatalog: {
+          roles: {
+            owner: { permissions: ["*"] },
+            admin: { assignable: true, permissions: ["workspace.members.view", "crud.notes.patch"] },
+            member: { assignable: true, permissions: ["crud.notes.list"] }
+          }
+        }
+      }),
+      personalWorkspaceName: buildWorkspaceName,
+      createdParticipant: noWorkspaceCreatedParticipant,
+      workspacesRepository: workspaces,
+      workspaceMembershipsRepository: memberships,
+      workspaceSettingsRepository: settings
+    });
+    return { directory, ...createWorkspaceMemberContexts({ workspaceService: directory, userProfiles: profiles }) };
+  }
+
+  // A signed-in request's actor for a profile, as the local sign-in provider builds it.
+  const requestActorOf = (profile) => ({
+    id: profile.id,
+    authIdentityId: `local:${profile.authProviderUserSid}`,
+    provider: "local",
+    providerUserId: profile.authProviderUserSid,
+    email: profile.email.toLowerCase(),
+    displayName: profile.displayName,
+    appUserId: profile.id,
+    profileSource: "users"
+  });
+
+  test("memberContext resolves a member's workspace context by the workspace's id as the member's request resolves it by its slug, inside the caller's transaction too", async () => {
+    const { directory, memberContext } = memberDirectory();
+    const owner = await createProfile("Ada");
+    const admin = await createProfile("Grace");
+    const member = await createProfile("Linus");
+    const workspace = await workspaces.insert({ slug: "team", name: "Team", ownerUserId: owner.id });
+    await memberships.ensureOwnerMembership(workspace.id, owner.id);
+    await memberships.addMember({ workspaceId: workspace.id, userId: admin.id, roleSid: "admin" });
+    await memberships.addMember({ workspaceId: workspace.id, userId: member.id });
+    // The workspace's first resolution writes its settings, which every later one reads.
+    await directory.resolveWorkspaceContextForUserBySlug(owner, workspace.slug);
+    const system = { context: memberJobContext() };
+
+    for (const [person, roleSid] of [[owner, "owner"], [admin, "admin"], [member, "member"]]) {
+      const context = await memberContext({ workspaceId: workspace.id, userId: person.id }, system);
+      const request = await directory.resolveWorkspaceContextForUserBySlug(person, workspace.slug);
+      assert.deepEqual(context.requestMeta.resolvedWorkspaceContext, request, `${roleSid}: the workspace context of the member's request`);
+      assert.deepEqual(
+        { workspace: context.workspace, membership: context.membership, permissions: context.permissions },
+        { workspace: request.workspace, membership: request.membership, permissions: request.permissions }
+      );
+      assert.equal(context.membership.roleSid, roleSid);
+      assert.ok(context.permissions.length > 0, roleSid);
+      assert.deepEqual(context.actor, requestActorOf(person), `${roleSid}: signed in as the member`);
+      assert.equal(resolveActorId(context), person.id);
+      assert.equal(isSystemContext(context), false, "A member context is no system context");
+      assert.equal(context.routeVisibility, "workspace_user");
+      assert.deepEqual(context.visibilityContext, {
+        visibility: "workspace_user",
+        scopeKind: "workspace_user",
+        requiresActorScope: true,
+        scopeOwnerId: workspace.id,
+        userId: person.id
+      });
+      assert.ok(Object.isFrozen(context));
+    }
+    assert.notDeepEqual(
+      (await memberContext({ workspaceId: workspace.id, userId: admin.id }, system)).permissions,
+      (await memberContext({ workspaceId: workspace.id, userId: member.id }, system)).permissions,
+      "Each member's role decides their permissions"
+    );
+
+    // The owner's membership is ensured, as at the owner's request.
+    await memberships.upsertMembership(workspace.id, owner.id, { status: "revoked" });
+    const ownerContext = await memberContext({ workspaceId: workspace.id, userId: owner.id }, system);
+    assert.equal(ownerContext.membership.status, "active");
+    assert.equal(ownerContext.membership.roleSid, "owner");
+
+    // In the caller's transaction it reads what the transaction wrote.
+    const joiner = await createProfile("Barbara");
+    await memberships.withTransaction(system, async (txOptions) => {
+      await memberships.addMember({ workspaceId: workspace.id, userId: joiner.id }, txOptions);
+      const context = await memberContext({ workspaceId: workspace.id, userId: joiner.id }, txOptions);
+      assert.equal(context.membership.userId, joiner.id);
+      assert.equal(context.actor.id, joiner.id);
+    });
+  });
+
+  test("memberContext refuses a missing or deleted workspace, a non-member, a removed or inactive membership and a user id naming no one, as the member's request does", async () => {
+    const { directory, memberContext } = memberDirectory();
+    const owner = await createProfile("Ada");
+    const member = await createProfile("Grace");
+    const removed = await createProfile("Linus");
+    const inactive = await createProfile("Barbara");
+    const outsider = await createProfile("Alan");
+    const workspace = await workspaces.insert({ slug: "team", name: "Team", ownerUserId: owner.id });
+    await memberships.ensureOwnerMembership(workspace.id, owner.id);
+    for (const person of [member, removed, inactive]) {
+      await memberships.addMember({ workspaceId: workspace.id, userId: person.id });
+    }
+    await memberships.upsertMembership(workspace.id, removed.id, { status: "revoked" });
+    await memberships.upsertMembership(workspace.id, inactive.id, { status: "inactive" });
+    const deleted = await workspaces.insert({ slug: "gone", name: "Gone", ownerUserId: owner.id });
+    await memberships.ensureOwnerMembership(deleted.id, owner.id);
+    await memberships.addMember({ workspaceId: deleted.id, userId: member.id });
+    await workspaces.updateById(deleted.id, { deletedAt: new Date().toISOString() });
+    const system = { context: memberJobContext() };
+    const notFound = [404, "workspaces.workspace.notFound"];
+    const accessDenied = [403, "workspaces.workspace.accessDenied"];
+    const refuses = ([status, code], label) => (error) => {
+      assert.ok(error instanceof AppError, `${label}: ${error}`);
+      assert.deepEqual([error.status, error.code], [status, code], label);
+      return true;
+    };
+    // [label, member asked for, refusal, the member's request (user and slug) that the same refusal answers]
+    const refusals = [
+      ["a workspace id naming no workspace", { workspaceId: "999999", userId: member.id }, notFound, [member, "no-such-workspace"]],
+      ["a deleted workspace's member", { workspaceId: deleted.id, userId: member.id }, notFound, [member, "gone"]],
+      ["a deleted workspace's owner", { workspaceId: deleted.id, userId: owner.id }, notFound, [owner, "gone"]],
+      ["a user who was never a member", { workspaceId: workspace.id, userId: outsider.id }, accessDenied, [outsider, "team"]],
+      ["a removed member", { workspaceId: workspace.id, userId: removed.id }, accessDenied, [removed, "team"]],
+      ["an inactive member", { workspaceId: workspace.id, userId: inactive.id }, accessDenied, [inactive, "team"]],
+      ["a user id naming no one", { workspaceId: workspace.id, userId: "999999" }, accessDenied, [{ id: "999999" }, "team"]]
+    ];
+    for (const [label, asked, refusal, [user, slug]] of refusals) {
+      await assert.rejects(memberContext(asked, system), refuses(refusal, label));
+      await assert.rejects(directory.resolveWorkspaceContextForUserBySlug(user, slug), refuses(refusal, `${label}'s request`));
+    }
+    const { memberContext: noTenancyMemberContext } = memberDirectory("none");
+    await assert.rejects(
+      noTenancyMemberContext({ workspaceId: workspace.id, userId: member.id }, system),
+      refuses([403, "workspaces.workspace.contextDisabled"], "an application without workspaces")
+    );
+    // The member's own context still resolves.
+    assert.equal((await memberContext({ workspaceId: workspace.id, userId: member.id }, system)).membership.userId, member.id);
+  });
+
+  test("memberContext refuses a context that is not a system context, and ids that are no record ids, before any statement", async () => {
+    const { memberContext } = memberDirectory();
+    const owner = await createProfile("Ada");
+    const workspace = await workspaces.insert({ slug: "team", name: "Team", ownerUserId: owner.id });
+    await memberships.ensureOwnerMembership(workspace.id, owner.id);
+    const systemContext = memberJobContext();
+    const asked = { workspaceId: workspace.id, userId: owner.id };
+    const ownerContext = await memberContext(asked, { context: systemContext });
+    const notSystem = /runs only in a system context/u;
+    const badIds = /takes \{ workspaceId, userId \}/u;
+    const refusals = [
+      ["no options", asked, undefined, notSystem],
+      ["no context", asked, {}, notSystem],
+      ["a signed-in request's context", asked, { context: { actor: { id: owner.id } } }, notSystem],
+      ["a workspace job's context", asked, { context: systemContext.forWorkspace(workspace.id) }, notSystem],
+      ["a job for that person", asked, { context: systemContext.forWorkspaceUser(workspace.id, owner.id, { actorId: owner.id }) }, notSystem],
+      ["a member context", asked, { context: ownerContext }, notSystem],
+      ["no ids", {}, { context: systemContext }, badIds],
+      ["no userId", { workspaceId: workspace.id }, { context: systemContext }, badIds],
+      ["no workspaceId", { userId: owner.id }, { context: systemContext }, badIds],
+      ...["", "abc", "0", -1, 1.5, {}].flatMap((id) => [
+        [`workspaceId ${JSON.stringify(id)}`, { workspaceId: id, userId: owner.id }, { context: systemContext }, badIds],
+        [`userId ${JSON.stringify(id)}`, { workspaceId: workspace.id, userId: id }, { context: systemContext }, badIds]
+      ])
+    ];
+    for (const [label, member, options, message] of refusals) {
+      const { statements, sql } = await statementsOf(() => assert.rejects(memberContext(member, options), (error) => {
+        assert.ok(error instanceof TypeError, `${label}: ${error}`);
+        assert.match(error.message, message, label);
+        return true;
+      }));
+      assert.equal(statements, 0, `${label} is refused before any statement: ${sql.join(" | ")}`);
+    }
+  });
+
+  test("memberContext costs the same statements among 10 members and among 200", async (t) => {
+    const usernames = Array.from({ length: 211 }, (_, index) => `crew-${String(index).padStart(3, "0")}`);
+    const users = await insertUsers(usernames);
+    const ownerId = users.get("crew-000");
+    const small = await workspaces.insert({ slug: "small-crew", name: "Small crew", ownerUserId: ownerId });
+    const large = await workspaces.insert({ slug: "large-crew", name: "Large crew", ownerUserId: ownerId });
+    const membership = (workspaceId, username) => ({
+      workspace_id: workspaceId,
+      user_id: users.get(username),
+      role_sid: username === "crew-000" ? "owner" : "member",
+      status: "active"
+    });
+    // Small: crew 0-9. Large: crew 0 and 11-209.
+    await insertRows("workspace_memberships", [
+      ...usernames.slice(0, 10).map((username) => membership(small.id, username)),
+      ...["crew-000", ...usernames.slice(11, 210)].map((username) => membership(large.id, username))
+    ]);
+    const { memberContext } = memberDirectory();
+    const system = { context: memberJobContext() };
+    const asked = [{ workspaceId: small.id, userId: users.get("crew-005") }, { workspaceId: large.id, userId: users.get("crew-150") }];
+    // Each workspace's first resolution writes its settings.
+    for (const member of asked) await memberContext(member, system);
+
+    const few = await statementsOf(() => memberContext(asked[0], system));
+    const many = await statementsOf(() => memberContext(asked[1], system));
+    assert.equal(few.result.membership.userId, users.get("crew-005"));
+    assert.equal(many.result.membership.userId, users.get("crew-150"));
+    t.diagnostic(`memberContext: ${few.statements} statements among 10 members, ${many.statements} among 200: ${many.sql.join(" | ")}`);
+    assert.equal(many.statements, few.statements);
+    assert.ok(many.sql.every((sql) => /^select\b/iu.test(sql.trim())), "A member's resolution after the first writes nothing");
+  });
 
   test("workspaces.lock and memberships.lockByWorkspaceIdAndUserId take lockMode share, and refuse another mode before any statement", async () => {
     const owner = await createProfile("Ada");

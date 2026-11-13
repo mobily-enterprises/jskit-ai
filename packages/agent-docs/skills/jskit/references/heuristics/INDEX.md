@@ -42,7 +42,7 @@ How to use it:
   - [server-search.md](./server-search.md)
 - `actualField`, `storage.column`, `storage.writeSerializer`, `storage.virtual`, `queryFields`, computed field, virtual field, projection, `defaultTo`, datetime write serialization, temporalPrecision, json-rest-schema dates
   - [table-resource-fields.md](./table-resource-fields.md)
-- data access, database table, knex, raw, SQL, repository, bulk, batch, many rows, set write, upsert, lock, claim, totals, report, aggregate, newest per group, transaction, `trx`, background job, system scope, `systemContext`, every workspace, `listForSystem`, owner, owns, owner API, another feature's table, scope test, `expectFlatQueries`, `requireTestDatabase`, `jskit/no-direct-knex`, `jskit/no-transaction-reader`, `jskit/no-hand-scope`, `jskit/sql-literal`, `jskit/knex-reason`, `infrastructure:`
+- data access, database table, knex, raw, SQL, repository, bulk, batch, many rows, set write, upsert, lock, claim, totals, report, aggregate, newest per group, transaction, `trx`, background job, system scope, `systemContext`, every workspace, `listForSystem`, work done as a member, member context, `memberContext`, owner, owns, owner API, another feature's table, scope test, `expectFlatQueries`, `requireTestDatabase`, `jskit/no-direct-knex`, `jskit/no-transaction-reader`, `jskit/no-hand-scope`, `jskit/sql-literal`, `jskit/knex-reason`, `infrastructure:`
   - [data-access.md](./data-access.md)
 - row policy, permission filtering, visibility before pagination, recursive CTE, descendants, package cycle, capability cycle a row policy closes, `late`, `RowPolicyPlugin`, row policy cost, slow writes through a policy, access check per history item
   - [row-policies.md](./row-policies.md)

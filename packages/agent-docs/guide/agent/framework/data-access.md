@@ -89,6 +89,7 @@ the filters match.
 | scoped query | The read-only Knex builder `scopedQuery()` returns, with ownership and the row policy already applied. |
 | system scope | Why a feature works across every workspace and user, declared with `systemScope`. |
 | system context | The context of that work, from `systemContext(reason)`; `forWorkspace`, `forUser` and `forWorkspaceUser` narrow it. |
+| member context | The context of work done as one member of one workspace, from `workspaces.memberContext({ workspaceId, userId }, { context: systemContext(reason) })`: resolved as the member's request is, and signed in as them. |
 | `txOptions` | What `withTransaction(options, work)` hands `work`: only the call's context and its transaction, `{ context, trx }`, passed to every call inside. |
 | record | What a handle answers: `{ id, ...fields }`, relationships as ids, included records nested. |
 
@@ -1376,6 +1377,38 @@ const SettlementFeature = defineFeature({
   request's `caller.userId`, so a job for a person sees what that person may
   see, and a job for no one its whole scope. Work on one person's rows only
   takes their scope (`forUser`, `forWorkspaceUser`) or filters its reads.
+- Work done as one member of a workspace, running what their own request would
+  (an action that checks their permissions, code that reads `context.actor`):
+  a record started for the person it is assigned to, a notification for one
+  recipient, a submission synced for the person who made it. It asks
+  workspaces-core for the member's context, never builds one by hand, since a
+  hand-built context drifts from what a request resolves:
+
+  ```js
+  // requires: { workspaces: "workspaces.core", actions: "runtime.actions" }; the feature declares systemScope
+  const member = await workspaces.memberContext(
+    { workspaceId: record.workspaceId, userId: record.assigneeId },
+    { context: systemContext("start each scheduled record for the person it is assigned to") }
+  );
+  await actions.execute({ actionId: "crud.visits.create", input, context: { ...member, surface: "app" } });
+  ```
+
+  `memberContext` resolves the member as their request on a `workspace_user`
+  route does, by the same reads: the workspace, their active membership (the
+  owner's ensured), their role's permissions and the settings. It refuses as
+  that request does: a missing or deleted workspace is 404
+  `workspaces.workspace.notFound`, and a user who is no active member of it
+  (removed, inactive, never one, or no user) 403
+  `workspaces.workspace.accessDenied`. The context signs the member in, unlike
+  `{ actorId }`: `resolveActorId` answers them, an action checks their
+  permissions, a row policy is told `caller.kind` "user", request row limits
+  apply and other owners' hidden fields stay hidden. Its scope is the workspace
+  and the member, so an event reaches that member there. Only a system context
+  makes one, and an action it runs names the surface the member's request would
+  use. It reads no sign-in state: JSKIT keeps no disabled flag on users, so an
+  account its auth provider refuses at sign-in (a local account marked
+  disabled) is still resolved; a job that must skip such people asks the
+  provider first.
 - A job finds its units with an `aggregate` grouped by the ownership field,
   which a system context may group by (and count distinct) even when the table
   hides it, then runs each unit scoped to it. It reads the units in pages, all
@@ -1432,9 +1465,10 @@ const SettlementFeature = defineFeature({
   its reason, read from the string literal at the call: a reason kept in a
   constant reads as none.
 - A system context comes only from `systemScope`, and a context's scope only
-  from the request or from `forWorkspace`, `forUser` and `forWorkspaceUser`:
-  lint refuses `createSystemContext` and hand-written `scopeValues`, and a
-  context naming two workspaces or two users throws.
+  from the request, from `forWorkspace`, `forUser` and `forWorkspaceUser`, or
+  from `workspaces.memberContext`: lint refuses `createSystemContext` and
+  hand-written `scopeValues`, and a context naming two workspaces or two users
+  throws.
 - A table only the feature's own background work reads and writes, whose rows
   belong to no workspace or user (an agent's runs, a server's leases, a queue
   keyed by something other than an owner), takes ownership `system`. Every call

@@ -268,7 +268,11 @@ function createService({
       throw new AppError(401, "Authentication required.", { code: "workspaces.auth.required" });
     }
     const workspaceContext = await readRequestWorkspaceContext(user, workspaceSlug, options);
-    if (requireMembership && !workspaceContext.membership) {
+    return requireMembership ? requireMember(workspaceContext) : workspaceContext;
+  }
+
+  function requireMember(workspaceContext) {
+    if (!workspaceContext.membership) {
       throw new AppError(403, "You do not have access to this workspace.", { code: "workspaces.workspace.accessDenied" });
     }
     return workspaceContext;
@@ -291,24 +295,46 @@ function createService({
     return reads.get(key);
   }
 
-  // The workspace, the user's active membership (null for an anonymous visitor or a non-member) and the settings.
-  async function readWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
-    const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
+  /**
+   * The workspace context of one member of the workspace with this id, for background work done as that member: what
+   * resolveWorkspaceContextForUserBySlug resolves for the member's request on a surface that requires membership, by
+   * the same reads and checks. A deleted or missing workspace is 404 `workspaces.workspace.notFound`, as an unknown
+   * slug is, and a user who is no active member of it (removed, inactive, never one, or no user at all) 403
+   * `workspaces.workspace.accessDenied`; the owner's membership is ensured, as at the owner's request.
+   * @param {{ id?: unknown } | null} user
+   * @param {unknown} workspaceId
+   * @param {object} [options]
+   */
+  async function resolveMemberWorkspaceContextById(user, workspaceId, options = {}) {
+    requireWorkspaceContext();
+    const workspace = await workspacesRepository.findById(workspaceId, options);
+    // findById keeps a deleted workspace, which findBySlug does not find.
+    return requireMember(await readWorkspaceContextForUser(user, workspace?.deletedAt ? null : workspace, options));
+  }
+
+  function requireWorkspaceContext() {
     if (resolvedTenancyMode === TENANCY_MODE_NONE) {
       throw new AppError(403, "Workspace context is disabled.", { code: "workspaces.workspace.contextDisabled" });
     }
+  }
 
+  async function readWorkspaceContextForUserBySlug(user, workspaceSlug, options = {}) {
+    requireWorkspaceContext();
     const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
     if (!normalizedWorkspaceSlug) {
       throw new AppError(400, "workspaceSlug is required.", { code: "workspaces.workspace.slugRequired" });
     }
+    return readWorkspaceContextForUser(user, await workspacesRepository.findBySlug(normalizedWorkspaceSlug, options), options);
+  }
 
-    const workspace = await workspacesRepository.findBySlug(normalizedWorkspaceSlug, options);
-
+  // The workspace (404 when it is null), the user's active membership (null for an anonymous visitor or a non-member)
+  // with its role's permissions, and the settings: every workspace context, a request's and a member's, is this one.
+  async function readWorkspaceContextForUser(user, workspace, options) {
     if (!workspace) {
       throw new AppError(404, "Workspace not found.", { code: "workspaces.workspace.notFound" });
     }
 
+    const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     let membership = normalizedUserId
       ? await workspaceMembershipsRepository.findByWorkspaceIdAndUserId(workspace.id, normalizedUserId, options)
       : null;
@@ -343,7 +369,8 @@ function createService({
     updateWorkspaceForAuthenticatedUser,
     listWorkspacesForUser,
     listWorkspacesForAuthenticatedUser,
-    resolveWorkspaceContextForUserBySlug
+    resolveWorkspaceContextForUserBySlug,
+    resolveMemberWorkspaceContextById
   });
 }
 

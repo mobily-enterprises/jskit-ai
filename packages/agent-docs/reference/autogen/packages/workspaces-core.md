@@ -24,9 +24,8 @@ Exports
 
 ### `src/server/common/contributors/workspaceRouteVisibilityResolver.js`
 Exports
-- `createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds })`
-Local functions
 - `buildVisibilityContribution({ visibility, scopeOwnerId = null, userId = null } = {})`
+- `createWorkspaceRouteVisibilityResolver({ workspaceService, workspaceMembershipOptionalSurfaceIds })`
 
 ### `src/server/common/formatters/workspaceFormatter.js`
 Exports
@@ -69,6 +68,12 @@ Exports
 Local functions
 - `toSlugPart(value)`
 - `buildWorkspaceBaseSlug(user)`
+
+### `src/server/common/services/workspaceMemberContext.js`
+Exports
+- `createWorkspaceMemberContexts({ workspaceService, userProfiles })`
+Local functions
+- `memberActorOf(profile)`
 
 ### `src/server/common/support/realtimeServiceEvents.js`
 Exports
