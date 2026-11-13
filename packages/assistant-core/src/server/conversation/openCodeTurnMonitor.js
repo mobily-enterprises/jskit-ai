@@ -286,8 +286,13 @@ export function createOpenCodeTurnMonitor({ processes, monitors, turns, processO
                 }
                 // A steered input's output belongs to its own request only once
                 // that admission commits. Until then the earlier request is still
-                // the current one and would take the output as its own.
+                // the current one and would take the output as its own, so this
+                // poll projects nothing and the next one after the commit does.
+                // Polling itself must go on: a native failure is seen only here,
+                // and a steer's admission after a final-answer recovery can wait
+                // for this monitor to end.
                 const admission = turn.admission;
+                if (admission && !admission.settled) return;
                 await admission?.promise;
                 signal.throwIfAborted();
                 if (admission !== turn.admission || inputMessageId !== normalizeNullableText(turn.inputMessageId)) return;

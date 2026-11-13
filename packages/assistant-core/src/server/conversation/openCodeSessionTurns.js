@@ -7,6 +7,21 @@ import { openCodeTurnSnapshot } from "./openCodeTurnMonitor.js";
 import { normalizeNullableText } from "./normalize.js";
 import { ignorePromptRejection } from "./nativeCommandCallbacks.js";
 
+// An input's admission to a turn. It settles once the input's authored row is
+// saved (and, after a final-answer recovery, once OpenCode shows the input
+// follows that recovery), or when Stop or close releases it. The monitor reads
+// `settled` so that it keeps polling, never waiting, while it is pending.
+function openCodeAdmission() {
+  const { promise, resolve, reject } = Promise.withResolvers();
+  const admission = {
+    promise,
+    settled: false,
+    resolve(value) { admission.settled = true; resolve(value); },
+    reject(error) { admission.settled = true; reject(error); }
+  };
+  return admission;
+}
+
 /**
  * A session's main native conversation: its readiness, the messages sent to
  * it, its renewal turn, its interrupt, and the reconciliation of saved runs
@@ -166,7 +181,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
           currentMonitor = monitors.get(key);
         }
       }
-      admission = Promise.withResolvers();
+      admission = openCodeAdmission();
       // The observer may be between polls when dispatch or persistence fails.
       // Keep the raw promise rejectable without an unhandled rejection.
       void admission.promise.catch(() => {});

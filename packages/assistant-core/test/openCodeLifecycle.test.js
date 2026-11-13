@@ -21,7 +21,8 @@ function nativeOpenCode() {
     { id: "msg_reply", type: "assistant", text: "", time: { created: 2 } }
   ];
   let busy = true;
-  const calls = { interrupts: [], starts: 0, stops: 0 };
+  let eventFailure = null;
+  const calls = { interrupts: [], prompts: [], starts: 0, stops: 0 };
   function create() {
     calls.starts += 1;
     const client = {
@@ -32,6 +33,12 @@ function nativeOpenCode() {
       async switchAgent() {},
       async messages() { return rows; },
       async sessionStatus() { return { type: busy ? "busy" : "idle" }; },
+      async prompt(_id, input) {
+        calls.prompts.push(input.id);
+        rows.push({ id: input.id, type: "user", time: { created: rows.length + 1 } });
+        busy = true;
+        return { id: input.id };
+      },
       async interrupt(id) {
         calls.interrupts.push(id);
         if (busy) rows[1] = { ...rows[1], error: { name: "MessageAbortedError", data: { message: ABORTED } }, time: { created: 2, completed: 3 } };
@@ -50,7 +57,13 @@ function nativeOpenCode() {
     rows[1] = { ...rows[1], text: "Done.", finish: "stop", time: { created: 2, completed: 3 } };
     busy = false;
   }
-  return { calls, create, fail, complete };
+  // The provider fails the turn as a native session.error event, which only
+  // polling notices; OpenCode goes idle.
+  function failEvent() {
+    eventFailure = Object.assign(new Error(PROVIDER_FAILURE), { name: "APIError" });
+    busy = false;
+  }
+  return { calls, create, fail, complete, failEvent, readFailure: () => eventFailure };
 }
 
 // One server with Vibe64's run rules: the session record keeps the OpenCode run
@@ -83,7 +96,7 @@ function server(native, saved, { turnEndCheckpoint = async () => {} } = {}) {
     prepare() { return { fields: {} }; },
     create() {
       return {
-        observe: () => ({ readFailure: () => null, close: async () => {} }),
+        observe: () => ({ readFailure: native.readFailure, close: async () => {} }),
         finalResponse: { readError: openCodeMessageError },
         writeRun,
         projectMessages: (messages, options) => runtime.writeConversationProjection(SESSION_ID, messages, options, projection),
@@ -121,6 +134,17 @@ function server(native, saved, { turnEndCheckpoint = async () => {} } = {}) {
       return target;
     },
     stop: () => runtime.interruptPreparedTurn({ key: KEY, threadId: THREAD_ID, writeRun, failure }),
+    // A steer onto the running turn, sent as the application sends one: its
+    // admission stays pending until `commit`, its authored-row write, returns.
+    steer: (id, commit) => runtime.sendPreparedMessage({
+      key: KEY, input: { id, threadId: THREAD_ID, workdir: "/work/a" }, project: value => value,
+      application: {
+        writeRun, monitor, commit,
+        prepare: async () => ({ process: processPreparation, session }),
+        prompt: async () => ({ agent: SELECTION.agentId, model: session.model, prompt: { text: "Continue differently" },
+          beforeDispatch: async () => {} })
+      }
+    }, {}),
     // A temporary conversation's turn, observed as the application's detached chats are.
     async temporary(conversationId) {
       const target = await runtime.acquirePrepared(processPreparation);
@@ -335,4 +359,98 @@ test("once OpenCode's shutdown has begun, a temporary conversation's turn that e
   const read = await next.readTemporary("ses_temp", { runId: INPUT_ID, async ended() { ended.push(INPUT_ID); } });
   assert.deepEqual({ status: read.status, error: read.error }, { status: "interrupted", error: "" });
   assert.deepEqual(ended, [INPUT_ID], "recording the run lets the application make its checkpoint");
+});
+
+const STEER_ID = "msg_steer";
+const COMMIT_FAILURE = "The steer's authored row could not be saved.";
+
+// Fails with `waited` unless `promise` settles within two seconds: what it waits
+// for is held for the whole test, so only a wait for it would take longer.
+async function within(promise, waited) {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error(waited)), 2_000);
+    })]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// A steer onto the running turn whose authored-row commit is held until released.
+function heldSteer(running, t) {
+  const entered = Promise.withResolvers();
+  const held = Promise.withResolvers();
+  const sending = running.steer(STEER_ID, async () => {
+    entered.resolve();
+    await held.promise;
+    return { turnId: STEER_ID };
+  });
+  void sending.catch(() => {});
+  t.after(() => held.resolve());
+  return { entered: entered.promise, release: () => held.resolve(), sending };
+}
+
+test("while a steer's commit is pending, OpenCode keeps polling its turn: a native failure ends it, and the steer is sent once", { timeout: 5_000 }, async t => {
+  const native = nativeOpenCode();
+  const saved = { run: null };
+  const running = server(native, saved);
+  t.after(() => running.shutdown());
+  await running.running();
+  const steer = heldSteer(running, t);
+  await steer.entered;
+  native.failEvent();
+  await within(running.runtime.monitors.get(KEY), "The monitor waited for the steer's commit before it saw the native failure");
+  assert.equal(saved.run.state, "failed");
+  assert.match(saved.run.error, /provider refused/u);
+  steer.release();
+  const sent = await within(steer.sending, "The steer did not end once its commit returned");
+  assert.equal(sent.delivered, true, "the steer keeps its authored receipt");
+  assert.deepEqual(native.calls.prompts, [STEER_ID], "the steer was not sent again");
+});
+
+test("Stop ends an OpenCode turn at once while a steer's commit is pending, and the steer is sent once", { timeout: 5_000 }, async t => {
+  const native = nativeOpenCode();
+  const saved = { run: null };
+  const running = server(native, saved);
+  t.after(() => running.shutdown());
+  await running.running();
+  const steer = heldSteer(running, t);
+  await steer.entered;
+  const stopped = await within(running.stop(), "Stop waited for the steer's commit");
+  assert.equal(stopped.interrupted, true);
+  assert.deepEqual({ active: saved.run.active, state: saved.run.state }, { active: false, state: "interrupted" });
+  assert.deepEqual(running.calls.checkpoints, [`${INPUT_ID}:interrupted`]);
+  steer.release();
+  assert.equal((await within(steer.sending, "The steer did not end once its commit returned")).delivered, true);
+  assert.deepEqual(native.calls.prompts, [STEER_ID], "the steer was not sent again");
+});
+
+test("a steer whose commit fails ends the OpenCode turn with that failure, and is not sent again", { timeout: 5_000 }, async t => {
+  const native = nativeOpenCode();
+  const saved = { run: null };
+  const running = server(native, saved);
+  t.after(() => running.shutdown());
+  await running.running();
+  await assert.rejects(within(running.steer(STEER_ID, async () => { throw new Error(COMMIT_FAILURE); }),
+    "The steer's failed commit did not end it"), { message: COMMIT_FAILURE });
+  await within(running.runtime.monitors.get(KEY), "The monitor outlived the steer's failed commit");
+  assert.deepEqual({ active: saved.run.active, state: saved.run.state }, { active: false, state: "failed" });
+  assert.match(saved.run.error, /could not be saved/u);
+  assert.deepEqual(native.calls.prompts, [STEER_ID]);
+});
+
+test("another conversation on the same OpenCode process keeps being observed while a steer's commit is pending", { timeout: 5_000 }, async t => {
+  const native = nativeOpenCode();
+  const saved = { run: null };
+  const running = server(native, saved);
+  t.after(() => running.shutdown());
+  await running.running();
+  const { entry } = await running.temporary("ses_temp");
+  const steer = heldSteer(running, t);
+  await steer.entered;
+  native.complete();
+  const completed = await within(entry.completion, "The other conversation waited for the steer's commit");
+  assert.equal(completed.result.text, "Done.");
+  assert.equal(saved.run.active, true, "the steered turn itself still runs");
 });
