@@ -82,15 +82,18 @@ function createLocalOAuthFlows({
     return beginOAuthAttempt(requireOAuthProvider(input.provider), { intent: "link", userId, returnTo: input.returnTo });
   }
 
+  // The attempt cookie takes AUTH_COOKIE_SAME_SITE as the session cookies do, strict too: the provider's cross-site
+  // return only loads the login page, and the cookie is read by that page's same-origin POST /api/oauth/complete,
+  // which carries Strict cookies.
   function writeOAuthStartCookies(reply, result) {
     if (reply && result?.attempt) {
-      reply.setCookie(OAUTH_ATTEMPT_COOKIE, result.attempt, cookieOptions(isProduction, OAUTH_ATTEMPT_TTL_SECONDS));
+      reply.setCookie(OAUTH_ATTEMPT_COOKIE, result.attempt, cookieOptions(config, OAUTH_ATTEMPT_TTL_SECONDS));
     }
   }
 
   function clearOAuthStartCookies(reply) {
     if (reply) {
-      reply.clearCookie(OAUTH_ATTEMPT_COOKIE, cookieOptions(isProduction, 0));
+      reply.clearCookie(OAUTH_ATTEMPT_COOKIE, cookieOptions(config, 0));
     }
   }
 

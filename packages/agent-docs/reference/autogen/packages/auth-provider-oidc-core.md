@@ -151,4 +151,4 @@ Exports
 - `ACCOUNT`
 - `REGISTRATION_TOKEN`
 - `followAuthorization(url, { redirectPrefix })`
-- `startMockIssuer({ blocked = false, account = ACCOUNT, staticClients = [] } = {})`
+- `startMockIssuer({ blocked = false, account = ACCOUNT, staticClients = [], consentPage = false } = {})`

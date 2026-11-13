@@ -161,6 +161,36 @@ sign-in factor, and at least 8 when it is used with another factor; set
 
 The login page shows either refusal, translated, with the wait.
 
+## Sign-in cookies and SameSite
+
+Local auth's cookies (access, refresh, recovery and OAuth attempt) and
+auth-core's CSRF cookie are httpOnly, at `Path=/`, and in production Secure
+with the `__Host-` prefix. One setting gives them all their SameSite:
+
+| Env | Default | Meaning |
+| --- | --- | --- |
+| `AUTH_COOKIE_SAME_SITE` | `lax` | `lax` or `strict`, letter case and spaces aside. Any other value, `none` included, stops startup, naming the setting. |
+
+`lax` sends the cookies with a top-level navigation that another site starts,
+such as a link in a webmail page; `strict` keeps them off every request
+another site starts. A site is the scheme and registrable domain, so
+applications on sibling subdomains of one registrable domain are one site and
+their requests carry the cookies either way; the `__Host-` prefix is what
+stops a sibling from setting them.
+
+With `strict`, a page opened from another site loads without the cookies, and
+its own requests then carry them, so it shows the person signed in. An
+application's JSKIT server sends every page the same, whatever its cookies;
+only `/api` requests read the session. Sign-in through Google, Microsoft or
+GitHub keeps working: the provider's cross-site return to `/auth/login` only
+loads the login page, and the attempt cookie is read by that page's own
+`POST /api/oauth/complete`, a same-origin request, which carries Strict
+cookies. What `strict` does change: an `/api` GET route that a link on another
+site opens directly, such as a download, gets no session.
+
+With the Supabase or OIDC provider the setting applies to the CSRF cookie only;
+those providers' own cookies stay `Lax`.
+
 ## Second factor (local auth)
 
 Local auth offers a second factor: codes from an authenticator app (TOTP,
@@ -588,9 +618,11 @@ Security behavior:
 - The authorization-code flow uses PKCE (`S256`) and `state`, plus `nonce` for
   OpenID Connect. The attempt is stored server-side, in the file store or the
   `auth_local_oauth_attempts` table, under the hash of a random httpOnly
-  `jskit_local_oauth_attempt` cookie (`__Host-` in production), so it completes
-  only in the starting browser and works across several servers. It is deleted
-  when used and expires after ten minutes.
+  `jskit_local_oauth_attempt` cookie (`__Host-` in production, SameSite from
+  `AUTH_COOKIE_SAME_SITE`; see
+  [Sign-in cookies and SameSite](#sign-in-cookies-and-samesite)), so it
+  completes only in the starting browser and works across several servers. It
+  is deleted when used and expires after ten minutes.
 - ID tokens are verified against the provider's JWKS: signature, issuer,
   audience, expiry and nonce.
 - Only a verified email signs in: Google's `email_verified`, GitHub's primary

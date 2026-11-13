@@ -222,13 +222,13 @@ Exports
 
 ### `src/server/lib/sessions.js`
 Exports
-- `cookieOptions(isProduction, maxAge)`
+- `cookieOptions({ isProduction, cookieSameSite }, maxAge)`
 - `createLocalSessions({ appProfileProjection, backend, config, profileProjector })`
 - `safeRequestCookies(request)`
 Local functions
 - `nowSeconds()`
 - `unauthenticatedAuthResult(clearSession = false)`
-- `clearCookieOptions(isProduction)`
+- `clearCookieOptions(config)`
 - `buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS })`
 - `buildSessionPayload({ user, session, refreshToken, secret })`
 
@@ -299,11 +299,11 @@ Exports
 - `APP_URL`
 - `ATTEMPT_COOKIE`
 - `approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false } = {})`
-- `createService({ backend, oauthProviders, profileProjector, firstAccountSetup })`
+- `createService({ backend, oauthProviders, profileProjector, firstAccountSetup, env = {} })`
 - `oidcProviderEntry(issuer, { id = "google", label = "Google" } = {})`
 - `sessionCookies(session)`
 - `startFakeGitHub({ user = { id: 4242, login: "ada", name: "Ada Lovelace" }, emails } = {})`
-- `startOidcProvider({ account } = {})`
+- `startOidcProvider({ account, appUrl = APP_URL, consentPage = false } = {})`
 Local functions
 - `readBody(req)`
 

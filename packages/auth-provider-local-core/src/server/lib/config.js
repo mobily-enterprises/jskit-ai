@@ -4,6 +4,7 @@ import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { AUTH_PASSWORD_MIN_LENGTH } from "@jskit-ai/auth-core/shared/authConstraints";
+import { resolveAuthCookieSameSite } from "@jskit-ai/auth-core/server/utils";
 import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
 import { assertDevelopmentOnlySettings } from "@jskit-ai/kernel/server/runtime/runtimeMode";
 import { SETUP_CODE_ENV, SETUP_CODE_MIN_CHARACTERS, normalizedSetupCode } from "./firstAccountSetup.js";
@@ -216,6 +217,8 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
   return Object.freeze({
     storeDir,
     isProduction,
+    // The SameSite of every local auth cookie: AUTH_COOKIE_SAME_SITE, "lax" unless set to "strict".
+    cookieSameSite: resolveAuthCookieSameSite(env),
     appPublicUrl,
     oauthProviders,
     oauthEnabled,

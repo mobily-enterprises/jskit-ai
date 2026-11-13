@@ -26,21 +26,25 @@ function unauthenticatedAuthResult(clearSession = false) {
   };
 }
 
-function cookieOptions(isProduction, maxAge) {
+/**
+ * A local auth cookie: httpOnly at Path=/, Secure in production, with the application's SameSite
+ * (AUTH_COOKIE_SAME_SITE).
+ * @param {Pick<import("../types.js").AuthLocalConfig, "isProduction" | "cookieSameSite">} config
+ * @param {number} maxAge
+ */
+function cookieOptions({ isProduction, cookieSameSite }, maxAge) {
   return {
     path: "/",
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: cookieSameSite,
     secure: isProduction,
     maxAge
   };
 }
 
-function clearCookieOptions(isProduction) {
-  return [
-    { path: "/", httpOnly: true, sameSite: "lax", secure: isProduction, maxAge: 0 },
-    { path: "/api", httpOnly: true, sameSite: "lax", secure: isProduction, maxAge: 0 }
-  ];
+/** @param {Pick<import("../types.js").AuthLocalConfig, "isProduction" | "cookieSameSite">} config */
+function clearCookieOptions(config) {
+  return [cookieOptions(config, 0), { ...cookieOptions(config, 0), path: "/api" }];
 }
 
 function buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS }) {
@@ -292,11 +296,11 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
       reply.setCookie(
         isRecoverySession ? RECOVERY_TOKEN_COOKIE : ACCESS_TOKEN_COOKIE,
         accessToken,
-        cookieOptions(isProduction, accessMaxAge)
+        cookieOptions(config, accessMaxAge)
       );
     }
     if (refreshToken) {
-      reply.setCookie(REFRESH_TOKEN_COOKIE, refreshToken, cookieOptions(isProduction, refreshMaxAge));
+      reply.setCookie(REFRESH_TOKEN_COOKIE, refreshToken, cookieOptions(config, refreshMaxAge));
     }
   }
 
@@ -304,7 +308,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
     if (!reply) {
       return;
     }
-    for (const options of clearCookieOptions(isProduction)) {
+    for (const options of clearCookieOptions(config)) {
       // A __Host- cookie only exists at Path=/.
       if (options.path === "/" || !isProduction) {
         reply.clearCookie(ACCESS_TOKEN_COOKIE, options);

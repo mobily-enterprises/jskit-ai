@@ -10,14 +10,19 @@ const REDIRECT_URI = `${APP_URL}/auth/login`;
 const ATTEMPT_COOKIE = "jskit_local_oauth_attempt";
 const CLIENT = Object.freeze({ clientId: "local-app", clientSecret: "local-app-secret-0123456789abcdef" });
 
-/** A local OpenID Connect provider (Google or Microsoft stand-in) with this app as its static client. */
-async function startOidcProvider({ account } = {}) {
+/**
+ * A local OpenID Connect provider (Google or Microsoft stand-in) with this app as its static client.
+ * @param {{ account?: object, appUrl?: string, consentPage?: boolean }} [options] `appUrl` is the APP_PUBLIC_URL of an
+ *   app served elsewhere; `consentPage` is the mock issuer's.
+ */
+async function startOidcProvider({ account, appUrl = APP_URL, consentPage = false } = {}) {
   return startMockIssuer({
     account,
+    consentPage,
     staticClients: [{
       client_id: CLIENT.clientId,
       client_secret: CLIENT.clientSecret,
-      redirect_uris: [REDIRECT_URI],
+      redirect_uris: [`${appUrl}/auth/login`],
       grant_types: ["authorization_code"],
       response_types: ["code"],
       token_endpoint_auth_method: "client_secret_post"
@@ -125,9 +130,11 @@ function oidcProviderEntry(issuer, { id = "google", label = "Google" } = {}) {
  * @param {import("../src/server/types.js").AuthLocalOAuthProvider[]} dependencies.oauthProviders
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  * @param {import("../src/server/types.js").AuthLocalFirstAccountSetup} [dependencies.firstAccountSetup]
+ * @param {Record<string, string>} [dependencies.env] Environment values over the test ones, such as another
+ *   APP_PUBLIC_URL.
  */
-function createService({ backend, oauthProviders, profileProjector, firstAccountSetup }) {
-  const options = localServiceOptions({ env: { APP_PUBLIC_URL: APP_URL } });
+function createService({ backend, oauthProviders, profileProjector, firstAccountSetup, env = {} }) {
+  const options = localServiceOptions({ env: { APP_PUBLIC_URL: APP_URL, ...env } });
   return createLocalAuthService({
     ...options,
     backend,

@@ -12,6 +12,19 @@ export function hostOnlyCookieName(name, secure) {
   return secure && !cookieName.startsWith(HOST_ONLY_COOKIE_PREFIX) ? `${HOST_ONLY_COOKIE_PREFIX}${cookieName}` : cookieName;
 }
 
+/**
+ * AUTH_COOKIE_SAME_SITE: the SameSite attribute of the sign-in cookies, `lax`
+ * (when unset or blank) or `strict`. Anything else stops startup.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
+ * @returns {"lax" | "strict"}
+ */
+export function resolveAuthCookieSameSite(env) {
+  const value = String(env.AUTH_COOKIE_SAME_SITE ?? "").trim().toLowerCase();
+  if (!value) return "lax";
+  if (value === "lax" || value === "strict") return value;
+  throw new Error(`AUTH_COOKIE_SAME_SITE must be lax or strict, not "${env.AUTH_COOKIE_SAME_SITE}".`);
+}
+
 export function normalizeEmail(value) {
   return String(value || "")
     .trim()

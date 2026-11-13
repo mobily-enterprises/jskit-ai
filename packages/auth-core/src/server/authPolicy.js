@@ -1,5 +1,6 @@
 import { hasPermission } from "@jskit-ai/kernel/shared/support/permissions";
 import { parseBooleanFlag } from "./booleanFlag.js";
+import { resolveAuthCookieSameSite } from "./utils.js";
 
 function parseList(value) {
   return String(value || "").split(",").map((entry) => entry.trim()).filter(Boolean);
@@ -27,6 +28,7 @@ const everyoneSignedOut = Object.freeze({
  */
 function createAuthPolicy({ authService, extensions, env }) {
   const unsafeMethods = parseList(env.AUTH_CSRF_UNSAFE_METHODS);
+  const csrfCookieSameSite = resolveAuthCookieSameSite(env);
 
   function resolveActor(request) {
     return authService.authenticateRequest(request);
@@ -46,12 +48,14 @@ function createAuthPolicy({ authService, extensions, env }) {
       apiPrefix: env.AUTH_API_PREFIX,
       // Unset AUTH_CSRF_UNSAFE_METHODS keeps the plugin default (POST, PUT, PATCH, DELETE).
       unsafeMethods: unsafeMethods.length > 0 ? Object.freeze(unsafeMethods) : undefined,
-      // Unset AUTH_CSRF_COOKIE_SECURE follows NODE_ENV (Secure in production).
-      csrfCookieOpts: Object.freeze(
-        String(env.AUTH_CSRF_COOKIE_SECURE ?? "").trim()
+      // The CSRF cookie's SameSite is the sign-in cookies' (AUTH_COOKIE_SAME_SITE). Unset AUTH_CSRF_COOKIE_SECURE
+      // follows NODE_ENV (Secure in production).
+      csrfCookieOpts: Object.freeze({
+        sameSite: csrfCookieSameSite,
+        ...(String(env.AUTH_CSRF_COOKIE_SECURE ?? "").trim()
           ? { secure: parseBooleanFlag(env.AUTH_CSRF_COOKIE_SECURE, false) }
-          : {}
-      )
+          : {})
+      })
     })
   });
 }

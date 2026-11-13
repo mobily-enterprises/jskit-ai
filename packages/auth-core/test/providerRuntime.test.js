@@ -151,3 +151,28 @@ test("AuthPolicyProvider checks CSRF on unsafe methods when AUTH_CSRF_UNSAFE_MET
   const missingToken = await app.inject({ method: "POST", url: "/api/write" });
   assert.equal(missingToken.statusCode, 403);
 });
+
+/** The Set-Cookie header of the CSRF secret an application started with these env values sends. */
+async function csrfSecretCookie(t, env) {
+  const app = Fastify();
+  t.after(() => app.close());
+  const runtime = createCapabilityRuntime({
+    inputs: { ...runtimeInputs(app), "runtime.env": { NODE_ENV: "test", ...env } },
+    providers: [EventProvider, ActionProvider, HttpProvider, AuthExtensionsProvider, AuthFeature, AuthPolicyProvider]
+  });
+  await runtime.start();
+  app.get("/api/csrf", { config: { authPolicy: "public" } }, (_request, reply) => ({ token: reply.generateCsrf() }));
+  const response = await app.inject({ method: "GET", url: "/api/csrf" });
+  return [].concat(response.headers["set-cookie"]).find((cookie) => cookie.startsWith("_csrf="));
+}
+
+test("the CSRF cookie is SameSite=Lax unless AUTH_COOKIE_SAME_SITE is strict, and another value stops startup", async (t) => {
+  assert.match(await csrfSecretCookie(t, {}), /; SameSite=Lax(;|$)/u);
+  assert.match(await csrfSecretCookie(t, { AUTH_COOKIE_SAME_SITE: "" }), /; SameSite=Lax(;|$)/u);
+  assert.match(await csrfSecretCookie(t, { AUTH_COOKIE_SAME_SITE: "strict" }), /; SameSite=Strict(;|$)/u);
+  for (const value of ["none", "Strict;"]) {
+    await assert.rejects(csrfSecretCookie(t, { AUTH_COOKIE_SAME_SITE: value }), {
+      message: `AUTH_COOKIE_SAME_SITE must be lax or strict, not "${value}".`
+    });
+  }
+});

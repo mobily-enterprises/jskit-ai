@@ -9,9 +9,12 @@ const ACCOUNT = Object.freeze({ sub: "usr_test_ada", email: "ada@example.test", 
 /**
  * A local OpenID Connect issuer (plain oidc-provider) that signs a fixed test
  * account in without a form, with registration, back-channel and RP-initiated
- * logout enabled. No real provider is ever contacted.
+ * logout enabled. No real provider is ever contacted. With `consentPage`, a
+ * browser signs in from a page whose Continue button posts the approval, so
+ * its way back to the client starts on the issuer's page, as at a real
+ * provider, rather than in the redirects of the client's own navigation.
  */
-async function startMockIssuer({ blocked = false, account = ACCOUNT, staticClients = [] } = {}) {
+async function startMockIssuer({ blocked = false, account = ACCOUNT, staticClients = [], consentPage = false } = {}) {
   const server = http.createServer();
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
@@ -59,6 +62,11 @@ async function startMockIssuer({ blocked = false, account = ACCOUNT, staticClien
       res.statusCode = 403;
       res.setHeader("Content-Type", "application/json");
       res.end(JSON.stringify({ error: "invalid_redirect_uri", error_description: "This address is blocked by the hub's owner." }));
+      return;
+    }
+    if (req.url.startsWith("/interaction/") && consentPage && req.method === "GET") {
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.end(`<!doctype html><title>Sign in</title><form method="post"><button>Continue</button></form>`);
       return;
     }
     if (req.url.startsWith("/interaction/")) {
