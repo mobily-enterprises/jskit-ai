@@ -31,7 +31,6 @@
         "auth.local.recovery"
       ],
       "requires": [
-        "runtime.actions",
         "runtime.database",
         "runtime.resources"
       ]

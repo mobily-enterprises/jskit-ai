@@ -50,7 +50,6 @@
       ],
       "requires": [
         "auth.service",
-        "runtime.actions",
         "runtime.config",
         "runtime.env",
         "runtime.http"
