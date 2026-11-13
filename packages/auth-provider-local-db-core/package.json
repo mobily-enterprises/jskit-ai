@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-db-core",
-  "version": "0.1.183",
+  "version": "0.1.184",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -18,7 +18,7 @@
     "@jskit-ai/auth-core": "0.2.29",
     "@jskit-ai/database-runtime": "0.1.275",
     "@jskit-ai/kernel": "0.2.26",
-    "@jskit-ai/resource-runtime": "0.2.33"
+    "@jskit-ai/resource-runtime": "0.2.34"
   },
   "description": "Database-backed local auth storage backend for JSKIT local auth.",
   "jskit": {
