@@ -763,6 +763,7 @@ Local functions
 - `normalizeActionFactory(value, featureId)`
 - `applyActionDefaults(actions, defaults, featureId)`
 - `withoutActionCatalogue(dependencies, added = {})`
+- `contextWithoutActionCatalogue(context, featureId)`
 - `normalizeOwns(owns, featureId)`
 - `normalizeSystemScope(systemScope, featureId)`
 - `resourceDependencies({ resourceRuntime }, { featureId, owns, systemScope }, requires)`
