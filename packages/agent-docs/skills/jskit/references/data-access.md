@@ -471,7 +471,12 @@ subquery to the row with `whereExists`: over `ownTable(name)`, which may join
 the owner's other tables, or over another owner's join source. A policy is told
 the call's `options`, `{ context, trx }` as the caller passed them, and passes
 them on unchanged to `joinSource({ alias }, options)`, so the join source reads
-in the caller's scope and transaction; never build them by hand.
+in the caller's scope and transaction; never build them by hand. `options.trx`
+names the transaction the read runs in: the caller's, or, for a write whose
+caller named none, the one json-rest-api opens for it, which the lookup before
+a patch and the read-back after a create run in. So an owner API the policy
+calls with its `options` (a join source, or a handle read such as a role check)
+joins that transaction and never waits for a second connection.
 
 ```js
 // good: a member of the document's team sees it, through the teams owner's join source

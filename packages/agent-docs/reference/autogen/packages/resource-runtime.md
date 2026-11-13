@@ -146,6 +146,12 @@ Local functions
 - `stampedAttributes(resource, attributes, stamp, context)`
 - `handleRecord(resource, record, included, named, resourceNamed)`
 
+### `src/server/handleTransactions.js`
+Exports
+- `policyCallOptions(callOptions, jsonRestContext)`
+- `requireHandleTransaction(name, options)`
+- `trackHandleTransaction(trx)`
+
 ### `src/server/index.js`
 Exports
 - `ResourceRuntimeProvider`
@@ -196,7 +202,6 @@ Exports
 - `createResourceHandle({ api, resource, hooks, settings, resourceNamed, handleNamed })`
 Local functions
 - `reportManyRow(resource, operation, rows, chunkSize)`
-- `requireHandleTransaction(name, options)`
 - `openTransaction(api, options, work)`
 - `formatSetting(options)`
 - `inTransaction(options)`

@@ -5,6 +5,7 @@ import { isTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { callerOf, createSystemContext } from "./contexts.js";
 import { DuplicateOwnerError } from "./errors.js";
 import { callOptionsOf, filterJoinSources, joinSourceHooks } from "./filterJoinSources.js";
+import { policyCallOptions } from "./handleTransactions.js";
 import { createResourceHandle } from "./resourceHandle.js";
 import { resourceScopeOptions } from "./resourceHost.js";
 
@@ -176,8 +177,9 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
 
   // The owner's policy, then every contribution, each in its own group ANDed with ownership: a policy only narrows.
   // Each gets who the call runs for as `caller` (see callerOf), its one way to tell: json-rest-api's own `system` flag
-  // is left out. Each gets the call's own options as `options`, `{ context, trx }` as the caller passed them, to pass
-  // on to an owner it reads (another owner's joinSource), never one built by hand. The owner's policy also gets the
+  // is left out. Each gets the call's own options as `options`, `{ context, trx }` as the caller passed them, with the
+  // transaction the read runs in when the caller named none (see policyCallOptions), to pass on to an owner it reads
+  // (another owner's joinSource or handle call), never one built by hand. The owner's policy also gets the
   // owning feature's dependencies as `requires`; a contribution is a function its feature built in setup, with its own.
   function composedRowPolicy(featureId, entry, contributions, requires) {
     if (!entry.rowPolicy && !entry.acceptsContributions) {
@@ -187,7 +189,7 @@ function createResourceRuntime({ api, requestRowLimit = DEFAULT_REQUEST_ROW_LIMI
     const labelOf = (policyFeatureId, policy, relation) =>
       `Feature "${policyFeatureId}" row policy ${policy.name ? `${policy.name} ` : ""}${relation} "${resourceName}"`;
     return async function ownedRowPolicy(jsonRestArgs) {
-      const args = { ...jsonRestArgs, options: callOptionsOf(jsonRestArgs.context) };
+      const args = { ...jsonRestArgs, options: policyCallOptions(callOptionsOf(jsonRestArgs.context), jsonRestArgs.context) };
       delete args.system;
       const caller = callerOf(args.context);
       if (entry.rowPolicy) {

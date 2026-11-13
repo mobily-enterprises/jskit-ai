@@ -8,6 +8,7 @@ import { createEveryRowReads } from "./handleEveryRow.js";
 import { createHiddenFieldReads, createJoinSource, markHandleFunctions } from "./handleHidden.js";
 import { createLockReads, lockModeOf } from "./handleLocks.js";
 import { withCallOptions } from "./filterJoinSources.js";
+import { requireHandleTransaction, trackHandleTransaction } from "./handleTransactions.js";
 import { MANY_ROW_CHANNEL } from "./manyRowChannel.js";
 import { findOrCreateRecord, lockOrCreate } from "./lockOrCreate.js";
 import { valueOnlyRaw } from "./rawExpression.js";
@@ -69,19 +70,6 @@ function reportManyRow(resource, operation, rows, chunkSize) {
   }
 }
 
-// The transactions handles opened: json-rest-api's own, which every handle call inside the work joins.
-const handleTransactions = new WeakSet();
-
-// A call's options.trx, read or write, is one a handle's withTransaction opened, never a raw Knex transaction.
-function requireHandleTransaction(name, options) {
-  if (options.trx && !handleTransactions.has(options.trx)) {
-    throw new TypeError(
-      `${name}: options.trx is not a transaction a handle opened. A raw Knex transaction or savepoint cannot carry ` +
-        "handle calls, reads included: run the work in withTransaction(options, work) and pass on the txOptions it gives work."
-    );
-  }
-}
-
 // Opens a transaction for work. When work throws, json-rest-api rolls the transaction back and the caller gets the
 // error work threw, with its status and code, reporting the transaction's outcome ("rolledBack") as transactionOutcome
 // (not enumerable, so its serialized form is unchanged; a frozen error cannot carry it): a caller that retries a lost
@@ -96,7 +84,7 @@ async function openTransaction(api, options, work) {
   let own = null;
   try {
     return await api.transaction(async (trx) => {
-      handleTransactions.add(trx);
+      trackHandleTransaction(trx);
       try {
         return await work(Object.freeze({ ...passedOn(options), trx }));
       } catch (error) {
