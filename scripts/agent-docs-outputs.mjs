@@ -33,7 +33,8 @@ const JSKIT_SKILL_GUIDES = Object.freeze({
   "framework/visual-identity.md": "visual-identity.md",
   "framework/quality-pass.md": "quality-pass.md",
   "framework/data-pass.md": "data-pass.md",
-  "framework/security-pass.md": "security-pass.md"
+  "framework/security-pass.md": "security-pass.md",
+  "framework/ux-pass.md": "ux-pass.md"
 });
 const AGENT_DOCS_OUTPUT_PATHS = Object.freeze([
   REFERENCE_AUTOGEN_ROOT,

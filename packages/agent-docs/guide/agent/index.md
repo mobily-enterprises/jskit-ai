@@ -46,6 +46,9 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Security pass](/guide/framework/security-pass): route permissions,
   workspace scoping, rate limits, sessions, the first account and production
   settings, each refusal tried
+- [User experience pass](/guide/framework/ux-pass): navigation, the next
+  action, form defaults, where a save lands, undo and the words people read,
+  each main task walked before and after
 - [Sanity checks](/guide/framework/sanity-checks): JSKIT's own pitfalls, and
   the JSKIT calls that check data access, tests, a refactor, a screen or a
   deployment before calling it done

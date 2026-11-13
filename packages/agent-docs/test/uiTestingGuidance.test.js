@@ -85,6 +85,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "typed-features.md",
     "ui-operations.md",
     "ui-pass.md",
+    "ux-pass.md",
     "visual-identity.md",
   ]);
   assert.deepEqual(
@@ -201,6 +202,14 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(securityReference, /`AUTH_LOCAL_SESSION_SECRET`/u);
   assert.match(securityReference, /\[Request context\]\(typed-features\.md#request-context\)/u);
   assert.match(skill, /\[security pass\]\(references\/security-pass\.md\)/u);
+  const uxReference = passReference("ux-pass.md");
+  assert.match(uxReference, /`target: "shell\.primary-nav"`/u);
+  assert.match(uxReference, /`ShellPrimaryAction`/u);
+  assert.match(uxReference, /`createModel\(fields\)`/u);
+  assert.match(uxReference, /\[Save navigation\]\(crud-operations\.md#save-navigation\)/u);
+  assert.match(uxReference, /`CrudDeleteAction`/u);
+  assert.match(uxReference, /action: \{ label, handler \}/u);
+  assert.match(skill, /\[user experience pass\]\(references\/ux-pass\.md\)/u);
   assert.doesNotMatch(operationalSource, /@jskit-ai\/create-app|crud-server-generator|crud-ui-generator|ui-generator/u);
   assert.doesNotMatch(operationalSource, /\.jskit\/APP_BLUEPRINT|\.jskit\/WORKBOARD/u);
   assert.doesNotMatch(

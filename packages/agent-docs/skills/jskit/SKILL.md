@@ -1,6 +1,6 @@
 ---
 name: jskit
-description: Build, extend, troubleshoot, review, deslop, and verify JSKIT apps using its public framework APIs, package-owned source patterns, runtime capabilities, surfaces, placements, CRUDs, verification conventions, and Vue/Vuetify Material 3 UI contract, including UI passes over a task's changes, a section, or the whole app, and the JSKIT half of identity, quality, data and security passes. Use for every JSKIT UI creation, modification, review, cleanup, or pass task.
+description: Build, extend, troubleshoot, review, deslop, and verify JSKIT apps using its public framework APIs, package-owned source patterns, runtime capabilities, surfaces, placements, CRUDs, verification conventions, and Vue/Vuetify Material 3 UI contract, including UI passes over a task's changes, a section, or the whole app, and the JSKIT half of identity, quality, data, security and user experience passes. Use for every JSKIT UI creation, modification, review, cleanup, or pass task.
 ---
 
 # JSKIT
@@ -62,11 +62,12 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
      also read [Material 3](references/material-3.md) completely before acting.
    - For a UI pass (the changes, a section, or the whole app), also read
      [UI pass](references/ui-pass.md) completely.
-   - For an identity, quality, data or security pass, also read
-     [visual identity](references/visual-identity.md),
+   - For an identity, quality, data, security or user experience pass, also
+     read [visual identity](references/visual-identity.md),
      [quality pass](references/quality-pass.md),
-     [data pass](references/data-pass.md) or
-     [security pass](references/security-pass.md) completely.
+     [data pass](references/data-pass.md),
+     [security pass](references/security-pass.md) or
+     [user experience pass](references/ux-pass.md) completely.
    - Before writing a list, save, batch or test, a refactor, or calling work
      done, read [sanity checks](references/sanity-checks.md).
 
