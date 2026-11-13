@@ -435,10 +435,13 @@ request, `{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
 `reason`, for background work. A job names a user only as `actorId`, the
 person it works for ([below](#background-work)), so never read a missing actor
 as an anonymous request. The owner's policy also receives the capabilities its
-feature requires (and its optional ones), by local name, as `requires`, the
-same ones its setup receives: a policy that needs another feature's answer
-declares that feature's capability in `requires` and reads `requires.<name>`.
-It runs on every read, so what it asks there must be cheap.
+feature requires (and its optional and late ones), by local name, as
+`requires`, the same ones its setup receives: a policy that needs another
+feature's answer declares that feature's capability in `requires` and reads
+`requires.<name>`. When that feature requires the policy's own feature, the
+two form a ring; the policy's feature declares the capability `late` instead
+([Capability cycles](#capability-cycles)). A policy runs on every read, so
+what it asks there must be cheap.
 
 ```js
 // good: one predicate on the row being read
@@ -494,6 +497,45 @@ function teamDocumentsPolicy({ query, caller, column }) {
   return true;
 }
 ```
+
+A policy whose rule reads another owner's rows as stored (a document is
+visible while its folder is open, whether or not the reader may see the folder
+itself) reads them through that owner's API, never through a context it builds.
+The owner answers a join source of its rows under its own `systemScope`,
+narrowed to the call's workspace, so the rows stay that workspace's and `jskit
+check` lists the reason. The policy passes its `options` on unchanged, as
+always, and returns early for background work, whose own context already
+decides. It still only narrows: the stored rows feed its predicate and are
+never answered, so the reader sees no folder it could not see before.
+
+```js
+// good: the folders' owner API, in the folders feature, whose setup receives systemContext
+function storedSource({ alias }, options) {
+  const context = systemContext("the documents' row policy reads each folder's status as stored")
+    .forWorkspace(resolveWorkspaceScopeValue(options.context));
+  return folders.joinSource({ alias }, { ...passedOn(options), context });
+}
+
+// good: the documents' policy, which requires the folders' owner API
+async function openFolderDocuments({ query, caller, column, options, requires }) {
+  if (caller.kind !== "user") {
+    return caller.kind !== "anonymous";
+  }
+  const folder = await requires.folders.storedSource({ alias: "f" }, options);
+  query.whereExists(folder.query.select(1).whereColumn(folder.column("id"), column("folderId")).where(folder.column("status"), "open"));
+  return true;
+}
+```
+
+A policy never walks a tree with a recursive query (`withRecursive`). No builder
+it holds takes a common table expression, and a walk that starts at the row
+being read does not compile on MariaDB, which lets no outer column into a
+recursive query's first member; a walk that starts elsewhere (the reader's
+grants, walking down) reads the reader's whole subtree on every read. Keep the
+tree's ancestry stored instead: its owner writes a closure table (each node's
+ancestors, one row each, with their depth) in the same transaction that adds
+or moves a node, and the policy ties one `whereExists` over that table's join
+source to the row, on indexed columns, on every database.
 
 A rule that depends on the caller's role reads `context.permissions` with
 `hasPermission(context.permissions, "bookings.view-all")` from
@@ -727,6 +769,21 @@ or a counter row taken with `lock(id)`. Every lock needs a transaction; SQLite
 runs one transaction at a time, so there is no row lock to take. Take locks in
 one order on every path, a parent before its children.
 
+`lockWhere` takes that order from `sort` too: `lockWhere({ batchId }, {
+...txOptions, sort: ["moduleKey"] })` locks the rows in `sort` order
+(fields, `"-moduleKey"` for descending), then by id, and answers them in it,
+so two paths that lock overlapping rows wait for each other instead of
+deadlocking. `limit` locks only the first rows of that order, by id without a
+`sort`: a check whether any row matches, or the lock of one row by a unique key
+other than its id, takes `limit: 1`, one statement as `lock(id)` is
+(`workspaces.memberships.lockByWorkspaceIdAndUserId` locks its membership so).
+Without either, `lockWhere` locks every match in id order (on MySQL and MariaDB
+in the order of the index it reads, below), at most 1,000 (more throw), and
+PostgreSQL reads them once more under its locks, for a row that started to
+match while it waited; with a `limit` it stops once it holds that many. A
+`limit` outside 1 to 1,000, or a `sort` on no stored field, is refused before
+any statement.
+
 A lock answers the rows it locks, with the fields `fields` names. Its
 `include` names belongs-to relationships (`include: ["customer"]`, or
 `"batch.yard"` a level further): after its own rows, the lock locks the
@@ -772,7 +829,12 @@ from a request: every id listed is locked, a hidden one too, before it is left
 out. And `lockWhere` needs an index that starts with the ownership columns (on
 a table with no owners, with a column the filters compare); without one it
 refuses with `RestApiBulkWriteUnsupportedError` naming the index to add in a
-migration.
+migration. With `sort` or `limit` the index must also read the rows in the
+lock's order, since the database locks them in the order it reads them: after
+the ownership columns and the columns the filters fix to one value, it holds
+the sort's columns, ascending, and then nothing but the id, and the sort's
+fields go one way (all ascending or all descending). A unique key the filters
+fix whole, as a membership's workspace and user are, needs nothing more.
 
 A worker taking the next job uses `claim({ filters, sort, take }, txOptions)`,
 which skips rows another worker holds. A record that serializes work on a key
@@ -827,8 +889,15 @@ await memberships.patch(input.membershipId, { lastFiledAt: new Date() }, txOptio
 ```
 
 Locks stay on the owner's handle and its owner API. A `scopedQuery()` or
-`joinSource()` builder takes no lock, and a row policy is not told a read's
-lock mode: it says which rows a caller may see, the same for every read. Rows
+`joinSource()` builder takes no lock, not even a shared one: PostgreSQL's `FOR
+SHARE OF` an alias would lock only that source's rows, but MariaDB has no `FOR
+SHARE OF` at all, and its `LOCK IN SHARE MODE` covers every row the statement
+examines, in every table. A report that needs another
+owner's rows unchanged until it commits first locks them through that owner's
+handle or owner API with `lockMode: "share"` (by a unique key with `limit:
+1`), then reads its join. A row policy is not told a read's lock mode, and
+never takes a lock: it says which rows a caller may see, the same for every
+read, and the lock call it narrows takes its own mode. Rows
 of several owners are never locked in one statement over a join, which on
 MySQL and MariaDB locks every joined row the read examines: lock each owner's
 rows with its own `lock`, `lockMany` or `lockWhere`, the owners in one fixed
@@ -1248,8 +1317,11 @@ const SettlementFeature = defineFeature({
   another feature's CRUD repository too (see [Layer
   1](#layer-1-the-table-resource)). Never unhide it for the job.
 - A request uses its own context. The exceptions are a console report
-  behind a console permission, with bounded output, and the write of a shared
-  row it has proved it reaches ([Layer 1](#layer-1-the-table-resource)).
+  behind a console permission, with bounded output, the write of a shared
+  row it has proved it reaches ([Layer 1](#layer-1-the-table-resource)), and
+  an owner API that answers its own rows as stored to another owner's row
+  policy, narrowed to the call's workspace ([Layer
+  1](#layer-1-the-table-resource)).
 - `jskit check` lists every system scope and every `systemContext` call with
   its reason, read from the string literal at the call: a reason kept in a
   constant reads as none.
@@ -1425,7 +1497,8 @@ without it.
 
 A capability cycle is a ring of requires: feature A requires a capability that
 feature B provides while B, directly or through others, requires one that A
-provides. An `optional` require closes a ring as a required one does. The
+provides. An `optional` require closes a ring as a required one does; a
+`late` one does not ([below](#late-requirements)). The
 kernel sets features up in the order their requires give, so it cannot start a
 ring: boot fails before any setup, naming it,
 `Provider capability cycle detected: children -> parents -> children.`
@@ -1449,9 +1522,73 @@ Keep every require pointing one way:
   definitions, move those table resources into a package of their own that
   holds only shared definitions and depends on neither.
 - Never break a ring with a value handed over later (a setter, a capability
-  looked up at call time): a call's destination then depends on what ran
-  before. A setter kept until the split carries typed features' `cycle:`
+  looked up by name at call time): a call's destination then depends on what
+  ran before. A setter kept until the split carries typed features' `cycle:`
   exception ([Optional tokens](/guide/framework/typed-features#optional-tokens)).
+
+### Late requirements
+
+A ring that only a read at call time closes, most often a row policy's, and
+that you cannot or do not want to split, is broken with a late requirement:
+the kernel's declared alternative to a setter. An audit history whose row
+policy narrows through the evidence files' owner, while the evidence owner
+records each change in the audit history, is one: the evidence feature
+requires `audit.history` as usual, and the audit feature declares
+`late: { evidence: "evidence.files" }`.
+
+- A late requirement takes no part in the order features start in, nor in the
+  cycle check, so the ring starts. The kernel resolves it once, after every
+  feature's `boot()`: its destination is declared, so it never depends on what
+  ran before.
+- It is read at call time only: in a row policy (`requires.evidence`), a
+  request handler, or a method setup builds that runs later, which keeps the
+  capabilities object and reads the name when it runs. A read before every
+  feature has booted (in setup or boot, or a late name destructured in setup's
+  parameters) throws `Provider "audit" read its late requirement "evidence"
+  (capability "evidence.files") before every provider booted: ...`, which
+  says where it may be read. A shutdown reads it only after a start that
+  finished.
+- It is required: when no feature or runtime input provides it, start fails at
+  the end of boot, `Provider "audit" late-requires missing capability
+  "evidence.files": no provider or runtime input provides it.`, and stops what
+  started, as any startup failure does. The package manifest lists it under
+  `requires`.
+- A feature never late-requires a capability it provides, nor one it already
+  requires or takes as optional.
+- The one-way rules above still come first: split the ring when you can. A
+  ring that both features' setup or boot needs cannot be broken this way,
+  since a late requirement is never read there.
+
+```js
+// good: the audit history's row policy reads the evidence owner's join source at call time
+const AuditFeature = defineFeature({
+  id: "audit",
+  owns: [{ resource: auditEntryResource, rowPolicy: auditEntriesPolicy }],
+  late: {
+    evidence: "evidence.files"
+  },
+  provides: {
+    history: "audit.history"
+  },
+  setup({ resources }) {
+    return { history: createAuditHistory({ entries: resources.auditEntries }) };
+  }
+});
+
+async function auditEntriesPolicy({ query, caller, column, options, requires }) {
+  if (caller.kind !== "user") {
+    return caller.kind !== "anonymous";
+  }
+  const file = await requires.evidence.joinSource({ alias: "ef" }, options);
+  query.whereExists(file.query.select(1).whereColumn(file.column("id"), column("evidenceFileId")));
+  return true;
+}
+
+// bad: the late name destructured in setup, before every feature has booted; boot fails
+setup({ resources, evidence }) {
+  return { history: createAuditHistory({ entries: resources.auditEntries, evidence }) };
+}
+```
 
 ## Check and judge
 
@@ -1608,6 +1745,16 @@ server code is server code. Neither `eslint-disable`, an inline
 | `jskit/knex-reason` | a `scopedQuery()` report outside a named repository method under `// Knex: <kind> - <reason>` | [Layer 5: reports the resource cannot express](#layer-5-reports-the-resource-cannot-express) |
 
 ### Exceptions
+
+A data-access rule that refuses a statement points at a missing API, never at a
+statement to excuse: no rule takes a per-statement exception. When no owner
+API does what the work needs (locks in a given order, one row by a unique key,
+a check the row policy cannot write), ask for one: from the feature that owns
+the table, or from JSKIT for its own packages and for the handle itself. Only
+statements that are data access themselves go under an exception, in a file
+of their own declared as infrastructure (below), kept small and holding only
+those statements, so the exception hides nothing else: a repository, a row
+policy or a report never moves into such a file to pass lint.
 
 A module whose job is data access itself (a database runtime, a migration
 runner, test-database setup, an operator's data import or cutover tool, a

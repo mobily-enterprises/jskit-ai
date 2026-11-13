@@ -38,6 +38,8 @@ Package composition:
 - a package that narrows visibility further depends on the resource owner and calls `resources.contributeRowPolicy(name, policy)` on the handles its own `owns` gave it; a contribution is ANDed with the owner's policy inside its own group, so it can only narrow
 - a contribution never grants visibility: wider visibility (shared rows, grants another package records) is a rule in the owner's own policy over its own tables, and a contribution narrows every read of the table, every feature's included, so a rule for one surface is an owner API method instead
 - the resource owner does not import contributing packages
+- a policy that narrows through another owner's join source, when that owner requires the policy's own feature, declares the owner's capability `late` and reads `requires.<name>` at call time: the kernel resolves it once every feature has booted ([Late requirements](../data-access.md#late-requirements))
+- a policy whose rule reads another owner's rows as stored, whether or not the reader may see them, reads them through that owner's API, which answers a join source under its own `systemScope` narrowed to the call's workspace; never through a context the policy builds
 - do not use module-global mutable registries
 
 Example, "your rooms or shared rooms":
@@ -68,6 +70,7 @@ Cost:
 - never load the subject's whole history (every source, notice or grant they were ever linked to) to build an `IN` list, and never call another owner's access check per item of it; another package's restriction is a predicate contribution, and another package's grant is a predicate in the owner's policy over facts the owner keeps
 - the policy runs on every single-record read, including the read-back after a handle's `create()` and `patch()` (`returning: "record"`, their default) and the lookup before `patch` and `delete`, so a write pays it once per row it writes; the many-row writes check access once per statement
 - a write decides access once, inside its transaction; a batch write that would pay an expensive read-back per row follows the data access guide's [Layer 3](../data-access.md#layer-3-many-rows-at-once)
+- a hierarchy (descendants, ancestors) is read through a closure table the tree's owner keeps, with one `whereExists` correlated with the row: no builder a policy holds takes a recursive CTE, and MariaDB compiles none that starts at the row being read
 
 Child-resource rules:
 

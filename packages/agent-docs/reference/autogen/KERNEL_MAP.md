@@ -385,13 +385,14 @@ Exports
 Exports
 - `ARCHITECTURE_ID_PATTERN`
 - `capabilityKey(value)`
-- `defineProvider({ id, requires = {}, optional = {}, provides = {}, hints = {}, setup, boot = null, shutdown = null } = {})`
+- `defineProvider({ id, requires = {}, optional = {}, late = {}, provides = {}, hints = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
 - `type ProviderDefinition`
 Local functions
 - `normalizeCapabilityMap(value, label)`
 - `normalizeHints(value, requires, providerId)`
 - `assertDistinctLocalNames(maps)`
+- `assertLateCapabilitiesUnique(providerId, late, others)`
 - `normalizeLifecycleMethod(value, label)`
 
 ### `capabilities/index.js`
@@ -409,7 +410,8 @@ Local functions
 - `normalizeInputCapabilities(value)`
 - `providerCapabilityIds(provider, field)`
 - `buildProviderOrder(providers, inputCapabilities)`
-- `resolveProviderDependencies(provider, capabilities)`
+- `resolveProviderDependencies(provider, capabilities, late)`
+- `resolveLateDependencies(provider, capabilities)`
 
 ### i18n
 

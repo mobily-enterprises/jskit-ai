@@ -18,13 +18,14 @@ Use this on demand; do not load the full index at startup.
 Exports
 - `ARCHITECTURE_ID_PATTERN`
 - `capabilityKey(value)`
-- `defineProvider({ id, requires = {}, optional = {}, provides = {}, hints = {}, setup, boot = null, shutdown = null } = {})`
+- `defineProvider({ id, requires = {}, optional = {}, late = {}, provides = {}, hints = {}, setup, boot = null, shutdown = null } = {})`
 - `normalizeArchitectureId(value, label)`
 - `type ProviderDefinition`
 Local functions
 - `normalizeCapabilityMap(value, label)`
 - `normalizeHints(value, requires, providerId)`
 - `assertDistinctLocalNames(maps)`
+- `assertLateCapabilitiesUnique(providerId, late, others)`
 - `normalizeLifecycleMethod(value, label)`
 
 ### `shared/capabilities/index.js`
@@ -42,7 +43,8 @@ Local functions
 - `normalizeInputCapabilities(value)`
 - `providerCapabilityIds(provider, field)`
 - `buildProviderOrder(providers, inputCapabilities)`
-- `resolveProviderDependencies(provider, capabilities)`
+- `resolveProviderDependencies(provider, capabilities, late)`
+- `resolveLateDependencies(provider, capabilities)`
 
 ### `shared/i18n/index.js`
 Exports
@@ -755,12 +757,12 @@ Exports
 
 ### `server/features/defineFeature.js`
 Exports
-- `defineFeature({ id, domain = id, requires = {}, optional = {}, provides = {}, hints = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null, owns = undefined, systemScope = undefined } = {})`
+- `defineFeature({ id, domain = id, requires = {}, optional = {}, late = {}, provides = {}, hints = {}, setup = () => ({}), actions = [], actionDefaults = {}, boot = null, shutdown = null, owns = undefined, systemScope = undefined } = {})`
 - `type FeatureDefinition`
 Local functions
 - `normalizeActionFactory(value, featureId)`
 - `applyActionDefaults(actions, defaults, featureId)`
-- `withoutActionCatalogue(dependencies)`
+- `withoutActionCatalogue(dependencies, added = {})`
 - `normalizeOwns(owns, featureId)`
 - `normalizeSystemScope(systemScope, featureId)`
 - `resourceDependencies({ resourceRuntime }, { featureId, owns, systemScope }, requires)`
