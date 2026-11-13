@@ -1104,6 +1104,7 @@ async function fixture(t, options = {}) {
         if (text === "lost-steer") return;
         reply({ turnId: turn.id });
         if (turn.items.some(item => item.id === "before-steer")) emit("item/agentMessage/delta", { turnId: turn.id, itemId: "before-steer", delta: " late old text" });
+        emit("item/completed", { turnId: turn.id, item: turn.items.at(-1) });
         const answer = { id: "after-steer", type: "agentMessage", phase: "final_answer", text: "Steered: " + text };
         turn.items.push(answer);
         emit("item/started", { turnId: turn.id, item: answer });
@@ -1122,6 +1123,8 @@ async function fixture(t, options = {}) {
         emit("turn/started", { turn });
         if (text === "lost") return;
         reply({ turn });
+        // Like Codex, confirm the user's input as a completed turn item before any of the turn's output.
+        emit("item/completed", { turnId: turn.id, item: turn.items[0] });
         const emitTurn = (method, value) => emit(method, { turnId: turn.id, ...value });
         if (text === "native-goal") {
           const now = Math.floor(Date.now() / 1000);
