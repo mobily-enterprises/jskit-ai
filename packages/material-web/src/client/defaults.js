@@ -1,8 +1,9 @@
 // JSKIT's Material 3 component defaults, on top of Vuetify's md3 blueprint: full-shape filled buttons, cards that rest
 // flat on surface-container-low, flat expansion panels, outlined fields, 8dp chips that close with $close, segmented buttons and
-// filter chips that select in secondary-container, the inverse-surface snackbar, the Material switch,
-// and the 16dp primary-container FAB. A number for `rounded` is an exact corner in dp. Card, dialog and bottom sheet
-// corners and colours, a menu's own list, and the sizes and states props cannot set, are in material.css. No VMenu sub-component
+// filter chips that select in secondary-container, the inverse-surface snackbar, the Material switch, Material 3's
+// slider (Vuetify's pill variant) with a secondary-container inactive track, and the 16dp primary-container FAB. A
+// number for `rounded` is an exact corner in dp. Card, dialog and bottom sheet corners and colours, a menu's own list,
+// and the sizes and states props cannot set, are in material.css. No VMenu sub-component
 // defaults: under them, in Vuetify 4.2.1 to 4.3.2, an ancestor's re-render makes the menu's virtual list lose its item
 // heights, so a v-select's typeahead never scrolls to its match (https://github.com/vuetifyjs/vuetify/issues/23366;
 // README, Upstream workarounds).
@@ -73,6 +74,21 @@ const materialDefaults = Object.freeze({
       color: "inverse-primary",
       variant: "text"
     }
+  },
+  // Material 3 sliders: Vuetify's pill variant, Material 3's slider at its default (extra-small) size, with a 16dp track,
+  // a 4x44dp handle bar set apart from the track by a gap, and a stop indicator at the end of the track. The active
+  // track and the handle follow `color`, so an app's color prop still sets them, and the inactive track is
+  // secondary-container, which material.css draws at full strength: on Vuetify's 4dp track that pale role all but
+  // vanished on a light container. The md3 blueprint gives a range slider no colour at all.
+  VSlider: {
+    color: "primary",
+    trackColor: "secondary-container",
+    variant: "pill"
+  },
+  VRangeSlider: {
+    color: "primary",
+    trackColor: "secondary-container",
+    variant: "pill"
   },
   VSwitch: {
     color: "primary",

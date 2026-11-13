@@ -243,6 +243,15 @@ test("segmented buttons and filter chips select in secondary-container; a menu's
   assert.equal(defaults.VDialog, undefined, "no VDialog defaults");
 });
 
+test("sliders and range sliders are Material 3's pill sliders, primary with a secondary-container inactive track", () => {
+  const { defaults } = createMaterialVuetifyOptions();
+  // Nothing sets thumbColor or trackFillColor, which Vuetify prefers to `color`: an app's color prop still sets the
+  // active track and the handle. sliders.browser.test.js measures what material.css then draws.
+  const slider = { color: "primary", trackColor: "secondary-container", variant: "pill" };
+  assert.deepEqual(defaults.VSlider, slider);
+  assert.deepEqual(defaults.VRangeSlider, slider);
+});
+
 test("material.css draws cards, a dialog's card and a bottom sheet's card", async () => {
   const css = await readFile(path.join(PACKAGE_ROOT, "src/client/material.css"), "utf8");
   assert.match(css, /\n {2}\.v-card \{\s*border-radius: 12px;\s*\}/u);

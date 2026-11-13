@@ -65,14 +65,19 @@ export const theme = {
 - **Components.** The md3 blueprint plus JSKIT's defaults: full-shape filled
   buttons (with `to`, active only on exactly their route), cards that rest
   flat on `surface-container-low` (`variant="elevated"` for level 1), flat expansion panels, outlined fields, 8dp chips that close with
-  `$close`, the inverse-surface snackbar, the Material switch and the 16dp
-  `primary-container` FAB; `v-btn-toggle` as a segmented button and
-  `v-chip-group` as filter chips, selected in `secondary-container`.
+  `$close`, the inverse-surface snackbar, the Material switch, Material 3's
+  slider and range slider (Vuetify's pill variant: a 16dp track, a 4x44dp
+  handle bar set apart from it and a stop indicator) in `primary` with a
+  `secondary-container` inactive track, and the 16dp `primary-container` FAB;
+  `v-btn-toggle` as a segmented button and `v-chip-group` as filter chips,
+  selected in `secondary-container`.
 - **`material.css`.** What props cannot set: 40dp buttons and 40dp icon
   buttons (none under 32dp, whatever its density), a 48dp touch target on
   every button size (small and x-small keep their look, and their state
   layers keep their corners) that stops at a neighbouring button, disabled container
-  buttons in on-surface at 12% and 38%, a pagination's current page in the
+  buttons in on-surface at 12% and 38%, a slider's inactive track at full
+  strength (Vuetify fades it to 24%) and a disabled slider in on-surface at
+  38% with its inactive track at 12%, a pagination's current page in the
   activated layer, placeholders, text field labels and supporting text and list
   item subtitles in on-surface-variant, one-line labels that
   end in an ellipsis, 12dp card corners, 28dp dialogs on

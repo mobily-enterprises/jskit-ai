@@ -77,6 +77,30 @@
     padding-inline: 0 16px;
   }
 
+  /* Sliders and range sliders: the inactive track (secondary-container, the track-color default) at full strength, as
+     Material 3 draws it. Vuetify fades it to 38% (24% for the pill variant) whenever the slider has a colour, which the
+     md3 blueprint always gives it, so an app's own track-color was faded too: a secondary-container track all but
+     vanished on a light surface. An invalid slider keeps Vuetify's faded track in the error colour, which tells its
+     two parts apart. */
+  .v-slider:not(.v-input--disabled, .v-input--error) .v-slider-track__background--opacity {
+    opacity: 1;
+  }
+
+  /* A disabled slider is Material 3's on-surface: 38% for the active track and the handle (Vuetify's fade of the whole
+     slider, --v-disabled-opacity, which keeps the handle opaque over the track) and 12% for the inactive track, where
+     Vuetify faded surface-variant parts to 38% and the inactive track again, to 14%. */
+  .v-slider.v-input--disabled :is(.v-slider-track__background, .v-slider-track__fill) {
+    background-color: rgb(var(--v-theme-on-surface));
+  }
+
+  .v-slider.v-input--disabled .v-slider-track__background {
+    opacity: calc(0.12 / var(--v-disabled-opacity));
+  }
+
+  .v-slider.v-input--disabled .v-slider-thumb {
+    color: rgb(var(--v-theme-on-surface));
+  }
+
   /* FABs are not common buttons: 56dp (small 40dp, large 96dp with a 36dp icon), and the extended FAB is 56dp tall. */
   .v-fab .v-btn {
     --jskit-fab-size: 56px;
