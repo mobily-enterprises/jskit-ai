@@ -1,5 +1,5 @@
 import { withoutExecutionLog } from "@jskit-ai/kernel/server/actions";
-import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+import { AppError, resolveApiErrorStatus } from "@jskit-ai/kernel/server/runtime/errors";
 import { requireAuth } from "@jskit-ai/kernel/server/runtime";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import { normalizePositiveInteger, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
@@ -639,14 +639,16 @@ function createServiceToolCatalog(
     return response;
   }
 
+  // The status the HTTP layer answers with, so a refusal json-rest-api throws without one (REST_API_VALIDATION) is a
+  // refusal here too, not an internal failure.
   function resolveToolFailure(error) {
-    const status = Number(error?.status || error?.statusCode || 500);
+    const status = resolveApiErrorStatus(error);
     return {
       ok: false,
       error: {
         code: String(error?.code || "assistant_tool_failed").trim() || "assistant_tool_failed",
         message: status >= 500 ? "Tool call failed." : resolveValidationFailureMessage(error),
-        status: Number.isInteger(status) ? status : 500
+        status
       }
     };
   }

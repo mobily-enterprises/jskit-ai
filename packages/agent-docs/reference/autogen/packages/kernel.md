@@ -812,7 +812,6 @@ Local functions
 - `hiddenServerErrorFields(code = "")`
 - `resolveRequestRouteTransport(request)`
 - `applyRouteTransportErrorResponse(reply, request, error, { statusCode = 500, normalizedErrorCode = "", message = error?.message, exposeDetails = true, messageFields = {}, outcomeFields = {} } = {})`
-- `resolveApiErrorStatus(error, code)`
 - `applyErrorHeaders(reply, error)`
 - `findRefusal(thrown)`
 
@@ -1044,6 +1043,7 @@ Exports
 Exports
 - `isAppError(error)`
 - `hideDatabaseError(error)`
+- `resolveApiErrorStatus(error)`
 - `isDomainError(error)`
 - `createValidationError(fieldErrors)`
 - `AppError`

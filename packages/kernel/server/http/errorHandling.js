@@ -4,7 +4,7 @@ import { errorFieldErrors } from "../../shared/validators/schemaPayloadValidatio
 import { resolveValidationIssueCode } from "../../shared/validators/validationIssueCodes.js";
 import { JSON_API_CONTENT_TYPE } from "./lib/routeTransport.js";
 import { resolveRouteLabel } from "./lib/routeSupport.js";
-import { hideDatabaseError, isAppError } from "../runtime/errors.js";
+import { hideDatabaseError, isAppError, resolveApiErrorStatus } from "../runtime/errors.js";
 
 /** @typedef {import("../types.js").RuntimeFastify} RuntimeFastify */
 
@@ -179,36 +179,6 @@ function applyRouteTransportErrorResponse(reply, request, error, {
   return true;
 }
 
-function resolveApiErrorStatus(error, code) {
-  // JSON REST's public error codes need HTTP classification even without status hints.
-  switch (code) {
-    case "REST_API_VALIDATION":
-      return 422;
-    case "REST_API_RESOURCE":
-      switch (error?.subtype) {
-        case "not_found": return 404;
-        case "forbidden": return 403;
-        case "conflict": return 409;
-        default: return 400;
-      }
-    case "REST_API_VERSION_CONFLICT":
-      return 409;
-    case "REST_API_PRECONDITION_FAILED":
-      return 412;
-    case "REST_API_FIELDSET_INVALID":
-    case "REST_API_INCLUDE_INVALID":
-      return 400;
-    case "REST_API_PAYLOAD":
-      return error?.statusCode === 413 ? 413 : 400;
-    case "REST_API_TEMPORAL_DATA_INVALID":
-      return 500;
-    default: {
-      const status = Number(error?.statusCode || error?.status);
-      return Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500;
-    }
-  }
-}
-
 function applyErrorHeaders(reply, error) {
   if (error?.headers && typeof error.headers === "object") {
     for (const [name, value] of Object.entries(error.headers)) {
@@ -256,7 +226,7 @@ function registerApiErrorHandler(app) {
     const transactionOutcome = normalizeTransactionOutcome(thrown?.transactionOutcome ?? error?.transactionOutcome);
     const outcomeFields = transactionOutcome ? { transactionOutcome } : {};
     const isCsrfErrorCode = normalizedErrorCode.startsWith("FST_CSRF_");
-    const statusCode = resolveApiErrorStatus(error, normalizedErrorCode);
+    const statusCode = resolveApiErrorStatus(error);
 
     if (Array.isArray(error?.validation)) {
       const validationErrorCode = normalizedErrorCode || "validation_failed";

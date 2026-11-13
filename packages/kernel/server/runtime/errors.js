@@ -116,6 +116,44 @@ export function hideDatabaseError(error) {
   return shown;
 }
 
+/**
+ * The HTTP status an error answers a client with: json-rest-api's refusals, which carry no status, by their code
+ * (REST_API_VALIDATION a 422, a REST_API_RESOURCE by its subtype, a missing one a 404), any other error by its own
+ * status when that is 400 to 599, else 500. The HTTP error handler answers with it, and so does anything else that
+ * tells a client of a refusal, such as the assistant's tool results.
+ * @param {any} error
+ * @returns {number}
+ */
+export function resolveApiErrorStatus(error) {
+  // JSON REST's public error codes need HTTP classification even without status hints.
+  switch (String(error?.code || "").trim()) {
+    case "REST_API_VALIDATION":
+      return 422;
+    case "REST_API_RESOURCE":
+      switch (error?.subtype) {
+        case "not_found": return 404;
+        case "forbidden": return 403;
+        case "conflict": return 409;
+        default: return 400;
+      }
+    case "REST_API_VERSION_CONFLICT":
+      return 409;
+    case "REST_API_PRECONDITION_FAILED":
+      return 412;
+    case "REST_API_FIELDSET_INVALID":
+    case "REST_API_INCLUDE_INVALID":
+      return 400;
+    case "REST_API_PAYLOAD":
+      return error?.statusCode === 413 ? 413 : 400;
+    case "REST_API_TEMPORAL_DATA_INVALID":
+      return 500;
+    default: {
+      const status = Number(error?.statusCode || error?.status);
+      return Number.isInteger(status) && status >= 400 && status <= 599 ? status : 500;
+    }
+  }
+}
+
 export function isDomainError(error) {
   return error instanceof DomainError;
 }

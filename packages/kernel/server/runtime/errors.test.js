@@ -9,7 +9,8 @@ import {
   NotFoundError,
   isAppError,
   isDomainError,
-  createValidationError
+  createValidationError,
+  resolveApiErrorStatus
 } from "./errors.js";
 
 test("DomainValidationError defaults to 422 and domain_validation_failed", () => {
@@ -96,4 +97,31 @@ test("createValidationError keeps English field errors and adds coded ones", () 
       password: { code: "auth.password.tooShort", params: { min: 8 } }
     }
   });
+});
+
+test("resolveApiErrorStatus answers json-rest-api's refusals by their code and any other error by its own status", () => {
+  const rest = (code, fields = {}) => Object.assign(new Error("Refused."), { code, ...fields });
+  for (const [error, status] of [
+    [rest("REST_API_VALIDATION"), 422],
+    [rest(" REST_API_VALIDATION "), 422],
+    [rest("REST_API_RESOURCE", { subtype: "not_found" }), 404],
+    [rest("REST_API_RESOURCE", { subtype: "forbidden" }), 403],
+    [rest("REST_API_RESOURCE", { subtype: "conflict" }), 409],
+    [rest("REST_API_RESOURCE"), 400],
+    [rest("REST_API_VERSION_CONFLICT"), 409],
+    [rest("REST_API_PRECONDITION_FAILED"), 412],
+    [rest("REST_API_FIELDSET_INVALID"), 400],
+    [rest("REST_API_INCLUDE_INVALID"), 400],
+    [rest("REST_API_PAYLOAD", { statusCode: 413 }), 413],
+    [rest("REST_API_PAYLOAD"), 400],
+    [rest("REST_API_TEMPORAL_DATA_INVALID", { statusCode: 400 }), 500],
+    [createValidationError({ title: "Required." }), 400],
+    [new DomainValidationError({}), 422],
+    [Object.assign(new Error("Gone."), { status: 410 }), 410],
+    [Object.assign(new Error("Moved."), { statusCode: 302 }), 500],
+    [new Error("Unexpected."), 500],
+    [null, 500]
+  ]) {
+    assert.equal(resolveApiErrorStatus(error), status, `${error?.code} ${error?.message}`);
+  }
 });

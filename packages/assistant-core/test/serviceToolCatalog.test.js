@@ -388,6 +388,66 @@ test("an internal failure, a permission refusal and a not-found refusal stay as 
   assert.deepEqual(await call(), { ok: false, error: { code: "internal_server_error", message: "Tool call failed.", status: 500 } });
 });
 
+// json-rest-api's errors, built as its classes build them (assistant-core does not depend on json-rest-api). A
+// RestApiValidationError carries no status; a RestApiWriteError, json-rest-api's wrapper for an error thrown in a write,
+// copies the cause's message and these fields, keeps the cause, and reports the transaction's outcome.
+function restApiValidationError(message, fields) {
+  return Object.assign(new Error(message), {
+    name: "RestApiValidationError",
+    code: "REST_API_VALIDATION",
+    type: "rest_api_validation",
+    details: { fields, violations: fields.map((field) => ({ field, rule: "invalid", message })) }
+  });
+}
+
+function restApiWriteErrorAround(cause) {
+  const error = Object.assign(new Error(cause.message), { name: "RestApiWriteError", code: "REST_API_WRITE" });
+  for (const field of ["code", "type", "subtype", "details", "statusCode", "status", "path", "parameter", "validation"]) {
+    if (field in cause) {
+      error[field] = cause[field];
+    }
+  }
+  Object.defineProperty(error, "cause", { value: cause });
+  error.transactionOutcome = "rolledBack";
+  return error;
+}
+
+test("a refusal json-rest-api throws or wraps reaches the model as the HTTP layer answers it, and an internal failure stays hidden", async () => {
+  let failure = null;
+  const actions = createActions([action({ kind: "command", execute: async () => { throw failure; } })]);
+  const catalog = createServiceToolCatalog(actions);
+  const context = { actor: { id: "7" }, surface: "admin" };
+  const toolSet = catalog.resolveToolSet(context);
+  const call = () => catalog.executeToolCall({ toolName: toolSet.tools[0].name, argumentsText: "{}", context, toolSet });
+
+  const refusedByStore = restApiValidationError("Foreign key fields cannot be set directly in attributes", ["data.attributes.shelfId"]);
+  const storeRefusal = {
+    ok: false,
+    error: { code: "REST_API_VALIDATION", message: "Foreign key fields cannot be set directly in attributes", status: 422 }
+  };
+  failure = refusedByStore;
+  assert.deepEqual(await call(), storeRefusal);
+  failure = restApiWriteErrorAround(refusedByStore);
+  assert.deepEqual(await call(), storeRefusal, "inside a write, as json-rest-api wraps it");
+
+  // An action's own refusal from inside a write.
+  failure = restApiWriteErrorAround(createValidationError({ parcels: "The parcel weights add up to 12 kg, not the 15 kg recorded." }));
+  assert.deepEqual(await call(), {
+    ok: false,
+    error: { code: "validation_failed", message: "Validation failed. parcels: The parcel weights add up to 12 kg, not the 15 kg recorded.", status: 400 }
+  });
+
+  for (const internal of [
+    Object.assign(new Error("Hook failed reading private-row 7"), { code: "HOOK_FAILED" }),
+    Object.assign(new Error("Stored date private-row 7 cannot be read"), { code: "REST_API_TEMPORAL_DATA_INVALID" })
+  ]) {
+    for (const thrown of [internal, restApiWriteErrorAround(internal)]) {
+      failure = thrown;
+      assert.deepEqual(await call(), { ok: false, error: { code: internal.code, message: "Tool call failed.", status: 500 } });
+    }
+  }
+});
+
 test("large authorized catalogs use compact paged discovery, exact contracts, and gated execution", async () => {
   const executions = [];
   let clockExecution = null;
