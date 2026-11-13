@@ -91,6 +91,8 @@ function createConversationTurns({ storage, streams, events, entries, reads, del
     entry.active = active;
     entry.error = "";
     if (timeoutMs !== undefined) active.timer = setTimeout(() => {
+      // A stop already under way stays the turn's outcome while its work drains.
+      if (active.controller.signal.aborted) return;
       active.timedOut = true;
       active.controller.abort(new Error("The conversation request exceeded its time limit."));
     }, timeoutMs);

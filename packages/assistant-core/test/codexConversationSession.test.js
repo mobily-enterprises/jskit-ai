@@ -1063,6 +1063,10 @@ async function fixture(t, options = {}) {
             while (!existsSync(file + ".budget-terminal-" + params.turnId) && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));
             log({ budgetCompletion: { kind: "interrupted-released", threadId: thread.id, turnId: params.turnId } });
           }
+          if (existsSync(file + ".hold-interrupted")) {
+            log({ interruptHeld: params.turnId });
+            while (existsSync(file + ".hold-interrupted") && ws.readyState === 1) await new Promise(resolve => setTimeout(resolve, 5));
+          }
           if (ws.readyState === 1) emit("turn/completed", { turn: interruptedTurn });
         }
         return;
@@ -1724,13 +1728,33 @@ test("shared provider invalidation selects the exact account and workspace", asy
 });
 
 test("Codex cancellation drains owned work, and a deadline saves a failed turn", async t => {
-  const f = await fixture(t, { limits: { timeoutMs: 2000 } });
+  // A turn's deadline runs from its start, which includes starting Codex, so the test holds each turn's
+  // deadline timer and runs it itself. The stopped turn's native ending is held until its deadline has run:
+  // a deadline reached while a stop drains leaves that stop the turn's outcome.
+  const timeoutMs = 3_600_000;
+  const setTimer = globalThis.setTimeout;
+  const deadlines = [];
+  t.mock.method(globalThis, "setTimeout", (callback, delay, ...args) => {
+    if (delay !== timeoutMs) return setTimer(callback, delay, ...args);
+    deadlines.push(() => callback(...args));
+    return setTimer(() => {}, 0);
+  });
+  const f = await fixture(t, { limits: { timeoutMs } });
+  const holdInterrupted = path.join(f.directory, "history.json.hold-interrupted");
   await f.conversation.send({ messageId: "cancel", text: "wait" });
-  assert.deepEqual(await f.conversation.cancel(), { stopped: true });
+  assert.equal(deadlines.length, 1, "The request armed its deadline with the configured time limit");
+  await writeFile(holdInterrupted, "hold");
+  const stopping = f.conversation.cancel();
+  while (!(await f.trace()).some(row => row.interruptHeld)) await new Promise(resolve => setTimer(resolve, 5));
+  deadlines[0]();
+  await rm(holdInterrupted);
+  assert.deepEqual(await stopping, { stopped: true });
   await assert.rejects(f.conversation.send({ messageId: "late-after-stop", text: "Do more", steer: true }), {
     code: "conversation_not_steerable", delivery: "not-sent"
   });
   await f.conversation.send({ messageId: "timeout", text: "wait" });
+  assert.equal(deadlines.length, 2);
+  deadlines[1]();
   const state = await f.conversation.wait();
   assert.equal(state.conversationLog[0].metadata.runtime.status, "cancelled");
   assert.equal(state.conversationLog[1].metadata.runtime.status, "failed");
