@@ -1,15 +1,16 @@
 // Preloaded (`--import`) by `jskit test --databases` into every test file's process. When the run has disposable
 // databases (JSKIT_TEST_DATABASES names the run's directory, from testDatabaseRun() in testDatabases.js), the file takes
 // one no other file is using, for as long as it runs, as both DB_NAME and TEST_DB_NAME, with the connection it was
-// restored on (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD): it never reaches the developer's database. A database a file
-// left with other tables or another migration ledger (a migration test) is restored from the snapshot before the next
-// file takes it.
+// restored on (DB_HOST, DB_PORT, DB_USER, DB_PASSWORD): it never reaches the developer's database. Every file starts
+// from the snapshot, rows included: a database an earlier file of the run used is restored before the next file takes
+// it, since that file may have written rows, or changed tables or the migration ledger (a migration test).
 //
 // The directory holds the run's settings (only this user may read them: they include the connection password, which
-// reaches only the test files' own processes) and a lock file per database holding its user's process id. The runner's own `node --test` process and every worker
+// reaches only the test files' own processes), a lock file per database holding its user's process id, and a marker
+// per database an earlier file used. The runner's own `node --test` process and every worker
 // thread a test starts load this module too, since they inherit --import: there it does nothing (and loads nothing
 // more), and nothing a file starts takes a database of its own.
-import { closeSync, openSync, readFileSync, rmSync, writeSync } from "node:fs";
+import { closeSync, existsSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { isMainThread } from "node:worker_threads";
@@ -25,7 +26,10 @@ function isRunning(pid) {
   }
 }
 
-/** Takes the first free database; a lock left by a process that died without releasing it is taken over. */
+/**
+ * Takes the first free database, and answers it and whether an earlier file of the run used it; a lock left by a
+ * process that died without releasing it is taken over.
+ */
 async function claimDatabase(directory, databases) {
   const deadline = Date.now() + CLAIM_TIMEOUT_MS;
   while (Date.now() < deadline) {
@@ -36,7 +40,10 @@ async function claimDatabase(directory, databases) {
         writeSync(descriptor, String(process.pid));
         closeSync(descriptor);
         process.once("exit", () => rmSync(lock, { force: true }));
-        return database;
+        const marker = path.join(directory, `${index}.used`);
+        const used = existsSync(marker);
+        if (!used) writeFileSync(marker, "");
+        return { database, used };
       } catch (error) {
         if (error.code !== "EEXIST") throw error;
       }
@@ -56,10 +63,11 @@ async function claimDatabase(directory, databases) {
 const directory = process.env.JSKIT_TEST_DATABASES;
 if (isMainThread && process.env.NODE_TEST_CONTEXT && directory) {
   delete process.env.JSKIT_TEST_DATABASES;
-  const { RUN_SETTINGS_FILE, matchesSnapshot, restoreTestDatabase } = await import("./testDatabases.js");
+  const { RUN_SETTINGS_FILE, restoreTestDatabase } = await import("./testDatabases.js");
   const { databases, snapshot, knexConfig } = JSON.parse(readFileSync(path.join(directory, RUN_SETTINGS_FILE), "utf8"));
-  const database = await claimDatabase(directory, databases);
-  if (!(await matchesSnapshot(knexConfig, database, snapshot))) {
+  // The run restored every database as it started; one an earlier file used holds what that file left.
+  const { database, used } = await claimDatabase(directory, databases);
+  if (used) {
     await restoreTestDatabase(knexConfig, database, snapshot);
   }
   const { host, port, user, password } = knexConfig.connection;

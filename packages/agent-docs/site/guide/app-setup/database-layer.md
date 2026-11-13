@@ -328,6 +328,9 @@ the application's `knexfile.js`:
   prepare), the files run one at a time on the connected database. A copy
   named like the application's database or `PROD_DB_NAME`, or a server that
   cannot be reached, fails the run instead.
+  Every file starts from the snapshot, rows included: a copy an earlier file of
+  the run used is restored before the next file takes it, so no file sees what
+  another wrote.
 - The snapshot holds the schema as the engine reports it and the rows the
   migrations wrote, including the migration ledger. On MySQL and MariaDB it is
   each table's `SHOW CREATE TABLE` and rows, in

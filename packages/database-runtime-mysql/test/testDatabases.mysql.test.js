@@ -206,12 +206,33 @@ test("${name}", async () => {
   }));
 });
 `;
+// Each file records the books it found, then writes one of its own.
+const FIXTURE_ROWS_TEST = (name) => `import { writeFileSync } from "node:fs";
+import test from "node:test";
+import knex from "knex";
+test("${name}", async () => {
+  const { DB_HOST: host, DB_PORT: port, DB_USER: user, DB_PASSWORD: password, DB_NAME: database } = process.env;
+  const db = knex({ client: "mysql2", connection: { host, port: Number(port), user, password, database } });
+  try {
+    writeFileSync("seen-${name}.json", JSON.stringify({ db: database, titles: await db("books").orderBy("id").pluck("title") }));
+    await db("books").insert({ title: "Written by ${name}" });
+  } finally {
+    await db.destroy();
+  }
+});
+`;
 
-test("jskit test --databases gives each test file running at once its own restored copy and its connection, and nothing else of the .env", {
-  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
-}, async (context) => {
-  const appRoot = await mkdtemp(path.join(os.tmpdir(), "jskit-test-databases-cli-"));
-  const name = `${process.env.TEST_DB_NAME}_cli`;
+/**
+ * A fixture application on this test's database server, with the books migration and the given test files, and the
+ * environment `jskit test` runs it with: `concurrency` files at a time, on databases named after `suffix`, which are
+ * dropped after the test.
+ * @param {import("node:test").TestContext} context
+ * @param {string} suffix
+ * @param {{ tests: Record<string, string>, concurrency: number }} options
+ */
+async function fixtureApplication(context, suffix, { tests, concurrency }) {
+  const appRoot = await mkdtemp(path.join(os.tmpdir(), `jskit-test-databases-${suffix}-`));
+  const name = `${process.env.TEST_DB_NAME}_${suffix}`;
   const server = { host: process.env.DB_HOST, port: Number(process.env.DB_PORT || 3306), user: process.env.DB_USER,
     password: process.env.DB_PASSWORD };
   const admin = knex({ client: "mysql2", connection: server });
@@ -223,26 +244,36 @@ test("jskit test --databases gives each test file running at once its own restor
   await mkdir(path.join(appRoot, "migrations", "constraints"), { recursive: true });
   await mkdir(path.join(appRoot, "test"), { recursive: true });
   await writeFile(path.join(appRoot, "migrations", "20200101000000_books.cjs"), BOOKS);
-  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({ name: "cli-fixture", type: "module", private: true }));
+  await writeFile(path.join(appRoot, "package.json"), JSON.stringify({ name: `${suffix}-fixture`, type: "module", private: true }));
   await writeFile(path.join(appRoot, "knexfile.js"), FIXTURE_KNEXFILE);
   // The knexfile loads the connection from it, which each test file gets with its database; nothing else of it.
   await writeFile(path.join(appRoot, ".env"), [
     `DB_HOST=${server.host}`, `DB_PORT=${server.port}`, `DB_USER=${server.user}`, `DB_PASSWORD=${server.password ?? ""}`,
     "FIXTURE_ONLY_IN_DOTENV=1", ""
   ].join("\n"), { mode: 0o600 });
-  await writeFile(path.join(appRoot, "test", "a.test.js"), FIXTURE_TEST("a", "b"));
-  await writeFile(path.join(appRoot, "test", "b.test.js"), FIXTURE_TEST("b", "a"));
-  // The fixture's own node_modules (its snapshot cache goes there), resolving JSKIT's packages from this repository.
-  // The whole scope is fine: the run checks a package's declared foreign keys only where its table exists, and only
-  // the fixture's books migration runs here.
+  for (const [file, source] of Object.entries(tests)) await writeFile(path.join(appRoot, "test", file), source);
+  // The fixture's own node_modules (its snapshot cache goes there), resolving JSKIT's packages and knex from this
+  // repository. The whole scope is fine: the run checks a package's declared foreign keys only where its table exists,
+  // and only the fixture's books migration runs here.
   await mkdir(path.join(appRoot, "node_modules"));
   await symlink(path.join(REPO_ROOT, "node_modules", "@jskit-ai"), path.join(appRoot, "node_modules", "@jskit-ai"), "dir");
+  await symlink(path.join(REPO_ROOT, "node_modules", "knex"), path.join(appRoot, "node_modules", "knex"), "dir");
 
-  const env = { ...process.env, V64_TEST_CONCURRENCY: "2", DB_NAME: `${process.env.TEST_DB_NAME}_cli_application`,
+  const env = { ...process.env, V64_TEST_CONCURRENCY: String(concurrency), DB_NAME: `${name}_application`,
     TEST_DB_NAME: name, DATABASE_URL: "" };
-  for (const name of ["NODE_TEST_CONTEXT", "FIXTURE_ONLY_IN_DOTENV", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD"]) {
-    delete env[name];
+  for (const variable of ["NODE_TEST_CONTEXT", "FIXTURE_ONLY_IN_DOTENV", "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD"]) {
+    delete env[variable];
   }
+  return { appRoot, name, server, env };
+}
+
+test("jskit test --databases gives each test file running at once its own restored copy and its connection, and nothing else of the .env", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const { appRoot, name, server, env } = await fixtureApplication(context, "cli", {
+    tests: { "a.test.js": FIXTURE_TEST("a", "b"), "b.test.js": FIXTURE_TEST("b", "a") },
+    concurrency: 2
+  });
   const { stderr } = await execFileAsync(process.execPath, [JSKIT_CLI, "test", "--databases"], { cwd: appRoot, env });
   assert.match(stderr, /jskit test: 2 test database\(s\) from .+_cli ready in \d+ms: 1 migrations replayed once/u);
   assert.match(stderr, /jskit test: 2 test file\(s\) at a time \(test databases\)\./u);
@@ -268,6 +299,21 @@ test("jskit test --databases gives each test file running at once its own restor
   // A focused run of one file prepares one database, from the stored snapshot.
   const focused = await execFileAsync(process.execPath, [JSKIT_CLI, "test", "--databases", "test/a.test.js"], { cwd: appRoot, env });
   assert.match(focused.stderr, /jskit test: 1 test database\(s\) from .+_cli ready in \d+ms: stored snapshot/u);
+});
+
+test("jskit test --databases gives a file that follows another on the same copy the snapshot again, rows included", {
+  skip: !process.env.TEST_DB_NAME || !process.env.DB_HOST
+}, async (context) => {
+  const { appRoot, name, env } = await fixtureApplication(context, "rows", {
+    tests: { "a.test.js": FIXTURE_ROWS_TEST("a"), "b.test.js": FIXTURE_ROWS_TEST("b") },
+    concurrency: 1
+  });
+  const { stderr } = await execFileAsync(process.execPath, [JSKIT_CLI, "test", "--databases"], { cwd: appRoot, env });
+  assert.match(stderr, /jskit test: 1 test file\(s\) at a time \(test databases\)\./u);
+  for (const file of ["a", "b"]) {
+    const seen = JSON.parse(await readFile(path.join(appRoot, `seen-${file}.json`), "utf8"));
+    assert.deepEqual(seen, { db: name, titles: ["Written by the migration"] }, `test file ${file}`);
+  }
 });
 
 test("countQueries() counts a MySQL or MariaDB path's statements, its transactions' included", {
