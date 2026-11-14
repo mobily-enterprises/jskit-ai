@@ -17,6 +17,7 @@ Use this on demand; do not load the full index at startup.
 ### `src/server/lib/accounts.js`
 Exports
 - `NO_PASSWORD`
+- `accountDisabledError(user)`
 - `createLocalAccounts({ appProfileProjection, backend, config, emailConfirmation, firstAccountSetup, invitationContextResolver, passwords, profileProjector, sessions })`
 - `hasPassword(user)`
 - `normalizeDisplayName(value, email)`

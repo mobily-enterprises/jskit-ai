@@ -7,6 +7,7 @@ import initialMigration from "../../migrations/auth_local_db_initial.cjs";
 import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
 import protectionMigration from "../../migrations/auth_local_db_protection.cjs";
 import usedPassesMigration from "../../migrations/auth_local_db_used_passes.cjs";
+import disabledMessageMigration from "../../migrations/auth_local_db_users_disabled_message.cjs";
 import emailVerifiedMigration from "../../migrations/auth_local_db_users_email_verified.cjs";
 import secondFactorsMigration from "../../migrations/auth_local_db_users_second_factors.cjs";
 import { AuthLocalDatabaseBackendProvider } from "../../src/server/providers/AuthLocalDatabaseBackendProvider.js";
@@ -17,6 +18,7 @@ const LOCAL_AUTH_MIGRATIONS = Object.freeze([
   oauthMigration,
   protectionMigration,
   usedPassesMigration,
+  disabledMessageMigration,
   emailVerifiedMigration,
   secondFactorsMigration
 ]);

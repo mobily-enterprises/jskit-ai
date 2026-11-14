@@ -39,6 +39,7 @@ const localAuthUserResource = defineTableResource({
     displayName: text,
     ...password,
     disabled: { type: "boolean" },
+    disabledMessage: { ...text, nullable: true },
     createdAt: dateTime,
     updatedAt: dateTime,
     emailVerifiedAt: optionalDateTime

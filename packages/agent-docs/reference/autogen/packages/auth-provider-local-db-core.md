@@ -29,6 +29,8 @@ Exports
 Local functions
 - `requireSessionConditions(onlyIf)`
 - `requireIdPrefix(idPrefix)`
+- `requireUserId(userId, method)`
+- `storedDisabledMessage(message)`
 - `readPassword(record)`
 - `writePassword(password = {})`
 - `mapUser(record)`
@@ -130,6 +132,10 @@ Exports
 - None
 
 ### `migrations/auth_local_db_used_passes.cjs`
+Exports
+- None
+
+### `migrations/auth_local_db_users_disabled_message.cjs`
 Exports
 - None
 

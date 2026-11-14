@@ -1,15 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import disabledMessageMigration from "../migrations/auth_local_db_users_disabled_message.cjs";
 import emailVerifiedMigration from "../migrations/auth_local_db_users_email_verified.cjs";
-import { hashPassword } from "@jskit-ai/auth-provider-local-core/server/lib/index";
+import { createLocalAuthService, hashPassword } from "@jskit-ai/auth-provider-local-core/server/lib/index";
 import { LOCAL_AUTH_DB_TABLES } from "../src/server/lib/index.js";
 import { openSqliteLocalAuth } from "./support/localAuthRuntime.js";
+import { localServiceOptions } from "../../auth-provider-local-core/test-support/localService.js";
+import { sessionCookies } from "../../auth-provider-local-core/test-support/passSignInScenario.js";
 
 // The owner APIs as an application feature requires them, over a migrated database.
 async function ownerApis(t) {
   const records = await openSqliteLocalAuth(t);
-  // The email proof's migration runs again on a database that has its column, as a rerun deploy does.
+  // The email proof's and the disabled message's migrations run again on a database that has their columns, as a rerun
+  // deploy does.
   await emailVerifiedMigration.up(records.knex);
+  await disabledMessageMigration.up(records.knex);
   return records;
 }
 
@@ -50,6 +55,52 @@ test("accounts keep and find an email as local sign-in does, and are found by id
     id: "usr_again", email: "mixed.case@example.com ", displayName: "Again", password: await hashPassword("again password value")
   }), { status: 409, code: "auth.local.accounts.exists", message: "An account with this id or email already exists." });
   assert.equal(await accounts.findById("usr_missing"), null);
+});
+
+test("disable refuses the account's sign-ins with its message until enable, in the caller's transaction or on its own", async (t) => {
+  const { accounts, backend, inCallerTransaction } = await ownerApis(t);
+  const service = createLocalAuthService({ ...localServiceOptions(), backend });
+  await accounts.create({
+    id: "usr_off", email: "off@example.com", displayName: "Off", password: await hashPassword("off password value")
+  });
+  const signIn = (password = "off password value") => service.login({ email: "off@example.com", password });
+  const signedIn = await signIn();
+  const suspended = "This account is suspended until 14 Dec. We've emailed you why.";
+
+  await assert.rejects(inCallerTransaction(async (options) => {
+    assert.equal((await accounts.disable("usr_off", { message: suspended }, options)).disabled, true);
+    throw new Error("Abort the suspension");
+  }), /Abort the suspension/u);
+  assert.equal((await accounts.findById("usr_off")).disabled, false, "The rolled-back suspension is gone");
+
+  const disabled = await accounts.disable("usr_off", { message: suspended });
+  assert.equal(disabled.disabled, true);
+  assert.equal(disabled.disabledMessage, suspended);
+  assert.deepEqual(await accounts.findById("usr_off"), disabled);
+  await assert.rejects(signIn(), { status: 403, code: "auth.local.login.disabled", message: suspended });
+  // A wrong password learns nothing: it is an ordinary failed sign-in.
+  await assert.rejects(signIn("a wrong password"), { status: 401, code: "auth.login.invalidCredentials" });
+  // The account's sessions stop working at its next request.
+  assert.equal((await service.authenticateRequest({ cookies: sessionCookies(signedIn.session) })).authenticated, false);
+
+  // Without a message, the refusal says plainly that the account is disabled.
+  assert.equal((await accounts.disable("usr_off")).disabledMessage, "");
+  await assert.rejects(signIn(), { status: 403, code: "auth.local.login.disabled", message: "This account is disabled." });
+
+  const enabled = await accounts.enable("usr_off");
+  assert.equal(enabled.disabled, false);
+  assert.equal(enabled.disabledMessage, "");
+  assert.equal((await signIn()).actor.email, "off@example.com");
+
+  // A missing account changes nothing; a missing id or a message that is not text of at most 500 characters is refused.
+  assert.equal(await accounts.disable("usr_missing", { message: suspended }), null);
+  assert.equal(await accounts.enable("usr_missing"), null);
+  const refused = { name: "TypeError" };
+  await assert.rejects(accounts.disable("", { message: suspended }), refused);
+  await assert.rejects(accounts.enable(" "), refused);
+  await assert.rejects(accounts.disable("usr_off", { message: 42 }), refused);
+  await assert.rejects(accounts.disable("usr_off", { message: "x".repeat(501) }), refused);
+  assert.equal((await accounts.findById("usr_off")).disabled, false, "A refused disable changes nothing");
 });
 
 test("sessions.update changes a session's purpose and expiry only, in the caller's transaction or on its own", async (t) => {

@@ -1,7 +1,7 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { hostOnlyCookieName, normalizeReturnToPath } from "@jskit-ai/auth-core/server/utils";
 import { AUTH_TEXTS, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
-import { NO_PASSWORD, hasPassword, normalizeDisplayName } from "./accounts.js";
+import { NO_PASSWORD, accountDisabledError, hasPassword, normalizeDisplayName } from "./accounts.js";
 import { buildAuthPayload } from "./authPayloads.js";
 import { createOAuthClients } from "./oauth.js";
 import { cookieOptions, safeRequestCookies } from "./sessions.js";
@@ -116,8 +116,11 @@ function createLocalOAuthFlows({
           password: NO_PASSWORD
         });
       }
-      if (!user || user.disabled) {
+      if (!user) {
         throw new AppError(401, "This account can't sign in.", { code: "auth.local.oauth.accountUnavailable" });
+      }
+      if (user.disabled) {
+        throw accountDisabledError(user);
       }
       if (!linked) {
         await tx.identities.create({

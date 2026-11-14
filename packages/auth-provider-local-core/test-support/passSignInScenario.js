@@ -84,10 +84,13 @@ async function exercisePassSignIn(service, { backend, issuer }) {
   // Another pass for the same person signs in again.
   assert.equal((await service.signInWithPass({ pass: issuer.pass("ada@example.com") })).actor.id, "usr_ada");
 
-  // A pass whose subject has no account, names an account that does not exist, or names a disabled one.
-  for (const subject of ["nobody@example.com", "ghost", "off@example.com"]) {
+  // A pass whose subject has no account, or names an account that does not exist.
+  for (const subject of ["nobody@example.com", "ghost"]) {
     await assert.rejects(service.signInWithPass({ pass: issuer.pass(subject) }), refused("auth.pass.unmapped", 403));
   }
+  // A pass that names a disabled account proves who it is, so it is told the account is disabled.
+  await assert.rejects(service.signInWithPass({ pass: issuer.pass("off@example.com") }),
+    { status: 403, code: "auth.local.login.disabled", message: "This account is disabled." });
   // An unmapped pass was used all the same: it is refused as replayed, even once its subject has an account.
   const early = issuer.pass("late@example.com");
   await assert.rejects(service.signInWithPass({ pass: early }), refused("auth.pass.unmapped", 403));

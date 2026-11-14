@@ -17,7 +17,7 @@ const NEXT_PASSWORD = Object.freeze({ algorithm: "scrypt", version: "2", salt: "
 const NO_PASSWORD = Object.freeze({ algorithm: "", version: "", salt: "", hash: "" });
 const CREATED = "2026-11-01T08:00:00.000Z";
 const ISO_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/u;
-const ACCOUNT_KEYS = ["id", "email", "displayName", "password", "createdAt", "updatedAt", "emailVerifiedAt", "disabled"];
+const ACCOUNT_KEYS = ["id", "email", "displayName", "password", "createdAt", "updatedAt", "emailVerifiedAt", "disabled", "disabledMessage"];
 const SESSION_KEYS = ["id", "userId", "tokenHash", "purpose", "createdAt", "expiresAt", "revokedAt", "secondFactorAt"];
 const RECOVERY_KEYS = ["id", "userId", "tokenHash", "createdAt", "expiresAt", "usedAt"];
 
@@ -60,7 +60,8 @@ test("accounts: create answers the account it wrote, reads find it by id and ema
     createdAt: "2026-11-01T08:00:00.123Z",
     updatedAt: "2026-11-01T08:00:00.123Z",
     emailVerifiedAt: "",
-    disabled: false
+    disabled: false,
+    disabledMessage: ""
   }, "create answers what it wrote, to the millisecond, and updatedAt defaults to createdAt");
 
   const before = thisSecond();
@@ -413,7 +414,7 @@ test("concurrent failed sign-ins for one email each count: find holds the email'
 test("the owner APIs answer as the backend does and join a caller's transaction, whose rollback undoes their writes", async (context) => {
   requireTestDatabase(process.env);
   const { accounts, sessions, recovery, backend, inCallerTransaction } = await openLocalAuthDatabase(context, "da_local_owners");
-  assert.deepEqual(Object.keys(accounts), ["create", "findById", "findByEmail", "updatePassword", "updateProfile", "markEmailVerified"]);
+  assert.deepEqual(Object.keys(accounts), ["create", "findById", "findByEmail", "updatePassword", "updateProfile", "markEmailVerified", "disable", "enable"]);
   assert.deepEqual(Object.keys(sessions), ["create", "update", "revoke", "revokeForUser", "deleteExpired"]);
   assert.deepEqual(Object.keys(recovery), ["create", "findByTokenHash", "consume", "consumeForUser"]);
 

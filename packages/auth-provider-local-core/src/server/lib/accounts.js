@@ -54,6 +54,16 @@ function validatePasswordInput(password, minLength) {
   }
 }
 
+/**
+ * The refusal of a disabled account's sign-in that proved who it is (its password, its provider or a pass): what the
+ * application wrote when it disabled the account, or a plain sentence when it wrote nothing. Without that proof a
+ * sign-in of a disabled account fails as any other does, so the refusal tells no one else the account exists.
+ * @param {{ disabledMessage?: string }} user
+ */
+function accountDisabledError(user) {
+  return new AppError(403, user.disabledMessage || "This account is disabled.", { code: "auth.local.login.disabled" });
+}
+
 function validateEmailInput(email) {
   const normalized = normalizeEmail(email);
   if (!normalized || !normalized.includes("@")) {
@@ -226,9 +236,11 @@ function createLocalAccounts({
    * not the account exists, so the wait they cause says nothing about which
    * accounts exist; while an account waits its password is not checked. Nor
    * does a failure's time: a sign-in whose email has no password to check (no
-   * account, a disabled one, or one created through a provider) checks the
-   * password against one nobody knows, as long as checking a wrong one takes. A
-   * successful sign-in, or a password reset, forgets the failures.
+   * account, or one created through a provider) checks the password against one
+   * nobody knows, as long as checking a wrong one takes. A successful sign-in,
+   * or a password reset, forgets the failures. A disabled account's right
+   * password is refused with the account's message; its wrong one is an
+   * ordinary failure.
    */
   async function login(input) {
     const email = validateEmailInput(input.email);
@@ -251,13 +263,16 @@ function createLocalAccounts({
         passwordMatches(registration.password)))) {
         return { unconfirmed: true };
       }
-      if (!user || user.disabled || !hasPassword(user) || !(await passwordMatches(user.password))) {
+      if (!user || !hasPassword(user) || !(await passwordMatches(user.password))) {
         if (!checked) {
           await passwords.verifyPassword(password, await unmatchableRecord());
         }
         await tx.signInFailures.deleteBefore(forgottenFailuresBefore(now));
         await tx.signInFailures.save(recordSignInFailure(config.signInThrottle, failures, email, now));
         return { failed: true };
+      }
+      if (user.disabled) {
+        return { disabled: user };
       }
       if (failures) {
         await tx.signInFailures.clear(email);
@@ -273,6 +288,9 @@ function createLocalAccounts({
     }
     if (outcome.unconfirmed) {
       throw createAuthError(AUTH_TEXTS.emailUnconfirmed);
+    }
+    if (outcome.disabled) {
+      throw accountDisabledError(outcome.disabled);
     }
     // After the transaction, as register does: the profile projector works in transactions of its own, so a sign-in
     // that synchronized the profile inside this one held two database connections at once.
@@ -344,6 +362,7 @@ function createLocalAccounts({
 
 export {
   NO_PASSWORD,
+  accountDisabledError,
   createLocalAccounts,
   hasPassword,
   normalizeDisplayName,

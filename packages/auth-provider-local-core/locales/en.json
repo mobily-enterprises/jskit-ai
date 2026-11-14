@@ -25,7 +25,8 @@
           "codeInvalid": "That is not this app's setup code. Copy it again from the server's log or its hosting service."
         },
         "login": {
-          "locked": "Too many failed sign-ins for this account. Try again in {count} minute. | Too many failed sign-ins for this account. Try again in {count} minutes."
+          "locked": "Too many failed sign-ins for this account. Try again in {count} minute. | Too many failed sign-ins for this account. Try again in {count} minutes.",
+          "disabled": "This account is disabled."
         },
         "recovery": {
           "notConfigured": "Password recovery is not configured.",

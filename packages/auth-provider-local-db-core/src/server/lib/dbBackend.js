@@ -50,6 +50,27 @@ function requireIdPrefix(idPrefix) {
   }
 }
 
+// What a disabled account's sign-in is told is at most this long, as its column keeps it.
+const DISABLED_MESSAGE_MAX_LENGTH = 500;
+
+// The account an owner call changes: a call without one is a mistake, never "no such account".
+function requireUserId(userId, method) {
+  if (!text(userId).trim()) {
+    throw new TypeError(`auth.local.accounts.${method}() takes the id of the account it changes.`);
+  }
+}
+
+// The message a disabled account's sign-in is told, or null for none (local sign-in then says the account is disabled).
+function storedDisabledMessage(message) {
+  if (message === undefined || message === null) {
+    return null;
+  }
+  if (typeof message !== "string" || message.length > DISABLED_MESSAGE_MAX_LENGTH) {
+    throw new TypeError(`auth.local.accounts.disable() takes a message of at most ${DISABLED_MESSAGE_MAX_LENGTH} characters.`);
+  }
+  return message.trim() ? message : null;
+}
+
 function readPassword(record) {
   return {
     algorithm: text(record.passwordAlgorithm),
@@ -80,7 +101,8 @@ function mapUser(record) {
     createdAt: readDateTime(record.createdAt),
     updatedAt: readDateTime(record.updatedAt),
     emailVerifiedAt: readDateTime(record.emailVerifiedAt),
-    disabled: record.disabled === true || record.disabled === 1 || record.disabled === "1"
+    disabled: record.disabled === true || record.disabled === 1 || record.disabled === "1",
+    disabledMessage: text(record.disabledMessage)
   };
 }
 
@@ -276,6 +298,17 @@ function userRecords(users, options) {
       }
       await users.patch(id, { emailVerifiedAt: requiredDateTime() }, { ...options, onlyIf: { emailVerifiedAt: null }, missing: "skip", returning: "none" });
       return mapUser(await users.get(id, {}, { ...options, missing: "skip" }));
+    },
+    // Every sign-in and session of a disabled account is refused; a sign-in that proves who it is is told the message.
+    async disable(userId, { message } = {}) {
+      requireUserId(userId, "disable");
+      const changes = { disabled: true, disabledMessage: storedDisabledMessage(message), updatedAt: requiredDateTime() };
+      return mapUser(await patchExisting(users, userId, changes, options));
+    },
+    async enable(userId) {
+      requireUserId(userId, "enable");
+      const changes = { disabled: false, disabledMessage: null, updatedAt: requiredDateTime() };
+      return mapUser(await patchExisting(users, userId, changes, options));
     }
   });
 }
@@ -591,7 +624,10 @@ function createLocalDbOwners({ resources, identities, context }) {
     findByEmail: (email, options = {}) => records(options).users.findByEmail(normalizeEmail(email)),
     updatePassword: (userId, passwordRecord, options = {}) => records(options).users.updatePassword(userId, passwordRecord),
     updateProfile: (userId, updates, options = {}) => records(options).users.updateProfile(userId, updates),
-    markEmailVerified: (userId, options = {}) => records(options).users.markEmailVerified(userId)
+    markEmailVerified: (userId, options = {}) => records(options).users.markEmailVerified(userId),
+    // Refuses the account's sign-ins and sessions until enable; a sign-in that proves who it is is told the message.
+    disable: (userId, { message } = {}, options = {}) => records(options).users.disable(userId, { message }),
+    enable: (userId, options = {}) => records(options).users.enable(userId)
   });
   const sessions = Object.freeze({
     create: (input, options = {}) => records(options).sessions.create(input),

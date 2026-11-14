@@ -349,7 +349,7 @@ test("local auth DB backend works with custom password strategy", async (t) => {
   assert.equal(login.actor.email, "strategy-db@example.com");
 });
 
-test("local auth service rejects disabled DB-backed users", async (t) => {
+test("local auth service tells a disabled DB-backed account's right password that it is disabled", async (t) => {
   const { backend } = await createDbBackendFixture(t);
   const password = await hashPassword("disabled password value");
   await backend.withTransaction((tx) =>
@@ -369,7 +369,7 @@ test("local auth service rejects disabled DB-backed users", async (t) => {
         email: "disabled@example.com",
         password: "disabled password value"
       }),
-    /Invalid email or password/
+    { status: 403, code: "auth.local.login.disabled", message: "This account is disabled." }
   );
 });
 

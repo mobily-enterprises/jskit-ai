@@ -139,16 +139,25 @@ test("a failed sign-in checks one password, whether or not its email has one to 
       return scryptPasswordStrategy.verifyPassword(password, record);
     }
   };
-  const { service } = await startService(t, { passwordStrategy });
+  const { backend, service } = await startService(t, { passwordStrategy });
   await service.register({ email: "ada@example.com", password: PASSWORD });
+  const password = await scryptPasswordStrategy.hashPassword(PASSWORD);
+  await backend.withTransaction((tx) =>
+    tx.users.create({ id: "usr_off", email: "off@example.com", displayName: "Off", password, disabled: true }));
 
-  for (const email of ["ada@example.com", "nobody@example.com", "NOBODY@example.com", "other@example.com"]) {
+  for (const email of ["ada@example.com", "nobody@example.com", "NOBODY@example.com", "other@example.com", "off@example.com"]) {
     checks.length = 0;
-    await assert.rejects(service.login({ email, password: "a wrong password" }), { status: 401 }, email);
+    await assert.rejects(service.login({ email, password: "a wrong password" }),
+      { status: 401, code: "auth.login.invalidCredentials" }, email);
     assert.deepEqual(checks, ["a wrong password"], email);
   }
   // The right password still signs in, with one check.
   checks.length = 0;
   assert.equal((await service.login({ email: "ada@example.com", password: PASSWORD })).actor.email, "ada@example.com");
+  assert.deepEqual(checks, [PASSWORD]);
+  // A disabled account's right password, and only that, is told the account is disabled.
+  checks.length = 0;
+  await assert.rejects(service.login({ email: "off@example.com", password: PASSWORD }),
+    { status: 403, code: "auth.local.login.disabled", message: "This account is disabled." });
   assert.deepEqual(checks, [PASSWORD]);
 });

@@ -12,6 +12,7 @@ import {
   createLocalAuthRegisterHookDecorator,
   createLocalFileBackend
 } from "../src/server/lib/index.js";
+import { NO_PASSWORD } from "../src/server/lib/accounts.js";
 import { sha256Base64url } from "../src/server/lib/tokens.js";
 import { resolveLocalAuthConfig } from "../src/server/lib/config.js";
 import {
@@ -196,6 +197,17 @@ test("a verified email that matches an existing account signs it in and links Go
   const again = await service.oauthComplete(later.input, later.request);
   assert.equal(again.actor.providerUserId, existing.actor.providerUserId);
   assert.equal(again.actor.email, issuer.account.email);
+});
+
+test("a provider sign-in of a disabled account is told the account is disabled, and links nothing", async (t) => {
+  const { issuer, backend, service } = await googleSetup(t);
+  await backend.withTransaction((tx) => tx.users.create({
+    id: "usr_off", email: issuer.account.email, displayName: "Off", password: NO_PASSWORD, disabled: true
+  }));
+  const { input, request } = await approveAtProvider(service);
+  await assert.rejects(service.oauthComplete(input, request),
+    { statusCode: 403, code: "auth.local.login.disabled", message: "This account is disabled." });
+  assert.deepEqual(await backend.withTransaction((tx) => tx.identities.listForUser("usr_off")), []);
 });
 
 test("a callback with the wrong state, another browser's attempt, or a used attempt is refused", async (t) => {

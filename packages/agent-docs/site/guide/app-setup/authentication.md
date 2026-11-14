@@ -450,7 +450,7 @@ error.
 
 | Capability | Methods |
 | --- | --- |
-| `auth.local.accounts` | `create(account, options)`, `findById(userId, options)`, `findByEmail(email, options)`, `updatePassword(userId, passwordRecord, options)`, `updateProfile(userId, { displayName }, options)`, `markEmailVerified(userId, options)` |
+| `auth.local.accounts` | `create(account, options)`, `findById(userId, options)`, `findByEmail(email, options)`, `updatePassword(userId, passwordRecord, options)`, `updateProfile(userId, { displayName }, options)`, `markEmailVerified(userId, options)`, `disable(userId, { message }, options)`, `enable(userId, options)` |
 | `auth.local.sessions` | `create(session, options)`, `update(sessionId, { purpose, expiresAt }, { ...options, onlyIf })`, `revoke(sessionId, options)`, `revokeForUser(userId, { ...options, exceptSessionId })`, `deleteExpired(now, options)` |
 | `auth.local.recovery` | `create(token, options)`, `findByTokenHash(tokenHash, options)`, `consume(tokenId, options)`, `consumeForUser(userId, { ...options, idPrefix })` |
 
@@ -459,6 +459,24 @@ for example by using an emailed link, in the `email_verified_at` column (run
 `npm run db:migrate`); the first proof is kept, and the account answers it as
 `emailVerifiedAt` (empty until then). `deleteExpired` deletes the sessions that
 expired by `now` and answers how many.
+
+`disable` stops an account signing in, for example while an application
+suspends or closes it: every sign-in and every session of the account is
+refused from its next request, until `enable`. `message`, at most 500
+characters, is what the person is told when they sign in with the right
+password, a linked provider or a one-time pass, such as `This account is
+suspended until 14 Dec. We've emailed you why.`: status 403, the code
+`auth.local.login.disabled`, and the message as the error's text, which the
+sign-in page shows as written. Without a message the text is `This account is
+disabled.`, translated like any other. A wrong password is an ordinary failed
+sign-in, so only someone who could sign in learns that the account is
+disabled. The message is kept in the `disabled_message` column (run
+`npm run db:migrate`) until `enable` clears it. Both answer the account
+(`disabled`, `disabledMessage`, "" when it has none), or null when there is no
+such account, and refuse a missing id, as `disable` refuses a message that is
+not text of at most 500 characters, with a `TypeError`. Neither signs the
+account out: its sessions work again after `enable`, unless
+`auth.local.sessions`' `revokeForUser` ended them.
 
 A recovery token's kind is the start of its id: local sign-in's password resets
 are `rec_…`, and an app's own kind (a sign-in link, say) takes a prefix of its
@@ -587,7 +605,8 @@ page shows the reason:
 | `auth.pass.wrongResource` | 401 | For another resource. |
 | `auth.pass.expired` | 401 | Expired (30 seconds of clock difference are allowed). |
 | `auth.pass.replayed` | 401 | Already used, on this server or another sharing its store. |
-| `auth.pass.unmapped` | 403 | The mapping names no account, or a disabled one. |
+| `auth.pass.unmapped` | 403 | The mapping names no account. |
+| `auth.local.login.disabled` | 403 | The mapping names a disabled account; the reason is the account's message (see `disable` above). |
 
 Each pass signs in once. Local auth records each pass it accepts, by the hash
 of its id, until it could no longer be used anyway (30 seconds after it

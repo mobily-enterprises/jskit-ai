@@ -15,7 +15,9 @@
  *   hasAny(): Promise<boolean>,
  *   updatePassword(userId: string, passwordRecord: object): Promise<object | null>,
  *   updateProfile(userId: string, updates: object): Promise<object | null>
- * }} users `hasAny` answers whether any account exists.
+ * }} users `hasAny` answers whether any account exists. A user whose `disabled` is true has every sign-in and session
+ *   refused, and a sign-in that proves who it is (the right password, a provider or a pass) is told its
+ *   `disabledMessage`, or that the account is disabled when it has none; the file backend keeps no message.
  * @property {{
  *   create(input: object): Promise<object>,
  *   findById(sessionId: string): Promise<object | null>,

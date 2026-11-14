@@ -1,4 +1,5 @@
 import { PASS_TEXTS, createPassError, verifyPass } from "@jskit-ai/auth-pass/server";
+import { accountDisabledError } from "./accounts.js";
 import { buildAuthPayload } from "./authPayloads.js";
 import { sha256Base64url } from "./tokens.js";
 
@@ -15,8 +16,8 @@ async function noPassIdentities() {
  * Sign-in with a one-time signed pass (`@jskit-ai/auth-pass/server`), for a configuration whose passSignIn
  * holds the issuer's key, audience and resource. A pass is checked, then recorded as used in the backend, so it signs
  * in once however many servers share the backend's database, and then the application's pass identity names the
- * account it signs in: one that is missing or disabled is refused as unmapped. The session is an ordinary one, as a
- * password sign-in makes.
+ * account it signs in: one that is missing is refused as unmapped, and a disabled one is told it is disabled, as its
+ * right password is. The session is an ordinary one, as a password sign-in makes.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
@@ -42,8 +43,11 @@ function createLocalPassSignIn({ backend, config, passIdentity, profileProjector
     }
     const userId = await passIdentity(pass);
     const user = userId ? await backend.withTransaction((tx) => tx.users.findById(userId)) : null;
-    if (!user || user.disabled) {
+    if (!user) {
       throw createPassError(PASS_TEXTS.passUnmapped);
+    }
+    if (user.disabled) {
+      throw accountDisabledError(user);
     }
     const session = await backend.withTransaction((tx) => sessions.createSessionForUser(tx, user));
     // After the transaction, as a password sign-in does: the profile projector works in transactions of its own.
