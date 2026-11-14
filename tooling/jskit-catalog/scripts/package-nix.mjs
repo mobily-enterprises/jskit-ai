@@ -110,9 +110,11 @@ async function analyseApp(projectRoot) {
     .map((entry) => `${entry.integrity} ${entry.resolved}`));
   const name = nixPackageName(app.name ?? "");
   const programs = [
-    { name, does: "[--env FILE] [--migrate]: the start script, from the app's folder, NODE_ENV=production by default" },
+    { name, does: "[--env FILE] [--migrate]: the start script, from the app's folder, NODE_ENV=production by default; "
+      + "with --migrate, db:migrate first when the app has one" },
     { name: `${name}-check`, does: "[--env FILE]: exits 0 once GET /api/health answers 200 on PORT (3000)" },
-    { name: `${name}-prepare`, does: "--settings JSON --env FILE [--user NAME]: the settings as an env file for that user" },
+    { name: `${name}-prepare`, does: "--settings JSON --env FILE [--user NAME]: the settings as an env file for that user, "
+      + "and the folders they name for the app's files made for it" },
     ...(typeof app.scripts?.["db:migrate"] === "string" ? [{ name: `${name}-migrate`, does: "[--env FILE]: the db:migrate script" }] : [])
   ];
   return {
