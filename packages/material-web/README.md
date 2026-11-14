@@ -86,7 +86,8 @@ export const theme = {
   38% with its inactive track at 12%, a pagination's current page in the
   activated layer, skeleton loader bones in `surface-container-highest` under
   their shimmer, placeholders, text field labels, supporting text and
-  character counters, and list item and card subtitles in on-surface-variant
+  character counters, radio group labels, checkbox, radio and switch
+  descriptions, and list item and card subtitles in on-surface-variant
   at full strength (an invalid field's counter in error, as its messages),
   one-line labels that
   end in an ellipsis, 12dp card corners, 28dp dialogs on

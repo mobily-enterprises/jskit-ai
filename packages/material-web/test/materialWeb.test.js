@@ -330,6 +330,11 @@ test("material.css draws segmented buttons, filter chips, fixed tabs and dialog 
     css,
     /\.v-input--error:not\(\.v-input--disabled\) > \.v-input__details \.v-counter \{\s*color: rgb\(var\(--v-theme-error\)\);\s*opacity: 1;/u
   );
+  // So are a radio group's own label and a selection control's description.
+  assert.match(
+    css,
+    /\.v-radio-group:not\(\.v-input--disabled\) > \.v-input__control > \.v-label,\s*\.v-selection-control:not\(\.v-selection-control--disabled\) \.v-selection-control__description \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
+  );
   // So is an inactive, uncoloured list item's subtitle; every enabled item's subtitle, an active one's included, is
   // at full strength in the item's own colour.
   assert.match(

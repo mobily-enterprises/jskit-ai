@@ -492,6 +492,16 @@
     opacity: 1;
   }
 
+  /* So are a radio group's own label and a checkbox's, radio's or switch's description, its supporting text, instead
+     of on-surface at the medium-emphasis opacity: 4.19:1 for a group's label in a dialog, under WCAG's 4.5:1. A
+     control's own label is already on-surface at full strength, Material 3's colour for it, and a disabled group or
+     control keeps its own fade. */
+  .v-radio-group:not(.v-input--disabled) > .v-input__control > .v-label,
+  .v-selection-control:not(.v-selection-control--disabled) .v-selection-control__description {
+    color: rgb(var(--v-theme-on-surface-variant));
+    opacity: 1;
+  }
+
   /* A list item's supporting text is at full strength, as Material 3's list draws it, instead of the item's colour at
      Vuetify's medium-emphasis opacity: 4.35:1 on surface-container-low for an item at rest and 4.45:1 for an active
      one, under WCAG's 4.5:1. An item at rest without a text colour of its own draws it in on-surface-variant; an

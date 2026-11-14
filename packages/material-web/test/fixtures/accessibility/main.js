@@ -3,8 +3,11 @@ import { createVuetify } from "vuetify";
 import { VApp } from "vuetify/components/VApp";
 import { VBtn } from "vuetify/components/VBtn";
 import { VCard, VCardItem, VCardSubtitle, VCardText, VCardTitle } from "vuetify/components/VCard";
+import { VCheckbox } from "vuetify/components/VCheckbox";
 import { VIcon } from "vuetify/components/VIcon";
 import { VMain } from "vuetify/components/VMain";
+import { VRadio } from "vuetify/components/VRadio";
+import { VRadioGroup } from "vuetify/components/VRadioGroup";
 import { VTextField } from "vuetify/components/VTextField";
 import { VTooltip } from "vuetify/components/VTooltip";
 import "vuetify/styles";
@@ -19,7 +22,8 @@ import { createMaterialVuetifyOptions } from "../../../src/client/index.js";
 //   one without a colour, a coloured one, a tonal one (its colour is its text colour) and a default one whose subtitle
 //   has a colour class of its own;
 // - text fields with a character counter on a dialog's surface-container-high: a valid one, an invalid one, one past
-//   its limit and a disabled one.
+//   its limit and a disabled one;
+// - beside them, a radio group with its own label, a disabled one, and a checkbox with a label and a description.
 const cards = [
   { testId: "default-card", props: {} },
   { testId: "surface-card", props: { color: "surface-container-high" } },
@@ -48,10 +52,23 @@ const card = ({ testId, props, subtitleClass }) => h(VCard, { ...props, class: "
   ])
 ));
 
+const radioGroup = (testId, props) => h(VRadioGroup, { label: "Flag to raise", modelValue: "review", ...props, "data-testid": testId }, () => [
+  h(VRadio, { label: "Needs review", value: "review" }),
+  h(VRadio, { label: "Duplicate", value: "duplicate" })
+]);
+
 const fieldsCard = () => h(VCard, { color: "surface-container-high", "data-testid": "fields-card" }, () => (
-  h(VCardText, null, () => fields.map(({ testId, props }) => (
-    h(VTextField, { counter: 20, persistentCounter: true, ...props, "data-testid": testId })
-  )))
+  h(VCardText, null, () => [
+    ...fields.map(({ testId, props }) => h(VTextField, { counter: 20, persistentCounter: true, ...props, "data-testid": testId })),
+    radioGroup("radio-group-field", {}),
+    radioGroup("disabled-radio-group-field", { disabled: true }),
+    h(VCheckbox, {
+      label: "Include archived records",
+      description: "Archived records are read-only",
+      modelValue: true,
+      "data-testid": "checkbox-field"
+    })
+  ])
 ));
 
 const App = () => h(VApp, () => h(VMain, { class: "pa-6" }, () => [

@@ -166,3 +166,36 @@ test("a text field's character counter reads at 4.5:1 or more on a dialog's surf
     await page.close();
   }
 });
+
+// A radio group's own label and a selection control's description are supporting text, at full strength in
+// on-surface-variant; a checkbox's own label is on-surface, as Vuetify already draws it. At Vuetify's medium-emphasis
+// opacity a group's label measured 4.19:1 in a dialog's surface-container-high ("Flag to raise"), under WCAG's 4.5:1.
+test("a radio group's label and a checkbox's label and description read at 4.5:1 or more on a dialog's surface, in light and dark: WCAG 1.4.3 (axe color-contrast)", {
+  skip: SKIP,
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await open(t);
+  for (const scheme of ["light", "dark"]) {
+    const { colors } = materialThemes("#6750A4")[scheme];
+    const page = await browser.newPage({ baseURL: vite.baseURL, colorScheme: scheme, reducedMotion: "reduce" });
+    await page.goto("/");
+    const texts = {
+      "radio group's label": [page.getByTestId("radio-group-field").locator(".v-input__control > .v-label"), "on-surface-variant", "Flag to raise"],
+      "checkbox's label": [page.getByTestId("checkbox-field").locator(".v-selection-control .v-label"), "on-surface", "Include archived records"],
+      "checkbox's description": [page.getByTestId("checkbox-field").locator(".v-selection-control__description"), "on-surface-variant", "Archived records are read-only"]
+    };
+    for (const [name, [locator, role, text]] of Object.entries(texts)) {
+      const at = `${scheme} ${name}`;
+      await expect(locator, at).toHaveText(text);
+      const drawn = await drawnText(locator);
+      assert.ok(drawn.ratio >= 4.5, `${at}: the contrast was ${drawn.ratio}:1`);
+      assert.equal(drawn.opacity, 1, `${at}: at full strength`);
+      assert.equal(drawn.color, channels(colors[role]), `${at}: ${role}`);
+      assert.equal(drawn.background, channels(colors["surface-container-high"]), `${at}: on surface-container-high`);
+    }
+    // WCAG exempts a disabled control's text: a disabled group's label keeps its fade.
+    const disabled = await drawnText(page.getByTestId("disabled-radio-group-field").locator(".v-input__control > .v-label"));
+    assert.ok(disabled.opacity < 1, `${scheme}: a disabled radio group's label keeps its fade (${disabled.opacity})`);
+    await page.close();
+  }
+});
