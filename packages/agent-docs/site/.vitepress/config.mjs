@@ -31,6 +31,7 @@ export default defineConfig({
             { text: "Application Foundations", link: "/guide/app-setup/initial-scaffolding" },
             { text: "Upgrade JSKIT", link: "/guide/app-setup/upgrading-jskit" },
             { text: "Package an App with Nix", link: "/guide/app-setup/package-with-nix" },
+            { text: "Run on More than One Server", link: "/guide/app-setup/more-than-one-server" },
             { text: "Move to the Material 3 Defaults", link: "/guide/app-setup/material-3-migration" },
             { text: "Migrate an Existing Application", link: "/guide/app-setup/existing-application-migration" },
             { text: "A More Interesting Shell", link: "/guide/app-setup/a-more-interesting-shell" },
