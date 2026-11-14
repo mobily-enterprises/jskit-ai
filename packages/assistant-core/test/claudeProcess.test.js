@@ -762,6 +762,51 @@ test("Claude plan usage starts one temporary Claude per account for every owner 
   assert.equal(starts.length, 13);
 });
 
+test("Claude plan usage outlives the borrowed conversation ending during its read", async (t) => {
+  const clock = fakeClock(t, Date.parse("2026-10-29T03:00:00Z"));
+  const answer = { rate_limits_available: true, rate_limits: {
+    seven_day: { utilization: 23, resets_at: "2026-11-04T05:00:00Z" }, limits: [] } };
+  // The only live process is a short conversation's, such as a routing helper. It
+  // finishes and is closed while its usage read is pending, as closing it rejects
+  // every request it still holds.
+  let live = null;
+  const borrowed = () => {
+    const read = Promise.withResolvers();
+    live = { accountIdentity: "plan-usage-borrowed-conversation-ends", process: { client: { request: () => read.promise } } };
+    return () => {
+      live = null;
+      read.reject(Object.assign(new Error("Claude connection was closed."), {
+        code: "assistant_claude_protocol_error", messageCode: "assistant.claude.connectionWasClosed" }));
+    };
+  };
+  const starts = [];
+  const queries = createClaudeAccountQueries({
+    accountIdentity: async () => "plan-usage-borrowed-conversation-ends",
+    processes: () => live ? [live] : [],
+    createProcess(input) {
+      starts.push(input.purpose);
+      return { client: { request: async () => answer }, async stop() { return { scopeEmpty: true }; } };
+    }
+  });
+  t.after(() => queries.invalidate());
+  let close = borrowed();
+  const reading = queries.readPlanUsage({});
+  await new Promise(resolve => setImmediate(resolve));
+  close();
+  const first = await reading;
+  assert.equal(first.status, "available", "the closed conversation failed the page's usage read");
+  assert.equal(first.windows[0].remainingPercent, 77);
+  assert.deepEqual(starts, ["usage"]);
+  // Inside the idle interval no one-shot is due, so the last reading answers.
+  clock.now += 61_000;
+  close = borrowed();
+  const next = queries.readPlanUsage({});
+  await new Promise(resolve => setImmediate(resolve));
+  close();
+  assert.equal((await next).checkedAt, first.checkedAt);
+  assert.deepEqual(starts, ["usage"]);
+});
+
 test("Claude plan usage reuses another owner's live reading instead of starting a temporary Claude", async (t) => {
   const clock = fakeClock(t, Date.parse("2026-10-29T03:00:00Z"));
   const account = "plan-usage-live-in-another-owner";

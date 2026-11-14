@@ -470,8 +470,12 @@ export function createClaudeAccountQueries({
           value = await readAccountProcess(identity, expectedRevision, "usage", (native) => native.client.request(
             { subtype: "get_usage", skip_behaviors: true }), { borrow });
         } catch (cause) {
-          if (borrow || !liveDue) throw cause;
+          if (!liveDue) throw cause;
           assertCurrent(expectedRevision);
+          // A borrowed process belongs to its conversation, which can end during
+          // the read (a routing helper finishes within seconds and is closed).
+          // That is not this read's failure: a due one-shot Claude answers instead.
+          if (borrow) continue;
           break;
         }
         if (identity !== await accountIdentity(context)) return { status: "unavailable", windows: [] };
