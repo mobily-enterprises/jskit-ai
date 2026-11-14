@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
+import { createRequire } from "node:module";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 import knexLib from "knex";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
 import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
@@ -26,6 +30,14 @@ const READS = Object.freeze({
   memberships: { table: "workspace_memberships", column: "user_id", sqlite: "ix_workspace_memberships_user", postgres: "ix_workspace_memberships_user", mysql: "workspace_memberships_user_id_foreign" },
   owned: { table: "workspaces", column: "owner_user_id", sqlite: "ix_workspaces_owner", postgres: "ix_workspaces_owner", mysql: "workspaces_owner_user_id_foreign" }
 });
+// The migration directories of users-core and workspaces-core, in the order an application migrates them, each in
+// file name order, as createKnexMigrationConfig has Knex run them.
+const MIGRATION_DIRECTORIES = ["../../../users-core/migrations", "../../migrations"]
+  .map((directory) => fileURLToPath(new URL(directory, import.meta.url)));
+const DIRECTORY_MIGRATIONS = Object.freeze({ directory: MIGRATION_DIRECTORIES, extension: "cjs", sortDirsSeparately: true });
+const INDEXES_BY_USER = "workspaces_core_indexes_by_user.cjs";
+const PERSON_INDEXES = "workspaces_core_person_indexes.cjs";
+const require = createRequire(import.meta.url);
 
 // Each index of `table` with its columns in order.
 async function indexColumns(knex, dialect, table) {
@@ -51,6 +63,28 @@ async function indexColumns(knex, dialect, table) {
     for (const row of rows.sort((left, right) => left.Seq_in_index - right.Seq_in_index)) add(row.Key_name, row.Column_name);
   }
   return columns;
+}
+
+// The indexes of `table` on `column` alone.
+async function indexesOn(knex, dialect, table, column) {
+  const indexes = [...(await indexColumns(knex, dialect, table))];
+  return indexes.filter(([, columns]) => columns.length === 1 && columns[0] === column).map(([name]) => name);
+}
+
+// The migrations of a database made before workspaces_core_indexes_by_user existed and then upgraded to the release
+// that added it: every other migration of both directories in Knex's order, then that one. The migrations are named
+// by their files, as Knex names a directory's, so a later run on the directories finds them run.
+function upgradedDatabaseMigrations() {
+  const files = MIGRATION_DIRECTORIES.flatMap((directory) =>
+    readdirSync(directory).filter((file) => file.endsWith(".cjs")).sort().map((file) => ({ directory, file })));
+  return {
+    getMigrations: async () => [
+      ...files.filter(({ file }) => file !== INDEXES_BY_USER && file !== PERSON_INDEXES),
+      files.find(({ file }) => file === INDEXES_BY_USER)
+    ],
+    getMigrationName: ({ file }) => file,
+    getMigration: async ({ directory, file }) => require(path.join(directory, file))
+  };
 }
 
 // The indexes the planner reads for one captured statement. PostgreSQL's planner is told to avoid whole-table scans,
@@ -148,6 +182,43 @@ function indexesByUserCases(open, { dialect, database = true, skip = false }) {
   });
 }
 
+/**
+ * Registers the tests of the migrations as Knex runs them, on the empty database `open(t)` answers: a new database
+ * migrated from nothing, and one that ran workspaces_core_indexes_by_user after workspaces_core_initial. Each ends with
+ * `ix_workspace_memberships_user` and `ix_workspaces_owner` (InnoDB's foreign key indexes on MariaDB/MySQL), each the
+ * one index on its column.
+ * @param {(t: import("node:test").TestContext) => Promise<import("knex").Knex>} open
+ * @param {{ dialect: "sqlite" | "postgres" | "mysql", database?: boolean, skip?: string | false }} options
+ */
+function migrationOrderCases(open, { dialect, database = true, skip = false }) {
+  async function indexedOnce(knex) {
+    for (const { table, column, [dialect]: index } of Object.values(READS)) {
+      assert.deepEqual(await indexesOn(knex, dialect, table, column), [index], `${table}.${column} has one index, ${index}`);
+    }
+  }
+
+  test(`a new database migrated in Knex's order has a person's indexes (${dialect})`, { skip }, async (t) => {
+    if (database) requireTestDatabase(process.env);
+    const knex = await open(t);
+    await knex.migrate.latest(DIRECTORY_MIGRATIONS);
+    await indexedOnce(knex);
+    // Rolled back in the reverse order, workspaces_core_person_indexes takes the indexes back before the tables go and
+    // workspaces_core_indexes_by_user, last, finds nothing to drop.
+    await knex.migrate.rollback(DIRECTORY_MIGRATIONS, true);
+    assert.equal(await knex.schema.hasTable("workspace_memberships"), false);
+  });
+
+  test(`a database that ran ${INDEXES_BY_USER} after the tables keeps its indexes, once (${dialect})`, { skip }, async (t) => {
+    if (database) requireTestDatabase(process.env);
+    const knex = await open(t);
+    await knex.migrate.latest({ migrationSource: upgradedDatabaseMigrations() });
+    await indexedOnce(knex);
+    const [, ran] = await knex.migrate.latest(DIRECTORY_MIGRATIONS);
+    assert.deepEqual(ran, [PERSON_INDEXES]);
+    await indexedOnce(knex);
+  });
+}
+
 /** An in-memory SQLite database. */
 async function openSqlite(t) {
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
@@ -207,4 +278,4 @@ const POSTGRES_ELSEWHERE = process.env.DB_CLIENT && process.env.DB_CLIENT !== "p
   ? `a PostgreSQL test, on a ${process.env.DB_CLIENT} run`
   : false;
 
-export { POSTGRES_ELSEWHERE, indexesByUserCases, openMysql, openPostgres, openSqlite };
+export { POSTGRES_ELSEWHERE, indexesByUserCases, migrationOrderCases, openMysql, openPostgres, openSqlite };

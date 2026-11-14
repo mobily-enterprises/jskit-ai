@@ -463,6 +463,12 @@ Local functions
 Exports
 - None
 
+### `migrations/workspaces_core_person_indexes.cjs`
+Exports
+- None
+Local functions
+- `foreignKeysAreIndexed(knex)`
+
 ### `migrations/workspaces_core_workspace_settings_single_name_source.cjs`
 Exports
 - None
