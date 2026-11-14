@@ -81,6 +81,7 @@ Exports
 Local functions
 - `idStartsWith(query, prefix, { column })`
 - `hasSecondFactorAt(query, _proved, { column })`
+- `hasNoRevokedAt(query, _notRevoked, { column })`
 
 ### `src/server/lib/secondFactorRecords.js`
 Exports
@@ -128,6 +129,10 @@ Exports
 - None
 
 ### `migrations/auth_local_db_protection.cjs`
+Exports
+- None
+
+### `migrations/auth_local_db_sessions_metadata.cjs`
 Exports
 - None
 

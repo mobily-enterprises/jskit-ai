@@ -68,8 +68,9 @@ function parseSessions(content) {
   const sessions = [];
   for (const line of String(content || "").split("\n").filter(Boolean)) {
     const parts = splitLine(line, "session");
-    // A session written before second factors has no tenth field: it has not proved one.
-    if (parts.length !== 9 && parts.length !== 10) {
+    // A session written before second factors has no tenth field: it has not proved one. One written before sessions
+    // kept where they were seen has no eleventh to thirteenth: nobody knows where or when it was last seen.
+    if (parts.length !== 9 && parts.length !== 10 && parts.length !== 13) {
       throw new Error("Invalid session record field count.");
     }
     sessions.push({
@@ -80,7 +81,10 @@ function parseSessions(content) {
       createdAt: decodeField(parts[6]),
       expiresAt: decodeField(parts[7]),
       revokedAt: decodeField(parts[8] || ""),
-      secondFactorAt: decodeField(parts[9] || "")
+      secondFactorAt: decodeField(parts[9] || ""),
+      ip: decodeField(parts[10] || ""),
+      userAgent: decodeField(parts[11] || ""),
+      lastSeenAt: decodeField(parts[12] || "")
     });
   }
   return sessions;
@@ -100,7 +104,10 @@ function serializeSessions(sessions) {
         encodeField(session.createdAt),
         encodeField(session.expiresAt),
         encodeField(session.revokedAt || ""),
-        encodeField(session.secondFactorAt || "")
+        encodeField(session.secondFactorAt || ""),
+        encodeField(session.ip || ""),
+        encodeField(session.userAgent || ""),
+        encodeField(session.lastSeenAt || "")
       ].join(":")
     )
     .join("\n") + (sessions.length > 0 ? "\n" : "");

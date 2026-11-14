@@ -155,8 +155,9 @@ function createLocalEmailConfirmation({
    * code and the password it registered with, and signs the person in. A wrong
    * password creates nothing and keeps the registration and its link.
    * @param {{ token: string, password: string }} input
+   * @param {object | null} [request] The request that confirms it, where the new session is first seen from.
    */
-  async function confirm(input) {
+  async function confirm(input, request = null) {
     const tokenHash = sha256Base64url(String(input.token || "").trim());
     const waiting = await backend.withTransaction((tx) => tx.registrations.findByTokenHash(tokenHash));
     if (!waiting || isExpiredIso(waiting.expiresAt)) {
@@ -188,7 +189,7 @@ function createLocalEmailConfirmation({
         password: registration.password,
         emailVerifiedAt: new Date().toISOString()
       });
-      return { user, session: await sessions.createSessionForUser(tx, user) };
+      return { user, session: await sessions.createSessionForUser(tx, user, { request }) };
     });
     // Refused after the transaction, so a used-up registration stays deleted.
     if (outcome.invalid) {

@@ -239,6 +239,7 @@ Exports
 - `safeRequestCookies(request)`
 Local functions
 - `nowSeconds()`
+- `requestClient(request)`
 - `unauthenticatedAuthResult(clearSession = false)`
 - `clearCookieOptions(config)`
 - `buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS })`
@@ -345,6 +346,13 @@ Local functions
 - `now()`
 - `wrongCode(secret)`
 - `signIn(service, email)`
+
+### `test-support/sessionMetadataScenario.js`
+Exports
+- `exerciseSessionMetadata(t, { service, backend })`
+- `requestFrom(ip, userAgent, cookies = {})`
+Local functions
+- `sessionCookies(session)`
 
 ### `test-support/signInThrottleScenario.js`
 Exports

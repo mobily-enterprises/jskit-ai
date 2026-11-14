@@ -51,7 +51,7 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authRegisterCommand.operation.body,
-      execute: (input) => authService.register(input)
+      execute: (input, context) => authService.register(input, resolveRequest(context))
     }),
     Object.freeze({
       id: "auth.register.confirmation.resend",
@@ -69,7 +69,7 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authRegisterConfirmCommand.operation.body,
-      execute: (input) => authService.confirmRegistration(input)
+      execute: (input, context) => authService.confirmRegistration(input, resolveRequest(context))
     }),
     Object.freeze({
       id: "auth.login.password",
@@ -78,7 +78,7 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authLoginPasswordCommand.operation.body,
-      execute: (input) => authService.login(input)
+      execute: (input, context) => authService.login(input, resolveRequest(context))
     }),
     Object.freeze({
       id: "auth.login.otp.request",
@@ -141,7 +141,7 @@ function createAuthActions({ authService }) {
       channels: ["api", "internal"],
       surfaces: ["*"],
       input: authPasswordRecoveryCompleteCommand.operation.body,
-      execute: (input) => authService.completePasswordRecovery(input)
+      execute: (input, context) => authService.completePasswordRecovery(input, resolveRequest(context))
     }),
     Object.freeze({
       id: "auth.password.reset",

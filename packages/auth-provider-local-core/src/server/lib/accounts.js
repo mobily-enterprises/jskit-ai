@@ -177,7 +177,7 @@ function createLocalAccounts({
     return invitation.expiresAt == null || new Date(invitation.expiresAt).getTime() > Date.now();
   }
 
-  async function register(input) {
+  async function register(input, request = null) {
     const email = validateEmailInput(input.email);
     validatePasswordInput(input.password, config.passwordMinLength);
     const displayName = normalizeDisplayName(input.displayName, email);
@@ -205,7 +205,7 @@ function createLocalAccounts({
       });
       return {
         user,
-        session: await sessions.createSessionForUser(tx, user)
+        session: await sessions.createSessionForUser(tx, user, { request })
       };
     });
     firstAccountSetup.accountCreated();
@@ -242,7 +242,7 @@ function createLocalAccounts({
    * password is refused with the account's message; its wrong one is an
    * ordinary failure.
    */
-  async function login(input) {
+  async function login(input, request = null) {
     const email = validateEmailInput(input.email);
     const password = String(input.password || "");
     const outcome = await backend.withTransaction(async (tx) => {
@@ -277,7 +277,7 @@ function createLocalAccounts({
       if (failures) {
         await tx.signInFailures.clear(email);
       }
-      return { user, session: await sessions.createSessionForUser(tx, user) };
+      return { user, session: await sessions.createSessionForUser(tx, user, { request }) };
     });
     // Refused after the transaction, so the failure it records is kept.
     if (outcome.waitMs) {
@@ -327,7 +327,8 @@ function createLocalAccounts({
       throw devLoginAsUserNotFound({ email, userId });
     }
     const session = await backend.withTransaction((tx) => sessions.createSessionForUser(tx, user, {
-      purpose: DEV_AUTH_SESSION_PURPOSE
+      purpose: DEV_AUTH_SESSION_PURPOSE,
+      request
     }));
     return buildAuthResult({ user, session, appProfile });
   }

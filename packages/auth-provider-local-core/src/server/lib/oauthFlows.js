@@ -101,7 +101,7 @@ function createLocalOAuthFlows({
    * Subject first, then a verified email that matches an existing user, then a
    * new user created like register; profile sync then provisions it as usual.
    */
-  async function signInWithOAuthIdentity(identity) {
+  async function signInWithOAuthIdentity(identity, request) {
     await firstAccountSetup.start();
     const result = await backend.withTransaction(async (tx) => {
       const linked = await tx.identities.findByProviderSubject(identity.provider, identity.providerSubject);
@@ -130,7 +130,7 @@ function createLocalOAuthFlows({
           email: identity.email
         });
       }
-      return { user, registered, session: await sessions.createSessionForUser(tx, user) };
+      return { user, registered, session: await sessions.createSessionForUser(tx, user, { request }) };
     });
     if (result.registered) {
       firstAccountSetup.accountCreated();
@@ -200,7 +200,7 @@ function createLocalOAuthFlows({
     const identity = await oauthClients.verifiedIdentity(provider, { callbackUrl, attempt });
     const result = attempt.intent === "link"
       ? await linkOAuthIdentity(request, attempt, identity, provider)
-      : await signInWithOAuthIdentity(identity);
+      : await signInWithOAuthIdentity(identity, request);
     return { ...result, provider: provider.id, returnTo: attempt.returnTo };
   }
 

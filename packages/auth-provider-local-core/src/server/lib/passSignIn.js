@@ -29,8 +29,11 @@ async function noPassIdentities() {
 function createLocalPassSignIn({ backend, config, passIdentity, profileProjector, sessions }) {
   const settings = config.passSignIn;
 
-  /** @param {{ pass: string }} input */
-  async function signInWithPass(input) {
+  /**
+   * @param {{ pass: string }} input
+   * @param {object | null} [request] The request that posted the pass, where the new session is first seen from.
+   */
+  async function signInWithPass(input, request = null) {
     const pass = verifyPass(input.pass, settings);
     // Kept by the hash of its id, which the issuer chose, until the pass could no longer be used anyway. The expired
     // ones go in a transaction of their own: in the same one, the range their delete locks would make two concurrent
@@ -49,7 +52,7 @@ function createLocalPassSignIn({ backend, config, passIdentity, profileProjector
     if (user.disabled) {
       throw accountDisabledError(user);
     }
-    const session = await backend.withTransaction((tx) => sessions.createSessionForUser(tx, user));
+    const session = await backend.withTransaction((tx) => sessions.createSessionForUser(tx, user, { request }));
     // After the transaction, as a password sign-in does: the profile projector works in transactions of its own.
     return buildAuthPayload({ user, session, profileProjector });
   }

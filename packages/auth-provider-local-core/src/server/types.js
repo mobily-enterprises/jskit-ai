@@ -25,9 +25,12 @@
  *   revoke(sessionId: string): Promise<object | null>,
  *   revokeForUser(userId: string, options?: object): Promise<number>,
  *   markSecondFactorProved(sessionId: string, secondFactorAt: string): Promise<object | null>,
- *   clearSecondFactorForUser(userId: string): Promise<number>
+ *   clearSecondFactorForUser(userId: string): Promise<number>,
+ *   touch(sessionId: string, seen: { lastSeenAt: string, ip: string, userAgent: string }): Promise<void>
  * }} sessions A session's `secondFactorAt` is when it last proved its second factor ("" when it has not):
- *   `markSecondFactorProved` marks one session, `clearSecondFactorForUser` every session of the user.
+ *   `markSecondFactorProved` marks one session, `clearSecondFactorForUser` every session of the user. A session keeps
+ *   where it was last seen from, `ip` and `userAgent` (`create` takes them with `lastSeenAt`), and when, `lastSeenAt`,
+ *   each "" when unknown; `touch` notes it seen again, keeping its `ip` or `userAgent` when the new one is "".
  * @property {{
  *   create(input: object): Promise<object>,
  *   findByTokenHash(tokenHash: string): Promise<object | null>,

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- `POST /api/login/pass` hands `signInWithPass` the request that posted the pass, so local auth keeps the session's address and browser.
 - Its tests name `APP_ENV`, which the auth providers now read in place of `NODE_ENV`; the setup-code field is asked for by a staging or production server.
 - `POST /api/login/pass` reads its settings with `resolvePassSignInFromEnv` from `@jskit-ai/auth-pass/server`, a new dependency, instead of auth-core's removed `./server/passSignIn`. The route behaves as before.
 

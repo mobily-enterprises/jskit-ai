@@ -451,7 +451,7 @@ error.
 | Capability | Methods |
 | --- | --- |
 | `auth.local.accounts` | `create(account, options)`, `findById(userId, options)`, `findByEmail(email, options)`, `updatePassword(userId, passwordRecord, options)`, `updateProfile(userId, { displayName }, options)`, `markEmailVerified(userId, options)`, `disable(userId, { message }, options)`, `enable(userId, options)` |
-| `auth.local.sessions` | `create(session, options)`, `update(sessionId, { purpose, expiresAt }, { ...options, onlyIf })`, `revoke(sessionId, options)`, `revokeForUser(userId, { ...options, exceptSessionId })`, `deleteExpired(now, options)` |
+| `auth.local.sessions` | `create(session, options)`, `update(sessionId, { purpose, expiresAt }, { ...options, onlyIf })`, `revoke(sessionId, options)`, `revokeForUser(userId, { ...options, exceptSessionId })`, `deleteExpired(now, options)`, `listForUser(userId, options)` |
 | `auth.local.recovery` | `create(token, options)`, `findByTokenHash(tokenHash, options)`, `consume(tokenId, options)`, `consumeForUser(userId, { ...options, idPrefix })` |
 
 `markEmailVerified` records that the account proved it owns its email address,
@@ -477,6 +477,22 @@ such account, and refuse a missing id, as `disable` refuses a message that is
 not text of at most 500 characters, with a `TypeError`. Neither signs the
 account out: its sessions work again after `enable`, unless
 `auth.local.sessions`' `revokeForUser` ended them.
+
+Every session keeps where and when it was last seen: `ip` (the request's
+address, Fastify's `request.ip`, so set `TRUSTED_PROXIES` behind a proxy),
+`userAgent` (the browser's `User-Agent`, at most 512 characters) and
+`lastSeenAt`. Signing in sets them from the sign-in's request, and a request
+that finds the session more than five minutes after it was last seen sets them
+again, so most requests write nothing; one that does not say where it comes
+from keeps the address and browser. Each is "" when unknown, as for sessions
+from before (run `npm run db:migrate` for the `ip`, `user_agent` and
+`last_seen_at` columns). `listForUser` answers the account's sessions that are
+neither revoked nor expired, the newest first, every one of them, and refuses
+a missing id with a `TypeError`. For a person's own list, name the account
+from the request's authentication, never from what the client sends:
+`authenticateRequest(request)` answers `actor.providerUserId` and the
+request's own `sessionId`, which the list can mark as this browser. End one
+session with `revoke(sessionId)` once the list showed it is that account's.
 
 A recovery token's kind is the start of its id: local sign-in's password resets
 are `rec_…`, and an app's own kind (a sign-in link, say) takes a prefix of its

@@ -98,8 +98,8 @@ function createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.regist
       Object.defineProperties(Object.create(authService), {
         register: {
           enumerable: true,
-          value: async function register(input) {
-            const result = await authService.register(input);
+          value: async function register(input, request = null) {
+            const result = await authService.register(input, request);
             if (result.requiresEmailConfirmation !== true) {
               await runRegisterHook({ hook: registerHook, result, logger });
             }
@@ -108,8 +108,8 @@ function createLocalAuthRegisterHookDecorator({ decoratorId = "auth.local.regist
         },
         confirmRegistration: {
           enumerable: true,
-          value: async function confirmRegistration(input) {
-            const result = await authService.confirmRegistration(input);
+          value: async function confirmRegistration(input, request = null) {
+            const result = await authService.confirmRegistration(input, request);
             await runRegisterHook({ hook: registerHook, result, logger });
             return result;
           }

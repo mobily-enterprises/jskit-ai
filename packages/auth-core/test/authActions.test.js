@@ -41,6 +41,35 @@ test("shared dev login-as action passes the trusted request to auth.service", as
   assert.deepEqual(received, { input, request });
 });
 
+test("the actions that sign someone in hand auth.service the request they came in, for the session they make", async () => {
+  const calls = [];
+  const record = (name) => async (...args) => {
+    calls.push([name, ...args]);
+    return { name };
+  };
+  const authService = {
+    register: record("register"),
+    confirmRegistration: record("confirmRegistration"),
+    login: record("login"),
+    completePasswordRecovery: record("completePasswordRecovery")
+  };
+  const request = { id: "request-1" };
+  const actions = createAuthActions({ authService });
+  for (const id of ["auth.register", "auth.register.confirm", "auth.login.password", "auth.password.recovery.complete"]) {
+    await actions.find((action) => action.id === id).execute({ email: "ada@example.com" }, { requestMeta: { request } });
+  }
+  // An internal call has no request.
+  await actions.find((action) => action.id === "auth.login.password").execute({ email: "ada@example.com" }, {});
+  const input = { email: "ada@example.com" };
+  assert.deepEqual(calls, [
+    ["register", input, request],
+    ["confirmRegistration", input, request],
+    ["login", input, request],
+    ["completePasswordRecovery", input, request],
+    ["login", input, null]
+  ]);
+});
+
 test("second factor actions hand the request's own session and the input to auth.service", async () => {
   const calls = [];
   const record = (name) => async (...args) => {

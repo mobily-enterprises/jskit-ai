@@ -6,6 +6,7 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 import initialMigration from "../../migrations/auth_local_db_initial.cjs";
 import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
 import protectionMigration from "../../migrations/auth_local_db_protection.cjs";
+import sessionsMetadataMigration from "../../migrations/auth_local_db_sessions_metadata.cjs";
 import usedPassesMigration from "../../migrations/auth_local_db_used_passes.cjs";
 import disabledMessageMigration from "../../migrations/auth_local_db_users_disabled_message.cjs";
 import emailVerifiedMigration from "../../migrations/auth_local_db_users_email_verified.cjs";
@@ -17,6 +18,7 @@ const LOCAL_AUTH_MIGRATIONS = Object.freeze([
   initialMigration,
   oauthMigration,
   protectionMigration,
+  sessionsMetadataMigration,
   usedPassesMigration,
   disabledMessageMigration,
   emailVerifiedMigration,

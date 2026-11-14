@@ -199,11 +199,11 @@ function createLocalAuthService({
     return emailConfirmation.resend(input);
   }
 
-  function confirmRegistration(input) {
+  function confirmRegistration(input, request = null) {
     if (!config.emailConfirmation) {
       return throwUnsupportedAuthOperation("confirmRegistration");
     }
-    return emailConfirmation.confirm(input);
+    return emailConfirmation.confirm(input, request);
   }
 
   function requestOtpLogin() {

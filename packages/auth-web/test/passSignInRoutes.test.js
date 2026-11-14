@@ -13,6 +13,7 @@ import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime } from "@jskit-ai/kernel/shared/capabilities";
 import { createLocalAuthService, createLocalFileBackend } from "../../auth-provider-local-core/src/server/lib/index.js";
+import { sha256Base64url } from "../../auth-provider-local-core/src/server/lib/tokens.js";
 import { localServiceOptions } from "../../auth-provider-local-core/test-support/localService.js";
 import { createPassIssuer, passIdentityByEmail, passwordlessAccount } from "../../auth-provider-local-core/test-support/passSignInScenario.js";
 import { AuthWebFeature } from "../src/server/AuthWebFeature.js";
@@ -20,7 +21,7 @@ import { DEFAULT_AUTH_RATE_LIMITS } from "../src/server/authRateLimits.js";
 
 /**
  * The auth routes and policy over local auth in a store of the test's own, trusting the issuer's passes when `env`
- * carries its key.
+ * carries its key, and the store it keeps.
  * @param {import("node:test").TestContext} t
  * @param {{ env?: Record<string, string>, config?: object }} [options]
  */
@@ -44,7 +45,7 @@ async function startApp(t, { env = {}, config = {} } = {}) {
   t.after(() => app.close());
   await runtime.start();
   t.after(() => runtime.shutdown());
-  return app;
+  return { app, backend };
 }
 
 /** The browser's form post of a pass, from the issuer's page, with no CSRF token and no cookies. */
@@ -53,7 +54,7 @@ function postPass(app, pass, remoteAddress = "203.0.113.7") {
     method: "POST",
     url: "/api/login/pass",
     remoteAddress,
-    headers: { "content-type": "application/x-www-form-urlencoded" },
+    headers: { "content-type": "application/x-www-form-urlencoded", "user-agent": "Issuer Page Browser/1.0" },
     payload: new URLSearchParams({ pass }).toString()
   });
 }
@@ -71,7 +72,7 @@ function sentToSignIn(response, code) {
 
 test("a pass posted as a form signs its person in and goes home; posted again, it goes to the sign-in page as replayed", async (t) => {
   const issuer = createPassIssuer();
-  const app = await startApp(t, { env: issuer.env });
+  const { app, backend } = await startApp(t, { env: issuer.env });
   const pass = issuer.pass("ada@example.com");
 
   const signedIn = await postPass(app, pass);
@@ -83,6 +84,9 @@ test("a pass posted as a form signs its person in and goes home; posted again, i
   const session = await app.inject({ method: "GET", url: "/api/session", cookies });
   assert.equal(session.json().authenticated, true);
   assert.equal(session.json().email, "ada@example.com");
+  // The session keeps the address and browser the pass was posted from.
+  const kept = await backend.withTransaction((tx) => tx.sessions.findByTokenHash(sha256Base64url(cookies.jskit_local_refresh_token)));
+  assert.deepEqual([kept.ip, kept.userAgent], ["203.0.113.7", "Issuer Page Browser/1.0"]);
 
   sentToSignIn(await postPass(app, pass), "auth.pass.replayed");
   sentToSignIn(await postPass(app, issuer.pass("nobody@example.com")), "auth.pass.unmapped");
@@ -93,7 +97,7 @@ test("a pass posted as a form signs its person in and goes home; posted again, i
 
 test("one address may post 20 passes a minute; the next is refused with 429 and Retry-After", async (t) => {
   const issuer = createPassIssuer();
-  const app = await startApp(t, { env: issuer.env });
+  const { app } = await startApp(t, { env: issuer.env });
   assert.deepEqual(DEFAULT_AUTH_RATE_LIMITS.passSignIn, { max: 20, timeWindow: "1 minute" });
   for (let attempt = 0; attempt < 20; attempt += 1) {
     sentToSignIn(await postPass(app, "not a pass"), "auth.pass.malformed");
@@ -108,14 +112,14 @@ test("one address may post 20 passes a minute; the next is refused with 429 and 
 
 test("without AUTH_PASS_PUBLIC_KEY the app has no pass sign-in route", async (t) => {
   const issuer = createPassIssuer();
-  const app = await startApp(t);
+  const { app } = await startApp(t);
   assert.equal(app.hasRoute({ method: "POST", url: "/api/login/pass" }), false);
   // The post meets the policy every unknown API post meets, and signs nobody in.
   const posted = await postPass(app, issuer.pass("ada@example.com"));
   assert.equal(posted.statusCode, 403, posted.body);
   assert.deepEqual(posted.cookies, []);
 
-  const withPasses = await startApp(t, { env: issuer.env });
+  const { app: withPasses } = await startApp(t, { env: issuer.env });
   assert.equal(withPasses.hasRoute({ method: "POST", url: "/api/login/pass" }), true);
 });
 
@@ -127,6 +131,6 @@ test("a pass sign-in limit with no limiter to enforce it stops startup", async (
   await assert.rejects(startApp(t, { env: issuer.env, config: { auth: { rateLimits: everyOtherLimitOff } } }),
     (error) => /config\.auth\.rateLimits\.passSignIn limits one-time pass sign-in, and no route rate limiter is registered/u
       .test(String(error.details?.cause?.message || error.message)));
-  const unlimited = await startApp(t, { env: issuer.env, config: { auth: { rateLimits: { ...everyOtherLimitOff, passSignIn: false } } } });
+  const { app: unlimited } = await startApp(t, { env: issuer.env, config: { auth: { rateLimits: { ...everyOtherLimitOff, passSignIn: false } } } });
   assert.equal((await postPass(unlimited, issuer.pass("ada@example.com"))).headers.location, "/");
 });

@@ -124,14 +124,15 @@ class AuthWebService {
   /**
    * Signs in the account a one-time signed pass names; a provider without pass sign-in refuses it as unsupported.
    * @param {{ pass: string }} input
+   * @param {object} request The request that posted the pass.
    */
-  async signInWithPass(input) {
+  async signInWithPass(input, request) {
     const { authService } = this;
     // readable-check: allow method-probe - optional operation: signInWithPass is an optional auth.service operation
     if (typeof authService.signInWithPass !== "function") {
       return throwUnsupportedAuthOperation("signInWithPass");
     }
-    return authService.signInWithPass(input);
+    return authService.signInWithPass(input, request);
   }
 
   writeSessionCookies(reply, session) {

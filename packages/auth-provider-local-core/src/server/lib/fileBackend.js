@@ -269,7 +269,10 @@ function createTx(state, touched) {
           purpose: input.purpose || "normal",
           createdAt: input.createdAt || nowIso(),
           revokedAt: input.revokedAt || "",
-          secondFactorAt: input.secondFactorAt || ""
+          secondFactorAt: input.secondFactorAt || "",
+          ip: input.ip || "",
+          userAgent: input.userAgent || "",
+          lastSeenAt: input.lastSeenAt || ""
         };
         state.sessions.push(session);
         mark("sessions");
@@ -325,6 +328,16 @@ function createTx(state, touched) {
           mark("sessions");
         }
         return count;
+      },
+      async touch(sessionId, { lastSeenAt, ip, userAgent }) {
+        const session = state.sessions.find((entry) => entry.id === sessionId);
+        if (!session) {
+          return;
+        }
+        session.lastSeenAt = lastSeenAt;
+        session.ip = ip || session.ip;
+        session.userAgent = userAgent || session.userAgent;
+        mark("sessions");
       }
     }),
     recovery: Object.freeze({

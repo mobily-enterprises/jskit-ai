@@ -18,7 +18,7 @@ const NO_PASSWORD = Object.freeze({ algorithm: "", version: "", salt: "", hash: 
 const CREATED = "2026-11-01T08:00:00.000Z";
 const ISO_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/u;
 const ACCOUNT_KEYS = ["id", "email", "displayName", "password", "createdAt", "updatedAt", "emailVerifiedAt", "disabled", "disabledMessage"];
-const SESSION_KEYS = ["id", "userId", "tokenHash", "purpose", "createdAt", "expiresAt", "revokedAt", "secondFactorAt"];
+const SESSION_KEYS = ["id", "userId", "tokenHash", "purpose", "createdAt", "expiresAt", "revokedAt", "secondFactorAt", "ip", "userAgent", "lastSeenAt"];
 const RECOVERY_KEYS = ["id", "userId", "tokenHash", "createdAt", "expiresAt", "usedAt"];
 
 /** The current second, as the second-precision timestamps keep it. */
@@ -155,7 +155,10 @@ test("sessions: create, reads, revoke once, revoke a user's live sessions but on
     createdAt: CREATED,
     expiresAt: "2026-12-01T00:00:00.000Z",
     revokedAt: "",
-    secondFactorAt: ""
+    secondFactorAt: "",
+    ip: "",
+    userAgent: "",
+    lastSeenAt: ""
   }, "a session without a purpose is a normal one");
   const preview = await backend.withTransaction((tx) => tx.sessions.create(session("ses_two", "usr_ada", "2026-12-01T00:00:00.000Z", { purpose: "dev-auth" })));
   assert.equal(preview.purpose, "dev-auth");
@@ -415,7 +418,7 @@ test("the owner APIs answer as the backend does and join a caller's transaction,
   requireTestDatabase(process.env);
   const { accounts, sessions, recovery, backend, inCallerTransaction } = await openLocalAuthDatabase(context, "da_local_owners");
   assert.deepEqual(Object.keys(accounts), ["create", "findById", "findByEmail", "updatePassword", "updateProfile", "markEmailVerified", "disable", "enable"]);
-  assert.deepEqual(Object.keys(sessions), ["create", "update", "revoke", "revokeForUser", "deleteExpired"]);
+  assert.deepEqual(Object.keys(sessions), ["create", "update", "revoke", "revokeForUser", "listForUser", "deleteExpired"]);
   assert.deepEqual(Object.keys(recovery), ["create", "findByTokenHash", "consume", "consumeForUser"]);
 
   const created = await accounts.create(account("usr_ada", "ada@example.com"));

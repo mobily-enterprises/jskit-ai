@@ -96,7 +96,7 @@ function createLocalPasswordFlows({ backend, config, deliveries, passwords, prof
     return requested;
   }
 
-  async function completePasswordRecovery(input) {
+  async function completePasswordRecovery(input, request = null) {
     if (!recoveryEnabled) {
       throw new AppError(503, "Password recovery is not configured.", { code: "auth.local.recovery.notConfigured" });
     }
@@ -123,7 +123,8 @@ function createLocalPasswordFlows({ backend, config, deliveries, passwords, prof
         user,
         session: await sessions.createSessionForUser(tx, user, {
           purpose: "recovery",
-          ttlSeconds: RECOVERY_SESSION_TTL_SECONDS
+          ttlSeconds: RECOVERY_SESSION_TTL_SECONDS,
+          request
         })
       };
     });

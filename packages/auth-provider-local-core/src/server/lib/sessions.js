@@ -8,6 +8,10 @@ const REFRESH_TOKEN_COOKIE_NAME = "jskit_local_refresh_token";
 const RECOVERY_TOKEN_COOKIE_NAME = "jskit_local_recovery_token";
 const ACCESS_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_SECONDS = 60 * 60 * 24 * 30;
+// A session is noted as seen again at most this often, so most requests write nothing.
+const SEEN_AGAIN_AFTER_MS = 5 * 60 * 1000;
+// The longest browser description a session keeps.
+const USER_AGENT_MAX_LENGTH = 512;
 
 function nowSeconds() {
   return Math.floor(Date.now() / 1000);
@@ -15,6 +19,18 @@ function nowSeconds() {
 
 function safeRequestCookies(request) {
   return request && request.cookies && typeof request.cookies === "object" ? request.cookies : {};
+}
+
+/**
+ * Where a request comes from, as its session keeps it: the client's address and its browser's description, each ""
+ * when the request does not say (an internal call has no request).
+ * @param {{ ip?: string, headers?: Record<string, unknown> } | null | undefined} request
+ */
+function requestClient(request) {
+  return {
+    ip: String(request?.ip || ""),
+    userAgent: String(request?.headers?.["user-agent"] || "").slice(0, USER_AGENT_MAX_LENGTH)
+  };
 }
 
 function unauthenticatedAuthResult(clearSession = false) {
@@ -82,6 +98,9 @@ function buildSessionPayload({ user, session, refreshToken, secret }) {
  * cookies, writing and clearing those cookies, and revoking sessions. An
  * authenticated request's answer names its session (`sessionId`) and when the
  * session last proved its second factor (`secondFactorAt`, "" when it has not).
+ * A session keeps where it was last seen from (`ip`, `userAgent`) and when
+ * (`lastSeenAt`): the request that signed it in, then one that finds it more
+ * than five minutes later.
  * @param {object} dependencies
  * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
@@ -95,14 +114,22 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
   const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isDeployed);
   const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, isDeployed);
 
-  async function createSessionForUser(tx, user, { purpose = "normal", ttlSeconds = REFRESH_TTL_SECONDS } = {}) {
+  /**
+   * A new session of the user, seen now from where the request that signs it in comes from.
+   * @param {import("../types.js").AuthLocalBackendTransaction} tx
+   * @param {{ id: string }} user
+   * @param {{ purpose?: string, ttlSeconds?: number, request?: object | null }} [options]
+   */
+  async function createSessionForUser(tx, user, { purpose = "normal", ttlSeconds = REFRESH_TTL_SECONDS, request = null } = {}) {
     const refreshToken = randomToken(36);
     const session = await tx.sessions.create({
       id: createId("ses"),
       userId: user.id,
       tokenHash: sha256Base64url(refreshToken),
       purpose,
-      expiresAt: isoFromNow(ttlSeconds)
+      expiresAt: isoFromNow(ttlSeconds),
+      ...requestClient(request),
+      lastSeenAt: new Date().toISOString()
     });
     return buildSessionPayload({
       user,
@@ -112,7 +139,22 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
     });
   }
 
-  async function resolveValidSessionByRefreshToken(refreshToken) {
+  /**
+   * A session found more than five minutes after it was last seen is seen again now, from where the request comes
+   * from; a request that does not say keeps where it was last seen from.
+   * @param {import("../types.js").AuthLocalBackendTransaction} tx
+   * @param {{ id: string, lastSeenAt?: string }} session
+   * @param {object | null} request
+   */
+  async function noteSessionSeen(tx, session, request) {
+    const now = Date.now();
+    if (session.lastSeenAt && now - Date.parse(session.lastSeenAt) < SEEN_AGAIN_AFTER_MS) {
+      return;
+    }
+    await tx.sessions.touch(session.id, { lastSeenAt: new Date(now).toISOString(), ...requestClient(request) });
+  }
+
+  async function resolveValidSessionByRefreshToken(refreshToken, request) {
     const tokenHash = sha256Base64url(refreshToken);
     return backend.withTransaction(async (tx) => {
       const session = await tx.sessions.findByTokenHash(tokenHash);
@@ -123,6 +165,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
       if (!user || user.disabled) {
         return null;
       }
+      await noteSessionSeen(tx, session, request);
       return {
         user,
         session
@@ -186,6 +229,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
           if (!user || user.disabled) {
             return null;
           }
+          await noteSessionSeen(tx, session, request);
           return { user, session };
         });
         if (resolved && isAuthenticatingSession(resolved.session)) {
@@ -221,7 +265,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
       return unauthenticatedAuthResult(Boolean(accessToken));
     }
 
-    const resolved = await resolveValidSessionByRefreshToken(refreshToken);
+    const resolved = await resolveValidSessionByRefreshToken(refreshToken, request);
     if (!resolved) {
       return unauthenticatedAuthResult(true);
     }
@@ -347,7 +391,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
     }
     const cookies = safeRequestCookies(request);
     const refreshToken = String(cookies[REFRESH_TOKEN_COOKIE] || "").trim();
-    const currentSession = refreshToken ? await resolveValidSessionByRefreshToken(refreshToken) : null;
+    const currentSession = refreshToken ? await resolveValidSessionByRefreshToken(refreshToken, request) : null;
     const count = await backend.withTransaction((tx) =>
       tx.sessions.revokeForUser(authResult.actor.providerUserId, {
         exceptSessionId: currentSession?.session?.id

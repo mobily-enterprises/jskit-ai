@@ -29,6 +29,11 @@ function hasSecondFactorAt(query, _proved, { column }) {
   query.whereNotNull(column("secondFactorAt"));
 }
 
+// Sessions nobody ended.
+function hasNoRevokedAt(query, _notRevoked, { column }) {
+  query.whereNull(column("revokedAt"));
+}
+
 // auth_local_users: one row per local account, keyed by its text id.
 const localAuthUserResource = defineTableResource({
   name: "localAuthUsers",
@@ -59,6 +64,10 @@ const localAuthSessionResource = defineTableResource({
     expiresAt: dateTime,
     revokedAt: optionalDateTime,
     secondFactorAt: optionalDateTime,
+    // Where and when the session was last seen: null when unknown.
+    ip: { ...text, nullable: true },
+    userAgent: { ...text, nullable: true },
+    lastSeenAt: optionalDateTime,
     createdAt: dateTime,
     updatedAt: dateTime
   },
@@ -66,6 +75,9 @@ const localAuthSessionResource = defineTableResource({
     // Every session of a user but one.
     exceptId: { type: "string", actualField: "id", filterOperator: "!=" },
     expiresAtOrBefore,
+    // Sessions that have not expired by then.
+    expiresAfter: { type: "dateTime", actualField: "expiresAt", filterOperator: ">" },
+    notRevoked: { type: "boolean", applyFilter: hasNoRevokedAt },
     secondFactorProved: { type: "boolean", applyFilter: hasSecondFactorAt }
   }
 });

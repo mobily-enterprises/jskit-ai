@@ -118,7 +118,10 @@ function mapSession(record) {
     createdAt: readDateTime(record.createdAt),
     expiresAt: readDateTime(record.expiresAt),
     revokedAt: readDateTime(record.revokedAt),
-    secondFactorAt: readDateTime(record.secondFactorAt)
+    secondFactorAt: readDateTime(record.secondFactorAt),
+    ip: text(record.ip),
+    userAgent: text(record.userAgent),
+    lastSeenAt: readDateTime(record.lastSeenAt)
   };
 }
 
@@ -219,6 +222,9 @@ function sessionRecord(input = {}) {
     expiresAt: requiredDateTime(input.expiresAt),
     revokedAt: optionalDateTime(input.revokedAt),
     secondFactorAt: optionalDateTime(input.secondFactorAt),
+    ip: input.ip ? String(input.ip) : null,
+    userAgent: input.userAgent ? String(input.userAgent) : null,
+    lastSeenAt: optionalDateTime(input.lastSeenAt),
     createdAt,
     updatedAt: requiredDateTime(input.updatedAt, createdAt)
   };
@@ -391,6 +397,33 @@ function sessionRecords(sessions, options) {
         { secondFactorAt: null, updatedAt: requiredDateTime() },
         { ...options, returning: "count" }
       );
+    },
+    // The session seen again: when, and from where when the request said; a missing one changes nothing.
+    async touch(sessionId, { lastSeenAt, ip, userAgent } = {}) {
+      const id = text(sessionId);
+      if (!id) {
+        return;
+      }
+      const changes = { lastSeenAt: requiredDateTime(lastSeenAt) };
+      if (ip) {
+        changes.ip = String(ip);
+      }
+      if (userAgent) {
+        changes.userAgent = String(userAgent);
+      }
+      await sessions.patch(id, changes, { ...options, missing: "skip", returning: "none" });
+    },
+    // Every session of the user that is neither revoked nor expired, the newest first.
+    async listForUser(userId) {
+      const owner = text(userId);
+      if (!owner.trim()) {
+        throw new TypeError("auth.local.sessions.listForUser() takes the id of the account whose sessions it lists.");
+      }
+      const records = await sessions.queryAll({
+        filters: { userId: owner, notRevoked: true, expiresAfter: requiredDateTime() },
+        sort: ["-createdAt", "-id"]
+      }, options);
+      return records.map(mapSession);
     }
   });
 }
@@ -636,6 +669,9 @@ function createLocalDbOwners({ resources, identities, context }) {
     revoke: (sessionId, options = {}) => records(options).sessions.revoke(sessionId),
     // options.exceptSessionId keeps that session.
     revokeForUser: (userId, { exceptSessionId, ...options } = {}) => records(options).sessions.revokeForUser(userId, { exceptSessionId }),
+    // The account's live sessions, the newest first, each with where (ip, userAgent) and when (lastSeenAt) it was
+    // last seen.
+    listForUser: (userId, options = {}) => records(options).sessions.listForUser(userId),
     deleteExpired: (now, options = {}) => records(options).sessions.deleteExpired(now)
   });
   const recovery = Object.freeze({

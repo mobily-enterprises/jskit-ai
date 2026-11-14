@@ -70,14 +70,17 @@ async function exercisePassSignIn(service, { backend, issuer }) {
     await tx.users.create(passwordlessAccount({ id: "usr_off", email: "off@example.com", displayName: "Off", disabled: true }));
   });
 
-  // A pass signs its person in, with an ordinary session, though the account has no password.
+  // A pass signs its person in, with an ordinary session, though the account has no password; the session keeps the
+  // address and browser the pass came from.
   const pass = issuer.pass("ada@example.com");
-  const signedIn = await service.signInWithPass({ pass });
+  const signedIn = await service.signInWithPass({ pass }, { ip: "203.0.113.7", headers: { "user-agent": "Pass Browser/1.0" } });
   assert.equal(signedIn.actor.id, "usr_ada");
   assert.equal(signedIn.actor.email, "ada@example.com");
   const authenticated = await service.authenticateRequest({ cookies: sessionCookies(signedIn.session) });
   assert.equal(authenticated.authenticated, true);
   assert.equal(authenticated.actor.id, "usr_ada");
+  const session = await backend.withTransaction((tx) => tx.sessions.findById(authenticated.sessionId));
+  assert.deepEqual([session.ip, session.userAgent], ["203.0.113.7", "Pass Browser/1.0"]);
 
   // Only once.
   await assert.rejects(service.signInWithPass({ pass }), refused("auth.pass.replayed"));

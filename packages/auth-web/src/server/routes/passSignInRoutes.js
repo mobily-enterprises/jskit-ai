@@ -34,7 +34,7 @@ async function registerPassSignInRoutes(fastify, { service, rateLimit }) {
       const form = /** @type {{ pass?: unknown } | undefined} */ (request.body);
       let result;
       try {
-        result = await service.signInWithPass({ pass: String(form?.pass ?? "") });
+        result = await service.signInWithPass({ pass: String(form?.pass ?? "") }, request);
       } catch (error) {
         if (!(error instanceof AppError) || error.statusCode >= 500) {
           throw error;

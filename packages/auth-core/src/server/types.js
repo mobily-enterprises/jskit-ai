@@ -126,18 +126,20 @@
  * @property {(reply: object) => void} clearSessionCookies
  * @property {(request: object) => Promise<AuthLogoutResult>} logout
  * @property {() => boolean} isDevAuthBootstrapEnabled
- * @property {(input: object) => Promise<object>} register
+ * @property {(input: object, request?: object | null) => Promise<object>} register The request, when there is one,
+ *   is the one the person registers from, as for login.
  * @property {(input: object) => Promise<object>} resendRegisterConfirmation
- * @property {(input: { token: string, password: string }) => Promise<object>} confirmRegistration Creates the account a
- *   registration waited to create until its email was confirmed, from its link's code and the password it registered
- *   with, and signs the person in.
- * @property {(input: object) => Promise<object>} login
+ * @property {(input: { token: string, password: string }, request?: object | null) => Promise<object>} confirmRegistration
+ *   Creates the account a registration waited to create until its email was confirmed, from its link's code and the
+ *   password it registered with, and signs the person in.
+ * @property {(input: object, request?: object | null) => Promise<object>} login The request the person signs in
+ *   from, when there is one (an internal call has none): a provider may keep where its session was signed in from.
  * @property {(input: object) => Promise<object>} requestOtpLogin
  * @property {(input: object) => Promise<object>} verifyOtpLogin
  * @property {(input: object, request: object | null) => Promise<object>} oauthStart
  * @property {(input: object, request: object | null) => Promise<object>} oauthComplete
  * @property {(input: object) => Promise<object>} requestPasswordReset
- * @property {(input: object) => Promise<object>} completePasswordRecovery
+ * @property {(input: object, request?: object | null) => Promise<object>} completePasswordRecovery
  * @property {(input: object, request: object | null) => Promise<object>} resetPassword
  * @property {(request: object, input: object) => Promise<object>} changePassword
  * @property {(request: object, input: object) => Promise<object>} updateDisplayName
@@ -165,7 +167,7 @@
  *   whose staff lost their authenticator. `byUserId` names who reset it, for the audit event.
  * @property {(reply: object, result: object) => void} [writeOAuthStartCookies] Keeps the state of an OAuth sign-in that oauthStart() began.
  * @property {(reply: object) => void} [clearOAuthStartCookies]
- * @property {(input: { pass: string }) => Promise<object>} [signInWithPass] Signs in the account a one-time signed pass
+ * @property {(input: { pass: string }, request?: object | null) => Promise<object>} [signInWithPass] Signs in the account a one-time signed pass
  *   names (`@jskit-ai/auth-pass/server`), once per pass; local auth has it, with AUTH_PASS_PUBLIC_KEY set.
  * @property {(request: object, options?: { everywhere?: boolean }) => Promise<any>} [logoutEverywhere]
  * @property {() => object} [getSettingsProfileAuthInfo] What the account settings show about the provider's profile.
