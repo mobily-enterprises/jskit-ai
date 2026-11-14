@@ -282,6 +282,15 @@
     padding: 4px 8px;
   }
 
+  /* A hidden tooltip is hidden whole. Vuetify 4.3 mounts a tooltip before it first shows (eager), and while it is
+     hidden only its text is: the role="tooltip" overlay around it stays drawn, an empty tooltip to assistive
+     technology (axe aria-tooltip-name), and its activator's aria-describedby reads nothing, since hidden text counts
+     only when the element the activator names is hidden itself. The overlay hides only while its text does, so a
+     showing or fading tooltip is untouched. */
+  .v-tooltip:has(> .v-overlay__content[style*="display: none"]) {
+    display: none;
+  }
+
   /* Segmented buttons (v-btn-toggle): a 40dp pill in the outline role whose segments share its width, each with a 48dp
      touch target. An unselected segment has no container; the selected one is secondary-container and leads with a
      check, which takes the place of its icon. */
@@ -461,17 +470,25 @@
     opacity: 1;
   }
 
-  /* A text field's label and its supporting text are on-surface-variant at full strength, as Material 3's text field
-     draws them, instead of Vuetify's on-surface at the medium-emphasis opacity: 4.4:1 on a light surface, under
-     WCAG's 4.5:1. A focused field's label keeps the field's colour, an invalid field's label and messages keep error,
-     and a disabled field keeps its own fade. */
+  /* A text field's label, its supporting text and its character counter are on-surface-variant at full strength, as
+     Material 3's text field draws them, instead of Vuetify's on-surface at the medium-emphasis opacity: 4.4:1 on a
+     light surface and 4.19:1 for a counter in a dialog, under WCAG's 4.5:1. A focused field's label keeps the field's
+     colour, an invalid field's label, messages and counter are error, a counter past its limit is error too, and a
+     disabled field keeps its own fade. */
   .v-field:not(.v-field--focused, .v-field--error) .v-label.v-field-label {
     color: rgb(var(--v-theme-on-surface-variant));
     opacity: 1;
   }
 
-  .v-input:not(.v-input--error, .v-input--disabled) > .v-input__details .v-messages {
+  .v-input:not(.v-input--error, .v-input--disabled) > .v-input__details :is(.v-messages, .v-counter) {
     color: rgb(var(--v-theme-on-surface-variant));
+    opacity: 1;
+  }
+
+  /* Vuetify draws an invalid field's messages in error at full strength and leaves its counter faded; Material 3's
+     counter is error with them. */
+  .v-input--error:not(.v-input--disabled) > .v-input__details .v-counter {
+    color: rgb(var(--v-theme-error));
     opacity: 1;
   }
 
@@ -485,6 +502,19 @@
   }
 
   .v-list-item:not(.v-list-item--active, .v-list-item--disabled, [class*=" text-"]) .v-list-item-subtitle {
+    color: rgb(var(--v-theme-on-surface-variant));
+  }
+
+  /* So is a card's subtitle, instead of the card's colour at the medium-emphasis opacity: 4.35:1 on the default
+     surface-container-low card, under WCAG's 4.5:1. On a surface card, or one without a colour, it is
+     on-surface-variant, Material 3's supporting text; a coloured card keeps its own on-colour, and so does a card with
+     its own text colour. A text colour class on the subtitle itself still wins. */
+  .v-card-subtitle {
+    opacity: 1;
+  }
+
+  .v-card:not([class*="bg-"], [class*=" text-"]) .v-card-subtitle,
+  .v-card[class*="bg-surface"]:not([class*=" text-"]) .v-card-subtitle {
     color: rgb(var(--v-theme-on-surface-variant));
   }
 

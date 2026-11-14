@@ -85,12 +85,16 @@ export const theme = {
   strength (Vuetify fades it to 24%) and a disabled slider in on-surface at
   38% with its inactive track at 12%, a pagination's current page in the
   activated layer, skeleton loader bones in `surface-container-highest` under
-  their shimmer, placeholders, text field labels and supporting text and list
-  item subtitles in on-surface-variant, one-line labels that
+  their shimmer, placeholders, text field labels, supporting text and
+  character counters, and list item and card subtitles in on-surface-variant
+  at full strength (an invalid field's counter in error, as its messages),
+  one-line labels that
   end in an ellipsis, 12dp card corners, 28dp dialogs on
   `surface-container-high` at level 3 and bottom sheets with a square card on
   `surface-container-low`, square full-screen dialogs on `surface`, a 48dp touch target on clickable chips,
-  inverse-surface tooltips, 40dp outlined segmented buttons and outlined
+  inverse-surface tooltips hidden whole while their text is (Vuetify mounts a
+  tooltip before it shows, and its hidden overlay was an empty tooltip to
+  assistive technology), 40dp outlined segmented buttons and outlined
   filter chips that lead with a check when selected (chips with
   `aria-pressed` too), fixed tabs that share the width or else scroll, dialog
   actions 24dp from the edges, a menu's own list as its container

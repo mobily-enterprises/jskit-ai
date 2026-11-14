@@ -320,9 +320,15 @@ test("material.css draws segmented buttons, filter chips, fixed tabs and dialog 
     css,
     /\.v-field:not\(\.v-field--focused, \.v-field--error\) \.v-label\.v-field-label \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
   );
+  // Its character counter is with its supporting text; an invalid field's counter is error, as its messages are
+  // (accessibility.browser.test.js measures them).
   assert.match(
     css,
-    /\.v-input:not\(\.v-input--error, \.v-input--disabled\) > \.v-input__details \.v-messages \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
+    /\.v-input:not\(\.v-input--error, \.v-input--disabled\) > \.v-input__details :is\(\.v-messages, \.v-counter\) \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*opacity: 1;/u
+  );
+  assert.match(
+    css,
+    /\.v-input--error:not\(\.v-input--disabled\) > \.v-input__details \.v-counter \{\s*color: rgb\(var\(--v-theme-error\)\);\s*opacity: 1;/u
   );
   // So is an inactive, uncoloured list item's subtitle; every enabled item's subtitle, an active one's included, is
   // at full strength in the item's own colour.
@@ -331,6 +337,15 @@ test("material.css draws segmented buttons, filter chips, fixed tabs and dialog 
     /\.v-list-item:not\(\.v-list-item--active, \.v-list-item--disabled, \[class\*=" text-"\]\) \.v-list-item-subtitle \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*\}/u
   );
   assert.match(css, /\.v-list-item:not\(\.v-list-item--disabled\) \.v-list-item-subtitle \{\s*opacity: 1;\s*\}/u);
+  // And a card's subtitle: on-surface-variant on a surface card or one without a colour, unless the card has a text
+  // colour of its own.
+  assert.match(css, /\n {2}\.v-card-subtitle \{\s*opacity: 1;\s*\}/u);
+  assert.match(
+    css,
+    /\.v-card:not\(\[class\*="bg-"\], \[class\*=" text-"\]\) \.v-card-subtitle,\s*\.v-card\[class\*="bg-surface"\]:not\(\[class\*=" text-"\]\) \.v-card-subtitle \{\s*color: rgb\(var\(--v-theme-on-surface-variant\)\);\s*\}/u
+  );
+  // A tooltip is hidden whole while its text is.
+  assert.match(css, /\.v-tooltip:has\(> \.v-overlay__content\[style\*="display: none"\]\) \{\s*display: none;\s*\}/u);
   // A disabled container button is on-surface 12% and 38%, unlayered over its colour class.
   assert.match(
     css,
