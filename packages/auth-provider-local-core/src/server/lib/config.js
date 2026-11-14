@@ -24,8 +24,8 @@ function resolveStoreDir(env, appRoot) {
 }
 
 /**
- * AUTH_LOCAL_SESSION_SECRET, or in development and test a secret kept in the store
- * directory, generated on first use.
+ * AUTH_LOCAL_SESSION_SECRET, or in development and test a secret kept in the
+ * store directory, generated on first use.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
  * @param {{ storeDir: string, isDeployed: boolean }} options
  */
@@ -53,9 +53,9 @@ const SECOND_FACTOR_KEY_MIN_CHARACTERS = 32;
 /**
  * AUTH_LOCAL_SECOND_FACTOR_KEY: the application's key, from which local auth
  * derives the keys that seal authenticator secrets and hash recovery codes.
- * In development and test the session secret stands in for it. A staging or production server
- * without it has no second factor (""); one shorter than 32 characters stops
- * startup.
+ * In development and test the session secret stands in for it. A staging or
+ * production server without it has no second factor (""); one shorter than 32
+ * characters stops startup.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
  * @param {{ isDeployed: boolean, sessionSecret: string }} options
  */
@@ -121,10 +121,10 @@ function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEna
 
 /**
  * How a password recovery link reaches the person: by email through the
- * installed recovery sender; otherwise, in development and test, in the log or in
- * the response (AUTH_LOCAL_RECOVERY_DEV_OUTPUT=response). In staging and production without
- * a sender, recovery is disabled, and AUTH_LOCAL_RECOVERY_DEV_OUTPUT stops
- * startup (resolveLocalAuthConfig).
+ * installed recovery sender; otherwise, in development and test, in the log or
+ * in the response (AUTH_LOCAL_RECOVERY_DEV_OUTPUT=response). In staging and
+ * production without a sender, recovery is disabled, and
+ * AUTH_LOCAL_RECOVERY_DEV_OUTPUT stops startup (resolveLocalAuthConfig).
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
  * @param {{ emailRecovery: boolean, isDeployed: boolean }} options
  * @returns {"email" | "disabled" | "dev-response" | "dev-log"}
@@ -140,11 +140,12 @@ function resolveRecoveryDelivery(env, { emailRecovery, isDeployed }) {
  * Whether a registration waits for its email to be confirmed
  * (AUTH_LOCAL_EMAIL_CONFIRMATION, on unless set to false), and how its link
  * reaches the person: by email through the installed confirmation sender, or,
- * in development without one, in the registration's response (the sign-in
- * screen shows it) and the log. Confirmation guards self-registration: in
- * staging and production without a sender, startup stops while anyone may register,
- * because nobody could confirm, and with self-registration off (invited
- * accounts and the first one, admitted by its setup code) nothing is confirmed.
+ * in development and test without one, in the registration's response (the
+ * sign-in screen shows it) and the log. Confirmation guards self-registration:
+ * in staging and production without a sender, startup stops while anyone may
+ * register, because nobody could confirm, and with self-registration off
+ * (invited accounts and the first one, admitted by its setup code) nothing is
+ * confirmed.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
  * @param {{ emailConfirmationSender: boolean, isDeployed: boolean, selfRegistration: boolean }} options
  * @returns {"email" | "dev-response" | "off"}
@@ -181,8 +182,8 @@ function resolvePasswordMinLength(env) {
 
 /**
  * The local auth configuration, resolved and checked once from the environment.
- * Whether it is deployed (APP_ENV staging or production) is worked out once, by auth-core's dev auth policy, so local auth
- * and its dev sign-in agree on it.
+ * Whether it is deployed (APP_ENV staging or production) is worked out once, by
+ * auth-core's dev auth policy, so local auth and its dev sign-in agree on it.
  * @param {object} input
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} input.appRoot
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} input.env
