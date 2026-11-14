@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-pass",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "One-time signed sign-in passes (Ed25519, one person, one application, one resource, about a minute): signPass for the issuer, verifyPass and its refusals for the application. It installs no providers, so an application with its own sign-in can check passes with it alone.",
   "scripts": {
@@ -11,7 +11,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.26"
+    "@jskit-ai/kernel": "0.2.27"
   },
   "jskit": {
     "kind": "runtime",

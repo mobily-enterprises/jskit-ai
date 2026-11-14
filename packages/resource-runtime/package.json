@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/resource-runtime",
-  "version": "0.2.36",
+  "version": "0.2.37",
   "type": "module",
   "engines": {
     "node": ">=24.0.0"
@@ -15,8 +15,8 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/resource-core": "0.1.217",
-    "@jskit-ai/resource-crud-core": "0.1.219",
+    "@jskit-ai/resource-core": "0.1.218",
+    "@jskit-ai/resource-crud-core": "0.1.220",
     "json-rest-api": "3.2.0"
   },
   "description": "The resource runtime: features own their tables through it and read and write them with scoped handles on json-rest-api.",
@@ -64,7 +64,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/database-runtime": "0.1.275",
-    "@jskit-ai/kernel": "0.2.26"
+    "@jskit-ai/database-runtime": "0.1.276",
+    "@jskit-ai/kernel": "0.2.27"
   }
 }

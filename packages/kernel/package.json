@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/kernel",
-  "version": "0.2.26",
+  "version": "0.2.27",
   "type": "module",
   "dependencies": {
     "@fastify/rate-limit": "^11.2.0",

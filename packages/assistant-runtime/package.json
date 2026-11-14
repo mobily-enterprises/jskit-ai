@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-runtime",
-  "version": "0.2.69",
+  "version": "0.2.70",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -15,21 +15,21 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.2.65",
-    "@jskit-ai/resource-core": "0.1.217",
+    "@jskit-ai/assistant-core": "0.2.66",
+    "@jskit-ai/resource-core": "0.1.218",
     "json-rest-schema": "^1.0.20"
   },
   "peerDependencies": {
-    "@jskit-ai/http-runtime": "0.2.26",
-    "@jskit-ai/http-web": "0.2.44",
-    "@jskit-ai/kernel": "0.2.26",
-    "@jskit-ai/realtime": "0.2.40",
-    "@jskit-ai/shell-web": "0.2.37",
+    "@jskit-ai/http-runtime": "0.2.27",
+    "@jskit-ai/http-web": "0.2.45",
+    "@jskit-ai/kernel": "0.2.27",
+    "@jskit-ai/realtime": "0.2.41",
+    "@jskit-ai/shell-web": "0.2.38",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vuetify": "^4.0.0",
-    "@jskit-ai/database-runtime": "0.1.275",
-    "@jskit-ai/resource-runtime": "0.2.36"
+    "@jskit-ai/database-runtime": "0.1.276",
+    "@jskit-ai/resource-runtime": "0.2.37"
   },
   "description": "Capability-based assistant runtime with per-surface chat, transcripts, settings, and action tools.",
   "jskit": {
@@ -139,6 +139,6 @@
   },
   "devDependencies": {
     "@jskit-ai/material-web": "0.1.8",
-    "@jskit-ai/resource-runtime": "0.2.36"
+    "@jskit-ai/resource-runtime": "0.2.37"
   }
 }

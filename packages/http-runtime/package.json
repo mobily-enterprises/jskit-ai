@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-runtime",
-  "version": "0.2.26",
+  "version": "0.2.27",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -50,6 +50,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.26"
+    "@jskit-ai/kernel": "0.2.27"
   }
 }

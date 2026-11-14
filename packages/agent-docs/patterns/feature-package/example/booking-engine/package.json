@@ -5,7 +5,7 @@
   "private": true,
   "type": "module",
   "dependencies": {
-    "@jskit-ai/kernel": "0.2.26",
+    "@jskit-ai/kernel": "0.2.27",
     "json-rest-schema": "^1.0.20"
   },
   "exports": {

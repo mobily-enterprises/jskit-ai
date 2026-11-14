@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/storage-runtime",
-  "version": "0.1.272",
+  "version": "0.1.273",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -58,6 +58,6 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/kernel": "0.2.26"
+    "@jskit-ai/kernel": "0.2.27"
   }
 }

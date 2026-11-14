@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-core",
-  "version": "0.2.35",
+  "version": "0.2.36",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -12,7 +12,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/auth-pass": "0.1.0",
+    "@jskit-ai/auth-pass": "0.1.1",
     "openid-client": "6.8.8"
   },
   "description": "Local auth provider with a file backend default, no database requirement, and optional Google, Microsoft and GitHub sign-in.",
@@ -71,7 +71,7 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/auth-core": "0.2.29",
-    "@jskit-ai/kernel": "0.2.26"
+    "@jskit-ai/auth-core": "0.2.30",
+    "@jskit-ai/kernel": "0.2.27"
   }
 }
