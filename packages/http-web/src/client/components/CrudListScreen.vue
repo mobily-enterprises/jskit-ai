@@ -1,9 +1,10 @@
 <script setup>
-import { computed, unref } from "vue";
+import { computed, nextTick, ref, unref, watch } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
 import ShellPrimaryAction from "@jskit-ai/shell-web/client/components/ShellPrimaryAction";
+import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
 import CrudListBulkActionSurface from "./CrudListBulkActionSurface.vue";
 import CrudListFilterSurface from "./CrudListFilterSurface.vue";
 import CrudListRecordActionMenu from "./CrudListRecordActionMenu.vue";
@@ -105,6 +106,43 @@ function openRow(row, event) {
   void router.push(location);
 }
 
+// "Load more" keeps focus while the next page loads (v-pending). The last page takes the button away; if it had focus,
+// focus goes where reading goes on, to the first record that page added, instead of falling back to the page body.
+const listRoot = ref(null);
+const moreButton = ref(null);
+const ROW_FOCUSABLE = "a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])";
+let firstAddedRow = -1;
+
+function loadMore() {
+  firstAddedRow = displayRows.value.length;
+  return records.value.loadMore();
+}
+
+function focusRow(index) {
+  const root = listRoot.value;
+  const candidates = [
+    root?.querySelectorAll(".crud-list-cards > .crud-list-card")[index],
+    root?.querySelectorAll(".crud-list-table tbody > tr")[index]
+  ];
+  const row = candidates.find((element) => element && element.getClientRects().length > 0);
+  row?.querySelector(ROW_FOCUSABLE)?.focus();
+}
+
+watch(
+  () => records.value.hasMore,
+  (hasMore) => {
+    const row = firstAddedRow;
+    if (hasMore || row < 0) {
+      return;
+    }
+    firstAddedRow = -1;
+    if (moreButton.value?.$el?.contains(document.activeElement)) {
+      void nextTick(() => focusRow(row));
+    }
+  },
+  { flush: "pre" }
+);
+
 function hasRowActionsFor(record, index) {
   return rowActions.value.hasVisibleActionsFor(record, index);
 }
@@ -133,12 +171,12 @@ function setSelectableRowsSelected(selected = true) {
 </script>
 
 <template>
-  <section class="crud-screen crud-list">
+  <section ref="listRoot" class="crud-screen crud-list">
     <ShellPageActions>
       <ShellPageAction
         icon="$refresh"
         :label="records.isFetching ? t('jskit.http.actions.refreshing') : t('jskit.http.actions.refresh')"
-        :disabled="records.isFetching"
+        :pending="records.isFetching"
         @click="records.reload"
       />
     </ShellPageActions>
@@ -177,7 +215,7 @@ function setSelectableRowsSelected(selected = true) {
           v-if="canRetryLoad"
           color="secondary-container"
           prepend-icon="$refresh"
-          :disabled="records.isFetching"
+          v-pending="records.isFetching"
           @click="records.reload"
         >
           {{ records.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}
@@ -327,10 +365,11 @@ function setSelectableRowsSelected(selected = true) {
 
       <div v-if="records.hasMore" class="crud-list-more">
         <v-btn
+          ref="moreButton"
+          v-pending="records.isLoadingMore"
           variant="outlined"
           color="primary"
-          :disabled="records.isLoadingMore"
-          @click="records.loadMore"
+          @click="loadMore"
         >
           {{ records.isLoadingMore ? t("jskit.http.actions.loadingMore") : t("jskit.http.actions.loadMore") }}
         </v-btn>

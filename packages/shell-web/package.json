@@ -38,6 +38,7 @@
     "./client/composables/useShellPageTitle": "./src/client/composables/useShellPageTitle.js",
     "./client/composables/useShellPageClose": "./src/client/composables/useShellPageClose.js",
     "./client/composables/useShellWindowSizeClass": "./src/client/composables/useShellWindowSizeClass.js",
+    "./client/directives/vPending": "./src/client/directives/vPending.js",
     "./client/providers/ShellWebClientProvider": "./src/client/providers/ShellWebClientProvider.js",
     "./client/types": "./src/client/types.js",
     "./test/adaptiveShellSmoke": "./src/test/adaptiveShellSmoke.js",
@@ -100,6 +101,7 @@
             "@jskit-ai/shell-web/client/composables/useShellPageClose",
             "@jskit-ai/shell-web/client/composables/useShellPageTitle",
             "@jskit-ai/shell-web/client/composables/useShellWindowSizeClass",
+            "@jskit-ai/shell-web/client/directives/vPending",
             "@jskit-ai/shell-web/client/types"
           ],
           "exclude": [

@@ -22,6 +22,7 @@ const FOLLOWING = 4;
  * @property {boolean} primary
  * @property {boolean} overflow
  * @property {boolean} disabled
+ * @property {boolean} pending Its action is running (`pending` or `loading`).
  * @property {boolean} loading
  */
 

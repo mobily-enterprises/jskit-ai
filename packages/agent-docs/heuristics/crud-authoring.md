@@ -106,8 +106,9 @@ is no longer its principal public contract.
 - test list/view/create/update/delete document shapes
 - test positive owner access and negative cross-owner access
 - test relationships and deletion behavior
-- verify skeletons, stable pending labels, toast mutation feedback, and no
-  horizontal overflow in compact, medium, and expanded screens
+- verify skeletons, stable pending labels, pending buttons that keep keyboard
+  focus, toast mutation feedback, and no horizontal overflow in compact,
+  medium, and expanded screens
 - run current framework and application verification
 
 Avoid generator provenance, scaffold shapes, ownership receipts, workboards,

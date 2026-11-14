@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The account-settings pattern's Save buttons keep keyboard focus while their section saves and then reloads (shell-web's `v-pending`), instead of becoming disabled for the reload, which dropped focus to the page body.
 - Account settings read their operations from users-core's `userProfileContract` and `userSettingsContract`.
 - Account settings sections are pages in Material 3's list-detail layout (shell-web's `ShellListDetail`): `/account` lists the sections and `/account/<section>` opens one, instead of `?section=` on one page. `AccountSettingsClientElement` reads the route's `section` param and links each section to its path, keeping `returnTo`; on compact and medium windows it shows the list or one section, whose Up returns to the list, and on expanded and large windows the list beside the open section (or the first section on the list's own page), where Done replaces Up as the way out. The `users/account-settings` pattern adds `src/pages/account/[section].vue`, with parent `"/"`. Upgrading: add that page beside `src/pages/account/index.vue`, and change links to `/account?section=<value>` into `/account/<value>`.
 - Account settings have one way out: on a page with the shell's Up arrow (one that declares a parent) there is no Done action beside it, which read as a second back control. Done shows only where Up can't go back: a page without a parent, or a `returnTo` on another of the app's origins.

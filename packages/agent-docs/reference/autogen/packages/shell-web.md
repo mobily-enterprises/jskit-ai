@@ -237,6 +237,16 @@ Local functions
 Exports
 - `useShellWindowSizeClass()`
 
+### `src/client/directives/vPending.js`
+Exports
+- `vPending`
+Local functions
+- `controlOf(element)`
+- `ignoreWhilePending(event)`
+- `firstMarkedField(control)`
+- `mark(element, pending)`
+- `settle(element)`
+
 ### `src/client/error/index.js`
 Exports
 - `createDefaultErrorPolicy`
@@ -342,6 +352,7 @@ Exports
 - `useShellPageTitle`
 - `useShellPageClose`
 - `useShellWindowSizeClass`
+- `vPending`
 - `useShellNavigation`
 - `leaveApp`
 - `reloadAppPage`
@@ -762,6 +773,18 @@ Local functions
 ### `fixtures/adaptive-shell/src/OwnBarLayout.vue`
 Exports
 - None
+
+### `fixtures/adaptive-shell/src/PendingActionsPage.vue`
+Exports
+- None
+Local functions
+- `start(name)`
+
+### `fixtures/adaptive-shell/src/PendingDialogPage.vue`
+Exports
+- None
+Local functions
+- `invite()`
 
 ### `fixtures/adaptive-shell/src/RecordListPage.vue`
 Exports

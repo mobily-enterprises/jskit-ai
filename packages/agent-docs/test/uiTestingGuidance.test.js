@@ -161,7 +161,8 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(materialReference, /Never insert a transient command-error alert above\s+page content where it shifts the working layout/u);
   assert.match(materialReference, /All user-visible\s+loading uses Material skeletons that reserve the final content geometry/u);
   assert.match(materialReference, /never use a generic spinner or circular progress indicator/u);
-  assert.match(materialReference, /stable disabled\/pending label and shared feedback, not a spinner/u);
+  assert.match(materialReference, /stable pending label \("Saving…"\) and shared feedback, not a spinner/u);
+  assert.match(materialReference, /While a command runs, mark its button pending rather than `disabled` when\s+possible/u);
   assert.match(materialReference, /Playwright at compact, medium, and expanded widths/u);
   assert.match(materialReference, /Do not declare Material 3 compliance from visual resemblance alone/u);
   // #241 section 9.4: navigation is a MUST near the top, with the model, the declarations, the forbidden list and a

@@ -18,6 +18,7 @@ import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
 import FeedbackPage from "./FeedbackPage.vue";
+import PendingActionsPage from "./PendingActionsPage.vue";
 import DialogFeedbackPage from "./DialogFeedbackPage.vue";
 import ReportsPage from "./ReportsPage.vue";
 import ScreenPage from "./ScreenPage.vue";
@@ -341,6 +342,9 @@ const routes = [
   { path: "/home/components", component: ComponentsPage, meta: { jskit: { title: "Components" } } },
   { path: "/home/actions", component: ActionsPage, meta: { jskit: { title: "Actions" } } },
   { path: "/home/actions/new", component: ActionsFormPage, meta: { jskit: { title: "New entry", parent: "/actions" } } },
+  // Actions whose work the test holds, to check they keep keyboard focus while it runs.
+  { path: "/home/pending", component: PendingActionsPage, meta: { jskit: { title: "Pending actions" } } },
+  { path: "/home/pending-dialog", component: () => import("./PendingDialogPage.vue"), meta: { jskit: { title: "Invites" } } },
   // A layout that draws its own top app bar from the shell's pieces.
   { path: "/home/studio", component: StudioPage, meta: { ownBar: true, jskit: { title: "Studio" } } },
   { path: "/home/studio/:id", component: StudioPage, meta: { ownBar: true, jskit: { parent: "/studio" } } },

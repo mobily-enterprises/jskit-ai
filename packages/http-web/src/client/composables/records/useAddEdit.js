@@ -180,6 +180,9 @@ function useAddEdit({
   const isSubmitDisabled = computed(() =>
     Boolean(isInitialLoading.value || isRefetching.value || !canSave.value || addEdit.saving.value)
   );
+  // The part of isSubmitDisabled that passes by itself: the save, or the record's reload, is running. Save keeps
+  // keyboard focus meanwhile (ShellPageAction's `pending`, or v-pending), instead of being disabled.
+  const isSubmitPending = computed(() => Boolean(addEdit.saving.value || isRefetching.value));
   const loadError = operationScope.loadError(endpointResource.loadError);
   // The HTTP status of the failed load, or 0: the form's Retry and its notice offer Retry only when it can help.
   const errorStatus = computed(() => resolveLoadErrorStatus(endpointResource.query.error.value));
@@ -218,6 +221,7 @@ function useAddEdit({
     isRefetching,
     isFieldLocked,
     isSubmitDisabled,
+    isSubmitPending,
     canRetryLoad,
     isLoading,
     isSaving: addEdit.saving,

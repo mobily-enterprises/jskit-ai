@@ -3,6 +3,7 @@ import { computed, unref, watch } from "vue";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
 import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
+import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
 import { isRetryableLoadStatus } from "../composables/support/resourceLoadStateHelpers.js";
 import { useJskitText } from "../i18n.js";
 
@@ -66,7 +67,7 @@ watch(isUnavailable, (unavailable) => {
         v-if="canRetryLoad"
         color="secondary-container"
         prepend-icon="$refresh"
-        :disabled="view.isFetching"
+        v-pending="view.isFetching"
         @click="view.refresh"
       >
         {{ view.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}

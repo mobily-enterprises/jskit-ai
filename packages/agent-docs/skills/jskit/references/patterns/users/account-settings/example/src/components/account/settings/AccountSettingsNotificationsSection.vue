@@ -1,4 +1,6 @@
 <script setup>
+import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
+
 const props = defineProps({
   runtime: {
     type: Object,
@@ -41,7 +43,7 @@ const notifications = props.runtime.notifications;
           color="primary"
           class="mt-4"
           :loading="notifications.isSaving.value"
-          :disabled="notifications.isRefreshing.value"
+          v-pending="notifications.isSaving.value || notifications.isRefreshing.value"
         >
           Save notification settings
         </v-btn>

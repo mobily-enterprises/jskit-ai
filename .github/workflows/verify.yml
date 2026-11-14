@@ -143,6 +143,12 @@ jobs:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
         run: npx jskit test packages/shell-web/test/adaptiveShell.browser.test.js
 
+      - name: Verify pending command buttons keep keyboard focus
+        env:
+          JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
+          JSKIT_HTTP_WEB_PENDING_FOCUS_BROWSER: "1"
+        run: npx jskit test packages/shell-web/test/pendingAction.browser.test.js packages/http-web/test/crudPendingFocus.browser.test.js
+
       - name: Verify the Material 3 baselines
         env:
           JSKIT_MATERIAL_BASELINES: "1"
