@@ -12,8 +12,8 @@
   "dependencies": {
     "@jskit-ai/crud-core": "0.2.41",
     "@jskit-ai/resource-crud-core": "0.1.220",
-    "@jskit-ai/users-core": "0.2.49",
-    "@jskit-ai/workspaces-core": "0.2.49"
+    "@jskit-ai/users-core": "0.2.50",
+    "@jskit-ai/workspaces-core": "0.2.50"
   },
   "peerDependencies": {
     "@jskit-ai/kernel": "0.2.27",

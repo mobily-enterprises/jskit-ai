@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-core",
-  "version": "0.2.66",
+  "version": "0.2.67",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -219,6 +219,6 @@
     }
   },
   "devDependencies": {
-    "@jskit-ai/material-web": "0.1.8"
+    "@jskit-ai/material-web": "0.1.9"
   }
 }
