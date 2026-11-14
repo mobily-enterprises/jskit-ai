@@ -37,6 +37,14 @@ async function firstAccountSetupCode(storeDir) {
   return (await fs.readFile(path.join(storeDir, "first-account-setup-code"), "utf8")).trim();
 }
 
+// Waits, a turn of the event loop at a time, until done() holds: for what local auth does after it has answered, such
+// as sending a password reset email.
+async function eventually(done) {
+  while (!done()) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+}
+
 function createReplyFixture() {
   const cookies = {};
   const cookieOptions = {};
@@ -1375,16 +1383,19 @@ test("local recovery uses the application sender without returning or logging it
   assert.equal(app.authService.getCapabilities().features.passwordRecovery.delivery, "email");
   const result = await app.authService.requestPasswordReset({ email: "sender@example.com" });
   assert.equal(result.recoveryUrl, undefined);
-  assert.equal(messages.length, 1);
+  const unknown = await app.authService.requestPasswordReset({ email: "absent@example.com" });
+  assert.deepEqual(unknown, result);
+  // The email is sent after the answer.
+  await eventually(() => messages.length === 1);
   assert.equal(messages[0].email, "sender@example.com");
   assert.match(messages[0].recoveryUrl, /^http:\/\/localhost:5173\/auth\/reset-password\?/);
   assert.equal(JSON.stringify(logs).includes(messages[0].recoveryUrl), false);
-  const unknown = await app.authService.requestPasswordReset({ email: "absent@example.com" });
-  assert.deepEqual(unknown, result);
-  assert.equal(messages.length, 1);
   const token = new URL(messages[0].recoveryUrl).searchParams.get("token");
   const recovery = await app.authService.completePasswordRecovery({ code: token, type: "recovery" });
   assert.equal(recovery.actor.email, "sender@example.com");
+  // Stopping waits for every email local auth started: the unknown email's sent nothing.
+  await app.runtime.shutdown();
+  assert.equal(messages.length, 1);
 });
 
 test("a test copy logs the emails an installed sender would send, sends none and keeps the links out of the answers", async (t) => {
@@ -1415,9 +1426,12 @@ test("a test copy logs the emails an installed sender would send, sends none and
   assert.equal(Object.hasOwn(registered, "confirmationUrl"), false);
   const reset = await app.authService.requestPasswordReset({ email: "owner@example.com" });
   assert.equal(reset.recoveryUrl, undefined);
+  // The reset's email is simulated after the answer.
+  const simulatedLogs = () => logs.filter(({ details }) => details?.sideEffects === "simulate" && details.kind === "email");
+  await eventually(() => simulatedLogs().length === 2);
   assert.deepEqual(sent, [], "nothing sent");
 
-  const simulated = logs.filter(({ details }) => details?.sideEffects === "simulate" && details.kind === "email");
+  const simulated = simulatedLogs();
   assert.deepEqual(simulated.map(({ details }) => details.email), ["tester@example.com", "owner@example.com"]);
   assert.match(simulated[0].message, /^Test copy: the email confirmation email to tester@example\.com was simulated, not sent/u);
   assert.match(simulated[0].details.confirmationUrl, /^https:\/\/app\.example\.test\/auth\/login\?confirmation_token=/u);
@@ -1433,18 +1447,52 @@ test("a test copy logs the emails an installed sender would send, sends none and
   assert.equal(recovery.actor.email, "owner@example.com");
 });
 
-test("a failing recovery sender does not fall back to development output", async (t) => {
+test("a failing recovery sender is logged, never answered, and does not fall back to development output", async (t) => {
   const logs = [];
+  const errors = [];
   const failure = new Error("delivery unavailable");
   const app = await createStartedApp({
     env: { AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log" },
     recoverySender: async () => { throw failure; },
-    logger: { info: (...args) => logs.push(args), warn() {}, error() {}, debug() {} }
+    logger: { info: (...args) => logs.push(args), warn() {}, error: (...args) => errors.push(args), debug() {} }
   });
   t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
   await app.authService.register({ email: "failure@example.com", password: "correct horse battery staple" });
-  await assert.rejects(app.authService.requestPasswordReset({ email: "failure@example.com" }), failure);
-  assert.equal(logs.some((args) => JSON.stringify(args).includes("recoveryUrl")), false);
+  // The requester gets the answer every email gets: a failure only an account's email can have says nothing.
+  const answer = await app.authService.requestPasswordReset({ email: "failure@example.com" });
+  assert.deepEqual(answer, await app.authService.requestPasswordReset({ email: "nobody@example.com" }));
+  assert.equal(answer.messageCode, "auth.local.recovery.requested");
+  await eventually(() => errors.length === 1);
+  assert.deepEqual(errors, [[{ err: failure, email: "failure@example.com" }, "Sending the password reset email failed."]]);
+  assert.equal([...logs, ...errors].some((args) => JSON.stringify(args).includes("recoveryUrl")), false);
+  assert.equal([...logs, ...errors].some((args) => JSON.stringify(args).includes("reset-password?token")), false);
+});
+
+test("stopping the server waits for a password reset email still being sent", async (t) => {
+  const started = [];
+  const sent = [];
+  const { promise: sending, resolve: finishSending } = Promise.withResolvers();
+  const app = await createStartedApp({
+    recoverySender: async ({ email }) => {
+      started.push(email);
+      await sending;
+      sent.push(email);
+    }
+  });
+  t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
+  await app.authService.register({ email: "late@example.com", password: "correct horse battery staple" });
+  await app.authService.requestPasswordReset({ email: "late@example.com" });
+  await eventually(() => started.length === 1);
+
+  let stopped = false;
+  const stopping = app.runtime.shutdown().then(() => {
+    stopped = true;
+  });
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(stopped, false, "the server stops only once the email is sent");
+  finishSending();
+  await stopping;
+  assert.deepEqual(sent, ["late@example.com"]);
 });
 
 test("in production, email confirmation needs an auth.local.confirmation-sender, or startup stops saying what to do", async () => {

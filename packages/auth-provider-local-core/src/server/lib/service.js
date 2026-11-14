@@ -4,6 +4,7 @@ import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupportedOperation";
 import { createLocalAccounts } from "./accounts.js";
 import { PROVIDER_ID } from "./authPayloads.js";
+import { createLocalDeliveries } from "./deliveries.js";
 import { confirmEveryRegistrationByLink, createLocalEmailConfirmation } from "./emailConfirmation.js";
 import { createFirstAccountSetup } from "./firstAccountSetup.js";
 import { createLocalOAuthFlows } from "./oauthFlows.js";
@@ -41,6 +42,9 @@ const NO_PASS_SIGN_IN = Object.freeze({
  *   `auth.local.confirmation-mode`; by default every registration waits for its link.
  * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
  *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender.
+ * @param {import("../types.js").AuthLocalDeliveries} [dependencies.deliveries] Sends the password reset and new
+ *   confirmation link emails after their requests have answered; by default, its own, whose settled() nothing waits
+ *   for. The provider passes the one its shutdown waits for.
  * @param {import("../types.js").AuthLocalFirstAccountSetup} [dependencies.firstAccountSetup] The first
  *   account's setup code, already started by the provider; by default, one that starts on first use.
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
@@ -61,6 +65,7 @@ function createLocalAuthService({
   config,
   confirmationMode = confirmEveryRegistrationByLink,
   confirmationSender,
+  deliveries: givenDeliveries = null,
   firstAccountSetup: givenFirstAccountSetup = null,
   invitationContextResolver,
   logger,
@@ -72,6 +77,7 @@ function createLocalAuthService({
 }) {
   const passwords = normalizePasswordStrategy(passwordStrategy);
   const firstAccountSetup = givenFirstAccountSetup ?? createFirstAccountSetup({ backend, config, logger });
+  const deliveries = givenDeliveries ?? createLocalDeliveries({ logger });
   const oauthProvidersById = new Map(config.oauthProviders.map((provider) => [provider.id, provider]));
   const { oauthEnabled, recoveryEnabled } = config;
   const appProfileProjection = profileProjector !== noAppProfiles;
@@ -131,6 +137,7 @@ function createLocalAuthService({
     config,
     confirmationMode,
     confirmationSender,
+    deliveries,
     firstAccountSetup,
     invitationContextResolver,
     logger,
@@ -152,6 +159,7 @@ function createLocalAuthService({
   const passwordFlows = createLocalPasswordFlows({
     backend,
     config,
+    deliveries,
     passwords,
     profileProjector,
     recoverySender,

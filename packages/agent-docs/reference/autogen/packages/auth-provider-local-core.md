@@ -57,11 +57,16 @@ Local functions
 - `resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction, selfRegistration })`
 - `resolvePasswordMinLength(env)`
 
+### `src/server/lib/deliveries.js`
+Exports
+- `DELIVERY_SHUTDOWN_WAIT_MS`
+- `createLocalDeliveries({ logger })`
+
 ### `src/server/lib/emailConfirmation.js`
 Exports
 - `CONFIRMATION_TOKEN_TTL_SECONDS`
 - `confirmEveryRegistrationByLink()`
-- `createLocalEmailConfirmation({ backend, config, confirmationMode, confirmationSender, firstAccountSetup, invitationContextResolver, logger, passwords, profileProjector, sessions })`
+- `createLocalEmailConfirmation({ backend, config, confirmationMode, confirmationSender, deliveries, firstAccountSetup, invitationContextResolver, logger, passwords, profileProjector, sessions })`
 - `createLoggedConfirmationSender(logger)`
 - `createSimulatedConfirmationSender(logger)`
 Local functions
@@ -130,6 +135,7 @@ Local functions
 ### `src/server/lib/index.js`
 Exports
 - `createLocalAuthService`
+- `createLocalDeliveries`
 - `resolveLocalAuthConfig`
 - `createLoggedConfirmationSender`
 - `createLoggedRecoverySender`
@@ -165,7 +171,7 @@ Exports
 
 ### `src/server/lib/passwordFlows.js`
 Exports
-- `createLocalPasswordFlows({ backend, config, passwords, profileProjector, recoverySender, sessions })`
+- `createLocalPasswordFlows({ backend, config, deliveries, passwords, profileProjector, recoverySender, sessions })`
 - `createLoggedRecoverySender(logger)`
 - `createSimulatedRecoverySender(logger)`
 
@@ -225,7 +231,7 @@ Exports
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passIdentity = noPassIdentities, passwordStrategy, profileProjector, recoverySender, secondFactorEvents })`
+- `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, deliveries: givenDeliveries = null, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passIdentity = noPassIdentities, passwordStrategy, profileProjector, recoverySender, secondFactorEvents })`
 
 ### `src/server/lib/sessions.js`
 Exports
@@ -284,6 +290,7 @@ Exports
 - `type AuthLocalConfirmationSender`
 - `type AuthLocalConfirmationMode`
 - `type AuthLocalConfig`
+- `type AuthLocalDeliveries`
 - `type AuthLocalOAuthProvider`
 - `type AuthLocalFirstAccountSetup`
 - `type AuthLocalPasswords`

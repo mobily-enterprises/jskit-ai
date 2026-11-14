@@ -87,6 +87,8 @@ function confirmationPasswordInvalidError() {
  * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
  *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender;
  *   in development without a sender, links also go in the response.
+ * @param {import("../types.js").AuthLocalDeliveries} dependencies.deliveries Sends each new
+ *   link a resend asks for after its request has answered.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("../types.js").AuthLocalPasswords} dependencies.passwords
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
@@ -97,6 +99,7 @@ function createLocalEmailConfirmation({
   config,
   confirmationMode,
   confirmationSender,
+  deliveries,
   firstAccountSetup,
   invitationContextResolver,
   logger,
@@ -215,14 +218,10 @@ function createLocalEmailConfirmation({
   }
 
   /**
-   * Sends a waiting registration a new link, which replaces the old one; the
-   * registration, its password included, stays as it is. An expired
-   * registration no longer waits: it registers again. The answer is the same
-   * whether or not a registration waits for that email.
-   * @param {{ email: string }} input
+   * A new link's code for the registration waiting for this email, replacing its old link; "" when none waits.
+   * @param {string} email
    */
-  async function resend(input) {
-    const email = validateEmailInput(input.email);
+  async function renewLink(email) {
     const { token, tokenHash, expiresAt } = newConfirmation();
     const renewed = await backend.withTransaction(async (tx) => {
       const registration = await tx.registrations.findByEmail(email);
@@ -232,13 +231,39 @@ function createLocalEmailConfirmation({
       await tx.registrations.save({ ...registration, tokenHash, expiresAt });
       return true;
     });
-    return {
+    return renewed ? token : "";
+  }
+
+  /**
+   * Sends a waiting registration a new link, which replaces the old one; the
+   * registration, its password included, stays as it is. An expired
+   * registration no longer waits: it registers again. The answer is the same,
+   * at once, whether or not a registration waits for that email: the
+   * registration is looked up, and its link renewed and emailed, after the
+   * answer (deliveries), and a sender's failure is logged instead.
+   * Development's `dev-response` delivery puts the link in the answer instead,
+   * so it renews the link first.
+   * @param {{ email: string }} input
+   */
+  async function resend(input) {
+    const email = validateEmailInput(input.email);
+    const resent = {
       ok: true,
       message: "If a registration is waiting for that email, a new confirmation link has been sent.",
       messageCode: "auth.local.register.confirmationResent",
-      messageParams: {},
-      ...(renewed ? await deliver(email, token) : {})
+      messageParams: {}
     };
+    if (confirmationDelivery === "dev-response") {
+      const token = await renewLink(email);
+      return { ...resent, ...(token ? await deliver(email, token) : {}) };
+    }
+    deliveries.send("the email confirmation email", email, async () => {
+      const token = await renewLink(email);
+      if (token) {
+        await deliver(email, token);
+      }
+    });
+    return resent;
   }
 
   /**

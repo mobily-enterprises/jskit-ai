@@ -692,6 +692,22 @@ URL. Without a sender, production recovery is disabled; explicit development
 output remains available for local testing. A sender failure never falls back
 to development output. The generic recovery delivery capability is `email`.
 
+The sender runs after the request has answered. Asking for a password reset
+answers at once, and the same, whether or not the email has an account, so
+neither the answer nor its time tells anyone which emails have accounts: local
+auth looks the account up, makes its link and calls the sender only once the
+request has answered. When the sender rejects, local auth logs the failure
+with the address (never the link), and the person sees the same answer as for
+any email; a delivery failure someone must act on belongs in the sender's own
+monitoring, since an answer that reported it would say the account exists. A
+stopping server waits up to 10 seconds for the emails still being sent. Asking
+for a new confirmation link (`resendRegisterConfirmation`) and the
+`auth.local.confirmation-sender` work the same way; a new registration's link
+is still sent before its answer, which already says whether the email is
+taken. A test that composes the library directly and reads the sent email
+waits for it: it passes `deliveries: createLocalDeliveries({ logger })` to
+`createLocalAuthService()` and awaits `deliveries.settled()`.
+
 Production is `NODE_ENV=production`; anything else, unset included, is
 development, so the host that serves the application sets it. A production
 server with `AUTH_LOCAL_RECOVERY_DEV_OUTPUT` set refuses to start and names the

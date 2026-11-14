@@ -196,6 +196,7 @@
  */
 
 /** @typedef {ReturnType<typeof import("./lib/config.js").resolveLocalAuthConfig>} AuthLocalConfig */
+/** @typedef {ReturnType<typeof import("./lib/deliveries.js").createLocalDeliveries>} AuthLocalDeliveries */
 /** @typedef {AuthLocalConfig["oauthProviders"][number]} AuthLocalOAuthProvider */
 /** @typedef {ReturnType<typeof import("./lib/firstAccountSetup.js").createFirstAccountSetup>} AuthLocalFirstAccountSetup */
 /** @typedef {ReturnType<typeof import("./lib/passwords.js").normalizePasswordStrategy>} AuthLocalPasswords */

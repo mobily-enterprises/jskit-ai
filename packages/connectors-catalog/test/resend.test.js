@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { createLocalAuthService, createLocalFileBackend } from "../../auth-provider-local-core/src/server/lib/index.js";
+import { createLocalAuthService, createLocalDeliveries, createLocalFileBackend } from "../../auth-provider-local-core/src/server/lib/index.js";
 import { localServiceOptions } from "../../auth-provider-local-core/test-support/localService.js";
 import { readFile, rm } from "node:fs/promises";
 import path from "node:path";
@@ -82,14 +82,19 @@ test("documented application wiring sends auth recovery through the Resend adapt
   // Evaluate only the trusted repository example to keep application wiring verified.
   const createRecoverySender = new Function("createHash", `${example.replace('import { createHash } from "node:crypto";', "")}\nreturn createRecoverySender;`)(createHash);
   const sender = createRecoverySender({ connections: service, context, integrationId: "mail", from: input.from });
+  const options = localServiceOptions({ env: { APP_PUBLIC_URL: "https://app.example.com" }, emailRecovery: true });
+  const deliveries = createLocalDeliveries({ logger: options.logger });
   const auth = createLocalAuthService({
-    ...localServiceOptions({ env: { APP_PUBLIC_URL: "https://app.example.com" }, emailRecovery: true }),
+    ...options,
     backend: createLocalFileBackend({ storeDir: path.join(directory, "auth") }),
+    deliveries,
     recoverySender: sender
   });
   await auth.register({ email: "person@example.com", password: "correct horse battery staple" });
   const result = await auth.requestPasswordReset({ email: "person@example.com" });
   assert.equal(result.recoveryUrl, undefined);
+  // Local auth sends the email after it has answered.
+  assert.equal(await deliveries.settled(), true);
   assert.equal(requests.length, 2);
   const body = JSON.parse(requests[1].init.body);
   assert.deepEqual(body.to, ["person@example.com"]);

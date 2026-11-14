@@ -1,4 +1,5 @@
 export { createLocalAuthService } from "./service.js";
+export { createLocalDeliveries } from "./deliveries.js";
 export { resolveLocalAuthConfig } from "./config.js";
 export { createLoggedConfirmationSender } from "./emailConfirmation.js";
 export { createLoggedRecoverySender } from "./passwordFlows.js";

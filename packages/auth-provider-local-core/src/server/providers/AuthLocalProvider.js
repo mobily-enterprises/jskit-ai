@@ -6,6 +6,7 @@ import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { sideEffectsAreLive } from "@jskit-ai/kernel/shared/support/sideEffects";
 import { resolveLocalAuthConfig } from "../lib/config.js";
+import { DELIVERY_SHUTDOWN_WAIT_MS, createLocalDeliveries } from "../lib/deliveries.js";
 import {
   confirmEveryRegistrationByLink,
   createLoggedConfirmationSender,
@@ -18,6 +19,9 @@ import { createLoggedRecoverySender, createSimulatedRecoverySender } from "../li
 import { scryptPasswordStrategy } from "../lib/passwords.js";
 import { createLoggedSecondFactorEvents } from "../lib/secondFactor.js";
 import { createLocalAuthService } from "../lib/service.js";
+
+// The emails each started auth service is still sending, by the service its setup gave out, for its shutdown.
+const deliveriesByService = new WeakMap();
 
 const AuthLocalProvider = defineProvider({
   id: "auth.local",
@@ -93,6 +97,8 @@ const AuthLocalProvider = defineProvider({
     // A test copy (SIDE_EFFECTS is not live) logs the emails an installed sender would send, and sends none, whatever
     // the sender. The confirmation mode sends nothing, so a test copy keeps it.
     const live = sideEffectsAreLive(env);
+    const deliveries = createLocalDeliveries({ logger });
+    deliveriesByService.set(outputs.authService, deliveries);
     const baseService = createLocalAuthService({
       backend: localBackend,
       config,
@@ -100,6 +106,7 @@ const AuthLocalProvider = defineProvider({
       confirmationSender: emailConfirmationSender
         ? (live ? confirmationSender : createSimulatedConfirmationSender(logger))
         : createLoggedConfirmationSender(logger),
+      deliveries,
       firstAccountSetup,
       invitationContextResolver: extensions.resolveInvitationContextResolver(),
       logger,
@@ -113,6 +120,17 @@ const AuthLocalProvider = defineProvider({
     });
     // readable-check: allow setter-seam - deferred until boot: auth.service is built after every setup has registered its auth extensions, and those setups already receive it
     attachDeferredAuthService(outputs.authService, extensions.decorateService(baseService));
+  },
+  /**
+   * Waits for the emails local auth is still sending, for a while: a reset or confirmation link asked for just
+   * before the server stops still arrives. It stops before the providers it depends on, such as the sender's. A
+   * boot that stopped before making its service sent nothing.
+   */
+  async shutdown(_dependencies, { outputs }) {
+    const deliveries = deliveriesByService.get(outputs.authService);
+    if (deliveries) {
+      await deliveries.settled({ timeoutMs: DELIVERY_SHUTDOWN_WAIT_MS });
+    }
   }
 });
 

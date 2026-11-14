@@ -46,46 +46,72 @@ function createSimulatedRecoverySender(logger) {
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("../types.js").AuthLocalDeliveries} dependencies.deliveries Sends each
+ *   recovery email after its request has answered.
  * @param {import("../types.js").AuthLocalPasswords} dependencies.passwords
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  * @param {import("../types.js").AuthLocalRecoverySender} dependencies.recoverySender Sends each recovery
  *   link, except when the configuration returns it in the response.
  * @param {import("../types.js").AuthLocalSessions} dependencies.sessions
  */
-function createLocalPasswordFlows({ backend, config, passwords, profileProjector, recoverySender, sessions }) {
+function createLocalPasswordFlows({ backend, config, deliveries, passwords, profileProjector, recoverySender, sessions }) {
   const { recoveryEnabled } = config;
   const recoveryInResponse = config.recoveryDelivery === "dev-response";
 
-  async function requestPasswordReset(input) {
-    if (!recoveryEnabled) {
-      throw new AppError(503, "Password recovery is not configured.", { code: "auth.local.recovery.notConfigured" });
-    }
-    const email = validateEmailInput(input.email);
-    let recoveryUrl = "";
-    await backend.withTransaction(async (tx) => {
+  /**
+   * A new recovery link for the account of this email, its token kept only as a hash; "" when no account can
+   * recover with it.
+   * @param {string} email
+   */
+  async function createRecoveryUrl(email) {
+    const token = randomToken(32);
+    const created = await backend.withTransaction(async (tx) => {
       const user = await tx.users.findByEmail(email);
       if (!user || user.disabled) {
-        return;
+        return false;
       }
-      const token = randomToken(32);
-      recoveryUrl = `${config.appPublicUrl.replace(/\/$/, "")}/auth/reset-password?token=${encodeURIComponent(token)}&type=recovery`;
       await tx.recovery.create({
         id: createId(RESET_TOKEN_KIND),
         userId: user.id,
         tokenHash: sha256Base64url(token),
         expiresAt: isoFromNow(RECOVERY_TOKEN_TTL_SECONDS)
       });
+      return true;
     });
-    if (recoveryUrl && !recoveryInResponse) {
-      await recoverySender({ email, recoveryUrl });
+    return created
+      ? `${config.appPublicUrl.replace(/\/$/, "")}/auth/reset-password?token=${encodeURIComponent(token)}&type=recovery`
+      : "";
+  }
+
+  /**
+   * Answers the same, at once, whether or not the email has an account: the account is looked up, and its link made
+   * and emailed, after the answer (deliveries), so neither the answer nor its time says which emails have accounts,
+   * and a sender's failure is logged instead. Development's `dev-response` delivery puts the link in the answer
+   * instead, so it finds the account first.
+   * @param {{ email: string }} input
+   */
+  async function requestPasswordReset(input) {
+    if (!recoveryEnabled) {
+      throw new AppError(503, "Password recovery is not configured.", { code: "auth.local.recovery.notConfigured" });
     }
-    return {
+    const email = validateEmailInput(input.email);
+    const requested = {
       ok: true,
       message: "If an account exists for that email, password reset instructions have been sent.",
       messageCode: "auth.local.recovery.requested",
-      messageParams: {},
-      ...(recoveryUrl && recoveryInResponse ? { recoveryUrl } : {})
+      messageParams: {}
     };
+    if (recoveryInResponse) {
+      const recoveryUrl = await createRecoveryUrl(email);
+      return { ...requested, ...(recoveryUrl ? { recoveryUrl } : {}) };
+    }
+    deliveries.send("the password reset email", email, async () => {
+      const recoveryUrl = await createRecoveryUrl(email);
+      if (recoveryUrl) {
+        await recoverySender({ email, recoveryUrl });
+      }
+    });
+    return requested;
   }
 
   async function completePasswordRecovery(input) {
