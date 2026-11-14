@@ -15,7 +15,11 @@
 const CONTROL =
   "button, a[href], input[type='submit'], input[type='button'], input[type='checkbox'], input[type='radio'], [role='button']";
 const MARKED_FIELD = ".v-input--error, [aria-invalid='true']";
-const FOCUSABLE = "input:not([type='hidden']), textarea, select, button, [tabindex]:not([tabindex='-1'])";
+// A control that can take focus. A marked radio group may start with a disabled choice (the current one), and a select
+// keeps its value in a hidden input, so the first enabled, visible control is the one focused.
+const FOCUSABLE =
+  "input:not([type='hidden'], :disabled), textarea:not(:disabled), select:not(:disabled), button:not(:disabled), " +
+  "[tabindex]:not([tabindex='-1'])";
 const DIALOG = ".v-overlay__content, [role='dialog'], [role='alertdialog'], dialog";
 const STATE = Symbol("jskit.shell-web.pending");
 
@@ -41,7 +45,7 @@ function firstMarkedField(control) {
   const scope = control.form || control.closest(DIALOG) || control.ownerDocument;
   for (const marked of scope.querySelectorAll(MARKED_FIELD)) {
     const field = marked.matches(FOCUSABLE) ? marked : marked.querySelector(FOCUSABLE);
-    if (field && !field.disabled && field.getClientRects().length > 0) {
+    if (field && field.getClientRects().length > 0) {
       return field;
     }
   }

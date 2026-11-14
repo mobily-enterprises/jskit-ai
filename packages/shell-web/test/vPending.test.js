@@ -9,10 +9,11 @@ function createDocument() {
   return { activeElement: null };
 }
 
+// A field the refusal marked; the directive's selector for a focusable control leaves out a disabled one.
 function createField(document, { visible = true, disabled = false } = {}) {
   const field = {
-    disabled,
-    matches: () => true,
+    matches: () => !disabled,
+    querySelector: () => null,
     getClientRects: () => (visible ? [{}] : []),
     focus() {
       document.activeElement = field;

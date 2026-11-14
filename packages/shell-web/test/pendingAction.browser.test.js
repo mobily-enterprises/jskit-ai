@@ -128,7 +128,7 @@ test("a dialog's v-pending action keeps focus, ignores a second press and focuse
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   const send = page.getByTestId("fixture-send-invite");
-  await tabTo(page, send, { max: 6 });
+  await tabTo(page, send, { max: 8 });
   const framesOnBody = await watchFocus(page);
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("fixture-invite-presses")).toHaveText("1");
@@ -145,13 +145,20 @@ test("a dialog's v-pending action keeps focus, ignores a second press and focuse
   assert.equal(await framesOnBody(), 0, "focus fell to the page body while Send invite was pending");
 
   // Accepted, focus stays on the button.
-  await tabTo(page, send, { max: 6 });
+  await tabTo(page, send, { max: 8 });
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("fixture-invite-presses")).toHaveText("2");
   await page.evaluate(() => globalThis.settleFixtureInvite());
   await expect(send).toHaveText("Send invite");
   await page.waitForTimeout(100);
   await expect(send).toBeFocused();
+
+  // A refusal that marks a radio group whose first choice is disabled focuses its first enabled choice.
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("fixture-invite-presses")).toHaveText("3");
+  await page.evaluate(() => globalThis.settleFixtureInvite("Choose a larger plan.", "plan"));
+  await expect(dialog.getByText("Choose a larger plan.")).toBeVisible();
+  await expect(dialog.getByRole("radio", { name: "Larger plan" })).toBeFocused();
 });
 
 test("a form's implicit submission does nothing while its v-pending submit button runs", {
