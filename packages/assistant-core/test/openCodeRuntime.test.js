@@ -9,7 +9,7 @@ import { ensureOpenCodeSession, openCodeServerForDirectory } from "../src/server
 import { createOpenCodeServerClient } from "../src/server/conversation/openCodeClient.js";
 
 function fixture(options = {}) {
-  const runtime = createOpenCodeSharedRuntime({});
+  const runtime = createOpenCodeSharedRuntime({ healthTimeoutMs: options.healthTimeoutMs });
   const starts = [], stops = [];
   const connection = { modelProviderId: "provider", canonicalUrl: "https://provider.invalid", fingerprint: "account", endpointCode: "api" };
   const start = async selected => {
@@ -281,7 +281,7 @@ test("a pending OpenCode session start retains the shared server while another s
 
 test("a timed-out shared health probe preserves active conversations and allows retry", async () => {
   let slow = false;
-  const f = fixture({ health: async ({ signal }) => {
+  const f = fixture({ healthTimeoutMs: 100, health: async ({ signal }) => {
     if (slow) await delay(5_000, undefined, { signal });
     return { healthy: true };
   } });
@@ -311,7 +311,7 @@ test("a timed-out shared health probe preserves active conversations and allows 
 
 test("a timed-out readiness probe does not classify the shared process as unhealthy", async () => {
   let slow = false;
-  const f = fixture({ health: async ({ signal }) => {
+  const f = fixture({ healthTimeoutMs: 100, health: async ({ signal }) => {
     if (slow) await delay(5_000, undefined, { signal });
     return { healthy: true };
   } });
@@ -331,6 +331,30 @@ test("a timed-out readiness probe does not classify the shared process as unheal
   assert.deepEqual(await f.runtime.inspectSessionReadiness(target, input), {
     ready: true, unhealthyProcess: null, missingUpstream: false
   });
+});
+
+test("a shared server that answers its health probes late is healthy, neither failed nor replaced", async () => {
+  let late = false;
+  // Later than the fixed 1-second probe this bound replaced, as a busy host answers; like OpenCode's client, the
+  // fake gives up when the probe's signal aborts.
+  const f = fixture({ health: async ({ signal }) => {
+    if (late) await delay(1_100, undefined, { signal });
+    return { healthy: true };
+  } });
+  const target = await f.acquire("main");
+  const selection = { modelProviderId: "provider", modelId: "model", catalogRevision: "catalog" };
+  Object.assign(target, { upstream: { id: "thread" }, upstreamSessionId: "thread", selection,
+    upstreamSelection: selection, canonicalUrl: f.connection.canonicalUrl,
+    connectionFingerprint: f.connection.fingerprint, endpointCode: f.connection.endpointCode });
+  target.server.client.readSession = async () => ({ id: "thread" });
+  late = true;
+  await f.acquire("next");
+  assert.deepEqual(await f.runtime.inspectSessionReadiness(target, { selection, workdir: target.workdir,
+    connection: f.connection, refresh: async () => target, changed: () => new Error("Changed") }), {
+    ready: true, unhealthyProcess: null, missingUpstream: false
+  });
+  assert.equal(f.starts.length, 1);
+  assert.equal(f.stops.length, 0);
 });
 
 test("a refused shared health connection still replaces the stopped server", async () => {

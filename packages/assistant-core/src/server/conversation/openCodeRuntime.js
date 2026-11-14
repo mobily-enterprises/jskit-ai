@@ -6,6 +6,7 @@ import {
   createOpenCodeTurnMonitor, openCodeProviderApiFailure, openCodeTurnSnapshot, writeConversationProjection
 } from "./openCodeTurnMonitor.js";
 import { createOpenCodeSessionTurns } from "./openCodeSessionTurns.js";
+import { OPENCODE_READY_TIMEOUT_MS } from "./openCodeProcess.js";
 import { normalizeNullableText } from "./normalize.js";
 import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -75,10 +76,14 @@ export async function openCodeEnvironmentForSession(environments, sessionId = ""
  * @param {{
  *   onStop?: (stop: { reason: string, sessions: number, startingSessions: number }) => void,
  *   scope?: string,
- *   storageIdleMs?: number
- * }} options
+ *   storageIdleMs?: number,
+ *   healthTimeoutMs?: number
+ * }} options `healthTimeoutMs` bounds each health probe of the running server; it defaults to the readiness bound
+ *   a starting server has, so only a hung server fails it, never a busy one.
  */
-export function createOpenCodeSharedRuntime({ onStop = ignoreRuntimeStop, scope, storageIdleMs = 60_000 }) {
+export function createOpenCodeSharedRuntime({
+  onStop = ignoreRuntimeStop, scope, storageIdleMs = 60_000, healthTimeoutMs = OPENCODE_READY_TIMEOUT_MS
+}) {
   if (scope !== undefined && !path.isAbsolute(scope)) throw new TypeError("OpenCode runtime scopes require an absolute directory.");
   if (scope && sharedRuntimes.has(scope)) return sharedRuntimes.get(scope);
   const processes = new Map();
@@ -96,11 +101,12 @@ export function createOpenCodeSharedRuntime({ onStop = ignoreRuntimeStop, scope,
     turns,
     temporaryConversations,
     onStop,
-    storageIdleMs
+    storageIdleMs,
+    healthTimeoutMs
   });
   const conversations = createOpenCodeTemporaryConversations({ processes, temporaryConversations, processOwner });
   const turnMonitor = createOpenCodeTurnMonitor({ processes, monitors, turns, processOwner });
-  const sessionTurns = createOpenCodeSessionTurns({ processes, monitors, turns, processOwner, turnMonitor });
+  const sessionTurns = createOpenCodeSessionTurns({ processes, monitors, turns, processOwner, turnMonitor, healthTimeoutMs });
 
   function writeBindings(filename, scope, entries) {
     if (!path.isAbsolute(filename || "") || registryPath && registryPath !== filename) {

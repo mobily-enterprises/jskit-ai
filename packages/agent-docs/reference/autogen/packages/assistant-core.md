@@ -1505,7 +1505,7 @@ Local functions
 
 ### `src/server/conversation/openCodeProcessOwner.js`
 Exports
-- `createOpenCodeProcessOwner({ processes, processStarts, monitors, turns, temporaryConversations, onStop, storageIdleMs })`
+- `createOpenCodeProcessOwner({ processes, processStarts, monitors, turns, temporaryConversations, onStop, storageIdleMs, healthTimeoutMs })`
 - `type OpenCodeProcessOwner`
 Local functions
 - `ignoreTargetRemoval()`
@@ -1517,14 +1517,14 @@ Exports
 - `readOpenCodeEnvironments(registryPath = "")`
 - `openCodeEnvironmentForDirectory(environments, cwd = "")`
 - `openCodeEnvironmentForSession(environments, sessionId = "", client = null)`
-- `createOpenCodeSharedRuntime({ onStop = ignoreRuntimeStop, scope, storageIdleMs = 60_000 })`
+- `createOpenCodeSharedRuntime({ onStop = ignoreRuntimeStop, scope, storageIdleMs = 60_000, healthTimeoutMs = OPENCODE_READY_TIMEOUT_MS })`
 Local functions
 - `ignoreRuntimeStop()`
 - `pathContains(root = "", candidate = "")`
 
 ### `src/server/conversation/openCodeSessionTurns.js`
 Exports
-- `createOpenCodeSessionTurns({ processes, monitors, turns, processOwner, turnMonitor })`
+- `createOpenCodeSessionTurns({ processes, monitors, turns, processOwner, turnMonitor, healthTimeoutMs })`
 Local functions
 - `openCodeAdmission()`
 

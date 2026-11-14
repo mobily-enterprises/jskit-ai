@@ -31,10 +31,11 @@ function openCodeAdmission() {
  *   monitors: Map<string, Promise<object>>,
  *   turns: Map<string, object>,
  *   processOwner: import("./openCodeProcessOwner.js").OpenCodeProcessOwner,
- *   turnMonitor: import("./openCodeTurnMonitor.js").OpenCodeTurnMonitor
+ *   turnMonitor: import("./openCodeTurnMonitor.js").OpenCodeTurnMonitor,
+ *   healthTimeoutMs: number
  * }} options
  */
-export function createOpenCodeSessionTurns({ processes, monitors, turns, processOwner, turnMonitor }) {
+export function createOpenCodeSessionTurns({ processes, monitors, turns, processOwner, turnMonitor, healthTimeoutMs }) {
   async function runPreparedRenewalTurn(preparation) {
     const acquired = await processOwner.acquirePrepared(await preparation.process());
     const releaseDirectory = await processOwner.admitDirectory(acquired.workdir);
@@ -419,7 +420,7 @@ export function createOpenCodeSessionTurns({ processes, monitors, turns, process
       const observedProcess = processOwner.current;
       const observedServer = target.server;
       let healthy = false;
-      const probe = AbortSignal.timeout(1_000);
+      const probe = AbortSignal.timeout(healthTimeoutMs);
       try {
         await target.server.client.health({ signal: probe });
         healthy = true;

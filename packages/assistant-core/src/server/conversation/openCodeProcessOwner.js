@@ -19,10 +19,13 @@ function ignoreTargetRemoval() {}
  *   turns: Map<string, object>,
  *   temporaryConversations: Map<string, object>,
  *   onStop: (stop: { reason: string, sessions: number, startingSessions: number }) => void,
- *   storageIdleMs: number
+ *   storageIdleMs: number,
+ *   healthTimeoutMs: number
  * }} options
  */
-export function createOpenCodeProcessOwner({ processes, processStarts, monitors, turns, temporaryConversations, onStop, storageIdleMs }) {
+export function createOpenCodeProcessOwner({
+  processes, processStarts, monitors, turns, temporaryConversations, onStop, storageIdleMs, healthTimeoutMs
+}) {
   const processExitProofs = new Map();
   let sharedProcess = null;
   let sharedProcessStart = null;
@@ -199,7 +202,7 @@ export function createOpenCodeProcessOwner({ processes, processStarts, monitors,
       const recorded = sharedProcess.connections.get(selected?.modelProviderId);
       const current = !selected || sameConnection(recorded, selected);
       if (current || (readConnections && inPlaceConnection(recorded, selected))) {
-        const probe = AbortSignal.timeout(1_000);
+        const probe = AbortSignal.timeout(healthTimeoutMs);
         let healthy = false;
         try {
           await sharedProcess.server.client.health({ signal: probe });
