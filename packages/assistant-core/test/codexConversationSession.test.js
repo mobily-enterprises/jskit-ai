@@ -942,7 +942,7 @@ async function fixture(t, options = {}) {
       const callTool = (turn, tool, arguments_, foreign = false) => new Promise((resolve, reject) => {
         const id = "tool-request-" + (++requestId);
         toolRequests.set(id, { resolve, reject });
-        if (${Boolean(options.holdAfterToolRefusal)} && tool === "assistant_action_execute") {
+        if (${Boolean(options.oversizedNativeToolInput)} && tool === "assistant_action_execute") {
           log({ oversizedNativeToolRequest: { id, threadId: thread.id, turnId: turn.id,
             argumentsByteLength: Buffer.byteLength(JSON.stringify(arguments_)), inputValueByteLength: Buffer.byteLength(arguments_.input.value) } });
         }
@@ -2752,7 +2752,9 @@ async function boundCodexToolsFixture(t, options = {}) {
       for (const cleanup of cleanups) await cleanup();
     }
   });
-  const f = await fixture({ after: callback => cleanups.push(callback) }, { limits: options.limits });
+  const f = await fixture({ after: callback => cleanups.push(callback) }, {
+    limits: options.limits, holdAfterToolRefusal: options.holdAfterToolRefusal
+  });
   await f.conversation.send({ messageId: "original-process-seed", text: "Hello" });
   await f.conversation.wait();
   assert.ok(sharedProvider);
@@ -3014,7 +3016,13 @@ test("bound Codex readiness publishes exact schemas before start/resume and reje
 });
 
 test("an owned bound tool failure interrupts only its native thread and preserves the peer", async t => {
-  const f = await boundCodexToolsFixture(t, { execute: async () => { throw new Error("Owned action result unavailable"); } });
+  // The fake app-server keeps the native turn running after the refused tool call, so only the owner's interrupt
+  // ends it. Without the hold it fails the turn itself, and whichever comes first, that or the owner's check of
+  // the turn, decides whether an interrupt is needed at all.
+  const f = await boundCodexToolsFixture(t, {
+    holdAfterToolRefusal: true,
+    execute: async () => { throw new Error("Owned action result unavailable"); }
+  });
   await f.two.send({ messageId: "owned-failure-peer", text: "wait" });
   const peerThread = await f.bindings.get("bound-two").identity.read();
   await f.one.send({ messageId: "owned-failure", text: "tools" });
