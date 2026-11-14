@@ -7,6 +7,7 @@ import knexFactory from "knex";
 import { createKnexMigrationConfig } from "../src/server/knexMigrationConfig.js";
 import {
   TestDatabaseMissingError,
+  createPackageTestKnex,
   countQueries,
   requireDisposableDatabase,
   requireTestDatabase,
@@ -47,12 +48,21 @@ test("a test database and its copies are never the application's database, stagi
     [{ APP_ENV: "production", NODE_ENV: "production" }, "TEST_DB_NAME", 1, /when APP_ENV is production/u],
     [{ APP_ENV: "" }, "TEST_DB_NAME", 1, /^APP_ENV is not set/u]
   ]) {
-    assert.throws(() => requireDisposableDatabase({ ...environment, ...overrides }, variable, count), message,
+    assert.throws(() => requireDisposableDatabase({ ...environment, ...overrides }, variable, count), { message },
       JSON.stringify(overrides));
   }
   // The database the Knex configuration connects to, whatever the environment says.
   assert.throws(() => requireDisposableDatabase({ ...environment, DB_NAME: "" }, "TEST_DB_NAME", 2, { connected: "Catalogue_Test_1" }),
     /PROD_DB_NAME \(catalogue_test_1\)/u);
+});
+
+test("package data tests on PostgreSQL never run in staging or production, before any connection", async (context) => {
+  for (const APP_ENV of ["staging", "production"]) {
+    await assert.rejects(
+      createPackageTestKnex(context, { environment: { ...connectionEnvironment, DB_CLIENT: "pg", APP_ENV, NODE_ENV: "production" } }),
+      { message: `Package data tests never run when APP_ENV is ${APP_ENV}.` }
+    );
+  }
 });
 
 test("the snapshot key changes when a migration changes, is added or is renamed, and only then", async (context) => {

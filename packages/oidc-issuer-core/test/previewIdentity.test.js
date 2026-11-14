@@ -27,7 +27,7 @@ function request(selector, protocol = DEFAULT_PREVIEW_IDENTITY_PROTOCOL) {
 }
 
 test("the preview signs in as an existing hub account and receives its cookie", async () => {
-  const env = { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: SECRET };
+  const env = { APP_ENV: "development", AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: SECRET };
   const result = await executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }), { env });
   assert.equal(result.ok, true, JSON.stringify(result));
   assert.equal(result.identity.email, "ada@example.test");
@@ -35,7 +35,7 @@ test("the preview signs in as an existing hub account and receives its cookie", 
 });
 
 test("the command answers only the protocol id its host names", async () => {
-  const env = { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: SECRET };
+  const env = { APP_ENV: "development", AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: SECRET };
   const protocol = "example-host.preview-identity.command.v1";
   const named = await executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }, protocol), { env, protocol });
   assert.equal(named.ok, true, JSON.stringify(named));
@@ -47,15 +47,15 @@ test("the command answers only the protocol id its host names", async () => {
 
 test("a wrong secret, an unknown account or a disabled exchange is refused", async () => {
   const wrong = await executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }), {
-    env: { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: "b".repeat(64) }
+    env: { APP_ENV: "development", AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: "b".repeat(64) }
   });
   assert.equal(wrong.ok, false);
   assert.equal(wrong.statusCode, 403);
   const unknown = await executePreviewIdentityRequest(request({ type: "email", value: "nobody@example.test" }), {
-    env: { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: SECRET }
+    env: { APP_ENV: "development", AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: SECRET }
   });
   assert.equal(unknown.statusCode, 404);
-  const disabled = await executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }), { env: {} });
+  const disabled = await executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }), { env: { APP_ENV: "development" } });
   assert.equal(disabled.code, "preview_identity_disabled");
   await assert.rejects(executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }), {}),
     /requires the hub's environment/u);

@@ -110,7 +110,7 @@ try {
   }
   const configuration = JSON.parse(await readFile("integrations.json", "utf8"));
   const context = { applicationId: process.env.APP_ID, subjectId: "setup-operator" };
-  const connections = createConnectionService({ configuration, providers: [resendProvider],
+  const connections = createConnectionService({ appEnv: "test", configuration, providers: [resendProvider],
     resolveReference: createEnvironmentReferenceResolver(process.env),
     store: createFileConnectionStore({ directory: path.resolve("state"), protection: createCredentialProtection({
       activeKeyId: "fixture", keys: { fixture: Buffer.from(process.env.STORE_KEY, "hex") }

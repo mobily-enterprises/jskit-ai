@@ -3,6 +3,7 @@ import { test } from "node:test";
 import { resolveHubConfig } from "../src/server/config.js";
 
 const base = {
+  APP_ENV: "development",
   OIDC_HUB_REGISTRATION_TOKEN: "a-registration-token-of-enough-length",
   OIDC_HUB_OWNER_EMAIL: "Owner@Example.test",
   OIDC_HUB_SECRET: "x".repeat(48)

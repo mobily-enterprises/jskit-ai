@@ -76,7 +76,7 @@ test("the installed runtime's health runs the checks its providers register", as
       });
     }
   });
-  const installed = await createInstalledRuntime({ appRoot, logger: silentLogger, providers: [queueProvider] });
+  const installed = await createInstalledRuntime({ appRoot, env: { APP_ENV: "test" }, logger: silentLogger, providers: [queueProvider] });
   assert.deepEqual(await installed.health.check(), { ok: true, checks: { queue: { ok: true } } });
   reachable = false;
   assert.deepEqual(await installed.health.check(), { ok: false, checks: { queue: { ok: false } } });

@@ -40,7 +40,7 @@ test("an application that depends only on auth-pass installs it with no provider
     dependencies: { "@jskit-ai/auth-pass": `file:${PACKAGE_ROOT}` }
   }));
 
-  const installed = await createInstalledRuntime({ appRoot, logger: silentLogger });
+  const installed = await createInstalledRuntime({ appRoot, env: { APP_ENV: "test" }, logger: silentLogger });
   context.after(() => installed.runtime.shutdown());
 
   assert.deepEqual(installed.packageOrder, ["@jskit-ai/auth-pass"]);

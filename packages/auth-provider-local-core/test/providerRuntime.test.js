@@ -437,21 +437,24 @@ test("local login-as rejects missing, incorrect, and non-loopback exchange autho
   );
 });
 
-test("local auth provider rejects dev login-as enablement in production", async () => {
-  await assert.rejects(
-    () => createStartedApp({
-      env: {
-        ...devAuthEnv(),
-        AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
-        AUTH_LOCAL_SESSION_SECRET: "production-session-secret",
-        AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
-        APP_ENV: "production", NODE_ENV: "production"
-      }
-    }),
-    (error) => /must not be enabled in production/.test(
-      String(error.details?.cause?.message || error.message || "")
-    )
-  );
+test("local auth provider rejects dev login-as enablement in staging and production", async () => {
+  for (const APP_ENV of ["staging", "production"]) {
+    await assert.rejects(
+      () => createStartedApp({
+        env: {
+          ...devAuthEnv(),
+          AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+          AUTH_LOCAL_SESSION_SECRET: "production-session-secret",
+          AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
+          APP_ENV, NODE_ENV: "production"
+        }
+      }),
+      (error) => /^AUTH_DEV_BYPASS_ENABLED is for development only: remove it from staging and production\.$/u.test(
+        String(error.details?.cause?.message || error.message || "")
+      ),
+      APP_ENV
+    );
+  }
 });
 
 test("a production server with AUTH_LOCAL_RECOVERY_DEV_OUTPUT set refuses to start, saying what to remove", async () => {
@@ -1553,8 +1556,9 @@ test("in production, email confirmation needs an auth.local.confirmation-sender,
   await assert.rejects(
     () => createStartedApp({ env: production }),
     (error) => String(error.details?.cause?.message || error.message || "") ===
-      "Local auth confirms each new account's email address in production, and no auth.local.confirmation-sender " +
-        "is installed to email the confirmation links. Install one, set AUTH_LOCAL_EMAIL_CONFIRMATION=false " +
+      "Local auth confirms each new account's email address in staging and production, and no " +
+        "auth.local.confirmation-sender is installed to email the confirmation links. Install one, set " +
+        "AUTH_LOCAL_EMAIL_CONFIRMATION=false " +
         "to let accounts register without confirming their email, or set AUTH_LOCAL_SELF_REGISTRATION=false " +
         "when accounts are only invited."
   );

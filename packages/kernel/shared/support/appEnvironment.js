@@ -5,7 +5,8 @@
  * security headers. NODE_ENV only picks optimised builds; nothing here reads it.
  *
  * - `development`: a developer's machine, a session or a preview. Email, SMS,
- *   push, webhooks, connector writes and real payments are logged, not sent.
+ *   push, webhooks and connector writes are logged, not sent; payments use the
+ *   sandbox.
  * - `test`: the same, inside automated test runs (`jskit test` and the browser
  *   test servers set it).
  * - `staging`: a deployed copy for checking the application. Email goes only to
@@ -20,7 +21,7 @@ const DEPLOYED_ENVIRONMENTS = Object.freeze(["staging", "production"]);
 /**
  * The page's environment travels in this meta tag: the JSKIT server adds it to
  * every HTML page it sends, and JSKIT's Vite plugin to the pages its
- * development server sends, so the shell shows its "Development" or "Staging"
+ * development server sends, so the shell shows its "Development", "Test" or "Staging"
  * banner with no request and no application code.
  */
 const APP_ENVIRONMENT_META_NAME = "jskit-app-environment";

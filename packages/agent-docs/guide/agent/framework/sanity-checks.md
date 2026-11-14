@@ -167,11 +167,9 @@ A consolidation drops behaviour there without a failing build.
 
 ### Production settings
 
-- `APP_ENV` says where the server runs, and a server without a known one
-  refuses to start ([Environments](/guide/framework/environments)). A deployed
-  server sets `APP_ENV=staging` or `APP_ENV=production`, with
-  `NODE_ENV=production`; only then does local auth ask for the first-account
-  setup code and refuse development-only settings.
+- A deployed server sets `APP_ENV=staging` or `production` and
+  `NODE_ENV=production` ([Environments](/guide/framework/environments)); only
+  then does local auth ask for a setup code and refuse development settings.
 - On an empty production database, local auth asks for the first account's
   setup code, so whoever reaches a new deployment first cannot own it ([The
   first account in

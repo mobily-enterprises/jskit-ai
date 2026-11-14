@@ -50,7 +50,7 @@ test("parseBooleanFlag normalizes conventional environment flag values", () => {
 test("dev auth policy rejects production and missing-secret enablement", () => {
   assert.throws(
     () => assertDevAuthPolicy(enabledPolicy({ appEnv: "staging" })),
-    /^AUTH_DEV_BYPASS_ENABLED is for development only: remove it from staging and production\.$/
+    { message: /^AUTH_DEV_BYPASS_ENABLED is for development only: remove it from staging and production\.$/u }
   );
   assert.throws(
     () => assertDevAuthPolicy(enabledPolicy({ secret: "" })),
@@ -74,7 +74,7 @@ test("dev sign-in follows APP_ENV: allowed in development and test, refused in s
     assert.equal(isDevAuthBootstrapEnabled(policy), false, APP_ENV);
     assert.throws(() => ensureDevAuthRuntimeAvailable(policy, createRequest()), { code: "auth.dev.unavailable" }, APP_ENV);
   }
-  assert.throws(() => resolveDevAuthPolicyFromEnv({ APP_ENV: "development" }), { message: /^APP_ENV is not set/u });
+  assert.throws(() => resolveDevAuthPolicyFromEnv({}), { message: /^APP_ENV is not set/u });
 });
 
 test("dev auth trusts only a direct loopback connection with a loopback Host", () => {

@@ -101,7 +101,7 @@ test("installed runtime composes explicit package providers and application inpu
   });
   const runtime = await createInstalledRuntime({
     appRoot,
-    env: { APP_NAME: "Books" },
+    env: { APP_ENV: "test", APP_NAME: "Books" },
     logger: { debug() {}, info() {}, warn() {}, error() {} },
     providers: [observer]
   });
@@ -129,7 +129,7 @@ test("a second boot of an installed app reads no package manifests until its pac
   const lockfilePath = path.join(appRoot, "node_modules", ".package-lock.json");
   await mkdir(path.dirname(lockfilePath), { recursive: true });
   await writeFile(lockfilePath, JSON.stringify({ name: "fixture-app", lockfileVersion: 3, packages: {} }));
-  const boot = () => createInstalledRuntime({ appRoot, env: { APP_NAME: "Books" }, logger: silentLogger });
+  const boot = () => createInstalledRuntime({ appRoot, env: { APP_ENV: "test", APP_NAME: "Books" }, logger: silentLogger });
   const manifests = ["package.json", path.join("packages", "example", "package.json")];
 
   assert.deepEqual(await manifestReadsDuring(appRoot, boot), manifests);
@@ -154,7 +154,7 @@ test("installed runtime attaches one idempotent Fastify shutdown hook", async (c
     route() {},
     setErrorHandler() {}
   };
-  const installed = await createInstalledRuntime({ appRoot, fastify, logger: silentLogger });
+  const installed = await createInstalledRuntime({ appRoot, env: { APP_ENV: "test" }, fastify, logger: silentLogger });
   const closeHook = hooks.find((entry) => entry.name === "onClose");
   assert.ok(closeHook);
   await closeHook.handler();
@@ -170,7 +170,7 @@ test("installed runtime refuses a package whose manifest disagrees with its prov
   context.after(() => rm(appRoot, { recursive: true, force: true }));
 
   await assert.rejects(
-    createInstalledRuntime({ appRoot, env: {}, logger: silentLogger }),
+    createInstalledRuntime({ appRoot, env: { APP_ENV: "test" }, logger: silentLogger }),
     { message: "Package @fixture/example requires capability runtime.env in its providers but not in its manifest." }
   );
 });

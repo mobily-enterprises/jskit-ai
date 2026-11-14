@@ -25,7 +25,7 @@ async function startPolicy({ hasPermission = () => true } = {}) {
     onPolicyDenied(event) {
       denied.push(event.reason);
     }
-  })(fastify);
+  }, { appEnv: "test" })(fastify);
   return {
     state,
     denied,

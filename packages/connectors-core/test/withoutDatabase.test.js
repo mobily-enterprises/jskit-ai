@@ -6,6 +6,7 @@ import test from "node:test";
 import { createInstalledRuntime } from "@jskit-ai/kernel/server/platform";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 
+const TEST_ENV = Object.freeze({ APP_ENV: "test" });
 const TABLE_RUNTIME = ["@jskit-ai/database-runtime", "@jskit-ai/resource-runtime"];
 const readManifest = async (url) => JSON.parse(await readFile(url, "utf8"));
 
@@ -40,14 +41,14 @@ test("an app without a database installs @jskit-ai/connectors-core without the t
     assert.equal(manifest.peerDependenciesMeta?.[name]?.optional, true, `${name} is an optional peer`);
   }
 
-  const started = await createInstalledRuntime({ appRoot: await installedApp(t, [manifest]), logger: silentLogger });
+  const started = await createInstalledRuntime({ appRoot: await installedApp(t, [manifest]), env: TEST_ENV, logger: silentLogger });
   assert.ok(started.packageOrder.includes(manifest.name));
   assert.equal(started.packageOrder.some((name) => TABLE_RUNTIME.includes(name)), false);
 
   // Installed as a dependency, the table runtime would need a database driver the app does not have.
   const databaseRuntime = await readManifest(new URL("../../database-runtime/package.json", import.meta.url));
   await assert.rejects(
-    createInstalledRuntime({ appRoot: await installedApp(t, [manifest, databaseRuntime]), logger: silentLogger }),
+    createInstalledRuntime({ appRoot: await installedApp(t, [manifest, databaseRuntime]), env: TEST_ENV, logger: silentLogger }),
     /requires capability runtime\.database\.driver, but no installed package provides it/u
   );
 });

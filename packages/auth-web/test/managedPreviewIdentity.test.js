@@ -77,6 +77,7 @@ test("managed preview identity signs out before selecting an existing applicatio
   }, {
     ...HOST_OPTIONS,
     env: {
+      APP_ENV: "development",
       AUTH_DEV_BYPASS_ENABLED: "true",
       AUTH_DEV_BYPASS_SECRET: SECRET
     },
@@ -114,7 +115,7 @@ test("managed preview identity rejects a disabled or non-local exchange", async 
     protocol: HOST_PROTOCOL,
     requestId: "request-2",
     target: { origin: "http://localhost:3000" }
-  }, { ...HOST_OPTIONS, env: {}, fetchImpl: async () => assert.fail("fetch must not run") });
+  }, { ...HOST_OPTIONS, env: { APP_ENV: "development" }, fetchImpl: async () => assert.fail("fetch must not run") });
   assert.equal(disabled.ok, false);
   assert.equal(disabled.code, "jskit_managed_preview_identity_disabled");
 
@@ -126,6 +127,7 @@ test("managed preview identity rejects a disabled or non-local exchange", async 
   }, {
     ...HOST_OPTIONS,
     env: {
+      APP_ENV: "development",
       AUTH_DEV_BYPASS_ENABLED: "true",
       AUTH_DEV_BYPASS_SECRET: SECRET
     },
@@ -141,6 +143,7 @@ test("managed preview identity rejects a disabled or non-local exchange", async 
     target: { origin: "http://preview-deadbeefcafe" }
   }, {
     env: {
+      APP_ENV: "development",
       AUTH_DEV_BYPASS_ENABLED: "true",
       AUTH_DEV_BYPASS_SECRET: SECRET
     },
@@ -159,7 +162,7 @@ test("managed preview identity accepts the dev auth secret auth-core accepts", a
   };
   const missing = await executeManagedPreviewIdentityRequest(request, {
     ...HOST_OPTIONS,
-    env: { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: "  " },
+    env: { APP_ENV: "development", AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: "  " },
     fetchImpl: async () => assert.fail("fetch must not run")
   });
   assert.equal(missing.code, "jskit_managed_preview_identity_secret_missing");
@@ -170,7 +173,7 @@ test("managed preview identity accepts the dev auth secret auth-core accepts", a
   ];
   const signedOut = await executeManagedPreviewIdentityRequest(request, {
     ...HOST_OPTIONS,
-    env: { AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: " any-local-secret " },
+    env: { APP_ENV: "development", AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: " any-local-secret " },
     fetchImpl: async () => responses.shift()
   });
   assert.equal(signedOut.ok, true);

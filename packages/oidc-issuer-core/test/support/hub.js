@@ -56,25 +56,35 @@ async function startHub({ env = {}, knex = null, port = null, now, googleEndpoin
   const mailer = createCapturingMailer();
   const issuerUrl = `http://127.0.0.1:${listenPort}`;
   const app = Fastify({ logger: false, forceCloseConnections: true });
-  const issuer = await createOidcIssuer({
-    knex: database,
-    env: {
-      APP_PUBLIC_URL: issuerUrl,
-      OIDC_HUB_SECRET: "a-test-hub-secret-that-is-long-enough-0123456789",
-      OIDC_HUB_REGISTRATION_TOKEN: REGISTRATION_TOKEN,
-      OIDC_HUB_OWNER_EMAIL: OWNER_EMAIL,
-      ...env
-    },
-    logger: silentLogger,
-    mailer,
-    now,
-    appRoot,
-    catalogs,
-    googleEndpoints,
-    fetchImpl
-  });
-  await issuer.mount(app);
-  await app.listen({ port: listenPort, host: "127.0.0.1" });
+  let issuer;
+  try {
+    issuer = await createOidcIssuer({
+      knex: database,
+      env: {
+        APP_ENV: "test",
+        APP_PUBLIC_URL: issuerUrl,
+        OIDC_HUB_SECRET: "a-test-hub-secret-that-is-long-enough-0123456789",
+        OIDC_HUB_REGISTRATION_TOKEN: REGISTRATION_TOKEN,
+        OIDC_HUB_OWNER_EMAIL: OWNER_EMAIL,
+        ...env
+      },
+      logger: silentLogger,
+      mailer,
+      now,
+      appRoot,
+      catalogs,
+      googleEndpoints,
+      fetchImpl
+    });
+    await issuer.mount(app);
+    await app.listen({ port: listenPort, host: "127.0.0.1" });
+  } catch (error) {
+    // A hub that fails to start releases what it opened, so the test fails at once instead of waiting on them.
+    await issuer?.close();
+    await app.close();
+    if (!knex) await database.destroy();
+    throw error;
+  }
   return {
     app,
     issuer,

@@ -145,7 +145,7 @@ test("propagates csrf callback error", async () => {
     hasPermission() {
       return true;
     }
-  });
+  }, { appEnv: "test" });
 
   await registerPlugin(fastify);
   await assert.rejects(
@@ -194,7 +194,7 @@ test("enforces own policy owner checks and invalid policy guard", async () => {
     onPolicyDenied(event) {
       denyEvents.push(event);
     }
-  });
+  }, { appEnv: "test" });
 
   await registerPlugin(fastify);
 
@@ -295,7 +295,7 @@ test("enforces permission checks and resolves workspace context when requested",
     onPolicyDenied(event) {
       denyEvents.push(event);
     }
-  });
+  }, { appEnv: "test" });
 
   await registerPlugin(fastify);
   await assert.rejects(
@@ -330,7 +330,7 @@ test("each policy refusal carries its own code next to the English", async () =>
     hasPermission() {
       return false;
     }
-  })(fastify);
+  }, { appEnv: "test" })(fastify);
 
   async function refusal(config, params = {}) {
     try {
