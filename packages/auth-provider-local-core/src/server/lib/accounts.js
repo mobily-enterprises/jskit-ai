@@ -209,6 +209,7 @@ function createLocalAccounts({
       };
     });
     firstAccountSetup.accountCreated();
+    sessions.recordSignInEvent("signedIn", { method: "registration", userId: result.user.id, email: result.user.email }, request);
     return {
       ...(await buildAuthPayload({
         user: result.user,
@@ -240,7 +241,8 @@ function createLocalAccounts({
    * nobody knows, as long as checking a wrong one takes. A successful sign-in,
    * or a password reset, forgets the failures. A disabled account's right
    * password is refused with the account's message; its wrong one is an
-   * ordinary failure.
+   * ordinary failure. The sign-in, or its refusal with the reason, is a
+   * sign-in event.
    */
   async function login(input, request = null) {
     const email = validateEmailInput(input.email);
@@ -250,7 +252,8 @@ function createLocalAccounts({
       const failures = await tx.signInFailures.find(email);
       const waitMs = signInWaitMs(failures, now);
       if (waitMs > 0) {
-        return { waitMs };
+        // Only for the sign-in event: the password is not checked.
+        return { waitMs, userId: (await tx.users.findByEmail(email))?.id || "" };
       }
       let checked = false;
       const passwordMatches = (record) => {
@@ -269,7 +272,7 @@ function createLocalAccounts({
         }
         await tx.signInFailures.deleteBefore(forgottenFailuresBefore(now));
         await tx.signInFailures.save(recordSignInFailure(config.signInThrottle, failures, email, now));
-        return { failed: true };
+        return { failed: true, userId: user?.id || "" };
       }
       if (user.disabled) {
         return { disabled: user };
@@ -280,18 +283,25 @@ function createLocalAccounts({
       return { user, session: await sessions.createSessionForUser(tx, user, { request }) };
     });
     // Refused after the transaction, so the failure it records is kept.
+    const refused = (reason, userId = "") =>
+      sessions.recordSignInEvent("failed", { method: "password", reason, userId, email }, request);
     if (outcome.waitMs) {
+      refused("locked", outcome.userId);
       throw signInLockedError(outcome.waitMs);
     }
     if (outcome.failed) {
+      refused("invalidCredentials", outcome.userId);
       throw createAuthError(AUTH_TEXTS.invalidCredentials);
     }
     if (outcome.unconfirmed) {
+      refused("unconfirmed");
       throw createAuthError(AUTH_TEXTS.emailUnconfirmed);
     }
     if (outcome.disabled) {
+      refused("disabled", outcome.disabled.id);
       throw accountDisabledError(outcome.disabled);
     }
+    sessions.recordSignInEvent("signedIn", { method: "password", userId: outcome.user.id, email: outcome.user.email }, request);
     // After the transaction, as register does: the profile projector works in transactions of its own, so a sign-in
     // that synchronized the profile inside this one held two database connections at once.
     return buildAuthPayload({ user: outcome.user, session: outcome.session, profileProjector });

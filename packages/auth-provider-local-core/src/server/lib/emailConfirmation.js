@@ -199,6 +199,7 @@ function createLocalEmailConfirmation({
       throw emailTakenError();
     }
     firstAccountSetup.accountCreated();
+    sessions.recordSignInEvent("signedIn", { method: "confirmation", userId: outcome.user.id, email: outcome.user.email }, request);
     return buildAuthPayload({ user: outcome.user, session: outcome.session, profileProjector, profileOptions });
   }
 

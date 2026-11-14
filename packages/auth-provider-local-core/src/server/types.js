@@ -150,6 +150,41 @@
  */
 
 /**
+ * One sign-in event: a sign-in (`signedIn`) or a refused one (`failed`), by
+ * `method`: `password`, `registration` (registering signed in at once),
+ * `confirmation` (a registration's email link), `recovery` (a password reset's
+ * link), `pass` (a one-time pass) or `provider` (with `provider`, its id, such
+ * as `google`). A refusal's `reason` is `invalidCredentials`, `locked` (the
+ * email waits after its failures; the password was not checked),
+ * `unconfirmed` (the right password of a registration still waiting for its
+ * link) or `disabled` (the right password, provider or pass of a disabled
+ * account). `userId` is the local account's id, "" when the email names none;
+ * `email` is the email signed in, or typed; `ip` and `userAgent` are the
+ * request's, "" when there is no request; `at` is an ISO time. No secret,
+ * password or token is in it.
+ * @typedef {object} AuthLocalSignInEvent
+ * @property {"signedIn" | "failed"} type
+ * @property {"password" | "registration" | "confirmation" | "recovery" | "pass" | "provider"} method
+ * @property {string} userId
+ * @property {string} email
+ * @property {string} ip
+ * @property {string} userAgent
+ * @property {string} at
+ * @property {"invalidCredentials" | "locked" | "unconfirmed" | "disabled"} [reason]
+ * @property {string} [provider]
+ */
+
+/**
+ * The `auth.local.sign-in-events` capability: records each sign-in and each
+ * refused one, for an application's own list of an account's sign-ins or its
+ * audit log. It is given each event after the request has answered, so a
+ * refused sign-in takes the same time whatever it does; when it fails, local
+ * auth logs the failure. A stopping server waits for it, for a while. Without
+ * one, local auth logs each event.
+ * @typedef {(event: AuthLocalSignInEvent) => Promise<void>} AuthLocalSignInEvents
+ */
+
+/**
  * An account's recent failed sign-ins: how many, the last one, and when it may
  * try again ("" when it need not wait). Times are ISO strings.
  * @typedef {{ email: string, failures: number, lastFailedAt: string, lockedUntil: string }} AuthLocalSignInFailures

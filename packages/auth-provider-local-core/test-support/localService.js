@@ -7,6 +7,7 @@ import { createLoggedConfirmationSender } from "../src/server/lib/emailConfirmat
 import { createLoggedRecoverySender } from "../src/server/lib/passwordFlows.js";
 import { scryptPasswordStrategy } from "../src/server/lib/passwords.js";
 import { createLoggedSecondFactorEvents } from "../src/server/lib/secondFactor.js";
+import { createLoggedSignInEvents } from "../src/server/lib/sessions.js";
 
 /**
  * What a test passes to createLocalAuthService besides its backend: a complete
@@ -41,7 +42,8 @@ function localServiceOptions({ env = {}, emailRecovery = false, emailConfirmatio
     profileProjector: noAppProfiles,
     recoverySender: createLoggedRecoverySender(silentLogger),
     confirmationSender: createLoggedConfirmationSender(silentLogger),
-    secondFactorEvents: createLoggedSecondFactorEvents(silentLogger)
+    secondFactorEvents: createLoggedSecondFactorEvents(silentLogger),
+    signInEvents: createLoggedSignInEvents(silentLogger)
   };
 }
 

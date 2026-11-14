@@ -128,6 +128,7 @@ function createLocalPasswordFlows({ backend, config, deliveries, passwords, prof
         })
       };
     });
+    sessions.recordSignInEvent("signedIn", { method: "recovery", userId: user.id, email: user.email }, request);
     // After the transaction, so the request holds one database connection at a time: the profile projector works in
     // transactions of its own.
     return buildAuthPayload({ user, session, profileProjector });

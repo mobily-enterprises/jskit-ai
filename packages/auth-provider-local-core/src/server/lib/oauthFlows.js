@@ -100,6 +100,7 @@ function createLocalOAuthFlows({
   /**
    * Subject first, then a verified email that matches an existing user, then a
    * new user created like register; profile sync then provisions it as usual.
+   * The sign-in, and the refusal of a disabled account, are sign-in events.
    */
   async function signInWithOAuthIdentity(identity, request) {
     await firstAccountSetup.start();
@@ -120,7 +121,7 @@ function createLocalOAuthFlows({
         throw new AppError(401, "This account can't sign in.", { code: "auth.local.oauth.accountUnavailable" });
       }
       if (user.disabled) {
-        throw accountDisabledError(user);
+        return { disabled: user };
       }
       if (!linked) {
         await tx.identities.create({
@@ -132,9 +133,16 @@ function createLocalOAuthFlows({
       }
       return { user, registered, session: await sessions.createSessionForUser(tx, user, { request }) };
     });
+    const method = { method: "provider", provider: identity.provider };
+    if (result.disabled) {
+      const { id: userId, email } = result.disabled;
+      sessions.recordSignInEvent("failed", { ...method, reason: "disabled", userId, email }, request);
+      throw accountDisabledError(result.disabled);
+    }
     if (result.registered) {
       firstAccountSetup.accountCreated();
     }
+    sessions.recordSignInEvent("signedIn", { ...method, userId: result.user.id, email: result.user.email }, request);
     return {
       ...(await buildAuthPayload({ user: result.user, session: result.session, profileProjector })),
       registered: result.registered

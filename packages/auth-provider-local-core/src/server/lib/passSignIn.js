@@ -17,7 +17,8 @@ async function noPassIdentities() {
  * holds the issuer's key, audience and resource. A pass is checked, then recorded as used in the backend, so it signs
  * in once however many servers share the backend's database, and then the application's pass identity names the
  * account it signs in: one that is missing is refused as unmapped, and a disabled one is told it is disabled, as its
- * right password is. The session is an ordinary one, as a password sign-in makes.
+ * right password is. The session is an ordinary one, as a password sign-in makes. The sign-in, and the refusal of a
+ * disabled account, are sign-in events; a pass that names no account signs no account in, and is none.
  * @param {object} dependencies
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
@@ -50,9 +51,11 @@ function createLocalPassSignIn({ backend, config, passIdentity, profileProjector
       throw createPassError(PASS_TEXTS.passUnmapped);
     }
     if (user.disabled) {
+      sessions.recordSignInEvent("failed", { method: "pass", reason: "disabled", userId: user.id, email: user.email }, request);
       throw accountDisabledError(user);
     }
     const session = await backend.withTransaction((tx) => sessions.createSessionForUser(tx, user, { request }));
+    sessions.recordSignInEvent("signedIn", { method: "pass", userId: user.id, email: user.email }, request);
     // After the transaction, as a password sign-in does: the profile projector works in transactions of its own.
     return buildAuthPayload({ user, session, profileProjector });
   }

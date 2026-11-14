@@ -18,6 +18,7 @@ import { createLoggedRecoverySender } from "../lib/passwordFlows.js";
 import { scryptPasswordStrategy } from "../lib/passwords.js";
 import { createLoggedSecondFactorEvents } from "../lib/secondFactor.js";
 import { createLocalAuthService } from "../lib/service.js";
+import { createLoggedSignInEvents } from "../lib/sessions.js";
 
 // The emails each started auth service is still sending, by the service its setup gave out, for its shutdown.
 const deliveriesByService = new WeakMap();
@@ -65,7 +66,8 @@ const AuthLocalProvider = defineProvider({
     passwordStrategy: "auth.local.password-strategy",
     profileProjector: "auth.profile.projector",
     recoverySender: "auth.local.recovery-sender",
-    secondFactorEvents: "auth.local.second-factor-events"
+    secondFactorEvents: "auth.local.second-factor-events",
+    signInEvents: "auth.local.sign-in-events"
   },
   provides: {
     authService: "auth.service"
@@ -91,6 +93,8 @@ const AuthLocalProvider = defineProvider({
    * @param {import("../types.js").AuthLocalRecoverySender | null} dependencies.recoverySender The `auth.local.recovery-sender`, when one is installed.
    * @param {import("../types.js").AuthLocalSecondFactorEvents | null} dependencies.secondFactorEvents The
    *   `auth.local.second-factor-events`, when one is installed.
+   * @param {import("../types.js").AuthLocalSignInEvents | null} dependencies.signInEvents The
+   *   `auth.local.sign-in-events`, when one is installed.
    */
   async boot(
     {
@@ -105,7 +109,8 @@ const AuthLocalProvider = defineProvider({
       passwordStrategy,
       profileProjector,
       recoverySender,
-      secondFactorEvents
+      secondFactorEvents,
+      signInEvents
     },
     { outputs }
   ) {
@@ -142,14 +147,15 @@ const AuthLocalProvider = defineProvider({
       recoverySender: emailRecovery
         ? sendAsAppEnvironmentSays({ env, logger, sender: recoverySender, name: "password reset" })
         : createLoggedRecoverySender(logger),
-      secondFactorEvents: secondFactorEvents ?? createLoggedSecondFactorEvents(logger)
+      secondFactorEvents: secondFactorEvents ?? createLoggedSecondFactorEvents(logger),
+      signInEvents: signInEvents ?? createLoggedSignInEvents(logger)
     });
     // readable-check: allow setter-seam - deferred until boot: auth.service is built after every setup has registered its auth extensions, and those setups already receive it
     attachDeferredAuthService(outputs.authService, extensions.decorateService(baseService));
   },
   /**
-   * Waits for the emails local auth is still sending, for a while: a reset or confirmation link asked for just
-   * before the server stops still arrives. It stops before the providers it depends on, such as the sender's. A
+   * Waits for the emails local auth is still sending, and the sign-in events it is handing over, for a while: a reset
+   * or confirmation link asked for just before the server stops still arrives. It stops before the providers it depends on, such as the sender's. A
    * boot that stopped before making its service sent nothing.
    */
   async shutdown(_dependencies, { outputs }) {

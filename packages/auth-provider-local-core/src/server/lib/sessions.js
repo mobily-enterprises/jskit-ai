@@ -33,6 +33,17 @@ function requestClient(request) {
   };
 }
 
+/**
+ * The `auth.local.sign-in-events` default when no feature provides one: local auth logs each sign-in event.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} logger
+ * @returns {import("../types.js").AuthLocalSignInEvents}
+ */
+function createLoggedSignInEvents(logger) {
+  return async function logSignInEvent(event) {
+    logger.info({ signInEvent: event }, `Local auth sign-in: ${event.type}.`);
+  };
+}
+
 function unauthenticatedAuthResult(clearSession = false) {
   return {
     authenticated: false,
@@ -100,14 +111,22 @@ function buildSessionPayload({ user, session, refreshToken, secret }) {
  * session last proved its second factor (`secondFactorAt`, "" when it has not).
  * A session keeps where it was last seen from (`ip`, `userAgent`) and when
  * (`lastSeenAt`): the request that signed it in, then one that finds it more
- * than five minutes later.
+ * than five minutes later. Each sign-in, and each refused one, is an event for
+ * the application's `auth.local.sign-in-events` (recordSignInEvent).
  * @param {object} dependencies
  * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
+ * @param {import("../types.js").AuthLocalDeliveries} dependencies.deliveries Hands each sign-in event over after the
+ *   request has answered.
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
+ * @param {import("../types.js").AuthLocalSignInEvents} dependencies.signInEvents The `auth.local.sign-in-events`, or
+ *   one made by createLoggedSignInEvents.
  */
-function createLocalSessions({ appProfileProjection, backend, config, profileProjector }) {
+function createLocalSessions({ appProfileProjection, backend, config, deliveries, profileProjector, signInEvents }) {
+  if (!signInEvents) {
+    throw new TypeError("createLocalSessions() takes signInEvents, the auth.local.sign-in-events function each sign-in event is given.");
+  }
   const { devAuth, isDeployed } = config;
   // Staging and production cookies are Secure, so they are also host-only __Host- cookies.
   const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isDeployed);
@@ -404,8 +423,23 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
     };
   }
 
+  /**
+   * Hands one sign-in event to the application, once the request has answered, so neither the recorder's time nor
+   * its failure reaches the person signing in: a sign-in (`signedIn`) or a refused one (`failed`, with its `reason`),
+   * by `method`, of the account `userId` names ("" when the email names none) at `email`, from where the request came,
+   * now. Called after the sign-in's transaction, so a sign-in that did not happen is never an event.
+   * @param {"signedIn" | "failed"} type
+   * @param {{ method: string, email: string, userId?: string, reason?: string, provider?: string }} subject
+   * @param {object | null} request
+   */
+  function recordSignInEvent(type, { email, userId = "", ...details }, request) {
+    const event = { type, ...details, userId, email, ...requestClient(request), at: new Date().toISOString() };
+    deliveries.send("the sign-in event", email, () => signInEvents(event));
+  }
+
   return Object.freeze({
     createSessionForUser,
+    recordSignInEvent,
     authenticateRequest,
     forgetRequestAuthentication,
     updateRequestActor,
@@ -420,4 +454,4 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
   });
 }
 
-export { cookieOptions, createLocalSessions, safeRequestCookies };
+export { cookieOptions, createLocalSessions, createLoggedSignInEvents, safeRequestCookies };

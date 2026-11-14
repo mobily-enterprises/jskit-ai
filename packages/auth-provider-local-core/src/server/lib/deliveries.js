@@ -1,5 +1,6 @@
 /**
- * How long a stopping server waits for the emails local auth is still sending, before it stops anyway.
+ * How long a stopping server waits for the emails local auth is still sending, and the sign-in events it is still
+ * handing over, before it stops anyway.
  */
 const DELIVERY_SHUTDOWN_WAIT_MS = 10_000;
 
@@ -9,7 +10,8 @@ const DELIVERY_SHUTDOWN_WAIT_MS = 10_000;
  * answer must not wait on work done only when it has one: looking it up and writing a new link differ in time, and
  * the sender's own time and failures differ most. That work runs here instead, once the request has answered. Each
  * piece starts at once; its failure is logged, never the link it carries, and is not the requester's to see. A
- * stopping server waits for the emails still being sent (settled).
+ * stopping server waits for the emails still being sent (settled). Each sign-in event goes the same way, so a refused
+ * sign-in answers in the same time whatever the application's recorder takes.
  * @param {object} dependencies
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  */

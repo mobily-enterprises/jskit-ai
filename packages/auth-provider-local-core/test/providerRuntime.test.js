@@ -117,7 +117,8 @@ async function createStartedApp({
   confirmationMode = null,
   invitationContextResolver = null,
   logger = null,
-  configureExtensions = null
+  configureExtensions = null,
+  signInEvents = null
 } = {}) {
   const storeDir = await temporaryStoreDir("jskit-auth-local-");
   const backend = createLocalFileBackend({ storeDir });
@@ -168,6 +169,7 @@ async function createStartedApp({
     ...(recoverySender !== null ? { "auth.local.recovery-sender": recoverySender } : {}),
     ...(confirmationSender !== null ? { "auth.local.confirmation-sender": confirmationSender } : {}),
     ...(confirmationMode !== null ? { "auth.local.confirmation-mode": confirmationMode } : {}),
+    ...(signInEvents !== null ? { "auth.local.sign-in-events": signInEvents } : {}),
   };
   const runtime = createCapabilityRuntime({
     inputs,
@@ -1375,6 +1377,31 @@ test("production sessions use host-only __Host- cookies and ignore the old names
     jskit_local_refresh_token: reply.cookies["__Host-jskit_local_refresh_token"]
   };
   assert.equal((await app.authService.authenticateRequest({ cookies: oldNames })).authenticated, false);
+});
+
+test("an installed auth.local.sign-in-events is given each sign-in event, and without one each is logged", async (t) => {
+  const PASSWORD = "correct horse battery staple";
+  const events = [];
+  const app = await createStartedApp({ signInEvents: async (event) => { events.push(event); } });
+  t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
+  const ada = (await app.authService.register({ email: "ada@example.com", password: PASSWORD })).actor.providerUserId;
+  await assert.rejects(app.authService.login({ email: "ada@example.com", password: "a wrong password" }), { status: 401 });
+  // Stopping waits for the events still being handed over.
+  await app.runtime.shutdown();
+  assert.deepEqual(events.map(({ type, method, reason = "", userId }) => [type, method, reason, userId]), [
+    ["signedIn", "registration", "", ada],
+    ["failed", "password", "invalidCredentials", ada]
+  ]);
+
+  const logs = [];
+  const logged = await createStartedApp({
+    logger: { info: (fields, message) => logs.push([message, fields?.signInEvent?.method]), warn() {}, error() {}, debug() {} }
+  });
+  t.after(() => fs.rm(logged.storeDir, { recursive: true, force: true }));
+  await logged.authService.register({ email: "ada@example.com", password: PASSWORD });
+  await logged.runtime.shutdown();
+  assert.deepEqual(logs.filter(([message]) => String(message).startsWith("Local auth sign-in")),
+    [["Local auth sign-in: signedIn.", "registration"]]);
 });
 
 test("local recovery uses the application sender without returning or logging its token", async (t) => {

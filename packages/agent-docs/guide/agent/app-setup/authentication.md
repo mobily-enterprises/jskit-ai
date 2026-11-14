@@ -163,6 +163,21 @@ sign-in factor, and at least 8 when it is used with another factor; set
 
 The login page shows either refusal, translated, with the wait.
 
+**Sign-in events (local auth).** Each sign-in and each refused one is an
+event, for a page that lists an account's sign-ins or for an audit log:
+`type` (`signedIn` or `failed`), `method` (`password`, `registration`,
+`confirmation`, `recovery`, `pass`, or `provider` with `provider`, such as
+`google`), a refusal's `reason` (`invalidCredentials`, `locked`,
+`unconfirmed` or `disabled`), `userId` (the local account, "" when the email
+names none), `email`, the request's `ip` and `userAgent`, and `at`; never a
+password, secret or token. An application that keeps them installs the
+`auth.local.sign-in-events` capability, a function given each event
+(`AuthLocalSignInEvent` in `@jskit-ai/auth-provider-local-core/server/types`),
+and stores them in a table of its own, with how long it keeps them. It is
+called after the request has answered, so a refused sign-in takes the same
+time whatever it does; when it fails, local auth logs the failure, and a
+stopping server waits for it a while. Without one, local auth logs each event.
+
 ## Sign-in cookies and SameSite
 
 Local auth's cookies (access, refresh, recovery and OAuth attempt) and

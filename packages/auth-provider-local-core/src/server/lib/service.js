@@ -43,8 +43,8 @@ const NO_PASS_SIGN_IN = Object.freeze({
  * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
  *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender.
  * @param {import("../types.js").AuthLocalDeliveries} [dependencies.deliveries] Sends the password reset and new
- *   confirmation link emails after their requests have answered; by default, its own, whose settled() nothing waits
- *   for. The provider passes the one its shutdown waits for.
+ *   confirmation link emails, and hands over the sign-in events, after their requests have answered; by default, its
+ *   own, whose settled() nothing waits for. The provider passes the one its shutdown waits for.
  * @param {import("../types.js").AuthLocalFirstAccountSetup} [dependencies.firstAccountSetup] The first
  *   account's setup code, already started by the provider; by default, one that starts on first use.
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
@@ -59,6 +59,8 @@ const NO_PASS_SIGN_IN = Object.freeze({
  *   `auth.local.recovery-sender`, or one made by createLoggedRecoverySender.
  * @param {import("../types.js").AuthLocalSecondFactorEvents} dependencies.secondFactorEvents The
  *   `auth.local.second-factor-events`, or one made by createLoggedSecondFactorEvents.
+ * @param {import("../types.js").AuthLocalSignInEvents} dependencies.signInEvents The `auth.local.sign-in-events`, or
+ *   one made by createLoggedSignInEvents; it is given each event through `deliveries`.
  */
 function createLocalAuthService({
   backend,
@@ -73,7 +75,8 @@ function createLocalAuthService({
   passwordStrategy,
   profileProjector,
   recoverySender,
-  secondFactorEvents
+  secondFactorEvents,
+  signInEvents
 }) {
   const passwords = normalizePasswordStrategy(passwordStrategy);
   const firstAccountSetup = givenFirstAccountSetup ?? createFirstAccountSetup({ backend, config, logger });
@@ -131,7 +134,7 @@ function createLocalAuthService({
     features: { ...capabilitiesForFirstAccount.features, firstAccountSetupCode: true }
   });
 
-  const sessions = createLocalSessions({ appProfileProjection, backend, config, profileProjector });
+  const sessions = createLocalSessions({ appProfileProjection, backend, config, deliveries, profileProjector, signInEvents });
   const emailConfirmation = createLocalEmailConfirmation({
     backend,
     config,
