@@ -48,9 +48,9 @@
       },
       "appEnvironment": {
         "development": "Development",
-        "developmentDescription": "Development: emails, messages and payments are logged, not sent.",
+        "developmentDescription": "Development: emails and messages are logged, not sent; payments use the sandbox.",
         "test": "Test",
-        "testDescription": "Test: emails, messages and payments are logged, not sent.",
+        "testDescription": "Test: emails and messages are logged, not sent; payments use the sandbox.",
         "staging": "Staging",
         "stagingDescription": "Staging: email and text messages reach only the staging test addresses, other messages are logged and payments use the sandbox."
       }

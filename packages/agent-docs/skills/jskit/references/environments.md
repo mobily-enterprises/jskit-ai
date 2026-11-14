@@ -95,9 +95,9 @@ are refused there, as everywhere but production.
   shell (`@jskit-ai/shell-web`) shows a small "Development", "Test" or
   "Staging" banner from it, with no application code, and none in production.
   The banner never takes a click or a tap. Screen readers read it as a note,
-  with a sentence such as "Development: emails, messages and payments are
-  logged, not sent" as its description. It has no label, so a browser test's
-  `getByLabel("Email")` never finds it.
+  with a sentence such as "Development: emails and messages are logged, not
+  sent; payments use the sandbox." as its description. It has no label, so a
+  browser test's `getByLabel("Email")` never finds it.
 - Local-password emails (confirmation and password reset) with an installed
   sender go out as the table says. In staging the sender gets
   `STAGING_EMAIL_TO` as `email` and the person's address as `originalEmail`,

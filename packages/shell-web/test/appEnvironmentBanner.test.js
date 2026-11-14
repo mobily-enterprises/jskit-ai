@@ -25,8 +25,8 @@ function fakeDocument(environment) {
 
 test("a development, test or staging page gets one banner naming its environment, which takes no clicks", () => {
   for (const [environment, label, description] of [
-    ["development", "Development", "Development: emails, messages and payments are logged, not sent."],
-    ["test", "Test", "Test: emails, messages and payments are logged, not sent."],
+    ["development", "Development", "Development: emails and messages are logged, not sent; payments use the sandbox."],
+    ["test", "Test", "Test: emails and messages are logged, not sent; payments use the sandbox."],
     ["staging", "Staging", "Staging: email and text messages reach only the staging test addresses, other messages are " +
       "logged and payments use the sandbox."]
   ]) {

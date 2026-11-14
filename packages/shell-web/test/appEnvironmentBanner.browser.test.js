@@ -58,7 +58,7 @@ test("a development page shows the Development banner at every width, in light a
       const banner = page.getByTestId("jskit-app-environment-banner");
       assert.equal(await banner.textContent(), "Development", label);
       assert.equal(await page.getByRole("note").textContent(), "Development", `${label}: a note`);
-      assert.equal(await banner.getAttribute("aria-description"), "Development: emails, messages and payments are logged, not sent.", label);
+      assert.equal(await banner.getAttribute("aria-description"), "Development: emails and messages are logged, not sent; payments use the sandbox.", label);
       // An application's inexact field lookup finds only its Email field, never the banner whose sentence says emails.
       assert.equal(await page.getByLabel("Email").count(), 1, `${label}: one Email match`);
       assert.equal(await page.getByLabel("Email").getAttribute("id"), "email", `${label}: the Email field`);
