@@ -829,7 +829,11 @@ match while it waited; with a `limit` it stops once it holds that many. A
 `limit` outside 1 to 1,000, or a `sort` on no stored field, is refused before
 any statement.
 
-A lock answers the rows it locks, with the fields `fields` names. Its
+A lock answers the rows it locks, with the fields `fields` names. A belongs-to
+field among them is checked against its target as last committed, as the lock
+sees its own rows (on MySQL and MariaDB with a shared lock of the target until
+commit), so a link to a target saved after the transaction's first plain read
+shows, and a link to a target the caller may not see reads null. Its
 `include` names belongs-to relationships (`include: ["customer"]`, or
 `"batch.yard"` a level further): after its own rows, the lock locks the
 records they name through each related table's own handle (its scope, its row
@@ -850,7 +854,9 @@ sees what had committed when it began, so that read is current. On MySQL and
 MariaDB a plain read inside a transaction sees the snapshot of the
 transaction's first plain read, and a lock that waited does not move it. So
 take the lock before any plain read in the transaction: the reads after it then
-see what the lock's previous holder committed. A related row the work decides
+see what the lock's previous holder committed. On MySQL and MariaDB a
+`createMany` with `onConflict` reads its keys plainly first, so it counts as a
+plain read here: lock, then upsert. A related row the work decides
 on (is this seat already booked?) is locked itself, through the lock's
 `include` or a lock of its own, or read after a lock that every writer of it
 takes first.
@@ -928,7 +934,15 @@ it locks the record, creating it from the row first when it is missing, and
 runs `work(record, txOptions)` in the same transaction, so failed work leaves
 no record behind. On its own it runs work once, so work may call a provider:
 two first uses of one id at once can collide on the insert, and the loser runs
-again before its work starts.
+again before its work starts. On MySQL and MariaDB first uses of neighbouring
+ids collide too: the lock of an id no row holds locks the gap where it would
+go, and two such locks in one gap make both inserts wait for each other, a
+deadlock the database ends by failing one. It locks before it inserts all the
+same, since an upsert reads its keys plainly, and a plain read before the lock
+would leave the work reading the rows as they stood before the record's
+previous holder committed. In a transaction of its own it runs the loser
+again; in the caller's, the caller's `withTransaction` runs the unit again when
+it opened the transaction.
 
 Every lock takes `FOR UPDATE`, as `patchWhere` does for the rows it selects,
 which also keeps out another transaction's insert of a row that references the
@@ -996,7 +1010,13 @@ locks that read it, and work that locks through a policy and then writes a row
 the policy read can deadlock with work doing the same (the database fails one,
 and `withTransaction` runs it again). Give the policy's subqueries an index
 that finds the deciding rows directly, since on MySQL and MariaDB a locking
-subquery locks every row it examines. `claim` keeps its policy's subqueries
+subquery locks every row it examines. The rows a subquery examines are the
+rows its plan walks, not the rows it returns: one that reads through another
+table by a link (a module's definition by its id) and narrows to the caller's
+owner after the walk locks the rows of every owner its index range crosses.
+Give each nested read a filter on the owner's columns that an index leads
+with, or keep the walk out of the lock: lock the rows, then check the linked
+rows with a read of their own. `claim` keeps its policy's subqueries
 plain reads. Rows
 of several owners are never locked in one statement over a join, which on
 MySQL and MariaDB locks every joined row the read examines: lock each owner's

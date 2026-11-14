@@ -32,6 +32,9 @@ async function lockOrCreate(handle, row, options, work) {
   // The lock mode the caller names, for both locks of the record, refused before any transaction opens.
   const mode = lockModeOf(handle.name, "lockOrCreate", options.lockMode);
   const locked = async (txOptions) => {
+    // The lock comes first, before any plain read: on MySQL and MariaDB a plain read fixes the transaction's snapshot,
+    // and an upsert reads its keys plainly, so an upsert first would leave the work reading, after the lock waited,
+    // what stood before the record's previous holder committed.
     const existing = await handle.lock(row.id, { ...txOptions, ...mode, missing: "skip" });
     if (existing) {
       return existing;
