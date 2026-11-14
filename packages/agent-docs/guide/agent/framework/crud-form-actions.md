@@ -11,9 +11,15 @@ description: Customize shared CRUD form actions and local validation guidance.
 its default content. The slot exposes `screen`, `mode`, `formRuntime`,
 `formState`, `addEdit`, `saveLabel`, the resolved
 `cancelTo` route target, and `submit`. Custom actions call `submit()` and bind
-their disabled state to `addEdit.isSubmitDisabled`. Keyboard submission uses
-the same runtime. `addEdit.isSaving` stays true through the request and
-asynchronous `onSaveSuccess` callback; duplicate
+their disabled state to `addEdit.isSubmitDisabled` and their pending state to
+`addEdit.isSubmitPending` (the save, or the record's reload after it, is
+running). `ShellPageAction` takes both and keeps keyboard focus while it is
+pending; a plain button, when possible, takes
+`v-pending="addEdit.isSubmitPending"` and
+`:disabled="addEdit.isSubmitDisabled && !addEdit.isSubmitPending"`, since a
+focused button that becomes disabled drops focus to the page body. Keyboard
+submission uses the same runtime. `addEdit.isSaving` stays true through the
+request and asynchronous `onSaveSuccess` callback; duplicate
 submissions remain blocked during both.
 
 `useAddEdit()` and the `addEdit` runtime exposed by `useCrudAddEdit()` and
@@ -42,9 +48,13 @@ Inside `CrudAddEditScreen`, alongside the existing `fields` slot:
 <template #actions="{ addEdit, submit, saveLabel, cancelTo }">
   <v-btn v-if="cancelTo" variant="outlined" :to="cancelTo">Cancel</v-btn>
   <div>
-    <v-btn :disabled="addEdit.isSubmitDisabled" @click="submit">
-      {{ addEdit.isSaving ? "Saving…" : saveLabel }}
-    </v-btn>
+    <ShellPageAction
+      primary
+      :label="addEdit.isSaving ? 'Saving…' : saveLabel"
+      :disabled="addEdit.isSubmitDisabled"
+      :pending="addEdit.isSubmitPending"
+      @click="submit"
+    />
     <p v-if="addEdit.validationAttempted" aria-live="polite">
       {{ Object.values(addEdit.validationErrors).join(" ") }}
     </p>
@@ -58,7 +68,8 @@ to clear the successfully saved model, call `screen.addEdit.resetValidation()`,
 and prepare the next entry. This callback replaces default success navigation
 and invalidation; perform those there when needed. Clear the model only in
 `onSaveSuccess`: `submit()` also resolves after invalid or failed submissions.
-Guard action selection with `isSubmitDisabled` and restore the default action
+Guard action selection with `isSubmitDisabled` (true while pending too) and
+restore the default action
 after each attempt so keyboard submission uses normal Save. Track the clicked
 button separately to keep guidance beside it while fields are corrected.
 

@@ -272,8 +272,9 @@ dialog, chip or FAB.
   (`@jskit-ai/shell-web/client/components/ShellPageActions`), each a
   `ShellPageAction` with `icon`, `label` (also its accessible name and compact
   tooltip), and `primary`, `to`, `replace`, `href` (with `download` for a
-  file, such as a CSV export), `disabled`, `loading` or `color` (`error` for a
-  destructive one); attributes such as `target` reach its button. On compact
+  file, such as a CSV export), `disabled`, `pending`, `loading` or `color`
+  (`error` for a destructive one); attributes such as `target` reach its
+  button. On compact
   widths the bar shows the single `primary` action (a form's Save) and puts
   the other actions, and the top-right items that don't fit beside the title,
   in its "More actions" menu, where `overflow` actions always are; medium and
@@ -365,7 +366,12 @@ dialog, chip or FAB.
   loading uses Material skeletons that reserve the final content geometry;
   never use a generic spinner or circular progress indicator, and never let
   content jump when data arrives. An action without a loading content region
-  uses a stable disabled/pending label and shared feedback, not a spinner.
+  uses a stable pending label ("Saving…") and shared feedback, not a spinner.
+- While a command runs, mark its button pending rather than `disabled` when
+  possible: `pending` on `ShellPageAction` and `ShellPrimaryAction`,
+  `v-pending` on other buttons. It keeps keyboard focus, reads as unavailable
+  and ignores a second press; a focused button that becomes `disabled` drops
+  focus to the page body. Keep `disabled` for an action that cannot run.
 - Keep failures at their semantic owner. A resource that cannot render uses a
   stable in-page error and retry state; field validation stays beside the
   field. A user-triggered command uses JSKIT's shared action

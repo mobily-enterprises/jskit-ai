@@ -30,7 +30,15 @@ and action UI.
 
 - Initial and structural loading uses shape-matching skeletons.
 - Never use circular progress, indeterminate spinners, or loading icons.
-- Pending buttons keep their position and use stable disabled labels.
+- Pending buttons keep their position, use stable pending labels and, when
+  possible, keep keyboard focus: `pending` on `ShellPageAction` and
+  `ShellPrimaryAction`, `v-pending`
+  (`@jskit-ai/shell-web/client/directives/vPending`) on other buttons, instead
+  of `disabled`, which drops a focused button's focus to the page body. When
+  the command's refusal marks a field, focus moves to that field; when the
+  button goes away as its command settles (the last page of "Load more"), move
+  focus to where the next step starts, such as the first record that page
+  added.
 - Resource-load failures stay in the affected region with retry.
 - Command and mutation failures use the shared toast/snackbar feedback path;
   they do not insert banners that push page content down.

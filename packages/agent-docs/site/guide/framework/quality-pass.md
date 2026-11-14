@@ -15,8 +15,8 @@ in a JSKIT app. The rules it applies are already in [Material 3](/guide/framewor
 ## States on every screen
 
 - **Loading:** Material skeletons with the geometry of the content they stand
-  for, never a spinner; an action keeps a stable label while it runs and
-  cannot be sent twice ([Components, state, and feedback](/guide/framework/material-3#components-state-and-feedback)).
+  for, never a spinner; an action keeps a stable label and its keyboard focus
+  while it runs, and cannot be sent twice ([Components, state, and feedback](/guide/framework/material-3#components-state-and-feedback)).
   Ordinary reads stop after 30 seconds, so a slow read ends in its error state.
 - **Empty:** a list's empty state carries an icon, a line saying what would be
   there and one action, such as New; with filters or a search applied it
@@ -58,6 +58,12 @@ in a JSKIT app. The rules it applies are already in [Material 3](/guide/framewor
   width.
 - **Double submit:** click Save twice quickly; the command's pending state
   must send one request.
+- **Keyboard through a running command:** Tab to Save (or Send, "Load more",
+  a dialog's confirm), press Enter and answer the request late
+  (`page.route`). Focus should stay on the button while it runs, and move to
+  the field a refusal marks. Focus on the page body there usually means the
+  button was `disabled` while it ran; mark it pending instead when possible
+  ([Material 3 rules](/guide/framework/material-3#components-state-and-feedback)).
 - **Session and tabs:** sign out in another tab and come back; let the session
   expire mid-form. The auth guard sends the person to sign-in and back.
 - **Time:** dates follow [strict temporal values](/guide/framework/crud-operations#strict-temporal-values);

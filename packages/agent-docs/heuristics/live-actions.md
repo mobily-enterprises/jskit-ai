@@ -32,7 +32,10 @@ Good live-action pattern:
 
 - build a narrow payload
 - call `command.run()`
-- disable only the busy control while the command is running
+- mark only the busy control pending while the command is running
+  (`v-pending="command.isRunning"`, or `ShellPageAction`'s `pending`), when
+  possible, rather than disabling it: it keeps keyboard focus, reads as
+  unavailable and ignores a second press
 - invalidate the relevant query key on success
 - keep derived business rules on the server
 

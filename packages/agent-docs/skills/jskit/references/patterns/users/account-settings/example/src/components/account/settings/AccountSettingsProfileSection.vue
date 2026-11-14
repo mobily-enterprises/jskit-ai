@@ -1,4 +1,6 @@
 <script setup>
+import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
+
 const props = defineProps({
   runtime: {
     type: Object,
@@ -81,7 +83,8 @@ const profile = props.runtime.profile;
           color="primary"
           class="mt-4"
           :loading="profile.isSaving.value"
-          :disabled="profile.isDeletingAvatar.value || profile.isRefreshing.value"
+          v-pending="profile.isSaving.value || profile.isRefreshing.value"
+          :disabled="profile.isDeletingAvatar.value"
         >
           Save profile
         </v-btn>

@@ -1,4 +1,6 @@
 <script setup>
+import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
+
 const props = defineProps({
   runtime: {
     type: Object,
@@ -119,7 +121,7 @@ const preferences = props.runtime.preferences;
           color="primary"
           class="mt-4"
           :loading="preferences.isSaving.value"
-          :disabled="preferences.isRefreshing.value"
+          v-pending="preferences.isSaving.value || preferences.isRefreshing.value"
         >
           Save preferences
         </v-btn>
