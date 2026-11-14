@@ -383,3 +383,40 @@ test("workspace action context contributor permits missing membership only for a
   assert.equal(contribution.membership, null);
   assert.deepEqual(contribution.permissions, []);
 });
+
+test("workspace action context contributor keeps the resolved context a member or role context carries for the action's workspace", async () => {
+  const calls = [];
+  const contributor = createWorkspaceActionContextContributor({
+    workspaceService: {
+      async resolveWorkspaceContextForUserBySlug(user, workspaceSlug) {
+        calls.push(workspaceSlug);
+        return { workspace: { id: 11, slug: workspaceSlug }, membership: null, permissions: [] };
+      }
+    },
+    workspaceSurfaceIds: ["app"]
+  });
+  // A role context's membership, which no read finds.
+  const carried = {
+    workspace: { id: 10, slug: "acme" },
+    membership: { workspaceId: "10", userId: "42", roleSid: "owner", status: "active" },
+    permissions: ["*"]
+  };
+  const context = {
+    actor: { id: 42 },
+    workspace: carried.workspace,
+    membership: carried.membership,
+    permissions: carried.permissions,
+    requestMeta: { resolvedWorkspaceContext: carried }
+  };
+  const contribute = (workspaceSlug) => contributor.contribute({
+    definition: { id: "templates.install", surfaces: ["app"] },
+    input: { workspaceSlug },
+    context
+  });
+
+  assert.deepEqual(await contribute("ACME"), { requestMeta: { resolvedWorkspaceContext: carried } });
+  assert.deepEqual(calls, [], "the carried context of the same workspace is not resolved again");
+  // Another workspace's slug is resolved as before.
+  assert.deepEqual((await contribute("other")).requestMeta.resolvedWorkspaceContext.workspace, { id: 11, slug: "other" });
+  assert.deepEqual(calls, ["other"]);
+});

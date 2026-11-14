@@ -312,6 +312,31 @@ function createService({
     return requireMember(await readWorkspaceContextForUser(user, workspace?.deletedAt ? null : workspace, options));
   }
 
+  /**
+   * The workspace context of a user acting in the workspace with this id in a role of the role catalog, for installer
+   * and seed work (the `roleContext` of `workspaces.core`): the workspace, an active membership of the user in that
+   * role, which is never saved and replaces any membership the user has there, the role's permissions and the
+   * workspace's settings as stored. It writes nothing. A deleted or missing workspace is 404
+   * `workspaces.workspace.notFound`, as for resolveMemberWorkspaceContextById.
+   * @param {{ id: string }} user
+   * @param {unknown} workspaceId
+   * @param {string} roleSid The id of a role of the role catalog.
+   * @param {object} [options]
+   */
+  async function resolveRoleWorkspaceContextById(user, workspaceId, roleSid, options = {}) {
+    requireWorkspaceContext();
+    const workspace = await workspacesRepository.findById(workspaceId, options);
+    if (!workspace || workspace.deletedAt) {
+      throw new AppError(404, "Workspace not found.", { code: "workspaces.workspace.notFound" });
+    }
+    return {
+      workspace,
+      membership: Object.freeze({ workspaceId: workspace.id, userId: user.id, roleSid, status: "active" }),
+      permissions: listCatalogRolePermissions(roleCatalog, roleSid),
+      workspaceSettings: await workspaceSettingsRepository.findByWorkspaceId(workspace.id, options)
+    };
+  }
+
   function requireWorkspaceContext() {
     if (resolvedTenancyMode === TENANCY_MODE_NONE) {
       throw new AppError(403, "Workspace context is disabled.", { code: "workspaces.workspace.contextDisabled" });
@@ -370,7 +395,8 @@ function createService({
     listWorkspacesForUser,
     listWorkspacesForAuthenticatedUser,
     resolveWorkspaceContextForUserBySlug,
-    resolveMemberWorkspaceContextById
+    resolveMemberWorkspaceContextById,
+    resolveRoleWorkspaceContextById
   });
 }
 

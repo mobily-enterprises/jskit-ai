@@ -72,7 +72,7 @@ function createWorkspaceRecords(resources) {
 
 /**
  * The `workspaces.core` capability: the workspace services, the invite and
- * settings repositories and `memberContext`, built from the runtime config.
+ * settings repositories, `memberContext` and `roleContext`, built from the runtime config.
  * @param {object} dependencies
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} dependencies.appRoot
  * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
@@ -159,7 +159,7 @@ function createWorkspacesRuntime({
     workspaceInvitationsEnabled: invitationsEnabled,
     roleCatalog
   });
-  const memberContexts = createWorkspaceMemberContexts({ workspaceService, userProfiles });
+  const memberContexts = createWorkspaceMemberContexts({ workspaceService, userProfiles, roleCatalog });
 
   return Object.freeze({
     enabled: tenancyProfile.workspace.enabled === true,
@@ -167,6 +167,8 @@ function createWorkspacesRuntime({
     selfCreateEnabled: tenancyProfile.workspace.allowSelfCreate === true,
     // The context of one member of one workspace, for background work done as that member.
     memberContext: memberContexts.memberContext,
+    // The context of a user acting in one workspace in a role they are not given there, for installer and seed work.
+    roleContext: memberContexts.roleContext,
     // The workspace route support the assistant runtime reads.
     scope: Object.freeze({
       params: workspaceSlugParamsValidator,

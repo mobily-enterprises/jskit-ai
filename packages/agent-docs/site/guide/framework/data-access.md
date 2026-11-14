@@ -88,6 +88,7 @@ the filters match.
 | system scope | Why a feature works across every workspace and user, declared with `systemScope`. |
 | system context | The context of that work, from `systemContext(reason)`; `forWorkspace`, `forUser` and `forWorkspaceUser` narrow it. |
 | member context | The context of work done as one member of one workspace, from `workspaces.memberContext({ workspaceId, userId }, { context: systemContext(reason) })`: resolved as the member's request is, and signed in as them. |
+| role context | The context of installer or seed work done in one workspace as a user in a role of the catalog they are not given there, from `workspaces.roleContext({ workspaceId, userId, role, reason }, { context: systemContext(reason) })`: a member context's shape, with an unsaved membership in that role and the reason. |
 | `txOptions` | What `withTransaction(options, work)` hands `work`: only the call's context and its transaction, `{ context, trx }`, passed to every call inside. |
 | record | What a handle answers: `{ id, ...fields }`, relationships as ids, included records nested. |
 
@@ -467,7 +468,8 @@ never loads everything the subject was ever linked to into an `IN` list, and
 never calls another owner's check once per item: it runs on every read, write
 read-back and lookup, so every request pays what it costs. A policy is told
 who the call runs for as `caller`: `{ kind: "user", userId }` for a signed-in
-request, `{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
+request (and for a role context, with its `reason`, which grants nothing),
+`{ kind: "anonymous" }` for one by no one, and `{ kind: "system" }` or
 `{ kind: "job" }` (a context `forWorkspace` and its kin derived), each with its
 `reason`, for background work. A job names a user only as `actorId`, the
 person it works for ([below](#background-work)), so never read a missing actor
@@ -1452,6 +1454,36 @@ const SettlementFeature = defineFeature({
   account its auth provider refuses at sign-in (a local account marked
   disabled) is still resolved; a job that must skip such people asks the
   provider first.
+- Installer and seed work the platform does in a workspace for a person who
+  is no member there, or a member in another role (the required records a
+  workspace gets for the platform's owner, a seed's starter data), acts in a
+  role of the catalog with `workspaces.roleContext`, never with a hand-built
+  membership:
+
+  ```js
+  // requires: { workspaces: "workspaces.core" }; the feature declares systemScope
+  const installer = await workspaces.roleContext(
+    { workspaceId, userId: platformOwnerId, role: "owner", reason: "install the workspace's required records" },
+    { context: systemContext("install each workspace's required records") }
+  );
+  ```
+
+  It has exactly a member context's shape: the user is its actor, its
+  `membership` is `{ workspaceId, userId, roleSid, status: "active" }` in that
+  role, never saved and replacing any membership the user has there, and its
+  `permissions` are the role's, so a permission check and a row policy decide
+  as for a member in that role, and an action it runs keeps that membership.
+  It is no system context and no job: request row limits apply and other
+  owners' hidden fields stay hidden. It records its `reason`, which a row
+  policy reads as `caller.reason` and which grants nothing. Only a system
+  context makes one, with a reason: any other context, a missing reason, ids
+  that are no record ids and a role the catalog lacks are a TypeError before
+  any statement; a missing or deleted workspace is 404
+  `workspaces.workspace.notFound` and a user id naming no one 404
+  `users.profile.notFound`. It reads the user, the workspace and its settings,
+  and writes nothing. Work done as a real member takes `memberContext`, which
+  refuses anyone who is not one; `roleContext` is for installer and seed work
+  only, where the person is not given that role in the workspace.
 - A job finds its units with an `aggregate` grouped by the ownership field,
   which a system context may group by (and count distinct) even when the table
   hides it, then runs each unit scoped to it. It reads the units in pages, all

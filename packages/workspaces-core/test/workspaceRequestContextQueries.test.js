@@ -251,7 +251,15 @@ async function issuesApp(t) {
     );
     return countQueries(knex, () => actions.execute({ actionId, input: { workspaceSlug: workspace.slug }, context: { ...member, surface: "app" } }));
   }
-  return { list, notice, context, runAsMember, owner, member, guest, outsider, workspace };
+  // The same job running one action as a user in a role of the catalog, for installer work.
+  async function runInRole(user, role, actionId) {
+    const acting = await workspaces.roleContext(
+      { workspaceId: workspace.id, userId: user.id, role, reason: "install the workspace's required records" },
+      { context: systemContext("install each workspace's required records") }
+    );
+    return countQueries(knex, () => actions.execute({ actionId, input: { workspaceSlug: workspace.slug }, context: { ...acting, surface: "app" } }));
+  }
+  return { list, notice, context, runAsMember, runInRole, owner, member, guest, outsider, workspace };
 }
 
 // The statements of one read of the workspace context, whatever the database quotes its names with: the workspace by
@@ -356,4 +364,33 @@ test("a member context lists the member's workspace's rows as the member's reque
   assert.equal(response.statusCode, 403, response.body);
   assert.equal(response.body.includes("ACTION_PERMISSION_DENIED"), true, response.body);
   await assert.rejects(runAsMember(guest, "crud.issues.list"), (error) => error.status === 403 && error.code === "ACTION_PERMISSION_DENIED");
+});
+
+test("a role context runs an action as a member in that role would, for a user who is no member or a member in another role, and writes nothing", async (t) => {
+  const { context, list, runInRole, member, guest, outsider } = await issuesApp(t);
+
+  // The action sees what a member in that role sees at their own request, with an unsaved membership.
+  const request = (await context(member)).response.json();
+  for (const user of [outsider, guest]) {
+    const { result, queries } = await runInRole(user, "member", ACTION_READ_CONTEXT);
+    const seen = JSON.parse(JSON.stringify(result));
+    assert.deepEqual(seen.membership, { workspaceId: request.workspace.id, userId: user.id, roleSid: "member", status: "active" });
+    assert.equal(seen.actorId, user.id);
+    assert.deepEqual(seen.permissions, request.permissions, "the role's permissions");
+    assert.deepEqual(seen.workspace, request.workspace);
+    assert.deepEqual(seen.visibilityContext, { ...request.visibilityContext, userId: user.id });
+    assert.ok(queries.every((sql) => /^select\b/iu.test(sql.trim())), `nothing is written: ${queries.join("\n")}`);
+  }
+
+  // The permission check passes as the role: the member role lists the workspace's issues, which the outsider's and
+  // the guest's own requests may not, and the guest role is refused as a guest's request is.
+  assert.equal((await list(outsider)).response.statusCode, 403);
+  assert.equal((await list(guest)).response.statusCode, 403);
+  const memberTitles = (await list(member)).response.json().data.map((record) => record.attributes.title).sort();
+  for (const user of [outsider, guest]) {
+    const { result, queries } = await runInRole(user, "member", "crud.issues.list");
+    assert.deepEqual(jsonApiResultValue(result).data.map((record) => record.attributes.title).sort(), memberTitles);
+    assert.ok(queries.every((sql) => /^select\b/iu.test(sql.trim())), `nothing is written: ${queries.join("\n")}`);
+  }
+  await assert.rejects(runInRole(member, "guest", "crud.issues.list"), (error) => error.status === 403 && error.code === "ACTION_PERMISSION_DENIED");
 });

@@ -115,6 +115,25 @@ test("withoutHiddenFields refuses another feature's read naming a hidden field, 
   assert.equal(withoutHiddenFields(cards, plain), cards);
 });
 
+test("a reason on a user's context, as a role context records it, grants nothing: the same reads answer the same rows and refuse the same hidden fields", async (t) => {
+  const { cards, resource } = await createCardFixture(t);
+  const exposed = withoutHiddenFields(cards, resource);
+  const user = { ...WORKSPACE_A, actor: { id: "7" } };
+  const installing = { ...user, reason: "install the required cards" };
+  for (const read of [
+    (context) => cards.queryAll({}, { context }),
+    (context) => exposed.queryAll({ fields: ["title"] }, { context })
+  ]) {
+    assert.deepEqual(await read(installing), await read(user));
+  }
+  assert.deepEqual(await exposed.queryAll({}, { context: installing }), [{ id: "1", title: "Rex" }, { id: "2", title: "Bo" }]);
+  for (const context of [user, installing]) {
+    await assert.rejects(exposed.get("1", { fields: ["title", "publicToken"] }, { context }),
+      /cards\.get\(\) fields names the hidden field "publicToken", which only the table's owner, or a system context, reads/u);
+    await assert.rejects(exposed.withTransaction({ context }, (tx) => exposed.scopedQuery({ alias: "c" }, tx)), /cards\.scopedQuery\(\)/u);
+  }
+});
+
 test("withoutHiddenFields refuses another feature's scopedQuery, and any builder a method answers but a joinSource()'s, which carries no hidden column but the ownership fields", async (t) => {
   const { knex, cards, resource, system, options } = await createCardFixture(t);
   // Methods an owner's decorateRepository adds with the handle it receives, answering its scoped rows as scopedQuery()

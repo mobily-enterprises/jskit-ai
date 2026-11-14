@@ -435,24 +435,25 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   // The directory service as workspacesRuntime builds it, with roles that grant different permissions, and its member
   // contexts.
   function memberDirectory(tenancyMode = "workspaces") {
+    const roleCatalog = createWorkspaceRoleCatalog({
+      roleCatalog: {
+        roles: {
+          owner: { permissions: ["*"] },
+          admin: { assignable: true, permissions: ["workspace.members.view", "crud.notes.patch"] },
+          member: { assignable: true, permissions: ["crud.notes.list"] }
+        }
+      }
+    });
     const directory = createDirectoryService({
       tenancyProfile: resolveTenancyProfile({ tenancyMode }),
-      roleCatalog: createWorkspaceRoleCatalog({
-        roleCatalog: {
-          roles: {
-            owner: { permissions: ["*"] },
-            admin: { assignable: true, permissions: ["workspace.members.view", "crud.notes.patch"] },
-            member: { assignable: true, permissions: ["crud.notes.list"] }
-          }
-        }
-      }),
+      roleCatalog,
       personalWorkspaceName: buildWorkspaceName,
       createdParticipant: noWorkspaceCreatedParticipant,
       workspacesRepository: workspaces,
       workspaceMembershipsRepository: memberships,
       workspaceSettingsRepository: settings
     });
-    return { directory, ...createWorkspaceMemberContexts({ workspaceService: directory, userProfiles: profiles }) };
+    return { directory, ...createWorkspaceMemberContexts({ workspaceService: directory, userProfiles: profiles, roleCatalog }) };
   }
 
   // A signed-in request's actor for a profile, as the local sign-in provider builds it.
@@ -639,6 +640,118 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     t.diagnostic(`memberContext: ${few.statements} statements among 10 members, ${many.statements} among 200: ${many.sql.join(" | ")}`);
     assert.equal(many.statements, few.statements);
     assert.ok(many.sql.every((sql) => /^select\b/iu.test(sql.trim())), "A member's resolution after the first writes nothing");
+  });
+
+  test("roleContext gives a user a role of the catalog in a workspace, a member context's shape with an unsaved membership and the reason, and writes nothing", async () => {
+    const { directory, memberContext, roleContext } = memberDirectory();
+    const owner = await createProfile("Ada");
+    const member = await createProfile("Grace");
+    const outsider = await createProfile("Linus");
+    const workspace = await workspaces.insert({ slug: "team", name: "Team", ownerUserId: owner.id });
+    await memberships.ensureOwnerMembership(workspace.id, owner.id);
+    await memberships.addMember({ workspaceId: workspace.id, userId: member.id });
+    // The workspace's first request writes its settings; a workspace no request has opened has none yet.
+    await directory.resolveWorkspaceContextForUserBySlug(owner, workspace.slug);
+    const unopened = await workspaces.insert({ slug: "new", name: "New", ownerUserId: owner.id });
+    const system = { context: memberJobContext() };
+    const reason = "install the required modules for the platform's owner";
+
+    for (const [person, role] of [[outsider, "admin"], [member, "admin"], [owner, "member"]]) {
+      const { result: context, sql } = await statementsOf(() => roleContext({ workspaceId: workspace.id, userId: person.id, role, reason }, system));
+      assert.ok(sql.every((statement) => /^select\b/iu.test(statement.trim())), `${role} for ${person.displayName} writes nothing: ${sql.join(" | ")}`);
+      assert.deepEqual(context.membership, { workspaceId: workspace.id, userId: person.id, roleSid: role, status: "active" });
+      assert.deepEqual(context.permissions, role === "admin" ? ["workspace.members.view", "crud.notes.patch"] : ["crud.notes.list"]);
+      assert.deepEqual(context.actor, requestActorOf(person), "signed in as the user it names");
+      assert.equal(resolveActorId(context), person.id);
+      assert.equal(context.reason, reason);
+      assert.equal(isSystemContext(context), false, "A role context is no system context");
+      assert.equal(Object.isFrozen(context), true);
+      // A member context's shape, with the reason: the same workspace, visibility and settings as the member's request.
+      const request = await directory.resolveWorkspaceContextForUserBySlug(owner, workspace.slug);
+      assert.deepEqual(Object.keys(context).sort(), [...Object.keys(await memberContext({ workspaceId: workspace.id, userId: owner.id }, system)), "reason"].sort());
+      assert.deepEqual(context.workspace, request.workspace);
+      assert.equal(context.routeVisibility, "workspace_user");
+      assert.deepEqual(context.visibilityContext, {
+        visibility: "workspace_user",
+        scopeKind: "workspace_user",
+        requiresActorScope: true,
+        scopeOwnerId: workspace.id,
+        userId: person.id
+      });
+      assert.deepEqual(context.requestMeta.resolvedWorkspaceContext, {
+        workspace: request.workspace,
+        membership: context.membership,
+        permissions: context.permissions,
+        workspaceSettings: request.workspaceSettings
+      });
+    }
+    // The users' real memberships are as they were: none for the outsider, and the member's own role.
+    assert.equal(await memberships.findByWorkspaceIdAndUserId(workspace.id, outsider.id), null);
+    assert.equal((await memberships.findByWorkspaceIdAndUserId(workspace.id, member.id)).roleSid, "member");
+    assert.equal((await memberContext({ workspaceId: workspace.id, userId: member.id }, system)).membership.roleSid, "member");
+    await assert.rejects(memberContext({ workspaceId: workspace.id, userId: outsider.id }, system), (error) => error.status === 403);
+
+    // A workspace no request has opened has no settings yet, and the role context writes none, nor the owner's
+    // membership a member context ensures.
+    const { result: fresh, sql } = await statementsOf(() => roleContext({ workspaceId: unopened.id, userId: owner.id, role: "OWNER", reason }, system));
+    assert.ok(sql.every((statement) => /^select\b/iu.test(statement.trim())), sql.join(" | "));
+    assert.equal(fresh.requestMeta.resolvedWorkspaceContext.workspaceSettings, null);
+    assert.equal(fresh.membership.roleSid, "owner");
+    assert.equal(await knex("workspace_settings").where({ workspace_id: unopened.id }).first(), undefined);
+    assert.equal(await memberships.findByWorkspaceIdAndUserId(unopened.id, owner.id), null);
+
+    // In the caller's transaction it reads what the transaction wrote.
+    await memberships.withTransaction(system, async (txOptions) => {
+      const joiner = await createProfile("Barbara", txOptions);
+      const context = await roleContext({ workspaceId: workspace.id, userId: joiner.id, role: "member", reason }, txOptions);
+      assert.equal(context.actor.id, joiner.id);
+    });
+  });
+
+  test("roleContext refuses no system context, a missing reason, ids that are no record ids and a role the catalog lacks before any statement, and a missing workspace or user with 404", async () => {
+    const { roleContext } = memberDirectory();
+    const owner = await createProfile("Ada");
+    const workspace = await workspaces.insert({ slug: "team", name: "Team", ownerUserId: owner.id });
+    await memberships.ensureOwnerMembership(workspace.id, owner.id);
+    const deleted = await workspaces.insert({ slug: "gone", name: "Gone", ownerUserId: owner.id });
+    await workspaces.updateById(deleted.id, { deletedAt: new Date().toISOString() });
+    const systemContext = memberJobContext();
+    const asked = { workspaceId: workspace.id, userId: owner.id, role: "admin", reason: "seed the workspace's starter records" };
+    assert.equal((await roleContext(asked, { context: systemContext })).membership.roleSid, "admin");
+    const notSystem = /roleContext\(\) runs only in a system context/u;
+    const noReason = /roleContext\(\) needs \{ reason \}/u;
+    const badIds = /roleContext\(\) takes \{ workspaceId, userId \}/u;
+    const badRole = /roleContext\(\) takes a role of the role catalog \(owner, admin, member\)/u;
+    const refusals = [
+      ["no options", asked, undefined, notSystem],
+      ["a signed-in request's context", asked, { context: { actor: { id: owner.id } } }, notSystem],
+      ["a workspace job's context", asked, { context: systemContext.forWorkspace(workspace.id) }, notSystem],
+      ["a role context", asked, { context: await roleContext(asked, { context: systemContext }) }, notSystem],
+      ...[undefined, "", "   ", 7, {}].map((reason) => [`reason ${JSON.stringify(reason)}`, { ...asked, reason }, { context: systemContext }, noReason]),
+      ["no workspaceId", { ...asked, workspaceId: undefined }, { context: systemContext }, badIds],
+      ["userId \"abc\"", { ...asked, userId: "abc" }, { context: systemContext }, badIds],
+      ...[undefined, "", "superuser", "admins"].map((role) => [`role ${JSON.stringify(role)}`, { ...asked, role }, { context: systemContext }, badRole])
+    ];
+    for (const [label, acting, options, message] of refusals) {
+      const { statements, sql } = await statementsOf(() => assert.rejects(roleContext(acting, options), (error) => {
+        assert.ok(error instanceof TypeError, `${label}: ${error}`);
+        assert.match(error.message, message, label);
+        return true;
+      }));
+      assert.equal(statements, 0, `${label} is refused before any statement: ${sql.join(" | ")}`);
+    }
+
+    const refuses = ([status, code], label) => (error) => {
+      assert.ok(error instanceof AppError, `${label}: ${error}`);
+      assert.deepEqual([error.status, error.code], [status, code], label);
+      return true;
+    };
+    const system = { context: systemContext };
+    await assert.rejects(roleContext({ ...asked, workspaceId: "999999" }, system), refuses([404, "workspaces.workspace.notFound"], "a workspace id naming no workspace"));
+    await assert.rejects(roleContext({ ...asked, workspaceId: deleted.id }, system), refuses([404, "workspaces.workspace.notFound"], "a deleted workspace"));
+    await assert.rejects(roleContext({ ...asked, userId: "999999" }, system), refuses([404, "users.profile.notFound"], "a user id naming no one"));
+    const { roleContext: noTenancyRoleContext } = memberDirectory("none");
+    await assert.rejects(noTenancyRoleContext(asked, system), refuses([403, "workspaces.workspace.contextDisabled"], "an application without workspaces"));
   });
 
   test("workspaces.lock and memberships.lockByWorkspaceIdAndUserId take lockMode share, and refuse another mode before any statement", async () => {

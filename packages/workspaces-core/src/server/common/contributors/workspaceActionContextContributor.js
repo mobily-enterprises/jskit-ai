@@ -1,5 +1,5 @@
 import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
-import { normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
+import { normalizeLowerText, normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { normalizeSurfaceId } from "@jskit-ai/kernel/shared/surface/registry";
 import {
   checkRouteVisibility,
@@ -54,11 +54,19 @@ function createWorkspaceActionContextContributor({
       resolveOptions.requireMembership = false;
     }
 
-    const resolvedWorkspaceContext = await workspaceService.resolveWorkspaceContextForUserBySlug(
-      resolveActionUser(context, payload),
-      payload.workspaceSlug,
-      resolveOptions
-    );
+    // A context that already carries this workspace's resolved context, as a member context and a role context do
+    // (workspaces.memberContext, workspaces.roleContext), keeps it: a role context's membership is never saved, so no
+    // read finds it.
+    const carried = context?.requestMeta?.resolvedWorkspaceContext;
+    const carriesWorkspace = Boolean(carried?.workspace?.slug) &&
+      normalizeLowerText(carried.workspace.slug) === normalizeLowerText(payload.workspaceSlug);
+    const resolvedWorkspaceContext = carriesWorkspace
+      ? carried
+      : await workspaceService.resolveWorkspaceContextForUserBySlug(
+        resolveActionUser(context, payload),
+        payload.workspaceSlug,
+        resolveOptions
+      );
 
     const contribution = {
       requestMeta: {

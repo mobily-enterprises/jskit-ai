@@ -53,9 +53,10 @@ function isJobContext(context) {
  * background work a system context derived for one workspace or user ("job"), each with its reason; a request by a
  * signed-in user ("user", with the user's id); or a request by no one ("anonymous"). A derived job context names a
  * user only as the person it acts for (`actorId`, when it was given one), never as a signed-in user, so a policy
- * that keys on the actor tells it from an anonymous request by its kind.
+ * that keys on the actor tells it from an anonymous request by its kind. A user's context that says why it was made
+ * (`reason`, as `workspaces.roleContext` records it) hands the reason on; it grants nothing.
  * @param {unknown} context
- * @returns {Readonly<{ kind: "system", reason: string } | { kind: "job", reason: string, actorId?: string } | { kind: "user", userId: string } | { kind: "anonymous" }>}
+ * @returns {Readonly<{ kind: "system", reason: string } | { kind: "job", reason: string, actorId?: string } | { kind: "user", userId: string, reason?: string } | { kind: "anonymous" }>}
  */
 function callerOf(context) {
   if (isSystemContext(context)) {
@@ -72,7 +73,11 @@ function callerOf(context) {
     });
   }
   const userId = resolveActorId(context);
-  return Object.freeze(userId ? { kind: "user", userId } : { kind: "anonymous" });
+  if (!userId) {
+    return Object.freeze({ kind: "anonymous" });
+  }
+  const reason = typeof context.reason === "string" ? context.reason.trim() : "";
+  return Object.freeze(reason ? { kind: "user", userId, reason } : { kind: "user", userId });
 }
 
 /**

@@ -71,9 +71,10 @@ Local functions
 
 ### `src/server/common/services/workspaceMemberContext.js`
 Exports
-- `createWorkspaceMemberContexts({ workspaceService, userProfiles })`
+- `createWorkspaceMemberContexts({ workspaceService, userProfiles, roleCatalog })`
 Local functions
 - `memberActorOf(profile)`
+- `workspaceUserContextOf(profile, resolvedWorkspaceContext)`
 
 ### `src/server/common/support/realtimeServiceEvents.js`
 Exports

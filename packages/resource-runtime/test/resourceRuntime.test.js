@@ -1392,6 +1392,44 @@ test("a row policy is told who the call runs for: a system context, a job it der
   assert.throws(() => systemContext.forWorkspace("1", { actorId: " " }), /forWorkspace needs the id of the user it acts for/u);
 });
 
+test("a row policy is told the reason a user's context records, as a role context records it, and the reason grants nothing", async (t) => {
+  const seen = [];
+  const { notes } = await createFixture(t, {
+    requestRowLimit: 3,
+    owns: [{
+      resource: noteResource(),
+      rowPolicy: ({ query, column, caller }) => {
+        seen.push(caller);
+        if (caller.kind === "anonymous") return false;
+        if (caller.kind === "user") query.where(column("title"), "shared");
+        return true;
+      }
+    }]
+  });
+  await notes.createMany([{ title: "shared" }, { title: "private" }], { context: WORKSPACE_A });
+  const ada = { ...WORKSPACE_A, actor: { id: "7" } };
+  const installing = { ...ada, reason: "  install the required records  " };
+  const read = (context) => notes.queryAll({}, { context });
+  seen.length = 0;
+  // The same rows, as the same user.
+  assert.deepEqual(await read(installing), await read(ada));
+  assert.deepEqual((await read(installing)).map(({ title }) => title), ["shared"]);
+  // A reason that is no text is none.
+  await read({ ...ada, reason: 7 });
+  assert.deepEqual(seen, [
+    { kind: "user", userId: "7", reason: "install the required records" },
+    { kind: "user", userId: "7" },
+    { kind: "user", userId: "7", reason: "install the required records" },
+    { kind: "user", userId: "7" }
+  ]);
+  // Without a user it is an anonymous request, reason or not, and request row limits apply with it as without.
+  assert.deepEqual(await read({ ...WORKSPACE_A, reason: "install the required records" }), []);
+  await notes.createMany(Array.from({ length: 3 }, () => ({ title: "shared" })), { context: WORKSPACE_A });
+  for (const context of [ada, installing]) {
+    await assert.rejects(read(context), (error) => error instanceof RowLimitError && error.messageParams.rowLimit === 3);
+  }
+});
+
 test("a job's actorId never moves its scope; a row policy that keys on the person holds a job done for them to their rows", async (t) => {
   const drafts = defineTableResource({
     name: "drafts",
