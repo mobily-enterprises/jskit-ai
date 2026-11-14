@@ -11,7 +11,8 @@ const { t } = useJskitText();
 const { context: shellPlacementContext } = useWebPlacementContext();
 // On expanded windows the activator is a pill with the name beside the avatar, the name ending in an ellipsis past
 // 12rem; on medium and compact windows, where the app bar's title and actions need the room, it is a round icon
-// button around the avatar, named by its aria-label.
+// button around the avatar, named by its aria-label. That avatar is hidden from assistive technology: its initials
+// are not in the name, and a control's name holds the text it shows (WCAG 2.5.3 Label in Name).
 const { isExpanded, isLarge } = useShellWindowSizeClass();
 const showsName = computed(() => isExpanded.value || isLarge.value);
 
@@ -84,7 +85,7 @@ const placementContext = computed(() => {
         <span class="auth-profile-widget__name ml-2 text-body-medium">{{ displayName }}</span>
       </v-btn>
       <v-btn v-else v-bind="props" icon variant="text" class="auth-profile-widget__activator" :aria-label="displayName">
-        <v-avatar size="32" color="primary" variant="tonal">
+        <v-avatar size="32" color="primary" variant="tonal" aria-hidden="true">
           <v-img v-if="avatarUrl" :src="avatarUrl" cover />
           <span v-else class="text-body-small font-weight-medium">{{ initials }}</span>
         </v-avatar>

@@ -578,6 +578,36 @@ test("the account control is the avatar alone up to medium width and truncates a
   await finish(api);
 });
 
+// WCAG 2.5.3 Label in Name: a control's name holds the text it shows. Up to medium width the account control is
+// named by the person's name (its aria-label) and shows their initials, "AN" for ana.ferreira, which are not in that
+// name (axe label-content-name-mismatch). Its avatar is hidden from assistive technology, so the control shows it no
+// text beyond its name; on wider windows the name is the text it shows.
+test("the account control's name holds every word it shows on a phone and a tablet: WCAG 2.5.3 (axe label-content-name-mismatch)", options, async () => {
+  const name = "ana.ferreira";
+  const words = (text) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+  for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }]) {
+    const at = `${viewport.width}px`;
+    const api = await openApp({ session: { ...SIGNED_IN, username: name }, viewport });
+    const { page } = api;
+    await page.goto("/home");
+    const control = page.getByRole("button", { name, exact: true });
+    await expect(control, at).toBeVisible();
+    await expect(control, `${at}: it shows the initials`).toHaveText("AN");
+    // The text the control shows assistive technology: its text outside anything aria-hidden.
+    const shown = await control.evaluate((button) => {
+      const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+      const texts = [];
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+        if (!node.parentElement.closest("[aria-hidden=true]")) texts.push(node.textContent);
+      }
+      return texts.join(" ");
+    });
+    const missing = words(shown).filter((word) => !words(name).includes(word));
+    assert.deepEqual(missing, [], `${at}: the control shows "${shown.trim()}", which its name "${name}" does not hold`);
+    await finish(api);
+  }
+});
+
 // Material 3's segmented button: one outline, equal segments, the selected one on secondary-container with a check.
 // Register has no "Back to sign in": the Sign in segment is the way back.
 test("Sign in and Register are a segmented button, and Register has no way back but its segment", options, async () => {
