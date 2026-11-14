@@ -81,6 +81,7 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
     "sanity-checks.md",
     "security-pass.md",
     "side-effects.md",
+    "speed-pass.md",
     "translation.md",
     "typed-features.md",
     "ui-operations.md",
@@ -210,6 +211,14 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(uxReference, /`CrudDeleteAction`/u);
   assert.match(uxReference, /action: \{ label, handler \}/u);
   assert.match(skill, /\[user experience pass\]\(references\/ux-pass\.md\)/u);
+  const speedReference = passReference("speed-pass.md");
+  assert.match(speedReference, /`V64_TEST_CONCURRENCY`/u);
+  assert.match(speedReference, /`jskit test --test-global-setup=/u);
+  assert.match(speedReference, /never a limit to\s+raise with `build\.chunkSizeWarningLimit`/u);
+  assert.match(speedReference, /\[Provider subpaths\]\(client-features\.md#provider-subpaths\)/u);
+  assert.match(speedReference, /`filter\[id\]`/u);
+  assert.match(speedReference, /\[data pass\]\(data-pass\.md\)/u);
+  assert.match(skill, /\[speed pass\]\(references\/speed-pass\.md\)/u);
   assert.doesNotMatch(operationalSource, /@jskit-ai\/create-app|crud-server-generator|crud-ui-generator|ui-generator/u);
   assert.doesNotMatch(operationalSource, /\.jskit\/APP_BLUEPRINT|\.jskit\/WORKBOARD/u);
   assert.doesNotMatch(

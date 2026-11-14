@@ -1,0 +1,192 @@
+---
+title: Speed pass
+description: Where a JSKIT app's tests, screens and server spend their time, the JSKIT tools that measure each wait, and the fixes each one takes.
+---
+
+# Speed pass
+
+A speed pass makes an app and its tests take the time their work needs.
+Genesis's speed pass skill (`genesis-speed-pass`) holds the method: measure
+each wait first on a realistic build at realistic sizes, fix its cause, measure
+again the same way, and never raise a time limit, add retries, or shrink
+realistic data or coverage to get faster. This page says where each wait lives
+in a JSKIT app and which JSKIT tools measure and fix it. The rules it applies
+are already in [Typed features](/guide/framework/typed-features),
+[Client features](/guide/framework/client-features),
+[Data access](/guide/framework/data-access) and the
+[sanity checks](/guide/framework/sanity-checks). Query counts, narrowing and
+indexes belong to the [data pass](/guide/framework/data-pass): when a wait is
+database time, apply that page to the path.
+
+## Test speed
+
+### Measure
+
+- `jskit test` starts by saying how many test files it runs at a time and
+  where that number came from (`V64_TEST_CONCURRENCY`, or half of the
+  machine), and ends with its 10 slowest test files and tests; each file's time
+  is kept in `node_modules/.cache/jskit-test/file-times.json`. Time the whole
+  command too (`time npm test`): a wall time close to the sum of the files'
+  times means they ran one after another
+  ([Test files run in parallel](/guide/framework/typed-features#test-files-run-in-parallel)).
+- Test database preparation reports each phase and its duration
+  ([Test databases are prepared once](/guide/framework/typed-features#test-databases-are-prepared-once)).
+  Read them: slow preparation otherwise hides inside the first test that waits
+  for it.
+- Every Playwright run through `browserTestConfig()` ends with its 10 slowest
+  tests. Compare a slow spec's time with the time of the app's requests it
+  makes, so you know whether the test or the app is slow.
+
+### Fix
+
+- Scripts run `jskit test` (`jskit test --databases` for database tests), and
+  Playwright and Vitest take their workers from `testConcurrency()`. `jskit
+  check` reports a script that runs `node --test` directly, passes a fixed
+  concurrency or pins `V64_TEST_CONCURRENCY`, and a Playwright or Vitest config
+  that runs files one at a time ([test-run rules](/guide/framework/typed-features#test-run-rules)).
+- Files that collide are isolated, never run one at a time: a port from
+  `listen(0)`, a directory from `mkdtemp`, the database `jskit test --databases`
+  gives each file, and a Vite `cacheDir` of its own. The
+  `// jskit-test: alone - <reason>` marker is only for a file that holds a
+  resource of the whole machine.
+- `jskit test --databases` restores each file's database from a snapshot
+  rebuilt only when the migrations' digest changes. A file that runs
+  `knex.migrate.latest()` itself replays the whole history for every file:
+  remove it, and let the full history run once in its own check.
+- A fixture every file only reads (a built app, a composed project, a
+  generated tree) is made once, before any file starts, by a global setup
+  module: `jskit test --test-global-setup=tests/helpers/globalSetup.js`
+  (`jskit test` passes its arguments to `node --test`). Its `globalSetup()`
+  makes the fixture and puts its location in an environment variable the test
+  processes inherit; its `globalTeardown()` removes it. A file run on its own
+  makes the fixture itself when the variable is absent, and a test that writes
+  into the fixture makes its own copy.
+- `browserTestConfig()` builds the production frontend once and gives each
+  worker its own server, port and seeded database; with a `signIn` module
+  each worker signs in once. A check of what a component shows belongs in a
+  Vitest component test, and a new browser check is an assertion in the spec
+  that already reaches that screen.
+- Wait for the condition, never for time: Playwright's web-first assertions
+  (`await expect(locator).toBeVisible()`, `await expect(page).toHaveURL(...)`)
+  instead of `page.waitForTimeout()`. The app's own delays (retry backoff,
+  debounce, polling) run on a fake clock: `mock.timers` in `node:test`,
+  `vi.useFakeTimers()` in Vitest and `page.clock` in Playwright.
+- A file imports what it needs at its top level, so loading counts against the
+  file, not against a test's time limit. `jskit test` keeps Node's compile
+  cache in `node_modules/.cache/jskit-node-compile-cache`, so each file's
+  process loads the modules the files before it compiled.
+- The bounds stay: `jskit test`'s 10 minutes a file and 45 a run,
+  `browserTestConfig()`'s `actionTimeout` (15 s), `navigationTimeout` (30 s)
+  and `globalTimeout`. A bound in `test-time-bounds.json` rises only with a
+  measurement of the work's real need; a file that got slow is fixed instead.
+
+### Prove
+
+Run the whole suite before and after on the same machine with the same
+`V64_TEST_CONCURRENCY`, and report the wall time, each preparation phase, the
+slowest files and the test counts, which stay the same.
+
+## Client speed
+
+### Measure
+
+- Build with `npm run build` and read Vite's report: every chunk with its
+  size and its gzip size. `dist/index.html` names the entry script and the
+  chunks it preloads (`<link rel="modulepreload">`): together they are the
+  JavaScript every page loads before it shows anything. Vite's warning about
+  a chunk over 500 kB is a finding to follow to its import, never a limit to
+  raise with `build.chunkSizeWarningLimit`.
+- Serve that build and open each main screen with a cold cache. In a
+  Playwright spec, `page.on("request", ...)` counts the `/api` requests a
+  screen or an action makes; look for the same request twice, one request per
+  row, and requests made on a timer.
+
+### Fix
+
+- **Screens load with their routes.** A page under `src/pages` loads as its
+  own chunk when its route is first visited. A library one page uses is
+  imported by that page or a component it shows, never by `src/main.js`, a
+  client provider or a layout every page renders. A heavy component that a
+  page shows only sometimes loads with
+  `defineAsyncComponent(() => import("./HeavyChart.vue"))`.
+- **Packages keep their screens out of every page.** Each client provider is
+  exported by a subpath of its own, and its file imports only what every page
+  needs ([Provider subpaths](/guide/framework/client-features#provider-subpaths)).
+  A provider without one, or a `./client` that declares `routeComponents` or
+  `clientRoutes` or uses `export *`, brings all of `./client` to every page.
+  On the accounts starter, loading users-web's provider through its subpath
+  instead of all of its `./client` took the JavaScript a page loads before it
+  starts from 1,302 KB to 778 KB.
+- **One request for related records.** A list shows its related records with
+  `include` and the including contract's `includeFields`, in the same request,
+  never with a request per row; `fields[<type>]` narrows what an included
+  record carries ([Layer 2: the CRUD surface](/guide/framework/data-access#layer-2-the-crud-surface)).
+  A picker reads its selected values past the loaded page by id, all in one
+  request (`filter[id]`, which `useCrudListFilterLookups()` sends for a lookup
+  filter), and searches on the server with `q`
+  ([Wire list search with the initial resource](/guide/framework/crud-operations#wire-list-search-with-the-initial-resource),
+  [Search on the server](/guide/framework/client-features#search-on-the-server)).
+- **One read for the same data.** Read through http-web's composables
+  (`useList`, `useView` and the CRUD screens), which keep each read under its
+  query key, so components showing the same list with the same parameters
+  share one request, instead of a `fetch` of their own in each component.
+- **Events, not polling.** A list or record refreshes on the realtime events
+  that change it: a read composable's `realtime` option or
+  `useRealtimeQueryInvalidation()` marks the matching reads stale and reads
+  again only those a mounted screen uses, at most twice a query for a burst of
+  events
+  ([Realtime](/guide/app-extras/realtime#event-contract)). A `setInterval`
+  that refetches is a finding.
+- **Render what is visible.** A long list reads pages and renders with pages
+  or `v-virtual-scroll`
+  ([Screens](/guide/framework/sanity-checks#screens)).
+
+### Prove
+
+Report the entry chunk and its preloads (gzip) from the build before and
+after, the requests each main screen and action makes, and the main actions'
+time from click to result on the production build, cold and warm. Keep a
+request count in the spec that reaches the screen, as a count, never as a
+time.
+
+## Server speed
+
+### Measure
+
+- Boot the server in a test as [Tests](/guide/framework/data-access#tests)
+  shows, seed a realistic size in `TEST_DB_NAME`, and time the main routes
+  over `app.inject`, the first request after boot and later ones.
+  `countQueries(knex, work)`, or `countRuntimeQueries(work)` for a booted
+  server, from `@jskit-ai/database-runtime/server/testDatabases`, gives the
+  statements, so you can tell database time from the rest.
+- Start the server with `node --cpu-prof` to see where a slow route or a slow
+  start spends its computing time, in the `.cpuprofile` file it writes.
+- After the app has been idle, list the server's child processes, timers and
+  connections, and the jobs still running.
+
+### Fix
+
+- **Do once what does not change.** A feature builds what does not change
+  between requests (a parsed configuration, a compiled schema, a client for an
+  outside service) in `setup()` and starts it in `boot()`, never per request
+  ([Owned state](/guide/framework/typed-features#owned-state)).
+- **Nothing runs without real use.** A process, worker or timer a feature
+  starts has its owner stop it in `shutdown()`
+  ([Shutdown mirrors setup](/guide/framework/typed-features#shutdown-mirrors-setup)),
+  and one that serves only some requests starts on its first real use and
+  stops when idle. A periodic job's timer is `unref()`ed.
+- **Work nobody waits for leaves the request.** Work over many rows or every
+  workspace runs as a background job with `systemScope`
+  ([Background work](/guide/framework/data-access#background-work)).
+- **Database time is the data pass's.** A count that grows with the rows, a
+  read narrowed in code, a write that reads its row back with
+  `returning: "record"` when it does not use it, and a missing index are
+  fixed as the [data pass](/guide/framework/data-pass) says.
+
+### Prove
+
+Report each main route's time before and after, with its statement count, at
+the realistic size, the first after boot and later ones. Keep an
+`expectFlatQueries()` test for each path whose count you changed.
+
+Then run `npx jskit check` and `npm run verify`.

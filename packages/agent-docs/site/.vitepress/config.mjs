@@ -69,6 +69,7 @@ export default defineConfig({
             { text: "Data Pass", link: "/guide/framework/data-pass" },
             { text: "Security Pass", link: "/guide/framework/security-pass" },
             { text: "User Experience Pass", link: "/guide/framework/ux-pass" },
+            { text: "Speed Pass", link: "/guide/framework/speed-pass" },
             { text: "Sanity Checks", link: "/guide/framework/sanity-checks" },
             { text: "Side Effects", link: "/guide/framework/side-effects" },
             { text: "Translating an App", link: "/guide/framework/translation" },
