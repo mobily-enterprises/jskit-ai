@@ -69,8 +69,10 @@ package, it refuses and names the import to use instead.
 and npm workspaces, and preflights every declared `@jskit-ai/*` package. It then
 updates all matching dependency, development-dependency, peer-dependency, and
 optional-dependency declarations as one validated manifest set. Non-JSKIT
-dependencies are unchanged. It installs once from the root and checks the new
-`package-lock.json` before succeeding.
+dependencies are unchanged, except a direct `json-rest-api` pin, which moves to
+the version JSKIT's packages require ([One json-rest-api](#one-json-rest-api)).
+It installs once from the root and checks the new `package-lock.json` before
+succeeding.
 
 During installation, the updater preserves non-JSKIT lockfile pins, removes the
 old JSKIT installation records from the candidate lock, and keeps the previous
@@ -174,6 +176,9 @@ The check fails when:
 - a JSKIT override tries to force a private graph;
 - a root/workspace declaration has no lockfile installation, or the lockfile is missing;
 - installed package versions or root/workspace declarations disagree with the lockfile.
+- the app pins `json-rest-api` itself at another version than JSKIT's packages
+  require, or the lockfile installs more than one copy of it
+  ([One json-rest-api](#one-json-rest-api)).
 - a package script runs tests outside the machine's test budget (`test/*`, see
   [Test files run in parallel](/guide/framework/typed-features#test-files-run-in-parallel)).
 - an application package's manifest (`jskit.capabilities`) misses a capability
@@ -185,6 +190,20 @@ Shared client owners such as the kernel, HTTP runtime, shell, auth web runtime,
 realtime runtime, and assistant runtime use exact peer dependencies where they
 must share application state. A partial upgrade can therefore fail during npm
 installation instead of silently nesting a second client stack.
+
+## One json-rest-api
+
+`@jskit-ai/resource-runtime` and `@jskit-ai/crud-core` require `json-rest-api`
+at one exact version, and json-rest-api knows its transactions by identity. An
+app that also depends on `json-rest-api` at another version installs a second
+copy, and every write its own `api.transaction` reaches inside JSKIT fails with
+`RestApiWriteError: transaction must be an active transaction from
+api.transaction; raw transactions and savepoints cannot own library writes`.
+After an upgrade, or any change to the app's own `json-rest-api` declaration,
+check that one copy is installed: `npm ls json-rest-api` shows one version, the
+others marked deduped. `jskit check` refuses a direct pin at another version
+and a second copy in the lockfile, naming the version to pin;
+`npm run jskit:update` moves a direct pin with the catalog.
 
 ## Run tests within the test budget
 

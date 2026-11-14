@@ -28,6 +28,11 @@ const INSTALL_SCRIPT_PACKAGES = Object.freeze(["@jskit-ai/material-web"]);
 const SOURCE_FILE_PATTERN = /\.(?:[cm]?[jt]s|vue)$/u;
 const SKIPPED_DIRECTORIES = new Set(["node_modules", "dist", "build", "coverage"]);
 const CHECK_SCRIPT = "jskit check";
+// Dependencies JSKIT's packages require at one exact version, of which an application must install one copy.
+// json-rest-api knows its transactions by identity: beside a second copy (an app pinning another version than
+// resource-runtime's), every write the app's api.transaction reaches inside JSKIT fails with "transaction must be an
+// active transaction from api.transaction".
+const SINGLE_COPY_DEPENDENCIES = Object.freeze(["json-rest-api"]);
 
 function normalizeCatalog(catalog = {}) {
   const releasePackages = catalog?.release?.packages;
@@ -48,7 +53,46 @@ function normalizeCatalog(catalog = {}) {
       .map((entry) => String(entry || "").trim())
       .filter((entry) => versions.has(entry))
   );
-  return Object.freeze({ versions, singletonPackages });
+  return Object.freeze({ versions, singletonPackages, singleCopyDependencies: singleCopyDependencies(catalog?.packages) });
+}
+
+// Each single-copy dependency the catalog's packages require: its one version, and every catalog package that needs it,
+// directly or through another JSKIT package it depends on.
+function singleCopyDependencies(catalogPackages) {
+  const entries = Array.isArray(catalogPackages) ? catalogPackages : [];
+  const result = new Map();
+  for (const name of SINGLE_COPY_DEPENDENCIES) {
+    const versions = new Set();
+    const requiredBy = new Set();
+    for (const entry of entries) {
+      const version = entry?.packageJson?.dependencies?.[name];
+      if (!version) continue;
+      versions.add(version);
+      requiredBy.add(entry.packageId);
+    }
+    if (versions.size > 1) {
+      throw new Error(`JSKIT catalog requires ${name} at several versions: ${[...versions].sort().join(", ")}.`);
+    }
+    if (versions.size < 1) continue;
+    for (let grew = true; grew;) {
+      grew = false;
+      for (const entry of entries) {
+        const dependencies = Object.keys({ ...entry?.packageJson?.dependencies, ...entry?.packageJson?.peerDependencies });
+        if (!requiredBy.has(entry?.packageId) && dependencies.some((dependency) => requiredBy.has(dependency))) {
+          requiredBy.add(entry.packageId);
+          grew = true;
+        }
+      }
+    }
+    result.set(name, Object.freeze({ version: [...versions][0], requiredBy }));
+  }
+  return result;
+}
+
+// The single-copy dependencies that some of these JSKIT packages need.
+function requiredSingleCopies(normalizedCatalog, packageIds) {
+  return [...normalizedCatalog.singleCopyDependencies]
+    .filter(([, { requiredBy }]) => [...requiredBy].some((packageId) => packageIds.has(packageId)));
 }
 
 function collectManifestDeclarations(manifests, projectRoot) {
@@ -176,10 +220,12 @@ async function checkProject({ projectRoot = process.cwd(), catalog, additionalMa
 
   const packageLockPath = path.join(root, "package-lock.json");
   let installations = [];
+  let lockPackages = {};
   if (!(await fileExists(packageLockPath))) {
     issues.push("package-lock.json is missing; run npm install after aligning the JSKIT release cohort.");
   } else {
     const packageLock = (await readJsonRecord(packageLockPath)).value;
+    lockPackages = packageLock.packages || {};
     installations = collectLockInstallations(packageLock);
     if (checkInstalled) {
       for (const [packagePath, record] of Object.entries(packageLock.packages || {})) {
@@ -250,6 +296,32 @@ async function checkProject({ projectRoot = process.cwd(), catalog, additionalMa
       if (!resolvedPackageIds.has(packageId)) {
         issues.push(`${packageId} is declared but has no resolved package-lock installation.`);
       }
+    }
+  }
+
+  const appPackageIds = new Set([...declarations, ...installations].map((entry) => entry.packageId));
+  for (const [name, { version }] of requiredSingleCopies(normalizedCatalog, appPackageIds)) {
+    const fix = `Pin ${name} to ${version}`;
+    for (const manifest of manifests) {
+      const source = toPosixPath(path.relative(root, manifest.absolutePath)) || "package.json";
+      for (const field of DEPENDENCY_FIELDS) {
+        const declared = manifest.value?.[field]?.[name];
+        if (declared !== undefined && declared !== version) {
+          issues.push(
+            `${source}#${field}.${name} is ${declared}; JSKIT's packages require ${name} ${version}, and beside a second ` +
+            `copy every write an api.transaction reaches inside them fails. ${fix} (npm run jskit:update does it).`
+          );
+        }
+      }
+    }
+    const copies = Object.entries(lockPackages)
+      .filter(([packagePath, record]) => record && !record.link &&
+        (packagePath === `node_modules/${name}` || packagePath.endsWith(`/node_modules/${name}`)));
+    if (copies.length > 1) {
+      issues.push(
+        `${name} is installed ${copies.length} times (${copies.map(([packagePath, record]) => `${record.version} at ${packagePath}`)
+          .join(", ")}); JSKIT's packages need the one copy an app's api.transaction comes from. ${fix} and run npm install.`
+      );
     }
   }
 
@@ -543,6 +615,8 @@ async function updateProject({
   if (!catalogVersion) {
     throw new Error(`Coordinated catalog is missing ${CATALOG_PACKAGE_ID}.`);
   }
+  // A direct pin of a dependency the declared JSKIT packages need as one copy moves with the catalog.
+  const singleCopies = requiredSingleCopies(normalizedCatalog, declaredPackageIds);
 
   const updates = [];
   for (const [index, manifest] of manifests.entries()) {
@@ -561,6 +635,12 @@ async function updateProject({
         const expectedVersion = normalizedCatalog.versions.get(packageId);
         if (next[field][packageId] !== expectedVersion) {
           next[field][packageId] = expectedVersion;
+          changed = true;
+        }
+      }
+      for (const [name, { version }] of singleCopies) {
+        if (Object.hasOwn(next?.[field] || {}, name) && next[field][name] !== version) {
+          next[field][name] = version;
           changed = true;
         }
       }

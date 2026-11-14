@@ -375,6 +375,8 @@ Exports
 - `normalizeCatalog(catalog = {})`
 - `updateProject({ projectRoot = process.cwd(), catalog, install = true, installProject = runNpmInstall, additionalManifests = [] } = {})`
 Local functions
+- `singleCopyDependencies(catalogPackages)`
+- `requiredSingleCopies(normalizedCatalog, packageIds)`
 - `collectManifestDeclarations(manifests, projectRoot)`
 - `collectLocalPackageNames(manifests)`
 - `resolveLockPackageName(packagePath = "", record = {})`
