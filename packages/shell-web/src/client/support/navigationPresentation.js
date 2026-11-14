@@ -12,6 +12,12 @@ const NO_SHELL_PAGE_ACTIONS_TARGET = "";
 /** Vuetify's icon options, which hold the theme's aliases (Vuetify provides them under this global symbol). */
 const VUETIFY_ICONS_KEY = Symbol.for("vuetify:icons");
 const NO_VUETIFY_ICONS = Object.freeze({ aliases: Object.freeze({}) });
+/**
+ * The list a Vuetify v-list provides to what it holds (under this global symbol); in one, Vuetify gives a link item
+ * the role "link". Outside a list, as in the navigation bar, there is none.
+ */
+const VUETIFY_LIST_KEY = Symbol.for("vuetify:list");
+const NO_VUETIFY_LIST = null;
 
 /**
  * The filled form of a navigation icon alias for the active destination: Material 3 shows the active destination's
@@ -32,9 +38,11 @@ export {
   NO_SHELL_NAVIGATION_PRESENTATION,
   NO_SHELL_PAGE_ACTIONS_TARGET,
   NO_VUETIFY_ICONS,
+  NO_VUETIFY_LIST,
   SHELL_NAVIGATION_PRESENTATION_KEY,
   SHELL_PAGE_ACTIONS_ID,
   SHELL_PAGE_ACTIONS_TARGET_KEY,
   VUETIFY_ICONS_KEY,
+  VUETIFY_LIST_KEY,
   filledIconAlias
 };

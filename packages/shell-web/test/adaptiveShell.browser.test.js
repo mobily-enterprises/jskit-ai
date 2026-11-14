@@ -375,6 +375,101 @@ test("the rail and the drawer run the window's full height beside the top app ba
   await page.close();
 });
 
+// What a navigation list holds as assistive technology sees it, as axe reads it: the roles of its children, where a
+// child with no role of its own (a div) or a presentational one hands its children to the list; and for each
+// destination, the links in its list item and where it sits in the list.
+function readNavigationList(list) {
+  return list.evaluate((element) => {
+    const implicitRole = (node) => ({ A: node.hasAttribute("href") ? "link" : "", HR: "separator", LI: "listitem" })[node.tagName] || "";
+    const owned = [];
+    const own = (node) => {
+      const role = node.getAttribute("role") || implicitRole(node);
+      if (!role || role === "presentation" || role === "none") {
+        for (const child of node.children) own(child);
+      } else {
+        owned.push(role);
+      }
+    };
+    for (const child of element.children) own(child);
+    const top = element.getBoundingClientRect().top;
+    return {
+      role: element.getAttribute("role"),
+      owned,
+      destinations: [...element.querySelectorAll(".v-list-item")].map((item) => ({
+        links: [...(item.closest("[role=listitem]")?.querySelectorAll("[role=link]") || [])].map((link) => link.textContent.trim()),
+        top: Math.round(item.getBoundingClientRect().top - top),
+        height: Math.round(item.getBoundingClientRect().height)
+      })),
+      dividers: [...element.querySelectorAll("hr")].map((hr) => ({
+        role: hr.getAttribute("role"),
+        orientation: hr.getAttribute("aria-orientation")
+      }))
+    };
+  });
+}
+
+// axe's aria-required-children (WCAG 1.3.1 Info and Relationships): a list holds only list items. Vuetify makes a
+// navigation item in a v-list the link itself and the drawer's divider an hr, a separator, so the drawer's and the
+// rail's lists held links and a separator. Each destination is a list item holding its link, the divider is
+// presentational, and the destinations sit where they did: 4dp apart in the drawer and the rail, the divider 8dp from
+// each group. The navigation bar is no list, so its destinations are not list items.
+test("the drawer's, the rail's and a section's navigation lists hold only list items, each with its link: WCAG 1.3.1 (axe aria-required-children)", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 120_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const home = ["Home", "Settings", "Contacts", "Suppliers", "Bookings", "Help and support"];
+  const drawerList = "[data-testid=jskit-shell-drawer] .shell-layout__drawer-list";
+  // Each destination's top in its list, as drawn before the list items: in the drawer 4dp apart, Help and support
+  // past the 1dp divider 8dp from each group; in the rail 4dp apart; in a phone's drawer after the hidden divider;
+  // in a settings section's list under its 8dp padding.
+  const drawerTops = [0, 60, 120, 180, 240, 313];
+  const railTops = [0, 60, 120, 180, 240, 300];
+  const cases = [
+    { at: "expanded drawer", width: 1280, height: 900, path: "/home", list: drawerList, labels: home, tops: drawerTops, dividers: 1 },
+    { at: "expanded rail", width: 1280, height: 900, path: "/home", toggle: true, list: drawerList, labels: home, tops: railTops, dividers: 1 },
+    {
+      at: "medium rail",
+      width: 768,
+      height: 1024,
+      path: "/home",
+      list: "[data-testid=jskit-shell-rail] .shell-layout__rail-list",
+      labels: home,
+      tops: railTops,
+      dividers: 0
+    },
+    { at: "medium drawer", width: 768, height: 1024, path: "/home", toggle: true, list: drawerList, labels: home, tops: drawerTops, dividers: 1 },
+    { at: "compact drawer", width: 390, height: 844, path: "/home", toggle: true, list: drawerList, labels: ["Help and support"], tops: [4], dividers: 1 },
+    { at: "settings section", width: 1280, height: 900, path: "/home/settings", list: ".v-main .v-list--nav", labels: ["General"], tops: [8], dividers: 0 }
+  ];
+  for (const { at, width, height, path: pagePath, toggle, list, labels, tops, dividers } of cases) {
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width, height }, reducedMotion: "reduce" });
+    await page.goto(pagePath);
+    if (toggle) await page.locator("[data-testid=jskit-shell-nav-toggle]:visible").first().click();
+    const navigation = page.locator(list);
+    await expect(navigation.locator(".v-list-item").first(), at).toBeVisible();
+    // The drawer settles from opening or collapsing before the destinations are read.
+    await expect.poll(async () => (await readNavigationList(navigation)).destinations.map(({ top }) => top), { message: at })
+      .toEqual(tops);
+    const read = await readNavigationList(navigation);
+    assert.equal(read.role, "list", `${at}: a list`);
+    assert.deepEqual(read.owned, labels.map(() => "listitem"), `${at}: what the list holds`);
+    assert.deepEqual(read.destinations.map(({ links }) => links), labels.map((label) => [label]), `${at}: each list item's link`);
+    assert.ok(read.destinations.every((destination) => destination.height >= 56), `${at}: 56dp destinations`);
+    assert.deepEqual(read.dividers, Array.from({ length: dividers }, () => ({ role: "presentation", orientation: null })), `${at}: the divider`);
+    for (const label of labels) {
+      const item = navigation.getByRole("listitem").filter({ has: page.getByRole("link", { name: label, exact: true }) });
+      await expect(item, `${at}: ${label}`).toHaveCount(1);
+    }
+    if (width < 600) {
+      const bar = page.getByTestId("jskit-shell-bottom-nav");
+      await expect(bar.getByRole("link").first(), `${at}: the navigation bar`).toBeVisible();
+      await expect(bar.locator("[role=list], [role=listitem]"), `${at}: no list in the navigation bar`).toHaveCount(0);
+    }
+    await page.close();
+  }
+});
+
 test("shell-web preserves the active form across responsive changes", {
   skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
   timeout: 90_000

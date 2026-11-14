@@ -351,7 +351,8 @@ onBeforeUnmount(() => {
             target="shell-layout:primary-menu"
             default
           />
-          <v-divider class="shell-layout__drawer-divider" />
+          <!-- A list holds only list items (WCAG 1.3.1), so the divider between the two groups is presentational. -->
+          <v-divider class="shell-layout__drawer-divider" role="presentation" />
           <ShellOutlet target="shell-layout:secondary-menu" />
         </v-list>
       </ShellNavigationScope>

@@ -4,14 +4,20 @@ import { useLink } from "vue-router";
 import {
   NO_SHELL_NAVIGATION_PRESENTATION,
   NO_VUETIFY_ICONS,
+  NO_VUETIFY_LIST,
   SHELL_NAVIGATION_PRESENTATION_KEY,
   VUETIFY_ICONS_KEY,
+  VUETIFY_LIST_KEY,
   filledIconAlias
 } from "../support/navigationPresentation.js";
 import { activateShellNavigationLinkOnSpace } from "../support/navigationLinkKeyboard.js";
 
 // One navigation destination as Material 3 draws it where it sits: a drawer item (a 56dp pill), a rail item (icon in a
-// 56x32 indicator with its label below) or a list item. The active destination's icon is filled.
+// 56x32 indicator with its label below) or a list item. The active destination's icon is filled. In a list (the
+// drawer's, the rail's, a settings section's) it is a list item holding its link: Vuetify makes the item itself the
+// link, and a list holds only list items (WCAG 1.3.1). Attributes land on the link.
+defineOptions({ inheritAttrs: false });
+
 const props = defineProps({
   label: {
     type: String,
@@ -49,38 +55,61 @@ const active = computed(() =>
 );
 const displayIcon = computed(() => (active.value ? filledIconAlias(props.icon, iconOptions.aliases) : props.icon));
 const rail = computed(() => presentation.value === "rail");
+/** @type {object | null} */
+const list = inject(VUETIFY_LIST_KEY, NO_VUETIFY_LIST);
+// Vuetify gives an item in a list the role "link" when it links somewhere, and "listitem" when it doesn't.
+const listItem = computed(() => Boolean(list && props.href));
+
+// What holds an item outside a list: nothing, the link stands alone.
+const Unwrapped = (_props, { slots }) => slots.default();
+Unwrapped.inheritAttrs = false;
 </script>
 
 <template>
-  <v-list-item
-    v-if="rail"
-    class="shell-menu-link-item shell-menu-link-item--rail"
-    :to="props.sameOrigin ? props.href : undefined"
-    :href="props.sameOrigin ? undefined : props.href"
-    :active="active"
-    :disabled="props.disabled"
-    :ripple="false"
-    @keydown.space="activateShellNavigationLinkOnSpace"
+  <component
+    :is="listItem ? 'div' : Unwrapped"
+    :role="listItem ? 'listitem' : undefined"
+    :class="listItem ? ['shell-navigation-item', { 'shell-navigation-item--rail': rail }] : undefined"
   >
-    <span class="shell-menu-link-item__indicator">
-      <v-icon v-if="displayIcon" :icon="displayIcon" />
-    </span>
-    <span class="shell-menu-link-item__rail-label">{{ props.label }}</span>
-  </v-list-item>
-  <v-list-item
-    v-else
-    class="shell-menu-link-item"
-    :title="props.label"
-    :to="props.sameOrigin ? props.href : undefined"
-    :href="props.sameOrigin ? undefined : props.href"
-    :prepend-icon="displayIcon || undefined"
-    :active="active"
-    :disabled="props.disabled"
-    @keydown.space="activateShellNavigationLinkOnSpace"
-  />
+    <v-list-item
+      v-if="rail"
+      class="shell-menu-link-item shell-menu-link-item--rail"
+      :to="props.sameOrigin ? props.href : undefined"
+      :href="props.sameOrigin ? undefined : props.href"
+      :active="active"
+      :disabled="props.disabled"
+      :ripple="false"
+      v-bind="$attrs"
+      @keydown.space="activateShellNavigationLinkOnSpace"
+    >
+      <span class="shell-menu-link-item__indicator">
+        <v-icon v-if="displayIcon" :icon="displayIcon" />
+      </span>
+      <span class="shell-menu-link-item__rail-label">{{ props.label }}</span>
+    </v-list-item>
+    <v-list-item
+      v-else
+      class="shell-menu-link-item"
+      :title="props.label"
+      :to="props.sameOrigin ? props.href : undefined"
+      :href="props.sameOrigin ? undefined : props.href"
+      :prepend-icon="displayIcon || undefined"
+      :active="active"
+      :disabled="props.disabled"
+      v-bind="$attrs"
+      @keydown.space="activateShellNavigationLinkOnSpace"
+    />
+  </component>
 </template>
 
 <style scoped>
+/* A nav list spaces each item but its first 4dp below the one before (Vuetify's `.v-list--nav
+   .v-list-item:not(:first-child)`). In its list item the item is always a first child, so the list item keeps that
+   spacing; the rail spaces its destinations itself. */
+.v-list--nav .shell-navigation-item:not(.shell-navigation-item--rail, :first-child) {
+  margin-top: 4px;
+}
+
 .shell-menu-link-item {
   --v-activated-opacity: 0;
   border-radius: 9999px;

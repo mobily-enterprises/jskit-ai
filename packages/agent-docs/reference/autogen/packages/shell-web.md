@@ -104,6 +104,8 @@ Exports
 ### `src/client/components/ShellNavigationItem.vue`
 Exports
 - None
+Local functions
+- `Unwrapped(_props, { slots })`
 
 ### `src/client/components/ShellNavigationScope.vue`
 Exports
@@ -637,10 +639,12 @@ Exports
 - `NO_SHELL_NAVIGATION_PRESENTATION`
 - `NO_SHELL_PAGE_ACTIONS_TARGET`
 - `NO_VUETIFY_ICONS`
+- `NO_VUETIFY_LIST`
 - `SHELL_NAVIGATION_PRESENTATION_KEY`
 - `SHELL_PAGE_ACTIONS_ID`
 - `SHELL_PAGE_ACTIONS_TARGET_KEY`
 - `VUETIFY_ICONS_KEY`
+- `VUETIFY_LIST_KEY`
 - `filledIconAlias(icon, aliases)`
 
 ### `src/client/support/pageActions.js`
