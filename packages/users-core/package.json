@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-core",
-  "version": "0.2.46",
+  "version": "0.2.47",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -200,6 +200,6 @@
     "@jskit-ai/database-runtime": "0.1.275",
     "@jskit-ai/http-runtime": "0.2.26",
     "@jskit-ai/kernel": "0.2.26",
-    "@jskit-ai/resource-runtime": "0.2.34"
+    "@jskit-ai/resource-runtime": "0.2.35"
   }
 }
