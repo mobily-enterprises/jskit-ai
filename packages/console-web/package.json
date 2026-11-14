@@ -1,12 +1,12 @@
 {
   "name": "@jskit-ai/console-web",
-  "version": "0.1.277",
+  "version": "0.1.278",
   "type": "module",
   "scripts": {
     "test": "jskit test"
   },
   "dependencies": {
-    "@jskit-ai/console-core": "0.2.47"
+    "@jskit-ai/console-core": "0.2.48"
   },
   "description": "Authenticated console surface scaffold and surface policy wiring.",
   "jskit": {
