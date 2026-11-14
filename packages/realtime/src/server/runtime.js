@@ -3,7 +3,8 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { toRequestPathname } from "@jskit-ai/kernel/shared/surface/paths";
 
 const SOCKET_IO_PATH = "/socket.io";
-const REDIS_URL_ENV_KEY = "REDIS_URL";
+// The name the realtime guide, the realtime-application pattern and its .env.example give.
+const REDIS_URL_ENV_KEY = "REALTIME_REDIS_URL";
 const REDIS_NAMESPACE_ENV_KEY = "REDIS_NAMESPACE";
 
 /** @param {import("@jskit-ai/kernel/server/types").RuntimeFastify | null} fastify */

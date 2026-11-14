@@ -103,8 +103,10 @@ dokku mariadb:enter "$CENTRAL_DB" sh -lc \
   "MYSQL_PWD=\"\$MYSQL_ROOT_PASSWORD\" mariadb -uroot -e 'CREATE DATABASE IF NOT EXISTS \`$DB\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci; GRANT ALL PRIVILEGES ON \`$DB\`.* TO '\''$DB_USER'\''@'\''%'\''; FLUSH PRIVILEGES;'"
 
 log "Setting Dokku config for '$APP'"
+# redis:link sets REDIS_URL; JSKIT realtime reads its backplane from REALTIME_REDIS_URL.
 dokku config:set "$APP" \
   DATABASE_URL="${BASE_DSN}/${DB}" \
+  REALTIME_REDIS_URL="$(dokku config:get "$APP" REDIS_URL)" \
   REDIS_NAMESPACE="${APP}::prod"
 
 
