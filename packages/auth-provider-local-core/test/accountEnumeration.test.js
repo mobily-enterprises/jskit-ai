@@ -3,12 +3,12 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { createLocalAuthService, createLocalFileBackend } from "../src/server/lib/index.js";
+import { createLocalAuthService, createLocalFileBackend, scryptPasswordStrategy } from "../src/server/lib/index.js";
 import { localServiceOptions } from "../test-support/localService.js";
 
-// Asking for a password reset or a new confirmation link answers alike whether or not the email has an account or a
-// waiting registration: in what it answers and in the work it does before answering, so its time does not say which
-// emails have accounts either. These tests count that work rather than time it.
+// Asking for a password reset or a new confirmation link, and a failed sign-in, answer alike whether or not the email
+// has an account or a waiting registration: in what they answer and in the work they do before answering, so their
+// time does not say which emails have accounts either. These tests count that work rather than time it.
 
 const PASSWORD = "correct horse battery staple";
 const NOT_ANSWERED = Symbol("not answered");
@@ -128,4 +128,27 @@ test("a new confirmation link answers before its email is sent, and the same whe
   await backend.idle();
   assert.deepEqual(sender.messages.map(({ email }) => email), ["ada@example.com", "ada@example.com"]);
   assert.notEqual(sender.messages[1].confirmationUrl, sender.messages[0].confirmationUrl);
+});
+
+test("a failed sign-in checks one password, whether or not its email has one to check", async (t) => {
+  const checks = [];
+  const passwordStrategy = {
+    hashPassword: scryptPasswordStrategy.hashPassword,
+    async verifyPassword(password, record) {
+      checks.push(password);
+      return scryptPasswordStrategy.verifyPassword(password, record);
+    }
+  };
+  const { service } = await startService(t, { passwordStrategy });
+  await service.register({ email: "ada@example.com", password: PASSWORD });
+
+  for (const email of ["ada@example.com", "nobody@example.com", "NOBODY@example.com", "other@example.com"]) {
+    checks.length = 0;
+    await assert.rejects(service.login({ email, password: "a wrong password" }), { status: 401 }, email);
+    assert.deepEqual(checks, ["a wrong password"], email);
+  }
+  // The right password still signs in, with one check.
+  checks.length = 0;
+  assert.equal((await service.login({ email: "ada@example.com", password: PASSWORD })).actor.email, "ada@example.com");
+  assert.deepEqual(checks, [PASSWORD]);
 });

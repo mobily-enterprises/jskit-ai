@@ -6,7 +6,7 @@ import { AUTH_TEXTS, authFieldErrorDetails, createAuthError } from "@jskit-ai/au
 import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
 import { DEV_AUTH_SESSION_PURPOSE, buildAuthPayload, buildAuthResult, buildProfileChangePayload, findExistingAppProfile } from "./authPayloads.js";
 import { forgottenFailuresBefore, recordSignInFailure, signInLockedError, signInWaitMs } from "./signInThrottle.js";
-import { createId } from "./tokens.js";
+import { createId, randomToken } from "./tokens.js";
 
 /** An account created through a provider has no password until recovery sets one. */
 const NO_PASSWORD = Object.freeze({ algorithm: "", version: "", salt: "", hash: "" });
@@ -210,10 +210,24 @@ function createLocalAccounts({
     };
   }
 
+  // The record a sign-in checks its password against when its email has no password to check, made once from a
+  // random password nobody knows. A rejected one is not kept, so the next sign-in makes it again.
+  let unmatchable = null;
+  function unmatchableRecord() {
+    unmatchable ??= passwords.hashPassword(randomToken(32)).catch((error) => {
+      unmatchable = null;
+      throw error;
+    });
+    return unmatchable;
+  }
+
   /**
    * Signs in with a password. Each account's failures are counted, whether or
    * not the account exists, so the wait they cause says nothing about which
-   * accounts exist; while an account waits its password is not checked. A
+   * accounts exist; while an account waits its password is not checked. Nor
+   * does a failure's time: a sign-in whose email has no password to check (no
+   * account, a disabled one, or one created through a provider) checks the
+   * password against one nobody knows, as long as checking a wrong one takes. A
    * successful sign-in, or a password reset, forgets the failures.
    */
   async function login(input) {
@@ -226,13 +240,21 @@ function createLocalAccounts({
       if (waitMs > 0) {
         return { waitMs };
       }
+      let checked = false;
+      const passwordMatches = (record) => {
+        checked = true;
+        return passwords.verifyPassword(password, record);
+      };
       const user = await tx.users.findByEmail(email);
       // Whatever config.emailConfirmation says now: a registration made while it was on still waits.
       if (!user && (await emailConfirmation.isWaitingWithPassword(tx, email, (registration) =>
-        passwords.verifyPassword(password, registration.password)))) {
+        passwordMatches(registration.password)))) {
         return { unconfirmed: true };
       }
-      if (!user || user.disabled || !hasPassword(user) || !(await passwords.verifyPassword(password, user.password))) {
+      if (!user || user.disabled || !hasPassword(user) || !(await passwordMatches(user.password))) {
+        if (!checked) {
+          await passwords.verifyPassword(password, await unmatchableRecord());
+        }
         await tx.signInFailures.deleteBefore(forgottenFailuresBefore(now));
         await tx.signInFailures.save(recordSignInFailure(config.signInThrottle, failures, email, now));
         return { failed: true };
