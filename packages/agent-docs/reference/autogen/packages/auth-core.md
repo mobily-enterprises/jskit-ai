@@ -34,6 +34,12 @@ Exports
 Exports
 - `createAuthActions({ authService })`
 
+### `src/server/actions/emailChangeActions.js`
+Exports
+- `ACTION_CONFIRM_EMAIL_CHANGE`
+- `ACTION_REQUEST_EMAIL_CHANGE`
+- `createEmailChangeActions({ authService })`
+
 ### `src/server/actions/secondFactorActions.js`
 Exports
 - `ACTION_CONFIRM_SECOND_FACTOR_SETUP`
@@ -413,6 +419,11 @@ Exports
 - `authDevLoginAsBodyValidator`
 - `authDevLoginAsCommand`
 
+### `src/shared/commands/authEmailChangeCommands.js`
+Exports
+- `authEmailChangeConfirmCommand`
+- `authEmailChangeRequestCommand`
+
 ### `src/shared/commands/authLoginOAuthCompleteCommand.js`
 Exports
 - `authLoginOAuthCompleteBodyValidator`
@@ -533,6 +544,8 @@ Exports
 - `authSecondFactorSetupConfirmCommand`
 - `authSecondFactorSetupStartCommand`
 - `authSecondFactorVerifyCommand`
+- `authEmailChangeConfirmCommand`
+- `authEmailChangeRequestCommand`
 
 ### `src/shared/index.js`
 Exports

@@ -733,11 +733,11 @@
               },
               {
                 "subpath": "./server/lib/index",
-                "summary": "Exports the local auth service and its configuration (createLocalAuthService, resolveLocalAuthConfig), the file backend, the password strategy helpers (scryptPasswordStrategy, normalizePasswordStrategy, hashPassword, verifyPassword), the logged recovery and confirmation senders (createLoggedRecoverySender, createLoggedConfirmationSender), the first account's setup code (createFirstAccountSetup, SETUP_CODE_FILE, SETUP_CODE_ENV), the logged second factor events (createLoggedSecondFactorEvents), the logged sign-in events (createLoggedSignInEvents), and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
+                "summary": "Exports the local auth service and its configuration (createLocalAuthService, resolveLocalAuthConfig), the file backend, the password strategy helpers (scryptPasswordStrategy, normalizePasswordStrategy, hashPassword, verifyPassword), the logged recovery, confirmation and email change senders (createLoggedRecoverySender, createLoggedConfirmationSender, createLoggedEmailChangeSender), the first account's setup code (createFirstAccountSetup, SETUP_CODE_FILE, SETUP_CODE_ENV), the logged second factor events (createLoggedSecondFactorEvents), the logged sign-in events (createLoggedSignInEvents), and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
               },
               {
                 "subpath": "./server/types",
-                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender, auth.local.confirmation-sender, auth.local.confirmation-mode, auth.local.second-factor-events, auth.local.sign-in-events and auth.local.pass-identity capabilities, and of the configuration, passwords and sessions local auth's modules share."
+                "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender, auth.local.confirmation-sender, auth.local.email-change-sender, auth.local.confirmation-mode, auth.local.second-factor-events, auth.local.sign-in-events and auth.local.pass-identity capabilities, and of the configuration, passwords and sessions local auth's modules share."
               }
             ],
             "extensionCapabilities": [
@@ -747,6 +747,7 @@
               "auth.profile.projector",
               "auth.local.recovery-sender",
               "auth.local.confirmation-sender",
+              "auth.local.email-change-sender",
               "auth.local.confirmation-mode",
               "auth.local.second-factor-events",
               "auth.local.sign-in-events",
@@ -1089,6 +1090,16 @@
             "routes": [
               {
                 "method": "POST",
+                "path": "/api/email-change",
+                "summary": "Ask to change the signed-in account's email: a link goes to the new address"
+              },
+              {
+                "method": "POST",
+                "path": "/api/email-change/confirm",
+                "summary": "Confirm an email change with the link sent to the new address"
+              },
+              {
+                "method": "POST",
                 "path": "/api/login",
                 "summary": "Log in with configured credentials"
               },
@@ -1219,6 +1230,19 @@
                   "policy": "public"
                 },
                 "purpose": "Public password reset screen for recovery links."
+              },
+              {
+                "id": "auth.email-change",
+                "path": "/auth/email-change",
+                "scope": "surface",
+                "surface": "auth",
+                "name": "auth-email-change",
+                "componentKey": "auth-email-change",
+                "autoRegister": false,
+                "guard": {
+                  "policy": "public"
+                },
+                "purpose": "Public screen that confirms an email change from the link sent to the new address."
               },
               {
                 "id": "auth.default-login",
@@ -4323,12 +4347,14 @@
       "examplePath": "patterns/auth-surface/example",
       "files": [
         "src/components/AppBrand.vue",
+        "src/pages/auth/email-change.vue",
         "src/pages/auth/login.vue",
         "src/pages/auth/reset-password.vue",
         "src/pages/auth/signout.vue",
         "src/runtime/authGuardRuntime.js",
         "src/runtime/authHttpClient.js",
         "src/runtime/useSignOut.js",
+        "src/views/auth/EmailChangeView.vue",
         "src/views/auth/LoginView.vue",
         "src/views/auth/ResetPasswordView.vue",
         "src/views/auth/SignOutView.vue",

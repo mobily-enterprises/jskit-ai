@@ -21,6 +21,9 @@ const AUTH_OPERATION_FEATURES = Object.freeze({
   resetPassword: "passwordRecovery.complete",
   changePassword: "password.change",
   updateDisplayName: "profileUpdate",
+  requestEmailChange: "emailChange",
+  requestEmailChangeForUser: "emailChange",
+  confirmEmailChange: "emailChange",
   getSecurityStatus: "securityStatus",
   // readable-check: allow setter-seam - not a slot: setPasswordSignInEnabled is an auth.service operation
   setPasswordSignInEnabled: "password.methodToggle",
@@ -157,6 +160,8 @@ function normalizeAuthCapabilities(value = {}) {
       emailConfirmation: normalizeBoolean(featuresSource.emailConfirmation),
       emailConfirmationCode: normalizeBoolean(featuresSource.emailConfirmationCode),
       firstAccountSetupCode: normalizeBoolean(featuresSource.firstAccountSetupCode),
+      // An account's email changes once a link sent to the new address is used.
+      emailChange: normalizeBoolean(featuresSource.emailChange),
       profileUpdate: normalizeBoolean(featuresSource.profileUpdate),
       providerLinking: Object.freeze({
         start: normalizeBoolean(providerLinkingSource.start),

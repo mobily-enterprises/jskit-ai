@@ -118,7 +118,8 @@ async function createStartedApp({
   invitationContextResolver = null,
   logger = null,
   configureExtensions = null,
-  signInEvents = null
+  signInEvents = null,
+  emailChangeSender = null
 } = {}) {
   const storeDir = await temporaryStoreDir("jskit-auth-local-");
   const backend = createLocalFileBackend({ storeDir });
@@ -170,6 +171,7 @@ async function createStartedApp({
     ...(confirmationSender !== null ? { "auth.local.confirmation-sender": confirmationSender } : {}),
     ...(confirmationMode !== null ? { "auth.local.confirmation-mode": confirmationMode } : {}),
     ...(signInEvents !== null ? { "auth.local.sign-in-events": signInEvents } : {}),
+    ...(emailChangeSender !== null ? { "auth.local.email-change-sender": emailChangeSender } : {}),
   };
   const runtime = createCapabilityRuntime({
     inputs,
@@ -1403,6 +1405,68 @@ test("an installed auth.local.sign-in-events is given each sign-in event, and wi
   assert.deepEqual(logs.filter(([message]) => String(message).startsWith("Local auth sign-in")),
     [["Local auth sign-in: signedIn.", "registration"]]);
 });
+
+test("an installed auth.local.email-change-sender sends as APP_ENV says; without one, development and test log the links and a deployed server has none",
+  async (t) => {
+    const PASSWORD = "correct horse battery staple";
+    const account = async (app, id, email) => {
+      await app.backend.withTransaction(async (tx) => tx.users.create({ id, email, displayName: id, password: await hashPassword(PASSWORD) }));
+      return id;
+    };
+    const deployed = { AUTH_LOCAL_EMAIL_CONFIRMATION: "", AUTH_LOCAL_SELF_REGISTRATION: "false" };
+
+    // Production sends each link to its address.
+    const sent = [];
+    const production = await createStartedApp({ env: { ...PRODUCTION, ...deployed }, emailChangeSender: async (delivery) => { sent.push(delivery); } });
+    t.after(() => fs.rm(production.storeDir, { recursive: true, force: true }));
+    assert.equal(production.authService.getCapabilities().features.emailChange, true);
+    await production.authService.requestEmailChangeForUser({ userId: await account(production, "usr_ada", "ada@example.com"), email: "ada.new@example.com" });
+    // Stopping waits for the links still being sent.
+    await production.runtime.shutdown();
+    assert.deepEqual(sent.map(({ type, email, originalEmail, currentEmail }) => [type, email, originalEmail, currentEmail]),
+      [["confirmation", "ada.new@example.com", "", "ada@example.com"]]);
+    assert.match(sent[0].confirmationUrl, /^http:\/\/localhost:5173\/auth\/email-change\?token=/u);
+
+    // Test (as development) logs the link an installed sender would send, and sends nothing.
+    const logs = [];
+    const logger = { info: (details, message) => logs.push({ details, message }), warn() {}, error() {}, debug() {} };
+    const copy = await createStartedApp({ emailChangeSender: async (delivery) => { sent.push(delivery); }, logger });
+    t.after(() => fs.rm(copy.storeDir, { recursive: true, force: true }));
+    await copy.authService.requestEmailChangeForUser({ userId: await account(copy, "usr_bob", "bob@example.com"), email: "bob.new@example.com" });
+    await copy.runtime.shutdown();
+    assert.equal(sent.length, 1, "nothing more sent");
+    const [link] = logs.filter(({ message }) => String(message).includes("the email change email"));
+    assert.equal(link.message, "Test: the email change email to bob.new@example.com was logged, not sent.");
+    assert.match(link.details.confirmationUrl, /\/auth\/email-change\?token=/u);
+
+    // Without one, development and test log each link.
+    logs.length = 0;
+    const logged = await createStartedApp({ logger });
+    t.after(() => fs.rm(logged.storeDir, { recursive: true, force: true }));
+    await logged.authService.requestEmailChangeForUser({ userId: await account(logged, "usr_eve", "eve@example.com"), email: "eve.new@example.com" });
+    await logged.runtime.shutdown();
+    assert.deepEqual(logs.filter(({ message }) => String(message).startsWith("Local auth email change")).map(({ details, message }) => [message, details.email]),
+      [["Local auth email change: confirmation.", "eve.new@example.com"]]);
+
+    // Staging and production without one offer no email change, and a sender needs the public URL its links name.
+    for (const env of [STAGING, PRODUCTION]) {
+      const without = await createStartedApp({ env: { ...env, ...deployed } });
+      t.after(() => fs.rm(without.storeDir, { recursive: true, force: true }));
+      assert.equal(without.authService.getCapabilities().features.emailChange, false, env.APP_ENV);
+      for (const asked of [
+        without.authService.requestEmailChange({ cookies: {} }, { email: "x@example.com", password: PASSWORD }),
+        without.authService.requestEmailChangeForUser({ userId: "usr_any", email: "x@example.com" }),
+        without.authService.confirmEmailChange({ token: "any" })
+      ]) {
+        await assert.rejects(asked, { status: 501, code: "AUTH_OPERATION_UNSUPPORTED" });
+      }
+      await without.runtime.shutdown();
+    }
+    await assert.rejects(
+      () => createStartedApp({ env: { APP_PUBLIC_URL: "" }, emailChangeSender: async () => {} }),
+      /APP_PUBLIC_URL is required when local auth emails email change links/u
+    );
+  });
 
 test("local recovery uses the application sender without returning or logging its token", async (t) => {
   const messages = [];

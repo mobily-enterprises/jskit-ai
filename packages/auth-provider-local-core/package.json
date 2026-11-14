@@ -49,11 +49,11 @@
           },
           {
             "subpath": "./server/lib/index",
-            "summary": "Exports the local auth service and its configuration (createLocalAuthService, resolveLocalAuthConfig), the file backend, the password strategy helpers (scryptPasswordStrategy, normalizePasswordStrategy, hashPassword, verifyPassword), the logged recovery and confirmation senders (createLoggedRecoverySender, createLoggedConfirmationSender), the first account's setup code (createFirstAccountSetup, SETUP_CODE_FILE, SETUP_CODE_ENV), the logged second factor events (createLoggedSecondFactorEvents), the logged sign-in events (createLoggedSignInEvents), and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
+            "summary": "Exports the local auth service and its configuration (createLocalAuthService, resolveLocalAuthConfig), the file backend, the password strategy helpers (scryptPasswordStrategy, normalizePasswordStrategy, hashPassword, verifyPassword), the logged recovery, confirmation and email change senders (createLoggedRecoverySender, createLoggedConfirmationSender, createLoggedEmailChangeSender), the first account's setup code (createFirstAccountSetup, SETUP_CODE_FILE, SETUP_CODE_ENV), the logged second factor events (createLoggedSecondFactorEvents), the logged sign-in events (createLoggedSignInEvents), and local auth register hook decorators. Google, Microsoft and GitHub sign-in turn on from AUTH_GOOGLE_*, AUTH_MICROSOFT_* and AUTH_GITHUB_* client id and secret pairs."
           },
           {
             "subpath": "./server/types",
-            "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender, auth.local.confirmation-sender, auth.local.confirmation-mode, auth.local.second-factor-events, auth.local.sign-in-events and auth.local.pass-identity capabilities, and of the configuration, passwords and sessions local auth's modules share."
+            "summary": "Types of the auth.local.backend contract (AuthLocalBackend) that every local auth backend implements, of the auth.local.password-strategy, auth.local.recovery-sender, auth.local.confirmation-sender, auth.local.email-change-sender, auth.local.confirmation-mode, auth.local.second-factor-events, auth.local.sign-in-events and auth.local.pass-identity capabilities, and of the configuration, passwords and sessions local auth's modules share."
           }
         ],
         "extensionCapabilities": [
@@ -63,6 +63,7 @@
           "auth.profile.projector",
           "auth.local.recovery-sender",
           "auth.local.confirmation-sender",
+          "auth.local.email-change-sender",
           "auth.local.confirmation-mode",
           "auth.local.second-factor-events",
           "auth.local.sign-in-events",

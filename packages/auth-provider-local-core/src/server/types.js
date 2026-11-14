@@ -14,10 +14,15 @@
  *   findByEmail(email: string): Promise<object | null>,
  *   hasAny(): Promise<boolean>,
  *   updatePassword(userId: string, passwordRecord: object): Promise<object | null>,
- *   updateProfile(userId: string, updates: object): Promise<object | null>
+ *   updateProfile(userId: string, updates: object): Promise<object | null>,
+ *   updatePendingEmail(userId: string, pendingEmail: string): Promise<object | null>,
+ *   updateEmail(userId: string, email: string): Promise<object | null>
  * }} users `hasAny` answers whether any account exists. A user whose `disabled` is true has every sign-in and session
  *   refused, and a sign-in that proves who it is (the right password, a provider or a pass) is told its
- *   `disabledMessage`, or that the account is disabled when it has none; the file backend keeps no message.
+ *   `disabledMessage`, or that the account is disabled when it has none; the file backend keeps no message. A user's
+ *   `pendingEmail` is the address its email change waits to confirm ("" when none): `updatePendingEmail` sets it, and
+ *   `updateEmail` changes the email to a confirmed address and clears it, refusing an email another account has with
+ *   a ConflictError.
  * @property {{
  *   create(input: object): Promise<object>,
  *   findById(sessionId: string): Promise<object | null>,
@@ -228,6 +233,20 @@
  * email confirmation link to the address it registered, as APP_ENV says, like
  * `AuthLocalRecoverySender`.
  * @typedef {(delivery: { email: string, originalEmail?: string, confirmationUrl: string }) => Promise<void>} AuthLocalConfirmationSender
+ */
+
+/**
+ * The `auth.local.email-change-sender` capability: sends what an account's
+ * email change sends, each through the application's email. `confirmation`
+ * goes to the new address (`email`) with the link that confirms it
+ * (`confirmationUrl`), naming the account's current address
+ * (`currentEmail`); `notice` goes to the old address (`email`) once the email
+ * changed, naming the new one (`newEmail`). It sends as APP_ENV says, like
+ * `AuthLocalRecoverySender`. It must reject on failure, which local auth logs,
+ * and must not log the link. Without one, a staging or production server has
+ * no email change; development and test log each.
+ * @typedef {(delivery: { type: "confirmation", email: string, originalEmail?: string, currentEmail: string, confirmationUrl: string }
+ *   | { type: "notice", email: string, originalEmail?: string, newEmail: string }) => Promise<void>} AuthLocalEmailChangeSender
  */
 
 /**

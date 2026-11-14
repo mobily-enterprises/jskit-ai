@@ -5,6 +5,7 @@ import { EventProvider } from "@jskit-ai/kernel/server/runtime";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createCapabilityRuntime, defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import { createAuthActions } from "../src/server/actions/authActions.js";
+import { createEmailChangeActions } from "../src/server/actions/emailChangeActions.js";
 import { createSecondFactorActions } from "../src/server/actions/secondFactorActions.js";
 import { AuthFeature } from "../src/server/providers/AuthFeature.js";
 
@@ -108,6 +109,29 @@ test("second factor actions hand the request's own session and the input to auth
   ]);
 });
 
+test("email change actions: the signed-in person's request with the session, and a link's confirmation by anyone", async () => {
+  const calls = [];
+  const record = (name) => async (...args) => {
+    calls.push([name, ...args]);
+    return { ok: true, email: "new@example.com" };
+  };
+  const authService = { requestEmailChange: record("requestEmailChange"), confirmEmailChange: record("confirmEmailChange") };
+  const request = { id: "request-1" };
+  const actions = createEmailChangeActions({ authService });
+  assert.deepEqual(actions.map((action) => [action.id, action.kind, action.permission ?? null]), [
+    ["auth.emailChange.request", "command", { require: "authenticated" }],
+    ["auth.emailChange.confirm", "command", null]
+  ]);
+  assert.equal(actions.some((action) => action.channels.includes("automation")), false, "passwords and links never reach automation");
+  const [requestChange, confirmChange] = actions;
+  await requestChange.execute({ email: "new@example.com", password: "pw" }, { requestMeta: { request } });
+  await confirmChange.execute({ token: "link-token" }, { requestMeta: { request } });
+  assert.deepEqual(calls, [
+    ["requestEmailChange", request, { email: "new@example.com", password: "pw" }],
+    ["confirmEmailChange", { token: "link-token" }]
+  ]);
+});
+
 test("AuthFeature contributes actions only when auth.service exists", async () => {
   let actions = null;
   const SelectedAuthProvider = defineProvider({
@@ -141,6 +165,7 @@ test("AuthFeature contributes actions only when auth.service exists", async () =
   await runtime.start();
   assert.equal(actions.listDefinitions().some((definition) => definition.id === "auth.login.password"), true);
   assert.equal(actions.listDefinitions().some((definition) => definition.id === "auth.secondFactor.verify"), true);
+  assert.equal(actions.listDefinitions().some((definition) => definition.id === "auth.emailChange.confirm"), true);
   assert.deepEqual(actions.getDefinition("auth.session.read").surfaces, ["*"]);
 
   let publicActions = null;

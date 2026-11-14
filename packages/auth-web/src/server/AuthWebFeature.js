@@ -1,5 +1,6 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { createAuthWeb } from "./authWeb.js";
+import { registerEmailChangeRoutes } from "./routes/emailChangeRoutes.js";
 import { registerPassSignInRoutes } from "./routes/passSignInRoutes.js";
 import { registerSecondFactorRoutes } from "./routes/secondFactorRoutes.js";
 
@@ -29,6 +30,7 @@ const AuthWebFeature = defineFeature({
       http.router.register(route.method, route.path, route, route.handler);
     }
     registerSecondFactorRoutes(http.router, { rateLimits: authWeb.rateLimits });
+    registerEmailChangeRoutes(http.router, { rateLimits: authWeb.rateLimits });
     return { authWeb };
   },
   /**

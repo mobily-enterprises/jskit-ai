@@ -104,6 +104,10 @@ Exports
 Exports
 - `useSecondFactorStepUp()`
 
+### `src/client/composables/useDefaultEmailChangeView.js`
+Exports
+- `useDefaultEmailChangeView()`
+
 ### `src/client/composables/useDefaultResetPasswordView.js`
 Exports
 - `useDefaultResetPasswordView()`
@@ -125,6 +129,7 @@ Exports
 - `DefaultLoginView`
 - `DefaultSignOutView`
 - `DefaultResetPasswordView`
+- `DefaultEmailChangeView`
 - `AuthProfileWidget`
 - `AuthProfileMenuLinkItem`
 - `useSecondFactorStepUp`
@@ -206,6 +211,11 @@ Local functions
 Exports
 - `authHttpRequest(url, options = {}, state = undefined)`
 - `clearAuthCsrfTokenCache()`
+
+### `src/client/runtime/emailChangeLink.js`
+Exports
+- `confirmEmailChangeLink(href, request = authHttpRequest)`
+- `readEmailChangeToken(href)`
 
 ### `src/client/runtime/inactiveSessionMessage.js`
 Exports
@@ -323,6 +333,10 @@ Exports
 Exports
 - None
 
+### `src/client/views/DefaultEmailChangeView.vue`
+Exports
+- None
+
 ### `src/client/views/DefaultLoginView.vue`
 Exports
 - None
@@ -411,6 +425,10 @@ Local functions
 Exports
 - `buildRoutes(controller, { includeDevLoginAs = false, rateLimits = DEFAULT_AUTH_RATE_LIMITS } = {})`
 
+### `src/server/routes/emailChangeRoutes.js`
+Exports
+- `registerEmailChangeRoutes(router, { rateLimits })`
+
 ### `src/server/routes/passSignInRoutes.js`
 Exports
 - `registerPassSignInRoutes(fastify, { service, rateLimit })`
@@ -448,6 +466,10 @@ Exports
 Exports
 - None
 
+### `patterns/auth-surface/example/src/pages/auth/email-change.vue`
+Exports
+- None
+
 ### `patterns/auth-surface/example/src/pages/auth/login.vue`
 Exports
 - None
@@ -478,6 +500,10 @@ Exports
 - `useSignOut`
 - `createSignOutAction`
 - `performSignOutRequest`
+
+### `patterns/auth-surface/example/src/views/auth/EmailChangeView.vue`
+Exports
+- None
 
 ### `patterns/auth-surface/example/src/views/auth/LoginView.vue`
 Exports

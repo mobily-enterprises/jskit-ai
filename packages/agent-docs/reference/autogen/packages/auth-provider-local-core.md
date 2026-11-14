@@ -47,21 +47,33 @@ Local functions
 
 ### `src/server/lib/config.js`
 Exports
-- `resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false })`
+- `resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false, emailChangeSender = false })`
 Local functions
 - `resolveStoreDir(env, appRoot)`
 - `resolveSessionSecret(env, { storeDir, isDeployed })`
 - `resolveSecondFactorKey(env, { isDeployed, sessionSecret })`
 - `resolveSetupCode(env, { isDeployed })`
-- `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled, deployedSecondFactor })`
+- `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, emailedChange, oauthEnabled, deployedSecondFactor })`
 - `resolveRecoveryDelivery(env, { emailRecovery, isDeployed })`
 - `resolveConfirmationDelivery(env, { emailConfirmationSender, isDeployed, selfRegistration })`
+- `resolveEmailChangeDelivery({ emailChangeSender, isDeployed })`
 - `resolvePasswordMinLength(env)`
 
 ### `src/server/lib/deliveries.js`
 Exports
 - `DELIVERY_SHUTDOWN_WAIT_MS`
 - `createLocalDeliveries({ logger })`
+
+### `src/server/lib/emailChange.js`
+Exports
+- `createLocalEmailChange({ backend, config, deliveries, emailChangeSender, passwords, profileProjector, sessions })`
+- `createLoggedEmailChangeSender(logger)`
+Local functions
+- `fieldRefusal(status, { code, message, field })`
+- `passwordInvalidError()`
+- `sameEmailError()`
+- `emailTakenError()`
+- `linkInvalidError()`
 
 ### `src/server/lib/emailConfirmation.js`
 Exports
@@ -138,6 +150,7 @@ Exports
 - `createLocalDeliveries`
 - `resolveLocalAuthConfig`
 - `createLoggedConfirmationSender`
+- `createLoggedEmailChangeSender`
 - `createLoggedRecoverySender`
 - `createLocalFileBackend`
 - `createLoggedSecondFactorEvents`
@@ -231,7 +244,7 @@ Exports
 
 ### `src/server/lib/service.js`
 Exports
-- `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, deliveries: givenDeliveries = null, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passIdentity = noPassIdentities, passwordStrategy, profileProjector, recoverySender, secondFactorEvents, signInEvents })`
+- `createLocalAuthService({ backend, config, confirmationMode = confirmEveryRegistrationByLink, confirmationSender, deliveries: givenDeliveries = null, emailChangeSender, firstAccountSetup: givenFirstAccountSetup = null, invitationContextResolver, logger, passIdentity = noPassIdentities, passwordStrategy, profileProjector, recoverySender, secondFactorEvents, signInEvents })`
 
 ### `src/server/lib/sessions.js`
 Exports
@@ -294,6 +307,7 @@ Exports
 - `type AuthLocalPasswordStrategy`
 - `type AuthLocalRecoverySender`
 - `type AuthLocalConfirmationSender`
+- `type AuthLocalEmailChangeSender`
 - `type AuthLocalConfirmationMode`
 - `type AuthLocalConfig`
 - `type AuthLocalDeliveries`
@@ -304,6 +318,14 @@ Exports
 
 ### test-support
 
+### `test-support/emailChangeScenario.js`
+Exports
+- `emailChangeService(backend)`
+- `exerciseEmailChange(t, backend)`
+Local functions
+- `sessionCookies(session)`
+- `tokenOf(delivery)`
+
 ### `test-support/emailConfirmationScenario.js`
 Exports
 - `exerciseEmailConfirmation(t, service, storedRegistrations, storedAccount)`
@@ -313,7 +335,7 @@ Local functions
 
 ### `test-support/localService.js`
 Exports
-- `localServiceOptions({ env = {}, emailRecovery = false, emailConfirmationSender = false } = {})`
+- `localServiceOptions({ env = {}, emailRecovery = false, emailConfirmationSender = false, emailChangeSender = false } = {})`
 
 ### `test-support/oauthHarness.js`
 Exports

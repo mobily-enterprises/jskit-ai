@@ -5,6 +5,7 @@ import { throwUnsupportedAuthOperation } from "@jskit-ai/auth-core/server/unsupp
 import { createLocalAccounts } from "./accounts.js";
 import { PROVIDER_ID } from "./authPayloads.js";
 import { createLocalDeliveries } from "./deliveries.js";
+import { createLocalEmailChange } from "./emailChange.js";
 import { confirmEveryRegistrationByLink, createLocalEmailConfirmation } from "./emailConfirmation.js";
 import { createFirstAccountSetup } from "./firstAccountSetup.js";
 import { createLocalOAuthFlows } from "./oauthFlows.js";
@@ -42,9 +43,11 @@ const NO_PASS_SIGN_IN = Object.freeze({
  *   `auth.local.confirmation-mode`; by default every registration waits for its link.
  * @param {import("../types.js").AuthLocalConfirmationSender} dependencies.confirmationSender The
  *   `auth.local.confirmation-sender`, or one made by createLoggedConfirmationSender.
- * @param {import("../types.js").AuthLocalDeliveries} [dependencies.deliveries] Sends the password reset and new
- *   confirmation link emails, and hands over the sign-in events, after their requests have answered; by default, its
- *   own, whose settled() nothing waits for. The provider passes the one its shutdown waits for.
+ * @param {import("../types.js").AuthLocalDeliveries} [dependencies.deliveries] Sends the password reset, new
+ *   confirmation link and email change emails, and hands over the sign-in events, after their requests have answered;
+ *   by default, its own, whose settled() nothing waits for. The provider passes the one its shutdown waits for.
+ * @param {import("../types.js").AuthLocalEmailChangeSender} dependencies.emailChangeSender The
+ *   `auth.local.email-change-sender`, or one made by createLoggedEmailChangeSender.
  * @param {import("../types.js").AuthLocalFirstAccountSetup} [dependencies.firstAccountSetup] The first
  *   account's setup code, already started by the provider; by default, one that starts on first use.
  * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
@@ -68,6 +71,7 @@ function createLocalAuthService({
   confirmationMode = confirmEveryRegistrationByLink,
   confirmationSender,
   deliveries: givenDeliveries = null,
+  emailChangeSender,
   firstAccountSetup: givenFirstAccountSetup = null,
   invitationContextResolver,
   logger,
@@ -112,6 +116,8 @@ function createLocalAuthService({
       },
       emailConfirmation: config.emailConfirmation,
       emailConfirmationCode: config.emailConfirmation,
+      // Off in staging and production without an auth.local.email-change-sender, which sends the links.
+      emailChange: config.emailChangeDelivery !== "off",
       profileUpdate: true,
       providerLinking: {
         start: oauthEnabled,
@@ -166,6 +172,15 @@ function createLocalAuthService({
     passwords,
     profileProjector,
     recoverySender,
+    sessions
+  });
+  const emailChange = createLocalEmailChange({
+    backend,
+    config,
+    deliveries,
+    emailChangeSender,
+    passwords,
+    profileProjector,
     sessions
   });
   const securityStatus = createLocalSecurityStatus({ backend, config, oauthProvidersById, sessions });
@@ -246,6 +261,9 @@ function createLocalAuthService({
     resetPassword: passwordFlows.resetPassword,
     changePassword: passwordFlows.changePassword,
     updateDisplayName: accounts.updateDisplayName,
+    requestEmailChange: emailChange.requestEmailChange,
+    requestEmailChangeForUser: emailChange.requestEmailChangeForUser,
+    confirmEmailChange: emailChange.confirmEmailChange,
     getSecurityStatus: securityStatus.getSecurityStatus,
     // readable-check: allow setter-seam - not a slot: setPasswordSignInEnabled is an auth.service operation
     setPasswordSignInEnabled,

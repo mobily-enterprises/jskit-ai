@@ -17,7 +17,7 @@ const NEXT_PASSWORD = Object.freeze({ algorithm: "scrypt", version: "2", salt: "
 const NO_PASSWORD = Object.freeze({ algorithm: "", version: "", salt: "", hash: "" });
 const CREATED = "2026-11-01T08:00:00.000Z";
 const ISO_SECONDS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.000Z$/u;
-const ACCOUNT_KEYS = ["id", "email", "displayName", "password", "createdAt", "updatedAt", "emailVerifiedAt", "disabled", "disabledMessage"];
+const ACCOUNT_KEYS = ["id", "email", "displayName", "password", "createdAt", "updatedAt", "emailVerifiedAt", "disabled", "disabledMessage", "pendingEmail"];
 const SESSION_KEYS = ["id", "userId", "tokenHash", "purpose", "createdAt", "expiresAt", "revokedAt", "secondFactorAt", "ip", "userAgent", "lastSeenAt"];
 const RECOVERY_KEYS = ["id", "userId", "tokenHash", "createdAt", "expiresAt", "usedAt"];
 
@@ -61,7 +61,8 @@ test("accounts: create answers the account it wrote, reads find it by id and ema
     updatedAt: "2026-11-01T08:00:00.123Z",
     emailVerifiedAt: "",
     disabled: false,
-    disabledMessage: ""
+    disabledMessage: "",
+    pendingEmail: ""
   }, "create answers what it wrote, to the millisecond, and updatedAt defaults to createdAt");
 
   const before = thisSecond();

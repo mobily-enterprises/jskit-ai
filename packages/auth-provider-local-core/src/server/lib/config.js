@@ -87,17 +87,18 @@ function resolveSetupCode(env, { isDeployed }) {
 }
 
 /**
- * APP_PUBLIC_URL, from which recovery and confirmation links and OAuth
- * redirect addresses are built, and whose host authenticator apps show beside
- * a second factor's codes. Emailed links, OAuth sign-in and a deployed
+ * APP_PUBLIC_URL, from which recovery, confirmation and email change links and
+ * OAuth redirect addresses are built, and whose host authenticator apps show
+ * beside a second factor's codes. Emailed links, OAuth sign-in and a deployed
  * server's second factor require it.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ emailRecovery: boolean, emailedConfirmation: boolean, oauthEnabled: boolean, deployedSecondFactor: boolean }} options
+ * @param {{ emailRecovery: boolean, emailedConfirmation: boolean, emailedChange: boolean, oauthEnabled: boolean, deployedSecondFactor: boolean }} options
  */
-function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled, deployedSecondFactor }) {
+function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, emailedChange, oauthEnabled, deployedSecondFactor }) {
   const configured = String(env.APP_PUBLIC_URL || "").trim();
   if (!configured) {
     if (emailRecovery) throw new Error("APP_PUBLIC_URL is required when local auth email recovery is configured.");
+    if (emailedChange) throw new Error("APP_PUBLIC_URL is required when local auth emails email change links.");
     if (emailedConfirmation) {
       throw new Error("APP_PUBLIC_URL is required when local auth emails confirmation links.");
     }
@@ -166,6 +167,19 @@ function resolveConfirmationDelivery(env, { emailConfirmationSender, isDeployed,
 }
 
 /**
+ * How an email change's link and the notice to the old address reach the
+ * person: by email through the installed email-change sender; otherwise, in
+ * development and test, in the log. A deployed server (staging or production)
+ * without a sender has no email change.
+ * @param {{ emailChangeSender: boolean, isDeployed: boolean }} options
+ * @returns {"email" | "dev-log" | "off"}
+ */
+function resolveEmailChangeDelivery({ emailChangeSender, isDeployed }) {
+  if (emailChangeSender) return "email";
+  return isDeployed ? "off" : "dev-log";
+}
+
+/**
  * The shortest password local auth accepts: AUTH_LOCAL_PASSWORD_MIN_LENGTH, or 8.
  * It can be raised, up to 64, but not lowered below 8.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
@@ -191,8 +205,9 @@ function resolvePasswordMinLength(env) {
  *   `auth.local.backend` is installed.
  * @param {boolean} input.emailRecovery True when an `auth.local.recovery-sender` is installed.
  * @param {boolean} [input.emailConfirmationSender] True when an `auth.local.confirmation-sender` is installed.
+ * @param {boolean} [input.emailChangeSender] True when an `auth.local.email-change-sender` is installed.
  */
-function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false }) {
+function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false, emailChangeSender = false }) {
   const devAuth = resolveDevAuthPolicyFromEnv(env);
   const { isDeployed } = devAuth;
   const storeDir = resolveStoreDir(env, appRoot);
@@ -210,9 +225,11 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
   const confirmationDelivery = resolveConfirmationDelivery(env, { emailConfirmationSender, isDeployed, selfRegistration });
   const sessionSecret = resolveSessionSecret(env, { storeDir, isDeployed });
   const secondFactorKey = resolveSecondFactorKey(env, { isDeployed, sessionSecret });
+  const emailChangeDelivery = resolveEmailChangeDelivery({ emailChangeSender, isDeployed });
   const appPublicUrl = resolveAppPublicUrl(env, {
     emailRecovery,
     emailedConfirmation: confirmationDelivery === "email",
+    emailedChange: emailChangeDelivery === "email",
     oauthEnabled,
     deployedSecondFactor: isDeployed && Boolean(secondFactorKey)
   });
@@ -233,6 +250,7 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
     selfRegistration,
     confirmationDelivery,
     emailConfirmation: confirmationDelivery !== "off",
+    emailChangeDelivery,
     passwordMinLength: resolvePasswordMinLength(env),
     signInThrottle: resolveSignInThrottle(env),
     // The trusted issuer's key, audience and resource of one-time pass sign-in (AUTH_PASS_*), or null while it is off.

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Email change over HTTP: `POST /api/email-change` (signed in, `{ email, password }`) asks for it and `POST /api/email-change/confirm` (public, `{ token }`) uses the link, each limited per address by `config.auth.rateLimits.emailChange` (5 a minute) and `emailChangeConfirm` (10 a minute). The page the link opens is `DefaultEmailChangeView` (`./client/views/DefaultEmailChangeView`, route component `auth-email-change`, the `auth.email-change` route at `/auth/email-change`, public, registered by an application's own page as the sign-in, reset and sign-out pages are): it confirms the link once, takes the token out of the address, and says the new email or why the link was refused (`jskit.auth.emailChange.*`).
 - `POST /api/login/pass` hands `signInWithPass` the request that posted the pass, so local auth keeps the session's address and browser.
 - Its tests name `APP_ENV`, which the auth providers now read in place of `NODE_ENV`; the setup-code field is asked for by a staging or production server.
 - `POST /api/login/pass` reads its settings with `resolvePassSignInFromEnv` from `@jskit-ai/auth-pass/server`, a new dependency, instead of auth-core's removed `./server/passSignIn`. The route behaves as before.

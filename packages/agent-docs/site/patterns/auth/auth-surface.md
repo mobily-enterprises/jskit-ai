@@ -26,8 +26,8 @@ Those choices must be known before adapting the example.
 ## Framework APIs
 
 Use the views, auth guard, HTTP client integration, sign-out runtime, providers,
-and Playwright auth helper exported by `@jskit-ai/auth-web`. The sign-in, reset
-and sign-out screens show the app's identity: the pages render the app's view
+and Playwright auth helper exported by `@jskit-ai/auth-web`. The sign-in, reset,
+email change and sign-out screens show the app's identity: the pages render the app's view
 wrappers (`src/views/auth/`), and each wrapper fills the default view's `brand`
 slot (given `{ compact }`) with `src/components/AppBrand.vue`, the app's name
 as `index.html`'s `<title>` spells it. JSKIT lays the slot out as a pane beside
@@ -106,9 +106,10 @@ a user as a side effect.
   exercised.
 - Public auth routes do not require an existing session.
 - Protected routes use the framework auth policy rather than page-local checks.
-- Login, sign-out, and reset views use the public auth components/composables.
-- The sign-in, reset and sign-out pages render the app's view wrappers, which
-  fill the `brand` slot with the app's identity (`AppBrand.vue`): a person
+- Login, sign-out, reset and email change views use the public auth
+  components/composables.
+- The sign-in, reset, email change and sign-out pages render the app's view
+  wrappers, which fill the `brand` slot with the app's identity (`AppBrand.vue`): a person
   always sees which app they are signing in to. Renaming the app renames
   `AppBrand.vue` with `index.html`'s `<title>`; the brand adds no heading.
 - A custom login view must preserve the default view's initial session check:
@@ -151,9 +152,10 @@ placements, and post-auth destinations while retaining the runtime contracts.
 
 ## Verification
 
-Check that the sign-in, reset and sign-out screens show the app's name, in the
-pane on a wide window and in the row on a phone. Exercise failed and successful
-login, sign-out, reset, protected navigation,
+Check that the sign-in, reset, email change and sign-out screens show the
+app's name, in the pane on a wide window and in the row on a phone. Exercise
+failed and successful login, sign-out, reset, an email change link, protected
+navigation,
 keyboard interaction, warm-cache return navigation, and browser refresh.
 Open the login route with an existing authenticated session and confirm it
 returns to the requested screen; repeat signed out and confirm the form remains.

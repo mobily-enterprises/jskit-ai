@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The email change operations (`requestEmailChange`, `requestEmailChangeForUser`, `confirmEmailChange`) answer `AUTH_OPERATION_UNSUPPORTED`, and `features.emailChange` is false: the email is the identity provider's.
 - **Breaking:** staging and production (`APP_ENV`), not `NODE_ENV=production`, require `AUTH_OIDC_SESSION_SECRET` and use the `__Host-` session cookie; the config's `isProduction` is now `isDeployed`.
 - The second-factor operations (`getSecondFactorStatus`, `startSecondFactorSetup`, `confirmSecondFactorSetup`, `verifySecondFactor`, `replaceSecondFactorRecoveryCodes`, `removeSecondFactor`, `listSecondFactors`, `resetSecondFactor`) answer `AUTH_OPERATION_UNSUPPORTED`, and `features.secondFactor` is false: the hub asks for its own second factors.
 - `./server/lib/index` exports `OIDC_CLIENT_INFRASTRUCTURE_TABLES` (`auth_oidc_clients`, `auth_oidc_sessions`, `auth_oidc_logout_tokens`), the protocol state the relying party keeps outside table resources, for an app test's `expectEveryTableOwned({ infrastructureTables })`.

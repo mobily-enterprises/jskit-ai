@@ -16,6 +16,7 @@
     "./client/types": "./src/client/types.js",
     "./client/views/DefaultLoginView": "./src/client/views/DefaultLoginView.vue",
     "./client/views/DefaultResetPasswordView": "./src/client/views/DefaultResetPasswordView.vue",
+    "./client/views/DefaultEmailChangeView": "./src/client/views/DefaultEmailChangeView.vue",
     "./client/views/DefaultSignOutView": "./src/client/views/DefaultSignOutView.vue",
     "./client/views/SecondFactorDialog": "./src/client/views/SecondFactorDialog.vue",
     "./client/views/SecondFactorPrompt": "./src/client/views/SecondFactorPrompt.vue",
@@ -114,6 +115,16 @@
       },
       "server": {
         "routes": [
+          {
+            "method": "POST",
+            "path": "/api/email-change",
+            "summary": "Ask to change the signed-in account's email: a link goes to the new address"
+          },
+          {
+            "method": "POST",
+            "path": "/api/email-change/confirm",
+            "summary": "Confirm an email change with the link sent to the new address"
+          },
           {
             "method": "POST",
             "path": "/api/login",
@@ -246,6 +257,19 @@
               "policy": "public"
             },
             "purpose": "Public password reset screen for recovery links."
+          },
+          {
+            "id": "auth.email-change",
+            "path": "/auth/email-change",
+            "scope": "surface",
+            "surface": "auth",
+            "name": "auth-email-change",
+            "componentKey": "auth-email-change",
+            "autoRegister": false,
+            "guard": {
+              "policy": "public"
+            },
+            "purpose": "Public screen that confirms an email change from the link sent to the new address."
           },
           {
             "id": "auth.default-login",

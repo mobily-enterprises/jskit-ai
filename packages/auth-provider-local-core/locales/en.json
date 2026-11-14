@@ -5,6 +5,13 @@
         "email": {
           "invalid": "Enter a valid email address."
         },
+        "emailChange": {
+          "passwordInvalid": "That is not your password.",
+          "sameEmail": "That is already your email address.",
+          "emailTaken": "An account already exists for this email.",
+          "linkInvalid": "This email change link is invalid, used or expired. Ask for the change again.",
+          "accountNotFound": "There is no such account."
+        },
         "password": {
           "tooShort": "Password must be at least {min} characters.",
           "currentInvalid": "Current password is invalid.",

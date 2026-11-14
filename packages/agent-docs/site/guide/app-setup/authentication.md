@@ -96,8 +96,8 @@ declares a `rateLimit`, which the kernel enforces for each client address. A
 request over it is refused with status 429, the code `kernel.http.rateLimited`
 (`params.count` is the seconds to wait) and a `Retry-After` header. The
 defaults, per minute: `login`, `register`, `registerConfirm`,
-`loginOtpRequest` and `loginOtpVerify` 10; `registerConfirmationResend` and
-`passwordForgot` 5;
+`loginOtpRequest`, `loginOtpVerify` and `emailChangeConfirm` 10;
+`registerConfirmationResend`, `passwordForgot` and `emailChange` 5;
 `oauthStart`, `oauthComplete`, `passSignIn`, `passwordRecovery` and `passwordReset` 20;
 `devLoginAs` 30. Change one in the application's server configuration;
 `false` removes it:
@@ -788,6 +788,53 @@ or compatibility adapter.
    the completed password-reset flow before releasing the updated application.
    This change does not alter identity, session or recovery-token storage.
 
+## Email change (local auth)
+
+A person changes their email by proving the new address: local auth sends it a
+link, and only using the link changes the email.
+
+- The signed-in person asks with their password: `POST /api/email-change`
+  with `{ email, password }` (the action `auth.emailChange.request`, the
+  service's `requestEmailChange(request, input)`). An account with no password
+  sets one first, through a password reset.
+- The application asks for an account it chose, without a password:
+  `authService.requestEmailChangeForUser({ userId, email })`, for example an
+  operator's change for a person who lost their old address. Who may ask is the
+  application's decision, so it has no route; the application's own action
+  checks its caller first.
+- The link opens `/auth/email-change?token=...`, the `auth.email-change` route,
+  whose page (`DefaultEmailChangeView` from `@jskit-ai/auth-web`) posts the
+  token to `POST /api/email-change/confirm` (`confirmEmailChange({ token })`),
+  public, since the link proves who uses it, and shows the new email. The
+  application adds the page as it adds the reset page, rendering the view in
+  `src/pages/auth/email-change.vue`.
+
+The account keeps the new address as its waiting change until the link is
+used; a newer request replaces it, so an earlier link stops working. A link
+works for a day and once. Using it changes the email, ends the password resets
+sent to the old address, and sends the old address a notice; the account's
+sessions stay signed in and show the new email from their next request. Each
+refusal has its code: `auth.local.emailChange.passwordInvalid` and `sameEmail`
+(400), `emailTaken` (409, also when another account took the address after the
+link was sent), `linkInvalid` (400: used, replaced, expired or altered) and
+`accountNotFound` (404, the application's request for an id with no account).
+
+The application sends the links and notices through the optional
+`auth.local.email-change-sender` capability, an async function given
+`{ type: "confirmation", email, currentEmail, confirmationUrl }` (to the new
+address) or `{ type: "notice", email, newEmail }` (to the old one). It is wired
+like the recovery sender above and sends as `APP_ENV` says, as it does:
+production to each address, staging only to `STAGING_EMAIL_TO` (with
+`originalEmail`), development and test to the log. It runs after the request
+has answered, and a failure is logged with the address, never answered.
+Without one, development and test log each link and notice, and a staging or
+production server has no email change: `features.emailChange` is false and the
+operations answer
+`AUTH_OPERATION_UNSUPPORTED`. A sender needs `APP_PUBLIC_URL`, which its links
+name. The database backend keeps the waiting change in
+`auth_local_users.pending_email` (migration `auth_local_db_users_pending_email`)
+and sets `email_verified_at` when the link is used.
+
 ## Google, Microsoft and GitHub sign-in with local auth
 
 Local auth signs people in through Google, Microsoft and GitHub when the
@@ -851,8 +898,8 @@ the `auth_local_identities` and `auth_local_oauth_attempts` tables.
 ## Browser boundary
 
 `@jskit-ai/auth-web` owns the normal auth views, guard runtime, sign-out flow,
-and auth-aware HTTP integration. `DefaultLoginView`, `DefaultResetPasswordView`
-and `DefaultSignOutView` fill the window themselves: a card on
+and auth-aware HTTP integration. `DefaultLoginView`, `DefaultResetPasswordView`,
+`DefaultEmailChangeView` and `DefaultSignOutView` fill the window themselves: a card on
 `surface-container` on wide windows, the whole screen on phones, and each
 screen's one `h1` ("Sign in", "Create your account", "Reset password", ...).
 Every app shows its identity there, so a person always sees which app they are
@@ -861,7 +908,8 @@ beside the card on wide windows (`primary-container`, its children from top to
 bottom) and a compact row above the card on phones. The slot gets `{ compact }`
 to choose what to show, and holds no heading. The `auth/auth-surface` pattern
 does this already: its pages render the app's view wrappers
-(`src/views/auth/LoginView.vue`, `ResetPasswordView.vue`, `SignOutView.vue`),
+(`src/views/auth/LoginView.vue`, `ResetPasswordView.vue`, `EmailChangeView.vue`,
+`SignOutView.vue`),
 and each fills the slot with `src/components/AppBrand.vue`, the app's name as
 `index.html`'s `<title>` spells it. Renaming the app renames both:
 

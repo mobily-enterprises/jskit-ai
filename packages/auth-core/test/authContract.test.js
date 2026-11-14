@@ -118,6 +118,17 @@ test("the second factor is a capability of its own, which every second factor op
   }
 });
 
+test("email change is a capability of its own, which each email change operation needs", () => {
+  const without = normalizeAuthCapabilities({ features: { password: { login: true } } });
+  const withEmailChange = normalizeAuthCapabilities({ features: { emailChange: true } });
+  assert.equal(without.features.emailChange, false);
+  assert.equal(withEmailChange.features.emailChange, true);
+  for (const operation of ["requestEmailChange", "requestEmailChangeForUser", "confirmEmailChange"]) {
+    assert.equal(isAuthOperationSupported(without, operation), false, operation);
+    assert.equal(isAuthOperationSupported(withEmailChange, operation), true, operation);
+  }
+});
+
 test("normalizeAuthActor builds the canonical actor", () => {
   const actor = normalizeAuthActor({
     provider: "supabase",

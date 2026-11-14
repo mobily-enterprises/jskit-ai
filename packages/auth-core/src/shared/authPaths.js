@@ -18,7 +18,9 @@ const AUTH_PATHS = Object.freeze({
   SECOND_FACTOR_SETUP: "/api/second-factor/setup",
   SECOND_FACTOR_SETUP_CONFIRM: "/api/second-factor/setup/confirm",
   SECOND_FACTOR_VERIFY: "/api/second-factor/verify",
-  SECOND_FACTOR_RECOVERY_CODES: "/api/second-factor/recovery-codes"
+  SECOND_FACTOR_RECOVERY_CODES: "/api/second-factor/recovery-codes",
+  EMAIL_CHANGE: "/api/email-change",
+  EMAIL_CHANGE_CONFIRM: "/api/email-change/confirm"
 });
 
 function buildAuthOauthStartPath(provider) {

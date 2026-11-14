@@ -20,3 +20,4 @@ export {
   authSecondFactorSetupStartCommand,
   authSecondFactorVerifyCommand
 } from "./authSecondFactorCommands.js";
+export { authEmailChangeConfirmCommand, authEmailChangeRequestCommand } from "./authEmailChangeCommands.js";

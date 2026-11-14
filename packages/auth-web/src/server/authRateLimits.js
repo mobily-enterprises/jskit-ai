@@ -23,7 +23,9 @@ const DEFAULT_AUTH_RATE_LIMITS = Object.freeze({
   secondFactorSetupConfirm: Object.freeze({ max: 10, timeWindow: "1 minute" }),
   secondFactorVerify: Object.freeze({ max: 10, timeWindow: "1 minute" }),
   secondFactorRecoveryCodes: Object.freeze({ max: 5, timeWindow: "1 minute" }),
-  secondFactorRemove: Object.freeze({ max: 5, timeWindow: "1 minute" })
+  secondFactorRemove: Object.freeze({ max: 5, timeWindow: "1 minute" }),
+  emailChange: Object.freeze({ max: 5, timeWindow: "1 minute" }),
+  emailChangeConfirm: Object.freeze({ max: 10, timeWindow: "1 minute" })
 });
 
 /**

@@ -93,7 +93,12 @@ test("the auth views fill the viewport through AuthScreen: a card on wide window
   // The full-viewport screen starts below shell banners shown on this bar-less surface.
   assert.match(screen, /\.auth-screen\s*\{[\s\S]*inset:\s*var\(--shell-error-banners-inline-height, 0px\) 0 0;/);
   assert.doesNotMatch(screen, /min-height:\s*100dvh/);
-  for (const [name, card] of [["DefaultLoginView", "auth-card"], ["DefaultResetPasswordView", "reset-card"], ["DefaultSignOutView", "signout-card"]]) {
+  for (const [name, card] of [
+    ["DefaultLoginView", "auth-card"],
+    ["DefaultResetPasswordView", "reset-card"],
+    ["DefaultSignOutView", "signout-card"],
+    ["DefaultEmailChangeView", "email-change-card"]
+  ]) {
     const view = read(name);
     assert.match(view, /<AuthScreen\b/, name);
     // The app's brand slot reaches the screen's pane and row.
@@ -163,6 +168,10 @@ test("auth-web package exports only minimal client runtime/view subpaths", () =>
   assert.equal(
     exportsMap["./client/views/DefaultSignOutView"],
     "./src/client/views/DefaultSignOutView.vue"
+  );
+  assert.equal(
+    exportsMap["./client/views/DefaultEmailChangeView"],
+    "./src/client/views/DefaultEmailChangeView.vue"
   );
   assert.equal(
     exportsMap["./client/runtime/authGuardRuntime"],

@@ -3,6 +3,7 @@ import { invitationAsGiven } from "@jskit-ai/auth-core/server/authExtensions";
 import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { resolveLocalAuthConfig } from "../src/server/lib/config.js";
+import { createLoggedEmailChangeSender } from "../src/server/lib/emailChange.js";
 import { createLoggedConfirmationSender } from "../src/server/lib/emailConfirmation.js";
 import { createLoggedRecoverySender } from "../src/server/lib/passwordFlows.js";
 import { scryptPasswordStrategy } from "../src/server/lib/passwords.js";
@@ -19,8 +20,9 @@ import { createLoggedSignInEvents } from "../src/server/lib/sessions.js";
  * @param {Record<string, string>} [options.env] Environment values over the test ones.
  * @param {boolean} [options.emailRecovery] True when the test passes its own recoverySender.
  * @param {boolean} [options.emailConfirmationSender] True when the test passes its own confirmationSender.
+ * @param {boolean} [options.emailChangeSender] True when the test passes its own emailChangeSender.
  */
-function localServiceOptions({ env = {}, emailRecovery = false, emailConfirmationSender = false } = {}) {
+function localServiceOptions({ env = {}, emailRecovery = false, emailConfirmationSender = false, emailChangeSender = false } = {}) {
   return {
     config: resolveLocalAuthConfig({
       appRoot: os.tmpdir(),
@@ -34,7 +36,8 @@ function localServiceOptions({ env = {}, emailRecovery = false, emailConfirmatio
       },
       fileBackend: false,
       emailRecovery,
-      emailConfirmationSender
+      emailConfirmationSender,
+      emailChangeSender
     }),
     invitationContextResolver: invitationAsGiven,
     logger: silentLogger,
@@ -42,6 +45,7 @@ function localServiceOptions({ env = {}, emailRecovery = false, emailConfirmatio
     profileProjector: noAppProfiles,
     recoverySender: createLoggedRecoverySender(silentLogger),
     confirmationSender: createLoggedConfirmationSender(silentLogger),
+    emailChangeSender: createLoggedEmailChangeSender(silentLogger),
     secondFactorEvents: createLoggedSecondFactorEvents(silentLogger),
     signInEvents: createLoggedSignInEvents(silentLogger)
   };

@@ -102,7 +102,8 @@ function mapUser(record) {
     updatedAt: readDateTime(record.updatedAt),
     emailVerifiedAt: readDateTime(record.emailVerifiedAt),
     disabled: record.disabled === true || record.disabled === 1 || record.disabled === "1",
-    disabledMessage: text(record.disabledMessage)
+    disabledMessage: text(record.disabledMessage),
+    pendingEmail: text(record.pendingEmail)
   };
 }
 
@@ -315,6 +316,24 @@ function userRecords(users, options) {
       requireUserId(userId, "enable");
       const changes = { disabled: false, disabledMessage: null, updatedAt: requiredDateTime() };
       return mapUser(await patchExisting(users, userId, changes, options));
+    },
+    // The address the account's email change waits to confirm; "" clears it.
+    async updatePendingEmail(userId, pendingEmail) {
+      const changes = { pendingEmail: text(pendingEmail) || null, updatedAt: requiredDateTime() };
+      return mapUser(await patchExisting(users, userId, changes, options));
+    },
+    // The email changes to an address its link proved, confirmed from now; another account's email is refused.
+    async updateEmail(userId, email) {
+      const now = requiredDateTime();
+      const changes = { email: text(email), pendingEmail: null, emailVerifiedAt: now, updatedAt: now };
+      try {
+        return mapUser(await patchExisting(users, userId, changes, options));
+      } catch (error) {
+        if (isDuplicateEntryError(error)) {
+          throw new ConflictError("An account with this id or email already exists.", { code: "auth.local.accounts.exists", cause: error });
+        }
+        throw error;
+      }
     }
   });
 }

@@ -148,6 +148,10 @@ Exports
 Exports
 - None
 
+### `migrations/auth_local_db_users_pending_email.cjs`
+Exports
+- None
+
 ### `migrations/auth_local_db_users_second_factors.cjs`
 Exports
 - None

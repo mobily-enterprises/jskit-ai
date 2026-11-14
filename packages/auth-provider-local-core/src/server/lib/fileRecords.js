@@ -21,7 +21,8 @@ function parseUsers(content) {
   const users = [];
   for (const line of String(content || "").split("\n").filter(Boolean)) {
     const parts = splitLine(line, "user");
-    if (parts.length !== 12) {
+    // Twelve fields, or thirteen since an account keeps its waiting email change.
+    if (parts.length !== 12 && parts.length !== 13) {
       throw new Error("Invalid user record field count.");
     }
     users.push({
@@ -36,7 +37,8 @@ function parseUsers(content) {
       },
       createdAt: decodeField(parts[9]),
       updatedAt: decodeField(parts[10]),
-      disabled: parts[11] === "1"
+      disabled: parts[11] === "1",
+      pendingEmail: decodeField(parts[12])
     });
   }
   return users;
@@ -58,7 +60,8 @@ function serializeUsers(users) {
         user.password.hash,
         encodeField(user.createdAt),
         encodeField(user.updatedAt),
-        user.disabled ? "1" : "0"
+        user.disabled ? "1" : "0",
+        encodeField(user.pendingEmail)
       ].join(":")
     )
     .join("\n") + (users.length > 0 ? "\n" : "");

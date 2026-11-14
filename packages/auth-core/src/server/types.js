@@ -143,6 +143,14 @@
  * @property {(input: object, request: object | null) => Promise<object>} resetPassword
  * @property {(request: object, input: object) => Promise<object>} changePassword
  * @property {(request: object, input: object) => Promise<object>} updateDisplayName
+ * @property {(request: object, input: { email: string, password: string }) => Promise<{ ok: true, email: string }>}
+ *   requestEmailChange The signed-in person's change of their own email, with their password: a link goes to the new
+ *   address, and the email changes when it is used.
+ * @property {(input: { userId: string, email: string }) => Promise<{ ok: true, email: string }>} requestEmailChangeForUser
+ *   The application's change of the email of an account it chose (a provider user id), which decides who may: a link
+ *   goes to the new address, and the email changes when it is used.
+ * @property {(input: { token: string }) => Promise<{ ok: true, email: string }>} confirmEmailChange Uses the link sent
+ *   to the new address: the account's email becomes it.
  * @property {(request: object) => Promise<object>} getSecurityStatus
  * @property {(request: object, input: object) => Promise<object>} setPasswordSignInEnabled
  * @property {(request: object, input: object) => Promise<object>} startProviderLink

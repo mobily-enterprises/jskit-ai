@@ -224,7 +224,8 @@ function createTx(state, touched) {
           ...clone(input),
           createdAt: input.createdAt || nowIso(),
           updatedAt: input.updatedAt || nowIso(),
-          disabled: input.disabled === true
+          disabled: input.disabled === true,
+          pendingEmail: input.pendingEmail || ""
         };
         state.users.push(user);
         mark("users");
@@ -257,6 +258,30 @@ function createTx(state, touched) {
         if (typeof updates.displayName === "string") {
           user.displayName = updates.displayName;
         }
+        user.updatedAt = nowIso();
+        mark("users");
+        return clone(user);
+      },
+      async updatePendingEmail(userId, pendingEmail) {
+        const user = state.users.find((entry) => entry.id === userId);
+        if (!user) {
+          return null;
+        }
+        user.pendingEmail = String(pendingEmail || "");
+        user.updatedAt = nowIso();
+        mark("users");
+        return clone(user);
+      },
+      async updateEmail(userId, email) {
+        const user = state.users.find((entry) => entry.id === userId);
+        if (!user) {
+          return null;
+        }
+        if (state.users.some((entry) => entry.id !== userId && entry.email === email)) {
+          throw new ConflictError("An account with this id or email already exists.", { code: "auth.local.accounts.exists" });
+        }
+        user.email = email;
+        user.pendingEmail = "";
         user.updatedAt = nowIso();
         mark("users");
         return clone(user);

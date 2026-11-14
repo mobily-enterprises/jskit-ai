@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The email change operations (`requestEmailChange`, `requestEmailChangeForUser`, `confirmEmailChange`) answer `AUTH_OPERATION_UNSUPPORTED`, and `features.emailChange` is false: the email is the identity provider's.
 - **Breaking:** staging and production (`APP_ENV`), not `NODE_ENV=production`, use secure `__Host-` session cookies and refuse development shortcuts; the config's `isProduction` is now `isDeployed`.
 - The second-factor operations (`getSecondFactorStatus`, `startSecondFactorSetup`, `confirmSecondFactorSetup`, `verifySecondFactor`, `replaceSecondFactorRecoveryCodes`, `removeSecondFactor`, `listSecondFactors`, `resetSecondFactor`) answer `AUTH_OPERATION_UNSUPPORTED`, and `features.secondFactor` is false.
 - Reading the signed-in user for the security screen and account changes asks Supabase for a valid access token's user once instead of twice; it asks again only for the new token a session refresh issued.

@@ -438,7 +438,10 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     replaceSecondFactorRecoveryCodes: unsupported("replaceSecondFactorRecoveryCodes"),
     removeSecondFactor: unsupported("removeSecondFactor"),
     listSecondFactors: unsupported("listSecondFactors"),
-    resetSecondFactor: unsupported("resetSecondFactor")
+    resetSecondFactor: unsupported("resetSecondFactor"),
+    requestEmailChange: unsupported("requestEmailChange"),
+    requestEmailChangeForUser: unsupported("requestEmailChangeForUser"),
+    confirmEmailChange: unsupported("confirmEmailChange")
   });
 }
 

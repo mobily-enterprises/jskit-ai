@@ -10,6 +10,7 @@ import sessionsMetadataMigration from "../../migrations/auth_local_db_sessions_m
 import usedPassesMigration from "../../migrations/auth_local_db_used_passes.cjs";
 import disabledMessageMigration from "../../migrations/auth_local_db_users_disabled_message.cjs";
 import emailVerifiedMigration from "../../migrations/auth_local_db_users_email_verified.cjs";
+import pendingEmailMigration from "../../migrations/auth_local_db_users_pending_email.cjs";
 import secondFactorsMigration from "../../migrations/auth_local_db_users_second_factors.cjs";
 import { AuthLocalDatabaseBackendProvider } from "../../src/server/providers/AuthLocalDatabaseBackendProvider.js";
 
@@ -22,6 +23,7 @@ const LOCAL_AUTH_MIGRATIONS = Object.freeze([
   usedPassesMigration,
   disabledMessageMigration,
   emailVerifiedMigration,
+  pendingEmailMigration,
   secondFactorsMigration
 ]);
 

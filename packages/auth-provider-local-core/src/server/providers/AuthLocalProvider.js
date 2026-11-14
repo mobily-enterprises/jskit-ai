@@ -11,6 +11,7 @@ import {
   confirmEveryRegistrationByLink,
   createLoggedConfirmationSender
 } from "../lib/emailConfirmation.js";
+import { createLoggedEmailChangeSender } from "../lib/emailChange.js";
 import { createLocalFileBackend } from "../lib/fileBackend.js";
 import { createFirstAccountSetup } from "../lib/firstAccountSetup.js";
 import { noPassIdentities } from "../lib/passSignIn.js";
@@ -62,6 +63,7 @@ const AuthLocalProvider = defineProvider({
     backend: "auth.local.backend",
     confirmationMode: "auth.local.confirmation-mode",
     confirmationSender: "auth.local.confirmation-sender",
+    emailChangeSender: "auth.local.email-change-sender",
     passIdentity: "auth.local.pass-identity",
     passwordStrategy: "auth.local.password-strategy",
     profileProjector: "auth.profile.projector",
@@ -83,6 +85,8 @@ const AuthLocalProvider = defineProvider({
    *   `auth.local.confirmation-mode`, when one is installed.
    * @param {import("../types.js").AuthLocalConfirmationSender | null} dependencies.confirmationSender The
    *   `auth.local.confirmation-sender`, when one is installed.
+   * @param {import("../types.js").AuthLocalEmailChangeSender | null} dependencies.emailChangeSender The
+   *   `auth.local.email-change-sender`, when one is installed.
    * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
    * @param {import("@jskit-ai/auth-core/server/types").AuthExtensions} dependencies.extensions
    * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
@@ -102,6 +106,7 @@ const AuthLocalProvider = defineProvider({
       backend,
       confirmationMode,
       confirmationSender,
+      emailChangeSender,
       env,
       extensions,
       logger,
@@ -117,7 +122,15 @@ const AuthLocalProvider = defineProvider({
     const fileBackend = backend === null;
     const emailRecovery = recoverySender !== null;
     const emailConfirmationSender = confirmationSender !== null;
-    const config = resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender });
+    const emailedChange = emailChangeSender !== null;
+    const config = resolveLocalAuthConfig({
+      appRoot,
+      env,
+      fileBackend,
+      emailRecovery,
+      emailConfirmationSender,
+      emailChangeSender: emailedChange
+    });
     if (config.passSignIn && passIdentity === null) {
       throw new Error("AUTH_PASS_PUBLIC_KEY turns on one-time pass sign-in, and no auth.local.pass-identity is installed to name the account each pass signs in. Install one, or unset AUTH_PASS_PUBLIC_KEY.");
     }
@@ -138,6 +151,9 @@ const AuthLocalProvider = defineProvider({
         ? sendAsAppEnvironmentSays({ env, logger, sender: confirmationSender, name: "email confirmation" })
         : createLoggedConfirmationSender(logger),
       deliveries,
+      emailChangeSender: emailedChange
+        ? sendAsAppEnvironmentSays({ env, logger, sender: emailChangeSender, name: "email change" })
+        : createLoggedEmailChangeSender(logger),
       firstAccountSetup,
       invitationContextResolver: extensions.resolveInvitationContextResolver(),
       logger,

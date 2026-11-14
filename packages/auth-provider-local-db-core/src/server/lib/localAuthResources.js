@@ -47,7 +47,8 @@ const localAuthUserResource = defineTableResource({
     disabledMessage: { ...text, nullable: true },
     createdAt: dateTime,
     updatedAt: dateTime,
-    emailVerifiedAt: optionalDateTime
+    emailVerifiedAt: optionalDateTime,
+    pendingEmail: { ...text, nullable: true }
   }
 });
 

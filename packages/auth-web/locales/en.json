@@ -112,6 +112,13 @@
         "recoveryInvalid": "Recovery link is invalid or expired.",
         "updateFailed": "Unable to update password."
       },
+      "emailChange": {
+        "title": "Confirm your new email",
+        "done": "Your email is now {email}.",
+        "linkMissing": "Open this page from the link in the email.",
+        "failed": "Unable to change your email.",
+        "continue": "Continue"
+      },
       "signOut": {
         "title": "Signing you out",
         "pending": "Please wait while we end your session.",

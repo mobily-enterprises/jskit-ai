@@ -12,6 +12,7 @@
     "./server/providers/AuthPolicyProvider": "./src/server/providers/AuthPolicyProvider.js",
     "./server/actions/authActions": "./src/server/actions/authActions.js",
     "./server/actions/secondFactorActions": "./src/server/actions/secondFactorActions.js",
+    "./server/actions/emailChangeActions": "./src/server/actions/emailChangeActions.js",
     "./server/authExtensions": "./src/server/authExtensions.js",
     "./server/noAppProfiles": "./src/server/noAppProfiles.js",
     "./server/authPolicyContextResolverRegistry": "./src/server/authPolicyContextResolverRegistry.js",
@@ -64,6 +65,7 @@
     "./shared/commands/authLogoutCommand": "./src/shared/commands/authLogoutCommand.js",
     "./shared/commands/authSessionReadCommand": "./src/shared/commands/authSessionReadCommand.js",
     "./shared/commands/authSecondFactorCommands": "./src/shared/commands/authSecondFactorCommands.js",
+    "./shared/commands/authEmailChangeCommands": "./src/shared/commands/authEmailChangeCommands.js",
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
