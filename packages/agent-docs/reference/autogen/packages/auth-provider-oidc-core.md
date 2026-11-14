@@ -28,7 +28,7 @@ Local functions
 - `text(value)`
 - `parseAddress(value, name)`
 - `resolveAppName(appRoot)`
-- `resolveSessionSecret(env, { appRoot, isProduction })`
+- `resolveSessionSecret(env, { appRoot, isDeployed })`
 
 ### `src/server/lib/index.js`
 Exports

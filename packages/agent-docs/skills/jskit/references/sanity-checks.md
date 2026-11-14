@@ -167,9 +167,11 @@ A consolidation drops behaviour there without a failing build.
 
 ### Production settings
 
-- `NODE_ENV=production` is JSKIT's only production switch. Without it a
-  deployed server runs as development: no first-account setup code, and
-  development-only settings accepted.
+- `APP_ENV` says where the server runs, and a server without a known one
+  refuses to start ([Environments](environments.md)). A deployed
+  server sets `APP_ENV=staging` or `APP_ENV=production`, with
+  `NODE_ENV=production`; only then does local auth ask for the first-account
+  setup code and refuse development-only settings.
 - On an empty production database, local auth asks for the first account's
   setup code, so whoever reaches a new deployment first cannot own it ([The
   first account in

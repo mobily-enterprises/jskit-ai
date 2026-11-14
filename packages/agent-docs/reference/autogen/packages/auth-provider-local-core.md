@@ -49,12 +49,12 @@ Exports
 - `resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false })`
 Local functions
 - `resolveStoreDir(env, appRoot)`
-- `resolveSessionSecret(env, { storeDir, isProduction })`
-- `resolveSecondFactorKey(env, { isProduction, sessionSecret })`
-- `resolveSetupCode(env, { isProduction })`
-- `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled, productionSecondFactor })`
-- `resolveRecoveryDelivery(env, { emailRecovery, isProduction })`
-- `resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction, selfRegistration })`
+- `resolveSessionSecret(env, { storeDir, isDeployed })`
+- `resolveSecondFactorKey(env, { isDeployed, sessionSecret })`
+- `resolveSetupCode(env, { isDeployed })`
+- `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled, deployedSecondFactor })`
+- `resolveRecoveryDelivery(env, { emailRecovery, isDeployed })`
+- `resolveConfirmationDelivery(env, { emailConfirmationSender, isDeployed, selfRegistration })`
 - `resolvePasswordMinLength(env)`
 
 ### `src/server/lib/deliveries.js`
@@ -68,7 +68,6 @@ Exports
 - `confirmEveryRegistrationByLink()`
 - `createLocalEmailConfirmation({ backend, config, confirmationMode, confirmationSender, deliveries, firstAccountSetup, invitationContextResolver, logger, passwords, profileProjector, sessions })`
 - `createLoggedConfirmationSender(logger)`
-- `createSimulatedConfirmationSender(logger)`
 Local functions
 - `emailTakenError()`
 - `confirmationInvalidError()`
@@ -173,7 +172,6 @@ Exports
 Exports
 - `createLocalPasswordFlows({ backend, config, deliveries, passwords, profileProjector, recoverySender, sessions })`
 - `createLoggedRecoverySender(logger)`
-- `createSimulatedRecoverySender(logger)`
 
 ### `src/server/lib/passwords.js`
 Exports
@@ -235,7 +233,7 @@ Exports
 
 ### `src/server/lib/sessions.js`
 Exports
-- `cookieOptions({ isProduction, cookieSameSite }, maxAge)`
+- `cookieOptions({ isDeployed, cookieSameSite }, maxAge)`
 - `createLocalSessions({ appProfileProjection, backend, config, profileProjector })`
 - `safeRequestCookies(request)`
 Local functions
@@ -274,6 +272,8 @@ Local functions
 ### `src/server/providers/AuthLocalProvider.js`
 Exports
 - `AuthLocalProvider`
+Local functions
+- `sendAsAppEnvironmentSays({ env, logger, sender, name })`
 
 ### `src/server/types.js`
 Exports

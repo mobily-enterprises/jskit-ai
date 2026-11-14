@@ -111,8 +111,8 @@ Exports
 - `ensureDevAuthRuntimeAvailable(policy = {}, request = null)`
 - `isDevAuthBootstrapEnabled(policy)`
 - `isLocalDevAuthRequest(request)`
-- `resolveDevAuthPolicy({ enabled = false, nodeEnv = "development", secret = "" } = {})`
-- `resolveDevAuthPolicyFromEnv(env = {})`
+- `resolveDevAuthPolicy({ enabled = false, appEnv, secret = "" })`
+- `resolveDevAuthPolicyFromEnv(env)`
 Local functions
 - `normalizeRequestHostname(request)`
 - `normalizeLoopbackIp(value)`

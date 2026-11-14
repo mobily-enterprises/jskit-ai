@@ -60,8 +60,9 @@ apply or adapt. It does not prescribe an agent host or project orchestrator.
 - [Sanity checks](/guide/framework/sanity-checks): JSKIT's own pitfalls, and
   the JSKIT calls that check data access, tests, a refactor, a screen or a
   deployment before calling it done
-- [Side effects and test copies](/guide/framework/side-effects): read before
-  code that sends email, messages or payments, or calls another system
+- [Environments](/guide/framework/environments): read before code that sends
+  email, messages or payments, calls another system, or depends on where the
+  app runs (`APP_ENV`)
 - [Translating a JSKIT app](/guide/framework/translation)
 - [Complete source pattern library](/patterns/)
 

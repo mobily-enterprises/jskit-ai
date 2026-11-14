@@ -93,6 +93,11 @@ environment's. The option is not called `--env-file` because Node reads an
   `.jskit/auth` by default). With `JSKIT_STORAGE_DRIVER=s3`, `runtime.storage`
   writes to an S3 bucket instead, as several instances need
   ([Run on more than one server](/guide/app-setup/more-than-one-server)).
+- The settings say where the app runs: `APP_ENV=production`, or `staging` on a
+  copy for checking it, where a build-check machine leaves the `STAGING_*`
+  addresses unset so everything is logged. The launcher sets
+  `NODE_ENV=production` but never `APP_ENV`, and a server without one refuses
+  to start ([Environments](environments.md)).
 - Secrets come at run time, in the env file or the service's environment,
   never in the package: anyone who can read the Nix store can read a package.
 - The server listens where its `server.js` says: in a JSKIT app, `HOST`

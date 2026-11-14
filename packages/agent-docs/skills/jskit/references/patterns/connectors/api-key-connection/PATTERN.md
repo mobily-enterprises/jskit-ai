@@ -161,6 +161,7 @@ A server module or manually written CLI composes the same library calls:
 import { readFile } from "node:fs/promises";
 import { parseIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/configuration";
 import { createConnectionService, createEnvironmentReferenceResolver } from "@jskit-ai/connectors-core/server";
+import { appEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { createFileConnectionStore, createCredentialProtection } from "@jskit-ai/connectors-core/server/file-storage";
 import { resendProvider } from "@jskit-ai/connectors-catalog/server/resend";
 import { firecrawlProvider } from "@jskit-ai/connectors-catalog/server/firecrawl";
@@ -175,7 +176,9 @@ const store = createFileConnectionStore({ directory: process.env.CONNECTOR_STATE
 const connections = createConnectionService({
   configuration, providers, store,
   resolveReference: createEnvironmentReferenceResolver(process.env),
-  authorize: applicationConnectionPolicy
+  authorize: applicationConnectionPolicy,
+  // Only production (APP_ENV) sends side-effect operations, such as an email; elsewhere they are logged.
+  appEnv: appEnvironment(process.env)
 });
 
 // context comes from the existing application's authentication or local operator policy.

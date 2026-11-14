@@ -417,6 +417,10 @@ Local functions
 - `exportedTableResources(namespace, isTableResource)`
 - `keyText({ tableName, columns, referencedTableName, referencedColumns })`
 
+### `scripts/test-environment.mjs`
+Exports
+- `useTestAppEnvironment(env, command)`
+
 ### `scripts/test-file-stop.mjs`
 Exports
 - `STOPPED_PREFIX`

@@ -1,0 +1,169 @@
+<!-- Generated from `packages/agent-docs/site/guide/framework/environments.md`. -->
+
+# Environments
+
+Where an application runs is one environment variable, `APP_ENV`, with four
+values. Everything JSKIT does differently by place reads it: what the
+application sends, the development shortcuts, the security headers and the
+banner on each page. `NODE_ENV` decides nothing else: it only picks optimised
+builds, and staging and production set it to `production`.
+
+| `APP_ENV` | Where | Email and SMS | Push, webhooks, connector writes | Payments | Development shortcuts | Banner |
+| --- | --- | --- | --- | --- | --- | --- |
+| `development` | a developer's machine, a session, a preview | logged | logged | sandbox only | allowed | "Development" |
+| `test` | automated test runs | logged | logged | sandbox only | allowed | "Test" |
+| `staging` | a deployed copy for checking the application | only to `STAGING_EMAIL_TO` and `STAGING_SMS_TO`; logged when unset | logged | sandbox only | refused | "Staging" |
+| `production` | the application serving real people | sent | sent | live | refused | none |
+
+The development shortcuts are dev sign-in (`AUTH_DEV_BYPASS_ENABLED`), cookies
+without `Secure`, links in answers (`AUTH_LOCAL_RECOVERY_DEV_OUTPUT`), a first
+account without a setup code, test databases, and a server that refuses to
+start over a role grant no action requires (staging and production log it
+instead). Staging and production add HSTS and the content security policy, and
+need production's secrets, such as `AUTH_LOCAL_SESSION_SECRET` and a sender for
+the emails they send.
+
+## Who sets what
+
+The host sets `APP_ENV`; a request never chooses it. JSKIT's own commands set
+it where they own the run.
+
+| Who | `APP_ENV` | `NODE_ENV` | `STAGING_EMAIL_TO`, `STAGING_SMS_TO` |
+| --- | --- | --- | --- |
+| `npm run develop`, `npm run dev` on a developer's machine | `development`, set by the scripts | unset | unset |
+| A hosted session or preview | `development` | unset | unset |
+| `jskit test` and the browser test servers | `test`, set by JSKIT | anything | unset |
+| A build-check machine that starts the packaged build to see it start and answer health | `staging` | `production` | unset, so everything is logged |
+| A staging server | `staging` | `production` | the testers' inbox and phone |
+| A production server | `production` | `production` | ignored |
+
+A server started with `npm start` reads `APP_ENV` from its environment, or from
+`.env` (`APP_ENV=development` on a developer's machine; the foundations'
+`.env.example` says so). A host puts both variables in the server's
+environment, beside its other settings:
+
+```sh
+APP_ENV=staging NODE_ENV=production STAGING_EMAIL_TO=qa@example.com npm start
+```
+
+`jskit test` and the browser test servers run as `APP_ENV=test` whatever the
+shell says, and refuse to run where `APP_ENV` is `staging` or `production`.
+
+## Starting refuses what is not clear
+
+A server stops at startup, saying what to do, when:
+
+- `APP_ENV` is missing: `APP_ENV is not set. Set APP_ENV to development, test,
+  staging or production: development on a developer's machine or in a preview,
+  staging or production (with NODE_ENV=production) on a server.`
+- `APP_ENV` is anything else: `APP_ENV is "dev", which is not an environment
+  JSKIT knows. Set APP_ENV to development, test, staging or production.`
+- `APP_ENV` is `staging` or `production` and `NODE_ENV` is not `production`:
+  `APP_ENV is staging, so NODE_ENV must be production, and it is not set. Set
+  NODE_ENV=production: it only picks optimised builds, and APP_ENV decides
+  everything else.`
+- `SIDE_EFFECTS`, which `APP_ENV` replaced, is set: `SIDE_EFFECTS was replaced
+  by APP_ENV: remove SIDE_EFFECTS. APP_ENV=production acts for real; staging
+  sends email and SMS only to STAGING_EMAIL_TO and STAGING_SMS_TO; development
+  and test only log.`
+- A development-only setting is set in staging or production, for example
+  `AUTH_LOCAL_RECOVERY_DEV_OUTPUT is for development only and APP_ENV is
+  staging. Remove it from the staging environment.`
+
+It then logs one line saying where it runs and what that means, such as
+`APP_ENV is staging: email goes only to qa@example.com (STAGING_EMAIL_TO), SMS
+is logged (STAGING_SMS_TO is not set); …`.
+
+## Staging's test addresses
+
+Staging is production's code and settings with nobody real at the other end.
+`STAGING_EMAIL_TO` is one address, such as the testers' shared inbox; every
+email goes there instead of to its recipient. The email's first line, in its
+text and HTML, says `Staging: this email was for ada@example.com.`, it carries
+an `X-Staging-Original-To` header, and the log says
+`Staging: the password reset email to ada@example.com was sent to
+qa@example.com (STAGING_EMAIL_TO) instead.` `STAGING_SMS_TO` is one phone
+number, and SMS goes there the same way. Unset, each is logged as development
+logs it, with what a tester needs, such as its link. Push notifications,
+webhooks and connector writes are always logged in staging, and live payments
+are refused there, as everywhere but production.
+
+## What JSKIT does
+
+- Every HTML page the server sends, and every page the Vite development server
+  sends, names its environment in a `jskit-app-environment` meta tag. The
+  shell (`@jskit-ai/shell-web`) shows a small "Development", "Test" or
+  "Staging" banner from it, with no application code, and none in production.
+  The banner never takes a click or a tap. Screen readers read it as a note,
+  with a sentence such as "Development: emails, messages and payments are
+  logged, not sent" as its description. It has no label, so a browser test's
+  `getByLabel("Email")` never finds it.
+- Local-password emails (confirmation and password reset) with an installed
+  sender go out as the table says. In staging the sender gets
+  `STAGING_EMAIL_TO` as `email` and the person's address as `originalEmail`,
+  which its email should show (`markStagingEmail` does). An application that
+  confirms new accounts at once while its email isn't set up uses
+  `auth.local.confirmation-mode`, which applies everywhere (see
+  [Authentication](/guide/app-setup/authentication)).
+- Workspace invitations with a provided mailer go out as the table says, the
+  staging copy marked with whom it was for. A logged invitation answers
+  `status: "simulated"`, and the inviter copies the link.
+- Accounts-hub email goes out as the table says.
+- Connector operations that act on the world (send an email or message, post,
+  book or cancel, charge, invoice, trigger another system's events) are marked
+  `sideEffect`. Outside production they are checked like real ones, then
+  logged, and `invoke` answers `{ simulated: true }`. Reads run for real.
+  `createConnectorsFeature` reads `APP_ENV` itself; give
+  `createConnectionService` and `createPaymentCheckoutService`
+  `appEnv: appEnvironment(env)`, which they require.
+- Payment checkout and the billing portal in the live payment environment are
+  refused outside production with `payment_sandbox_only`; the sandbox
+  environment works everywhere.
+
+Supabase sends its own authentication emails from Supabase's servers; JSKIT
+cannot redirect them. Point development and staging at a separate Supabase
+project.
+
+## The application's own side effects
+
+Code the application writes that reaches the world follows the same rule. Send
+email and SMS through `deliverMessage`, which sends, redirects or logs each as
+`APP_ENV` says; log anything else outside production with `logSideEffect`.
+
+```js
+import { deliverMessage, logSideEffect, markStagingEmail } from "@jskit-ai/kernel/server/runtime/appEnvironment";
+import { appEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
+
+function sendReminder({ env, logger, mailer }, message) {
+  return deliverMessage({
+    env,
+    logger,
+    channel: "email",
+    to: message.to,
+    summary: `the reminder to ${message.to}`,
+    details: { subject: message.subject },
+    send: (to, { originalTo }) => mailer.send(markStagingEmail({ ...message, to }, originalTo))
+  });
+}
+
+async function notifyDevice({ env, logger, push }, notification) {
+  const appEnv = appEnvironment(env);
+  if (appEnv !== "production") {
+    logSideEffect(logger, appEnv, {
+      kind: "push notification",
+      summary: `the reminder to device ${notification.deviceId}`,
+      details: { deviceId: notification.deviceId }
+    });
+    return { simulated: true };
+  }
+  return push.send(notification);
+}
+```
+
+- Read `env` from the `runtime.env` capability, never a request.
+- A configured driver or key (`EMAIL_DRIVER=ses`, a live payment key) does not
+  make anything real; only `APP_ENV=production` does.
+- Test each environment the code treats differently. A test that proves a real
+  sender against a fake transport passes `APP_ENV: "production"` (and
+  `NODE_ENV: "production"` when it starts a whole server), and a staging test
+  sets `STAGING_EMAIL_TO` and checks that only that address received it.

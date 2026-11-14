@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { parseIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/configuration";
 import { createConnectionService, createEnvironmentReferenceResolver } from "@jskit-ai/connectors-core/server";
-import { resolveSideEffectsMode } from "@jskit-ai/kernel/shared/support/sideEffects";
+import { appEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { createFileConnectionStore, createCredentialProtection } from "@jskit-ai/connectors-core/server/file-storage";
 import { resendProvider } from "@jskit-ai/connectors-catalog/server/resend";
 import { firecrawlProvider } from "@jskit-ai/connectors-catalog/server/firecrawl";
@@ -18,7 +18,7 @@ export async function applicationConnections({ authorize, env = process.env, con
     keys: { current: Buffer.from(env.CONNECTOR_STORAGE_KEY, "base64") }, activeKeyId: "current"
   });
   const store = createFileConnectionStore({ directory: env.CONNECTOR_STATE_DIRECTORY, protection });
-  // Sending email is a side effect: a test copy (SIDE_EFFECTS is not `live`) logs it and answers { simulated: true }.
+  // Sending email is a side effect: only production (APP_ENV) sends it; elsewhere it is logged and answers { simulated: true }.
   return createConnectionService({ configuration, providers, store, authorize, resolveReference: createEnvironmentReferenceResolver(env),
-    sideEffects: resolveSideEffectsMode(env) });
+    appEnv: appEnvironment(env) });
 }

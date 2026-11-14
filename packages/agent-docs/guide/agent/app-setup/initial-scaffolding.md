@@ -128,15 +128,16 @@ these headers itself keeps its own value.
 | --- | --- | --- |
 | `X-Content-Type-Options: nosniff` | always | on |
 | `Referrer-Policy` | always | `strict-origin-when-cross-origin` |
-| `Strict-Transport-Security` | production | `max-age=31536000` |
-| `Content-Security-Policy: frame-ancestors` | production | `'self'` |
-| `Content-Security-Policy-Report-Only` | production | the content policy below |
+| `Strict-Transport-Security` | staging, production | `max-age=31536000` |
+| `Content-Security-Policy: frame-ancestors` | staging, production | `'self'` |
+| `Content-Security-Policy-Report-Only` | staging, production | the content policy below |
 
-Production means `NODE_ENV=production`. A host that starts the server with a
-plain `npm start` runs it in development; its Serve command must set the
-variable, for example `env NODE_ENV=production npm start`. Development sends only
-nosniff and the Referrer-Policy, so an editor's preview, such as Vibe64's, can
-frame the application and inject its bridge script.
+Staging and production are `APP_ENV=staging` and `APP_ENV=production` (see
+[Environments](/guide/framework/environments)), which the host sets beside
+`NODE_ENV=production`, for example `env APP_ENV=production NODE_ENV=production
+npm start`. Development and test send only nosniff and the Referrer-Policy, so
+an editor's preview, such as Vibe64's, can frame the application and inject its
+bridge script.
 
 The content policy allows JSKIT's client: the application's own scripts and
 WebAssembly, inline styles (Vuetify and the loading shell use them), images

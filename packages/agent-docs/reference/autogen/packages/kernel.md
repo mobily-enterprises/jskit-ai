@@ -64,6 +64,16 @@ Exports
 - `resolveLinkPath`
 - `normalizePathname`
 
+### `shared/support/appEnvironment.js`
+Exports
+- `APP_ENV_KEY`
+- `APP_ENVIRONMENTS`
+- `APP_ENVIRONMENT_META_NAME`
+- `appEnvironment(env)`
+- `isDeployed(env)`
+- `pageAppEnvironment(documentObject = globalThis.document)`
+- `withAppEnvironmentMeta(html, environment)`
+
 ### `shared/support/clientBuild.js`
 Exports
 - `CLIENT_BUILD_META_NAME`
@@ -214,17 +224,6 @@ Exports
 - `resolvePlacementTargetReference(value = "")`
 Local functions
 - `normalizePlacementRenderers(value = {})`
-
-### `shared/support/sideEffects.js`
-Exports
-- `SIDE_EFFECTS_ENV_KEY`
-- `SIDE_EFFECTS_LIVE`
-- `SIDE_EFFECTS_META_NAME`
-- `SIDE_EFFECTS_SIMULATE`
-- `pageSideEffectsMode(documentObject = globalThis.document)`
-- `resolveSideEffectsMode(env)`
-- `sideEffectsAreLive(env)`
-- `withSideEffectsMeta(html, mode)`
 
 ### `shared/support/silentLogger.js`
 Exports
@@ -780,6 +779,12 @@ Exports
 Exports
 - `compileRouteValidator`
 
+### `server/http/appEnvironmentPage.js`
+Exports
+- `registerAppEnvironmentPage(fastify, { env })`
+- `type RuntimeEnv`
+- `type RuntimeFastify`
+
 ### `server/http/capabilityHttpRuntime.js`
 Exports
 - `createCapabilityHttpRuntime({ fastify, actions })`
@@ -947,12 +952,6 @@ Local functions
 - `resolveContentSecurityPolicyHeaders(settings)`
 - `resolveSecurityHeaders({ config, env })`
 
-### `server/http/sideEffectsPage.js`
-Exports
-- `registerSideEffectsPage(fastify, { env })`
-- `type RuntimeEnv`
-- `type RuntimeFastify`
-
 ### `server/http/trustedProxies.js`
 Exports
 - `DEFAULT_TRUSTED_PROXIES`
@@ -1029,6 +1028,22 @@ Exports
 Local functions
 - `matchesGlobalUiPath(pathname, globalUiPaths)`
 
+### `server/runtime/appEnvironment.js`
+Exports
+- `STAGING_ORIGINAL_TO_HEADER`
+- `assertAppEnvironment(env)`
+- `assertDevelopmentOnlySettings(env, names)`
+- `deliverMessage({ env, logger, channel, to, summary, details = {}, send })`
+- `logAppEnvironment(logger, env)`
+- `logSideEffect(logger, environment, { kind, summary, details = {}, reason = "" })`
+- `markStagingEmail(email, originalTo)`
+- `type RuntimeEnv`
+- `type RuntimeLogger`
+- `type AppEnvironment`
+Local functions
+- `stagingAddress(env, kind)`
+- `escapeHtml(value)`
+
 ### `server/runtime/BootstrapProvider.js`
 Exports
 - `BootstrapProvider`
@@ -1097,11 +1112,6 @@ Exports
 - `safePathnameFromRequest(request)`
 - `resolveClientIpAddress(request)`
 
-### `server/runtime/runtimeMode.js`
-Exports
-- `assertDevelopmentOnlySettings(env, names)`
-- `isProductionEnv(env)`
-
 ### `server/runtime/serviceAuthorization.js`
 Exports
 - `requireAuth(source = {}, options = {})`
@@ -1110,11 +1120,6 @@ Local functions
 - `resolveRequireMode(value)`
 - `normalizeRequireAuthOptions(options = {})`
 - `requireAuthenticatedActor(context = {}, options = {})`
-
-### `server/runtime/sideEffects.js`
-Exports
-- `logSideEffectsMode(logger, env)`
-- `logSimulatedSideEffect(logger, { kind, summary, details = {} })`
 
 ### `server/support/appConfig.js`
 Exports

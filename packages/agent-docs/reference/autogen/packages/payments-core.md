@@ -23,7 +23,7 @@ Local functions
 
 ### `src/server/checkout.js`
 Exports
-- `createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize, sideEffects = "simulate" })`
+- `createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize, appEnv })`
 
 ### `src/server/errors.js`
 Exports

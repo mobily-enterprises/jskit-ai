@@ -22,6 +22,14 @@ Exports
 Exports
 - `inspectVueArchitecture`
 
+### `src/client/appEnvironment/appEnvironmentBanner.js`
+Exports
+- `APP_ENVIRONMENT_BANNER_ID`
+- `createAppEnvironmentBannerRuntime(options)`
+- `installAppEnvironmentBanner({ documentObject = pageDocument(), environment = pageAppEnvironment(documentObject) } = {})`
+Local functions
+- `removeNothing()`
+
 ### `src/client/asyncModuleRecovery/index.js`
 Exports
 - `NO_SHELL_ASYNC_MODULE_RECOVERY_RUNTIME`
@@ -566,14 +574,6 @@ Exports
 Local functions
 - `isPullRefreshQuery(query)`
 
-### `src/client/sideEffects/testCopyBanner.js`
-Exports
-- `TEST_COPY_BANNER_ID`
-- `createTestCopyBannerRuntime(options)`
-- `installTestCopyBanner({ documentObject = pageDocument(), mode = pageSideEffectsMode(documentObject) } = {})`
-Local functions
-- `removeNothing()`
-
 ### `src/client/stores/useShellErrorPresentationStore.js`
 Exports
 - `useShellErrorPresentationStore`
@@ -806,6 +806,14 @@ Exports
 Exports
 - None
 
+### `fixtures/app-environment-banner/src/main.js`
+Exports
+- None
+
+### `fixtures/app-environment-banner/vite.config.mjs`
+Exports
+- None
+
 ### `fixtures/production-build/src/App.vue`
 Exports
 - None
@@ -815,14 +823,6 @@ Exports
 - None
 
 ### `fixtures/production-build/vite.config.mjs`
-Exports
-- None
-
-### `fixtures/test-copy-banner/src/main.js`
-Exports
-- None
-
-### `fixtures/test-copy-banner/vite.config.mjs`
 Exports
 - None
 

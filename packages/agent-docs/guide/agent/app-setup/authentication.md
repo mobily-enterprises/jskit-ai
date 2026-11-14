@@ -166,7 +166,7 @@ The login page shows either refusal, translated, with the wait.
 ## Sign-in cookies and SameSite
 
 Local auth's cookies (access, refresh, recovery and OAuth attempt) and
-auth-core's CSRF cookie are httpOnly, at `Path=/`, and in production Secure
+auth-core's CSRF cookie are httpOnly, at `Path=/`, and in staging and production Secure
 with the `__Host-` prefix. One setting gives them all their SameSite:
 
 | Env | Default | Meaning |
@@ -202,10 +202,10 @@ choice, route by route or role by role; nothing asks for it by default.
 OIDC and Supabase sign-in answer `AUTH_OPERATION_UNSUPPORTED`, and
 `features.secondFactor` in the auth capabilities is false there.
 
-**Setting it up.** In production, set `AUTH_LOCAL_SECOND_FACTOR_KEY` to a
+**Setting it up.** In staging and production, set `AUTH_LOCAL_SECOND_FACTOR_KEY` to a
 random secret of at least 32 characters, and `APP_PUBLIC_URL`, whose host the
-authenticator app shows beside the codes; without the key a production server
-has no second factor. Outside production the session secret stands in for the
+authenticator app shows beside the codes; without the key a staging or production server
+has no second factor. In development and test the session secret stands in for the
 key. The key seals each account's authenticator secret (AES-256-GCM, bound to
 the account) and keys the hashes of its recovery codes, so keep it: a factor
 sealed under one key does not open under another, and verifying it then fails
@@ -348,7 +348,7 @@ capability, an async function accepting `{ email, confirmationUrl }`, built
 like the recovery sender below; with it, `APP_PUBLIC_URL` is required and the
 link is never returned or logged. In development without one, the link is in
 the registration's answer (`confirmationUrl`) and the log, and the sign-in page
-shows it with a button that confirms it with the password typed. In production (`NODE_ENV=production`)
+shows it with a button that confirms it with the password typed. In staging or production (`APP_ENV`)
 without one, while anyone may register, the server refuses to start, naming
 the ways out: install a sender, set `AUTH_LOCAL_EMAIL_CONFIRMATION=false`, or
 set `AUTH_LOCAL_SELF_REGISTRATION=false`. For direct library
@@ -357,14 +357,18 @@ composition, pass the sender as `confirmationSender` to
 `resolveLocalAuthConfig()`; without one, pass
 `createLoggedConfirmationSender(logger)`.
 
-In a test copy (`SIDE_EFFECTS` is not `live`, see
-[Side effects and test copies](/guide/framework/side-effects)), local auth puts
-its own simulated sender in place of an installed
-`auth.local.confirmation-sender`, whatever that sender does: it sends nothing,
-logs each link for the person testing, and keeps the link out of the answer.
-The application's sender never runs there, so no code may depend on it having
-run, such as code that confirms a registration with the link its sender was
-given: in a test copy that code gets no link.
+An installed `auth.local.confirmation-sender` sends as `APP_ENV` says (see
+[Environments](/guide/framework/environments)): in production to the address
+that registered; in staging only to `STAGING_EMAIL_TO`, called with that
+address as `email` and the registered one as `originalEmail`, which its email
+should show (`markStagingEmail` from
+`@jskit-ai/kernel/server/runtime/appEnvironment` does), or not at all when
+`STAGING_EMAIL_TO` is unset; in development and test never. Where it is not
+called, local auth logs each link for the person testing and keeps it out of
+the answer. So no code may depend on the sender having run, such as code that
+confirms a registration with the link its sender was given: in development,
+test and staging without `STAGING_EMAIL_TO` that code gets no link. The
+recovery sender is called the same way.
 
 An application that confirms new accounts at once while its email isn't set up
 says so with the optional `auth.local.confirmation-mode` capability, a function
@@ -376,9 +380,9 @@ account it creates has an address nobody proved, so answer `"without-link"`
 only when the application accepts that. Any other answer means `"link"` and
 logs a warning. Local auth asks only while email confirmation is on and the
 address isn't proven already (an invitation or the first account's setup
-code). The mode sends nothing, so a test copy keeps it and registers as the
-live copy does, while the sender is still replaced. It does not stand in for a
-sender: a production server still needs one, or
+code). The mode sends nothing, so it applies in every environment, whatever
+happens to the sender's emails there. It does not stand in for a
+sender: a staging or production server still needs one, or
 `AUTH_LOCAL_EMAIL_CONFIRMATION=false`, and `"link"` registrations are sent
 through it. An application that never sends a link sets
 `AUTH_LOCAL_EMAIL_CONFIRMATION=false` instead.
@@ -475,9 +479,9 @@ and treat null as a refused link. Their types are `AuthLocalAccounts`,
 ## The first account in production (local auth)
 
 The first account to register becomes the application's owner, so on a
-production server (`NODE_ENV=production`) whose local auth has no account yet,
+staging or production server (`APP_ENV`) whose local auth has no account yet,
 registering needs a one-time setup code that only the server's operator can
-read. Development needs no code.
+read. Development and test need no code.
 
 Each start of such a server makes a new code, such as
 `7KQ2M-X9D4F-0RWHN-3TBZC`, and keeps only its hash. It writes the code:
@@ -507,8 +511,8 @@ A hosting tool that shows the code to the operator itself supplies it in
 `AUTH_LOCAL_SETUP_CODE`, at least 20 letters and digits, for example a
 generated production secret. The server then asks for that code at every start
 and on every server, writes no `first-account-setup-code` file, and logs only
-that the code is in `AUTH_LOCAL_SETUP_CODE`, never the code itself. Outside
-production the variable is ignored.
+that the code is in `AUTH_LOCAL_SETUP_CODE`, never the code itself. In
+development and test the variable is ignored.
 
 ## One-time pass sign-in (local auth)
 
@@ -708,10 +712,11 @@ taken. A test that composes the library directly and reads the sent email
 waits for it: it passes `deliveries: createLocalDeliveries({ logger })` to
 `createLocalAuthService()` and awaits `deliveries.settled()`.
 
-Production is `NODE_ENV=production`; anything else, unset included, is
-development, so the host that serves the application sets it. A production
-server with `AUTH_LOCAL_RECOVERY_DEV_OUTPUT` set refuses to start and names the
-setting to remove, rather than ignoring it.
+Staging and production are `APP_ENV=staging` and `APP_ENV=production` (see
+[Environments](/guide/framework/environments)), which the host that serves the
+application sets. A staging or production server with
+`AUTH_LOCAL_RECOVERY_DEV_OUTPUT` set refuses to start and names the setting to
+remove, rather than ignoring it.
 
 ### Pre-release migration
 

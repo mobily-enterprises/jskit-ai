@@ -68,11 +68,11 @@ Exports
 - `resolveHubDevAuth(env)`
 Local functions
 - `text(value)`
-- `resolveIssuer(env, isProduction)`
+- `resolveIssuer(env, deployed)`
 - `readOrCreateDevSecret(appRoot)`
-- `resolveSecret(env, { isProduction, appRoot })`
+- `resolveSecret(env, { deployed, appRoot })`
 - `parseDevOriginPatterns(value)`
-- `resolveMail(env, { isProduction })`
+- `resolveMail(env, { deployed })`
 - `resolveGoogle(env)`
 
 ### `src/server/crypto.js`
@@ -181,7 +181,7 @@ Local functions
 ### `src/server/mailer.js`
 Exports
 - `composeMessage({ heading, body, actionLabel, actionUrl, footer })`
-- `createMailer({ mail, logger, isProduction, fetchImpl })`
+- `createMailer({ mail, env, logger, fetchImpl })`
 
 ### `src/server/oidcProvider.js`
 Exports

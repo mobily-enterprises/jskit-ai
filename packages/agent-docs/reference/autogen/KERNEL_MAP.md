@@ -19,6 +19,16 @@ For the full repo inventory, read `reference/autogen/README.md` and the package 
 
 ### support
 
+### `support/appEnvironment.js`
+Exports
+- `APP_ENV_KEY`
+- `APP_ENVIRONMENTS`
+- `APP_ENVIRONMENT_META_NAME`
+- `appEnvironment(env)`
+- `isDeployed(env)`
+- `pageAppEnvironment(documentObject = globalThis.document)`
+- `withAppEnvironmentMeta(html, environment)`
+
 ### `support/clientBuild.js`
 Exports
 - `CLIENT_BUILD_META_NAME`
@@ -169,17 +179,6 @@ Exports
 - `resolvePlacementTargetReference(value = "")`
 Local functions
 - `normalizePlacementRenderers(value = {})`
-
-### `support/sideEffects.js`
-Exports
-- `SIDE_EFFECTS_ENV_KEY`
-- `SIDE_EFFECTS_LIVE`
-- `SIDE_EFFECTS_META_NAME`
-- `SIDE_EFFECTS_SIMULATE`
-- `pageSideEffectsMode(documentObject = globalThis.document)`
-- `resolveSideEffectsMode(env)`
-- `sideEffectsAreLive(env)`
-- `withSideEffectsMeta(html, mode)`
 
 ### `support/silentLogger.js`
 Exports

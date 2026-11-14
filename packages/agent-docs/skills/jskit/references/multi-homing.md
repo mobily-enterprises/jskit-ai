@@ -228,8 +228,8 @@ To send invitation email, provide the optional `workspaces.invite-mailer`
 capability from one of the application's providers. Without one, invitations
 are still created and delivery reports `mailer_unconfigured`. After **Send
 invite**, the Members panel's notice follows the delivery status: `sent` says
-the invite was sent; `simulated` (a test copy, whose `SIDE_EFFECTS` is not
-`live`) and `mailer_unconfigured` say no email was sent; `held` says email
+the invite was sent; `simulated` (logged outside production, see
+[Environments](environments.md)) and `mailer_unconfigured` say no email was sent; `held` says email
 isn't set up yet, so the invite will be sent once it is; `failed` is a warning
 that the email failed. Each of those four points to the invite link, which
 the panel shows under the form with its **Copy** button. For a status the

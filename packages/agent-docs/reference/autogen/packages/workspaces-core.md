@@ -204,16 +204,16 @@ Local functions
 Exports
 - `registerWorkspaceDirectoryRoutes(router, { config, workspaceSelfCreateEnabled })`
 
+### `src/server/workspaceMembers/appEnvironmentInviteMailer.js`
+Exports
+- `createAppEnvironmentInviteMailer({ env, logger, mailer })`
+
 ### `src/server/workspaceMembers/defaultWorkspaceInviteEmail.js`
 Exports
 - `formatInviteExpiry(expiresAt, locale, timeZone)`
 - `renderDefaultWorkspaceInviteEmail({ inviteUrl, workspace, inviter, roleSid, roleLabel, expiresAt, locale = "en", timeZone = "UTC", t })`
 Local functions
 - `escapeHtml(value)`
-
-### `src/server/workspaceMembers/simulatedWorkspaceInviteMailer.js`
-Exports
-- `createSimulatedWorkspaceInviteMailer(logger)`
 
 ### `src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js`
 Exports

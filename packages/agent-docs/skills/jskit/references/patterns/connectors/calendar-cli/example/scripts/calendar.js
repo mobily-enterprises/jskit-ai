@@ -6,6 +6,7 @@ import { parseIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/
 import { createConnectionService, createEnvironmentReferenceResolver } from "@jskit-ai/connectors-core/server";
 import { createCredentialProtection, createKnexConnectionStore } from "@jskit-ai/connectors-core/server/storage";
 import { googleCalendarProvider } from "@jskit-ai/connector-google-calendar/server";
+import { appEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
 
 /**
  * A local operator command owns this HTTP listener; web apps use authenticated routes.
@@ -86,7 +87,8 @@ async function main() {
       configuration, providers: [googleCalendarProvider],
       store: createKnexConnectionStore({ knex, protection }),
       resolveReference: createEnvironmentReferenceResolver(process.env),
-      authorize: async () => context
+      authorize: async () => context,
+      appEnv: appEnvironment(process.env)
     });
     const request = { context, integrationId: "calendar" };
     let result;

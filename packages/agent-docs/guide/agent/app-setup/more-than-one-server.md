@@ -65,12 +65,13 @@ sees the saved conversation when it opens it again.
   browser's cookies; both work on any copy.
 - Every copy needs the same `AUTH_LOCAL_SESSION_SECRET`,
   `AUTH_LOCAL_SECOND_FACTOR_KEY`, `AUTH_OIDC_SESSION_SECRET` and
-  `OIDC_HUB_SECRET`, as the app uses them. Outside production a missing one is
-  generated into a file on each machine, so set them for a staging setup with
-  several copies too.
-- On an empty production database each copy makes its own first-account setup
-  code, and a code from one copy is refused by the others. Set
-  `AUTH_LOCAL_SETUP_CODE` on every copy, or run one copy until the first
+  `OIDC_HUB_SECRET`, as the app uses them. Staging and production (`APP_ENV`,
+  see [Environments](/guide/framework/environments)) refuse to start without
+  the session secrets; in development and test a missing one is generated into
+  a file on each machine, so set them there too for several copies.
+- On an empty staging or production database each copy makes its own
+  first-account setup code, and a code from one copy is refused by the others.
+  Set `AUTH_LOCAL_SETUP_CODE` on every copy, or run one copy until the first
   account exists.
 
 ## What each copy keeps to itself
