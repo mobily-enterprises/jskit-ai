@@ -26,11 +26,17 @@ Exports
 Exports
 - `STORAGE_DRIVER_ENV_KEY`
 - `STORAGE_FS_BASE_PATH_ENV_KEY`
+- `STORAGE_S3_ACCESS_KEY_ID_ENV_KEY`
+- `STORAGE_S3_BUCKET_ENV_KEY`
+- `STORAGE_S3_ENDPOINT_ENV_KEY`
+- `STORAGE_S3_REGION_ENV_KEY`
+- `STORAGE_S3_SECRET_ACCESS_KEY_ENV_KEY`
 - `DEFAULT_STORAGE_DRIVER`
 - `normalizeStorageDriver(value)`
 - `createStorageBinding({ env, appRoot })`
 Local functions
 - `resolveFsBasePath(fsBasePath, appRoot)`
+- `createS3Driver(env)`
 
 ### `src/server/types.js`
 Exports
