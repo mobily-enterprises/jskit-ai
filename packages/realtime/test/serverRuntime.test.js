@@ -203,6 +203,13 @@ test("resolveRealtimeRedisUrl reads and normalizes env URL", () => {
   assert.equal(resolveRealtimeRedisUrl({ [REDIS_URL_ENV_KEY]: " redis://localhost:6379 " }), "redis://localhost:6379");
 });
 
+test("the Redis backplane is REALTIME_REDIS_URL, the name the guide and the pattern give, and not REDIS_URL", () => {
+  // Before, it was REDIS_URL: an app that set the documented name stayed on the in-process adapter, and each of its
+  // copies delivered events only to its own browsers.
+  assert.equal(resolveRealtimeRedisUrl({ REALTIME_REDIS_URL: "redis://localhost:6379" }), "redis://localhost:6379");
+  assert.equal(resolveRealtimeRedisUrl({ REDIS_URL: "redis://localhost:6379" }), "");
+});
+
 test("resolveRealtimeRedisNamespace reads and normalizes env namespace", () => {
   assert.equal(resolveRealtimeRedisNamespace({}), "");
   assert.equal(

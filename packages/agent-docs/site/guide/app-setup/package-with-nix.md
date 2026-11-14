@@ -93,7 +93,9 @@ environment's. The option is not called `--env-file` because Node reads an
   data folder in the settings: `JSKIT_STORAGE_FS_BASE_PATH` (uploads and
   `runtime.storage`; `data/storage` by default) and `AUTH_LOCAL_STORE_DIR`
   (local sign-in's files, such as the first account's setup code;
-  `.jskit/auth` by default).
+  `.jskit/auth` by default). With `JSKIT_STORAGE_DRIVER=s3`, `runtime.storage`
+  writes to an S3 bucket instead, as several instances need
+  ([Run on more than one server](/guide/app-setup/more-than-one-server)).
 - The settings say where the app runs: `APP_ENV=production`, or `staging` on a
   copy for checking it, where a build-check machine leaves the `STAGING_*`
   addresses unset so everything is logged. The launcher sets

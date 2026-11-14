@@ -3190,6 +3190,7 @@
       },
       "packageJson": {
         "dependencies": {
+          "aws4fetch": "^1.0.20",
           "unstorage": "^1.17.5"
         },
         "peerDependencies": {

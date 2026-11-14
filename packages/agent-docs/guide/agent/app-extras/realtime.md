@@ -183,9 +183,17 @@ events may still describe distinct intermediate states.
 
 ## Single process and Redis
 
-The in-process adapter is correct for one server process. Set
-`REALTIME_REDIS_URL` only when multiple processes need a shared backplane.
-Credentials stay outside Git and never enter public client config.
+The in-process adapter is correct for one server process: an event reaches
+only the browsers connected to the process that published it. Set
+`REALTIME_REDIS_URL` only when multiple processes need a shared backplane, to
+the same Redis on every one; each then delivers every event to its own
+browsers. Socket.IO opens each connection with HTTP long-polling, whose
+requests must all reach the process that opened it: keep each browser on one
+process at the load balancer, or connect by WebSocket only with
+`realtimeClient: { options: { transports: ["websocket"] } }` in the app's
+public config. Credentials stay outside Git and never enter public client
+config. [Run on more than one server](/guide/app-setup/more-than-one-server)
+covers the rest of what several copies need.
 
 ## Shutdown
 
