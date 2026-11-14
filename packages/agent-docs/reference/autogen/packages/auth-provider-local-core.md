@@ -300,7 +300,7 @@ Exports
 
 ### `test-support/emailConfirmationScenario.js`
 Exports
-- `exerciseEmailConfirmation(t, service, storedRegistrations)`
+- `exerciseEmailConfirmation(t, service, storedRegistrations, storedAccount)`
 - `exerciseRegistrationTakeover(service)`
 Local functions
 - `linkToken(result)`

@@ -14,8 +14,12 @@ test("registration waits for its email to be confirmed, with a hashed, single-us
 
   // "" leaves AUTH_LOCAL_EMAIL_CONFIRMATION unset: confirmation on, its default.
   const service = createLocalAuthService({ ...localServiceOptions({ env: { AUTH_LOCAL_EMAIL_CONFIRMATION: "" } }), backend });
-  await exerciseEmailConfirmation(t, service, async () =>
-    JSON.stringify(await knex(LOCAL_AUTH_DB_TABLES.registrations).select()));
+  await exerciseEmailConfirmation(
+    t,
+    service,
+    async () => JSON.stringify(await knex(LOCAL_AUTH_DB_TABLES.registrations).select()),
+    (email) => backend.withTransaction((tx) => tx.users.findByEmail(email))
+  );
 });
 
 test("registering an email before or after its owner never gives its account someone else's password (database backend)", async (t) => {

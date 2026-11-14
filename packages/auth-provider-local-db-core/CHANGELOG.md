@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- A new account keeps the `emailVerifiedAt` it is created with (`users.create`), as local sign-in's email confirmation now gives it; without one it stays empty, as before.
 - Used one-time passes in the database: the table `auth_local_used_passes` (the hash of each pass's id, until it expires), created by the new migration `auth_local_db_used_passes`, behind the backend contract's `passes` collection, so a pass one server accepted is refused by every server on the database. Two first uses at once both find no row, and the later one's duplicate entry runs its transaction again, which finds it. `LOCAL_AUTH_DB_TABLES.passes` names the table, which the package owns.
 - The package manifest no longer requires `runtime.actions`: its feature declares no actions, so since the kernel's 9646ecf21 it does not require the action catalogue, and the catalog's manifest check reported the requirement as one no server provider has.
 - Second factors in the database: the table `auth_local_second_factors` (one row per account, deleted with it) and the sessions' `second_factor_at` column, created by the new migration `auth_local_db_users_second_factors`, behind the backend contract's `secondFactors` collection and `sessions.markSecondFactorProved` / `sessions.clearSecondFactorForUser`. `LOCAL_AUTH_DB_TABLES.secondFactors` names the table, which the package owns.

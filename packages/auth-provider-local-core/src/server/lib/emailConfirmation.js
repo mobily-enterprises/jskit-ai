@@ -198,11 +198,13 @@ function createLocalEmailConfirmation({
       if (await tx.users.findByEmail(registration.email)) {
         return { taken: true };
       }
+      // The link was sent to the email, so using it confirms the email.
       const user = await tx.users.create({
         id: createId("usr"),
         email: registration.email,
         displayName: registration.displayName,
-        password: registration.password
+        password: registration.password,
+        emailVerifiedAt: new Date().toISOString()
       });
       return { user, session: await sessions.createSessionForUser(tx, user) };
     });

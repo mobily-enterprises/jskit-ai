@@ -181,7 +181,9 @@ function userRecord(input = {}) {
     ...writePassword(input.password),
     disabled: input.disabled === true,
     createdAt,
-    updatedAt: requiredDateTime(input.updatedAt, createdAt)
+    updatedAt: requiredDateTime(input.updatedAt, createdAt),
+    // An account made by a confirmation link has its email confirmed then.
+    emailVerifiedAt: optionalDateTime(input.emailVerifiedAt)
   };
 }
 

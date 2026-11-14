@@ -19,12 +19,16 @@ function linkToken(result) {
  * Registration with email confirmation in development, against any backend:
  * run with Date mocked through `t.mock.timers`. `storedRegistrations` answers
  * what the backend keeps of waiting registrations, as text, so the scenario
- * can check that a link's code is kept only as its hash.
+ * can check that a link's code is kept only as its hash; `storedAccount`, for a
+ * backend that keeps when an email was confirmed (the database's; the file
+ * backend keeps no such time), the account it keeps for an email, so it can
+ * check that time.
  * @param {import("node:test").TestContext} t
  * @param {import("@jskit-ai/auth-core/server/types").AuthService} service
  * @param {() => Promise<string>} storedRegistrations
+ * @param {(email: string) => Promise<{ emailVerifiedAt?: string } | null>} [storedAccount]
  */
-async function exerciseEmailConfirmation(t, service, storedRegistrations) {
+async function exerciseEmailConfirmation(t, service, storedRegistrations, storedAccount) {
   // Registering keeps the account waiting: nobody is signed in, and development shows the link.
   const registered = await service.register({ email: EMAIL, password: PASSWORD, displayName: "Ada" });
   assert.equal(registered.requiresEmailConfirmation, true);
@@ -58,11 +62,16 @@ async function exerciseEmailConfirmation(t, service, storedRegistrations) {
   await assert.rejects(service.confirmRegistration({ token: secondToken, password: "a wrong password" }), wrongPassword);
   await assert.rejects(service.login({ email: EMAIL, password: PASSWORD }), unconfirmed);
 
-  // Confirming with the registration's password creates the account and signs the person in; its password signs in too.
+  // Confirming with the registration's password creates the account, its email confirmed then, and signs the person
+  // in; its password signs in too.
+  const confirmedAt = Date.now();
   const confirmed = await service.confirmRegistration({ token: secondToken, password: PASSWORD });
   assert.ok(confirmed.session.access_token);
   assert.equal(confirmed.actor.email, EMAIL);
   assert.equal(confirmed.actor.displayName, "Ada");
+  if (storedAccount) {
+    assert.equal(Date.parse((await storedAccount(EMAIL))?.emailVerifiedAt ?? ""), confirmedAt, "the email confirmed when its link was used");
+  }
   assert.equal((await service.login({ email: EMAIL, password: PASSWORD })).actor.email, EMAIL);
   assert.equal((await storedRegistrations()).includes(sha256Base64url(secondToken)), false);
 
