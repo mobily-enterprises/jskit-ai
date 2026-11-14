@@ -774,9 +774,12 @@ test("every auth screen's text, its field labels and hints included, reads at WC
   const { page } = api;
   const failures = [];
   const readable = async (where) => {
-    // The modes fade and move their labels in; a text that stays under the minimum is a finding.
-    await expect.poll(() => unreadableText(page), { timeout: 5_000 }).toEqual([]).catch(() => undefined);
-    failures.push(...(await unreadableText(page)).map((finding) => `${where}: ${finding}`));
+    // The modes fade and move their labels in, and a button's label fades in over 0.2s: a text that stays under the
+    // minimum for the whole wait is a finding. The findings are the wait's own last look; a fresh look once it had
+    // settled could land at the start of a fade (a "Register" button label at 0.02 opacity read 1.00:1).
+    let findings = [];
+    await expect.poll(async () => (findings = await unreadableText(page)), { timeout: 5_000 }).toEqual([]).catch(() => undefined);
+    failures.push(...findings.map((finding) => `${where}: ${finding}`));
   };
   for (const colorScheme of ["light", "dark"]) {
     await page.emulateMedia({ colorScheme });
