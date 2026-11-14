@@ -2063,6 +2063,8 @@ Local functions
 - `decodeDiscoveryCursor(value, query)`
 - `truncateDescription(value, maxLength = 240)`
 - `resolveValidationFailureMessage(error)`
+- `isJsonRestApiError(error)`
+- `applicationRefusal(error)`
 - `canInvokeMethod(permission, context)`
 - `stripWorkspaceSlugFromSchema(schema, context = {})`
 - `canUseToolOnSurface(entry = {}, context = {})`

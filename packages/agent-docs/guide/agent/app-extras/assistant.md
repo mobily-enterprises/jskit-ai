@@ -789,9 +789,13 @@ answer in the existing chat rows.
 
 Replies run on the agent engine (`@jskit-ai/agent`), up to 40 steps by default, so
 catalog search, contract lookup and execution can complete in one turn. A failed
-action reaches the model as its error: a refusal with its message and, for a
-validation error, the field errors a person would see on screen, so the model can
-say what to fix; an internal failure only as `Tool call failed.` A reply that runs
+action reaches the model as its error: a refusal the application raised with its
+message and, for a validation error, the field errors a person would see on screen,
+so the model can say what to fix; a refusal json-rest-api raises itself, whose
+developer text names internal resource types and ids, with its status and
+`Tool call failed.`; an internal failure only as `Tool call failed.` To have the
+model explain a refused write, refuse it in the action, in the application's own
+words, before the write runs. A reply that runs
 out of steps ends with the model's own account of what it did and what is left.
 The engine's checks send a reply back once when it leaks markup, stops at
 announcing its next step (“Let me query…”), or claims an action no tool

@@ -412,7 +412,11 @@ function restApiWriteErrorAround(cause) {
   return error;
 }
 
-test("a refusal json-rest-api throws or wraps reaches the model as the HTTP layer answers it, and an internal failure stays hidden", async () => {
+function restApiResourceError(message, subtype) {
+  return Object.assign(new Error(message), { name: "RestApiResourceError", code: "REST_API_RESOURCE", type: "rest_api_resource", subtype });
+}
+
+test("a refusal json-rest-api throws or wraps reaches the model with the HTTP layer's status and no developer text, and an internal failure stays hidden", async () => {
   let failure = null;
   const actions = createActions([action({ kind: "command", execute: async () => { throw failure; } })]);
   const catalog = createServiceToolCatalog(actions);
@@ -420,15 +424,31 @@ test("a refusal json-rest-api throws or wraps reaches the model as the HTTP laye
   const toolSet = catalog.resolveToolSet(context);
   const call = () => catalog.executeToolCall({ toolName: toolSet.tools[0].name, argumentsText: "{}", context, toolSet });
 
+  // json-rest-api's own sentences are for the code that called it: they name internal resource types and record ids.
   const refusedByStore = restApiValidationError("Foreign key fields cannot be set directly in attributes", ["data.attributes.shelfId"]);
-  const storeRefusal = {
-    ok: false,
-    error: { code: "REST_API_VALIDATION", message: "Foreign key fields cannot be set directly in attributes", status: 422 }
-  };
+  const storeRefusal = { ok: false, error: { code: "REST_API_VALIDATION", message: "Tool call failed.", status: 422 } };
   failure = refusedByStore;
   assert.deepEqual(await call(), storeRefusal);
   failure = restApiWriteErrorAround(refusedByStore);
   assert.deepEqual(await call(), storeRefusal, "inside a write, as json-rest-api wraps it");
+  for (const [thrown, status] of [
+    [restApiResourceError("Cannot create relationship to non-existent shelves with id 4471", "not_found"), 404],
+    [restApiResourceError("Resource not found", "not_found"), 404],
+    [restApiResourceError("The shelves record these conflict keys match cannot be changed by the caller", "forbidden"), 403],
+    // A conflict json-rest-api raises over a database error, whose text quotes the stored values.
+    [Object.assign(restApiResourceError("Duplicate entry 'private-row-7' for key 'shelves.code'", "conflict"), { cause: { code: "ER_DUP_ENTRY", errno: 1062 } }), 409]
+  ]) {
+    failure = thrown;
+    const answered = await call();
+    assert.deepEqual(answered, { ok: false, error: { code: "REST_API_RESOURCE", message: "Tool call failed.", status } });
+    assert.equal(JSON.stringify(answered).includes("shelves"), false, "never the resource type");
+  }
+  // An error that copies a json-rest-api error's message, as the resource runtime maps a sparse-fieldset refusal to a 400.
+  failure = new AppError(400, "Unknown field 'secret' in fields[shelves]", {
+    code: "JSON_API_FIELDSET_INVALID",
+    cause: restApiValidationError("Unknown field 'secret' in fields[shelves]", ["fields"])
+  });
+  assert.deepEqual(await call(), { ok: false, error: { code: "JSON_API_FIELDSET_INVALID", message: "Tool call failed.", status: 400 } });
 
   // An action's own refusal from inside a write.
   failure = restApiWriteErrorAround(createValidationError({ parcels: "The parcel weights add up to 12 kg, not the 15 kg recorded." }));
@@ -436,6 +456,8 @@ test("a refusal json-rest-api throws or wraps reaches the model as the HTTP laye
     ok: false,
     error: { code: "validation_failed", message: "Validation failed. parcels: The parcel weights add up to 12 kg, not the 15 kg recorded.", status: 400 }
   });
+  failure = restApiWriteErrorAround(new NotFoundError("That parcel is no longer in this shipment."));
+  assert.deepEqual(await call(), { ok: false, error: { code: "not_found", message: "That parcel is no longer in this shipment.", status: 404 } });
 
   for (const internal of [
     Object.assign(new Error("Hook failed reading private-row 7"), { code: "HOOK_FAILED" }),

@@ -277,6 +277,29 @@ function resolveValidationFailureMessage(error) {
   return details.length > 0 ? `${baseMessage} ${details.join(" ")}` : baseMessage;
 }
 
+function isJsonRestApiError(error) {
+  return /^RestApi/u.test(String(error?.name || "")) || /^REST_API_/u.test(String(error?.code || ""));
+}
+
+// The refusal whose message a failed tool call may give the model, which relays it to people: the failure itself, or
+// the error the application raised with its own status inside json-rest-api's wrapper. json-rest-api's own errors
+// (its RestApi* classes and REST_API_* codes), and an error that copies one's message (a sparse-fieldset refusal
+// mapped to a 400), speak developer English naming internal resource types and record ids, so they have none: the
+// model gets their status and "Tool call failed.". So does a database error json-rest-api wraps, which has no status.
+function applicationRefusal(error) {
+  const seen = new Set();
+  for (let current = error; current && typeof current === "object" && !seen.has(current); current = current.cause) {
+    seen.add(current);
+    if (isJsonRestApiError(current)) {
+      continue;
+    }
+    const copiesJsonRestApi = isJsonRestApiError(current.cause) && current.message === current.cause.message;
+    const status = Number(current.status || current.statusCode);
+    return !copiesJsonRestApi && (current === error || (status >= 400 && status < 500)) ? current : null;
+  }
+  return null;
+}
+
 function canInvokeMethod(permission, context) {
   const permissionSpec = normalizePermissionSpec(permission);
 
@@ -640,14 +663,15 @@ function createServiceToolCatalog(
   }
 
   // The status the HTTP layer answers with, so a refusal json-rest-api throws without one (REST_API_VALIDATION) is a
-  // refusal here too, not an internal failure.
+  // refusal here too, not an internal failure. Its message is the application's refusal only (applicationRefusal).
   function resolveToolFailure(error) {
     const status = resolveApiErrorStatus(error);
+    const refusal = status < 500 ? applicationRefusal(error) : null;
     return {
       ok: false,
       error: {
         code: String(error?.code || "assistant_tool_failed").trim() || "assistant_tool_failed",
-        message: status >= 500 ? "Tool call failed." : resolveValidationFailureMessage(error),
+        message: refusal ? resolveValidationFailureMessage(refusal) : "Tool call failed.",
         status
       }
     };
