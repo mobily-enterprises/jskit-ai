@@ -1021,9 +1021,15 @@ that finds the deciding rows directly, since on MySQL and MariaDB a locking
 subquery locks every row it examines. The rows a subquery examines are the
 rows its plan walks, not the rows it returns: one that reads through another
 table by a link (a module's definition by its id) and narrows to the caller's
-owner after the walk locks the rows of every owner its index range crosses.
-Give each nested read a filter on the owner's columns that an index leads
-with, or keep the walk out of the lock: lock the rows, then check the linked
+owner after the walk locks the rows of every owner its index range crosses,
+and the planner may scan a nested table whole when the caller's owner holds
+most of its rows. Give each nested read a filter on the owner's columns that an
+index leads with, and on MySQL and MariaDB name that index:
+`ownTable(name).forceIndex(index)`, or `forceIndex(index)` on a `joinSource()`'s
+`query`, makes the read use that index on its table, so it examines only the
+owner's range. It takes plain index names and sets the hint once; PostgreSQL
+and SQLite have no index hints, and there it throws a `TypeError`. Or keep the
+walk out of the lock: lock the rows, then check the linked
 rows with a read of their own. `claim` keeps its policy's subqueries
 plain reads. Rows
 of several owners are never locked in one statement over a join, which on

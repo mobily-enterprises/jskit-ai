@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The data-access guide's Layer 4 says that the planner may scan a lock policy's nested table whole when the caller's owner holds most of its rows, and that on MySQL and MariaDB `ownTable(name).forceIndex(index)`, or `forceIndex(index)` on a `joinSource()`'s `query`, names the index that keeps the nested read inside the owner's range; PostgreSQL and SQLite throw a `TypeError`.
 - The data-access guide adds `workspaces.roleContext({ workspaceId, userId, role, reason }, { context: systemContext(reason) })` beside `memberContext`, for installer and seed work only: a user acting in one workspace in a role of the catalog they are not given there, with a member context's shape and the reason, which a row policy reads as its caller's `reason` and which grants nothing; the glossary gains role context.
 - The data-access guide's Layer 4 adds `lockPages`' `pageBy`: a lock of a list's rows (every link of the listed actions) pages by the list filter's column, then the id, and on MySQL and MariaDB holds the listed values' rows alone, where id order holds every row of the owner it passes.
 - The assistant guide says that a refusal json-rest-api raises itself reaches the model with its status and `Tool call failed.`, since its text names internal resource types and ids, and that the model explains a refused write only from a refusal the action raises in the application's own words before the write.

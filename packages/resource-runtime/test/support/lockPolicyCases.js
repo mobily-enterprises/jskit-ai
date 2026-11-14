@@ -157,6 +157,78 @@ async function lockWaitOf(knex, id, waiter) {
   assert.fail("the lock never waited for the writer");
 }
 
+// The index on the paths' workspace a policy names with forceIndex.
+const PATHS_WORKSPACE = "fi_paths_workspace";
+const pathResource = defineTableResource({
+  name: "paths",
+  tableName: "fi_paths",
+  ownership: "workspace",
+  schema: {
+    workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+    unitId: { type: "integer", required: true, storage: { column: "unit_id" } },
+    depth: { type: "integer", required: true }
+  }
+});
+const unitResource = defineTableResource({
+  name: "units",
+  tableName: "fi_units",
+  ownership: "workspace",
+  schema: {
+    workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+    name: { type: "string", required: true, search: true }
+  }
+});
+
+/**
+ * Units 1 to 3 of workspace 1, which Ada sees through their stored paths, and unit 4 of workspace 2. The row policy
+ * reads the paths through `how.reader` (an ownTable reader, or the paths' joinSource), with the workspace's index forced
+ * when `how.forced`. That index leaves the unit out and workspace 1 holds 300 of the 302 paths, so a read of its paths
+ * without the hint scans the table, workspace 2's two paths (between workspace 1's) included.
+ * @param {import("knex").Knex} knex
+ */
+async function unitsOf(knex) {
+  await knex.schema.createTable("fi_paths", (table) => {
+    table.increments("id");
+    table.integer("workspace_id").nullable();
+    table.integer("unit_id").notNullable();
+    table.integer("depth").notNullable();
+    table.index(["workspace_id"], PATHS_WORKSPACE);
+  });
+  await knex.schema.createTable("fi_units", (table) => {
+    table.increments("id");
+    table.integer("workspace_id").nullable();
+    table.string("name").notNullable();
+    table.index(["workspace_id"], "fi_units_workspace");
+  });
+  const how = { reader: "ownTable", forced: false };
+  let resources;
+  async function seenThroughPaths({ query, caller, column, ownTable, options }) {
+    if (caller.kind !== "user") {
+      return caller.kind !== "anonymous";
+    }
+    if (how.reader === "joinSource") {
+      const paths = await resources.paths.joinSource({ alias: "p" }, options);
+      const reader = how.forced ? paths.query.forceIndex(PATHS_WORKSPACE) : paths.query;
+      query.whereIn(column("id"), reader.select(paths.column("unitId")));
+    } else {
+      const reader = how.forced ? ownTable("paths").forceIndex(PATHS_WORKSPACE) : ownTable("paths");
+      query.whereIn(column("id"), reader.select("fi_paths.unit_id").whereColumn("fi_paths.workspace_id", column("workspaceId")));
+    }
+    return true;
+  }
+  const runtime = await createTestResourceRuntime({ knex });
+  resources = await runtime.own("units.feature", [pathResource, { resource: unitResource, rowPolicy: seenThroughPaths }]);
+  await knex("fi_units").insert([1, 2, 3].map((id) => ({ id, workspace_id: 1, name: `U${id}` })).concat({ id: 4, workspace_id: 2, name: "U4" }));
+  const paths = (from, count) => Array.from({ length: count }, (_, index) => ({ workspace_id: 1, unit_id: 1 + ((from + index) % 3), depth: from + index }));
+  await knex("fi_paths").insert(paths(0, 150));
+  await knex("fi_paths").insert([{ workspace_id: 2, unit_id: 4, depth: 0 }, { workspace_id: 2, unit_id: 4, depth: 1 }]);
+  await knex("fi_paths").insert(paths(150, 150));
+  const otherPaths = (await knex("fi_paths").where({ workspace_id: 2 }).orderBy("id").pluck("id")).map(String);
+  return { units: resources.units, how, otherPaths };
+}
+
+const unitNames = (records) => records.map(({ name }) => name).sort();
+
 /**
  * @param {(t: import("node:test").TestContext, suffix: string) => Promise<import("knex").Knex>} connect
  *   The test's own empty database; `suffix` names it where the database needs a name.
@@ -250,6 +322,74 @@ function lockPolicyCases(connect) {
       }
     }]);
   }
+
+  for (const reader of ["ownTable", "joinSource"]) {
+    cases.push([`lockWhere through ${reader}, MySQL and MariaDB: unhinted, the policy's nested read locks another workspace's paths; with forceIndex, it leaves them free`, async (t) => {
+      const knex = await connect(t, `da_fi_${reader.toLowerCase()}`);
+      if (knex.client.config.client !== "mysql2") {
+        t.skip("PostgreSQL and SQLite have no index hints: the next case checks that they refuse one");
+        return;
+      }
+      const { units, how, otherPaths } = await unitsOf(knex);
+      await knex.raw("ANALYZE TABLE fi_paths, fi_units");
+      // Whether another transaction can lock a path now, without waiting.
+      const free = (id) => knex.transaction((probe) => probe("fi_paths").where({ id }).forUpdate().noWait()).then(() => true, (error) => {
+        if (/^ER_LOCK_(?:NOWAIT|WAIT_TIMEOUT)$/u.test(error.code ?? "")) return false;
+        throw error;
+      });
+      const seen = {};
+      for (const forced of [false, true]) {
+        Object.assign(how, { reader, forced });
+        const statements = [];
+        const record = (query) => statements.push(query);
+        knex.on("query", record);
+        const held = [];
+        let names;
+        try {
+          names = await units.withTransaction(asAda, async (tx) => {
+            const locked = await units.lockWhere({}, { ...tx, fields: ["name"] });
+            for (const id of otherPaths) {
+              if (!(await free(id))) held.push(id);
+            }
+            return unitNames(locked);
+          });
+        } finally {
+          knex.removeListener("query", record);
+        }
+        assert.deepEqual(names, ["U1", "U2", "U3"], `forced ${forced}`);
+        const lockRead = statements.find(({ sql }) => sql.includes("`fi_units`") && sql.includes("`fi_paths`") && / for update$/u.test(sql));
+        const [plan] = await knex.raw(`EXPLAIN ${lockRead.sql.replaceAll(" lock in share mode", "").replace(/ for update$/u, "")}`, lockRead.bindings);
+        t.diagnostic(`forced ${forced}: held ${held.length} of ${otherPaths.length}; plan ${plan.map((row) => `${row.table} ${row.type} ${row.key ?? "-"} ${row.rows}`).join(" | ")}`);
+        seen[forced] = { held, sql: lockRead.sql };
+      }
+      const hint = new RegExp(`force index \\(\`${PATHS_WORKSPACE}\`\\)`, "u");
+      assert.doesNotMatch(seen.false.sql, hint);
+      assert.deepEqual(seen.false.held, otherPaths, "unhinted: the nested scan holds workspace 2's paths");
+      assert.match(seen.true.sql, hint);
+      assert.deepEqual(seen.true.held, [], "hinted: workspace 2's paths stay free");
+    }]);
+  }
+
+  cases.push(["forceIndex on an ownTable reader or a joinSource's query throws a TypeError on PostgreSQL and SQLite, which have no index hints, and so fails the lock", async (t) => {
+    const knex = await connect(t, "da_fi_refused");
+    if (knex.client.config.client === "mysql2") {
+      t.skip("MySQL and MariaDB take the hint: the cases above check it");
+      return;
+    }
+    const { units, how } = await unitsOf(knex);
+    const refused = (error) => {
+      for (let current = error; current; current = current.cause) {
+        if (current instanceof TypeError && /^forceIndex is MySQL and MariaDB only: (?:PostgreSQL|SQLite) has no index hints/u.test(current.message)) return true;
+      }
+      return false;
+    };
+    for (const reader of ["ownTable", "joinSource"]) {
+      Object.assign(how, { reader, forced: true });
+      await assert.rejects(units.withTransaction(asAda, (tx) => units.lockWhere({}, { ...tx, fields: ["name"] })), refused, reader);
+      Object.assign(how, { reader, forced: false });
+      assert.deepEqual(unitNames(await units.withTransaction(asAda, (tx) => units.lockWhere({}, { ...tx, fields: ["name"] }))), ["U1", "U2", "U3"], reader);
+    }
+  }]);
   return cases;
 }
 
