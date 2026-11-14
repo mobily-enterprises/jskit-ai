@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/material-web",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "description": "Exact Material 3 for JSKIT Vuetify apps: seed-generated light and dark schemes, Material Symbols Rounded icon aliases, Roboto Flex and Material 3 component defaults.",
   "exports": {

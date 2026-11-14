@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/http-web",
-  "version": "0.2.43",
+  "version": "0.2.44",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -52,15 +52,15 @@
   "peerDependencies": {
     "@jskit-ai/http-runtime": "0.2.26",
     "@jskit-ai/kernel": "0.2.26",
-    "@jskit-ai/realtime": "0.2.39",
-    "@jskit-ai/shell-web": "0.2.36",
+    "@jskit-ai/realtime": "0.2.40",
+    "@jskit-ai/shell-web": "0.2.37",
     "@tanstack/vue-query": "^5.90.5",
     "vue": "^3.5.13",
     "vue-router": "^5.0.4",
     "vuetify": "^4.3.0"
   },
   "devDependencies": {
-    "@jskit-ai/material-web": "0.1.7"
+    "@jskit-ai/material-web": "0.1.8"
   },
   "description": "Neutral Vue request, command, resource, and CRUD UI runtime for JSKIT web applications.",
   "jskit": {

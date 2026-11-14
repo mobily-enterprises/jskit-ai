@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/auth-provider-local-core",
-  "version": "0.2.34",
+  "version": "0.2.35",
   "type": "module",
   "scripts": {
     "test": "jskit test"

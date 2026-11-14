@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/connectors-catalog",
-  "version": "0.2.37",
+  "version": "0.2.38",
   "description": "Provider definitions and focused API operations for JSKIT connectors.",
   "type": "module",
   "exports": {

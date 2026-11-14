@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/rewarded-core",
-  "version": "0.2.45",
+  "version": "0.2.46",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -128,8 +128,8 @@
     "@jskit-ai/crud-core": "0.2.38",
     "@jskit-ai/resource-core": "0.1.217",
     "@jskit-ai/resource-crud-core": "0.1.219",
-    "@jskit-ai/users-core": "0.2.45",
-    "@jskit-ai/workspaces-core": "0.2.45",
+    "@jskit-ai/users-core": "0.2.46",
+    "@jskit-ai/workspaces-core": "0.2.46",
     "json-rest-schema": "^1.0.20"
   },
   "peerDependencies": {
