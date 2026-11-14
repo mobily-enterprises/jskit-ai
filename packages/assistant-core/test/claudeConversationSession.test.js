@@ -417,7 +417,7 @@ async function fixture(t, options = {}) {
       toolCatalog: options.toolCatalog,
       connections: options.connections, attachments: options.attachments, persistCommentary: options.persistCommentary,
       host: { workdir: directory, env, commands: { claude: command }, allowAccountChange: options.allowAccountChange, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
-      limits: { admissionTimeoutMs: 150, ...options.limits } });
+      limits: { ...options.limits } });
     runtimes.push(value);
     return value;
   }
@@ -426,7 +426,7 @@ async function fixture(t, options = {}) {
   return { directory, storage, account, runtime, first, conversation,
     driverOptions: { connections: options.connections,
       host: { workdir: directory, env, commands: { claude: command }, allowAccountChange: options.allowAccountChange, execution: options.execution, nativeTools: options.nativeTools, commandWrapper: options.commandWrapper },
-      limits: { admissionTimeoutMs: 150, ...options.limits } },
+      limits: { ...options.limits } },
     async trace() { return (await readFile(trace, "utf8")).trim().split("\n").map(line => JSON.parse(line)); } };
 }
 
@@ -520,8 +520,12 @@ test("Claude steering queues a distinct message on the running process without i
     events.find(event => event.role === "assistant" && event.status === "complete" && event.turnId === turn.turnId).messageId);
 });
 
+// The tests whose prompt Claude never acknowledges wait out this admission deadline, since its elapsing is what they test.
+// Every other test keeps the product's deadline, which only a hang reaches.
+const lostAcknowledgement = { admissionTimeoutMs: 150 };
+
 test("lost Claude steering acknowledgement is recovered without another native submission", async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { limits: lostAcknowledgement });
   await f.conversation.send({ messageId: "before", text: "wait" });
   const input = { messageId: "lost-steering", text: "lost", steer: true };
   await assert.rejects(f.conversation.send(input), /not acknowledged/);
@@ -532,7 +536,7 @@ test("lost Claude steering acknowledgement is recovered without another native s
 });
 
 test("native Send retries inspect the durable prompt receipt before duplicate handling or another dispatch", async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { limits: lostAcknowledgement });
   const request = { messageId: "lost-receipt", text: "lost" };
   await assert.rejects(f.conversation.send(request), /not acknowledged/);
   await f.conversation.wait();
@@ -609,7 +613,7 @@ test("native changeover keeps the prepared prompt frozen across rejection, trans
 });
 
 test("an offline-upgraded native reservation is inspected without reconstructing its missing prompt", async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { limits: lostAcknowledgement });
   await f.conversation.send(input);
   await f.conversation.wait();
   const previous = (await f.storage.read("conversation", transaction => transaction.readMetadata())).runtime.seen;
@@ -815,7 +819,7 @@ test("the common request deadline stops an unfinished native turn and retains it
 });
 
 test("uncertain native delivery is reconciled from history without a second inference", async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { limits: lostAcknowledgement });
   await assert.rejects(f.conversation.send({ messageId: "lost-ack", text: "lost" }), error => error.delivery === "uncertain");
   assert.equal((await f.conversation.wait()).status, "unconfirmed");
   const binding = (await f.storage.read("conversation", transaction => transaction.readMetadata())).runtime.binding;
@@ -858,7 +862,7 @@ test("a Claude prompt missing from history after its process ended is not sent, 
 });
 
 test("inspecting an older accepted Claude message leaves a different pending receipt untouched", async t => {
-  const f = await fixture(t);
+  const f = await fixture(t, { limits: lostAcknowledgement });
   const first = await f.conversation.send(input);
   await f.conversation.wait();
   await assert.rejects(f.conversation.send({ messageId: "later-lost", text: "lost" }), error => error.delivery === "uncertain");
@@ -1306,7 +1310,7 @@ test("Claude rejects reserved goals and waits for ordinary Send to deliver a rep
 });
 
 test("Claude goal delivery remains uncertain until native history proves admission without replay", async t => {
-  const f = await fixture(t, { environment: { TEST_GOAL_LOST_ACK: "1" } });
+  const f = await fixture(t, { environment: { TEST_GOAL_LOST_ACK: "1" }, limits: lostAcknowledgement });
   const command = { action: "set", objective: "Tests pass", messageId: "lost-goal",
     expectedSegmentId: (await f.conversation.read()).segmentId };
   await assert.rejects(f.conversation.updateGoal(command), error => error.delivery === "uncertain");
@@ -1359,22 +1363,24 @@ test("Stop remains available while a Claude goal waits for native acknowledgemen
   const command = { action: "set", objective: "Tests pass", messageId: "waiting-goal",
     expectedSegmentId: (await f.conversation.read()).segmentId };
   const sending = f.conversation.updateGoal(command);
-  const rejected = assert.rejects(sending, error => error.delivery === "uncertain");
-  const deadline = Date.now() + 2000;
+  let failure = null;
+  let settled = false;
+  const rejected = assert.rejects(sending, error => {
+    failure = error;
+    return error.delivery === "uncertain";
+  }).finally(() => { settled = true; });
+  // The goal command reaches Claude unless it ends first, at its 10-second acknowledgement deadline at the latest.
   while (!(await f.trace()).some(row => row.frame?.type === "user")) {
-    if (Date.now() > deadline) throw new Error("The goal command never reached Claude.");
+    if (settled) throw new Error("The goal command never reached Claude.");
     await new Promise(resolve => setTimeout(resolve, 10));
   }
-  let timer;
-  try {
-    await Promise.race([f.conversation.cancel(), new Promise((_, reject) => {
-      timer = setTimeout(() => reject(new Error("Goal admission blocked Stop.")), 2000);
-    })]);
-    await rejected;
-    const binding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
-    assert.equal(binding.executionId, "");
-    assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
-  } finally { clearTimeout(timer); }
+  await f.conversation.cancel();
+  await rejected;
+  // Stop ended the waiting goal command; had Stop waited for it instead, its acknowledgement deadline would have.
+  assert.notEqual(failure.code, "assistant_claude_admission_unknown", "Goal admission blocked Stop.");
+  const binding = await f.storage.read("conversation", async tx => (await tx.readMetadata()).runtime.binding);
+  assert.equal(binding.executionId, "");
+  assert.equal((await f.trace()).filter(row => row.frame?.type === "user").length, 1);
 });
 
 test("the same Claude driver reopens a verified closed conversation after retrying failed cleanup", async t => {
@@ -1519,7 +1525,7 @@ for (const change of ["model", "effort"]) test(`Claude honors a consumer's fresh
 
 for (const maxFinalReplyCharacters of [12, 11]) {
   test("Claude recovered reply enforces configured final limit of " + maxFinalReplyCharacters, async t => {
-    const f = await fixture(t, { limits: { maxFinalReplyCharacters } });
+    const f = await fixture(t, { limits: { ...lostAcknowledgement, maxFinalReplyCharacters } });
     await assert.rejects(f.conversation.send({ messageId: "bounded-lost", text: "lost" }));
     assert.equal((await f.conversation.read()).status, "unconfirmed");
     const receipt = await f.conversation.inspectDelivery({ messageId: "bounded-lost" });
@@ -2333,7 +2339,7 @@ test("completed Claude native-tool tracking refuses marked and mixed steering be
 
 test("completed Claude native-tool tracking refuses steering a retained marked unconfirmed delivery", async t => {
   const lostEvent = conversationRequestText({ text: "lost", origin: "application" });
-  const f = await completedEnvelopeFixture(t, { applicationEventBehavior: { lost: lostEvent } });
+  const f = await completedEnvelopeFixture(t, { limits: lostAcknowledgement, applicationEventBehavior: { lost: lostEvent } });
   try {
     await assert.rejects(f.conversation.wake({ messageId: "retained-marked", text: "lost" }), /not acknowledged/);
     assert.equal((await f.conversation.wait()).status, "unconfirmed");
@@ -2519,7 +2525,7 @@ test("completed Claude wake exclusions retain all product fingerprints only afte
 
 test("completed Claude retained wake exclusions cannot change on a same-ID retry or backfill old reservations", async t => {
   const lostEvent = conversationRequestText({ text: "lost", origin: "application" });
-  const f = await completedEnvelopeFixture(t, { applicationEventBehavior: { lost: lostEvent } });
+  const f = await completedEnvelopeFixture(t, { limits: lostAcknowledgement, applicationEventBehavior: { lost: lostEvent } });
   try {
     const options = { excludedMessageIds: ["batch-a"] };
     await assert.rejects(f.conversation.wake({ messageId: "lost-exclusions", text: "lost" }, options), /not acknowledged/);
@@ -2968,7 +2974,7 @@ for (const forged of [false, true]) test(`ordinary Claude ${forged ? "forged-dat
 
 test("completed Claude marked native recovery retains large raw output without replay", async t => {
   const value = { kind: "reply", text: "\u0000".repeat(16000), toolName: "", arguments: "" };
-  const f = await completedClaudeWireFixture(t, value, { applicationEventBehavior: {
+  const f = await completedClaudeWireFixture(t, value, { limits: lostAcknowledgement, applicationEventBehavior: {
     lost: conversationRequestText({ text: "lost", origin: "application" }) } });
   try {
     await assert.rejects(f.conversation.wake({ messageId: "lost-marked-wire", text: "lost" }), /not acknowledged/);
@@ -2989,7 +2995,7 @@ test("completed Claude marked native recovery retains large raw output without r
 test("completed Claude marked native recovery retains admission but rejects wire overflow", async t => {
   const value = { kind: "tool", text: "", toolName: "numbers_read", arguments: JSON.stringify({ content: "x".repeat(2000) }) };
   const f = await completedClaudeWireFixture(t, value, { outputSchema: completedEnvelopeSchema,
-    limits: { maxOutputCharacters: 2000, maxFinalReplyCharacters: 16 }, applicationEventBehavior: {
+    limits: { ...lostAcknowledgement, maxOutputCharacters: 2000, maxFinalReplyCharacters: 16 }, applicationEventBehavior: {
       lost: conversationRequestText({ text: "lost", origin: "application" }) } });
   try {
     await assert.rejects(f.conversation.wake({ messageId: "lost-marked-overflow", text: "lost" }), /not acknowledged/);
