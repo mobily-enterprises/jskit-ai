@@ -300,28 +300,27 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
    * and MariaDB it needs an index that reads in id order after the ownership columns and the filters' single-value
    * equalities. In a request it throws RowLimitError past the request row limit, as queryPages() does; background
    * work locks without one. `fields`, `lockMode` and `include` are lockWhere's; it takes no sort or limit.
+   * `pageBy` names a list filter of the filters (one whose search entry says `filterOperator: "in"`, on the table's
+   * own column): the pages then follow that column, then the id, so on MySQL and MariaDB an index that starts with the
+   * ownership columns, the filters' other single-value equalities and that column reads only the listed values' rows
+   * (see listPages). Its values are given as the column stores them.
    * @param {object} filters
-   * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[], pageSize?: number }} options
+   * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[], pageSize?: number, pageBy?: string }} options
    * @returns {AsyncGenerator<object[], void, undefined>}
    */
   async function* lockPages(filters, options) {
     requireDefinedFilters(name, "lockPages", filters);
-    const { pageSize = MAX_LOCK_PAGE, sort, limit, ...lockOptions } = options;
+    const { pageSize = MAX_LOCK_PAGE, sort, limit, pageBy, ...lockOptions } = options;
     if (sort !== undefined || limit !== undefined) {
       throw new TypeError(`${name}.lockPages() locks in id order, a page of pageSize rows at a time, so it takes no sort or limit.`);
     }
     if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_LOCK_PAGE) {
       throw new TypeError(`${name}.lockPages() pageSize is an integer from 1 to ${MAX_LOCK_PAGE}. Received: ${JSON.stringify(pageSize)}`);
     }
+    const pages = pageBy === undefined ? idPages(filters, pageSize, lockOptions) : listPages(filters, listFilterOf(pageBy, filters), pageSize, lockOptions);
     const rowLimit = isJobContext(options.context) ? undefined : settings.requestRowLimit;
     let rows = 0;
-    for (let after; ;) {
-      const page = await lockRead("lockPages", "lockWhere", { filters, limit: pageSize, ...(after === undefined ? {} : { after }) }, lockOptions);
-      // A page after an id never holds it. A storage that ignored `after` would answer the first page again and
-      // again, and background work, which has no row limit, would page forever.
-      if (after !== undefined && page.some((record) => record.id === after)) {
-        throw new Error(`${name}.lockPages() read the row ${JSON.stringify(after)} again in the page after it: its storage does not page lockWhere by after, so its pages would never end.`);
-      }
+    for await (const page of pages) {
       rows += page.length;
       if (rowLimit !== undefined && rows > rowLimit) {
         throw new RowLimitError(name, rowLimit, undefined, "lockPages");
@@ -329,10 +328,86 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
       if (page.length > 0) {
         yield page;
       }
+    }
+  }
+
+  /**
+   * lockPages' pages in id order, each after the last id of the page before.
+   * @param {object} filters
+   * @param {number} pageSize
+   * @param {object} lockOptions
+   * @param {unknown} [after] The id the pages start after.
+   * @returns {AsyncGenerator<object[], void, undefined>}
+   */
+  async function* idPages(filters, pageSize, lockOptions, after) {
+    for (;;) {
+      const page = await lockRead("lockPages", "lockWhere", { filters, limit: pageSize, ...(after === undefined ? {} : { after }) }, lockOptions);
+      // A page after an id never holds it. A storage that ignored `after` would answer the first page again and
+      // again, and background work, which has no row limit, would page forever.
+      if (after !== undefined && page.some((record) => record.id === after)) {
+        throw new Error(`${name}.lockPages() read the row ${JSON.stringify(after)} again in the page after it: its storage does not page lockWhere by after, so its pages would never end.`);
+      }
+      yield page;
       if (page.length < pageSize) {
         return;
       }
       after = page.at(-1).id;
+    }
+  }
+
+  /**
+   * The list filter lockPages' `pageBy` names: its key, the stored field it compares and its distinct values.
+   * @param {unknown} pageBy
+   * @param {Record<string, unknown>} filters
+   */
+  function listFilterOf(pageBy, filters) {
+    const definition = typeof pageBy === "string" ? jsonRest().vars.schemaInfo.searchSchemaStructure?.[pageBy] : undefined;
+    const field = definition?.actualField || pageBy;
+    if (definition?.filterOperator !== "in" || String(field).includes(".") || !Array.isArray(filters[pageBy])) {
+      throw new TypeError(
+        `${name}.lockPages() pageBy names a filter that matches one of a list of values of ${name}'s own column ` +
+          `(filterOperator: "in"), given a list in the filters. Received: ${JSON.stringify(pageBy)}`
+      );
+    }
+    return { key: pageBy, field, values: [...new Set(filters[pageBy].map(String))] };
+  }
+
+  /**
+   * lockPages' pages by a list filter's column, then the id. Each page locks, in that order, up to pageSize rows of
+   * the values no page has passed; the rows of the page's last value that follow it are then locked in id order,
+   * that value alone, a page at a time. So every statement reads one value range after another, as an index that
+   * holds the column after the fixed ones reads them, and examines only the listed values' rows. A value with no row
+   * stays in the list, so the pages after it look for it again. One more statement per full page reads the
+   * column's stored values of its rows, which this transaction holds.
+   * @param {Record<string, unknown>} filters
+   * @param {{ key: string, field: string, values: string[] }} list
+   * @param {number} pageSize
+   * @param {object} lockOptions
+   * @returns {AsyncGenerator<object[], void, undefined>}
+   */
+  async function* listPages(filters, { key, field, values }, pageSize, lockOptions) {
+    const yielded = new Set();
+    for (let remaining = values; remaining.length > 0;) {
+      const page = await lockRead("lockPages", "lockWhere", { filters: { ...filters, [key]: remaining }, sort: [field], limit: pageSize }, lockOptions);
+      // A value given otherwise than the column stores it ("07" for 7) matches rows a page has passed, and would
+      // match them again and again.
+      const again = page.find((record) => yielded.has(String(record.id)));
+      if (again) {
+        throw new Error(`${name}.lockPages() read the row ${JSON.stringify(again.id)} again: give pageBy's values as ${field} stores them.`);
+      }
+      page.forEach((record) => yielded.add(String(record.id)));
+      yield page;
+      if (page.length < pageSize) {
+        return;
+      }
+      const stored = await currentLinks(page.map((record) => String(record.id)), [field], lockOptions);
+      const last = stored.get(String(page.at(-1).id))?.[field];
+      for await (const rest of idPages({ ...filters, [key]: [last] }, pageSize, lockOptions, page.at(-1).id)) {
+        rest.forEach((record) => yielded.add(String(record.id)));
+        yield rest;
+      }
+      const passed = new Set(page.map((record) => stored.get(String(record.id))?.[field]));
+      remaining = remaining.filter((value) => !passed.has(value));
     }
   }
 

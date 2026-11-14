@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The data-access guide's Layer 4 adds `lockPages`' `pageBy`: a lock of a list's rows (every link of the listed actions) pages by the list filter's column, then the id, and on MySQL and MariaDB holds the listed values' rows alone, where id order holds every row of the owner it passes.
 - The assistant guide says that a refusal json-rest-api raises itself reaches the model with its status and `Tool call failed.`, since its text names internal resource types and ids, and that the model explains a refused write only from a refusal the action raises in the application's own words before the write.
 - The data-access guide's Layer 4 says that on MySQL and MariaDB a `createMany` with `onConflict` reads its keys plainly first, so it counts as a plain read before the lock; why `lockOrCreate` locks before it inserts and how first uses of neighbouring ids collide on their gap locks; that a lock's belongs-to fields are checked against their targets as last committed; and that a lock's row-policy subqueries lock every row their plan walks, other owners' included, so each leads with the owner's columns or the walk stays out of the lock.
 - The Upgrade JSKIT guide's new One json-rest-api section says why an app installs one `json-rest-api` (a second copy refuses the app's `api.transaction` inside JSKIT's writes), how to check for one copy after an upgrade (`npm ls json-rest-api`), and that `jskit check` refuses a direct pin at another version while `jskit update` moves it.

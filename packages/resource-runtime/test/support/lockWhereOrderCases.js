@@ -55,17 +55,70 @@ async function slotsOf(knex, count, settings = {}) {
   return { slots, system, api };
 }
 
-/** Every page lockPages answers. Past 10 pages it throws, so a lockPages that never ends fails its case at once. */
-async function pagesOf(pages) {
+/**
+ * Every page lockPages answers. Past `most` pages it throws, so a lockPages that never ends fails its case at once.
+ * @param {AsyncIterable<object[]>} pages
+ * @param {number} [most]
+ */
+async function pagesOf(pages, most = 10) {
   const all = [];
   for await (const page of pages) {
     all.push(page);
-    if (all.length > 10) {
-      throw new Error("lockPages answered more than 10 pages: its pages never end");
+    if (all.length > most) {
+      throw new Error(`lockPages answered more than ${most} pages: its pages never end`);
     }
   }
   return all;
 }
+
+// The links of actions, many to an action, as an export reads every link of a list of actions.
+const linkResource = defineTableResource({
+  name: "links",
+  tableName: "links",
+  ownership: "workspace",
+  searchSchema: { actionIds: { type: "array", actualField: "actionId", filterOperator: "in" } },
+  schema: {
+    workspaceId: { type: "id", nullable: true, storage: { column: "workspace_id" } },
+    actionId: { type: "integer", required: true, storage: { column: "action_id" } },
+    target: { type: "string", required: true }
+  }
+});
+
+/**
+ * `perAction` links of each of `actions` actions in workspaces 1 and 2, inserted a link of every action at a time, so
+ * an action's links are spread over the ids. Each link's target is `T<action>-<link>`.
+ * @param {import("knex").Knex} knex
+ * @param {number} actions
+ * @param {number} perAction
+ */
+async function linksOf(knex, actions, perAction) {
+  await knex.schema.createTable("links", (table) => {
+    table.increments("id");
+    table.integer("workspace_id").nullable();
+    table.integer("action_id").notNullable();
+    table.string("target").notNullable();
+    // lockPages in id order reads a workspace's rows in id order; by the action, each listed action's rows.
+    table.index(["workspace_id"], "links_workspace");
+    table.index(["workspace_id", "action_id"], "links_workspace_action");
+  });
+  const rows = [];
+  for (let link = 0; link < perAction; link += 1) {
+    for (let action = 1; action <= actions; action += 1) {
+      rows.push(...[1, 2].map((workspace) => ({ workspace_id: workspace, action_id: action, target: `T${action}-${link}` })));
+    }
+  }
+  for (let start = 0; start < rows.length; start += 200) {
+    await knex("links").insert(rows.slice(start, start + 200));
+  }
+  const api = await createResourceHost({ knex, logger: silentLogger });
+  const runtime = createResourceRuntime({ api });
+  const { links } = await runtime.own("links.feature", [linkResource]);
+  return { links };
+}
+
+// A row another transaction holds, as FOR UPDATE NOWAIT reports it: PostgreSQL 55P03, MySQL ER_LOCK_NOWAIT and MariaDB
+// ER_LOCK_WAIT_TIMEOUT.
+const isHeld = (error) => error?.code === "55P03" || /^ER_LOCK_(NOWAIT|WAIT_TIMEOUT)$/u.test(String(error?.code));
 
 /**
  * @param {(t: import("node:test").TestContext, suffix: string) => Promise<import("knex").Knex>} connect
@@ -189,6 +242,76 @@ function lockWhereOrderCases(connect) {
         }
       }), /slots\.lockPages\(\) read the row "2" again in the page after it/u);
       assert.deepEqual(read, [["C0000", "C0001"]]);
+    }],
+
+    ["lockPages with pageBy locks a list's rows by its column, then id, each once, the same statements among 30 actions and 300", async (t) => {
+      // Ten listed actions of five links each; pages of 7 end inside an action's links, whose rest the next page takes.
+      const listed = Array.from({ length: 10 }, (_, index) => (index + 1) * 3);
+      const expected = listed.flatMap((action) => [0, 1, 2, 3, 4].map((link) => `T${action}-${link}`));
+      const sizes = [];
+      for (const actions of [30, 300]) {
+        const knex = await connect(t, `da_lp_by_${actions}`);
+        const { links } = await linksOf(knex, actions, 5);
+        const lockListed = (tx) => pagesOf(links.lockPages({ actionIds: listed }, { ...tx, pageBy: "actionIds", pageSize: 7, fields: ["target"] }), 40);
+        // MySQL and MariaDB read a table's indexes once per process and set of filtered columns: not this measure.
+        await links.withTransaction(IN_WORKSPACE_A, lockListed);
+        const { result: pages, count: statements } = await links.withTransaction(IN_WORKSPACE_A, (tx) => countQueries(knex, () => lockListed(tx)));
+        assert.deepEqual(pages.flat().map(({ target }) => target), expected);
+        sizes.push({ pages: pages.map((page) => page.length), statements });
+      }
+      assert.deepEqual(sizes.map(({ pages }) => pages), [[7, 3, 7, 3, 7, 3, 7, 3, 7, 3], [7, 3, 7, 3, 7, 3, 7, 3, 7, 3]]);
+      assert.equal(sizes[1].statements, sizes[0].statements);
+
+      const knex = await connect(t, "da_lp_by_refusals");
+      const { links } = await linksOf(knex, 3, 2);
+      await links.withTransaction(IN_WORKSPACE_A, async (tx) => {
+        assert.deepEqual(await pagesOf(links.lockPages({ actionIds: [] }, { ...tx, pageBy: "actionIds" })), []);
+        for (const [filters, pageBy] of [[{ actionIds: [1] }, "target"], [{ actionIds: [1] }, "missing"], [{ actionIds: 1 }, "actionIds"], [{}, "actionIds"]]) {
+          await assert.rejects(pagesOf(links.lockPages(filters, { ...tx, pageBy })),
+            (error) => error instanceof TypeError && /links\.lockPages\(\) pageBy names a filter/u.test(error.message), JSON.stringify([filters, pageBy]));
+        }
+      });
+    }],
+
+    ["lockPages with pageBy holds the listed values' rows and no other; in id order MySQL and MariaDB hold the rows between them too", async (t) => {
+      const knex = await connect(t, "da_lp_by_held");
+      const client = knex.client.config.client;
+      if (client === "better-sqlite3") {
+        t.skip("SQLite takes no row locks");
+        return;
+      }
+      const { links } = await linksOf(knex, 12, 5);
+      const idsOf = async (actions) => (await knex("links").where({ workspace_id: 1 }).whereIn("action_id", actions).orderBy("id").select("id")).map(({ id }) => id);
+      const listed = [3, 6, 9];
+      const listedIds = await idsOf(listed);
+      const unlistedIds = await idsOf([4, 7, 10]);
+      const free = (id) => knex.transaction((probe) => probe("links").where({ id }).forUpdate().noWait().select("id"))
+        .then(() => true, (error) => {
+          if (isHeld(error)) return false;
+          throw error;
+        });
+      const held = (lockMode, pageBy) => links.withTransaction(IN_WORKSPACE_A, async (tx) => {
+        const rows = (await pagesOf(links.lockPages({ actionIds: listed }, { ...tx, ...(pageBy ? { pageBy } : {}), pageSize: 4, lockMode, fields: ["target"] }), 40)).flat();
+        assert.equal(rows.length, listedIds.length);
+        const count = async (ids) => {
+          let busy = 0;
+          for (const id of ids) busy += (await free(id)) ? 0 : 1;
+          return busy;
+        };
+        return { listed: await count(listedIds), unlisted: await count(unlistedIds) };
+      });
+      for (const lockMode of ["share", "update"]) {
+        assert.deepEqual(await held(lockMode, "actionIds"), { listed: listedIds.length, unlisted: 0 }, lockMode);
+      }
+      // In id order the read follows the workspace's rows by id, so InnoDB locks every row of it it passes.
+      const byId = await held("share", undefined);
+      t.diagnostic(`in id order: ${byId.listed} listed rows held, ${byId.unlisted} of ${unlistedIds.length} unlisted rows held`);
+      assert.equal(byId.listed, listedIds.length);
+      if (client === "mysql2") {
+        assert.ok(byId.unlisted > 0, "MySQL and MariaDB lock the unlisted rows an id-order read passes");
+      } else {
+        assert.equal(byId.unlisted, 0);
+      }
     }]
   ];
 }

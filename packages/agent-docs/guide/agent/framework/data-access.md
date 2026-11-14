@@ -926,7 +926,16 @@ the sort's columns, ascending, and then nothing but the id, and the sort's
 fields go one way (all ascending or all descending). A unique key the filters
 fix whole, as a membership's workspace and user are, needs nothing more.
 `lockPages` locks in id order, so its index holds nothing after the ownership
-columns and the columns the filters fix but the id.
+columns and the columns the filters fix but the id. In id order it walks the
+owner's rows by id, so on MySQL and MariaDB a lock of the rows of a list
+(every link of the listed actions) holds every row of the owner it passes too.
+Name the list filter in `pageBy` (a filter whose search entry says
+`filterOperator: "in"`, on the table's own column) and the pages follow that
+column, then the id: `lockPages({ actionIds }, { ...txOptions, pageBy:
+"actionIds" })` reads through an index that holds the column after the
+ownership columns and the filters' other fixed columns, and holds the listed
+values' rows alone. Give the values as the column stores them; the statements
+still follow the pages, not the rows.
 
 A worker taking the next job uses `claim({ filters, sort, take }, txOptions)`,
 which skips rows another worker holds. A record that serializes work on a key
