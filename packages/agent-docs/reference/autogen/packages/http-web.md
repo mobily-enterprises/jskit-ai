@@ -94,6 +94,8 @@ Local functions
 - `resolveEditLocation(record)`
 - `resolveOpenLocation(row)`
 - `openRow(row, event)`
+- `loadMore()`
+- `focusRow(index)`
 - `hasRowActionsFor(record, index)`
 - `isBulkRowSelected(row)`
 - `setBulkRowSelected(row, selected = true)`

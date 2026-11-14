@@ -312,6 +312,7 @@ test("permission gating and duplicate-submit protection cover the request and su
   canSave.value = false;
   await nextTick();
   assert.equal(button("Save book").props.disabled, true);
+  assert.equal(addEdit.isSubmitPending, false, "a Save the person may not use is unavailable, not running");
   await addEdit.submit();
   assert.equal(calls.length, 0);
   assert.equal(addEdit.validationAttempted, false);
@@ -323,17 +324,22 @@ test("permission gating and duplicate-submit protection cover the request and su
   await nextTick();
   assert.equal(calls.length, 1);
   assert.equal(button("Saving…").props.disabled, true);
+  // While it runs Save is pending, which wins over disabled, so the button keeps keyboard focus.
+  assert.equal(addEdit.isSubmitPending, true);
+  assert.equal(button("Saving…").props.pending, true);
   assert.equal(addEdit.isFieldLocked, true);
   response.resolve({ id: 1, title: "Book", author: "Author" });
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(addEdit.resource.isSaving.value, false);
   assert.equal(addEdit.isSaving, true);
+  assert.equal(addEdit.isSubmitPending, true, "Save stays pending through the success callback");
   await addEdit.submit();
   assert.equal(calls.length, 1);
   success.resolve();
   await pending;
   assert.equal(addEdit.isSaving, false);
   assert.equal(addEdit.isSubmitDisabled, false);
+  assert.equal(addEdit.isSubmitPending, false);
 });
 
 test("local validation feedback opt-out preserves permission, network, and server failure feedback", async (t) => {

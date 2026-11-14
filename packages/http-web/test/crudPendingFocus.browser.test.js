@@ -86,12 +86,13 @@ async function serveBooks(page, { pages = [[1, 2, 3]] } = {}) {
   return { hold, requests };
 }
 
-// Page `index` of the list: its books, and the next page's cursor while there is one.
+// Page `index` of the list: its books, and the next page's cursor (JSON:API `meta.pagination.cursor.next`) while there
+// is one.
 function listPage(pages, index) {
-  const nextCursor = index + 1 < pages.length ? `cursor-${index + 1}` : null;
+  const meta = index + 1 < pages.length ? { pagination: { cursor: { next: `cursor-${index + 1}` } } } : {};
   return {
     contentType: JSON_API,
-    body: JSON.stringify({ data: pages[index].map(book), meta: { page: { nextCursor } } })
+    body: JSON.stringify({ data: pages[index].map(book), meta })
   };
 }
 
@@ -123,8 +124,9 @@ async function watchFocus(page) {
 
 // Presses Tab (from wherever focus is) until `locator` has focus, as a keyboard user reaches it.
 async function tabTo(page, locator, { max = 80 } = {}) {
+  await locator.waitFor({ state: "visible", timeout: 10_000 });
   for (let presses = 0; presses <= max; presses += 1) {
-    if (await locator.evaluate((element) => element === document.activeElement).catch(() => false)) {
+    if (await locator.evaluate((element) => element === document.activeElement)) {
       return;
     }
     await page.keyboard.press("Tab");

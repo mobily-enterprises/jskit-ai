@@ -2,6 +2,7 @@
 import { computed, inject, mergeProps, onBeforeUnmount, onMounted, ref, useAttrs, useId } from "vue";
 import { useShellWindowSizeClass } from "../composables/useShellWindowSizeClass.js";
 import { useJskitText } from "../i18n.js";
+import { vPending } from "../directives/vPending.js";
 import { NO_SHELL_PAGE_ACTIONS_REGISTRY, SHELL_PAGE_ACTIONS_REGISTRY_KEY } from "../support/pageActions.js";
 
 // One page action in the top app bar. On compact windows a secondary action shows as an icon button named by its
@@ -10,6 +11,10 @@ import { NO_SHELL_PAGE_ACTIONS_REGISTRY, SHELL_PAGE_ACTIONS_REGISTRY_KEY } from 
 // overflow menu, and on compact windows every action but the primary one joins it.
 // Attributes such as `type="submit"` and `form` (so an app bar Save can submit the page's form), `target`,
 // `data-testid` or `aria-*` land on the button, or on the menu item, in every form.
+// While its action runs (`pending`, or `loading` with Vuetify's progress indicator in place of the label) the button
+// keeps keyboard focus: it reads as unavailable and ignores activation until the action settles (v-pending), and it is
+// never `disabled` meanwhile, so a `disabled` that also covers the running state (such as `addEdit.isSubmitDisabled`)
+// keeps focus too.
 defineOptions({ inheritAttrs: false });
 
 const props = defineProps({
@@ -59,6 +64,11 @@ const props = defineProps({
     type: Boolean,
     default: false
   },
+  // The action is running: give it a pending label, such as "Saving…".
+  pending: {
+    type: Boolean,
+    default: false
+  },
   loading: {
     type: Boolean,
     default: false
@@ -72,6 +82,8 @@ const { isCompact } = useShellWindowSizeClass();
 const resolvedLabel = computed(() => text(props.label));
 const iconOnly = computed(() => Boolean(props.icon) && isCompact.value && !props.primary);
 const color = computed(() => props.color || (props.primary ? "primary" : "on-surface-variant"));
+const pending = computed(() => props.pending || props.loading);
+const disabled = computed(() => props.disabled && !pending.value);
 // A boolean `download` is the attribute without a file name.
 const download = computed(() => (props.download === true ? "" : props.download || undefined));
 
@@ -95,7 +107,8 @@ const entry = {
     color: props.color,
     primary: props.primary,
     overflow: props.overflow,
-    disabled: props.disabled,
+    disabled: disabled.value,
+    pending: pending.value,
     loading: props.loading
   })),
   attrs,
@@ -123,6 +136,7 @@ onBeforeUnmount(() => {
         <template #activator="{ props: tooltipProps }">
           <v-btn
             v-bind="mergeProps(attrs, tooltipProps)"
+            v-pending="pending"
             class="shell-page-action"
             :icon="props.icon"
             variant="text"
@@ -131,7 +145,7 @@ onBeforeUnmount(() => {
             :replace="props.replace"
             :href="props.href"
             :download="download"
-            :disabled="props.disabled"
+            :disabled="disabled"
             :loading="props.loading"
             :aria-label="resolvedLabel"
             @click="handleClick"
@@ -141,6 +155,7 @@ onBeforeUnmount(() => {
       <v-btn
         v-else
         v-bind="attrs"
+        v-pending="pending"
         class="shell-page-action shell-page-action--labelled"
         :variant="props.primary ? 'flat' : 'text'"
         :color="color"
@@ -149,7 +164,7 @@ onBeforeUnmount(() => {
         :replace="props.replace"
         :href="props.href"
         :download="download"
-        :disabled="props.disabled"
+        :disabled="disabled"
         :loading="props.loading"
         @click="handleClick"
       >

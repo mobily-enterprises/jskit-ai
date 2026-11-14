@@ -45,7 +45,7 @@ watch(showsMenu, (shows) => {
 // A menu item's props: the action's own attributes, then its label, icon, colour, link or download, and state.
 function itemProps(entry) {
   const state = entry.state.value;
-  const unavailable = Boolean(state.disabled || state.loading);
+  const unavailable = Boolean(state.disabled || state.pending);
   return mergeProps(entry.attrs, {
     title: state.label,
     prependIcon: state.icon || undefined,

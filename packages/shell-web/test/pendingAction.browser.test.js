@@ -55,8 +55,9 @@ function buttonOf(locator) {
 
 // Presses Tab until `locator` has focus, as a keyboard user reaches it.
 async function tabTo(page, locator, { max = 80 } = {}) {
+  await locator.waitFor({ state: "visible", timeout: 10_000 });
   for (let presses = 0; presses <= max; presses += 1) {
-    if (await locator.evaluate((element) => element === document.activeElement).catch(() => false)) {
+    if (await locator.evaluate((element) => element === document.activeElement)) {
       return;
     }
     await page.keyboard.press("Tab");

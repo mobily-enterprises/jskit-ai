@@ -1,6 +1,7 @@
 <script setup>
 import { computed, useId } from "vue";
 import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageAction";
+import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
 import { useJskitText } from "../i18n.js";
 
 // Delete as a page action (in the top app bar, an icon on compact windows), confirmed in a Material 3 dialog.
@@ -84,6 +85,7 @@ function handleDialogModelUpdate(isOpen) {
           {{ t("jskit.http.actions.cancel") }}
         </v-btn>
         <v-btn
+          v-pending="action.isDeleting"
           color="error"
           variant="text"
           :disabled="!action.canDelete"

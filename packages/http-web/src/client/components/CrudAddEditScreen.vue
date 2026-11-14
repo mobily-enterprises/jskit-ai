@@ -4,6 +4,7 @@ import ShellPageAction from "@jskit-ai/shell-web/client/components/ShellPageActi
 import ShellPageActions from "@jskit-ai/shell-web/client/components/ShellPageActions";
 import { useShellPageClose } from "@jskit-ai/shell-web/client/composables/useShellPageClose";
 import { useShellNavigation } from "@jskit-ai/shell-web/client/navigation/useShellNavigation";
+import { vPending } from "@jskit-ai/shell-web/client/directives/vPending";
 import { isRetryableLoadStatus } from "../composables/support/resourceLoadStateHelpers.js";
 import { useJskitText } from "../i18n.js";
 
@@ -99,6 +100,7 @@ useShellPageClose({ label: () => t("jskit.http.actions.cancel"), close: cancel }
           primary
           :label="addEdit.isSaving ? t('jskit.http.actions.saving') : saveLabel"
           :disabled="addEdit.isSubmitDisabled"
+          :pending="addEdit.isSubmitPending"
           @click="addEdit.submit"
         />
       </slot>
@@ -111,7 +113,7 @@ useShellPageClose({ label: () => t("jskit.http.actions.cancel"), close: cancel }
         v-if="addEdit.canRetryLoad && loadFailureIsRetryable"
         color="secondary-container"
         prepend-icon="$refresh"
-        :disabled="addEdit.isFetching"
+        v-pending="addEdit.isFetching"
         @click="addEdit.refresh"
       >
         {{ addEdit.isFetching ? t("jskit.http.actions.retrying") : t("jskit.http.actions.retry") }}
