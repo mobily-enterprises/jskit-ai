@@ -85,7 +85,7 @@ function createServiceFixture({ userProfilesRepository = createUserProfilesRepos
       config: { auth: { profileMode: "users" } },
       env: {
         APP_PUBLIC_URL: "http://localhost:5173",
-        NODE_ENV: "development",
+        APP_ENV: "development",
         AUTH_JWT_AUDIENCE: "authenticated",
         AUTH_DEV_BYPASS_ENABLED: true,
         AUTH_DEV_BYPASS_SECRET: DEV_AUTH_SECRET

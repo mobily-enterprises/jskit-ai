@@ -33,7 +33,7 @@ async function fixture(t, apiBaseUrl = "https://api.gong.io") {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, requests, directory, protection, state };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, requests, directory, protection, state };
 }
 
 for (const apiBaseUrl of ["https://api.gong.io", "https://company-17.api.gong.io/"]) {
@@ -52,7 +52,7 @@ for (const apiBaseUrl of ["https://api.gong.io", "https://company-17.api.gong.io
       assert.equal(stored.includes(state.secret), false);
       assert.equal(stored.includes(header), false);
     }
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
     assert.deepEqual(await restarted.status(input), connected);
     state.secret = "rotated-fixture-secret";
     assert.deepEqual(await restarted.invoke({ ...input, operation: "users.list" }), users);
@@ -102,12 +102,12 @@ test("Gong requires verification after key identity or host changes and never cr
   for (const [field, value] of [["accessKey", "OTHER_KEY"], ["apiBaseUrl", "https://company-18.api.gong.io"]]) {
     const configuration = structuredClone(options.configuration);
     configuration.integrations.sales.settings[field] = value;
-    const changed = createConnectionService({ ...options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...options, configuration });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: "users.list" }), { code: "connector_reconnect_required" });
   }
   for (const origin of ["https://company-18.api.gong.io", "https://api.gong.io"]) {
-    const wrongHost = createConnectionService({ ...options, providers: [{ ...gongProvider, operations: {
+    const wrongHost = createConnectionService({ appEnv: "test", ...options, providers: [{ ...gongProvider, operations: {
       "users.list": { scopes: [], request: () => ({ method: "GET", url: `${origin}/v2/users` }) }
     } }] });
     await assert.rejects(wrongHost.invoke({ ...input, operation: "users.list" }), { code: "connector_destination_invalid" });

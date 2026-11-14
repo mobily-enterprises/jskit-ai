@@ -96,7 +96,7 @@ test("the file store keeps a factor and its session's proof across restarts, and
 });
 
 test("a production server has a second factor only with its key, at least 32 characters, and APP_PUBLIC_URL", async (t) => {
-  const production = { NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "", AUTH_LOCAL_SECOND_FACTOR_KEY: "" };
+  const production = { APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "", AUTH_LOCAL_SECOND_FACTOR_KEY: "" };
   const service = createLocalAuthService({
     ...localServiceOptions({ env: production }),
     backend: createLocalFileBackend({ storeDir: await storeDirFor(t) })
@@ -116,13 +116,13 @@ test("a production server has a second factor only with its key, at least 32 cha
     fileBackend: false,
     emailRecovery: false
   });
-  assert.equal(resolve({ NODE_ENV: "production" }).secondFactorKey, "");
-  assert.equal(resolve({ NODE_ENV: "production", AUTH_LOCAL_SECOND_FACTOR_KEY: SECOND_FACTOR_KEY }).secondFactorKey, SECOND_FACTOR_KEY);
-  assert.throws(() => resolve({ NODE_ENV: "production", AUTH_LOCAL_SECOND_FACTOR_KEY: "too short" }), /at least 32 characters/u);
-  assert.throws(() => resolve({ NODE_ENV: "production", AUTH_LOCAL_SECOND_FACTOR_KEY: SECOND_FACTOR_KEY, APP_PUBLIC_URL: "" }),
+  assert.equal(resolve({ APP_ENV: "production", NODE_ENV: "production" }).secondFactorKey, "");
+  assert.equal(resolve({ APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_SECOND_FACTOR_KEY: SECOND_FACTOR_KEY }).secondFactorKey, SECOND_FACTOR_KEY);
+  assert.throws(() => resolve({ APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_SECOND_FACTOR_KEY: "too short" }), /at least 32 characters/u);
+  assert.throws(() => resolve({ APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_SECOND_FACTOR_KEY: SECOND_FACTOR_KEY, APP_PUBLIC_URL: "" }),
     /APP_PUBLIC_URL is required when AUTH_LOCAL_SECOND_FACTOR_KEY is set/u);
   // Outside production the session secret stands in for the key.
-  assert.equal(resolve({ NODE_ENV: "development" }).secondFactorKey, "test-session-secret");
+  assert.equal(resolve({ APP_ENV: "development" }).secondFactorKey, "test-session-secret");
   assert.equal(createLocalAuthService({ ...localServiceOptions(), backend: createLocalFileBackend({ storeDir: await storeDirFor(t) }) })
     .getCapabilities().features.secondFactor, true);
 });

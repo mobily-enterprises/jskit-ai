@@ -73,7 +73,7 @@ async function fixture(t, grantType = "authorization_code") {
       return Response.json(state.value === undefined ? { data } : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = async () => {
     const { authorizationUrl } = await service.beginAuthorization(args); const url = new URL(authorizationUrl);
     const returned = new URL(callback); returned.searchParams.set("state", url.searchParams.get("state")); returned.searchParams.set("code", "private-code");
@@ -98,7 +98,7 @@ test("Fabric user consent pins the tenant, sends PKCE and maps the actual delega
     const text = await readFile(path.join(f.directory, file), "utf8");
     for (const secret of ["private-code", "private-client-secret", "private-access-1", "private-refresh-1"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService(f.options); assert.equal((await restarted.status(args)).status, "connected");
+  const restarted = createConnectionService({ appEnv: "test", ...f.options }); assert.equal((await restarted.status(args)).status, "connected");
   assert.deepEqual(await restarted.invoke({ ...args, operation: "schema.types" }), { data: schema });
 });
 
@@ -107,7 +107,7 @@ test("Fabric service principals use their own resource scope, no callback, and l
   assert.deepEqual((await f.service.status(args)).grantedScopes, [serviceScope]);
   await assert.rejects(f.service.beginAuthorization(args), { code: "connector_mode_unavailable" });
   f.state.time += 95_000; f.state.secret = "rotated-private-secret";
-  const restarted = createConnectionService(f.options);
+  const restarted = createConnectionService({ appEnv: "test", ...f.options });
   await Promise.all([restarted.invoke({ ...args, operation: "connection.check" }), restarted.invoke({ ...args, operation: "schema.types" })]);
   assert.equal(f.state.tokenCount, 2);
   assert.equal(JSON.stringify(await restarted.status(args)).includes("private"), false);
@@ -133,7 +133,7 @@ test("Fabric execution is explicitly mutation-capable and application policy can
   await f.service.invoke({ ...args, operation: "graphql.execute", input });
   assert.deepEqual(JSON.parse(f.requests.at(-1).init.body), input);
   const before = f.requests.length;
-  const denied = createConnectionService({ ...f.options, authorize: async (owner, operation) => {
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async (owner, operation) => {
     if (operation.operation === "graphql.execute") { assert.deepEqual(operation.input, input); return null; }
     return owner;
   } });
@@ -175,7 +175,7 @@ test("Fabric retains renewal before failed calls and requires reconnect after re
   for (const flow of ["authorization_code", "client_credentials"]) {
     const f = await fixture(t, flow); await f.connect(); f.state.time += 95_000; f.state.status = 429;
     await assert.rejects(f.service.invoke({ ...args, operation: "connection.check" }), { code: "connector_rate_limited" });
-    f.state.status = 200; const restarted = createConnectionService(f.options);
+    f.state.status = 200; const restarted = createConnectionService({ appEnv: "test", ...f.options });
     await restarted.invoke({ ...args, operation: "connection.check" }); assert.equal(f.state.tokenCount, 2);
     f.state.time += 95_000; f.state.tokenStatus = 400;
     if (flow === "authorization_code") f.state.tokenError = "interaction_required";
@@ -200,7 +200,7 @@ test("Fabric binds saved grants and pending consent to tenant, endpoint, client,
     (config) => { config.integrations.fabric.settings.graphqlEndpoint = endpoint.replace("graphqlapis/aaaaaaaa", "graphqlapis/bbbbbbbb"); },
     (config) => { config.registrations.fabric.clientId = tenantId; }]) {
     const configuration = structuredClone(f.options.configuration); change(configuration);
-    const service = createConnectionService({ ...f.options, configuration });
+    const service = createConnectionService({ appEnv: "test", ...f.options, configuration });
     assert.equal((await service.status(args)).status, "reconnect-required");
     await assert.rejects(service.invoke({ ...args, operation: "connection.check" }), { code: "connector_reconnect_required" });
     await assert.rejects(service.completeAuthorization({ ...args, callbackUrl: pending.callbackUrl }), { code: "connector_attempt_invalid" });
@@ -211,7 +211,7 @@ test("Fabric binds saved grants and pending consent to tenant, endpoint, client,
   const machine = await fixture(t, "client_credentials"); await machine.connect();
   const config = structuredClone(machine.options.configuration); config.registrations.fabric.grantType = "authorization_code";
   config.registrations.fabric.callbackUrlRef = "env:FABRIC_CALLBACK"; config.integrations.fabric.scopes = [delegated];
-  const changed = createConnectionService({ ...machine.options, configuration: config, resolveReference: async (ref) => ref.endsWith("CALLBACK") ? callback : "private-client-secret" });
+  const changed = createConnectionService({ appEnv: "test", ...machine.options, configuration: config, resolveReference: async (ref) => ref.endsWith("CALLBACK") ? callback : "private-client-secret" });
   assert.equal((await changed.status(args)).status, "reconnect-required");
 });
 

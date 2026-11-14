@@ -53,7 +53,7 @@ async function fixture(t, spec) {
       return Response.json({ jsonrpc: "2.0", id: message.id, result }, { headers: { "Mcp-Session-Id": "fixture-session" } });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const complete = (start, extra = "code=fixture-code") => service.completeAuthorization({ ...input, callbackUrl: `${callback}?state=${new URL(start.authorizationUrl).searchParams.get("state")}&${extra}` });
   return { service, options, state, requests, directory, complete };
 }
@@ -67,7 +67,7 @@ for (const spec of specs) {
     const body = new URLSearchParams(f.requests.find((request) => request.url.endsWith("/token")).init.body);
     assert.equal(body.get("resource"), `${origin}/mcp`); assert.equal(body.get("client_secret"), "private-client-secret"); assert.equal(body.get("redirect_uri"), callback); assert(body.get("code_verifier"));
     assert.equal(f.requests.some(({ message }) => message?.method === "tools/call"), false);
-    const restarted = createConnectionService(f.options); f.state.time += 61_000;
+    const restarted = createConnectionService({ appEnv: "test", ...f.options }); f.state.time += 61_000;
     f.state.list = { tools: [], nextCursor: "next-page" };
     assert.deepEqual(await restarted.invoke({ ...input, operation: "tools.list", input: { cursor: "next-page" } }), f.state.list);
     assert.deepEqual(f.requests.findLast(({ message }) => message?.method === "tools/list").message.params, { cursor: "next-page" });
@@ -116,7 +116,7 @@ for (const spec of specs) {
 test("Confidence Flags and Experiments cannot reuse a pending attempt or connected grant by changing provider", async (t) => {
   const f = await fixture(t, specs[0]); const start = await f.service.beginAuthorization(input);
   const config = structuredClone(f.options.configuration); config.integrations.research.provider = confidenceExpProvider.id;
-  const changed = createConnectionService({ ...f.options, configuration: config });
+  const changed = createConnectionService({ appEnv: "test", ...f.options, configuration: config });
   await assert.rejects(changed.completeAuthorization({ ...input, callbackUrl: `${callback}?code=x&state=${new URL(start.authorizationUrl).searchParams.get("state")}` }), { code: "connector_attempt_invalid" });
   assert.equal(f.requests.length, 0); await f.complete(await f.service.beginAuthorization(input)); const before = f.requests.length;
   assert.equal((await changed.status(input)).status, "reconnect-required");
@@ -159,7 +159,7 @@ test("Both Confidence guides use the portable assistant-only registration contra
 test("Confidence Exp retains actual analysis content and limits calls to approved experiment resources", async t => {
   const spec = specs.find(item => item.provider === confidenceExpProvider);
   const f = await fixture(t, spec); await f.complete(await f.service.beginAuthorization(input));
-  const allowed = createConnectionService({ ...f.options, authorize: async (owner, request) =>
+  const allowed = createConnectionService({ appEnv: "test", ...f.options, authorize: async (owner, request) =>
     request.operation !== "tools.call" || ["get_experiment", "get_results"].includes(request.input.name) && request.input.arguments.name === spec.arguments.name ? owner : null });
   for (const [name, result] of [["get_experiment", { name: spec.arguments.name, state: "live", analysisResults: ["results/primary"] }],
     ["get_results", { relativeEffect: 0.04, confidenceInterval: [-0.01, 0.09], significant: false, sampleSizes: { control: 200, treatment: 205 }, recommendation: "continue" }]]) {
@@ -185,7 +185,7 @@ test("Confidence Flags permits explicitly approved management calls and preserve
     { name: "testResolveFlag", arguments: { name: "flags/new-checkout", entity: "test-user" } }
   ];
   let approved;
-  const host = createConnectionService({ ...f.options, authorize: async (owner, request) =>
+  const host = createConnectionService({ appEnv: "test", ...f.options, authorize: async (owner, request) =>
     request.operation !== "tools.call" || JSON.stringify(request.input) === JSON.stringify(approved) ? owner : null });
   for (const call of calls) {
     const before = f.requests.length;

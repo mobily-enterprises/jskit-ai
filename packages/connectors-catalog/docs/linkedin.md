@@ -65,6 +65,7 @@ No generator or editor database is needed.
 import { readFile } from "node:fs/promises";
 import { parseIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/configuration";
 import { createConnectionService, createEnvironmentReferenceResolver } from "@jskit-ai/connectors-core/server";
+import { appEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { createFileConnectionStore, createCredentialProtection } from "@jskit-ai/connectors-core/server/file-storage";
 import { linkedinProvider } from "@jskit-ai/connectors-catalog/server/linkedin";
 
@@ -76,7 +77,8 @@ const protection = createCredentialProtection({
 const connections = createConnectionService({
   configuration, providers,
   store: createFileConnectionStore({ directory: process.env.CONNECTOR_STATE_DIRECTORY, protection }),
-  resolveReference: createEnvironmentReferenceResolver(process.env), authorize: applicationConnectionPolicy
+  resolveReference: createEnvironmentReferenceResolver(process.env), authorize: applicationConnectionPolicy,
+  appEnv: appEnvironment(process.env)
 });
 ```
 

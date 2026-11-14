@@ -50,7 +50,8 @@ manifests, migrations, tests, and runtime behaviour are the evidence.
    - [multi-homing](references/multi-homing.md) for workspaces or invitations.
    - [translation](references/translation.md) for languages, translated texts
      or error codes.
-   - [side effects](references/side-effects.md) before sending email, messages or payments.
+   - [environments](references/environments.md) before code that sends email, messages or payments, or that
+     depends on where the app runs (APP_ENV).
    - [Nix packaging](references/package-with-nix.md) to package an app for a host
      that runs apps only as Nix packages, built with no network access.
    - For creation, foundation patterns, or package selection, read

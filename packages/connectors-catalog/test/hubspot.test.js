@@ -46,7 +46,7 @@ for (const perUser of [false, true]) test(`HubSpot OAuth ${perUser ? "per-user" 
       return Response.json({ results: [{ id: "123" }] });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   for (const outcome of ["cancel", "denied"]) {
     const attempt = new URL((await service.beginAuthorization(input)).authorizationUrl);
     const denied = new URL(callback);
@@ -73,7 +73,7 @@ for (const perUser of [false, true]) test(`HubSpot OAuth ${perUser ? "per-user" 
   time += 40_000;
   await Promise.all([service.invoke({ ...input, operation: "contacts.list" }), service.invoke({ ...input, operation: "contacts.list" })]);
   assert.equal(exchanges, 2);
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   time += 40_000;
   await restarted.invoke({ ...input, operation: "contacts.list" });
   assert.equal(exchanges, 3);

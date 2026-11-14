@@ -68,7 +68,7 @@ before(async () => {
     inputs: {
       "auth.service": authService,
       "runtime.config": {},
-      "runtime.env": { NODE_ENV: "test", ...STRICT },
+      "runtime.env": { APP_ENV: "test", ...STRICT },
       "runtime.fastify": api,
       "runtime.logger": silentLogger
     },

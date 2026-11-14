@@ -17,7 +17,7 @@ async function fixture(t, region = "us") {
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   const state = { fail: false, status: 200, malformed: false, deny: false };
-  const service = createConnectionService({ sideEffects: "live",
+  const service = createConnectionService({ appEnv: "production",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { mail: {
       provider: "mailgun", accountMode: "shared", scopes: [], settings: { region },
       authentication: { method: "api-key", secretRef: "env:MAILGUN_KEY" }

@@ -1,4 +1,5 @@
 import { hasPermission } from "@jskit-ai/kernel/shared/support/permissions";
+import { appEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { parseBooleanFlag } from "./booleanFlag.js";
 import { resolveAuthCookieSameSite } from "./utils.js";
 
@@ -43,13 +44,13 @@ function createAuthPolicy({ authService, extensions, env }) {
     hasPermission: defaultHasPermission,
     resolveContext,
     options: Object.freeze({
-      // The plugin resolves both defaults: NODE_ENV not production, and the /api/ prefix.
-      nodeEnv: env.NODE_ENV,
+      // The plugin resolves the /api/ prefix by default; the CSRF cookie follows APP_ENV.
+      appEnv: appEnvironment(env),
       apiPrefix: env.AUTH_API_PREFIX,
       // Unset AUTH_CSRF_UNSAFE_METHODS keeps the plugin default (POST, PUT, PATCH, DELETE).
       unsafeMethods: unsafeMethods.length > 0 ? Object.freeze(unsafeMethods) : undefined,
       // The CSRF cookie's SameSite is the sign-in cookies' (AUTH_COOKIE_SAME_SITE). Unset AUTH_CSRF_COOKIE_SECURE
-      // follows NODE_ENV (Secure in production).
+      // follows APP_ENV (Secure in staging and production).
       csrfCookieOpts: Object.freeze({
         sameSite: csrfCookieSameSite,
         ...(String(env.AUTH_CSRF_COOKIE_SECURE ?? "").trim()

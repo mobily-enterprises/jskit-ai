@@ -1,5 +1,5 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { resolveSideEffectsMode } from "@jskit-ai/kernel/shared/support/sideEffects";
+import { appEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { createSchema } from "json-rest-schema";
 import { createConnectionService } from "./connectionService.js";
 
@@ -69,8 +69,8 @@ function createConnectorsActions({ connections }) {
 /**
  * The `connectors.core` feature. Given no `store`, it keeps connections in the `connectors.store` capability, which
  * createConnectionStoreFeature() provides on the connector tables; without that feature the app fails at startup, naming it.
- * Its operations marked `sideEffect` follow the application's SIDE_EFFECTS, never an option.
- * @param {Omit<import("./types.js").ConnectionServiceOptions, "store" | "sideEffects" | "logger"> & { store?: import("./types.js").ConnectionStore }} options
+ * Its operations marked `sideEffect` follow the application's APP_ENV, never an option: only production sends them.
+ * @param {Omit<import("./types.js").ConnectionServiceOptions, "store" | "appEnv" | "logger"> & { store?: import("./types.js").ConnectionStore }} options
  */
 function createConnectorsFeature(options) {
   return defineFeature({
@@ -87,12 +87,12 @@ function createConnectorsFeature(options) {
     },
     provides: { connections: "connectors.core" },
     /**
-     * Operations marked `sideEffect` follow the application's SIDE_EFFECTS: simulated unless it is exactly `live`.
+     * Operations marked `sideEffect` follow the application's APP_ENV: logged, not sent, outside production.
      * @param {{ env: import("@jskit-ai/kernel/server/types").RuntimeEnv, logger: import("@jskit-ai/kernel/server/types").RuntimeLogger, store?: import("./types.js").ConnectionStore }} dependencies
      */
     setup({ env, logger, store = options.store }) {
       return {
-        connections: createConnectionService({ ...options, store, sideEffects: resolveSideEffectsMode(env), logger })
+        connections: createConnectionService({ ...options, store, appEnv: appEnvironment(env), logger })
       };
     },
     actions({ connections }) {

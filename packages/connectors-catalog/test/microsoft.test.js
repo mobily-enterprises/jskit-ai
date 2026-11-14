@@ -55,7 +55,7 @@ async function fixture(t, entry) {
       return [202, 204].includes(state.status) ? new Response(null, { status: state.status }) : typeof state.response === "string" ? new Response(state.response, { status: state.status, headers: { "Content-Type": "text/html" } }) : Response.json(state.response, { status: state.status });
     }
   };
-  const service = createConnectionService({ ...options, sideEffects: "live" });
+  const service = createConnectionService({ ...options, appEnv: "production" });
   const input = { context: owner, integrationId: "service" };
   async function start() {
     const result = await service.beginAuthorization({ ...input, verificationInput: entry.input });
@@ -92,7 +92,7 @@ for (const entry of cases) {
       const text = await readFile(path.join(directory, filename), "utf8");
       for (const secret of ["test-client-secret", "test-access-1", "test-refresh-1"]) assert.equal(text.includes(secret), false);
     }
-    const restarted = createConnectionService({ ...options, sideEffects: "live" });
+    const restarted = createConnectionService({ ...options, appEnv: "production" });
     assert.equal((await restarted.status(input)).status, "connected");
     const invocation = { ...input, operation: entry.provider.checkOperation, input: entry.input };
     assert.deepEqual(await restarted.invoke(invocation), { value: [entry.item] });
@@ -129,7 +129,7 @@ for (const entry of cases) {
     await service.invoke(invocation);
     assert.equal(new URLSearchParams(requests[2].init.body).get("refresh_token"), "test-refresh-1");
     assert.equal(new Headers(requests[3].init.headers).get("authorization"), "Bearer test-access-2");
-    const restarted = createConnectionService({ ...options, sideEffects: "live" });
+    const restarted = createConnectionService({ ...options, appEnv: "production" });
     state.time += 40_000;
     await restarted.invoke(invocation);
     assert.equal(new URLSearchParams(requests[4].init.body).get("refresh_token"), "test-refresh-2");
@@ -224,7 +224,7 @@ for (const [base, tenantId] of [[cases[6], directoryId], [cases[7], "consumers"]
     assert.equal(begun.url.pathname, `/${tenantId}/oauth2/v2.0/authorize`);
     await service.completeAuthorization({ ...input, callbackUrl: begun.callbackUrl });
     state.time += 40_000;
-    await createConnectionService({ ...options, sideEffects: "live" }).invoke({ ...input, operation: "items.list" });
+    await createConnectionService({ ...options, appEnv: "production" }).invoke({ ...input, operation: "items.list" });
     const tokenRequests = requests.filter(({ url }) => url.hostname === "login.microsoftonline.com");
     assert.equal(tokenRequests.length, 2);
     assert.equal(new URLSearchParams(tokenRequests[1].init.body).get("refresh_token"), "test-refresh-1");
@@ -239,7 +239,7 @@ test("Microsoft tenant changes invalidate pending consent and stored grants befo
     const pending = await start();
     const configuration = structuredClone(options.configuration);
     configuration.integrations.service.settings = { tenantId: directoryId };
-    const changed = createConnectionService({ sideEffects: "live", ...options, configuration });
+    const changed = createConnectionService({ appEnv: "production", ...options, configuration });
     const before = requests.length;
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: entry.provider.checkOperation, input: entry.input }), { code: "connector_reconnect_required" });

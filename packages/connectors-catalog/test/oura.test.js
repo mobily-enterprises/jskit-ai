@@ -41,7 +41,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   async function start(scope = "daily personal") {
     const { authorizationUrl } = await service.beginAuthorization(input);
     const url = new URL(authorizationUrl);
@@ -77,7 +77,7 @@ test("Oura uses code consent, records reduced callback scopes and persists a pri
     const text = await readFile(path.join(directory, name), "utf8");
     for (const secret of ["fixture-client-secret", "fixture-access-1", "fixture-refresh-1"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), { ...connected, callbackUrl: callback });
   const operation = { ...input, operation: "dailySleep.list", input: { start_date: "2026-09-01", end_date: "2026-09-08", next_token: "next +&2" } };
   assert.deepEqual(await restarted.invoke(operation), daily);
@@ -122,7 +122,7 @@ test("Oura serializes single-use refresh tokens and preserves reduced scopes aft
   state.time += 40_000;
   await Promise.all([service.invoke({ ...input, operation: "dailySleep.list" }), service.invoke({ ...input, operation: "dailySleep.list" })]);
   assert.equal(state.tokenCount, 2);
-  const restarted = createConnectionService(options);
+  const restarted = createConnectionService({ appEnv: "test", ...options });
   state.time += 40_000;
   await restarted.invoke({ ...input, operation: "dailySleep.list" });
   assert.equal(state.tokenCount, 3);
@@ -176,14 +176,14 @@ test("Oura rejects an empty permission selection before starting broad consent",
   const { options, requests } = await fixture(t);
   const configuration = structuredClone(options.configuration);
   configuration.integrations.oura.scopes = [];
-  assert.throws(() => createConnectionService({ ...options, configuration }));
+  assert.throws(() => createConnectionService({ appEnv: "test", ...options, configuration }));
   assert.equal(requests.length, 0);
 });
 
 test("Oura reads sleep readiness activity and separately consented heart rate with explicit paging", async t => {
   const { options, state, requests } = await fixture(t);
   options.configuration.integrations.oura.scopes.push("heartrate");
-  const expanded = createConnectionService(options);
+  const expanded = createConnectionService({ appEnv: "test", ...options });
   const { authorizationUrl } = await expanded.beginAuthorization(input);
   const cb = new URL(callback); cb.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state")); cb.searchParams.set("code", "fixture-code"); cb.searchParams.set("scope", "daily heartrate");
   await expanded.completeAuthorization({ ...input, callbackUrl: cb.href });

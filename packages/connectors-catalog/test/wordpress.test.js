@@ -44,7 +44,7 @@ async function fixture(t, spec) {
       return Response.json(state.response, { status: state.status, headers: { Link: '<https://other-site.example/next>; rel="next"' } });
     }
   };
-  return { service: createConnectionService({ ...options, sideEffects: "live" }), options, directory, protection, requests, state };
+  return { service: createConnectionService({ ...options, appEnv: "production" }), options, directory, protection, requests, state };
 }
 
 for (const spec of cases) {
@@ -66,7 +66,7 @@ for (const spec of cases) {
       assert.equal(text.includes(state.secret), false);
       assert.equal(text.includes(authorization), false);
     }
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
     assert.deepEqual(await restarted.status(input), connected);
     state.secret = "rotated-secret";
     assert.deepEqual(await restarted.invoke({ ...input, operation: spec.provider.checkOperation }), spec.response);
@@ -115,11 +115,11 @@ for (const spec of cases) {
       [spec.identityField, spec.identityField === "consumerKey" ? "ck_other123" : "otheruser"]]) {
       const configuration = structuredClone(options.configuration);
       configuration.integrations.site.settings[field] = value;
-      const changed = createConnectionService({ ...options, configuration });
+      const changed = createConnectionService({ appEnv: "test", ...options, configuration });
       assert.equal((await changed.status(input)).status, "reconnect-required");
       await assert.rejects(changed.invoke({ ...input, operation: spec.provider.checkOperation }), { code: "connector_reconnect_required" });
     }
-    const wrongHost = createConnectionService({ ...options, providers: [{ ...spec.provider, operations: {
+    const wrongHost = createConnectionService({ appEnv: "test", ...options, providers: [{ ...spec.provider, operations: {
       [spec.provider.checkOperation]: { scopes: [], request: () => ({ method: "GET", url: `https://other-site.example${spec.requestPath}` }) }
     } }] });
     await assert.rejects(wrongHost.invoke({ ...input, operation: spec.provider.checkOperation }), { code: "connector_destination_invalid" });
@@ -252,7 +252,7 @@ test("WordPress publishes sparse post/page edits and requests trash without perm
   }
   state.status = 200; state.response = { id: "42", title: { rendered: "Malformed" } };
   await assert.rejects(service.invoke({ ...input, operation: "pages.get", input: { id: 42 } }), { code: "connector_response_invalid" });
-  const denied = createConnectionService({ ...options, authorize: async () => { throw new Error("Denied"); } });
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => { throw new Error("Denied"); } });
   const before = requests.length;
   await assert.rejects(denied.invoke({ ...input, operation: "posts.create", input: { title: "Denied" } }));
   assert.equal(requests.length, before);

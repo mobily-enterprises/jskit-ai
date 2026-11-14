@@ -73,7 +73,7 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
       "runtime.app-root": process.cwd(),
       "runtime.bootstrap": bootstrap,
       "runtime.config": runtimeConfig(),
-      "runtime.env": {},
+      "runtime.env": { APP_ENV: "test" },
       "runtime.http": {
         router: {
           register(method, path) {

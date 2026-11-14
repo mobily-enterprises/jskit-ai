@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { APP_ENVIRONMENTS } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { PaymentError, fingerprint } from "./errors.js";
 
 /**
@@ -11,22 +12,23 @@ import { PaymentError, fingerprint } from "./errors.js";
  * @param {import("./types.js").PaymentMerchantScope} dependencies.merchantScope
  * @param {string} dependencies.returnUrl
  * @param {(actor: unknown, request: { subjectId: string, action: string }) => boolean | Promise<boolean>} dependencies.authorize
- * @param {"live" | "simulate"} [dependencies.sideEffects] The application's SIDE_EFFECTS setting. Unless `live`, the
- *   application is a test copy: it takes no real money, so checkout and billing changes in the live payment
- *   environment are refused; the sandbox environment works either way.
+ * @param {"development" | "test" | "staging" | "production"} dependencies.appEnv The application's APP_ENV
+ *   (`appEnvironment(env)`). Only production takes real money: elsewhere checkout and billing changes in the live
+ *   payment environment are refused; the sandbox environment works everywhere.
  */
-function createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize, sideEffects = "simulate" }) {
+function createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize, appEnv }) {
   // readable-check: allow method-probe - input validation: the application passes its billable-subject authorization
   if (typeof authorize !== "function") throw new TypeError("Supply the application's billable-subject authorization function.");
+  if (!APP_ENVIRONMENTS.includes(appEnv)) throw new TypeError("Supply appEnv, the application's APP_ENV: appEnvironment(env).");
   const target = new URL(returnUrl);
   if ((target.protocol !== "https:" && !(target.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(target.hostname))) || target.username || target.password || target.hash) {
     throw new TypeError("Configure an HTTPS application return/checkout URL (HTTP is allowed only for local development).");
   }
   const merchant = structuredClone(merchantScope);
-  // Before any provider write: a test copy creates no live customer, checkout or billing session.
+  // Before any provider write: outside production nothing creates a live customer, checkout or billing session.
   function requireRealMoneyAllowed() {
-    if (merchant.environment === "live" && sideEffects !== "live") {
-      throw new PaymentError("payment_test_copy", "This test copy takes no real payments. Use the sandbox payment environment, or set SIDE_EFFECTS=live to take real payments.", 409);
+    if (merchant.environment === "live" && appEnv !== "production") {
+      throw new PaymentError("payment_sandbox_only", "Only production takes real payments: use the sandbox payment environment.", 409);
     }
   }
   async function allowed(actor, subjectId, action) {

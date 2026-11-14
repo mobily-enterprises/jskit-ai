@@ -1,5 +1,4 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { logSimulatedSideEffect } from "@jskit-ai/kernel/server/runtime/sideEffects";
 import { resolveRegistrationProfileOptions, validateEmailInput } from "./accounts.js";
 import { buildAuthPayload } from "./authPayloads.js";
 import { createId, isExpiredIso, isoFromNow, randomToken, sha256Base64url } from "./tokens.js";
@@ -26,23 +25,6 @@ async function confirmEveryRegistrationByLink() {
 function createLoggedConfirmationSender(logger) {
   return async function logConfirmationLink({ email, confirmationUrl }) {
     logger.info({ email, confirmationUrl }, "Local auth email confirmation URL created.");
-  };
-}
-
-/**
- * The confirmation sender of a test copy (SIDE_EFFECTS is not `live`) in place of the installed
- * `auth.local.confirmation-sender`: it emails nothing and logs the link, which the person testing follows to
- * confirm. The link stays out of the registration's answer, as with a real sender.
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} logger
- * @returns {import("../types.js").AuthLocalConfirmationSender}
- */
-function createSimulatedConfirmationSender(logger) {
-  return async function simulateConfirmationEmail({ email, confirmationUrl }) {
-    logSimulatedSideEffect(logger, {
-      kind: "email",
-      summary: `the email confirmation email to ${email}`,
-      details: { email, confirmationUrl }
-    });
   };
 }
 
@@ -294,6 +276,5 @@ export {
   CONFIRMATION_TOKEN_TTL_SECONDS,
   confirmEveryRegistrationByLink,
   createLocalEmailConfirmation,
-  createLoggedConfirmationSender,
-  createSimulatedConfirmationSender
+  createLoggedConfirmationSender
 };

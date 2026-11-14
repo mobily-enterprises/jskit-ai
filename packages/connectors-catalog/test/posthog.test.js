@@ -35,7 +35,7 @@ async function fixture(t, region = "eu") {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, requests, directory, protection, state };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, requests, directory, protection, state };
 }
 
 for (const region of ["eu", "us"]) {
@@ -58,7 +58,7 @@ for (const region of ["eu", "us"]) {
       assert.equal(stored.includes(state.token), false);
       assert.equal(stored.includes(verificationInput.distinct_id), false);
     }
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
     assert.deepEqual(await restarted.status(input), connected);
     state.token = "phc_rotated_public_token";
     assert.deepEqual(await restarted.invoke({ ...input, operation: "flags.evaluate", input: verificationInput }), flags);
@@ -111,12 +111,12 @@ test("PostHog requires re-verification after project or region changes and block
   for (const [field, value] of [["projectId", "999"], ["region", "us"]]) {
     const configuration = structuredClone(options.configuration);
     configuration.integrations.analytics.settings[field] = value;
-    const changed = createConnectionService({ ...options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...options, configuration });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: "flags.evaluate", input: verificationInput }), { code: "connector_reconnect_required" });
   }
   for (const origin of ["https://us.i.posthog.com", "https://eu.posthog.com", "https://attacker.invalid"]) {
-    const wrongHost = createConnectionService({ ...options, providers: [{ ...posthogProvider, operations: {
+    const wrongHost = createConnectionService({ appEnv: "test", ...options, providers: [{ ...posthogProvider, operations: {
       "flags.evaluate": { scopes: [], request: () => ({ method: "POST", url: `${origin}/flags?v=2`, body: verificationInput }) }
     } }] });
     await assert.rejects(wrongHost.invoke({ ...input, operation: "flags.evaluate", input: verificationInput }), { code: "connector_destination_invalid" });

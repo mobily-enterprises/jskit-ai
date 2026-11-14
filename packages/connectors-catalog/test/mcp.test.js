@@ -61,7 +61,7 @@ async function fixture(t, spec) {
         : Response.json(payload, { headers });
     }
   };
-  return { options, service: createConnectionService(options), directory, protection, requests, state, policy };
+  return { options, service: createConnectionService({ appEnv: "test", ...options }), directory, protection, requests, state, policy };
 }
 
 for (const spec of cases) {
@@ -78,7 +78,7 @@ for (const spec of cases) {
       if (request.message?.method !== "initialize") assert.equal(request.headers.get("mcp-session-id"), "fixture-session");
     }
     assert.deepEqual(requests[0].message.params.capabilities, {}, "No sampling, elicitation or local resources are granted.");
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
     state.token = "rotated-fixture-token";
     assert.deepEqual(await restarted.invoke({ ...input, operation: "tools.list", input: { cursor: "opaque+/=cursor" } }), state.list);
     assert.equal(requests.findLast(({ message }) => message?.method === "tools/list").message.params.cursor, "opaque+/=cursor");
@@ -110,7 +110,7 @@ for (const spec of cases) {
     assert.equal(requests.length, count);
     assert.deepEqual(policy.at(-1), { integrationId: "assistant", operation: "tools.call", accountMode: "assistant", input: { name: "delete_documents", arguments: { id: "all" } } });
     const supplied = { name: "search_documents", arguments: { query: "approved" } };
-    const guarded = createConnectionService({ ...options, authorize: async (owner, request) => {
+    const guarded = createConnectionService({ appEnv: "test", ...options, authorize: async (owner, request) => {
       supplied.name = "delete_documents";
       supplied.arguments.query = "changed";
       request.input.name = "delete_documents";
@@ -205,7 +205,7 @@ test("changing the n8n MCP destination requires verification and cannot reuse th
   await service.connectApiKey(input);
   const config = structuredClone(options.configuration);
   config.integrations.assistant.settings.serverUrl = "https://other.example/mcp-server/http";
-  const changed = createConnectionService({ ...options, configuration: config });
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration: config });
   const count = requests.length;
   assert.equal((await changed.status(input)).status, "reconnect-required");
   await assert.rejects(changed.invoke({ ...input, operation: "tools.list" }), { code: "connector_reconnect_required" });
@@ -215,7 +215,7 @@ test("changing the n8n MCP destination requires verification and cannot reuse th
 // Controlled workflow tool names exercise transport and policy, not n8n's live catalogue.
 test("n8n returns workflow execution results only for the authorized workflow", async (t) => {
   const { options, state, requests } = await fixture(t, cases[0]);
-  const service = createConnectionService({ ...options, authorize: async (owner, request) =>
+  const service = createConnectionService({ appEnv: "test", ...options, authorize: async (owner, request) =>
     request.operation !== "tools.call" || request.input.name === "fixture_run_workflow" && request.input.arguments.workflowId === "report-one" ? owner : null });
   state.list = { tools: [{ name: "fixture_run_workflow", inputSchema: { type: "object" } }] };
   state.call = { content: [{ type: "text", text: JSON.stringify({ workflowId: "report-one", executionId: "execution-one", status: "success", output: { report: "Ready" } }) }] };

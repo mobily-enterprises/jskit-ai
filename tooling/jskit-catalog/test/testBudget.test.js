@@ -369,3 +369,25 @@ test("jskit check passes an app whose runs use jskit test and whose configs read
     assert.match(failure.stderr, /^playwright\.config\.mjs:1 {2}test\/playwright-workers {2}playwright runs at a fixed or default worker count; set `workers: testConcurrency\(\)` from @jskit-ai\/jskit-catalog\/test-budget\.$/mu);
   });
 });
+
+test("jskit test runs every test file with APP_ENV=test, and refuses where APP_ENV is staging or production", async () => {
+  await withProject({
+    "package.json": { name: "app-env-fixture", private: true, type: "module" },
+    "test/environment.test.js": "import assert from \"node:assert/strict\";\nimport test from \"node:test\";\n" +
+      "test(\"runs as APP_ENV=test\", () => assert.equal(process.env.APP_ENV, \"test\"));\n"
+  }, async (root) => {
+    const env = { ...process.env, V64_TEST_CONCURRENCY: "1" };
+    delete env.NODE_TEST_CONTEXT;
+    for (const APP_ENV of [undefined, "development", "test"]) {
+      const { stdout } = await execFileAsync(process.execPath, [CLI_PATH, "test"], { cwd: root, env: { ...env, APP_ENV } });
+      assert.match(stdout, /pass 1\b/u, String(APP_ENV));
+    }
+    for (const APP_ENV of ["staging", "production"]) {
+      const failure = await execFileAsync(process.execPath, [CLI_PATH, "test"], { cwd: root, env: { ...env, APP_ENV } })
+        .then(() => null, (error) => error);
+      assert.equal(failure?.code, 1, APP_ENV);
+      assert.equal(failure.stderr, `jskit test runs tests with APP_ENV=test, and APP_ENV is ${APP_ENV} here: tests never run ` +
+        "on a staging or production server. Run them where APP_ENV is unset, development or test.\n");
+    }
+  });
+});

@@ -15,7 +15,7 @@ import { createLocalSecondFactor } from "./secondFactor.js";
 import { createLocalSecurityStatus } from "./securityStatus.js";
 import { createLocalSessions } from "./sessions.js";
 
-// A production server without AUTH_LOCAL_SECOND_FACTOR_KEY has no second factor: each operation is unsupported.
+// A staging or production server without AUTH_LOCAL_SECOND_FACTOR_KEY has no second factor: each operation is unsupported.
 const NO_SECOND_FACTOR = Object.freeze({
   getSecondFactorStatus: () => throwUnsupportedAuthOperation("getSecondFactorStatus"),
   startSecondFactorSetup: () => throwUnsupportedAuthOperation("startSecondFactorSetup"),
@@ -121,7 +121,7 @@ function createLocalAuthService({
       secondFactor: Boolean(config.secondFactorKey)
     }
   });
-  // While the app has no account, its first one may register, and on a production server that asks for the setup code.
+  // While the app has no account, its first one may register, and on a staging or production server that asks for the setup code.
   const capabilitiesForFirstAccount = normalizeAuthCapabilities({
     ...capabilities,
     features: { ...capabilities.features, password: { ...capabilities.features.password, selfRegister: true } }

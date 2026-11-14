@@ -33,7 +33,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService({ ...options, sideEffects: "live" }), options, requests, directory, protection, state };
+  return { service: createConnectionService({ ...options, appEnv: "production" }), options, requests, directory, protection, state };
 }
 
 test("Chargebee verifies a site with Basic API-key authentication and retains file ownership across restart", async (t) => {
@@ -52,7 +52,7 @@ test("Chargebee verifies a site with Basic API-key authentication and retains fi
     assert.equal(stored.includes(state.key), false);
     assert.equal(stored.includes(first.headers.get("authorization")), false);
   }
-  const restarted = createConnectionService({ sideEffects: "live", ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "production", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), connected);
   state.key = "test_rotated_key";
   assert.deepEqual(await restarted.invoke({ ...input, operation: "customers.list" }), customers);
@@ -88,10 +88,10 @@ test("Chargebee site changes require verification and never fall back across sit
   await service.connectApiKey(input);
   const configuration = structuredClone(options.configuration);
   configuration.integrations.billing.settings.siteName = "acme-live";
-  const changed = createConnectionService({ sideEffects: "live", ...options, configuration });
+  const changed = createConnectionService({ appEnv: "production", ...options, configuration });
   assert.equal((await changed.status(input)).status, "reconnect-required");
   await assert.rejects(changed.invoke({ ...input, operation: "customers.list" }), { code: "connector_reconnect_required" });
-  const wrongHost = createConnectionService({ sideEffects: "live", ...options, providers: [{ ...chargebeeProvider, operations: {
+  const wrongHost = createConnectionService({ appEnv: "production", ...options, providers: [{ ...chargebeeProvider, operations: {
     "customers.list": { scopes: [], request: () => ({ method: "GET", url: "https://acme-live.chargebee.com/api/v2/customers" }) }
   } }] });
   await assert.rejects(wrongHost.invoke({ ...input, operation: "customers.list" }), { code: "connector_destination_invalid" });

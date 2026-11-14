@@ -94,6 +94,11 @@ environment's. The option is not called `--env-file` because Node reads an
   `runtime.storage`; `data/storage` by default) and `AUTH_LOCAL_STORE_DIR`
   (local sign-in's files, such as the first account's setup code;
   `.jskit/auth` by default).
+- The settings say where the app runs: `APP_ENV=production`, or `staging` on a
+  copy for checking it, where a build-check machine leaves the `STAGING_*`
+  addresses unset so everything is logged. The launcher sets
+  `NODE_ENV=production` but never `APP_ENV`, and a server without one refuses
+  to start ([Environments](/guide/framework/environments)).
 - Secrets come at run time, in the env file or the service's environment,
   never in the package: anyone who can read the Nix store can read a package.
 - The server listens where its `server.js` says: in a JSKIT app, `HOST`

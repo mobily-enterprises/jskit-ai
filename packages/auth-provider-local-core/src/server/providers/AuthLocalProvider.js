@@ -4,24 +4,50 @@ import {
 } from "@jskit-ai/auth-core/server/deferredAuthService";
 import { noAppProfiles } from "@jskit-ai/auth-core/server/noAppProfiles";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
-import { sideEffectsAreLive } from "@jskit-ai/kernel/shared/support/sideEffects";
+import { deliverMessage } from "@jskit-ai/kernel/server/runtime/appEnvironment";
 import { resolveLocalAuthConfig } from "../lib/config.js";
 import { DELIVERY_SHUTDOWN_WAIT_MS, createLocalDeliveries } from "../lib/deliveries.js";
 import {
   confirmEveryRegistrationByLink,
-  createLoggedConfirmationSender,
-  createSimulatedConfirmationSender
+  createLoggedConfirmationSender
 } from "../lib/emailConfirmation.js";
 import { createLocalFileBackend } from "../lib/fileBackend.js";
 import { createFirstAccountSetup } from "../lib/firstAccountSetup.js";
 import { noPassIdentities } from "../lib/passSignIn.js";
-import { createLoggedRecoverySender, createSimulatedRecoverySender } from "../lib/passwordFlows.js";
+import { createLoggedRecoverySender } from "../lib/passwordFlows.js";
 import { scryptPasswordStrategy } from "../lib/passwords.js";
 import { createLoggedSecondFactorEvents } from "../lib/secondFactor.js";
 import { createLocalAuthService } from "../lib/service.js";
 
 // The emails each started auth service is still sending, by the service its setup gave out, for its shutdown.
 const deliveriesByService = new WeakMap();
+
+/**
+ * An installed email sender, sending as APP_ENV says (`deliverMessage`): production sends each email to its address;
+ * staging only to STAGING_EMAIL_TO, passing the address it was for as `originalEmail`, or logs it when that is unset;
+ * development and test log it, link included, which the person testing follows.
+ * @template {{ email: string }} D
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
+ * @param {(delivery: D & { originalEmail: string }) => Promise<void>} dependencies.sender
+ * @param {string} dependencies.name What the email is, such as "password reset".
+ * @returns {(delivery: D) => Promise<void>}
+ */
+function sendAsAppEnvironmentSays({ env, logger, sender, name }) {
+  return async (delivery) => {
+    const { email, ...link } = delivery;
+    await deliverMessage({
+      env,
+      logger,
+      channel: "email",
+      to: email,
+      summary: `the ${name} email to ${email}`,
+      details: link,
+      send: (to, { originalTo }) => sender({ ...delivery, email: to, originalEmail: originalTo })
+    });
+  };
+}
 
 const AuthLocalProvider = defineProvider({
   id: "auth.local",
@@ -91,12 +117,12 @@ const AuthLocalProvider = defineProvider({
       throw new Error("AUTH_PASS_PUBLIC_KEY turns on one-time pass sign-in, and no auth.local.pass-identity is installed to name the account each pass signs in. Install one, or unset AUTH_PASS_PUBLIC_KEY.");
     }
     const localBackend = fileBackend ? createLocalFileBackend({ storeDir: config.storeDir }) : backend;
-    // A production server without accounts logs its setup code as it starts.
+    // A staging or production server without accounts logs its setup code as it starts.
     const firstAccountSetup = createFirstAccountSetup({ backend: localBackend, config, logger });
     await firstAccountSetup.start();
-    // A test copy (SIDE_EFFECTS is not live) logs the emails an installed sender would send, and sends none, whatever
-    // the sender. The confirmation mode sends nothing, so a test copy keeps it.
-    const live = sideEffectsAreLive(env);
+    // An installed sender sends as APP_ENV says: only production emails each address; staging emails only
+    // STAGING_EMAIL_TO; development and test log each email. The confirmation mode sends nothing, so it applies
+    // everywhere.
     const deliveries = createLocalDeliveries({ logger });
     deliveriesByService.set(outputs.authService, deliveries);
     const baseService = createLocalAuthService({
@@ -104,7 +130,7 @@ const AuthLocalProvider = defineProvider({
       config,
       confirmationMode: confirmationMode ?? confirmEveryRegistrationByLink,
       confirmationSender: emailConfirmationSender
-        ? (live ? confirmationSender : createSimulatedConfirmationSender(logger))
+        ? sendAsAppEnvironmentSays({ env, logger, sender: confirmationSender, name: "email confirmation" })
         : createLoggedConfirmationSender(logger),
       deliveries,
       firstAccountSetup,
@@ -114,7 +140,7 @@ const AuthLocalProvider = defineProvider({
       passwordStrategy: passwordStrategy ?? scryptPasswordStrategy,
       profileProjector: profileProjector ?? noAppProfiles,
       recoverySender: emailRecovery
-        ? (live ? recoverySender : createSimulatedRecoverySender(logger))
+        ? sendAsAppEnvironmentSays({ env, logger, sender: recoverySender, name: "password reset" })
         : createLoggedRecoverySender(logger),
       secondFactorEvents: secondFactorEvents ?? createLoggedSecondFactorEvents(logger)
     });

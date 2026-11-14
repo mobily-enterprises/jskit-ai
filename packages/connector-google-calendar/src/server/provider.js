@@ -81,7 +81,7 @@ function eventBody(body, creating) {
 }
 function writeEvent(method) {
   return {
-    // Writing an event can invite or notify people, so a test copy (SIDE_EFFECTS is not `live`) simulates it.
+    // Writing an event can invite or notify people, so outside production (APP_ENV) it is logged, not sent.
     sideEffect: true,
     scopes: writeScopes,
     validateResult: result => method === "DELETE" ? result === null : result?.kind === "calendar#event" && typeof result.id === "string",

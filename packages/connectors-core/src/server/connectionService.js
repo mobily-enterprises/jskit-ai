@@ -1,6 +1,7 @@
 import * as oauth from "oauth4webapi";
 import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
+import { APP_ENVIRONMENTS } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { registrationClientAuthentication, registrationGrantType, validateIntegrationConfiguration } from "../shared/configuration.js";
 import { createConnectionCredentials } from "./connectionCredentials.js";
 import { ConnectorError, providerError } from "./errors.js";
@@ -59,9 +60,11 @@ function callbackMatches(connection, provider, registration) {
  * @param {"application" | "assistant"} [options.executionMode]
  * @param {typeof globalThis.fetch} [options.fetchImpl]
  * @param {() => number} [options.now]
- * @param {"live" | "simulate"} [options.sideEffects] The application's SIDE_EFFECTS setting. Unless `live`, operations
- *   marked `sideEffect` are checked and logged, never sent, and answer `{ simulated: true }`.
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger | Console} [options.logger] Where simulated operations are logged.
+ * @param {"development" | "test" | "staging" | "production"} options.appEnv The application's APP_ENV:
+ *   `appEnvironment(env)`. Outside production, operations marked `sideEffect` are checked and logged, never sent,
+ *   and answer `{ simulated: true }`.
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger | Console} [options.logger] Where operations logged
+ *   instead of sent are written.
  */
 function createConnectionService({
   configuration,
@@ -72,10 +75,11 @@ function createConnectionService({
   executionMode = "application",
   fetchImpl = globalThis.fetch,
   now = Date.now,
-  sideEffects = "simulate",
+  appEnv,
   logger = console
 }) {
   if (!["application", "assistant"].includes(executionMode)) throw new TypeError("Select application or assistant execution.");
+  if (!APP_ENVIRONMENTS.includes(appEnv)) throw new TypeError("Supply appEnv, the application's APP_ENV: appEnvironment(env).");
   const config = validateIntegrationConfiguration(configuration, { providers });
   // Each integration with its settings resolved, so the service reads them as one object.
   const integrations = Object.fromEntries(Object.entries(config.integrations)
@@ -95,7 +99,7 @@ function createConnectionService({
     );
   }
   const connectionCredentials = createConnectionCredentials({ config, resolveReference });
-  const providerRequests = createProviderRequests({ fetchImpl, now, resolveReference, sideEffects, logger });
+  const providerRequests = createProviderRequests({ fetchImpl, now, resolveReference, appEnv, logger });
 
   async function access(context, integrationId, operation, input, checkAssistantPermission = true) {
     const integration = integrations[integrationId];
@@ -433,7 +437,7 @@ function createConnectionService({
         }
         const credentials = usesApiKey ? { ...connection, apiKey: await connectionCredentials.apiKeyFor(integration, provider) } : connection;
         const result = await providerRequests.request(provider, operation, input, credentials, signal);
-        // A simulated operation never reached the provider, so it proves nothing about the credential.
+        // An operation logged instead of sent never reached the provider, so it proves nothing about the credential.
         if (result === SIMULATED_RESULT) return { result };
         await save({ ...connection, verifiedAt: now(),
           ...(usesApiKey ? { credentialFingerprint: createHash("sha256").update(credentials.apiKey).digest("hex") } : {})

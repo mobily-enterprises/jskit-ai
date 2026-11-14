@@ -63,32 +63,38 @@ async function createAppServer(context, { config = {}, env = {} } = {}) {
 }
 
 const ROUTES = ["/api/health", "/plugin", "/page", "/broken", "/missing"];
+const PRODUCTION = Object.freeze({ APP_ENV: "production", NODE_ENV: "production" });
 
-test("development responses carry nosniff and a Referrer-Policy, and nothing that stops a preview framing them", async (context) => {
-  const app = await createAppServer(context, { env: { NODE_ENV: "development" } });
-  for (const url of ROUTES) {
-    const response = await app.inject({ method: "GET", url });
-    assert.equal(response.headers["x-content-type-options"], "nosniff", url);
-    assert.equal(response.headers["referrer-policy"], "strict-origin-when-cross-origin", url);
-    assert.equal(response.headers["content-security-policy"], undefined, url);
-    assert.equal(response.headers["content-security-policy-report-only"], undefined, url);
-    assert.equal(response.headers["strict-transport-security"], undefined, url);
+test("development and test responses carry nosniff and a Referrer-Policy, and nothing that stops a preview framing them", async (context) => {
+  // NODE_ENV only picks optimised builds: a production build in development is still development.
+  for (const env of [{ APP_ENV: "development", NODE_ENV: "production" }, { APP_ENV: "test" }]) {
+    const app = await createAppServer(context, { env });
+    for (const url of ROUTES) {
+      const response = await app.inject({ method: "GET", url });
+      assert.equal(response.headers["x-content-type-options"], "nosniff", url);
+      assert.equal(response.headers["referrer-policy"], "strict-origin-when-cross-origin", url);
+      assert.equal(response.headers["content-security-policy"], undefined, url);
+      assert.equal(response.headers["content-security-policy-report-only"], undefined, url);
+      assert.equal(response.headers["strict-transport-security"], undefined, url);
+    }
   }
 });
 
-test("production responses enforce frame-ancestors, report the content policy and send HSTS", async (context) => {
-  const app = await createAppServer(context, { env: { NODE_ENV: "Production" } });
-  for (const url of ROUTES) {
-    const response = await app.inject({ method: "GET", url });
-    assert.equal(response.headers["x-content-type-options"], "nosniff", url);
-    assert.equal(response.headers["content-security-policy"], "frame-ancestors 'self'", url);
-    assert.equal(response.headers["content-security-policy-report-only"], REPORTED_POLICY, url);
-    assert.equal(response.headers["strict-transport-security"], "max-age=31536000", url);
+test("staging and production responses enforce frame-ancestors, report the content policy and send HSTS", async (context) => {
+  for (const env of [{ APP_ENV: "staging", NODE_ENV: "production" }, PRODUCTION]) {
+    const app = await createAppServer(context, { env });
+    for (const url of ROUTES) {
+      const response = await app.inject({ method: "GET", url });
+      assert.equal(response.headers["x-content-type-options"], "nosniff", url);
+      assert.equal(response.headers["content-security-policy"], "frame-ancestors 'self'", url);
+      assert.equal(response.headers["content-security-policy-report-only"], REPORTED_POLICY, url);
+      assert.equal(response.headers["strict-transport-security"], "max-age=31536000", url);
+    }
   }
 });
 
 test("a route's own security header wins over the default", async (context) => {
-  const app = await createAppServer(context, { env: { NODE_ENV: "production" } });
+  const app = await createAppServer(context, { env: PRODUCTION });
   const hub = await app.inject({ method: "GET", url: "/hub" });
   assert.equal(hub.headers["content-security-policy"], "frame-ancestors 'none'");
   const own = await app.inject({ method: "GET", url: "/own-referrer" });
@@ -97,7 +103,7 @@ test("a route's own security header wins over the default", async (context) => {
 
 test("config.securityHeaders allows an editor to frame production, enforces the policy and switches headers off", async (context) => {
   const app = await createAppServer(context, {
-    env: { NODE_ENV: "production" },
+    env: PRODUCTION,
     config: {
       securityHeaders: {
         referrerPolicy: "no-referrer",
@@ -125,7 +131,7 @@ test("config.securityHeaders allows an editor to frame production, enforces the 
 
 test("config.securityHeaders can leave out the content policy, framing and nosniff", async (context) => {
   const app = await createAppServer(context, {
-    env: { NODE_ENV: "production" },
+    env: PRODUCTION,
     config: { securityHeaders: { noSniff: false, frameAncestors: false, contentSecurityPolicy: { mode: "off" } } }
   });
   const response = await app.inject({ method: "GET", url: "/page" });
@@ -144,6 +150,6 @@ test("an invalid config.securityHeaders stops the server from starting", async (
     [{ contentSecurityPolicy: { directives: { "frame-ancestors": ["*"] } } }, /use frameAncestors for framing/u],
     [{ referrerPolicy: "no-referrer\r\nx-injected: 1" }, /referrerPolicy must be a header value or false/u]
   ]) {
-    await assert.rejects(createAppServer(context, { env: { NODE_ENV: "production" }, config: { securityHeaders } }), { message });
+    await assert.rejects(createAppServer(context, { env: PRODUCTION, config: { securityHeaders } }), { message });
   }
 });

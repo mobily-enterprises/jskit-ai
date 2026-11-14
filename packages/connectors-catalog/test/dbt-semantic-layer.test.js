@@ -45,7 +45,7 @@ async function fixture(t, host = "semantic-layer.cloud.getdbt.com") {
       return Response.json(state.response === undefined ? { data } : state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, state, requests, directory };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, state, requests, directory };
 }
 
 test("dbt verifies only environment metadata and preserves file-backed ownership, references and exact large IDs", async (t) => {
@@ -59,7 +59,7 @@ test("dbt verifies only environment metadata and preserves file-backed ownership
   assert.deepEqual(request.body.variables, { environmentId });
   assert.match(request.body.query, /\$environmentId: BigInt!/u); assert(!request.body.query.includes("mutation"));
   for (const name of await readdir(f.directory)) assert(!(await readFile(path.join(f.directory, name), "utf8")).includes(f.state.key));
-  const restarted = createConnectionService(f.options);
+  const restarted = createConnectionService({ appEnv: "test", ...f.options });
   assert.deepEqual(await restarted.status(input), connected);
   for (const owner of [{ ...context, applicationId: "other" }, { ...context, subjectId: "other" }]) {
     await assert.rejects(restarted.invoke({ ...input, context: owner, operation: "metrics.list" }), { code: "connector_reconnect_required" });
@@ -155,7 +155,7 @@ test("dbt changing environment, host or token reference requires verification fo
   const f = await fixture(t); await f.service.connectApiKey(input); const before = f.requests.length;
   for (const change of [{ settings: { host: "semantic-layer.au.dbt.com", environmentId } }, { settings: { host: f.options.configuration.integrations.metrics.settings.host, environmentId: "1" } }, { authentication: { method: "api-key", secretRef: "env:OTHER_TOKEN" } }]) {
     const configuration = structuredClone(f.options.configuration); Object.assign(configuration.integrations.metrics, change);
-    const changed = createConnectionService({ ...f.options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...f.options, configuration });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: "metrics.list" }), { code: "connector_reconnect_required" });
   }

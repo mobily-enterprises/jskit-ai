@@ -49,7 +49,7 @@ async function fixture(t) {
       return Response.json(state.value === undefined ? value : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   return { service, options, directory, state, requests, connect: () => service.connectApiKey(args) };
 }
 
@@ -57,7 +57,7 @@ test("Granola verifies a key, encrypts connection files and reads current bindin
   const f = await fixture(t); assert.equal((await f.connect()).status, "connected");
   assert.equal(f.requests[0].url.pathname, "/v1/notes"); assert.equal(f.requests[0].url.searchParams.get("page_size"), "10");
   for (const name of await readdir(f.directory)) assert.equal((await readFile(path.join(f.directory, name), "utf8")).includes(f.state.key), false);
-  const restarted = createConnectionService(f.options); assert.equal((await restarted.status(args)).status, "connected");
+  const restarted = createConnectionService({ appEnv: "test", ...f.options }); assert.equal((await restarted.status(args)).status, "connected");
   f.state.key = "grn_rotated-key";
   assert.deepEqual(await restarted.invoke({ ...args, operation: "notes.get", input: { note_id: noteId } }), note);
   assert.equal(f.requests.at(-1).url.search, "");
@@ -127,7 +127,7 @@ test("Granola isolates owners, honors host policy and preserves a saved connecti
   for (const owner of [{ ...context, applicationId: "other" }, { ...context, subjectId: "other" }]) {
     await assert.rejects(f.service.invoke({ ...args, context: owner, operation: "notes.list" }), { code: "connector_reconnect_required" });
   }
-  const denied = createConnectionService({ ...f.options, authorize: async () => null });
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async () => null });
   await assert.rejects(denied.invoke({ ...args, operation: "notes.list" }), { code: "connector_access_denied" });
   for (const key of ["plain-key", "grn_", "grn_secret\nvalue"]) {
     f.state.key = key; await assert.rejects(f.connect(), { code: "connector_binding_missing" });
@@ -194,7 +194,7 @@ test("Granola MCP OAuth verifies tools, refreshes after restart and cannot call 
       return Response.json({ jsonrpc: "2.0", id: message.id, result });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = await service.beginAuthorization(args); const url = new URL(start.authorizationUrl);
   assert.equal(url.origin + url.pathname, "https://mcp-auth.granola.ai/oauth2/authorize");
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
@@ -206,7 +206,7 @@ test("Granola MCP OAuth verifies tools, refreshes after restart and cannot call 
   assert.equal(calls.length, before);
   await assert.rejects(service.completeAuthorization(completion));
   time += 61000;
-  const restarted = createConnectionService(options);
+  const restarted = createConnectionService({ appEnv: "test", ...options });
   assert.deepEqual(await restarted.invoke({ ...args, operation: "tools.list" }), { tools: [] });
   assert.equal(calls.filter((call) => call.url.endsWith("/token")).length, 2);
   assert.deepEqual(await restarted.invoke({ ...args, operation: "tools.call", input: { name: "get_account_info", arguments: {} } }),

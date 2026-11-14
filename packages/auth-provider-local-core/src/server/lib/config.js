@@ -7,7 +7,7 @@ import path from "node:path";
 import { AUTH_PASSWORD_MIN_LENGTH } from "@jskit-ai/auth-core/shared/authConstraints";
 import { resolveAuthCookieSameSite } from "@jskit-ai/auth-core/server/utils";
 import { parsePositiveInteger } from "@jskit-ai/kernel/server/runtime";
-import { assertDevelopmentOnlySettings } from "@jskit-ai/kernel/server/runtime/runtimeMode";
+import { assertDevelopmentOnlySettings } from "@jskit-ai/kernel/server/runtime/appEnvironment";
 import { SETUP_CODE_ENV, SETUP_CODE_MIN_CHARACTERS, normalizedSetupCode } from "./firstAccountSetup.js";
 import { resolveOAuthProviders } from "./oauth.js";
 import { resolveSignInThrottle } from "./signInThrottle.js";
@@ -24,15 +24,15 @@ function resolveStoreDir(env, appRoot) {
 }
 
 /**
- * AUTH_LOCAL_SESSION_SECRET, or outside production a secret kept in the store
+ * AUTH_LOCAL_SESSION_SECRET, or in development and test a secret kept in the store
  * directory, generated on first use.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ storeDir: string, isProduction: boolean }} options
+ * @param {{ storeDir: string, isDeployed: boolean }} options
  */
-function resolveSessionSecret(env, { storeDir, isProduction }) {
+function resolveSessionSecret(env, { storeDir, isDeployed }) {
   const explicit = String(env.AUTH_LOCAL_SESSION_SECRET || "").trim();
   if (explicit) return explicit;
-  if (isProduction) throw new Error("AUTH_LOCAL_SESSION_SECRET is required for local auth in production.");
+  if (isDeployed) throw new Error("AUTH_LOCAL_SESSION_SECRET is required for local auth in staging and production.");
 
   const secretPath = path.join(storeDir, "session.secret");
   try {
@@ -53,13 +53,13 @@ const SECOND_FACTOR_KEY_MIN_CHARACTERS = 32;
 /**
  * AUTH_LOCAL_SECOND_FACTOR_KEY: the application's key, from which local auth
  * derives the keys that seal authenticator secrets and hash recovery codes.
- * Outside production the session secret stands in for it. A production server
+ * In development and test the session secret stands in for it. A staging or production server
  * without it has no second factor (""); one shorter than 32 characters stops
  * startup.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ isProduction: boolean, sessionSecret: string }} options
+ * @param {{ isDeployed: boolean, sessionSecret: string }} options
  */
-function resolveSecondFactorKey(env, { isProduction, sessionSecret }) {
+function resolveSecondFactorKey(env, { isDeployed, sessionSecret }) {
   const key = String(env.AUTH_LOCAL_SECOND_FACTOR_KEY || "").trim();
   if (key) {
     if (key.length < SECOND_FACTOR_KEY_MIN_CHARACTERS) {
@@ -67,19 +67,19 @@ function resolveSecondFactorKey(env, { isProduction, sessionSecret }) {
     }
     return key;
   }
-  return isProduction ? "" : sessionSecret;
+  return isDeployed ? "" : sessionSecret;
 }
 
 /**
  * AUTH_LOCAL_SETUP_CODE: the first account's setup code when a hosting tool
  * supplies it, so that every start and every server asks for the same code.
- * Only production asks for a setup code; elsewhere the variable is ignored.
+ * Only staging and production ask for a setup code; elsewhere the variable is ignored.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ isProduction: boolean }} options
+ * @param {{ isDeployed: boolean }} options
  */
-function resolveSetupCode(env, { isProduction }) {
+function resolveSetupCode(env, { isDeployed }) {
   const code = String(env[SETUP_CODE_ENV] || "").trim();
-  if (!isProduction || !code) return "";
+  if (!isDeployed || !code) return "";
   if (normalizedSetupCode(code).length < SETUP_CODE_MIN_CHARACTERS) {
     throw new Error(`${SETUP_CODE_ENV} must have at least ${SETUP_CODE_MIN_CHARACTERS} letters and digits.`);
   }
@@ -89,12 +89,12 @@ function resolveSetupCode(env, { isProduction }) {
 /**
  * APP_PUBLIC_URL, from which recovery and confirmation links and OAuth
  * redirect addresses are built, and whose host authenticator apps show beside
- * a second factor's codes. Emailed links, OAuth sign-in and a production
+ * a second factor's codes. Emailed links, OAuth sign-in and a deployed
  * server's second factor require it.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ emailRecovery: boolean, emailedConfirmation: boolean, oauthEnabled: boolean, productionSecondFactor: boolean }} options
+ * @param {{ emailRecovery: boolean, emailedConfirmation: boolean, oauthEnabled: boolean, deployedSecondFactor: boolean }} options
  */
-function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled, productionSecondFactor }) {
+function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEnabled, deployedSecondFactor }) {
   const configured = String(env.APP_PUBLIC_URL || "").trim();
   if (!configured) {
     if (emailRecovery) throw new Error("APP_PUBLIC_URL is required when local auth email recovery is configured.");
@@ -102,7 +102,7 @@ function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEna
       throw new Error("APP_PUBLIC_URL is required when local auth emails confirmation links.");
     }
     if (oauthEnabled) throw new Error("APP_PUBLIC_URL is required when local auth OAuth sign-in is configured.");
-    if (productionSecondFactor) {
+    if (deployedSecondFactor) {
       throw new Error("APP_PUBLIC_URL is required when AUTH_LOCAL_SECOND_FACTOR_KEY is set: authenticator apps show its host.");
     }
     return "http://localhost:5173";
@@ -121,17 +121,17 @@ function resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, oauthEna
 
 /**
  * How a password recovery link reaches the person: by email through the
- * installed recovery sender; otherwise, outside production, in the log or in
- * the response (AUTH_LOCAL_RECOVERY_DEV_OUTPUT=response). In production without
+ * installed recovery sender; otherwise, in development and test, in the log or in
+ * the response (AUTH_LOCAL_RECOVERY_DEV_OUTPUT=response). In staging and production without
  * a sender, recovery is disabled, and AUTH_LOCAL_RECOVERY_DEV_OUTPUT stops
  * startup (resolveLocalAuthConfig).
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ emailRecovery: boolean, isProduction: boolean }} options
+ * @param {{ emailRecovery: boolean, isDeployed: boolean }} options
  * @returns {"email" | "disabled" | "dev-response" | "dev-log"}
  */
-function resolveRecoveryDelivery(env, { emailRecovery, isProduction }) {
+function resolveRecoveryDelivery(env, { emailRecovery, isDeployed }) {
   if (emailRecovery) return "email";
-  if (isProduction) return "disabled";
+  if (isDeployed) return "disabled";
   const devOutput = String(env.AUTH_LOCAL_RECOVERY_DEV_OUTPUT || "").trim().toLowerCase();
   return devOutput === "response" ? "dev-response" : "dev-log";
 }
@@ -142,20 +142,20 @@ function resolveRecoveryDelivery(env, { emailRecovery, isProduction }) {
  * reaches the person: by email through the installed confirmation sender, or,
  * in development without one, in the registration's response (the sign-in
  * screen shows it) and the log. Confirmation guards self-registration: in
- * production without a sender, startup stops while anyone may register,
+ * staging and production without a sender, startup stops while anyone may register,
  * because nobody could confirm, and with self-registration off (invited
  * accounts and the first one, admitted by its setup code) nothing is confirmed.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} env
- * @param {{ emailConfirmationSender: boolean, isProduction: boolean, selfRegistration: boolean }} options
+ * @param {{ emailConfirmationSender: boolean, isDeployed: boolean, selfRegistration: boolean }} options
  * @returns {"email" | "dev-response" | "off"}
  */
-function resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction, selfRegistration }) {
+function resolveConfirmationDelivery(env, { emailConfirmationSender, isDeployed, selfRegistration }) {
   if (!parseBooleanFlag(env.AUTH_LOCAL_EMAIL_CONFIRMATION, true)) return "off";
   if (emailConfirmationSender) return "email";
-  if (isProduction) {
+  if (isDeployed) {
     if (!selfRegistration) return "off";
     throw new Error(
-      "Local auth confirms each new account's email address in production, and no auth.local.confirmation-sender " +
+      "Local auth confirms each new account's email address in staging and production, and no auth.local.confirmation-sender " +
         "is installed to email the confirmation links. Install one, set AUTH_LOCAL_EMAIL_CONFIRMATION=false " +
         "to let accounts register without confirming their email, or set AUTH_LOCAL_SELF_REGISTRATION=false " +
         "when accounts are only invited."
@@ -181,7 +181,7 @@ function resolvePasswordMinLength(env) {
 
 /**
  * The local auth configuration, resolved and checked once from the environment.
- * Production is worked out once, by auth-core's dev auth policy, so local auth
+ * Whether it is deployed (APP_ENV staging or production) is worked out once, by auth-core's dev auth policy, so local auth
  * and its dev sign-in agree on it.
  * @param {object} input
  * @param {import("@jskit-ai/kernel/server/types").RuntimeAppRoot} input.appRoot
@@ -193,31 +193,31 @@ function resolvePasswordMinLength(env) {
  */
 function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false }) {
   const devAuth = resolveDevAuthPolicyFromEnv(env);
-  const { isProduction } = devAuth;
+  const { isDeployed } = devAuth;
   const storeDir = resolveStoreDir(env, appRoot);
-  if (fileBackend && isProduction && !parseBooleanFlag(env.AUTH_LOCAL_FILE_PRODUCTION_ACK, false)) {
-    throw new Error("AUTH_LOCAL_FILE_PRODUCTION_ACK is required to use the local file auth backend in production.");
+  if (fileBackend && isDeployed && !parseBooleanFlag(env.AUTH_LOCAL_FILE_PRODUCTION_ACK, false)) {
+    throw new Error("AUTH_LOCAL_FILE_PRODUCTION_ACK is required to use the local file auth backend in staging and production.");
   }
   assertDevAuthPolicy(devAuth);
   assertDevelopmentOnlySettings(env, ["AUTH_LOCAL_RECOVERY_DEV_OUTPUT"]);
   const oauthProviders = resolveOAuthProviders(env);
   const oauthEnabled = oauthProviders.length > 0;
-  const recoveryDelivery = resolveRecoveryDelivery(env, { emailRecovery, isProduction });
+  const recoveryDelivery = resolveRecoveryDelivery(env, { emailRecovery, isDeployed });
   // AUTH_LOCAL_SELF_REGISTRATION, on unless set to false: off, an account registers only by an invitation a feature
   // resolves, or as the first account.
   const selfRegistration = parseBooleanFlag(env.AUTH_LOCAL_SELF_REGISTRATION, true);
-  const confirmationDelivery = resolveConfirmationDelivery(env, { emailConfirmationSender, isProduction, selfRegistration });
-  const sessionSecret = resolveSessionSecret(env, { storeDir, isProduction });
-  const secondFactorKey = resolveSecondFactorKey(env, { isProduction, sessionSecret });
+  const confirmationDelivery = resolveConfirmationDelivery(env, { emailConfirmationSender, isDeployed, selfRegistration });
+  const sessionSecret = resolveSessionSecret(env, { storeDir, isDeployed });
+  const secondFactorKey = resolveSecondFactorKey(env, { isDeployed, sessionSecret });
   const appPublicUrl = resolveAppPublicUrl(env, {
     emailRecovery,
     emailedConfirmation: confirmationDelivery === "email",
     oauthEnabled,
-    productionSecondFactor: isProduction && Boolean(secondFactorKey)
+    deployedSecondFactor: isDeployed && Boolean(secondFactorKey)
   });
   return Object.freeze({
     storeDir,
-    isProduction,
+    isDeployed,
     // The SameSite of every local auth cookie: AUTH_COOKIE_SAME_SITE, "lax" unless set to "strict".
     cookieSameSite: resolveAuthCookieSameSite(env),
     appPublicUrl,
@@ -226,7 +226,7 @@ function resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emai
     sessionSecret,
     // "" when the server has no second factor.
     secondFactorKey,
-    setupCode: resolveSetupCode(env, { isProduction }),
+    setupCode: resolveSetupCode(env, { isDeployed }),
     recoveryDelivery,
     recoveryEnabled: recoveryDelivery !== "disabled",
     selfRegistration,

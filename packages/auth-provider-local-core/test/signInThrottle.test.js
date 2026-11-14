@@ -60,7 +60,7 @@ test("a password reset ends the wait, so recovery is always the way back in", as
 test("sign-in throttle and password length settings are checked at startup", () => {
   const resolve = (env) => resolveLocalAuthConfig({
     appRoot: os.tmpdir(),
-    env: { NODE_ENV: "test", AUTH_LOCAL_SESSION_SECRET: "test-session-secret", ...env },
+    env: { APP_ENV: "test", AUTH_LOCAL_SESSION_SECRET: "test-session-secret", ...env },
     fileBackend: false,
     emailRecovery: false
   });

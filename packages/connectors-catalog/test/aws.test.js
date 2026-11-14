@@ -45,7 +45,7 @@ async function fixture(t, provider = awsS3Provider) {
       return Response.json(response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, requests, resolutions, state, directory, protection };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, requests, resolutions, state, directory, protection };
 }
 
 for (const provider of [awsS3Provider, awsAthenaProvider]) {
@@ -66,7 +66,7 @@ for (const provider of [awsS3Provider, awsAthenaProvider]) {
       assert.equal(file.includes(state.secret), false);
       assert.equal(file.includes(state.key), false);
     }
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
     assert.deepEqual(await restarted.status(input), connected);
     state.key = "AKIAROTATEDKEY1234567";
     state.secret = "rotated-secret";
@@ -103,7 +103,7 @@ for (const provider of [awsS3Provider, awsAthenaProvider]) {
     }
     assert.equal(requests.length, 0);
     options.configuration.integrations.aws.settings.sessionTokenRef = "env:AWS_SESSION_TOKEN";
-    const temporary = createConnectionService(options);
+    const temporary = createConnectionService({ appEnv: "test", ...options });
     await assert.rejects(temporary.connectApiKey(input), { code: "connector_binding_missing" });
     state.session = "session/+=value";
     await temporary.connectApiKey(input);
@@ -122,11 +122,11 @@ for (const provider of [awsS3Provider, awsAthenaProvider]) {
     }
     const configuration = structuredClone(options.configuration);
     configuration.integrations.aws.settings.region = "ap-southeast-2";
-    const changed = createConnectionService({ ...options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...options, configuration });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: provider.checkOperation }), { code: "connector_reconnect_required" });
     const count = resolutions.length;
-    const denied = createConnectionService({ ...options, authorize: async () => null });
+    const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => null });
     await assert.rejects(denied.invoke({ ...input, operation: provider.checkOperation }), { code: "connector_access_denied" });
     assert.equal(requests.length, 1);
     assert.equal(resolutions.length, count);
@@ -154,7 +154,7 @@ for (const provider of [awsS3Provider, awsAthenaProvider]) {
     for (const [failure, code] of [["AbortError", "connector_cancelled"], ["TimeoutError", "connector_provider_timeout"]]) {
       const controller = new AbortController();
       let calls = 0;
-      const interrupted = createConnectionService({ ...options, fetchImpl: async () => {
+      const interrupted = createConnectionService({ appEnv: "test", ...options, fetchImpl: async () => {
         calls++;
         controller.abort(new DOMException("Interrupted", failure));
         throw new Error("Wrapped failure");
@@ -210,7 +210,7 @@ test("S3 presigns GET and PUT for exact keys with bounded expiry, read/write pol
   }
   const configuration = structuredClone(options.configuration);
   configuration.integrations.aws.scopes = ["read"];
-  const reader = createConnectionService({ ...options, configuration });
+  const reader = createConnectionService({ appEnv: "test", ...options, configuration });
   await reader.connectApiKey(input);
   await assert.rejects(reader.invoke({ ...input, operation: "objects.uploadUrl", input: { key: "file" } }), { code: "connector_scope_missing" });
   assert.equal(requests.length, 2, "Only connection checks contact S3; URL construction is not upload/download proof.");
@@ -268,7 +268,7 @@ test("S3 transfer composition preserves denial, HTTP failures and uncertain writ
     } }), new RegExp(`HTTP ${status}`));
   }
   assert.equal(calls, 4);
-  const denied = createConnectionService({ ...options, authorize: async () => null });
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => null });
   await assert.rejects(transferS3Object({ ...args, service: denied, fetchImpl: async () => { calls++; } }), { code: "connector_access_denied" });
   await assert.rejects(transferS3Object({ ...args, signal: AbortSignal.abort(), fetchImpl: async () => { calls++; } }), { name: "AbortError" });
   assert.equal(calls, 4);
@@ -281,13 +281,13 @@ test("S3 transfer composition preserves denial, HTTP failures and uncertain writ
 test("S3 local permissions never masquerade as an IAM grant and cannot bypass connection verification", async (t) => {
   const { options, requests, resolutions, state } = await fixture(t);
   options.configuration.integrations.aws.scopes = ["write"];
-  assert.throws(() => createConnectionService(options), (error) => {
+  assert.throws(() => createConnectionService({ appEnv: "test", ...options }), (error) => {
     assert.equal(error.fieldErrors["integrations.aws.scopes"], "Include this provider's required permissions.");
     return true;
   });
   assert.equal(resolutions.length, 0);
   options.configuration.integrations.aws.scopes = ["read"];
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   assert.deepEqual((await service.connectApiKey(input)).grantedScopes, []);
   state.status = 403;
   state.xml = "<Error><Code>ExpiredToken</Code><Message>Expired session</Message></Error>";
@@ -313,7 +313,7 @@ test("Athena never runs SQL on connect and sends the caller's exact statement an
   const configuration = structuredClone(options.configuration);
   configuration.integrations.aws.settings.resultLocation = "s3://query-results/reports/";
   let authorized;
-  const configured = createConnectionService({ ...options, configuration, authorize: async (owner, request) => { authorized = request; return owner; } });
+  const configured = createConnectionService({ appEnv: "test", ...options, configuration, authorize: async (owner, request) => { authorized = request; return owner; } });
   await configured.connectApiKey(input);
   const fields = { sql: " SELECT '  value  ' ", clientRequestToken: "idempotency-key-for-this-query-0001", database: "reports", catalog: "AwsDataCatalog" };
   const result = await configured.invoke({ ...input, operation: "query.start", input: fields });
@@ -364,7 +364,7 @@ test("Athena rejects malformed verification and results, validates pagination an
   for (const fields of [{ queryId: " " }, { queryId: "query-1", maxResults: 0 }, { queryId: "query-1", maxResults: 1.5 }, { queryId: "query-1", nextToken: "" }, { queryId: "query-1", queryResultType: "DATA_MANIFEST" }]) {
     await assert.rejects(service.invoke({ ...input, operation: "query.results", input: fields }), { code: "connector_input_invalid" });
   }
-  const malformed = createConnectionService({ ...options, fetchImpl: async (_, init) => {
+  const malformed = createConnectionService({ appEnv: "test", ...options, fetchImpl: async (_, init) => {
     const target = new Headers(init.headers).get("x-amz-target");
     return Response.json(target.endsWith("GetQueryExecution") ? query : { ResultSet: {} });
   } });
@@ -397,7 +397,7 @@ test("Athena browses catalogs, databases and typed table metadata with opaque pa
   state.response = { TableMetadataList: [{ Name: "orders", Columns: [{ Name: "bad", Type: 42 }] }] };
   await assert.rejects(service.invoke({ ...input, operation: "tables.list", input: { catalog: "AwsDataCatalog", database: "reports" } }), { code: "connector_response_invalid" });
   await assert.rejects(service.invoke({ ...input, operation: "catalogs.list", input: { maxResults: 1 } }), { code: "connector_input_invalid" });
-  const denied = createConnectionService({ ...options, authorize: async () => { throw new Error("Catalog not authorized"); } });
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => { throw new Error("Catalog not authorized"); } });
   const count = resolutions.length;
   await assert.rejects(denied.invoke({ ...input, operation: "databases.list", input: { catalog: "private" } }), /Catalog not authorized/);
   assert.equal(resolutions.length, count);

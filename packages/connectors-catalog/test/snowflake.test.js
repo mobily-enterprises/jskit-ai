@@ -70,7 +70,7 @@ async function fixture(t, { role = "REPORTING_READER", accountUrl = "https://myo
       return Response.json(state.value === undefined ? [database] : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = async () => {
     const { authorizationUrl } = await service.beginAuthorization({ ...args, verificationInput: { showLimit: 1 } });
     const url = new URL(authorizationUrl); const returned = new URL(callback);
@@ -91,7 +91,7 @@ test("Snowflake binds PKCE and credentials to the account and persists encrypted
     const value = await readFile(path.join(f.directory, file), "utf8");
     for (const secret of ["private-code", "private+secret/=", "private-access-1", "private-refresh-1"]) assert.equal(value.includes(secret), false);
   }
-  const restarted = createConnectionService(f.options);
+  const restarted = createConnectionService({ appEnv: "test", ...f.options });
   assert.equal((await restarted.status(args)).status, "connected");
   assert.deepEqual((await restarted.status(args)).grantedScopes, ["refresh_token", "session:role:REPORTING_READER"]);
   assert.deepEqual(await restarted.invoke({ ...args, operation: "databases.list" }), [database]);
@@ -131,12 +131,12 @@ test("Snowflake isolates application users and invalidates saved grants after ac
   for (const owner of [{ ...context, subjectId: "another" }, { ...context, applicationId: "another" }]) {
     await assert.rejects(f.service.invoke({ ...args, context: owner, operation: "databases.list" }), { code: "connector_reconnect_required" });
   }
-  const denied = createConnectionService({ ...f.options, authorize: async () => null });
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async () => null });
   await assert.rejects(denied.invoke({ ...args, operation: "databases.list" }), { code: "connector_access_denied" });
   for (const settings of [{ accountUrl: "https://other-account.snowflakecomputing.com", role: "REPORTING_READER" }, { accountUrl: "https://myorg-myaccount.snowflakecomputing.com", role: "PUBLIC" }]) {
     const configuration = structuredClone(f.options.configuration); configuration.integrations.warehouse.settings = settings;
     configuration.integrations.warehouse.scopes = getProviderScopes(snowflakeProvider, settings).map((scope) => scope.value);
-    const changed = createConnectionService({ ...f.options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...f.options, configuration });
     assert.equal((await changed.status(args)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...args, operation: "databases.list" }), { code: "connector_reconnect_required" });
   }
@@ -146,7 +146,7 @@ test("Snowflake isolates application users and invalidates saved grants after ac
 test("Snowflake saves rotated refresh tokens before a failed read and marks revoked tokens for reconnection", async (t) => {
   const f = await fixture(t, { basic: true }); await f.connect(); f.state.time += 121_000; f.state.status = 429; f.state.secret = "rotated+secret/=";
   await assert.rejects(f.service.invoke({ ...args, operation: "databases.list" }), { code: "connector_rate_limited" });
-  f.state.status = 200; const restarted = createConnectionService(f.options);
+  f.state.status = 200; const restarted = createConnectionService({ appEnv: "test", ...f.options });
   await restarted.invoke({ ...args, operation: "databases.list" }); assert.equal(f.state.count, 2);
   f.state.time += 121_000; f.state.tokenStatus = 400;
   await assert.rejects(restarted.invoke({ ...args, operation: "databases.list" }), (error) => error.code === "connector_reconnect_required" && !error.message.includes("private"));
@@ -171,7 +171,7 @@ test("Snowflake accepts short-lived consent without refresh and rejects malforme
 test("Snowflake consumes denied, cancelled, mismatched and replayed attempts while preserving earlier access", async (t) => {
   const f = await fixture(t); await f.connect(); const start = await f.start();
   const configuration = structuredClone(f.options.configuration); configuration.integrations.warehouse.settings.accountUrl = "https://other-account.snowflakecomputing.com";
-  const other = createConnectionService({ ...f.options, configuration });
+  const other = createConnectionService({ appEnv: "test", ...f.options, configuration });
   await assert.rejects(other.completeAuthorization({ ...args, callbackUrl: start.callbackUrl }), { code: "connector_attempt_invalid" });
   const denied = await f.start(); const returned = new URL(denied.callbackUrl); returned.searchParams.delete("code"); returned.searchParams.set("error", "access_denied");
   await assert.rejects(f.service.completeAuthorization({ ...args, callbackUrl: returned.href }), { code: "connector_consent_denied" });
@@ -329,7 +329,7 @@ test("Snowflake application policy gates SQL, handles and warehouse resources be
   const handle = "019c07a7-0000-df4f-0000-001000067872";
   const deniedHandle = "536fad38-b564-4dc5-9892-a4543504df6c";
   const seen = [];
-  const service = createConnectionService({ ...f.options, authorize: async (owner, request) => {
+  const service = createConnectionService({ appEnv: "test", ...f.options, authorize: async (owner, request) => {
     seen.push(request);
     if ((request.operation === "statements.submit" && request.input.statement !== "select 1") ||
       (request.operation === "statements.get" && request.input.handle !== handle) ||

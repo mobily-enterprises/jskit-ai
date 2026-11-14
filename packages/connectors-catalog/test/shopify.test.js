@@ -58,14 +58,14 @@ async function fixture(t, { method = "oauth2", scopes = ["read_products", "write
       return Response.json(state.value === undefined ? value : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const connect = () => method === "oauth2" ? service.connectClientCredentials(args) : service.connectApiKey(args);
   return { directory, options, state, requests, decisions, service, connect };
 }
 
 test("Shopify verifies and persists organization-app grants with the Shopify header, renewal and bounded product pages", async (t) => {
   const f = await fixture(t); assert.equal((await f.connect()).status, "connected");
-  const restarted = createConnectionService(f.options); assert.equal((await restarted.status(args)).status, "connected");
+  const restarted = createConnectionService({ appEnv: "test", ...f.options }); assert.equal((await restarted.status(args)).status, "connected");
   const result = await restarted.invoke({ ...args, operation: "products.list", input: { first: 1, after: "cursor & next", query: "status:active" } });
   assert.deepEqual(result.data.products.nodes, [product]);
   assert.deepEqual(JSON.parse(f.requests.at(-1).init.body).variables, { first: 1, after: "cursor & next", query: "status:active" });
@@ -118,7 +118,7 @@ test("Shopify preserves read-only configuration and actual OAuth grants even whe
   for (const method of ["oauth2", "api-key"]) {
     const f = await fixture(t, { method, scopes: ["read_products"] }); await f.connect(); const count = f.requests.length;
     f.state.approved = true;
-    const assistant = createConnectionService({ ...f.options, executionMode: "assistant" });
+    const assistant = createConnectionService({ appEnv: "test", ...f.options, executionMode: "assistant" });
     await assert.rejects(assistant.invoke({ ...args, operation: "products.create", input: { product: { title: "New" } } }), { code: "connector_scope_missing" });
     assert.equal(f.requests.length, count);
   }
@@ -144,7 +144,7 @@ test("Shopify binds connection access to the application, subject, permanent sho
     await assert.rejects(f.service.invoke({ ...args, context: owner, operation: "products.list" }), { code: "connector_reconnect_required" });
   }
   const configuration = structuredClone(f.options.configuration); configuration.integrations.shopify.settings.shopDomain = "other.myshopify.com";
-  const changed = createConnectionService({ ...f.options, configuration });
+  const changed = createConnectionService({ appEnv: "test", ...f.options, configuration });
   assert.equal((await changed.status(args)).status, "reconnect-required");
   await assert.rejects(changed.invoke({ ...args, operation: "products.list" }), { code: "connector_reconnect_required" });
   f.state.denied = true; await assert.rejects(f.service.invoke({ ...args, operation: "products.list" }), { code: "connector_access_denied" });
@@ -182,13 +182,13 @@ test("Shopify rejects malformed GraphQL results and distinguishes throttling, de
 
 test("Shopify assistant permissions require host approval for the exact action and immutable input", async (t) => {
   const f = await fixture(t); await f.connect();
-  const assistant = createConnectionService({ ...f.options, executionMode: "assistant" });
+  const assistant = createConnectionService({ appEnv: "test", ...f.options, executionMode: "assistant" });
   const input = { product: { title: "Approved product" } }; const call = { ...args, operation: "products.create", input };
   const count = f.requests.length;
   await assert.rejects(assistant.invoke(call), { code: "connector_approval_required" }); assert.equal(f.requests.length, count);
   assert.deepEqual(f.decisions.at(-1).assistantPermission, { action: "products.create", decision: "ask" });
   f.state.approved = true;
-  const changing = createConnectionService({ ...f.options, executionMode: "assistant", authorize: async (owner, request) => {
+  const changing = createConnectionService({ appEnv: "test", ...f.options, executionMode: "assistant", authorize: async (owner, request) => {
     assert.deepEqual(request.input, input); input.product.title = "Caller changed"; request.input.product.title = "Policy changed";
     request.assistantPermission.decision = "always"; return { ...owner, approved: true };
   } });
@@ -200,25 +200,25 @@ test("Shopify assistant permissions require host approval for the exact action a
 
 test("Shopify assistant never/always policies, overrides and disabled access preserve normal app authorization and cleanup", async (t) => {
   const f = await fixture(t, { assistantPolicy: { enabled: true, defaultPermission: "never", actions: { "products.list": "always", "products.create": "ask" } } });
-  await f.connect(); const assistant = createConnectionService({ ...f.options, executionMode: "assistant" });
+  await f.connect(); const assistant = createConnectionService({ appEnv: "test", ...f.options, executionMode: "assistant" });
   await assistant.invoke({ ...args, operation: "products.list" });
   await assert.rejects(assistant.invoke({ ...args, operation: "products.delete", input: { input: { id: product.id } } }), { code: "connector_access_denied" });
   f.state.denied = true; await assert.rejects(assistant.invoke({ ...args, operation: "products.list" }), { code: "connector_access_denied" }); f.state.denied = false;
   const configuration = structuredClone(f.options.configuration); configuration.integrations.shopify.assistantPolicy.enabled = false;
-  const disabled = createConnectionService({ ...f.options, configuration, executionMode: "assistant" });
+  const disabled = createConnectionService({ appEnv: "test", ...f.options, configuration, executionMode: "assistant" });
   await assert.rejects(disabled.invoke({ ...args, operation: "products.list" }), { code: "connector_access_denied" });
   assert.equal((await disabled.status(args)).status, "connected"); await disabled.disconnect(args);
   assert.equal((await disabled.status(args)).status, "disconnected");
 });
 
 test("Shopify lifecycle permissions authorize declared host actions without inventing store activation or claiming", async (t) => {
-  const f = await fixture(t); const assistant = createConnectionService({ ...f.options, executionMode: "assistant" });
+  const f = await fixture(t); const assistant = createConnectionService({ appEnv: "test", ...f.options, executionMode: "assistant" });
   await assert.rejects(assistant.authorizeAssistantAction({ ...args, action: "claim", input: { store: "fixture-store" } }), { code: "connector_approval_required" });
   f.state.approved = true; await assistant.authorizeAssistantAction({ ...args, action: "claim", input: { store: "fixture-store" } });
   assert.deepEqual(f.decisions.at(-1).input, { store: "fixture-store" }); assert.equal(f.requests.length, 0);
   await assert.rejects(assistant.authorizeAssistantAction({ ...args, action: "invented" }), { code: "connector_operation_unknown" });
   await assert.rejects(f.service.authorizeAssistantAction({ ...args, action: "claim" }), { code: "connector_operation_unknown" });
-  assert.throws(() => createConnectionService({ ...f.options, executionMode: "browser-choice" }));
+  assert.throws(() => createConnectionService({ appEnv: "test", ...f.options, executionMode: "browser-choice" }));
 });
 
 test("Shopify reports provider failures and cancellation without retrying a product mutation", async (t) => {

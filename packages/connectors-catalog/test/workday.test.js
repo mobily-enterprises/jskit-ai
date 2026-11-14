@@ -70,7 +70,7 @@ async function fixture(t, { prefix = "/ccx", version = "v1", method = "client_se
       return Response.json(state.value === undefined ? url.pathname.endsWith("/me") ? me : { data: [me], total: 1 } : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = async () => {
     const { authorizationUrl } = await service.beginAuthorization(args); const url = new URL(authorizationUrl);
     const returned = new URL(callback); returned.searchParams.set("state", url.searchParams.get("state")); returned.searchParams.set("code", "private-code");
@@ -91,7 +91,7 @@ test("Workday confidential consent uses the tenant's distinct authorization host
     const result = await f.service.completeAuthorization({ ...args, callbackUrl: start.callbackUrl });
     assert.equal(result.status, "connected"); assert.deepEqual(result.grantedScopes, []); assert.equal(JSON.stringify(result).includes("private"), false);
     assert.equal(f.requests.at(-1).url.pathname, "/ccx/api/staffing/v7/acme_corp/workers/me");
-    const restarted = createConnectionService(f.options); assert.equal((await restarted.status(args)).status, "connected");
+    const restarted = createConnectionService({ appEnv: "test", ...f.options }); assert.equal((await restarted.status(args)).status, "connected");
     assert.deepEqual(await restarted.invoke({ ...args, operation: "workers.me" }), me);
     for (const file of await readdir(f.directory)) {
       const value = await readFile(path.join(f.directory, file), "utf8");
@@ -124,7 +124,7 @@ test("Workday rejects invalid paging and caller endpoint or identity overrides b
     await assert.rejects(f.service.invoke({ ...args, operation: "workers.list", input }));
   }
   await assert.rejects(f.service.invoke({ ...args, operation: "workers.me", input: { id: "other" } }));
-  const denied = createConnectionService({ ...f.options, authorize: async () => { throw new Error("Denied by host"); } });
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async () => { throw new Error("Denied by host"); } });
   await assert.rejects(denied.invoke({ ...args, operation: "workers.me" }), /Denied by host/u);
   assert.equal(f.requests.length, count);
 });
@@ -141,7 +141,7 @@ test("Workday binds connections and pending attempts to owner, application and a
     (settings) => { for (const key of ["restApiEndpoint", "tokenEndpoint"]) settings[key] = settings[key].replace("wd5-services1", "wd5-services2"); }
   ]) {
     const configuration = structuredClone(f.options.configuration); change(configuration.integrations.workday.settings);
-    const changed = createConnectionService({ ...f.options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...f.options, configuration });
     assert.equal((await changed.status(args)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...args, operation: "workers.me" }), { code: "connector_reconnect_required" });
     const start = await f.start(); await assert.rejects(changed.completeAuthorization({ ...args, callbackUrl: start.callbackUrl }), { code: "connector_attempt_invalid" });

@@ -82,7 +82,7 @@ async function fixture(t, spec) {
       return Response.json({ jsonrpc: "2.0", id: message.id, result }, { headers: { "Mcp-Session-Id": "fixture-session" } });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const complete = (start, extra = "code=fixture-code", issuer = spec.issuer) => service.completeAuthorization({ ...input,
     callbackUrl: `${callback}?state=${new URL(start.authorizationUrl).searchParams.get("state")}&${extra}&iss=${encodeURIComponent(issuer)}` });
   return { service, options, state, requests, directory, protection, complete };
@@ -105,7 +105,7 @@ for (const spec of cases) {
     assert.equal(grant.get("redirect_uri"), callback);
     assert(grant.get("code_verifier"));
     assert(!requests.some(({ message }) => message?.method === "tools/call"));
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
     state.time += 61_000;
     assert.deepEqual(await restarted.invoke({ ...input, operation: "tools.list", input: { cursor: "next-page" } }), state.list);
     const refresh = new URLSearchParams(requests.findLast(({ url }) => url === spec.tokenUrl).init.body);
@@ -142,7 +142,7 @@ for (const spec of cases) {
     const changed = structuredClone(options.configuration);
     changed.registrations.client.clientId = "replacement-client";
     const pending = await service.beginAuthorization(input);
-    const other = createConnectionService({ ...options, configuration: changed });
+    const other = createConnectionService({ appEnv: "test", ...options, configuration: changed });
     await assert.rejects(other.completeAuthorization({ ...input, callbackUrl: `${callback}?code=x&state=${new URL(pending.authorizationUrl).searchParams.get("state")}` }), { code: "connector_attempt_invalid" });
     for (const fields of [{ accountMode: "per-user" }, { scopes: [] }, { scopes: ["admin"] }]) {
       const invalid = structuredClone(options.configuration);
@@ -262,7 +262,7 @@ test("Sentry returns issue context only after exact tool authorization and rejec
   assert.deepEqual(result, state.result);
   const changed = structuredClone(options.configuration);
   changed.integrations.design.settings.projectSlug = "other-project";
-  const other = createConnectionService({ ...options, configuration: changed });
+  const other = createConnectionService({ appEnv: "test", ...options, configuration: changed });
   const count = requests.length;
   await assert.rejects(other.invoke({ ...input, operation: "tools.list" }), { code: "connector_reconnect_required" });
   assert.equal(requests.length, count);

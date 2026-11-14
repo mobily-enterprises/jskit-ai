@@ -11,6 +11,7 @@ test("ElevenLabs returns playable audio and creates a consented voice clone with
   const context = { applicationId: "voice-app", subjectId: "workspace" }; const requests = [];
   let responseMode = "audio"; let status = 200; let deny = false; let fail = false;
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { voice: { provider: "elevenlabs", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:ELEVENLABS_API_KEY" } } } },
     providers: [elevenlabsProvider], authorize: async owner => { if (deny) throw new Error("denied"); return owner; },
     resolveReference: async () => "fixture-voice-key",

@@ -78,7 +78,7 @@ test("Twilio rejects invalid or ambiguous sends before transport and preserves t
   ]) await assert.rejects(service.invoke({ ...input, operation: "calls.create", input: invalid }), { code: "connector_input_invalid" });
   await assert.rejects(service.invoke({ ...input, operation: "messages.get", input: { resourceSid: "../Accounts" } }), { code: "connector_input_invalid" });
   assert.equal(requests.length, 1);
-  const denied = createConnectionService({ sideEffects: "live", ...options, authorize: async () => { throw new Error("App policy denied destination"); } });
+  const denied = createConnectionService({ appEnv: "production", ...options, authorize: async () => { throw new Error("App policy denied destination"); } });
   await assert.rejects(denied.invoke({ ...input, operation: "messages.send", input: base }), /App policy denied destination/u);
   assert.equal(requests.length, 1);
   state.response = { sid: "invalid", account_sid: accountSid, status: "queued" };
@@ -105,7 +105,7 @@ async function fixture(t, region = "us1") {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService({ ...options, sideEffects: "live" }), options, requests, directory, protection, state };
+  return { service: createConnectionService({ ...options, appEnv: "production" }), options, requests, directory, protection, state };
 }
 
 for (const [region, host] of [["us1", "api.twilio.com"], ["ie1", "api.dublin.ie1.twilio.com"], ["au1", "api.sydney.au1.twilio.com"]]) {
@@ -125,7 +125,7 @@ for (const [region, host] of [["us1", "api.twilio.com"], ["ie1", "api.dublin.ie1
       assert.equal(stored.includes(state.secret), false);
       assert.equal(stored.includes(authorization), false);
     }
-    const restarted = createConnectionService({ sideEffects: "live", ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "production", ...options, store: createFileConnectionStore({ directory, protection }) });
     assert.deepEqual(await restarted.status(input), connected);
     state.secret = "rotated-fixture-secret";
     assert.deepEqual(await restarted.invoke({ ...input, operation: "calls.list" }), calls);
@@ -164,11 +164,11 @@ test("Twilio requires re-verification after account, API key identity or region 
   for (const [field, value] of [["accountSid", `AC${"d".repeat(32)}`], ["apiKeySid", `SK${"e".repeat(32)}`], ["region", "ie1"]]) {
     const configuration = structuredClone(options.configuration);
     configuration.integrations.voice.settings[field] = value;
-    const changed = createConnectionService({ sideEffects: "live", ...options, configuration });
+    const changed = createConnectionService({ appEnv: "production", ...options, configuration });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: "calls.list" }), { code: "connector_reconnect_required" });
   }
-  const wrongDestination = createConnectionService({ sideEffects: "live", ...options, providers: [{ ...twilioProvider, operations: {
+  const wrongDestination = createConnectionService({ appEnv: "production", ...options, providers: [{ ...twilioProvider, operations: {
     "calls.list": { scopes: [], request: () => ({ method: "GET", url: `https://api.dublin.ie1.twilio.com/2010-04-01/Accounts/${accountSid}/Calls.json` }) }
   } }] });
   await assert.rejects(wrongDestination.invoke({ ...input, operation: "calls.list" }), { code: "connector_destination_invalid" });

@@ -24,7 +24,7 @@ function localServiceOptions({ env = {}, emailRecovery = false, emailConfirmatio
     config: resolveLocalAuthConfig({
       appRoot: os.tmpdir(),
       env: {
-        NODE_ENV: "test",
+        APP_ENV: "test",
         AUTH_LOCAL_SESSION_SECRET: "test-session-secret",
         APP_PUBLIC_URL: "http://localhost:5173",
         AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",

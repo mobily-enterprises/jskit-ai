@@ -27,7 +27,7 @@ async function createApp(t) {
       }
     },
     extensions,
-    env: { NODE_ENV: "test" }
+    env: { APP_ENV: "test" }
   });
 
   const app = Fastify();

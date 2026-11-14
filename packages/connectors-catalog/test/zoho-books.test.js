@@ -71,7 +71,7 @@ async function fixture(t, settings = { region: "eu" }, selectedScopes = scopes) 
       return Response.json(state.value === undefined ? value : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = async () => {
     const { authorizationUrl } = await service.beginAuthorization(args); const url = new URL(authorizationUrl);
     const redirect = new URL(callback); redirect.searchParams.set("code", "fixture-code"); redirect.searchParams.set("state", url.searchParams.get("state"));
@@ -94,7 +94,7 @@ test("Zoho Books uses regional PKCE consent and persists verified credentials in
     const text = await readFile(path.join(f.directory, name), "utf8");
     for (const secret of ["fixture-code", "fixture-client-secret", "fixture-access-1", "fixture-refresh-token"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService(f.options);
+  const restarted = createConnectionService({ appEnv: "test", ...f.options });
   assert.equal((await restarted.status(args)).status, "connected");
   assert.deepEqual(await restarted.invoke({ ...args, operation: "organizations.list" }), organizations);
 });
@@ -160,7 +160,7 @@ test("Zoho Books enforces read or full scopes and isolates application and user 
   for (const owner of [{ ...context, applicationId: "other" }, { ...context, subjectId: "other" }]) {
     await assert.rejects(f.service.invoke({ ...args, context: owner, operation: "organizations.list" }), { code: "connector_reconnect_required" });
   }
-  const denied = createConnectionService({ ...f.options, authorize: async () => null });
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async () => null });
   await assert.rejects(denied.invoke({ ...args, operation: "organizations.list" }), { code: "connector_access_denied" });
   assert.equal(f.requests.length, 2);
   const full = await fixture(t, { region: "eu", organizationId: org }, ["ZohoBooks.settings.READ", "ZohoBooks.contacts.ALL", "ZohoBooks.invoices.ALL"]);
@@ -173,7 +173,7 @@ test("Zoho Books refresh retains tokens and scopes across restart and persists b
   assert.equal(f.state.count, 2); f.state.time += 40_000; f.state.status = 429;
   await assert.rejects(f.service.invoke({ ...args, operation: "organizations.list" }), { code: "connector_rate_limited" });
   f.state.status = 200;
-  const restarted = createConnectionService(f.options); await restarted.invoke({ ...args, operation: "organizations.list" });
+  const restarted = createConnectionService({ appEnv: "test", ...f.options }); await restarted.invoke({ ...args, operation: "organizations.list" });
   assert.equal(f.state.count, 3); assert.deepEqual((await restarted.status(args)).grantedScopes, scopes);
   f.state.time += 40_000; f.state.tokenValue = { error: "invalid_code", error_description: "sensitive provider text" };
   await assert.rejects(restarted.invoke({ ...args, operation: "organizations.list" }), { code: "connector_reconnect_required" });
@@ -188,7 +188,7 @@ test("Zoho Books rejects token host substitution and binds saved connections to 
   const f = await fixture(t); await f.connect();
   for (const change of [{ region: "sa" }, { organizationId: org }]) {
     const configuration = structuredClone(f.options.configuration); Object.assign(configuration.integrations.books.settings, change);
-    await assert.rejects(createConnectionService({ ...f.options, configuration }).invoke({ ...args, operation: "organizations.list" }), { code: "connector_reconnect_required" });
+    await assert.rejects(createConnectionService({ appEnv: "test", ...f.options, configuration }).invoke({ ...args, operation: "organizations.list" }), { code: "connector_reconnect_required" });
   }
 });
 

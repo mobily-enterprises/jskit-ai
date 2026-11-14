@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { parseIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/configuration";
 import { createConnectionService, createEnvironmentReferenceResolver } from "@jskit-ai/connectors-core/server";
-import { resolveSideEffectsMode } from "@jskit-ai/kernel/shared/support/sideEffects";
+import { appEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { createFileConnectionStore, createCredentialProtection } from "@jskit-ai/connectors-core/server/file-storage";
 import { firebaseCloudMessagingProvider } from "@jskit-ai/connectors-catalog/server/firebase-cloud-messaging";
 
@@ -28,7 +28,7 @@ export async function openNotificationConnections({
   return createConnectionService({ configuration, providers, store,
     resolveReference: createEnvironmentReferenceResolver(environment),
     authorize: authorizeConnectionOperation,
-    // A push notification is a side effect: a test copy (SIDE_EFFECTS is not `live`) logs it and sends none.
-    sideEffects: resolveSideEffectsMode(environment)
+    // A push notification is a side effect: only production (APP_ENV) sends it; elsewhere it is logged.
+    appEnv: appEnvironment(environment)
   });
 }

@@ -42,7 +42,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, requests, directory, protection, state };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, requests, directory, protection, state };
 }
 
 test("Semrush V4 verifies Projects access, stores no raw key and preserves ownership through restart and rotation", async (t) => {
@@ -58,7 +58,7 @@ test("Semrush V4 verifies Projects access, stores no raw key and preserves owner
     const stored = await readFile(path.join(directory, name), "utf8");
     assert.doesNotThrow(() => JSON.parse(stored)); assert.equal(stored.includes(state.key), false);
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), connected);
   state.key = "rotated-v4-key";
   assert.deepEqual(await restarted.invoke({ ...input, operation: "projects.list" }), page);
@@ -178,7 +178,7 @@ test("Semrush transport failures do not retry or verify the connection, and auth
     assert.equal(requests.length, count + 1);
   }
   state.status = 200; state.response = page; await service.connectApiKey(input);
-  const denied = createConnectionService({ ...options, authorize: async () => { throw new ConnectorError("connector_permission_denied", "Denied", { statusCode: 403 }); } });
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => { throw new ConnectorError("connector_permission_denied", "Denied", { statusCode: 403 }); } });
   const count = requests.length, resolutions = state.resolutions;
   await assert.rejects(denied.invoke({ ...input, operation: "projects.get", input: { projectId: project.project_id } }), { code: "connector_permission_denied" });
   assert.equal(requests.length, count); assert.equal(state.resolutions, resolutions);
@@ -191,7 +191,7 @@ test("Semrush interruption and timeout leave the stored connection usable withou
   const pending = service.invoke({ ...input, operation: "projects.list", signal: controller.signal });
   setTimeout(() => controller.abort(), 15);
   await assert.rejects(pending, { code: "connector_cancelled" });
-  const timeoutService = createConnectionService({ ...options, providers: [{ ...semrushProvider, requestTimeoutMs: 20 }] });
+  const timeoutService = createConnectionService({ appEnv: "test", ...options, providers: [{ ...semrushProvider, requestTimeoutMs: 20 }] });
   const keepAlive = setTimeout(() => {}, 1000);
   try { await assert.rejects(timeoutService.invoke({ ...input, operation: "projects.list" }), { code: "connector_provider_timeout" }); }
   finally { clearTimeout(keepAlive); }
@@ -211,7 +211,7 @@ test("Semrush creates and renames projects without replaying uncertain writes", 
   }
   await assert.rejects(service.invoke({ ...input, operation: "projects.update", input: { projectId: project.project_id } }));
   assert.equal(requests.length, before);
-  const denied = createConnectionService({ ...options, authorize: async (owner, request) => request.operation === "projects.create" ? null : owner });
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async (owner, request) => request.operation === "projects.create" ? null : owner });
   const resolutions = state.resolutions;
   await assert.rejects(denied.invoke({ ...input, operation: "projects.create", input: { domain: "example.test", project_name: "Website" } }), { code: "connector_access_denied" });
   assert.equal(requests.length, before); assert.equal(state.resolutions, resolutions);
@@ -242,7 +242,7 @@ test("Semrush deletion validates the exact project and never retries an uncertai
   await service.connectApiKey(input);
   const deletion = { ...input, operation: "projects.delete", input: { projectId: project.project_id } };
   const before = requests.length, resolutions = state.resolutions;
-  const denied = createConnectionService({ ...options, authorize: async () => null });
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => null });
   await assert.rejects(denied.invoke(deletion), { code: "connector_access_denied" });
   assert.equal(state.resolutions, resolutions);
   for (const projectId of [0, -1, "not-an-id", Number.MAX_SAFE_INTEGER + 1]) {
@@ -354,7 +354,7 @@ test("Semrush V3 domain reports use a separate private key and decode provider C
     requests.push({ url: new URL(address), init, headers: new Headers(init.headers) });
     return new Response(csv, { headers: { "content-type": "text/csv" } });
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   await service.connectApiKey(input);
   const call = { ...input, operation: "domains.overview", input: { domain: "example.test", database: "us" } };
   const report = await service.invoke(call);
@@ -379,7 +379,7 @@ test("Semrush V3 domain reports use a separate private key and decode provider C
     await assert.rejects(service.invoke(call), (error) => error.code === expected && !error.message.includes("private-v3-key"));
   }
   assert.equal((await service.status(input)).status, "connected");
-  const denied = createConnectionService({ ...options, authorize: async () => null,
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => null,
     resolveReference: async () => { throw new Error("Must not resolve a denied caller's key"); } });
   const before = requests.length;
   await assert.rejects(denied.invoke(call), { code: "connector_access_denied" });
@@ -400,7 +400,7 @@ test("Semrush keyword detail pages translate offsets and decode quoted organic/p
     requests.push({ url: new URL(address), init });
     return new Response(csv, { headers: { "content-type": "text/csv" } });
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   await service.connectApiKey(input);
   for (const [prefix, target, value] of [["domains", "domain", "example.test"], ["urls", "url", "https://example.test/a?b=2&c=3"],
     ["subfolders", "subfolder", "example.test/blog/"]]) {
@@ -445,7 +445,7 @@ test("Semrush tracking discovers campaigns and reads dated organic/paid position
     requests.push({ url: new URL(address), init });
     return Response.json(response);
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   await service.connectApiKey(input);
   const campaigns = { ...input, operation: "tracking.campaigns", input: { projectId: project.project_id } };
   assert.deepEqual(await service.invoke(campaigns), response);

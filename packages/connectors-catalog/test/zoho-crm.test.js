@@ -60,7 +60,7 @@ async function fixture(t, settings = { region: "us", environment: "production" }
       return Response.json(state.value === undefined ? value : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = async () => {
     const { authorizationUrl } = await service.beginAuthorization(args); const url = new URL(authorizationUrl);
     const redirect = new URL(callback); redirect.searchParams.set("code", "fixture-code"); redirect.searchParams.set("state", url.searchParams.get("state"));
@@ -84,7 +84,7 @@ test("Zoho CRM uses regional code consent, PKCE, offline access and encrypted re
     const text = await readFile(path.join(f.directory, file), "utf8");
     for (const secret of ["fixture-code", "fixture-client-secret", "fixture-access-1", "fixture-refresh-token"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService(f.options);
+  const restarted = createConnectionService({ appEnv: "test", ...f.options });
   assert.equal((await restarted.status(args)).status, "connected");
   assert.deepEqual(await restarted.invoke({ ...args, operation: "users.current" }), profile);
 });
@@ -131,7 +131,7 @@ test("Zoho CRM honors reduced scopes and full-module grants without cross-user c
   for (const owner of [{ ...context, applicationId: "other" }, { ...context, subjectId: "other" }]) {
     await assert.rejects(f.service.invoke({ ...args, context: owner, operation: "users.current" }), { code: "connector_reconnect_required" });
   }
-  const denied = createConnectionService({ ...f.options, authorize: async () => null });
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async () => null });
   await assert.rejects(denied.invoke({ ...args, operation: "users.current" }), { code: "connector_access_denied" });
   assert.equal(f.requests.length, 2);
   const all = await fixture(t, { region: "us", environment: "production" }, ["ZohoCRM.users.ALL", "ZohoCRM.modules.ALL"]);
@@ -145,7 +145,7 @@ test("Zoho CRM refresh retains the original refresh token and scopes across rest
   f.state.time += 40_000; f.state.status = 429;
   await assert.rejects(f.service.invoke({ ...args, operation: "users.current" }), { code: "connector_rate_limited" });
   f.state.status = 200;
-  const restarted = createConnectionService(f.options); await restarted.invoke({ ...args, operation: "users.current" });
+  const restarted = createConnectionService({ appEnv: "test", ...f.options }); await restarted.invoke({ ...args, operation: "users.current" });
   assert.equal(f.state.count, 3); assert.deepEqual((await restarted.status(args)).grantedScopes, scopes);
   f.state.time += 40_000;
   await restarted.invoke({ ...args, operation: "leads.list" }); assert.equal(f.state.count, 4);
@@ -168,7 +168,7 @@ test("Zoho CRM settings changes require reconnect and consent denial, cancellati
   const f = await fixture(t); await f.connect();
   for (const change of [{ region: "eu" }, { environment: "sandbox" }]) {
     const configuration = structuredClone(f.options.configuration); Object.assign(configuration.integrations.crm.settings, change);
-    await assert.rejects(createConnectionService({ ...f.options, configuration }).invoke({ ...args, operation: "users.current" }), { code: "connector_reconnect_required" });
+    await assert.rejects(createConnectionService({ appEnv: "test", ...f.options, configuration }).invoke({ ...args, operation: "users.current" }), { code: "connector_reconnect_required" });
   }
   const start = await f.start(); const denied = new URL(start.callbackUrl); denied.searchParams.delete("code"); denied.searchParams.set("error", "access_denied");
   await assert.rejects(f.service.completeAuthorization({ ...args, callbackUrl: denied.href }), { code: "connector_consent_denied" });

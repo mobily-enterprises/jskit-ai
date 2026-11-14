@@ -26,11 +26,13 @@ factory or client provider), read the client features guide at
 Simple, direct code comes first: never add a layer, wrapper, registry or tiny
 module only to satisfy a rule. `npm run lint` checks its rules too.
 
-Before writing code that sends email, SMS, push notifications or payments, or
-calls another system, read the side effects guide at
-`https://mobily-enterprises.github.io/jskit-ai/guide/framework/side-effects`.
-Unless `SIDE_EFFECTS` is exactly `live`, the app is a test copy: it simulates
-them and logs them instead.
+Before writing code that sends email, SMS, push notifications or payments,
+calls another system, or depends on where the app runs, read the environments
+guide at
+`https://mobily-enterprises.github.io/jskit-ai/guide/framework/environments`.
+`APP_ENV` (development, test, staging or production) decides all of it: only
+production sends for real, staging sends email and SMS only to its test
+addresses, and `NODE_ENV` only picks optimised builds.
 
 Before implementation, read the narrow relevant source pattern completely. If
 its owner package is installed, prefer that version-matched package-owned copy.

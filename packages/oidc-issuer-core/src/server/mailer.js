@@ -1,4 +1,4 @@
-import { logSimulatedSideEffect } from "@jskit-ai/kernel/server/runtime/sideEffects";
+import { deliverMessage, markStagingEmail } from "@jskit-ai/kernel/server/runtime/appEnvironment";
 import { escapeHtml } from "./http.js";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
@@ -17,18 +17,17 @@ function composeMessage({ heading, body, actionLabel, actionUrl, footer }) {
 }
 
 /**
- * Sends the hub's emails with the owner's own sender: Resend when
- * RESEND_API_KEY is set, otherwise SMTP_URL. Outside production, with neither
- * set, messages are written to the log so the developer can follow the link.
- * A test copy (SIDE_EFFECTS is not `live`) sends nothing: it logs each message,
- * link included, and `send` answers `{ simulated: true }`.
+ * Sends the hub's emails with the owner's own sender, as APP_ENV says (`deliverMessage`): Resend when
+ * RESEND_API_KEY is set, otherwise SMTP_URL. Production sends each to its recipient; staging only to
+ * STAGING_EMAIL_TO, saying who it was for, or logs it when that is unset; development and test log each message,
+ * link included. `send` answers `{ simulated: true }` when the message was logged instead of sent.
  * @param {object} dependencies
  * @param {import("./types.js").HubConfig["mail"]} dependencies.mail
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
- * @param {boolean} dependencies.isProduction
  * @param {typeof fetch} dependencies.fetchImpl
  */
-function createMailer({ mail, logger, isProduction, fetchImpl }) {
+function createMailer({ mail, env, logger, fetchImpl }) {
   let smtpTransport = null;
 
   async function sendWithSmtp(message) {
@@ -43,33 +42,43 @@ function createMailer({ mail, logger, isProduction, fetchImpl }) {
     const response = await fetchImpl(RESEND_ENDPOINT, {
       method: "POST",
       headers: { authorization: `Bearer ${mail.resendApiKey}`, "content-type": "application/json" },
-      body: JSON.stringify({ from: mail.from, to: [message.to], subject: message.subject, text: message.text, html: message.html })
+      body: JSON.stringify({
+        from: mail.from,
+        to: [message.to],
+        subject: message.subject,
+        text: message.text,
+        html: message.html,
+        headers: message.headers
+      })
     });
     if (!response.ok) {
       throw new Error(`The email service refused the message (${response.status}).`);
     }
   }
 
-  /** @returns {Promise<{ simulated: boolean }>} */
-  async function send(message) {
-    if (!mail.live) {
-      logSimulatedSideEffect(logger, {
-        kind: "email",
-        summary: `the accounts hub email "${message.subject}" to ${message.to}`,
-        details: { to: message.to, subject: message.subject, text: message.text }
-      });
-      return { simulated: true };
-    }
+  // Staging and production start only with a sender (resolveHubConfig), and only they send.
+  async function sendNow(message) {
     if (mail.from && mail.resendApiKey) {
       await sendWithResend(message);
     } else if (mail.from && mail.smtpUrl) {
       await sendWithSmtp(message);
-    } else if (isProduction) {
-      throw new Error("The hub has no email sender.");
     } else {
-      logger.info({ to: message.to, subject: message.subject }, `Accounts hub email (not sent: no sender configured)\n${message.text}`);
+      throw new Error("The hub has no email sender.");
     }
-    return { simulated: false };
+  }
+
+  /** @returns {Promise<{ simulated: boolean }>} */
+  async function send(message) {
+    const delivery = await deliverMessage({
+      env,
+      logger,
+      channel: "email",
+      to: message.to,
+      summary: `the accounts hub email "${message.subject}" to ${message.to}`,
+      details: { subject: message.subject, text: message.text },
+      send: (to, { originalTo }) => sendNow(markStagingEmail({ ...message, to }, originalTo))
+    });
+    return { simulated: !delivery.sent };
   }
 
   return Object.freeze({

@@ -16,6 +16,7 @@ test("Apify submits a bounded run, observes terminal states, aborts and retrieve
   let status = 200;
   let deny = false;
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { scraper: {
       provider: "apify", accountMode: "shared", scopes: [],
       authentication: { method: "api-key", secretRef: "env:APIFY_TOKEN" }

@@ -22,6 +22,16 @@ import {
 } from "../src/server/lib/index.js";
 
 const DEV_AUTH_SECRET = "local-preview-exchange-secret";
+// A production server's settings: its secrets and no development output. Only production sends an installed sender's
+// email to its address.
+const PRODUCTION = Object.freeze({
+  APP_ENV: "production",
+  NODE_ENV: "production",
+  AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
+  AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+  AUTH_LOCAL_RECOVERY_DEV_OUTPUT: ""
+});
+const STAGING = Object.freeze({ ...PRODUCTION, APP_ENV: "staging" });
 const temporaryStoreDirs = [];
 
 async function temporaryStoreDir(prefix) {
@@ -147,9 +157,7 @@ async function createStartedApp({
     APP_PUBLIC_URL: "http://localhost:5173",
     // Registration signs in at once here; the email confirmation tests turn confirmation on.
     AUTH_LOCAL_EMAIL_CONFIRMATION: "false",
-    NODE_ENV: "test",
-    // An installed sender sends for real here; the test copy tests leave SIDE_EFFECTS unset.
-    SIDE_EFFECTS: "live",
+    APP_ENV: "test",
     ...env
     },
     "runtime.logger": runtimeLogger,
@@ -437,7 +445,7 @@ test("local auth provider rejects dev login-as enablement in production", async 
         AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
         AUTH_LOCAL_SESSION_SECRET: "production-session-secret",
         AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
-        NODE_ENV: "production"
+        APP_ENV: "production", NODE_ENV: "production"
       }
     }),
     (error) => /must not be enabled in production/.test(
@@ -453,11 +461,11 @@ test("a production server with AUTH_LOCAL_RECOVERY_DEV_OUTPUT set refuses to sta
         AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
         AUTH_LOCAL_SESSION_SECRET: "production-session-secret",
         AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log",
-        NODE_ENV: "production"
+        APP_ENV: "production", NODE_ENV: "production"
       }
     }),
     (error) => String(error.details?.cause?.message || error.message || "") ===
-      "AUTH_LOCAL_RECOVERY_DEV_OUTPUT is for development only and NODE_ENV is production. " +
+      "AUTH_LOCAL_RECOVERY_DEV_OUTPUT is for development only and APP_ENV is production. " +
         "Remove it from the production environment."
   );
 });
@@ -1324,7 +1332,7 @@ test("local file backend replays a pending multi-file transaction journal before
 
 test("a production server without accounts refuses a first registration without its setup code", async () => {
   const app = await createStartedApp({
-    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
+    env: { APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
   });
   assert.equal(app.authService.getCapabilities().features.firstAccountSetupCode, true);
   await assert.rejects(
@@ -1342,7 +1350,7 @@ test("a production server without accounts refuses a first registration without 
 
 test("production sessions use host-only __Host- cookies and ignore the old names", async (t) => {
   const app = await createStartedApp({
-    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
+    env: { APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
   });
   t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
   const registered = await app.authService.register({
@@ -1370,7 +1378,7 @@ test("local recovery uses the application sender without returning or logging it
   const messages = [];
   const logs = [];
   const app = await createStartedApp({
-    env: { NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" },
+    env: { APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" },
     recoverySender: async (message) => { messages.push(message); },
     logger: { info: (...args) => logs.push(args), warn() {}, error() {}, debug() {} }
   });
@@ -1398,19 +1406,11 @@ test("local recovery uses the application sender without returning or logging it
   assert.equal(messages.length, 1);
 });
 
-test("a test copy logs the emails an installed sender would send, sends none and keeps the links out of the answers", async (t) => {
+test("staging sends an installed sender's emails only to STAGING_EMAIL_TO, naming whom each was for, and keeps the links out of the answers", async (t) => {
   const sent = [];
   const logs = [];
   const app = await createStartedApp({
-    env: {
-      SIDE_EFFECTS: undefined,
-      NODE_ENV: "production",
-      AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
-      AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
-      AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
-      AUTH_LOCAL_EMAIL_CONFIRMATION: "",
-      APP_PUBLIC_URL: "https://app.example.test"
-    },
+    env: { ...STAGING, AUTH_LOCAL_EMAIL_CONFIRMATION: "", APP_PUBLIC_URL: "https://app.example.test", STAGING_EMAIL_TO: "qa@example.test" },
     recoverySender: async (message) => { sent.push(message); },
     confirmationSender: async (message) => { sent.push(message); },
     logger: { info: (details, message) => logs.push({ details, message }), warn() {}, error() {}, debug() {} }
@@ -1426,38 +1426,80 @@ test("a test copy logs the emails an installed sender would send, sends none and
   assert.equal(Object.hasOwn(registered, "confirmationUrl"), false);
   const reset = await app.authService.requestPasswordReset({ email: "owner@example.com" });
   assert.equal(reset.recoveryUrl, undefined);
-  // The reset's email is simulated after the answer.
-  const simulatedLogs = () => logs.filter(({ details }) => details?.sideEffects === "simulate" && details.kind === "email");
-  await eventually(() => simulatedLogs().length === 2);
-  assert.deepEqual(sent, [], "nothing sent");
-
-  const simulated = simulatedLogs();
-  assert.deepEqual(simulated.map(({ details }) => details.email), ["tester@example.com", "owner@example.com"]);
-  assert.match(simulated[0].message, /^Test copy: the email confirmation email to tester@example\.com was simulated, not sent/u);
-  assert.match(simulated[0].details.confirmationUrl, /^https:\/\/app\.example\.test\/auth\/login\?confirmation_token=/u);
-  assert.match(simulated[1].message, /^Test copy: the password reset email to owner@example\.com was simulated/u);
-  // The logged links work: the tester confirms the registration and resets the password with them.
-  const confirmationToken = new URL(simulated[0].details.confirmationUrl).searchParams.get("confirmation_token");
+  // The reset's email is sent after the answer.
+  await eventually(() => sent.length === 2);
+  assert.deepEqual(sent.map(({ email, originalEmail }) => [email, originalEmail]), [
+    ["qa@example.test", "tester@example.com"],
+    ["qa@example.test", "owner@example.com"]
+  ], "every email goes to STAGING_EMAIL_TO, naming whom it was for");
+  assert.deepEqual(logs.filter(({ details }) => details?.kind === "email").map(({ message }) => message), [
+    "Staging: the email confirmation email to tester@example.com was sent to qa@example.test (STAGING_EMAIL_TO) instead.",
+    "Staging: the password reset email to owner@example.com was sent to qa@example.test (STAGING_EMAIL_TO) instead."
+  ]);
+  // The links reach the tester's inbox: they confirm the registration and reset the password.
+  const confirmationToken = new URL(sent[0].confirmationUrl).searchParams.get("confirmation_token");
   const confirmed = await app.authService.confirmRegistration({ token: confirmationToken, password: "correct horse battery staple" });
   assert.equal(confirmed.actor.email, "tester@example.com");
   const recovery = await app.authService.completePasswordRecovery({
-    code: new URL(simulated[1].details.recoveryUrl).searchParams.get("token"),
+    code: new URL(sent[1].recoveryUrl).searchParams.get("token"),
     type: "recovery"
   });
   assert.equal(recovery.actor.email, "owner@example.com");
 });
 
-test("a failing recovery sender is logged, never answered, and does not fall back to development output", async (t) => {
+test("staging without STAGING_EMAIL_TO, development and test log the emails an installed sender would send, and send none", async (t) => {
+  for (const [name, env] of [
+    ["staging", { ...STAGING, APP_PUBLIC_URL: "https://app.example.test" }],
+    ["development", { APP_ENV: "development", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }],
+    ["test", { AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }]
+  ]) {
+    await t.test(name, async () => {
+      const sent = [];
+      const logs = [];
+      const app = await createStartedApp({
+        env,
+        recoverySender: async (message) => { sent.push(message); },
+        logger: { info: (details, message) => logs.push({ details, message }), warn() {}, error() {}, debug() {} }
+      });
+      await app.authService.register({
+        email: "owner@example.com",
+        password: "correct horse battery staple",
+        ...(name === "staging" ? { setupCode: await firstAccountSetupCode(app.storeDir) } : {})
+      });
+      const reset = await app.authService.requestPasswordReset({ email: "owner@example.com" });
+      assert.equal(reset.recoveryUrl, undefined);
+      const logged = () => logs.filter(({ details }) => details?.kind === "email");
+      await eventually(() => logged().length === 1);
+      await app.runtime.shutdown();
+      assert.deepEqual(sent, [], "nothing sent");
+      const [{ details, message }] = logged();
+      assert.equal(details.to, "owner@example.com");
+      assert.equal(message, {
+        staging: "Staging: the password reset email to owner@example.com was logged, not sent: STAGING_EMAIL_TO is not set.",
+        development: "Development: the password reset email to owner@example.com was logged, not sent.",
+        test: "Test: the password reset email to owner@example.com was logged, not sent."
+      }[name]);
+      // The logged link works: the tester follows it.
+      assert.match(details.recoveryUrl, /\/auth\/reset-password\?/u);
+    });
+  }
+});
+
+test("a failing recovery sender is logged, never answered", async (t) => {
   const logs = [];
   const errors = [];
   const failure = new Error("delivery unavailable");
   const app = await createStartedApp({
-    env: { AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log" },
+    env: PRODUCTION,
     recoverySender: async () => { throw failure; },
     logger: { info: (...args) => logs.push(args), warn() {}, error: (...args) => errors.push(args), debug() {} }
   });
   t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
-  await app.authService.register({ email: "failure@example.com", password: "correct horse battery staple" });
+  await app.authService.register({
+    email: "failure@example.com",
+    password: "correct horse battery staple",
+    setupCode: await firstAccountSetupCode(app.storeDir)
+  });
   // The requester gets the answer every email gets: a failure only an account's email can have says nothing.
   const answer = await app.authService.requestPasswordReset({ email: "failure@example.com" });
   assert.deepEqual(answer, await app.authService.requestPasswordReset({ email: "nobody@example.com" }));
@@ -1473,6 +1515,7 @@ test("stopping the server waits for a password reset email still being sent", as
   const sent = [];
   const { promise: sending, resolve: finishSending } = Promise.withResolvers();
   const app = await createStartedApp({
+    env: PRODUCTION,
     recoverySender: async ({ email }) => {
       started.push(email);
       await sending;
@@ -1480,7 +1523,11 @@ test("stopping the server waits for a password reset email still being sent", as
     }
   });
   t.after(() => fs.rm(app.storeDir, { recursive: true, force: true }));
-  await app.authService.register({ email: "late@example.com", password: "correct horse battery staple" });
+  await app.authService.register({
+    email: "late@example.com",
+    password: "correct horse battery staple",
+    setupCode: await firstAccountSetupCode(app.storeDir)
+  });
   await app.authService.requestPasswordReset({ email: "late@example.com" });
   await eventually(() => started.length === 1);
 
@@ -1497,7 +1544,7 @@ test("stopping the server waits for a password reset email still being sent", as
 
 test("in production, email confirmation needs an auth.local.confirmation-sender, or startup stops saying what to do", async () => {
   const production = {
-    NODE_ENV: "production",
+    APP_ENV: "production", NODE_ENV: "production",
     AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
     AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
     AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
@@ -1520,7 +1567,7 @@ test("in production, email confirmation needs an auth.local.confirmation-sender,
 test("with AUTH_LOCAL_SELF_REGISTRATION=false, production starts without a confirmation sender and only invitations register", async (t) => {
   const app = await createStartedApp({
     env: {
-      NODE_ENV: "production",
+      APP_ENV: "production", NODE_ENV: "production",
       AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
       AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
       AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
@@ -1586,7 +1633,7 @@ test("the confirmation sender emails the link, which is never returned or logged
   const hooked = [];
   const app = await createStartedApp({
     env: {
-      NODE_ENV: "production",
+      APP_ENV: "production", NODE_ENV: "production",
       AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
       AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
       AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
@@ -1651,10 +1698,20 @@ test("the confirmation sender emails the link, which is never returned or logged
 });
 
 const CONFIRMATION_PASSWORD = "correct horse battery staple";
-const SIDE_EFFECTS_SETTINGS = Object.freeze([
-  Object.freeze({ name: "live", SIDE_EFFECTS: "live" }),
-  Object.freeze({ name: "a test copy", SIDE_EFFECTS: undefined })
+// Where an installed confirmation sender's emails go, by environment: production sends each to its address, staging
+// only to STAGING_EMAIL_TO, test logs it. A staging or production app's first account registers with its setup code.
+const CONFIRMATION_ENVIRONMENTS = Object.freeze([
+  Object.freeze({ name: "production", env: PRODUCTION, sendsTo: (email) => [email, ""] }),
+  Object.freeze({ name: "staging", env: { ...STAGING, STAGING_EMAIL_TO: "qa@example.test" }, sendsTo: (email) => ["qa@example.test", email] }),
+  Object.freeze({ name: "test", env: {}, sendsTo: null })
 ]);
+
+// The first account of a staging or production app, which registers with the setup code its server logged.
+async function registerFirstAccount(app, name) {
+  if (name === "test") return [];
+  await app.authService.register({ email: "owner@example.com", password: CONFIRMATION_PASSWORD, setupCode: await firstAccountSetupCode(app.storeDir) });
+  return ["owner@example.com"];
+}
 
 // A logger that keeps what local auth logs and warns.
 function recordingLogger() {
@@ -1672,24 +1729,24 @@ function recordingLogger() {
   };
 }
 
-// The emails a test copy logged as simulated, by recipient.
-function simulatedEmails(infos) {
+// The emails logged instead of sent, by recipient.
+function loggedEmails(infos) {
   return infos
-    .filter(({ details }) => details?.sideEffects === "simulate" && details.kind === "email")
-    .map(({ details }) => details.email);
+    .filter(({ details, message }) => details?.kind === "email" && message.includes("was logged, not sent"))
+    .map(({ details }) => details.to);
 }
 
 // An app that confirms registrations at once while its email isn't set up says so, for each registration, through
-// auth.local.confirmation-mode. The mode sends nothing, so a test copy keeps it and answers as live does.
-test("a registration the app's confirmation mode confirms without a link signs in at once, live and in a test copy", async (t) => {
-  for (const { name, SIDE_EFFECTS } of SIDE_EFFECTS_SETTINGS) {
+// auth.local.confirmation-mode. The mode sends nothing, so it applies in every environment.
+test("a registration the app's confirmation mode confirms without a link signs in at once, in every environment", async (t) => {
+  for (const { name, env } of CONFIRMATION_ENVIRONMENTS) {
     await t.test(name, async () => {
       const sent = [];
       const asked = [];
       const hooked = [];
       const { infos, logger } = recordingLogger();
       const app = await createStartedApp({
-        env: { SIDE_EFFECTS, AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
+        env: { ...env, AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
         confirmationSender: async (message) => { sent.push(message.email); },
         confirmationMode: async ({ email }) => {
           asked.push(email);
@@ -1703,30 +1760,32 @@ test("a registration the app's confirmation mode confirms without a link signs i
           }));
         }
       });
+      const owners = await registerFirstAccount(app, name);
       const registered = await app.authService.register({ email: "Ada@example.com", password: CONFIRMATION_PASSWORD });
       assert.equal(registered.requiresEmailConfirmation, false);
       assert.equal(registered.actor.email, "ada@example.com");
       assert.ok(registered.session.access_token);
       assert.deepEqual(asked, ["ada@example.com"]);
-      assert.deepEqual(hooked, ["ada@example.com"]);
+      assert.deepEqual(hooked, [...owners, "ada@example.com"]);
       assert.deepEqual(sent, [], "nothing sent");
-      assert.deepEqual(simulatedEmails(infos), [], "nothing simulated");
+      assert.deepEqual(loggedEmails(infos), [], "nothing logged");
       const signedIn = await app.authService.login({ email: "ada@example.com", password: CONFIRMATION_PASSWORD });
       assert.equal(signedIn.actor.email, "ada@example.com");
     });
   }
 });
 
-test("without a confirmation mode a registration waits for its link, which live sends and a test copy logs", async (t) => {
-  for (const { name, SIDE_EFFECTS } of SIDE_EFFECTS_SETTINGS) {
+test("without a confirmation mode a registration waits for its link, which production sends, staging sends to STAGING_EMAIL_TO and test logs", async (t) => {
+  for (const { name, env, sendsTo } of CONFIRMATION_ENVIRONMENTS) {
     await t.test(name, async () => {
       const sent = [];
       const { infos, logger } = recordingLogger();
       const app = await createStartedApp({
-        env: { SIDE_EFFECTS, AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
-        confirmationSender: async (message) => { sent.push(message.email); },
+        env: { ...env, AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
+        confirmationSender: async (message) => { sent.push([message.email, message.originalEmail]); },
         logger
       });
+      await registerFirstAccount(app, name);
       const registered = await app.authService.register({ email: "bea@example.com", password: CONFIRMATION_PASSWORD });
       assert.equal(registered.requiresEmailConfirmation, true);
       assert.equal(registered.session, null);
@@ -1735,31 +1794,32 @@ test("without a confirmation mode a registration waits for its link, which live 
         app.authService.login({ email: "bea@example.com", password: CONFIRMATION_PASSWORD }),
         { status: 403, code: "auth.login.emailUnconfirmed" }
       );
-      const live = SIDE_EFFECTS === "live";
-      assert.deepEqual(sent, live ? ["bea@example.com"] : []);
-      assert.deepEqual(simulatedEmails(infos), live ? [] : ["bea@example.com"]);
+      assert.deepEqual(sent, sendsTo ? [sendsTo("bea@example.com")] : []);
+      assert.deepEqual(loggedEmails(infos), sendsTo ? [] : ["bea@example.com"]);
     });
   }
 });
 
-test("a test copy never sends through the app's sender, whatever its confirmation mode answers", async () => {
-  const sent = [];
-  let emailSetUp = true;
-  const { infos, logger } = recordingLogger();
-  const app = await createStartedApp({
-    env: { SIDE_EFFECTS: undefined, AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
-    // A sender that sends real email: a test copy never calls it.
-    confirmationSender: async (message) => { sent.push(message.email); },
-    confirmationMode: async () => (emailSetUp ? "link" : "without-link"),
-    logger
-  });
-  const linked = await app.authService.register({ email: "cy@example.com", password: CONFIRMATION_PASSWORD });
-  assert.equal(linked.requiresEmailConfirmation, true);
-  emailSetUp = false;
-  const atOnce = await app.authService.register({ email: "dee@example.com", password: CONFIRMATION_PASSWORD });
-  assert.equal(atOnce.requiresEmailConfirmation, false);
-  assert.deepEqual(sent, [], "the app's sender never ran");
-  assert.deepEqual(simulatedEmails(infos), ["cy@example.com"]);
+test("development and test never send through the app's sender, whatever its confirmation mode answers", async () => {
+  for (const APP_ENV of ["development", "test"]) {
+    const sent = [];
+    let emailSetUp = true;
+    const { infos, logger } = recordingLogger();
+    const app = await createStartedApp({
+      env: { APP_ENV, AUTH_LOCAL_EMAIL_CONFIRMATION: "" },
+      // A sender that sends real email: development and test never call it.
+      confirmationSender: async (message) => { sent.push(message.email); },
+      confirmationMode: async () => (emailSetUp ? "link" : "without-link"),
+      logger
+    });
+    const linked = await app.authService.register({ email: "cy@example.com", password: CONFIRMATION_PASSWORD });
+    assert.equal(linked.requiresEmailConfirmation, true);
+    emailSetUp = false;
+    const atOnce = await app.authService.register({ email: "dee@example.com", password: CONFIRMATION_PASSWORD });
+    assert.equal(atOnce.requiresEmailConfirmation, false);
+    assert.deepEqual(sent, [], `${APP_ENV}: the app's sender never ran`);
+    assert.deepEqual(loggedEmails(infos), ["cy@example.com"], APP_ENV);
+  }
 });
 
 test("only the exact answer \"without-link\" confirms without a link, and a confirmation mode never stands in for a sender", async () => {
@@ -1787,7 +1847,7 @@ test("only the exact answer \"without-link\" confirms without a link, and a conf
   await assert.rejects(
     () => createStartedApp({
       env: {
-        NODE_ENV: "production",
+        APP_ENV: "production", NODE_ENV: "production",
         AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
         AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
         AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",

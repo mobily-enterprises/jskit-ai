@@ -1,5 +1,4 @@
 import { defineFeature } from "@jskit-ai/kernel/server/features";
-import { sideEffectsAreLive } from "@jskit-ai/kernel/shared/support/sideEffects";
 import { createWorkspaceBootstrapContributor } from "./workspaceBootstrapContributor.js";
 import { registerWorkspaceDirectoryRoutes } from "./workspaceDirectory/workspaceDirectoryRoutes.js";
 import { createWorkspaceDirectoryActions } from "./workspaceDirectory/workspaceDirectoryActions.js";
@@ -9,7 +8,7 @@ import { registerWorkspacePendingInvitationsRoutes } from "./workspacePendingInv
 import { createWorkspacePendingInvitationsActions } from "./workspacePendingInvitations/workspacePendingInvitationsActions.js";
 import { registerWorkspaceSettingsRoutes } from "./workspaceSettings/workspaceSettingsRoutes.js";
 import { unconfiguredWorkspaceInviteMailer } from "./workspaceMembers/unconfiguredWorkspaceInviteMailer.js";
-import { createSimulatedWorkspaceInviteMailer } from "./workspaceMembers/simulatedWorkspaceInviteMailer.js";
+import { createAppEnvironmentInviteMailer } from "./workspaceMembers/appEnvironmentInviteMailer.js";
 import { renderDefaultWorkspaceInviteEmail } from "./workspaceMembers/defaultWorkspaceInviteEmail.js";
 import { noInviteAcceptanceParticipant } from "./workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { noWorkspaceCreatedParticipant } from "./workspaceDirectory/noWorkspaceCreatedParticipant.js";
@@ -83,9 +82,9 @@ const WorkspacesFeature = defineFeature({
       env,
       inviteAcceptanceParticipant: inviteAcceptanceParticipant ?? noInviteAcceptanceParticipant,
       inviteEmailTemplate: inviteEmailTemplate ?? renderDefaultWorkspaceInviteEmail,
-      // A test copy (SIDE_EFFECTS is not live) logs the invitations a provided mailer would send, and sends none.
+      // A provided mailer sends as APP_ENV says: only production sends each invitation to its address.
       inviteMailer: inviteMailer
-        ? (sideEffectsAreLive(env) ? inviteMailer : createSimulatedWorkspaceInviteMailer(logger))
+        ? createAppEnvironmentInviteMailer({ env, logger, mailer: inviteMailer })
         : unconfiguredWorkspaceInviteMailer,
       personalWorkspaceName: personalWorkspaceName ?? buildWorkspaceName,
       resources,

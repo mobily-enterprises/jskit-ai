@@ -39,7 +39,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, directory, protection, requests, references, state };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, directory, protection, requests, references, state };
 }
 
 test("Algolia persists a file connection, uses application headers and rotates only the backend key", async (t) => {
@@ -55,7 +55,7 @@ test("Algolia persists a file connection, uses application headers and rotates o
   for (const name of await readdir(directory)) {
     assert.equal((await readFile(path.join(directory, name), "utf8")).includes(state.key), false);
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), connected);
   state.key = "rotated-fixture-secret";
   assert.equal((await restarted.status(input)).status, "reconnect-required");
@@ -121,14 +121,14 @@ test("Algolia searches a named index with encoded paths, JSON parameters and res
 test("Algolia rejects cross-application destinations and requires verification after configuration changes", async (t) => {
   const { service, options, requests } = await fixture(t);
   await service.connectApiKey(input);
-  const wrongDestination = createConnectionService({ ...options, providers: [{ ...algoliaProvider, operations: {
+  const wrongDestination = createConnectionService({ appEnv: "test", ...options, providers: [{ ...algoliaProvider, operations: {
     ...algoliaProvider.operations, "indices.list": { scopes: [], request: () => ({ method: "GET", url: "https://differentapp.algolia.net/1/indexes" }) }
   } }] });
   await assert.rejects(wrongDestination.invoke({ ...input, operation: "indices.list" }), { code: "connector_destination_invalid" });
   assert.equal(requests.length, 1);
   const configuration = structuredClone(options.configuration);
   configuration.integrations.search.settings.applicationId = "OTHERAPP";
-  const changed = createConnectionService({ ...options, configuration });
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration });
   assert.equal((await changed.status(input)).status, "reconnect-required");
   await assert.rejects(changed.invoke({ ...input, operation: "indices.list" }), { code: "connector_reconnect_required" });
   assert.equal(requests.length, 1);

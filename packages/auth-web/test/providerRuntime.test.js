@@ -110,7 +110,7 @@ async function startAuthWeb({ env = {}, authService = null } = {}) {
       "runtime.logger": silentLogger,
       "auth.service": authService || createAuthService(),
       "runtime.config": {},
-      "runtime.env": { NODE_ENV: "test", ...env },
+      "runtime.env": { APP_ENV: "test", ...env },
       "runtime.fastify": fastify
     },
     providers: [EventProvider, ActionProvider, HttpProvider, AuthFeature, AuthWebFeature]
@@ -141,7 +141,7 @@ test("AuthWebFeature exposes dev login only when the explicit dev policy enables
   assert.equal(disabled.fastify.routes.some((route) => route.url === "/api/dev-auth/login-as"), false);
   const enabled = await startAuthWeb({
     env: {
-      NODE_ENV: "development",
+      APP_ENV: "development",
       AUTH_DEV_BYPASS_ENABLED: "true",
       AUTH_DEV_BYPASS_SECRET: "test-secret"
     }

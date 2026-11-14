@@ -174,14 +174,20 @@
 
 /**
  * The `auth.local.recovery-sender` capability: sends a password recovery link
- * to the person it belongs to.
- * @typedef {(delivery: { email: string, recoveryUrl: string }) => Promise<void>} AuthLocalRecoverySender
+ * to the person it belongs to. Local auth calls it as APP_ENV says: in
+ * production with that person's address; in staging with STAGING_EMAIL_TO's,
+ * and `originalEmail` the person's, which the email should show (for example
+ * with `markStagingEmail` from `@jskit-ai/kernel/server/runtime/appEnvironment`);
+ * never in development or test, which log the link. `originalEmail` is ""
+ * when the email goes to its own address.
+ * @typedef {(delivery: { email: string, originalEmail?: string, recoveryUrl: string }) => Promise<void>} AuthLocalRecoverySender
  */
 
 /**
  * The `auth.local.confirmation-sender` capability: sends a new registration's
- * email confirmation link to the address it registered.
- * @typedef {(delivery: { email: string, confirmationUrl: string }) => Promise<void>} AuthLocalConfirmationSender
+ * email confirmation link to the address it registered, as APP_ENV says, like
+ * `AuthLocalRecoverySender`.
+ * @typedef {(delivery: { email: string, originalEmail?: string, confirmationUrl: string }) => Promise<void>} AuthLocalConfirmationSender
  */
 
 /**
@@ -190,8 +196,8 @@
  * confirmed. "link" sends the confirmation link, as without one; "without-link"
  * creates the account and signs the person in at once, with an address nobody
  * proved, for example while the application's email isn't set up. Any other
- * answer means "link". It sends nothing, so a test copy keeps it, where it
- * replaces the confirmation sender.
+ * answer means "link". It sends nothing, so it applies in every environment
+ * (APP_ENV), whatever happens to the confirmation sender's emails.
  * @typedef {(registration: { email: string }) => Promise<"link" | "without-link">} AuthLocalConfirmationMode
  */
 

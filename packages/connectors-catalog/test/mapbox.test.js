@@ -36,7 +36,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, directory, protection, requests, state };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, directory, protection, requests, state };
 }
 
 test("Mapbox verifies an active token, persists only references and isolates application owners", async (t) => {
@@ -49,7 +49,7 @@ test("Mapbox verifies an active token, persists only references and isolates app
   assert.equal(requests[0].init.redirect, "error");
   assert.equal(JSON.stringify(connected).includes(state.key), false);
   for (const name of await readdir(directory)) assert.equal((await readFile(path.join(directory, name), "utf8")).includes(state.key), false);
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), connected);
   state.key = "pk.replacement";
   state.response = { code: "TokenValid", token: { usage: "pk", user: "fixture", authorization: "replacement-id" } };
@@ -72,7 +72,7 @@ test("Mapbox keeps browser references separate and re-verifies changed configura
   delete changed.integrations.maps.settings.publicTokenRef;
   assert.deepEqual(parse(changed), changed);
   await service.connectApiKey(input);
-  const replacement = createConnectionService({ ...options, configuration: changed });
+  const replacement = createConnectionService({ appEnv: "test", ...options, configuration: changed });
   assert.equal((await replacement.status(input)).status, "reconnect-required");
   await assert.rejects(replacement.invoke({ ...input, operation: "token.read" }), { code: "connector_reconnect_required" });
   assert.equal(requests.length, 1);

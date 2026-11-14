@@ -69,7 +69,7 @@ test("a preview frames the application in development and, when configured, in p
 
   await context.test("development: the framed page loads and its injected script runs", async (step) => {
     const editor = await startEditor(step);
-    editor.frame(await startApplication(step, { env: { NODE_ENV: "development" } }));
+    editor.frame(await startApplication(step, { env: { APP_ENV: "development" } }));
     const page = await openEditor(browser, editor.origin);
     const preview = page.frameLocator("iframe");
     await expect(preview.getByText("Application page")).toBeVisible();
@@ -79,7 +79,7 @@ test("a preview frames the application in development and, when configured, in p
 
   await context.test("production: another origin cannot frame the application by default", async (step) => {
     const editor = await startEditor(step);
-    editor.frame(await startApplication(step, { env: { NODE_ENV: "production" } }));
+    editor.frame(await startApplication(step, { env: { APP_ENV: "production", NODE_ENV: "production" } }));
     const page = await openEditor(browser, editor.origin);
     await expect.poll(() => page.frames().find((frame) => frame !== page.mainFrame())?.url() || "").toMatch(/^chrome-error:/u);
     await expect(page.frameLocator("iframe").getByText("Application page")).toHaveCount(0);
@@ -89,7 +89,7 @@ test("a preview frames the application in development and, when configured, in p
   await context.test("production: an editor named in frameAncestors frames the application and its script runs", async (step) => {
     const editor = await startEditor(step);
     const applicationUrl = await startApplication(step, {
-      env: { NODE_ENV: "production" },
+      env: { APP_ENV: "production", NODE_ENV: "production" },
       config: { securityHeaders: { frameAncestors: ["'self'", editor.origin] } }
     });
     editor.frame(applicationUrl);

@@ -39,7 +39,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, requests, directory, protection, state };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, requests, directory, protection, state };
 }
 
 test("X verifies public lookup using an app token and preserves file ownership, rotation and disconnect", async (t) => {
@@ -55,7 +55,7 @@ test("X verifies public lookup using an app token and preserves file ownership, 
     const stored = await readFile(path.join(directory, name), "utf8");
     assert.doesNotThrow(() => JSON.parse(stored)); assert.equal(stored.includes(state.key), false);
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), connected);
   state.key = "rotated-app-token";
   assert.deepEqual(await restarted.invoke({ ...input, operation: "users.lookup", input: { username: "example" } }), profile);
@@ -185,7 +185,7 @@ test("X transport errors distinguish billing, missing resources, access and capa
 test("X host authorization precedes token resolution and API calls", async (t) => {
   const { service, options, state, requests } = await fixture(t);
   await service.connectApiKey(verification);
-  const denied = createConnectionService({ ...options, authorize: async (_owner, request) => {
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async (_owner, request) => {
     assert.equal(request.operation, "users.posts"); assert.equal(request.input.userId, profile.data.id);
     throw new ConnectorError("connector_permission_denied", "Denied", { statusCode: 403 });
   } });
@@ -199,14 +199,14 @@ test("X cancellation and timeout do not replay reads or discard a valid connecti
   await service.connectApiKey(verification); state.wait = true;
   const controller = new AbortController();
   const operation = { ...input, operation: "users.lookup", input: { username: "example" } };
-  const cancellableService = createConnectionService({ ...options, fetchImpl: (address, init) => {
+  const cancellableService = createConnectionService({ appEnv: "test", ...options, fetchImpl: (address, init) => {
     const request = options.fetchImpl(address, init);
     controller.abort();
     return request;
   } });
   const pending = cancellableService.invoke({ ...operation, signal: controller.signal });
   await assert.rejects(pending, { code: "connector_cancelled" });
-  const timeoutService = createConnectionService({ ...options, providers: [{ ...xTwitterProvider, requestTimeoutMs: 20 }] });
+  const timeoutService = createConnectionService({ appEnv: "test", ...options, providers: [{ ...xTwitterProvider, requestTimeoutMs: 20 }] });
   const keepAlive = setTimeout(() => {}, 1000);
   try { await assert.rejects(timeoutService.invoke(operation), { code: "connector_provider_timeout" }); }
   finally { clearTimeout(keepAlive); }

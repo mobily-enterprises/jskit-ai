@@ -41,9 +41,9 @@ function setupCodeInvalid() {
 }
 
 /**
- * The first account of a production server. While local auth has no account,
+ * The first account of a staging or production server. While local auth has no account,
  * creating one needs a one-time setup code that only the server's operator can
- * read: each start of an ownerless production server makes a new code, writes
+ * read: each start of an ownerless deployed server makes a new code, writes
  * it in the log and in `first-account-setup-code` in AUTH_LOCAL_STORE_DIR, and
  * keeps only its hash. A hosting tool that supplies the code in
  * AUTH_LOCAL_SETUP_CODE shows it to the operator itself: the server then uses
@@ -97,7 +97,7 @@ function createFirstAccountSetup({ backend, config, logger }) {
       return;
     }
     ownerless = true;
-    if (!config.isProduction) {
+    if (!config.isDeployed) {
       return;
     }
     if (config.setupCode) {
@@ -119,7 +119,7 @@ function createFirstAccountSetup({ backend, config, logger }) {
   }
 
   /**
-   * Checks for an account once, when the server starts; outside production,
+   * Checks for an account once, when the server starts; in development and test,
    * only whether there is one. Later calls answer the same check.
    */
   function start() {

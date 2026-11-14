@@ -19,7 +19,7 @@ test("Paddle maps reads to the captured permission and requires exact host appro
     fetchImpl: () => assert.fail("Authorization must not execute a provider payment action"),
     authorize: async (context, decision) => { decisions.push(decision); return { ...context, approved }; }
   };
-  const runtime = createConnectionService(options);
+  const runtime = createConnectionService({ appEnv: "test", ...options });
   const input = { context: { applicationId: "app", subjectId: "owner" }, integrationId: "paddle" };
   await assert.rejects(runtime.invoke({ ...input, operation: "products.list", input: {} }), { code: "connector_access_denied" });
   assert.equal(decisions.length, 0);
@@ -45,6 +45,7 @@ test("Paddle product and recurring-price writes validate inputs and do not retry
   const webhookId = `ntfset_${"c".repeat(26)}`;
   const webhookWrites = [];
   const runtime = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { paddle: {
       provider: "paddle", accountMode: "shared", scopes: [], settings: { environment: "sandbox" },
       authentication: { method: "api-key", secretRef: "env:PADDLE_API_KEY" }

@@ -62,7 +62,7 @@ async function fixture(t) {
       return Response.json({ jsonrpc: "2.0", id: message.id, result }, { headers: { "Mcp-Session-Id": "atlassian-session" } });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const complete = async (start, extra = "code=fixture-code") => service.completeAuthorization({ ...input,
     callbackUrl: `${callback}?state=${new URL(start.authorizationUrl).searchParams.get("state")}&${extra}` });
   return { service, options, state, requests, directory, protection, complete };
@@ -92,7 +92,7 @@ test("Atlassian v2 binds PKCE and resource grants to its authorization server, t
     assert.equal(request.init.redirect, "error");
     assert.equal(request.init.credentials, "omit");
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   state.time += 61_000;
   assert.deepEqual(await restarted.invoke({ ...input, operation: "tools.list", input: { cursor: "next-page" } }), discovery);
   assert.deepEqual(requests.findLast(({ message }) => message?.method === "tools/list").message.params, { cursor: "next-page" });
@@ -129,7 +129,7 @@ test("Atlassian validates assistant ownership and permissions, and cannot reuse 
   assert.deepEqual(parse(config).integrations.work.scopes, config.integrations.work.scopes);
   assert(atlassianProvider.scopes.filter(({ value }) => /^(write:|delete:|manage:)/.test(value)).every(({ recommended }) => !recommended));
   const start = await service.beginAuthorization(input);
-  const changed = createConnectionService({ ...options, configuration: config });
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration: config });
   await assert.rejects(changed.completeAuthorization({ ...input, callbackUrl: `${callback}?code=x&state=${new URL(start.authorizationUrl).searchParams.get("state")}` }), { code: "connector_attempt_invalid" });
   assert.equal(requests.length, 0);
 });

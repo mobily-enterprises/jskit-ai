@@ -29,6 +29,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, w
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { appEnvironment, isDeployed } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { parseDatabaseUrl, resolveKnexConnectionFromEnvironment, resolveKnexPool } from "../shared/databaseConnection.js";
 import { detectDialectFromClient } from "../shared/dialect.js";
 import { RUNTIME_QUERY_CHANNEL } from "./database.js";
@@ -91,17 +92,17 @@ function connectedDatabaseName(environment) {
 }
 
 /**
- * The disposable database `variable` names, checked with its first `count - 1` copies: never production, never the
- * application's database (DB_NAME, DATABASE_URL's, PROD_DB_NAME, and `connected`, the one its Knex configuration
- * names), and never the other test database or its copies.
+ * The disposable database `variable` names, checked with its first `count - 1` copies: never in staging or
+ * production (APP_ENV), never the application's database (DB_NAME, DATABASE_URL's, PROD_DB_NAME, and `connected`, the
+ * one its Knex configuration names), and never the other test database or its copies.
  * @param {Record<string, string | undefined>} environment
  * @param {"TEST_DB_NAME" | "BROWSER_TEST_DB_NAME"} variable
  * @param {number} [count]
  * @param {{ connected?: string }} [options]
  */
 function requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {}) {
-  if (environment.NODE_ENV === "production") {
-    throw new Error("Test databases are never prepared with NODE_ENV=production.");
+  if (isDeployed(environment)) {
+    throw new Error(`Test databases are never prepared when APP_ENV is ${appEnvironment(environment)}.`);
   }
   const name = String(environment[variable] || "").trim();
   if (!DISPOSABLE_NAME.test(name)) {
@@ -634,8 +635,8 @@ async function createPackageTestKnex(context, { environment }) {
     context.after(() => knex.destroy());
     return knex;
   }
-  if (environment.NODE_ENV === "production") {
-    throw new Error("Package data tests never run with NODE_ENV=production.");
+  if (isDeployed(environment)) {
+    throw new Error(`Package data tests never run when APP_ENV is ${appEnvironment(environment)}.`);
   }
   const connection = {
     ...resolveKnexConnectionFromEnvironment(environment, { client: "pg", defaultPort: 5432 }),

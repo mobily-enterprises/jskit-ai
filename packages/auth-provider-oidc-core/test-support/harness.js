@@ -82,7 +82,7 @@ async function createRelyingParty({ issuer, env = {}, fetchImpl = globalThis.fet
   const config = resolveOidcConfig({
     appRoot,
     env: {
-      NODE_ENV: "development",
+      APP_ENV: "development",
       AUTH_OIDC_ISSUER: issuer.issuer,
       AUTH_OIDC_REGISTRATION_TOKEN: issuer.registrationToken,
       ...env

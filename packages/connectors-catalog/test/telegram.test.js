@@ -11,7 +11,7 @@ test("Telegram sends plain messages and polls without hidden acknowledgement or 
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = [];
   let response = { ok: true, result: { id: 123, is_bot: true, first_name: "Fixture" } }, status = 200;
-  const service = createConnectionService({ sideEffects: "live",
+  const service = createConnectionService({ appEnv: "production",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { forms: {
       provider: "telegram", accountMode: "shared", displayName: "Forms", scopes: [],
       authentication: { method: "api-key", secretRef: "env:TELEGRAM_BOT_TOKEN" }

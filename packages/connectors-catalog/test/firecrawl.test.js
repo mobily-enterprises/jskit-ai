@@ -11,6 +11,7 @@ test("Firecrawl searches and imports bounded crawl pages without leaking the key
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; let status = 200; let fail = false; let malformed = false; let deny = false; let key = "fixture-key";
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { firecrawl: { provider: "firecrawl", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:FIRECRAWL_API_KEY" } } } },
     providers: [firecrawlProvider], authorize: async owner => { if (deny) throw new Error("denied"); return owner; },
     resolveReference: async () => key,

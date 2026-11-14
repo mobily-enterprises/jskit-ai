@@ -56,18 +56,18 @@ test("credential-free grants require verification, authorize access and invalida
     resolveReference: async () => { resolutions++; return "secret"; },
     fetchImpl: async (url, init) => { requests.push({ url, init }); return Response.json({ meta: [], data: [{ ok: 1, user: "default" }], rows: 1 }); }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const input = { context: owner, integrationId: "database" };
   await assert.rejects(service.invoke({ ...input, operation: "connection.check" }), { code: "connector_reconnect_required" });
   await assert.rejects(service.connectApiKey(input), { code: "connector_mode_unavailable" });
   await service.connectWithoutCredentials(input);
   assert.equal(resolutions, 0);
   assert.equal(new Headers(requests[0].init.headers).has("authorization"), false);
-  const restart = createConnectionService(options);
+  const restart = createConnectionService({ appEnv: "test", ...options });
   assert.equal((await restart.status(input)).status, "connected");
   await restart.invoke({ ...input, operation: "connection.check" });
   await assert.rejects(restart.invoke({ ...input, context: { ...owner, subjectId: "other" }, operation: "connection.check" }), { code: "connector_reconnect_required" });
-  const keyed = createConnectionService({ ...options, configuration: databaseConfiguration({ method: "api-key", secretRef: "env:PASSWORD" }) });
+  const keyed = createConnectionService({ appEnv: "test", ...options, configuration: databaseConfiguration({ method: "api-key", secretRef: "env:PASSWORD" }) });
   assert.equal((await keyed.status(input)).status, "reconnect-required");
   await assert.rejects(keyed.invoke({ ...input, operation: "connection.check" }), { code: "connector_reconnect_required" });
   await assert.rejects(keyed.connectWithoutCredentials(input), { code: "connector_mode_unavailable" });
@@ -90,6 +90,7 @@ test("result validation sees the request its operation built and rejects a misma
   const provider = { ...clickhouseProvider, operations: { ...clickhouseProvider.operations, "connection.check": { ...check,
     validateResult: (value, request) => { seen.push(request); return check.validateResult(value) && value.data[0].user === expectedUser; } } } };
   const service = createConnectionService({
+    appEnv: "test",
     configuration: databaseConfiguration({ method: "none" }), providers: [provider], store: memoryStore(),
     authorize: async (context) => context, resolveReference: async () => "secret",
     fetchImpl: async () => Response.json({ meta: [], data: [{ ok: 1, user: "default" }], rows: 1 })
@@ -109,11 +110,11 @@ test("connections without a store fail at startup, naming the feature to registe
     authorize: async (context) => context, resolveReference: async () => ""
   };
   // The kernel's startup error names the missing capability and adds the feature's hint.
-  assert.throws(() => createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options)] }), {
+  assert.throws(() => createCapabilityRuntime({ inputs: { "runtime.env": { APP_ENV: "test" }, "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options)] }), {
     message: 'Provider "connectors.core" requires missing capability "connectors.store". Register createConnectionStoreFeature({ protection }) ' +
       "from @jskit-ai/connectors-core/server/storage in your server providers, or pass createConnectorsFeature({ store })."
   });
-  assert.throws(() => createConnectionService({ ...options, store: {} }), {
+  assert.throws(() => createConnectionService({ appEnv: "test", ...options, store: {} }), {
     name: "TypeError",
     message: /^Connections require a connection store with withConnection\(\): register createConnectionStoreFeature\(\{ protection \}\) from @jskit-ai\/connectors-core\/server\/storage/u
   });
@@ -131,7 +132,7 @@ test("the ordinary credential-free Feature action verifies without resolving ref
       return Response.json({ meta: [], data: [{ ok: 1, user: "default" }], rows: 1 });
     }
   };
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": { APP_ENV: "test" }, "runtime.logger": silentLogger }, providers: [
     EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({ id: "test.credential-free-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })
   ] });
@@ -230,7 +231,7 @@ function setup({ config = configuration(), tokenScopes = `${listScope} ${eventsS
       }, { status: providerStatus });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   async function connect(context = owner) {
     const start = await service.beginAuthorization({ context, integrationId: "calendar" });
     const state = new URL(start.authorizationUrl).searchParams.get("state");
@@ -256,7 +257,7 @@ function serviceAccountSetup() {
       assert.equal(reference, "env:GOOGLE_SECRET", "Service accounts must not resolve a callback binding.");
       return "never-return-this-secret";
     } };
-  return { ...fixture, options, provider, config, service: createConnectionService(options) };
+  return { ...fixture, options, provider, config, service: createConnectionService({ appEnv: "test", ...options }) };
 }
 
 test("client credentials are explicit, confidential, callback-free and cannot impersonate each app user", () => {
@@ -306,7 +307,7 @@ test("service account verification issues a confidential grant without browser s
 test("service account renewal is serialized, requests only its verified grant and survives a failed API read", async () => {
   const { options, requests, advance, store, provider } = serviceAccountSetup();
   const optionsWithVerification = { ...options, providers: [{ ...provider, grantedScopesFromVerification: () => [listScope] }] };
-  const service = createConnectionService(optionsWithVerification);
+  const service = createConnectionService({ appEnv: "test", ...optionsWithVerification });
   const input = { context: owner, integrationId: "calendar" };
   await service.connectClientCredentials(input);
   advance(3_600_000);
@@ -317,7 +318,7 @@ test("service account renewal is serialized, requests only its verified grant an
   assert.deepEqual((await service.status(input)).grantedScopes, [listScope]);
   await assert.rejects(service.invoke({ ...input, operation: "events.list", input: { calendarId: "primary" } }), { code: "connector_scope_missing" });
   advance(3_600_000);
-  const failing = createConnectionService({ ...optionsWithVerification, fetchImpl: async (url, init) =>
+  const failing = createConnectionService({ appEnv: "test", ...optionsWithVerification, fetchImpl: async (url, init) =>
     String(url).endsWith("/token") ? options.fetchImpl(url, init) : Response.json({ message: "secret" }, { status: 403 }) });
   await assert.rejects(failing.invoke({ ...input, operation: "calendars.list" }), { code: "connector_permission_denied" });
   assert.equal([...store.connections.values()][0].tokens.expiresAt, options.now() + 3_600_000);
@@ -332,13 +333,13 @@ test("changing service account scopes or OAuth flow requires an explicit reconne
   await service.connectClientCredentials(input);
   const scoped = structuredClone(config);
   scoped.integrations.calendar.scopes = [listScope];
-  const reduced = createConnectionService({ ...options, configuration: scoped });
+  const reduced = createConnectionService({ appEnv: "test", ...options, configuration: scoped });
   assert.equal((await reduced.status(input)).status, "reconnect-required");
   await assert.rejects(reduced.invoke({ ...input, operation: "calendars.list" }), { code: "connector_reconnect_required" });
   const code = structuredClone(config);
   code.registrations.google.grantType = "authorization_code";
   code.registrations.google.callbackUrlRef = "env:CALLBACK";
-  const browser = createConnectionService({ ...options, configuration: code,
+  const browser = createConnectionService({ appEnv: "test", ...options, configuration: code,
     resolveReference: async (ref) => ref === "env:CALLBACK" ? callback : "never-return-this-secret" });
   assert.equal((await browser.status(input)).status, "reconnect-required");
   await assert.rejects(browser.invoke({ ...input, operation: "calendars.list" }), { code: "connector_reconnect_required" });
@@ -357,7 +358,7 @@ test("revoked service account credentials invalidate the grant without exposing 
   await service.connectClientCredentials(input);
   advance(3_600_000);
   let requests = 0;
-  const broken = createConnectionService({ ...options, fetchImpl: async () => {
+  const broken = createConnectionService({ appEnv: "test", ...options, fetchImpl: async () => {
     requests++;
     return Response.json({ error: "invalid_client", error_description: "private-secret" }, { status: 400 });
   } });
@@ -376,15 +377,15 @@ test("unverified and malformed service grants never replace an existing connecti
   await service.connectClientCredentials(input);
   const saved = structuredClone([...store.connections.values()][0]);
   for (const response of [{ token_type: "Bearer", expires_in: 3600 }, { token_type: "mac", access_token: "private-token" }]) {
-    const malformed = createConnectionService({ ...options, fetchImpl: async () => Response.json(response) });
+    const malformed = createConnectionService({ appEnv: "test", ...options, fetchImpl: async () => Response.json(response) });
     await assert.rejects(malformed.connectClientCredentials(input), { code: "connector_provider_failed" });
     assert.deepEqual([...store.connections.values()][0], saved);
   }
-  const denied = createConnectionService({ ...options, fetchImpl: async (url, init) => String(url).endsWith("/token")
+  const denied = createConnectionService({ appEnv: "test", ...options, fetchImpl: async (url, init) => String(url).endsWith("/token")
     ? options.fetchImpl(url, init) : Response.json({ error: "private" }, { status: 403 }) });
   await assert.rejects(denied.connectClientCredentials(input), { code: "connector_permission_denied" });
   assert.deepEqual([...store.connections.values()][0], saved);
-  const noAccess = createConnectionService({ ...options, authorize: async () => null, fetchImpl: async () => assert.fail("Denied owner reached provider") });
+  const noAccess = createConnectionService({ appEnv: "test", ...options, authorize: async () => null, fetchImpl: async () => assert.fail("Denied owner reached provider") });
   await assert.rejects(noAccess.connectClientCredentials(input), { code: "connector_access_denied" });
 });
 
@@ -396,7 +397,7 @@ test("cancelling a service token exchange preserves the previous grant without r
   let started;
   const requested = new Promise((resolve) => { started = resolve; });
   let calls = 0;
-  const waiting = createConnectionService({ ...options, fetchImpl: async (_url, init) => {
+  const waiting = createConnectionService({ appEnv: "test", ...options, fetchImpl: async (_url, init) => {
     calls++;
     return new Promise((_resolve, reject) => {
       init.signal.addEventListener("abort", () => reject(init.signal.reason), { once: true });
@@ -415,7 +416,7 @@ test("cancelling a service token exchange preserves the previous grant without r
 test("the client credentials Feature action uses the ordinary application policy and runtime", async () => {
   const { options } = serviceAccountSetup();
   let actions;
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options),
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": { APP_ENV: "test" }, "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({ id: "test.service-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })] });
   await runtime.start();
   try {
@@ -432,6 +433,7 @@ test("cancelling an HTTP operation preserves its grant and reports interruption 
   const requested = new Promise((resolve) => { started = resolve; });
   let requests = 0;
   const service = createConnectionService({
+    appEnv: "test",
     ...options,
     fetchImpl: async (url, init) => {
       requests += 1;
@@ -455,7 +457,7 @@ test("provider verification can reduce comma-separated grants without refresh re
   const { options, advance } = setup({ tokenScopes: `${listScope}, ${eventsScope}` });
   let verified = [listScope];
   const provider = { ...googleCalendarProvider, scopeSeparator: ",", grantedScopesFromVerification: () => verified };
-  const service = createConnectionService({ ...options, providers: [provider] });
+  const service = createConnectionService({ appEnv: "test", ...options, providers: [provider] });
   async function connect() {
     const start = await service.beginAuthorization({ context: owner, integrationId: "calendar" });
     const url = new URL(start.authorizationUrl);
@@ -612,7 +614,7 @@ test("OAuth attempts and verified grants stay bound to their provider settings",
   const state = new URL(start.authorizationUrl).searchParams.get("state");
   const config = configuration();
   config.integrations.calendar.settings = { resource: "another-account" };
-  const changed = createConnectionService({ ...options, configuration: config });
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration: config });
   await assert.rejects(changed.completeAuthorization({ context: owner, integrationId: "calendar", callbackUrl: `${callback}?code=x&state=${state}` }), { code: "connector_attempt_invalid" });
   assert.equal(requests.length, 0);
   await connect();
@@ -657,11 +659,11 @@ test("initial OAuth grants cannot activate permissions omitted from configuratio
 test("a provider's confidential non-PKCE exception is explicit and bound to the pending attempt", async () => {
   for (const initialPkce of [true, false]) {
     const { options, requests } = setup();
-    const service = createConnectionService({ ...options, providers: [{ ...googleCalendarProvider, oauthPkce: initialPkce }] });
+    const service = createConnectionService({ appEnv: "test", ...options, providers: [{ ...googleCalendarProvider, oauthPkce: initialPkce }] });
     const start = await service.beginAuthorization({ context: owner, integrationId: "calendar" });
     const url = new URL(start.authorizationUrl);
     assert.equal(url.searchParams.has("code_challenge"), initialPkce);
-    const changed = createConnectionService({ ...options, providers: [{ ...googleCalendarProvider, oauthPkce: !initialPkce }] });
+    const changed = createConnectionService({ appEnv: "test", ...options, providers: [{ ...googleCalendarProvider, oauthPkce: !initialPkce }] });
     await assert.rejects(changed.completeAuthorization({ context: owner, integrationId: "calendar", callbackUrl: `${callback}?code=code&state=${url.searchParams.get("state")}` }), { code: "connector_attempt_invalid" });
     assert.equal(requests.length, 0);
   }
@@ -671,7 +673,7 @@ test("a provider cannot disable PKCE for a public client", async () => {
   const { options } = setup(); const config = configuration();
   config.registrations.google.tokenEndpointAuthMethod = "none";
   delete config.registrations.google.clientSecretRef;
-  const service = createConnectionService({ ...options, configuration: config,
+  const service = createConnectionService({ appEnv: "test", ...options, configuration: config,
     providers: [{ ...googleCalendarProvider, oauthPkce: false, oauthClientAuthenticationMethods: ["none"] }] });
   await assert.rejects(service.beginAuthorization({ context: owner, integrationId: "calendar" }), { code: "connector_mode_unavailable" });
 });
@@ -734,7 +736,7 @@ test("refresh cannot restore declined scopes or grant unrequested permissions wi
   const { options, connect, advance, store } = setup({ tokenScopes: listScope });
   await connect();
   advance(3_600_001);
-  const service = createConnectionService({ ...options, fetchImpl: async (url, init) => {
+  const service = createConnectionService({ appEnv: "test", ...options, fetchImpl: async (url, init) => {
     if (String(url) === "https://oauth2.googleapis.com/token") return Response.json({
       token_type: "Bearer", access_token: "refreshed", refresh_token: "rotated",
       expires_in: 3600, scope: `${listScope} ${eventsScope} unexpected-admin`
@@ -761,7 +763,7 @@ test("an API failure after refresh commits rotated credentials before reporting 
   const { options, connect, advance, store } = setup();
   await connect();
   advance(3_600_001);
-  const service = createConnectionService({ ...options, fetchImpl: async (url, init) => {
+  const service = createConnectionService({ appEnv: "test", ...options, fetchImpl: async (url, init) => {
     if (String(url).endsWith("/token")) return options.fetchImpl(url, init);
     return Response.json({ error: "temporarily unavailable" }, { status: 503 });
   } });
@@ -773,7 +775,7 @@ test("an invalid refresh grant commits reconnect state rather than rolling it ba
   const { options, connect, advance } = setup();
   await connect();
   advance(3_600_001);
-  const service = createConnectionService({ ...options, fetchImpl: async () => Response.json({ error: "invalid_grant" }, { status: 400 }) });
+  const service = createConnectionService({ appEnv: "test", ...options, fetchImpl: async () => Response.json({ error: "invalid_grant" }, { status: 400 }) });
   await assert.rejects(service.invoke({ context: owner, integrationId: "calendar", operation: "events.list" }), { code: "connector_reconnect_required" });
   assert.equal((await service.status({ context: owner, integrationId: "calendar" })).status, "reconnect-required");
 });
@@ -830,7 +832,7 @@ test("saved grants cannot override permissions removed from application source",
   await connect();
   const config = configuration();
   config.integrations.calendar.scopes = [listScope];
-  const service = createConnectionService({ ...options, configuration: config });
+  const service = createConnectionService({ appEnv: "test", ...options, configuration: config });
   await assert.rejects(service.invoke({ context: owner, integrationId: "calendar", operation: "events.list" }), { code: "connector_scope_missing" });
 });
 
@@ -839,13 +841,13 @@ test("a changed client registration is immediately reported as needing reconnect
   await connect();
   const config = configuration();
   config.registrations.google.clientId = "another-client";
-  const service = createConnectionService({ ...options, configuration: config });
+  const service = createConnectionService({ appEnv: "test", ...options, configuration: config });
   assert.equal((await service.status({ context: owner, integrationId: "calendar" })).status, "reconnect-required");
 });
 
 test("remote field errors cannot smuggle provider response text into application errors", async () => {
   const { options } = setup();
-  const service = createConnectionService({ ...options, fetchImpl: async (url, init) => {
+  const service = createConnectionService({ appEnv: "test", ...options, fetchImpl: async (url, init) => {
     if (String(url).endsWith("/token")) return options.fetchImpl(url, init);
     return Response.json({ error: "failure", fieldErrors: { token: "never-return-this-secret" } }, { status: 422 });
   } });
@@ -860,7 +862,7 @@ test("remote field errors cannot smuggle provider response text into application
 
 test("a successful HTTP status with an unexpected payload does not verify a connection", async () => {
   const { options } = setup();
-  const service = createConnectionService({ ...options, fetchImpl: async (url, init) => {
+  const service = createConnectionService({ appEnv: "test", ...options, fetchImpl: async (url, init) => {
     if (String(url).endsWith("/token")) return options.fetchImpl(url, init);
     return Response.json({ message: "not a Calendar response" });
   } });
@@ -886,7 +888,7 @@ test("configuration rejects gateway registrations before constructing a runtime"
 test("the Feature exposes ordinary JSKIT actions with application authorization", async () => {
   const { options } = setup();
   let actions;
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": { APP_ENV: "test" }, "runtime.logger": silentLogger }, providers: [
     EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({
       id: "test.observer", requires: { catalogue: "runtime.actions" },
@@ -936,6 +938,7 @@ test("query credentials are encoded, replace URL values and never escape through
   };
   const store = memoryStore();
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: {
       source: { provider: provider.id, accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:QUERY_KEY" } }
     } },
@@ -987,6 +990,7 @@ test("path credentials preserve the validated origin and query without leaking t
   };
   const store = memoryStore();
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: {
       source: { provider: provider.id, accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:PATH_KEY" } }
     } },
@@ -1055,7 +1059,7 @@ test("JSON-body credentials replace supplied values, preserve input and reach th
     }
   };
   let actions;
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": { APP_ENV: "test" }, "runtime.logger": silentLogger }, providers: [
     EventProvider, ActionProvider, createConnectorsFeature(options),
     defineProvider({ id: "test.body-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })
   ] });
@@ -1071,7 +1075,7 @@ test("JSON-body credentials replace supplied values, preserve input and reach th
     assert.equal(new URL(requests[0].url).search, "");
     assert.equal(JSON.stringify([...store.connections]).includes(secret), false);
     assert.equal(JSON.stringify([...store.connections]).includes("verification-user"), false);
-    const service = createConnectionService(options);
+    const service = createConnectionService({ appEnv: "test", ...options });
     const input = { context: owner, integrationId: "source", operation: "check" };
     for (const invalidBody of [undefined, null, [], "plain text"]) {
       body = invalidBody;
@@ -1115,7 +1119,7 @@ for (const [provider, response] of [
         return Response.json(state.response, { status: state.status });
       }
     };
-    return { config, options, store, requests, state, service: createConnectionService(options) };
+    return { config, options, store, requests, state, service: createConnectionService({ appEnv: "test", ...options }) };
   }
 
   test(`${provider.id}: API key verification, rotation, isolation and disconnect`, async () => {
@@ -1152,7 +1156,7 @@ for (const [provider, response] of [
     await service.connectApiKey(input);
     const original = state.key;
     state.key = "unverified-replacement";
-    const reopened = createConnectionService(options);
+    const reopened = createConnectionService({ appEnv: "test", ...options });
     assert.equal((await reopened.status(input)).status, "reconnect-required");
     assert.equal(requests.length, 1);
     state.status = 403;
@@ -1194,7 +1198,7 @@ for (const [provider, response] of [
     const input = { context: owner, integrationId: "service" };
     await service.connectApiKey(input);
     config.integrations.service.authentication.secretRef = "env:DIFFERENT_KEY";
-    const changed = createConnectionService(options);
+    const changed = createConnectionService({ appEnv: "test", ...options });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: provider.checkOperation }), { code: "connector_reconnect_required" });
     state.status = 401;
@@ -1251,7 +1255,7 @@ test("changing client authentication invalidates OAuth attempts and stored grant
   config.registrations.google.tokenEndpointAuthMethod = "none";
   delete config.registrations.google.clientSecretRef;
   const provider = { ...googleCalendarProvider, oauthClientAuthenticationMethods: ["client_secret_post", "none"] };
-  const changed = createConnectionService({ ...options, configuration: config, providers: [provider] });
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration: config, providers: [provider] });
   const count = requests.length;
   assert.equal((await changed.status(input)).status, "reconnect-required");
   await assert.rejects(changed.invoke({ ...input, operation: googleCalendarProvider.checkOperation }), { code: "connector_reconnect_required" });
@@ -1275,6 +1279,7 @@ test("OAuth placeholders from custom resolvers never create consent attempts", a
     let attempts = 0;
     store.saveAttempt = async () => { attempts++; };
     const service = createConnectionService({
+      appEnv: "test",
       configuration: configuration(), providers: [googleCalendarProvider], store,
       authorize: async () => owner,
       resolveReference: async (reference) => reference === "env:CALLBACK" ? callback : value,
@@ -1285,7 +1290,7 @@ test("OAuth placeholders from custom resolvers never create consent attempts", a
   }
   const config = configuration();
   config.registrations.google.clientId = "MISSING";
-  const service = createConnectionService({ configuration: config, providers: [googleCalendarProvider], store: memoryStore(),
+  const service = createConnectionService({ appEnv: "test", configuration: config, providers: [googleCalendarProvider], store: memoryStore(),
     authorize: async () => owner, resolveReference: async () => { assert.fail("No binding resolution is needed."); } });
   await assert.rejects(service.beginAuthorization({ context: owner, integrationId: "calendar" }), { code: "connector_binding_missing" });
 });
@@ -1294,7 +1299,7 @@ test("API-key placeholders from custom resolvers never reach the provider", asyn
   const config = { schemaVersion: 1, registrations: {}, integrations: { mail: {
     provider: "resend", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:KEY" }
   } } };
-  const service = createConnectionService({ configuration: config, providers: [resendProvider], store: memoryStore(),
+  const service = createConnectionService({ appEnv: "test", configuration: config, providers: [resendProvider], store: memoryStore(),
     authorize: async () => owner, resolveReference: async () => "MISSING",
     fetchImpl: async () => { assert.fail("No placeholder may be sent to the provider."); } });
   await assert.rejects(service.connectApiKey({ context: owner, integrationId: "mail" }), { code: "connector_binding_missing" });
@@ -1306,7 +1311,7 @@ test("missing OAuth credentials keep an existing grant visible and removable wit
   const fixture = setup();
   await fixture.connect();
   const count = fixture.requests.length;
-  const service = createConnectionService({ ...fixture.options,
+  const service = createConnectionService({ appEnv: "test", ...fixture.options,
     resolveReference: async (reference) => reference === "env:CALLBACK" ? callback : "MISSING" });
   const input = { context: owner, integrationId: "calendar" };
   assert.equal((await service.status(input)).status, "reconnect-required");
@@ -1321,6 +1326,7 @@ test("missing API key preserves a verified connection until explicit disconnect"
   let key = "fixture-key";
   let requests = 0;
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { mail: {
       provider: "resend", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:KEY" }
     } } }, providers: [resendProvider], store: memoryStore(), authorize: async () => owner,
@@ -1340,7 +1346,7 @@ test("missing API key preserves a verified connection until explicit disconnect"
   assert.equal(requests, 1);
 });
 
-test("a test copy checks and logs a side-effect operation without sending it, and a live application sends it", async () => {
+test("outside production a side-effect operation is checked and logged, never sent, and production sends it", async () => {
   const config = { schemaVersion: 1, registrations: {}, integrations: { mail: {
     provider: "resend", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:KEY" }
   } } };
@@ -1357,27 +1363,44 @@ test("a test copy checks and logs a side-effect operation without sending it, an
     }
   };
   const input = { context: owner, integrationId: "mail" };
-  const simulated = createConnectionService(options);
-  await simulated.connectApiKey(input);
+  await createConnectionService({ ...options, appEnv: "test" }).connectApiKey(input);
   assert.equal(sent.length, 1, "verification is a read and runs for real");
   assert.match(sent[0], /^https:\/\/api\.resend\.com\/domains/u);
   const verifiedAt = store.connections.values().next().value.verifiedAt;
-  assert.deepEqual(await simulated.invoke({ ...input, operation: "emails.send", input: message }), { simulated: true });
-  assert.equal(sent.length, 1, "nothing was sent");
-  assert.equal(store.connections.values().next().value.verifiedAt, verifiedAt, "a simulation proves nothing about the key");
-  assert.equal(logged.length, 1);
-  assert.deepEqual(logged[0].details, { sideEffects: "simulate", kind: "connector operation", provider: "resend", operation: "emails.send", input: message });
-  assert.match(logged[0].text, /^Test copy: the resend emails\.send request was simulated, not sent/u);
-  // A simulated operation is checked like a real one.
-  await assert.rejects(simulated.invoke({ ...input, operation: "emails.send", input: { ...message, to: [] } }), { code: "connector_input_invalid" });
+  for (const [appEnv, text] of [
+    ["development", "Development: the resend emails.send request was logged, not sent."],
+    ["test", "Test: the resend emails.send request was logged, not sent."],
+    ["staging", "Staging: the resend emails.send request was logged, not sent: only production acts for real."]
+  ]) {
+    logged.length = 0;
+    const service = createConnectionService({ ...options, appEnv });
+    assert.deepEqual(await service.invoke({ ...input, operation: "emails.send", input: message }), { simulated: true }, appEnv);
+    assert.equal(sent.length, 1, `${appEnv} sent nothing`);
+    assert.equal(store.connections.values().next().value.verifiedAt, verifiedAt, "a logged operation proves nothing about the key");
+    assert.deepEqual(logged, [{
+      details: { appEnv, kind: "connector operation", provider: "resend", operation: "emails.send", input: message },
+      text
+    }]);
+    // A logged operation is checked like a real one.
+    await assert.rejects(service.invoke({ ...input, operation: "emails.send", input: { ...message, to: [] } }), { code: "connector_input_invalid" });
+  }
 
-  const live = createConnectionService({ ...options, sideEffects: "live" });
-  assert.deepEqual(await live.invoke({ ...input, operation: "emails.send", input: message }), { id: "email-1" });
+  const production = createConnectionService({ ...options, appEnv: "production" });
+  assert.deepEqual(await production.invoke({ ...input, operation: "emails.send", input: message }), { id: "email-1" });
   assert.deepEqual(sent.slice(1), ["https://api.resend.com/emails"]);
+  for (const appEnv of [undefined, "live", "Production"]) {
+    assert.throws(() => createConnectionService({ ...options, appEnv }), {
+      name: "TypeError", message: "Supply appEnv, the application's APP_ENV: appEnvironment(env)."
+    });
+  }
 });
 
-test("the connectors feature follows the application's SIDE_EFFECTS, which its options cannot override", async () => {
-  for (const [env, expected] of [[{}, 0], [{ SIDE_EFFECTS: "live" }, 1]]) {
+test("the connectors feature follows the application's APP_ENV, which its options cannot override", async () => {
+  for (const [env, expected] of [
+    [{ APP_ENV: "development" }, 0],
+    [{ APP_ENV: "staging", NODE_ENV: "production" }, 0],
+    [{ APP_ENV: "production", NODE_ENV: "production" }, 1]
+  ]) {
     let connections;
     const sent = [];
     const runtime = createCapabilityRuntime({ inputs: { "runtime.env": env, "runtime.logger": silentLogger }, providers: [
@@ -1387,7 +1410,7 @@ test("the connectors feature follows the application's SIDE_EFFECTS, which its o
           provider: "resend", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:KEY" }
         } } },
         providers: [resendProvider], store: memoryStore(), authorize: async () => owner, resolveReference: async () => "fixture-key",
-        sideEffects: "live",
+        appEnv: "production",
         fetchImpl: async (url) => {
           sent.push(String(url));
           return Response.json(String(url).endsWith("/emails") ? { id: "email-1" } : { object: "list", data: [], has_more: false });

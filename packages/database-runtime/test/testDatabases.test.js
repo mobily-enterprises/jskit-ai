@@ -17,6 +17,7 @@ import {
 } from "../src/server/testDatabases.js";
 
 const connectionEnvironment = Object.freeze({
+  APP_ENV: "test",
   DB_HOST: "127.0.0.1",
   DB_NAME: "catalogue",
   DB_USER: "catalogue_user",
@@ -29,7 +30,7 @@ test("a run's test databases are the designated one, then its numbered copies", 
   assert.deepEqual(testDatabaseNames("catalogue_test", 3), ["catalogue_test", "catalogue_test_1", "catalogue_test_2"]);
 });
 
-test("a test database and its copies are never the application's database, production or the other test database", () => {
+test("a test database and its copies are never the application's database, staging, production or the other test database", () => {
   const environment = { ...connectionEnvironment, TEST_DB_NAME: "catalogue_test", BROWSER_TEST_DB_NAME: "catalogue_browser" };
   assert.equal(requireDisposableDatabase(environment, "TEST_DB_NAME", 4), "catalogue_test");
   assert.equal(requireDisposableDatabase(environment, "BROWSER_TEST_DB_NAME", 4), "catalogue_browser");
@@ -42,7 +43,9 @@ test("a test database and its copies are never the application's database, produ
     [{ BROWSER_TEST_DB_NAME: "catalogue_test" }, "TEST_DB_NAME", 1, /the other test database/u],
     [{ BROWSER_TEST_DB_NAME: "catalogue_test_1" }, "TEST_DB_NAME", 2, /the other test database/u],
     [{ TEST_DB_NAME: "catalogue_browser_2" }, "BROWSER_TEST_DB_NAME", 1, /the other test database/u],
-    [{ NODE_ENV: "production" }, "TEST_DB_NAME", 1, /NODE_ENV=production/u]
+    [{ APP_ENV: "staging", NODE_ENV: "production" }, "TEST_DB_NAME", 1, /^Test databases are never prepared when APP_ENV is staging\.$/u],
+    [{ APP_ENV: "production", NODE_ENV: "production" }, "TEST_DB_NAME", 1, /when APP_ENV is production/u],
+    [{ APP_ENV: "" }, "TEST_DB_NAME", 1, /^APP_ENV is not set/u]
   ]) {
     assert.throws(() => requireDisposableDatabase({ ...environment, ...overrides }, variable, count), message,
       JSON.stringify(overrides));

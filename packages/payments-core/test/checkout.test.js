@@ -50,7 +50,7 @@ test('checkout authorizes before provider access, persists intent, deduplicates 
     },
     async createPortal() { return { id: 'portal_a', url: 'https://billing.stripe.com/example' }; }
   };
-  const service = createPaymentCheckoutService({ adapter, store, payments: { inspect: async () => ({ balance: 0, features: [], subscriptions: [] }) }, merchantScope: scope, returnUrl: 'https://app.example/billing', authorize: async (actor, { subjectId }) => actor === subjectId });
+  const service = createPaymentCheckoutService({ appEnv: 'test', adapter, store, payments: { inspect: async () => ({ balance: 0, features: [], subscriptions: [] }) }, merchantScope: scope, returnUrl: 'https://app.example/billing', authorize: async (actor, { subjectId }) => actor === subjectId });
   const input = { actor: 'tenant-a', subjectId: 'tenant-a', email: 'tenant@example.com', planId: 'pro', requestId: 'request-1' };
   try {
     await assert.rejects(service.checkout({ ...input, actor: 'tenant-b' }), { code: 'payment_forbidden' });
@@ -111,7 +111,7 @@ test('signed standalone Stripe invoices are ignored before customer lookup; malf
   const client = new Stripe('sk_test_fixture', { maxNetworkRetries: 0 });
   const adapter = createStripePaymentAdapter({ client, webhookSecret: secret, environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: {} });
   let reconciliations = 0;
-  const service = createPaymentCheckoutService({ adapter, merchantScope: scope, returnUrl: 'https://app.example/billing', authorize: async () => false,
+  const service = createPaymentCheckoutService({ appEnv: 'test', adapter, merchantScope: scope, returnUrl: 'https://app.example/billing', authorize: async () => false,
     payments: { async reconcileEvent() { reconciliations++; } } });
   const event = { id: 'evt_oneoff', type: 'invoice.paid', livemode: false, data: { object: { id: 'in_oneoff', customer: 'cus_unrelated', parent: null } } };
   const rawBody = Buffer.from(JSON.stringify(event));
@@ -189,7 +189,7 @@ test('signed subscription lifecycle updates app access without crossing subjects
           webhooks: paddleSdk.webhooks,
           subscriptions: { get: async () => { loads++; return { id: 'sub_a', customerId, status, items: [{ quantity: 1, price: { id: 'pri_a' } }], currentBillingPeriod: { endsAt: new Date(end).toISOString() } }; } }
         } });
-      const checkout = createPaymentCheckoutService({ adapter, store, payments, merchantScope: merchant, returnUrl: 'https://app.example/billing', authorize: async () => false });
+      const checkout = createPaymentCheckoutService({ appEnv: 'test', adapter, store, payments, merchantScope: merchant, returnUrl: 'https://app.example/billing', authorize: async () => false });
       await store.bindCustomer(merchant, 'customer_a', 'tenant-a');
       const deliver = async (id, eventCustomer = 'customer_a') => {
         const payload = provider === 'stripe'
@@ -228,22 +228,31 @@ test('signed subscription lifecycle updates app access without crossing subjects
   } finally { await migration.down(db); await db.destroy(); }
 });
 
-test('a test copy takes no real payments: it refuses live checkout and billing before any provider write', async () => {
+test('only production takes real payments: staging, development and test refuse live checkout and billing before any provider write', async () => {
   const live = { ...scope, environment: 'live' };
   const adapter = {
     validatePlan() {},
-    async createCustomer() { assert.fail('a test copy creates no live customer'); },
-    async createCheckout() { assert.fail('a test copy starts no live checkout'); },
-    async createPortal() { assert.fail('a test copy opens no live billing session'); }
+    async createCustomer() { assert.fail('outside production nothing creates a live customer'); },
+    async createCheckout() { assert.fail('outside production nothing starts a live checkout'); },
+    async createPortal() { assert.fail('outside production nothing opens a live billing session'); }
   };
   const store = { async withAccount(_scope, run) { return run({ state: {} }); } };
   const options = { adapter, store, payments: {}, merchantScope: live, returnUrl: 'https://app.example/billing', authorize: async () => true };
   const input = { actor: 'tenant-a', subjectId: 'tenant-a', email: 'tenant@example.com', planId: 'pro', requestId: 'request-1' };
-  for (const sideEffects of [undefined, 'simulate', 'LIVE']) {
-    const service = createPaymentCheckoutService({ ...options, sideEffects });
-    await assert.rejects(service.checkout(input), { code: 'payment_test_copy', statusCode: 409, message: /set SIDE_EFFECTS=live/u });
-    await assert.rejects(service.portal(input), { code: 'payment_test_copy' });
+  for (const appEnv of ['staging', 'development', 'test']) {
+    const service = createPaymentCheckoutService({ ...options, appEnv });
+    await assert.rejects(service.checkout(input), {
+      code: 'payment_sandbox_only', statusCode: 409, message: 'Only production takes real payments: use the sandbox payment environment.'
+    }, appEnv);
+    await assert.rejects(service.portal(input), { code: 'payment_sandbox_only' }, appEnv);
   }
-  // A live application passes the gate: here the next refusal is the missing billing account.
-  await assert.rejects(createPaymentCheckoutService({ ...options, sideEffects: 'live' }).portal(input), { code: 'payment_customer_missing' });
+  // Production passes the gate: here the next refusal is the missing billing account.
+  await assert.rejects(createPaymentCheckoutService({ ...options, appEnv: 'production' }).portal(input), { code: 'payment_customer_missing' });
+  // The sandbox works in staging: the same gate lets it through to the missing billing account.
+  await assert.rejects(createPaymentCheckoutService({ ...options, merchantScope: scope, appEnv: 'staging' }).portal(input), { code: 'payment_customer_missing' });
+  for (const appEnv of [undefined, 'live', 'Production']) {
+    assert.throws(() => createPaymentCheckoutService({ ...options, appEnv }), {
+      name: 'TypeError', message: "Supply appEnv, the application's APP_ENV: appEnvironment(env)."
+    });
+  }
 });

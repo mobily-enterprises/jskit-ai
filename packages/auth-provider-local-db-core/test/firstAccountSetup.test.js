@@ -12,7 +12,7 @@ test("a production server whose database has no account asks its first registrat
   const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-db-setup-"));
   t.after(() => fs.rm(storeDir, { recursive: true, force: true }));
   const options = localServiceOptions({
-    env: { NODE_ENV: "production", AUTH_LOCAL_STORE_DIR: storeDir, AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
+    env: { APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_STORE_DIR: storeDir, AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
   });
   const codes = [];
   const logger = { info() {}, warn: (fields) => codes.push(fields.firstAccountSetupCode), error() {}, debug() {} };

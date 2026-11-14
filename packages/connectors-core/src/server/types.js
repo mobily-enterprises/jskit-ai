@@ -94,7 +94,7 @@
  * @property {string} [assistantAction] The assistant action whose permission covers it; its operation id otherwise.
  * @property {string[]} [authenticationMethods] The credential modes it runs with; every mode otherwise.
  * @property {boolean} [sideEffect] True for an operation that acts on the world: sends a message, charges, books or
- *   posts. Unless the application's SIDE_EFFECTS is `live`, it is checked and logged, never sent, and answers
+ *   posts. Outside production (APP_ENV), it is checked and logged, never sent, and answers
  *   `{ simulated: true }`.
  */
 

@@ -7,6 +7,7 @@ import { pathToFileURL } from "node:url";
 import { toPosixPath } from "./files.mjs";
 import { BUDGET_VARIABLE, testConcurrency } from "./test-budget.mjs";
 import { DATABASES_OPTION, testDatabaseRunFor } from "./test-databases.mjs";
+import { useTestAppEnvironment } from "./test-environment.mjs";
 import { STOPS_VARIABLE } from "./test-file-stop.mjs";
 import { reportTestTimes, writeFileStops } from "./test-time-report.mjs";
 
@@ -197,6 +198,8 @@ function runNode(args, env) {
  * @param {string[]} args
  */
 async function runTests(args) {
+  // Every run, and its test databases, is APP_ENV=test.
+  useTestAppEnvironment(process.env, "jskit test");
   const nodeArgs = args.filter((argument) => argument !== DATABASES_OPTION);
   let plan = planTestRuns(nodeArgs);
   const source = process.env[BUDGET_VARIABLE] ? BUDGET_VARIABLE : "half of this machine";

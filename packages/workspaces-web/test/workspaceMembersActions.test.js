@@ -78,12 +78,12 @@ const INVITE_NOTICES = Object.freeze([
   {
     delivery: {
       status: "simulated",
-      message: "Test copy: the invitation email was not sent. Copy the invite link to share it.",
+      message: "Outside production the invitation email was logged, not sent. Copy the invite link to share it.",
       messageCode: "workspaces.invite.simulated"
     },
     notice: {
       style: "success",
-      message: "Invite created. This is a test copy, so no email was sent: copy the link to share it."
+      message: "Invite created. Outside production its email is logged, not sent: copy the link to share it."
     }
   },
   {

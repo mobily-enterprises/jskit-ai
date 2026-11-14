@@ -21,6 +21,7 @@ test("Airtable discovers schema, changes tables/fields and completes a paged rec
   let malformed = false;
   let token = "fixture-token";
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { data: {
       provider: "airtable", accountMode: "shared", scopes: [],
       authentication: { method: "api-key", secretRef: "env:AIRTABLE_TOKEN" }

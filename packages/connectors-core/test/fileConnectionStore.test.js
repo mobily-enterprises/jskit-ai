@@ -140,6 +140,7 @@ test("pending OAuth resumes after reopening the app store without exposing priva
     registrations: { google: { source: "own", clientId: "fixture-client", clientSecretRef: "env:SECRET", callbackUrlRef: "env:CALLBACK" } }
   };
   const makeService = (config = configuration) => createConnectionService({
+    appEnv: "test",
     configuration: config, providers: [googleCalendarProvider],
     store: createFileConnectionStore({ directory, protection: protection(), now: () => clock }),
     authorize: async (context) => context,

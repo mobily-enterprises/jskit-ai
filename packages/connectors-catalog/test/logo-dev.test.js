@@ -45,7 +45,7 @@ test("Logo.dev shares source configuration with the editor and never treats URL 
   const invalid = structuredClone(configuration);
   invalid.integrations.logos.authentication.secretRef = "pk_should-not-be-in-source";
   assert.throws(() => parse(invalid), (error) => Boolean(error.fieldErrors["integrations.logos.authentication.secretRef"]));
-  const service = createConnectionService({ configuration, providers: [logoDevDefinition],
+  const service = createConnectionService({ appEnv: "test", configuration, providers: [logoDevDefinition],
     authorize: async (context) => context,
     resolveReference: async () => assert.fail("Image URL configuration must not resolve private credentials through server verification."),
     store: { withConnection: async () => assert.fail("No connection record should be written.") },

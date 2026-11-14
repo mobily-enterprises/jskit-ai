@@ -17,6 +17,7 @@ import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
 import { buildFrontend } from "./browser-test-build.mjs";
+import { useTestAppEnvironment } from "./test-environment.mjs";
 
 const SETTINGS_VARIABLE = "JSKIT_BROWSER_TESTS";
 const LOG_DIRECTORY = path.join("test-results", "browser-test-servers");
@@ -123,6 +124,8 @@ const {
   workers, host, basePort, server, build, prepare, env, health, workerEnvironments: workerEnvironmentsFile, signIn,
   signedInStates
 } = JSON.parse(process.env[SETTINGS_VARIABLE] || "{}");
+// The servers, and the databases prepared for them, are APP_ENV=test.
+useTestAppEnvironment(process.env, "jskit browser tests");
 const baseEnvironment = { ...process.env };
 delete baseEnvironment[SETTINGS_VARIABLE];
 const baseUrls = Array.from({ length: workers }, (_, index) => `http://${host}:${basePort + index}`);
@@ -142,7 +145,8 @@ try {
     ...workerEnvironment,
     HOST: host,
     PORT: String(basePort + index),
-    TEST_PARALLEL_INDEX: String(index)
+    TEST_PARALLEL_INDEX: String(index),
+    APP_ENV: "test"
   }));
   await Promise.all(serverEnvironments.map((serverEnvironment, index) => {
     const baseUrl = baseUrls[index];

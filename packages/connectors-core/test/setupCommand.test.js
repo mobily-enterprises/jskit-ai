@@ -42,6 +42,7 @@ async function fixture(t) {
   const tokenGrants = [];
   let time = Date.now();
   const restart = (runtimeDirectory = directory) => createConnectionService({
+    appEnv: "test",
     configuration, providers: [googleCalendarProvider, resendProvider, gmailProvider],
     now: () => time,
     store: createFileConnectionStore({ directory: runtimeDirectory, protection: createCredentialProtection({

@@ -89,7 +89,7 @@ async function startProvider(t, storeDir, env, capabilities = {}) {
   const runtime = createCapabilityRuntime({
     inputs: {
       "runtime.app-root": storeDir,
-      "runtime.env": { NODE_ENV: "test", AUTH_LOCAL_STORE_DIR: storeDir, APP_PUBLIC_URL: "http://localhost:5173", ...env },
+      "runtime.env": { APP_ENV: "test", AUTH_LOCAL_STORE_DIR: storeDir, APP_PUBLIC_URL: "http://localhost:5173", ...env },
       "runtime.logger": silentLogger,
       "auth.extensions": createAuthExtensions(),
       ...capabilities

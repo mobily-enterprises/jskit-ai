@@ -72,7 +72,7 @@ export default defineConfig({
             { text: "User Experience Pass", link: "/guide/framework/ux-pass" },
             { text: "Speed Pass", link: "/guide/framework/speed-pass" },
             { text: "Sanity Checks", link: "/guide/framework/sanity-checks" },
-            { text: "Side Effects", link: "/guide/framework/side-effects" },
+            { text: "Environments", link: "/guide/framework/environments" },
             { text: "Translating an App", link: "/guide/framework/translation" },
             { text: "Source Patterns", link: "/patterns/" }
           ]

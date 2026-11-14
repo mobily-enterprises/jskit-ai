@@ -6,7 +6,7 @@ import {
   discoverInstalledPackages
 } from "../../internal/node/installedPackages.js";
 import { CLIENT_BUILD_META_NAME } from "../../shared/support/clientBuild.js";
-import { SIDE_EFFECTS_META_NAME, resolveSideEffectsMode } from "../../shared/support/sideEffects.js";
+import { APP_ENVIRONMENT_META_NAME, appEnvironment } from "../../shared/support/appEnvironment.js";
 import { isRecord, normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import {
@@ -689,15 +689,15 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
       // names change whenever any built code or style does, so the page's
       // build id is a digest of the page itself. The layer order goes first in
       // every page, built or served in development. A page the development
-      // server sends names the development environment's SIDE_EFFECTS, as the
-      // JSKIT server does for the pages it sends; a built page names none, since
-      // the server that sends it supplies its own.
+      // server sends names its APP_ENV, as the JSKIT server does for the pages
+      // it sends, and refuses without one, naming the fix; a built page names
+      // none, since the server that sends it supplies its own.
       order: "post",
       handler(html, { bundle } = {}) {
         const layerOrder = { tag: "style", children: VUETIFY_LAYER_ORDER, injectTo: "head-prepend" };
         if (!bundle) {
-          const sideEffects = { name: SIDE_EFFECTS_META_NAME, content: resolveSideEffectsMode(process.env) };
-          return [layerOrder, { tag: "meta", attrs: sideEffects, injectTo: "head-prepend" }];
+          const environment = { name: APP_ENVIRONMENT_META_NAME, content: appEnvironment(process.env) };
+          return [layerOrder, { tag: "meta", attrs: environment, injectTo: "head-prepend" }];
         }
         const buildId = createHash("sha256").update(html).digest("hex").slice(0, 16);
         return [layerOrder, { tag: "meta", attrs: { name: CLIENT_BUILD_META_NAME, content: buildId }, injectTo: "head-prepend" }];

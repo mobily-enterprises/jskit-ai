@@ -73,7 +73,7 @@ async function fixture(t, grantType = "authorization_code", workspaceUrl = "http
       return Response.json(state.value === undefined ? url.pathname.endsWith("/get") ? job : { jobs: [job], next_page_token: "page+two=" } : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = async () => {
     const { authorizationUrl } = await service.beginAuthorization({ ...args, verificationInput: { limit: 1 } });
     const url = new URL(authorizationUrl); const returned = new URL(callback);
@@ -96,7 +96,7 @@ test("Databricks user consent pins the workspace, sends PKCE and persists encryp
     const text = await readFile(path.join(f.directory, file), "utf8");
     for (const secret of ["private-code", "private-client-secret", "private-access-1", "private-refresh-1"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService(f.options);
+  const restarted = createConnectionService({ appEnv: "test", ...f.options });
   assert.equal((await restarted.status(args)).status, "connected");
   assert.deepEqual(await restarted.invoke({ ...args, operation: "jobs.get", input: { job_id: 123 } }), job);
 });
@@ -104,7 +104,7 @@ test("Databricks user consent pins the workspace, sends PKCE and persists encryp
 test("Databricks service principals use confidential grants on AWS, Azure and GCP without callbacks", async (t) => {
   for (const origin of ["https://dbc-abc123.cloud.databricks.com", "https://adb-123456789.7.azuredatabricks.net", "https://123456789.7.gcp.databricks.com/"]) {
     const f = await fixture(t, "client_credentials", origin); await f.connect();
-    const restarted = createConnectionService(f.options);
+    const restarted = createConnectionService({ appEnv: "test", ...f.options });
     assert.equal((await restarted.status(args)).status, "connected");
     assert.deepEqual((await restarted.status(args)).grantedScopes, ["jobs"]);
     f.state.time += 85_000; // 35 seconds remain: refresh before Azure's 30-second refusal boundary.
@@ -147,7 +147,7 @@ test("Databricks verifies granted scopes and application ownership before readin
   for (const owner of [{ ...context, subjectId: "another" }, { ...context, applicationId: "another" }]) {
     await assert.rejects(f.service.invoke({ ...args, context: owner, operation: "jobs.list" }), { code: "connector_reconnect_required" });
   }
-  const denied = createConnectionService({ ...f.options, authorize: async () => null });
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async () => null });
   await assert.rejects(denied.invoke({ ...args, operation: "jobs.list" }), { code: "connector_access_denied" });
   assert.equal(f.requests.length, 2);
   const insufficient = await fixture(t); insufficient.state.tokenPatch.scope = "offline_access";
@@ -161,7 +161,7 @@ test("Databricks persists renewal before failed reads and marks revoked grants f
     const f = await fixture(t, type); await f.connect(); f.state.time += 85_000; f.state.status = 429;
     await assert.rejects(f.service.invoke({ ...args, operation: "jobs.list" }), { code: "connector_rate_limited" });
     f.state.status = 200;
-    const restarted = createConnectionService(f.options); await restarted.invoke({ ...args, operation: "jobs.list" });
+    const restarted = createConnectionService({ appEnv: "test", ...f.options }); await restarted.invoke({ ...args, operation: "jobs.list" });
     assert.equal(f.state.count, 2);
     f.state.time += 85_000; f.state.tokenStatus = 400;
     await assert.rejects(restarted.invoke({ ...args, operation: "jobs.list" }), (error) => error.code === "connector_reconnect_required" && !error.message.includes("private"));
@@ -180,7 +180,7 @@ test("Databricks rejects malformed token lifetimes, scopes and refresh values be
 test("Databricks pending consent cannot change workspace and cancelled, denied or replayed consent preserves saved access", async (t) => {
   const f = await fixture(t); await f.connect(); const start = await f.start();
   const changed = structuredClone(f.options.configuration); changed.integrations.warehouse.settings.workspaceUrl = "https://dbc-other.cloud.databricks.com";
-  const other = createConnectionService({ ...f.options, configuration: changed });
+  const other = createConnectionService({ appEnv: "test", ...f.options, configuration: changed });
   await assert.rejects(other.completeAuthorization({ ...args, callbackUrl: start.callbackUrl }), { code: "connector_attempt_invalid" });
   const denied = await f.start(); const returned = new URL(denied.callbackUrl); returned.searchParams.delete("code"); returned.searchParams.set("error", "access_denied");
   await assert.rejects(f.service.completeAuthorization({ ...args, callbackUrl: returned.href }), { code: "connector_consent_denied" });
@@ -195,7 +195,7 @@ test("Databricks grants cannot move to a different workspace, client or service 
   for (const mutate of [(value) => { value.integrations.warehouse.settings.workspaceUrl = "https://dbc-other.cloud.databricks.com"; },
     (value) => { value.registrations.databricks.clientId = "other-client"; }, (value) => { value.integrations.warehouse.scopes = ["all-apis"]; }]) {
     const configuration = structuredClone(f.options.configuration); mutate(configuration);
-    const changed = createConnectionService({ ...f.options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...f.options, configuration });
     assert.equal((await changed.status(args)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...args, operation: "jobs.list" }), { code: "connector_reconnect_required" });
   }

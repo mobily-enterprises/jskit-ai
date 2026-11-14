@@ -1,5 +1,4 @@
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { logSimulatedSideEffect } from "@jskit-ai/kernel/server/runtime/sideEffects";
 import { AUTH_TEXTS, authMessageFields, createAuthError } from "@jskit-ai/auth-core/server/authTexts";
 import { validateEmailInput, validatePasswordInput } from "./accounts.js";
 import { buildAuthPayload } from "./authPayloads.js";
@@ -12,31 +11,14 @@ const RECOVERY_TOKEN_TTL_SECONDS = 60 * 60;
 const RESET_TOKEN_KIND = "rec";
 
 /**
- * The `auth.local.recovery-sender` default when no feature provides one: outside
- * production, local auth logs each recovery link instead of emailing it.
+ * The `auth.local.recovery-sender` default when no feature provides one: in
+ * development and test, local auth logs each recovery link instead of emailing it.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} logger
  * @returns {import("../types.js").AuthLocalRecoverySender}
  */
 function createLoggedRecoverySender(logger) {
   return async function logRecoveryLink({ email, recoveryUrl }) {
     logger.info({ recoveryUrl, email }, "Local auth password recovery URL created.");
-  };
-}
-
-/**
- * The recovery sender of a test copy (SIDE_EFFECTS is not `live`) in place of the installed
- * `auth.local.recovery-sender`: it emails nothing and logs the link, which the person testing follows to reset the
- * password.
- * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} logger
- * @returns {import("../types.js").AuthLocalRecoverySender}
- */
-function createSimulatedRecoverySender(logger) {
-  return async function simulateRecoveryEmail({ email, recoveryUrl }) {
-    logSimulatedSideEffect(logger, {
-      kind: "email",
-      summary: `the password reset email to ${email}`,
-      details: { email, recoveryUrl }
-    });
   };
 }
 
@@ -216,4 +198,4 @@ function createLocalPasswordFlows({ backend, config, deliveries, passwords, prof
   });
 }
 
-export { createLocalPasswordFlows, createLoggedRecoverySender, createSimulatedRecoverySender };
+export { createLocalPasswordFlows, createLoggedRecoverySender };

@@ -69,6 +69,7 @@ Use ordinary application modules; no template, generator or database is needed:
 import { readFile } from "node:fs/promises";
 import { parseIntegrationConfiguration } from "@jskit-ai/connectors-core/shared/configuration";
 import { createConnectionService, createEnvironmentReferenceResolver } from "@jskit-ai/connectors-core/server";
+import { appEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { createFileConnectionStore, createCredentialProtection } from "@jskit-ai/connectors-core/server/file-storage";
 import { ouraProvider } from "@jskit-ai/connectors-catalog/server/oura";
 
@@ -82,7 +83,9 @@ const connections = createConnectionService({
   configuration, providers,
   store: createFileConnectionStore({ directory: process.env.CONNECTOR_STATE_DIRECTORY, protection }),
   resolveReference: createEnvironmentReferenceResolver(process.env),
-  authorize: applicationConnectionPolicy
+  authorize: applicationConnectionPolicy,
+  // Only production (APP_ENV) sends side-effect operations, such as an email; elsewhere they are logged.
+  appEnv: appEnvironment(process.env)
 });
 ```
 

@@ -89,11 +89,11 @@ function buildResult(identity, { session = null, appProfile = null } = {}) {
  */
 function createOidcAuthService({ config, store, issuer, profileProjector, logger, now = Date.now }) {
   const sealer = createTransactionSealer({ secret: config.sessionSecret, now });
-  const secureCookies = config.isProduction;
-  // Production sessions use a host-only __Host- cookie, like the other providers.
+  const secureCookies = config.isDeployed;
+  // Staging and production sessions use a host-only __Host- cookie, like the other providers.
   const sessionCookie = hostOnlyCookieName(SESSION_COOKIE, secureCookies);
   const appProfileProjection = profileProjector !== noAppProfiles;
-  const devLoginEnabled = config.devAuth.enabled === true && config.devAuth.isProduction !== true;
+  const devLoginEnabled = config.devAuth.enabled === true && config.devAuth.isDeployed !== true;
   const capabilities = normalizeAuthCapabilities({
     provider: { id: AUTH_OIDC_PROVIDER_ID, label: config.label },
     features: {
@@ -162,7 +162,7 @@ function createOidcAuthService({ config, store, issuer, profileProjector, logger
     } catch {
       throw new AppError(400, "This request has no usable address.", { code: "auth.oidc.request.noAddress" });
     }
-    if (origin.protocol === "http:" && !isLoopbackHostname(origin.hostname) && config.isProduction) {
+    if (origin.protocol === "http:" && !isLoopbackHostname(origin.hostname) && config.isDeployed) {
       throw new AppError(400, "Set APP_PUBLIC_URL so sign-in returns to this app's https address.", {
         code: "auth.oidc.request.publicUrlRequired"
       });

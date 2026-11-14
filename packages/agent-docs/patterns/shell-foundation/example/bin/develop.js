@@ -27,6 +27,8 @@ function waitForChild(child) {
   });
 }
 
+// The development launcher runs the app in development, whatever .env or the shell says (the Environments guide).
+process.env.APP_ENV = "development";
 const previewHost = String(process.env.HOST || "").trim() || "0.0.0.0";
 const previewPort = requiredPort(process.env.PORT || String(DEFAULT_PORT));
 let apiServer = null;

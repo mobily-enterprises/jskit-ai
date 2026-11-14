@@ -7,8 +7,10 @@ import {
   assertDevAuthPolicy,
   ensureDevAuthExchangeAvailable,
   ensureDevAuthRuntimeAvailable,
+  isDevAuthBootstrapEnabled,
   isLocalDevAuthRequest,
-  resolveDevAuthPolicy
+  resolveDevAuthPolicy,
+  resolveDevAuthPolicyFromEnv
 } from "../src/server/devAuth.js";
 
 const DEV_AUTH_SECRET = "preview-exchange-secret";
@@ -32,7 +34,7 @@ function createRequest({
 function enabledPolicy(overrides = {}) {
   return resolveDevAuthPolicy({
     enabled: true,
-    nodeEnv: "development",
+    appEnv: "development",
     secret: DEV_AUTH_SECRET,
     ...overrides
   });
@@ -47,14 +49,32 @@ test("parseBooleanFlag normalizes conventional environment flag values", () => {
 
 test("dev auth policy rejects production and missing-secret enablement", () => {
   assert.throws(
-    () => assertDevAuthPolicy(enabledPolicy({ nodeEnv: "production" })),
-    /must not be enabled in production/
+    () => assertDevAuthPolicy(enabledPolicy({ appEnv: "staging" })),
+    /^AUTH_DEV_BYPASS_ENABLED is for development only: remove it from staging and production\.$/
   );
   assert.throws(
     () => assertDevAuthPolicy(enabledPolicy({ secret: "" })),
     /AUTH_DEV_BYPASS_SECRET is required/
   );
-  assert.doesNotThrow(() => assertDevAuthPolicy(resolveDevAuthPolicy()));
+  assert.doesNotThrow(() => assertDevAuthPolicy(resolveDevAuthPolicy({ appEnv: "production" })), "off is allowed anywhere");
+  assert.throws(() => resolveDevAuthPolicy({ enabled: true }), { message: /^APP_ENV is not set/u }, "never guesses development");
+});
+
+test("dev sign-in follows APP_ENV: allowed in development and test, refused in staging and production, whatever NODE_ENV", () => {
+  const policyIn = (APP_ENV, NODE_ENV) => resolveDevAuthPolicyFromEnv({
+    APP_ENV, NODE_ENV, AUTH_DEV_BYPASS_ENABLED: "true", AUTH_DEV_BYPASS_SECRET: DEV_AUTH_SECRET
+  });
+  for (const APP_ENV of ["development", "test"]) {
+    assert.equal(isDevAuthBootstrapEnabled(policyIn(APP_ENV, "production")), true, APP_ENV);
+    assert.doesNotThrow(() => ensureDevAuthRuntimeAvailable(policyIn(APP_ENV, "production"), createRequest()), APP_ENV);
+  }
+  for (const APP_ENV of ["staging", "production"]) {
+    const policy = policyIn(APP_ENV, "production");
+    assert.equal(policy.isDeployed, true, APP_ENV);
+    assert.equal(isDevAuthBootstrapEnabled(policy), false, APP_ENV);
+    assert.throws(() => ensureDevAuthRuntimeAvailable(policy, createRequest()), { code: "auth.dev.unavailable" }, APP_ENV);
+  }
+  assert.throws(() => resolveDevAuthPolicyFromEnv({ APP_ENV: "development" }), { message: /^APP_ENV is not set/u });
 });
 
 test("dev auth trusts only a direct loopback connection with a loopback Host", () => {
@@ -111,7 +131,7 @@ test("dev auth refusals carry their own codes", () => {
     }
     return null;
   };
-  assert.equal(codeOf(() => ensureDevAuthRuntimeAvailable(resolveDevAuthPolicy(), createRequest())), "auth.dev.unavailable");
+  assert.equal(codeOf(() => ensureDevAuthRuntimeAvailable(resolveDevAuthPolicy({ appEnv: "development" }), createRequest())), "auth.dev.unavailable");
   assert.throws(() => ensureDevAuthRuntimeAvailable(enabledPolicy({ secret: "" }), createRequest()), (error) =>
     error.message === "AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true." && error.code === undefined);
   assert.equal(

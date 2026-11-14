@@ -62,7 +62,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.accountingStatus ?? state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   async function start() {
     const { authorizationUrl } = await service.beginAuthorization(input);
     const url = new URL(authorizationUrl);
@@ -89,7 +89,7 @@ test("Xero exchanges code with Basic authentication, discovers tenants and persi
     const value = await readFile(path.join(f.directory, file), "utf8");
     for (const secret of ["fixture-client-secret", "fixture-access-1", "fixture-refresh-1"]) assert.equal(value.includes(secret), false);
   }
-  const restarted = createConnectionService({ ...f.options, store: createFileConnectionStore({ directory: f.directory, protection: f.protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...f.options, store: createFileConnectionStore({ directory: f.directory, protection: f.protection }) });
   assert.deepEqual(await restarted.status(input), { ...connected, callbackUrl: callback });
   assert.deepEqual(await restarted.invoke({ ...input, operation: "connections.list" }), [connection]);
   for (const owner of [{ ...context, applicationId: "other-app" }, { ...context, subjectId: "other-user" }]) {
@@ -118,7 +118,7 @@ test("Xero configuration supports captured permissions plus read variants and re
   const copy = structuredClone(config); copy.registrations.xero.source = "managed";
   delete copy.registrations.xero.clientId; delete copy.registrations.xero.clientSecretRef; delete copy.registrations.xero.callbackUrlRef; delete copy.registrations.xero.tokenEndpointAuthMethod;
   Object.assign(copy.registrations.xero, { serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:APP", assignmentRef: "paid" });
-  assert.throws(() => createConnectionService({ ...f.options, configuration: copy }), { code: "integration_configuration_invalid" });
+  assert.throws(() => createConnectionService({ appEnv: "test", ...f.options, configuration: copy }), { code: "integration_configuration_invalid" });
 });
 
 test("Xero checks current organisation permission before every accounting request and leaves discovery unscoped", async (t) => {
@@ -173,7 +173,7 @@ test("Xero serializes refresh rotation, persists reduced grants and retains new 
   f.state.tokenScope = "offline_access accounting.contacts.read"; f.state.time += 40_000; f.state.status = 429;
   await assert.rejects(f.service.invoke({ ...input, operation: "contacts.list", input: { tenantId } }), { code: "connector_rate_limited" });
   assert.equal(f.state.tokenCount, 3); f.state.status = 200;
-  const restarted = createConnectionService(f.options);
+  const restarted = createConnectionService({ appEnv: "test", ...f.options });
   assert.deepEqual((await restarted.status(input)).grantedScopes, ["offline_access", "accounting.contacts.read"]);
   await restarted.invoke({ ...input, operation: "contacts.list", input: { tenantId } });
   assert.equal(f.state.tokenCount, 3);
@@ -197,7 +197,7 @@ test("Xero consent cancellation, denied scopes and registration changes cannot r
   await assert.rejects(f.service.invoke({ ...input, operation: "contacts.list", input: { tenantId } }), { code: "connector_scope_missing" });
   assert.equal(f.requests.length, count);
   const pending = await f.start(); const changed = structuredClone(f.options.configuration); changed.registrations.xero.clientId = "other-client";
-  const service = createConnectionService({ ...f.options, configuration: changed });
+  const service = createConnectionService({ appEnv: "test", ...f.options, configuration: changed });
   assert.equal((await service.status(input)).status, "reconnect-required");
   await assert.rejects(service.completeAuthorization({ ...input, callbackUrl: pending.callbackUrl }), { code: "connector_attempt_invalid" });
   assert.equal(f.requests.length, count);
@@ -207,7 +207,7 @@ test("Xero accepts read-only or full accounting scopes and applies host authoriz
   const f = await fixture(t); const config = structuredClone(f.options.configuration);
   config.integrations.xero.scopes = ["offline_access", "accounting.contacts", "accounting.invoices", "accounting.settings"];
   f.state.tokenScope = config.integrations.xero.scopes.join(" ");
-  const service = createConnectionService({ ...f.options, configuration: config });
+  const service = createConnectionService({ appEnv: "test", ...f.options, configuration: config });
   const started = await service.beginAuthorization(input);
   await service.completeAuthorization({ ...input, callbackUrl: `${callback}?code=fixture&state=${new URL(started.authorizationUrl).searchParams.get("state")}` });
   await service.invoke({ ...input, operation: "contacts.list", input: { tenantId } });
@@ -252,7 +252,7 @@ test("Xero interruption and timeout stop before the accounting call and keep the
   const keepAlive = setTimeout(() => {}, 1000);
   t.after(() => clearTimeout(keepAlive));
   const f = await fixture(t); await f.connect(); f.state.stall = true;
-  const service = createConnectionService({ ...f.options, providers: [{ ...xeroProvider, requestTimeoutMs: 35 }] });
+  const service = createConnectionService({ appEnv: "test", ...f.options, providers: [{ ...xeroProvider, requestTimeoutMs: 35 }] });
   const count = f.requests.length;
   await assert.rejects(service.invoke({ ...input, operation: "contacts.list", input: { tenantId } }));
   assert.equal(f.requests.length, count + 1); assert.equal(f.requests.at(-1).url.pathname, "/connections");
@@ -268,7 +268,7 @@ test("Xero payment pages preserve amounts and invoice references and enforce cur
   const scopes = [...defaults, "accounting.payments.read"];
   f.options.configuration.integrations.xero.scopes = scopes;
   f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code");
   url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
@@ -298,7 +298,7 @@ test("Xero financial reports retain nested rows and decimal text with explicit d
   const f = await fixture(t);
   const scopes = [...defaults, "accounting.reports.profitandloss.read", "accounting.reports.balancesheet.read"];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code");
   url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
@@ -359,7 +359,7 @@ test("Xero contact writes use stable idempotency and never forward a write to te
   const f = await fixture(t);
   const scopes = [...defaults, "accounting.contacts"];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code"); url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
   await service.completeAuthorization({ ...input, callbackUrl: url.href });
@@ -387,7 +387,7 @@ test("Xero records one deliberate invoice payment with an explicit account and n
   const f = await fixture(t);
   const scopes = [...defaults, "accounting.payments"];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code"); url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
   await service.completeAuthorization({ ...input, callbackUrl: url.href });
@@ -420,7 +420,7 @@ test("Xero invoice writes retain explicit currency, tax basis and line precision
   const f = await fixture(t);
   const scopes = [...defaults, "accounting.invoices"];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code"); url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
   await service.completeAuthorization({ ...input, callbackUrl: url.href });
@@ -480,7 +480,7 @@ test("Xero aged, executive, bank and trial reports use individual scopes and exp
   ];
   const scopes = [...defaults, ...new Set(cases.map(([, , scope]) => `accounting.reports.${scope}.read`))];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code");
   url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
@@ -505,7 +505,7 @@ test("Xero budgets preserve account balances and enforce date ranges, record ide
   const f = await fixture(t);
   const scopes = [...defaults, "accounting.budgets.read", "accounting.reports.budgetsummary.read"];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code");
   url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
@@ -545,7 +545,7 @@ test("Xero bank and manual journal reads preserve native detail and enforce fixe
   const f = await fixture(t);
   const scopes = [...defaults, "accounting.banktransactions.read", "accounting.manualjournals.read"];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code");
   url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
@@ -581,7 +581,7 @@ test("Xero manual journal writes default to draft and retain deliberate posting,
   const f = await fixture(t);
   const scopes = [...defaults, "accounting.manualjournals"];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code");
   url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
@@ -619,7 +619,7 @@ test("Xero spend and receive writes use explicit bank/contact references and nev
   const f = await fixture(t);
   const scopes = [...defaults, "accounting.banktransactions"];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code");
   url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));
@@ -658,7 +658,7 @@ test("Xero attachments use parent-bound file paths, binary bodies and checked or
   const f = await fixture(t);
   const scopes = [...defaults, "accounting.attachments"];
   f.options.configuration.integrations.xero.scopes = scopes; f.state.tokenScope = scopes.join(" ");
-  const service = createConnectionService(f.options);
+  const service = createConnectionService({ appEnv: "test", ...f.options });
   const { authorizationUrl } = await service.beginAuthorization(input);
   const url = new URL(callback); url.searchParams.set("code", "fixture-code");
   url.searchParams.set("state", new URL(authorizationUrl).searchParams.get("state"));

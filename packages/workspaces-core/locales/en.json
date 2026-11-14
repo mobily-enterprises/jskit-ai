@@ -38,7 +38,7 @@
         "emailMismatchAccount": "Invitation email does not match account email.",
         "notAvailable": "Invitation is not available.",
         "mailerUnconfigured": "No workspace invite mailer is configured.",
-        "simulated": "Test copy: the invitation email was not sent. Copy the invite link to share it.",
+        "simulated": "Outside production the invitation email was logged, not sent. Copy the invite link to share it.",
         "sendFailed": "Unable to send workspace invite email.",
         "decisionRequired": "Decision is required.",
         "decisionInvalid": "Decision must be accept or refuse."

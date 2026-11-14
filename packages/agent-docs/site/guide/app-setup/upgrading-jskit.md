@@ -336,7 +336,7 @@ that advertises it.
 
 ## Host-only production cookies
 
-In production (`NODE_ENV=production`, served over HTTPS) the session cookies of
+In staging and production (`APP_ENV`, served over HTTPS) the session cookies of
 the local, Supabase and OIDC auth providers and the CSRF secret cookie use the
 `__Host-` prefix, for example `__Host-jskit_local_access_token` and
 `__Host-_csrf`. Browsers accept these only with `Secure`, `Path=/` and no
@@ -368,3 +368,38 @@ defaults need no change and an unreachable read makes three requests, not nine.
 Writes and `requestStream()` have no default overall deadline. They accept an
 explicit `timeoutMs`; long-lived streams still need lifecycle cancellation.
 These safeguards do not limit request volume or govern raw `fetch` calls.
+
+## Say where the application runs: APP_ENV
+
+`APP_ENV` (`development`, `test`, `staging` or `production`) replaces
+`SIDE_EFFECTS` and every decision `NODE_ENV` used to make; `NODE_ENV` now only
+picks optimised builds ([Environments](/guide/framework/environments)). A server
+without a known `APP_ENV` refuses to start, naming the fix.
+
+- Development: add `APP_ENV=development` to `.env` and to `.env.example`. The
+  foundations' `bin/develop.js` sets it, and their `dev` scripts run
+  `APP_ENV=development vite`; an older application adds the same.
+- Staging: set `APP_ENV=staging` and `NODE_ENV=production`, plus
+  `STAGING_EMAIL_TO` and `STAGING_SMS_TO` for the testers' inbox and phone
+  (unset, email and SMS are logged). Staging needs production's secrets.
+- Production: set `APP_ENV=production` and `NODE_ENV=production`, and remove
+  `SIDE_EFFECTS`.
+- Tests: `jskit test` and the browser test servers set `APP_ENV=test`. A test
+  that passes its own environment object to a runtime, a provider or a gate adds
+  `APP_ENV`, since nothing guesses it; one that proves a real sender passes
+  `APP_ENV: "production"` instead of `SIDE_EFFECTS: "live"`.
+- Code: `createConnectionService` and `createPaymentCheckoutService` take
+  `appEnv: appEnvironment(env)` in place of `sideEffects`, and require it. The
+  live-payment refusal's code is `payment_sandbox_only`, not
+  `payment_test_copy`. `@jskit-ai/kernel/shared/support/sideEffects`,
+  `@jskit-ai/kernel/server/runtime/sideEffects` and
+  `@jskit-ai/kernel/server/runtime/runtimeMode` are gone: read
+  `@jskit-ai/kernel/shared/support/appEnvironment` (`appEnvironment`,
+  `isDeployed`) and `@jskit-ai/kernel/server/runtime/appEnvironment`
+  (`deliverMessage`, `markStagingEmail`, `logSideEffect`,
+  `assertDevelopmentOnlySettings`). The page's meta tag is
+  `jskit-app-environment` and the banner's test id
+  `jskit-app-environment-banner`.
+- An installed `auth.local.confirmation-sender` or `auth.local.recovery-sender`
+  receives `originalEmail` in staging; show it in the email
+  (`markStagingEmail`).

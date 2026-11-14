@@ -1,4 +1,4 @@
-import { isProductionEnv } from "@jskit-ai/kernel/server/runtime/runtimeMode";
+import { isDeployed } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { timingSafeEqual } from "node:crypto";
 import { parseBooleanFlag } from "./booleanFlag.js";
@@ -54,40 +54,42 @@ function isLocalDevAuthRequest(request) {
   return isLoopbackIp(remoteAddress) && isLoopbackHostname(normalizeRequestHostname(request));
 }
 
-function resolveDevAuthPolicy({
-  enabled = false,
-  nodeEnv = "development",
-  secret = ""
-} = {}) {
+/**
+ * Dev sign-in's policy, and whether the application is deployed (staging or production), which every auth provider
+ * reads from here to refuse development shortcuts such as cookies without Secure.
+ * @param {{ enabled?: unknown, appEnv: string, secret?: string }} settings `appEnv` is the application's APP_ENV;
+ *   a missing or unknown one throws.
+ */
+function resolveDevAuthPolicy({ enabled = false, appEnv, secret = "" }) {
   return Object.freeze({
     enabled: parseBooleanFlag(enabled, false),
-    isProduction: isProductionEnv({ NODE_ENV: nodeEnv }),
+    isDeployed: isDeployed({ APP_ENV: appEnv }),
     secret: String(secret || "").trim()
   });
 }
 
-function resolveDevAuthPolicyFromEnv(env = {}) {
+function resolveDevAuthPolicyFromEnv(env) {
   return resolveDevAuthPolicy({
     enabled: env.AUTH_DEV_BYPASS_ENABLED,
-    nodeEnv: env.NODE_ENV,
+    appEnv: env.APP_ENV,
     secret: env.AUTH_DEV_BYPASS_SECRET
   });
 }
 
 /**
- * True when dev sign-in as another user is on: enabled, outside production.
+ * True when dev sign-in as another user is on: enabled, in development or test.
  * @param {ReturnType<typeof resolveDevAuthPolicy>} policy
  */
 function isDevAuthBootstrapEnabled(policy) {
-  return policy.enabled && !policy.isProduction;
+  return policy.enabled && !policy.isDeployed;
 }
 
 function assertDevAuthPolicy(policy = {}) {
   if (!policy.enabled) {
     return;
   }
-  if (policy.isProduction) {
-    throw new Error("AUTH_DEV_BYPASS_ENABLED must not be enabled in production.");
+  if (policy.isDeployed) {
+    throw new Error("AUTH_DEV_BYPASS_ENABLED is for development only: remove it from staging and production.");
   }
   if (!policy.secret) {
     throw new Error("AUTH_DEV_BYPASS_SECRET is required when AUTH_DEV_BYPASS_ENABLED=true.");
@@ -95,7 +97,7 @@ function assertDevAuthPolicy(policy = {}) {
 }
 
 function ensureDevAuthRuntimeAvailable(policy = {}, request = null) {
-  if (!policy.enabled || policy.isProduction) {
+  if (!policy.enabled || policy.isDeployed) {
     throw new AppError(404, "Not found.", { code: "auth.dev.unavailable" });
   }
   if (!policy.secret) {

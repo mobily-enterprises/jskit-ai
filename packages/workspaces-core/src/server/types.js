@@ -33,7 +33,7 @@
  * workspace invitation email. It is told which saved invitation it sends
  * (`inviteId`, its `workspace_invites` row, in `workspace.id`'s workspace).
  * Its result is the delivery outcome; the status defaults to "sent". The
- * members panel words its own notice for `sent`, `simulated` (a test copy),
+ * members panel words its own notice for `sent`, `simulated` (logged outside production),
  * `held` (an email the mailer keeps until the application's email is set up,
  * and sends then) and `failed`; for any other status it shows the result's
  * `message` (translated by `messageCode` when given), else a neutral notice.

@@ -45,7 +45,7 @@ for (const perUser of [false, true]) test(`GitHub OAuth ${perUser ? "per-user no
       return Response.json({ id: 123, login: "fixture" });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   for (const outcome of ["cancel", "denied"]) {
     const attempt = new URL((await service.beginAuthorization(input)).authorizationUrl);
     const denied = new URL(callback);
@@ -71,7 +71,7 @@ for (const perUser of [false, true]) test(`GitHub OAuth ${perUser ? "per-user no
   time += 40_000;
   await Promise.all([service.invoke({ ...input, operation: "account.read" }), service.invoke({ ...input, operation: "account.read" })]);
   assert.equal(exchanges, perUser ? 1 : 2);
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   time += 40_000;
   await restarted.invoke({ ...input, operation: "account.read" });
   assert.equal(exchanges, perUser ? 1 : 3);
@@ -107,6 +107,7 @@ test("GitHub repository reads and issue/PR writes preserve paths, pagination and
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; let status = 200, malformed = false, fail = false;
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { github: { provider: "github-api", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:GITHUB_TOKEN" } } } },
     providers: [githubApiProvider], authorize: async owner => owner, resolveReference: async () => "private-token",
     store: createFileConnectionStore({ directory, protection: createCredentialProtection({ keys: { current: new Uint8Array(32).fill(8) }, activeKeyId: "current" }) }),

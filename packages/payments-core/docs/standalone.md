@@ -98,6 +98,7 @@ import { createPaymentService } from '@jskit-ai/payments-core/server';
 import { createStripePaymentAdapter } from '@jskit-ai/payments-core/server/stripe';
 import { createPaymentCheckoutService } from '@jskit-ai/payments-core/server/checkout';
 import { createPaymentCatalogue } from '@jskit-ai/payments-core/server/catalogue';
+import { appEnvironment } from '@jskit-ai/kernel/shared/support/appEnvironment';
 
 const document = JSON.parse(await readFile(configurationUrl, 'utf8'));
 // Also run the application's complete connector validation with its provider list.
@@ -129,7 +130,9 @@ const adapter = createStripePaymentAdapter({
 });
 const catalogue = createPaymentCatalogue({ store, adapter, scope: merchantScope, configuration });
 const checkout = createPaymentCheckoutService({
-  adapter, store, payments, merchantScope, returnUrl, authorize: authorizeBilling
+  adapter, store, payments, merchantScope, returnUrl, authorize: authorizeBilling,
+  // Only production (APP_ENV) takes real money; elsewhere the live payment environment is refused.
+  appEnv: appEnvironment(process.env)
 });
 ```
 

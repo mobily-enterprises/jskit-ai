@@ -11,7 +11,7 @@ import {
 } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
-const FIXTURE_ROOT = path.resolve(TEST_DIRECTORY, "../fixtures/test-copy-banner");
+const FIXTURE_ROOT = path.resolve(TEST_DIRECTORY, "../fixtures/app-environment-banner");
 const RUN_BROWSER_TEST = process.env.JSKIT_SHELL_WEB_BROWSER_INTEGRATION === "1";
 const VIEWPORTS = Object.freeze([
   { name: "compact", width: 360, height: 740 },
@@ -43,10 +43,10 @@ async function startFixture(t, env) {
   return { vite, browser };
 }
 
-test("a simulating page shows the Test copy banner at every width, in light and dark, without taking a click", {
+test("a development page shows the Development banner at every width, in light and dark, without taking a click", {
   skip: !RUN_BROWSER_TEST
 }, async (t) => {
-  const { vite, browser } = await startFixture(t, { SIDE_EFFECTS: "" });
+  const { vite, browser } = await startFixture(t, { APP_ENV: "development" });
   for (const colorScheme of ["light", "dark"]) {
     for (const viewport of VIEWPORTS) {
       const context = await browser.newContext({ viewport, colorScheme });
@@ -55,10 +55,10 @@ test("a simulating page shows the Test copy banner at every width, in light and 
       await page.goto(vite.baseURL);
       await page.waitForSelector("html[data-ready=true]");
       const label = `${colorScheme} ${viewport.name}`;
-      const banner = page.getByTestId("jskit-test-copy-banner");
-      assert.equal(await banner.textContent(), "Test copy", label);
-      assert.equal(await page.getByRole("note").textContent(), "Test copy", `${label}: a note`);
-      assert.equal(await banner.getAttribute("aria-description"), "Test copy: emails, messages and payments are simulated, not sent.", label);
+      const banner = page.getByTestId("jskit-app-environment-banner");
+      assert.equal(await banner.textContent(), "Development", label);
+      assert.equal(await page.getByRole("note").textContent(), "Development", `${label}: a note`);
+      assert.equal(await banner.getAttribute("aria-description"), "Development: emails, messages and payments are logged, not sent.", label);
       // An application's inexact field lookup finds only its Email field, never the banner whose sentence says emails.
       assert.equal(await page.getByLabel("Email").count(), 1, `${label}: one Email match`);
       assert.equal(await page.getByLabel("Email").getAttribute("id"), "email", `${label}: the Email field`);
@@ -80,10 +80,24 @@ test("a simulating page shows the Test copy banner at every width, in light and 
   }
 });
 
-test("a live page has no banner", { skip: !RUN_BROWSER_TEST }, async (t) => {
-  const { vite, browser } = await startFixture(t, { SIDE_EFFECTS: "live" });
-  const page = await browser.newPage();
-  await page.goto(vite.baseURL);
-  await page.waitForSelector("html[data-ready=true]");
-  assert.equal(await page.getByTestId("jskit-test-copy-banner").count(), 0);
+test("a test page shows Test and a staging page Staging, at the narrowest width; a production page shows none", {
+  skip: !RUN_BROWSER_TEST
+}, async (t) => {
+  for (const [APP_ENV, expected] of [["test", "Test"], ["staging", "Staging"], ["production", null]]) {
+    await t.test(APP_ENV, async (subtest) => {
+      const { vite, browser } = await startFixture(subtest, { APP_ENV });
+      const page = await browser.newPage({ viewport: VIEWPORTS[0] });
+      await page.goto(vite.baseURL);
+      await page.waitForSelector("html[data-ready=true]");
+      const banner = page.getByTestId("jskit-app-environment-banner");
+      if (expected === null) {
+        assert.equal(await banner.count(), 0);
+        return;
+      }
+      assert.equal(await banner.textContent(), expected);
+      const box = await banner.boundingBox();
+      assert.ok(box.width < VIEWPORTS[0].width / 2, `${APP_ENV}: small (${box.width})`);
+      assert.equal(await page.getByLabel("Email").count(), 1, `${APP_ENV}: one Email match`);
+    });
+  }
 });

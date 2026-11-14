@@ -15,7 +15,7 @@ test("auth policy protects real Fastify requests with CSRF", async (t) => {
     hasPermission() {
       return false;
     }
-  }, { nodeEnv: "test" })(app);
+  }, { appEnv: "test" })(app);
 
   app.get("/api/csrf", { config: { authPolicy: "public" } }, (_request, reply) => ({
     token: reply.generateCsrf()
@@ -53,7 +53,7 @@ test("production CSRF secrets live in a host-only __Host- cookie a sibling host 
     hasPermission() {
       return false;
     }
-  }, { nodeEnv: "production" })(app);
+  }, { appEnv: "production" })(app);
   app.get("/api/csrf", { config: { authPolicy: "public" } }, (_request, reply) => ({ token: reply.generateCsrf() }));
   app.post("/api/write", { config: { authPolicy: "public" } }, () => ({ accepted: true }));
 
@@ -98,7 +98,7 @@ test("resolves csrf token headers and skips auth for non-api/public routes", asy
       }
     },
     {
-      nodeEnv: "test"
+      appEnv: "test"
     }
   );
 

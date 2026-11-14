@@ -157,7 +157,7 @@ test("n8n saved discovery drives project-owned consent, encrypted grants and ref
     }
   };
   const startedAt = now;
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = await service.beginAuthorization(input);
   const authorization = new URL(start.authorizationUrl);
   assert.equal(authorization.origin + authorization.pathname, discovery.oauth.authorization_endpoint);
@@ -168,13 +168,13 @@ test("n8n saved discovery drives project-owned consent, encrypted grants and ref
   assert.equal((await service.completeAuthorization({ ...input,
     callbackUrl: `${callback}?code=fixture&state=${authorization.searchParams.get("state")}&iss=${encodeURIComponent(discovery.oauth.issuer)}` })).status, "connected");
   now += 61_000;
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.invoke({ ...input, operation: "tools.list", input: {} }), { tools: [] });
   assert.equal(requests.filter((request) => request.address === discovery.oauth.token_endpoint).length, 2);
   const changed = structuredClone(options.configuration);
   changed.integrations.automation.settings.serverUrl = "https://other.example/mcp-server/http";
   const count = requests.length;
-  await assert.rejects(createConnectionService({ ...options, configuration: changed }).beginAuthorization(input), { code: "connector_discovery_required" });
+  await assert.rejects(createConnectionService({ appEnv: "test", ...options, configuration: changed }).beginAuthorization(input), { code: "connector_discovery_required" });
   assert.equal(requests.length, count);
   for (const mutation of [
     (d) => { d.oauth.token_endpoint = "https://other.example/token"; },
@@ -182,6 +182,6 @@ test("n8n saved discovery drives project-owned consent, encrypted grants and ref
     (d) => { d.scopes = ["workflow:read", "workflow:read"]; }
   ]) {
     const invalid = structuredClone(options.configuration); mutation(invalid.integrations.automation.settings.oauthDiscovery);
-    assert.throws(() => createConnectionService({ ...options, configuration: invalid }));
+    assert.throws(() => createConnectionService({ appEnv: "test", ...options, configuration: invalid }));
   }
 });

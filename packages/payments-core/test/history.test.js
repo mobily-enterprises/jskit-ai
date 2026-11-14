@@ -12,7 +12,7 @@ test('every subject billing entry point requires explicit authorization before t
   const actions = { account: 'account', history: 'history', checkout: 'checkout', portal: 'portal', reconcilePending: 'reconcile' };
   for (const decision of [false, undefined, null, 'true', 1, { allowed: true }]) {
     const requests = [];
-    const service = createPaymentCheckoutService({ merchantScope: merchant, returnUrl: 'https://example.com/billing',
+    const service = createPaymentCheckoutService({ appEnv: 'test', merchantScope: merchant, returnUrl: 'https://example.com/billing',
       store: forbidden, adapter: forbidden, payments: forbidden,
       authorize: async (actor, request) => { requests.push({ actor, ...request }); return decision; }
     });
@@ -30,7 +30,7 @@ test('every subject billing entry point requires explicit authorization before t
 test('history authorizes the subject before storage or network and never accepts a caller customer ID', async () => {
   const reads = [];
   let boundCustomer = 'cus_owned';
-  const service = createPaymentCheckoutService({ merchantScope: merchant, returnUrl: 'https://example.com/billing',
+  const service = createPaymentCheckoutService({ appEnv: 'test', merchantScope: merchant, returnUrl: 'https://example.com/billing',
     authorize: async (actor, request) => actor === 'billing-admin' && request.subjectId === 'tenant-a' && request.action === 'history',
     store: { async inspect(scope) { reads.push(scope); return { customerId: boundCustomer }; } },
     adapter: { async readHistory(query) { reads.push(query); return { collection: query.collection, items: [], nextCursor: null }; } }
@@ -51,7 +51,7 @@ test('history authorizes the subject before storage or network and never accepts
 });
 
 test('history errors do not expose provider credentials or diagnostics', async () => {
-  const service = createPaymentCheckoutService({ merchantScope: merchant, returnUrl: 'https://example.com/billing', authorize: async () => true,
+  const service = createPaymentCheckoutService({ appEnv: 'test', merchantScope: merchant, returnUrl: 'https://example.com/billing', authorize: async () => true,
     store: { inspect: async () => ({ customerId: 'cus_a' }) }, adapter: { readHistory: async () => { throw new Error('sk_secret customer_private@example.com'); } } });
   await assert.rejects(service.history({ actor: 'admin', subjectId: 'a', collection: 'transactions' }), (error) => {
     assert.equal(error.code, 'payment_history_unavailable');

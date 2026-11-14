@@ -57,7 +57,7 @@ async function fixture(t, domainPrefix = "fixture-store", selectedScopes = scope
       return Response.json(state.value === undefined ? page : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = async () => {
     const { authorizationUrl } = await service.beginAuthorization({ ...args, verificationInput: { page_size: 1 } }); const url = new URL(authorizationUrl);
     const redirect = new URL(callback); redirect.searchParams.set("code", "fixture-code"); redirect.searchParams.set("state", url.searchParams.get("state"));
@@ -81,7 +81,7 @@ test("Lightspeed uses central code consent, a configured store token endpoint an
     const text = await readFile(path.join(f.directory, file), "utf8");
     for (const secret of ["fixture-code", "fixture-client-secret", "fixture-access-1", "fixture-refresh-1"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService(f.options);
+  const restarted = createConnectionService({ appEnv: "test", ...f.options });
   assert.equal((await restarted.status(args)).status, "connected");
   assert.deepEqual(await restarted.invoke({ ...args, operation: "products.list" }), page);
 });
@@ -119,7 +119,7 @@ test("Lightspeed uses actual granted scopes and host ownership before any store 
   for (const owner of [{ ...context, applicationId: "other" }, { ...context, subjectId: "other" }]) {
     await assert.rejects(f.service.invoke({ ...args, context: owner, operation: "products.list" }), { code: "connector_reconnect_required" });
   }
-  const denied = createConnectionService({ ...f.options, authorize: async () => null });
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async () => null });
   await assert.rejects(denied.invoke({ ...args, operation: "products.list" }), { code: "connector_access_denied" });
   assert.equal(f.requests.length, 2);
   const reduced = await fixture(t); reduced.state.tokenPatch.scope = "customers:read";
@@ -134,7 +134,7 @@ test("Lightspeed persists every rotated refresh token even if the subsequent API
   f.state.time += 40_000; f.state.status = 429;
   await assert.rejects(f.service.invoke({ ...args, operation: "products.list" }), { code: "connector_rate_limited" });
   f.state.status = 200;
-  const restarted = createConnectionService(f.options); await restarted.invoke({ ...args, operation: "products.list" });
+  const restarted = createConnectionService({ appEnv: "test", ...f.options }); await restarted.invoke({ ...args, operation: "products.list" });
   assert.equal(f.state.count, 3); assert.deepEqual((await restarted.status(args)).grantedScopes, scopes);
   f.state.time += 40_000; await restarted.invoke({ ...args, operation: "customers.list" }); assert.equal(f.state.count, 4);
 });
@@ -162,7 +162,7 @@ test("Lightspeed requires scopes, expiry and replacement refresh tokens from suc
 test("Lightspeed configuration changes invalidate grants and denied, cancelled or replayed consent preserves saved access", async (t) => {
   const f = await fixture(t); await f.connect();
   const configuration = structuredClone(f.options.configuration); configuration.integrations.retail.settings.domainPrefix = "other-store";
-  await assert.rejects(createConnectionService({ ...f.options, configuration }).invoke({ ...args, operation: "products.list" }), { code: "connector_reconnect_required" });
+  await assert.rejects(createConnectionService({ appEnv: "test", ...f.options, configuration }).invoke({ ...args, operation: "products.list" }), { code: "connector_reconnect_required" });
   const start = await f.start(); const denied = new URL(start.callbackUrl); denied.searchParams.delete("code"); denied.searchParams.set("error", "access_denied");
   await assert.rejects(f.service.completeAuthorization({ ...args, callbackUrl: denied.href }), { code: "connector_consent_denied" });
   await assert.rejects(f.service.completeAuthorization({ ...args, callbackUrl: start.callbackUrl }), { code: "connector_attempt_invalid" });
@@ -239,7 +239,7 @@ test("Lightspeed inventory and sales preserve quantities, paging and permission 
   const before = f.requests.length;
   for (const invalid of [{ variants: true }, { after: 2, before: 1 }, { size: 1001 }, { product_id: "../other" }])
     await assert.rejects(f.service.invoke({ ...args, operation: "inventory.list", input: invalid }), { code: "connector_input_invalid" });
-  const denied = createConnectionService({ ...f.options, authorize: async (owner, request) => request.operation === "sales.list" ? null : owner });
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async (owner, request) => request.operation === "sales.list" ? null : owner });
   await assert.rejects(denied.invoke({ ...args, operation: "sales.list" }), { code: "connector_access_denied" });
   assert.equal(f.requests.length, before);
   for (const malformed of [{ data: [] }, [{ version: "unknown" }], [{ version: 1 }, { version: 2 }]]) {

@@ -126,7 +126,7 @@ test("development pages and missing builds have no build id", async (t) => {
   const plugin = createJskitClientBootstrapPlugin();
   const html = "<html><head></head><body></body></html>";
   const served = plugin.transformIndexHtml.handler(html, { server: {} });
-  assert.deepEqual(served.map(({ tag }) => tag), ["style", "meta"], "the layer order and the side-effects setting");
+  assert.deepEqual(served.map(({ tag }) => tag), ["style", "meta"], "the layer order and the APP_ENV meta tag");
   assert.equal(served.some(({ attrs }) => attrs?.name === "jskit-client-build"), false, "no build id");
 
   const root = await mkdtemp(path.join(os.tmpdir(), "jskit-client-build-id-"));
@@ -135,24 +135,26 @@ test("development pages and missing builds have no build id", async (t) => {
   await assert.rejects(readServedClientBuildId({}), /requires appRoot/u);
 });
 
-test("a development page names the development server's SIDE_EFFECTS, simulating unless it is exactly live", (t) => {
+test("a development page names the development server's APP_ENV, and refuses without one, naming the fix", (t) => {
   const plugin = createJskitClientBootstrapPlugin();
-  const saved = process.env.SIDE_EFFECTS;
+  const saved = process.env.APP_ENV;
   t.after(() => {
     if (saved === undefined) {
-      delete process.env.SIDE_EFFECTS;
+      delete process.env.APP_ENV;
     } else {
-      process.env.SIDE_EFFECTS = saved;
+      process.env.APP_ENV = saved;
     }
   });
-  const sideEffects = () => plugin.transformIndexHtml.handler("<html><head></head></html>", { server: {} })
-    .find(({ attrs }) => attrs?.name === "jskit-side-effects")?.attrs.content;
-  delete process.env.SIDE_EFFECTS;
-  assert.equal(sideEffects(), "simulate", "unset simulates");
-  process.env.SIDE_EFFECTS = "LIVE";
-  assert.equal(sideEffects(), "simulate", "only exactly live is live");
-  process.env.SIDE_EFFECTS = "live";
-  assert.equal(sideEffects(), "live");
+  const environment = () => plugin.transformIndexHtml.handler("<html><head></head></html>", { server: {} })
+    .find(({ attrs }) => attrs?.name === "jskit-app-environment")?.attrs.content;
+  process.env.APP_ENV = "development";
+  assert.equal(environment(), "development");
+  process.env.APP_ENV = "test";
+  assert.equal(environment(), "test");
+  delete process.env.APP_ENV;
+  assert.throws(environment, { message: /^APP_ENV is not set\. Set APP_ENV to development/u });
+  process.env.APP_ENV = "dev";
+  assert.throws(environment, { message: /^APP_ENV is "dev", which is not an environment JSKIT knows/u });
 });
 
 test("a page reads the build it loaded from its own document", () => {

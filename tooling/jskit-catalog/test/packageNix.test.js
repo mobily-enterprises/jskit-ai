@@ -290,6 +290,18 @@ test("serve runs the start script in place of the launcher, from the app, with t
   });
 });
 
+test("serve never sets APP_ENV: the host's settings say where the app runs", async () => {
+  await withApp({ start: "node report.mjs start" }, async ({ root, envFile, steps }) => {
+    const serve = () => launch(["serve", "--app", root, "--shell", "/bin/sh", "--env", envFile], {
+      env: { ...process.env, APP_ENV: undefined }
+    });
+    assert.equal((await serve()).code, 0);
+    await writeFile(envFile, `${await readFile(envFile, "utf8")}APP_ENV=staging\n`);
+    assert.equal((await serve()).code, 0);
+    assert.deepEqual((await steps()).map(({ env }) => env.APP_ENV), [undefined, "staging"]);
+  });
+});
+
 test("serve --migrate runs db:migrate first and starts nothing when it fails; migrate runs it alone", async () => {
   await withApp({ start: "node report.mjs start", "db:migrate": "node report.mjs migrate" }, async ({ root, envFile, steps }) => {
     assert.equal((await launch(["serve", "--app", root, "--shell", "/bin/sh", "--env", envFile, "--migrate"])).code, 0);

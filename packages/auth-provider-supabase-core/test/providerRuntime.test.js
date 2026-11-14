@@ -19,7 +19,7 @@ function env(overrides = {}) {
     AUTH_SUPABASE_URL: "https://example.supabase.co",
     AUTH_SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test_key",
     APP_PUBLIC_URL: "http://localhost:5173",
-    NODE_ENV: "test",
+    APP_ENV: "test",
     ...overrides
   };
 }

@@ -62,7 +62,7 @@ async function fixture(t, { location = "global", accountMode = "shared" } = {}) 
       return Response.json(state.value === undefined ? init.method === "POST" ? searchPage : engine : state.value, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = async () => {
     const { authorizationUrl } = await service.beginAuthorization(args); const url = new URL(authorizationUrl);
     const returned = new URL(callback); returned.searchParams.set("state", url.searchParams.get("state")); returned.searchParams.set("code", "private-code");
@@ -80,7 +80,7 @@ test("Gemini Enterprise uses Google PKCE consent and the configured regional eng
     assert.equal(start.url.searchParams.get("prompt"), "consent"); assert.equal(start.url.searchParams.get("code_challenge_method"), "S256");
     assert.equal(start.url.searchParams.has("client_secret"), false);
     await f.service.completeAuthorization({ ...args, callbackUrl: start.callbackUrl });
-    const restarted = createConnectionService(f.options);
+    const restarted = createConnectionService({ appEnv: "test", ...f.options });
     assert.equal((await restarted.status(args)).status, "connected");
     assert.deepEqual(await restarted.invoke({ ...args, operation: "engine.get" }), f.engine);
     for (const file of await readdir(f.directory)) {
@@ -111,7 +111,7 @@ test("Gemini Enterprise rejects caller target and identity overrides, invalid pa
     await assert.rejects(f.service.invoke({ ...args, operation: "search", input }));
   }
   await assert.rejects(f.service.invoke({ ...args, operation: "engine.get", input: { engineId: "other" } }));
-  const denied = createConnectionService({ ...f.options, authorize: async () => { throw new Error("Denied by host"); } });
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async () => { throw new Error("Denied by host"); } });
   await assert.rejects(denied.invoke({ ...args, operation: "engine.get" }), /Denied by host/u);
   assert.equal(f.requests.length, count);
   const narrowed = await fixture(t); narrowed.state.tokenPatch.scope = "https://www.googleapis.com/auth/other";
@@ -125,7 +125,7 @@ test("Gemini Enterprise binds stored grants and pending consent to their applica
   }
   for (const [key, value] of [["projectId", "another-project"], ["location", "eu"], ["engineId", "another-engine"]]) {
     const configuration = structuredClone(f.options.configuration); configuration.integrations["enterprise-search"].settings[key] = value;
-    const changed = createConnectionService({ ...f.options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...f.options, configuration });
     assert.equal((await changed.status(args)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...args, operation: "engine.get" }), { code: "connector_reconnect_required" });
     const start = await f.start(); await assert.rejects(changed.completeAuthorization({ ...args, callbackUrl: start.callbackUrl }), { code: "connector_attempt_invalid" });

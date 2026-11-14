@@ -44,7 +44,7 @@ async function startApp(t, { env = {}, configureExtensions = () => {} } = {}) {
       "runtime.app-root": appRoot,
       "runtime.database": { knex },
       "runtime.env": {
-        NODE_ENV: "test",
+        APP_ENV: "test",
         AUTH_OIDC_ISSUER: issuer.issuer,
         AUTH_OIDC_REGISTRATION_TOKEN: issuer.registrationToken,
         ...env

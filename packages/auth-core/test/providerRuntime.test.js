@@ -20,7 +20,7 @@ function createFastify() {
 
 function runtimeInputs(fastify) {
   return {
-    "runtime.env": { NODE_ENV: "test" },
+    "runtime.env": { APP_ENV: "test" },
     "runtime.fastify": fastify,
     "runtime.logger": silentLogger
   };
@@ -157,7 +157,7 @@ async function csrfSecretCookie(t, env) {
   const app = Fastify();
   t.after(() => app.close());
   const runtime = createCapabilityRuntime({
-    inputs: { ...runtimeInputs(app), "runtime.env": { NODE_ENV: "test", ...env } },
+    inputs: { ...runtimeInputs(app), "runtime.env": { APP_ENV: "test", ...env } },
     providers: [EventProvider, ActionProvider, HttpProvider, AuthExtensionsProvider, AuthFeature, AuthPolicyProvider]
   });
   await runtime.start();

@@ -116,7 +116,9 @@ const connections = createConnectionService({
   providers: [googleCalendarProvider],
   store,
   resolveReference: createEnvironmentReferenceResolver(process.env),
-  authorize: applicationConnectionPolicy
+  authorize: applicationConnectionPolicy,
+  // The application's APP_ENV, appEnvironment(process.env): only production sends side-effect operations.
+  appEnv: appEnvironment(process.env)
 });
 ```
 

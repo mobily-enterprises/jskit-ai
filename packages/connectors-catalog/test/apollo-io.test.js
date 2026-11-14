@@ -13,6 +13,7 @@ test("Apollo prospects, explicit enrichment and CRM changes run through the appl
   const state = { response: { accounts: [] }, status: 200, fail: false, deny: false, key: "fixture-apollo-key" };
   const context = { applicationId: "sales-app", subjectId: "workspace" };
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { sales: {
       provider: "apollo-io", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:APOLLO_API_KEY" }
     } } }, providers: [apolloIoProvider], authorize: async owner => { if (state.deny) throw new Error("forbidden"); return owner; },

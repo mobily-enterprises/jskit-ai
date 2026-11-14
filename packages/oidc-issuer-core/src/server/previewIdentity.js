@@ -40,7 +40,7 @@ function localOrigin(value, localHostnames) {
  * The hub's side of the editor preview identity protocol: it signs the
  * preview browser in as an existing hub account through the hub's
  * development-only exchange, which needs the exchange secret and a loopback
- * caller and is absent in production. The preview host names the protocol id
+ * caller and is absent in staging and production. The preview host names the protocol id
  * and any hostnames, besides loopback, that it serves the hub on.
  * @param {Record<string, any>} request The command's request, which is validated here.
  * @param {object} options

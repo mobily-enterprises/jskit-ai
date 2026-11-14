@@ -33,7 +33,7 @@ async function startAuthWeb(t, config = {}) {
     inputs: {
       "auth.service": createRefusingAuthService(),
       "runtime.config": config,
-      "runtime.env": { NODE_ENV: "test" },
+      "runtime.env": { APP_ENV: "test" },
       "runtime.fastify": app,
       "runtime.logger": silentLogger
     },

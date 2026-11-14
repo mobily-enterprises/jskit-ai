@@ -37,7 +37,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, directory, protection, requests, state };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, directory, protection, requests, state };
 }
 
 test("Google Maps verification requires an explicit address and saves only references across restart", async (t) => {
@@ -55,7 +55,7 @@ test("Google Maps verification requires an explicit address and saves only refer
   assert.equal(requests[0].init.redirect, "error");
   assert.equal(JSON.stringify(connected).includes(state.key), false);
   for (const name of await readdir(directory)) assert.equal((await readFile(path.join(directory, name), "utf8")).includes(state.key), false);
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), connected);
   state.key = "replacement-server-key";
   assert.deepEqual(await restarted.invoke({ ...input, operation: "geocoding.forward", input: verificationInput }), places);
@@ -78,7 +78,7 @@ test("Google Maps keeps optional browser configuration portable and requires ver
   delete changed.integrations.maps.settings.browserKeyRef;
   assert.deepEqual(parse(changed), changed);
   await service.connectApiKey({ ...input, verificationInput });
-  const replacement = createConnectionService({ ...options, configuration: changed });
+  const replacement = createConnectionService({ appEnv: "test", ...options, configuration: changed });
   assert.equal((await replacement.status(input)).status, "reconnect-required");
   await assert.rejects(replacement.invoke({ ...input, operation: "geocoding.forward", input: verificationInput }), { code: "connector_reconnect_required" });
   assert.equal(requests.length, 1);

@@ -51,7 +51,7 @@ async function fixture(t, entry) {
   };
   const requests = [];
   const state = { scopes, response: entry.response, status: 200 };
-  const service = createConnectionService({ ...options, sideEffects: "live" });
+  const service = createConnectionService({ ...options, appEnv: "production" });
   const input = { context: owner, integrationId: "provider" };
   async function start() {
     const { authorizationUrl } = await service.beginAuthorization({ ...input, verificationInput: entry.verificationInput });
@@ -77,7 +77,7 @@ for (const entry of cases) {
     assert.equal(requests[1].url.pathname, entry.expectedPath);
     assert.equal(new Headers(requests[1].init.headers).get("authorization"), "Bearer test-access-token");
     assert.equal(requests[1].init.redirect, "error");
-    const restarted = createConnectionService({ ...options, sideEffects: "live" });
+    const restarted = createConnectionService({ ...options, appEnv: "production" });
     assert.equal((await restarted.status(input)).status, "connected");
     assert.equal((await restarted.status(input)).accountLabel, result.accountLabel);
     assert.deepEqual(await restarted.invoke({ ...input, operation: entry.provider.checkOperation, input: entry.verificationInput }), entry.response);
@@ -190,7 +190,7 @@ test("captured auxiliary Google scopes round-trip without granting unrelated rea
       assert.equal(provider.operations[provider.checkOperation].scopes.includes(scope), false);
     }
     options.configuration.integrations.provider.scopes = [...new Set([...options.configuration.integrations.provider.scopes, ...auxiliary])];
-    const service = createConnectionService({ ...options, sideEffects: "live" });
+    const service = createConnectionService({ ...options, appEnv: "production" });
     const result = await service.beginAuthorization({ ...input, verificationInput: entry.verificationInput });
     const requested = new URL(result.authorizationUrl).searchParams.get("scope").split(" ");
     for (const scope of auxiliary) assert.ok(requested.includes(scope));
@@ -346,7 +346,7 @@ test("BigQuery discovers datasets and table schemas and inspects/cancels jobs wi
     const count = requests.length;
     await assert.rejects(service.invoke({ ...input, operation, input: { ...values, projectId: "other" } }), { code: "connector_input_invalid" });
     await assert.rejects(service.invoke({ ...input, context: { ...owner, subjectId: "other" }, operation, input: values }), { code: "connector_reconnect_required" });
-    const denied = createConnectionService({ sideEffects: "live", ...options, authorize: async () => null });
+    const denied = createConnectionService({ appEnv: "production", ...options, authorize: async () => null });
     await assert.rejects(denied.invoke({ ...input, operation, input: values }));
     assert.equal(requests.length, count);
     state.response = { datasets: "bad", tables: "bad", jobReference: {}, schema: "bad" };
@@ -438,7 +438,7 @@ test("Gmail reads full MIME bodies, attachments and search and gates explicit ma
   assert.deepEqual(JSON.parse(requests.at(-1).init.body), { name: "Confirmed" });
   state.response = { labels: [{ id: "Label_1", name: "Confirmed" }] };
   assert.equal((await service.invoke({ ...input, operation: "labels.list" })).labels[0].name, "Confirmed");
-  const noContent = createConnectionService({ sideEffects: "live", ...options, fetchImpl: async (url, init) => { requests.push({ url: new URL(url), init }); assert.equal(init.method, "DELETE"); return new Response(null, { status: 204 }); } });
+  const noContent = createConnectionService({ appEnv: "production", ...options, fetchImpl: async (url, init) => { requests.push({ url: new URL(url), init }); assert.equal(init.method, "DELETE"); return new Response(null, { status: 204 }); } });
   for (const operation of ["drafts.delete", "labels.delete"]) assert.equal(await noContent.invoke({ ...input, operation, input: { id: "draft_or_label" } }), null);
   const before = requests.length;
   for (const [operation, values] of [["messages.send", { raw: "not MIME + /" }], ["messages.modify", { id: "msg_1" }], ["attachments.get", { messageId: "../other", id: "attachment_1" }]]) await assert.rejects(service.invoke({ ...input, operation, input: values }), { code: "connector_input_invalid", statusCode: 422 });

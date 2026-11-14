@@ -39,7 +39,7 @@ const authRegisterBodyValidator = deepFreeze({
         source: { type: "string", required: false, minLength: 1, maxLength: 120 }
       })
     },
-    // The first account's one-time setup code, which a production server
+    // The first account's one-time setup code, which a staging or production server
     // without accounts asks for (capability features.firstAccountSetupCode).
     setupCode: { type: "string", required: false, minLength: 1, maxLength: 64 }
   }),

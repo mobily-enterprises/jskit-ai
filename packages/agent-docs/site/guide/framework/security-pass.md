@@ -92,10 +92,12 @@ a JSKIT app. The rules it applies are already in [Typed features](/guide/framewo
 
 ## Production settings and secrets
 
-- `NODE_ENV=production`, set by the Deployment's Serve step, is JSKIT's only
-  production switch. There local auth requires `AUTH_LOCAL_SESSION_SECRET`,
-  refuses `AUTH_DEV_BYPASS_ENABLED` and `AUTH_LOCAL_RECOVERY_DEV_OUTPUT`, and
-  refuses to start without a confirmation sender while anyone may register
+- `APP_ENV=staging` or `APP_ENV=production`, with `NODE_ENV=production`, set by
+  the Deployment's Serve step, makes a server deployed
+  ([Environments](/guide/framework/environments)). There local auth requires
+  `AUTH_LOCAL_SESSION_SECRET`, refuses `AUTH_DEV_BYPASS_ENABLED` and
+  `AUTH_LOCAL_RECOVERY_DEV_OUTPUT`, and refuses to start without a confirmation
+  sender while anyone may register
   ([Production settings](/guide/framework/sanity-checks#production-settings)).
 - On an empty production database the first account needs the setup code
   (403 `auth.local.setup.codeRequired`), so whoever reaches a new deployment
@@ -128,7 +130,7 @@ a JSKIT app. The rules it applies are already in [Typed features](/guide/framewo
   workspace), a write without `csrf-token`, and one request past each
   `rateLimit` (429). A body that does not validate, sent without a session,
   must get the refusal, not field errors.
-- Production settings: start the server with `NODE_ENV=production` and the
+- Production settings: start the server with `APP_ENV=staging`, `NODE_ENV=production` and the
   test database, and check that it stops without `AUTH_LOCAL_SESSION_SECRET`,
   that registering asks for the setup code, and the response headers.
 - Run `npm audit` and `npm run verify`.

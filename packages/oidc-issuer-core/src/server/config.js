@@ -1,8 +1,7 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { isProductionEnv } from "@jskit-ai/kernel/server/runtime/runtimeMode";
-import { sideEffectsAreLive } from "@jskit-ai/kernel/shared/support/sideEffects";
+import { isDeployed } from "@jskit-ai/kernel/shared/support/appEnvironment";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const MIN_SECRET_BYTES = 32;
@@ -27,11 +26,11 @@ function isLoopbackHostname(hostname) {
   return LOOPBACK_HOSTS.has(host) || host.endsWith(".localhost") || /^127(?:\.\d{1,3}){3}$/u.test(host);
 }
 
-function resolveIssuer(env, isProduction) {
+function resolveIssuer(env, deployed) {
   const configured = text(env.APP_PUBLIC_URL);
   if (!configured) {
-    if (isProduction) {
-      throw new HubConfigError("Set APP_PUBLIC_URL to your hub's https address before starting it in production.");
+    if (deployed) {
+      throw new HubConfigError("Set APP_PUBLIC_URL to your hub's https address before starting it in staging or production.");
     }
     const port = Number.parseInt(text(env.PORT), 10) || 3001;
     return `http://localhost:${port}`;
@@ -65,10 +64,10 @@ function readOrCreateDevSecret(appRoot) {
   return generated;
 }
 
-function resolveSecret(env, { isProduction, appRoot }) {
+function resolveSecret(env, { deployed, appRoot }) {
   const configured = text(env.OIDC_HUB_SECRET);
   if (!configured) {
-    if (isProduction || !appRoot) {
+    if (deployed || !appRoot) {
       throw new HubConfigError("Set OIDC_HUB_SECRET to a random value of at least 32 bytes.");
     }
     return readOrCreateDevSecret(appRoot);
@@ -101,11 +100,11 @@ function parseDevOriginPatterns(value) {
   return Object.freeze(patterns);
 }
 
-function resolveMail(env, { isProduction }) {
+function resolveMail(env, { deployed }) {
   const from = text(env.OIDC_HUB_EMAIL_FROM);
   const resendApiKey = text(env.RESEND_API_KEY);
   const smtpUrl = text(env.SMTP_URL);
-  if (isProduction && (!from || (!resendApiKey && !smtpUrl))) {
+  if (deployed && (!from || (!resendApiKey && !smtpUrl))) {
     throw new HubConfigError(
       "Set OIDC_HUB_EMAIL_FROM and either RESEND_API_KEY or SMTP_URL so the hub can send confirmation and recovery emails."
     );
@@ -113,9 +112,7 @@ function resolveMail(env, { isProduction }) {
   return Object.freeze({
     from,
     resendApiKey,
-    smtpUrl,
-    // A test copy (SIDE_EFFECTS is not live) logs each email instead of sending it, even with a sender configured.
-    live: sideEffectsAreLive(env)
+    smtpUrl
   });
 }
 
@@ -146,7 +143,7 @@ function resolveHubDevAuth(env) {
  * naming the variable to fix.
  */
 function resolveHubConfig(env = {}, { appRoot = "" } = {}) {
-  const isProduction = isProductionEnv(env);
+  const deployed = isDeployed(env);
   const registrationToken = text(env.OIDC_HUB_REGISTRATION_TOKEN);
   if (!registrationToken) {
     throw new HubConfigError("Set OIDC_HUB_REGISTRATION_TOKEN: apps present it when they register with the hub.");
@@ -158,18 +155,18 @@ function resolveHubConfig(env = {}, { appRoot = "" } = {}) {
   if (!ownerEmail || !ownerEmail.includes("@")) {
     throw new HubConfigError("Set OIDC_HUB_OWNER_EMAIL to the email address of the hub's owner.");
   }
-  const issuer = resolveIssuer(env, isProduction);
+  const issuer = resolveIssuer(env, deployed);
   return Object.freeze({
-    isProduction,
+    isDeployed: deployed,
     issuer,
     secure: issuer.startsWith("https:"),
-    secret: resolveSecret(env, { isProduction, appRoot }),
+    secret: resolveSecret(env, { deployed, appRoot }),
     secretFromEnv: Boolean(text(env.OIDC_HUB_SECRET)),
     registrationToken,
     ownerEmail,
     devOriginPatterns: parseDevOriginPatterns(env.OIDC_HUB_DEV_ORIGIN_PATTERNS),
     google: resolveGoogle(env),
-    mail: resolveMail(env, { isProduction })
+    mail: resolveMail(env, { deployed })
   });
 }
 

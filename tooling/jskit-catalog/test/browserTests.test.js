@@ -190,7 +190,7 @@ http.createServer((request, response) => {
   const signedInAs = new URL(request.url, "http://app").searchParams.get("database");
   if (request.method === "POST") response.setHeader("set-cookie", \`session=\${process.env.PORT}.\${signedInAs}; Path=/; HttpOnly\`);
   response.end(JSON.stringify({ port: process.env.PORT, database: process.env.DB_NAME, index: process.env.TEST_PARALLEL_INDEX,
-    publicUrl: process.env.PUBLIC_APP_URL, driver: process.env.EMAIL_DRIVER }));
+    publicUrl: process.env.PUBLIC_APP_URL, driver: process.env.EMAIL_DRIVER, appEnv: process.env.APP_ENV }));
 }).listen(Number(process.env.PORT), process.env.HOST);
 `;
 const PREPARE = "export default async ({ workers, baseUrls }) => Array.from({ length: workers }, (_, index) => " +
@@ -257,7 +257,8 @@ test("a local run starts one server per worker, each on its own port and with it
     const cache = path.join(root, "node_modules", ".cache", "jskit-browser-tests");
     const settings = {
       workers: 3, host: "127.0.0.1", basePort, server: "node ./server.mjs", build: "node ./build.mjs",
-      prepare: "tests/e2e/databases.mjs", env: { EMAIL_DRIVER: "simulate" }, health: "/api/health",
+      // An app's own APP_ENV gives way: browser test servers are APP_ENV=test.
+      prepare: "tests/e2e/databases.mjs", env: { EMAIL_DRIVER: "simulate", APP_ENV: "development" }, health: "/api/health",
       workerEnvironments: path.join(cache, `workers-${basePort}.json`),
       signIn: "tests/e2e/sign-in.mjs", signedInStates: path.join(cache, `signed-in-${basePort}`)
     };
@@ -277,7 +278,8 @@ test("a local run starts one server per worker, each on its own port and with it
         database: `app_browser_${index}`,
         index: String(index),
         publicUrl: `http://127.0.0.1:${basePort + index}`,
-        driver: "simulate"
+        driver: "simulate",
+        appEnv: "test"
       })));
       // A worker's own process gets its server's prepared environment, so a test that opens the database itself
       // reaches its server's copy; only this user may read it.

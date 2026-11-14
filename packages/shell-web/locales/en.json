@@ -46,9 +46,13 @@
         "thisAppUpdated": "This app was updated. Reload to get the latest version.",
         "unreachable": "{label} could not reach the server or network. Check the connection and try again."
       },
-      "sideEffects": {
-        "testCopy": "Test copy",
-        "testCopyDescription": "Test copy: emails, messages and payments are simulated, not sent."
+      "appEnvironment": {
+        "development": "Development",
+        "developmentDescription": "Development: emails, messages and payments are logged, not sent.",
+        "test": "Test",
+        "testDescription": "Test: emails, messages and payments are logged, not sent.",
+        "staging": "Staging",
+        "stagingDescription": "Staging: email and text messages reach only the staging test addresses, other messages are logged and payments use the sandbox."
       }
     }
   }

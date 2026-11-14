@@ -652,7 +652,7 @@ function registerAdminRoutes(app, hub, support) {
       await settings.set("email-test", { ok: false, at: hub.now().toISOString() });
       throw hubError(HUB_ERRORS.testEmailFailed, { reason: error.message });
     }
-    // A test copy logged the email instead of sending it, which proves nothing about the sender.
+    // A logged email (development and test, or staging without STAGING_EMAIL_TO) proves nothing about the sender.
     if (delivery?.simulated) {
       return { ok: true, simulated: true };
     }
@@ -680,7 +680,7 @@ function registerDevelopmentRoutes(app, hub, support) {
 
   app.post("/hub/api/dev/login-as", async (request, reply) => {
     const { enabled, secret } = hub.devAuth;
-    if (config.isProduction || !enabled || !secret || !isLoopbackRequest(request)) {
+    if (config.isDeployed || !enabled || !secret || !isLoopbackRequest(request)) {
       throw new HubError(404, "not_found", "Not found.");
     }
     if (!constantEquals(request.headers[DEV_AUTH_SECRET_HEADER], secret)) {

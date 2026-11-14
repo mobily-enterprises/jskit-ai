@@ -27,22 +27,22 @@ function unauthenticatedAuthResult(clearSession = false) {
 }
 
 /**
- * A local auth cookie: httpOnly at Path=/, Secure in production, with the application's SameSite
+ * A local auth cookie: httpOnly at Path=/, Secure in staging and production, with the application's SameSite
  * (AUTH_COOKIE_SAME_SITE).
- * @param {Pick<import("../types.js").AuthLocalConfig, "isProduction" | "cookieSameSite">} config
+ * @param {Pick<import("../types.js").AuthLocalConfig, "isDeployed" | "cookieSameSite">} config
  * @param {number} maxAge
  */
-function cookieOptions({ isProduction, cookieSameSite }, maxAge) {
+function cookieOptions({ isDeployed, cookieSameSite }, maxAge) {
   return {
     path: "/",
     httpOnly: true,
     sameSite: cookieSameSite,
-    secure: isProduction,
+    secure: isDeployed,
     maxAge
   };
 }
 
-/** @param {Pick<import("../types.js").AuthLocalConfig, "isProduction" | "cookieSameSite">} config */
+/** @param {Pick<import("../types.js").AuthLocalConfig, "isDeployed" | "cookieSameSite">} config */
 function clearCookieOptions(config) {
   return [cookieOptions(config, 0), { ...cookieOptions(config, 0), path: "/api" }];
 }
@@ -89,11 +89,11 @@ function buildSessionPayload({ user, session, refreshToken, secret }) {
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
  */
 function createLocalSessions({ appProfileProjection, backend, config, profileProjector }) {
-  const { devAuth, isProduction } = config;
-  // Production cookies are Secure, so they are also host-only __Host- cookies.
-  const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isProduction);
-  const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isProduction);
-  const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, isProduction);
+  const { devAuth, isDeployed } = config;
+  // Staging and production cookies are Secure, so they are also host-only __Host- cookies.
+  const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isDeployed);
+  const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isDeployed);
+  const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, isDeployed);
 
   async function createSessionForUser(tx, user, { purpose = "normal", ttlSeconds = REFRESH_TTL_SECONDS } = {}) {
     const refreshToken = randomToken(36);
@@ -310,7 +310,7 @@ function createLocalSessions({ appProfileProjection, backend, config, profilePro
     }
     for (const options of clearCookieOptions(config)) {
       // A __Host- cookie only exists at Path=/.
-      if (options.path === "/" || !isProduction) {
+      if (options.path === "/" || !isDeployed) {
         reply.clearCookie(ACCESS_TOKEN_COOKIE, options);
         reply.clearCookie(REFRESH_TOKEN_COOKIE, options);
         reply.clearCookie(RECOVERY_TOKEN_COOKIE, options);

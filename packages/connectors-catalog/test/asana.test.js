@@ -12,7 +12,7 @@ test("Asana creates a private project, explicitly shares it, tracks tasks and pr
   const requests = [];
   const state = { status: 200, response: { data: [{ gid: "123" }] }, fail: false, deny: false, key: "asana-fixture" };
   const identity = { context: { applicationId: "work-app", subjectId: "workspace" }, integrationId: "work" };
-  const service = createConnectionService({ configuration: { schemaVersion: 1, registrations: {}, integrations: {
+  const service = createConnectionService({ appEnv: "test", configuration: { schemaVersion: 1, registrations: {}, integrations: {
     work: { provider: "asana", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:ASANA_API_KEY" } }
   } }, providers: [asanaProvider], authorize: async context => { if (state.deny) throw new Error("forbidden"); return context; },
   resolveReference: async () => state.key,

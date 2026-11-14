@@ -42,7 +42,7 @@ test("Notion exchanges JSON with Basic auth and persists rotated refresh tokens 
       return Response.json({ object: "list", results: [], has_more: false });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = await service.beginAuthorization(input);
   const url = new URL(start.authorizationUrl);
   assert.equal(url.origin + url.pathname, notionProvider.oauth.authorization_endpoint);
@@ -56,7 +56,7 @@ test("Notion exchanges JSON with Basic auth and persists rotated refresh tokens 
   assert.equal(tokenRequests, 1);
   for (let i = 0; i < 2; i++) {
     now += 61_000;
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
     assert.deepEqual(await restarted.invoke({ ...input, operation: "content.search", input: {} }), { object: "list", results: [], has_more: false });
   }
   assert.equal(tokenRequests, 3);
@@ -80,7 +80,7 @@ test("Notion rejects failed or malformed token exchanges without replay or secre
     () => { throw new Error("private-fixture-secret"); }
   ]) {
     let requests = 0;
-    const service = createConnectionService({ configuration, providers: [notionProvider],
+    const service = createConnectionService({ appEnv: "test", configuration, providers: [notionProvider],
       store: createFileConnectionStore({ directory, protection }), authorize: async (owner) => owner,
       resolveReference: async (ref) => ref === "env:SECRET" ? "private-fixture-secret" : callback,
       fetchImpl: async () => { requests++; return response(); }
@@ -139,7 +139,7 @@ test("Notion hosted MCP uses separate PKCE/form credentials and tool discovery",
       } : { tools: [] } });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = await service.beginAuthorization(input);
   const url = new URL(start.authorizationUrl);
   assert.equal(url.origin + url.pathname, "https://mcp.notion.com/authorize");
@@ -148,12 +148,12 @@ test("Notion hosted MCP uses separate PKCE/form credentials and tool discovery",
   await service.completeAuthorization({ ...input, callbackUrl: `${callback}?code=fixture&state=${url.searchParams.get("state")}` });
   assert.equal(exchanges, 1);
   now += 3_601_000;
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.invoke({ ...input, operation: "tools.list", input: {} }), { tools: [] });
   assert.equal(exchanges, 2);
   await assert.rejects(service.invoke({ ...input, operation: "content.search", input: {} }));
   const invalid = structuredClone(configuration); invalid.integrations.notes.accountMode = "per-user";
-  assert.throws(() => createConnectionService({ ...options, configuration: invalid }));
+  assert.throws(() => createConnectionService({ appEnv: "test", ...options, configuration: invalid }));
 });
 
 

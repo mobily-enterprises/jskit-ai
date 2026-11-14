@@ -35,7 +35,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status, headers: { Link: '<https://unrelated.example/next>; rel="next"' } });
     }
   };
-  return { service: createConnectionService(options), options, directory, protection, requests, state };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, directory, protection, requests, state };
 }
 
 test("PrestaShop verifies product reads with header-only Basic authentication, then survives file restart and key rotation", async (t) => {
@@ -58,7 +58,7 @@ test("PrestaShop verifies product reads with header-only Basic authentication, t
     assert.equal(text.includes(state.secret), false);
     assert.equal(text.includes(requests[0].headers.get("authorization")), false);
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), connected);
   state.secret = "rotated-prestashop-webservice-key";
   assert.deepEqual(await restarted.invoke({ ...input, operation: "products.list" }), products);
@@ -146,15 +146,15 @@ test("PrestaShop isolates owners, rejects changed store bindings and enforces th
   for (const settings of [{ siteUrl: "https://other.example" }, { siteUrl: "https://merchant.example:8443/other-store" }]) {
     const configuration = structuredClone(options.configuration);
     configuration.integrations.store.settings = settings;
-    const changed = createConnectionService({ ...options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...options, configuration });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: "products.list" }), { code: "connector_reconnect_required" });
   }
-  const wrongHost = createConnectionService({ ...options, providers: [{ ...prestashopProvider, operations: {
+  const wrongHost = createConnectionService({ appEnv: "test", ...options, providers: [{ ...prestashopProvider, operations: {
     "products.list": { scopes: [], request: () => ({ method: "GET", url: "https://other.example/api/products" }) }
   } }] });
   await assert.rejects(wrongHost.invoke({ ...input, operation: "products.list" }), { code: "connector_destination_invalid" });
-  const denied = createConnectionService({ ...options, authorize: async () => { throw new Error("Access denied"); } });
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => { throw new Error("Access denied"); } });
   await assert.rejects(denied.invoke({ ...input, operation: "orders.list" }), /Access denied/u);
   assert.equal(requests.length, 1);
 });
@@ -197,7 +197,7 @@ test("PrestaShop keeps transport failures and cancellation observable without a 
   assert.equal(requests.length, 2);
   const controller = new AbortController();
   let calls = 0;
-  const interrupted = createConnectionService({ ...options, fetchImpl: async () => {
+  const interrupted = createConnectionService({ appEnv: "test", ...options, fetchImpl: async () => {
     calls++;
     controller.abort();
     throw new DOMException("Interrupted", "AbortError");

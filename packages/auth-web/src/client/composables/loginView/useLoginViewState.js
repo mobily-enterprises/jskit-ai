@@ -45,7 +45,7 @@ export function useLoginViewState({ placementContext }) {
   const password = ref("");
   const confirmPassword = ref("");
   const otpCode = ref("");
-  // The first account's setup code, asked for while a production server has no account.
+  // The first account's setup code, asked for while a staging or production server has no account.
   const setupCode = ref("");
   const showPassword = ref(false);
   const showConfirmPassword = ref(false);

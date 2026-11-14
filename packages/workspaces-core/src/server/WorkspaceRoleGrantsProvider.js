@@ -1,4 +1,4 @@
-import { isProductionEnv } from "@jskit-ai/kernel/server/runtime/runtimeMode";
+import { isDeployed } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import {
   collectRequiredPermissions,
@@ -10,9 +10,9 @@ import {
  * Checks, once every feature has registered its actions and routes, that each grant of the workspace role catalogue
  * covers a permission the application requires: an action's, a route's, a surface access policy's, or one the role
  * catalogue's `customPermissions` declares. A grant such as `crud.labels.patch`, which no action requires, would
- * otherwise leave a role silently refused (`ACTION_PERMISSION_DENIED`) where it was meant to be allowed. Outside
- * production the server refuses to start; in production, where the grant gives nothing and costs nothing, it starts
- * and logs a warning.
+ * otherwise leave a role silently refused (`ACTION_PERMISSION_DENIED`) where it was meant to be allowed. In
+ * development and test (APP_ENV) the server refuses to start; in staging and production, where the grant gives
+ * nothing and costs nothing, it starts and logs a warning.
  */
 const WorkspaceRoleGrantsProvider = defineProvider({
   id: "workspaces.role-grants",
@@ -47,7 +47,7 @@ const WorkspaceRoleGrantsProvider = defineProvider({
       return;
     }
     const message = describeUnknownRoleGrants(findings);
-    if (isProductionEnv(env)) {
+    if (isDeployed(env)) {
       logger.warn({ unknownRoleGrants: findings.map(({ roleId, grant }) => ({ roleId, grant })) }, message);
       return;
     }

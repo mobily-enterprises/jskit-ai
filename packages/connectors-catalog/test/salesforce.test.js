@@ -56,7 +56,7 @@ async function fixture(t, settings = { environment: "production", accountUrl }) 
       return Response.json(url.pathname.endsWith("/limits") ? (state.limits || limits) : state.response);
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = async (target = service) => {
     const result = await target.beginAuthorization(input); const url = new URL(result.authorizationUrl);
     const returned = new URL(callback); returned.searchParams.set("code", "fixture-code"); returned.searchParams.set("state", url.searchParams.get("state"));
@@ -145,7 +145,7 @@ test("Salesforce encrypted file restart preserves ownership and renews an undate
     const value = await readFile(path.join(f.directory, name), "utf8");
     for (const secret of ["fixture-secret", "access-1", "refresh-1"]) assert.equal(value.includes(secret), false);
   }
-  const restarted = createConnectionService({ ...f.options, store: createFileConnectionStore({ directory: f.directory, protection: f.protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...f.options, store: createFileConnectionStore({ directory: f.directory, protection: f.protection }) });
   await restarted.invoke({ ...input, operation: "limits.read" }); assert.equal(f.state.grants, 1);
   for (const owner of [{ ...context, subjectId: "user-two" }, { ...context, applicationId: "other-app" }]) {
     await assert.rejects(restarted.invoke({ ...input, context: owner, operation: "limits.read" }), { code: "connector_reconnect_required" });
@@ -162,7 +162,7 @@ test("Salesforce persists rotation before later failures and retains a previous 
   f.state.refresh = false; f.state.status = 403; f.state.errorCode = "REQUEST_LIMIT_EXCEEDED";
   await assert.rejects(f.service.invoke({ ...input, operation: "limits.read" }), { code: "connector_rate_limited" });
   assert.equal(f.state.grants, 2); f.state.status = 200; f.state.time += 60000; f.state.refresh = true;
-  await createConnectionService(f.options).invoke({ ...input, operation: "limits.read" }); assert.equal(f.state.grants, 3);
+  await createConnectionService({ appEnv: "test", ...f.options }).invoke({ ...input, operation: "limits.read" }); assert.equal(f.state.grants, 3);
   f.state.time += 60000; f.state.scope = "refresh_token";
   await assert.rejects(f.service.invoke({ ...input, operation: "limits.read" }), { code: "connector_scope_missing" });
   assert.deepEqual((await f.service.status(input)).grantedScopes, ["refresh_token"]);
@@ -183,7 +183,7 @@ test("Salesforce rejects foreign and malformed grants, missing API consent and c
     if (field === "client") config.registrations.sf.clientId = "different-client";
     else config.integrations.crm.settings = field === "domain" ? { environment: "production", accountUrl: "https://other.my.salesforce.com" }
       : { environment: "sandbox", accountUrl: "https://fixture--uat.sandbox.my.salesforce.com" };
-    const changed = createConnectionService({ ...f.options, configuration: config });
+    const changed = createConnectionService({ appEnv: "test", ...f.options, configuration: config });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.completeAuthorization({ ...input, callbackUrl: pending.callbackUrl }), { code: "connector_attempt_invalid" });
     await assert.rejects(changed.invoke({ ...input, operation: "limits.read" }), { code: "connector_reconnect_required" });
@@ -230,7 +230,7 @@ test("Salesforce host policy, cancelled/denied consent and managed references ca
   assert.equal(f.state.requests.length, 0);
   f.state.deny = false;
   const config = structuredClone(f.configuration); config.registrations.sf = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:APP", assignmentRef: "shared" };
-  assert.throws(() => createConnectionService({ ...f.options, configuration: config }), { code: "integration_configuration_invalid" });
+  assert.throws(() => createConnectionService({ appEnv: "test", ...f.options, configuration: config }), { code: "integration_configuration_invalid" });
   assert.equal(f.state.requests.length, 0);
 });
 
@@ -239,7 +239,7 @@ test("Salesforce cancellation and timeout interrupt requests and a revoked refre
   const keepAlive = setTimeout(() => {}, 1000);
   t.after(() => clearTimeout(keepAlive));
   const f = await fixture(t); await f.connect(); f.state.stall = "api";
-  const timed = createConnectionService({ ...f.options, providers: [{ ...provider, requestTimeoutMs: 30 }] });
+  const timed = createConnectionService({ appEnv: "test", ...f.options, providers: [{ ...provider, requestTimeoutMs: 30 }] });
   await assert.rejects(timed.invoke({ ...input, operation: "limits.read" }), { code: "connector_provider_timeout" });
   const controller = new AbortController(); const pending = f.service.invoke({ ...input, operation: "limits.read", signal: controller.signal });
   const timer = setTimeout(() => controller.abort(), 30);
@@ -254,7 +254,7 @@ test("Salesforce query policy authorizes an immutable request and denies data ac
   const f = await fixture(t); await f.connect();
   const allowed = "SELECT Id FROM Account LIMIT 1";
   const caller = { q: allowed };
-  const service = createConnectionService({ ...f.options, authorize: async (owner, request) => {
+  const service = createConnectionService({ appEnv: "test", ...f.options, authorize: async (owner, request) => {
     if (request.operation === "query.read") {
       assert.equal(request.input.q, allowed);
       caller.q = "SELECT Id FROM Contact";
@@ -265,7 +265,7 @@ test("Salesforce query policy authorizes an immutable request and denies data ac
   await service.invoke({ ...input, operation: "query.read", input: caller });
   assert.equal(f.state.requests.at(-1).url.searchParams.get("q"), allowed);
   const count = f.state.requests.length;
-  const denied = createConnectionService({ ...f.options, authorize: async () => { throw new Error("Query not allowed"); },
+  const denied = createConnectionService({ appEnv: "test", ...f.options, authorize: async () => { throw new Error("Query not allowed"); },
     resolveReference: async () => { assert.fail("No credentials should be resolved before authorization"); } });
   await assert.rejects(denied.invoke({ ...input, operation: "query.read", input: { q: allowed } }), /Query not allowed/);
   assert.equal(f.state.requests.length, count);

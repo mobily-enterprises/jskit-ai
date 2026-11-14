@@ -41,7 +41,7 @@ async function fixture(t, scopes = profile.token_scope) {
       return Response.json(state.response ?? state.profile, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   async function start(using = service) {
     const { authorizationUrl } = await using.beginAuthorization(input);
     const url = new URL(authorizationUrl);
@@ -79,7 +79,7 @@ test("WordPress.com verifies the issued client and scope grant, persists private
     const file = await readFile(path.join(directory, name), "utf8");
     for (const secret of ["fixture-client-secret", "fixture-access-token", "fixture-code"]) assert.equal(file.includes(secret), false);
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), { ...connected, callbackUrl: callback });
   // No expiry or refresh token is documented in this code-exchange response.
   state.time += 1000 * 60 * 60 * 24 * 90;
@@ -140,7 +140,7 @@ test("WordPress.com consent cancellation, denial and registration changes consum
   const stale = await start();
   const config = structuredClone(options.configuration);
   config.registrations.wordpress.clientId = "98765";
-  const changed = createConnectionService({ ...options, configuration: config });
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration: config });
   await assert.rejects(changed.completeAuthorization({ ...input, callbackUrl: stale.callbackUrl }), { code: "connector_attempt_invalid" });
   assert.equal(requests.length, 0);
 });

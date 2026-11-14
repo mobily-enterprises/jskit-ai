@@ -153,7 +153,7 @@ test("while a production server waits for its first account, a Google sign-in ca
   const codes = [];
   const firstAccountSetup = createFirstAccountSetup({
     backend,
-    config: { isProduction: true, storeDir: backend.storeDir },
+    config: { isDeployed: true, storeDir: backend.storeDir },
     logger: { warn: (fields) => codes.push(fields.firstAccountSetupCode) }
   });
   await firstAccountSetup.start();
@@ -379,7 +379,7 @@ test("returnTo stays on the app's own origin", async (t) => {
 });
 
 test("a provider appears only when its client id and secret are both set", () => {
-  const base = { NODE_ENV: "test", AUTH_LOCAL_SESSION_SECRET: "secret", APP_PUBLIC_URL: APP_URL };
+  const base = { APP_ENV: "test", AUTH_LOCAL_SESSION_SECRET: "secret", APP_PUBLIC_URL: APP_URL };
   const config = (env) => resolveLocalAuthConfig({
     appRoot: os.tmpdir(),
     env: { ...base, ...env },

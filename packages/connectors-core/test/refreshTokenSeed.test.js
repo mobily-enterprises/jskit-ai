@@ -56,6 +56,7 @@ function setup({ env = { GOOGLE_REFRESH_TOKEN: "seed-token-1" } } = {}) {
   const revoked = new Set();
   let time = 1_000_000;
   const service = createConnectionService({
+    appEnv: "test",
     configuration: configuration(),
     providers: [googleCalendarProvider],
     store,

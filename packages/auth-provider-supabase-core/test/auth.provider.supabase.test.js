@@ -17,7 +17,7 @@ test("auth.provider.supabase exports required symbols", () => {
 function supabaseConfig(env = {}) {
   return resolveSupabaseConfig({
     config: {},
-    env: { APP_PUBLIC_URL: "http://localhost:5173", NODE_ENV: "development", ...env }
+    env: { APP_PUBLIC_URL: "http://localhost:5173", APP_ENV: "development", ...env }
   });
 }
 
@@ -74,7 +74,7 @@ test("clearSessionCookies clears root and API path session cookie variants", () 
 
 test("clearSessionCookies preserves secure cookie clearing in production", () => {
   const authService = createServiceFixture({
-    env: { NODE_ENV: "production" }
+    env: { APP_ENV: "production", NODE_ENV: "production" }
   });
   const clearCalls = [];
   const reply = {

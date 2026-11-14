@@ -32,7 +32,7 @@ async function fixture(t, authentication = { method: "api-key", secretRef: "env:
       return state.text === undefined ? Response.json(state.response, { status: state.status }) : new Response(state.text, { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, directory, protection, requests, resolutions, state };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, directory, protection, requests, resolutions, state };
 }
 
 test("ClickHouse verifies Basic credentials without putting them in URLs or files, and resolves rotation after restart", async (t) => {
@@ -57,7 +57,7 @@ test("ClickHouse verifies Basic credentials without putting them in URLs or file
   }
   assert.equal(JSON.stringify(connected).includes(state.secret), false);
   assert.deepEqual(resolutions, ["env:CLICKHOUSE_PASSWORD"]);
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), connected);
   assert.equal(requests.length, 1, "status validates the local credential binding without querying the database");
   assert.deepEqual(resolutions, ["env:CLICKHOUSE_PASSWORD", "env:CLICKHOUSE_PASSWORD"]);
@@ -72,13 +72,13 @@ test("ClickHouse verifies Basic credentials without putting them in URLs or file
 test("ClickHouse distinguishes an empty password, a missing explicit binding and requests with no credentials", async (t) => {
   const { options, requests, resolutions, state } = await fixture(t, { method: "api-key" });
   delete options.configuration.integrations.warehouse.settings.username;
-  const empty = createConnectionService(options);
+  const empty = createConnectionService({ appEnv: "test", ...options });
   await empty.connectApiKey(input);
   assert.equal(requests[0].headers.get("authorization"), `Basic ${Buffer.from("default:").toString("base64")}`);
   assert.equal(resolutions.length, 0);
   options.configuration.integrations.warehouse.authentication.secretRef = "env:EMPTY_PASSWORD";
   state.secret = "";
-  const explicit = createConnectionService(options);
+  const explicit = createConnectionService({ appEnv: "test", ...options });
   await explicit.connectApiKey(input);
   assert.equal(requests.at(-1).headers.get("authorization"), requests[0].headers.get("authorization"));
   for (const value of [undefined, null, 12, "password\nheader"]) {
@@ -87,7 +87,7 @@ test("ClickHouse distinguishes an empty password, a missing explicit binding and
   }
   assert.equal(requests.length, 2, "An invalid explicit binding must never fall back to an empty password.");
   options.configuration.integrations.warehouse.authentication = { method: "none" };
-  const noCredentials = createConnectionService(options);
+  const noCredentials = createConnectionService({ appEnv: "test", ...options });
   await noCredentials.connectWithoutCredentials(input);
   await noCredentials.invoke({ ...input, operation: "connection.check" });
   assert.ok(requests.slice(2).every(({ headers, url }) => !headers.has("authorization") && !url.searchParams.has("password") && !url.searchParams.has("user")));
@@ -189,18 +189,18 @@ test("ClickHouse isolates connections and requires verification after changing m
   for (const changes of [{ username: "other" }, { httpUrl: "https://other.example" }, { httpUrl: "https://warehouse.example:8443/other/" }]) {
     const configuration = structuredClone(options.configuration);
     Object.assign(configuration.integrations.warehouse.settings, changes);
-    const changed = createConnectionService({ ...options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...options, configuration });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: "connection.check" }), { code: "connector_reconnect_required" });
   }
-  const denied = createConnectionService({ ...options, authorize: async () => { throw new Error("Access denied"); } });
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => { throw new Error("Access denied"); } });
   await assert.rejects(denied.connectApiKey(input), /Access denied/u);
   assert.equal(requests.length, 1);
   assert.equal(resolutions.length, 1);
   const configuration = structuredClone(options.configuration);
   configuration.integrations.warehouse.authentication = { method: "none" };
   delete configuration.integrations.warehouse.settings.username;
-  const changed = createConnectionService({ ...options, configuration });
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration });
   await assert.rejects(changed.invoke({ ...input, operation: "connection.check" }), { code: "connector_reconnect_required" });
   await changed.connectWithoutCredentials(input);
   assert.equal((await service.status(input)).status, "reconnect-required");
@@ -238,7 +238,7 @@ test("ClickHouse reports timeout and cancellation without replaying a database q
   for (const [failure, code] of [["TimeoutError", "connector_provider_timeout"], ["AbortError", "connector_cancelled"]]) {
     let calls = 0;
     const controller = new AbortController();
-    const interrupted = createConnectionService({ ...options, fetchImpl: async () => {
+    const interrupted = createConnectionService({ appEnv: "test", ...options, fetchImpl: async () => {
       calls++;
       controller.abort(new DOMException("Interrupted", failure));
       throw new Error("Wrapped transport failure");
@@ -266,7 +266,7 @@ test("ClickHouse analytical queries keep typed values separate, bounded and auth
     for (const invalid of [{ sql: "DROP TABLE bookings" }, { sql: "SELECT 1; SELECT 2" }, { sql: "SELECT 1", readonly: 0 },
       { sql: "SELECT {x:Int32}", parameters: { x: 3 } }, { sql: "SELECT 1", parameters: { "a&readonly": "0" } }])
       await assert.rejects(service.invoke({ ...input, operation: "queries.read", input: invalid }), { code: "connector_input_invalid" });
-    const denied = createConnectionService({ ...options, authorize: async (owner, request) => request.operation === "queries.read" ? null : owner });
+    const denied = createConnectionService({ appEnv: "test", ...options, authorize: async (owner, request) => request.operation === "queries.read" ? null : owner });
     await assert.rejects(denied.invoke({ ...input, operation: "queries.read", input: values }), { code: "connector_access_denied" });
     assert.equal(requests.length, count);
     state.status = 500; state.response = { error: "query setting forbidden" };

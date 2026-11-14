@@ -71,7 +71,7 @@ async function createOidcIssuer({
     config,
     devAuth: resolveHubDevAuth(env),
     logger,
-    mailer: mailer || createMailer({ mail: config.mail, logger, isProduction: config.isProduction, fetchImpl }),
+    mailer: mailer || createMailer({ mail: config.mail, env, logger, fetchImpl }),
     now,
     googleEndpoints,
     fetchImpl,
@@ -174,7 +174,7 @@ async function createOidcIssuer({
     // Hub pages are never framed. Development keeps the app's own pages
     // frameable so an editor's preview pane can show them.
     app.addHook("onRequest", async (request, reply) => {
-      if (config.isProduction || isHubPath(request.url)) {
+      if (config.isDeployed || isHubPath(request.url)) {
         reply.raw.setHeader("x-frame-options", "DENY");
         reply.raw.setHeader("content-security-policy", "frame-ancestors 'none'");
       }

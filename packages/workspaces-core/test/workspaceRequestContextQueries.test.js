@@ -201,7 +201,7 @@ async function issuesApp(t) {
       "runtime.app-root": process.cwd(),
       "runtime.bootstrap": createBootstrapRuntime(),
       "runtime.config": config,
-      "runtime.env": {},
+      "runtime.env": { APP_ENV: "test" },
       "runtime.fastify": app
     }
   });

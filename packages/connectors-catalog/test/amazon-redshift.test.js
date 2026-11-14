@@ -41,7 +41,7 @@ async function fixture(t, deploymentType = "serverless", databaseUser) {
         ExecuteStatement: state.started, DescribeStatement: state.statement, GetStatementResult: state.results, CancelStatement: { Status: true } }[action], { status: state.status });
     }
   };
-  return { service: createConnectionService(options), options, requests, resolutions, state, target, directory, protection };
+  return { service: createConnectionService({ appEnv: "test", ...options }), options, requests, resolutions, state, target, directory, protection };
 }
 
 for (const [type, user] of [["serverless"], ["provisioned"], ["provisioned", "report_reader"]]) {
@@ -60,7 +60,7 @@ for (const [type, user] of [["serverless"], ["provisioned"], ["provisioned", "re
       const file = await readFile(path.join(directory, name), "utf8");
       assert.equal(file.includes(state.secret), false); assert.equal(file.includes(state.key), false);
     }
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
     assert.deepEqual(await restarted.status(input), connected);
     state.key = "AKIAROTATEDKEY1234567";
     await restarted.invoke({ ...input, operation: "tables.list" });
@@ -201,7 +201,7 @@ test("Redshift supports explicit temporary AWS credentials, never host defaults"
   state.key = "ASIAEXAMPLEKEY1234567"; await assert.rejects(service.connectApiKey(input), { code: "connector_binding_missing" });
   assert.equal(requests.length, 0);
   options.configuration.integrations.warehouse.settings.sessionTokenRef = "env:AWS_SESSION_TOKEN";
-  state.session = "temporary/+="; const temporary = createConnectionService(options); await temporary.connectApiKey(input);
+  state.session = "temporary/+="; const temporary = createConnectionService({ appEnv: "test", ...options }); await temporary.connectApiKey(input);
   assert.equal(requests[0].headers.get("x-amz-security-token"), state.session);
 });
 
@@ -211,10 +211,10 @@ test("Redshift authorizes before secrets and binds connections to owners and war
     await assert.rejects(service.invoke({ ...input, context: owner, operation: "tables.list" }), { code: "connector_reconnect_required" });
   }
   const configuration = structuredClone(options.configuration); configuration.integrations.warehouse.settings.workgroup = "other";
-  const changed = createConnectionService({ ...options, configuration }); assert.equal((await changed.status(input)).status, "reconnect-required");
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration }); assert.equal((await changed.status(input)).status, "reconnect-required");
   await assert.rejects(changed.invoke({ ...input, operation: "tables.list" }), { code: "connector_reconnect_required" });
   const count = resolutions.length;
-  const denied = createConnectionService({ ...options, authorize: async () => null });
+  const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => null });
   await assert.rejects(denied.invoke({ ...input, operation: "query.start", input: { sql: "select 1", clientToken: "request-1" } }), { code: "connector_access_denied" });
   assert.equal(resolutions.length, count); assert.equal(requests.length, 1);
 });
@@ -223,7 +223,7 @@ test("Redshift local cancellation and timeout do not replay or silently cancel r
   const { options } = await fixture(t);
   for (const [name, code] of [["AbortError", "connector_cancelled"], ["TimeoutError", "connector_provider_timeout"]]) {
     const controller = new AbortController(), actions = [];
-    const interrupted = createConnectionService({ ...options, fetchImpl: async (address, init) => {
+    const interrupted = createConnectionService({ appEnv: "test", ...options, fetchImpl: async (address, init) => {
       const action = new Headers(init.headers).get("x-amz-target").split(".").at(-1);
       if (action !== "ExecuteStatement") return options.fetchImpl(address, init);
       actions.push(action); controller.abort(new DOMException("Interrupted", name)); throw new Error("wrapped");
@@ -263,7 +263,7 @@ test("Redshift database/schema discovery preserves native names and paging in ea
       await assert.rejects(service.invoke({ ...input, operation }), { code: "connector_response_invalid" });
       state.response = { [field]: [] };
       const before = resolutions.length, calls = requests.length;
-      const denied = createConnectionService({ ...options, authorize: async () => false });
+      const denied = createConnectionService({ appEnv: "test", ...options, authorize: async () => false });
       await assert.rejects(denied.invoke({ ...input, operation }));
       assert.equal(resolutions.length, before); assert.equal(requests.length, calls);
     }

@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Its tests name `APP_ENV`, which the auth providers now read in place of `NODE_ENV`; the setup-code field is asked for by a staging or production server.
 - `POST /api/login/pass` reads its settings with `resolvePassSignInFromEnv` from `@jskit-ai/auth-pass/server`, a new dependency, instead of auth-core's removed `./server/passSignIn`. The route behaves as before.
 
 - `POST /api/login/pass`, registered only while `AUTH_PASS_PUBLIC_KEY` is set: an issuer's page posts a one-time pass as the form field `pass`, and a pass that signs in sets the session cookies and answers 303 to `/`; a refused one answers 303 to `/auth/login` with `error=sign_in_unavailable`, `error_description` and `error_code`, which the sign-in page shows. It takes form bodies in a Fastify scope of its own, registered at boot, so the feature now requires `runtime.fastify`; it is public, takes no CSRF token (the pass authenticates it) and answers `Cache-Control: no-store`. Its rate limit is `config.auth.rateLimits.passSignIn` (20 a minute per address); one that no route limiter would enforce stops startup.

@@ -442,7 +442,7 @@ test("installing the DB backend capability makes local auth database-backed", as
         AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "response",
         APP_PUBLIC_URL: "http://localhost:5173",
         AUTH_LOCAL_EMAIL_CONFIRMATION: "false",
-        NODE_ENV: "test"
+        APP_ENV: "test"
       },
       "runtime.logger": console,
       ...inputs

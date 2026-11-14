@@ -65,7 +65,7 @@ for (const perUser of [false, true]) test(`Linear OAuth ${perUser ? "per-user" :
       return Response.json({ data: { viewer: { id: "123", name: "Fixture" } } });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   for (const outcome of ["cancel", "denied"]) {
     const attempt = new URL((await service.beginAuthorization(input)).authorizationUrl);
     const denied = new URL(callback);
@@ -93,7 +93,7 @@ for (const perUser of [false, true]) test(`Linear OAuth ${perUser ? "per-user" :
   time += 40_000;
   await Promise.all([service.invoke({ ...input, operation: "profile.read" }), service.invoke({ ...input, operation: "profile.read" })]);
   assert.equal(exchanges, 2);
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   time += 40_000;
   await restarted.invoke({ ...input, operation: "profile.read" });
   assert.equal(exchanges, 3);
@@ -110,7 +110,7 @@ for (const perUser of [false, true]) test(`Linear OAuth ${perUser ? "per-user" :
     assert.deepEqual(toolCalls.at(-1).arguments, { projectId: "project-1", id: "issue-1", title: "Ship today" });
     assert.equal((await call("fixture_save_issue", { fail: true })).isError, true);
   }
-  const guarded = createConnectionService({ ...options, authorize: async (owner, request) =>
+  const guarded = createConnectionService({ appEnv: "test", ...options, authorize: async (owner, request) =>
     request.operation === "tools.call" && (request.input.name !== "fixture_save_issue" || request.input.arguments.projectId !== "project-1") ? null : owner });
   const beforeDenied = toolCalls.length;
   for (const args of [{ name: "fixture_create_project", arguments: {} }, { name: "fixture_save_issue", arguments: { projectId: "foreign" } }]) {

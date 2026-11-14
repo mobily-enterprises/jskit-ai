@@ -31,7 +31,7 @@ async function startServer(storeDir, { env = {}, confirmationSender } = {}) {
   const logger = { info() {}, warn: (fields, message) => warnings.push({ fields, message }), error() {}, debug() {} };
   const options = localServiceOptions({
     env: {
-      NODE_ENV: "production",
+      APP_ENV: "production", NODE_ENV: "production",
       AUTH_LOCAL_STORE_DIR: storeDir,
       AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
       APP_PUBLIC_URL: "https://app.example.test",
@@ -149,7 +149,7 @@ test("with email confirmation, the first account the setup code admits signs in 
 
 test("development's first account, which needs no setup code, still confirms its email", async (t) => {
   const storeDir = await temporaryStoreDir(t);
-  const { service } = await startServer(storeDir, { env: { NODE_ENV: "development", AUTH_LOCAL_EMAIL_CONFIRMATION: "" } });
+  const { service } = await startServer(storeDir, { env: { APP_ENV: "development", AUTH_LOCAL_EMAIL_CONFIRMATION: "" } });
   const first = await service.register({ email: "dev@example.com", password: PASSWORD });
   assert.equal(first.requiresEmailConfirmation, true);
   assert.ok(first.confirmationUrl);
@@ -157,7 +157,7 @@ test("development's first account, which needs no setup code, still confirms its
 
 test("development asks for no setup code", async (t) => {
   const storeDir = await temporaryStoreDir(t);
-  const { service, warnings } = await startServer(storeDir, { env: { NODE_ENV: "development" } });
+  const { service, warnings } = await startServer(storeDir, { env: { APP_ENV: "development" } });
   assert.deepEqual(warnings, []);
   assert.equal(await codeFile(storeDir), null);
   assert.equal(waitingForFirstAccount(service), false);
@@ -167,7 +167,7 @@ test("development asks for no setup code", async (t) => {
 test("a service composed without a started setup checks for an account on its first registration", async (t) => {
   const storeDir = await temporaryStoreDir(t);
   const options = localServiceOptions({
-    env: { NODE_ENV: "production", AUTH_LOCAL_STORE_DIR: storeDir, AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
+    env: { APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_STORE_DIR: storeDir, AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
   });
   const service = createLocalAuthService({ ...options, backend: createLocalFileBackend({ storeDir }) });
   await assert.rejects(service.register({ email: "owner@example.com", password: PASSWORD }), codeRequired);
@@ -212,8 +212,8 @@ test("a setup code supplied in AUTH_LOCAL_SETUP_CODE is asked for at every start
 
 test("a supplied setup code needs 20 letters and digits in production, and development ignores it", () => {
   assert.throws(
-    () => localServiceOptions({ env: { NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "", AUTH_LOCAL_SETUP_CODE: "short-code-1234" } }),
+    () => localServiceOptions({ env: { APP_ENV: "production", NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "", AUTH_LOCAL_SETUP_CODE: "short-code-1234" } }),
     /AUTH_LOCAL_SETUP_CODE must have at least 20 letters and digits\./u
   );
-  assert.equal(localServiceOptions({ env: { NODE_ENV: "development", AUTH_LOCAL_SETUP_CODE: "short" } }).config.setupCode, "");
+  assert.equal(localServiceOptions({ env: { APP_ENV: "development", AUTH_LOCAL_SETUP_CODE: "short" } }).config.setupCode, "");
 });

@@ -2,11 +2,11 @@ import { ActionProvider } from "../actions/actionProvider.js";
 import { createCapabilityRuntime } from "../../shared/capabilities/runtime.js";
 import { HttpProvider } from "../http/HttpProvider.js";
 import { registerSecurityHeaders } from "../http/securityHeaders.js";
-import { registerSideEffectsPage } from "../http/sideEffectsPage.js";
+import { registerAppEnvironmentPage } from "../http/appEnvironmentPage.js";
+import { assertAppEnvironment, logAppEnvironment } from "../runtime/appEnvironment.js";
 import { BootstrapProvider } from "../runtime/BootstrapProvider.js";
 import { EventProvider } from "../runtime/EventProvider.js";
 import { createHealthRuntime } from "../runtime/healthRuntime.js";
-import { logSideEffectsMode } from "../runtime/sideEffects.js";
 import {
   assertManifestMatchesProviders,
   collectGlobalUiPaths,
@@ -66,10 +66,10 @@ function builtinCapabilityProviders(inputCapabilities) {
 
 /**
  * The application's capability runtime: the kernel's providers, then each
- * installed package's, then the application's own. A Fastify instance adds HTTP, the
- * security headers `config.securityHeaders` describes on every response it sends, and the
- * `SIDE_EFFECTS` setting in every page it sends, for the shell's "Test copy" banner. It logs
- * once whether the application's side effects are live or simulated. The result's
+ * installed package's, then the application's own. It refuses to start unless `env` names a
+ * known APP_ENV (`assertAppEnvironment`). A Fastify instance adds HTTP, the security headers
+ * `config.securityHeaders` describes on every response it sends, and the APP_ENV in every page it
+ * sends, for the shell's environment banner. It logs once where the application runs. The result's
  * `health` runs the health checks providers register (`runtime.health`), for the application's
  * health route.
  * @param {object} options
@@ -105,13 +105,14 @@ async function createInstalledRuntime({
     throw new TypeError("createInstalledRuntime requires a Fastify instance when it serves HTTP.");
   }
 
+  assertAppEnvironment(env);
   const httpServer = fastify || null;
   if (httpServer) {
     // Before any provider registers a plugin, so every route and plugin inherits the hooks.
     registerSecurityHeaders(httpServer, { config, env });
-    registerSideEffectsPage(httpServer, { env });
+    registerAppEnvironmentPage(httpServer, { env });
   }
-  logSideEffectsMode(logger, env);
+  logAppEnvironment(logger, env);
   const health = createHealthRuntime({ logger });
   const inputCapabilities = seedInputCapabilities({ inputs, config, env, logger, health, httpServer, appRoot });
   const installedPackages = await resolveInstalledJskitPackages({ appRoot });

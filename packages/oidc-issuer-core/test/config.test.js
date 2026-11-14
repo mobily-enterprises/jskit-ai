@@ -9,7 +9,7 @@ const base = {
 };
 const production = {
   ...base,
-  NODE_ENV: "production",
+  APP_ENV: "production", NODE_ENV: "production",
   APP_PUBLIC_URL: "https://accounts.example.test",
   OIDC_HUB_EMAIL_FROM: "hub@example.test",
   RESEND_API_KEY: "re_test"

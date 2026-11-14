@@ -49,7 +49,7 @@ async function fixture(t) {
       return Response.json(state.response, { status: state.status });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   async function start() {
     const { authorizationUrl } = await service.beginAuthorization(input);
     const url = new URL(authorizationUrl); const redirect = new URL(callback);
@@ -75,7 +75,7 @@ test("TikTok configuration requires basic access, a confidential registration an
     assert.throws(() => validateIntegrationConfiguration(config, { providers: [provider] }), { code: "integration_configuration_invalid" });
   }
   for (const value of ["http://127.0.0.1:8080/callback", `${callback}?tenant=1`, `${callback}#done`, `https://app.example/${"x".repeat(500)}`]) {
-    const service = createConnectionService({ ...options, resolveReference: async (ref) => ref === "env:TIKTOK_CALLBACK" ? value : "fixture-client-secret" });
+    const service = createConnectionService({ appEnv: "test", ...options, resolveReference: async (ref) => ref === "env:TIKTOK_CALLBACK" ? value : "fixture-client-secret" });
     await assert.rejects(service.beginAuthorization(input), { code: "connector_callback_invalid" });
   }
   assert.equal(state.calls.length, 0);
@@ -98,7 +98,7 @@ test("TikTok sends client_key and comma scopes, verifies the account and persist
     const text = await readFile(path.join(directory, name), "utf8");
     for (const secret of ["fixture-client-secret", "fixture-access-1", "fixture-refresh-1"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.invoke({ ...input, operation: "profile.read" }), profile);
   for (const owner of [{ ...context, applicationId: "another-app" }, { ...context, subjectId: "another-user" }]) {
     await assert.rejects(restarted.invoke({ ...input, context: owner, operation: "profile.read" }), { code: "connector_reconnect_required" });
@@ -145,7 +145,7 @@ test("TikTok refresh can shrink permissions and initial grants cannot exceed con
   await assert.rejects(service.invoke({ ...input, operation: "videos.list" }), { code: "connector_scope_missing" });
   await service.disconnect(input);
   const config = structuredClone(configuration); config.integrations.tiktok.scopes = ["user.info.basic"];
-  const reduced = createConnectionService({ ...options, configuration: config });
+  const reduced = createConnectionService({ appEnv: "test", ...options, configuration: config });
   state.scope = scopes.join(",");
   const begin = new URL((await reduced.beginAuthorization(input)).authorizationUrl);
   const result = await reduced.completeAuthorization({ ...input, callbackUrl: `${callback}?state=${begin.searchParams.get("state")}&code=code` });
@@ -215,7 +215,7 @@ test("TikTok distinguishes missing scopes from expired access and sanitizes prov
   state.stall = true;
   const controller = new AbortController(); controller.abort();
   await assert.rejects(service.invoke({ ...input, operation: "profile.read", signal: controller.signal }), { code: "connector_cancelled" });
-  const timeoutService = createConnectionService({ ...options, providers: [{ ...provider, requestTimeoutMs: 20 }] });
+  const timeoutService = createConnectionService({ appEnv: "test", ...options, providers: [{ ...provider, requestTimeoutMs: 20 }] });
   const keepAlive = setTimeout(() => {}, 1000);
   try { await assert.rejects(timeoutService.invoke({ ...input, operation: "profile.read" }), { code: "connector_provider_timeout" }); }
   finally { clearTimeout(keepAlive); }
@@ -230,9 +230,9 @@ test("TikTok enforces host policy, registration ownership and unavailable manage
   const before = state.calls.length; state.deny = true;
   await assert.rejects(service.invoke({ ...input, operation: "profile.read" })); assert.equal(state.calls.length, before); state.deny = false;
   const changed = structuredClone(configuration); changed.registrations.tiktok.clientId = "other-key";
-  await assert.rejects(createConnectionService({ ...options, configuration: changed }).invoke({ ...input, operation: "profile.read" }), { code: "connector_reconnect_required" });
+  await assert.rejects(createConnectionService({ appEnv: "test", ...options, configuration: changed }).invoke({ ...input, operation: "profile.read" }), { code: "connector_reconnect_required" });
   changed.registrations.tiktok = { source: "managed", serviceUrlRef: "env:GATEWAY", serviceCredentialRef: "env:GATEWAY_KEY", assignmentRef: "shared" };
-  assert.throws(() => createConnectionService({ ...options, configuration: changed }), { code: "integration_configuration_invalid" });
+  assert.throws(() => createConnectionService({ appEnv: "test", ...options, configuration: changed }), { code: "integration_configuration_invalid" });
   assert.equal(state.calls.length, before);
 });
 

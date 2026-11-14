@@ -1,5 +1,5 @@
 import { isRecord, normalizeObject } from "../../shared/support/normalize.js";
-import { isProductionEnv } from "../runtime/runtimeMode.js";
+import { isDeployed } from "../../shared/support/appEnvironment.js";
 
 /** @typedef {import("../types.js").RuntimeConfig} RuntimeConfig */
 /** @typedef {import("../types.js").RuntimeEnv} RuntimeEnv */
@@ -136,8 +136,8 @@ function resolveContentSecurityPolicyHeaders(settings) {
 
 /**
  * The security headers every response gets, from the application's `config.securityHeaders`.
- * nosniff and Referrer-Policy are always sent. Production (NODE_ENV=production) adds HSTS and the
- * Content-Security-Policy with frame-ancestors; development leaves them out, so an editor's
+ * nosniff and Referrer-Policy are always sent. Staging and production (APP_ENV) add HSTS and the
+ * Content-Security-Policy with frame-ancestors; development and test leave them out, so an editor's
  * preview can frame the application and inject its bridge.
  * @param {object} options
  * @param {RuntimeConfig} options.config
@@ -157,7 +157,7 @@ function resolveSecurityHeaders({ config, env }) {
   if (referrerPolicy) {
     headers.push(["referrer-policy", referrerPolicy]);
   }
-  if (isProductionEnv(env)) {
+  if (isDeployed(env)) {
     const strictTransportSecurity = resolveHeaderText(
       settings.strictTransportSecurity,
       DEFAULT_STRICT_TRANSPORT_SECURITY,

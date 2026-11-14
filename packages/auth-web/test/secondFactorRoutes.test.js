@@ -54,7 +54,7 @@ async function startConsole(t) {
     inputs: {
       "auth.service": authService,
       "runtime.config": {},
-      "runtime.env": { NODE_ENV: "test" },
+      "runtime.env": { APP_ENV: "test" },
       "runtime.fastify": app,
       "runtime.logger": silentLogger
     },

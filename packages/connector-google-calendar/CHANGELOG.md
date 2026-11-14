@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The calendar CLI pattern passes `appEnv: appEnvironment(process.env)` and its `.env.example` declares `APP_ENV=development`; writing an event is logged outside production (`APP_ENV`).
 - Creating, changing and cancelling an event are marked `sideEffect`, since they can invite or notify people: a test copy (`SIDE_EFFECTS` is not `live`) logs them instead of sending them.
 
 ## 0.2.0 - 2026-10-29

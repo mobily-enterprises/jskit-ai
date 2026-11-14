@@ -60,7 +60,7 @@ async function fixture(t, endpoint = "standard") {
       return Response.json({ jsonrpc: "2.0", id: message.id, result }, { headers: { "Mcp-Session-Id": "hex-session" } });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const complete = async (start, extra = "code=fixture-code") => service.completeAuthorization({ ...input,
     callbackUrl: `${callback}?state=${new URL(start.authorizationUrl).searchParams.get("state")}&${extra}` });
   return { service, options, state, requests, origin, issuer, directory, protection, complete };
@@ -89,7 +89,7 @@ for (const endpoint of ["standard", "eu", "hipaa"]) {
       assert.equal(request.init.redirect, "error");
       assert.equal(request.init.credentials, "omit");
     }
-    const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+    const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
     state.time += 61_000;
     assert.deepEqual(await restarted.invoke({ ...input, operation: "tools.list" }), discovery);
     const refresh = new URLSearchParams(requests.findLast(({ url }) => url.endsWith("/token")).init.body);
@@ -124,7 +124,7 @@ test("Hex configuration and changed endpoints cannot bypass account ownership or
   const start = await service.beginAuthorization(input);
   const config = structuredClone(options.configuration);
   config.integrations.analysis.settings.endpoint = "eu";
-  const changed = createConnectionService({ ...options, configuration: config });
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration: config });
   await assert.rejects(changed.completeAuthorization({ ...input, callbackUrl: `${callback}?code=x&state=${new URL(start.authorizationUrl).searchParams.get("state")}` }), { code: "connector_attempt_invalid" });
   assert.equal(requests.length, 0);
   await complete(await service.beginAuthorization(input));

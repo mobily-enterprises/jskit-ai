@@ -148,7 +148,7 @@ test("production sessions use a host-only __Host- cookie", async (t) => {
   const issuer = await startMockIssuer();
   const rp = await createRelyingParty({
     issuer,
-    env: { NODE_ENV: "production", AUTH_OIDC_SESSION_SECRET: "fixture-oidc-session-secret-0123456789" }
+    env: { APP_ENV: "production", NODE_ENV: "production", AUTH_OIDC_SESSION_SECRET: "fixture-oidc-session-secret-0123456789" }
   });
   t.after(async () => {
     await rp.close();

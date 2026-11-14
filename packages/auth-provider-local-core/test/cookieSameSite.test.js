@@ -80,7 +80,7 @@ test("AUTH_COOKIE_SAME_SITE=strict makes every local auth cookie and its clearin
 test("an AUTH_COOKIE_SAME_SITE other than lax or strict stops local auth's startup", () => {
   const resolve = (value) => resolveLocalAuthConfig({
     appRoot: os.tmpdir(),
-    env: { NODE_ENV: "test", AUTH_LOCAL_SESSION_SECRET: "test-session-secret", AUTH_COOKIE_SAME_SITE: value },
+    env: { APP_ENV: "test", AUTH_LOCAL_SESSION_SECRET: "test-session-secret", AUTH_COOKIE_SAME_SITE: value },
     fileBackend: false,
     emailRecovery: false
   });

@@ -83,6 +83,7 @@ test("a status read takes no lock and creates no connection row", async (t) => {
   knex.on("query", record);
   t.after(() => knex.off("query", record));
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { database: {
       provider: "clickhouse", accountMode: "shared", scopes: [], authentication: { method: "none" },
       settings: { httpUrl: "https://database.example:8443/" }

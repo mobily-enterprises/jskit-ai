@@ -1,13 +1,13 @@
 import * as oauth from "oauth4webapi";
 import { createHttpClient } from "@jskit-ai/http-runtime/client";
-import { logSimulatedSideEffect } from "@jskit-ai/kernel/server/runtime/sideEffects";
+import { logSideEffect } from "@jskit-ai/kernel/server/runtime/appEnvironment";
 import { ConnectorError } from "./errors.js";
 
 const DEFAULT_SCOPE_SEPARATOR = " ";
 // Every OAuth token request takes this timeout; a provider's operations default to it.
 const REQUEST_TIMEOUT_MS = 15_000;
 const DEFAULT_TOKEN_REFRESH_LEEWAY_MS = 30_000;
-// What a simulated side-effect operation answers in a test copy, in place of the provider's answer.
+// What a side-effect operation answers outside production, where it is logged in place of being sent.
 const SIMULATED_RESULT = Object.freeze({ simulated: true });
 
 /**
@@ -86,11 +86,12 @@ function operationRequest(operation, input, settings, providerData) {
  * @param {typeof globalThis.fetch} dependencies.fetchImpl
  * @param {() => number} dependencies.now
  * @param {import("./types.js").ResolveReference} dependencies.resolveReference
- * @param {"live" | "simulate"} [dependencies.sideEffects] Unless `live`, an operation marked `sideEffect` (one that
- *   sends a message, charges, books or posts) is checked and logged, never sent, and answers `{ simulated: true }`.
+ * @param {"development" | "test" | "staging" | "production"} dependencies.appEnv The application's APP_ENV. Outside
+ *   production an operation marked `sideEffect` (one that sends a message, charges, books or posts) is checked and
+ *   logged, never sent, and answers `{ simulated: true }`.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger | Console} [dependencies.logger]
  */
-function createProviderRequests({ fetchImpl, now, resolveReference, sideEffects = "simulate", logger = console }) {
+function createProviderRequests({ fetchImpl, now, resolveReference, appEnv, logger = console }) {
   const http = createHttpClient({ fetchImpl, csrf: { enabled: false }, credentials: "omit" });
 
   /**
@@ -135,9 +136,9 @@ function createProviderRequests({ fetchImpl, now, resolveReference, sideEffects 
     if (url.protocol !== "https:" || url.username || url.password || !origins.includes(url.origin)) {
       throw new ConnectorError("connector_destination_invalid", "The provider operation has an invalid destination.", { messageCode: "connectors.connection.providerOperationInvalidDestination" });
     }
-    // A test copy checks a side effect like a real one, then logs it in place of sending it.
-    if (operation.sideEffect === true && sideEffects !== "live") {
-      logSimulatedSideEffect(logger, {
+    // Outside production a side effect is checked like a real one, then logged in place of being sent.
+    if (operation.sideEffect === true && appEnv !== "production") {
+      logSideEffect(logger, appEnv, {
         kind: "connector operation",
         summary: `the ${provider.id} ${operationId} request`,
         details: { provider: provider.id, operation: operationId, input }

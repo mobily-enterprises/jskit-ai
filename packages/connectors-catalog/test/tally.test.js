@@ -12,6 +12,7 @@ test("Tally submission retrieval preserves answers and explicit paging with acco
   const requests = [];
   let response = { items: [], total: 0, hasMore: false }, status = 200;
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { forms: {
       provider: "tally", accountMode: "shared", displayName: "Forms", scopes: [],
       authentication: { method: "api-key", secretRef: "env:TALLY_API_KEY" }

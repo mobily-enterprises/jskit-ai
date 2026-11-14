@@ -26,7 +26,7 @@ async function fixture(t) {
       return Response.json({ data: { username: "fixture" } });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   return { service, options, requests, connect: () => service.connectApiKey(args) };
 }
 
@@ -74,7 +74,7 @@ test("HeyGen MCP OAuth verifies tools, refreshes after restart and cannot call A
       return Response.json({ jsonrpc: "2.0", id: message.id, result });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   const start = await service.beginAuthorization(args); const url = new URL(start.authorizationUrl);
   assert.equal(url.origin + url.pathname, "https://api2.heygen.com/v1/oauth/authorize");
   assert.equal(url.searchParams.get("code_challenge_method"), "S256");
@@ -86,7 +86,7 @@ test("HeyGen MCP OAuth verifies tools, refreshes after restart and cannot call A
   assert.equal(calls.length, before);
   await assert.rejects(service.completeAuthorization(completion));
   time += 61000;
-  const restarted = createConnectionService(options);
+  const restarted = createConnectionService({ appEnv: "test", ...options });
   assert.deepEqual(await restarted.invoke({ ...args, operation: "tools.list" }), { tools });
   assert.equal(calls.filter((call) => call.url.endsWith("/token")).length, 2);
   const creation = await restarted.invoke({ ...args, operation: "tools.call", input: { name: "create_video_agent", arguments: { prompt: "A booking reminder" } } });

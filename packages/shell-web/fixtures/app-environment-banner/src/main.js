@@ -1,4 +1,4 @@
-import { createTestCopyBannerRuntime } from "../../../src/client/sideEffects/testCopyBanner.js";
+import { createAppEnvironmentBannerRuntime } from "../../../src/client/appEnvironment/appEnvironmentBanner.js";
 
 // A control stretched across the top of the page, where the banner hangs, counts the presses that reach it.
 const button = document.getElementById("under-banner");
@@ -9,5 +9,5 @@ button.addEventListener("click", () => {
   button.textContent = `Pressed ${presses} times`;
 });
 
-createTestCopyBannerRuntime().install();
+createAppEnvironmentBannerRuntime().install();
 document.documentElement.dataset.ready = "true";

@@ -48,7 +48,7 @@ async function fixture(t) {
       }
     }]
   };
-  return { state, options, directory, service: createConnectionService(options) };
+  return { state, options, directory, service: createConnectionService({ appEnv: "test", ...options }) };
 }
 
 test("service-account configuration requires an indirect credential, declared mode, scopes and shared ownership", async (t) => {
@@ -80,7 +80,7 @@ test("service credentials obtain a verified grant once, persist encrypted tokens
   const grant = f.state.grants[0];
   assert.equal(grant.credential, f.state.credential); assert.equal(grant.fetchImpl, f.options.fetchImpl);
   assert.deepEqual(grant.settings, { projectId: "project-1" }); assert.deepEqual(grant.scopes, ["send"]); assert.equal(grant.now, f.state.now);
-  const restarted = createConnectionService(f.options);
+  const restarted = createConnectionService({ appEnv: "test", ...f.options });
   assert.deepEqual(await restarted.status(input), connected);
   await restarted.invoke({ ...input, operation: "check", input: { check: "again" } });
   assert.equal(f.state.grants.length, 1);
@@ -99,7 +99,7 @@ test("service credentials obtain a verified grant once, persist encrypted tokens
 test("expiry renews once under the file lock across independent service instances", async (t) => {
   const f = await fixture(t); await f.service.connectServiceAccount(input);
   f.state.now += 3_571_000;
-  const second = createConnectionService({ ...f.options, store: createFileConnectionStore({ directory: f.directory,
+  const second = createConnectionService({ appEnv: "test", ...f.options, store: createFileConnectionStore({ directory: f.directory,
     protection: createCredentialProtection({ keys: { current: new Uint8Array(32).fill(5) }, activeKeyId: "current" }) }) });
   await Promise.all([f.service, second, f.service].map((service) => service.invoke({ ...input, operation: "check" })));
   assert.equal(f.state.grants.length, 2);
@@ -124,7 +124,7 @@ test("ownership and changed reference, project or requested scopes cannot reuse 
   }
   for (const change of [{ settings: { projectId: "project-2" } }, { scopes: ["send", "read"] }, { authentication: { method: "service-account", secretRef: "env:OTHER" } }]) {
     const configuration = structuredClone(f.options.configuration); Object.assign(configuration.integrations.notifications, change);
-    const changed = createConnectionService({ ...f.options, configuration });
+    const changed = createConnectionService({ appEnv: "test", ...f.options, configuration });
     assert.equal((await changed.status(input)).status, "reconnect-required");
     await assert.rejects(changed.invoke({ ...input, operation: "check" }), { code: "connector_reconnect_required" });
   }
@@ -146,7 +146,7 @@ test("renewed tokens survive a subsequent provider failure and authorization fai
   f.state.status = 429;
   await assert.rejects(f.service.invoke({ ...input, operation: "check" }), { code: "connector_rate_limited" });
   f.state.status = 200;
-  await createConnectionService(f.options).invoke({ ...input, operation: "check" }); assert.equal(f.state.grants.length, 2);
+  await createConnectionService({ appEnv: "test", ...f.options }).invoke({ ...input, operation: "check" }); assert.equal(f.state.grants.length, 2);
   f.state.credential = "rotated"; f.state.failGrant = true; const before = f.state.requests.length;
   await assert.rejects(f.service.invoke({ ...input, operation: "check" }), { code: "connector_reconnect_required" });
   assert.equal(f.state.requests.length, before); assert.equal((await f.service.status(input)).status, "reconnect-required");
@@ -184,7 +184,7 @@ test("service grants honor cancellation and deadlines without replay or partial 
 
 test("the service-account Feature action uses the same application policy and verified runtime", async (t) => {
   const f = await fixture(t); let actions;
-  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": {}, "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(f.options),
+  const runtime = createCapabilityRuntime({ inputs: { "runtime.env": { APP_ENV: "test" }, "runtime.logger": silentLogger }, providers: [EventProvider, ActionProvider, createConnectorsFeature(f.options),
     defineProvider({ id: "test.service-observer", requires: { catalogue: "runtime.actions" }, setup({ catalogue }) { actions = catalogue; } })] });
   await runtime.start();
   try {

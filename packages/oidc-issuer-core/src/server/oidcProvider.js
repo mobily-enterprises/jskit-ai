@@ -153,7 +153,7 @@ function createOidcProvider({ config, jwks, Adapter, accounts, clients, hasHubSe
     // against private addresses, except a development hub calling an app on
     // this same computer.
     fetch(url, options) {
-      if (!config.isProduction && isLoopbackHostname(new URL(url).hostname)) {
+      if (!config.isDeployed && isLoopbackHostname(new URL(url).hostname)) {
         const { dispatcher: _dispatcher, ...direct } = options;
         return globalThis.fetch(url, direct);
       }

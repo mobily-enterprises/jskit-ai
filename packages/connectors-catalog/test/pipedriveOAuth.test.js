@@ -16,7 +16,7 @@ async function fixture(t, fetchImpl) {
     tokenEndpointAuthMethod: "client_secret_basic", clientSecretRef: "env:SECRET", callbackUrlRef: "env:CALLBACK" } },
     integrations: { crm: { provider: "pipedrive", accountMode: "per-user", scopes: [],
       authentication: { method: "oauth2", registrationRef: "crm" } } } };
-  const service = () => createConnectionService({ configuration, providers: [pipedriveProvider],
+  const service = () => createConnectionService({ appEnv: "test", configuration, providers: [pipedriveProvider],
     store: createFileConnectionStore({ directory, protection }), authorize: async (owner) => owner,
     now: () => now, resolveReference: async (ref) => ref === "env:SECRET" ? "private-secret" : callback, fetchImpl });
   const input = (subjectId) => ({ context: { applicationId: "app", subjectId }, integrationId: "crm" });

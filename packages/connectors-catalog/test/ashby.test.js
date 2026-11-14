@@ -14,7 +14,7 @@ test("Ashby syncs candidates/applications, updates a profile and explicitly adva
   const requests = [];
   const state = { status: 200, response: { success: true, results: [], moreDataAvailable: false }, fail: false, deny: false };
   const identity = { context: { applicationId: "hiring-app", subjectId: "workspace" }, integrationId: "hiring" };
-  const service = createConnectionService({ configuration: { schemaVersion: 1, registrations: {}, integrations: {
+  const service = createConnectionService({ appEnv: "test", configuration: { schemaVersion: 1, registrations: {}, integrations: {
     hiring: { provider: "ashby", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:ASHBY_API_KEY" } }
   } }, providers: [ashbyProvider], authorize: async context => { if (state.deny) throw new Error("forbidden"); return context; },
   resolveReference: async () => "ashby-fixture-key",

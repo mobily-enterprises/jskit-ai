@@ -35,7 +35,7 @@ async function startApp(t, { env = {}, config = {} } = {}) {
     inputs: {
       "auth.service": authService,
       "runtime.config": config,
-      "runtime.env": { NODE_ENV: "test", ...env },
+      "runtime.env": { APP_ENV: "test", ...env },
       "runtime.fastify": app,
       "runtime.logger": silentLogger
     },

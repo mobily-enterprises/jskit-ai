@@ -47,7 +47,7 @@ for (const perUser of [false, true]) test(`GitLab OAuth ${perUser ? "per-user no
       return Response.json({ id: 123, username: "fixture" });
     }
   };
-  const service = createConnectionService(options);
+  const service = createConnectionService({ appEnv: "test", ...options });
   for (const outcome of ["cancel", "denied"]) {
     const attempt = new URL((await service.beginAuthorization(input)).authorizationUrl);
     const denied = new URL(callback);
@@ -73,7 +73,7 @@ for (const perUser of [false, true]) test(`GitLab OAuth ${perUser ? "per-user no
   time += 40_000;
   await Promise.all([service.invoke({ ...input, operation: "profile.read" }), service.invoke({ ...input, operation: "profile.read" })]);
   assert.equal(exchanges, perUser ? 1 : 2);
-  const restarted = createConnectionService({ ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "test", ...options, store: createFileConnectionStore({ directory, protection }) });
   time += 40_000;
   await restarted.invoke({ ...input, operation: "profile.read" });
   assert.equal(exchanges, perUser ? 1 : 3);
@@ -88,12 +88,12 @@ for (const perUser of [false, true]) test(`GitLab OAuth ${perUser ? "per-user no
   }
   const changedConfiguration = structuredClone(options.configuration);
   changedConfiguration.integrations.gitlab.settings.instanceUrl = "https://another-gitlab.example.test";
-  const changed = createConnectionService({ ...options, configuration: changedConfiguration });
+  const changed = createConnectionService({ appEnv: "test", ...options, configuration: changedConfiguration });
   assert.equal((await changed.status(input)).status, "reconnect-required");
   await assert.rejects(changed.invoke({ ...input, operation: "profile.read" }), { code: "connector_reconnect_required" });
   for (const instanceUrl of ["http://gitlab.example.test", "https://name:secret@gitlab.example.test", "https://gitlab.example.test/subpath", "https://gitlab.example.test/?token=secret", "not-a-url"]) {
     changedConfiguration.integrations.gitlab.settings.instanceUrl = instanceUrl;
-    assert.throws(() => createConnectionService({ ...options, configuration: changedConfiguration }), { code: "integration_configuration_invalid" });
+    assert.throws(() => createConnectionService({ appEnv: "test", ...options, configuration: changedConfiguration }), { code: "integration_configuration_invalid" });
   }
   await restarted.disconnect(input);
   assert.equal((await restarted.status(input)).status, "disconnected");
@@ -105,6 +105,7 @@ test("GitLab project paths, content and issue/MR writes use the selected host wi
   t.after(() => rm(directory, { recursive: true, force: true }));
   const requests = []; let status = 200, fail = false;
   const service = createConnectionService({
+    appEnv: "test",
     configuration: { schemaVersion: 1, registrations: {}, integrations: { gitlab: { provider: "gitlab-api", settings: { instanceUrl: "https://code.example.test" }, accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:GITLAB_TOKEN" } } } },
     providers: [gitlabApiProvider], authorize: async owner => owner, resolveReference: async () => "private-token",
     store: createFileConnectionStore({ directory, protection: createCredentialProtection({ keys: { current: new Uint8Array(32).fill(8) }, activeKeyId: "current" }) }),

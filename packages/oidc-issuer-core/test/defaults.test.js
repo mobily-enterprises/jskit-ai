@@ -117,7 +117,7 @@ test("state-changing hub calls need the hub's own request header", async () => {
 test("11. a production hub denies framing of sign-in, admin and protocol pages", async () => {
   const production = await startHub({
     env: {
-      NODE_ENV: "production",
+      APP_ENV: "production", NODE_ENV: "production",
       APP_PUBLIC_URL: "https://accounts.example.test",
       OIDC_HUB_EMAIL_FROM: "hub@example.test",
       RESEND_API_KEY: "re_test_not_real"

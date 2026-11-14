@@ -12,7 +12,7 @@ test("Attention preserves full call content and supports explicit coaching and o
   const requests = [];
   const state = { status: 200, response: { data: [] }, fail: false, deny: false };
   const identity = { context: { applicationId: "coaching-app", subjectId: "workspace" }, integrationId: "calls" };
-  const service = createConnectionService({ configuration: { schemaVersion: 1, registrations: {}, integrations: {
+  const service = createConnectionService({ appEnv: "test", configuration: { schemaVersion: 1, registrations: {}, integrations: {
     calls: { provider: "attention", accountMode: "shared", scopes: [], authentication: { method: "api-key", secretRef: "env:ATTENTION_API_KEY" } }
   } }, providers: [attentionProvider], authorize: async context => { if (state.deny) throw new Error("forbidden"); return context; },
     resolveReference: async () => "attention-fixture-key",

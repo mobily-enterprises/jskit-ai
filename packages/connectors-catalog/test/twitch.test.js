@@ -67,7 +67,7 @@ async function fixture(t, granted = scopes) {
       return Response.json(url.pathname === "/helix/users" ? state.profile : state.followed, { status: state.apiStatus });
     }
   };
-  const service = createConnectionService({ ...options, sideEffects: "live" });
+  const service = createConnectionService({ ...options, appEnv: "production" });
   async function start() {
     const { authorizationUrl } = await service.beginAuthorization(input);
     const url = new URL(authorizationUrl);
@@ -101,7 +101,7 @@ test("Twitch exchanges code consent, validates client ownership, and persists en
     const text = await readFile(path.join(directory, name), "utf8");
     for (const secret of ["fixture-client-secret", "fixture-access-1", "fixture-refresh-1"]) assert.equal(text.includes(secret), false);
   }
-  const restarted = createConnectionService({ sideEffects: "live", ...options, store: createFileConnectionStore({ directory, protection }) });
+  const restarted = createConnectionService({ appEnv: "production", ...options, store: createFileConnectionStore({ directory, protection }) });
   assert.deepEqual(await restarted.status(input), { ...connected, callbackUrl: callback });
   assert.deepEqual(await restarted.invoke({ ...input, operation: "profile.read" }), state.profile);
   assert.deepEqual(requests.slice(-2).map(({ url }) => url.pathname), ["/oauth2/validate", "/helix/users"]);
@@ -112,7 +112,7 @@ test("Twitch exchanges code consent, validates client ownership, and persists en
   const changed = structuredClone(options.configuration);
   changed.registrations.twitch.clientId = "other-client";
   const count = requests.length;
-  await assert.rejects(createConnectionService({ sideEffects: "live", ...options, configuration: changed }).invoke({ ...input, operation: "profile.read" }), { code: "connector_reconnect_required" });
+  await assert.rejects(createConnectionService({ appEnv: "production", ...options, configuration: changed }).invoke({ ...input, operation: "profile.read" }), { code: "connector_reconnect_required" });
   assert.equal(requests.length, count);
   await restarted.disconnect(input);
   assert.equal((await service.status(input)).status, "disconnected");
@@ -154,7 +154,7 @@ test("Twitch serializes refresh rotation, encodes reserved token characters and 
   await Promise.all([service.invoke({ ...input, operation: "channels.followed" }), service.invoke({ ...input, operation: "channels.followed" })]);
   assert.equal(state.tokenCount, 2);
   assert.deepEqual((await service.status(input)).grantedScopes, ["user:read:follows"]);
-  const restarted = createConnectionService({ ...options, sideEffects: "live" });
+  const restarted = createConnectionService({ ...options, appEnv: "production" });
   state.time += 40_000;
   state.tokenScope = scopes;
   await restarted.invoke({ ...input, operation: "token.validate" });
