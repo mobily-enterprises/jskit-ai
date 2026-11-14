@@ -321,6 +321,17 @@ test("serve --migrate runs db:migrate first and starts nothing when it fails; mi
   });
 });
 
+// One service command for every JSKIT app: a host that starts each app with --migrate (it runs no release step) must
+// start one without migrations too, rather than see it exit at every restart.
+test("serve --migrate starts an app that has no db:migrate script, saying there is nothing to migrate", async () => {
+  await withApp({ start: "node report.mjs start" }, async ({ root, envFile, steps }) => {
+    const result = await launch(["serve", "--app", root, "--shell", "/bin/sh", "--env", envFile, "--migrate"]);
+    assert.equal(result.code, 0, result.stderr);
+    assert.deepEqual((await steps()).map(({ step }) => step), ["start"]);
+    assert.match(result.stderr, /app has no db:migrate script, so there is nothing to migrate/u);
+  });
+});
+
 test("prepare writes the settings as an env file that only its owner reads, and leaves nothing on a refusal", async () => {
   await withProject({ "settings.json": { DATABASE_URL: "postgres:///shop?host=/run/postgresql", PORT: 3000 } }, async (root) => {
     const envFile = path.join(root, "run", "app.env");
@@ -334,6 +345,30 @@ test("prepare writes the settings as an env file that only its owner reads, and 
     assert.equal(refused.code, 1);
     assert.match(refused.stderr, /bad-key is not an environment variable name/u);
     assert.deepEqual({ ...parseEnv(await readFile(envFile, "utf8")) }, { DATABASE_URL: "postgres:///shop?host=/run/postgresql", PORT: "3000" });
+  });
+});
+
+// A host's data folders are its own (root's) until the start step hands them over: prepare makes the folders the
+// settings name for the files a JSKIT app writes, for the user its service runs as.
+test("prepare makes the folders the settings name for the app's files, owned by --user, and leaves relative ones alone", async () => {
+  await withProject({}, async (root) => {
+    const user = os.userInfo();
+    const storage = path.join(root, "data", "storage");
+    const auth = path.join(root, "data", "auth");
+    await writeFile(path.join(root, "settings.json"), JSON.stringify({
+      JSKIT_STORAGE_FS_BASE_PATH: storage, AUTH_LOCAL_STORE_DIR: auth, AUTH_OIDC_STORE_DIR: "relative/oidc", PORT: 3000
+    }));
+    const envFile = path.join(root, "run", "app.env");
+    const result = await launch(["prepare", "--settings", path.join(root, "settings.json"), "--env", envFile, "--user", user.username]);
+    assert.equal(result.code, 0, result.stderr);
+    for (const folder of [storage, auth]) {
+      const made = await stat(folder);
+      assert.ok(made.isDirectory(), folder);
+      assert.equal(made.uid, user.uid, folder);
+      assert.equal(made.mode & 0o777, 0o700, folder);
+    }
+    assert.equal(await exists(path.join(root, "relative")), false);
+    assert.equal(parseEnv(await readFile(envFile, "utf8")).AUTH_LOCAL_STORE_DIR, auth);
   });
 });
 

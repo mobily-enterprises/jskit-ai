@@ -1,11 +1,13 @@
 // The programs of a JSKIT app that `jskit package nix` packaged. The package.nix it writes embeds this file whole, so
 // it imports only Node's own modules. The package's bin/ runs it with the app's folder (--app) and a shell (--shell):
 //
-//   <app> [--env FILE] [--migrate]   serve: the app's start script, in place of this process
+//   <app> [--env FILE] [--migrate]   serve: the app's start script, in place of this process; with --migrate, its
+//                                    db:migrate script first when it has one
 //   <app>-migrate [--env FILE]       migrate: its db:migrate script, in place of this process
 //   <app>-check [--env FILE]         check: exits 0 once GET /api/health answers 200, 1 after --wait seconds (60)
 //   <app>-prepare --settings JSON --env FILE [--user NAME]
-//                                    prepare: the settings, one JSON object, written as FILE for NAME alone
+//                                    prepare: the settings, one JSON object, written as FILE for NAME alone, and the
+//                                    folders they name for the app's files made for NAME
 //
 // A script runs as `npm run` would run it, with no npm: from the app's folder, by the shell, with node_modules/.bin
 // and this Node first on PATH, NODE_ENV=production unless the environment or the env file says otherwise, and the
@@ -27,6 +29,10 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const QUOTES = Object.freeze(["'", "`", "\""]);
 const HEALTH_PATH = "/api/health";
 const MODES = Object.freeze(["serve", "migrate", "check", "prepare", "npm-cache"]);
+// The settings that name a folder a JSKIT app writes its files in (uploads, local and OIDC sign-in's files), each kept
+// under the app's own read-only folder unless a setting names another. prepare makes each one given as an absolute
+// path, for the user the app runs as.
+const FILE_FOLDERS = Object.freeze(["JSKIT_STORAGE_FS_BASE_PATH", "AUTH_LOCAL_STORE_DIR", "AUTH_OIDC_STORE_DIR"]);
 
 class Refusal extends Error {}
 
@@ -60,19 +66,29 @@ function scriptEnvironment({ app, envFile }) {
   return env;
 }
 
-function scriptOf(app, name) {
+/** The app's script `name`; when it has none, null if `optional`, else a refusal. */
+function scriptOf(app, name, { optional = false } = {}) {
   const manifest = JSON.parse(readFileSync(path.join(app, "package.json"), "utf8"));
   const script = manifest.scripts?.[name];
-  if (typeof script !== "string" || !script.trim()) throw new Refusal(`${manifest.name ?? app} has no ${name} script.`);
-  return script;
+  if (typeof script === "string" && script.trim()) return script;
+  if (optional) return null;
+  throw new Refusal(`${manifest.name ?? app} has no ${name} script.`);
 }
 
-/** Runs the app's script `name` in place of this process; with `first`, runs that script before it and stops on failure. */
+/**
+ * Runs the app's script `name` in place of this process; with `first` (db:migrate), runs that script before it, when
+ * the app has one, and stops on its failure. An app without it has nothing to migrate, so it starts: one service
+ * command then fits every app.
+ */
 function replaceWithScript({ app, shell, envFile, name, first }) {
   const env = scriptEnvironment({ app, envFile });
   const script = scriptOf(app, name);
-  if (first) {
-    const ran = spawnSync(shell, ["-c", scriptOf(app, first)], { cwd: app, env: { ...env, npm_lifecycle_event: first }, stdio: "inherit" });
+  const firstScript = first ? scriptOf(app, first, { optional: true }) : null;
+  if (first && firstScript === null) {
+    const { name: appName } = JSON.parse(readFileSync(path.join(app, "package.json"), "utf8"));
+    process.stderr.write(`${appName ?? app} has no ${first} script, so there is nothing to migrate: starting it.\n`);
+  } else if (first) {
+    const ran = spawnSync(shell, ["-c", firstScript], { cwd: app, env: { ...env, npm_lifecycle_event: first }, stdio: "inherit" });
     if (ran.error) throw ran.error;
     if (ran.status !== 0) return ran.status ?? 1;
   }
@@ -106,18 +122,29 @@ async function check({ envFile, wait }) {
   return 1;
 }
 
+/** Gives `file` to `user` with the host's own chown, which finds the user through whichever account databases it keeps. */
+function chownTo(user, file) {
+  const owned = spawnSync("chown", ["--", `${user}:`, file], { encoding: "utf8" });
+  if (owned.error || owned.status !== 0) throw new Refusal(`chown ${user}: ${owned.stderr || owned.error?.message}`.trim());
+}
+
 function prepare({ settings, envFile, user }) {
   if (!settings || !envFile) throw new Refusal("prepare needs --settings FILE and --env FILE.");
-  const text = formatEnvFile(JSON.parse(readFileSync(settings, "utf8")));
+  const values = JSON.parse(readFileSync(settings, "utf8"));
+  const text = formatEnvFile(values);
+  // A host runs prepare as root before the app's services start, so the user they run as can write where the
+  // settings keep the app's files (a host's data folder is its own until then). A relative folder is the app's own.
+  for (const name of FILE_FOLDERS) {
+    const folder = values[name];
+    if (typeof folder !== "string" || !path.isAbsolute(folder)) continue;
+    mkdirSync(folder, { recursive: true, mode: 0o700 });
+    if (user) chownTo(user, folder);
+  }
   mkdirSync(path.dirname(envFile), { recursive: true });
   const temporary = `${envFile}.${process.pid}.tmp`;
   try {
     writeFileSync(temporary, text, { mode: 0o600 });
-    if (user) {
-      // The host's own chown names the user, through whichever account databases the host keeps.
-      const owned = spawnSync("chown", ["--", `${user}:`, temporary], { encoding: "utf8" });
-      if (owned.error || owned.status !== 0) throw new Refusal(`chown ${user}: ${owned.stderr || owned.error?.message}`.trim());
-    }
+    if (user) chownTo(user, temporary);
     renameSync(temporary, envFile);
   } finally {
     rmSync(temporary, { force: true });

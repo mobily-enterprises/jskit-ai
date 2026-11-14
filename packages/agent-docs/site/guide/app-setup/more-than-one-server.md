@@ -98,9 +98,12 @@ OIDC hub's upkeep does.
 
 ## Migrations
 
-Run migrations once per release through the Migrate step, `npm run db:migrate`
-(`<name>-migrate` in a [Nix package](/guide/app-setup/package-with-nix)),
-before the new copies start, never from each copy's start. `npm run
-db:prepare` also runs the app's seed, so it runs once too, not on every copy.
-When copies migrate together anyway (`<name> --migrate`), Knex's migration lock
-lets one run them; the others fail and start again once it is done.
+Where the host has a Migrate step, run migrations once per release through
+it, `npm run db:migrate` (`<name>-migrate` in a
+[Nix package](/guide/app-setup/package-with-nix)), before the new copies
+start. `npm run db:prepare` also runs the app's seed, so it runs once too, not
+on every copy. A host with no such step migrates from each copy's start
+(`<name> --migrate`) and restarts a copy that fails: Knex's migration lock
+lets one copy migrate, and on PostgreSQL the others wait and then find nothing
+left to do, while on MySQL they fail and start again, as the Nix guide's
+[Migrations](/guide/app-setup/package-with-nix#migrations) section says.

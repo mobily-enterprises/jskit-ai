@@ -294,9 +294,10 @@ Exports
 Local functions
 - `isObject(value)`
 - `scriptEnvironment({ app, envFile })`
-- `scriptOf(app, name)`
+- `scriptOf(app, name, { optional = false } = {})`
 - `replaceWithScript({ app, shell, envFile, name, first })`
 - `check({ envFile, wait })`
+- `chownTo(user, file)`
 - `prepare({ settings, envFile, user })`
 - `npmCache(list, cache)`
 - `isCliEntrypoint(argvPath = process.argv[1])`
