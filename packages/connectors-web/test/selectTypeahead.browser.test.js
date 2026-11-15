@@ -45,15 +45,14 @@ async function typeOsakaWhileTheMenuOpens(page) {
   return { osaka: menu.getByRole("option", { name: "Osaka (ap-northeast-3)", exact: true }), typed };
 }
 
+// One page runs the test at both viewports, each run loading the app afresh: the page's later loads revalidate the app's
+// modules (54 KB) in the same renderer, where a new page downloads 11 MB of them into a new one and compiles them again.
 async function eachViewport(t, run) {
   const { vite, browser } = await open(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL });
   for (const viewport of VIEWPORTS) {
-    const page = await browser.newPage({ baseURL: vite.baseURL, viewport });
-    try {
-      await run(page, `${viewport.width}px`);
-    } finally {
-      await page.close();
-    }
+    await page.setViewportSize(viewport);
+    await run(page, `${viewport.width}px`);
   }
 }
 
