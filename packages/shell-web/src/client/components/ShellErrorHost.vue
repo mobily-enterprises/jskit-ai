@@ -116,8 +116,10 @@ const {
       </template>
     </v-snackbar>
 
+    <!-- Named by its title, as a dialog must be (WCAG 4.1.2, axe aria-dialog-name): Vuetify names no dialog itself. -->
     <v-dialog
       :model-value="Boolean(dialogEntry)"
+      :aria-label="t('jskit.shell.error.attentionRequired')"
       max-width="560"
       :persistent="Boolean(dialogEntry?.persist)"
       @update:model-value="onDialogModelValue"
