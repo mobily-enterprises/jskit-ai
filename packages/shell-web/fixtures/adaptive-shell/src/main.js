@@ -18,6 +18,7 @@ import { adminTheme, theme } from "./theme/index.js";
 import RecordListPage from "./RecordListPage.vue";
 import RecordPage from "./RecordPage.vue";
 import FeedbackPage from "./FeedbackPage.vue";
+import NotesPage from "./NotesPage.vue";
 import PendingActionsPage from "./PendingActionsPage.vue";
 import DialogFeedbackPage from "./DialogFeedbackPage.vue";
 import ReportsPage from "./ReportsPage.vue";
@@ -346,6 +347,7 @@ const routes = [
   { path: "/home/pending", component: PendingActionsPage, meta: { jskit: { title: "Pending actions" } } },
   { path: "/home/pending-dialog", component: () => import("./PendingDialogPage.vue"), meta: { jskit: { title: "Invites" } } },
   // A layout that draws its own top app bar from the shell's pieces.
+  { path: "/home/notes", component: NotesPage, meta: { jskit: { title: "Notes" } } },
   { path: "/home/studio", component: StudioPage, meta: { ownBar: true, jskit: { title: "Studio" } } },
   { path: "/home/studio/:id", component: StudioPage, meta: { ownBar: true, jskit: { parent: "/studio" } } },
   { path: "/home/:section?", component: ScreenPage, meta: { title: "Home surface" } },

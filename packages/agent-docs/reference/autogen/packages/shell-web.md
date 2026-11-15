@@ -194,6 +194,13 @@ Local functions
 - `isSameSnackbarEntry(left = null, right = null)`
 - `publishInlineBannerHeight(height = 0)`
 
+### `src/client/composables/useShellInertBehindDialog.js`
+Exports
+- `useShellInertBehindDialog()`
+Local functions
+- `stackOrder(first, second)`
+- `concernsDialogs(records)`
+
 ### `src/client/composables/useShellLayoutState.js`
 Exports
 - `useShellLayoutState(props = {})`
@@ -769,6 +776,14 @@ Exports
 - None
 Local functions
 - `refuseBlockedRecord(to)`
+
+### `fixtures/adaptive-shell/src/NotesPage.vue`
+Exports
+- None
+Local functions
+- `press(name)`
+- `copyLink()`
+- `reportProblem()`
 
 ### `fixtures/adaptive-shell/src/OwnBarLayout.vue`
 Exports

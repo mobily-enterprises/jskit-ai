@@ -24,3 +24,19 @@ elsewhere on the page stay. Medium and wider bars show them all.
 `ShellErrorHost` centres its snackbar above the navigation bar on compact
 windows and starts it at the content's start edge, at most half the content's
 width, on wider ones, so it never covers the FAB or the actions it reports on.
+
+## The page behind a dialog
+
+While a `v-dialog` or `v-bottom-sheet` is open, `ShellLayout` makes its page
+inert under it: the app bar, the rail, the drawer, main (with the page's FAB),
+the navigation bar and the side sheet, each marked `data-shell-page`. A
+keyboard, assistive technology and axe then skip the page, as the scrim already
+makes the pointer skip it, so an app runs its axe checks on the whole document
+with a dialog open instead of narrowing them to the dialog. Vuetify's overlay
+layer stays live: a menu or select opened in the dialog, a second dialog over
+it (the first is inert under it until it closes) and a snackbar, which is still
+announced. When the dialog closes, or unmounts, the page is live again and
+focus returns to the element that opened it unless focus already went
+somewhere; a dialog that closes by leaving its page leaves focus to the next
+page. A dialog attached or contained inside the page stays local and leaves the
+page alone.

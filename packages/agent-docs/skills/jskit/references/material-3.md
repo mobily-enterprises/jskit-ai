@@ -342,7 +342,8 @@ dialog, chip or FAB.
 - **Dialogs:** plain `v-dialog` and `v-bottom-sheet`; JSKIT gives them their
   Material 3 shapes. A full-screen dialog (compact and medium) puts close, title
   and its confirm action in a top bar, never at the bottom where a snackbar
-  covers them.
+  covers them. While one is open, `ShellLayout` makes the page behind it
+  inert: run axe on the whole page.
 - **Menus and badges:** a menu's list has `role="menu"` and its items
   `role="menuitem"`, with `aria-disabled` on unavailable ones; a badge has a
   `label` such as "3 batches". JSKIT draws a menu's list and a dialog's card;

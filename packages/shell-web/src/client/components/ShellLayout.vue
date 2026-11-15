@@ -3,6 +3,7 @@ import { computed, inject, onBeforeUnmount, onMounted, ref, useSlots } from "vue
 import { useDisplay } from "vuetify";
 import { useShellAppBar } from "../composables/useShellAppBar.js";
 import { useShellDrawer } from "../composables/useShellDrawer.js";
+import { useShellInertBehindDialog } from "../composables/useShellInertBehindDialog.js";
 import { useShellOutletPlacements } from "../composables/useShellOutletPlacements.js";
 import { useShellLayoutState } from "../composables/useShellLayoutState.js";
 import { useShellPullToRefresh } from "../composables/useShellPullToRefresh.js";
@@ -168,6 +169,10 @@ const { inMenu: topRightInMenu } = useShellTopRightOverflow({
   menuId: TOP_RIGHT_MENU_ID
 });
 
+// While a dialog or a bottom sheet is open, each part of the page marked `data-shell-page` is inert under it: the app
+// bar, the navigation, main with the page's FAB, and the side sheet.
+useShellInertBehindDialog();
+
 function updateScrolled() {
   scrolled.value = window.scrollY > 0;
 }
@@ -189,6 +194,7 @@ onBeforeUnmount(() => {
     :height="64"
     class="shell-layout__app-bar"
     :class="`shell-layout--size-${sizeClass}`"
+    data-shell-page
     data-testid="jskit-shell-app-bar"
     :data-size-class="sizeClass"
   >
@@ -266,6 +272,7 @@ onBeforeUnmount(() => {
   <v-navigation-drawer
     v-if="showsMediumRail"
     class="shell-layout__rail"
+    data-shell-page
     data-testid="jskit-shell-rail"
     data-presentation="rail"
     :style="navigationStyle"
@@ -301,6 +308,7 @@ onBeforeUnmount(() => {
     id="jskit-shell-drawer"
     :model-value="drawerPresentation.visible"
     class="shell-layout__drawer"
+    data-shell-page
     data-testid="jskit-shell-drawer"
     :data-layout="layoutClass"
     :data-presentation="drawerPresentation.kind"
@@ -359,7 +367,7 @@ onBeforeUnmount(() => {
     </slot>
   </v-navigation-drawer>
 
-  <v-main class="bg-background">
+  <v-main class="bg-background" data-shell-page>
     <div class="shell-layout__content" :class="{ 'shell-layout__content--compact': isCompactLayout }">
       <ShellRouteTransition>
         <slot />
@@ -370,6 +378,7 @@ onBeforeUnmount(() => {
   <v-bottom-navigation
     v-if="showsBottomNavigation"
     class="shell-layout__bottom-nav"
+    data-shell-page
     data-testid="jskit-shell-bottom-nav"
     bg-color="surface-container"
     :elevation="0"
@@ -401,6 +410,7 @@ onBeforeUnmount(() => {
     v-if="!isCompactLayout"
     :model-value="supportingContentOpen"
     class="shell-layout__supporting-side-sheet"
+    data-shell-page
     color="surface-container-low"
     temporary
     location="right"

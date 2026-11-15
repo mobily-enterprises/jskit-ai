@@ -138,10 +138,10 @@ jobs:
           JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION: "1"
         run: npx jskit test packages/assistant-runtime/test/assistantSettings.browser.test.js
 
-      - name: Verify adaptive shell behavior
+      - name: Verify adaptive shell behavior and the inert page behind a dialog
         env:
           JSKIT_SHELL_WEB_BROWSER_INTEGRATION: "1"
-        run: npx jskit test packages/shell-web/test/adaptiveShell.browser.test.js
+        run: npx jskit test packages/shell-web/test/adaptiveShell.browser.test.js packages/shell-web/test/inertBehindDialog.browser.test.js
 
       - name: Verify pending command buttons keep keyboard focus
         env:

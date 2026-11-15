@@ -1,6 +1,6 @@
 import { createApp, h, ref } from "vue";
 import { createPinia } from "pinia";
-import { createRouter, createWebHistory, RouterView } from "vue-router";
+import { createRouter, createWebHistory, RouterView, useRoute } from "vue-router";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
 import "vuetify/styles";
 import "@jskit-ai/material-web/client/material.css";
@@ -10,6 +10,7 @@ import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
 import { SHELL_WEB_ERROR_RUNTIME_KEY } from "@jskit-ai/shell-web/client/error";
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
+import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 import AuthProfileWidget from "../../src/client/views/AuthProfileWidget.vue";
 import DefaultLoginView from "../../src/client/views/DefaultLoginView.vue";
 import DefaultResetPasswordView from "../../src/client/views/DefaultResetPasswordView.vue";
@@ -84,7 +85,8 @@ const SecondFactorPage = {
     ]);
   }
 };
-// An application's console: its refund route asks for a code proved within five minutes, through the step-up dialog.
+// An application's console, in the shell's layout as an app's screens are: its refund route asks for a code proved
+// within five minutes, through the step-up dialog, over the page the shell makes inert while the dialog is open.
 const ConsolePage = {
   setup() {
     const { open, run, verified, cancel } = useSecondFactorStepUp();
@@ -124,7 +126,7 @@ const router = createRouter({
     { path: "/", redirect: "/home" },
     { path: "/home", component: HomePage },
     { path: "/account/second-factor", component: SecondFactorPage },
-    { path: "/console", component: ConsolePage },
+    { path: "/console", component: ConsolePage, meta: { shell: true } },
     { path: "/auth/login", component: DefaultLoginView },
     { path: "/auth/reset-password", component: DefaultResetPasswordView },
     { path: "/auth/signout", component: DefaultSignOutView },
@@ -137,7 +139,17 @@ const router = createRouter({
     { path: "/auth/pattern/signout", component: PatternSignOutPage }
   ]
 });
-const app = createApp({ render: () => h(components.VApp, null, { default: () => h(components.VMain, null, { default: () => h(RouterView) }) }) });
+// A page in the shell's layout (`meta.shell`) has the layout's main; the others have a plain one.
+const app = createApp({
+  setup() {
+    const route = useRoute();
+    return () => h(components.VApp, null, {
+      default: () => route.meta.shell
+        ? h(ShellLayout, { title: "Console" }, { default: () => h(RouterView) })
+        : h(components.VMain, null, { default: () => h(RouterView) })
+    });
+  }
+});
 const pinia = createPinia();
 app.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, placement);
 app.provide(SHELL_WEB_ERROR_RUNTIME_KEY, errorRuntime);

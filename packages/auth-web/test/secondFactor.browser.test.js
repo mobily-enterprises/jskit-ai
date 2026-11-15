@@ -190,7 +190,14 @@ test("removing the authenticator takes a code or a recovery code, shows a wait b
   await finish(api);
 });
 
-test("a route that asks for a fresh code opens the step-up dialog, runs again after the code, and Escape cancels it, focus returning to the control each time", options, async () => {
+// Whether every part of the shell's page around the console (its app bar and main at least) is inert, as it is while
+// the step-up dialog is open, or else every part live.
+async function shellPageIs(page, inert) {
+  const parts = await page.evaluate(() => [...document.querySelectorAll("[data-shell-page]")].map((part) => part.inert));
+  return parts.length >= 2 && parts.every((part) => part === inert);
+}
+
+test("a route that asks for a fresh code opens the step-up dialog over an inert page, runs again after the code, and Escape cancels it, focus returning to the control each time", options, async () => {
   const api = await openApp({
     "POST /api/console/refund": [REQUIRED, { json: { refunded: true } }, REQUIRED],
     "POST /api/second-factor/verify": [
@@ -205,6 +212,7 @@ test("a route that asks for a fresh code opens the step-up dialog, runs again af
   const dialog = page.getByRole("dialog", { name: "Confirm it's you" });
   await expect(dialog.getByRole("heading", { name: "Confirm it's you" })).toBeVisible();
   await expect(dialog.getByLabel("6-digit code")).toBeFocused();
+  assert.ok(await shellPageIs(page, true), "the shell's app bar and main are inert behind the dialog");
   await fitsTheScreen(page);
   await page.keyboard.type("000000");
   await page.keyboard.press("Enter");
@@ -213,15 +221,18 @@ test("a route that asks for a fresh code opens the step-up dialog, runs again af
   await page.keyboard.press("Enter");
   await expect(page.getByTestId("console-outcome")).toHaveText("Refunded");
   await expect(dialog).toBeHidden();
-  // Focus is back on the control that sent the request, after a code as after cancelling.
+  // Focus is back on the control that sent the request, after a code as after cancelling, on a live page.
   await expect(page.getByRole("button", { name: "Refund" })).toBeFocused();
+  assert.ok(await shellPageIs(page, false), "the page is live again");
 
   await page.keyboard.press("Enter");
   await expect(dialog.getByLabel("6-digit code")).toBeFocused();
+  assert.ok(await shellPageIs(page, true), "the page is inert behind the dialog again");
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect(page.getByTestId("console-outcome")).toHaveText("Refund failed: Confirm it's you with a code from your authenticator app.");
   await expect(page.getByRole("button", { name: "Refund" })).toBeFocused();
+  assert.ok(await shellPageIs(page, false), "the page is live after Escape");
 
   assert.equal(bodiesOf(api, "POST /api/console/refund").length, 3);
   assert.deepEqual(bodiesOf(api, "POST /api/second-factor/verify"), [{ code: "000000" }, { code: "123456" }]);
