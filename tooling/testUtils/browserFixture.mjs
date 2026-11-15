@@ -189,6 +189,11 @@ function returnCacheDir(configPath, cacheDir) {
   idleCacheDirs.set(configPath, idle);
 }
 
+// A fixture server compiles the app's modules before it says it is warm (viteFixtureServer.mjs): seconds on an idle
+// machine, over a minute while many browser test files run at once. It does so under this limit of its own, so the
+// tests' own page loads run against a warm server within their limits.
+const WARM_UP_TIMEOUT_MS = 180_000;
+
 async function startViteFixture({
   fixtureRoot,
   configFile = "vite.config.mjs",
@@ -230,6 +235,7 @@ async function startViteFixture({
 
   try {
     await runtime.waitFor(new RegExp(`http://127\\.0\\.0\\.1:${port}/`, "u"));
+    await runtime.waitFor(/jskit fixture server warm/u, WARM_UP_TIMEOUT_MS);
   } catch (error) {
     await stopProcess(runtime);
     throw error;
@@ -246,28 +252,10 @@ function createChromiumLaunchOptions({ env = process.env } = {}) {
   });
 }
 
-// A fixture server's first page load compiles the app's modules: seconds on an idle machine, over a minute while many
-// browser test files run at once. The shared fixture makes that load once, under this limit of its own, so the tests'
-// own page loads run against a warm server within their limits.
-const WARM_UP_TIMEOUT_MS = 180_000;
-
-/** Loads the fixture's page once in a context of its own, so the server has compiled the app before any test's load. */
-async function warmUp(browser, baseURL) {
-  const context = await browser.newContext({ baseURL });
-  try {
-    const page = await context.newPage();
-    // The page's own load after the commit: an app that replaces its first page as it starts is loaded in full too.
-    await page.goto("/", { waitUntil: "commit", timeout: WARM_UP_TIMEOUT_MS });
-    await page.waitForLoadState("load", { timeout: WARM_UP_TIMEOUT_MS });
-  } finally {
-    await context.close();
-  }
-}
-
 /**
  * One Vite fixture server and one Chromium for all the tests of a file, instead of a new pair for every test. Call it
  * at the top level of the test file; each test calls the function it returns with its own context, `open(t)`, which
- * returns `{ vite, browser }`. Starting the pair loads the fixture's page once, so the server compiles the app then:
+ * returns `{ vite, browser }`. Starting the pair warms the server (startViteFixture), so it compiles the app then:
  * a `beforeEach` hook the fixture adds starts it before the file's first test that runs, outside every test's time
  * limit (node:test starts a test's clock after its hooks). node:test runs no `beforeEach` for a skipped test, so a run
  * without the file's browser flag starts nothing; a `before` hook would run even then. That browser opens pages and
@@ -287,13 +275,9 @@ function sharedBrowserFixture(viteOptions) {
   async function start() {
     const { chromium } = await import("@playwright/test");
     const vite = await startViteFixture(viteOptions);
-    let browser = null;
     try {
-      browser = await chromium.launch(createChromiumLaunchOptions());
-      await warmUp(browser, vite.baseURL);
-      return { vite, browser };
+      return { vite, browser: await chromium.launch(createChromiumLaunchOptions()) };
     } catch (error) {
-      await browser?.close();
       await stopProcess(vite);
       throw error;
     }
