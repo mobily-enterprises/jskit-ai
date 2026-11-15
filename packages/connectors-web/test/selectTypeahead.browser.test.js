@@ -8,18 +8,37 @@ const TEST_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const SKIP = process.env.JSKIT_CONNECTORS_WEB_BROWSER === "1" ? false : "set JSKIT_CONNECTORS_WEB_BROWSER=1";
 const VIEWPORTS = Object.freeze([{ width: 390, height: 1000 }, { width: 1280, height: 1000 }]);
 
-// Opens the page's AWS Region select and, while its menu still scales in, types "o" then "s": Osaka, the last of the
-// regions, off-screen down the virtual list until the menu scrolls to it. Each letter changes the selection, so what
-// shows it re-renders.
+// Opens the page's AWS Region select and, while its menu still scales in, types "o" and, once its match Ohio shows,
+// "s": Osaka, the last of the regions, off-screen down the virtual list until the menu scrolls to it. Each letter
+// changes the selection, so what shows it re-renders.
+//
+// Vuetify reads the two letters as one search only when its keydown handler runs for "s" within 1000 ms of "o"
+// (VSelect's KEYBOARD_LOOKUP_THRESHOLD); later, "s" starts a new search and selects São Paulo. A loaded machine can
+// handle "s" that late, so the page's clock reads 1 ms after "o" while "s" is dispatched: the letters are one search
+// however late "s" lands, as a person typing "os" makes them. `typed` records the real gap and the selected region for
+// the assertions' messages.
 async function typeOsakaWhileTheMenuOpens(page) {
   await page.getByText("N. Virginia (us-east-1)", { exact: true }).click();
   const menu = page.locator(".v-overlay--active .v-select__content");
   await expect(menu.getByRole("option", { name: "N. Virginia (us-east-1)", exact: true })).toBeVisible();
   const region = page.getByRole("combobox", { name: "AWS Region", exact: true });
+  const selected = page.locator(".v-select", { has: region }).locator(".v-select__selection-text");
+  await page.evaluate(() => {
+    const keys = {};
+    window.typeaheadKeys = keys;
+    window.addEventListener("keydown", (event) => {
+      keys[event.key] = performance.now();
+      if (event.key === "s" && keys.o !== undefined) performance.now = () => keys.o + 1;
+    }, { capture: true });
+    window.addEventListener("keydown", () => delete performance.now);
+  });
   await region.press("o");
+  await expect(selected).toHaveText("Ohio (us-east-2)");
   await region.press("s");
   await expect.poll(() => menu.evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0);
-  return menu.getByRole("option", { name: "Osaka (ap-northeast-3)", exact: true });
+  const gap = await page.evaluate(() => Math.round(window.typeaheadKeys.s - window.typeaheadKeys.o));
+  const typed = `"s" ${gap} ms after "o", selected ${await selected.textContent()}`;
+  return { osaka: menu.getByRole("option", { name: "Osaka (ap-northeast-3)", exact: true }), typed };
 }
 
 async function withFixture(run) {
@@ -51,10 +70,10 @@ test("letters typed while a configuration select's menu opens show and focus the
     for (const vuetify of ["material", "vmenu-defaults"]) {
       await page.goto(`/?vuetify=${vuetify}`);
       await page.getByRole("button", { name: "Edit Redshift", exact: true }).click();
-      const osaka = await typeOsakaWhileTheMenuOpens(page);
-      await expect(osaka, `${at}, ${vuetify}`).toBeVisible();
-      await expect(osaka, `${at}, ${vuetify}`).toBeFocused();
-      await expect(page.locator(".v-select__selection-text", { hasText: "Osaka" }), `${at}, ${vuetify}`).toHaveCount(1);
+      const { osaka, typed } = await typeOsakaWhileTheMenuOpens(page);
+      await expect(osaka, `${at}, ${vuetify}, ${typed}`).toBeVisible();
+      await expect(osaka, `${at}, ${vuetify}, ${typed}`).toBeFocused();
+      await expect(page.locator(".v-select__selection-text", { hasText: "Osaka" }), `${at}, ${vuetify}, ${typed}`).toHaveCount(1);
     }
   });
 });
@@ -71,8 +90,8 @@ test("Vuetify still loses a select's typeahead match under a VMenu sub-component
 }, async () => {
   await withFixture(async (page, at) => {
     await page.goto("/?vuetify=vmenu-defaults&fixture=vuetify-23366");
-    await typeOsakaWhileTheMenuOpens(page);
-    await expect(page.locator(".v-select__selection-text", { hasText: "Osaka" }), at).toHaveCount(1);
+    const { typed } = await typeOsakaWhileTheMenuOpens(page);
+    await expect(page.locator(".v-select__selection-text", { hasText: "Osaka" }), `${at}, ${typed}`).toHaveCount(1);
     const focused = await page.evaluate(() => document.activeElement?.textContent?.trim() ?? "");
     expect(
       focused,
