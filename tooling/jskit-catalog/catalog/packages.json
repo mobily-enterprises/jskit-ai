@@ -3447,6 +3447,10 @@
                 "summary": "Exports createUsersExtensions, the users.extensions registry of profile synchronization lifecycle contributors."
               },
               {
+                "subpath": "./server/usersIdentity",
+                "summary": "Exports createUsersIdentity, which builds users.profiles, users.settings and auth.profile.projector on handles of the users and user_settings tables, and USERS_IDENTITY_TABLES, those two table resources, for code outside a JSKIT server that owns them through standalone resources."
+              },
+              {
                 "subpath": "./server/resolveActionUser",
                 "summary": "Exports resolveActionUser, which reads an action's signed-in user."
               },
@@ -3863,6 +3867,10 @@
               {
                 "subpath": "./server/WorkspacesFeature",
                 "summary": "Exports WorkspacesFeature, which provides workspaces.core (directory, members, pending invitations and settings services, their actions and routes), workspaces (the workspaces' records, with findBySlug and lock) and workspaces.memberships (the memberships' records, with addMember and activeMemberIds), and the optional tokens' defaults."
+              },
+              {
+                "subpath": "./server/standaloneRoleContext",
+                "summary": "Exports createStandaloneRoleContext({ resources, config }), workspaces.core's roleContext for code outside a JSKIT server (a migration or seed script), built by the same code on the handles of its standalone runtime, and ROLE_CONTEXT_TABLES, the workspaces and users tables that runtime owns."
               },
               {
                 "subpath": "./server/WorkspacesIntegrationsProvider",

@@ -195,6 +195,7 @@ Exports
 
 ### `src/server/usersIdentity.js`
 Exports
+- `USERS_IDENTITY_TABLES`
 - `createUsersIdentity({ resources, extensions })`
 
 ### `src/server/UsersIdentityProvider.js`

@@ -102,6 +102,11 @@ Exports
 Exports
 - `createWorkspacesServerI18n({ appRoot = "" } = {})`
 
+### `src/server/standaloneRoleContext.js`
+Exports
+- `ROLE_CONTEXT_TABLES`
+- `createStandaloneRoleContext({ resources, config })`
+
 ### `src/server/support/resolveWorkspace.js`
 Exports
 - `resolveWorkspace(context = {}, input = {})`
@@ -308,6 +313,7 @@ Local functions
 ### `src/server/workspacesRuntime.js`
 Exports
 - `WORKSPACES_TABLES`
+- `createWorkspaceDirectory({ config, personalWorkspaceName, resources, userProfiles, workspaceCreatedParticipant, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
 - `createWorkspaceRecords(resources)`
 - `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, personalWorkspaceName, resources, userProfiles, userSettings, workspaceCreatedParticipant, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
 Local functions

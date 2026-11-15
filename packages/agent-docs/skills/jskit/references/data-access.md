@@ -896,7 +896,13 @@ locking reads, which see the latest rows whatever the snapshot:
 up to 1,000 (`pageSize`) at a time, in id order, each page one locking read
 after the last id of the page before. It still locks the governing row first,
 since PostgreSQL keeps no new row out of a page already locked. In a request it
-throws past the request row limit, as `queryPages` does. Isolation is not the
+throws past the request row limit, as `queryPages` does. `take` in its options,
+a whole number from 1 as `queryAll` takes it, is the call's own bound instead,
+in a request or a job: `lockPages(filters, { ...txOptions, take: 20000 })`
+locks up to 20,000 rows, past the request row limit too, and throws
+`RESOURCE_ROW_LIMIT` naming the take before it hands over the page that passes
+it. Unlike `queryAll`'s, it never stops quietly at part of the set, so name the
+most rows the work can hold, never a number from the request. Isolation is not the
 tool: MySQL and MariaDB fix it when a transaction starts, and READ COMMITTED
 alone reads each page at a different moment. `patchWhere` and `deleteWhere`
 select their rows with a locking read on MySQL and MariaDB, so they too see
@@ -1546,7 +1552,18 @@ const SettlementFeature = defineFeature({
   `users.profile.notFound`. It reads the user, the workspace and its settings,
   and writes nothing. Work done as a real member takes `memberContext`, which
   refuses anyone who is not one; `roleContext` is for installer and seed work
-  only, where the person is not given that role in the workspace.
+  only, where the person is not given that role in the workspace. Code outside
+  a server (a migration or seed script that owns its tables through
+  `createStandaloneResources`) takes the same function from
+  `createStandaloneRoleContext({ resources, config })`
+  (`@jskit-ai/workspaces-core/server/standaloneRoleContext`), built the same
+  way from the application's runtime config on its runtime's handles: the same
+  arguments, context and refusals, with the script's own system context. Its
+  runtime owns `ROLE_CONTEXT_TABLES`, the workspaces and users tables, beside
+  its own (`owns: [...ROLE_CONTEXT_TABLES, ...seedTables]`, with a
+  `systemScope`); on a server's Knex client `createStandaloneResources`
+  refuses them, since the server owns them: code there takes
+  `workspaces.core`'s.
 - A job finds its units with an `aggregate` grouped by the ownership field,
   which a system context may group by (and count distinct) even when the table
   hides it, then runs each unit scoped to it. It reads the units in pages, all
