@@ -52,6 +52,7 @@
     "@tanstack/vue-query": "^5.90.5",
     "@vitejs/plugin-vue": "^6.0.7",
     "@vue/devtools-api": "^8.2.1",
+    "axe-core": "4.14.0",
     "better-sqlite3": "13.0.3",
     "cloc": "^2.6.0-cloc",
     "fastify": "5.12.7",

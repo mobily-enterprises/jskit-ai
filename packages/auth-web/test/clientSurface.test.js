@@ -78,7 +78,7 @@ test("auth profile activator keeps Material 3's 48dp touch target without a fixe
   // Without the name, up to medium width, the activator is an icon button, so its state layer is a circle round the
   // avatar; the name shows on expanded windows only, through the shell's window size classes.
   assert.match(widgetSource, /const showsName = computed\(\(\) => isExpanded\.value \|\| isLarge\.value\);/u);
-  assert.match(widgetSource, /<v-btn v-else v-bind="props" icon variant="text" class="auth-profile-widget__activator" :aria-label="displayName">/u);
+  assert.match(widgetSource, /<v-btn v-else v-bind="props" icon variant="text" class="auth-profile-widget__activator" :aria-label="compactName">/u);
   // material-web gives every default-size button a 48dp touch target around its 40dp body; a fixed height would
   // make the button itself taller than Material 3 draws it.
   assert.doesNotMatch(widgetSource, /min-height/u);

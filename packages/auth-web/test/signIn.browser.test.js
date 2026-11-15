@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import process from "node:process";
 import { after, before, test } from "node:test";
 import { fileURLToPath } from "node:url";
@@ -6,6 +7,8 @@ import { chromium, expect } from "@playwright/test";
 import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const RUN = process.env.JSKIT_AUTH_WEB_BROWSER_INTEGRATION === "1";
+// axe-core as the page runs it, to check a rule the way axe reports it on an app's screens.
+const AXE_PATH = createRequire(import.meta.url).resolve("axe-core/axe.min.js");
 const options = { skip: !RUN, timeout: 120_000 };
 const GUARD_EVALUATOR_KEY = "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 const CAPABILITIES = {
@@ -578,32 +581,28 @@ test("the account control is the avatar alone up to medium width and truncates a
   await finish(api);
 });
 
-// WCAG 2.5.3 Label in Name: a control's name holds the text it shows. Up to medium width the account control is
-// named by the person's name (its aria-label) and shows their initials, "AN" for ana.ferreira, which are not in that
-// name (axe label-content-name-mismatch). Its avatar is hidden from assistive technology, so the control shows it no
-// text beyond its name; on wider windows the name is the text it shows.
-test("the account control's name holds every word it shows on a phone and a tablet: WCAG 2.5.3 (axe label-content-name-mismatch)", options, async () => {
+// WCAG 2.5.3 Label in Name: a control's name holds the text it shows, the words a person using speech input says to
+// press it. Up to medium width the account control is a round button named by its aria-label, and without a picture
+// its avatar shows the initials, "AN" for ana.ferreira. axe's label-content-name-mismatch counts every word drawn on
+// the screen, aria-hidden or not, so the name begins with the initials: "AN ana.ferreira".
+test("the account control's name holds the initials it shows on a phone and a tablet: WCAG 2.5.3 (axe label-content-name-mismatch)", options, async () => {
   const name = "ana.ferreira";
-  const words = (text) => text.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean);
   for (const viewport of [{ width: 390, height: 844 }, { width: 768, height: 1024 }]) {
     const at = `${viewport.width}px`;
     const api = await openApp({ session: { ...SIGNED_IN, username: name }, viewport });
     const { page } = api;
     await page.goto("/home");
-    const control = page.getByRole("button", { name, exact: true });
-    await expect(control, at).toBeVisible();
+    const control = page.getByRole("button", { name: /ana\.ferreira/u });
     await expect(control, `${at}: it shows the initials`).toHaveText("AN");
-    // The text the control shows assistive technology: its text outside anything aria-hidden.
-    const shown = await control.evaluate((button) => {
-      const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
-      const texts = [];
-      for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-        if (!node.parentElement.closest("[aria-hidden=true]")) texts.push(node.textContent);
-      }
-      return texts.join(" ");
+    await page.addScriptTag({ path: AXE_PATH });
+    const audit = await control.evaluate(async (button) => {
+      const results = await window.axe.run(button, { runOnly: { type: "rule", values: ["label-content-name-mismatch"] } });
+      const nodes = (outcome) => outcome.flatMap((rule) => rule.nodes.map((node) => node.failureSummary ?? node.html));
+      return { violations: nodes(results.violations), incomplete: nodes(results.incomplete), passed: nodes(results.passes).length };
     });
-    const missing = words(shown).filter((word) => !words(name).includes(word));
-    assert.deepEqual(missing, [], `${at}: the control shows "${shown.trim()}", which its name "${name}" does not hold`);
+    assert.deepEqual({ violations: audit.violations, incomplete: audit.incomplete }, { violations: [], incomplete: [] }, at);
+    assert.equal(audit.passed, 1, `${at}: axe checked the control's name against what it shows`);
+    await expect(control, at).toHaveAccessibleName(`AN ${name}`);
     await finish(api);
   }
 });

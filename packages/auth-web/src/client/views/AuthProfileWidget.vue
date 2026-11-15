@@ -11,8 +11,10 @@ const { t } = useJskitText();
 const { context: shellPlacementContext } = useWebPlacementContext();
 // On expanded windows the activator is a pill with the name beside the avatar, the name ending in an ellipsis past
 // 12rem; on medium and compact windows, where the app bar's title and actions need the room, it is a round icon
-// button around the avatar, named by its aria-label. That avatar is hidden from assistive technology: its initials
-// are not in the name, and a control's name holds the text it shows (WCAG 2.5.3 Label in Name).
+// button around the avatar, named by its aria-label. A control's name holds the text it shows (WCAG 2.5.3 Label in
+// Name), the words a person using speech input says to press it, and every word drawn on the screen counts, hidden
+// from assistive technology or not; so without a picture that name begins with the initials the avatar shows,
+// "AN ana.ferreira". The avatar itself stays hidden from assistive technology: the name says whose account it is.
 const { isExpanded, isLarge } = useShellWindowSizeClass();
 const showsName = computed(() => isExpanded.value || isLarge.value);
 
@@ -61,6 +63,8 @@ const initials = computed(() => {
   return text.slice(0, 2).toUpperCase();
 });
 
+const compactName = computed(() => (avatarUrl.value ? displayName.value : `${initials.value} ${displayName.value}`));
+
 const placementContext = computed(() => {
   return {
     auth: auth.authState,
@@ -84,7 +88,7 @@ const placementContext = computed(() => {
         </v-avatar>
         <span class="auth-profile-widget__name ml-2 text-body-medium">{{ displayName }}</span>
       </v-btn>
-      <v-btn v-else v-bind="props" icon variant="text" class="auth-profile-widget__activator" :aria-label="displayName">
+      <v-btn v-else v-bind="props" icon variant="text" class="auth-profile-widget__activator" :aria-label="compactName">
         <v-avatar size="32" color="primary" variant="tonal" aria-hidden="true">
           <v-img v-if="avatarUrl" :src="avatarUrl" cover />
           <span v-else class="text-body-small font-weight-medium">{{ initials }}</span>
