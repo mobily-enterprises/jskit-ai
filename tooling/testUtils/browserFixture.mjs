@@ -246,13 +246,33 @@ function createChromiumLaunchOptions({ env = process.env } = {}) {
   });
 }
 
+// A fixture server's first page load compiles the app's modules: seconds on an idle machine, over a minute while many
+// browser test files run at once. The shared fixture makes that load once, under this limit of its own, so the tests'
+// own page loads run against a warm server within their limits.
+const WARM_UP_TIMEOUT_MS = 180_000;
+
+/** Loads the fixture's page once in a context of its own, so the server has compiled the app before any test's load. */
+async function warmUp(browser, baseURL) {
+  const context = await browser.newContext({ baseURL });
+  try {
+    const page = await context.newPage();
+    // The page's own load after the commit: an app that replaces its first page as it starts is loaded in full too.
+    await page.goto("/", { waitUntil: "commit", timeout: WARM_UP_TIMEOUT_MS });
+    await page.waitForLoadState("load", { timeout: WARM_UP_TIMEOUT_MS });
+  } finally {
+    await context.close();
+  }
+}
+
 /**
  * One Vite fixture server and one Chromium for all the tests of a file, instead of a new pair for every test. Call it
  * at the top level of the test file; each test calls the function it returns with its own context, `open(t)`, which
- * starts the pair on first use and returns `{ vite, browser }`. That browser opens pages and contexts on the shared
- * Chromium (`newPage`, `newContext`); the test's own end closes them, and the file's end stops Chromium and the server.
- * node:test runs those `t.after` and `after` hooks even when a test times out, so a stuck test can't leave a server or
- * browser that keeps the file, and the whole run, alive.
+ * starts the pair on first use and returns `{ vite, browser }`. Starting it loads the fixture's page once, so the
+ * server compiles the app then; a file's `before` hook calls `open.prepare()` to do that before its first test, outside
+ * every test's clock. That browser opens pages and contexts on the shared Chromium (`newPage`, `newContext`); the
+ * test's own end closes them, and the file's end stops Chromium and the server. node:test runs those `t.after` and
+ * `after` hooks even when a test times out, so a stuck test can't leave a server or browser that keeps the file, and
+ * the whole run, alive.
  * @param {Parameters<typeof startViteFixture>[0]} viteOptions
  */
 function sharedBrowserFixture(viteOptions) {
@@ -266,17 +286,26 @@ function sharedBrowserFixture(viteOptions) {
   async function start() {
     const { chromium } = await import("@playwright/test");
     const vite = await startViteFixture(viteOptions);
+    let browser = null;
     try {
-      return { vite, browser: await chromium.launch(createChromiumLaunchOptions()) };
+      browser = await chromium.launch(createChromiumLaunchOptions());
+      await warmUp(browser, vite.baseURL);
+      return { vite, browser };
     } catch (error) {
+      await browser?.close();
       await stopProcess(vite);
       throw error;
     }
   }
 
-  return async function open(t) {
+  /** Starts the pair and warms the server, once for the file. */
+  function prepare() {
     started ??= start();
-    const { vite, browser } = await started;
+    return started;
+  }
+
+  async function open(t) {
+    const { vite, browser } = await prepare();
     const contexts = new Set();
     const close = () => Promise.all([...contexts].map((context) => context.close()));
     t.after(close);
@@ -296,7 +325,9 @@ function sharedBrowserFixture(viteOptions) {
         close
       })
     });
-  };
+  }
+
+  return Object.assign(open, { prepare });
 }
 
 export {

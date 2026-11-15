@@ -30,6 +30,7 @@ Local functions
 - `stopChild(child)`
 - `takeCacheDir(configPath)`
 - `returnCacheDir(configPath, cacheDir)`
+- `warmUp(browser, baseURL)`
 
 ### `fakeFastify.mjs`
 Exports
