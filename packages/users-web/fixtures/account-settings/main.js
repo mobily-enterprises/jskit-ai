@@ -101,6 +101,8 @@ function record(name) {
 window.accountFixture = {
   reports: [],
   events: [],
+  // Component updates since load, so a test can see the page re-rendering whatever the machine's load.
+  updates: 0,
   profileProps,
   profileState,
   placeSection() {
@@ -158,6 +160,11 @@ const app = createApp({
   render: () => h(components.VApp, null, {
     default: () => h(ShellLayout, { surfaceLabel: "Fixture" }, { default: () => h(RouterView) })
   })
+});
+app.mixin({
+  updated() {
+    window.accountFixture.updates += 1;
+  }
 });
 app.provide(SHELL_WEB_PLACEMENT_RUNTIME_KEY, placement);
 app.provide(SHELL_NAVIGATION_RUNTIME_KEY, navigation);

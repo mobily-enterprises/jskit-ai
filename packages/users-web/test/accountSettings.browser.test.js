@@ -87,17 +87,25 @@ async function finish(api) {
   await api.page.close();
 }
 
-/** Seconds the page's main thread works during one idle second: an update loop keeps it near 1. */
-async function busySeconds(page) {
+/**
+ * What the page does during one idle second, in measures the machine's load cannot inflate: the component updates
+ * (a re-render loop) and the main thread's CPU seconds (a busy loop keeps them near 1). A page at rest has neither.
+ */
+async function idleSecond(page) {
   const session = await page.context().newCDPSession(page);
-  await session.send("Performance.enable");
-  async function taskSeconds() {
+  // Thread time, not wall time: on a loaded machine a task waits longer for the CPU but still uses only what it needs.
+  await session.send("Performance.enable", { timeDomain: "threadTicks" });
+  async function reading() {
     const { metrics } = await session.send("Performance.getMetrics");
-    return metrics.find((metric) => metric.name === "TaskDuration").value;
+    return {
+      updates: await page.evaluate(() => window.accountFixture.updates),
+      cpu: metrics.find((metric) => metric.name === "TaskDuration").value
+    };
   }
-  const before = await taskSeconds();
+  const start = await reading();
   await page.waitForTimeout(1000);
-  return (await taskSeconds()) - before;
+  const end = await reading();
+  return { updates: end.updates - start.updates, busy: end.cpu - start.cpu };
 }
 
 function lastReport(page) {
@@ -248,8 +256,9 @@ test("a refused preference shows its message", options, async () => {
   await page.getByRole("button", { name: /Save preferences/u }).click();
   await expect(page.getByText("Theme is not allowed.")).toBeVisible();
   // The old error array looped here for seconds before Vue gave up, so the page must also stay idle.
-  const busy = await busySeconds(page);
-  assert.ok(busy < 0.5, `the page worked for ${busy} s of an idle second`);
+  const idle = await idleSecond(page);
+  assert.equal(idle.updates, 0, `the page updated components ${idle.updates} times in an idle second`);
+  assert.ok(idle.busy < 0.5, `the page worked for ${idle.busy} CPU s of an idle second`);
   await finish(api);
 });
 
