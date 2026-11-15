@@ -853,15 +853,28 @@ test("event readiness failure does not submit a native message", async t => {
   assert.equal((await f.trace()).filter(item => item.url?.endsWith("/prompt_async")).length, 0);
 });
 
+/**
+ * Waits until OpenCode's startup reaches its health check, which the fixture's server never answers with startupWait.
+ * A startup that ends first fails with its own outcome: the driver bounds startup by its native health deadline, so the
+ * wait ends however slowly the machine starts the process.
+ */
+async function startupBegun(f, sending) {
+  let ended = null;
+  sending.then(
+    () => { ended = new Error("OpenCode's send finished before its startup health check."); },
+    error => { ended = error; }
+  );
+  while (!(await f.trace().catch(() => [])).some(item => item.url === "/global/health")) {
+    if (ended) throw ended;
+    await delay(20);
+  }
+}
+
 test("cancel interrupts OpenCode startup instead of waiting for the native health deadline", async t => {
   const f = await fixture(t, { startupWait: true });
   const sending = f.conversation.send(input);
   sending.catch(() => {});
-  const deadline = Date.now() + 3000;
-  while (!(await f.trace().catch(() => [])).some(item => item.url === "/global/health")) {
-    if (Date.now() > deadline) throw new Error("OpenCode did not begin startup.");
-    await delay(20);
-  }
+  await startupBegun(f, sending);
   const started = Date.now();
   await f.conversation.cancel();
   await assert.rejects(sending);
@@ -896,11 +909,7 @@ test("unconfirmed OpenCode startup cleanup stays owned and Stop retries that exa
   t.after(() => execution.close());
   const sending = f.conversation.send(input);
   sending.catch(() => {});
-  const deadline = Date.now() + 3000;
-  while (!(await f.trace().catch(() => [])).some(item => item.url === "/global/health")) {
-    if (Date.now() > deadline) throw new Error("OpenCode did not begin startup.");
-    await delay(20);
-  }
+  await startupBegun(f, sending);
   await assert.rejects(f.conversation.cancel(), /cleanup could not be confirmed/);
   await assert.rejects(sending);
   const saved = await f.binding();

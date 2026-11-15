@@ -1867,9 +1867,15 @@ test("cancel during a shared Codex handshake releases its caller and leaves star
   const f = await fixture(t, { environment: { TEST_STARTUP_WAIT: gate } });
   const sending = f.conversation.send(input);
   sending.catch(() => {});
-  const deadline = Date.now() + 3000;
+  // Until the handshake begins, or the send ends first with its own outcome: the 30-second handshake timeout bounds it
+  // however slowly the machine starts the process.
+  let ended = null;
+  sending.then(
+    () => { ended = new Error("Codex's send finished before its initialization."); },
+    error => { ended = error; }
+  );
   while (!(await f.trace().catch(() => [])).some(row => row.method === "initialize")) {
-    if (Date.now() > deadline) throw new Error("Codex did not begin its initialization.");
+    if (ended) throw ended;
     await new Promise(resolve => setTimeout(resolve, 20));
   }
   const started = Date.now();
