@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
 import process from "node:process";
-import test from "node:test";
+import test, { before } from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 // The assistant settings pane in the shell: the top app bar carries its title and its Save, a submit button for the
 // pane's form, and the pane shows a note and no Save until it has settings to edit.
@@ -25,15 +25,17 @@ function settingsDocument(targetSurfaceId, systemPrompt, workspaceId = null, { c
   };
 }
 
+// One shell server and one browser for the file, its server warmed before the first test: a server per test made each
+// test's first page load wait on the server compiling the shell's modules, past the 15 s limit with many files at once.
+const open = sharedBrowserFixture({ fixtureRoot: FIXTURE_ROOT });
+if (RUN) before(() => open.prepare());
+
 /**
- * The shell and a browser, stopped in after hooks, which run when a test fails or times out too. The last hook prints
- * each page's errors and console errors, so a fixture that fails to render says why.
+ * The file's shell and browser for one test, whose end closes its pages. Its last hook prints each page's errors and
+ * console errors, so a fixture that fails to render says why.
  */
 async function startFixture(t) {
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  t.after(() => stopProcess(vite));
-  const browser = await chromium.launch(createChromiumLaunchOptions());
-  t.after(() => browser.close());
+  const { vite, browser } = await open(t);
   const pages = [];
   t.after(() => {
     for (const { errors, console: messages } of pages) {
