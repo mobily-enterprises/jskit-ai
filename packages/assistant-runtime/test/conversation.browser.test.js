@@ -2,20 +2,27 @@ import assert from "node:assert/strict";
 import { mkdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
-import { chromium } from "@playwright/test";
 import { expect } from "../../../tooling/testUtils/browserExpect.mjs";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const fixtureRoot = fileURLToPath(new URL("../fixtures/conversation/", import.meta.url));
+// One fixture server and one Chromium for the file, the server warmed before its first test runs
+// (sharedBrowserFixture): a server per test compiled the app inside each test's first page load, past the 30 s
+// navigation limit with 16 browser test files at once.
+const open = sharedBrowserFixture({ fixtureRoot });
+
+/** The file's server and browser for one test, the server's assistant API cleared of what earlier tests left in it. */
+async function openFixture(t) {
+  const fixture = await open(t);
+  assert.equal((await fetch(`${fixture.vite.baseURL}/fixture/reset`)).status, 200);
+  return fixture;
+}
 
 test("ready-made assistant preserves streaming, drafts, scope and compact conversation access", {
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
   timeout: 180_000
 }, async (t) => {
-  const vite = await startViteFixture({ fixtureRoot });
-  t.after(() => stopProcess(vite));
-  const browser = await chromium.launch(createChromiumLaunchOptions());
-  t.after(() => browser.close());
+  const { vite, browser } = await openFixture(t);
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -148,10 +155,7 @@ test("history restores preserve new typing and reject obsolete pages and failed 
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
   timeout: 60_000
 }, async (t) => {
-  const vite = await startViteFixture({ fixtureRoot });
-  t.after(() => stopProcess(vite));
-  const browser = await chromium.launch(createChromiumLaunchOptions());
-  t.after(() => browser.close());
+  const { vite, browser } = await openFixture(t);
   const page = await browser.newPage();
   const input = page.getByRole("textbox", { name: "Message AI assistant" });
   const send = page.getByRole("button", { name: "Send message", exact: true });
@@ -229,10 +233,7 @@ test("page assistant bounds long history in a document layout and preserves draf
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
   timeout: 60_000
 }, async (t) => {
-  const vite = await startViteFixture({ fixtureRoot });
-  t.after(() => stopProcess(vite));
-  const browser = await chromium.launch(createChromiumLaunchOptions());
-  t.after(() => browser.close());
+  const { vite, browser } = await openFixture(t);
   const page = await browser.newPage();
   await page.goto(`${vite.baseURL}/?page=1`);
   await page.getByRole("button", { name: "Conversations", exact: true }).click();
@@ -260,10 +261,7 @@ test("page assistant bounds long history in a document layout and preserves draf
 test("the ready-made UI streams from the real chat service with selected AI connections and files", {
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1", timeout: 90_000
 }, async (t) => {
-  const vite = await startViteFixture({ fixtureRoot });
-  t.after(() => stopProcess(vite));
-  const browser = await chromium.launch(createChromiumLaunchOptions());
-  t.after(() => browser.close());
+  const { vite, browser } = await openFixture(t);
   const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
   await page.request.get(`${vite.baseURL}/fixture/service`);
   await page.goto(`${vite.baseURL}/?files=1`);
@@ -300,10 +298,7 @@ test("the ready-made UI streams from the real chat service with selected AI conn
 test("an application's message actions show under each reply with its saved id and role, beside the failed and canceled notices", {
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1", timeout: 90_000
 }, async (t) => {
-  const vite = await startViteFixture({ fixtureRoot });
-  t.after(() => stopProcess(vite));
-  const browser = await chromium.launch(createChromiumLaunchOptions());
-  t.after(() => browser.close());
+  const { vite, browser } = await openFixture(t);
   const page = await browser.newPage({ viewport: { width: 1100, height: 800 } });
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
@@ -361,10 +356,7 @@ test("pending delivery appears immediately and retries the original request with
   skip: process.env.JSKIT_ASSISTANT_RUNTIME_BROWSER_INTEGRATION !== "1",
   timeout: 60_000
 }, async (t) => {
-  const vite = await startViteFixture({ fixtureRoot });
-  t.after(() => stopProcess(vite));
-  const browser = await chromium.launch(createChromiumLaunchOptions());
-  t.after(() => browser.close());
+  const { vite, browser } = await openFixture(t);
   const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
   const held = Promise.withResolvers();
   const requests = [];

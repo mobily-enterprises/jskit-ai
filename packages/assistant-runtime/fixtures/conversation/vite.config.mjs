@@ -18,10 +18,10 @@ export default defineConfig({
   plugins: [vue(), {
     name: "controlled-assistant-api",
     configureServer(server) {
-      const streams = [];
-      const requests = [];
-      const transcript = [];
-      const turnRequests = createMemoryTurnRequests();
+      let streams = [];
+      let requests = [];
+      let transcript = [];
+      let turnRequests = createMemoryTurnRequests();
       let realService = false;
       server.middlewares.use(async (req, res, next) => {
         const url = new URL(req.url, "http://fixture");
@@ -30,6 +30,13 @@ export default defineConfig({
         const send = (stream, event) => stream.res.write(`${JSON.stringify(event)}\n`);
         if (url.pathname === "/api/session") return json({ csrfToken: "fixture-only" });
         if (url.pathname === "/fixture/service") { realService = true; return json({ ok: true }); }
+        // A test file's tests share the server; each starts here, with new streams, requests and transcript, so
+        // nothing an earlier test left, or a stream of its that ends late, reaches it.
+        if (url.pathname === "/fixture/reset") {
+          streams = []; requests = []; transcript = [];
+          turnRequests = createMemoryTurnRequests(); realService = false;
+          return json({ ok: true });
+        }
         if (url.pathname === "/fixture/state") return json({ requests, transcript, streams: streams.map(({ closed }) => ({ closed })) });
         if (url.pathname === "/fixture/next") {
           for (const stream of streams.filter((entry) => !entry.closed)) {
