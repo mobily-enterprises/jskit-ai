@@ -1,13 +1,9 @@
 import path from "node:path";
 import process from "node:process";
-import test from "node:test";
+import test, { before } from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import {
-  createChromiumLaunchOptions,
-  startViteFixture,
-  stopProcess
-} from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 import { expectMaterialBaseline } from "../../../tooling/testUtils/visualBaseline.mjs";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
@@ -122,17 +118,19 @@ async function serveBooks(page, screen) {
   });
 }
 
-test("the CRUD screens keep their Material 3 baselines in light and dark at every window size", {
-  skip: RUN_BROWSER_TEST ? false : "set JSKIT_MATERIAL_BASELINES=1 to check the Material 3 baselines",
-  timeout: 300_000
-}, async (t) => {
-  // Stopped in after hooks, which run when the test fails or times out too (a body's `finally` doesn't after a
-  // timeout, and the server and browser would keep the test file's process alive).
-  const vite = await startViteFixture({ fixtureRoot: FIXTURE_ROOT });
-  t.after(() => stopProcess(vite));
-  const browser = await chromium.launch(createChromiumLaunchOptions());
-  t.after(() => browser.close());
-  for (const viewport of VIEWPORTS) {
+// One server and one browser for the file, the server warmed before the first test; the tests' ends close their pages
+// and the file's end stops both.
+const open = sharedBrowserFixture({ fixtureRoot: FIXTURE_ROOT });
+if (RUN_BROWSER_TEST) before(() => open.prepare());
+
+// A test for each window size, light and dark: 14 page loads, well inside the limit while many browser test files run
+// at once. As one test the 42 loads took 4 to 5 minutes then, at or past its 5 minute limit.
+for (const viewport of VIEWPORTS) {
+  test(`the CRUD screens keep their Material 3 baselines in light and dark at ${viewport.width}x${viewport.height}`, {
+    skip: RUN_BROWSER_TEST ? false : "set JSKIT_MATERIAL_BASELINES=1 to check the Material 3 baselines",
+    timeout: 300_000
+  }, async (t) => {
+    const { vite, browser } = await open(t);
     // The app follows the system's light or dark setting, Material 3's default.
     for (const colorScheme of ["light", "dark"]) {
       const context = await browser.newContext({
@@ -169,5 +167,5 @@ test("the CRUD screens keep their Material 3 baselines in light and dark at ever
         await context.close();
       }
     }
-  }
-});
+  });
+}
