@@ -1,12 +1,16 @@
 import process from "node:process";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { chromium, expect } from "@playwright/test";
-import { createChromiumLaunchOptions, startViteFixture, stopProcess } from "../../../tooling/testUtils/browserFixture.mjs";
+import { expect } from "@playwright/test";
+import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
 
 const TEST_ROOT = fileURLToPath(new URL(".", import.meta.url));
 const SKIP = process.env.JSKIT_CONNECTORS_WEB_BROWSER === "1" ? false : "set JSKIT_CONNECTORS_WEB_BROWSER=1";
 const VIEWPORTS = Object.freeze([{ width: 390, height: 1000 }, { width: 1280, height: 1000 }]);
+// One fixture server and one Chromium for the file, warmed before its first test runs (sharedBrowserFixture). A server
+// per test started and compiled the app inside that test's 90 s; with 16 browser test files at once the first test
+// took up to 75 s.
+const open = sharedBrowserFixture({ fixtureRoot: TEST_ROOT, configFile: "vite.config.js" });
 
 // Opens the page's AWS Region select and, while its menu still scales in, types "o" and, once its match Ohio shows,
 // "s": Osaka, the last of the regions, off-screen down the virtual list until the menu scrolls to it. Each letter
@@ -41,22 +45,15 @@ async function typeOsakaWhileTheMenuOpens(page) {
   return { osaka: menu.getByRole("option", { name: "Osaka (ap-northeast-3)", exact: true }), typed };
 }
 
-async function withFixture(run) {
-  const vite = await startViteFixture({ fixtureRoot: TEST_ROOT, configFile: "vite.config.js" });
-  let browser;
-  try {
-    browser = await chromium.launch(createChromiumLaunchOptions());
-    for (const viewport of VIEWPORTS) {
-      const page = await browser.newPage({ baseURL: vite.baseURL, viewport });
-      try {
-        await run(page, `${viewport.width}px`);
-      } finally {
-        await page.close();
-      }
+async function eachViewport(t, run) {
+  const { vite, browser } = await open(t);
+  for (const viewport of VIEWPORTS) {
+    const page = await browser.newPage({ baseURL: vite.baseURL, viewport });
+    try {
+      await run(page, `${viewport.width}px`);
+    } finally {
+      await page.close();
     }
-  } finally {
-    await browser?.close();
-    await stopProcess(vite);
   }
 }
 
@@ -65,8 +62,8 @@ async function withFixture(run) {
 test("letters typed while a configuration select's menu opens show and focus their match, with or without an app's VMenu defaults", {
   skip: SKIP,
   timeout: 90_000
-}, async () => {
-  await withFixture(async (page, at) => {
+}, async (t) => {
+  await eachViewport(t, async (page, at) => {
     for (const vuetify of ["material", "vmenu-defaults"]) {
       await page.goto(`/?vuetify=${vuetify}`);
       await page.getByRole("button", { name: "Edit Redshift", exact: true }).click();
@@ -87,8 +84,8 @@ test("letters typed while a configuration select's menu opens show and focus the
 test("Vuetify still loses a select's typeahead match under a VMenu sub-component default when a panel around it re-renders", {
   skip: SKIP,
   timeout: 90_000
-}, async () => {
-  await withFixture(async (page, at) => {
+}, async (t) => {
+  await eachViewport(t, async (page, at) => {
     await page.goto("/?vuetify=vmenu-defaults&fixture=vuetify-23366");
     const { typed } = await typeOsakaWhileTheMenuOpens(page);
     await expect(page.locator(".v-select__selection-text", { hasText: "Osaka" }), `${at}, ${typed}`).toHaveCount(1);
