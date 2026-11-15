@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/workspaces-core",
-  "version": "0.2.51",
+  "version": "0.2.52",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -26,7 +26,7 @@
   "dependencies": {
     "@jskit-ai/resource-core": "0.1.218",
     "@jskit-ai/resource-crud-core": "0.1.220",
-    "@jskit-ai/users-core": "0.2.51",
+    "@jskit-ai/users-core": "0.2.52",
     "json-rest-schema": "^1.0.20"
   },
   "description": "Workspace tenancy runtime plus HTTP routes, role catalog, and workspace config scaffolding.",
@@ -220,6 +220,6 @@
     "@jskit-ai/database-runtime": "0.1.276",
     "@jskit-ai/http-runtime": "0.2.27",
     "@jskit-ai/kernel": "0.2.27",
-    "@jskit-ai/resource-runtime": "0.2.38"
+    "@jskit-ai/resource-runtime": "0.2.39"
   }
 }
