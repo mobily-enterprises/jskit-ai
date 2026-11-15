@@ -12,6 +12,8 @@ const VIEWPORTS = Object.freeze([{ width: 390, height: 1000 }, { width: 1280, he
 // took up to 75 s.
 const open = sharedBrowserFixture({ fixtureRoot: TEST_ROOT, configFile: "vite.config.js" });
 
+const MENU = ".v-overlay--active .v-select__content";
+
 // Opens the page's AWS Region select and, while its menu still scales in, types "o" and, once its match Ohio shows,
 // "s": Osaka, the last of the regions, off-screen down the virtual list until the menu scrolls to it. Each letter
 // changes the selection, so what shows it re-renders.
@@ -23,7 +25,7 @@ const open = sharedBrowserFixture({ fixtureRoot: TEST_ROOT, configFile: "vite.co
 // the assertions' messages.
 async function typeOsakaWhileTheMenuOpens(page) {
   await page.getByText("N. Virginia (us-east-1)", { exact: true }).click();
-  const menu = page.locator(".v-overlay--active .v-select__content");
+  const menu = page.locator(MENU);
   await expect(menu.getByRole("option", { name: "N. Virginia (us-east-1)", exact: true })).toBeVisible();
   const region = page.getByRole("combobox", { name: "AWS Region", exact: true });
   const selected = page.locator(".v-select", { has: region }).locator(".v-select__selection-text");
@@ -39,7 +41,12 @@ async function typeOsakaWhileTheMenuOpens(page) {
   await region.press("o");
   await expect(selected).toHaveText("Ohio (us-east-2)");
   await region.press("s");
-  await expect.poll(() => menu.evaluate((element) => element.getAnimations({ subtree: true }).length)).toBe(0);
+  // The menu settles once no animation runs in it, checked at each frame in the page: expect.poll's checks at 0, 100,
+  // 350 and 850 ms after "s" waited up to half a second past the animations' end. The bound is expect's own, 5 s.
+  await page.waitForFunction((selector) => document.querySelector(selector)?.getAnimations({ subtree: true }).length === 0, MENU, {
+    polling: "raf",
+    timeout: 5_000
+  });
   const gap = await page.evaluate(() => Math.round(window.typeaheadKeys.s - window.typeaheadKeys.o));
   const typed = `"s" ${gap} ms after "o", selected ${await selected.textContent()}`;
   return { osaka: menu.getByRole("option", { name: "Osaka (ap-northeast-3)", exact: true }), typed };
