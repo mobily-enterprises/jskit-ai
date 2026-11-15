@@ -191,10 +191,14 @@ test("removing the authenticator takes a code or a recovery code, shows a wait b
 });
 
 // Whether every part of the shell's page around the console (its app bar and main at least) is inert, as it is while
-// the step-up dialog is open, or else every part live.
+// the step-up dialog is open, or else every part live but a closed modal drawer or side sheet, which stays inert.
 async function shellPageIs(page, inert) {
-  const parts = await page.evaluate(() => [...document.querySelectorAll("[data-shell-page]")].map((part) => part.inert));
-  return parts.length >= 2 && parts.every((part) => part === inert);
+  const parts = await page.evaluate(() => [...document.querySelectorAll("[data-shell-page]")].map((part) => ({
+    inert: part.inert,
+    closedDrawer: part.classList.contains("v-navigation-drawer--temporary") &&
+      !part.classList.contains("v-navigation-drawer--active")
+  })));
+  return parts.length >= 2 && parts.every((part) => part.inert === (inert || part.closedDrawer));
 }
 
 test("a route that asks for a fresh code opens the step-up dialog over an inert page, runs again after the code, and Escape cancels it, focus returning to the control each time", options, async () => {

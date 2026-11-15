@@ -42,17 +42,23 @@ async function activate(locator) {
   await locator.press("Enter");
 }
 
-// The parts of the page ShellLayout makes inert, and whether each is.
+// The parts of the page ShellLayout makes inert: whether each is, and whether it is a closed modal drawer or side
+// sheet, which Vuetify keeps inert of its own.
 function readPageParts(page) {
-  return page.evaluate(() => [...document.querySelectorAll("[data-shell-page]")].map((part) => part.inert));
+  return page.evaluate(() => [...document.querySelectorAll("[data-shell-page]")].map((part) => ({
+    inert: part.inert,
+    closedDrawer: part.classList.contains("v-navigation-drawer--temporary") &&
+      !part.classList.contains("v-navigation-drawer--active")
+  })));
 }
 
-// Every part of the page, the app bar, the navigation and main at least, inert or else live.
+// Every part of the page, the app bar, the navigation and main at least, inert, or else live but for a closed modal
+// drawer or side sheet, which stays inert.
 async function expectPageInert(page, inert, message) {
   await expect.poll(async () => {
     const parts = await readPageParts(page);
-    return parts.length >= 3 && parts.every((part) => part === inert);
-  }, { message: `${message}: every part of the page ${inert ? "inert" : "live"}` }).toBe(true);
+    return parts.length >= 3 && parts.every((part) => part.inert === (inert || part.closedDrawer));
+  }, { message: `${message}: every part of the page ${inert ? "inert" : "live, a closed drawer inert"}` }).toBe(true);
 }
 
 // Whether `locator`'s element takes focus when asked, as a keyboard and assistive technology ask.
@@ -311,5 +317,70 @@ test("a tooltip open on what opens a dialog closes as the dialog opens, whether 
   await expect(remove).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(inviteDialog).toBeHidden();
+  await page.close();
+});
+
+test("a closed modal drawer stays inert after a dialog, and a drawer that closes or opens behind a dialog is as it is once the dialog closes", {
+  skip: SKIP,
+  timeout: 120_000
+}, async (t) => {
+  const page = await openNotes(t, COMPACT);
+  const drawer = page.getByTestId("jskit-shell-drawer");
+  const help = drawer.getByRole("link", { name: "Help and support" });
+  const drawerInert = () => drawer.evaluate((element) => element.inert);
+  const dialog = page.getByTestId("fixture-invite-dialog");
+  const modal = () => expect(drawer).toHaveClass(/v-navigation-drawer--temporary/u);
+  const standard = () => expect(drawer).not.toHaveClass(/v-navigation-drawer--temporary/u);
+  assert.equal(await drawerInert(), true, "the closed modal drawer is inert");
+
+  // A dialog opens and closes over the page: the closed drawer stays inert, out of the keyboard's and assistive
+  // technology's reach, while the rest of the page is live again.
+  await activate(buttonOf(page.getByTestId("fixture-invite")));
+  await expectDialogOpen(page, dialog);
+  await expectPageInert(page, true, "with the dialog open");
+  await activate(page.getByTestId("fixture-invite-cancel"));
+  await expect(dialog).toBeHidden();
+  await expectPageInert(page, false, "after the dialog closes");
+  assert.equal(await drawerInert(), true, "the closed drawer is inert after the dialog");
+  assert.equal(await takesFocus(help), false, "the closed drawer's destination takes no focus");
+  assert.equal((await readAccessibleNames(page)).has("Help and support"), false, "assistive technology skips the closed drawer");
+
+  // The menu control still opens it, live, and Escape closes it, inert again.
+  await activate(page.getByTestId("jskit-shell-nav-toggle"));
+  await expect.poll(drawerInert, { message: "the open drawer is live" }).toBe(false);
+  assert.equal(await takesFocus(help), true, "the open drawer's destination takes focus");
+  await page.keyboard.press("Escape");
+  await expect.poll(drawerInert, { message: "the drawer closed by Escape is inert" }).toBe(true);
+
+  // On an expanded window the standard drawer is live. Behind a dialog it is inert, and when the window narrows it
+  // closes there, as a modal drawer: once the dialog closes it is the closed drawer it became, inert.
+  await page.setViewportSize(EXPANDED);
+  await standard();
+  await expect.poll(drawerInert, { message: "the standard drawer is live" }).toBe(false);
+  await activate(page.getByTestId("fixture-invite"));
+  await expectDialogOpen(page, dialog);
+  await expectPageInert(page, true, "with the dialog open on an expanded window");
+  await page.setViewportSize(COMPACT);
+  await modal();
+  await expectPageInert(page, true, "with the dialog open once the window narrowed");
+  await activate(page.getByTestId("fixture-invite-cancel"));
+  await expect(dialog).toBeHidden();
+  await expectPageInert(page, false, "after the dialog over the drawer that closed behind it");
+  assert.equal(await drawerInert(), true, "the drawer that closed behind the dialog is inert");
+  assert.equal(await takesFocus(help), false, "its destination takes no focus");
+
+  // The other way: the closed modal drawer opens as the standard drawer when the window widens behind a dialog. It is
+  // inert while the dialog is open and live once it closes.
+  await activate(buttonOf(page.getByTestId("fixture-invite")));
+  await expectDialogOpen(page, dialog);
+  await page.setViewportSize(EXPANDED);
+  await standard();
+  await expectPageInert(page, true, "with the dialog open once the window widened");
+  assert.equal(await takesFocus(help), false, "the drawer that opened behind the dialog takes no focus");
+  await activate(page.getByTestId("fixture-invite-cancel"));
+  await expect(dialog).toBeHidden();
+  await expectPageInert(page, false, "after the dialog over the drawer that opened behind it");
+  assert.equal(await drawerInert(), false, "the standard drawer is live");
+  assert.equal(await takesFocus(help), true, "its destination takes focus");
   await page.close();
 });

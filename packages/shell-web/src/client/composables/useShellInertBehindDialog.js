@@ -60,6 +60,11 @@ function concernsDialogs(records) {
  * alone. What turns inert lets go first: focus in it moves into the dialog, and what the pointer is on is told the
  * pointer left, so a tooltip on the element that opened the dialog closes as it would have without `inert`.
  *
+ * A part that is inert of its own, as Vuetify keeps a closed modal drawer or side sheet, is left alone, and only the
+ * parts this made inert are made live again. What a part's owner sets its `inert` to while this holds it, as a drawer
+ * that closes behind the dialog does (a narrower window, a link in the dialog), is the part's again once the dialogs
+ * close.
+ *
  * It watches the document for Vuetify's overlays, so it sees every dialog, whoever renders it, without a dialog
  * component of its own. The page is live again as soon as the render that closes or unmounts its dialog ends, before
  * code that waits for it (`await nextTick()`) gives focus back. Focus then returns to the element that opened the
@@ -73,6 +78,8 @@ function useShellInertBehindDialog() {
   const open = new Map();
   /** @type {Set<HTMLElement>} the dialogs this made inert under the one on top */
   const inertDialogs = new Set();
+  /** @type {Map<HTMLElement, { inert: boolean }>} the parts of the page this made inert, each with its owner's inert */
+  const heldParts = new Map();
   /** @type {EventTarget | null} */
   let focused = null;
   /** @type {EventTarget | null} */
@@ -127,11 +134,56 @@ function useShellInertBehindDialog() {
     }
   }
 
-  /** @param {boolean} inert */
+  /**
+   * Makes a live part of the page inert and keeps aside what its owner sets its `inert` to until `release`. Vue sets
+   * `inert` only when the owner's own value changes (Vuetify's drawer has `inert` while it is closed), so a drawer that
+   * closes while it is held sets it once, here, and that value must outlast this hold: forgetting it would leave the
+   * closed drawer live after the dialog.
+   * @param {HTMLElement} part
+   */
+  function hold(part) {
+    const inert = /** @type {PropertyDescriptor} */ (Object.getOwnPropertyDescriptor(HTMLElement.prototype, "inert"));
+    if (!heldParts.has(part)) {
+      const own = { inert: false };
+      Object.defineProperty(part, "inert", {
+        configurable: true,
+        get: () => inert.get?.call(part),
+        set: (value) => {
+          own.inert = Boolean(value);
+        }
+      });
+      heldParts.set(part, own);
+    }
+    inert.set?.call(part, true);
+  }
+
+  /**
+   * Gives a held part its own `inert` back: live, unless its owner made it inert meanwhile.
+   * @param {HTMLElement} part
+   */
+  function release(part) {
+    const own = heldParts.get(part);
+    heldParts.delete(part);
+    Reflect.deleteProperty(part, "inert");
+    part.inert = Boolean(own?.inert);
+  }
+
+  /**
+   * While dialogs are open, every live part of the page is held inert; once none is, the parts this holds are released.
+   * A part inert of its own is never touched.
+   * @param {boolean} inert
+   */
   function setPageInert(inert) {
-    for (const part of document.querySelectorAll(SHELL_PAGE)) {
-      if (part instanceof HTMLElement && part.inert !== inert) {
-        part.inert = inert;
+    if (inert) {
+      for (const part of document.querySelectorAll(SHELL_PAGE)) {
+        if (part instanceof HTMLElement && !part.inert) {
+          hold(part);
+        }
+      }
+    }
+    for (const part of [...heldParts.keys()]) {
+      if (!inert || !part.isConnected) {
+        release(part);
       }
     }
   }

@@ -40,3 +40,11 @@ focus returns to the element that opened it unless focus already went
 somewhere; a dialog that closes by leaving its page leaves focus to the next
 page. A dialog attached or contained inside the page stays local and leaves the
 page alone.
+
+Only the parts the dialog made inert are made live again. A part already inert
+of its own, as Vuetify keeps a closed modal drawer or side sheet, stays inert
+after the dialog, and a drawer that closes behind the dialog (the window
+narrows, or a link in the dialog leaves the page) is inert once the dialog
+closes; one that opens behind it is inert until the dialog closes and live
+after. A layout of an app's own that binds `inert` on a part it marks
+`data-shell-page` keeps the value it binds in the same way.
