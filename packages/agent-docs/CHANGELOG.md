@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The data access guide's Layer 4 covers `lockPages` with `take`, the call's own bound as `queryAll` takes it, which refuses past it rather than stopping at part of the set.
 - The data access guide's Layer 4 covers the locking aggregate, `aggregate({ measures, filters }, { ...txOptions, lockMode: "share" })`, for a save that checks a count or a sum of many rows: one statement, no row read into the application, what waits on each database (an insert waits on MySQL and MariaDB, not on PostgreSQL), why a limit on new rows also locks the row that governs the set, and the refusals.
 - The data access, CRUD operations and security pass guides say that a request's user scope is the signed-in user on every route, never an id from the input, so a `workspace` route reaches the member's own `user` and `workspace_user` rows, and the CRUD guide advises keeping such a table's default `workspace_user` visibility, whose realtime events reach only the member.
 - The Material 3 guide's Dialogs advice says that while a dialog is open `ShellLayout` makes the page behind it inert, so an app's accessibility check runs axe on the whole page with a dialog open instead of narrowing it to the dialog.

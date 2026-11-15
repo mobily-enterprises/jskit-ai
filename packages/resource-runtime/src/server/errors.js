@@ -86,22 +86,27 @@ class PageSizeError extends TypeError {
 }
 
 /**
- * queryAll() or queryPages() in a request context reading past the request row limit: the request answers a 400 coded
- * RESOURCE_ROW_LIMIT, with a sentence the client can show in the user's language, instead of a 500.
+ * queryAll(), queryPages() or lockPages() in a request context reading past the request row limit, or lockPages()
+ * matching more rows than its `take`: the request answers a 400 coded RESOURCE_ROW_LIMIT, with a sentence the client
+ * can show in the user's language, instead of a 500.
  */
 class RowLimitError extends AppError {
   /**
    * @param {string} resourceName
-   * @param {number} rowLimit
+   * @param {number} rowLimit The request row limit, or the call's `take` when `bound` is "take".
    * @param {unknown} [cause]
    * @param {"queryAll" | "queryPages" | "lockPages"} [caller]
+   * @param {"request" | "take"} [bound] Which limit `rowLimit` is.
    */
-  constructor(resourceName, rowLimit, cause, caller = "queryAll") {
+  constructor(resourceName, rowLimit, cause, caller = "queryAll", bound = "request") {
     super(
       400,
-      `${resourceName}.${caller}() read more than ${rowLimit} rows inside a request. Work over that many rows belongs ` +
-        "in a background job: a feature with systemScope, working per workspace with systemContext(reason).forWorkspace(id), " +
-        "where queryPages() reads them a page at a time.",
+      bound === "take"
+        ? `${resourceName}.${caller}() matched more than its take of ${rowLimit} rows, the most the call holds. Raise ` +
+          "take to the most rows the work can hold, or narrow the filters."
+        : `${resourceName}.${caller}() read more than ${rowLimit} rows inside a request. Work over that many rows belongs ` +
+          "in a background job: a feature with systemScope, working per workspace with systemContext(reason).forWorkspace(id), " +
+          "where queryPages() reads them a page at a time.",
       { cause, code: "RESOURCE_ROW_LIMIT", messageCode: "resource.rowLimit", messageParams: { rowLimit } }
     );
     this.name = "RowLimitError";

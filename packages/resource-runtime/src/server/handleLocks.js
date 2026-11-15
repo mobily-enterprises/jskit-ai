@@ -327,31 +327,38 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
    * rows first locks one row that governs them (their parent, say), and so does this work, before it reads. On MySQL
    * and MariaDB it needs an index that reads in id order after the ownership columns and the filters' single-value
    * equalities. In a request it throws RowLimitError past the request row limit, as queryPages() does; background
-   * work locks without one. `fields`, `lockMode` and `include` are lockWhere's; it takes no sort or limit.
+   * work locks without one. `take`, as queryAll()'s, names the call's own bound instead, in a request or background
+   * work: the most rows it locks, a whole number from 1, above the request row limit or below it. Past it, it throws
+   * RowLimitError naming take, before it hands over the page that passed it, so a lock never answers part of the set.
+   * `fields`, `lockMode` and `include` are lockWhere's; it takes no sort or limit.
    * `pageBy` names a list filter of the filters (one whose search entry says `filterOperator: "in"`, on the table's
    * own column): the pages then follow that column, then the id, so on MySQL and MariaDB an index that starts with the
    * ownership columns, the filters' other single-value equalities and that column reads only the listed values' rows
    * (see listPages). Its values are given as the column stores them.
    * @param {object} filters
-   * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[], pageSize?: number, pageBy?: string }} options
+   * @param {{ context?: object | null, trx: object, fields?: string[], lockMode?: "update" | "noKeyUpdate" | "share", include?: string | string[], pageSize?: number, pageBy?: string, take?: number }} options
    * @returns {AsyncGenerator<object[], void, undefined>}
    */
   async function* lockPages(filters, options) {
     requireDefinedFilters(name, "lockPages", filters);
-    const { pageSize = MAX_LOCK_PAGE, sort, limit, pageBy, ...lockOptions } = options;
+    const { pageSize = MAX_LOCK_PAGE, sort, limit, pageBy, take, ...lockOptions } = options;
     if (sort !== undefined || limit !== undefined) {
       throw new TypeError(`${name}.lockPages() locks in id order, a page of pageSize rows at a time, so it takes no sort or limit.`);
     }
     if (!Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > MAX_LOCK_PAGE) {
       throw new TypeError(`${name}.lockPages() pageSize is an integer from 1 to ${MAX_LOCK_PAGE}. Received: ${JSON.stringify(pageSize)}`);
     }
+    // take: undefined is no take, as for queryAll().
+    if (take !== undefined && (!Number.isSafeInteger(take) || /** @type {number} */ (take) < 1)) {
+      throw new TypeError(`${name}.lockPages() take is the most rows it locks, a whole number from 1. Received: ${JSON.stringify(take)}`);
+    }
     const pages = pageBy === undefined ? idPages(filters, pageSize, lockOptions) : listPages(filters, listFilterOf(pageBy, filters), pageSize, lockOptions);
-    const rowLimit = isJobContext(options.context) ? undefined : settings.requestRowLimit;
+    const rowLimit = take ?? (isJobContext(options.context) ? undefined : settings.requestRowLimit);
     let rows = 0;
     for await (const page of pages) {
       rows += page.length;
       if (rowLimit !== undefined && rows > rowLimit) {
-        throw new RowLimitError(name, rowLimit, undefined, "lockPages");
+        throw new RowLimitError(name, rowLimit, undefined, "lockPages", take === undefined ? "request" : "take");
       }
       if (page.length > 0) {
         yield page;

@@ -899,7 +899,13 @@ locking reads, which see the latest rows whatever the snapshot:
 up to 1,000 (`pageSize`) at a time, in id order, each page one locking read
 after the last id of the page before. It still locks the governing row first,
 since PostgreSQL keeps no new row out of a page already locked. In a request it
-throws past the request row limit, as `queryPages` does. Isolation is not the
+throws past the request row limit, as `queryPages` does. `take` in its options,
+a whole number from 1 as `queryAll` takes it, is the call's own bound instead,
+in a request or a job: `lockPages(filters, { ...txOptions, take: 20000 })`
+locks up to 20,000 rows, past the request row limit too, and throws
+`RESOURCE_ROW_LIMIT` naming the take before it hands over the page that passes
+it. Unlike `queryAll`'s, it never stops quietly at part of the set, so name the
+most rows the work can hold, never a number from the request. Isolation is not the
 tool: MySQL and MariaDB fix it when a transaction starts, and READ COMMITTED
 alone reads each page at a different moment. `patchWhere` and `deleteWhere`
 select their rows with a locking read on MySQL and MariaDB, so they too see

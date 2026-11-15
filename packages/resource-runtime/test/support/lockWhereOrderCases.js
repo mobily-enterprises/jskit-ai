@@ -3,6 +3,7 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 import { countQueries } from "@jskit-ai/database-runtime/server/testDatabases";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { createResourceHost } from "../../src/server/resourceHost.js";
+import { RowLimitError } from "../../src/server/errors.js";
 import { createResourceRuntime } from "../../src/server/resourceRuntime.js";
 
 // lockWhere's sort and limit, on every database the runtime supports: the rows are locked in the sort's order, then by
@@ -221,6 +222,40 @@ function lockWhereOrderCases(connect) {
       for (const options of [{ sort: ["code"] }, { limit: 2 }, { pageSize: 0 }, { pageSize: 1001 }, { pageSize: 1.5 }]) {
         await assert.rejects(slots.withTransaction(IN_WORKSPACE_A, (tx) => pagesOf(slots.lockPages({}, { ...tx, ...options }))),
           (error) => error instanceof TypeError && /slots\.lockPages\(\)/u.test(error.message), JSON.stringify(options));
+      }
+    }],
+
+    ["lockPages with take locks up to take rows, past the request row limit, refuses more naming take in a request and in background work, and refuses a take that is no whole number from 1", async (t) => {
+      const knex = await connect(t, "da_lp_take");
+      // Seven rows of workspace 1, and a request row limit of five.
+      const { slots, system } = await slotsOf(knex, 7, { requestRowLimit: 5 });
+      const job = { context: system.forWorkspace("1") };
+      const sizes = (options, context = IN_WORKSPACE_A) =>
+        slots.withTransaction(context, async (tx) => (await pagesOf(slots.lockPages({}, { ...tx, pageSize: 3, ...options }))).map((page) => page.length));
+      // Under and at the bound, past the request row limit: every row, in a request and in background work.
+      for (const take of [9, 7]) {
+        assert.deepEqual(await sizes({ take }), [3, 3, 1], `take ${take}`);
+        assert.deepEqual(await sizes({ take }, job), [3, 3, 1], `take ${take} in background work`);
+      }
+      // take: undefined is no take: the request row limit, and none in background work.
+      await assert.rejects(sizes({ take: undefined }), (error) => error.code === "RESOURCE_ROW_LIMIT" && error.messageParams.rowLimit === 5);
+      assert.deepEqual(await sizes({}, job), [3, 3, 1]);
+      // Over the bound: RowLimitError naming take, before the page that passes it, in a request and in background work.
+      for (const context of [IN_WORKSPACE_A, job]) {
+        const read = [];
+        await assert.rejects(slots.withTransaction(context, async (tx) => {
+          for await (const page of slots.lockPages({}, { ...tx, pageSize: 3, take: 6 })) {
+            read.push(page.length);
+          }
+        }), (error) => error instanceof RowLimitError && error.code === "RESOURCE_ROW_LIMIT" && error.messageParams.rowLimit === 6 &&
+          /slots\.lockPages\(\) matched more than its take of 6 rows/u.test(error.message));
+        assert.deepEqual(read, [3, 3]);
+      }
+      // A take below the request row limit bounds a request too.
+      await assert.rejects(sizes({ take: 2 }), (error) => error.code === "RESOURCE_ROW_LIMIT" && error.messageParams.rowLimit === 2);
+      for (const take of [0, -1, 1.5, "7", null, Number.MAX_SAFE_INTEGER + 1]) {
+        await assert.rejects(sizes({ take }), (error) => error instanceof TypeError &&
+          /slots\.lockPages\(\) take is the most rows it locks, a whole number from 1/u.test(error.message), JSON.stringify(take));
       }
     }],
 
