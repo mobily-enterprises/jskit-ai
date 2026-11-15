@@ -22,7 +22,8 @@ async function fixture(t) {
   t.after(() => rm(directory, { recursive: true, force: true }));
   const protection = createCredentialProtection({ keys: { current: new Uint8Array(32).fill(8) }, activeKeyId: "current" });
   const requests = [];
-  const state = { key: "fixture-v4-key", status: 200, response: page, wait: false, resolutions: 0 };
+  // With `wait`, a request stays open until its signal aborts; `sent`, when a test sets one, resolves once it is out.
+  const state = { key: "fixture-v4-key", status: 200, response: page, wait: false, sent: null, resolutions: 0 };
   const options = {
     configuration: { schemaVersion: 1, registrations: {}, integrations: { seo: {
       provider: "semrush", displayName: "Marketing projects", accountMode: "shared", scopes: [],
@@ -34,6 +35,7 @@ async function fixture(t) {
     fetchImpl: async (address, init) => {
       requests.push({ url: new URL(String(address)), init, headers: new Headers(init.headers) });
       if (state.wait) {
+        state.sent?.resolve();
         return new Promise((_, reject) => {
           if (init.signal.aborted) reject(init.signal.reason);
           else init.signal.addEventListener("abort", () => reject(init.signal.reason), { once: true });
@@ -187,14 +189,24 @@ test("Semrush transport failures do not retry or verify the connection, and auth
 test("Semrush interruption and timeout leave the stored connection usable without replaying reads", async (t) => {
   const { service, options, state, requests } = await fixture(t);
   await service.connectApiKey(input); state.wait = true;
+  // Each read is stopped once its request is out, never by a timer racing it: on a loaded machine a 15 ms cancel or a
+  // 20 ms timeout went off before the request was sent, and the count below found 2 requests.
   const controller = new AbortController();
+  state.sent = Promise.withResolvers();
   const pending = service.invoke({ ...input, operation: "projects.list", signal: controller.signal });
-  setTimeout(() => controller.abort(), 15);
+  await Promise.race([state.sent.promise, pending]);
+  controller.abort();
   await assert.rejects(pending, { code: "connector_cancelled" });
+  // The provider's 20 ms timeout signal aborts when the test says, with the TimeoutError AbortSignal.timeout gives.
+  const timeouts = [], timer = new AbortController(), timeout = AbortSignal.timeout;
+  t.mock.method(AbortSignal, "timeout", (duration) => { timeouts.push(duration); return duration === 20 ? timer.signal : timeout(duration); });
   const timeoutService = createConnectionService({ appEnv: "test", ...options, providers: [{ ...semrushProvider, requestTimeoutMs: 20 }] });
-  const keepAlive = setTimeout(() => {}, 1000);
-  try { await assert.rejects(timeoutService.invoke({ ...input, operation: "projects.list" }), { code: "connector_provider_timeout" }); }
-  finally { clearTimeout(keepAlive); }
+  state.sent = Promise.withResolvers();
+  const timing = timeoutService.invoke({ ...input, operation: "projects.list" });
+  await Promise.race([state.sent.promise, timing]);
+  timer.abort(new DOMException("The operation timed out.", "TimeoutError"));
+  await assert.rejects(timing, { code: "connector_provider_timeout" });
+  assert.ok(timeouts.includes(20), `timeouts created: ${timeouts}`);
   assert.equal(requests.length, 3);
   assert.equal((await service.status(input)).status, "connected");
   state.wait = false;
