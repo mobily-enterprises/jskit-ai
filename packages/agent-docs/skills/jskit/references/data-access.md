@@ -974,6 +974,19 @@ ownership columns and the filters' other fixed columns, and holds the listed
 values' rows alone. Give the values as the column stores them; the statements
 still follow the pages, not the rows.
 
+A list filter or id list of 1,000 values or more needs nothing more: on MariaDB,
+which turns an IN list that long (`in_predicate_conversion_threshold`) into a
+join that can read a key's leading columns and lock every row they match (every
+revision of 1,000 records whose current revisions a `lockWhere` named by record
+and revision number), every lock, its include's reads and a write's checks of
+its links send a longer list as several shorter ones, and read rows by id
+through the primary key, so they hold the rows the list names alone. (MySQL 8.4
+keeps every list a list, but reads one that names a large share of a small
+table, about two fifths, through the whole primary key and holds every row.) A
+locking read of your own Knex (`forUpdate()`, `forShare()`) gets none of this:
+send its lists in chunks of at most 999 values and name the key it should read
+(`FORCE INDEX`), or lock through the handle.
+
 A worker taking the next job uses `claim({ filters, sort, take }, txOptions)`,
 which skips rows another worker holds. A record that serializes work on a key
 and may not exist yet (an account's balance, a connection to a provider), on a

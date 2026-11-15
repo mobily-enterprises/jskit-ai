@@ -116,6 +116,7 @@ Exports
 - `createLockReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, handleNamed, resourceNamed, settings })`
 - `lockModeOf(name, caller, lockMode)`
 Local functions
+- `linksPerRead(api)`
 - `lockedIncludes(resource, caller, include)`
 
 ### `src/server/handleRecords.js`

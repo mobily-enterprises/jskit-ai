@@ -77,6 +77,17 @@ function aggregateTransactionOf(name, { groupBy, page }, options) {
 // The most rows one read of the locked rows' links names, as the lock itself reads its ids in chunks of 1,000.
 const LINKS_PER_READ = 1000;
 
+/**
+ * The most ids one read of the locked rows' links names: LINKS_PER_READ, and on MariaDB fewer than the server's
+ * in_predicate_conversion_threshold, which json-rest-api reads as it starts. MariaDB turns an IN list that long into a
+ * join, which a locking read may plan through other rows than the listed ones, and lock them too.
+ * @param {{ knex: { capabilities?: { dbInfo?: { inPredicateConversionThreshold?: number } } } }} api
+ */
+function linksPerRead(api) {
+  const threshold = api.knex.capabilities?.dbInfo?.inPredicateConversionThreshold;
+  return Number.isSafeInteger(threshold) && threshold > 1 ? Math.min(LINKS_PER_READ, threshold - 1) : LINKS_PER_READ;
+}
+
 // The most rows a page of lockPages() locks: json-rest-api's most for one lockWhere.
 const MAX_LOCK_PAGE = 1000;
 
@@ -118,8 +129,9 @@ function lockedIncludes(resource, caller, include) {
  * record is visible. `include` names belongs-to relationships whose records the
  * lock locks too, after its own rows (see withLockedIncludes).
  * @param {object} dependencies
- * @param {{ knex: { instance: any, helpers: { getStorageAdapter(scopeName: string): any } } }} dependencies.api
- *   The table's json-rest-api host, whose storage adapter names the table's columns.
+ * @param {{ knex: { instance: any, helpers: { getStorageAdapter(scopeName: string): any }, capabilities?: { dbInfo?: { inPredicateConversionThreshold?: number } } } }} dependencies.api
+ *   The table's json-rest-api host, whose storage adapter names the table's columns and whose capabilities name the
+ *   database server's limits.
  * @param {string} dependencies.name The resource's name.
  * @param {{ name: string, tableName: string, schema: Record<string, any> }} dependencies.resource
  * @param {() => Record<string, any>} dependencies.jsonRest The table's json-rest-api resource.
@@ -161,7 +173,10 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
    * The locked rows' links as the database holds them now, `{ [field]: id | null }` by row id, for the belongs-to
    * fields named: on MySQL and MariaDB a locking read (FOR SHARE, of rows this transaction already holds), which sees
    * them as locked whatever snapshot the transaction's plain reads keep; elsewhere a plain read, which sees them too.
-   * The rows are the lock's own, so its scope already applied: only their links are read.
+   * The rows are the lock's own, so its scope already applied: only their links are read. The locking read goes
+   * through the primary key (FORCE INDEX), in id lists MariaDB keeps as lists (see linksPerRead), so it examines, and
+   * holds, those rows alone: left to choose, the optimizer reads a list that names much of the table by scanning the
+   * whole table, and InnoDB then holds every row it passed, every owner's, until the transaction ends.
    * @param {string[]} ids
    * @param {string[]} fields
    * @param {{ trx: any }} options
@@ -170,10 +185,14 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
     const adapter = api.knex.helpers.getStorageAdapter(name);
     const idColumn = adapter.getIdColumn();
     const locking = detectDialectFromClient(options.trx) === "mysql";
+    const table = locking && !adapter.isCanonical()
+      ? options.trx.raw("?? force index (primary)", [resource.tableName])
+      : resource.tableName;
+    const perRead = locking ? linksPerRead(api) : LINKS_PER_READ;
     const links = new Map();
-    for (let start = 0; start < ids.length; start += LINKS_PER_READ) {
-      const part = ids.slice(start, start + LINKS_PER_READ).map((id) => adapter.translateFilterValue("id", id));
-      const read = options.trx(resource.tableName)
+    for (let start = 0; start < ids.length; start += perRead) {
+      const part = ids.slice(start, start + perRead).map((id) => adapter.translateFilterValue("id", id));
+      const read = options.trx.from(table)
         .whereIn(idColumn, part)
         .select({ id: idColumn, ...Object.fromEntries(fields.map((field) => [field, adapter.translateColumn(field)])) });
       for (const row of await (locking ? read.forShare() : read)) {
