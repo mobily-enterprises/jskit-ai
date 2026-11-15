@@ -1742,7 +1742,7 @@
         "dependencies": {
           "@jskit-ai/resource-core": "0.1.218",
           "@jskit-ai/resource-crud-core": "0.1.220",
-          "json-rest-api": "3.3.0",
+          "json-rest-api": "3.3.1",
           "json-rest-schema": "^1.0.20"
         },
         "peerDependencies": {
@@ -2595,7 +2595,7 @@
         "dependencies": {
           "@jskit-ai/resource-core": "0.1.218",
           "@jskit-ai/resource-crud-core": "0.1.220",
-          "json-rest-api": "3.3.0"
+          "json-rest-api": "3.3.1"
         },
         "peerDependencies": {
           "@jskit-ai/database-runtime": "0.1.276",
