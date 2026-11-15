@@ -991,6 +991,11 @@ test("optional goals show running, not running and paused lights, count only wor
     await expect(light).toHaveCSS("animation-name", "none");
     await expect(light).toHaveCSS("background-color", "rgb(211, 47, 47)");
     await input.click();
+    // Clicking outside closes the menu on a timer (Vuetify's click-outside), which the paused clock holds: run it, so
+    // the menu is closed before the pane narrows. Left open, the menu re-measures its place only on a frame the paused
+    // clock gives it, so whether its card moved off the narrowed chip depended on when the renderer drew.
+    await page.clock.runFor(250);
+    await expect(page.getByRole("button", { name: "Goal running", exact: true })).toHaveAttribute("aria-expanded", "false");
     await page.getByRole("button", { name: "Resize pane" }).click();
     await expect(elapsed).toBeHidden();
     await expect(light).toBeVisible();
