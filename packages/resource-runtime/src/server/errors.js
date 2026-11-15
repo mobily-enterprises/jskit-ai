@@ -13,7 +13,8 @@ class MissingScopeError extends TypeError {
   constructor(resourceName, owner) {
     super(
       (owner
-        ? `${resourceName} rows each belong to a ${owner}, and this context names no ${owner}, so the ownership scope cannot be applied. `
+        ? `${resourceName} rows each belong to a ${owner}, and this context names no ${owner}, so the ownership scope cannot be applied. ` +
+          (owner === "user" ? "A request reaches the signed-in user's own rows, so a request with no one signed in reaches none. " : "")
         : `${resourceName} needs options.context, so the ownership scope can be applied. `) +
         "Pass on the options your function received. Only a background job of a feature with systemScope uses " +
         "systemContext(reason).forWorkspace(id); never use it to make a request work."

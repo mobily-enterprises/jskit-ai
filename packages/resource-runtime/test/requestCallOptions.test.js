@@ -136,9 +136,11 @@ test("a hand route's callOptions() scope user, workspace and workspace_user tabl
   }
 
   const member = { user: { id: "7" }, workspace: { id: "1" } };
+  // The signed-in user's own rows are reached on every route, as the request's workspace is: a workspace route, whose
+  // visibility names no user, reaches user 7's bookmarks and pins too.
   const expected = {
     user: [{ user: member.user }, { bookmarks: ["7's"], notes: "refused", pins: "refused" }],
-    workspace: [member, { bookmarks: "refused", notes: ["in 1"], pins: "refused" }],
+    workspace: [member, { bookmarks: ["7's"], notes: ["in 1"], pins: ["7's in 1"] }],
     workspace_user: [member, { bookmarks: ["7's"], notes: ["in 1"], pins: ["7's in 1"] }]
   };
   for (const visibility of VISIBILITIES) {
@@ -150,6 +152,7 @@ test("a hand route's callOptions() scope user, workspace and workspace_user tabl
     const anonymous = await call(`/hand/${visibility}`, {});
     assert.deepEqual(anonymous, await call(`/action/${visibility}`, {}), `${visibility} route, signed out`);
     assert.equal(anonymous.reads.bookmarks, "refused");
+    assert.equal(anonymous.reads.pins, "refused");
     assert.equal(anonymous.visibilityContext.userId ?? null, null);
   }
 });

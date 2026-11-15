@@ -48,7 +48,9 @@ a JSKIT app. The rules it applies are already in [Typed features](typed-features
   context built by hand skips that scope: search for each. Confirm every
   `public` table is meant to be read by anyone.
 - Who acts is `resolveActor(context)`; the workspace comes from the context
-  only, never from the body or another input
+  only, and so does the user whose `user` or `workspace_user` rows a request
+  reaches (the signed-in user, on every route), never from the body or another
+  input
   ([Request context](typed-features.md#request-context)). A row
   policy decides from `caller` and the server-resolved `context.workspace`,
   `context.membership` and `context.permissions`, never from request input.

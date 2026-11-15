@@ -77,6 +77,11 @@ always does. Do not add authentication or workspace machinery to
 make up for an unneeded `always` override. Server access and ownership
 remain authoritative.
 
+A `user` or `workspace_user` table's rows reach only the signed-in user, on
+every route, never a `userId` the request sends. Keep such a table's default
+route visibility: a `workspace` route over a `workspace_user` table reaches the
+member's own rows too, but announces their changes to the whole workspace.
+
 The Books source patterns show user ownership. For a public create/list
 resource, use them with this table resource and CRUD contract:
 

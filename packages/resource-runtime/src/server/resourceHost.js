@@ -22,7 +22,7 @@ import {
   normalizeJsonApiFieldsets
 } from "@jskit-ai/kernel/shared/support/jsonApiFieldsets";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
-import { resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
+import { resolveActorId, resolveRequest } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { ROUTE_VISIBILITY_WORKSPACE, ROUTE_VISIBILITY_WORKSPACE_USER } from "@jskit-ai/kernel/shared/support/visibility";
 import { createJsonRestContext } from "./contexts.js";
 import { blobFields } from "./handleBlobs.js";
@@ -562,15 +562,30 @@ function resolveWorkspaceScopeValue(context = null) {
   return workspaceId;
 }
 
+/**
+ * The id of the user a context acts for; null when it names none. It reads, in this order:
+ * 1. the `userId` scope value (`context.scopeValues.userId`), which a job context derived for a user names;
+ * 2. the user of the route's visibility (`context.visibilityContext.userId`), on a `user` or `workspace_user` route;
+ * 3. the signed-in user (the context's actor, else the request's user: resolveActorId), so a request reaches its own
+ *    rows of a `user` or `workspace_user` table on any route, a `workspace` route's included, as the workspace is read
+ *    from the request on any route. A job context is signed in as no one, and a signed-out request names no user.
+ * Never an id from the request's input. One execution acts for one user, so the sources it finds must agree: two
+ * different ids throw.
+ * @param {object | null} [context]
+ * @returns {string | null}
+ */
 function resolveUserScopeValue(context = null) {
-  const scopedUserId = normalizeScopeValue(context?.scopeValues?.userId);
-  const visibleUserId = normalizeScopeValue(context?.visibilityContext?.userId);
-  if (scopedUserId && visibleUserId && scopedUserId !== visibleUserId) {
-    throw new Error(
-      `safety invariant: a context names two users (${scopedUserId}, ${visibleUserId}); one execution acts for one user.`
-    );
+  const userIds = [
+    context?.scopeValues?.userId,
+    context?.visibilityContext?.userId,
+    resolveActorId(context)
+  ].map(normalizeScopeValue).filter(Boolean);
+  const [userId = null] = userIds;
+  const otherUserId = userIds.find((id) => id !== userId);
+  if (otherUserId) {
+    throw new Error(`safety invariant: a context names two users (${userId}, ${otherUserId}); one execution acts for one user.`);
   }
-  return scopedUserId || visibleUserId;
+  return userId;
 }
 
 function isJsonRestResourceMissingError(error = null) {

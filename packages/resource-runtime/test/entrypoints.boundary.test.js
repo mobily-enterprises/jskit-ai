@@ -883,6 +883,18 @@ test("scope resolvers understand explicit scopeValues and JSKIT visibilityContex
     }
   }), null);
   assert.equal(resolveUserScopeValue(null), null);
+
+  // The signed-in user (the actor, else the request's user) is the user of a context whose route names none.
+  assert.equal(resolveUserScopeValue({ actor: { id: 7 } }), "7");
+  assert.equal(resolveUserScopeValue({ requestMeta: { request: { user: { id: "7" } } } }), "7");
+  assert.equal(resolveUserScopeValue({ actor: { id: "7" }, visibilityContext: { userId: "7" }, scopeValues: { userId: "7" } }), "7");
+  assert.throws(() => resolveUserScopeValue({ actor: { id: "7" }, visibilityContext: { userId: "8" } }),
+    /safety invariant: a context names two users \(8, 7\)/u);
+  assert.throws(() => resolveUserScopeValue({ actor: { id: "7" }, scopeValues: { userId: "8" } }),
+    /safety invariant: a context names two users \(8, 7\)/u);
+  // Background work acts for its user without being signed in as anyone; the request's input never names the user.
+  assert.equal(resolveUserScopeValue({ onBehalfOf: { id: "7" } }), null);
+  assert.equal(resolveUserScopeValue({ requestMeta: { request: { body: { userId: "7" }, query: { userId: "7" } } } }), null);
 });
 
 test("json-rest-api's fixed-English errors render from the resource-runtime catalog", async () => {

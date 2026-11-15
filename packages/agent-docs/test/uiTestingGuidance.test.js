@@ -237,8 +237,9 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // since an include names a link by its relationship, which the boot enforces; 65 KiB since in-page navigation to
   // a named place is labelled with its destination; 42 KiB since a dynamic page that serves literal destinations is
   // top-level; 66 KiB since the skill routes the identity, quality and data passes to their own references; 43 KiB
-  // since it also routes the speed pass and Nix packaging).
-  assert.ok(Buffer.byteLength(operationalSource) <= 66 * 1024);
+  // since it also routes the speed pass and Nix packaging; 67 KiB since CRUD says a user table's rows reach only the
+  // signed-in user on every route and keeps its default visibility).
+  assert.ok(Buffer.byteLength(operationalSource) <= 67 * 1024);
   assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 43 * 1024);
 });
 

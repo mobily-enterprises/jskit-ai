@@ -110,6 +110,16 @@ migration, a seed) sets its own. Pass the call's `options` (its context and
 transaction) to every handle call; a call without a context throws instead of
 guessing.
 
+The owner a call reaches comes from its context, never from its input. A
+request's context names the workspace its route resolved and the signed-in
+user, on every route: a `workspace` route reaches the signed-in member's own
+rows of a `user` or `workspace_user` table, as a `workspace_user` route does,
+and stamps that member on the rows it creates. An owner value in the input that
+differs is refused, a signed-out request reaches none of those rows (a
+`MissingScopeError`), and a job context names the user `forUser` or
+`forWorkspaceUser` gave it. So application code never sets `scopeValues.userId`
+(lint `jskit/no-hand-context` refuses it).
+
 ```js
 // shared/receivalResource.js: the table's facts, shared with the client
 const receivalResource = defineTableResource({
