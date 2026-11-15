@@ -1,4 +1,4 @@
-import { createApp, h, ref } from "vue";
+import { createApp, defineAsyncComponent, h, ref } from "vue";
 import { createPinia } from "pinia";
 import { createRouter, createWebHistory, RouterView, useRoute } from "vue-router";
 import { QueryClient, VueQueryPlugin } from "@tanstack/vue-query";
@@ -10,7 +10,6 @@ import * as components from "vuetify/components";
 import * as directives from "vuetify/directives";
 import { SHELL_WEB_ERROR_RUNTIME_KEY } from "@jskit-ai/shell-web/client/error";
 import { SHELL_WEB_PLACEMENT_RUNTIME_KEY } from "@jskit-ai/shell-web/client/placement";
-import ShellLayout from "@jskit-ai/shell-web/client/components/ShellLayout";
 import AuthProfileWidget from "../../src/client/views/AuthProfileWidget.vue";
 import DefaultLoginView from "../../src/client/views/DefaultLoginView.vue";
 import DefaultResetPasswordView from "../../src/client/views/DefaultResetPasswordView.vue";
@@ -139,7 +138,9 @@ const router = createRouter({
     { path: "/auth/pattern/signout", component: PatternSignOutPage }
   ]
 });
-// A page in the shell's layout (`meta.shell`) has the layout's main; the others have a plain one.
+// A page in the shell's layout (`meta.shell`) has the layout's main; the others have a plain one. Only the console
+// page is in the layout, so only it loads the layout: the sign-in pages load what they did before.
+const ShellLayout = defineAsyncComponent(() => import("@jskit-ai/shell-web/client/components/ShellLayout"));
 const app = createApp({
   setup() {
     const route = useRoute();
