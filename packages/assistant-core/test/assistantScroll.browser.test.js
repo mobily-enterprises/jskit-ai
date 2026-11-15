@@ -110,8 +110,12 @@ test("progress previews omit expandable details without hiding the current updat
 }, async (t) => {
   const { vite, browser } = await openFixture(t);
   try {
+    // One page loads the app afresh at each width, so its later loads revalidate the app's 220 modules from its cache
+    // in the same renderer instead of downloading 10 MB into a new one. With 16 browser files at once, the three widths
+    // took 21 s instead of 29 s with a new page each, and 12-16 s instead of 17-18 s as the load eased.
+    const page = await browser.newPage();
     for (const width of [390, 800, 1365]) {
-      const page = await browser.newPage({ viewport: { width, height: 900 } });
+      await page.setViewportSize({ width, height: 900 });
       await page.goto(`${vite.baseURL}/?progress=1&detail=1`);
       const messages = page.locator(".assistant-progress__message");
       await expect(messages).toHaveCount(0);
@@ -130,7 +134,6 @@ test("progress previews omit expandable details without hiding the current updat
       await toggle.click();
       await expect(messages).toHaveCount(3);
       assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
-      await page.close();
     }
   } finally {
     await browser.close();
