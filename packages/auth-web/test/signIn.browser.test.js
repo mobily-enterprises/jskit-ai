@@ -89,7 +89,9 @@ function reports(page) {
   return page.evaluate(() => window.authFixture.reports);
 }
 
-// The page itself, not a sign-in page whose returnTo=/home also ends the address.
+// The page itself, not a sign-in page whose returnTo=/home also ends the address. Signing in replaces the page, so
+// a check of /home waits for its page load first, under the navigation timeout: expect's own 5 s is too short for a
+// whole page load while many browser test files run at once.
 function waitForHome(page) {
   return page.waitForURL((url) => url.pathname === "/home");
 }
@@ -124,6 +126,7 @@ test("password sign-in opens the requested page, remembers the account, and sign
   await expect(page.getByTestId("auth-submit")).toBeDisabled();
 
   await signIn(page, "Ada@Example.com", "correct horse");
+  await waitForHome(page);
   await expect(page.getByTestId("home")).toHaveText("Signed in: true");
   assert.equal(new URL(page.url()).pathname, "/home");
   const login = api.requests.find((request) => request.key === "POST /api/login");
@@ -142,6 +145,8 @@ test("password sign-in opens the requested page, remembers the account, and sign
   assert.deepEqual(await page.evaluate(() => window.authFixture.context.auth.permissions), ["read"]);
 
   await page.goto("/auth/signout?returnTo=/home");
+  // Signing out replaces the page with sign-in's.
+  await page.waitForURL((url) => url.pathname === "/auth/login");
   await expect(page.getByText("Welcome back, Ada Lovelace")).toBeVisible();
   assert.equal(new URL(page.url()).search, "?returnTo=%2Fhome");
   assert.equal(api.requests.filter((request) => request.key === "POST /api/logout").length, 1);
@@ -189,6 +194,7 @@ test("a refused sign-in reports the server's error and leaves the form usable", 
 test("a signed-in visitor leaves the sign-in page, on opening it and when a session starts elsewhere", options, async () => {
   const signedIn = await openApp({ session: SIGNED_IN });
   await signedIn.page.goto("/auth/login?returnTo=/home");
+  await waitForHome(signedIn.page);
   await expect(signedIn.page.getByTestId("home")).toHaveText("Signed in: true");
   await finish(signedIn);
 
@@ -474,6 +480,7 @@ test("OAuth starts at the provider and a callback finishes on the requested page
     }
   });
   await api.page.goto("/auth/login?code=code-1&state=state-1&oauthProvider=google&oauthReturnTo=/home");
+  await waitForHome(api.page);
   await expect(api.page.getByTestId("home")).toHaveText("Signed in: true");
   assert.deepEqual(api.requests.at(-1).body, { provider: "google", code: "code-1", state: "state-1" });
   await finish(api);
@@ -487,6 +494,8 @@ test("OAuth starts at the provider and a callback finishes on the requested page
     }
   });
   await landed.page.goto("/home?code=code-2&oauthProvider=google");
+  // The guard sends the callback to sign-in, which completes it and replaces the page with /home again.
+  await landed.page.waitForURL((url) => url.pathname === "/home" && !url.searchParams.has("code"));
   await expect(landed.page.getByTestId("home")).toHaveText("Signed in: true");
   assert.equal(new URL(landed.page.url()).searchParams.has("code"), false);
   await finish(landed);

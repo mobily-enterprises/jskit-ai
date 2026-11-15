@@ -96,6 +96,13 @@ after(async () => {
   }
 });
 
+// The app's /home after the page load that brought the browser there: a sign-in, the provider's redirect back or
+// another site's link replaces the page, and a page load waits under the navigation timeout, not expect's 5 s, which
+// is too short for a whole page load while many browser test files run at once.
+function waitForHome(page) {
+  return page.waitForURL((url) => url.origin === new URL(stack.appUrl).origin && url.pathname === "/home");
+}
+
 function cookieNames(header) {
   return String(header || "").split(";").map((pair) => pair.split("=")[0].trim()).filter(Boolean).sort();
 }
@@ -144,6 +151,7 @@ test("with strict cookies, Google sign-in comes back from the provider's site an
   await page.getByRole("button", { name: "Continue with Google" }).click();
   await page.waitForURL((url) => url.href.startsWith(stack.issuerUrl));
   await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await waitForHome(page);
   await expect(page.getByTestId("home")).toHaveText("Signed in: true");
   assert.equal(new URL(page.url()).pathname, "/home");
 
@@ -193,12 +201,14 @@ test("with strict cookies, a link from another site opens the app signed in by t
   await page.getByLabel("Email").fill("grace@example.com");
   await page.getByLabel("Password", { exact: true }).fill(PASSWORD);
   await page.getByTestId("auth-submit").click();
+  await waitForHome(page);
   await expect(page.getByTestId("home")).toHaveText("Signed in: true");
 
   stack.apiRequests.length = 0;
   documents.length = 0;
   await page.goto(webmail);
   await page.getByRole("link", { name: "Open your account" }).click();
+  await waitForHome(page);
   await expect(page.getByTestId("home")).toHaveText("Signed in: true");
   // The link's page load came from another site and carried no Strict cookie ...
   const landing = await appDocument(documents, (url) => url.pathname === "/home");
