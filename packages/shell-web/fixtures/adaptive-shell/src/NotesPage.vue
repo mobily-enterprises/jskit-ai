@@ -9,10 +9,12 @@ import ShellPrimaryAction from "../../../src/client/components/ShellPrimaryActio
 // so its "Send invitation" sits where the FAB is. In it: a select (a menu over the dialog), "Copy link" (a snackbar
 // while the dialog is open), "Remove access" (a second dialog over the first) and "Open contacts" (a link that leaves
 // the page with the dialog open). "Note details" opens a dialog from its activator; "Report a problem" opens the
-// shell's own error dialog. Presses of the note's Edit and the dialogs' actions are counted.
+// shell's own error dialog. The note's "Archive note" and the dialog's "Remove access" each have a tooltip and open a
+// dialog. Presses of the note's Edit and the dialogs' actions are counted.
 const errorRuntime = useShellWebErrorRuntime();
 const invite = ref(false);
 const removeAccess = ref(false);
+const archive = ref(false);
 const role = ref("Viewer");
 const presses = ref([]);
 
@@ -48,6 +50,10 @@ function reportProblem() {
       <v-card-actions>
         <v-btn icon="$edit" variant="text" aria-label="Edit note" data-testid="fixture-note-edit" @click="press('edit')" />
         <RouterLink to="/home/contacts" data-testid="fixture-note-link">Supplier contacts</RouterLink>
+        <v-btn icon variant="text" aria-label="Archive note" data-testid="fixture-note-archive" @click="archive = true">
+          <v-icon icon="$delete" />
+          <v-tooltip activator="parent" location="top" text="Archive note" />
+        </v-btn>
       </v-card-actions>
     </v-card>
 
@@ -76,7 +82,10 @@ function reportProblem() {
           <v-select v-model="role" label="Role" :items="['Viewer', 'Editor', 'Owner']" data-testid="fixture-invite-role" />
           <div class="d-flex flex-wrap ga-2">
             <v-btn variant="text" data-testid="fixture-invite-copy" @click="copyLink">Copy link</v-btn>
-            <v-btn variant="text" data-testid="fixture-invite-remove" @click="removeAccess = true">Remove access</v-btn>
+            <v-btn variant="text" data-testid="fixture-invite-remove" @click="removeAccess = true">
+              Remove access
+              <v-tooltip activator="parent" location="top" text="Asks before removing" />
+            </v-btn>
             <v-btn variant="text" to="/home/contacts" data-testid="fixture-invite-contacts">Open contacts</v-btn>
           </div>
         </v-card-text>
@@ -95,6 +104,16 @@ function reportProblem() {
           <v-spacer />
           <v-btn variant="text" data-testid="fixture-remove-keep" @click="removeAccess = false">Keep</v-btn>
           <v-btn variant="text" data-testid="fixture-remove-confirm" @click="press('remove'); removeAccess = false">Remove</v-btn>
+        </v-card-actions>
+      </v-card>
+    </v-dialog>
+
+    <v-dialog v-model="archive" max-width="320" aria-label="Archive this note?">
+      <v-card title="Archive this note?" data-testid="fixture-archive-dialog">
+        <v-card-text>It leaves the list of notes.</v-card-text>
+        <v-card-actions>
+          <v-spacer />
+          <v-btn variant="text" data-testid="fixture-archive-cancel" @click="archive = false">Cancel</v-btn>
         </v-card-actions>
       </v-card>
     </v-dialog>

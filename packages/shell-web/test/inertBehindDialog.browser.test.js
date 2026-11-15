@@ -260,3 +260,56 @@ test("Vuetify's activator gets focus back, the shell's own error dialog makes th
   assert.equal(await takesFocus(page.locator("main a[href]").first()), true, "the next page takes focus");
   await page.close();
 });
+
+test("a tooltip open on what opens a dialog closes as the dialog opens, whether the keyboard or the pointer opened it, from the page and from a dialog under another", {
+  skip: SKIP,
+  timeout: 120_000
+}, async (t) => {
+  const page = await openNotes(t, EXPANDED);
+  const tooltip = page.getByRole("tooltip");
+  const archive = page.getByTestId("fixture-note-archive");
+  const archiveDialog = page.getByTestId("fixture-archive-dialog");
+
+  // By keyboard: Tab onto Archive note shows its tooltip, Enter opens the dialog, and the tooltip goes with the keyboard.
+  await page.getByTestId("fixture-note-link").focus();
+  await page.keyboard.press("Tab");
+  await expect(archive).toBeFocused();
+  await expect(tooltip.filter({ hasText: "Archive note" })).toBeVisible();
+  await page.keyboard.press("Enter");
+  await expectDialogOpen(page, archiveDialog);
+  await expect(tooltip).toHaveCount(0);
+  await activate(page.getByTestId("fixture-archive-cancel"));
+  await expect(archiveDialog).toBeHidden();
+  await expect(archive).toBeFocused();
+
+  // By pointer: the pointer on Archive note shows its tooltip, a click opens the dialog, and once the pointer moves on
+  // the tooltip has gone, as when the page stays live.
+  await page.getByTestId("fixture-note-edit").focus();
+  await archive.hover();
+  await expect(tooltip.filter({ hasText: "Archive note" })).toBeVisible();
+  await archive.click();
+  await expectDialogOpen(page, archiveDialog);
+  await page.mouse.move(1, 1);
+  await expect(tooltip).toHaveCount(0);
+  await activate(page.getByTestId("fixture-archive-cancel"));
+  await expect(archiveDialog).toBeHidden();
+
+  // From a dialog: Remove access's tooltip goes as the second dialog opens over the first, which turns inert.
+  await activate(page.getByTestId("fixture-invite"));
+  const inviteDialog = page.getByTestId("fixture-invite-dialog");
+  await expectDialogOpen(page, inviteDialog);
+  const remove = page.getByTestId("fixture-invite-remove");
+  await remove.hover();
+  await expect(tooltip.filter({ hasText: "Asks before removing" })).toBeVisible();
+  await remove.click();
+  const removeDialog = page.getByTestId("fixture-remove-dialog");
+  await expectDialogOpen(page, removeDialog);
+  await page.mouse.move(1, 1);
+  await expect(tooltip).toHaveCount(0);
+  await activate(page.getByTestId("fixture-remove-keep"));
+  await expect(removeDialog).toBeHidden();
+  await expect(remove).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(inviteDialog).toBeHidden();
+  await page.close();
+});
