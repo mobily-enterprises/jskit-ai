@@ -35,7 +35,7 @@ through its handle's calls, and every call takes the call's `options` last:
 | `queryAll({ filters, sort, include, take }, options)` | every matching row, or the first `take`, for jobs, id lists and one parent's rows |
 | `queryPages({ filters, sort, include }, options)` | every matching row, a page at a time, for work over many rows |
 | `get(id, params, options)` | one record |
-| `aggregate({ measures, groupBy, filters, sort, page }, options)` | totals, grouped by fields or date buckets |
+| `aggregate({ measures, groupBy, filters, sort, page }, options)` | totals, grouped by fields or date buckets; with `lockMode` in a transaction, one row of totals whose rows stay locked ([Layer 4](#layer-4-locks)) |
 | `create(data, options)`, `findOrCreate({ id, ...data }, options)` | one record; a keyed one, created once |
 | `patch(id, changes, options)`, `delete(id, options)` | one record |
 | `createMany(rows, options)` | many records, or an upsert with `onConflict` |
@@ -1005,6 +1005,56 @@ const file = (input, options) => documents.withTransaction(options, async (txOpt
 
 // bad: the transaction holds the membership shared, then writes it; two such filings deadlock
 await memberships.patch(input.membershipId, { lastFiledAt: new Date() }, txOptions);
+```
+
+A save that decides on a count or a sum of many rows (an account's open
+invoices stay within its credit limit, a member holds at most five leases)
+takes a locking aggregate: `aggregate({ measures, filters }, { ...txOptions,
+lockMode: "share" })` answers one row of totals from one statement, with the
+lock on the rows they read held until the transaction ends, however many rows
+match, none of them read into the application. Never `lockWhere` and a count:
+it reads every id into the application and refuses past 1,000. `"share"` lets
+other such checks read the rows at once; `"update"` or `"noKeyUpdate"` hold
+them exclusively. An update or a delete of a counted row waits until the
+transaction ends. A new matching row differs by database: on MySQL and MariaDB
+its insert waits too, since InnoDB locks the index range the read walked
+(under REPEATABLE READ, their default; READ COMMITTED locks no range), while
+PostgreSQL's `FOR SHARE` holds only rows that exist, so an insert goes on and
+the transaction's next statement counts it (json-rest-api reads PostgreSQL's
+totals again until no row joined them while it waited). Two saves that each
+total and then insert would both pass a limit there. So a limit that must keep
+new rows out on every database also locks the one row that governs the set
+(the account, the member's record) with `lock` and the default `"update"`, as
+every writer of the set does first: the saves take turns, and the aggregate
+holds the rows already there against a write that skips that row (a patch of
+an amount).
+
+On MySQL and MariaDB a locking aggregate reads through the index `lockWhere`
+needs and locks the entries it reads there: a count of rows reads that index
+alone, so a write of a column it leaves out goes on, while a sum, a distinct
+count or a measure's `where` over another column locks each row it reads. With
+`lockMode`, `groupBy` or `page` is a `TypeError` (total each group as a
+measure with a `where`, `{ open: { count: "*", where: { status: "open" } } }`),
+a call outside a transaction throws `RestApiLockOutsideTransactionError`, and
+a filter on another table's field, or a row policy that joins another table,
+is refused as in `lockWhere`: test the other table in a subquery.
+
+```js
+// good: the account locked first, as every writer of its invoices does; one statement totals what it owes
+const issue = (input, options) => invoices.withTransaction(options, async (txOptions) => {
+  const account = await accounts.lock(input.accountId, { ...txOptions, fields: ["creditLimit"] });
+  const [{ owed }] = await invoices.aggregate(
+    { measures: { owed: { sum: "amount" } }, filters: { accountId: input.accountId, status: "open" } },
+    { ...txOptions, lockMode: "share" }
+  );
+  if ((owed ?? 0) + input.amount > account.creditLimit) {
+    throw new ConflictError("invoices.overCreditLimit");
+  }
+  return invoices.create(input, txOptions);
+});
+
+// bad: every open invoice's id read into the application to be counted, refused past 1,000
+const open = await invoices.lockWhere({ accountId, status: "open" }, { ...txOptions, lockMode: "share", fields: ["amount"] });
 ```
 
 Locks stay on the owner's handle and its owner API. A `scopedQuery()` or

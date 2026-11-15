@@ -1012,6 +1012,40 @@ test("aggregate() totals the caller's rows", async (t) => {
   assert.deepEqual(rows, [{ status: "done", count: 2 }, { status: "open", count: 1 }]);
 });
 
+test("aggregate() with lockMode totals the caller's rows inside its transaction; outside one, with groupBy or page, or with another mode it is refused before any statement", async (t) => {
+  const { knex, notes } = await createFixture(t);
+  await notes.createMany([{ title: "a", status: "queued" }, { title: "b", status: "queued" }, { title: "c", status: "done" }], { context: WORKSPACE_A });
+  await notes.createMany([{ title: "other", status: "queued" }], { context: WORKSPACE_B });
+  const spec = { measures: { notes: { count: "*" }, queued: { count: "*", where: { status: "queued" } } } };
+  const statements = [];
+  const counted = ({ sql }) => statements.push(sql);
+  await notes.withTransaction({ context: WORKSPACE_A }, async (txOptions) => {
+    for (const lockMode of ["share", "update", "noKeyUpdate"]) {
+      assert.deepEqual(await notes.aggregate(spec, { ...txOptions, lockMode }), [{ notes: 3, queued: 2 }], lockMode);
+    }
+    assert.deepEqual(await notes.aggregate({ ...spec, filters: { status: "done" } }, { ...txOptions, lockMode: "share" }), [{ notes: 1, queued: 0 }]);
+    knex.on("query", counted);
+    const shared = { ...txOptions, lockMode: "share" };
+    const oneRow = 'notes.aggregate() with lockMode reads one row of totals and takes no groupBy or page: total each group with a ' +
+      'measure with a where ({ open: { count: "*", where: { status: "open" } } }), or lock the rows with lockWhere().';
+    await assert.rejects(notes.aggregate({ ...spec, groupBy: ["status"] }, shared), { name: "TypeError", message: oneRow });
+    await assert.rejects(notes.aggregate({ ...spec, page: { size: 10 } }, shared), { name: "TypeError", message: oneRow });
+    await assert.rejects(notes.aggregate(spec, { ...txOptions, lockMode: "exclusive" }), {
+      name: "TypeError",
+      message: 'notes.aggregate() lockMode is "update" (the default), "noKeyUpdate" or "share". Received: "exclusive"'
+    });
+    knex.off("query", counted);
+  });
+  // Outside a transaction a lock ends at once, so it is refused, also for filters that match no row.
+  knex.on("query", counted);
+  for (const filters of [undefined, { id: [] }]) {
+    await assert.rejects(notes.aggregate({ ...spec, filters }, { context: WORKSPACE_A, lockMode: "share" }), (error) =>
+      error instanceof RestApiLockOutsideTransactionError && error.message === "aggregate on 'notes' needs a transaction from api.transaction");
+  }
+  knex.off("query", counted);
+  assert.deepEqual(statements, []);
+});
+
 test("aggregate() counts a table's ids, distinct or not, as its rows, on a schema that declares no id field", async (t) => {
   const { visits, options } = await createVisitFixture(t);
   const [totals] = await visits.aggregate({

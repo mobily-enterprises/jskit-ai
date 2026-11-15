@@ -344,6 +344,51 @@ test("a lock or patchWhere with lockMode noKeyUpdate lets another transaction ad
   assert.equal(Number((await knex("entries").count({ count: "*" }).first()).count), 6);
 });
 
+test("aggregate with lockMode share holds the rows it totals: another transaction reads and share-locks them while its writes and exclusive locks wait; an insert goes on, as do other workspaces' rows", { skip }, async (t) => {
+  const { knex, slots } = await database(t);
+  const [counted] = (await slots.createMany([{ code: "a" }, { code: "b" }, { code: "c", status: "done" }], { ...WORKSPACE, returning: "ids" })).map(String);
+  const [theirs] = (await slots.createMany([{ code: "z" }], { ...OTHER_WORKSPACE, returning: "ids" })).map(String);
+  // What another transaction does while the rows are held: it gives up after 500 ms (55P03) when it would wait.
+  const meanwhile = async (work) => {
+    const { error } = await settle(() => knex.transaction(async (trx) => {
+      await trx.raw("SET LOCAL lock_timeout = '500ms'");
+      await work(trx);
+    }));
+    return error ? error.code : "proceeds";
+  };
+  const others = {
+    read: (trx) => trx("slots").where({ id: counted }),
+    "shared lock": (trx) => trx("slots").where({ id: counted }).forShare(),
+    "exclusive lock": (trx) => trx("slots").where({ id: counted }).forUpdate(),
+    write: (trx) => trx("slots").where({ id: counted }).update({ taken_by: "other" }),
+    insert: (trx) => trx("slots").insert({ workspace_id: 1, code: "d", status: "open" }),
+    "another workspace's write": (trx) => trx("slots").where({ id: theirs }).update({ taken_by: "other" })
+  };
+  const spec = { measures: { open: { count: "*" } }, filters: { status: "open" } };
+  const statements = [];
+  const recorded = ({ sql }) => statements.push(sql);
+  const outcome = await slots.withTransaction(WORKSPACE, async (txOptions) => {
+    knex.on("query", recorded);
+    let totals;
+    try {
+      totals = await slots.aggregate(spec, { ...txOptions, lockMode: "share" });
+    } finally {
+      knex.off("query", recorded);
+    }
+    assert.deepEqual(totals, [{ open: 2 }]);
+    assert.ok(statements.some((sql) => /\bcount\(/iu.test(sql) && /\bfor share\b/iu.test(sql)), statements.join(" | "));
+    const seen = {};
+    for (const [what, work] of Object.entries(others)) {
+      seen[what] = await meanwhile(work);
+    }
+    // FOR SHARE holds the rows that exist: the insert committed meanwhile, and the next read counts it.
+    assert.deepEqual(await slots.aggregate(spec, { ...txOptions, lockMode: "share" }), [{ open: 3 }]);
+    return seen;
+  });
+  assert.deepEqual(outcome, { read: "proceeds", "shared lock": "proceeds", "exclusive lock": "55P03", write: "55P03", insert: "proceeds", "another workspace's write": "proceeds" });
+  assert.equal((await knex("slots").where({ id: counted }).first()).taken_by, null);
+});
+
 test("lock, lockMany and lockWhere with lockMode share let another transaction read and share-lock the row, and hold its writes and exclusive locks", { skip }, async (t) => {
   const { knex, slots } = await database(t);
   const [slot] = (await slots.createMany([{ status: "open" }], { ...WORKSPACE, returning: "ids" })).map(String);

@@ -6,7 +6,7 @@ import { createJsonRestContext } from "./contexts.js";
 import { checkBlobReads, checkBlobValues, namedBlobs, refuseBlobsInJson } from "./handleBlobs.js";
 import { createEveryRowReads } from "./handleEveryRow.js";
 import { createHiddenFieldReads, createJoinSource, markHandleFunctions } from "./handleHidden.js";
-import { createLockReads, lockModeOf } from "./handleLocks.js";
+import { aggregateTransactionOf, createLockReads, lockModeOf } from "./handleLocks.js";
 import { withCallOptions } from "./filterJoinSources.js";
 import { requireHandleTransaction, trackHandleTransaction } from "./handleTransactions.js";
 import { MANY_ROW_CHANNEL } from "./manyRowChannel.js";
@@ -306,15 +306,16 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
    * One statement answers at most pageLimits().request groups: a grouped aggregate without `page` answers every group
    * or, when there are more, throws GroupLimitError rather than answer part of them. `page: { size, number }` (number
    * from 1) answers one page of groups as query() does, `{ rows, page: { size, number, hasMore, next } }`: read the
-   * next while `page.hasMore`.
+   * next while `page.hasMore`. With `lockMode` the rows of one row of totals stay locked: see aggregateTransactionOf().
    * @param {{ measures: object, groupBy?: Array<string | object>, filters?: object, sort?: string[], page?: { size: number, number?: number } }} spec
-   * @param {{ context?: object | null, trx?: object | null }} [options]
+   * @param {{ context?: object | null, trx?: object | null, lockMode?: "update" | "noKeyUpdate" | "share" }} [options]
    */
   async function aggregate({ measures, groupBy, filters, sort, page }, options = {}) {
     requireDefinedFilters(name, "aggregate", filters);
     if (page !== undefined && page?.size == null) {
       throw new TypeError(`${name}.aggregate() page needs size (at most pageLimits().request) and takes number from 1: page: { size, number }.`);
     }
+    const transaction = aggregateTransactionOf(name, { groupBy, page }, options);
     const context = contextOf(options);
     if (matchesNoRow(filters, jsonRest().vars.schemaInfo)) {
       return aggregateAnswer(noRowsAggregate(measures, groupBy), page, false);
@@ -331,7 +332,7 @@ function createResourceHandle({ api, resource, hooks, settings, resourceNamed, h
           ...(page === undefined ? {} : { page }),
           ...(groupLimit === undefined ? {} : { page: { size: groupLimit } })
         },
-        transaction: options.trx || undefined
+        ...transaction
       },
       context
     );

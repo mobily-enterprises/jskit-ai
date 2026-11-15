@@ -1,3 +1,4 @@
+import { RestApiLockOutsideTransactionError } from "json-rest-api";
 import { detectDialectFromClient } from "@jskit-ai/database-runtime/shared";
 import { isJobContext } from "./contexts.js";
 import { RowLimitError } from "./errors.js";
@@ -11,10 +12,10 @@ import { resolveJsonRestCollectionRelationships } from "./jsonRestValues.js";
 // reference it (a foreign key's check takes FOR KEY SHARE); MySQL, MariaDB and SQLite have no weaker exclusive lock and
 // lock as for "update".
 const LOCK_MODES = Object.freeze(["update", "noKeyUpdate"]);
-// lock, lockMany and lockWhere also take "share": FOR SHARE (LOCK IN SHARE MODE on MySQL and MariaDB), which other
-// reads and shared locks pass and writes and exclusive locks wait for, for a read check whose rows must not change until
-// the transaction ends. A row held shared is never written in the same transaction: two transactions that each hold it
-// shared and then write it deadlock.
+// lock, lockMany, lockWhere and a locking aggregate() also take "share": FOR SHARE (LOCK IN SHARE MODE on MySQL and
+// MariaDB), which other reads and shared locks pass and writes and exclusive locks wait for, for a read check whose rows
+// must not change until the transaction ends. A row held shared is never written in the same transaction: two
+// transactions that each hold it shared and then write it deadlock.
 const SHARED_LOCK_MODES = Object.freeze([...LOCK_MODES, "share"]);
 // Why the methods that take or write their rows refuse "share".
 const NO_SHARE = Object.freeze({
@@ -44,6 +45,33 @@ function lockModeOf(name, caller, lockMode) {
     throw new TypeError(`${name}.${caller}() lockMode is ${modes}. Received: ${JSON.stringify(lockMode)}`);
   }
   return { lockMode };
+}
+
+/**
+ * The transaction of an aggregate() read, `{ transaction }`, with its lock when `options.lockMode` names one: then it reads
+ * one row of totals with that row lock on the rows they read, held until the transaction ends, for a save that checks a
+ * count or sum that must stay as read, and no row is read into the application however many there are. "share" lets
+ * other transactions' checks share the rows while their writes wait; "update" or "noKeyUpdate" hold them exclusively. An
+ * insert of a new matching row waits on MySQL and MariaDB (InnoDB locks the index range) and goes on on PostgreSQL. With
+ * a lock mode, groupBy and page are a TypeError and a call outside a transaction is RestApiLockOutsideTransactionError
+ * (json-rest-api refuses it too, but filters that match no row answer without asking it), before any statement.
+ * @param {string} name The resource's name.
+ * @param {{ groupBy?: unknown, page?: unknown }} spec The aggregate's groupBy and page.
+ * @param {{ trx?: object | null, lockMode?: unknown }} options
+ * @returns {{ transaction: object | undefined, lockMode?: string }}
+ */
+function aggregateTransactionOf(name, { groupBy, page }, options) {
+  const mode = lockModeOf(name, "aggregate", options.lockMode);
+  if (mode.lockMode !== undefined && ((Array.isArray(groupBy) && groupBy.length > 0) || page !== undefined)) {
+    throw new TypeError(
+      `${name}.aggregate() with lockMode reads one row of totals and takes no groupBy or page: total each group with a ` +
+        'measure with a where ({ open: { count: "*", where: { status: "open" } } }), or lock the rows with lockWhere().'
+    );
+  }
+  if (mode.lockMode !== undefined && !options.trx) {
+    throw new RestApiLockOutsideTransactionError({ resourceType: name, operation: "aggregate" });
+  }
+  return { ...mode, transaction: options.trx || undefined };
 }
 
 // The most rows one read of the locked rows' links names, as the lock itself reads its ids in chunks of 1,000.
@@ -443,4 +471,4 @@ function createLockReads({ api, name, resource, jsonRest, readFields, contextOf,
   });
 }
 
-export { createLockReads, lockModeOf };
+export { aggregateTransactionOf, createLockReads, lockModeOf };

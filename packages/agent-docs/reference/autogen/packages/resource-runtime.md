@@ -112,6 +112,7 @@ Local functions
 
 ### `src/server/handleLocks.js`
 Exports
+- `aggregateTransactionOf(name, { groupBy, page }, options)`
 - `createLockReads({ api, name, resource, jsonRest, readFields, contextOf, hiddenFields, handleNamed, resourceNamed, settings })`
 - `lockModeOf(name, caller, lockMode)`
 Local functions

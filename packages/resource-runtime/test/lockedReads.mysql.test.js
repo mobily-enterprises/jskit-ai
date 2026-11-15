@@ -10,6 +10,7 @@ import { ownMysqlDatabase } from "./support/mysqlDatabase.js";
 // are locking reads, so they read what was committed whatever that snapshot holds.
 
 const WORKSPACE = Object.freeze({ context: Object.freeze({ workspace: Object.freeze({ id: "1" }) }) });
+const OTHER_WORKSPACE = Object.freeze({ context: Object.freeze({ workspace: Object.freeze({ id: "2" }) }) });
 
 const seatResource = defineTableResource({
   name: "seats",
@@ -189,4 +190,49 @@ test("lock, lockMany and lockWhere with lockMode share let another transaction s
   const shared = { "shared lock": "proceeds", "exclusive lock": "ER_LOCK_WAIT_TIMEOUT", write: "ER_LOCK_WAIT_TIMEOUT" };
   assert.deepEqual(outcomes, { lock: shared, lockMany: shared, lockWhere: shared });
   assert.deepEqual((await bookings.queryAll({}, WORKSPACE)).map(({ guest }) => guest), ["first"]);
+});
+
+test("aggregate with lockMode share holds what its totals read until commit: a delete and an insert the totals would count wait, and so does a write or exclusive lock of a column they read", async (t) => {
+  const { seats, bookings } = await database(t, "da_lr_aggregate");
+  const [seatId] = await seats.createMany([{ code: "A1" }], { ...WORKSPACE, returning: "ids" });
+  const [first] = await bookings.createMany([{ seatId, guest: "first" }, { seatId, guest: "second" }], { ...WORKSPACE, returning: "ids" });
+  const [theirs] = await bookings.createMany([{ seatId, guest: "theirs" }], { ...OTHER_WORKSPACE, returning: "ids" });
+  // What another transaction does meanwhile: it gives up after 1 s (ER_LOCK_WAIT_TIMEOUT) when it would wait.
+  const meanwhile = (work) => bookings.withTransaction({ ...WORKSPACE, retry: false }, async (tx) => {
+    await tx.trx.raw("SET SESSION innodb_lock_wait_timeout = 1");
+    await work(tx);
+  }).then(() => "proceeds", (error) => error.code);
+  const others = {
+    "shared lock": (tx) => bookings.lock(first, { ...tx, lockMode: "share" }),
+    "exclusive lock": (tx) => bookings.lock(first, tx),
+    "write of guest": (tx) => tx.trx("bookings").where({ id: first }).update({ guest: "other" }),
+    delete: (tx) => tx.trx("bookings").where({ id: first }).delete(),
+    insert: (tx) => tx.trx("bookings").insert({ workspace_id: 1, seat_id: seatId, guest: "late" }),
+    "another workspace's write": (tx) => tx.trx("bookings").where({ id: theirs }).update({ guest: "other" })
+  };
+  // A count reads the ownership index alone; a distinct count of guests reads each row too.
+  const totals = {
+    count: { measures: { bookings: { count: "*" } } },
+    guests: { measures: { bookings: { count: "*" }, guests: { countDistinct: "guest" } } }
+  };
+  const outcomes = {};
+  for (const [name, spec] of Object.entries(totals)) {
+    outcomes[name] = await bookings.withTransaction(WORKSPACE, async (tx) => {
+      const [read] = await bookings.aggregate(spec, { ...tx, lockMode: "share" });
+      assert.equal(read.bookings, 2, name);
+      const seen = {};
+      for (const [what, work] of Object.entries(others)) {
+        seen[what] = await meanwhile(work);
+      }
+      assert.deepEqual(await bookings.aggregate(spec, { ...tx, lockMode: "share" }), [read], `${name}: the totals hold`);
+      return seen;
+    });
+  }
+  const held = "ER_LOCK_WAIT_TIMEOUT";
+  const always = { "shared lock": "proceeds", delete: held, insert: held, "another workspace's write": "proceeds" };
+  assert.deepEqual(outcomes, {
+    count: { ...always, "exclusive lock": "proceeds", "write of guest": "proceeds" },
+    guests: { ...always, "exclusive lock": held, "write of guest": held }
+  });
+  assert.deepEqual((await bookings.queryAll({}, WORKSPACE)).map(({ guest }) => guest).sort(), ["other", "second"]);
 });
