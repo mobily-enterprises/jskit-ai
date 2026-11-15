@@ -57,7 +57,8 @@ function concernsDialogs(records) {
  * overlay layer, where it teleports dialogs, menus, tooltips and snackbars, is never made inert, so a menu or select
  * opened in the dialog works and a snackbar is announced; of two dialogs open at once, the lower is inert under the
  * upper. A dialog attached inside a part of the page (`attach`, `contained`) stays local to it and leaves the page
- * alone.
+ * alone. What turns inert lets go first: focus in it moves into the dialog, and what the pointer is on is told the
+ * pointer left, so a tooltip on the element that opened the dialog closes as it would have without `inert`.
  *
  * It watches the document for Vuetify's overlays, so it sees every dialog, whoever renders it, without a dialog
  * component of its own. The page is live again as soon as the render that closes or unmounts its dialog ends, before
@@ -99,6 +100,31 @@ function useShellInertBehindDialog() {
       return null;
     }
     return element;
+  }
+
+  /**
+   * Before `parts` turn inert under the top dialog: focus in one of them moves into that dialog, and each element in
+   * them under the pointer is told the pointer left. Neither happens by itself. The browser moves focus out of an
+   * element that turns inert to the body, with no element named as where it went, which Vuetify's activators take as
+   * focus staying where it was; and it sends no mouseleave to an inert element, however the pointer moves. A tooltip
+   * (or a menu opened on hover) on the element that opened the dialog would stay open behind it until the dialog
+   * closed.
+   * @param {HTMLElement[]} parts
+   * @param {HTMLElement | undefined} top
+   */
+  function leave(parts, top) {
+    if (parts.length === 0 || !top) {
+      return;
+    }
+    const active = document.activeElement;
+    if (active && parts.some((part) => part.contains(active))) {
+      /** @type {HTMLElement | null} */ (top.querySelector(".v-overlay__content"))?.focus({ preventScroll: true });
+    }
+    for (const part of parts) {
+      for (const hovered of part.querySelectorAll(":hover")) {
+        hovered.dispatchEvent(new MouseEvent("mouseleave"));
+      }
+    }
   }
 
   /** @param {boolean} inert */
@@ -153,6 +179,8 @@ function useShellInertBehindDialog() {
         inertDialogs.delete(dialog);
       }
     }
+    const page = dialogs.length > 0 ? [...document.querySelectorAll(SHELL_PAGE)] : [];
+    leave([...page, ...lower].filter((part) => part instanceof HTMLElement && !part.inert), top);
     for (const dialog of lower) {
       if (!dialog.inert) {
         dialog.inert = true;
