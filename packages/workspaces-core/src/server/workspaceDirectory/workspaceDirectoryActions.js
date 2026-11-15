@@ -11,7 +11,8 @@ function workspaceAssistantSummary({ id, slug, name, ownerUserId, avatarUrl }) {
 }
 
 // A workspace made or changed (its name, its avatar) is an entity change of the workspace itself, for the application's
-// listeners on runtime.events; the workspace's id is the action's answer's.
+// listeners on runtime.events; the workspace's id is the action's answer's. The `workspaces` capability's
+// transferOwnership is no action and publishes nothing: its caller updates its own copy of workspace facts from its answer.
 const workspaceChanged = (operation) => Object.freeze([createEntityChangedActionEvent({
   source: "workspace",
   entity: "workspace",

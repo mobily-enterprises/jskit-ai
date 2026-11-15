@@ -193,7 +193,7 @@ method takes the call's `options` last and joins the transaction of the
 
 | Capability | Methods |
 | --- | --- |
-| `workspaces` | `findById(id, options)`, `findBySlug(slug, options)` (a deleted workspace is not found, though its slug stays taken), `listSlugsIn`, `findPersonalByOwnerUserId`, `listForUserId(userId, options)`, `insert`, `updateById`, `lock(workspaceId, options)` |
+| `workspaces` | `findById(id, options)`, `findBySlug(slug, options)` (a deleted workspace is not found, though its slug stays taken), `listSlugsIn`, `findPersonalByOwnerUserId`, `listForUserId(userId, options)`, `insert`, `updateById`, `lock(workspaceId, options)`, `transferOwnership({ workspaceId, toUserId, previousOwnerRoleSid }, options)` |
 | `workspaces.memberships` | `findByWorkspaceIdAndUserId`, `ensureOwnerMembership`, `upsertMembership(workspaceId, userId, patch, options)`, `addMember({ workspaceId, userId, roleSid }, options)`, `activeMemberIds(workspaceId, options)`, `listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listActiveWorkspaceIdsByUserId`, `listActiveWorkspaceIdsByUserIds`, `listActiveWorkspaceIdsByUserIdsAmong(userIds, workspaceIds, options)`, `joinSource({ alias, filters }, options)` |
 
 `addMember` makes the user an active member with the role (`member` when none
@@ -219,6 +219,41 @@ To check one person's membership, for example a notification recipient, call
 that member's `listMembers` entry, or `null` for a removed or unknown member,
 and reads only that membership. Do not list every member to find one: the list
 grows with the workspace, and a lookup per row multiplies it.
+
+### Moving a workspace to a new owner
+
+`workspaces.transferOwnership({ workspaceId, toUserId, previousOwnerRoleSid }, options)`
+hands a workspace to another of its active members, for example when an
+administrator gives a workspace to one of its members. It joins the caller's
+transaction when `options` carries one, and otherwise runs in one of its own.
+It locks the workspace first and then both owners' memberships, so two
+transfers of one workspace take turns and the second moves it on from the owner
+the first left; it sends the same statements however many members there are.
+
+- `toUserId` becomes the workspace's owner (`owner_user_id`, and `updatedAt`
+  moves) and their membership takes the `owner` role.
+- The previous owner stays an active member with `previousOwnerRoleSid`,
+  `admin` unless given; they are given an active membership with it when they
+  had none. The role is any role but `owner`, which, like an empty or non-text
+  role, is a `TypeError` before any statement. The role catalog is not checked.
+- A personal workspace stops being personal. It was the one provisioned for its
+  previous owner, and the new owner's own personal workspace stays theirs.
+  Where the application provisions personal workspaces (the `personal` tenancy
+  mode), the previous owner is given a new one at their next provisioning.
+- A `toUserId` who already owns the workspace writes nothing and answers
+  `changed: false`.
+- A missing or deleted workspace is 404 `workspaces.workspace.notFound`. A
+  `toUserId` with no active membership (never a member, only invited, or
+  removed) is 409 `workspaces.member.newOwnerNotActive`. Neither writes
+  anything.
+
+It answers the workspace as `findById` answers it, plus `previousOwnerUserId`
+and `changed`. It publishes no event: the `workspace.workspaces.create` and
+`workspace.workspaces.update` actions publish `entity.changed` on
+`runtime.events`, but this is a capability method, not an action. An
+application that keeps its own copy of workspace facts updates that copy from
+the answer. The method checks no permission: the application decides who may
+transfer a workspace before calling it.
 
 ### Invitation email
 

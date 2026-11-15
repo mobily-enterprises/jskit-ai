@@ -21,6 +21,7 @@
         "notFound": "Member not found.",
         "ownerRoleLocked": "Cannot change workspace owner role.",
         "ownerNotRemovable": "Cannot remove workspace owner.",
+        "newOwnerNotActive": "The new owner must be an active member of the workspace.",
         "cursorInvalid": "This list's cursor is not one it answered."
       },
       "invite": {

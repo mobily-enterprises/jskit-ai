@@ -1,6 +1,9 @@
 import { isLostDuplicateInsertRace, toIsoString } from "@jskit-ai/database-runtime/shared";
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { isSystemContext } from "@jskit-ai/resource-runtime/server";
+import { ADMIN_ROLE_ID, OWNER_ROLE_ID } from "../../../shared/roles.js";
+import { normalizeMembershipRecord } from "./workspaceMembershipsRepository.js";
 
 function normalizeWorkspaceRecord(payload = null) {
   if (!payload || typeof payload !== "object") {
@@ -36,7 +39,7 @@ function byId(left, right) {
  * @param {object} dependencies
  * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.workspaces The workspaces table's handle.
  * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.workspaceMemberships
- *   The workspace_memberships table's handle, for a user's workspaces.
+ *   The workspace_memberships table's handle, for a user's workspaces and the roles an ownership transfer changes.
  */
 function createRepository({ workspaces, workspaceMemberships }) {
   async function queryFirst(filters, options) {
@@ -265,6 +268,92 @@ function createRepository({ workspaces, workspaceMemberships }) {
     return row ? { id: normalizeRecordId(row.id, { fallback: null }) } : null;
   }
 
+  /**
+   * Hands a workspace to another of its active members, in the caller's transaction when `options` carries one (the
+   * txOptions of withTransaction), otherwise in one of its own. It locks the workspace's row first and reads the
+   * workspace through that lock, then locks the new and the previous owner's memberships, so two transfers of one
+   * workspace take turns and the second moves it on from the owner the first left. `owner_user_id` becomes `toUserId`
+   * and `updatedAt` moves; the new owner's membership takes the owner role; the previous owner's takes
+   * `previousOwnerRoleSid` (the admin role unless given) and stays active, or is created active with it when they had
+   * none. It sends the same statements however many members the workspace has.
+   *
+   * A personal workspace stops being personal: it was the one provisioned for its previous owner, and the new owner's
+   * own personal workspace stays theirs. Where the application provisions personal workspaces, the previous owner is
+   * given a new one at their next provisioning.
+   *
+   * A `toUserId` who already owns the workspace writes nothing and answers `changed: false`. A missing or deleted
+   * workspace is 404 `workspaces.workspace.notFound`, and a `toUserId` with no active membership (never a member,
+   * invited only, removed) is 409 `workspaces.member.newOwnerNotActive`; neither writes anything. Ids that are no
+   * record ids, and a `previousOwnerRoleSid` that is not the text of a role other than the owner's, are a TypeError
+   * before any statement. The role is stored lowercased as given: the role catalog is not checked here.
+   *
+   * It publishes no event: the `workspace.workspaces.create` and `workspace.workspaces.update` actions publish
+   * `entity.changed` on `runtime.events`, and this is no action. An application that keeps its own copy of workspace
+   * facts updates it from the answer.
+   * @param {{ workspaceId: unknown, toUserId: unknown, previousOwnerRoleSid?: string }} transfer
+   * @param {import("@jskit-ai/resource-runtime/server/types").ResourceCallOptions} [options]
+   * @returns {Promise<{ id: string, slug: string, name: string, ownerUserId: string, isPersonal: boolean, avatarUrl: string,
+   *   createdAt: string | null, updatedAt: string | null, deletedAt: string | null, previousOwnerUserId: string, changed: boolean }>}
+   *   The workspace as findById answers it, the owner it had before the call, and whether the call changed it.
+   */
+  async function transferOwnership({ workspaceId, toUserId, previousOwnerRoleSid = ADMIN_ROLE_ID }, options = {}) {
+    const id = normalizeRecordId(workspaceId, { fallback: null });
+    const newOwnerUserId = normalizeRecordId(toUserId, { fallback: null });
+    if (!id || !newOwnerUserId) {
+      throw new TypeError(
+        "workspaces.transferOwnership() requires workspaceId and toUserId, each a record id. " +
+          `Received: ${String(workspaceId)} and ${String(toUserId)}`
+      );
+    }
+    const previousOwnerRole = typeof previousOwnerRoleSid === "string" ? normalizeLowerText(previousOwnerRoleSid) : "";
+    if (!previousOwnerRole || previousOwnerRole === OWNER_ROLE_ID) {
+      throw new TypeError(
+        `workspaces.transferOwnership() previousOwnerRoleSid is the previous owner's new role: a role id other than "${OWNER_ROLE_ID}". ` +
+          `Received: ${String(previousOwnerRoleSid)}`
+      );
+    }
+
+    return workspaces.withTransaction(options, async (txOptions) => {
+      // A locking read sees the row as last committed, where a plain read inside a caller's transaction on MySQL and
+      // MariaDB could see the snapshot of the caller's earlier read.
+      const workspace = normalizeWorkspaceRecord(await workspaces.lock(id, { ...txOptions, missing: "skip" }));
+      if (!workspace || workspace.deletedAt) {
+        throw new AppError(404, "Workspace not found.", { code: "workspaces.workspace.notFound" });
+      }
+      const previousOwnerUserId = workspace.ownerUserId;
+      if (previousOwnerUserId === newOwnerUserId) {
+        return { ...workspace, previousOwnerUserId, changed: false };
+      }
+
+      const memberships = (await workspaceMemberships.lockWhere(
+        { workspace: id, users: [newOwnerUserId, previousOwnerUserId] },
+        txOptions
+      )).map(normalizeMembershipRecord);
+      const newOwner = memberships.find(({ userId }) => userId === newOwnerUserId);
+      if (newOwner?.status !== "active") {
+        throw new AppError(409, "The new owner must be an active member of the workspace.", {
+          code: "workspaces.member.newOwnerNotActive"
+        });
+      }
+      const previousOwner = memberships.find(({ userId }) => userId === previousOwnerUserId);
+
+      const transferred = await updateById(id, { ownerUserId: newOwnerUserId, isPersonal: false }, txOptions);
+      const changedAt = new Date().toISOString();
+      const write = { ...txOptions, returning: "none" };
+      await workspaceMemberships.patch(newOwner.id, { roleSid: OWNER_ROLE_ID, updatedAt: changedAt }, write);
+      const previousOwnerMembership = { roleSid: previousOwnerRole, status: "active", updatedAt: changedAt };
+      if (previousOwner) {
+        await workspaceMemberships.patch(previousOwner.id, previousOwnerMembership, write);
+      } else {
+        await workspaceMemberships.create(
+          { ...previousOwnerMembership, workspaceId: id, userId: previousOwnerUserId, createdAt: changedAt },
+          write
+        );
+      }
+      return { ...transferred, previousOwnerUserId, changed: true };
+    });
+  }
+
   return Object.freeze({
     withTransaction: workspaces.withTransaction,
     // The workspaces as a join source for another owner's report, which reads them in its own statement: the handle's
@@ -280,7 +369,8 @@ function createRepository({ workspaces, workspaceMemberships }) {
     insert,
     updateById,
     listForUserId,
-    lock
+    lock,
+    transferOwnership
   });
 }
 
