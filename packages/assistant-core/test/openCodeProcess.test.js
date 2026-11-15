@@ -3,9 +3,9 @@ import { access, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { setTimeout as delay } from "node:timers/promises";
 import { createOpenCodeServerProcess, openCodeProcessEnvironment } from "../src/server/conversation/openCodeProcess.js";
 import { createOpenCodeSharedRuntime } from "../src/server/conversation/openCodeRuntime.js";
+import { eventually } from "./fixtures/eventually.js";
 
 async function fixture(t, options = {}) {
   const workdir = await mkdtemp(path.join(os.tmpdir(), "jskit-opencode-process-"));
@@ -63,8 +63,8 @@ test("the shared owner stops a server that exits without being stopped at once",
   const shared = await runtime.ensure(null, async () => ({ server: await createOpenCodeServerProcess(f.config), connections: [] }));
   assert.equal(runtime.current, shared);
   f.exited.resolve({ code: 1 });
-  for (let attempt = 0; attempt < 50 && f.stops.length === 0; attempt += 1) await delay(10);
-  await delay(20);
+  // The owner lets the server go only once its stop has finished.
+  await eventually(() => runtime.current === null, "the exited server is still the shared one");
   assert.deepEqual(f.stops, ["owned-process"]);
   assert.deepEqual(reasons, ["opencode-server-exited"]);
   assert.equal(runtime.current, null);
