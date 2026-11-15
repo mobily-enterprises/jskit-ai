@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import path from "node:path";
 import process from "node:process";
-import test, { before } from "node:test";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { expect } from "@playwright/test";
 import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
@@ -15,9 +15,8 @@ const SKIP = process.env.JSKIT_HTTP_WEB_PENDING_FOCUS_BROWSER === "1"
   ? false
   : "set JSKIT_HTTP_WEB_PENDING_FOCUS_BROWSER=1 to check that pending CRUD buttons keep keyboard focus";
 const FIXTURE_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../fixtures/crud-screens");
-const open = sharedBrowserFixture({ fixtureRoot: FIXTURE_ROOT });
 // The server compiles the screens before the first test, so its first page load runs warm within its limit.
-if (!SKIP) before(() => open.prepare());
+const open = sharedBrowserFixture({ fixtureRoot: FIXTURE_ROOT });
 // An expanded window: the app bar shows its actions labelled, and the list draws its table.
 const VIEWPORT = Object.freeze({ width: 1280, height: 900 });
 

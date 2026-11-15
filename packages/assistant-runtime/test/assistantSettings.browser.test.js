@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import process from "node:process";
-import test, { before } from "node:test";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { expect } from "@playwright/test";
 import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
@@ -28,7 +28,6 @@ function settingsDocument(targetSurfaceId, systemPrompt, workspaceId = null, { c
 // One shell server and one browser for the file, its server warmed before the first test: a server per test made each
 // test's first page load wait on the server compiling the shell's modules, past the 15 s limit with many files at once.
 const open = sharedBrowserFixture({ fixtureRoot: FIXTURE_ROOT });
-if (RUN) before(() => open.prepare());
 
 /**
  * The file's shell and browser for one test, whose end closes its pages. Its last hook prints each page's errors and

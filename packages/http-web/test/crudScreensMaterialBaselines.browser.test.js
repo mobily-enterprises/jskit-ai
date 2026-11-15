@@ -1,6 +1,6 @@
 import path from "node:path";
 import process from "node:process";
-import test, { before } from "node:test";
+import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { expect } from "@playwright/test";
 import { sharedBrowserFixture } from "../../../tooling/testUtils/browserFixture.mjs";
@@ -121,7 +121,6 @@ async function serveBooks(page, screen) {
 // One server and one browser for the file, the server warmed before the first test; the tests' ends close their pages
 // and the file's end stops both.
 const open = sharedBrowserFixture({ fixtureRoot: FIXTURE_ROOT });
-if (RUN_BROWSER_TEST) before(() => open.prepare());
 
 // A test for each window size, light and dark: 14 page loads, well inside the limit while many browser test files run
 // at once. As one test the 42 loads took 4 to 5 minutes then, at or past its 5 minute limit.

@@ -4,7 +4,7 @@ import net from "node:net";
 import os from "node:os";
 import path from "node:path";
 import process from "node:process";
-import { after } from "node:test";
+import { after, beforeEach } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const VITE_FIXTURE_SERVER = fileURLToPath(new URL("./viteFixtureServer.mjs", import.meta.url));
@@ -267,12 +267,13 @@ async function warmUp(browser, baseURL) {
 /**
  * One Vite fixture server and one Chromium for all the tests of a file, instead of a new pair for every test. Call it
  * at the top level of the test file; each test calls the function it returns with its own context, `open(t)`, which
- * starts the pair on first use and returns `{ vite, browser }`. Starting it loads the fixture's page once, so the
- * server compiles the app then; a file's `before` hook calls `open.prepare()` to do that before its first test, outside
- * every test's clock. That browser opens pages and contexts on the shared Chromium (`newPage`, `newContext`); the
- * test's own end closes them, and the file's end stops Chromium and the server. node:test runs those `t.after` and
- * `after` hooks even when a test times out, so a stuck test can't leave a server or browser that keeps the file, and
- * the whole run, alive.
+ * returns `{ vite, browser }`. Starting the pair loads the fixture's page once, so the server compiles the app then:
+ * a `beforeEach` hook the fixture adds starts it before the file's first test that runs, outside every test's time
+ * limit (node:test starts a test's clock after its hooks). node:test runs no `beforeEach` for a skipped test, so a run
+ * without the file's browser flag starts nothing; a `before` hook would run even then. That browser opens pages and
+ * contexts on the shared Chromium (`newPage`, `newContext`); the test's own end closes them, and the file's end stops
+ * Chromium and the server. node:test runs those `t.after` and `after` hooks even when a test times out, so a stuck test
+ * can't leave a server or browser that keeps the file, and the whole run, alive.
  * @param {Parameters<typeof startViteFixture>[0]} viteOptions
  */
 function sharedBrowserFixture(viteOptions) {
@@ -303,6 +304,7 @@ function sharedBrowserFixture(viteOptions) {
     started ??= start();
     return started;
   }
+  beforeEach(prepare);
 
   async function open(t) {
     const { vite, browser } = await prepare();
@@ -327,7 +329,7 @@ function sharedBrowserFixture(viteOptions) {
     });
   }
 
-  return Object.assign(open, { prepare });
+  return open;
 }
 
 export {
