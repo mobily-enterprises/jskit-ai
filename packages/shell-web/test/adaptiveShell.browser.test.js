@@ -1917,3 +1917,66 @@ test("segmented buttons, filter chips, fixed tabs, menus and dialog actions take
     await stopProcess(vite);
   }
 });
+
+// A rail label wraps only between words, to two lines at most, as Material 3's rail labels do: a word wider than the
+// rail ends in an ellipsis instead of breaking in two, and a label that needs a third line ends its second in one.
+test("rail labels wrap only between words, and a word wider than the rail ends in an ellipsis, at the rail's default and a narrow width", {
+  skip: RUN_BROWSER_TEST ? false : "set JSKIT_SHELL_WEB_BROWSER_INTEGRATION=1",
+  timeout: 90_000
+}, async (t) => {
+  const { vite, browser } = await startFixture(t);
+  const page = await browser.newPage({ baseURL: vite.baseURL, viewport: { width: 768, height: 1024 } });
+  for (const railWidth of [80, 56]) {
+    await page.goto(`/w/acme/admin/bookings?theme=light&railWidth=${railWidth}`);
+    const rail = page.getByTestId("jskit-shell-rail");
+    const labels = rail.locator(".shell-menu-link-item__rail-label");
+    await expect(labels.first()).toBeVisible();
+    await expect.poll(async () => Math.round((await rail.boundingBox())?.width || 0)).toBe(railWidth);
+    // A label as the rail lays it out: its lines, the words that lie on two of them, the words wider than the label's
+    // room, whether it ends in an ellipsis, and whether it stays inside the rail.
+    const layout = (text) => labels.nth(1).evaluate(async (element, label) => {
+      element.textContent = label;
+      await document.fonts.ready;
+      const style = window.getComputedStyle(element);
+      const box = element.getBoundingClientRect();
+      const railBox = element.closest("[data-testid=jskit-shell-rail]").getBoundingClientRect();
+      const split = [];
+      const tooWide = [];
+      for (const match of label.matchAll(/\S+/gu)) {
+        const range = document.createRange();
+        range.setStart(element.firstChild, match.index);
+        range.setEnd(element.firstChild, match.index + match[0].length);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width > 0);
+        if (new Set(rects.map((rect) => Math.round(rect.top))).size > 1) {
+          split.push(match[0]);
+        }
+        if (range.getBoundingClientRect().width > element.clientWidth + 0.5) {
+          tooWide.push(match[0]);
+        }
+      }
+      return {
+        lines: Math.round(box.height / Number.parseFloat(style.lineHeight)),
+        split,
+        tooWide,
+        ellipsis: style.textOverflow === "ellipsis" &&
+          (element.scrollWidth > element.clientWidth + 0.5 || element.scrollHeight > element.clientHeight + 0.5),
+        inside: box.left >= railBox.left - 0.5 && box.right <= railBox.right + 0.5
+      };
+    }, text);
+    const at = `at a ${railWidth}px rail`;
+    assert.deepEqual(await layout("Home"), { lines: 1, split: [], tooWide: [], ellipsis: false, inside: true }, `a short word ${at}`);
+    assert.deepEqual(await layout("Administration"), { lines: 1, split: [], tooWide: ["Administration"], ellipsis: true, inside: true }, `one word wider than the rail ${at}`);
+    // Two words, each on its own line; one wider than the rail ends in an ellipsis.
+    const twoWords = await layout("Race Engineer");
+    assert.deepEqual(twoWords, { lines: 2, split: [], tooWide: twoWords.tooWide, ellipsis: twoWords.tooWide.length > 0, inside: true }, `two words ${at}`);
+    if (railWidth === 80) {
+      assert.deepEqual(twoWords.tooWide, [], "both words fit the default rail");
+    }
+    const after = await layout("Supplier Administration");
+    assert.ok(after.tooWide.includes("Administration"), `"Administration" is wider than the rail ${at}`);
+    assert.deepEqual({ ...after, tooWide: [] }, { lines: 2, split: [], tooWide: [], ellipsis: true, inside: true }, `a word wider than the rail after another ${at}`);
+    const long = await layout("Quarterly performance and planning");
+    assert.deepEqual({ ...long, tooWide: [] }, { lines: 2, split: [], tooWide: [], ellipsis: true, inside: true }, `a label that needs three lines ${at}`);
+  }
+  await page.close();
+});
