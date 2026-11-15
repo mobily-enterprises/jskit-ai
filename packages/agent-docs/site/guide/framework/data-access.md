@@ -813,9 +813,33 @@ const recordPayment = (input, options) => retryLostInsertRace(options, () => pay
 
 ## Layer 4: locks
 
-When two requests could change the same rows at once (allocating stock,
-numbering documents, moving items into a batch), lock the rows first, inside
-the transaction: `lock(id, txOptions)`, `lockMany(ids, txOptions)` or
+Most writes take no lock. Choose the lightest tool that keeps the stored data
+right:
+
+| The write | The tool |
+| --- | --- |
+| An ordinary edit: a form saving a record, a name, a description, settings | a plain `patch`; the last save wins |
+| A change only while a row still holds a value (open to booked, once) | a compare-and-set: `patch` with `onlyIf`, or `patchWhere` with the value in its filters ([Layer 3](#layer-3-many-rows-at-once)) |
+| A value that must be unique | a unique index, and `retryLostInsertRace` around a transaction whose insert can lose that race ([Layer 3](#layer-3-many-rows-at-once)) |
+| Stock or quantities, money or balances, sequential document numbers, a capacity limit (double booking), a check-then-act on a shared resource | a lock (`lock`, `lockMany`, `lockWhere`, `lockPages`) before the transaction's first plain read, as below |
+
+When two people save the same record at once, a plain `patch` lets the later
+change replace the earlier one. For an ordinary edit that is usually
+acceptable, and it needs no lock and no concurrency test; where people would
+care, the record carries a version and a stale save is refused, "changed,
+reload" (`lockVersionField`, at the end of this layer). A compare-and-set
+gives the row to one of two writers and tells the other it wrote nothing
+(`onlyIf` answers `null`, `returning: "ids"` leaves the row out), which the
+code turns into a clear refusal, with no lock. A lock is for a race that would
+silently leave wrong data that matters: two orders taking the last item, two
+payments spending one balance, two invoices given one number, two bookings of
+the last place. It makes other writers wait, needs one order on every path and
+a test with two writers, so it usually pays only there. Whatever the tool, the
+writer that loses gets an answer it can act on, never a 500
+([Transactions](#transactions)).
+
+The rest of this layer applies once a lock is warranted. Lock the rows first,
+inside the transaction: `lock(id, txOptions)`, `lockMany(ids, txOptions)` or
 `lockWhere(filters, txOptions)`. The handle locks only rows the caller may
 see, in id order, so nobody locks another workspace's rows: a missing or
 hidden id throws not-found, as for `get`, or with `missing: "skip"` is left
@@ -1107,9 +1131,11 @@ rows with its own `lock`, `lockMany` or `lockWhere`, the owners in one fixed
 order on every path (a parent's owner before its children's), so two
 transactions never take them in opposite orders.
 
-A record that a person edits from a form it read earlier carries a version
-number: the table resource names it with `lockVersionField`, an integer field
-over a non-null integer column with `defaultTo: 0`.
+Where people would mind that a later save replaced theirs without a word, a
+record edited from a form it read earlier can carry a version number (an
+ordinary edit, where the last save winning is acceptable, needs none): the
+table resource names it with `lockVersionField`, an integer field over a
+non-null integer column with `defaultTo: 0`.
 `patch(id, changes, { ...options, lockVersion })` then locks the row, applies
 `changes` only while it still holds that version, and advances it. A record
 whose version moved on rejects with a 409 coded
