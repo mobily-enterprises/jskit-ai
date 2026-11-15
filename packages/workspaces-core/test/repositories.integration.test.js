@@ -6,7 +6,7 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
-import { checkForeignKeys, isSystemContext } from "@jskit-ai/resource-runtime/server";
+import { checkForeignKeys, createStandaloneResources, isSystemContext } from "@jskit-ai/resource-runtime/server";
 import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
 import { userProfileTableResource } from "@jskit-ai/users-core/shared/resources/userProfileResource";
 import { userSettingsTableResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
@@ -18,7 +18,9 @@ import usersUpdatedAt from "../../users-core/migrations/users_core_profile_updat
 import workspacesInitial from "../migrations/workspaces_core_initial.cjs";
 import workspaceSettingsMigration from "../migrations/workspaces_core_workspace_settings_single_name_source.cjs";
 import workspaceColorMigration from "../migrations/workspaces_core_workspaces_drop_color.cjs";
-import { createWorkspaceRecords } from "../src/server/WorkspacesFeature.js";
+import { createWorkspaceRecords, createWorkspacesRuntime } from "../src/server/WorkspacesFeature.js";
+import { ROLE_CONTEXT_TABLES, createStandaloneRoleContext } from "../src/server/standaloneRoleContext.js";
+import { noInviteAcceptanceParticipant } from "../src/server/workspacePendingInvitations/noInviteAcceptanceParticipant.js";
 import { WORKSPACES_TABLES } from "../src/server/workspacesRuntime.js";
 import { createRepository as createInvitesRepository } from "../src/server/common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createMemberPagesRepository } from "../src/server/common/repositories/workspaceMemberPagesRepository.js";
@@ -97,6 +99,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
   let invites;
   let memberPages;
   let settings;
+  let workspaceResources;
   let usersExtensions;
   let profileProjector;
   let ownsTables = false;
@@ -134,6 +137,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     }));
     ({ profiles, userSettings, profileProjector, usersExtensions } = capabilities);
     const resources = await runtime.own("workspaces.core", WORKSPACES_TABLES);
+    workspaceResources = resources;
     membershipTable = resources.workspaceMemberships;
     workspaceTable = resources.workspaces;
     ({ workspaces, memberships } = createWorkspaceRecords(resources));
@@ -752,6 +756,118 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     await assert.rejects(roleContext({ ...asked, userId: "999999" }, system), refuses([404, "users.profile.notFound"], "a user id naming no one"));
     const { roleContext: noTenancyRoleContext } = memberDirectory("none");
     await assert.rejects(noTenancyRoleContext(asked, system), refuses([403, "workspaces.workspace.contextDisabled"], "an application without workspaces"));
+  });
+
+  test("createStandaloneRoleContext, a script's roleContext outside a server, answers the server's context for the same inputs and refuses what the server's refuses", async () => {
+    // The runtime config both build from, as the server's runtime.config holds it.
+    const configOf = (tenancyMode) => ({
+      appPublicUrl: "http://localhost:5173",
+      tenancyMode,
+      workspaceMembers: { defaults: { inviteExpiresInMs: 86400000 } },
+      workspaceSettings: { defaults: { invitesEnabled: false } },
+      roleCatalog: {
+        roles: {
+          owner: { permissions: ["*"] },
+          admin: { assignable: true, permissions: ["workspace.members.view", "crud.notes.patch"] },
+          member: { assignable: true, permissions: ["crud.notes.list"] }
+        }
+      }
+    });
+    // workspaces.core's roleContext as WorkspacesFeature builds it, on the handles the feature owns.
+    const serverRoleContext = (tenancyMode) => createWorkspacesRuntime({
+      appRoot: process.cwd(),
+      config: configOf(tenancyMode),
+      env: {},
+      inviteMailer: unconfiguredWorkspaceInviteMailer,
+      inviteEmailTemplate: renderDefaultWorkspaceInviteEmail,
+      inviteAcceptanceParticipant: noInviteAcceptanceParticipant,
+      personalWorkspaceName: buildWorkspaceName,
+      resources: workspaceResources,
+      userProfiles: profiles,
+      userSettings,
+      workspaceCreatedParticipant: noWorkspaceCreatedParticipant,
+      workspaces,
+      workspaceMemberships: memberships
+    }).roleContext;
+    const server = serverRoleContext("workspaces");
+    // The script's own: a standalone runtime of its own on the same Knex, with no server runtime behind it, that owns
+    // the role context's tables and gives the script its system context.
+    const script = await createStandaloneResources({
+      knex, feature: "test.seed-script", owns: ROLE_CONTEXT_TABLES, systemScope: "seeds every workspace's starter records"
+    });
+    const standalone = createStandaloneRoleContext({ resources: script.resources, config: configOf("workspaces") });
+    // A runtime that owns some of those tables, or none, is refused, naming the ones it lacks.
+    assert.throws(() => createStandaloneRoleContext({ resources: { userProfiles: script.resources.userProfiles }, config: configOf("workspaces") }),
+      (error) => error instanceof TypeError && /Missing: userSettings, workspaces, workspaceMemberships, workspaceInvites, workspaceSettings\.$/u.test(error.message));
+    assert.throws(() => createStandaloneRoleContext({ config: configOf("workspaces") }), /owns ROLE_CONTEXT_TABLES/u);
+
+    const owner = await createProfile("Ada");
+    const member = await createProfile("Grace");
+    const outsider = await createProfile("Linus");
+    const workspace = await workspaces.insert({ slug: "team", name: "Team", ownerUserId: owner.id });
+    await memberships.ensureOwnerMembership(workspace.id, owner.id);
+    await memberships.addMember({ workspaceId: workspace.id, userId: member.id });
+    // The workspace's first request writes its settings; one no request has opened has none.
+    await memberDirectory().directory.resolveWorkspaceContextForUserBySlug(owner, workspace.slug);
+    const unopened = await workspaces.insert({ slug: "new", name: "New", ownerUserId: owner.id });
+    const deleted = await workspaces.insert({ slug: "gone", name: "Gone", ownerUserId: owner.id });
+    await workspaces.updateById(deleted.id, { deletedAt: new Date().toISOString() });
+    // The script's system context, from its standalone runtime's system scope.
+    const systemContext = script.systemContext("seed each workspace's starter records");
+    const system = { context: systemContext };
+    const reason = "seed the workspace's starter records";
+    const acting = { workspaceId: workspace.id, userId: owner.id, role: "admin", reason };
+
+    // A context, or a refusal as its class, status, code and message, and the statements the call sent.
+    const outcomeOf = async (roleContext, asked, options) => {
+      const { result, statements } = await statementsOf(() => roleContext(asked, options).then(
+        (context) => ({ context }),
+        (error) => ({ refusal: { name: error.name, typeError: error instanceof TypeError, status: error.status, code: error.code, message: error.message } })
+      ));
+      return { ...result, statements };
+    };
+    const cases = [
+      ["the outsider as admin", { ...acting, userId: outsider.id }, system],
+      ["the member as admin", { ...acting, userId: member.id }, system],
+      ["the owner as member", { ...acting, role: "member" }, system],
+      ["the owner as OWNER where no request opened the workspace", { ...acting, workspaceId: unopened.id, role: "OWNER" }, system],
+      ["no options", acting, undefined],
+      ["a signed-in request's context", acting, { context: { actor: { id: owner.id } } }],
+      ["a workspace job's context", acting, { context: systemContext.forWorkspace(workspace.id) }],
+      ["a blank reason", { ...acting, reason: "   " }, system],
+      ["userId \"abc\"", { ...acting, userId: "abc" }, system],
+      ["role \"superuser\"", { ...acting, role: "superuser" }, system],
+      ["a workspace id naming no workspace", { ...acting, workspaceId: "999999" }, system],
+      ["a deleted workspace", { ...acting, workspaceId: deleted.id }, system],
+      ["a user id naming no one", { ...acting, userId: "999999" }, system]
+    ];
+    const answered = [];
+    for (const [label, asked, options] of cases) {
+      const fromServer = await outcomeOf(server, asked, options);
+      const fromStandalone = await outcomeOf(standalone, asked, options);
+      const { statements: serverStatements, ...serverAnswer } = fromServer;
+      const { statements: standaloneStatements, ...standaloneAnswer } = fromStandalone;
+      assert.deepEqual(standaloneAnswer, serverAnswer, label);
+      if (serverAnswer.refusal?.typeError) {
+        assert.deepEqual([standaloneStatements, serverStatements], [0, 0], `${label} is refused before any statement`);
+      }
+      answered.push(serverAnswer.context ? "context" : `${serverAnswer.refusal.status ?? "TypeError"}`);
+    }
+    assert.deepEqual(answered, ["context", "context", "context", "context", "TypeError", "TypeError", "TypeError", "TypeError", "TypeError", "TypeError", "404", "404", "404"]);
+
+    // In the caller's transaction both read what the transaction wrote.
+    await memberships.withTransaction(system, async (txOptions) => {
+      const joiner = await createProfile("Barbara", txOptions);
+      const asked = { ...acting, userId: joiner.id, role: "member" };
+      const fromStandalone = await standalone(asked, txOptions);
+      assert.equal(fromStandalone.actor.id, joiner.id);
+      assert.deepEqual(fromStandalone, await server(asked, txOptions));
+    });
+
+    // An application without workspaces refuses both.
+    const noTenancy = await outcomeOf(createStandaloneRoleContext({ resources: script.resources, config: configOf("none") }), acting, system);
+    assert.deepEqual(noTenancy.refusal, (await outcomeOf(serverRoleContext("none"), acting, system)).refusal);
+    assert.deepEqual([noTenancy.refusal.status, noTenancy.refusal.code], [403, "workspaces.workspace.contextDisabled"]);
   });
 
   test("workspaces.lock and memberships.lockByWorkspaceIdAndUserId take lockMode share, and refuse another mode before any statement", async () => {

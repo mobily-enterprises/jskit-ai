@@ -71,6 +71,59 @@ function createWorkspaceRecords(resources) {
 }
 
 /**
+ * The workspace directory service and the member and role contexts of `workspaces.core`, built from the runtime
+ * config, on the workspaces tables' handles and records and the users' profiles: the server's capability is built on
+ * it, and so is a standalone runtime's role context (see createStandaloneRoleContext), so both resolve the same
+ * contexts by the same reads and refuse the same calls.
+ * @param {object} dependencies
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} dependencies.config
+ * @param {import("./types.js").PersonalWorkspaceName} dependencies.personalWorkspaceName
+ * @param {import("./types.js").WorkspacesResources} dependencies.resources The handles of the tables `workspaces.core` owns.
+ * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} dependencies.userProfiles
+ * @param {import("./types.js").WorkspaceCreatedParticipant} dependencies.workspaceCreatedParticipant
+ * @param {import("./types.js").Workspaces} dependencies.workspaces
+ * @param {import("./types.js").WorkspacesMemberships} dependencies.workspaceMemberships
+ */
+function createWorkspaceDirectory({
+  config,
+  personalWorkspaceName,
+  resources,
+  userProfiles,
+  workspaceCreatedParticipant,
+  workspaces: workspacesRepository,
+  workspaceMemberships: workspaceMembershipsRepository
+}) {
+  const tenancyProfile = resolveTenancyProfile(config);
+  const roleCatalog = createWorkspaceRoleCatalog(config);
+  const workspaceSettingsRepository = createWorkspaceSettingsRepository({
+    workspaceSettings: resources.workspaceSettings,
+    defaultInvitesEnabled: requireBoolean(
+      config?.workspaceSettings?.defaults?.invitesEnabled,
+      "runtime.config.workspaceSettings.defaults.invitesEnabled"
+    ),
+    defaultColorSettings: requireWorkspaceColorDefaults(config?.workspaceSettings?.defaults)
+  });
+  const workspaceService = createWorkspaceService({
+    tenancyProfile,
+    roleCatalog,
+    personalWorkspaceName,
+    createdParticipant: workspaceCreatedParticipant,
+    workspacesRepository,
+    workspaceMembershipsRepository,
+    workspaceSettingsRepository
+  });
+  const memberContexts = createWorkspaceMemberContexts({ workspaceService, userProfiles, roleCatalog });
+  return Object.freeze({
+    tenancyProfile,
+    roleCatalog,
+    workspaceSettingsRepository,
+    workspaceService,
+    memberContext: memberContexts.memberContext,
+    roleContext: memberContexts.roleContext
+  });
+}
+
+/**
  * The `workspaces.core` capability: the workspace services, the invite and
  * settings repositories, `memberContext` and `roleContext`, built from the runtime config.
  * @param {object} dependencies
@@ -103,30 +156,21 @@ function createWorkspacesRuntime({
   workspaces: workspacesRepository,
   workspaceMemberships: workspaceMembershipsRepository
 }) {
-  const tenancyProfile = resolveTenancyProfile(config);
+  const directory = createWorkspaceDirectory({
+    config,
+    personalWorkspaceName,
+    resources,
+    userProfiles,
+    workspaceCreatedParticipant,
+    workspaces: workspacesRepository,
+    workspaceMemberships: workspaceMembershipsRepository
+  });
+  const { tenancyProfile, roleCatalog, workspaceSettingsRepository, workspaceService } = directory;
   const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ appConfig: config, tenancyProfile });
   const invitationsEnabled = invitationsPolicy.enabled === true;
-  const roleCatalog = createWorkspaceRoleCatalog(config);
-  const workspaceSettingsRepository = createWorkspaceSettingsRepository({
-    workspaceSettings: resources.workspaceSettings,
-    defaultInvitesEnabled: requireBoolean(
-      config?.workspaceSettings?.defaults?.invitesEnabled,
-      "runtime.config.workspaceSettings.defaults.invitesEnabled"
-    ),
-    defaultColorSettings: requireWorkspaceColorDefaults(config?.workspaceSettings?.defaults)
-  });
   const workspaceInvitesRepository = createWorkspaceInvitesRepository({
     workspaceInvites: resources.workspaceInvites,
     workspaces: workspacesRepository
-  });
-  const workspaceService = createWorkspaceService({
-    tenancyProfile,
-    roleCatalog,
-    personalWorkspaceName,
-    createdParticipant: workspaceCreatedParticipant,
-    workspacesRepository,
-    workspaceMembershipsRepository,
-    workspaceSettingsRepository
   });
   const workspacePendingInvitationsService = createWorkspacePendingInvitationsService({
     workspaceInvitesRepository,
@@ -159,16 +203,15 @@ function createWorkspacesRuntime({
     workspaceInvitationsEnabled: invitationsEnabled,
     roleCatalog
   });
-  const memberContexts = createWorkspaceMemberContexts({ workspaceService, userProfiles, roleCatalog });
 
   return Object.freeze({
     enabled: tenancyProfile.workspace.enabled === true,
     invitationsEnabled,
     selfCreateEnabled: tenancyProfile.workspace.allowSelfCreate === true,
     // The context of one member of one workspace, for background work done as that member.
-    memberContext: memberContexts.memberContext,
+    memberContext: directory.memberContext,
     // The context of a user acting in one workspace in a role they are not given there, for installer and seed work.
-    roleContext: memberContexts.roleContext,
+    roleContext: directory.roleContext,
     // The workspace route support the assistant runtime reads.
     scope: Object.freeze({
       params: workspaceSlugParamsValidator,
@@ -189,4 +232,4 @@ function createWorkspacesRuntime({
   });
 }
 
-export { WORKSPACES_TABLES, createWorkspaceRecords, createWorkspacesRuntime };
+export { WORKSPACES_TABLES, createWorkspaceDirectory, createWorkspaceRecords, createWorkspacesRuntime };

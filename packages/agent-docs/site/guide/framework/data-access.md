@@ -1555,7 +1555,18 @@ const SettlementFeature = defineFeature({
   `users.profile.notFound`. It reads the user, the workspace and its settings,
   and writes nothing. Work done as a real member takes `memberContext`, which
   refuses anyone who is not one; `roleContext` is for installer and seed work
-  only, where the person is not given that role in the workspace.
+  only, where the person is not given that role in the workspace. Code outside
+  a server (a migration or seed script that owns its tables through
+  `createStandaloneResources`) takes the same function from
+  `createStandaloneRoleContext({ resources, config })`
+  (`@jskit-ai/workspaces-core/server/standaloneRoleContext`), built the same
+  way from the application's runtime config on its runtime's handles: the same
+  arguments, context and refusals, with the script's own system context. Its
+  runtime owns `ROLE_CONTEXT_TABLES`, the workspaces and users tables, beside
+  its own (`owns: [...ROLE_CONTEXT_TABLES, ...seedTables]`, with a
+  `systemScope`); on a server's Knex client `createStandaloneResources`
+  refuses them, since the server owns them: code there takes
+  `workspaces.core`'s.
 - A job finds its units with an `aggregate` grouped by the ownership field,
   which a system context may group by (and count distinct) even when the table
   hides it, then runs each unit scoped to it. It reads the units in pages, all

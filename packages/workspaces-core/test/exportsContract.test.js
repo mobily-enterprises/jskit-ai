@@ -16,6 +16,8 @@ test("workspaces-core exports are explicit and aligned with production usage", (
     requiredExports: [
       "./server/WorkspacesFeature",
       "./server/WorkspacesIntegrationsProvider",
+      // A script outside a server (a migration or seed runner) takes workspaces.core's roleContext from it.
+      "./server/standaloneRoleContext",
       "./server/validators/routeParamsValidator",
       "./server/support/workspaceRouteInput",
       // Workspace CRUD features take their scope, workspace id and route paths from these.

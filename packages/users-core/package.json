@@ -9,6 +9,7 @@
     "./server/UsersFeature": "./src/server/UsersFeature.js",
     "./server/UsersIdentityProvider": "./src/server/UsersIdentityProvider.js",
     "./server/usersExtensions": "./src/server/usersExtensions.js",
+    "./server/usersIdentity": "./src/server/usersIdentity.js",
     "./server/resolveActionUser": "./src/server/common/support/resolveActionUser.js",
     "./server/types": "./src/server/types.js",
     "./shared/resources/userProfileResource": "./src/shared/resources/userProfileResource.js",
@@ -90,6 +91,10 @@
           {
             "subpath": "./server/usersExtensions",
             "summary": "Exports createUsersExtensions, the users.extensions registry of profile synchronization lifecycle contributors."
+          },
+          {
+            "subpath": "./server/usersIdentity",
+            "summary": "Exports createUsersIdentity, which builds users.profiles, users.settings and auth.profile.projector on handles of the users and user_settings tables, and USERS_IDENTITY_TABLES, those two table resources, for code outside a JSKIT server that owns them through standalone resources."
           },
           {
             "subpath": "./server/resolveActionUser",

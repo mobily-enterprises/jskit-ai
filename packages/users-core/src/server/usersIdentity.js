@@ -1,6 +1,11 @@
+import { userProfileTableResource } from "../shared/resources/userProfileResource.js";
+import { userSettingsTableResource } from "../shared/resources/userSettingsResource.js";
 import { createRepository as createUserProfilesRepository } from "./common/repositories/userProfilesRepository.js";
 import { createRepository as createUserSettingsRepository } from "./common/repositories/userSettingsRepository.js";
 import { createService as createAuthProfileSyncService } from "./common/services/authProfileSyncService.js";
+
+// The users and user_settings tables, which users.identity owns.
+const USERS_IDENTITY_TABLES = Object.freeze([userProfileTableResource, userSettingsTableResource]);
 
 /**
  * The users' profile and settings records (`users.profiles`, `users.settings`),
@@ -25,4 +30,4 @@ function createUsersIdentity({ resources, extensions }) {
   });
 }
 
-export { createUsersIdentity };
+export { USERS_IDENTITY_TABLES, createUsersIdentity };
