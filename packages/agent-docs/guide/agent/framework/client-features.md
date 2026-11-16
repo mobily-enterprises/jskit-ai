@@ -401,7 +401,10 @@ import from a `shared` module. The model's name decides nothing.
 
 Why: Vuetify titles a value missing from `items` with the value itself, so a
 stored id such as `53` shows until the options arrive; `SelectField` hides it
-while `loading` is true.
+while `loading` is true. That `loading` is no spinner: Vuetify draws it as the
+field's own 2px progress line along its underline, the built-in loading state
+that the Material 3 rules keep
+([Components, state, and feedback](/guide/framework/material-3#components-state-and-feedback)).
 
 ```vue
 <!-- good -->

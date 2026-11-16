@@ -50,8 +50,12 @@ questionnaire.
 - View fields are two-line list items with the value first:
   `<v-list-item :title="record.author" subtitle="Author" />`.
 - Transport and validators come from the shared CRUD contract.
-- Initial visible loading uses structure-matching skeletons; pending buttons use
-  stable disabled labels, never spinners.
+- Initial visible loading uses structure-matching skeletons; a running command's
+  button is marked pending (`pending` on `ShellPageAction`, `v-pending` on
+  other buttons) with a stable pending label such as "Saving…", never a
+  spinner. A selection field's `loading` (below) is its own thin progress line,
+  not a spinner
+  ([Components, state, and feedback](https://mobily-enterprises.github.io/jskit-ai/guide/framework/material-3#components-state-and-feedback)).
 - Resource-load errors stay inside the screen with retry. Command success and
   failure use JSKIT's shared toast/snackbar feedback path.
 - URLs are route templates or route objects resolved through the screen runtime.
@@ -154,7 +158,9 @@ so a narrowing search does not blank a chosen value. Display never changes the
 stored value. `searchable` renders an autocomplete; other props and slots pass
 through to Vuetify. The lint rule `jskit/selection-field` reports a raw
 selection whose items are not fixed, and a `SelectField` over loaded items
-without `loading`.
+without `loading`. Vuetify draws that `loading` as the field's own 2px
+progress line along its underline: Material 3's built-in loading state, kept
+by the no-spinner rule, never counted as a spinner.
 
 ```vue
 <CrudAddEditScreen :screen="screen" v-bind="lookups">
@@ -210,7 +216,8 @@ relation's `labelKey`, and what `fields.serviceId.output.includeFields` names.
 
 - route-local `fetch()` or duplicated request serializers
 - copying shared screen chrome into every route
-- spinner or circular-progress loading states
+- spinner or circular-progress loading states (a field's or table's own
+  `loading` line is not one)
 - transient in-page command-error banners that push the layout
 - generator-branded CSS classes, cache keys, or placement ids
 - comments or metadata reserving fields for a future authoring command

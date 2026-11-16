@@ -16,6 +16,7 @@ import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResourc
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { useCrudAddEditScreen } from "../src/client/composables/useCrudAddEditScreen.js";
 import { useCrudListScreen } from "../src/client/composables/useCrudListScreen.js";
+import { findSpinnerMarkup } from "./support/spinnerMarkup.js";
 
 const execFileAsync = promisify(execFile);
 const patternRoot = path.resolve(
@@ -128,7 +129,9 @@ test("CRUD screen pattern is thin app-owned source over shared public screens", 
   assert.match(combinedSource, /useCrudAddEditScreen/u);
   assert.match(combinedSource, /useCrudDeleteAction/u);
   assert.doesNotMatch(combinedSource, /ui-generator|generated-ui|jskit:crud-ui|__JSKIT_/u);
-  assert.doesNotMatch(combinedSource, /:loading=|v-progress-(?:circular|linear)/u);
+  // A lookup's `SelectField` `loading`, which the pattern's guide asks for, is the field's own progress line, not a spinner.
+  assert.deepEqual(findSpinnerMarkup(combinedSource), []);
+  assert.doesNotMatch(combinedSource, /v-progress-linear/u);
 
   for (const file of files) {
     const absolutePath = path.join(exampleRoot, file);

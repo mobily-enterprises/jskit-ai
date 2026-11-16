@@ -159,9 +159,12 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   assert.match(materialReference, /resource that cannot render uses a\s+stable in-page error and retry state/u);
   assert.match(materialReference, /user-triggered command uses JSKIT's shared action\s+feedback\/snackbar path/u);
   assert.match(materialReference, /Never insert a transient command-error alert above\s+page content where it shifts the working layout/u);
-  assert.match(materialReference, /All user-visible\s+loading uses Material skeletons that reserve the final content geometry/u);
-  assert.match(materialReference, /never use a generic spinner or circular progress indicator/u);
-  assert.match(materialReference, /stable pending label \("Saving…"\) and shared feedback, not a spinner/u);
+  assert.match(materialReference, /Content still\s+loading shows Material skeletons that reserve its final geometry/u);
+  assert.match(materialReference, /A control's own loading state is the right\s+signal and stays/u);
+  assert.match(materialReference, /avoid ad-hoc spinners: a circular indicator on a button \(`v-btn`'s `loading`\s+draws one\)/u);
+  assert.match(materialReference, /Count spinners by what renders, not by `loading` props/u);
+  assert.doesNotMatch(materialReference, /All user-visible\s+loading uses Material skeletons/u);
+  assert.match(materialReference, /stable pending label\s+\("Saving…"\) and shared feedback, not a spinner/u);
   assert.match(materialReference, /While a command runs, mark its button pending rather than `disabled` when\s+possible/u);
   assert.match(materialReference, /Playwright at compact, medium, and expanded widths/u);
   assert.match(materialReference, /Do not declare Material 3 compliance from visual resemblance alone/u);
@@ -238,9 +241,10 @@ test("the single JSKIT skill is pattern-first and contains no generator or recei
   // a named place is labelled with its destination; 42 KiB since a dynamic page that serves literal destinations is
   // top-level; 66 KiB since the skill routes the identity, quality and data passes to their own references; 43 KiB
   // since it also routes the speed pass and Nix packaging; 67 KiB since CRUD says a user table's rows reach only the
-  // signed-in user on every route and keeps its default visibility).
-  assert.ok(Buffer.byteLength(operationalSource) <= 67 * 1024);
-  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 43 * 1024);
+  // signed-in user on every route and keeps its default visibility; 68 and 44 KiB since a control's own loading line
+  // stays, apart from ad-hoc spinners, and spinners are counted by what renders).
+  assert.ok(Buffer.byteLength(operationalSource) <= 68 * 1024);
+  assert.ok(Buffer.byteLength([skill, uiReference, materialReference].join("\n")) <= 44 * 1024);
 });
 
 test("the published JSKIT skill remains self-contained after relocation", async (t) => {

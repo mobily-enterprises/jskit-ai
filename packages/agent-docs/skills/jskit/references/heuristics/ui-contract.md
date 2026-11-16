@@ -29,7 +29,17 @@ and action UI.
 ## Loading and feedback
 
 - Initial and structural loading uses shape-matching skeletons.
-- Never use circular progress, indeterminate spinners, or loading icons.
+- A control's own loading state is the right signal and stays: `SelectField`'s
+  `loading` while its options load, which
+  [Selection fields](../client-features.md#selection-fields)
+  requires, and the same `loading` on `v-autocomplete`, `v-combobox` and
+  `v-data-table`. Vuetify draws it as a thin progress line along the control,
+  with no layout shift; it is not a spinner.
+- When possible, avoid ad-hoc spinners: a circular indicator on a button
+  (`v-btn`'s `loading` draws one) or in place of content, a whole-page or
+  blocking spinner, or a loading icon. Prefer the action's pending label
+  ("Saving…"), a skeleton, or the control's own loading line
+  ([Components, state, and feedback](../material-3.md#components-state-and-feedback)).
 - Pending buttons keep their position, use stable pending labels and, when
   possible, keep keyboard focus: `pending` on `ShellPageAction` and
   `ShellPrimaryAction`, `v-pending`
@@ -72,7 +82,11 @@ it as a closed sheet and wider layouts as a closed side panel.
   destinations show no arrow
 - exercise compact, medium, and expanded viewports
 - verify accessible names, keyboard operation, target size, and no overflow
-- assert that no spinner or layout-shifting transient error banner appears
+- assert that no circular spinner or layout-shifting transient error banner
+  appears; a field's or table's own loading line is not a spinner
+- when counting spinners left, count what renders, not `loading` props: a
+  `loading` on a field or an app's own component is a spinner only if that
+  component draws one
 
 Framework source contracts and package tests enforce the reusable parts of this
 policy. Application browser tests prove product-specific behavior.

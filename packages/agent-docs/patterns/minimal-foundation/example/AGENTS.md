@@ -87,6 +87,12 @@ items are not fixed (a list written out, a top-level `const` holding one, or an
 import from a `shared` module) and a `SelectField` over loaded items without
 `loading`; a justified case says why in
 `<!-- readable-check: allow selection-field - data: <reason> -->` above it.
+That `loading` is not a spinner: Vuetify draws it as the field's own thin
+progress line along its underline, the built-in loading state the Material 3
+rules keep (`https://mobily-enterprises.github.io/jskit-ai/guide/framework/material-3#components-state-and-feedback`).
+What those rules avoid is an ad-hoc spinner: a circular indicator on a button
+or in place of content, or a whole-page one. Count spinners by what renders,
+not by `loading` props.
 
 Copied pattern source is ordinary application source. Do not add generator
 provenance, receipts, completion ledgers, or tooling-operation history. Keep

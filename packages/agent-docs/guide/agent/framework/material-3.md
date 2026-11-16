@@ -365,11 +365,21 @@ dialog, chip or FAB.
 - Preserve visible focus, logical tab order, keyboard operation, and at least
   48 CSS-pixel interactive targets.
 - Represent loading, empty, error, retry, disabled, selected, hover, focus,
-  pressed, and success states through shared JSKIT behavior. All user-visible
-  loading uses Material skeletons that reserve the final content geometry;
-  never use a generic spinner or circular progress indicator, and never let
-  content jump when data arrives. An action without a loading content region
-  uses a stable pending label ("Saving…") and shared feedback, not a spinner.
+  pressed, and success states through shared JSKIT behavior. Content still
+  loading shows Material skeletons that reserve its final geometry, so nothing
+  jumps when the data arrives. A control's own loading state is the right
+  signal and stays: a field's `loading` (`SelectField`, as
+  [Selection fields](/guide/framework/client-features#selection-fields)
+  requires, `v-autocomplete`, `v-combobox`) and a `v-data-table`'s draw
+  Vuetify's 2px progress line along the control, with no layout shift (a table
+  with no rows yet takes skeleton rows in its `loading` slot). When possible,
+  avoid ad-hoc spinners: a circular indicator on a button (`v-btn`'s `loading`
+  draws one) or in place of content, and a whole-page or blocking spinner. An
+  action without a loading content region uses a stable pending label
+  ("Saving…") and shared feedback, not a spinner.
+- Count spinners by what renders, not by `loading` props: a `loading` passed
+  to a field, a table or an app's own component is a spinner only if that
+  component draws one, so check before reporting it.
 - While a command runs, mark its button pending rather than `disabled` when
   possible: `pending` on `ShellPageAction` and `ShellPrimaryAction`,
   `v-pending` on other buttons. It keeps keyboard focus, reads as unavailable

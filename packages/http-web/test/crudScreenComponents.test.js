@@ -9,6 +9,7 @@ import { compileScript, parse } from "@vue/compiler-sfc";
 import { createSSRApp, defineComponent, h } from "vue";
 import { renderToString } from "vue/server-renderer";
 import { createMemoryHistory, createRouter } from "vue-router";
+import { findSpinnerMarkup } from "./support/spinnerMarkup.js";
 
 const TEST_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
 const PACKAGE_DIR = path.resolve(TEST_DIRECTORY, "..");
@@ -204,7 +205,10 @@ test("CRUD screen components own list/view/form chrome centrally", async () => {
     bulkActionSource,
     rowActionSource
   ].join("\n");
-  assert.doesNotMatch(sharedSources, /:loading=|v-progress-(?:circular|linear)/u);
+  // No spinner, and no page-level progress bar: content loads under skeletons. A field's or table's own `loading`
+  // line is the built-in state the Material 3 rules keep, so `loading` props are not counted.
+  assert.deepEqual(findSpinnerMarkup(sharedSources), []);
+  assert.doesNotMatch(sharedSources, /v-progress-linear/u);
   assert.doesNotMatch(sharedSources, /ui-generator|generated-ui/u);
   assert.doesNotMatch(sharedSources, /@mdi\/js|mdi-|!important/u);
   assert.match(listSource, /v-skeleton-loader/u);
