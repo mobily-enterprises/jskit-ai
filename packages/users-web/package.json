@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/users-web",
-  "version": "0.2.67",
+  "version": "0.2.68",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -19,7 +19,7 @@
   "peerDependencies": {
     "@jskit-ai/auth-web": "0.2.48",
     "@jskit-ai/http-runtime": "0.2.27",
-    "@jskit-ai/http-web": "0.2.50",
+    "@jskit-ai/http-web": "0.2.51",
     "@jskit-ai/kernel": "0.2.27",
     "@jskit-ai/shell-web": "0.2.42",
     "@tanstack/vue-query": "^5.90.5",
