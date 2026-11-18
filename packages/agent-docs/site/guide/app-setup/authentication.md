@@ -926,6 +926,17 @@ and each fills the slot with `src/components/AppBrand.vue`, the app's name as
 An app with a logo or a line about the product puts them in `AppBrand.vue`
 too, keeping the name.
 
+A sign-in lands on the page its `returnTo` names. Without one, or with one
+refused as on another origin or as a sign-in or sign-out page, it lands on
+`DefaultLoginView`'s `fallbackReturnTo` prop, `/` by default. An app whose `/`
+is not its app, such as a static website its server serves, names its landing
+there (`<DefaultLoginView fallbackReturnTo="/account">`, in its `LoginView.vue`
+wrapper). Sign-out passes its own `returnTo` on to sign-in, and without one
+opens sign-in without one, so that landing applies after it too. A browser the
+shell found signed in at boot is shown no form: the page checks the session
+again and sends it on, and shows the form only if the session has ended. A
+confirmation link or a provider's callback still shows its own state.
+
 Never restyle the views' own classes (`.login-screen`, `.auth-card`) or wrap
 them in a frame of the app's; the brand slot is the one way in.
 

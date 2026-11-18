@@ -17,6 +17,8 @@ import {
   SUBMIT_LABEL_BY_MODE
 } from "./constants.js";
 import { normalizeEmailAddress, maskEmail } from "./identityHelpers.js";
+import { CONFIRMATION_TOKEN_PARAM } from "./confirmationLink.js";
+import { readOAuthCallbackParamsFromUrl } from "../../runtime/oauthCallbackRuntime.js";
 import { pageLocation } from "../../browser.js";
 import { useJskitText } from "../../i18n.js";
 import {
@@ -37,8 +39,15 @@ function resolveInitialMode() {
   return LOGIN_MODE;
 }
 
-/** @param {{ placementContext: import("vue").Ref<Record<string, any> | null> }} options */
-export function useLoginViewState({ placementContext }) {
+/**
+ * @param {{
+ *   placementContext: import("vue").Ref<Record<string, any> | null>,
+ *   fallbackReturnTo?: string,
+ *   signedIn?: boolean
+ * }} options `fallbackReturnTo` is where a sign-in lands without a usable returnTo; `signedIn` is the session the
+ * shell read at boot.
+ */
+export function useLoginViewState({ placementContext, fallbackReturnTo = "/", signedIn = false }) {
   const { t } = useJskitText();
   const mode = ref(resolveInitialMode());
   const email = ref(normalizeEmailAddress(readWindowSearchParam("email")));
@@ -75,6 +84,13 @@ export function useLoginViewState({ placementContext }) {
   // The code of the confirmation link this page was opened with, confirmed with the password typed next to it.
   const confirmationLinkToken = ref("");
   const invitationToken = ref(readWindowSearchParam("invitationToken") || readWindowSearchParam("inviteToken"));
+  // A browser the shell found signed in is sent on, so it is shown no form meanwhile; a confirmation link or a
+  // sign-in callback shows its own state.
+  const redirectingSignedIn = ref(
+    signedIn === true &&
+      !readWindowSearchParam(CONFIRMATION_TOKEN_PARAM) &&
+      !readOAuthCallbackParamsFromUrl(pageLocation()?.href)
+  );
 
   const isLogin = computed(() => mode.value === LOGIN_MODE);
   const isRegister = computed(() => mode.value === REGISTER_MODE);
@@ -127,17 +143,17 @@ export function useLoginViewState({ placementContext }) {
     resolveAllowedOriginsFromPlacementContext(placementContext.value)
   );
   const requestedReturnTo = ref(
-    normalizeAuthReturnToPath(readWindowSearchParam("returnTo"), "/", {
+    normalizeAuthReturnToPath(readWindowSearchParam("returnTo"), fallbackReturnTo, {
       allowedOrigins: allowedReturnToOrigins.value
     })
   );
   const mainScreenPath = computed(() => {
-    const normalizedReturnTo = normalizeAuthReturnToPath(requestedReturnTo.value, "/", {
+    const normalizedReturnTo = normalizeAuthReturnToPath(requestedReturnTo.value, fallbackReturnTo, {
       allowedOrigins: allowedReturnToOrigins.value
     });
     const surfaceId = resolveSurfaceIdFromPlacementPathname(placementContext.value, normalizedReturnTo);
     const rootPath = resolveSurfaceRootPathFromPlacementContext(placementContext.value, surfaceId || "");
-    return normalizeAuthReturnToPath(rootPath, "/", {
+    return normalizeAuthReturnToPath(rootPath, fallbackReturnTo, {
       allowedOrigins: allowedReturnToOrigins.value
     });
   });
@@ -330,6 +346,7 @@ export function useLoginViewState({ placementContext }) {
     confirmationCode,
     confirmationLinkToken,
     invitationToken,
+    redirectingSignedIn,
     isLogin,
     isRegister,
     isForgot,

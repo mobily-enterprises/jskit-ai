@@ -556,8 +556,11 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
       const callbackHandled = await handleOAuthCallbackIfPresent();
       if (!callbackHandled && session?.authenticated) {
         replacePage(state.requestedReturnTo.value);
+        return;
       }
+      state.redirectingSignedIn.value = false;
     } catch (error) {
+      state.redirectingSignedIn.value = false;
       setErrorMessage(serverMessage(error, t("jskit.auth.login.error.initializeFailed")));
     } finally {
       state.loading.value = false;
@@ -573,6 +576,7 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
     try {
       const session = await refreshSession();
       if (session?.authenticated) {
+        state.redirectingSignedIn.value = true;
         replacePage(state.requestedReturnTo.value);
       }
     } catch {

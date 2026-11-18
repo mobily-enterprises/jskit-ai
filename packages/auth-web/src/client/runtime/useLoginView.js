@@ -2,18 +2,23 @@ import { onMounted } from "vue";
 import { useQueryClient } from "@tanstack/vue-query";
 import { useShellWebErrorRuntime } from "@jskit-ai/shell-web/client/error";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
-import { useAuthOAuthLaunchClient } from "./inject.js";
+import { useAuthGuardRuntime, useAuthOAuthLaunchClient } from "./inject.js";
 import { useLoginViewState } from "../composables/loginView/useLoginViewState.js";
 import { useLoginViewValidation } from "../composables/loginView/useLoginViewValidation.js";
 import { useLoginViewActions } from "../composables/loginView/useLoginViewActions.js";
 import { useSessionRecheckOnShow } from "../composables/loginView/useSessionRecheckOnShow.js";
 
-function useLoginView() {
+/** @param {{ fallbackReturnTo?: string }} [options] where a sign-in lands without a usable returnTo */
+function useLoginView({ fallbackReturnTo = "/" } = {}) {
   const { context: placementContext } = useWebPlacementContext();
   const queryClient = useQueryClient();
   const errorRuntime = useShellWebErrorRuntime();
 
-  const state = useLoginViewState({ placementContext });
+  const state = useLoginViewState({
+    placementContext,
+    fallbackReturnTo,
+    signedIn: useAuthGuardRuntime().getState()?.authenticated === true
+  });
   const validation = useLoginViewValidation({ state });
   const actions = useLoginViewActions({
     state,
@@ -34,6 +39,7 @@ function useLoginView() {
     isLogin: state.isLogin,
     isRegister: state.isRegister,
     isEmailConfirmationPending: state.isEmailConfirmationPending,
+    redirectingSignedIn: state.redirectingSignedIn,
     canUsePasswordLogin: state.canUsePasswordLogin,
     canRegister: state.canRegister,
     canRequestPasswordRecovery: state.canRequestPasswordRecovery,

@@ -56,13 +56,16 @@ async function openApp({ session = SIGNED_OUT, routes = {}, viewport = { width: 
   const page = await browser.newPage({ baseURL: runtime.baseURL, viewport });
   page.setDefaultTimeout(15_000);
   page.setDefaultNavigationTimeout(60_000);
-  const api = { session, routes, requests: [], unexpected: [], errors: [], page };
+  // `holdSession`, a promise, holds every session read after the first (the shell's, at boot) until it settles.
+  const api = { session, routes, requests: [], unexpected: [], errors: [], page, sessionReads: 0, holdSession: null };
   page.on("pageerror", (error) => api.errors.push(error.message));
   await page.route("**/api/**", async (route) => {
     const request = route.request();
     const { pathname, search } = new URL(request.url());
     const key = `${request.method()} ${pathname}`;
     if (key === "GET /api/session") {
+      api.sessionReads += 1;
+      if (api.sessionReads > 1 && api.holdSession) await api.holdSession;
       await route.fulfill({ json: api.session });
       return;
     }
@@ -205,6 +208,46 @@ test("a signed-in visitor leaves the sign-in page, on opening it and when a sess
   api.session = SIGNED_IN;
   await page.evaluate(() => window.dispatchEvent(new Event("focus")));
   await waitForHome(page);
+  await finish(api);
+});
+
+test("a browser the shell found signed in is shown no form while sign-in checks again, and the form if its session ended", options, async () => {
+  const api = await openApp({ session: SIGNED_IN });
+  const { page } = api;
+  let releaseSession;
+  api.holdSession = new Promise((resolve) => { releaseSession = resolve; });
+  await page.goto("/auth/login?returnTo=/home");
+  await expect.poll(() => api.sessionReads).toBe(2);
+  await expect(page.locator(".login-screen")).toBeVisible();
+  await expect(page.locator(".login-screen form, .login-screen input, .login-screen button")).toHaveCount(0);
+
+  api.session = SIGNED_OUT;
+  releaseSession();
+  await expect(page.getByTestId("auth-submit")).toBeVisible();
+  await expect(page.getByLabel("Email")).toBeVisible();
+  assert.equal(new URL(page.url()).pathname, "/auth/login");
+  await finish(api);
+});
+
+test("a sign-in with no usable returnTo lands on the page the app names", options, async () => {
+  const api = await openApp({
+    routes: {
+      "POST /api/login": () => {
+        api.session = SIGNED_IN;
+        return { json: { ok: true, username: "Ada Lovelace" } };
+      }
+    }
+  });
+  const { page } = api;
+  await page.goto("/auth/landing/login?returnTo=https://elsewhere.example/steal");
+  await signIn(page, "ada@example.com", "correct horse");
+  await waitForHome(page);
+  assert.equal(new URL(page.url()).search, "?landed=app");
+
+  // Signed in now: opening sign-in with no returnTo sends the browser to the same landing.
+  await page.goto("/auth/landing/login");
+  await waitForHome(page);
+  assert.equal(new URL(page.url()).search, "?landed=app");
   await finish(api);
 });
 

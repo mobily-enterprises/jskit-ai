@@ -29,6 +29,7 @@ function createMinimalLoginViewState(requestedReturnTo = "/") {
     errorMessage: { value: "" },
     infoMessage: { value: "" },
     loading: { value: false },
+    redirectingSignedIn: { value: false },
     submitAttempted: { value: false },
     email: { value: "" },
     password: { value: "password-123" },
@@ -62,8 +63,10 @@ function createMinimalLoginViewState(requestedReturnTo = "/") {
 }
 
 for (const authenticated of [true, false]) {
-  test(`login initialization ${authenticated ? "redirects an existing session" : "keeps the signed-out form"}`, async (t) => {
+  test(`login initialization ${authenticated ? "redirects an existing session, showing no form" : "shows the form once the boot session has ended"}`, async (t) => {
     const state = createMinimalLoginViewState("/w/acme/bookings?date=2026-09-16");
+    // The shell read a signed-in session at boot, so the page renders no form while it checks again.
+    state.redirectingSignedIn.value = true;
     const destinations = [];
     const originalWindow = globalThis.window;
     globalThis.window = {
@@ -94,6 +97,7 @@ for (const authenticated of [true, false]) {
 
     assert.equal(fetch.mock.callCount(), 1);
     assert.deepEqual(destinations, authenticated ? [state.requestedReturnTo.value] : []);
+    assert.equal(state.redirectingSignedIn.value, authenticated);
     assert.equal(state.loading.value, false);
     assert.equal(state.errorMessage.value, "");
   });
@@ -134,6 +138,7 @@ test("an open sign-in page forwards once a session starts elsewhere", async (t) 
   await actions.redirectIfSignedIn();
   await actions.redirectIfSignedIn();
   assert.deepEqual(destinations, [], "a signed-out or offline check keeps the form");
+  assert.equal(state.redirectingSignedIn.value, false);
 
   state.loading.value = true;
   await actions.redirectIfSignedIn();
@@ -142,6 +147,7 @@ test("an open sign-in page forwards once a session starts elsewhere", async (t) 
   state.loading.value = false;
   await actions.redirectIfSignedIn();
   assert.deepEqual(destinations, [state.requestedReturnTo.value]);
+  assert.equal(state.redirectingSignedIn.value, true, "the form hides while the page is sent on");
   assert.equal(state.errorMessage.value, "");
 });
 

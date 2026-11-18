@@ -129,6 +129,8 @@ const router = createRouter({
     { path: "/auth/login", component: DefaultLoginView },
     { path: "/auth/reset-password", component: DefaultResetPasswordView },
     { path: "/auth/signout", component: DefaultSignOutView },
+    // An app whose "/" is not its app names where a sign-in lands.
+    { path: "/auth/landing/login", component: { render: () => h(DefaultLoginView, { fallbackReturnTo: "/home?landed=app" }) } },
     { path: "/auth/branded/login", component: branded(DefaultLoginView) },
     { path: "/auth/branded/reset-password", component: branded(DefaultResetPasswordView) },
     { path: "/auth/branded/signout", component: branded(DefaultSignOutView) },

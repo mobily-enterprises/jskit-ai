@@ -12,7 +12,7 @@ import { useJskitText } from "../i18n.js";
 
 function readReturnToPathFromLocation({ allowedOrigins = [] } = {}) {
   const params = new URLSearchParams(window.location.search || "");
-  return normalizeAuthReturnToPath(params.get("returnTo"), "/", {
+  return normalizeAuthReturnToPath(params.get("returnTo"), "", {
     allowedOrigins
   });
 }
@@ -32,7 +32,8 @@ export function useDefaultSignOutView() {
   const errorRuntime = useShellWebErrorRuntime();
   const status = ref("pending");
   const errorMessage = ref("");
-  const returnToPath = ref("/");
+  // "" sends the browser to sign-in without a returnTo, where the sign-in's own landing applies.
+  const returnToPath = ref("");
   const allowedReturnToOrigins = computed(() =>
     resolveAllowedOriginsFromPlacementContext(placementContext.value)
   );
@@ -59,6 +60,9 @@ export function useDefaultSignOutView() {
       path: "/auth/login",
       surfaceId: "auth"
     });
+    if (!returnToPath.value) {
+      return loginTarget.href;
+    }
     const params = new URLSearchParams({
       returnTo: returnToPath.value
     });

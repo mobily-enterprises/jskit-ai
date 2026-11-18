@@ -3,7 +3,9 @@
     <template v-if="$slots.brand" #brand="brand">
       <slot name="brand" v-bind="brand" />
     </template>
+    <!-- A browser the shell found signed in is on its way to the page it asked for: it is shown no form. -->
     <v-card
+      v-if="!redirectingSignedIn"
       class="auth-card"
       :class="{ 'auth-card--mobile': isMobileViewport }"
       variant="flat"
@@ -330,6 +332,11 @@ import AuthScreen from "./AuthScreen.vue";
 import { useLoginView } from "../runtime/useLoginView.js";
 import { useJskitText } from "../i18n.js";
 
+const props = defineProps({
+  // Where a sign-in lands when the address names no returnTo, or one refused as foreign or as a sign-in loop.
+  fallbackReturnTo: { type: String, default: "/" }
+});
+
 const { mobile: isMobileViewport } = useDisplay({ mobileBreakpoint: 960 });
 const { t } = useJskitText();
 
@@ -341,6 +348,7 @@ const {
   isLogin,
   isRegister,
   isEmailConfirmationPending,
+  redirectingSignedIn,
   canUsePasswordLogin,
   canRegister,
   canRequestPasswordRecovery,
@@ -390,7 +398,7 @@ const {
   oauthProviderIcon,
   startOAuthSignIn,
   oauthProviderButtonLabel
-} = useLoginView();
+} = useLoginView({ fallbackReturnTo: props.fallbackReturnTo });
 
 function togglePasswordVisibility() {
   showPassword.value = !showPassword.value;
