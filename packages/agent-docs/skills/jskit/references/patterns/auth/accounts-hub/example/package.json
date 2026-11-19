@@ -4,6 +4,6 @@
   "dependencies": {
     "@jskit-ai/database-runtime": "0.1.276",
     "@jskit-ai/database-runtime-mysql": "0.1.274",
-    "@jskit-ai/oidc-issuer-core": "0.1.43"
+    "@jskit-ai/oidc-issuer-core": "0.1.44"
   }
 }

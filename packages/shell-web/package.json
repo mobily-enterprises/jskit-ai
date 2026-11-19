@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/shell-web",
-  "version": "0.2.42",
+  "version": "0.2.43",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -47,7 +47,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/architecture-inspector": "0.1.25"
+    "@jskit-ai/architecture-inspector": "0.1.26"
   },
   "devDependencies": {
     "@jskit-ai/material-web": "0.1.9",
