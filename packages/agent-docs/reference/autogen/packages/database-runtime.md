@@ -57,6 +57,21 @@ Local functions
 Exports
 - `DatabaseProvider`
 
+### `src/server/tableCollationMigrations.js`
+Exports
+- `migrateInExistingCollation(knex, { migration, up, tables, referenceTables, foreignKeys = [] })`
+- `type TableCollation`
+- `type TableState`
+Local functions
+- `collationNamed(collation)`
+- `tableStates(knex, tableNames)`
+- `isRecorded(knex, migration)`
+- `isEmpty(knex, tableName)`
+- `creatingTablesIn(knex, { collation, charset })`
+- `convertTable(knex, tableName, state, { collation, charset })`
+- `repairRecordedTable(knex, tableName, state, reference, keys)`
+- `dropTableLeftWithoutKey(knex, migration, tableName, keys)`
+
 ### `src/server/testDatabaseFile.js`
 Exports
 - None

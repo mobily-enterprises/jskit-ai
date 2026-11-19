@@ -10,6 +10,7 @@
     "./server/databaseSetup": "./src/server/databaseSetup.js",
     "./server/knexMigrationConfig": "./src/server/knexMigrationConfig.js",
     "./server/foreignKeyMigrations": "./src/server/foreignKeyMigrations.js",
+    "./server/tableCollationMigrations": "./src/server/tableCollationMigrations.js",
     "./server/testDatabases": "./src/server/testDatabases.js",
     "./server/types": "./src/server/types.js",
     "./shared": "./src/shared/index.js",
@@ -64,6 +65,10 @@
           {
             "subpath": "./server/foreignKeyMigrations",
             "summary": "Adds a single-column foreign key only when it is missing, refusing rows without a parent, for constraints migrations on fresh and already-migrated databases, and lists every foreign key the connected database holds."
+          },
+          {
+            "subpath": "./server/tableCollationMigrations",
+            "summary": "Runs a migration that creates tables, on MySQL and MariaDB, with each new table in the collation of the existing tables rather than the database's default, and repairs a table that default left, for a released migration's companion and for new migrations."
           },
           {
             "subpath": "./server/testDatabases",

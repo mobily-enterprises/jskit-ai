@@ -430,3 +430,26 @@ naming the new one, and so does a preparation of test databases
 - `AUTH_LOCAL_FILE_PRODUCTION_ACK` is `AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK`:
   the local file auth backend needs it set to `true` in staging and in
   production.
+
+## New tables in the collation of the existing ones
+
+A MySQL or MariaDB database whose default collation differs from its tables',
+such as a dump restored onto a server with another default, made JSKIT's
+migrations up to the 0.2.93 catalog create each new table in that default.
+`auth_local_db_users_second_factors` then failed (errno 150, "Foreign key
+constraint is incorrectly formed") and left the database half-migrated: the
+migrations before it recorded, `auth_local_used_passes` among them in the
+database's default, and an empty, unrecorded `auth_local_second_factors`.
+
+Update to the catalog after 0.2.93 and run `npm run db:migrate`; no repair by
+hand. Each released migration that creates a table has a new companion,
+`<name>-collation.cjs`, which runs first and creates its tables in the
+collation of the existing tables, and repairs that state: the empty, unrecorded
+`auth_local_second_factors` is created again with its key, a table recorded in
+the database's default (`auth_local_used_passes`) is converted, keeping its
+rows, and a second factors table that a second try recorded without its key
+gets it. A database whose tables already match its default records the
+companions and changes nothing. A table holding rows that a conversion could
+not keep whole stops the migration and changes nothing, naming the table
+([Database layer](./database-layer.md#a-new-table-takes-the-collation-of-the-tables-already-there)).
+Do not change the database's default to get past the failure.

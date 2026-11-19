@@ -466,6 +466,10 @@ Exports
 Local functions
 - `foreignKeysAreIndexed(knex)`
 
+### `migrations/workspaces_core_initial-collation.cjs`
+Exports
+- None
+
 ### `migrations/workspaces_core_initial.cjs`
 Exports
 - None

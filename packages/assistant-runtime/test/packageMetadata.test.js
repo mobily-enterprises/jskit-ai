@@ -21,10 +21,13 @@ test("assistant-runtime registers providers without install-time authoring machi
   assert.equal(Object.hasOwn(packageMetadata.metadata.apiSummary, "containerTokens"), false);
   assert.deepEqual(packageMetadata.migrations, { directories: ["migrations"] });
   assert.deepEqual((await readdir(path.join(PACKAGE_ROOT, "migrations"))).sort(), [
+    "assistant_config_initial-collation.cjs",
     "assistant_config_initial.cjs",
+    "assistant_transcripts_initial-collation.cjs",
     "assistant_transcripts_initial.cjs",
     "assistant_transcripts_summary.cjs",
     "assistant_transcripts_tool_arguments.cjs",
+    "assistant_turn_requests-collation.cjs",
     "assistant_turn_requests.cjs",
     "constraints"
   ]);

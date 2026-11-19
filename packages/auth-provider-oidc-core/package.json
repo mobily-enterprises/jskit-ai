@@ -92,6 +92,7 @@
   },
   "peerDependencies": {
     "@jskit-ai/auth-core": "0.2.32",
+    "@jskit-ai/database-runtime": "0.1.277",
     "@jskit-ai/kernel": "0.2.28"
   }
 }

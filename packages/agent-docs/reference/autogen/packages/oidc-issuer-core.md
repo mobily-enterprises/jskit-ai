@@ -241,6 +241,10 @@ Local functions
 
 ### migrations
 
+### `migrations/oidc_issuer_initial-collation.cjs`
+Exports
+- None
+
 ### `migrations/oidc_issuer_initial.cjs`
 Exports
 - None

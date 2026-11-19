@@ -255,6 +255,10 @@ Exports
 
 ### migrations
 
+### `migrations/users_core_generic_initial-collation.cjs`
+Exports
+- None
+
 ### `migrations/users_core_generic_initial.cjs`
 Exports
 - None

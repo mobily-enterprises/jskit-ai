@@ -951,6 +951,7 @@
         },
         "peerDependencies": {
           "@jskit-ai/auth-core": "0.2.32",
+          "@jskit-ai/database-runtime": "0.1.277",
           "@jskit-ai/kernel": "0.2.28"
         }
       }
@@ -1797,6 +1798,10 @@
               {
                 "subpath": "./server/foreignKeyMigrations",
                 "summary": "Adds a single-column foreign key only when it is missing, refusing rows without a parent, for constraints migrations on fresh and already-migrated databases, and lists every foreign key the connected database holds."
+              },
+              {
+                "subpath": "./server/tableCollationMigrations",
+                "summary": "Runs a migration that creates tables, on MySQL and MariaDB, with each new table in the collation of the existing tables rather than the database's default, and repairs a table that default left, for a released migration's companion and for new migrations."
               },
               {
                 "subpath": "./server/testDatabases",

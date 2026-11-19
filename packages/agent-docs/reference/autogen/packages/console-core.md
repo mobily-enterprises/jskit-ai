@@ -80,6 +80,10 @@ Exports
 
 ### migrations
 
+### `migrations/console_core_generic_initial-collation.cjs`
+Exports
+- None
+
 ### `migrations/console_core_generic_initial.cjs`
 Exports
 - None

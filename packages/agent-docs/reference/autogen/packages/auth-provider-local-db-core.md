@@ -120,11 +120,23 @@ Exports
 
 ### migrations
 
+### `migrations/auth_local_db_initial-collation.cjs`
+Exports
+- None
+
 ### `migrations/auth_local_db_initial.cjs`
 Exports
 - None
 
+### `migrations/auth_local_db_oauth-collation.cjs`
+Exports
+- None
+
 ### `migrations/auth_local_db_oauth.cjs`
+Exports
+- None
+
+### `migrations/auth_local_db_protection-collation.cjs`
 Exports
 - None
 
@@ -133,6 +145,10 @@ Exports
 - None
 
 ### `migrations/auth_local_db_sessions_metadata.cjs`
+Exports
+- None
+
+### `migrations/auth_local_db_used_passes-collation.cjs`
 Exports
 - None
 
@@ -149,6 +165,10 @@ Exports
 - None
 
 ### `migrations/auth_local_db_users_pending_email.cjs`
+Exports
+- None
+
+### `migrations/auth_local_db_users_second_factors-collation.cjs`
 Exports
 - None
 

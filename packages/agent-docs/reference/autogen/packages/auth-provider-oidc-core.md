@@ -129,6 +129,10 @@ Local functions
 
 ### migrations
 
+### `migrations/auth_oidc_initial-collation.cjs`
+Exports
+- None
+
 ### `migrations/auth_oidc_initial.cjs`
 Exports
 - None

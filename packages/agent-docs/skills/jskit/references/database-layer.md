@@ -244,6 +244,54 @@ relocation must retain its basename and be checked against both fresh and
 existing ledgers. Never drop valuable data or delete ledger entries to force
 a replay.
 
+### A new table takes the collation of the tables already there
+
+MySQL and MariaDB create a table that names no character set or collation in
+the database's default. A dump restored onto a server with another default
+keeps each table's collation but takes the new database default, so a later
+migration's new table no longer matches the tables it joins: comparing their
+text fails with "Illegal mix of collations", and a foreign key between them is
+refused (errno 150, "Foreign key constraint is incorrectly formed"). Up to
+`@jskit-ai/jskit-catalog` 0.2.93, `auth_local_db_users_second_factors.cjs` failed
+that way on such a database: it left an empty, unrecorded
+`auth_local_second_factors` behind, and the migrations before it had recorded
+their new tables in the new default, such as `auth_local_used_passes`.
+
+Every JSKIT package migration that creates a table now creates it in the
+collation of the existing tables, read from `information_schema`. Released
+migrations stay as they are: each has a companion, the same name with
+`-collation` before `.cjs`, which Knex sorts just before it (a `-` sorts before
+`.`), so it runs first on every database that has not run it. The companion
+calls `migrateInExistingCollation()` from
+`@jskit-ai/database-runtime/server/tableCollationMigrations`, which runs the
+released migration with each table it creates in the collation of the first
+existing table of its list (the package's first table, then `users`, then
+`auth_local_users`), and the released migration then finds its tables in place.
+On PostgreSQL and SQLite, or before any of those tables exists, it does
+nothing and the released migration runs as it did.
+
+It also repairs what the database's default left, each only in the state it
+measures, and changes nothing on a database whose tables are all in place, in
+that collation, with their keys:
+
+- an empty table of a migration Knex has not recorded, without the foreign key
+  that migration creates with it, is what a refused key left: it is dropped
+  and created again; with rows, the migration stops and changes nothing;
+- a table of a recorded migration in another collation is converted when no
+  stored character can be lost (its text is in the same character set, or one
+  the target holds every character of, or it has no row), and otherwise the
+  migration stops and changes nothing; it then gains a missing key, unless rows
+  have no parent.
+
+A new migration that creates a table calls `migrateInExistingCollation()` itself,
+with its own file name and its table-creating `up`, so it needs no companion.
+`tooling/jskit-catalog/test/tableCollationCompanions.test.js` fails for a table
+migration that does neither, and names the released ones a companion cannot
+serve: `payments_core_initial.cjs` and `connectors_core_initial.cjs` create
+their tables without checking whether they exist, and `agent_initial.cjs` runs
+on PostgreSQL only. Never change a database's default (`ALTER DATABASE`) to
+make a migration pass: an application's own tables keep theirs.
+
 ## Seed data is not a migration
 
 Migrations establish schema and invariant framework data. Product fixtures,

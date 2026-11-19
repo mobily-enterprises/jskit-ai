@@ -570,7 +570,15 @@ Exports
 
 ### migrations
 
+### `migrations/assistant_config_initial-collation.cjs`
+Exports
+- None
+
 ### `migrations/assistant_config_initial.cjs`
+Exports
+- None
+
+### `migrations/assistant_transcripts_initial-collation.cjs`
 Exports
 - None
 
@@ -583,6 +591,10 @@ Exports
 - None
 
 ### `migrations/assistant_transcripts_tool_arguments.cjs`
+Exports
+- None
+
+### `migrations/assistant_turn_requests-collation.cjs`
 Exports
 - None
 

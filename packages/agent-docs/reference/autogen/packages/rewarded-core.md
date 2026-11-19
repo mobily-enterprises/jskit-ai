@@ -131,7 +131,15 @@ Exports
 Exports
 - None
 
+### `migrations/rewarded_provider_configs_initial-collation.cjs`
+Exports
+- None
+
 ### `migrations/rewarded_provider_configs_initial.cjs`
+Exports
+- None
+
+### `migrations/rewarded_rules_initial-collation.cjs`
 Exports
 - None
 
@@ -139,7 +147,15 @@ Exports
 Exports
 - None
 
+### `migrations/rewarded_unlock_receipts_initial-collation.cjs`
+Exports
+- None
+
 ### `migrations/rewarded_unlock_receipts_initial.cjs`
+Exports
+- None
+
+### `migrations/rewarded_watch_sessions_initial-collation.cjs`
 Exports
 - None
 
