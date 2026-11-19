@@ -960,6 +960,7 @@ Local functions
 - `toPolicyText(directives)`
 - `resolveContentSecurityPolicyHeaders(settings)`
 - `resolveSecurityHeaders({ config, env })`
+- `resolveApiCacheControl({ config })`
 
 ### `server/http/trustedProxies.js`
 Exports

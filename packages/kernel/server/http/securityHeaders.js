@@ -1,5 +1,6 @@
 import { isRecord, normalizeObject } from "../../shared/support/normalize.js";
 import { isStagingOrProduction } from "../../shared/support/appEnvironment.js";
+import { API_BASE_PATH, matchesPathPrefix, toRequestPathname } from "../../shared/surface/paths.js";
 
 /** @typedef {import("../types.js").RuntimeConfig} RuntimeConfig */
 /** @typedef {import("../types.js").RuntimeEnv} RuntimeEnv */
@@ -8,6 +9,10 @@ import { isStagingOrProduction } from "../../shared/support/appEnvironment.js";
 const DEFAULT_REFERRER_POLICY = "strict-origin-when-cross-origin";
 const DEFAULT_FRAME_ANCESTORS = Object.freeze(["'self'"]);
 const DEFAULT_STRICT_TRANSPORT_SECURITY = "max-age=31536000";
+// API answers carry the signed-in person's data (the session, its CSRF token, a workspace's records): no browser or
+// proxy keeps them unless the route says so itself. no-store alone says it; no-cache and must-revalidate are there for
+// older caches and for scanners that ask for all three (OWASP ZAP rule 10015).
+const DEFAULT_API_CACHE_CONTROL = "no-store, no-cache, must-revalidate";
 const CONTENT_SECURITY_POLICY_MODES = Object.freeze(["report-only", "enforce", "off"]);
 
 /**
@@ -172,15 +177,26 @@ function resolveSecurityHeaders({ config, env }) {
 }
 
 /**
+ * The Cache-Control an API answer (under /api) gets when its route set none: `config.securityHeaders.apiCacheControl`,
+ * else "no-store, no-cache, must-revalidate"; false leaves it out.
+ * @param {{ config: RuntimeConfig }} options
+ */
+function resolveApiCacheControl({ config }) {
+  const settings = isRecord(config.securityHeaders) ? config.securityHeaders : {};
+  return resolveHeaderText(settings.apiCacheControl, DEFAULT_API_CACHE_CONTROL, "apiCacheControl");
+}
+
+/**
  * Adds the security headers `config.securityHeaders` describes to every response the server
- * sends, leaving any a route set itself. Register it before any plugin, so every plugin's routes
- * inherit it; `createInstalledRuntime` does.
+ * sends, and its API Cache-Control to every answer under /api, leaving any a route set itself.
+ * Register it before any plugin, so every plugin's routes inherit it; `createInstalledRuntime` does.
  * @param {RuntimeFastify} fastify
  * @param {{ config: RuntimeConfig, env: RuntimeEnv }} settings
  */
 function registerSecurityHeaders(fastify, { config, env }) {
   const headers = resolveSecurityHeaders({ config, env });
-  if (headers.length < 1) {
+  const apiCacheControl = resolveApiCacheControl({ config });
+  if (headers.length < 1 && !apiCacheControl) {
     return;
   }
   fastify.addHook("onSend", async (request, reply, payload) => {
@@ -188,6 +204,14 @@ function registerSecurityHeaders(fastify, { config, env }) {
       if (!reply.hasHeader(name) && !reply.raw.hasHeader(name)) {
         reply.header(name, value);
       }
+    }
+    if (
+      apiCacheControl &&
+      !reply.hasHeader("cache-control") &&
+      !reply.raw.hasHeader("cache-control") &&
+      matchesPathPrefix(toRequestPathname(request.url), API_BASE_PATH)
+    ) {
+      reply.header("cache-control", apiCacheControl);
     }
     return payload;
   });

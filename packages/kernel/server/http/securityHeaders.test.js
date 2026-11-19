@@ -55,7 +55,11 @@ async function createAppServer(context, { config = {}, env = {} } = {}) {
     return reply.type("text/html; charset=utf-8").send("<p>Hub</p>");
   });
   app.get("/own-referrer", async (request, reply) => reply.header("referrer-policy", "no-referrer").send({ own: true }));
+  app.get("/api/logo", async (request, reply) => reply.header("cache-control", "public, max-age=86400").send({ logo: true }));
   app.get("/broken", async () => {
+    throw new Error("Broken.");
+  });
+  app.get("/api/broken", async () => {
     throw new Error("Broken.");
   });
   app.setNotFoundHandler(async (request, reply) => reply.code(404).type("text/html; charset=utf-8").send("<p>Shell</p>"));
@@ -91,6 +95,34 @@ test("staging and production responses enforce frame-ancestors, report the conte
       assert.equal(response.headers["strict-transport-security"], "max-age=31536000", url);
     }
   }
+});
+
+test("every API answer, failures and not-found ones included, is kept by no browser or proxy; pages are left alone", async (context) => {
+  for (const env of [{ APP_ENV: "development" }, { APP_ENV: "test" }, PRODUCTION]) {
+    const app = await createAppServer(context, { env });
+    for (const url of ["/api/health", "/api/broken", "/api/missing", "/api", "/api/health?fresh=1"]) {
+      const response = await app.inject({ method: "GET", url });
+      assert.equal(response.headers["cache-control"], "no-store, no-cache, must-revalidate", url);
+    }
+    for (const url of ["/plugin", "/page", "/broken", "/missing", "/apix"]) {
+      const response = await app.inject({ method: "GET", url });
+      assert.equal(response.headers["cache-control"], undefined, url);
+    }
+    // A route that wants its answer kept says so, and keeps its own value.
+    const logo = await app.inject({ method: "GET", url: "/api/logo" });
+    assert.equal(logo.headers["cache-control"], "public, max-age=86400");
+  }
+});
+
+test("config.securityHeaders.apiCacheControl changes or drops the API answers' Cache-Control", async (context) => {
+  const own = await createAppServer(context, { env: PRODUCTION, config: { securityHeaders: { apiCacheControl: "private, no-cache" } } });
+  assert.equal((await own.inject({ method: "GET", url: "/api/health" })).headers["cache-control"], "private, no-cache");
+  const none = await createAppServer(context, { env: PRODUCTION, config: { securityHeaders: { apiCacheControl: false } } });
+  assert.equal((await none.inject({ method: "GET", url: "/api/health" })).headers["cache-control"], undefined);
+  await assert.rejects(
+    createAppServer(context, { env: PRODUCTION, config: { securityHeaders: { apiCacheControl: "no-store\r\nx-injected: 1" } } }),
+    { message: /apiCacheControl must be a header value or false/u }
+  );
 });
 
 test("a route's own security header wins over the default", async (context) => {

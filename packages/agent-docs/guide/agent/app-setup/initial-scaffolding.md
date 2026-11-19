@@ -131,6 +131,7 @@ these headers itself keeps its own value.
 | `Strict-Transport-Security` | staging, production | `max-age=31536000` |
 | `Content-Security-Policy: frame-ancestors` | staging, production | `'self'` |
 | `Content-Security-Policy-Report-Only` | staging, production | the content policy below |
+| `Cache-Control` | API answers (under `/api`), always | `no-store, no-cache, must-revalidate` |
 
 Staging and production are `APP_ENV=staging` and `APP_ENV=production` (see
 [Environments](/guide/framework/environments)), which the host sets beside
@@ -138,6 +139,12 @@ Staging and production are `APP_ENV=staging` and `APP_ENV=production` (see
 npm start`. Development and test send only nosniff and the Referrer-Policy, so
 an editor's preview, such as Vibe64's, can frame the application and inject its
 bridge script.
+
+API answers carry the signed-in person's data, such as the session and its CSRF
+token, so no browser or proxy keeps them: each answer under `/api`, a failure
+or a 404 included, gets `Cache-Control: no-store, no-cache, must-revalidate`
+unless its route set its own Cache-Control, as a public logo that may be kept
+for a day does.
 
 The content policy allows JSKIT's client: the application's own scripts and
 WebAssembly, inline styles (Vuetify and the loading shell use them), images
@@ -168,9 +175,10 @@ export const config = {
 };
 ```
 
-`noSniff: false`, `referrerPolicy: false`, `strictTransportSecurity: false` and
-`frameAncestors: false` leave that header out; `referrerPolicy` and
-`strictTransportSecurity` also take their own header value. A directive's
+`noSniff: false`, `referrerPolicy: false`, `strictTransportSecurity: false`,
+`frameAncestors: false` and `apiCacheControl: false` leave that header out;
+`referrerPolicy`, `strictTransportSecurity` and `apiCacheControl` also take their
+own header value. A directive's
 sources replace JSKIT's for that directive; framing is set only through
 `frameAncestors`. An invalid value stops the server from starting. A server
 composed without `createInstalledRuntime` calls
