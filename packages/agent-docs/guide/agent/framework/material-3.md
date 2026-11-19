@@ -104,6 +104,9 @@ Exactly this, and nothing more:
    no parent. A literal destination is served by a page whose route matches it
    segment by segment, each `:param` standing for exactly one segment; the
    page's deeper pages (`modules/[moduleKey]/settings.vue`) are inner pages.
+   As the router does, a static page comes first: a link to `/jobs/new` leads
+   to `jobs/new.vue` when it exists, so `jobs/[jobId]/index.vue` stays an inner
+   page with its parent.
 3. **Every in-app link and navigation goes through JSKIT navigation:**
    `:to="paths.page('/suppliers')"` and `router.push(paths.page(...))` with
    `usePaths()`, the CRUD runtime's `resolveViewUrl()`, `resolveEditUrl()` and

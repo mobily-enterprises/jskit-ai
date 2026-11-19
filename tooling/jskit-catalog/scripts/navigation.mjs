@@ -301,6 +301,8 @@ function normalisePath(value) {
   return trimmed === "/" ? "/" : trimmed;
 }
 
+const PARAM_SEGMENT = /^:[\w$]+$/u;
+
 // Whether a literal path is one a page's route pattern serves: segment by segment, each `:param` stands for exactly
 // one non-empty segment and every other segment is the same text. /modules/:moduleKey serves /modules/incidents, not
 // /modules or /modules/incidents/open; a catch-all (:rest*) matches only its own text.
@@ -308,7 +310,20 @@ function patternServes(pattern, literal) {
   const patternSegments = pattern.split("/");
   const literalSegments = literal.split("/");
   return patternSegments.length === literalSegments.length && patternSegments.every((segment, index) =>
-    segment === literalSegments[index] || (/^:[\w$]+$/u.test(segment) && literalSegments[index] !== ""));
+    segment === literalSegments[index] || (PARAM_SEGMENT.test(segment) && literalSegments[index] !== ""));
+}
+
+// Whether route pattern `a` ranks above `b` for a literal path both serve, as the router ranks them: at the first
+// segment where one is static and the other a :param, the static one wins. /jobs/new comes before /jobs/:jobId, and
+// /jobs/:jobId before /:section/new.
+function outranks(a, b) {
+  const aSegments = a.split("/");
+  const bSegments = b.split("/");
+  for (const [index, segment] of aSegments.entries()) {
+    const param = PARAM_SEGMENT.test(segment);
+    if (param !== PARAM_SEGMENT.test(bSegments[index])) return !param;
+  }
+  return false;
 }
 
 // unplugin-vue-router file routes: src/pages/home/suppliers/[supplierId]/edit.vue is home/suppliers/:supplierId/edit,
@@ -556,6 +571,14 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
     if (page.layout) page.shell = await shellPlacement(page.file, page.source, drawsShellBar, known);
   }
   const surfaces = readSurfaces(configSource, [...pages.values()].map(({ file }) => routeOf(file)));
+  const packageRoutes = await readPackageRoutes(root, known);
+  // Every route the router has, by its address: the app's pages and the packages' routes.
+  const routes = [...[...pages.values()].map(({ file }) => normalisePath(routePattern(routeOf(file)))),
+    ...packageRoutes.map((route) => normalisePath(route.path))];
+  // Whether the route at an address is the one the router renders for a literal path: it serves the path and no route
+  // that ranks above it does. A link to /jobs/new leads to jobs/new.vue when there is one, not to jobs/[jobId].
+  const leadsTo = (address, literal) => patternServes(address, literal)
+    && !routes.some((other) => patternServes(other, literal) && outranks(other, address));
   const scripts = appFiles.filter((file) => /\.(?:[cm]?[jt]s|vue)$/u.test(file));
   const navigation = readMainNavigation(await Promise.all(scripts.map(async (file) => ({ file, source: blankJsComments(await read(file)) }))));
   for (const { file, source, offset, computed } of navigation.unreadable) {
@@ -566,14 +589,17 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
   const addressOf = (relative, surface) => normalisePath(routePattern(`${surface.pagesRoot}${relative}`));
   const shownOn = (owners, surface) => owners.length === 0 || owners.includes(surface.id) || owners.includes("*");
   // A destination by its suffix on the surface, or by its address (`to`). A page with a dynamic route (one page for
-  // every module, at /modules/:moduleKey) is a destination when a destination's literal path is one it serves.
+  // every module, at /modules/:moduleKey) is a destination when a destination's literal path is one it serves and no
+  // route the router prefers (a static page such as /modules/new) serves too.
   const isDestination = (relative, surface) => navigation.destinations.some(({ suffix, to, surfaces: owners }) =>
-    to === undefined ? patternServes(relative, suffix) && shownOn(owners, surface) : patternServes(addressOf(relative, surface), to));
+    to === undefined
+      ? shownOn(owners, surface) && leadsTo(addressOf(relative, surface), addressOf(suffix, surface))
+      : leadsTo(addressOf(relative, surface), to));
   // A global route's address is a destination when a link's `to` names it, or a suffix leads there on a surface.
   const isAddress = (address) => navigation.destinations.some(({ suffix, to, surfaces: owners }) =>
     to === undefined
-      ? surfaces.some((surface) => shownOn(owners, surface) && patternServes(address, addressOf(suffix, surface)))
-      : patternServes(address, to));
+      ? surfaces.some((surface) => shownOn(owners, surface) && leadsTo(address, addressOf(suffix, surface)))
+      : leadsTo(address, to));
   // An App.vue that wraps every page in the shell's bar leaves no page outside it.
   const appShell = appFiles.includes("src/App.vue") && await drawsShellBar("src/App.vue");
   const judged = [];
@@ -626,7 +652,7 @@ async function checkPageParents({ root, appFiles, pageFiles, report }) {
       report({ rule: "nav/missing-parent", file, ...at, message: `Inner page ${relative} of ${surface.id} has no parent. Declare it once in the page's route meta (or its layout's, for tabs), so Up works after a direct entry.` });
     }
   }
-  for (const route of await readPackageRoutes(root, known)) {
+  for (const route of packageRoutes) {
     if (!pageFiles.includes(route.file) && !pageFiles.includes(route.manifest)) continue;
     const verdict = await judgePackageRoute(route, { surfaces, appShell, drawsShellBar, isDestination, isAddress, readable: navigation.unreadable.length === 0, report });
     if (verdict) judged.push(verdict);

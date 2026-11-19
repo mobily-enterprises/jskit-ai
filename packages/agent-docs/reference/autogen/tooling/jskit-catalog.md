@@ -275,6 +275,7 @@ Local functions
 - `computedPlacementPart(placement)`
 - `normalisePath(value)`
 - `patternServes(pattern, literal)`
+- `outranks(a, b)`
 - `routeOf(file)`
 - `routePattern(route)`
 - `readSurfaces(configSource, pageRoutes)`

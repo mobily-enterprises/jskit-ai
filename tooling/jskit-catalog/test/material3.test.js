@@ -749,6 +749,51 @@ test("a dynamic page that serves literal main-navigation destinations is top-lev
   });
 });
 
+// The router prefers a static page to a dynamic one, so a link to /jobs/new leads to jobs/new.vue, not to
+// jobs/[jobId]: the dynamic page is a destination only for a literal path no more specific page serves.
+const jobsApp = (files) => ({
+  "package.json": SHELL_MANIFEST,
+  "config/public.js": "const config = {};\nconfig.surfaceDefinitions = {};\nconfig.surfaceDefinitions.admin = { id: \"admin\", pagesRoot: \"w/[workspaceSlug]/admin\" };\nexport { config };\n",
+  "src/placement.js": [
+    "addPlacement({ id: \"app.jobs\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"admin\"], props: { label: \"Jobs\", surface: \"admin\", scopedSuffix: \"/jobs\" } });",
+    "addPlacement({ id: \"app.new-job\", target: \"shell.primary-nav\", kind: \"link\", surfaces: [\"admin\"], props: { label: \"New job\", surface: \"admin\", scopedSuffix: \"/jobs/new\" } });",
+    ""
+  ].join("\n"),
+  "src/pages/w/[workspaceSlug]/admin.vue": SHELL_LAYOUT.replace("\"surface\": \"home\"", "\"surface\": \"admin\""),
+  "src/pages/w/[workspaceSlug]/admin/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/w/[workspaceSlug]/admin/jobs/index.vue": "<template>\n  <section />\n</template>\n",
+  "src/pages/w/[workspaceSlug]/admin/jobs/[jobId]/index.vue": pageWith("definePage({ meta: { jskit: { parent: \"/jobs\" } } });"),
+  ...files
+});
+
+test("a dynamic page is not the destination of a literal path that a static page serves", async () => {
+  for (const newPage of ["jobs/new.vue", "jobs/new/index.vue"]) {
+    await withApp(jobsApp({ [`src/pages/w/[workspaceSlug]/admin/${newPage}`]: "<template>\n  <section />\n</template>\n" }), async (root) => {
+      const result = await checkNavigation({ projectRoot: root });
+      assert.deepEqual(findingLines(result), []);
+      assert.deepEqual(result.pages.map(({ route, topLevel, parent }) => [route, topLevel ? "top" : "", parent || ""].join(" ").trim()).sort(), [
+        "/ top",
+        "/jobs top",
+        "/jobs/:jobId  own",
+        "/jobs/new top"
+      ]);
+    });
+  }
+  // Without the static page, /jobs/:jobId is what serves /jobs/new, so it is a destination and declares no parent.
+  await withApp(jobsApp({}), async (root) => {
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), [
+      "src/pages/w/[workspaceSlug]/admin/jobs/[jobId]/index.vue:2 nav/top-level-parent"
+    ]);
+  });
+  // A static page elsewhere in the path doesn't serve /jobs/new: /:section/new is less specific than /jobs/:jobId.
+  await withApp(jobsApp({ "src/pages/w/[workspaceSlug]/admin/[section]/new.vue": "<template>\n  <section />\n</template>\n" }), async (root) => {
+    assert.deepEqual(findingLines(await checkNavigation({ projectRoot: root })), [
+      "src/pages/w/[workspaceSlug]/admin/[section]/new.vue:1 nav/missing-parent",
+      "src/pages/w/[workspaceSlug]/admin/jobs/[jobId]/index.vue:2 nav/top-level-parent"
+    ]);
+  });
+});
+
 // A Home link shown on the account surface too: it names its surface, so it leads to home's "/" from both.
 const accountApp = (homeLinkProps) => ({
   "package.json": SHELL_MANIFEST,
