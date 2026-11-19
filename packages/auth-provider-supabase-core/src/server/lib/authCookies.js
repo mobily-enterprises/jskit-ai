@@ -6,11 +6,11 @@ function safeRequestCookies(request) {
   return {};
 }
 
-function cookieOptions(isDeployed, maxAge) {
+function cookieOptions(isStagingOrProduction, maxAge) {
   const options = {
     httpOnly: true,
     sameSite: "lax",
-    secure: isDeployed,
+    secure: isStagingOrProduction,
     path: "/"
   };
 
@@ -21,11 +21,11 @@ function cookieOptions(isDeployed, maxAge) {
   return options;
 }
 
-function cookieClearOptions(isDeployed) {
+function cookieClearOptions(isStagingOrProduction) {
   return [
-    cookieOptions(isDeployed, 0),
+    cookieOptions(isStagingOrProduction, 0),
     {
-      ...cookieOptions(isDeployed, 0),
+      ...cookieOptions(isStagingOrProduction, 0),
       path: "/api"
     }
   ];

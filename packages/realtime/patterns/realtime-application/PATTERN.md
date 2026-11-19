@@ -22,8 +22,8 @@ delivery semantics are clear. A single-process application does not need Redis.
 ## Product decisions
 
 Decide which events are public contracts, their scopes and payloads, reconnect
-behavior, whether a connection indicator belongs in the UI, and whether the
-deployment needs a Redis backplane.
+behavior, whether a connection indicator belongs in the UI, and whether
+staging or production needs a Redis backplane.
 
 ## Invariants
 

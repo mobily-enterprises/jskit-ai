@@ -154,7 +154,7 @@ test("while a production server waits for its first account, a Google sign-in ca
   const codes = [];
   const firstAccountSetup = createFirstAccountSetup({
     backend,
-    config: { isDeployed: true, storeDir: backend.storeDir },
+    config: { isStagingOrProduction: true, storeDir: backend.storeDir },
     logger: { warn: (fields) => codes.push(fields.firstAccountSetupCode) }
   });
   await firstAccountSetup.start();

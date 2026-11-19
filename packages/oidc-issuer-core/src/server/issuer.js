@@ -174,7 +174,7 @@ async function createOidcIssuer({
     // Hub pages are never framed. Development keeps the app's own pages
     // frameable so an editor's preview pane can show them.
     app.addHook("onRequest", async (request, reply) => {
-      if (config.isDeployed || isHubPath(request.url)) {
+      if (config.isStagingOrProduction || isHubPath(request.url)) {
         reply.raw.setHeader("x-frame-options", "DENY");
         reply.raw.setHeader("content-security-policy", "frame-ancestors 'none'");
       }

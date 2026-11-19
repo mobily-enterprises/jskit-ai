@@ -92,3 +92,28 @@ test("an AUTH_COOKIE_SAME_SITE other than lax or strict stops local auth's start
     });
   }
 });
+
+test("in staging and production the OAuth attempt's cookie is the host-only __Host- one, Secure, set and cleared at Path=/",
+  async (t) => {
+    for (const APP_ENV of ["staging", "production"]) {
+      const storeDir = await fs.mkdtemp(path.join(os.tmpdir(), "jskit-auth-local-oauth-attempt-"));
+      t.after(() => fs.rm(storeDir, { recursive: true, force: true }));
+      const service = createService({
+        backend: createLocalFileBackend({ storeDir }),
+        oauthProviders: [],
+        profileProjector: noAppProfiles,
+        env: { APP_ENV, NODE_ENV: "production", AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "" }
+      });
+      const written = [];
+      const reply = {
+        setCookie: (name, _value, options) => written.push([name, "set", options.path, options.secure]),
+        clearCookie: (name, options) => written.push([name, "cleared", options.path, options.secure])
+      };
+      service.writeOAuthStartCookies(reply, { attempt: "browser-key" });
+      service.clearOAuthStartCookies(reply);
+      assert.deepEqual(written, [
+        ["__Host-jskit_local_oauth_attempt", "set", "/", true],
+        ["__Host-jskit_local_oauth_attempt", "cleared", "/", true]
+      ], APP_ENV);
+    }
+  });

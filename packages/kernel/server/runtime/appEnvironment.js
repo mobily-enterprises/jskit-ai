@@ -1,13 +1,24 @@
-import { APP_ENV_KEY, appEnvironment, isDeployed } from "../../shared/support/appEnvironment.js";
+import { APP_ENV_KEY, appEnvironment, isStagingOrProduction } from "../../shared/support/appEnvironment.js";
 
 /** @typedef {import("../types.js").RuntimeEnv} RuntimeEnv */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
 /** @typedef {"development" | "test" | "staging" | "production"} AppEnvironment */
 
 const NODE_ENV_KEY = "NODE_ENV";
-const RETIRED_SIDE_EFFECTS_KEY = "SIDE_EFFECTS";
 // The one address each kind of message goes to in staging; with it unset, staging logs the message.
 const STAGING_ADDRESS_KEYS = Object.freeze({ email: "STAGING_EMAIL_TO", sms: "STAGING_SMS_TO" });
+// The environment variables JSKIT no longer reads, each with the fix that names what replaced it. While one is set, a
+// server refuses to start and test databases are not prepared (`assertNoRetiredVariables`), instead of ignoring it.
+const RETIRED_VARIABLES = Object.freeze({
+  SIDE_EFFECTS: `SIDE_EFFECTS was replaced by ${APP_ENV_KEY}: remove SIDE_EFFECTS. ` +
+    `${APP_ENV_KEY}=production acts for real; staging sends email and SMS only to ${STAGING_ADDRESS_KEYS.email} ` +
+    `and ${STAGING_ADDRESS_KEYS.sms}; development and test only log.`,
+  PROD_DB_NAME: "PROD_DB_NAME is no longer read: name that database in STAGING_DB_NAME (your Staging database) or " +
+    "PRODUCTION_DB_NAME (your Production database).",
+  AUTH_LOCAL_FILE_PRODUCTION_ACK: "AUTH_LOCAL_FILE_PRODUCTION_ACK is no longer read: set " +
+    "AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK=true instead, which the local file auth backend needs in staging and " +
+    "production."
+});
 const STAGING_ORIGINAL_TO_HEADER = "X-Staging-Original-To";
 const ENVIRONMENT_LABELS = Object.freeze({
   development: "Development",
@@ -18,22 +29,32 @@ const ENVIRONMENT_LABELS = Object.freeze({
 const BODY_OPENING_PATTERN = /<body(?:\s[^>]*)?>/iu;
 
 /**
- * Stops a server's startup, naming the fix, unless its environment is one JSKIT knows: APP_ENV set to development,
- * test, staging or production; NODE_ENV=production in staging and production, where optimised builds run; and no
- * SIDE_EFFECTS, which APP_ENV replaced. `createInstalledRuntime` checks it before anything else.
+ * Throws, in any environment, while a variable JSKIT no longer reads is set, with the fix for each one set:
+ * SIDE_EFFECTS, which APP_ENV replaced; PROD_DB_NAME, which STAGING_DB_NAME and PRODUCTION_DB_NAME replaced; and
+ * AUTH_LOCAL_FILE_PRODUCTION_ACK, which AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK replaced. A server's startup
+ * (`assertAppEnvironment`) and every preparation of test databases check it first.
+ * @param {RuntimeEnv} env
+ */
+function assertNoRetiredVariables(env) {
+  const fixes = Object.entries(RETIRED_VARIABLES)
+    .filter(([name]) => String(env[name] ?? "").trim())
+    .map(([, fix]) => fix);
+  if (fixes.length > 0) {
+    throw new Error(fixes.join(" "));
+  }
+}
+
+/**
+ * Stops a server's startup, naming the fix, unless its environment is one JSKIT knows: no variable JSKIT no longer
+ * reads (`assertNoRetiredVariables`); APP_ENV set to development, test, staging or production; and NODE_ENV=production
+ * in staging and production, where optimised builds run. `createInstalledRuntime` checks it before anything else.
  * @param {RuntimeEnv} env
  */
 function assertAppEnvironment(env) {
-  if (String(env[RETIRED_SIDE_EFFECTS_KEY] ?? "").trim()) {
-    throw new Error(
-      `${RETIRED_SIDE_EFFECTS_KEY} was replaced by ${APP_ENV_KEY}: remove ${RETIRED_SIDE_EFFECTS_KEY}. ` +
-        `${APP_ENV_KEY}=production acts for real; staging sends email and SMS only to ${STAGING_ADDRESS_KEYS.email} ` +
-        `and ${STAGING_ADDRESS_KEYS.sms}; development and test only log.`
-    );
-  }
+  assertNoRetiredVariables(env);
   const environment = appEnvironment(env);
   const nodeEnv = String(env[NODE_ENV_KEY] ?? "").trim();
-  if (isDeployed(env) && nodeEnv !== "production") {
+  if (isStagingOrProduction(env) && nodeEnv !== "production") {
     throw new Error(
       `${APP_ENV_KEY} is ${environment}, so ${NODE_ENV_KEY} must be production, and it is ` +
         `${nodeEnv ? nodeEnv : "not set"}. Set ${NODE_ENV_KEY}=production: it only picks optimised builds, and ` +
@@ -49,7 +70,7 @@ function assertAppEnvironment(env) {
  * @param {ReadonlyArray<string>} names The development-only env names.
  */
 function assertDevelopmentOnlySettings(env, names) {
-  if (!isDeployed(env)) {
+  if (!isStagingOrProduction(env)) {
     return;
   }
   const environment = appEnvironment(env);
@@ -194,6 +215,7 @@ export {
   STAGING_ORIGINAL_TO_HEADER,
   assertAppEnvironment,
   assertDevelopmentOnlySettings,
+  assertNoRetiredVariables,
   deliverMessage,
   logAppEnvironment,
   logSideEffect,

@@ -258,8 +258,9 @@ application:
    seeded copy of `BROWSER_TEST_DB_NAME`. Server settings for tests only (a
    simulated email or payment driver) go in `browserTestConfig({ env })`.
 4. Runs Node tests with `"test": "jskit test --databases"`, with
-   `TEST_DB_NAME` distinct from `DB_NAME`, `BROWSER_TEST_DB_NAME` and
-   `PROD_DB_NAME`, and a database user that may create its numbered copies
+   `TEST_DB_NAME` distinct from `DB_NAME`, `BROWSER_TEST_DB_NAME`,
+   `STAGING_DB_NAME` and `PRODUCTION_DB_NAME`, and a database user that may
+   create its numbered copies
    (`CREATEDB` on PostgreSQL). Test files read `DB_NAME`/`TEST_DB_NAME` as
    given rather than naming the test database themselves, and no longer
    create, migrate or drop it: the run hands each file a restored copy.
@@ -383,7 +384,8 @@ without a known `APP_ENV` refuses to start, naming the fix.
   `APP_ENV=development vite`; an older application adds the same.
 - Staging: set `APP_ENV=staging` and `NODE_ENV=production`, plus
   `STAGING_EMAIL_TO` and `STAGING_SMS_TO` for the testers' inbox and phone
-  (unset, email and SMS are logged). Staging needs production's secrets.
+  (unset, email and SMS are logged). Staging needs secrets of its own, as
+  production does.
 - Production: set `APP_ENV=production` and `NODE_ENV=production`, and remove
   `SIDE_EFFECTS`.
 - Tests: `jskit test` and the browser test servers set `APP_ENV=test`. A test
@@ -397,7 +399,7 @@ without a known `APP_ENV` refuses to start, naming the fix.
   `@jskit-ai/kernel/server/runtime/sideEffects` and
   `@jskit-ai/kernel/server/runtime/runtimeMode` are gone: read
   `@jskit-ai/kernel/shared/support/appEnvironment` (`appEnvironment`,
-  `isDeployed`) and `@jskit-ai/kernel/server/runtime/appEnvironment`
+  `isStagingOrProduction`) and `@jskit-ai/kernel/server/runtime/appEnvironment`
   (`deliverMessage`, `markStagingEmail`, `logSideEffect`,
   `assertDevelopmentOnlySettings`). The page's meta tag is
   `jskit-app-environment` and the banner's test id
@@ -405,3 +407,26 @@ without a known `APP_ENV` refuses to start, naming the fix.
 - An installed `auth.local.confirmation-sender` or `auth.local.recovery-sender`
   receives `originalEmail` in staging; show it in the email
   (`markStagingEmail`).
+
+## Name staging and production apart
+
+JSKIT's names say staging or production where they mean both, and nothing
+reads the old ones. A server refuses to start while an old variable is set,
+naming the new one, and so does a preparation of test databases
+([Environments](/guide/framework/environments#starting-refuses-what-is-not-clear)).
+
+- Code: `isDeployed(env)` from `@jskit-ai/kernel/shared/support/appEnvironment`
+  is `isStagingOrProduction(env)`, with the same answer: true in staging and
+  production. An import of the old name fails as the module loads.
+- Configuration fields: the dev auth policy (`resolveDevAuthPolicy`,
+  `resolveDevAuthPolicyFromEnv`), local auth's, OIDC sign-in's, Supabase's and
+  the accounts hub's resolved configuration name it `isStagingOrProduction`, in
+  place of `isDeployed`. A read of the old field is `undefined`, which reads as
+  development, so rename every read.
+- `PROD_DB_NAME` is gone. Name the database a server shares with your test
+  databases in `STAGING_DB_NAME` (your Staging database) or
+  `PRODUCTION_DB_NAME` (your Production database); a test database, or one of
+  its copies, named like either is refused.
+- `AUTH_LOCAL_FILE_PRODUCTION_ACK` is `AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK`:
+  the local file auth backend needs it set to `true` in staging and in
+  production.

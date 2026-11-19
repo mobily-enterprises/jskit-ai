@@ -8,7 +8,7 @@ const INVITE = Object.freeze({
   inviteUrl: "https://app.example.test/invite?token=abc",
   message: Object.freeze({ subject: "You're invited to Books", text: "Join us", html: "<p>Join us</p>" })
 });
-const DEPLOYED = Object.freeze({ NODE_ENV: "production" });
+const SERVER_NODE_ENV = Object.freeze({ NODE_ENV: "production" });
 
 function mailerIn(env) {
   const logs = [];
@@ -47,7 +47,7 @@ test("development and test log each invitation, send none and report it simulate
 });
 
 test("staging sends an invitation for someone else only to STAGING_EMAIL_TO, saying whom it was for", async () => {
-  const { logs, sent, mailer } = mailerIn({ ...DEPLOYED, APP_ENV: "staging", STAGING_EMAIL_TO: "qa@example.test" });
+  const { logs, sent, mailer } = mailerIn({ ...SERVER_NODE_ENV, APP_ENV: "staging", STAGING_EMAIL_TO: "qa@example.test" });
   const options = { trx: null };
   assert.deepEqual(await mailer.sendWorkspaceInvite(INVITE, options), { status: "sent", providerMessageId: "m-1" });
   assert.equal(sent.length, 1);
@@ -66,12 +66,12 @@ test("staging sends an invitation for someone else only to STAGING_EMAIL_TO, say
 });
 
 test("staging without STAGING_EMAIL_TO logs each invitation, and production sends it to its address unmarked", async () => {
-  const staging = mailerIn({ ...DEPLOYED, APP_ENV: "staging" });
+  const staging = mailerIn({ ...SERVER_NODE_ENV, APP_ENV: "staging" });
   assert.equal((await staging.mailer.sendWorkspaceInvite(INVITE, {})).status, "simulated");
   assert.equal(staging.sent.length, 0);
   assert.match(staging.logs[0].message, /was logged, not sent: STAGING_EMAIL_TO is not set\.$/u);
 
-  const production = mailerIn({ ...DEPLOYED, APP_ENV: "production", STAGING_EMAIL_TO: "qa@example.test" });
+  const production = mailerIn({ ...SERVER_NODE_ENV, APP_ENV: "production", STAGING_EMAIL_TO: "qa@example.test" });
   assert.equal((await production.mailer.sendWorkspaceInvite(INVITE, {})).status, "sent");
   assert.deepEqual(production.sent[0].invite, INVITE);
 });

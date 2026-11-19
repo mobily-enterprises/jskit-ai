@@ -49,7 +49,7 @@ function assertSelectedProvider(env) {
 /**
  * Supabase auth's settings, read once from the app's config and Env: the
  * project, where profiles live, the app's addresses, its OAuth providers and
- * dev auth. Whether it is deployed is worked out once, by auth-core's dev auth policy.
+ * dev auth. Whether it runs in staging or production is worked out once, by auth-core's dev auth policy.
  * @param {object} sources
  * @param {import("@jskit-ai/kernel/server/types").RuntimeConfig} sources.config
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} sources.env
@@ -74,7 +74,7 @@ function resolveSupabaseConfig({ config, env }) {
     supabasePublishableKey,
     configured: Boolean(supabaseUrl && supabasePublishableKey),
     jwtAudience,
-    isDeployed: devAuth.isDeployed,
+    isStagingOrProduction: devAuth.isStagingOrProduction,
     appPublicUrl,
     allowedReturnToOrigins: resolveAllowedOriginsFromSurfaceDefinitions(config.surfaceDefinitions || {}, {
       seedOrigins: [appPublicUrl]

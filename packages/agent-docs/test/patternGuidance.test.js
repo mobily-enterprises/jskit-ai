@@ -314,7 +314,7 @@ test("the sanity checks hold JSKIT's own pitfalls and the JSKIT mechanics for ea
     "Refactors",
     "Changes others depend on",
     "Screens",
-    "Production settings"
+    "Staging and production settings"
   ]);
   // The general method, its outer limits and its examples live outside JSKIT; this page stays a mechanics page
   // (10,000 bytes since the tool contracts check sends the largest real input and names the tool size limits).

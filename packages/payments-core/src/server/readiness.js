@@ -6,10 +6,10 @@ const DEFAULT_CHECKS = Object.freeze([
   { id: "charges", status: "manual", detail: "Confirm payment acceptance is enabled in the provider dashboard." },
   { id: "payouts", status: "manual", detail: "Confirm payout eligibility in the provider dashboard." },
   { id: "catalogue", status: "unknown", detail: "Inspect the saved products and prices." },
-  { id: "webhook", status: "unknown", detail: "Verify the deployed webhook route, signing secret and subscribed events." },
+  { id: "webhook", status: "unknown", detail: "Verify the webhook route of the release in use, its signing secret and subscribed events." },
   { id: "checkout", status: "unknown", detail: "Verify app checkout and portal routes, authorization and return handling." },
   { id: "site", status: "manual", detail: "Review required site content and provider domain or website approval." },
-  { id: "deployment", status: "unknown", detail: "Verify the intended release uses this configuration and environment." }
+  { id: "deployment", status: "unknown", detail: "Verify the release in use runs with this configuration and environment." }
 ]);
 // Only these checks take their result from the application's own evidence.
 const APPLICATION_CHECKS = ["webhook", "checkout", "site", "deployment"];

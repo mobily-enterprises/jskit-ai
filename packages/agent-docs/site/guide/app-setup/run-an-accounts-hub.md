@@ -23,8 +23,8 @@ Use the `auth/accounts-hub` pattern for the composition rules. Apps connect with
    `OIDC_HUB_REGISTRATION_TOKEN` and, if the database is shared or kept,
    `OIDC_HUB_SECRET`. Start it, create the owner account and confirm it (the
    link is in the server log without a sender). Run the tests.
-3. Production: choose the hub's own domain and set `APP_PUBLIC_URL`, a new
-   `OIDC_HUB_SECRET`, the same registration token the apps will use, the owner
+3. Staging and production: choose each server's own hub domain and set
+   `APP_PUBLIC_URL`, a new `OIDC_HUB_SECRET`, the same registration token the apps will use, the owner
    email, an email sender and `OIDC_HUB_DEV_ORIGIN_PATTERNS` for the apps'
    development previews.
 4. Deploy, then sign in as the owner and follow **Setup** until every item is
@@ -56,12 +56,12 @@ ready.
 
 | Name | Required | Meaning |
 |---|---|---|
-| `APP_PUBLIC_URL` | production | The hub's origin, which is its issuer. https outside this computer, no path. |
-| `OIDC_HUB_SECRET` | production | At least 32 random bytes. Protects cookies and the stored signing keys; never change it once set. Development generates one in `.jskit/oidc-hub/secret`, so set it explicitly whenever the database outlives that folder (a hosted editor, several checkouts sharing one database). |
+| `APP_PUBLIC_URL` | staging and production | The hub's origin, which is its issuer. https outside this computer, no path. |
+| `OIDC_HUB_SECRET` | staging and production | At least 32 random bytes. Protects cookies and the stored signing keys; never change it once set. Development generates one in `.jskit/oidc-hub/secret`, so set it explicitly whenever the database outlives that folder (a hosted editor, several checkouts sharing one database). |
 | `OIDC_HUB_REGISTRATION_TOKEN` | yes | At least 24 characters. Apps present it to register. Give the same value to each app as `AUTH_OIDC_REGISTRATION_TOKEN`. |
 | `OIDC_HUB_OWNER_EMAIL` | yes | The owner's email. That account, once its email is confirmed, opens the admin pages. |
 | `OIDC_HUB_DEV_ORIGIN_PATTERNS` | no | Comma-separated `https://` origin globs approved automatically, for example `https://preview-*.acme.example.dev`. `*` matches inside one DNS label. Loopback is always approved. |
-| `OIDC_HUB_EMAIL_FROM` with `RESEND_API_KEY` or `SMTP_URL` | production | The owner's own sender. In development, without a sender, emails are written to the server log. |
+| `OIDC_HUB_EMAIL_FROM` with `RESEND_API_KEY` or `SMTP_URL` | staging and production | The owner's own sender. In development, without a sender, emails are written to the server log. |
 | `OIDC_HUB_GOOGLE_CLIENT_ID` and `OIDC_HUB_GOOGLE_CLIENT_SECRET` | no | Turn on "Continue with Google". The Google redirect URI is `{APP_PUBLIC_URL}/hub/google/callback`. |
 
 Each problem stops the hub with one sentence that names the variable to fix.
@@ -131,7 +131,7 @@ npx jskit-oidc-issuer import-accounts --in accounts.jsonl --apply
   editor's preview can sign in as an existing hub account. Pass the preview
   host's protocol id with `--protocol` and each hostname pattern, besides
   loopback, that the host serves the hub on with `--local-hostname`. It works
-  only outside production, from loopback, with
+  only in development and test, from loopback, with
   `AUTH_DEV_BYPASS_ENABLED` and `AUTH_DEV_BYPASS_SECRET`.
 
 ## Connecting an app
@@ -139,9 +139,9 @@ npx jskit-oidc-issuer import-accounts --in accounts.jsonl --apply
 1. Install `@jskit-ai/auth-provider-oidc-core` in the app.
 2. Give the app `AUTH_OIDC_ISSUER` (the hub's `APP_PUBLIC_URL`) and
    `AUTH_OIDC_REGISTRATION_TOKEN` (the hub's `OIDC_HUB_REGISTRATION_TOKEN`).
-3. Sign in once from the app. A development address works straight away. After
-   the app is deployed, open the hub's Apps page and approve it at its full
-   address.
+3. Sign in once from the app. A development address works straight away. Once
+   the app runs on its staging or production server, open the hub's Apps page
+   and approve it at its full address.
 
 ## Verify
 

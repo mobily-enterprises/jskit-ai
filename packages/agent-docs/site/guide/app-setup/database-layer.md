@@ -97,9 +97,9 @@ The application owns normal npm scripts:
 application and installed-package migration directories, connects using the
 environment, and applies pending migrations.
 
-Deployment or a managed development environment may invoke this app-owned
-script as a release step. JSKIT itself does not maintain a background migration
-service.
+A staging or production server's release, or a managed development
+environment, may run this app-owned script as a release step. JSKIT itself does
+not maintain a background migration service.
 
 ## Authoring schema changes
 
@@ -326,8 +326,10 @@ the application's `knexfile.js`:
   as many as the database user may create. With no usable `TEST_DB_NAME`
   (unset, the connected database itself, or one the database user may not
   prepare), the files run one at a time on the connected database. A copy
-  named like the application's database or `PROD_DB_NAME`, or a server that
-  cannot be reached, fails the run instead.
+  named like the application's database, `STAGING_DB_NAME` or
+  `PRODUCTION_DB_NAME`, or a server that cannot be reached, fails the run
+  instead. So does a run while `PROD_DB_NAME`, which those two replaced, is
+  set.
   Every file starts from the snapshot, rows included: a copy an earlier file of
   the run used is restored before the next file takes it, so no file sees what
   another wrote.
@@ -393,7 +395,7 @@ the app's `knexfile.js`) reaches that worker's copy. The copies (`<name>`, `<nam
 ([Integration test databases](#integration-test-databases)), then seeded in one
 transaction each, so stale rows never survive a run and the migrations are
 replayed only when one changes. It refuses the application's database,
-`PROD_DB_NAME`, `TEST_DB_NAME` and their copies.
+`STAGING_DB_NAME`, `PRODUCTION_DB_NAME`, `TEST_DB_NAME` and their copies.
 
 Give disposable integration and migration tests their own `TEST_DB_NAME`;
 the two names, and their copies, must differ, and the application account

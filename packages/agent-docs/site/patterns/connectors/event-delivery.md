@@ -130,7 +130,7 @@ const reconcile = workflows.createFunction(
   async ({ step }) => step.run("reconcile-due", () => reports.reconcileDueRequests())
 );
 // `fastify` is the app's existing server. The SDK validates signed requests
-// using INNGEST_SIGNING_KEY from the deployed application's environment.
+// using INNGEST_SIGNING_KEY from the environment of the app's staging or production server.
 await fastify.register(fastifyPlugin, { client: workflows, functions: [report, reconcile] });
 ```
 

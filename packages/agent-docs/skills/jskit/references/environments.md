@@ -12,7 +12,7 @@ builds, and staging and production set it to `production`.
 | --- | --- | --- | --- | --- | --- | --- |
 | `development` | a developer's machine, a session, a preview | logged | logged | sandbox only | allowed | "Development" |
 | `test` | automated test runs | logged | logged | sandbox only | allowed | "Test" |
-| `staging` | a deployed copy for checking the application | only to `STAGING_EMAIL_TO` and `STAGING_SMS_TO`; logged when unset | logged | sandbox only | refused | "Staging" |
+| `staging` | a copy on a server for checking the application before production | only to `STAGING_EMAIL_TO` and `STAGING_SMS_TO`; logged when unset | logged | sandbox only | refused | "Staging" |
 | `production` | the application serving real people | sent | sent | live | refused | none |
 
 The development shortcuts are dev sign-in (`AUTH_DEV_BYPASS_ENABLED`), cookies
@@ -20,8 +20,8 @@ without `Secure`, links in answers (`AUTH_LOCAL_RECOVERY_DEV_OUTPUT`), a first
 account without a setup code, test databases, and a server that refuses to
 start over a role grant no action requires (staging and production log it
 instead). Staging and production add HSTS and the content security policy, and
-need production's secrets, such as `AUTH_LOCAL_SESSION_SECRET` and a sender for
-the emails they send.
+each needs secrets of its own, such as `AUTH_LOCAL_SESSION_SECRET` and a sender
+for the emails it sends.
 
 ## Who sets what
 
@@ -31,7 +31,7 @@ it where they own the run.
 | Who | `APP_ENV` | `NODE_ENV` | `STAGING_EMAIL_TO`, `STAGING_SMS_TO` |
 | --- | --- | --- | --- |
 | `npm run develop`, `npm run dev` on a developer's machine | `development`, set by the scripts | unset | unset |
-| A hosted session or preview | `development` | unset | unset |
+| A session or preview in an editor | `development` | unset | unset |
 | `jskit test` and the browser test servers | `test`, set by JSKIT | anything | unset |
 | A build-check machine that starts the packaged build to see it start and answer health | `staging` | `production` | unset, so everything is logged |
 | A staging server | `staging` | `production` | the testers' inbox and phone |
@@ -62,10 +62,21 @@ A server stops at startup, saying what to do, when:
   `APP_ENV is staging, so NODE_ENV must be production, and it is not set. Set
   NODE_ENV=production: it only picks optimised builds, and APP_ENV decides
   everything else.`
-- `SIDE_EFFECTS`, which `APP_ENV` replaced, is set: `SIDE_EFFECTS was replaced
-  by APP_ENV: remove SIDE_EFFECTS. APP_ENV=production acts for real; staging
-  sends email and SMS only to STAGING_EMAIL_TO and STAGING_SMS_TO; development
-  and test only log.`
+- A variable JSKIT no longer reads is set, in any environment (test database
+  preparation refuses it too), each with its fix:
+  - `SIDE_EFFECTS`, which `APP_ENV` replaced: `SIDE_EFFECTS was replaced by
+    APP_ENV: remove SIDE_EFFECTS. APP_ENV=production acts for real; staging
+    sends email and SMS only to STAGING_EMAIL_TO and STAGING_SMS_TO;
+    development and test only log.`
+  - `PROD_DB_NAME`, which `STAGING_DB_NAME` and `PRODUCTION_DB_NAME` replaced:
+    `PROD_DB_NAME is no longer read: name that database in STAGING_DB_NAME
+    (your Staging database) or PRODUCTION_DB_NAME (your Production
+    database).`
+  - `AUTH_LOCAL_FILE_PRODUCTION_ACK`, which
+    `AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK` replaced:
+    `AUTH_LOCAL_FILE_PRODUCTION_ACK is no longer read: set
+    AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK=true instead, which the local
+    file auth backend needs in staging and production.`
 - A development-only setting is set in staging or production, for example
   `AUTH_LOCAL_RECOVERY_DEV_OUTPUT is for development only and APP_ENV is
   staging. Remove it from the staging environment.`
@@ -76,7 +87,8 @@ is logged (STAGING_SMS_TO is not set); …`.
 
 ## Staging's test addresses
 
-Staging is production's code and settings with nobody real at the other end.
+Staging runs the code production will run, with settings of its own and nobody
+real at the other end.
 `STAGING_EMAIL_TO` is one address, such as the testers' shared inbox; every
 email goes there instead of to its recipient. The email's first line, in its
 text and HTML, says `Staging: this email was for ada@example.com.`, it carries

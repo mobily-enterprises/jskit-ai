@@ -44,13 +44,13 @@ function resolveAppName(appRoot) {
   }
 }
 
-function resolveSessionSecret(env, { appRoot, isDeployed }) {
+function resolveSessionSecret(env, { appRoot, isStagingOrProduction }) {
   const explicit = text(env.AUTH_OIDC_SESSION_SECRET);
   if (explicit) {
     if (explicit.length < 32) throw new Error("AUTH_OIDC_SESSION_SECRET must be at least 32 characters.");
     return explicit;
   }
-  if (isDeployed) throw new Error("AUTH_OIDC_SESSION_SECRET is required in staging and production.");
+  if (isStagingOrProduction) throw new Error("AUTH_OIDC_SESSION_SECRET is required in staging and production.");
   const storeDir = path.resolve(appRoot, text(env.AUTH_OIDC_STORE_DIR) || DEFAULT_STORE_DIR);
   const secretPath = path.join(storeDir, SESSION_SECRET_FILE);
   try {
@@ -69,12 +69,12 @@ function resolveSessionSecret(env, { appRoot, isDeployed }) {
  * Reads the OIDC sign-in Env. Malformed values stop the app with one sentence.
  * A missing issuer or client is not fatal: the app runs and sign-in explains
  * what to set (`setupProblem`), so a project can be prepared before its
- * accounts hub exists. Whether it is deployed is worked out once, by auth-core's dev auth
+ * accounts hub exists. Whether it runs in staging or production is worked out once, by auth-core's dev auth
  * policy, so sign-in and dev sign-in agree on it.
  */
 function resolveOidcConfig({ env = {}, appRoot = process.cwd() } = {}) {
   const devAuth = resolveDevAuthPolicyFromEnv(env);
-  const { isDeployed } = devAuth;
+  const { isStagingOrProduction } = devAuth;
   const issuerValue = text(env.AUTH_OIDC_ISSUER);
   const registrationToken = text(env.AUTH_OIDC_REGISTRATION_TOKEN);
   const clientId = text(env.AUTH_OIDC_CLIENT_ID);
@@ -105,14 +105,14 @@ function resolveOidcConfig({ env = {}, appRoot = process.cwd() } = {}) {
   }
 
   return Object.freeze({
-    isDeployed,
+    isStagingOrProduction,
     issuer,
     registrationToken,
     staticClient: clientId ? Object.freeze({ clientId, clientSecret }) : null,
     label: text(env.AUTH_OIDC_LABEL) || AUTH_OIDC_DEFAULT_LABEL,
     appName: resolveAppName(appRoot),
     appPublicOrigin,
-    sessionSecret: resolveSessionSecret(env, { appRoot, isDeployed }),
+    sessionSecret: resolveSessionSecret(env, { appRoot, isStagingOrProduction }),
     devAuth,
     setupProblem: setupProblem?.message || "",
     setupProblemCode: setupProblem?.code || ""

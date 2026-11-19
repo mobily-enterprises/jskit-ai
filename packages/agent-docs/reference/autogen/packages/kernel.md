@@ -70,7 +70,7 @@ Exports
 - `APP_ENVIRONMENTS`
 - `APP_ENVIRONMENT_META_NAME`
 - `appEnvironment(env)`
-- `isDeployed(env)`
+- `isStagingOrProduction(env)`
 - `pageAppEnvironment(documentObject = globalThis.document)`
 - `withAppEnvironmentMeta(html, environment)`
 
@@ -1033,6 +1033,7 @@ Exports
 - `STAGING_ORIGINAL_TO_HEADER`
 - `assertAppEnvironment(env)`
 - `assertDevelopmentOnlySettings(env, names)`
+- `assertNoRetiredVariables(env)`
 - `deliverMessage({ env, logger, channel, to, summary, details = {}, send })`
 - `logAppEnvironment(logger, env)`
 - `logSideEffect(logger, environment, { kind, summary, details = {}, reason = "" })`

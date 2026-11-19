@@ -56,20 +56,20 @@ function unauthenticatedAuthResult(clearSession = false) {
 /**
  * A local auth cookie: httpOnly at Path=/, Secure in staging and production, with the application's SameSite
  * (AUTH_COOKIE_SAME_SITE).
- * @param {Pick<import("../types.js").AuthLocalConfig, "isDeployed" | "cookieSameSite">} config
+ * @param {Pick<import("../types.js").AuthLocalConfig, "isStagingOrProduction" | "cookieSameSite">} config
  * @param {number} maxAge
  */
-function cookieOptions({ isDeployed, cookieSameSite }, maxAge) {
+function cookieOptions({ isStagingOrProduction, cookieSameSite }, maxAge) {
   return {
     path: "/",
     httpOnly: true,
     sameSite: cookieSameSite,
-    secure: isDeployed,
+    secure: isStagingOrProduction,
     maxAge
   };
 }
 
-/** @param {Pick<import("../types.js").AuthLocalConfig, "isDeployed" | "cookieSameSite">} config */
+/** @param {Pick<import("../types.js").AuthLocalConfig, "isStagingOrProduction" | "cookieSameSite">} config */
 function clearCookieOptions(config) {
   return [cookieOptions(config, 0), { ...cookieOptions(config, 0), path: "/api" }];
 }
@@ -127,11 +127,11 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
   if (!signInEvents) {
     throw new TypeError("createLocalSessions() takes signInEvents, the auth.local.sign-in-events function each sign-in event is given.");
   }
-  const { devAuth, isDeployed } = config;
+  const { devAuth, isStagingOrProduction } = config;
   // Staging and production cookies are Secure, so they are also host-only __Host- cookies.
-  const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isDeployed);
-  const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isDeployed);
-  const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, isDeployed);
+  const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isStagingOrProduction);
+  const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isStagingOrProduction);
+  const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, isStagingOrProduction);
 
   /**
    * A new session of the user, seen now from where the request that signs it in comes from.
@@ -373,7 +373,7 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
     }
     for (const options of clearCookieOptions(config)) {
       // A __Host- cookie only exists at Path=/.
-      if (options.path === "/" || !isDeployed) {
+      if (options.path === "/" || !isStagingOrProduction) {
         reply.clearCookie(ACCESS_TOKEN_COOKIE, options);
         reply.clearCookie(REFRESH_TOKEN_COOKIE, options);
         reply.clearCookie(RECOVERY_TOKEN_COOKIE, options);

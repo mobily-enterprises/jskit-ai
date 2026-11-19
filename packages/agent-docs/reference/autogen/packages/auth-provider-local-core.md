@@ -50,13 +50,13 @@ Exports
 - `resolveLocalAuthConfig({ appRoot, env, fileBackend, emailRecovery, emailConfirmationSender = false, emailChangeSender = false })`
 Local functions
 - `resolveStoreDir(env, appRoot)`
-- `resolveSessionSecret(env, { storeDir, isDeployed })`
-- `resolveSecondFactorKey(env, { isDeployed, sessionSecret })`
-- `resolveSetupCode(env, { isDeployed })`
-- `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, emailedChange, oauthEnabled, deployedSecondFactor })`
-- `resolveRecoveryDelivery(env, { emailRecovery, isDeployed })`
-- `resolveConfirmationDelivery(env, { emailConfirmationSender, isDeployed, selfRegistration })`
-- `resolveEmailChangeDelivery({ emailChangeSender, isDeployed })`
+- `resolveSessionSecret(env, { storeDir, isStagingOrProduction })`
+- `resolveSecondFactorKey(env, { isStagingOrProduction, sessionSecret })`
+- `resolveSetupCode(env, { isStagingOrProduction })`
+- `resolveAppPublicUrl(env, { emailRecovery, emailedConfirmation, emailedChange, oauthEnabled, stagingOrProductionSecondFactor })`
+- `resolveRecoveryDelivery(env, { emailRecovery, isStagingOrProduction })`
+- `resolveConfirmationDelivery(env, { emailConfirmationSender, isStagingOrProduction, selfRegistration })`
+- `resolveEmailChangeDelivery({ emailChangeSender, isStagingOrProduction })`
 - `resolvePasswordMinLength(env)`
 
 ### `src/server/lib/deliveries.js`
@@ -248,7 +248,7 @@ Exports
 
 ### `src/server/lib/sessions.js`
 Exports
-- `cookieOptions({ isDeployed, cookieSameSite }, maxAge)`
+- `cookieOptions({ isStagingOrProduction, cookieSameSite }, maxAge)`
 - `createLocalSessions({ appProfileProjection, backend, config, deliveries, profileProjector, signInEvents })`
 - `createLoggedSignInEvents(logger)`
 - `safeRequestCookies(request)`

@@ -4,7 +4,7 @@
 
 A security pass makes an app refuse what it should. Genesis's security pass
 skill (`genesis-security-pass`) holds the method: map every way in, work
-through authorization, sign-in, input, secrets, production settings and
+through authorization, sign-in, input, secrets, staging and production settings and
 dependencies, prove each finding by sending the input that breaks it, and keep
 a test that fails without each fix. This page says where each of those lives in
 a JSKIT app. The rules it applies are already in [Typed features](typed-features.md),
@@ -75,7 +75,7 @@ a JSKIT app. The rules it applies are already in [Typed features](typed-features
   invitations, costly reads, calls to a paid service) declares
   `rateLimit: { max, timeWindow }`, refused with 429 `kernel.http.rateLimited`.
   Each limit gets a test expecting the 429.
-- Sign-in cookies are httpOnly, and in production `Secure` with the `__Host-`
+- Sign-in cookies are httpOnly, and in staging and production `Secure` with the `__Host-`
   prefix; `AUTH_COOKIE_SAME_SITE` is `lax` or `strict`
   ([Sign-in cookies and SameSite](/guide/app-setup/authentication#sign-in-cookies-and-samesite)).
   Every unsafe `/api` method checks its CSRF token unless the route sets
@@ -89,20 +89,20 @@ a JSKIT app. The rules it applies are already in [Typed features](typed-features
   an account exists. Give the app's own invitation, lookup and sign-up routes
   the same answer.
 
-## Production settings and secrets
+## Staging and production settings and secrets
 
 - `APP_ENV=staging` or `APP_ENV=production`, with `NODE_ENV=production`, set by
-  the Deployment's Serve step, makes a server deployed
+  the Deployment's Serve step, makes a server a staging or production server
   ([Environments](environments.md)). There local auth requires
   `AUTH_LOCAL_SESSION_SECRET`, refuses `AUTH_DEV_BYPASS_ENABLED` and
   `AUTH_LOCAL_RECOVERY_DEV_OUTPUT`, and refuses to start without a confirmation
   sender while anyone may register
-  ([Production settings](sanity-checks.md#production-settings)).
-- On an empty production database the first account needs the setup code
-  (403 `auth.local.setup.codeRequired`), so whoever reaches a new deployment
-  first cannot own it. A registration or admin bootstrap of the app's own
+  ([Staging and production settings](sanity-checks.md#staging-and-production-settings)).
+- On an empty staging or production database the first account needs the
+  setup code (403 `auth.local.setup.codeRequired`), so whoever reaches a new
+  staging or production server first cannot own it. A registration or admin bootstrap of the app's own
   needs the same protection
-  ([The first account in production](/guide/app-setup/authentication#the-first-account-in-production-local-auth)).
+  ([The first account in staging and production](/guide/app-setup/authentication#the-first-account-in-staging-and-production-local-auth)).
 - `AUTH_LOCAL_SESSION_SECRET` and every other secret live in private Env, read
   on the server, and the Deployment generates the session secret. Nothing
   secret goes in `config/public.js`, which the browser imports, or in a
@@ -111,8 +111,8 @@ a JSKIT app. The rules it applies are already in [Typed features](typed-features
   server error."; an `AppError`'s message is shown at any status, so it never
   carries internals
   ([Internal failures are plain errors](typed-features.md#internal-failures-are-plain-errors)).
-- `config.securityHeaders` sets the security headers. Production adds
-  transport security, framing protection and a content security policy that is
+- `config.securityHeaders` sets the security headers. Staging and production
+  add transport security, framing protection and a content security policy that is
   reported, not enforced, by default; enforce it once the pages run without
   violations, and read the headers on a production build
   ([Security headers](/guide/app-setup/initial-scaffolding#security-headers)).
@@ -129,7 +129,7 @@ a JSKIT app. The rules it applies are already in [Typed features](typed-features
   workspace), a write without `csrf-token`, and one request past each
   `rateLimit` (429). A body that does not validate, sent without a session,
   must get the refusal, not field errors.
-- Production settings: start the server with `APP_ENV=staging`, `NODE_ENV=production` and the
+- Staging and production settings: start the server with `APP_ENV=staging`, `NODE_ENV=production` and the
   test database, and check that it stops without `AUTH_LOCAL_SESSION_SECRET`,
   that registering asks for the setup code, and the response headers.
 - Run `npm audit` and `npm run verify`.

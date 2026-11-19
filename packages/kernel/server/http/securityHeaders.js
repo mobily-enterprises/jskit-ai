@@ -1,5 +1,5 @@
 import { isRecord, normalizeObject } from "../../shared/support/normalize.js";
-import { isDeployed } from "../../shared/support/appEnvironment.js";
+import { isStagingOrProduction } from "../../shared/support/appEnvironment.js";
 
 /** @typedef {import("../types.js").RuntimeConfig} RuntimeConfig */
 /** @typedef {import("../types.js").RuntimeEnv} RuntimeEnv */
@@ -65,7 +65,7 @@ function resolveSources(value, key) {
 }
 
 /**
- * The frame-ancestors sources: who may frame the application's pages in production.
+ * The frame-ancestors sources: who may frame the application's pages in staging and production.
  * @param {unknown} value
  */
 function resolveFrameAncestors(value) {
@@ -111,7 +111,7 @@ function toPolicyText(directives) {
 }
 
 /**
- * The production Content-Security-Policy headers: frame-ancestors is always enforced (browsers
+ * The staging and production Content-Security-Policy headers: frame-ancestors is always enforced (browsers
  * ignore it in a report-only policy), and the content policy is reported, enforced or left out.
  * @param {Record<string, unknown>} settings The application's `securityHeaders` config.
  */
@@ -157,7 +157,7 @@ function resolveSecurityHeaders({ config, env }) {
   if (referrerPolicy) {
     headers.push(["referrer-policy", referrerPolicy]);
   }
-  if (isDeployed(env)) {
+  if (isStagingOrProduction(env)) {
     const strictTransportSecurity = resolveHeaderText(
       settings.strictTransportSecurity,
       DEFAULT_STRICT_TRANSPORT_SECURITY,

@@ -9,14 +9,14 @@
  *   sandbox.
  * - `test`: the same, inside automated test runs (`jskit test` and the browser
  *   test servers set it).
- * - `staging`: a deployed copy for checking the application. Email goes only to
+ * - `staging`: a copy on a server for checking the application before production. Email goes only to
  *   STAGING_EMAIL_TO and SMS only to STAGING_SMS_TO (logged when unset); the rest
  *   is logged; payments use the sandbox. Development shortcuts are refused.
  * - `production`: the application serving real people. Everything is real.
  */
 const APP_ENV_KEY = "APP_ENV";
 const APP_ENVIRONMENTS = Object.freeze(["development", "test", "staging", "production"]);
-const DEPLOYED_ENVIRONMENTS = Object.freeze(["staging", "production"]);
+const STAGING_AND_PRODUCTION = Object.freeze(["staging", "production"]);
 
 /**
  * The page's environment travels in this meta tag: the JSKIT server adds it to
@@ -57,8 +57,8 @@ function appEnvironment(env) {
  * development shortcut (dev sign-in, cookies without Secure, test databases, development-only settings).
  * @param {Record<string, string | undefined>} env
  */
-function isDeployed(env) {
-  return DEPLOYED_ENVIRONMENTS.includes(appEnvironment(env));
+function isStagingOrProduction(env) {
+  return STAGING_AND_PRODUCTION.includes(appEnvironment(env));
 }
 
 /**
@@ -101,7 +101,7 @@ export {
   APP_ENVIRONMENTS,
   APP_ENVIRONMENT_META_NAME,
   appEnvironment,
-  isDeployed,
+  isStagingOrProduction,
   pageAppEnvironment,
   withAppEnvironmentMeta
 };

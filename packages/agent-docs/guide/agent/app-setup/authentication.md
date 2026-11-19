@@ -327,7 +327,7 @@ Two registrations whose email is already proven sign in at once instead: one
 through an invitation that a feature's invitation context resolver (such as
 workspace invites) resolves, still pending, for the registering email (letter
 case aside) and before its `expiresAt`, since its link reached that address;
-and the first account a production server's setup code admits (see below). An
+and the first account a staging or production server's setup code admits (see below). An
 invitation passed through as given, with no resolver installed, or whose
 context names no email, proves nothing. Any other registration keeps waiting,
 with no account, profile or session, and answers
@@ -525,7 +525,7 @@ and treat null as a refused link. Their types are `AuthLocalAccounts`,
 `AuthLocalSessions` and `AuthLocalRecovery` in
 `@jskit-ai/auth-provider-local-db-core/server/types`.
 
-## The first account in production (local auth)
+## The first account in staging and production (local auth)
 
 The first account to register becomes the application's owner, so on a
 staging or production server (`APP_ENV`) whose local auth has no account yet,
@@ -558,7 +558,7 @@ account is set up, since each server makes its own code.
 
 A hosting tool that shows the code to the operator itself supplies it in
 `AUTH_LOCAL_SETUP_CODE`, at least 20 letters and digits, for example a
-generated production secret. The server then asks for that code at every start
+secret it generates for that server. The server then asks for that code at every start
 and on every server, writes no `first-account-setup-code` file, and logs only
 that the code is in `AUTH_LOCAL_SETUP_CODE`, never the code itself. In
 development and test the variable is ignored.
@@ -742,7 +742,7 @@ For direct library composition, pass the same function as `recoverySender` to
 
 Set `APP_PUBLIC_URL` to the application's actual public URL. When a sender is
 configured, auth requires this value and does not return or log the recovery
-URL. Without a sender, production recovery is disabled; explicit development
+URL. Without a sender, staging and production have no recovery; explicit development
 output remains available for local testing. A sender failure never falls back
 to development output. The generic recovery delivery capability is `email`.
 
@@ -863,7 +863,7 @@ Security behavior:
 - The authorization-code flow uses PKCE (`S256`) and `state`, plus `nonce` for
   OpenID Connect. The attempt is stored server-side, in the file store or the
   `auth_local_oauth_attempts` table, under the hash of a random httpOnly
-  `jskit_local_oauth_attempt` cookie (`__Host-` in production, SameSite from
+  `jskit_local_oauth_attempt` cookie (`__Host-` in staging and production, SameSite from
   `AUTH_COOKIE_SAME_SITE`; see
   [Sign-in cookies and SameSite](#sign-in-cookies-and-samesite)), so it
   completes only in the starting browser and works across several servers. It

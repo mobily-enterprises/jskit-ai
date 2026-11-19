@@ -25,7 +25,7 @@ Exports
 - `APP_ENVIRONMENTS`
 - `APP_ENVIRONMENT_META_NAME`
 - `appEnvironment(env)`
-- `isDeployed(env)`
+- `isStagingOrProduction(env)`
 - `pageAppEnvironment(documentObject = globalThis.document)`
 - `withAppEnvironmentMeta(html, environment)`
 

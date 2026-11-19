@@ -20,9 +20,9 @@ The settings that matter, in the order a new hub needs them:
 |---|---|
 | `OIDC_HUB_OWNER_EMAIL` | The owner's email. That account, once confirmed, opens Apps, People and Setup. |
 | `OIDC_HUB_REGISTRATION_TOKEN` | At least 24 random characters. Every app presents it to register. |
-| `OIDC_HUB_SECRET` | At least 32 random bytes; required in production, never changed once set. |
-| `APP_PUBLIC_URL` | The hub's https address, which is its issuer. Required in production. |
-| `OIDC_HUB_EMAIL_FROM` with `RESEND_API_KEY` or `SMTP_URL` | The owner's own sender. Required in production. |
+| `OIDC_HUB_SECRET` | At least 32 random bytes; required in staging and production, never changed once set. |
+| `APP_PUBLIC_URL` | The hub's https address, which is its issuer. Required in staging and production. |
+| `OIDC_HUB_EMAIL_FROM` with `RESEND_API_KEY` or `SMTP_URL` | The owner's own sender. Required in staging and production. |
 | `OIDC_HUB_DEV_ORIGIN_PATTERNS` | Optional `https://` globs of development addresses approved automatically. |
 
 A missing or wrong setting stops the hub with one sentence that names it.

@@ -1,4 +1,4 @@
-import { isDeployed } from "@jskit-ai/kernel/shared/support/appEnvironment";
+import { isStagingOrProduction } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { timingSafeEqual } from "node:crypto";
 import { parseBooleanFlag } from "./booleanFlag.js";
@@ -55,7 +55,7 @@ function isLocalDevAuthRequest(request) {
 }
 
 /**
- * Dev sign-in's policy, and whether the application is deployed (staging or production), which every auth provider
+ * Dev sign-in's policy, and whether the application runs in staging or production, which every auth provider
  * reads from here to refuse development shortcuts such as cookies without Secure.
  * @param {{ enabled?: unknown, appEnv: string, secret?: string }} settings `appEnv` is the application's APP_ENV;
  *   a missing or unknown one throws.
@@ -63,7 +63,7 @@ function isLocalDevAuthRequest(request) {
 function resolveDevAuthPolicy({ enabled = false, appEnv, secret = "" }) {
   return Object.freeze({
     enabled: parseBooleanFlag(enabled, false),
-    isDeployed: isDeployed({ APP_ENV: appEnv }),
+    isStagingOrProduction: isStagingOrProduction({ APP_ENV: appEnv }),
     secret: String(secret || "").trim()
   });
 }
@@ -81,14 +81,14 @@ function resolveDevAuthPolicyFromEnv(env) {
  * @param {ReturnType<typeof resolveDevAuthPolicy>} policy
  */
 function isDevAuthBootstrapEnabled(policy) {
-  return policy.enabled && !policy.isDeployed;
+  return policy.enabled && !policy.isStagingOrProduction;
 }
 
 function assertDevAuthPolicy(policy = {}) {
   if (!policy.enabled) {
     return;
   }
-  if (policy.isDeployed) {
+  if (policy.isStagingOrProduction) {
     throw new Error("AUTH_DEV_BYPASS_ENABLED is for development only: remove it from staging and production.");
   }
   if (!policy.secret) {
@@ -97,7 +97,7 @@ function assertDevAuthPolicy(policy = {}) {
 }
 
 function ensureDevAuthRuntimeAvailable(policy = {}, request = null) {
-  if (!policy.enabled || policy.isDeployed) {
+  if (!policy.enabled || policy.isStagingOrProduction) {
     throw new AppError(404, "Not found.", { code: "auth.dev.unavailable" });
   }
   if (!policy.secret) {

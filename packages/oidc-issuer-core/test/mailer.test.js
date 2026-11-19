@@ -78,7 +78,7 @@ test("a staging or production hub needs a sender; development and test start wit
     assert.throws(() => resolveHubConfig({ ...base, APP_ENV }), { message: /^Set OIDC_HUB_EMAIL_FROM/u }, APP_ENV);
   }
   for (const APP_ENV of ["development", "test"]) {
-    assert.equal(resolveHubConfig({ ...base, APP_ENV, NODE_ENV: "production" }).isDeployed, false, APP_ENV);
+    assert.equal(resolveHubConfig({ ...base, APP_ENV, NODE_ENV: "production" }).isStagingOrProduction, false, APP_ENV);
   }
   assert.throws(() => resolveHubConfig(base), { message: /^APP_ENV is not set/u });
 });

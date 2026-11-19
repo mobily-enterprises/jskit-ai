@@ -51,7 +51,7 @@ Knex discovers package-owned migrations from the installed dependency graph.
 `example/package.json` contains the runtime dependency and database scripts.
 `example/knexfile.js` loads an optional local `.env` and fixes the MySQL dialect.
 `example/scripts/prepare-database.js` is the portable migrate-then-seed
-entrypoint for managed sessions and deployments. It loads the optional `.env`
+entrypoint for managed sessions and for staging and production servers. It loads the optional `.env`
 as the knexfile does, and migrates the database `DB_NAME` names without
 creating it: the hosting environment or a database administrator creates it
 first. `example/.env.example` names the connection values and separate test
@@ -82,8 +82,8 @@ server its own copy of `BROWSER_TEST_DB_NAME`, restored from the same kind of
 snapshot and seeded in one transaction by the app's fixture `seed`, which
 restores any migration-owned baseline rows the app needs. Every server serves
 the production build. Both refuse the application's database (`DB_NAME`,
-`DATABASE_URL`'s, the Knex connection's), `PROD_DB_NAME` and the other test
-database and its copies. Provision `TEST_DB_NAME`, `BROWSER_TEST_DB_NAME` and
+`DATABASE_URL`'s, the Knex connection's), `STAGING_DB_NAME`,
+`PRODUCTION_DB_NAME` and the other test database and its copies. Provision `TEST_DB_NAME`, `BROWSER_TEST_DB_NAME` and
 their numbered copies with grants for the application account (a `<app>_%`
 grant covers them); a user who may create no copies runs one file or worker at
 a time. Two test runs at once need different database names. Test-only server

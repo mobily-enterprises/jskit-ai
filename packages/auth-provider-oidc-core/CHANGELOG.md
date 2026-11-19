@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking:** `resolveOidcConfig` names whether the app runs in staging or production `isStagingOrProduction`, in place of `isDeployed`. The README and the pattern's `.env.example` say `AUTH_OIDC_SESSION_SECRET`, and `APP_PUBLIC_URL` behind a proxy, are required in staging and production, as the code requires them.
 - The email change operations (`requestEmailChange`, `requestEmailChangeForUser`, `confirmEmailChange`) answer `AUTH_OPERATION_UNSUPPORTED`, and `features.emailChange` is false: the email is the identity provider's.
 - **Breaking:** staging and production (`APP_ENV`), not `NODE_ENV=production`, require `AUTH_OIDC_SESSION_SECRET` and use the `__Host-` session cookie; the config's `isProduction` is now `isDeployed`.
 - The second-factor operations (`getSecondFactorStatus`, `startSecondFactorSetup`, `confirmSecondFactorSetup`, `verifySecondFactor`, `replaceSecondFactorRecoveryCodes`, `removeSecondFactor`, `listSecondFactors`, `resetSecondFactor`) answer `AUTH_OPERATION_UNSUPPORTED`, and `features.secondFactor` is false: the hub asks for its own second factors.

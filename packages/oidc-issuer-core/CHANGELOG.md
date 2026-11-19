@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking:** `resolveHubConfig` names whether the hub runs in staging or production `isStagingOrProduction`, in place of `isDeployed`. The README, the guide and the pattern say `APP_PUBLIC_URL`, `OIDC_HUB_SECRET` and a sender are required in staging and production, and that a staging or production hub frames no page, as the code does.
 - **Breaking:** the accounts hub follows `APP_ENV`. Staging and production, not `NODE_ENV=production`, require `APP_PUBLIC_URL`, the hub secret and a mail sender, and turn off the preview sign-in (`/hub/api/dev/login-as`); the config's `isProduction` is now `isDeployed`, and `mail.live` is gone. Its email goes out as `deliverMessage` says: production sends it, staging sends it only to `STAGING_EMAIL_TO` with the original recipient in its first line and the `X-Staging-Original-To` header, and development, test and staging without `STAGING_EMAIL_TO` log it.
 - A test copy (`SIDE_EFFECTS` is not `live`) sends no accounts-hub email: the mailer logs it as simulated and answers `{ simulated: true }`; the hub's test-email route answers `{ ok: true, simulated: true }` and records no successful email test. Production still requires the sender's configuration.
 - `jskit-oidc-issuer import-accounts` looks the exported accounts up and inserts them 500 at a time, two statements per 500 instead of two reads and an insert per account. It reports the same counts and conflicts, in line order. The account store's `rawById` and `rawByEmail` are `rawByIdsOrEmails(ids, emails)`, and `importLocal` takes a list of rows.

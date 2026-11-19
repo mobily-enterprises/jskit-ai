@@ -7,7 +7,7 @@ const logoDevDefinition = Object.freeze({
   setup: {
     url: "https://www.logo.dev/docs/platform/api-keys",
     steps: [
-      "Sign into https://www.logo.dev/dashboard/api-keys and copy the publishable key beginning pk_. Do not copy the private sk_ key: this integration displays images, and its pk_ value will be visible in the deployed application's image URLs.",
+      "Sign into https://www.logo.dev/dashboard/api-keys and copy the publishable key beginning pk_. Do not copy the private sk_ key: this integration displays images, and its pk_ value will be visible in the image URLs of the application's pages.",
       "Enter env:LOGO_DEV_PUBLISHABLE_KEY in Publishable key reference, then Save configuration. Choose Set credential in Env and store the actual pk_ value as LOGO_DEV_PUBLISHABLE_KEY. Return after saving Env. Your application must resolve this reference and expose only this publishable value to its image code.",
       "In Logo.dev API Keys, enable Allowed Domains Only, enter allowed domains one per line, then Save Changes. Include the application's actual hosting/custom domain and intended preview domains. example.com matches that domain; *.example.com matches its subdomains. Add localhost explicitly if needed for local development.",
       "Before enabling restrictions, ensure image requests send an origin referrer. Use referrerpolicy=origin on the image or an equivalent application policy; no-referrer and same-origin policies block cross-site referrers. Unlisted domains or missing referrers cause image failures.",

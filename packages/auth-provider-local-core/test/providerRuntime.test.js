@@ -18,6 +18,7 @@ import {
   createLocalFileBackend,
   hashPassword,
   normalizePasswordStrategy,
+  resolveLocalAuthConfig,
   verifyPassword
 } from "../src/server/lib/index.js";
 
@@ -28,7 +29,7 @@ const PRODUCTION = Object.freeze({
   APP_ENV: "production",
   NODE_ENV: "production",
   AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
-  AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+  AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: "true",
   AUTH_LOCAL_RECOVERY_DEV_OUTPUT: ""
 });
 const STAGING = Object.freeze({ ...PRODUCTION, APP_ENV: "staging" });
@@ -447,7 +448,7 @@ test("local auth provider rejects dev login-as enablement in staging and product
       () => createStartedApp({
         env: {
           ...devAuthEnv(),
-          AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+          AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: "true",
           AUTH_LOCAL_SESSION_SECRET: "production-session-secret",
           AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
           APP_ENV, NODE_ENV: "production"
@@ -465,7 +466,7 @@ test("a production server with AUTH_LOCAL_RECOVERY_DEV_OUTPUT set refuses to sta
   await assert.rejects(
     () => createStartedApp({
       env: {
-        AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+        AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: "true",
         AUTH_LOCAL_SESSION_SECRET: "production-session-secret",
         AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "log",
         APP_ENV: "production", NODE_ENV: "production"
@@ -475,6 +476,39 @@ test("a production server with AUTH_LOCAL_RECOVERY_DEV_OUTPUT set refuses to sta
       "AUTH_LOCAL_RECOVERY_DEV_OUTPUT is for development only and APP_ENV is production. " +
         "Remove it from the production environment."
   );
+});
+
+test("staging and production need AUTH_LOCAL_SESSION_SECRET, and AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK on the file " +
+  "backend, and have no password recovery without a sender", async () => {
+  const appRoot = await temporaryStoreDir("jskit-auth-local-config-");
+  const resolve = (env, { fileBackend = false, emailRecovery = false } = {}) => resolveLocalAuthConfig({
+    appRoot,
+    env: { AUTH_LOCAL_EMAIL_CONFIRMATION: "false", APP_PUBLIC_URL: "https://app.example.test", ...env },
+    fileBackend,
+    emailRecovery
+  });
+  for (const env of [STAGING, PRODUCTION]) {
+    const { AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: _acknowledged, ...unacknowledged } = env;
+    assert.throws(() => resolve(unacknowledged, { fileBackend: true }), {
+      message: "AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK is required to use the local file auth backend in staging and production."
+    }, env.APP_ENV);
+    assert.throws(() => resolve({ ...env, AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: "false" }, { fileBackend: true }),
+      { message: /^AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK is required/u }, env.APP_ENV);
+    assert.equal(resolve(env, { fileBackend: true }).isStagingOrProduction, true, env.APP_ENV);
+    assert.equal(resolve(unacknowledged).isStagingOrProduction, true, `${env.APP_ENV}: an installed backend needs no acknowledgement`);
+    assert.throws(() => resolve({ ...env, AUTH_LOCAL_SESSION_SECRET: "" }), {
+      message: "AUTH_LOCAL_SESSION_SECRET is required for local auth in staging and production."
+    }, env.APP_ENV);
+    assert.equal(resolve(env).recoveryEnabled, false, `${env.APP_ENV} without a recovery sender`);
+    assert.equal(resolve(env, { emailRecovery: true }).recoveryEnabled, true, `${env.APP_ENV} with one`);
+  }
+  // Development and test need neither: they keep a generated session secret and recover through the log.
+  for (const APP_ENV of ["development", "test"]) {
+    const config = resolve({ APP_ENV }, { fileBackend: true });
+    assert.equal(config.isStagingOrProduction, false, APP_ENV);
+    assert.match(config.sessionSecret, /^[\w-]{43}$/u, APP_ENV);
+    assert.equal(config.recoveryEnabled, true, APP_ENV);
+  }
 });
 
 test("local auth provider applies auth service decorators for blocking and non-blocking hooks", async () => {
@@ -1406,18 +1440,18 @@ test("an installed auth.local.sign-in-events is given each sign-in event, and wi
     [["Local auth sign-in: signedIn.", "registration"]]);
 });
 
-test("an installed auth.local.email-change-sender sends as APP_ENV says; without one, development and test log the links and a deployed server has none",
+test("an installed auth.local.email-change-sender sends as APP_ENV says; without one, development and test log the links and staging and production have none",
   async (t) => {
     const PASSWORD = "correct horse battery staple";
     const account = async (app, id, email) => {
       await app.backend.withTransaction(async (tx) => tx.users.create({ id, email, displayName: id, password: await hashPassword(PASSWORD) }));
       return id;
     };
-    const deployed = { AUTH_LOCAL_EMAIL_CONFIRMATION: "", AUTH_LOCAL_SELF_REGISTRATION: "false" };
+    const stagingOrProduction = { AUTH_LOCAL_EMAIL_CONFIRMATION: "", AUTH_LOCAL_SELF_REGISTRATION: "false" };
 
     // Production sends each link to its address.
     const sent = [];
-    const production = await createStartedApp({ env: { ...PRODUCTION, ...deployed }, emailChangeSender: async (delivery) => { sent.push(delivery); } });
+    const production = await createStartedApp({ env: { ...PRODUCTION, ...stagingOrProduction }, emailChangeSender: async (delivery) => { sent.push(delivery); } });
     t.after(() => fs.rm(production.storeDir, { recursive: true, force: true }));
     assert.equal(production.authService.getCapabilities().features.emailChange, true);
     await production.authService.requestEmailChangeForUser({ userId: await account(production, "usr_ada", "ada@example.com"), email: "ada.new@example.com" });
@@ -1450,7 +1484,7 @@ test("an installed auth.local.email-change-sender sends as APP_ENV says; without
 
     // Staging and production without one offer no email change, and a sender needs the public URL its links name.
     for (const env of [STAGING, PRODUCTION]) {
-      const without = await createStartedApp({ env: { ...env, ...deployed } });
+      const without = await createStartedApp({ env: { ...env, ...stagingOrProduction } });
       t.after(() => fs.rm(without.storeDir, { recursive: true, force: true }));
       assert.equal(without.authService.getCapabilities().features.emailChange, false, env.APP_ENV);
       for (const asked of [
@@ -1640,7 +1674,7 @@ test("in production, email confirmation needs an auth.local.confirmation-sender,
   const production = {
     APP_ENV: "production", NODE_ENV: "production",
     AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
-    AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+    AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: "true",
     AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
     AUTH_LOCAL_EMAIL_CONFIRMATION: ""
   };
@@ -1664,7 +1698,7 @@ test("with AUTH_LOCAL_SELF_REGISTRATION=false, production starts without a confi
     env: {
       APP_ENV: "production", NODE_ENV: "production",
       AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
-      AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+      AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: "true",
       AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
       AUTH_LOCAL_EMAIL_CONFIRMATION: "",
       AUTH_LOCAL_SELF_REGISTRATION: "false"
@@ -1730,7 +1764,7 @@ test("the confirmation sender emails the link, which is never returned or logged
     env: {
       APP_ENV: "production", NODE_ENV: "production",
       AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
-      AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+      AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: "true",
       AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
       AUTH_LOCAL_EMAIL_CONFIRMATION: "",
       APP_PUBLIC_URL: "https://app.example.test"
@@ -1944,7 +1978,7 @@ test("only the exact answer \"without-link\" confirms without a link, and a conf
       env: {
         APP_ENV: "production", NODE_ENV: "production",
         AUTH_LOCAL_SESSION_SECRET: "fixture-session-secret",
-        AUTH_LOCAL_FILE_PRODUCTION_ACK: "true",
+        AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: "true",
         AUTH_LOCAL_RECOVERY_DEV_OUTPUT: "",
         AUTH_LOCAL_EMAIL_CONFIRMATION: ""
       },

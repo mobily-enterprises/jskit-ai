@@ -602,7 +602,7 @@
         "description": "Send notifications to mobile and browser installations, tokens or topics.",
         "fields": {
           "apiKey": {
-            "hint": "Public API key from the Firebase web app configuration. This value is visible in your deployed app.",
+            "hint": "Public API key from the Firebase web app configuration. This value is visible in your app's pages.",
             "label": "Firebase API key"
           },
           "appId": {
@@ -888,7 +888,7 @@
         "description": "Configure website tracking with your public GA4 Measurement ID.",
         "fields": {
           "measurementId": {
-            "hint": "Public: this value will be visible in your deployed application. Copy it from your GA4 web stream.",
+            "hint": "Public: this value will be visible in your application's pages. Copy it from your GA4 web stream.",
             "label": "Measurement ID"
           }
         }

@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import test from "node:test";
 import { decodeJwt } from "jose";
 import { BACKCHANNEL_LOGOUT_EVENT } from "../src/server/lib/backchannelLogout.js";
+import { resolveOidcConfig } from "../src/server/lib/config.js";
 import { startMockIssuer } from "../test-support/mockIssuer.js";
 import { APP_ORIGIN, createRelyingParty, requestAt, signInAtIssuer } from "../test-support/harness.js";
 
@@ -164,4 +165,44 @@ test("production sessions use a host-only __Host- cookie", async (t) => {
   assert.equal(written[0].options.domain, undefined);
   assert.equal(rp.service.hasSessionCookie({ cookies: { jskit_oidc_session: "x" } }), false);
   assert.equal(rp.service.hasSessionCookie({ cookies: { "__Host-jskit_oidc_session": "x" } }), true);
+});
+
+test("staging and production need AUTH_OIDC_SESSION_SECRET, which development generates", () => {
+  const secret = "fixture-oidc-session-secret-0123456789";
+  for (const APP_ENV of ["staging", "production"]) {
+    const env = { APP_ENV, NODE_ENV: "production" };
+    assert.throws(() => resolveOidcConfig({ appRoot: "/nonexistent", env }), {
+      message: "AUTH_OIDC_SESSION_SECRET is required in staging and production."
+    }, APP_ENV);
+    const config = resolveOidcConfig({ appRoot: "/nonexistent", env: { ...env, AUTH_OIDC_SESSION_SECRET: secret } });
+    assert.equal(config.isStagingOrProduction, true, APP_ENV);
+    assert.equal(config.sessionSecret, secret, APP_ENV);
+  }
+});
+
+test("in staging and production a sign-in reached over plain http at a public address asks for APP_PUBLIC_URL", async (t) => {
+  const issuer = await startMockIssuer();
+  const parties = [];
+  t.after(async () => {
+    for (const rp of parties) await rp.close();
+    await issuer.close();
+  });
+  const publicHttp = requestAt("http://app.example.test");
+  for (const APP_ENV of ["staging", "production"]) {
+    const rp = await createRelyingParty({
+      issuer,
+      env: { APP_ENV, NODE_ENV: "production", AUTH_OIDC_SESSION_SECRET: "fixture-oidc-session-secret-0123456789" }
+    });
+    parties.push(rp);
+    await assert.rejects(rp.service.oauthStart({ provider: "oidc" }, publicHttp), {
+      statusCode: 400,
+      message: "Set APP_PUBLIC_URL so sign-in returns to this app's https address.",
+      code: "auth.oidc.request.publicUrlRequired"
+    }, APP_ENV);
+  }
+  // Development signs in from the same address.
+  const development = await createRelyingParty({ issuer });
+  parties.push(development);
+  const started = await development.service.oauthStart({ provider: "oidc" }, publicHttp);
+  assert.ok(started.url.startsWith(issuer.issuer), started.url);
 });

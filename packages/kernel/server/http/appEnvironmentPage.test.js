@@ -7,7 +7,7 @@ import Fastify from "fastify";
 import { createInstalledRuntime } from "@jskit-ai/kernel/server/platform";
 import {
   appEnvironment,
-  isDeployed,
+  isStagingOrProduction,
   pageAppEnvironment,
   withAppEnvironmentMeta
 } from "@jskit-ai/kernel/shared/support/appEnvironment";
@@ -66,11 +66,11 @@ test("APP_ENV names one of four environments exactly; anything else, unset inclu
         "staging or production."
     });
   }
-  assert.equal(isDeployed({ APP_ENV: "staging" }), true);
-  assert.equal(isDeployed({ APP_ENV: "production" }), true);
-  assert.equal(isDeployed({ APP_ENV: "development", NODE_ENV: "production" }), false, "NODE_ENV decides nothing");
-  assert.equal(isDeployed({ APP_ENV: "test" }), false);
-  assert.throws(() => isDeployed({ NODE_ENV: "production" }), { message: /^APP_ENV is not set\./u });
+  assert.equal(isStagingOrProduction({ APP_ENV: "staging" }), true);
+  assert.equal(isStagingOrProduction({ APP_ENV: "production" }), true);
+  assert.equal(isStagingOrProduction({ APP_ENV: "development", NODE_ENV: "production" }), false, "NODE_ENV decides nothing");
+  assert.equal(isStagingOrProduction({ APP_ENV: "test" }), false);
+  assert.throws(() => isStagingOrProduction({ NODE_ENV: "production" }), { message: /^APP_ENV is not set\./u });
 });
 
 test("the meta tag goes first in the head, replaces an earlier one and leaves text without a head alone", () => {
@@ -161,3 +161,31 @@ test("a server refuses to start while SIDE_EFFECTS is set, saying APP_ENV replac
   await assert.rejects(start({ SIDE_EFFECTS: "live" }), { message }, "before the missing APP_ENV, so the fix says what replaced it");
   await assert.doesNotReject(start({ APP_ENV: "development", SIDE_EFFECTS: "" }));
 });
+
+test("a server refuses to start while PROD_DB_NAME is set, naming STAGING_DB_NAME and PRODUCTION_DB_NAME", async (context) => {
+  const appRoot = await fixtureAppRoot(context);
+  const start = (env) => createInstalledRuntime({ appRoot, env, logger: recordingLogger(), fastify: Fastify() });
+  const message = "PROD_DB_NAME is no longer read: name that database in STAGING_DB_NAME (your Staging database) or " +
+    "PRODUCTION_DB_NAME (your Production database).";
+  for (const env of [STAGING, PRODUCTION, { APP_ENV: "development" }, { APP_ENV: "test" }, {}]) {
+    await assert.rejects(start({ ...env, PROD_DB_NAME: "shop" }), { message }, env.APP_ENV ?? "unset");
+  }
+  await assert.doesNotReject(start({ ...STAGING, STAGING_DB_NAME: "shop", PRODUCTION_DB_NAME: "shop_live" }));
+  await assert.doesNotReject(start({ APP_ENV: "development", PROD_DB_NAME: "" }));
+});
+
+test("a server refuses to start while AUTH_LOCAL_FILE_PRODUCTION_ACK is set, naming AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK",
+  async (context) => {
+    const appRoot = await fixtureAppRoot(context);
+    const start = (env) => createInstalledRuntime({ appRoot, env, logger: recordingLogger(), fastify: Fastify() });
+    const message = "AUTH_LOCAL_FILE_PRODUCTION_ACK is no longer read: set AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK=true " +
+      "instead, which the local file auth backend needs in staging and production.";
+    for (const env of [STAGING, PRODUCTION, { APP_ENV: "development" }, {}]) {
+      await assert.rejects(start({ ...env, AUTH_LOCAL_FILE_PRODUCTION_ACK: "true" }), { message }, env.APP_ENV ?? "unset");
+    }
+    await assert.doesNotReject(start({ ...PRODUCTION, AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK: "true" }));
+    // Every retired variable set is named at once, so one start lists every fix.
+    await assert.rejects(start({ ...PRODUCTION, AUTH_LOCAL_FILE_PRODUCTION_ACK: "true", PROD_DB_NAME: "shop" }), {
+      message: /^PROD_DB_NAME is no longer read: .* AUTH_LOCAL_FILE_PRODUCTION_ACK is no longer read: /u
+    });
+  });

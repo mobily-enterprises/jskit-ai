@@ -9,6 +9,7 @@ import {
   TestDatabaseMissingError,
   createPackageTestKnex,
   countQueries,
+  prepareTestDatabases,
   requireDisposableDatabase,
   requireTestDatabase,
   tableNames,
@@ -38,9 +39,10 @@ test("a test database and its copies are never the application's database, stagi
   for (const [overrides, variable, count, message] of [
     [{ TEST_DB_NAME: "" }, "TEST_DB_NAME", 1, /must name a disposable test database/u],
     [{ TEST_DB_NAME: "catalogue-test" }, "TEST_DB_NAME", 1, /must name a disposable test database/u],
-    [{ TEST_DB_NAME: "Catalogue" }, "TEST_DB_NAME", 1, /DB_NAME, DATABASE_URL and PROD_DB_NAME \(catalogue\)/u],
+    [{ TEST_DB_NAME: "Catalogue" }, "TEST_DB_NAME", 1, /DB_NAME, DATABASE_URL, STAGING_DB_NAME and PRODUCTION_DB_NAME \(catalogue\)/u],
     [{ DB_NAME: "", DATABASE_URL: "mysql://u:p@db/catalogue_test" }, "TEST_DB_NAME", 1, /DATABASE_URL/u],
-    [{ PROD_DB_NAME: "catalogue_test_2" }, "TEST_DB_NAME", 3, /PROD_DB_NAME \(catalogue_test_2\)/u],
+    [{ PRODUCTION_DB_NAME: "catalogue_test_2" }, "TEST_DB_NAME", 3, /PRODUCTION_DB_NAME \(catalogue_test_2\)/u],
+    [{ STAGING_DB_NAME: "catalogue_test_1" }, "TEST_DB_NAME", 2, /STAGING_DB_NAME and PRODUCTION_DB_NAME \(catalogue_test_1\)/u],
     [{ BROWSER_TEST_DB_NAME: "catalogue_test" }, "TEST_DB_NAME", 1, /the other test database/u],
     [{ BROWSER_TEST_DB_NAME: "catalogue_test_1" }, "TEST_DB_NAME", 2, /the other test database/u],
     [{ TEST_DB_NAME: "catalogue_browser_2" }, "BROWSER_TEST_DB_NAME", 1, /the other test database/u],
@@ -53,7 +55,7 @@ test("a test database and its copies are never the application's database, stagi
   }
   // The database the Knex configuration connects to, whatever the environment says.
   assert.throws(() => requireDisposableDatabase({ ...environment, DB_NAME: "" }, "TEST_DB_NAME", 2, { connected: "Catalogue_Test_1" }),
-    /PROD_DB_NAME \(catalogue_test_1\)/u);
+    /PRODUCTION_DB_NAME \(catalogue_test_1\)/u);
 });
 
 test("package data tests on PostgreSQL never run in staging or production, before any connection", async (context) => {
@@ -126,9 +128,31 @@ test("with no usable test database, a run's test files run one at a time on the 
 
 test("a test database copy named like a protected database fails the run instead of running on it", async () => {
   const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment: connectionEnvironment, appRoot: "/srv/catalogue" });
-  const environment = { ...connectionEnvironment, TEST_DB_NAME: "catalogue_test", PROD_DB_NAME: "catalogue_test_1" };
-  await assert.rejects(testDatabaseRun({ knexConfig, environment, count: 4 }), /PROD_DB_NAME \(catalogue_test_1\)/u);
+  const environment = { ...connectionEnvironment, TEST_DB_NAME: "catalogue_test", PRODUCTION_DB_NAME: "catalogue_test_1" };
+  await assert.rejects(testDatabaseRun({ knexConfig, environment, count: 4 }), /PRODUCTION_DB_NAME \(catalogue_test_1\)/u);
 });
+
+test("test databases are never prepared while PROD_DB_NAME or AUTH_LOCAL_FILE_PRODUCTION_ACK is set, naming what replaced it",
+  async () => {
+    const knexConfig = createKnexMigrationConfig({ client: "mysql2", environment: connectionEnvironment, appRoot: "/srv/catalogue" });
+    for (const [retired, message] of [
+      [{ PROD_DB_NAME: "catalogue" }, "PROD_DB_NAME is no longer read: name that database in STAGING_DB_NAME (your Staging " +
+        "database) or PRODUCTION_DB_NAME (your Production database)."],
+      [{ AUTH_LOCAL_FILE_PRODUCTION_ACK: "true" }, "AUTH_LOCAL_FILE_PRODUCTION_ACK is no longer read: set " +
+        "AUTH_LOCAL_FILE_STAGING_OR_PRODUCTION_ACK=true instead, which the local file auth backend needs in staging and " +
+        "production."]
+    ]) {
+      const named = { ...connectionEnvironment, TEST_DB_NAME: "catalogue_test", ...retired };
+      assert.throws(() => requireDisposableDatabase(named, "TEST_DB_NAME", 2), { message });
+      assert.throws(() => requireDisposableDatabase({ ...named, BROWSER_TEST_DB_NAME: "catalogue_browser" },
+        "BROWSER_TEST_DB_NAME", 2), { message }, "a browser run's preparation");
+      await assert.rejects(prepareTestDatabases({ knexConfig, environment: named, count: 2 }), { message });
+      await assert.rejects(testDatabaseRun({ knexConfig, environment: named, count: 2 }), { message });
+      // Before a run decides to go one file at a time on the connected database, too.
+      await assert.rejects(testDatabaseRun({ knexConfig, environment: { ...connectionEnvironment, ...retired }, count: 2 }),
+        { message });
+    }
+  });
 
 test("countQueries() records each statement a piece of work sends, so a read per row stands out from a batched read", async () => {
   const knex = knexFactory({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });

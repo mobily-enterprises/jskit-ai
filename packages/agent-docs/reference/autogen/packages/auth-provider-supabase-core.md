@@ -25,8 +25,8 @@ Exports
 ### `src/server/lib/authCookies.js`
 Exports
 - `safeRequestCookies(request)`
-- `cookieOptions(isDeployed, maxAge)`
-- `cookieClearOptions(isDeployed)`
+- `cookieOptions(isStagingOrProduction, maxAge)`
+- `cookieClearOptions(isStagingOrProduction)`
 
 ### `src/server/lib/authenticatedProfile.js`
 Exports

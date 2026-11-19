@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The `webhook` and `deployment` readiness checks' text names the release in use ("Verify the release in use runs with this configuration and environment."), where it said the deployed webhook and the intended release; the check ids are unchanged.
 - **Breaking:** `createPaymentCheckoutService` takes `appEnv` (the application's `APP_ENV`, `appEnvironment(env)`) in place of `sideEffects`, and requires it. Only production takes real payments: checkout and the billing portal in the live payment environment are refused elsewhere with `payment_sandbox_only` (409, "Only production takes real payments: use the sandbox payment environment."), which replaces `payment_test_copy`, before any provider write. The sandbox environment works everywhere.
 - A test copy takes no real money: `createPaymentCheckoutService` takes `sideEffects` (default `simulate`), and unless it is `live`, checkout and the billing portal in the live payment environment are refused with `payment_test_copy` (409) before any provider write. The sandbox environment works either way.
 - `PAYMENT_STORE_FEATURE` is no longer exported from `PaymentStoreFeature.js` (no public entry point offered it): the feature's id is written as `"payments.store"`, so `jskit check` sees a module that requires that capability where it names it.

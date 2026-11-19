@@ -1,7 +1,7 @@
 import { randomBytes } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { isDeployed } from "@jskit-ai/kernel/shared/support/appEnvironment";
+import { isStagingOrProduction } from "@jskit-ai/kernel/shared/support/appEnvironment";
 
 const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]", "::1"]);
 const MIN_SECRET_BYTES = 32;
@@ -26,10 +26,10 @@ function isLoopbackHostname(hostname) {
   return LOOPBACK_HOSTS.has(host) || host.endsWith(".localhost") || /^127(?:\.\d{1,3}){3}$/u.test(host);
 }
 
-function resolveIssuer(env, deployed) {
+function resolveIssuer(env, stagingOrProduction) {
   const configured = text(env.APP_PUBLIC_URL);
   if (!configured) {
-    if (deployed) {
+    if (stagingOrProduction) {
       throw new HubConfigError("Set APP_PUBLIC_URL to your hub's https address before starting it in staging or production.");
     }
     const port = Number.parseInt(text(env.PORT), 10) || 3001;
@@ -64,10 +64,10 @@ function readOrCreateDevSecret(appRoot) {
   return generated;
 }
 
-function resolveSecret(env, { deployed, appRoot }) {
+function resolveSecret(env, { stagingOrProduction, appRoot }) {
   const configured = text(env.OIDC_HUB_SECRET);
   if (!configured) {
-    if (deployed || !appRoot) {
+    if (stagingOrProduction || !appRoot) {
       throw new HubConfigError("Set OIDC_HUB_SECRET to a random value of at least 32 bytes.");
     }
     return readOrCreateDevSecret(appRoot);
@@ -100,11 +100,11 @@ function parseDevOriginPatterns(value) {
   return Object.freeze(patterns);
 }
 
-function resolveMail(env, { deployed }) {
+function resolveMail(env, { stagingOrProduction }) {
   const from = text(env.OIDC_HUB_EMAIL_FROM);
   const resendApiKey = text(env.RESEND_API_KEY);
   const smtpUrl = text(env.SMTP_URL);
-  if (deployed && (!from || (!resendApiKey && !smtpUrl))) {
+  if (stagingOrProduction && (!from || (!resendApiKey && !smtpUrl))) {
     throw new HubConfigError(
       "Set OIDC_HUB_EMAIL_FROM and either RESEND_API_KEY or SMTP_URL so the hub can send confirmation and recovery emails."
     );
@@ -143,7 +143,7 @@ function resolveHubDevAuth(env) {
  * naming the variable to fix.
  */
 function resolveHubConfig(env = {}, { appRoot = "" } = {}) {
-  const deployed = isDeployed(env);
+  const stagingOrProduction = isStagingOrProduction(env);
   const registrationToken = text(env.OIDC_HUB_REGISTRATION_TOKEN);
   if (!registrationToken) {
     throw new HubConfigError("Set OIDC_HUB_REGISTRATION_TOKEN: apps present it when they register with the hub.");
@@ -155,18 +155,18 @@ function resolveHubConfig(env = {}, { appRoot = "" } = {}) {
   if (!ownerEmail || !ownerEmail.includes("@")) {
     throw new HubConfigError("Set OIDC_HUB_OWNER_EMAIL to the email address of the hub's owner.");
   }
-  const issuer = resolveIssuer(env, deployed);
+  const issuer = resolveIssuer(env, stagingOrProduction);
   return Object.freeze({
-    isDeployed: deployed,
+    isStagingOrProduction: stagingOrProduction,
     issuer,
     secure: issuer.startsWith("https:"),
-    secret: resolveSecret(env, { deployed, appRoot }),
+    secret: resolveSecret(env, { stagingOrProduction, appRoot }),
     secretFromEnv: Boolean(text(env.OIDC_HUB_SECRET)),
     registrationToken,
     ownerEmail,
     devOriginPatterns: parseDevOriginPatterns(env.OIDC_HUB_DEV_ORIGIN_PATTERNS),
     google: resolveGoogle(env),
-    mail: resolveMail(env, { deployed })
+    mail: resolveMail(env, { stagingOrProduction })
   });
 }
 

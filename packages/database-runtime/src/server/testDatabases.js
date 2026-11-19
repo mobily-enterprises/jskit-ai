@@ -15,8 +15,10 @@
 // - PostgreSQL: a prepared database, `<name>_snapshot`, that every copy is created from with
 //   CREATE DATABASE ... TEMPLATE (STRATEGY FILE_COPY from PostgreSQL 15).
 //
-// The database the application connects to (DB_NAME, the one DATABASE_URL names, the Knex configuration's own) and
-// PROD_DB_NAME are never touched. Two runs at once need different database names, as before.
+// The database the application connects to (DB_NAME, the one DATABASE_URL names, the Knex configuration's own), and the
+// Staging and Production databases an application names on that server (STAGING_DB_NAME, PRODUCTION_DB_NAME), are never
+// touched. A preparation refuses to start while a variable JSKIT no longer reads is set, PROD_DB_NAME among them
+// (`assertNoRetiredVariables`). Two runs at once need different database names, as before.
 //
 // A database test that guards a path's cost counts the statements the path sends with countQueries(), or, for a route
 // of a server the test booted, countRuntimeQueries(); expectFlatQueries() in @jskit-ai/resource-runtime/test compares
@@ -29,7 +31,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, w
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { appEnvironment, isDeployed } from "@jskit-ai/kernel/shared/support/appEnvironment";
+import { assertNoRetiredVariables } from "@jskit-ai/kernel/server/runtime/appEnvironment";
+import { appEnvironment, isStagingOrProduction } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { parseDatabaseUrl, resolveKnexConnectionFromEnvironment, resolveKnexPool } from "../shared/databaseConnection.js";
 import { detectDialectFromClient } from "../shared/dialect.js";
 import { RUNTIME_QUERY_CHANNEL } from "./database.js";
@@ -39,6 +42,8 @@ const SNAPSHOT_DIRECTORY = path.join("node_modules", ".cache", "jskit-test-datab
 // Room for a `_snapshot` or copy suffix within MySQL's 64 and PostgreSQL's 63 characters.
 const DISPOSABLE_NAME = /^[A-Za-z0-9_]{1,48}$/u;
 const TEST_DATABASE_VARIABLES = Object.freeze(["TEST_DB_NAME", "BROWSER_TEST_DB_NAME"]);
+// The Staging and Production databases an application names on a server it shares with its test databases.
+const PROTECTED_DATABASE_VARIABLES = Object.freeze(["STAGING_DB_NAME", "PRODUCTION_DB_NAME"]);
 const MYSQL_ACCESS_DENIED = new Set(["ER_DBACCESS_DENIED_ERROR", "ER_ACCESS_DENIED_ERROR", "ER_SPECIFIC_ACCESS_DENIED_ERROR"]);
 // A database or table the user may not use (not a wrong password, which fails the run).
 const MYSQL_REFUSED_PRIVILEGE = new Set(["ER_DBACCESS_DENIED_ERROR", "ER_SPECIFIC_ACCESS_DENIED_ERROR", "ER_TABLEACCESS_DENIED_ERROR"]);
@@ -92,24 +97,31 @@ function connectedDatabaseName(environment) {
 }
 
 /**
- * The disposable database `variable` names, checked with its first `count - 1` copies: never in staging or
- * production (APP_ENV), never the application's database (DB_NAME, DATABASE_URL's, PROD_DB_NAME, and `connected`, the
- * one its Knex configuration names), and never the other test database or its copies.
+ * The disposable database `variable` names, checked with its first `count - 1` copies: never while a variable JSKIT no
+ * longer reads is set (`assertNoRetiredVariables`, PROD_DB_NAME among them), never in staging or production (APP_ENV),
+ * never the application's database (DB_NAME, DATABASE_URL's and `connected`, the one its Knex configuration names) or
+ * its Staging or Production database (STAGING_DB_NAME, PRODUCTION_DB_NAME), and never the other test database or its
+ * copies.
  * @param {Record<string, string | undefined>} environment
  * @param {"TEST_DB_NAME" | "BROWSER_TEST_DB_NAME"} variable
  * @param {number} [count]
  * @param {{ connected?: string }} [options]
  */
 function requireDisposableDatabase(environment, variable, count = 1, { connected = "" } = {}) {
-  if (isDeployed(environment)) {
+  assertNoRetiredVariables(environment);
+  if (isStagingOrProduction(environment)) {
     throw new Error(`Test databases are never prepared when APP_ENV is ${appEnvironment(environment)}.`);
   }
   const name = String(environment[variable] || "").trim();
   if (!DISPOSABLE_NAME.test(name)) {
     throw new Error(`${variable} must name a disposable test database: letters, digits and _, at most 48 characters.`);
   }
-  const application = [connectedDatabaseName(environment), environment.DB_NAME, environment.PROD_DB_NAME, connected]
-    .map(folded).filter(Boolean);
+  const application = [
+    connectedDatabaseName(environment),
+    environment.DB_NAME,
+    ...PROTECTED_DATABASE_VARIABLES.map((protectedName) => environment[protectedName]),
+    connected
+  ].map(folded).filter(Boolean);
   const others = TEST_DATABASE_VARIABLES.filter((other) => other !== variable)
     .map((other) => folded(environment[other])).filter(Boolean);
   // `copy` is `original` or one of its numbered copies, whatever the count of either run.
@@ -117,7 +129,8 @@ function requireDisposableDatabase(environment, variable, count = 1, { connected
     (copy.startsWith(`${original}_`) && /^\d+$/u.test(copy.slice(original.length + 1)));
   for (const candidate of testDatabaseNames(name, count).map(folded)) {
     if (application.includes(candidate)) {
-      throw new Error(`${variable} and its copies must differ from the application's DB_NAME, DATABASE_URL and PROD_DB_NAME (${candidate}).`);
+      throw new Error(`${variable} and its copies must differ from the application's DB_NAME, DATABASE_URL, ` +
+        `STAGING_DB_NAME and PRODUCTION_DB_NAME (${candidate}).`);
     }
   }
   for (const other of others) {
@@ -488,6 +501,7 @@ function refusedPrivilege(error) {
  *   before any test file: what it answers joins the summary, and a throw fails the run.
  */
 async function testDatabaseRun({ knexConfig, environment, count, schema, appRoot = process.cwd(), checkDatabase }) {
+  assertNoRetiredVariables(environment);
   const oneAtATime = (reason) => ({
     concurrency: 1,
     env: {},
@@ -635,7 +649,7 @@ async function createPackageTestKnex(context, { environment }) {
     context.after(() => knex.destroy());
     return knex;
   }
-  if (isDeployed(environment)) {
+  if (isStagingOrProduction(environment)) {
     throw new Error(`Package data tests never run when APP_ENV is ${appEnvironment(environment)}.`);
   }
   const connection = {

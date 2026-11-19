@@ -356,9 +356,9 @@ something in the application requires:
 When the server starts, JSKIT compares each role's own grants with the
 permissions the registered actions, the routes' `permission` and the surface
 access policies require. A grant that covers none of them stops the server
-outside production, for example `Role "member" grants "crud.labels.patch",
-which no action requires; did you mean "crud.labels.update"?`; in production
-the server starts and logs it as a warning. List a permission the application
+in development and test, for example `Role "member" grants "crud.labels.patch",
+which no action requires; did you mean "crud.labels.update"?`; in staging and
+production the server starts and logs it as a warning. List a permission the application
 checks itself, in a service, a row policy or the browser (`access.can()`), in
 `roleCatalog.customPermissions`:
 

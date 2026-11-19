@@ -1,5 +1,5 @@
-// The production build of the frontend that every browser-test server serves, as a deployed server does: a page then
-// loads a few bundled files instead of every source module from a development server. The build goes where the app
+// The production build of the frontend that every browser-test server serves, as a staging or production server
+// does: a page then loads a few bundled files instead of every source module from a development server. The build goes where the app
 // server serves it from (dist/), never a folder of its own: the server tells every page which build it serves from
 // dist/index.html, and a page from any other build offers a reload over the screen. It is reused while its inputs' contents
 // are unchanged and dist/index.html is still the one it made, so a repeated focused run does not rebuild, even though a
@@ -55,7 +55,7 @@ function buildFingerprint(appRoot, build, env = process.env) {
 function runToCompletion(command, appRoot) {
   const [program, ...args] = String(command).trim().split(/\s+/u);
   return new Promise((resolve, reject) => {
-    // The build a deployment serves, whatever NODE_ENV the launcher was given.
+    // The build a staging or production server serves, whatever NODE_ENV the launcher was given.
     const child = spawn(program, args, {
       cwd: appRoot,
       env: { ...process.env, NODE_ENV: "production" },

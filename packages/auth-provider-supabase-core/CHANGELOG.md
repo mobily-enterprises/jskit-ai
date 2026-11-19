@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- **Breaking:** the resolved configuration names whether the app runs in staging or production `isStagingOrProduction`, in place of `isDeployed`.
 - The email change operations (`requestEmailChange`, `requestEmailChangeForUser`, `confirmEmailChange`) answer `AUTH_OPERATION_UNSUPPORTED`, and `features.emailChange` is false: the email is the identity provider's.
 - **Breaking:** staging and production (`APP_ENV`), not `NODE_ENV=production`, use secure `__Host-` session cookies and refuse development shortcuts; the config's `isProduction` is now `isDeployed`.
 - The second-factor operations (`getSecondFactorStatus`, `startSecondFactorSetup`, `confirmSecondFactorSetup`, `verifySecondFactor`, `replaceSecondFactorRecoveryCodes`, `removeSecondFactor`, `listSecondFactors`, `resetSecondFactor`) answer `AUTH_OPERATION_UNSUPPORTED`, and `features.secondFactor` is false.

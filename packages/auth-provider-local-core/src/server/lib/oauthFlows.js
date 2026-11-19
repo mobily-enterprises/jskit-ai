@@ -34,8 +34,8 @@ function createLocalOAuthFlows({
   securityStatus,
   sessions
 }) {
-  const { isDeployed, oauthEnabled } = config;
-  const OAUTH_ATTEMPT_COOKIE = hostOnlyCookieName(OAUTH_ATTEMPT_COOKIE_NAME, isDeployed);
+  const { isStagingOrProduction, oauthEnabled } = config;
+  const OAUTH_ATTEMPT_COOKIE = hostOnlyCookieName(OAUTH_ATTEMPT_COOKIE_NAME, isStagingOrProduction);
   const oauthRedirectUri = oauthEnabled ? `${config.appPublicUrl.replace(/\/$/u, "")}${OAUTH_REDIRECT_PATH}` : "";
   const appOrigin = oauthEnabled ? new URL(config.appPublicUrl).origin : "";
   const oauthClients = createOAuthClients({ logger });

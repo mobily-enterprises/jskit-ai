@@ -11,7 +11,7 @@ requires: @jskit-ai/oidc-issuer-core
 ## Use when
 
 Use this pattern when one person or company owns several apps and wants one
-account to sign in to all of them. The hub is its own project, deployed on a
+account to sign in to all of them. The hub is its own project, served on a
 domain of its own. Apps sign in through it with
 `@jskit-ai/auth-provider-oidc-core` (pattern `auth/oidc-sign-in`).
 
@@ -42,7 +42,7 @@ pages belong on their own origin.
   self-asserted; the full address is what the owner approves.
 - Apps receive the authorization code flow with PKCE only, no refresh tokens,
   exact redirect URIs, and the same `sub` everywhere.
-- The issuer and `/hub` paths are never framed; in production no hub page is.
+- The issuer and `/hub` paths are never framed; in staging and production no hub page is.
   (Development lets an editor's preview pane show the hub's own pages.) The
   hub's own sign-in is first-party: apps never see passwords.
 - Passwords use the JSKIT local-account scrypt v1 format, so local accounts

@@ -1,4 +1,4 @@
-import { isDeployed } from "@jskit-ai/kernel/shared/support/appEnvironment";
+import { isStagingOrProduction } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { defineProvider } from "@jskit-ai/kernel/shared/capabilities";
 import {
   collectRequiredPermissions,
@@ -47,7 +47,7 @@ const WorkspaceRoleGrantsProvider = defineProvider({
       return;
     }
     const message = describeUnknownRoleGrants(findings);
-    if (isDeployed(env)) {
+    if (isStagingOrProduction(env)) {
       logger.warn({ unknownRoleGrants: findings.map(({ roleId, grant }) => ({ roleId, grant })) }, message);
       return;
     }

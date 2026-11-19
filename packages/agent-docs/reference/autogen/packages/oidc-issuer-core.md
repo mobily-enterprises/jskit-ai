@@ -68,11 +68,11 @@ Exports
 - `resolveHubDevAuth(env)`
 Local functions
 - `text(value)`
-- `resolveIssuer(env, deployed)`
+- `resolveIssuer(env, stagingOrProduction)`
 - `readOrCreateDevSecret(appRoot)`
-- `resolveSecret(env, { deployed, appRoot })`
+- `resolveSecret(env, { stagingOrProduction, appRoot })`
 - `parseDevOriginPatterns(value)`
-- `resolveMail(env, { deployed })`
+- `resolveMail(env, { stagingOrProduction })`
 - `resolveGoogle(env)`
 
 ### `src/server/crypto.js`

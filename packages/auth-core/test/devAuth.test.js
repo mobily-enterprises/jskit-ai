@@ -70,7 +70,7 @@ test("dev sign-in follows APP_ENV: allowed in development and test, refused in s
   }
   for (const APP_ENV of ["staging", "production"]) {
     const policy = policyIn(APP_ENV, "production");
-    assert.equal(policy.isDeployed, true, APP_ENV);
+    assert.equal(policy.isStagingOrProduction, true, APP_ENV);
     assert.equal(isDevAuthBootstrapEnabled(policy), false, APP_ENV);
     assert.throws(() => ensureDevAuthRuntimeAvailable(policy, createRequest()), { code: "auth.dev.unavailable" }, APP_ENV);
   }

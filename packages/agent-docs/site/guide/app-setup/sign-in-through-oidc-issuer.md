@@ -13,7 +13,7 @@ The pattern is `auth/oidc-sign-in`.
 1. Have the issuer's address and either a registration token (an accounts hub)
    or a client id and secret (any other issuer). Ask the person; never invent them.
 2. Install the provider and run the migration (below).
-3. Set or link the Env values (below) for development and production.
+3. Set or link the Env values (below) for development, staging and production.
 4. Sign in once in development. Against a hub, a development address works at
    once when it is on this computer or matches the hub's development patterns.
 5. Deploy, then ask the hub's owner to approve the app on the hub's Apps page at
@@ -41,8 +41,8 @@ accounts first (below) if the app already has people.
 | `AUTH_OIDC_REGISTRATION_TOKEN` | Preferred. The app registers itself with the issuer, once per address. |
 | `AUTH_OIDC_CLIENT_ID` / `AUTH_OIDC_CLIENT_SECRET` | For issuers without self-registration. Use these **instead of** the token, never both. |
 | `AUTH_OIDC_LABEL` | Button label. Default "Continue with your account". |
-| `AUTH_OIDC_SESSION_SECRET` | Required in production, at least 32 characters. In development it is generated in `.jskit/auth/oidc-session.secret`. |
-| `APP_PUBLIC_URL` | The address people use. With it the app registers at start; without it, on the first sign-in from a new address. Required in production behind a proxy that is not on the same machine. |
+| `AUTH_OIDC_SESSION_SECRET` | Required in staging and production, at least 32 characters. In development it is generated in `.jskit/auth/oidc-session.secret`. |
+| `APP_PUBLIC_URL` | The address people use. With it the app registers at start; without it, on the first sign-in from a new address. Required in staging and production behind a proxy that is not on the same machine. |
 
 Addresses must be `https`, or `http` on `localhost`/loopback. Without
 `AUTH_OIDC_ISSUER` the app still starts; pressing the button brings the person
@@ -52,11 +52,12 @@ missing." Every sign-in that cannot start is explained there the same way.
 Never invent either value or copy it into source. If the host keeps saved
 values (an editor's saved keys, a deployment secret store), link these two
 variables to the hub's saved address and token instead of pasting them, in
-development and in production.
+development, staging and production.
 
 The issuer must be reachable from the app's server and from the person's
 browser. A hub that runs only on another computer's `localhost` (for example in
-another project's development preview) is not; connect apps to the deployed hub.
+another project's development preview) is not; connect apps to the hub's
+staging or production server.
 
 ## What the issuer is told
 
@@ -74,7 +75,8 @@ Scopes are `openid email profile`. A static client must be registered with the
 same redirect URI.
 
 An accounts hub decides what a new address may do. Development addresses work
-at once. A production address waits until the hub's owner approves it on the
+at once. Any other address, such as a staging or production one, waits until
+the hub's owner approves it on the
 hub's Apps page; until then, signing in shows the hub's own waiting page. A
 blocked address cannot register, and the login page says "Your accounts hub has
 blocked this app's address."

@@ -165,22 +165,22 @@ A consolidation drops behaviour there without a failing build.
   `router.back()` and hand-made back controls, so Up lands inside the app
   even on a page opened from a link.
 
-### Production settings
+### Staging and production settings
 
-- A deployed server sets `APP_ENV=staging` or `production` and
-  `NODE_ENV=production` ([Environments](environments.md)); only
-  then does local auth ask for a setup code and refuse development settings.
-- On an empty production database, local auth asks for the first account's
-  setup code, so whoever reaches a new deployment first cannot own it ([The
-  first account in
-  production](/guide/app-setup/authentication#the-first-account-in-production-local-auth)).
+- A server sets `APP_ENV=staging` or `production` and `NODE_ENV=production`
+  ([Environments](environments.md)); only then does local auth
+  ask for a setup code and refuse development settings.
+- On an empty database there, local auth asks for the first account's setup
+  code, so whoever reaches a new server first cannot own it ([The first account
+  in staging and
+  production](/guide/app-setup/authentication#the-first-account-in-staging-and-production-local-auth)).
   Give any registration of your own the same protection.
 - `config.securityHeaders` sends the security headers, with the content
   security policy reported, not enforced, by default; read them on a
   production build ([Security
   headers](/guide/app-setup/initial-scaffolding#security-headers)).
-- Email confirmation needs `auth.local.confirmation-sender` in production, or
-  the server refuses to start while anyone may register ([Email
+- Email confirmation needs `auth.local.confirmation-sender` there, or the
+  server refuses to start while anyone may register ([Email
   confirmation](/guide/app-setup/authentication#email-confirmation-local-auth)).
 - Changing the assistant's instructions needs `assistant.settings.update` or
   the surface's own permission ([Who may change the

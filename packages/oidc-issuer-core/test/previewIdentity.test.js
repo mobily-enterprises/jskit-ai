@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
+import { DEV_AUTH_SECRET_HEADER } from "../src/server/config.js";
 import { DEFAULT_PREVIEW_IDENTITY_PROTOCOL, executePreviewIdentityRequest } from "../src/server/previewIdentity.js";
 import { createAccount, createBrowser } from "./support/browser.js";
 import { startHub } from "./support/hub.js";
@@ -59,4 +60,31 @@ test("a wrong secret, an unknown account or a disabled exchange is refused", asy
   assert.equal(disabled.code, "preview_identity_disabled");
   await assert.rejects(executePreviewIdentityRequest(request({ type: "email", value: "ada@example.test" }), {}),
     /requires the hub's environment/u);
+});
+
+test("a staging or production hub has no preview sign-in, even enabled, with its secret, from this computer", async () => {
+  for (const APP_ENV of ["staging", "production"]) {
+    const served = await startHub({
+      env: {
+        APP_ENV, NODE_ENV: "production",
+        APP_PUBLIC_URL: "https://accounts.example.test",
+        OIDC_HUB_EMAIL_FROM: "hub@example.test",
+        RESEND_API_KEY: "re_test_not_real",
+        AUTH_DEV_BYPASS_ENABLED: "true",
+        AUTH_DEV_BYPASS_SECRET: SECRET
+      }
+    });
+    try {
+      const response = await fetch(`http://127.0.0.1:${served.port}/hub/api/dev/login-as`, {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-hub-request": "1", [DEV_AUTH_SECRET_HEADER]: SECRET },
+        body: JSON.stringify({ email: "ada@example.test" })
+      });
+      assert.equal(response.status, 404, APP_ENV);
+      // The route itself is missing there, not merely the account ("account_not_found").
+      assert.equal((await response.json()).error, "not_found", APP_ENV);
+    } finally {
+      await served.stop();
+    }
+  }
 });

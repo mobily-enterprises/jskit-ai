@@ -22,12 +22,12 @@ const PERSISTENT_SESSION_COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 400;
  * @param {import("../types.js").SupabaseProfiles} dependencies.profiles
  */
 function createSupabaseSessions({ config, clients, profileMirror, profiles }) {
-  const { isDeployed, jwtAudience, supabaseUrl } = config;
+  const { isStagingOrProduction, jwtAudience, supabaseUrl } = config;
   // Staging and production cookies are Secure, so they are also host-only __Host- cookies.
-  const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isDeployed);
-  const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isDeployed);
-  const RECOVERY_ACCESS_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_ACCESS_TOKEN_COOKIE_NAME, isDeployed);
-  const RECOVERY_REFRESH_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_REFRESH_TOKEN_COOKIE_NAME, isDeployed);
+  const ACCESS_TOKEN_COOKIE = hostOnlyCookieName(ACCESS_TOKEN_COOKIE_NAME, isStagingOrProduction);
+  const REFRESH_TOKEN_COOKIE = hostOnlyCookieName(REFRESH_TOKEN_COOKIE_NAME, isStagingOrProduction);
+  const RECOVERY_ACCESS_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_ACCESS_TOKEN_COOKIE_NAME, isStagingOrProduction);
+  const RECOVERY_REFRESH_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_REFRESH_TOKEN_COOKIE_NAME, isStagingOrProduction);
   const issuerUrl = supabaseUrl ? new URL("/auth/v1", supabaseUrl).toString().replace(/\/$/, "") : "";
   const jwksUrl = issuerUrl ? `${issuerUrl}/.well-known/jwks.json` : "";
 
@@ -255,14 +255,14 @@ function createSupabaseSessions({ config, clients, profileMirror, profiles }) {
       ? Math.floor(sessionAccessMaxAge)
       : Math.max(Math.floor(sessionAccessMaxAge), PERSISTENT_SESSION_COOKIE_MAX_AGE_SECONDS);
 
-    reply.setCookie(accessCookieName, accessToken, cookieOptions(isDeployed, cookieMaxAge));
-    reply.setCookie(refreshCookieName, refreshToken, cookieOptions(isDeployed, cookieMaxAge));
+    reply.setCookie(accessCookieName, accessToken, cookieOptions(isStagingOrProduction, cookieMaxAge));
+    reply.setCookie(refreshCookieName, refreshToken, cookieOptions(isStagingOrProduction, cookieMaxAge));
   }
 
   function clearSessionCookies(reply) {
-    for (const clearOptions of cookieClearOptions(isDeployed)) {
+    for (const clearOptions of cookieClearOptions(isStagingOrProduction)) {
       // A __Host- cookie only exists at Path=/.
-      if (clearOptions.path === "/" || !isDeployed) {
+      if (clearOptions.path === "/" || !isStagingOrProduction) {
         reply.clearCookie(ACCESS_TOKEN_COOKIE, clearOptions);
         reply.clearCookie(REFRESH_TOKEN_COOKIE, clearOptions);
         reply.clearCookie(RECOVERY_ACCESS_TOKEN_COOKIE, clearOptions);

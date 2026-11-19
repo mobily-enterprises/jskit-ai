@@ -680,7 +680,7 @@ function registerDevelopmentRoutes(app, hub, support) {
 
   app.post("/hub/api/dev/login-as", async (request, reply) => {
     const { enabled, secret } = hub.devAuth;
-    if (config.isDeployed || !enabled || !secret || !isLoopbackRequest(request)) {
+    if (config.isStagingOrProduction || !enabled || !secret || !isLoopbackRequest(request)) {
       throw new HubError(404, "not_found", "Not found.");
     }
     if (!constantEquals(request.headers[DEV_AUTH_SECRET_HEADER], secret)) {
