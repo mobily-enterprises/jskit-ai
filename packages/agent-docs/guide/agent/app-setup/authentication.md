@@ -378,7 +378,9 @@ that registered; in staging only to `STAGING_EMAIL_TO`, called with that
 address as `email` and the registered one as `originalEmail`, which its email
 should show (`markStagingEmail` from
 `@jskit-ai/kernel/server/runtime/appEnvironment` does), or not at all when
-`STAGING_EMAIL_TO` is unset; in development and test never. Where it is not
+`STAGING_EMAIL_TO` is unset; on a staging server that real people use
+(`STAGING_REACHES_REAL_PEOPLE=true`) to the address that registered, as in
+production; in development and test never. Where it is not
 called, local auth logs each link for the person testing and keeps it out of
 the answer. So no code may depend on the sender having run, such as code that
 confirms a registration with the link its sender was given: in development,

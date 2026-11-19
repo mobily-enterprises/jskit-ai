@@ -80,6 +80,24 @@ test("a development page shows the Development banner at every width, in light a
   }
 });
 
+test("a staging page real people use shows Staging · real people, small at the narrowest width, taking no click", {
+  skip: !RUN_BROWSER_TEST
+}, async (t) => {
+  const { vite, browser } = await startFixture(t, { APP_ENV: "staging", STAGING_REACHES_REAL_PEOPLE: "true" });
+  const page = await browser.newPage({ viewport: VIEWPORTS[0] });
+  await page.goto(vite.baseURL);
+  await page.waitForSelector("html[data-ready=true]");
+  const banner = page.getByTestId("jskit-app-environment-banner");
+  assert.equal(await banner.textContent(), "Staging · real people");
+  assert.equal(await banner.getAttribute("aria-description"), "Staging that real people use: email and text messages " +
+    "reach the people they are for, other messages are logged and payments use the sandbox.");
+  const box = await banner.boundingBox();
+  assert.ok(box.width < VIEWPORTS[0].width / 2, `small (${box.width})`);
+  assert.equal(await page.getByLabel("Email").count(), 1, "one Email match");
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  assert.equal(await page.locator("#under-banner").textContent(), "Pressed 1 times");
+});
+
 test("a test page shows Test and a staging page Staging, at the narrowest width; a production page shows none", {
   skip: !RUN_BROWSER_TEST
 }, async (t) => {

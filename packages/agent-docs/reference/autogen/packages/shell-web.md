@@ -26,7 +26,7 @@ Exports
 Exports
 - `APP_ENVIRONMENT_BANNER_ID`
 - `createAppEnvironmentBannerRuntime(options)`
-- `installAppEnvironmentBanner({ documentObject = pageDocument(), environment = pageAppEnvironment(documentObject) } = {})`
+- `installAppEnvironmentBanner({ documentObject = pageDocument(), environment = pageAppEnvironment(documentObject), reachesRealPeople = pageStagingReachesRealPeople(documentObject) } = {})`
 Local functions
 - `removeNothing()`
 

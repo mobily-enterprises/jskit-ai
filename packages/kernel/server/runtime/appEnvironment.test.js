@@ -6,6 +6,8 @@ import {
   logSideEffect,
   markStagingEmail
 } from "./appEnvironment.js";
+// The reader through its module, so this file loads, and each test fails on its own, where the reader is missing.
+import * as sharedAppEnvironment from "../../shared/support/appEnvironment.js";
 
 const STAGING = Object.freeze({ APP_ENV: "staging", NODE_ENV: "production" });
 
@@ -96,6 +98,55 @@ test("development and test log every email; production sends it to its recipient
   await assert.rejects(deliverMessage({ env: STAGING, channel: "push", send: async () => {} }), {
     name: "TypeError", message: "deliverMessage sends email or sms, not push."
   });
+});
+
+test("a staging server real people use sends each email and SMS to the person it was for, unmarked, and logs it", async () => {
+  const REAL_PEOPLE = { ...STAGING, STAGING_REACHES_REAL_PEOPLE: "true" };
+  for (const env of [REAL_PEOPLE, { ...REAL_PEOPLE, STAGING_EMAIL_TO: "qa@example.com", STAGING_SMS_TO: "+61400000000" }]) {
+    const { delivery, sent, lines } = await sendEmail(env);
+    assert.deepEqual(sent, [{ recipient: "ada@example.com", originalTo: "" }], "to ada, never to a test address");
+    assert.deepEqual(delivery, { sent: true, to: "ada@example.com", originalTo: "", result: "message-1" });
+    assert.equal(lines.length, 1);
+    assert.equal(lines[0].message, "Staging: the password reset email to ada@example.com was sent to ada@example.com, " +
+      "since real people use this staging (STAGING_REACHES_REAL_PEOPLE).");
+    assert.deepEqual(lines[0].details, {
+      appEnv: "staging", kind: "email", to: "ada@example.com", stagingReachesRealPeople: true, link: "https://app.example/reset"
+    });
+  }
+  const texts = [];
+  const sms = await deliverMessage({
+    env: { ...REAL_PEOPLE, STAGING_SMS_TO: "+61400000000" },
+    logger: recordingLogger(),
+    channel: "sms",
+    to: "+61411111111",
+    summary: "the sign-in code to +61411111111",
+    send: async (recipient, routing) => texts.push({ recipient, ...routing })
+  });
+  assert.deepEqual(texts, [{ recipient: "+61411111111", originalTo: "" }]);
+  assert.equal(sms.to, "+61411111111");
+  // The email it sends is the one the application wrote: nothing marks it as staging's.
+  const email = { subject: "Reset", text: "Follow the link." };
+  assert.equal(markStagingEmail(email, (await sendEmail(REAL_PEOPLE)).delivery.originalTo), email);
+});
+
+test("STAGING_REACHES_REAL_PEOPLE is true only in staging and only as true; anything else throws, naming the fix", () => {
+  assert.equal(sharedAppEnvironment.stagingReachesRealPeople({ ...STAGING, STAGING_REACHES_REAL_PEOPLE: "true" }), true);
+  assert.equal(sharedAppEnvironment.stagingReachesRealPeople({ ...STAGING, STAGING_REACHES_REAL_PEOPLE: " true " }), true);
+  assert.equal(sharedAppEnvironment.stagingReachesRealPeople(STAGING), false);
+  assert.equal(sharedAppEnvironment.stagingReachesRealPeople({ ...STAGING, STAGING_REACHES_REAL_PEOPLE: " " }), false, "empty is unset");
+  for (const APP_ENV of ["production", "development", "test"]) {
+    assert.throws(() => sharedAppEnvironment.stagingReachesRealPeople({ APP_ENV, STAGING_REACHES_REAL_PEOPLE: "true" }), {
+      message: `STAGING_REACHES_REAL_PEOPLE is set and APP_ENV is ${APP_ENV}. It says real people use a staging ` +
+        `server, so only APP_ENV=staging takes it: remove STAGING_REACHES_REAL_PEOPLE from the ${APP_ENV} environment.`
+    });
+  }
+  for (const value of ["yes", "1", "TRUE", "false"]) {
+    assert.throws(() => sharedAppEnvironment.stagingReachesRealPeople({ ...STAGING, STAGING_REACHES_REAL_PEOPLE: value }), {
+      message: `STAGING_REACHES_REAL_PEOPLE is "${value}". Set it to true when real people use this staging server, ` +
+        "or leave it unset."
+    });
+  }
+  assert.throws(() => sharedAppEnvironment.stagingReachesRealPeople({ STAGING_REACHES_REAL_PEOPLE: "true" }), { message: /^APP_ENV is not set/u });
 });
 
 test("an email staging redirected shows who it was for in its text, its HTML and a header", () => {

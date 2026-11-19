@@ -15,7 +15,7 @@ builds, and staging and production set it to `production`.
 | --- | --- | --- | --- | --- | --- | --- |
 | `development` | a developer's machine, a session, a preview | logged | logged | sandbox only | allowed | "Development" |
 | `test` | automated test runs | logged | logged | sandbox only | allowed | "Test" |
-| `staging` | a copy on a server for checking the application before production | only to `STAGING_EMAIL_TO` and `STAGING_SMS_TO`; logged when unset | logged | sandbox only | refused | "Staging" |
+| `staging` | a copy on a server for checking the application before production | only to `STAGING_EMAIL_TO` and `STAGING_SMS_TO`; logged when unset; sent when real people use it (`STAGING_REACHES_REAL_PEOPLE=true`) | logged | sandbox only | refused | "Staging" ("Staging · real people" when real people use it) |
 | `production` | the application serving real people | sent | sent | live | refused | none |
 
 The development shortcuts are dev sign-in (`AUTH_DEV_BYPASS_ENABLED`), cookies
@@ -31,14 +31,15 @@ for the emails it sends.
 The host sets `APP_ENV`; a request never chooses it. JSKIT's own commands set
 it where they own the run.
 
-| Who | `APP_ENV` | `NODE_ENV` | `STAGING_EMAIL_TO`, `STAGING_SMS_TO` |
-| --- | --- | --- | --- |
-| `npm run develop`, `npm run dev` on a developer's machine | `development`, set by the scripts | unset | unset |
-| A session or preview in an editor | `development` | unset | unset |
-| `jskit test` and the browser test servers | `test`, set by JSKIT | anything | unset |
-| A build-check machine that starts the packaged build to see it start and answer health | `staging` | `production` | unset, so everything is logged |
-| A staging server | `staging` | `production` | the testers' inbox and phone |
-| A production server | `production` | `production` | ignored |
+| Who | `APP_ENV` | `NODE_ENV` | `STAGING_EMAIL_TO`, `STAGING_SMS_TO` | `STAGING_REACHES_REAL_PEOPLE` |
+| --- | --- | --- | --- | --- |
+| `npm run develop`, `npm run dev` on a developer's machine | `development`, set by the scripts | unset | unset | unset |
+| A session or preview in an editor | `development` | unset | unset | unset |
+| `jskit test` and the browser test servers | `test`, set by JSKIT | anything | unset | unset |
+| A build-check machine that starts the packaged build to see it start and answer health | `staging` | `production` | unset, so everything is logged | unset |
+| A staging server | `staging` | `production` | the testers' inbox and phone | unset |
+| A staging server that real people use, while there is no production | `staging` | `production` | not used | `true`, set by the host |
+| A production server | `production` | `production` | ignored | unset |
 
 A server started with `npm start` reads `APP_ENV` from its environment, or from
 `.env` (`APP_ENV=development` on a developer's machine; the foundations'
@@ -83,6 +84,12 @@ A server stops at startup, saying what to do, when:
 - A development-only setting is set in staging or production, for example
   `AUTH_LOCAL_RECOVERY_DEV_OUTPUT is for development only and APP_ENV is
   staging. Remove it from the staging environment.`
+- `STAGING_REACHES_REAL_PEOPLE` is set outside staging: `STAGING_REACHES_REAL_PEOPLE
+  is set and APP_ENV is production. It says real people use a staging server,
+  so only APP_ENV=staging takes it: remove STAGING_REACHES_REAL_PEOPLE from the
+  production environment.` Any value but `true` is refused too:
+  `STAGING_REACHES_REAL_PEOPLE is "yes". Set it to true when real people use
+  this staging server, or leave it unset.`
 
 It then logs one line saying where it runs and what that means, such as
 `APP_ENV is staging: email goes only to qa@example.com (STAGING_EMAIL_TO), SMS
@@ -103,12 +110,39 @@ logs it, with what a tester needs, such as its link. Push notifications,
 webhooks and connector writes are always logged in staging, and live payments
 are refused there, as everywhere but production.
 
+## A staging server that real people use
+
+Sometimes real people already use a staging server, because the application
+has no production yet. Its host then sets `STAGING_REACHES_REAL_PEOPLE=true`
+beside `APP_ENV=staging`, and email and SMS go to the people they are for:
+`deliverMessage` sends each one to its recipient, unmarked (`originalTo` is
+empty, so `markStagingEmail` leaves it as it is), and logs `Staging: the
+password reset email to ada@example.com was sent to ada@example.com, since
+real people use this staging (STAGING_REACHES_REAL_PEOPLE).` Everything else
+stays as staging has it: `APP_ENV` is still `staging`, with its own settings
+and databases; `STAGING_EMAIL_TO` and `STAGING_SMS_TO` are not used (the
+startup line says so when they are set); push notifications, webhooks and
+connector writes are logged; payments use the sandbox; development shortcuts
+are refused. Every page names it in a second meta tag,
+`jskit-staging-reaches-real-people`, and the banner reads "Staging · real
+people" ("Staging that real people use: email and text messages reach the
+people they are for, …").
+
+The setting is the host's word, never the application's: only `true` means
+anything, only `APP_ENV=staging` takes it, and a server refuses to start with
+it in any other environment. An application decides nothing from it but who
+receives its email and SMS, and reads it through
+`stagingReachesRealPeople(env)` from
+`@jskit-ai/kernel/shared/support/appEnvironment` when it sends some other way.
+
 ## What JSKIT does
 
 - Every HTML page the server sends, and every page the Vite development server
-  sends, names its environment in a `jskit-app-environment` meta tag. The
-  shell (`@jskit-ai/shell-web`) shows a small "Development", "Test" or
-  "Staging" banner from it, with no application code, and none in production.
+  sends, names its environment in a `jskit-app-environment` meta tag (and,
+  on a staging server that real people use, `jskit-staging-reaches-real-people`
+  after it). The shell (`@jskit-ai/shell-web`) shows a small "Development",
+  "Test", "Staging" or "Staging · real people" banner from them, with no
+  application code, and none in production.
   The banner never takes a click or a tap. Screen readers read it as a note,
   with a sentence such as "Development: emails and messages are logged, not
   sent; payments use the sandbox." as its description. It has no label, so a
@@ -116,7 +150,9 @@ are refused there, as everywhere but production.
 - Local-password emails (confirmation and password reset) with an installed
   sender go out as the table says. In staging the sender gets
   `STAGING_EMAIL_TO` as `email` and the person's address as `originalEmail`,
-  which its email should show (`markStagingEmail` does). An application that
+  which its email should show (`markStagingEmail` does); on a staging server
+  that real people use it gets the person's address and an empty
+  `originalEmail`, as in production. An application that
   confirms new accounts at once while its email isn't set up uses
   `auth.local.confirmation-mode`, which applies everywhere (see
   [Authentication](/guide/app-setup/authentication)).
@@ -143,7 +179,8 @@ project.
 
 Code the application writes that reaches the world follows the same rule. Send
 email and SMS through `deliverMessage`, which sends, redirects or logs each as
-`APP_ENV` says; log anything else outside production with `logSideEffect`.
+`APP_ENV` (and, in staging, `STAGING_REACHES_REAL_PEOPLE`) says; log anything
+else outside production with `logSideEffect`.
 
 ```js
 import { deliverMessage, logSideEffect, markStagingEmail } from "@jskit-ai/kernel/server/runtime/appEnvironment";
@@ -177,8 +214,11 @@ async function notifyDevice({ env, logger, push }, notification) {
 
 - Read `env` from the `runtime.env` capability, never a request.
 - A configured driver or key (`EMAIL_DRIVER=ses`, a live payment key) does not
-  make anything real; only `APP_ENV=production` does.
+  make anything real; only `APP_ENV=production` does, and, for email and SMS
+  alone, `STAGING_REACHES_REAL_PEOPLE=true` on staging.
 - Test each environment the code treats differently. A test that proves a real
   sender against a fake transport passes `APP_ENV: "production"` (and
   `NODE_ENV: "production"` when it starts a whole server), and a staging test
-  sets `STAGING_EMAIL_TO` and checks that only that address received it.
+  sets `STAGING_EMAIL_TO` and checks that only that address received it; one
+  for a staging server that real people use adds
+  `STAGING_REACHES_REAL_PEOPLE: "true"` and checks that the recipient did.

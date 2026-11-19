@@ -1,4 +1,4 @@
-import { pageAppEnvironment } from "@jskit-ai/kernel/shared/support/appEnvironment";
+import { pageAppEnvironment, pageStagingReachesRealPeople } from "@jskit-ai/kernel/shared/support/appEnvironment";
 import { pageDocument } from "../browser.js";
 import { useJskitText } from "../i18n.js";
 
@@ -7,8 +7,10 @@ const { t } = useJskitText();
 const APP_ENVIRONMENT_BANNER_ID = "jskit-app-environment-banner";
 // Every environment but production names itself on the page.
 const BANNERED_ENVIRONMENTS = Object.freeze(["development", "test", "staging"]);
-// Each bannered environment's label and description: `<prefix><environment>` and `<prefix><environment>Description`.
+// Each bannered environment's label and description: `<prefix><environment>` and `<prefix><environment>Description`;
+// a staging page that real people use reads `<prefix>stagingRealPeople` and its description instead.
 const BANNER_TEXT_PREFIX = "jskit.shell.appEnvironment.";
+const STAGING_REAL_PEOPLE_TEXT = "stagingRealPeople";
 
 // A small tab hanging from the top edge, above everything, that never takes a click or a tap: it marks the page
 // without covering a control the person needs. Amber with near-black text reads the same in light and dark themes.
@@ -34,16 +36,23 @@ function removeNothing() {}
 
 /**
  * Shows the page's environment, "Development", "Test" or "Staging", from the page's APP_ENV meta tag, so everyone
- * using a copy that is not production knows what it sends. It needs no application code: the shell adds it to the
- * page's body, outside the application's own layout. A production page, or a page that names no environment, gets
- * none. Returns the function that removes it.
+ * using a copy that is not production knows what it sends; a staging page that real people use shows
+ * "Staging · real people", saying its email and messages reach the people they are for. It needs no application
+ * code: the shell adds it to the page's body, outside the application's own layout. A production page, or a page
+ * that names no environment, gets none. Returns the function that removes it.
  * @param {object} [options]
  * @param {Document | null} [options.documentObject]
  * @param {"development" | "test" | "staging" | "production" | ""} [options.environment] The page's environment; read
  *   from its meta tag when omitted.
+ * @param {boolean} [options.reachesRealPeople] Whether real people use this staging page; read from its meta tag
+ *   when omitted.
  * @returns {() => void}
  */
-function installAppEnvironmentBanner({ documentObject = pageDocument(), environment = pageAppEnvironment(documentObject) } = {}) {
+function installAppEnvironmentBanner({
+  documentObject = pageDocument(),
+  environment = pageAppEnvironment(documentObject),
+  reachesRealPeople = pageStagingReachesRealPeople(documentObject)
+} = {}) {
   if (!BANNERED_ENVIRONMENTS.includes(environment) || !documentObject?.body ||
     documentObject.getElementById(APP_ENVIRONMENT_BANNER_ID)) {
     return removeNothing;
@@ -54,8 +63,9 @@ function installAppEnvironmentBanner({ documentObject = pageDocument(), environm
   // A note read by its visible text, with the full sentence as its description. A label would make it a labelled
   // element, which a browser test's field lookup such as `getByLabel("Email")` would also find.
   banner.setAttribute("role", "note");
-  banner.setAttribute("aria-description", t(`${BANNER_TEXT_PREFIX}${environment}Description`));
-  banner.textContent = t(`${BANNER_TEXT_PREFIX}${environment}`);
+  const text = environment === "staging" && reachesRealPeople === true ? STAGING_REAL_PEOPLE_TEXT : environment;
+  banner.setAttribute("aria-description", t(`${BANNER_TEXT_PREFIX}${text}Description`));
+  banner.textContent = t(`${BANNER_TEXT_PREFIX}${text}`);
   // Through the style object, not a style attribute, so a strict content policy without inline styles allows it.
   Object.assign(banner.style, APP_ENVIRONMENT_BANNER_STYLE);
   documentObject.body.append(banner);

@@ -69,10 +69,14 @@ Exports
 - `APP_ENV_KEY`
 - `APP_ENVIRONMENTS`
 - `APP_ENVIRONMENT_META_NAME`
+- `STAGING_REACHES_REAL_PEOPLE_KEY`
+- `STAGING_REAL_PEOPLE_META_NAME`
 - `appEnvironment(env)`
 - `isStagingOrProduction(env)`
 - `pageAppEnvironment(documentObject = globalThis.document)`
-- `withAppEnvironmentMeta(html, environment)`
+- `pageStagingReachesRealPeople(documentObject = globalThis.document)`
+- `stagingReachesRealPeople(env)`
+- `withAppEnvironmentMeta(html, environment, { reachesRealPeople = false } = {})`
 
 ### `shared/support/clientBuild.js`
 Exports

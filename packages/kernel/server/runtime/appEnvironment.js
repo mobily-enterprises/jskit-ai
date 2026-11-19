@@ -1,4 +1,10 @@
-import { APP_ENV_KEY, appEnvironment, isStagingOrProduction } from "../../shared/support/appEnvironment.js";
+import {
+  APP_ENV_KEY,
+  STAGING_REACHES_REAL_PEOPLE_KEY,
+  appEnvironment,
+  isStagingOrProduction,
+  stagingReachesRealPeople
+} from "../../shared/support/appEnvironment.js";
 
 /** @typedef {import("../types.js").RuntimeEnv} RuntimeEnv */
 /** @typedef {import("../types.js").RuntimeLogger} RuntimeLogger */
@@ -46,8 +52,9 @@ function assertNoRetiredVariables(env) {
 
 /**
  * Stops a server's startup, naming the fix, unless its environment is one JSKIT knows: no variable JSKIT no longer
- * reads (`assertNoRetiredVariables`); APP_ENV set to development, test, staging or production; and NODE_ENV=production
- * in staging and production, where optimised builds run. `createInstalledRuntime` checks it before anything else.
+ * reads (`assertNoRetiredVariables`); APP_ENV set to development, test, staging or production; NODE_ENV=production
+ * in staging and production, where optimised builds run; and STAGING_REACHES_REAL_PEOPLE only as `true` and only in
+ * staging (`stagingReachesRealPeople`). `createInstalledRuntime` checks it before anything else.
  * @param {RuntimeEnv} env
  */
 function assertAppEnvironment(env) {
@@ -61,6 +68,7 @@ function assertAppEnvironment(env) {
         `${APP_ENV_KEY} decides everything else.`
     );
   }
+  stagingReachesRealPeople(env);
 }
 
 /**
@@ -93,6 +101,15 @@ function logAppEnvironment(logger, env) {
   if (environment === "production") {
     logger.info({ appEnv: environment }, "APP_ENV is production: email, SMS, push notifications, webhooks, " +
       "connector writes and payments act for real.");
+    return;
+  }
+  if (environment === "staging" && stagingReachesRealPeople(env)) {
+    const ignored = Object.values(STAGING_ADDRESS_KEYS).filter((variable) => String(env[variable] ?? "").trim());
+    logger.info({ appEnv: environment, stagingReachesRealPeople: true }, `APP_ENV is staging and real people use it ` +
+      `(${STAGING_REACHES_REAL_PEOPLE_KEY}=true): email and SMS go to the people they are for` +
+      `${ignored.length > 0 ? ` (${ignored.join(" and ")} ${ignored.length === 1 ? "is" : "are"} not used)` : ""}; ` +
+      "push notifications, webhooks and connector writes are logged; payments use the sandbox; development " +
+      "shortcuts are refused and pages show a \"Staging · real people\" banner.");
     return;
   }
   if (environment === "staging") {
@@ -143,8 +160,9 @@ function logSideEffect(logger, environment, { kind, summary, details = {}, reaso
 /**
  * Sends one email or SMS the way APP_ENV says. Production sends it to `to`. Staging sends it to STAGING_EMAIL_TO
  * (SMS: STAGING_SMS_TO) instead, with the original recipient in the log and in `send`'s `originalTo`, or logs it when
- * that variable is unset. Development and test log it. Every email and SMS JSKIT sends goes through here, and so
- * should the application's own.
+ * that variable is unset; a staging server that real people use (STAGING_REACHES_REAL_PEOPLE=true) sends it to `to`,
+ * unmarked, and logs that it did. Development and test log it. Every email and SMS JSKIT sends goes through here, and
+ * so should the application's own.
  * @template T
  * @param {object} message
  * @param {RuntimeEnv} message.env
@@ -154,8 +172,8 @@ function logSideEffect(logger, environment, { kind, summary, details = {}, reaso
  * @param {string} message.summary One plain phrase naming it, such as "the password reset email to ada@example.com".
  * @param {Record<string, unknown>} [message.details] What a tester needs to act on it, such as the link it carried.
  * @param {(to: string, routing: { originalTo: string }) => Promise<T>} message.send Sends it to `to`; `originalTo`
- *   is the recipient the application meant when staging sent it elsewhere, else "". An email shows it
- *   (`markStagingEmail`).
+ *   is the recipient the application meant when staging sent it elsewhere, else "" (production, and a staging server
+ *   that real people use). An email shows it (`markStagingEmail`).
  * @returns {Promise<{ sent: false } | { sent: true, to: string, originalTo: string, result: T }>}
  */
 async function deliverMessage({ env, logger, channel, to, summary, details = {}, send }) {
@@ -166,6 +184,14 @@ async function deliverMessage({ env, logger, channel, to, summary, details = {},
   const environment = appEnvironment(env);
   if (environment === "production") {
     return { sent: true, to, originalTo: "", result: await send(to, { originalTo: "" }) };
+  }
+  if (environment === "staging" && stagingReachesRealPeople(env)) {
+    const result = await send(to, { originalTo: "" });
+    logger.info(
+      { appEnv: environment, kind: channel, to, stagingReachesRealPeople: true, ...details },
+      `Staging: ${summary} was sent to ${to}, since real people use this staging (${STAGING_REACHES_REAL_PEOPLE_KEY}).`
+    );
+    return { sent: true, to, originalTo: "", result };
   }
   const address = environment === "staging" ? stagingAddress(env, channel) : "";
   if (!address) {

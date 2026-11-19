@@ -52,7 +52,9 @@
         "test": "Test",
         "testDescription": "Test: emails and messages are logged, not sent; payments use the sandbox.",
         "staging": "Staging",
-        "stagingDescription": "Staging: email and text messages reach only the staging test addresses, other messages are logged and payments use the sandbox."
+        "stagingDescription": "Staging: email and text messages reach only the staging test addresses, other messages are logged and payments use the sandbox.",
+        "stagingRealPeople": "Staging · real people",
+        "stagingRealPeopleDescription": "Staging that real people use: email and text messages reach the people they are for, other messages are logged and payments use the sandbox."
       }
     }
   }

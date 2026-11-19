@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createAppEnvironmentBannerRuntime, installAppEnvironmentBanner } from "../src/client/appEnvironment/appEnvironmentBanner.js";
 
-// The part of a document the banner uses: a body to append to, elements, and lookup by id.
-function fakeDocument(environment) {
+// The part of a document the banner uses: a body to append to, elements, and lookup by id. Its meta tags answer
+// `environment`, and the real-people tag `realPeople` when given.
+function fakeDocument(environment, realPeople) {
   const appended = [];
   const documentObject = {
     appended,
@@ -18,7 +19,10 @@ function fakeDocument(environment) {
       return { tag, style: {}, attributes, setAttribute: (name, value) => { attributes[name] = value; } };
     },
     getElementById: (id) => appended.find((element) => element.id === id) || null,
-    querySelector: () => (environment === undefined ? null : { getAttribute: () => environment })
+    querySelector: (selector) => {
+      const content = selector.includes("jskit-staging-reaches-real-people") ? realPeople : environment;
+      return content === undefined ? null : { getAttribute: () => content };
+    }
   };
   return documentObject;
 }
@@ -48,6 +52,27 @@ test("a development, test or staging page gets one banner naming its environment
     remove();
     assert.equal(documentObject.appended.length, 0);
   }
+});
+
+test("a staging page real people use says so in its banner, and only a staging page can", () => {
+  const documentObject = fakeDocument("staging", "true");
+  installAppEnvironmentBanner({ documentObject });
+  const [banner] = documentObject.appended;
+  assert.equal(banner.textContent, "Staging · real people");
+  assert.equal(banner.attributes["aria-description"], "Staging that real people use: email and text messages reach the " +
+    "people they are for, other messages are logged and payments use the sandbox.");
+  assert.equal(banner.style.pointerEvents, "none");
+  for (const environment of ["development", "test"]) {
+    const other = fakeDocument(environment, "true");
+    installAppEnvironmentBanner({ documentObject: other });
+    assert.equal(other.appended[0].textContent, environment === "test" ? "Test" : "Development", environment);
+  }
+  const production = fakeDocument("production", "true");
+  installAppEnvironmentBanner({ documentObject: production });
+  assert.equal(production.appended.length, 0, "production never gets one");
+  const plain = fakeDocument("staging");
+  installAppEnvironmentBanner({ documentObject: plain });
+  assert.equal(plain.appended[0].textContent, "Staging", "without the tag, the test-copy wording");
 });
 
 test("a production page, a page that names no environment and no document get no banner", () => {

@@ -6,7 +6,12 @@ import {
   discoverInstalledPackages
 } from "../../internal/node/installedPackages.js";
 import { CLIENT_BUILD_META_NAME } from "../../shared/support/clientBuild.js";
-import { APP_ENVIRONMENT_META_NAME, appEnvironment } from "../../shared/support/appEnvironment.js";
+import {
+  APP_ENVIRONMENT_META_NAME,
+  STAGING_REAL_PEOPLE_META_NAME,
+  appEnvironment,
+  stagingReachesRealPeople
+} from "../../shared/support/appEnvironment.js";
 import { isRecord, normalizeObject } from "../../shared/support/normalize.js";
 import { sortStrings } from "../../shared/support/sorting.js";
 import {
@@ -697,7 +702,10 @@ function createJskitClientBootstrapPlugin({ proxyTarget = "" } = {}) {
         const layerOrder = { tag: "style", children: VUETIFY_LAYER_ORDER, injectTo: "head-prepend" };
         if (!bundle) {
           const environment = { name: APP_ENVIRONMENT_META_NAME, content: appEnvironment(process.env) };
-          return [layerOrder, { tag: "meta", attrs: environment, injectTo: "head-prepend" }];
+          const realPeople = stagingReachesRealPeople(process.env)
+            ? [{ tag: "meta", attrs: { name: STAGING_REAL_PEOPLE_META_NAME, content: "true" }, injectTo: "head-prepend" }]
+            : [];
+          return [layerOrder, { tag: "meta", attrs: environment, injectTo: "head-prepend" }, ...realPeople];
         }
         const buildId = createHash("sha256").update(html).digest("hex").slice(0, 16);
         return [layerOrder, { tag: "meta", attrs: { name: CLIENT_BUILD_META_NAME, content: buildId }, injectTo: "head-prepend" }];

@@ -1,11 +1,17 @@
 import { fileURLToPath, URL } from "node:url";
 import { defineConfig } from "vite";
-import { appEnvironment, withAppEnvironmentMeta } from "@jskit-ai/kernel/shared/support/appEnvironment";
+import {
+  appEnvironment,
+  stagingReachesRealPeople,
+  withAppEnvironmentMeta
+} from "@jskit-ai/kernel/shared/support/appEnvironment";
 
 // The page names the server's APP_ENV as a JSKIT server or development server names it.
 const appEnvironmentPage = {
   name: "fixture-app-environment-page",
-  transformIndexHtml: (html) => withAppEnvironmentMeta(html, appEnvironment(process.env))
+  transformIndexHtml: (html) => withAppEnvironmentMeta(html, appEnvironment(process.env), {
+    reachesRealPeople: stagingReachesRealPeople(process.env)
+  })
 };
 
 export default defineConfig({

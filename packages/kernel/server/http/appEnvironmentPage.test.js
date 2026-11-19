@@ -11,6 +11,8 @@ import {
   pageAppEnvironment,
   withAppEnvironmentMeta
 } from "@jskit-ai/kernel/shared/support/appEnvironment";
+// The page reader through its module, so this file loads, and each test fails on its own, where it is missing.
+import * as sharedAppEnvironment from "@jskit-ai/kernel/shared/support/appEnvironment";
 
 const PAGE = "<!doctype html><html><head><title>App</title></head><body><div id=\"app\"></div></body></html>";
 const STAGING = Object.freeze({ APP_ENV: "staging", NODE_ENV: "production" });
@@ -82,6 +84,29 @@ test("the meta tag goes first in the head, replaces an earlier one and leaves te
   assert.equal(withAppEnvironmentMeta("<p>No head</p>", "test"), "<p>No head</p>");
 });
 
+test("a staging page real people use carries a second tag after the first, replaced with it, and no other page does", () => {
+  const page = withAppEnvironmentMeta(PAGE, "staging", { reachesRealPeople: true });
+  assert.match(page, /^<!doctype html><html><head><meta name="jskit-app-environment" content="staging"><meta name="jskit-staging-reaches-real-people" content="true"><title>/u);
+  const again = withAppEnvironmentMeta(page, "staging", { reachesRealPeople: true });
+  assert.equal(again, page, "replaced, never doubled");
+  const back = withAppEnvironmentMeta(page, "staging");
+  assert.equal(back, withAppEnvironmentMeta(PAGE, "staging"), "taken away with the first tag");
+  assert.doesNotMatch(withAppEnvironmentMeta(PAGE, "production", { reachesRealPeople: true }), /real-people/u);
+});
+
+test("a page is a staging page real people use only when it says staging and carries the second tag", () => {
+  const documentWith = (tags) => ({ querySelector: (selector) => {
+    const content = tags[/name="([^"]+)"/u.exec(selector)[1]];
+    return content === undefined ? null : { getAttribute: () => content };
+  } });
+  const both = { "jskit-app-environment": "staging", "jskit-staging-reaches-real-people": "true" };
+  assert.equal(sharedAppEnvironment.pageStagingReachesRealPeople(documentWith(both)), true);
+  assert.equal(sharedAppEnvironment.pageStagingReachesRealPeople(documentWith({ "jskit-app-environment": "staging" })), false);
+  assert.equal(sharedAppEnvironment.pageStagingReachesRealPeople(documentWith({ ...both, "jskit-app-environment": "production" })), false);
+  assert.equal(sharedAppEnvironment.pageStagingReachesRealPeople(documentWith({ ...both, "jskit-staging-reaches-real-people": "yes" })), false);
+  assert.equal(sharedAppEnvironment.pageStagingReachesRealPeople(undefined), false);
+});
+
 test("a page reads its environment from its own document, and nothing from a page that names none", () => {
   const documentWith = (content) => ({
     querySelector(selector) {
@@ -112,6 +137,18 @@ test("a server names its APP_ENV in every page it sends, with the right length, 
     /<meta name="jskit-app-environment" content="production">/u);
 });
 
+test("a staging server real people use says so in every page it sends; without the setting it sends none", async (context) => {
+  const { app } = await createAppServer(context, { ...STAGING, STAGING_REACHES_REAL_PEOPLE: "true" });
+  for (const url of ["/", "/buffer"]) {
+    const response = await app.inject({ method: "GET", url });
+    assert.match(response.body,
+      /<head><meta name="jskit-app-environment" content="staging"><meta name="jskit-staging-reaches-real-people" content="true"><title>/u, url);
+    assert.equal(Number(response.headers["content-length"]), Buffer.byteLength(response.body), url);
+  }
+  const plain = await createAppServer(context, STAGING);
+  assert.doesNotMatch((await plain.app.inject({ method: "GET", url: "/" })).body, /real-people/u);
+});
+
 test("the server says once where it runs and what that means for what it sends", async (context) => {
   const lineOf = ({ logger }) => {
     const lines = logger.lines.filter(({ details }) => details?.appEnv);
@@ -126,6 +163,29 @@ test("the server says once where it runs and what that means for what it sends",
     /^APP_ENV is staging: email is logged \(STAGING_EMAIL_TO is not set\), SMS is logged \(STAGING_SMS_TO is not set\);/u);
   assert.match(lineOf(await createAppServer(context, { ...STAGING, STAGING_EMAIL_TO: "qa@example.com" })),
     /email goes only to qa@example\.com \(STAGING_EMAIL_TO\)/u);
+  assert.equal(lineOf(await createAppServer(context, { ...STAGING, STAGING_REACHES_REAL_PEOPLE: "true" })),
+    "APP_ENV is staging and real people use it (STAGING_REACHES_REAL_PEOPLE=true): email and SMS go to the people " +
+    "they are for; push notifications, webhooks and connector writes are logged; payments use the sandbox; " +
+    "development shortcuts are refused and pages show a \"Staging · real people\" banner.");
+  assert.match(lineOf(await createAppServer(context, {
+    ...STAGING, STAGING_REACHES_REAL_PEOPLE: "true", STAGING_EMAIL_TO: "qa@example.com"
+  })), /go to the people they are for \(STAGING_EMAIL_TO is not used\);/u);
+});
+
+test("a server refuses STAGING_REACHES_REAL_PEOPLE outside staging, and any value but true, naming the fix", async (context) => {
+  const appRoot = await fixtureAppRoot(context);
+  const start = (env) => createInstalledRuntime({ appRoot, env, logger: recordingLogger(), fastify: Fastify() });
+  for (const [env, name] of [[PRODUCTION, "production"], [{ APP_ENV: "development" }, "development"], [{ APP_ENV: "test" }, "test"]]) {
+    await assert.rejects(start({ ...env, STAGING_REACHES_REAL_PEOPLE: "true" }), {
+      message: `STAGING_REACHES_REAL_PEOPLE is set and APP_ENV is ${name}. It says real people use a staging server, ` +
+        `so only APP_ENV=staging takes it: remove STAGING_REACHES_REAL_PEOPLE from the ${name} environment.`
+    });
+  }
+  await assert.rejects(start({ ...STAGING, STAGING_REACHES_REAL_PEOPLE: "yes" }), {
+    message: 'STAGING_REACHES_REAL_PEOPLE is "yes". Set it to true when real people use this staging server, or leave it unset.'
+  });
+  await assert.doesNotReject(start({ ...STAGING, STAGING_REACHES_REAL_PEOPLE: "true" }));
+  await assert.doesNotReject(start({ ...PRODUCTION, STAGING_REACHES_REAL_PEOPLE: "" }), "empty is unset");
 });
 
 test("a server refuses to start without a known APP_ENV, naming the fix", async (context) => {

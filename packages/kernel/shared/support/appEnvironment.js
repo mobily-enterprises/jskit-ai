@@ -11,12 +11,18 @@
  *   test servers set it).
  * - `staging`: a copy on a server for checking the application before production. Email goes only to
  *   STAGING_EMAIL_TO and SMS only to STAGING_SMS_TO (logged when unset); the rest
- *   is logged; payments use the sandbox. Development shortcuts are refused.
+ *   is logged; payments use the sandbox. Development shortcuts are refused. When
+ *   real people use it (STAGING_REACHES_REAL_PEOPLE=true, which its host gives),
+ *   email and SMS go to the people they are for instead; everything else stays
+ *   as staging has it.
  * - `production`: the application serving real people. Everything is real.
  */
 const APP_ENV_KEY = "APP_ENV";
 const APP_ENVIRONMENTS = Object.freeze(["development", "test", "staging", "production"]);
 const STAGING_AND_PRODUCTION = Object.freeze(["staging", "production"]);
+// The host's word that real people use this staging server, so its email and SMS reach them. Only staging takes it,
+// and only as `true`.
+const STAGING_REACHES_REAL_PEOPLE_KEY = "STAGING_REACHES_REAL_PEOPLE";
 
 /**
  * The page's environment travels in this meta tag: the JSKIT server adds it to
@@ -25,7 +31,12 @@ const STAGING_AND_PRODUCTION = Object.freeze(["staging", "production"]);
  * banner with no request and no application code.
  */
 const APP_ENVIRONMENT_META_NAME = "jskit-app-environment";
-const APP_ENVIRONMENT_META_PATTERN = new RegExp(`<meta name="${APP_ENVIRONMENT_META_NAME}" content="[a-z]*">`, "u");
+// A staging page that real people use says so in a second tag, right after the first, so the banner can say it too.
+const STAGING_REAL_PEOPLE_META_NAME = "jskit-staging-reaches-real-people";
+const APP_ENVIRONMENT_META_PATTERN = new RegExp(
+  `<meta name="${APP_ENVIRONMENT_META_NAME}" content="[a-z]*">(?:<meta name="${STAGING_REAL_PEOPLE_META_NAME}" content="true">)?`,
+  "u"
+);
 const HEAD_OPENING_PATTERN = /<head(?:\s[^>]*)?>/iu;
 
 /**
@@ -62,13 +73,47 @@ function isStagingOrProduction(env) {
 }
 
 /**
- * The page with its environment meta tag, first in its head: a page that has
- * one already gets it replaced, and text with no head is returned unchanged.
+ * Whether real people use this staging server, so its email and SMS go to the people they are for: true only when
+ * STAGING_REACHES_REAL_PEOPLE is `true` and APP_ENV is staging. Unset or empty, it is false. Any other value, or the
+ * setting in any other environment, throws, naming the fix: it is the host's word about one staging server, so it
+ * never means anything elsewhere, and nothing guesses what another value meant.
+ * @param {Record<string, string | undefined>} env
+ */
+function stagingReachesRealPeople(env) {
+  const value = String(env[STAGING_REACHES_REAL_PEOPLE_KEY] ?? "").trim();
+  if (!value) {
+    return false;
+  }
+  const environment = appEnvironment(env);
+  if (environment !== "staging") {
+    throw new Error(
+      `${STAGING_REACHES_REAL_PEOPLE_KEY} is set and ${APP_ENV_KEY} is ${environment}. It says real people use a ` +
+        `staging server, so only ${APP_ENV_KEY}=staging takes it: remove ${STAGING_REACHES_REAL_PEOPLE_KEY} from the ` +
+        `${environment} environment.`
+    );
+  }
+  if (value !== "true") {
+    throw new Error(
+      `${STAGING_REACHES_REAL_PEOPLE_KEY} is "${value}". Set it to true when real people use this staging server, ` +
+        "or leave it unset."
+    );
+  }
+  return true;
+}
+
+/**
+ * The page with its environment meta tag, first in its head, and after it, on a staging page that real people use,
+ * the `jskit-staging-reaches-real-people` tag: a page that has them already gets them replaced, and text with no
+ * head is returned unchanged.
  * @param {string} html
  * @param {"development" | "test" | "staging" | "production"} environment
+ * @param {{ reachesRealPeople?: boolean }} [options] `stagingReachesRealPeople(env)`'s answer
  */
-function withAppEnvironmentMeta(html, environment) {
-  const tag = `<meta name="${APP_ENVIRONMENT_META_NAME}" content="${environment}">`;
+function withAppEnvironmentMeta(html, environment, { reachesRealPeople = false } = {}) {
+  const realPeople = reachesRealPeople === true && environment === "staging"
+    ? `<meta name="${STAGING_REAL_PEOPLE_META_NAME}" content="true">`
+    : "";
+  const tag = `<meta name="${APP_ENVIRONMENT_META_NAME}" content="${environment}">${realPeople}`;
   if (APP_ENVIRONMENT_META_PATTERN.test(html)) {
     return html.replace(APP_ENVIRONMENT_META_PATTERN, tag);
   }
@@ -96,12 +141,27 @@ function pageAppEnvironment(documentObject = globalThis.document) {
     : "";
 }
 
+/**
+ * Whether the page this tab loaded is a staging page that real people use: its environment is staging and it carries
+ * the `jskit-staging-reaches-real-people` tag. False outside a browser and on any other page.
+ * @param {Document} [documentObject]
+ */
+function pageStagingReachesRealPeople(documentObject = globalThis.document) {
+  // readable-check: allow optional-call - platform object: there is no document outside a browser
+  const meta = documentObject?.querySelector(`meta[name="${STAGING_REAL_PEOPLE_META_NAME}"]`);
+  return pageAppEnvironment(documentObject) === "staging" && String(meta?.getAttribute("content") || "").trim() === "true";
+}
+
 export {
   APP_ENV_KEY,
   APP_ENVIRONMENTS,
   APP_ENVIRONMENT_META_NAME,
+  STAGING_REACHES_REAL_PEOPLE_KEY,
+  STAGING_REAL_PEOPLE_META_NAME,
   appEnvironment,
   isStagingOrProduction,
   pageAppEnvironment,
+  pageStagingReachesRealPeople,
+  stagingReachesRealPeople,
   withAppEnvironmentMeta
 };
