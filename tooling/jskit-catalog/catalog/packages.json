@@ -6,7 +6,7 @@
   "release": {
     "packages": {
       "@jskit-ai/agent": "0.1.3",
-      "@jskit-ai/agent-docs": "0.1.338",
+      "@jskit-ai/agent-docs": "0.1.339",
       "@jskit-ai/agent-runtime": "0.1.32",
       "@jskit-ai/architecture-inspector": "0.1.25",
       "@jskit-ai/assistant-core": "0.2.71",
@@ -17,23 +17,23 @@
       "@jskit-ai/auth-pass": "0.1.1",
       "@jskit-ai/auth-provider-local-core": "0.2.37",
       "@jskit-ai/auth-provider-local-db-core": "0.1.192",
-      "@jskit-ai/auth-provider-oidc-core": "0.2.52",
+      "@jskit-ai/auth-provider-oidc-core": "0.2.53",
       "@jskit-ai/auth-provider-supabase-core": "0.2.34",
-      "@jskit-ai/auth-web": "0.2.48",
+      "@jskit-ai/auth-web": "0.2.49",
       "@jskit-ai/config-eslint": "0.1.252",
       "@jskit-ai/connector-google-calendar": "0.2.43",
       "@jskit-ai/connectors-catalog": "0.2.45",
       "@jskit-ai/connectors-core": "0.2.43",
       "@jskit-ai/connectors-web": "0.2.43",
       "@jskit-ai/console-core": "0.2.54",
-      "@jskit-ai/console-web": "0.1.284",
+      "@jskit-ai/console-web": "0.1.285",
       "@jskit-ai/crud-core": "0.2.44",
       "@jskit-ai/database-runtime": "0.1.276",
       "@jskit-ai/database-runtime-mysql": "0.1.274",
       "@jskit-ai/database-runtime-postgres": "0.1.273",
       "@jskit-ai/http-runtime": "0.2.27",
       "@jskit-ai/http-web": "0.2.51",
-      "@jskit-ai/jskit-catalog": "0.2.90",
+      "@jskit-ai/jskit-catalog": "0.2.91",
       "@jskit-ai/kernel": "0.2.27",
       "@jskit-ai/material-web": "0.1.9",
       "@jskit-ai/mobile-capacitor": "0.2.42",
@@ -52,9 +52,9 @@
       "@jskit-ai/uploads-image-web": "0.2.27",
       "@jskit-ai/uploads-runtime": "0.2.27",
       "@jskit-ai/users-core": "0.2.54",
-      "@jskit-ai/users-web": "0.2.68",
+      "@jskit-ai/users-web": "0.2.69",
       "@jskit-ai/workspaces-core": "0.2.54",
-      "@jskit-ai/workspaces-web": "0.2.68"
+      "@jskit-ai/workspaces-web": "0.2.69"
     },
     "singletonPackages": [
       "@jskit-ai/assistant-runtime",
@@ -876,7 +876,7 @@
     },
     {
       "packageId": "@jskit-ai/auth-provider-oidc-core",
-      "version": "0.2.52",
+      "version": "0.2.53",
       "description": "Sign in through any OpenID Connect issuer: self-registration or a static client, app-owned sessions, and back-channel logout.",
       "jskit": {
         "kind": "runtime",
@@ -1015,7 +1015,7 @@
     },
     {
       "packageId": "@jskit-ai/auth-web",
-      "version": "0.2.48",
+      "version": "0.2.49",
       "description": "Auth web module: Fastify auth routes plus web login/sign-out scaffolds.",
       "jskit": {
         "kind": "runtime",
@@ -1610,7 +1610,7 @@
     },
     {
       "packageId": "@jskit-ai/console-web",
-      "version": "0.1.284",
+      "version": "0.1.285",
       "description": "Authenticated console surface scaffold and surface policy wiring.",
       "jskit": {
         "kind": "runtime",
@@ -1707,7 +1707,7 @@
           "@jskit-ai/console-core": "0.2.54"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-web": "0.2.48",
+          "@jskit-ai/auth-web": "0.2.49",
           "@jskit-ai/shell-web": "0.2.42"
         }
       }
@@ -3573,7 +3573,7 @@
     },
     {
       "packageId": "@jskit-ai/users-web",
-      "version": "0.2.68",
+      "version": "0.2.69",
       "description": "Users web module with account, profile, and user-specific shell UI.",
       "jskit": {
         "kind": "runtime",
@@ -3782,7 +3782,7 @@
           "@jskit-ai/users-core": "0.2.54"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-web": "0.2.48",
+          "@jskit-ai/auth-web": "0.2.49",
           "@jskit-ai/http-runtime": "0.2.27",
           "@jskit-ai/http-web": "0.2.51",
           "@jskit-ai/kernel": "0.2.27",
@@ -4001,7 +4001,7 @@
     },
     {
       "packageId": "@jskit-ai/workspaces-web",
-      "version": "0.2.68",
+      "version": "0.2.69",
       "description": "Workspace web module: workspace selector, tools widget, workspace surfaces, members UI, and settings hosts.",
       "jskit": {
         "kind": "runtime",
@@ -4253,11 +4253,11 @@
           "@jskit-ai/workspaces-core": "0.2.54"
         },
         "peerDependencies": {
-          "@jskit-ai/auth-web": "0.2.48",
+          "@jskit-ai/auth-web": "0.2.49",
           "@jskit-ai/http-web": "0.2.51",
           "@jskit-ai/kernel": "0.2.27",
           "@jskit-ai/shell-web": "0.2.42",
-          "@jskit-ai/users-web": "0.2.68",
+          "@jskit-ai/users-web": "0.2.69",
           "@tanstack/vue-query": "^5.90.5",
           "vue": "^3.5.13",
           "vue-router": "^5.0.4",
@@ -4351,7 +4351,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/auth-web",
-      "packageVersion": "0.2.48",
+      "packageVersion": "0.2.49",
       "documentPath": "patterns/auth-surface/PATTERN.md",
       "examplePath": "patterns/auth-surface/example",
       "files": [
@@ -4392,7 +4392,7 @@
         "@jskit-ai/auth-web"
       ],
       "packageId": "@jskit-ai/auth-provider-oidc-core",
-      "packageVersion": "0.2.52",
+      "packageVersion": "0.2.53",
       "documentPath": "patterns/oidc-sign-in/PATTERN.md",
       "examplePath": "patterns/oidc-sign-in/example",
       "files": [
@@ -4863,7 +4863,7 @@
         "@jskit-ai/shell-web"
       ],
       "packageId": "@jskit-ai/console-web",
-      "packageVersion": "0.1.284",
+      "packageVersion": "0.1.285",
       "documentPath": "patterns/console-surface/PATTERN.md",
       "examplePath": "patterns/console-surface/example",
       "files": [
@@ -5232,7 +5232,7 @@
         "@jskit-ai/users-web"
       ],
       "packageId": "@jskit-ai/users-web",
-      "packageVersion": "0.2.68",
+      "packageVersion": "0.2.69",
       "documentPath": "patterns/account-settings/PATTERN.md",
       "examplePath": "patterns/account-settings/example",
       "files": [
@@ -5331,7 +5331,7 @@
         "@jskit-ai/workspaces-web"
       ],
       "packageId": "@jskit-ai/workspaces-web",
-      "packageVersion": "0.2.68",
+      "packageVersion": "0.2.69",
       "documentPath": "patterns/workspace-surfaces/PATTERN.md",
       "examplePath": "patterns/workspace-surfaces/example",
       "files": [
