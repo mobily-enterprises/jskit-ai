@@ -3,6 +3,11 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { toRequestPathname } from "@jskit-ai/kernel/shared/surface/paths";
 
 const SOCKET_IO_PATH = "/socket.io";
+// Long-polling names the connection's Engine.IO session id in every request's address after its handshake (sid=), which
+// a request log keeps and which anyone who reads it could poll for that connection's events while it lives (OWASP ZAP
+// rule 3, Session ID in URL). A WebSocket carries it inside the connection. Polling's requests must also all reach the
+// server copy that opened the session; a WebSocket is one connection.
+const SOCKET_IO_TRANSPORTS = Object.freeze(["websocket"]);
 // The name the realtime guide, the realtime-application pattern and its .env.example give.
 const REDIS_URL_ENV_KEY = "REALTIME_REDIS_URL";
 const REDIS_NAMESPACE_ENV_KEY = "REDIS_NAMESPACE";
@@ -34,7 +39,8 @@ function resolveHttpServer({ httpServer = null, fastify = null } = {}) {
  * @param {object} [options]
  * @param {import("node:http").Server | null} [options.httpServer] The HTTP server to attach to; Fastify's when absent.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeFastify | null} [options.fastify]
- * @param {Partial<import("socket.io").ServerOptions>} [options.options]
+ * @param {Partial<import("socket.io").ServerOptions>} [options.options] Socket.IO's options; its path (/socket.io) and
+ *   transports (WebSocket only) are fixed.
  * @param {typeof SocketIoServer} [options.ServerCtor]
  */
 function createSocketIoServer({
@@ -56,7 +62,8 @@ function createSocketIoServer({
     // Application WebSocket routes may still be authorizing their upgrades.
     destroyUpgrade: false,
     ...options,
-    path: SOCKET_IO_PATH
+    path: SOCKET_IO_PATH,
+    transports: [...SOCKET_IO_TRANSPORTS]
   };
   registerSocketIoUpgradeHandoff(fastify);
   const io = new ServerCtor(server, normalizedOptions);
@@ -65,19 +72,20 @@ function createSocketIoServer({
 }
 
 /**
- * Socket.IO answers its long-polling requests on the HTTP server itself, outside Fastify's hooks, so they miss the
- * security headers every other answer gets (kernel registerSecurityHeaders). They get nosniff, so no browser reads a
- * polling answer as another type, and the Cache-Control the kernel gives API answers in place of Engine.IO's no-store,
- * which means the same but which a scanner reports (OWASP ZAP rule 10015 asks for no-cache and must-revalidate too).
+ * Engine.IO answers on the HTTP server itself, outside Fastify's hooks, so its answers miss the security headers every
+ * other answer gets (kernel registerSecurityHeaders). Taking WebSocket only, it answers a request for anything else,
+ * such as a long-polling handshake, with a 400 refusal. Each answer gets nosniff, so no browser reads it as another
+ * type, and the Cache-Control the kernel gives API answers (OWASP ZAP rule 10015 asks for all three).
  * @param {import("socket.io").Server} io
  */
 function addEngineHeaders(io) {
   if (!io?.engine) return;
-  // "headers" comes for every HTTP request of a session, the handshake included. Engine.IO names its own headers in
-  // lower case (cache-control), so a header named here in lower case replaces one it adds rather than doubling it.
-  io.engine.on("headers", (headers) => {
-    headers["x-content-type-options"] = "nosniff";
-    headers["cache-control"] = "no-store, no-cache, must-revalidate";
+  // Engine.IO's middlewares run first for every request, an upgrade included (whose 101 answer then carries them too),
+  // before it checks the transport, and its refusals keep the headers set here.
+  io.engine.use((_request, response, next) => {
+    response.setHeader("X-Content-Type-Options", "nosniff");
+    response.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+    next();
   });
 }
 

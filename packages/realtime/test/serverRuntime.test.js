@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { once } from "node:events";
 import { createServer, get } from "node:http";
 import test from "node:test";
@@ -33,6 +34,7 @@ test("createSocketIoServer uses provided http server and fixed socket path", () 
     httpServer,
     options: {
       path: "ws",
+      transports: ["polling", "websocket"],
       cors: {
         origin: "*"
       }
@@ -45,6 +47,7 @@ test("createSocketIoServer uses provided http server and fixed socket path", () 
   assert.deepEqual(calls[0].options, {
     destroyUpgrade: false,
     path: "/socket.io",
+    transports: ["websocket"],
     cors: {
       origin: "*"
     }
@@ -132,27 +135,40 @@ test("realtime leaves slow application upgrades and access denials to their rout
   assert.equal(client.connected, true, "Socket.IO still owns its own upgrade route");
 });
 
-test("Socket.IO's long-polling answers carry nosniff and no-store, which Fastify's hooks never reach", { timeout: 5_000 }, async (t) => {
+test("a JSKIT realtime server takes WebSocket only: it refuses long-polling, with nosniff and no-store", { timeout: 5_000 }, async (t) => {
   const server = createServer();
   const realtime = createSocketIoServer({ httpServer: server });
+  let client;
   t.after(async () => {
+    client?.disconnect();
     await closeSocketIoServer(realtime);
     server.closeAllConnections();
     await new Promise((resolve) => server.close(resolve));
   });
   server.listen(0, "127.0.0.1");
   await once(server, "listening");
-  const polling = `http://127.0.0.1:${server.address().port}/socket.io/?EIO=4&transport=polling`;
-  const checked = (response, step) => {
-    assert.equal(response.status, 200, step);
-    assert.equal(response.headers.get("x-content-type-options"), "nosniff", step);
-    assert.equal(response.headers.get("cache-control"), "no-store, no-cache, must-revalidate", step);
-    return response.text();
-  };
-  // The handshake, joining the main namespace, then the poll that answers it: each request of a polling session.
-  const { sid } = JSON.parse((await checked(await fetch(polling), "handshake")).slice(1));
-  await checked(await fetch(`${polling}&sid=${sid}`, { method: "POST", body: "40" }), "send");
-  assert.match(await checked(await fetch(`${polling}&sid=${sid}`), "poll"), /^40/u);
+  const origin = `http://127.0.0.1:${server.address().port}`;
+  // A long-polling handshake would answer a session id that every later request of the session carries in its URL
+  // (OWASP ZAP rule 3, Session ID in URL). Engine.IO answers its refusals on the HTTP server itself, outside Fastify's
+  // hooks, so they get the headers the kernel gives API answers here.
+  const polling = await fetch(`${origin}/socket.io/?EIO=4&transport=polling`);
+  assert.equal(polling.status, 400);
+  assert.deepEqual(await polling.json(), { code: 0, message: "Transport unknown" });
+  assert.equal(polling.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(polling.headers.get("cache-control"), "no-store, no-cache, must-revalidate");
+  const upgrade = await new Promise((resolve, reject) => {
+    const request = get(`${origin}/socket.io/?EIO=4&transport=websocket`, { headers: { Connection: "Upgrade",
+      Upgrade: "websocket", "Sec-WebSocket-Version": "13", "Sec-WebSocket-Key": randomBytes(16).toString("base64") } });
+    request.on("error", reject);
+    request.on("response", (reply) => { reply.resume(); reject(new Error(`No upgrade: ${reply.statusCode}`)); });
+    request.on("upgrade", (reply, socket) => { socket.destroy(); resolve(reply); });
+  });
+  assert.equal(upgrade.statusCode, 101);
+  assert.equal(upgrade.headers["x-content-type-options"], "nosniff");
+  assert.equal(upgrade.headers["cache-control"], "no-store, no-cache, must-revalidate");
+  client = connectSocketIo(origin, { transports: ["websocket"], reconnection: false });
+  await once(client, "connect", { signal: AbortSignal.timeout(4_000) });
+  assert.equal(client.io.engine.transport.name, "websocket");
 });
 
 test("createSocketIoServer falls back to fastify.server", () => {

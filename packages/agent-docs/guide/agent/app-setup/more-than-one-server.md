@@ -44,11 +44,10 @@ REALTIME_REDIS_URL=redis://redis.internal:6379
 REDIS_NAMESPACE=shop
 ```
 
-Socket.IO starts each connection with HTTP long-polling, whose requests must
-all reach the copy that opened it. Keep each browser on one copy at the load
-balancer (sticky sessions), or connect by WebSocket only with
-`realtimeClient: { options: { transports: ["websocket"] } }` in the app's
-public config.
+Each browser's realtime connection is one WebSocket (realtime takes no
+long-polling; see [WebSocket only](/guide/app-extras/realtime#websocket-only)),
+so the load balancer needs no sticky sessions for it, only to pass WebSocket
+upgrades on `/socket.io`.
 
 An assistant conversation's live progress reaches only the browsers connected
 to the copy running its turn, with or without Redis; a browser on another copy

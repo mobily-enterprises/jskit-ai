@@ -34,6 +34,8 @@ staging or production needs a Redis backplane.
 - Event payloads do not become an undocumented second API.
 - Socket.IO owns `/socket.io`; other WebSocket routes keep their own upgrade
   and access-check lifecycle without Socket.IO's one-second cleanup timeout.
+- Realtime connects over WebSocket only, so no address carries its session id;
+  whatever runs in front of the app passes WebSocket upgrades on `/socket.io`.
 
 ## Framework APIs
 

@@ -181,18 +181,43 @@ missed events. There is no event journal, replay, or exactly-once guarantee.
 Keep one completion publisher beside the mutation owner; lifecycle progress
 events may still describe distinct intermediate states.
 
+## WebSocket only
+
+Realtime connects over WebSocket only. `createSocketIoClient` and
+`createSocketIoServer` (`@jskit-ai/realtime/client/runtime` and
+`@jskit-ai/realtime/server/runtime`, which the providers use) set Socket.IO's
+`transports` to `["websocket"]` whatever options they are given, as they fix
+its `path` to `/socket.io`. Socket.IO's own default opens each connection with
+HTTP long-polling, which names the connection's Engine.IO session id in the
+address of every later request (`/socket.io/?EIO=4&transport=polling&sid=...`)
+and of its upgrade to WebSocket. Request logs, the application's and any
+proxy's, keep those addresses, and whoever reads one could poll that
+connection's events while it lives; scanners report it as a session id in the
+URL (OWASP ZAP rule 3, a failure in Google's CASA assessment). A WebSocket
+carries the session id inside the connection, so no address names one.
+
+The server refuses any other transport with a 400 answer,
+`{"code":0,"message":"Transport unknown"}`. Socket.IO answers on the HTTP
+server outside Fastify's hooks, so realtime gives its answers, such a refusal
+and the 101 that opens a WebSocket, `X-Content-Type-Options: nosniff` and
+`Cache-Control: no-store, no-cache, must-revalidate`, as API answers get.
+
+Whatever runs in front of the application, a proxy, load balancer or edge,
+must pass WebSocket upgrades on `/socket.io`; the realtime package's Vite
+development proxy does (`ws: true`). Where a network blocks WebSockets,
+realtime stays disconnected and Socket.IO keeps retrying with its backoff, by
+default at most five seconds apart; pages and API calls work as before,
+without live updates.
+
 ## Single process and Redis
 
 The in-process adapter is correct for one server process: an event reaches
 only the browsers connected to the process that published it. Set
 `REALTIME_REDIS_URL` only when multiple processes need a shared backplane, to
 the same Redis on every one; each then delivers every event to its own
-browsers. Socket.IO opens each connection with HTTP long-polling, whose
-requests must all reach the process that opened it: keep each browser on one
-process at the load balancer, or connect by WebSocket only with
-`realtimeClient: { options: { transports: ["websocket"] } }` in the app's
-public config. Credentials stay outside Git and never enter public client
-config. [Run on more than one server](/guide/app-setup/more-than-one-server)
+browsers. Each browser's connection is one WebSocket, so the load balancer
+needs no sticky sessions for it. Credentials stay outside Git and never enter
+public client config. [Run on more than one server](/guide/app-setup/more-than-one-server)
 covers the rest of what several copies need.
 
 ## Shutdown

@@ -6,8 +6,9 @@ import { Server } from "socket.io";
 
 import { createSocketIoClient, disconnectSocketIoClient, reconnectSocketIoClient } from "../src/client/runtime.js";
 import { attachSocketConnectionRecovery } from "../src/client/connectionRecovery.js";
+import { closeSocketIoServer, createSocketIoServer } from "../src/server/runtime.js";
 
-test("createSocketIoClient calls connect with fixed socket path", () => {
+test("createSocketIoClient calls connect with fixed socket path and WebSocket only", () => {
   const calls = [];
   const socket = {
     id: "socket-1"
@@ -21,6 +22,7 @@ test("createSocketIoClient calls connect with fixed socket path", () => {
     url: " https://example.com ",
     options: {
       path: "realtime",
+      transports: ["polling", "websocket"],
       withCredentials: true
     },
     connect
@@ -32,6 +34,7 @@ test("createSocketIoClient calls connect with fixed socket path", () => {
     "https://example.com",
     {
       path: "/socket.io",
+      transports: ["websocket"],
       withCredentials: true
     }
   ]);
@@ -56,7 +59,8 @@ test("createSocketIoClient supports url-less connection with fixed socket path",
   assert.equal(calls.length, 1);
   assert.deepEqual(calls[0], [
     {
-      path: "/socket.io"
+      path: "/socket.io",
+      transports: ["websocket"]
     }
   ]);
 });
@@ -211,9 +215,7 @@ test("a real server-forced disconnect reconnects through a fresh authenticated h
   });
   http.listen(0, "127.0.0.1");
   await once(http, "listening");
-  // WebSocket only, like the other real-socket tests: a polling transport the server closes waits 30 s for a poll
-  // that never comes, which keeps this file running long after its tests.
-  const client = createSocketIoClient({ url: `http://127.0.0.1:${http.address().port}`, options: { transports: ["websocket"] } });
+  const client = createSocketIoClient({ url: `http://127.0.0.1:${http.address().port}` });
   const detach = attachSocketConnectionRecovery(client, { prepareReconnect: prepareNothing });
   t.after(async () => {
     detach();
@@ -238,7 +240,7 @@ test("reconnect now opens a fresh transport while Socket.IO waits out its backof
   await once(http, "listening");
   const client = createSocketIoClient({
     url: `http://127.0.0.1:${http.address().port}`,
-    options: { transports: ["websocket"], randomizationFactor: 0, reconnectionDelay: 60_000, reconnectionDelayMax: 60_000 }
+    options: { randomizationFactor: 0, reconnectionDelay: 60_000, reconnectionDelayMax: 60_000 }
   });
   t.after(async () => {
     client.disconnect();
@@ -256,6 +258,79 @@ test("reconnect now opens a fresh transport while Socket.IO waits out its backof
   reconnectSocketIoClient(client);
   await connected;
   assert.equal(client.connected, true);
+});
+
+/**
+ * A JSKIT realtime server on the port given (a free one for 0). It records the address of every HTTP request and
+ * upgrade that reaches it, the line a request log records, the application's own or a proxy's in front of it.
+ * @param {number} port
+ * @param {string[]} addresses
+ */
+async function recordingRealtimeServer(port, addresses) {
+  const http = createServer();
+  const io = createSocketIoServer({ httpServer: http });
+  for (const event of ["request", "upgrade"]) http.prependListener(event, (request) => addresses.push(request.url));
+  http.listen(port, "127.0.0.1");
+  await once(http, "listening");
+  let closing = null;
+  return {
+    port: http.address().port,
+    close() {
+      closing ??= (async () => {
+        await closeSocketIoServer(io);
+        http.closeAllConnections();
+        await new Promise((resolve) => http.close(resolve));
+      })();
+      return closing;
+    }
+  };
+}
+
+/**
+ * Asserts that no address carries an Engine.IO session id and that every one went to Socket.IO by WebSocket.
+ * @param {string[]} addresses
+ * @param {string[]} sessionIds
+ */
+function assertNoSessionIdIn(addresses, sessionIds) {
+  assert.ok(addresses.length > 0);
+  const leaking = addresses.filter((address) =>
+    /[?&]sid=/u.test(address) || sessionIds.some((sessionId) => address.includes(sessionId)));
+  assert.deepEqual(leaking, []);
+  for (const address of addresses) {
+    assert.match(address, /^\/socket\.io\/\?EIO=4&transport=websocket(?:&|$)/u, address);
+  }
+}
+
+test("the client connects, and reconnects to a restarted server, by WebSocket only: no address carries its session id", { timeout: 10_000 }, async (t) => {
+  const addresses = [];
+  const first = await recordingRealtimeServer(0, addresses);
+  let second = null;
+  const client = createSocketIoClient({ url: `http://127.0.0.1:${first.port}`,
+    options: { randomizationFactor: 0, reconnectionDelay: 100, reconnectionDelayMax: 200 } });
+  t.after(async () => {
+    client.disconnect();
+    await second?.close();
+    await first.close();
+  });
+  await once(client, "connect", { signal: AbortSignal.timeout(4_000) });
+  const sessionIds = [client.io.engine.id];
+  assertNoSessionIdIn(addresses, sessionIds);
+  assert.equal(client.io.engine.transport.name, "websocket");
+  // A release: the server goes away, Socket.IO's reconnection fails while nothing listens, then the new one answers.
+  const disconnected = once(client, "disconnect");
+  // Not events.once(), which rejects on the "error" the manager also emits for each failed attempt.
+  const failedAttempt = new Promise((resolve) => client.io.once("reconnect_error", resolve));
+  await first.close();
+  assert.equal((await disconnected)[0], "transport close");
+  assert.match(String((await failedAttempt)?.message), /websocket error/u);
+  assert.equal(client.connected, false);
+  second = await recordingRealtimeServer(first.port, addresses);
+  await once(client, "connect", { signal: AbortSignal.timeout(4_000) });
+  sessionIds.push(client.io.engine.id);
+  assert.equal(client.io.engine.transport.name, "websocket");
+  assert.notEqual(sessionIds[1], sessionIds[0]);
+  assert.ok(addresses.length >= 2, addresses.join(" "));
+  assertNoSessionIdIn(addresses, sessionIds);
 });
 
 test("a page that wakes mid-backoff reconnects now unless the app disconnected on purpose", (t) => {

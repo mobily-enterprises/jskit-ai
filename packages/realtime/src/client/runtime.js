@@ -2,11 +2,15 @@ import { io as connectSocketIoClient } from "socket.io-client";
 import { normalizeObject, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 
 const SOCKET_IO_PATH = "/socket.io";
+// The server takes WebSocket only (server/runtime.js): long-polling would put the connection's session id in every
+// request's address.
+const SOCKET_IO_TRANSPORTS = Object.freeze(["websocket"]);
 
 /**
  * @param {object} client
  * @param {string} [client.url]
  * @param {Partial<import("socket.io-client").ManagerOptions & import("socket.io-client").SocketOptions>} [client.options]
+ *   Socket.IO's options; its path (/socket.io) and transports (WebSocket only) are fixed.
  * @param {typeof connectSocketIoClient} [client.connect]
  */
 function createSocketIoClient({
@@ -17,7 +21,8 @@ function createSocketIoClient({
   const normalizedUrl = normalizeText(url);
   const normalizedOptions = {
     ...normalizeObject(options),
-    path: SOCKET_IO_PATH
+    path: SOCKET_IO_PATH,
+    transports: [...SOCKET_IO_TRANSPORTS]
   };
   if (normalizedUrl) {
     return connect(normalizedUrl, normalizedOptions);

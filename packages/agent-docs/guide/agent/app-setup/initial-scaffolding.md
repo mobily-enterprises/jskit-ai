@@ -144,9 +144,10 @@ API answers carry the signed-in person's data, such as the session and its CSRF
 token, so no browser or proxy keeps them: each answer under `/api`, a failure
 or a 404 included, gets `Cache-Control: no-store, no-cache, must-revalidate`
 unless its route set its own Cache-Control, as a public logo that may be kept
-for a day does. Socket.IO's long-polling answers, which it sends outside
-Fastify's hooks, get `X-Content-Type-Options: nosniff` and the same
-Cache-Control from `@jskit-ai/realtime`.
+for a day does. Socket.IO answers on the HTTP server outside Fastify's hooks;
+`@jskit-ai/realtime` gives its answers, such as its refusal of a long-polling
+request (it takes WebSocket only) and the 101 that opens a WebSocket,
+`X-Content-Type-Options: nosniff` and the same Cache-Control.
 
 The content policy allows JSKIT's client: the application's own scripts and
 WebAssembly, inline styles (Vuetify and the loading shell use them), images
