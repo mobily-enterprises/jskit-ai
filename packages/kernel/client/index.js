@@ -16,5 +16,5 @@ export {
   staysOnSamePage,
   bootstrapClientShellApp
 } from "./shellBootstrap.js";
-export { DEFAULT_GUARD_EVALUATOR_KEY } from "./shellRouting.js";
+export { DEFAULT_GUARD_EVALUATOR_KEY, isNotFoundRoute } from "./shellRouting.js";
 export { createComponentInteractionEmitter } from "./componentInteraction.js";

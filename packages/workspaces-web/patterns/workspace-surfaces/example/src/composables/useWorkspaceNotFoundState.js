@@ -3,9 +3,10 @@ import { useRoute } from "vue-router";
 import { normalizeLowerText, normalizeObject } from "@jskit-ai/kernel/shared/support/normalize";
 import { useWebPlacementContext } from "@jskit-ai/shell-web/client/placement";
 
+// A workspace the server answers not_found (or forbidden, from an older server) never reaches the surface's pages: the
+// shell opens the application's Not found page at its address instead. What is left is a signed-out session or a
+// bootstrap that failed.
 const STATUS_MESSAGES = {
-  not_found: "The requested workspace was not found.",
-  forbidden: "You do not have access to this workspace.",
   unauthenticated: "You need to sign in to access this workspace.",
   error: "Workspace data could not be loaded right now."
 };

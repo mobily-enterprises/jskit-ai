@@ -530,7 +530,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     });
   });
 
-  test("memberContext refuses a missing or deleted workspace, a non-member, a removed or inactive membership and a user id naming no one, as the member's request does", async () => {
+  test("memberContext refuses a missing or deleted workspace, a non-member, a removed or inactive membership and a user id naming no one, as the member's request does: each as not found", async () => {
     const { directory, memberContext } = memberDirectory();
     const owner = await createProfile("Ada");
     const member = await createProfile("Grace");
@@ -550,7 +550,6 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     await workspaces.updateById(deleted.id, { deletedAt: new Date().toISOString() });
     const system = { context: memberJobContext() };
     const notFound = [404, "workspaces.workspace.notFound"];
-    const accessDenied = [403, "workspaces.workspace.accessDenied"];
     const refuses = ([status, code], label) => (error) => {
       assert.ok(error instanceof AppError, `${label}: ${error}`);
       assert.deepEqual([error.status, error.code], [status, code], label);
@@ -561,10 +560,10 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       ["a workspace id naming no workspace", { workspaceId: "999999", userId: member.id }, notFound, [member, "no-such-workspace"]],
       ["a deleted workspace's member", { workspaceId: deleted.id, userId: member.id }, notFound, [member, "gone"]],
       ["a deleted workspace's owner", { workspaceId: deleted.id, userId: owner.id }, notFound, [owner, "gone"]],
-      ["a user who was never a member", { workspaceId: workspace.id, userId: outsider.id }, accessDenied, [outsider, "team"]],
-      ["a removed member", { workspaceId: workspace.id, userId: removed.id }, accessDenied, [removed, "team"]],
-      ["an inactive member", { workspaceId: workspace.id, userId: inactive.id }, accessDenied, [inactive, "team"]],
-      ["a user id naming no one", { workspaceId: workspace.id, userId: "999999" }, accessDenied, [{ id: "999999" }, "team"]]
+      ["a user who was never a member", { workspaceId: workspace.id, userId: outsider.id }, notFound, [outsider, "team"]],
+      ["a removed member", { workspaceId: workspace.id, userId: removed.id }, notFound, [removed, "team"]],
+      ["an inactive member", { workspaceId: workspace.id, userId: inactive.id }, notFound, [inactive, "team"]],
+      ["a user id naming no one", { workspaceId: workspace.id, userId: "999999" }, notFound, [{ id: "999999" }, "team"]]
     ];
     for (const [label, asked, refusal, [user, slug]] of refusals) {
       await assert.rejects(memberContext(asked, system), refuses(refusal, label));
@@ -693,7 +692,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     assert.equal(await memberships.findByWorkspaceIdAndUserId(workspace.id, outsider.id), null);
     assert.equal((await memberships.findByWorkspaceIdAndUserId(workspace.id, member.id)).roleSid, "member");
     assert.equal((await memberContext({ workspaceId: workspace.id, userId: member.id }, system)).membership.roleSid, "member");
-    await assert.rejects(memberContext({ workspaceId: workspace.id, userId: outsider.id }, system), (error) => error.status === 403);
+    await assert.rejects(memberContext({ workspaceId: workspace.id, userId: outsider.id }, system), (error) => error.status === 404);
 
     // A workspace no request has opened has no settings yet, and the role context writes none, nor the owner's
     // membership a member context ensures.

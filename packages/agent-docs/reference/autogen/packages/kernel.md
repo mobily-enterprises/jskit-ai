@@ -504,6 +504,7 @@ Exports
 - `staysOnSamePage`
 - `bootstrapClientShellApp`
 - `DEFAULT_GUARD_EVALUATOR_KEY`
+- `isNotFoundRoute`
 - `createComponentInteractionEmitter`
 
 ### `client/logging.js`
@@ -571,9 +572,13 @@ Exports
 - `WEB_ROOT_ALLOW_NO`
 - `DEFAULT_GUARD_EVALUATOR_KEY`
 - `createFallbackNotFoundRoute(component)`
+- `markNotFoundRoute(route)`
+- `isNotFoundRoute(route)`
 - `buildSurfaceAwareRoutes({ routes, surfaceRuntime, surfaceMode, fallbackRoute })`
-- `createShellBeforeEachGuard({ surfaceRuntime, webRootAllowed = WEB_ROOT_ALLOW_YES, guardEvaluatorKey = DEFAULT_GUARD_EVALUATOR_KEY, authenticatedPolicy = AUTH_POLICY_AUTHENTICATED, publicPolicy = AUTH_POLICY_PUBLIC })`
+- `createShellBeforeEachGuard({ surfaceRuntime, fallbackRoute = null, webRootAllowed = WEB_ROOT_ALLOW_YES, guardEvaluatorKey = DEFAULT_GUARD_EVALUATOR_KEY, authenticatedPolicy = AUTH_POLICY_AUTHENTICATED, publicPolicy = AUTH_POLICY_PUBLIC })`
 Local functions
+- `decodePathSegment(segment)`
+- `notFoundLocation(fallbackRoute, to)`
 - `normalizeGuardPolicy(value)`
 - `resolveRouteGuardFromMeta(meta)`
 - `resolveRouteGuard(to)`

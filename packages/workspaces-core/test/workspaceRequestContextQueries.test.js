@@ -11,7 +11,7 @@ import { jsonApiResultValue } from "@jskit-ai/http-runtime/shared/validators/jso
 import { resolveActorId } from "@jskit-ai/kernel/server/actions/actionContributorHelpers";
 import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { HttpProvider } from "@jskit-ai/kernel/server/http";
-import { createBootstrapRuntime } from "@jskit-ai/kernel/server/runtime";
+import { BootstrapProvider } from "@jskit-ai/kernel/server/runtime";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import { defineCrudContract } from "@jskit-ai/resource-crud-core/shared/crudContract";
 import { createPackageTestKnex, startTestFeatures } from "@jskit-ai/resource-runtime/test";
@@ -184,6 +184,7 @@ async function issuesApp(t) {
     createTables: true,
     features: [
       HttpProvider,
+      BootstrapProvider,
       AuthExtensionsProvider,
       AuthPolicyProvider,
       UsersExtensionsProvider,
@@ -195,18 +196,32 @@ async function issuesApp(t) {
       NoticeFeature,
       ContextFeature
     ],
-    requires: { profiles: "users.profiles", workspaces: "workspaces.core", memberships: "workspaces.memberships", actions: "runtime.actions" },
+    requires: {
+      profiles: "users.profiles",
+      workspaces: "workspaces.core",
+      memberships: "workspaces.memberships",
+      actions: "runtime.actions",
+      bootstrap: "runtime.bootstrap"
+    },
     inputs: {
       "auth.service": headerAuthService(signedIn),
       "runtime.app-root": process.cwd(),
-      "runtime.bootstrap": createBootstrapRuntime(),
       "runtime.config": config,
       "runtime.env": { APP_ENV: "test" },
       "runtime.fastify": app
     }
   });
   t.after(started.stop);
-  const { profiles, workspaces, memberships, actions } = started.capabilities;
+  const { profiles, workspaces, memberships, actions, bootstrap } = started.capabilities;
+  // The session part of the bootstrap, as users-core's contributor gives it: who the request is signed in as.
+  bootstrap.register({
+    id: "test.session",
+    order: 100,
+    contribute: ({ request }) => {
+      const profile = signedIn.get(String(request.headers["x-test-user"] || ""));
+      return { session: profile ? { authenticated: true, userId: profile.id } : { authenticated: false } };
+    }
+  });
   const person = async (name) => {
     const profile = await profiles.upsert({
       authProvider: "local",
@@ -242,6 +257,12 @@ async function issuesApp(t) {
   const list = (user, slug = workspace.slug) => get(user, slug, "issues");
   const notice = (user, slug = workspace.slug) => get(user, slug, "notice");
   const context = (user, slug = workspace.slug) => get(user, slug, "context");
+  // The browser's bootstrap for a page of a workspace.
+  const bootstrapFor = (user, slug) => app.inject({
+    method: "GET",
+    url: `/api/bootstrap?workspaceSlug=${encodeURIComponent(slug)}`,
+    headers: user ? { "x-test-user": user.id } : {}
+  });
   // A background job of a feature with a system scope, running one action as a member of the workspace.
   const systemContext = started.resources.declareSystemScope("test.member-jobs", "act for members of every workspace");
   async function runAsMember(user, actionId) {
@@ -259,7 +280,7 @@ async function issuesApp(t) {
     );
     return countQueries(knex, () => actions.execute({ actionId, input: { workspaceSlug: workspace.slug }, context: { ...acting, surface: "app" } }));
   }
-  return { list, notice, context, runAsMember, runInRole, owner, member, guest, outsider, workspace };
+  return { list, notice, context, bootstrapFor, runAsMember, runInRole, owner, member, guest, outsider, workspace };
 }
 
 // The statements of one read of the workspace context, whatever the database quotes its names with: the workspace by
@@ -297,7 +318,7 @@ test("a workspace CRUD list request refuses as strictly as before", async (t) =>
 
   const refusals = [
     ["signed out", await list(null), 401, "auth.session.required"],
-    ["not a member", await list(outsider), 403, "workspaces.workspace.accessDenied"],
+    ["not a member", await list(outsider), 404, "workspaces.workspace.notFound"],
     ["a member without crud.issues.list", await list(guest), 403, "ACTION_PERMISSION_DENIED"],
     ["an unknown workspace", await list(owner, "no-such-workspace"), 404, "workspaces.workspace.notFound"]
   ];
@@ -307,6 +328,25 @@ test("a workspace CRUD list request refuses as strictly as before", async (t) =>
     assert.equal(reading(queries, "issues").length, 0, `${label} reads no issue: ${queries.join("\n")}`);
     assert.ok(reading(queries, "workspace").length <= 1, `${label} reads the workspace at most once: ${queries.join("\n")}`);
   }
+});
+
+// Someone outside a workspace learns nothing of it: every workspace route and the bootstrap answer its slug exactly as
+// they answer a slug no workspace has, so they can't tell an existing workspace from a typo.
+test("a workspace the person isn't in is answered exactly as one that doesn't exist", async (t) => {
+  const { list, notice, context, bootstrapFor, outsider, workspace } = await issuesApp(t);
+  const unknown = "no-such-workspace";
+
+  for (const [label, read] of [["a CRUD list", list], ["an optional-context route", notice], ["a member's route", context]]) {
+    const [theirs, missing] = [(await read(outsider, workspace.slug)).response, (await read(outsider, unknown)).response];
+    assert.equal(theirs.statusCode, 404, `${label}: ${theirs.body}`);
+    assert.deepEqual([theirs.statusCode, theirs.json()], [missing.statusCode, missing.json()], label);
+  }
+
+  const [theirs, missing] = [await bootstrapFor(outsider, workspace.slug), await bootstrapFor(outsider, unknown)];
+  assert.equal(theirs.statusCode, 200, theirs.body);
+  assert.deepEqual(theirs.json().requestedWorkspace, { slug: workspace.slug, status: "not_found" });
+  const withoutSlug = (payload) => ({ ...payload, requestedWorkspace: { ...payload.requestedWorkspace, slug: "" } });
+  assert.deepEqual(withoutSlug(theirs.json()), withoutSlug(missing.json()));
 });
 
 test("a route whose auth policy and action context differ in requiring membership reads the context once", async (t) => {
@@ -326,8 +366,8 @@ test("a route whose auth policy and action context differ in requiring membershi
 
   // The shared read still refuses a non-member where membership is required.
   const { response, queries } = await notice(outsider);
-  assert.equal(response.statusCode, 403, response.body);
-  assert.equal(response.body.includes("workspaces.workspace.accessDenied"), true, response.body);
+  assert.equal(response.statusCode, 404, response.body);
+  assert.equal(response.body.includes("workspaces.workspace.notFound"), true, response.body);
   assert.equal(reading(queries, "workspace").length, 1, queries.join("\n"));
 });
 
@@ -383,8 +423,9 @@ test("a role context runs an action as a member in that role would, for a user w
   }
 
   // The permission check passes as the role: the member role lists the workspace's issues, which the outsider's and
-  // the guest's own requests may not, and the guest role is refused as a guest's request is.
-  assert.equal((await list(outsider)).response.statusCode, 403);
+  // the guest's own requests may not (the outsider is told it doesn't exist), and the guest role is refused as a
+  // guest's request is.
+  assert.equal((await list(outsider)).response.statusCode, 404);
   assert.equal((await list(guest)).response.statusCode, 403);
   const memberTitles = (await list(member)).response.json().data.map((record) => record.attributes.title).sort();
   for (const user of [outsider, guest]) {

@@ -169,6 +169,11 @@ jobs:
           JSKIT_USERS_WEB_BROWSER_INTEGRATION: "1"
         run: npx jskit test packages/users-web/test/translatedApp.browser.test.js
 
+      - name: Verify an unknown or refused workspace opens the Not found page
+        env:
+          JSKIT_WORKSPACES_WEB_NOT_FOUND_BROWSER: "1"
+        run: npx jskit test packages/workspaces-web/test/workspaceNotFound.browser.test.js
+
   browser-database:
     runs-on: ubuntu-latest
     timeout-minutes: 10

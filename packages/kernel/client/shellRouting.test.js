@@ -5,7 +5,9 @@ import {
   DEFAULT_GUARD_EVALUATOR_KEY,
   buildSurfaceAwareRoutes,
   createFallbackNotFoundRoute,
-  createShellBeforeEachGuard
+  createShellBeforeEachGuard,
+  isNotFoundRoute,
+  markNotFoundRoute
 } from "./shellRouting.js";
 
 test("buildSurfaceAwareRoutes keeps declared route paths and filters by surface mode", () => {
@@ -181,5 +183,34 @@ test("createShellBeforeEachGuard sends an external redirect to the page's locati
     } else {
       globalThis.window = previousWindow;
     }
+  }
+});
+
+test("createShellBeforeEachGuard opens the Not found page at an address the evaluator answers as not found", () => {
+  const surfaceRuntime = createSurfaceRuntime({
+    defaultSurfaceId: "app",
+    surfaces: { app: { pagesRoot: "w/[workspaceSlug]", requiresAuth: true } }
+  });
+  const fallbackRoute = markNotFoundRoute(createFallbackNotFoundRoute({}));
+  const previousEvaluator = globalThis[DEFAULT_GUARD_EVALUATOR_KEY];
+  globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = () => ({ allow: false, notFound: true, redirectTo: "/elsewhere", reason: "workspace-not-found" });
+
+  try {
+    const guard = createShellBeforeEachGuard({ surfaceRuntime, fallbackRoute });
+    const to = { path: "/w/no%20such/projects", fullPath: "/w/no%20such/projects?tab=open#top", query: { tab: "open" }, hash: "#top", matched: [] };
+    assert.deepEqual(guard(to), {
+      name: "not-found",
+      params: { pathMatch: ["w", "no such", "projects"] },
+      query: { tab: "open" },
+      hash: "#top"
+    });
+    // The Not found page itself opens, though the evaluator answers its address the same way.
+    const notFoundPage = { ...to, matched: [{ meta: fallbackRoute.meta }] };
+    assert.equal(isNotFoundRoute(notFoundPage), true);
+    assert.equal(guard(notFoundPage), true);
+    // Without a fallback route, the guard follows the outcome's redirect as before.
+    assert.equal(createShellBeforeEachGuard({ surfaceRuntime })(to), "/elsewhere");
+  } finally {
+    globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = previousEvaluator;
   }
 });

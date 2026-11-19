@@ -1,4 +1,5 @@
 import { START_LOCATION } from "vue-router";
+import { isNotFoundRoute } from "@jskit-ai/kernel/client";
 import { normalizeLowerText } from "@jskit-ai/kernel/shared/support/normalize";
 import {
   resolveSurfaceDefinitionFromPlacementContext,
@@ -94,15 +95,13 @@ function createBootstrapPlacementRouteGuards({
     }
 
     return Object.freeze({
-      pathname: surfaceState.normalizedPathname,
-      search: surfaceState.normalizedSearch,
-      surfaceId: surfaceState.surfaceId,
       workspaceSlug,
-      workspaceRootPath: resolveRuntimePathname(
-        resolveSurfaceWorkspacePathFromPlacementContext(surfaceState.context, surfaceState.surfaceId, workspaceSlug, "/")
-      ),
       workspaceBootstrapStatus: String(getWorkspaceBootstrapStatus(workspaceSlug) || "")
     });
+  }
+
+  function isRefusedWorkspaceStatus(status = "") {
+    return status === WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND || status === WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN;
   }
 
   function resolveSurfaceRouteState(pathname = "/", search = "") {
@@ -159,35 +158,23 @@ function createBootstrapPlacementRouteGuards({
     return fallbackPath || "/";
   }
 
+  // Every page of a workspace the server answers not_found (or, from a server before it answered a non-member so,
+  // forbidden) is the application's Not found page at that address: the shell guard opens it there, so none of the
+  // workspace's screens, or the requests they make, run for a workspace the person can't see.
   function resolveWorkspaceGuardDecision(pathname = "/", search = "") {
     const workspaceState = resolveWorkspaceRouteState(pathname, search);
-    if (!workspaceState) {
+    if (!workspaceState || !isRefusedWorkspaceStatus(workspaceState.workspaceBootstrapStatus)) {
       return null;
     }
 
-    if (workspaceState.workspaceBootstrapStatus === WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND) {
-      if (workspaceState.workspaceRootPath && workspaceState.workspaceRootPath !== workspaceState.pathname) {
-        return {
-          allow: false,
-          redirectTo: workspaceState.workspaceRootPath,
-          reason: WORKSPACE_NOT_FOUND_GUARD_REASON
-        };
-      }
-      return null;
-    }
-
-    if (workspaceState.workspaceBootstrapStatus === WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN) {
-      if (workspaceState.workspaceRootPath && workspaceState.workspaceRootPath !== workspaceState.pathname) {
-        return {
-          allow: false,
-          redirectTo: workspaceState.workspaceRootPath,
-          reason: WORKSPACE_FORBIDDEN_GUARD_REASON
-        };
-      }
-      return null;
-    }
-
-    return null;
+    return {
+      allow: false,
+      notFound: true,
+      reason:
+        workspaceState.workspaceBootstrapStatus === WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND
+          ? WORKSPACE_NOT_FOUND_GUARD_REASON
+          : WORKSPACE_FORBIDDEN_GUARD_REASON
+    };
   }
 
   function resolveSurfaceAccessGuardDecision(pathname = "/", search = "") {
@@ -250,14 +237,21 @@ function createBootstrapPlacementRouteGuards({
     } catch {}
   }
 
+  // A refusal that arrives once a page of the workspace is open (a move there from another page of the application,
+  // which opens before its bootstrap answers) opens that address again, so the shell guard shows the Not found page.
   function enforceWorkspaceRouteForStatusUpdate({ workspaceSlug = "", status = "" } = {}) {
     const normalizedWorkspaceSlug = normalizeLowerText(workspaceSlug);
     const normalizedStatus = normalizeWorkspaceBootstrapStatus(status);
-    if (!normalizedWorkspaceSlug || !normalizedStatus) {
+    if (!normalizedWorkspaceSlug || !isRefusedWorkspaceStatus(normalizedStatus)) {
       return;
     }
 
     const currentRoute = router.currentRoute.value;
+    // Before the opening navigation the guard has not run yet, and it will see the status; on the Not found page
+    // there is nothing left to do.
+    if (currentRoute === START_LOCATION || isNotFoundRoute(currentRoute)) {
+      return;
+    }
     const currentPath = resolveRuntimePathname(currentRoute.path || "/");
     const currentSearch = resolveSearchFromFullPath(currentRoute.fullPath || "");
     const workspaceState = resolveWorkspaceRouteState(currentPath, currentSearch);
@@ -265,18 +259,9 @@ function createBootstrapPlacementRouteGuards({
       return;
     }
 
-    if (normalizedStatus === WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND) {
-      if (workspaceState.workspaceRootPath && workspaceState.workspaceRootPath !== workspaceState.pathname) {
-        void replaceRouteIfNeeded(workspaceState.workspaceRootPath);
-      }
-      return;
-    }
-
-    if (normalizedStatus === WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN) {
-      if (workspaceState.workspaceRootPath && workspaceState.workspaceRootPath !== workspaceState.pathname) {
-        void replaceRouteIfNeeded(workspaceState.workspaceRootPath);
-      }
-    }
+    void router
+      .replace({ path: currentRoute.path, query: currentRoute.query, hash: currentRoute.hash, force: true })
+      .catch(() => {});
   }
 
   function enforceSurfaceAccessForCurrentRoute() {

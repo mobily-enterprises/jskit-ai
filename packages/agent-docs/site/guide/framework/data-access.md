@@ -1552,10 +1552,9 @@ const SettlementFeature = defineFeature({
   `memberContext` resolves the member as their request on a `workspace_user`
   route does, by the same reads: the workspace, their active membership (the
   owner's ensured), their role's permissions and the settings. It refuses as
-  that request does: a missing or deleted workspace is 404
-  `workspaces.workspace.notFound`, and a user who is no active member of it
-  (removed, inactive, never one, or no user) 403
-  `workspaces.workspace.accessDenied`. The context signs the member in, unlike
+  that request does: a missing or deleted workspace, and a user who is no
+  active member of it (removed, inactive, never one, or no user), are 404
+  `workspaces.workspace.notFound`. The context signs the member in, unlike
   `{ actorId }`: `resolveActorId` answers them, an action checks their
   permissions, a row policy is told `caller.kind` "user", request row limits
   apply and other owners' hidden fields stay hidden. Its scope is the workspace

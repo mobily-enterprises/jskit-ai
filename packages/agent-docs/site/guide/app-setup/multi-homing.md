@@ -165,11 +165,14 @@ router.register(
 
 Before the handler runs, the auth plugin resolves the slug for the signed-in
 user and sets `request.workspace`, `request.membership` (including `roleSid`
-and `status`) and `request.permissions`. An unknown slug returns 404 and a
-non-member receives 403, unless the route's `surface` uses an access policy with
-`requireWorkspaceMembership: false`. A route with `permission` returns 403 when
-the membership lacks it. Scope queries with `request.workspace.id`; never take a
-workspace id from request input.
+and `status`) and `request.permissions`. An unknown slug and a workspace the
+caller is not an active member of both return 404
+`workspaces.workspace.notFound` ("Workspace not found."), so someone outside a
+workspace can't tell it exists, unless the route's `surface` uses an access
+policy with `requireWorkspaceMembership: false`. The bootstrap answers both the
+same way: `requestedWorkspace` is `{ slug, status: "not_found" }`. A route with
+`permission` returns 403 when the membership lacks it. Scope queries with
+`request.workspace.id`; never take a workspace id from request input.
 
 ### Workspace services from another feature
 
@@ -630,13 +633,19 @@ the application's identity, training, permission, privacy and browser tests.
 ## Browser composition
 
 Use `workspaces/workspace-surfaces` for workspace selection, invitation landing,
-member administration, settings, not-found states, and semantic shell
+member administration, settings, the unavailable state, and semantic shell
 placements.
 
 The route slug, selected workspace, query keys, and server scope stay aligned.
-Invalid workspace URLs show a deliberate not-found/forbidden state instead of
-silently selecting another workspace. The browser waits for the server's answer
-about an unknown slug before deciding, so the surface can show that state.
+A workspace URL the server answers `not_found` (a slug no workspace has, or a
+workspace the person is not in) opens the application's Not found page, the
+`notFoundComponent` given to `createShellRouter`, at that same address, with
+none of the workspace's layout or screens and none of their requests: the
+shell's first bootstrap names the workspace the tab opened on, and the shell
+guard opens the Not found page before any of its pages. A move to a workspace
+the person is not listed in, from a link inside the application, opens its page
+while the bootstrap for it is on its way, then the Not found page once the
+server answers.
 The bootstrap answer, which carries the workspace and the person's permissions
 in it, belongs to the workspace, not to a page: it still applies when the
 person has moved to another page of the same workspace before it arrives, and a

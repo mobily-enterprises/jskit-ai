@@ -290,6 +290,8 @@ Exports
 - `resolveRequestedWorkspaceBootstrapStatus(payload, workspaceSlug = "")`
 - `resolveRouteState(placementRuntime, router)`
 - `resolveSearchFromFullPath(fullPath = "")`
+Local functions
+- `resolveRoutePath(router)`
 
 ### `src/client/support/realtimeWorkspace.js`
 Exports
@@ -353,6 +355,16 @@ Exports
 - None
 
 ### `fixtures/role-labels/vite.config.mjs`
+Exports
+- None
+
+### `fixtures/workspace-not-found/main.js`
+Exports
+- None
+Local functions
+- `workspaceScreen(name)`
+
+### `fixtures/workspace-not-found/vite.config.mjs`
 Exports
 - None
 

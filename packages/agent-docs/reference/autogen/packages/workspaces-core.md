@@ -68,6 +68,7 @@ Exports
 Local functions
 - `toSlugPart(value)`
 - `buildWorkspaceBaseSlug(user)`
+- `workspaceNotFound()`
 
 ### `src/server/common/services/workspaceMemberContext.js`
 Exports

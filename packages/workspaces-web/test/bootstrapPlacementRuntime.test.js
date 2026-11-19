@@ -3,6 +3,8 @@ import test from "node:test";
 import { resolveWorkspaceThemePalette } from "@jskit-ai/workspaces-core/shared/settings";
 import { ThemeSymbol } from "vuetify/lib/composables/theme.js";
 import { createMemoryHistory, createRouter } from "vue-router";
+import { createShellRouter, isNotFoundRoute } from "@jskit-ai/kernel/client";
+import { createSurfaceRuntime } from "@jskit-ai/kernel/shared/surface/runtime";
 import { createVuetifyThemeController } from "./support/vuetifyThemeController.js";
 import {
   WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN,
@@ -135,6 +137,11 @@ function createRouterStub(initialPath = "/w/acme/dashboard") {
       };
     },
     replace(target) {
+      // A forced reopen of the current address, for the shell guard to answer; the stub has no guard, so it stays.
+      if (target && typeof target === "object") {
+        replaceCalls.push(`reopen ${target.path}`);
+        return Promise.resolve();
+      }
       const fullPath = String(target || "").trim() || "/";
       router.currentRoute.value.path = resolvePathFromFullPath(fullPath);
       router.currentRoute.value.fullPath = fullPath;
@@ -230,6 +237,56 @@ function createErrorWithStatus(status, message = "") {
   const error = new Error(message || `HTTP ${status}`);
   error.status = status;
   return error;
+}
+
+/**
+ * The application's router as createShellRouter builds it, the shell guard and its Not found page included, on the
+ * surfaces createPlacementRuntimeStub describes. `opening` is the address the tab opened on, where the router's
+ * history stands before its opening navigation. Every navigation that ends is counted, so a loop shows.
+ */
+function createWorkspaceShellRouter(opening = "/") {
+  const page = { render: () => null };
+  const history = createMemoryHistory();
+  history.replace(opening);
+  const { router } = createShellRouter({
+    createRouter,
+    history,
+    routes: ["/home", "/w/:workspaceSlug", "/w/:workspaceSlug/projects", "/w/:workspaceSlug/admin",
+      "/w/:workspaceSlug/admin/workspace/settings"].map((path) => ({ path, component: page })),
+    surfaceRuntime: createSurfaceRuntime({
+      defaultSurfaceId: "home",
+      surfaces: {
+        home: { pagesRoot: "home" },
+        app: { pagesRoot: "w/[workspaceSlug]", requiresAuth: true, requiresWorkspace: true },
+        admin: { pagesRoot: "w/[workspaceSlug]/admin", requiresAuth: true, requiresWorkspace: true }
+      }
+    }),
+    surfaceMode: "all",
+    notFoundComponent: page,
+    guard: {}
+  });
+  const navigations = [];
+  router.afterEach((to, _from, failure) => {
+    if (!failure) {
+      navigations.push(`${isNotFoundRoute(to) ? "not found at " : ""}${to.fullPath}`);
+    }
+  });
+  return { router, navigations };
+}
+
+async function settle() {
+  for (let turn = 0; turn < 10; turn += 1) {
+    await flushTasks();
+  }
+}
+
+function refusalPayload(slug, status) {
+  return {
+    session: { authenticated: true, userId: "1" },
+    workspaces: [{ id: "1", slug: "acme", name: "Acme Workspace" }],
+    requestedWorkspace: { slug, status },
+    permissions: []
+  };
 }
 
 test("bootstrap placement runtime contributes workspace slug to shared bootstrap request and writes payload into placement context", async () => {
@@ -605,7 +662,8 @@ test("bootstrap placement runtime tracks status per workspace slug across route 
   assert.equal(runtime.getWorkspaceBootstrapStatus("zen"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
   assert.equal(context.workspaceBootstrapStatuses?.acme, WORKSPACE_BOOTSTRAP_STATUS_RESOLVED);
   assert.equal(context.workspaceBootstrapStatuses?.zen, WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
-  assert.deepEqual(router.replaceCalls, ["/w/zen"]);
+  // The page of zen the route is on opens again, for the shell guard to show the Not found page there.
+  assert.deepEqual(router.replaceCalls, ["reopen /w/zen/dashboard"]);
 });
 
 // The person taps another page of the workspace before its bootstrap answer arrives. Before, the answer was dropped
@@ -740,38 +798,65 @@ test("bootstrap placement runtime uses requestedWorkspace=not_found without forc
   assert.equal(context.workspaces[0]?.slug, "acme");
 });
 
-test("bootstrap placement runtime stays on an unknown workspace URL until the server reports its status", async () => {
+test("bootstrap placement runtime opens a workspace the server refuses as the Not found page at the address the tab opened on", async () => {
+  for (const status of [WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN]) {
+    for (const opening of ["/w/missing", "/w/missing/projects?tab=open#top", "/w/missing/admin/workspace/settings"]) {
+      const placementRuntime = createPlacementRuntimeStub();
+      const { router, navigations } = createWorkspaceShellRouter(opening);
+      const bootstrapRuntime = createBootstrapRuntimeStub();
+      const runtime = createTestRuntime({ placementRuntime, router, bootstrapRuntime });
+      const label = `${status} ${opening}`;
+
+      // The shell asks for its first bootstrap while the client modules boot, before the router's opening navigation:
+      // it names the workspace the tab opened on.
+      const request = runtime.resolveBootstrapRequest();
+      assert.deepEqual(request.query, { workspaceSlug: "missing" }, label);
+      await runtime.initialize();
+      await runtime.applyBootstrapPayload({ request, payload: refusalPayload("missing", status) });
+      await router.push(opening);
+      await router.isReady();
+      await settle();
+
+      assert.equal(isNotFoundRoute(router.currentRoute.value), true, label);
+      assert.deepEqual(navigations, [`not found at ${opening}`], label);
+      assert.deepEqual(bootstrapRuntime.calls, [], `${label}: one bootstrap`);
+      runtime.shutdown();
+    }
+  }
+});
+
+test("bootstrap placement runtime shows the Not found page at a workspace address once a refusal arrives after a move there", async () => {
   for (const status of [WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND, WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN]) {
     const placementRuntime = createPlacementRuntimeStub();
-    placementRuntime.setContext({
-      surfaceConfig: {
-        ...placementRuntime.getContext().surfaceConfig,
-        defaultSurfaceId: "home"
-      }
-    });
-    const router = createRouterStub("/w/acme");
-    const runtime = createTestRuntime({ placementRuntime, router });
+    const { router, navigations } = createWorkspaceShellRouter("/w/acme");
+    const bootstrapRuntime = createBootstrapRuntimeStub();
+    const runtime = createTestRuntime({ placementRuntime, router, bootstrapRuntime });
     const session = { authenticated: true, userId: "1" };
     const workspaces = [{ id: "1", slug: "acme", name: "Acme Workspace" }];
 
-    await runtime.initialize();
     await runtime.applyBootstrapPayload({
-      request: createBootstrapRequest("/w/acme", "acme"),
+      request: runtime.resolveBootstrapRequest(),
       payload: { session, workspaces, permissions: [] }
     });
-    await router.push("/w/missing");
-    await runtime.applyBootstrapPayload({
-      request: createBootstrapRequest("/w/missing", "missing"),
-      payload: {
-        session,
-        workspaces,
-        requestedWorkspace: { slug: "missing", status },
-        permissions: []
-      }
-    });
+    await runtime.initialize();
+    await router.push("/w/acme");
+    await router.isReady();
 
-    assert.equal(runtime.getWorkspaceBootstrapStatus("missing"), status);
-    assert.deepEqual(router.replaceCalls, ["/w/missing"]);
+    // A move to a workspace the person isn't listed in opens while its bootstrap is on its way.
+    await router.push("/w/missing/projects");
+    assert.deepEqual(bootstrapRuntime.calls, ["route"], status);
+    await runtime.applyBootstrapPayload({ request: runtime.resolveBootstrapRequest(), payload: refusalPayload("missing", status) });
+    await settle();
+
+    assert.equal(isNotFoundRoute(router.currentRoute.value), true, status);
+    assert.deepEqual(navigations, ["/w/acme", "/w/missing/projects", "not found at /w/missing/projects"], status);
+
+    // The way out works: another page, and the person's own workspace, open as before.
+    await router.push("/home");
+    await router.push("/w/acme/projects");
+    assert.equal(router.currentRoute.value.fullPath, "/w/acme/projects", status);
+    assert.equal(isNotFoundRoute(router.currentRoute.value), false, status);
+    runtime.shutdown();
   }
 });
 
@@ -844,109 +929,28 @@ test("bootstrap placement runtime guard wrapper treats anything but a function i
   );
 });
 
-test("bootstrap placement runtime guard wrapper blocks forbidden workspace routes and redirects nested workspace paths", async () => {
-  const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/w/acme/admin/workspace/settings?tab=general");
-  const runtime = createTestRuntime({ placementRuntime, router });
+test("bootstrap placement runtime guard wrapper answers every page of a refused workspace as not found", async () => {
+  for (const [statusCode, reason] of [[403, "workspace-forbidden"], [404, "workspace-not-found"]]) {
+    const { router } = createWorkspaceShellRouter("/w/acme");
+    const runtime = createTestRuntime({ placementRuntime: createPlacementRuntimeStub(), router });
+    await runtime.initialize();
+    await runtime.handleBootstrapError({ request: runtime.resolveBootstrapRequest(), error: createErrorWithStatus(statusCode) });
 
-  await runtime.initialize();
-  await runtime.handleBootstrapError({
-    request: createBootstrapRequest("/w/acme/admin/workspace/settings?tab=general", "acme"),
-    error: createErrorWithStatus(403, "Forbidden")
-  });
-
-  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_FORBIDDEN);
-  assert.deepEqual(router.replaceCalls, ["/w/acme/admin"]);
-
-  const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
-  const outcome = evaluator({
-    guard: {
-      policy: "authenticated"
-    },
-    context: {
-      to: {
-        path: "/w/acme/dashboard",
-        fullPath: "/w/acme/dashboard?tab=general"
-      },
-      location: {
-        pathname: "/w/acme/dashboard",
-        search: "?tab=general"
-      }
+    const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
+    const evaluate = (fullPath) => {
+      const [pathname, search = ""] = fullPath.split("?");
+      return evaluator({
+        guard: { policy: "authenticated" },
+        context: { to: { path: pathname, fullPath }, location: { pathname, search: search ? `?${search}` : "" } }
+      });
+    };
+    for (const fullPath of ["/w/acme", "/w/acme/projects", "/w/acme/admin", "/w/acme/admin/workspace/settings?tab=general"]) {
+      assert.deepEqual(evaluate(fullPath), { allow: false, notFound: true, reason }, `HTTP ${statusCode} ${fullPath}`);
     }
-  });
-
-  assert.equal(outcome.allow, false);
-  assert.equal(outcome.reason, "workspace-forbidden");
-  assert.equal(outcome.redirectTo, "/w/acme");
-});
-
-test("bootstrap placement runtime guard wrapper redirects nested not_found routes to workspace surface root", async () => {
-  const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/w/acme/projects");
-  const runtime = createTestRuntime({ placementRuntime, router });
-
-  await runtime.initialize();
-  await runtime.handleBootstrapError({
-    request: createBootstrapRequest("/w/acme/projects", "acme"),
-    error: createErrorWithStatus(404, "Not found")
-  });
-
-  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
-  assert.deepEqual(router.replaceCalls, ["/w/acme"]);
-
-  const evaluator = globalThis[SHELL_GUARD_EVALUATOR_KEY];
-  const nestedOutcome = evaluator({
-    guard: {
-      policy: "authenticated"
-    },
-    context: {
-      to: {
-        path: "/w/acme/projects",
-        fullPath: "/w/acme/projects"
-      },
-      location: {
-        pathname: "/w/acme/projects",
-        search: ""
-      }
-    }
-  });
-  assert.deepEqual(nestedOutcome, {
-    allow: false,
-    redirectTo: "/w/acme",
-    reason: "workspace-not-found"
-  });
-
-  const rootOutcome = evaluator({
-    guard: {
-      policy: "authenticated"
-    },
-    context: {
-      to: {
-        path: "/w/acme",
-        fullPath: "/w/acme"
-      },
-      location: {
-        pathname: "/w/acme",
-        search: ""
-      }
-    }
-  });
-  assert.equal(rootOutcome, true);
-});
-
-test("bootstrap placement runtime redirects admin nested route to admin root when workspace is not_found", async () => {
-  const placementRuntime = createPlacementRuntimeStub();
-  const router = createRouterStub("/w/acme/admin/workspace/settings");
-  const runtime = createTestRuntime({ placementRuntime, router });
-
-  await runtime.initialize();
-  await runtime.handleBootstrapError({
-    request: createBootstrapRequest("/w/acme/admin/workspace/settings", "acme"),
-    error: createErrorWithStatus(404, "Not found")
-  });
-
-  assert.equal(runtime.getWorkspaceBootstrapStatus("acme"), WORKSPACE_BOOTSTRAP_STATUS_NOT_FOUND);
-  assert.deepEqual(router.replaceCalls, ["/w/acme/admin"]);
+    assert.equal(evaluate("/w/zen/projects"), true, `HTTP ${statusCode}: another workspace`);
+    assert.equal(evaluate("/home"), true, `HTTP ${statusCode}: another surface`);
+    runtime.shutdown();
+  }
 });
 
 test("bootstrap placement runtime enforces surface access policies after bootstrap payloads", async () => {

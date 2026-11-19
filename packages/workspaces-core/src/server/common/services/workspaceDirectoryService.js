@@ -36,6 +36,10 @@ function buildWorkspaceBaseSlug(user) {
   return "workspace";
 }
 
+function workspaceNotFound() {
+  return new AppError(404, "Workspace not found.", { code: "workspaces.workspace.notFound" });
+}
+
 /**
  * The `workspaces.personal-workspace-name` default: the user's display name or
  * email, followed by "'s Workspace".
@@ -256,7 +260,8 @@ function createService({
   const requestWorkspaceContexts = new WeakMap();
 
   /**
-   * A surface that requires membership refuses an anonymous visitor (401) and a non-member (403); one that does not (a
+   * A surface that requires membership refuses an anonymous visitor (401), and a non-member as it refuses a slug no
+   * workspace has (404), so its answer never tells someone outside a workspace that it exists; one that does not (a
    * public payment link) resolves the workspace for them with no membership and no permissions.
    * @param {{ id?: unknown } | null} user
    * @param {string} workspaceSlug
@@ -271,9 +276,11 @@ function createService({
     return requireMembership ? requireMember(workspaceContext) : workspaceContext;
   }
 
+  // Someone who is no active member of a workspace (removed, inactive, never one, or no user at all) is told it is not
+  // found, exactly as for a slug or id no workspace has: a refusal of its own would tell them the workspace exists.
   function requireMember(workspaceContext) {
     if (!workspaceContext.membership) {
-      throw new AppError(403, "You do not have access to this workspace.", { code: "workspaces.workspace.accessDenied" });
+      throw workspaceNotFound();
     }
     return workspaceContext;
   }
@@ -298,9 +305,9 @@ function createService({
   /**
    * The workspace context of one member of the workspace with this id, for background work done as that member: what
    * resolveWorkspaceContextForUserBySlug resolves for the member's request on a surface that requires membership, by
-   * the same reads and checks. A deleted or missing workspace is 404 `workspaces.workspace.notFound`, as an unknown
-   * slug is, and a user who is no active member of it (removed, inactive, never one, or no user at all) 403
-   * `workspaces.workspace.accessDenied`; the owner's membership is ensured, as at the owner's request.
+   * the same reads and checks. A deleted or missing workspace, and a user who is no active member of it (removed,
+   * inactive, never one, or no user at all), are 404 `workspaces.workspace.notFound`, as an unknown slug is; the owner's
+   * membership is ensured, as at the owner's request.
    * @param {{ id?: unknown } | null} user
    * @param {unknown} workspaceId
    * @param {object} [options]
@@ -327,7 +334,7 @@ function createService({
     requireWorkspaceContext();
     const workspace = await workspacesRepository.findById(workspaceId, options);
     if (!workspace || workspace.deletedAt) {
-      throw new AppError(404, "Workspace not found.", { code: "workspaces.workspace.notFound" });
+      throw workspaceNotFound();
     }
     return {
       workspace,
@@ -356,7 +363,7 @@ function createService({
   // with its role's permissions, and the settings: every workspace context, a request's and a member's, is this one.
   async function readWorkspaceContextForUser(user, workspace, options) {
     if (!workspace) {
-      throw new AppError(404, "Workspace not found.", { code: "workspaces.workspace.notFound" });
+      throw workspaceNotFound();
     }
 
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });

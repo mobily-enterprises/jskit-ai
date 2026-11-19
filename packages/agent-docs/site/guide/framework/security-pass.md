@@ -23,8 +23,9 @@ a JSKIT app. The rules it applies are already in [Typed features](/guide/framewo
   public route public on purpose.
 - A workspace route registers under `/api/w/:workspaceSlug/...` with
   `contextPolicy: "required"`: the server resolves the workspace and the
-  caller's membership from the slug and the session, and answers 404 or 403
-  before the handler runs
+  caller's membership from the slug and the session, and answers 404 before
+  the handler runs, alike for a slug no workspace has and a workspace the
+  caller is not in, so the answer never says a workspace exists
   ([Workspace-scoped features and routes](/guide/app-setup/multi-homing#workspace-scoped-features-and-routes)).
 - A surface's access policy guards pages in the browser only; the server reads
   just `requireWorkspaceMembership: false` from it. A page hidden by
@@ -127,7 +128,8 @@ a JSKIT app. The rules it applies are already in [Typed features](/guide/framewo
   every write ([Tests](/guide/framework/data-access#tests)).
 - Send each attack and expect its refusal: no session (401
   `auth.session.required`), a member without the route's permission (403), a
-  slug of a workspace the caller is not in (403), another workspace's record id
+  slug of a workspace the caller is not in (404, the same answer as a slug no
+  workspace has), another workspace's record id
   and `workspaceId` in the body (refused, or answered in the caller's own
   workspace), a write without `csrf-token`, and one request past each
   `rateLimit` (429). A body that does not validate, sent without a session,

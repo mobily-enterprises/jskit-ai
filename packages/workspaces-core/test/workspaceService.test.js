@@ -726,7 +726,7 @@ test("workspaceService.resolveWorkspaceContextForUserBySlug can resolve an exist
         { id: "7", email: "customer@example.com" },
         "dog-and-groom"
       ),
-    /You do not have access to this workspace/
+    /Workspace not found/
   );
 
   const context = await service.resolveWorkspaceContextForUserBySlug(

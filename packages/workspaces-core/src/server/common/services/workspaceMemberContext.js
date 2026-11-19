@@ -68,9 +68,9 @@ function createWorkspaceMemberContexts({ workspaceService, userProfiles, roleCat
    *
    * Only a system context makes one (`{ context: systemContext(reason) }`, with `trx` to read in the caller's
    * transaction): any other context, a forWorkspace job's too, is a TypeError, as are ids that are no record ids. A
-   * missing or deleted workspace is 404 `workspaces.workspace.notFound`, and a user who is no active member of it
-   * (removed, inactive, never one, or no user at all) 403 `workspaces.workspace.accessDenied`, as for the member's
-   * request; the owner's membership is ensured, as at the owner's request. It reads no sign-in state: an account its
+   * missing or deleted workspace, and a user who is no active member of it (removed, inactive, never one, or no user at
+   * all), are 404 `workspaces.workspace.notFound`, as for the member's request; the owner's membership is ensured, as
+   * at the owner's request. It reads no sign-in state: an account its
    * auth provider refuses at sign-in is still resolved. An action it runs names the surface the member's request
    * would: `actions.execute({ actionId, input, context: { ...member, surface: "app" } })`.
    * @param {{ workspaceId: unknown, userId: unknown }} member

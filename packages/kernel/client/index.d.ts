@@ -10,6 +10,11 @@ export * from "./asyncModuleRecovery";
 
 export const DEFAULT_GUARD_EVALUATOR_KEY: "__JSKIT_WEB_SHELL_GUARD_EVALUATOR__";
 
+/** Whether the route is the application's Not found page, the fallback route createShellRouter marks. */
+export function isNotFoundRoute(
+  route: { matched?: readonly { meta?: Record<string, any> }[] } | null | undefined
+): boolean;
+
 export function getClientAppConfig(): Readonly<Record<string, any>>;
 export function resolveMobileConfig(appConfig?: Record<string, any>): Readonly<Record<string, any>>;
 export function resolveClientAssetMode(appConfig?: Record<string, any>): string;
@@ -29,7 +34,10 @@ export function createShellRouter(options: {
   routes: any[];
   surfaceRuntime: any;
   surfaceMode: string;
-  /** Replaces the not-found route built from notFoundComponent; one of the two is needed. */
+  /**
+   * Replaces the not-found route built from notFoundComponent; one of the two is needed. It keeps a name and a
+   * :pathMatch param, as the shell opens it at an address a guard evaluator answers `{ allow: false, notFound: true }`.
+   */
   fallbackRoute?: any;
   notFoundComponent?: any;
   guard?:

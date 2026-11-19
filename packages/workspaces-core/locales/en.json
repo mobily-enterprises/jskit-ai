@@ -12,7 +12,6 @@
         "contextDisabled": "Workspace context is disabled.",
         "slugRequired": "workspaceSlug is required.",
         "notFound": "Workspace not found.",
-        "accessDenied": "You do not have access to this workspace.",
         "avatarUrlInvalid": "Workspace avatar URL must be a valid absolute URL (http:// or https://)."
       },
       "member": {

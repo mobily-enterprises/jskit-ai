@@ -173,7 +173,7 @@ test("the members and invites list routes refuse as strictly as before", async (
   for (const path of ["members", "invites"]) {
     const refusals = [
       ["signed out", await get(null, path, page(20)), 401, "auth.session.required"],
-      ["not a member", await get(outsider, path, page(20)), 403, "workspaces.workspace.accessDenied"],
+      ["not a member", await get(outsider, path, page(20)), 404, "workspaces.workspace.notFound"],
       ["a member without workspace.members.view", await get(guest, path, page(20)), 403, "ACTION_PERMISSION_DENIED"],
       ["an unknown workspace", await get(owner, path, { ...page(20), slug: "no-such-workspace" }), 404,
         "workspaces.workspace.notFound"],

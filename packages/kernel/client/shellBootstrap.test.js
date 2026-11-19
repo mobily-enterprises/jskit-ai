@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { createMemoryHistory, createRouter } from "vue-router";
 import { createSurfaceRuntime } from "../shared/surface/runtime.js";
+import { DEFAULT_GUARD_EVALUATOR_KEY, isNotFoundRoute } from "./shellRouting.js";
 import {
   bootstrapClientShellApp,
   createClientBootstrapLogger,
@@ -104,6 +106,64 @@ test("createSurfaceShellRouter refuses a createRouter that replaces the scroll b
   assert.equal(build(keeps).router.options.scrollBehavior, shellScrollBehavior);
   assert.equal(build(keeps, own).router.options.scrollBehavior, own);
   assert.equal(build(wrapper, false).router.options.scrollBehavior, own);
+});
+
+// What the shell does with an address its guard evaluator answers { allow: false, notFound: true }, through vue-router
+// itself: it opens the application's Not found page there, the address, query and hash kept.
+test("createSurfaceShellRouter opens the Not found page at an address the guard evaluator answers as not found", async () => {
+  const page = { render: () => null };
+  const notFoundPage = { render: () => null };
+  const previousEvaluator = globalThis[DEFAULT_GUARD_EVALUATOR_KEY];
+  const evaluated = [];
+  globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = ({ context }) => {
+    evaluated.push(context.to.fullPath);
+    return context.location.pathname.startsWith("/w/nope") ? { allow: false, notFound: true, reason: "workspace-not-found" } : true;
+  };
+  try {
+    const { router, fallbackRoute } = createSurfaceShellRouter({
+      createRouter,
+      history: createMemoryHistory(),
+      routes: ["/home", "/w/:workspaceSlug", "/w/:workspaceSlug/projects"].map((path) => ({ path, component: page })),
+      surfaceRuntime: createSurfaceRuntime({
+        defaultSurfaceId: "home",
+        surfaces: { home: { pagesRoot: "home" }, app: { pagesRoot: "w/[workspaceSlug]", requiresAuth: true } }
+      }),
+      surfaceMode: "all",
+      notFoundComponent: notFoundPage,
+      guard: {}
+    });
+    assert.equal(fallbackRoute.meta.jskit.notFound, true);
+
+    for (const address of ["/w/nope", "/w/nope/projects?tab=open#top", "/w/nope/no%20such%20page"]) {
+      await router.push(address);
+      const route = router.currentRoute.value;
+      assert.equal(route.fullPath, address);
+      assert.equal(isNotFoundRoute(route), true, address);
+      assert.equal(route.matched.at(-1).components.default, notFoundPage, address);
+    }
+    await router.push("/w/acme/projects");
+    assert.equal(router.currentRoute.value.fullPath, "/w/acme/projects");
+    assert.equal(isNotFoundRoute(router.currentRoute.value), false);
+    // The Not found page is asked once more, and opens: no loop.
+    assert.deepEqual(evaluated.filter((fullPath) => fullPath === "/w/nope").length, 2);
+  } finally {
+    globalThis[DEFAULT_GUARD_EVALUATOR_KEY] = previousEvaluator;
+  }
+});
+
+test("createSurfaceShellRouter marks an application's own fallback route, and refuses one the shell can't open at an address", () => {
+  const build = (fallbackRoute) =>
+    createSurfaceShellRouter({
+      createRouter: (options) => ({ options }),
+      routes: [],
+      surfaceRuntime: createSurfaceRuntimeFixture(),
+      surfaceMode: "app",
+      fallbackRoute
+    });
+  const own = { name: "missing", path: "/:pathMatch(.*)*", component: {}, meta: { jskit: { scope: "global" }, title: "Missing" } };
+  assert.deepEqual(build(own).fallbackRoute.meta, { jskit: { scope: "global", notFound: true }, title: "Missing" });
+  assert.throws(() => build({ path: "/:pathMatch(.*)*", component: {} }), /fallbackRoute needs a name and a :pathMatch param/u);
+  assert.throws(() => build({ name: "missing", path: "/:rest(.*)*", component: {} }), /fallbackRoute needs a name and a :pathMatch param/u);
 });
 
 test("createSurfaceShellRouter installs an application's own guard function as it is given", () => {

@@ -1,3 +1,4 @@
+import { START_LOCATION } from "vue-router";
 import {
   resolveRuntimePathname,
   resolveSurfaceIdFromPlacementPathname
@@ -12,9 +13,21 @@ import {
 } from "../support/runtimeNormalization.js";
 import { WORKSPACE_BOOTSTRAP_STATUSES } from "./bootstrapPlacementRuntimeConstants.js";
 
+// The path of the page the router is on or, before its opening navigation, of the page the tab opened on: until then
+// its current route is the start location "/", and that page is its history's location. The first bootstrap, which
+// the shell asks for before that navigation, so names the workspace the tab opened, and the guards know its status
+// before they let that page open.
+function resolveRoutePath(router) {
+  const route = router.currentRoute.value;
+  if (route !== START_LOCATION) {
+    return route.path;
+  }
+  return String(router.options?.history?.location || "").split(/[?#]/u)[0] || "/";
+}
+
 function resolveRouteState(placementRuntime, router) {
   const context = placementRuntime.getContext();
-  const path = resolveRuntimePathname(router.currentRoute.value.path);
+  const path = resolveRuntimePathname(resolveRoutePath(router));
   const surfaceId = String(resolveSurfaceIdFromPlacementPathname(context, path) || "")
     .trim()
     .toLowerCase();

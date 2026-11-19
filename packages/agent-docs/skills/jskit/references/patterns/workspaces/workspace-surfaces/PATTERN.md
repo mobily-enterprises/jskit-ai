@@ -22,7 +22,12 @@ surface tree when only one workspace widget is needed.
 
 Choose public invitation routes, application/admin surface ids, workspace
 selector behavior, member-management permissions, settings sections, and the
-empty or not-found experience.
+empty or unavailable experience. A workspace URL the server answers not found
+(a slug no workspace has, or a workspace the person is not in: the server
+answers both alike) opens the application's Not found page, the
+`notFoundComponent` given to `createShellRouter`, at that address; give it a
+way home. The unavailable state covers what is left: a signed-out session or a
+bootstrap that failed.
 
 Choose where signed-in people land. The default surface does not require a
 workspace, so `/`, invitation links and the **Your workspaces** page work
@@ -39,6 +44,8 @@ Use the workspace client provider, components, and composables exported by
 ## Invariants
 
 - Route workspace slug, selected workspace, and server scope stay synchronized.
+- A workspace the person can't see shows the Not found page, never the
+  workspace's layout, screens or requests.
 - Route and surface pages do not add a page header or standalone heading by
   default.
 - Invitation acceptance is public only where the server contract permits it.
@@ -51,7 +58,7 @@ Use the workspace client provider, components, and composables exported by
 
 `example/` contains workspace app/admin roots, starter pages, invitation route,
 the **Your workspaces** page at `src/pages/home/workspaces/index.vue`, member
-and settings routes, not-found state, app-owned invitation widgets, and the
+and settings routes, the unavailable state, app-owned invitation widgets, and the
 components that an application's client provider registers.
 
 `example/src/surfaces/<surface>/` and `example/src/pages/admin/` are each
@@ -73,13 +80,17 @@ guide's **Workspace tenancy → Surfaces and where `/` lands**.
 ## Variation points
 
 Change surfaces, routes, section owners, labels, icons, placement order,
-workspace-not-found copy, member operations, and invitation presentation.
+the Not found page's and the unavailable state's copy, member operations, and
+invitation presentation.
 
 ## Verification
 
 Exercise direct workspace URLs, selection and switching, invitations, members,
-settings, not-found state, browser back/forward, forbidden access, and all
-responsive navigation variants.
+settings, browser back/forward and all responsive navigation variants. Open a
+workspace URL that doesn't exist and one of a workspace the person is not in,
+at the root and on a sub-page: each shows the Not found page at that address,
+with no workspace navigation and no request for the workspace's data, and its
+way home works.
 
 ## Avoid
 

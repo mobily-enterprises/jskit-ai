@@ -1,4 +1,9 @@
-import { buildSurfaceAwareRoutes, createFallbackNotFoundRoute, createShellBeforeEachGuard } from "./shellRouting.js";
+import {
+  buildSurfaceAwareRoutes,
+  createFallbackNotFoundRoute,
+  createShellBeforeEachGuard,
+  markNotFoundRoute
+} from "./shellRouting.js";
 import { isRecord } from "../shared/support/normalize.js";
 import { setClientAppConfig } from "./appConfig.js";
 import { pagePathname, pageWindow } from "./browser.js";
@@ -201,7 +206,8 @@ function shellScrollBehavior(to, from, savedPosition) {
  * @param {readonly import("./types.js").ClientRouteRecord[]} options.routes
  * @param {import("./types.js").ClientSurfaceRuntime} options.surfaceRuntime
  * @param {import("./types.js").ClientSurfaceMode} options.surfaceMode
- * @param {import("./types.js").ClientRouteRecord} [options.fallbackRoute] Replaces the not-found route of notFoundComponent.
+ * @param {import("./types.js").ClientRouteRecord} [options.fallbackRoute] Replaces the not-found route of
+ * notFoundComponent, keeping its name and its :pathMatch param; the shell marks it as the Not found page.
  * @param {import("vue-router").RouteComponent} [options.notFoundComponent]
  * @param {false | import("vue-router").NavigationGuard | import("./types.js").ShellGuardOptions} [options.guard]
  * @param {false | import("vue-router").RouterScrollBehavior} [options.scrollBehavior] false leaves scrolling to the browser.
@@ -218,7 +224,7 @@ function createSurfaceShellRouter({
   guard = false,
   scrollBehavior = shellScrollBehavior
 }) {
-  const effectiveFallbackRoute = fallbackRoute || createFallbackNotFoundRoute(notFoundComponent);
+  const effectiveFallbackRoute = markNotFoundRoute(fallbackRoute || createFallbackNotFoundRoute(notFoundComponent));
   const activeRoutes = buildSurfaceAwareRoutes({
     routes,
     surfaceRuntime,
@@ -242,7 +248,11 @@ function createSurfaceShellRouter({
   }
 
   if (guard !== false) {
-    router.beforeEach(isRecord(guard) ? createShellBeforeEachGuard({ surfaceRuntime, ...guard }) : guard);
+    router.beforeEach(
+      isRecord(guard)
+        ? createShellBeforeEachGuard({ surfaceRuntime, ...guard, fallbackRoute: effectiveFallbackRoute })
+        : guard
+    );
   }
 
   return Object.freeze({

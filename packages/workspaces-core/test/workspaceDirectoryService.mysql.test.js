@@ -179,11 +179,12 @@ test("the workspace context answers a member's workspace, membership, permission
   assert.equal(outside.membership, null);
   assert.deepEqual(outside.permissions, []);
   assert.equal(outside.workspace.id, workspace.id);
+  // Someone outside the workspace is told it is not found, as for a slug no workspace has.
   await assert.rejects(directory.resolveWorkspaceContextForUserBySlug(outsider, "context-team"),
-    errorWith(403, "workspaces.workspace.accessDenied", "You do not have access to this workspace."));
+    errorWith(404, "workspaces.workspace.notFound", "Workspace not found."));
   await db.memberships.upsertMembership(workspace.id, member.id, { roleSid: "admin", status: "revoked" });
   await assert.rejects(directory.resolveWorkspaceContextForUserBySlug(member, "context-team"),
-    errorWith(403, "workspaces.workspace.accessDenied"), "a revoked member is refused");
+    errorWith(404, "workspaces.workspace.notFound"), "a revoked member is refused");
 
   // The owner's missing or inactive membership is restored by reading the context.
   await db.memberships.upsertMembership(workspace.id, owner.id, { roleSid: "owner", status: "revoked" });
@@ -253,6 +254,6 @@ test("get and update read the context first and save only the patchable fields",
     { slug: "update-team", ownerUserId: owner.id, isPersonal: false }, "fields outside the patch stay");
 
   await assert.rejects(directory.updateWorkspaceForAuthenticatedUser(intruder, "update-team", { name: "Hijacked" }),
-    errorWith(403, "workspaces.workspace.accessDenied"));
+    errorWith(404, "workspaces.workspace.notFound"));
   assert.equal((await db.workspaces.findById(workspace.id)).name, "Renamed");
 });
