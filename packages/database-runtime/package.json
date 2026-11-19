@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/database-runtime",
-  "version": "0.1.277",
+  "version": "0.1.278",
   "type": "module",
   "scripts": {
     "test": "jskit test"

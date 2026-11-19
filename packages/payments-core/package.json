@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/payments-core",
-  "version": "0.2.32",
+  "version": "0.2.33",
   "type": "module",
   "description": "Application-owned payment configuration, subscription access and transactional usage credits.",
   "exports": {
@@ -69,9 +69,9 @@
     }
   },
   "peerDependencies": {
-    "@jskit-ai/database-runtime": "0.1.277",
+    "@jskit-ai/database-runtime": "0.1.278",
     "@jskit-ai/kernel": "0.2.28",
-    "@jskit-ai/resource-runtime": "0.2.41"
+    "@jskit-ai/resource-runtime": "0.2.42"
   },
   "peerDependenciesMeta": {
     "@jskit-ai/database-runtime": {
