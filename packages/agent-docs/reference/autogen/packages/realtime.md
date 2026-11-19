@@ -150,6 +150,7 @@ Exports
 Local functions
 - `registerSocketIoUpgradeHandoff(fastify)`
 - `resolveHttpServer({ httpServer = null, fastify = null } = {})`
+- `addEngineHeaders(io)`
 - `buildSocketIoRedisAdapterKey(redisNamespace = "")`
 
 ### `src/server/servedClientBuild.js`

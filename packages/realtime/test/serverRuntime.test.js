@@ -132,6 +132,29 @@ test("realtime leaves slow application upgrades and access denials to their rout
   assert.equal(client.connected, true, "Socket.IO still owns its own upgrade route");
 });
 
+test("Socket.IO's long-polling answers carry nosniff and no-store, which Fastify's hooks never reach", { timeout: 5_000 }, async (t) => {
+  const server = createServer();
+  const realtime = createSocketIoServer({ httpServer: server });
+  t.after(async () => {
+    await closeSocketIoServer(realtime);
+    server.closeAllConnections();
+    await new Promise((resolve) => server.close(resolve));
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const polling = `http://127.0.0.1:${server.address().port}/socket.io/?EIO=4&transport=polling`;
+  const checked = (response, step) => {
+    assert.equal(response.status, 200, step);
+    assert.equal(response.headers.get("x-content-type-options"), "nosniff", step);
+    assert.equal(response.headers.get("cache-control"), "no-store, no-cache, must-revalidate", step);
+    return response.text();
+  };
+  // The handshake, joining the main namespace, then the poll that answers it: each request of a polling session.
+  const { sid } = JSON.parse((await checked(await fetch(polling), "handshake")).slice(1));
+  await checked(await fetch(`${polling}&sid=${sid}`, { method: "POST", body: "40" }), "send");
+  assert.match(await checked(await fetch(`${polling}&sid=${sid}`), "poll"), /^40/u);
+});
+
 test("createSocketIoServer falls back to fastify.server", () => {
   const fastifyServer = {
     id: "fastify-server"

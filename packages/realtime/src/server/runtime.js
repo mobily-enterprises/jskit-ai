@@ -59,7 +59,26 @@ function createSocketIoServer({
     path: SOCKET_IO_PATH
   };
   registerSocketIoUpgradeHandoff(fastify);
-  return new ServerCtor(server, normalizedOptions);
+  const io = new ServerCtor(server, normalizedOptions);
+  addEngineHeaders(io);
+  return io;
+}
+
+/**
+ * Socket.IO answers its long-polling requests on the HTTP server itself, outside Fastify's hooks, so they miss the
+ * security headers every other answer gets (kernel registerSecurityHeaders). They get nosniff, so no browser reads a
+ * polling answer as another type, and the Cache-Control the kernel gives API answers in place of Engine.IO's no-store,
+ * which means the same but which a scanner reports (OWASP ZAP rule 10015 asks for no-cache and must-revalidate too).
+ * @param {import("socket.io").Server} io
+ */
+function addEngineHeaders(io) {
+  if (!io?.engine) return;
+  // "headers" comes for every HTTP request of a session, the handshake included. Engine.IO names its own headers in
+  // lower case (cache-control), so a header named here in lower case replaces one it adds rather than doubling it.
+  io.engine.on("headers", (headers) => {
+    headers["x-content-type-options"] = "nosniff";
+    headers["cache-control"] = "no-store, no-cache, must-revalidate";
+  });
 }
 
 // Socket.IO runs on an HTTP server its caller owns (Fastify's, for the
