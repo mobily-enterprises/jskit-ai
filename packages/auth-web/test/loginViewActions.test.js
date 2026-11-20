@@ -606,3 +606,27 @@ test("a provider sign-in that does not complete in 20 seconds stops, says so, an
   assert.deepEqual(launch.opened, [`${buildAuthOauthStartPath("github")}?returnTo=%2Finvite%3Ftoken%3Dabc&invitationToken=inv-1`]);
   assert.equal(state.oauthRetryProvider.value, "", "starting again clears the offer");
 });
+
+test("an address the sign-in link names wins over a remembered account with another address, which stays remembered", async (t) => {
+  const remembered = { email: "wrong@example.com", displayName: "Wrong", maskedEmail: "w***@example.com", lastUsedAt: "2026-11-20T10:00:00.000Z" };
+  const localStorage = memorySessionStorage({ "auth.rememberedAccount": JSON.stringify(remembered) });
+  openPage(t, "https://example.com/auth/login", memorySessionStorage());
+  globalThis.window.localStorage = localStorage;
+  t.mock.method(globalThis, "fetch", async () => createJsonResponse({ authenticated: false, csrfToken: "csrf-a" }));
+
+  const applied = [];
+  for (const named of ["invited@example.com", "wrong@example.com", ""]) {
+    const state = createMinimalLoginViewState("/");
+    state.emailNamedByLink = named;
+    state.applyRememberedAccountHint = (hint) => applied.push([named, hint?.email || null]);
+    const actions = useLoginViewActions({ state, validation: {}, queryClient: { fetchQuery: ({ queryFn }) => queryFn() }, errorRuntime: { report() {} } });
+    await actions.initializeOnMounted();
+  }
+
+  assert.deepEqual(applied, [
+    ["invited@example.com", null],
+    ["wrong@example.com", "wrong@example.com"],
+    ["", "wrong@example.com"]
+  ], "only a link naming another address sets the remembered account aside");
+  assert.equal(JSON.parse(localStorage.values.get("auth.rememberedAccount")).email, "wrong@example.com", "it stays remembered");
+});

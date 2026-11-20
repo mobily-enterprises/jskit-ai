@@ -156,6 +156,17 @@ test("password sign-in opens the requested page, remembers the account, and sign
   await expect(page.getByText("a***@example.com")).toBeVisible();
   await expect(page.getByTestId("auth-mode-register")).toHaveCount(0);
 
+  // A link naming another address (an invitation's sign-in names the invited one) shows that address, not the
+  // remembered account, which stays remembered; a value that is no address changes nothing.
+  await page.goto("/auth/login?returnTo=/home&email=Grace%40Example.com");
+  await expect(page.getByLabel("Email")).toHaveValue("grace@example.com");
+  await expect(page.getByText("Welcome back, Ada Lovelace")).toHaveCount(0);
+  assert.equal(JSON.parse(await page.evaluate(() => localStorage.getItem("auth.rememberedAccount"))).email, "ada@example.com");
+  await page.goto("/auth/login?returnTo=/home&email=not-an-email");
+  await expect(page.getByText("Welcome back, Ada Lovelace")).toBeVisible();
+  await page.goto("/auth/login?returnTo=/home&email=ada%40example.com");
+  await expect(page.getByText("Welcome back, Ada Lovelace")).toBeVisible();
+
   await page.getByRole("button", { name: "Use another account" }).click();
   await expect(page.getByLabel("Email")).toHaveValue("");
   await expect(page.getByTestId("auth-mode-register")).toBeVisible();

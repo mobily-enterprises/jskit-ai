@@ -561,7 +561,12 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
   }
 
   async function initializeOnMounted() {
-    state.applyRememberedAccountHint(readRememberedAccountHint());
+    // The address the sign-in link names wins over a remembered account with another one, which is not offered on
+    // this visit (and stays remembered): an invited person who chose "Use a different account" is not handed back
+    // the account they just left.
+    const remembered = readRememberedAccountHint();
+    const named = state.emailNamedByLink || "";
+    state.applyRememberedAccountHint(named && remembered && remembered.email !== named ? null : remembered);
     // Opened from a registration's confirmation email: confirming it asks for the registration's password.
     const confirmationToken = takeConfirmationTokenFromLocation();
     state.loading.value = true;

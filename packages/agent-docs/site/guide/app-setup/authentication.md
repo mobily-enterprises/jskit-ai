@@ -954,6 +954,11 @@ shell found signed in at boot is shown no form: the page checks the session
 again and sends it on, and shows the form only if the session has ended. A
 confirmation link or a provider's callback still shows its own state.
 
+A sign-in link may name the address to sign in with (`/auth/login?email=...`,
+as an invitation's link names the invited one). That address fills the form
+even where the browser remembers another account, which is not offered on that
+visit and stays remembered for the next.
+
 A provider sign-in returns to the one fixed `/auth/login` address, with
 neither the page asked for nor the invitation. `DefaultLoginView` therefore
 keeps `{ provider, returnTo, invitationToken }` in the starting tab's session

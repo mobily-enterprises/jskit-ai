@@ -1,5 +1,6 @@
 import { computed, ref } from "vue";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
+import { AUTH_EMAIL_REGEX } from "@jskit-ai/auth-core/shared/authConstraints";
 import {
   resolveAllowedOriginsFromPlacementContext,
   resolveSurfaceIdFromPlacementPathname,
@@ -50,7 +51,10 @@ function resolveInitialMode() {
 export function useLoginViewState({ placementContext, fallbackReturnTo = "/", signedIn = false }) {
   const { t } = useJskitText();
   const mode = ref(resolveInitialMode());
-  const email = ref(normalizeEmailAddress(readWindowSearchParam("email")));
+  const linkEmail = normalizeEmailAddress(readWindowSearchParam("email"));
+  // The address the sign-in link names (?email=, as an invitation's sign-in names the invited one), when it is one.
+  const emailNamedByLink = AUTH_EMAIL_REGEX.test(linkEmail) ? linkEmail : "";
+  const email = ref(linkEmail);
   const password = ref("");
   const confirmPassword = ref("");
   const otpCode = ref("");
@@ -336,6 +340,7 @@ export function useLoginViewState({ placementContext, fallbackReturnTo = "/", si
     otpCodeTouched,
     submitAttempted,
     rememberAccountOnDevice,
+    emailNamedByLink,
     rememberedAccount,
     useRememberedAccount,
     authCapabilities,
