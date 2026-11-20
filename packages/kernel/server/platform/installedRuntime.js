@@ -65,24 +65,35 @@ function builtinCapabilityProviders(inputCapabilities) {
 }
 
 /**
- * The application's capability runtime: the kernel's providers, then each
- * installed package's, then the application's own. It refuses to start unless `env` names a
- * known APP_ENV (`assertAppEnvironment`). A Fastify instance adds HTTP, the security headers
- * `config.securityHeaders` describes on every response it sends, and the APP_ENV in every page it
- * sends, for the shell's environment banner. It logs once where the application runs. The result's
- * `health` runs the health checks providers register (`runtime.health`), for the application's
- * health route.
- * @param {object} options
- * @param {string} options.appRoot
- * @param {string} [options.profile]
- * @param {ReadonlyArray<object>} [options.providers]
- * @param {Record<string, unknown>} [options.inputs]
- * @param {RuntimeConfig} [options.config]
- * @param {RuntimeEnv} [options.env]
- * @param {RuntimeLogger} options.logger The application's logger, which features and actions log through.
- * @param {RuntimeFastify} [options.fastify] Absent when the application serves no HTTP.
+ * @typedef {object} InstalledRuntimeOptions
+ * @property {string} appRoot
+ * @property {string} [profile]
+ * @property {ReadonlyArray<object>} [providers] The application's own providers, started after the packages'.
+ * @property {Record<string, unknown>} [inputs]
+ * @property {RuntimeConfig} [config]
+ * @property {RuntimeEnv} [env]
+ * @property {RuntimeLogger} logger The application's logger, which features and actions log through.
+ * @property {RuntimeFastify} [fastify] Absent when the application serves no HTTP.
  */
-async function createInstalledRuntime({
+
+/**
+ * @typedef {object} InstalledPackages What an application's installed packages give its runtime.
+ * @property {ReadonlyArray<string>} packageOrder
+ * @property {ReadonlyArray<string>} providerPackageOrder
+ * @property {unknown} globalUiPaths
+ */
+
+/**
+ * The body both installed runtimes share: everything but finding the installed packages' providers, which
+ * `addInstalledPackages` does, handing each package's providers to `appendPackage` in load order.
+ * @param {string} name The caller's name, for its errors.
+ * @param {InstalledRuntimeOptions} options
+ * @param {(found: {
+ *   inputCapabilities: Record<string, unknown>,
+ *   appendPackage: (sourceId: string, providers: ReadonlyArray<object>) => void
+ * }) => Promise<InstalledPackages> | InstalledPackages} addInstalledPackages
+ */
+async function startInstalledRuntime(name, {
   appRoot,
   profile = "",
   providers = [],
@@ -91,18 +102,18 @@ async function createInstalledRuntime({
   env = {},
   logger,
   fastify
-}) {
+}, addInstalledPackages) {
   if (!appRoot || typeof appRoot !== "string") {
-    throw new TypeError("createInstalledRuntime requires appRoot.");
+    throw new TypeError(`${name} requires appRoot.`);
   }
   // readable-check: allow method-probe - input validation: every feature and action logs through the application's logger
   if (!RUNTIME_LOGGER_METHODS.every((method) => typeof logger?.[method] === "function")) {
-    throw new TypeError("createInstalledRuntime requires a logger with debug(), info(), warn() and error().");
+    throw new TypeError(`${name} requires a logger with debug(), info(), warn() and error().`);
   }
 
   // readable-check: allow method-probe - input validation: the application passes its own Fastify instance
   if (fastify && (typeof fastify.route !== "function" || typeof fastify.addHook !== "function")) {
-    throw new TypeError("createInstalledRuntime requires a Fastify instance when it serves HTTP.");
+    throw new TypeError(`${name} requires a Fastify instance when it serves HTTP.`);
   }
 
   assertAppEnvironment(env);
@@ -115,14 +126,8 @@ async function createInstalledRuntime({
   logAppEnvironment(logger, env);
   const health = createHealthRuntime({ logger });
   const inputCapabilities = seedInputCapabilities({ inputs, config, env, logger, health, httpServer, appRoot });
-  const installedPackages = await resolveInstalledJskitPackages({ appRoot });
-  validatePackageCapabilities(installedPackages, {
-    builtinProvidersByCapability: builtinCapabilityProviders(inputCapabilities)
-  });
-  const orderedPackages = resolvePackageLoadOrder(installedPackages);
   const orderedProviders = [];
   const seenProviderIds = new Map();
-  const providerPackageOrder = [];
 
   appendCapabilityProviders({
     providers: [
@@ -135,20 +140,15 @@ async function createInstalledRuntime({
     orderedProviders
   });
 
-  for (const packageEntry of orderedPackages) {
-    const packageProviders = await loadCapabilityProviders({ packageEntry });
-    if (packageProviders.length === 0) {
-      continue;
-    }
-    assertManifestMatchesProviders(packageEntry, packageProviders, { logger });
-    providerPackageOrder.push(packageEntry.packageId);
-    appendCapabilityProviders({
+  const installed = await addInstalledPackages({
+    inputCapabilities,
+    appendPackage: (sourceId, packageProviders) => appendCapabilityProviders({
       providers: packageProviders,
-      sourceId: packageEntry.packageId,
+      sourceId,
       seenProviderIds,
       orderedProviders
-    });
-  }
+    })
+  });
 
   appendCapabilityProviders({
     providers,
@@ -173,11 +173,70 @@ async function createInstalledRuntime({
   return Object.freeze({
     runtime,
     health,
-    packageOrder: Object.freeze(orderedPackages.map((entry) => entry.packageId)),
-    providerPackageOrder: Object.freeze(providerPackageOrder),
-    globalUiPaths: collectGlobalUiPaths(orderedPackages),
+    packageOrder: Object.freeze([...installed.packageOrder]),
+    providerPackageOrder: Object.freeze([...installed.providerPackageOrder]),
+    globalUiPaths: installed.globalUiPaths,
     diagnostics: runtime.diagnostics()
   });
 }
 
-export { createInstalledRuntime };
+/**
+ * The application's capability runtime: the kernel's providers, then each
+ * installed package's, then the application's own. It refuses to start unless `env` names a
+ * known APP_ENV (`assertAppEnvironment`). A Fastify instance adds HTTP, the security headers
+ * `config.securityHeaders` describes on every response it sends, and the APP_ENV in every page it
+ * sends, for the shell's environment banner. It logs once where the application runs. The result's
+ * `health` runs the health checks providers register (`runtime.health`), for the application's
+ * health route.
+ * @param {InstalledRuntimeOptions} options
+ */
+async function createInstalledRuntime(options) {
+  const { appRoot, logger } = options;
+  return startInstalledRuntime("createInstalledRuntime", options, async ({ inputCapabilities, appendPackage }) => {
+    const installedPackages = await resolveInstalledJskitPackages({ appRoot });
+    validatePackageCapabilities(installedPackages, {
+      builtinProvidersByCapability: builtinCapabilityProviders(inputCapabilities)
+    });
+    const orderedPackages = resolvePackageLoadOrder(installedPackages);
+    const providerPackageOrder = [];
+    for (const packageEntry of orderedPackages) {
+      const packageProviders = await loadCapabilityProviders({ packageEntry });
+      if (packageProviders.length === 0) {
+        continue;
+      }
+      assertManifestMatchesProviders(packageEntry, packageProviders, { logger });
+      providerPackageOrder.push(packageEntry.packageId);
+      appendPackage(packageEntry.packageId, packageProviders);
+    }
+    return {
+      packageOrder: orderedPackages.map((entry) => entry.packageId),
+      providerPackageOrder,
+      globalUiPaths: collectGlobalUiPaths(orderedPackages)
+    };
+  });
+}
+
+/**
+ * `createInstalledRuntime` for an application whose installed packages' providers were collected when it was
+ * built, such as a single-file release bundle that has no node_modules to read: the same runtime, the same
+ * APP_ENV check, security headers, environment page tag, startup line and health runtime, with the build's
+ * provider registry in place of reading the installed packages.
+ * @param {InstalledRuntimeOptions & { installed: InstalledPackages & { providers: ReadonlyArray<object> } }} options
+ *   `installed` is the build's registry: every installed package's providers in load order, and the package order,
+ *   provider package order and global UI paths it found.
+ */
+async function createStaticInstalledRuntime({ installed, ...options }) {
+  if (!Array.isArray(installed?.providers) || !Array.isArray(installed.packageOrder) ||
+    !Array.isArray(installed.providerPackageOrder)) {
+    throw new TypeError(
+      "createStaticInstalledRuntime requires installed: the providers, packageOrder and providerPackageOrder its build " +
+        "collected."
+    );
+  }
+  return startInstalledRuntime("createStaticInstalledRuntime", options, ({ appendPackage }) => {
+    appendPackage("the build's provider registry", installed.providers);
+    return installed;
+  });
+}
+
+export { createInstalledRuntime, createStaticInstalledRuntime };

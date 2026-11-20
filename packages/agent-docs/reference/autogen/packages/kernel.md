@@ -983,19 +983,24 @@ Exports
 - `registerSurfaceRequestConstraint`
 - `resolveRuntimeProfileFromSurface`
 - `createInstalledRuntime`
+- `createStaticInstalledRuntime`
 - `packageCapabilityDrift`
 
 ### `server/platform/installedRuntime.js`
 Exports
-- `createInstalledRuntime({ appRoot, profile = "", providers = [], inputs = {}, config = {}, env = {}, logger, fastify })`
+- `createInstalledRuntime(options)`
+- `createStaticInstalledRuntime({ installed, ...options })`
 - `type RuntimeConfig`
 - `type RuntimeEnv`
 - `type RuntimeFastify`
 - `type RuntimeHealth`
 - `type RuntimeLogger`
+- `type InstalledRuntimeOptions`
+- `type InstalledPackages`
 Local functions
 - `seedInputCapabilities({ inputs, config, env, logger, health, httpServer, appRoot })`
 - `builtinCapabilityProviders(inputCapabilities)`
+- `startInstalledRuntime(name, { appRoot, profile = "", providers = [], inputs = {}, config = {}, env = {}, logger, fastify }, addInstalledPackages)`
 
 ### `server/platform/providerRuntime/capabilityProviderLoader.js`
 Exports

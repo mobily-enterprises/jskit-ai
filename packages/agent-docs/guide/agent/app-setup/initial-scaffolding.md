@@ -183,9 +183,16 @@ export const config = {
 `referrerPolicy`, `strictTransportSecurity` and `apiCacheControl` also take their
 own header value. A directive's
 sources replace JSKIT's for that directive; framing is set only through
-`frameAncestors`. An invalid value stops the server from starting. A server
-composed without `createInstalledRuntime` calls
-`registerSecurityHeaders(fastify, { config, env })` from
+`frameAncestors`. An invalid value stops the server from starting.
+
+A server whose installed packages' providers were collected when it was built,
+such as a single-file release bundle with no `node_modules` to read, starts
+`createStaticInstalledRuntime` from `@jskit-ai/kernel/server/platform` in place
+of `createInstalledRuntime`, with the build's registry as
+`installed: { providers, packageOrder, providerPackageOrder, globalUiPaths }`.
+It is the same runtime: the same APP_ENV check, security headers, environment
+page tag, startup line and health runtime. A server composed without either
+calls `registerSecurityHeaders(fastify, { config, env })` from
 `@jskit-ai/kernel/server/http` before it registers any plugin.
 
 ## Verification
