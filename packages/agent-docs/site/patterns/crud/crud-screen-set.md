@@ -224,6 +224,6 @@ relation's `labelKey`, and what `fields.serviceId.output.includeFields` names.
 
 ## Packaged source
 
-- Owner: `@jskit-ai/http-web@0.2.56`
+- Owner: `@jskit-ai/http-web@0.2.57`
 - [Browse PATTERN.md](https://github.com/mobily-enterprises/jskit-ai/blob/main/packages/http-web/patterns/crud-screen-set/PATTERN.md)
 - [Browse the complete example tree](https://github.com/mobily-enterprises/jskit-ai/tree/main/packages/http-web/patterns/crud-screen-set/example)
