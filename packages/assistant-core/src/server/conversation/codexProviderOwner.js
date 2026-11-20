@@ -81,6 +81,8 @@ export function createCodexAppServerProviderOwner({
   const scopeRoot = normalizeText(runtimeRoot) ? path.resolve(runtimeRoot) : "";
   const records = new Map();
   const lifecycleTasks = new Set();
+  // Running observation stops, each with its provider's session key.
+  const observationStops = new Set();
   const runtimeAcquisitions = new Set();
   let codexAppServerProviderLifecycle = Promise.resolve();
   let closing = false;
@@ -112,7 +114,7 @@ export function createCodexAppServerProviderOwner({
   });
   const sessionRelease = createCodexProviderRelease({
     records, providers, providerOwners, ownedRuntimes, withLifecycle, runtimeIsShared, forgetOwnedRuntime, closeProvider,
-    requiredStopCode, exitUnverifiedCode, runtimeCloseError, debugLog, debugError
+    observationStops, requiredStopCode, exitUnverifiedCode, runtimeCloseError, debugLog, debugError
   });
 
   function attachRuntimeLifecycle(lifecycle) {
@@ -555,15 +557,19 @@ export function createCodexAppServerProviderOwner({
       // stop instead of stopping the runtime again, which would reopen its stopped barrier while the first finishes.
       const runtimeKey = codexAppServerOwnedRuntimeKey(record.providerKey, record.providerOptions);
       const shared = runtimePeers(runtimeKey).find(peer => peer !== record && peer.observationStop?.error === error);
-      const stop = { error, promise: shared?.observationStop.promise || invalidation.suspendUnobservedProvider(record, error) };
+      const stop = { error, promise: shared?.observationStop.promise || invalidation.suspendUnobservedProvider(record, error),
+        sessionKey: record.owner.sessionKey, settled: null };
       record.observationStop = stop;
       const tracked = stop.promise.catch(failure => {
         reportRecoveryEvent(record, "stopFailed", failure);
       }).finally(() => {
         if (record.observationStop === stop) record.observationStop = null;
         lifecycleTasks.delete(tracked);
+        observationStops.delete(stop);
       });
+      stop.settled = tracked;
       lifecycleTasks.add(tracked);
+      observationStops.add(stop);
     }
     return record.observationStop.promise;
   }

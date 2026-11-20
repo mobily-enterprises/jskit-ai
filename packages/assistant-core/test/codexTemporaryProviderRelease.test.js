@@ -19,10 +19,14 @@ function codexFixture(t, { idleMs = 20 } = {}) {
     if (!runtimes.has(runtimeDir)) runtimes.set(runtimeDir, { running: false, starts: 0, stops: 0 });
     return runtimes.get(runtimeDir);
   };
-  const owner = createCodexAppServerProviderOwner({ transientIdleMs: idleMs, providerFactory: ({ runtimeDir }) => {
+  const owner = createCodexAppServerProviderOwner({ transientIdleMs: idleMs, providerFactory: ({ runtimeDir, onObservationLost }) => {
     const runtime = runtimeFor(runtimeDir);
     return {
       observationFailure: null,
+      failObservation(error) {
+        this.observationFailure ||= error;
+        return onObservationLost(this.observationFailure);
+      },
       isHelperProvider: () => false,
       isAvailable: () => runtime.running,
       async ensureAvailable() {
@@ -42,13 +46,13 @@ function codexFixture(t, { idleMs = 20 } = {}) {
   } });
   t.after(() => owner.beginShutdown());
   const sessionKey = sessionId => `codex:project-a:${sessionId}`;
-  const connection = (sessionId, keyPrefix = "codex:project-a:") => ({
+  const connection = (sessionId, keyPrefix = "codex:project-a:", observation = undefined) => ({
     sessionId, providerKey: `provider:${sessionId}`, providerOptions: { runtimeDir: `/tmp/jskit-codex-release-${sessionId}` },
     keyFields: key => ({ sessionId: key.slice("provider:".length) }), assertAdmission() {}, closing: false,
     runOwner: { runtimeLifecycle: { rememberManagedSession() {}, managedThreadId: () => "" } },
     async prepare() {
       return { parameters: { runtimeDir: `/tmp/jskit-codex-release-${sessionId}` }, owner: { sessionKey: `${keyPrefix}${sessionId}` },
-        resources: null, controls: { available: false, subscribe: () => () => {} }, runInContext: operation => operation() };
+        resources: null, controls: { available: false, subscribe: () => () => {} }, runInContext: operation => operation(), observation };
     }
   });
   const commands = createCodexConversationCommands({
@@ -169,4 +173,54 @@ test("closing a project stops a Codex app-server its Temporary chat read, and on
   assert.equal(f.runtime.running, false, "project close left the Temporary chat's Codex running");
   assert.equal(other.running, true, "another project's Codex was stopped");
   assert.deepEqual([...f.owner.providers.keys()], ["provider:session-9"]);
+});
+
+// The stop a failed notification starts, whose last step saves the session's stopped work, held until the test
+// releases it. As a notification queue does when it cannot save a notification, nothing awaits the stop.
+async function heldObservationStop(f, order) {
+  let release;
+  const released = new Promise(resolve => { release = resolve; });
+  const observation = {
+    async prepare() { return new Map([["thread-1", "turn-1"]]); },
+    async barrier() {},
+    async complete() {
+      await released;
+      order.push("stopped work saved");
+    }
+  };
+  const provider = await f.owner.ensureSession(f.connection("session-1", "codex:project-a:", observation));
+  void provider.failObservation(new Error("Commentary storage failed"));
+  return async closing => {
+    // With fake providers the rest of a close is promise work, all done before the next event-loop turn.
+    await new Promise(resolve => setImmediate(resolve));
+    order.push("stopped work released");
+    release();
+    await closing;
+  };
+}
+
+test("closing a session ends after the observation stop a failed notification started", async t => {
+  const f = codexFixture(t, { idleMs: 60_000 });
+  const order = [];
+  const releaseDuring = await heldObservationStop(f, order);
+  await releaseDuring(f.owner.releaseSession("codex:project-a:session-1", {
+    sessionId: "session-1",
+    runOwner: { notificationQueue: { async drain() {} } },
+    session: { exists: false, unsubscribeParameters: {} }
+  }).then(() => order.push("closed")));
+  assert.deepEqual(order, ["stopped work released", "stopped work saved", "closed"]);
+  assert.equal(f.runtime.running, false, "the close left the session's Codex running");
+  assert.deepEqual([...f.owner.providers.keys()], []);
+});
+
+test("closing a project ends after the observation stop a failed notification of its session started", async t => {
+  const f = codexFixture(t, { idleMs: 60_000 });
+  const order = [];
+  const releaseDuring = await heldObservationStop(f, order);
+  await releaseDuring(f.owner.stopProvidersForProject({ projectContextRoot: "/project-a" }, {
+    managed: new Map(), keyFields: key => ({ sessionId: key.slice("provider:".length) }),
+    helperThreads: { records: () => [] }, sessionKeyPrefix: "codex:project-a:"
+  }).then(() => order.push("closed")));
+  assert.deepEqual(order, ["stopped work released", "stopped work saved", "closed"]);
+  assert.equal(f.runtime.running, false, "the close left the project's Codex running");
 });

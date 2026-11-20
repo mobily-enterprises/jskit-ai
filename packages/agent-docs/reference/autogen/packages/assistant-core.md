@@ -879,7 +879,7 @@ Local functions
 
 ### `src/server/conversation/codexProviderRelease.js`
 Exports
-- `createCodexProviderRelease({ records, providers, providerOwners, ownedRuntimes, withLifecycle, runtimeIsShared, forgetOwnedRuntime, closeProvider, requiredStopCode, exitUnverifiedCode, runtimeCloseError, debugLog, debugError })`
+- `createCodexProviderRelease({ records, providers, providerOwners, ownedRuntimes, withLifecycle, runtimeIsShared, forgetOwnedRuntime, closeProvider, observationStops, requiredStopCode, exitUnverifiedCode, runtimeCloseError, debugLog, debugError })`
 
 ### `src/server/conversation/codexProviderSelection.js`
 Exports

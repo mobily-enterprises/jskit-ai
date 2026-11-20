@@ -17,6 +17,7 @@ import { normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
  * @param {(providerKey: string, providerOptions: object) => boolean} dependencies.runtimeIsShared
  * @param {(provider: object) => void} dependencies.forgetOwnedRuntime
  * @param {(providerKey: string, options?: object) => void} dependencies.closeProvider
+ * @param {Set<{ sessionKey: string, settled: Promise<void> }>} dependencies.observationStops the running observation stops
  * @param {string} dependencies.requiredStopCode
  * @param {string} dependencies.exitUnverifiedCode
  * @param {string} dependencies.runtimeCloseError
@@ -32,6 +33,7 @@ export function createCodexProviderRelease({
   runtimeIsShared,
   forgetOwnedRuntime,
   closeProvider,
+  observationStops,
   requiredStopCode,
   exitUnverifiedCode,
   runtimeCloseError,
@@ -191,6 +193,10 @@ export function createCodexProviderRelease({
           helperProviders.has(providers.get(providerKey)) ||
           Boolean(sessionKeyPrefix && normalizeText(providerOwners.get(providerKey)?.sessionKey).startsWith(sessionKeyPrefix));
       });
+    // As a session's close does, the project's ends after its sessions' observation stops.
+    for (const sessionKey of new Set(providerKeys.map(providerKey => providerOwners.get(providerKey)?.sessionKey))) {
+      if (sessionKey) await settleObservationStops(sessionKey);
+    }
     const failed = [];
     const results = [];
     for (const providerKey of providerKeys) {
@@ -368,6 +374,20 @@ export function createCodexProviderRelease({
     });
   }
 
+  // An observation stop writes its session's stopped work after the native
+  // stop, and nothing awaits the failure that started it. A session's close
+  // waits for its stops, including any their own writes start, so removing the
+  // session after the close cannot race those writes.
+  async function settleObservationStops(sessionKey) {
+    const awaited = new Set();
+    while (true) {
+      const pending = [...observationStops].filter(stop => stop.sessionKey === sessionKey && !awaited.has(stop));
+      if (!pending.length) return;
+      for (const stop of pending) awaited.add(stop);
+      await Promise.all(pending.map(stop => stop.settled));
+    }
+  }
+
   async function releaseSession(sessionKey, context) {
     const { sessionId, runOwner, session } = context;
     if (context.changeover) {
@@ -388,6 +408,9 @@ export function createCodexProviderRelease({
       });
     } finally {
       await runOwner.notificationQueue.drain(sessionId);
+      // An observation stop, such as the one a notification that failed to save
+      // starts, may still be writing this session's stopped work.
+      if (sessionId) await settleObservationStops(sessionKey);
       const cachedProviders = await stopCachedProvidersForSession(sessionId ? sessionKey : "", {
         preserveProcessExitProof: context.preserveProcessExitProof,
         requireStopped: context.requireStopped
