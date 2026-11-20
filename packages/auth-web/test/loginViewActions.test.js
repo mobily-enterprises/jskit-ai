@@ -561,7 +561,8 @@ test("a page whose storage the browser refuses still starts a provider sign-in, 
   assert.equal(state.errorMessage.value, "");
 });
 
-test("a provider sign-in that does not complete in 20 seconds stops, says so, and offers to start the same one again", async (t) => {
+// Its own time limit: a sign-in that is never stopped fails here instead of hanging the run.
+test("a provider sign-in that does not complete in 20 seconds stops, says so, and offers to start the same one again", { timeout: 10_000 }, async (t) => {
   t.mock.timers.enable({ apis: ["setTimeout"] });
   const storage = memorySessionStorage({
     "jskit.auth-web.oauth-start": JSON.stringify({ provider: "github", returnTo: "/invite?token=abc", invitationToken: "inv-1" })

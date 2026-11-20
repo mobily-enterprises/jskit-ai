@@ -260,7 +260,8 @@ test("completeOAuthCallbackFromUrl forwards state and iss, and takes the page fr
   assert.equal(result.returnTo, "/reports");
 });
 
-test("completeOAuthCallbackFromUrl stops a completion that takes too long, the request or the session read, and says so", async () => {
+// Its own time limit: a completion that is never stopped fails here instead of hanging the run.
+test("completeOAuthCallbackFromUrl stops a completion that takes too long, the request or the session read, and says so", { timeout: 10_000 }, async () => {
   const never = (signal) => new Promise((_resolve, reject) => signal?.addEventListener("abort", () => reject(signal.reason)));
   const url = "/auth/login?oauthProvider=google&oauthReturnTo=%2Fw%2Facme&code=abc";
   let requestSignal = null;
