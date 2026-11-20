@@ -17,10 +17,16 @@ async function readContract(page) {
 }
 
 // Every filter control lives behind the Filters chip: a bottom sheet on compact windows, a dialog on wider ones.
+// The sheet is visible as soon as it starts opening, and takes focus when its opening ends: a key pressed in a
+// calendar opened before then can reach the sheet instead. The sheet is open once its content has no enter class.
 async function openFilters(page) {
   await page.getByRole("button", { name: /^Filters/u }).click();
   const sheet = page.getByRole("dialog");
   await sheet.waitFor({ state: "visible" });
+  await page.waitForFunction((overlay) => {
+    const content = overlay.querySelector(":scope > .v-overlay__content");
+    return Boolean(content) && !Array.from(content.classList).some((name) => name.endsWith("-enter-active"));
+  }, await sheet.elementHandle());
   return sheet;
 }
 
