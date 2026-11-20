@@ -52,7 +52,8 @@ const workspaceSettings = {
   workspace: { id: "11", slug: "acme", ownerUserId: "7" }, roleCatalog,
   settings: { ...Object.fromEntries(["light", "dark"].flatMap((theme) =>
     ["Primary", "Secondary", "Surface", "SurfaceVariant"].map((color) => [`${theme}${color}Color`, "#112233"]))),
-  invitesEnabled: true, invitesAvailable: true, invitesEffective: true }
+  invitesEnabled: true, invitesAvailable: true, invitesEffective: true,
+  invitesRequireSameEmail: true, invitesAnyAccountAvailable: false }
 };
 // These are native service results, including HTTP wrappers and deliberately sensitive state.
 const fixtures = {
