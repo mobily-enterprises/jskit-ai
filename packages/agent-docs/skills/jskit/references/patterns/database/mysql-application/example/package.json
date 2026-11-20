@@ -9,7 +9,7 @@
     "test": "jskit test --databases"
   },
   "dependencies": {
-    "@jskit-ai/database-runtime": "0.1.279",
-    "@jskit-ai/database-runtime-mysql": "0.1.277"
+    "@jskit-ai/database-runtime": "0.1.280",
+    "@jskit-ai/database-runtime-mysql": "0.1.278"
   }
 }
