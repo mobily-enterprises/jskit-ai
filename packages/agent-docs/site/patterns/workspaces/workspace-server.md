@@ -23,10 +23,20 @@ Choose workspace creation policy, roles, invitation policy, expiry, email copy,
 member permissions, personal-workspace behavior, and surface access rules.
 
 In `workspaces` mode, `tenancyPolicy.workspace.autoProvision: true` gives every
-user a personal workspace in addition to shared ones; the optional
+user a personal workspace in addition to shared ones, and `"unless-member"` only
+to someone in no workspace who signs in without an invitation; the optional
 `workspaces.personal-workspace-name` capability, a function of the user, names it. `workspaceSettings.defaults` sets
-`invitesEnabled` and the colours (`lightPrimaryColor`, `darkPrimaryColor` and
+`invitesEnabled`, `invitesRequireSameEmail` and the colours (`lightPrimaryColor`, `darkPrimaryColor` and
 the other palette fields) that new workspaces start with.
+
+Decide who may accept an invitation: by default only the invited address.
+`workspaceInvitations.anyAccount: true` lets any signed-in account holding the
+link join after confirming (`acceptAs`, else 409
+`workspaces.invite.differentEmailUnconfirmed`), except in a workspace whose
+`invitesRequireSameEmail` setting is on (403 `workspaces.invite.emailMismatchUser`).
+Members then show `invitedEmail`, the address they were invited at, and the
+mailer's optional `sendInviteAcceptedByOtherAddress` tells the inviter after
+commit.
 
 ## Framework APIs
 
@@ -83,7 +93,7 @@ catalogue entries. Updating labels requires no database migration.
 Provide one function as the optional `workspaces.invite-acceptance-participant`
 capability, from a small application feature that requires only what its writes
 need (it cannot require `workspaces.core`, which receives it). The built-in
-`workspace.invite.redeem` action invokes `fn({ invite, user }, txOptions)`
+`workspace.invite.redeem` action invokes `fn({ invite, user, workspace }, txOptions)`
 after validating the recipient, state and expiry and activating membership in the
 uncommitted transaction. Pass `txOptions` to every application owner's calls and
 propagate failures. JSKIT marks accepted and commits after the function succeeds. Keep
@@ -123,7 +133,8 @@ transactional creation; put related acceptance writes in the participant. Revoca
 a managed transaction. Raw Knex/savepoint transactions cannot own resource
 writes. Invitation mutations lock workspace then invitation rows, revalidate
 current state and reject changes to accepted/revoked invitations. Expiry rejection
-for the matching recipient commits revocation before returning 409. Preserve transaction
+commits the invitation as `expired` before returning 409, and it stays `expired`
+(`revoked` is only a workspace's withdrawal). Preserve transaction
 outcomes and causes; a completion-hook error after commit cannot undo writes.
 
 See the human guide's **Workspace tenancy → Transactional invitation
@@ -168,7 +179,14 @@ setup({ env }) {
 
 Without a renderer, workspaces-core uses its built-in email; without a mailer,
 invitations are created and their delivery reports `mailer_unconfigured`. The
-feature must not require `workspaces.core`, which receives both.
+feature must not require `workspaces.core`, which receives both. A mailer may
+also have `sendInviteAcceptedByOtherAddress(notice, options)`, which tells the
+inviter, after the acceptance commits, that another address accepted their
+invitation; a failure is logged and never undoes the acceptance.
+
+`services.directory.deleteWorkspace(workspaceId, options)` deletes a workspace in
+the caller's transaction (cascading its memberships, settings and invitations),
+answers `false` for a missing one, publishes no event and checks no permission.
 
 ## Variation points
 
@@ -178,7 +196,9 @@ ids, and product-specific workspace settings.
 ## Verification
 
 Test create/list/select, member and non-member access, each role boundary,
-invitation expiry/redemption, cross-workspace isolation, and email output.
+invitation expiry/redemption, acceptance by another address where `anyAccount`
+is on (confirmed, unconfirmed and in a workspace requiring the invited address),
+cross-workspace isolation, and email output.
 
 ## Avoid
 

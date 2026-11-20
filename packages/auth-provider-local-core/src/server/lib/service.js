@@ -188,6 +188,7 @@ function createLocalAuthService({
     backend,
     config,
     firstAccountSetup,
+    invitationContextResolver,
     logger,
     oauthProvidersById,
     profileProjector,

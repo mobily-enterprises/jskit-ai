@@ -120,14 +120,16 @@ function waitParams(waitMs) {
 }
 
 /**
- * The refusal of a sign-in while its account waits, with the minutes to wait;
- * Retry-After gives the exact seconds.
+ * The refusal of a password sign-in while its email address waits, with the minutes to wait; Retry-After gives the
+ * exact seconds. It names the email address, never an account: an address with no account waits the same, so the
+ * refusal does not tell whether one exists. The sign-in page adds the other ways forward it offers.
  * @param {number} waitMs
  */
 function signInLockedError(waitMs) {
   const params = waitParams(waitMs);
   const unit = params.count === 1 ? "minute" : "minutes";
-  return new AppError(429, `Too many failed sign-ins for this account. Try again in ${params.count} ${unit}.`, {
+  const message = `Password sign-in for this email address is paused for ${params.count} ${unit} after too many failed attempts. Try again after that.`;
+  return new AppError(429, message, {
     code: "auth.local.login.locked",
     params,
     headers: { "retry-after": String(params.retryAfterSeconds) }

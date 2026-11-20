@@ -5,7 +5,8 @@ import { deliverMessage, markStagingEmail } from "@jskit-ai/kernel/server/runtim
  * invitation to its address. Staging sends it only to STAGING_EMAIL_TO, its message showing the address it was for
  * (`markStagingEmail`). Otherwise, in development, test and staging without STAGING_EMAIL_TO, it logs the
  * invitation's recipient, subject and link and reports the delivery `simulated`, so the inviter copies the link to
- * share it.
+ * share it. A mailer that also sends `sendInviteAcceptedByOtherAddress` has that notice sent the same way, to the
+ * inviter.
  * @param {object} dependencies
  * @param {import("@jskit-ai/kernel/server/types").RuntimeEnv} dependencies.env
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
@@ -38,7 +39,30 @@ function createAppEnvironmentInviteMailer({ env, logger, mailer }) {
     };
   }
 
-  return Object.freeze({ sendWorkspaceInvite });
+  // The notice that another address accepted an invitation goes to its inviter the same way, when the provided mailer
+  // sends it at all.
+  async function sendInviteAcceptedByOtherAddress(notice, options) {
+    const delivery = await deliverMessage({
+      env,
+      logger,
+      channel: "email",
+      to: notice.inviter.email,
+      summary: `the notice to ${notice.inviter.email} that ${notice.member.email} accepted an invitation sent to ${notice.invite.email}`,
+      details: { subject: String(notice.message?.subject || "") },
+      send: (to, { originalTo }) => mailer.sendInviteAcceptedByOtherAddress(
+        { ...notice, inviter: { ...notice.inviter, email: to }, message: markStagingEmail(notice.message, originalTo) },
+        options
+      )
+    });
+    return delivery.sent ? delivery.result : { status: "simulated" };
+  }
+
+  // readable-check: allow method-probe - optional operation: sendInviteAcceptedByOtherAddress is an optional workspaces.invite-mailer operation
+  const sendsAcceptedNotice = typeof mailer.sendInviteAcceptedByOtherAddress === "function";
+  return Object.freeze({
+    sendWorkspaceInvite,
+    ...(sendsAcceptedNotice ? { sendInviteAcceptedByOtherAddress } : {})
+  });
 }
 
 export { createAppEnvironmentInviteMailer };

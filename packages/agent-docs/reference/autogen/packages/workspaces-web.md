@@ -142,6 +142,11 @@ Exports
 - `normalizeWorkspaceEntry(entry = null)`
 - `normalizeWorkspaceList(entries = [])`
 
+### `src/client/lib/inviteLandingChoice.js`
+Exports
+- `inviteLandingChoice({ authenticated, authEmail, inviteEmail, requiresSameEmail })`
+- `inviteRedeemPayload({ choice, token, authEmail })`
+
 ### `src/client/lib/lastWorkspace.js`
 Exports
 - `readLastWorkspaceSlug(userId, { storage = pageLocalStorage() } = {})`
@@ -349,6 +354,14 @@ Exports
 - `ADMIN_COG_OUTLET`
 
 ### fixtures
+
+### `fixtures/invite-landing/main.js`
+Exports
+- None
+
+### `fixtures/invite-landing/vite.config.mjs`
+Exports
+- None
 
 ### `fixtures/role-labels/main.js`
 Exports

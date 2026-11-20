@@ -32,7 +32,7 @@
           "codeInvalid": "That is not this app's setup code. Copy it again from the server's log or its hosting service."
         },
         "login": {
-          "locked": "Too many failed sign-ins for this account. Try again in {count} minute. | Too many failed sign-ins for this account. Try again in {count} minutes.",
+          "locked": "Password sign-in for this email address is paused for {count} minute after too many failed attempts. Try again after that. | Password sign-in for this email address is paused for {count} minutes after too many failed attempts. Try again after that.",
           "disabled": "This account is disabled."
         },
         "recovery": {

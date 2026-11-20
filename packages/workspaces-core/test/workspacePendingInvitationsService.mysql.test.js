@@ -18,7 +18,7 @@ import { workspacesDatabase } from "./support/mysqlWorkspaces.js";
 const database = workspacesDatabase("da_ws_pending");
 const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/u;
 
-function servicesOf(db, acceptanceParticipant = noInviteAcceptanceParticipant) {
+function servicesOf(db, acceptanceParticipant = noInviteAcceptanceParticipant, { anyAccount = false, notices = [] } = {}) {
   return {
     members: createMembersService({
       workspaceMembershipsRepository: db.memberships,
@@ -36,8 +36,14 @@ function servicesOf(db, acceptanceParticipant = noInviteAcceptanceParticipant) {
     pending: createPendingService({
       workspaceInvitesRepository: db.invites,
       workspaceMembershipsRepository: db.memberships,
+      workspacesRepository: db.workspaces,
+      workspaceSettingsRepository: db.settings,
       roleCatalog: db.roleCatalog,
-      acceptanceParticipant
+      acceptanceParticipant,
+      invitationsAnyAccount: anyAccount,
+      async notifyInviter(acceptance) {
+        notices.push(acceptance);
+      }
     })
   };
 }
@@ -129,6 +135,7 @@ test("the public token view answers an invite in each state without changing it"
     roleSid: "admin",
     roleLabel: "Admin",
     expiresAt: saved.expiresAt,
+    requiresSameEmail: true,
     workspace: { id: team.workspace.id, slug: "view", name: "Team view", avatarUrl: "" }
   });
   assert.deepEqual((await services.pending.resolveInviteByToken(encodeInviteTokenHash(saved.tokenHash))).value.id, pending.id,
@@ -159,6 +166,7 @@ test("the public token view answers an invite in each state without changing it"
     maskedEmail: "",
     roleSid: "",
     expiresAt: null,
+    requiresSameEmail: true,
     workspace: { id: "", slug: "", name: "", avatarUrl: "" }
   });
   assert.equal((await services.pending.resolveInviteByToken("not-a-real-token")).value.status, "not_found",
@@ -242,19 +250,26 @@ test("accepting activates the membership with the invite's role and stamps the i
   await assert.rejects(services.pending.acceptInviteByToken({ user: other, token: "" }),
     errorWith(400, "workspaces.invite.tokenRequired"));
 
-  // An expired invite is revoked, and that commits before the refusal.
+  // An expired invite is marked expired, and that commits before the refusal; it reads expired from then on, and every
+  // later redeem says so.
   const late = await db.createProfile("accept-quin");
   const expiring = await inviteTo(services, team, late.email, "member");
   await db.knex("workspace_invites").where({ id: expiring.id }).update({ expires_at: "2000-01-01 00:00:00" });
-  await assert.rejects(services.pending.acceptInviteByToken({ user: late, token: expiring.token }), (error) => {
+  const expiredRefusal = (error) => {
     assert.equal(error.status, 409);
     assert.equal(error.code, "workspaces.invite.expired");
-    assert.equal(error.transactionOutcome, "committed");
     return true;
+  };
+  await assert.rejects(services.pending.acceptInviteByToken({ user: late, token: expiring.token }), (error) => {
+    assert.equal(error.transactionOutcome, "committed");
+    return expiredRefusal(error);
   });
-  const revoked = await db.invites.findById(expiring.id);
-  assert.equal(revoked.status, "revoked");
-  assert.match(revoked.revokedAt, ISO);
+  const expired = await db.invites.findById(expiring.id);
+  assert.equal(expired.status, "expired");
+  assert.equal(expired.revokedAt, null);
+  assert.equal((await services.pending.resolveInviteByToken(expiring.token)).value.status, "expired");
+  await assert.rejects(services.pending.acceptInviteByToken({ user: late, token: expiring.token }), expiredRefusal);
+  await assert.rejects(services.pending.refuseInviteByToken({ user: late, token: expiring.token }), expiredRefusal);
   assert.equal(await db.memberships.findByWorkspaceIdAndUserId(team.workspace.id, late.id), null);
 });
 
@@ -289,4 +304,75 @@ test("refusing revokes the invite and adds no membership; redeem accepts only on
   assert.deepEqual(acceptedResult.value, { decision: "accepted", workspaceId: team.workspace.id },
     "the listed opaque token redeems the invite");
   assert.equal((await db.memberships.findByWorkspaceIdAndUserId(team.workspace.id, user.id)).roleSid, "admin");
+});
+
+test("with anyAccount another account joins once it confirms, and the members list shows the address it was invited at", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const notices = [];
+  const services = servicesOf(db, noInviteAcceptanceParticipant, { anyAccount: true, notices });
+  const team = await teamOf(db, "any");
+  const member = await db.createProfile("any-una");
+  const sent = await inviteTo(services, team, "una.work@example.test", "member");
+
+  await assert.rejects(services.pending.acceptInviteByToken({ user: member, token: sent.token }),
+    errorWith(409, "workspaces.invite.differentEmailUnconfirmed"));
+  assert.equal(await db.memberships.findByWorkspaceIdAndUserId(team.workspace.id, member.id), null);
+  assert.equal((await db.invites.findById(sent.id)).status, "pending");
+
+  await services.pending.acceptInviteByToken({ user: member, token: sent.token, acceptAs: member.email });
+  assert.equal((await db.invites.findById(sent.id)).status, "accepted");
+  const summary = await db.memberships.findActiveByWorkspaceIdAndUserId(team.workspace.id, member.id);
+  assert.equal(summary.email, member.email);
+  assert.equal(summary.invitedEmail, "una.work@example.test");
+  const page = await db.memberPages.listActivePage(team.workspace.id, { size: 10 });
+  const listed = Object.fromEntries(page.members.map((entry) => [entry.userId, entry.invitedEmail]));
+  assert.deepEqual(listed, { [team.owner.id]: "", [member.id]: "una.work@example.test" });
+  assert.deepEqual(notices.map(({ invite, user }) => [invite.email, user.email]), [["una.work@example.test", member.email]]);
+
+  // A later invitation to the member's own address, accepted, replaces the one they joined through.
+  const own = await inviteTo(services, team, member.email, "admin");
+  await services.pending.acceptInviteByToken({ user: member, token: own.token });
+  assert.equal((await db.memberships.findActiveByWorkspaceIdAndUserId(team.workspace.id, member.id)).invitedEmail, "");
+  assert.equal((await db.memberPages.listActivePage(team.workspace.id, { size: 10 })).members
+    .find((entry) => entry.userId === member.id).invitedEmail, "");
+  assert.equal(notices.length, 1, "the invited address accepting tells nobody");
+});
+
+test("a workspace that requires the invited address refuses another account, and its setting is saved per workspace", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const services = servicesOf(db, noInviteAcceptanceParticipant, { anyAccount: true });
+  const team = await teamOf(db, "strict");
+  const other = await db.createProfile("strict-vic");
+  const sent = await inviteTo(services, team, "strict-wes@example.test", "member");
+
+  assert.equal((await db.settings.ensureForWorkspaceId(team.workspace.id)).invitesRequireSameEmail, false, "off by default");
+  assert.equal((await services.pending.resolveInviteByToken(sent.token)).value.requiresSameEmail, false);
+  await db.settings.updateSettingsByWorkspaceId(team.workspace.id, { invitesRequireSameEmail: true });
+  assert.equal(await db.settings.findInvitesRequireSameEmail(team.workspace.id), true);
+  assert.equal((await services.pending.resolveInviteByToken(sent.token)).value.requiresSameEmail, true);
+
+  await assert.rejects(services.pending.acceptInviteByToken({ user: other, token: sent.token, acceptAs: other.email }),
+    errorWith(403, "workspaces.invite.emailMismatchUser"));
+  assert.equal(await db.memberships.findByWorkspaceIdAndUserId(team.workspace.id, other.id), null);
+});
+
+test("an acceptance participant that fails rolls back the membership and the invitation's acceptance, and nobody is told", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const notices = [];
+  const services = servicesOf(db, async (acceptance) => {
+    assert.deepEqual(acceptance.workspace, { id: team.workspace.id, slug: "rollback", name: "Team rollback", ownerUserId: team.owner.id });
+    throw new Error("The participant refused.");
+  }, { anyAccount: true, notices });
+  const team = await teamOf(db, "rollback");
+  const member = await db.createProfile("rollback-xan");
+  const sent = await inviteTo(services, team, "rollback-elsewhere@example.test", "member");
+
+  await assert.rejects(services.pending.acceptInviteByToken({ user: member, token: sent.token, acceptAs: member.email }),
+    /The participant refused\./);
+  assert.equal(await db.memberships.findByWorkspaceIdAndUserId(team.workspace.id, member.id), null);
+  assert.equal((await db.invites.findById(sent.id)).status, "pending");
+  assert.deepEqual(notices, []);
 });

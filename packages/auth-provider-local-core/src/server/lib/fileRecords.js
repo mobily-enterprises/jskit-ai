@@ -193,7 +193,8 @@ function parseOAuthAttempts(content) {
   const attempts = [];
   for (const line of String(content || "").split("\n").filter(Boolean)) {
     const parts = splitLine(line, "oauth_attempt");
-    if (parts.length !== 12) {
+    // Twelve fields, or thirteen since an attempt keeps the invitation its sign-in started from.
+    if (parts.length !== 12 && parts.length !== 13) {
       throw new Error("Invalid OAuth attempt record field count.");
     }
     attempts.push({
@@ -206,7 +207,8 @@ function parseOAuthAttempts(content) {
       codeVerifier: parts[8],
       returnTo: decodeField(parts[9]),
       createdAt: decodeField(parts[10]),
-      expiresAt: decodeField(parts[11])
+      expiresAt: decodeField(parts[11]),
+      invitationToken: decodeField(parts[12])
     });
   }
   return attempts;
@@ -228,7 +230,8 @@ function serializeOAuthAttempts(attempts) {
         attempt.codeVerifier,
         encodeField(attempt.returnTo),
         encodeField(attempt.createdAt),
-        encodeField(attempt.expiresAt)
+        encodeField(attempt.expiresAt),
+        encodeField(attempt.invitationToken)
       ].join(":")
     )
     .join("\n") + (attempts.length > 0 ? "\n" : "");

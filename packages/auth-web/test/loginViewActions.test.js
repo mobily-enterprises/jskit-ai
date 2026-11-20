@@ -28,6 +28,8 @@ function createMinimalLoginViewState(requestedReturnTo = "/") {
     allowedReturnToOrigins: { value: [] },
     errorMessage: { value: "" },
     infoMessage: { value: "" },
+    signInPausedMinutes: { value: 0 },
+    oauthRetryProvider: { value: "" },
     loading: { value: false },
     redirectingSignedIn: { value: false },
     submitAttempted: { value: false },
@@ -362,10 +364,11 @@ for (const refusal of [
   {
     name: "the account's failed sign-ins",
     payload: {
-      error: "Too many failed sign-ins for this account. Try again in 2 minutes.",
+      error: "Password sign-in for this email address is paused for 2 minutes after too many failed attempts. Try again after that.",
       code: "auth.local.login.locked",
       params: { count: 2, retryAfterSeconds: 90 }
-    }
+    },
+    pausedMinutes: 2
   }
 ]) {
   test(`a sign-in refused by ${refusal.name} says how long to wait`, async (t) => {
@@ -391,6 +394,8 @@ for (const refusal of [
 
     assert.equal(state.errorMessage.value, refusal.payload.error);
     assert.equal(reports[0]?.message, refusal.payload.error);
+    // Only a paused password sign-in shows the other ways forward.
+    assert.equal(state.signInPausedMinutes.value, refusal.pausedMinutes ?? 0);
   });
 }
 
@@ -466,4 +471,138 @@ test("a page opened from a confirmation link asks for the registration's passwor
   await actions.confirmRegistrationCode();
   assert.deepEqual(confirmations.at(-1), { token: "link-code", password: "the registration's password" });
   assert.deepEqual(destinations, ["/home"]);
+});
+
+// A tab's session storage, as the browser keeps it.
+function memorySessionStorage(entries = {}) {
+  const values = new Map(Object.entries(entries));
+  return {
+    getItem: (key) => (values.has(key) ? values.get(key) : null),
+    setItem: (key, value) => values.set(key, String(value)),
+    removeItem: (key) => values.delete(key),
+    values
+  };
+}
+
+// The page at `href`, with this tab's session storage, until the test ends.
+function openPage(t, href, sessionStorage) {
+  const originalWindow = globalThis.window;
+  const destinations = [];
+  globalThis.window = {
+    location: { href, origin: "https://example.com", replace: (path) => destinations.push(path) },
+    history: { replaceState: (_state, _title, url) => { globalThis.window.location.href = `https://example.com${url}`; } },
+    sessionStorage
+  };
+  t.after(() => {
+    if (originalWindow === undefined) delete globalThis.window;
+    else globalThis.window = originalWindow;
+    clearAuthCsrfTokenCache();
+  });
+  return destinations;
+}
+
+function launchRecorder() {
+  const opened = [];
+  return { opened, client: { async open({ url }) { opened.push(url); } } };
+}
+
+test("a provider sign-in cancelled at the provider comes back to the page and invitation it started from", async (t) => {
+  const storage = memorySessionStorage();
+  openPage(t, "https://example.com/auth/login?returnTo=%2Finvite%3Ftoken%3Dabc&invitationToken=inv-1", storage);
+  const launch = launchRecorder();
+  const starting = createMinimalLoginViewState("/invite?token=abc");
+  starting.invitationToken.value = "inv-1";
+  const startActions = useLoginViewActions({ state: starting, validation: {}, queryClient: {}, errorRuntime: { report() {} }, oauthLaunchClient: launch.client });
+
+  await startActions.startOAuthSignIn("google");
+  const started = `${buildAuthOauthStartPath("google")}?returnTo=%2Finvite%3Ftoken%3Dabc&invitationToken=inv-1`;
+  assert.deepEqual(launch.opened, [started], "the start names the invitation, which the server keeps to the end");
+  assert.deepEqual(JSON.parse(storage.values.get("jskit.auth-web.oauth-start")),
+    { provider: "google", returnTo: "/invite?token=abc", invitationToken: "inv-1" });
+
+  // The provider sends the person back to the one fixed address with neither, here after Cancel.
+  globalThis.window.location.href = "https://example.com/auth/login?error=access_denied&error_description=Sign-in%20was%20cancelled.&state=s1";
+  t.mock.method(globalThis, "fetch", async (url) => {
+    assert.equal(url, "/api/session");
+    return createJsonResponse({ authenticated: false, csrfToken: "csrf-a" });
+  });
+  const returned = createMinimalLoginViewState("/");
+  const actions = useLoginViewActions({
+    state: returned,
+    validation: {},
+    queryClient: { fetchQuery: ({ queryFn }) => queryFn() },
+    errorRuntime: { report() {} },
+    oauthLaunchClient: launch.client
+  });
+  await actions.initializeOnMounted();
+
+  assert.equal(returned.errorMessage.value, "Sign-in was cancelled.");
+  assert.equal(returned.requestedReturnTo.value, "/invite?token=abc");
+  assert.equal(returned.invitationToken.value, "inv-1");
+  assert.equal(storage.values.has("jskit.auth-web.oauth-start"), false, "a callback uses it once");
+  await actions.startOAuthSignIn("google");
+  assert.deepEqual(launch.opened, [started, started], "starting again keeps the way back");
+});
+
+test("a page whose storage the browser refuses still starts a provider sign-in, without the way back", async (t) => {
+  const refusing = {
+    getItem() { throw new Error("SecurityError"); },
+    setItem() { throw new Error("SecurityError"); },
+    removeItem() { throw new Error("SecurityError"); }
+  };
+  openPage(t, "https://example.com/auth/login", refusing);
+  const launch = launchRecorder();
+  const state = createMinimalLoginViewState("/home");
+  const actions = useLoginViewActions({ state, validation: {}, queryClient: {}, errorRuntime: { report() {} }, oauthLaunchClient: launch.client });
+
+  await actions.startOAuthSignIn("google");
+
+  assert.deepEqual(launch.opened, [`${buildAuthOauthStartPath("google")}?returnTo=%2Fhome`]);
+  assert.equal(state.errorMessage.value, "");
+});
+
+test("a provider sign-in that does not complete in 20 seconds stops, says so, and offers to start the same one again", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  const storage = memorySessionStorage({
+    "jskit.auth-web.oauth-start": JSON.stringify({ provider: "github", returnTo: "/invite?token=abc", invitationToken: "inv-1" })
+  });
+  openPage(t, "https://example.com/auth/login?code=c1&state=s1", storage);
+  const posted = Promise.withResolvers();
+  let completeSignal = null;
+  t.mock.method(globalThis, "fetch", async (url, options = {}) => {
+    if (url === "/api/session") {
+      return createJsonResponse({ authenticated: false, csrfToken: "csrf-a" });
+    }
+    assert.equal(`${options.method} ${url}`, "POST /api/oauth/complete");
+    completeSignal = options.signal;
+    posted.resolve();
+    // A provider or network that never answers.
+    return new Promise((_resolve, reject) => options.signal.addEventListener("abort", () => reject(options.signal.reason)));
+  });
+  const launch = launchRecorder();
+  const state = createMinimalLoginViewState("/");
+  const actions = useLoginViewActions({
+    state,
+    validation: {},
+    queryClient: { fetchQuery: ({ queryFn }) => queryFn() },
+    errorRuntime: { report() {} },
+    oauthLaunchClient: launch.client
+  });
+
+  const mounted = actions.initializeOnMounted();
+  await posted.promise;
+  t.mock.timers.tick(19_999);
+  await Promise.resolve();
+  assert.equal(state.loading.value, true, "still waiting just before the limit");
+  t.mock.timers.tick(1);
+  await mounted;
+
+  assert.equal(completeSignal.aborted, true, "the completion request is abandoned");
+  assert.equal(state.loading.value, false);
+  assert.equal(state.errorMessage.value, "Signing in with the provider took too long, so it was stopped. Try again.");
+  assert.equal(state.oauthRetryProvider.value, "github");
+  assert.equal(state.requestedReturnTo.value, "/invite?token=abc");
+  await actions.startOAuthSignIn(state.oauthRetryProvider.value);
+  assert.deepEqual(launch.opened, [`${buildAuthOauthStartPath("github")}?returnTo=%2Finvite%3Ftoken%3Dabc&invitationToken=inv-1`]);
+  assert.equal(state.oauthRetryProvider.value, "", "starting again clears the offer");
 });

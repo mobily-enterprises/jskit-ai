@@ -56,4 +56,7 @@ test("authApi oauthStartUrl builds provider path with optional returnTo", () => 
 
   assert.equal(api.oauthStartUrl("GitHub"), "/api/oauth/github/start");
   assert.equal(api.oauthStartUrl("github", { returnTo: "/console" }), "/api/oauth/github/start?returnTo=%2Fconsole");
+  assert.equal(api.oauthStartUrl("github", { returnTo: "/invite/tok", invitationToken: " inv-1 " }),
+    "/api/oauth/github/start?returnTo=%2Finvite%2Ftok&invitationToken=inv-1");
+  assert.equal(api.oauthStartUrl("github", { invitationToken: "inv-1" }), "/api/oauth/github/start?invitationToken=inv-1");
 });

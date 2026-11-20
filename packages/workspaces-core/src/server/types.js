@@ -37,8 +37,16 @@
  * `held` (an email the mailer keeps until the application's email is set up,
  * and sends then) and `failed`; for any other status it shows the result's
  * `message` (translated by `messageCode` when given), else a neutral notice.
+ *
+ * Its optional `sendInviteAcceptedByOtherAddress` tells an inviter that an
+ * account whose email is not the invited address accepted their invitation
+ * (where `config.workspaceInvitations.anyAccount` lets one). It is called once
+ * the acceptance committed, never inside its transaction; its failure is logged
+ * and the acceptance stands. A mailer without it sends no such notice.
+ * `message` is the notice's `{ subject, text, html }` in the inviter's language.
  * @typedef {object} WorkspaceInviteMailer
  * @property {(message: { inviteId: string, email: string, inviteUrl: string, workspace: { id: string, slug: string, name: string, ownerUserId: string, avatarUrl: string }, inviter: object | null, roleSid: string, expiresAt: string, locale: string, message: object }, options?: object) => Promise<{ status?: string, message?: string, messageCode?: string, messageParams?: object, providerMessageId?: string } | void>} sendWorkspaceInvite
+ * @property {(notice: { inviteId: string, invite: { id: string, email: string, roleSid: string }, inviter: { id: string, email: string, displayName: string }, member: { id: string, email: string, displayName: string }, workspace: { id: string, slug: string, name: string }, locale: string, message: { subject: string, text: string, html: string } }, options?: object) => Promise<unknown>} [sendInviteAcceptedByOtherAddress]
  */
 
 /**
@@ -48,11 +56,25 @@
  */
 
 /**
+ * An accepted invitation: the invitation as read before it was marked accepted
+ * (with at least these fields), the user who accepted it (the signed-in actor,
+ * with at least these) and the workspace they joined. `invite.email` is the
+ * invited address and `user.email` the account's, which differ when another
+ * account accepted it.
+ * @typedef {{
+ *   invite: { id: string, email: string, workspaceId: string, invitedByUserId: string | null, roleSid: string, [field: string]: unknown },
+ *   user: { id: string, email: string, displayName: string, [field: string]: unknown },
+ *   workspace: { id: string, slug: string, name: string, ownerUserId: string }
+ * }} WorkspaceInviteAcceptance
+ */
+
+/**
  * The `workspaces.invite-acceptance-participant` capability: the application's
  * writes for an accepted invitation. It runs after the membership is activated,
  * inside the uncommitted acceptance transaction, and a failure rolls the
- * acceptance back. Its options join that transaction: pass them to every call.
- * @typedef {(acceptance: { invite: object, user: object }, options: { trx: unknown, context?: object }) => Promise<void>} WorkspaceInviteAcceptanceParticipant
+ * acceptance back. Its options join that transaction: pass them to every call,
+ * such as `workspaces.core`'s `services.directory.deleteWorkspace`.
+ * @typedef {(acceptance: WorkspaceInviteAcceptance, options: { trx: unknown, context?: object }) => Promise<void>} WorkspaceInviteAcceptanceParticipant
  */
 
 /**

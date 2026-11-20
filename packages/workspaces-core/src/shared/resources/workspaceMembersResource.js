@@ -10,7 +10,8 @@ const WORKSPACE_MEMBERS_FIELD_MESSAGES = deepFreeze({
   inviteTokenRequired: { code: "workspaces.invite.tokenRequired", message: "Invite token is required." },
   inviteTokenInvalid: { code: "workspaces.invite.tokenInvalid", message: "Invite token is invalid." },
   decisionRequired: { code: "workspaces.invite.decisionRequired", message: "Decision is required." },
-  decisionInvalid: { code: "workspaces.invite.decisionInvalid", message: "Decision must be accept or refuse." }
+  decisionInvalid: { code: "workspaces.invite.decisionInvalid", message: "Decision must be accept or refuse." },
+  acceptAsInvalid: { code: "workspaces.invite.acceptAsInvalid", message: "acceptAs must be the signed-in account's email address." }
 });
 
 const workspaceSummaryOutputSchema = createSchema({
@@ -27,6 +28,8 @@ const memberSummaryOutputSchema = createSchema({
   status: { type: "string", required: true, minLength: 1, maxLength: 64 },
   displayName: { type: "string", required: true },
   email: { type: "string", required: true, minLength: 1, maxLength: 255 },
+  // The address of the invitation the member joined through, when it is not their account's email; else "".
+  invitedEmail: { type: "string", required: true, maxLength: 255 },
   isOwner: { type: "boolean", required: true }
 });
 
@@ -216,6 +219,15 @@ const redeemInviteBodySchema = createSchema({
     messages: {
       required: WORKSPACE_MEMBERS_FIELD_MESSAGES.decisionRequired,
       default: WORKSPACE_MEMBERS_FIELD_MESSAGES.decisionInvalid
+    }
+  },
+  // The email of the account the person agreed to join as, when the invitation was sent to another address.
+  acceptAs: {
+    type: "string",
+    required: false,
+    maxLength: 255,
+    messages: {
+      default: WORKSPACE_MEMBERS_FIELD_MESSAGES.acceptAsInvalid
     }
   }
 });

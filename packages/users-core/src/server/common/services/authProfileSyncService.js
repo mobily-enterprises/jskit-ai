@@ -94,10 +94,12 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
    * matches the identity is answered after one read, without that work: an ordinary request's check. A first
    * sign-in that loses its insert to the same identity's other first sign-in answers the winner's profile, so there
    * is one user either way; inside a caller's transaction (`trx`) that loss fails the caller's transaction instead.
+   * `invitation` is the invitation the sign-in carries, as the auth invitation context resolver resolved it (a
+   * registration's, or a provider sign-in's started from an invitation): the contributors receive it, or null.
    * @param {object} profileLike
-   * @param {{ onlyWhenChanged?: boolean, trx?: object, context?: object }} [options]
+   * @param {{ onlyWhenChanged?: boolean, invitation?: object | null, trx?: object, context?: object }} [options]
    */
-  async function syncIdentityProfile(profileLike, { onlyWhenChanged = false, ...options } = {}) {
+  async function syncIdentityProfile(profileLike, { onlyWhenChanged = false, invitation = null, ...options } = {}) {
     const normalized = buildNormalizedIdentityProfile(profileLike);
     if (onlyWhenChanged) {
       const existing = await findByIdentity(normalized, options);
@@ -115,6 +117,7 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
           await contributor.afterIdentityProfileSynced({
             profile: synchronizedProfile,
             created,
+            invitation,
             options: operationOptions
           });
         }
@@ -129,6 +132,7 @@ function createService({ userProfilesRepository, resolveLifecycleContributors, u
         await contributor.afterIdentityProfileSynced({
           profile: synchronizedProfile,
           created,
+          invitation,
           options: operationOptions
         });
       }

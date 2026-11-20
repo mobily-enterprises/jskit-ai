@@ -278,6 +278,42 @@
               </v-btn>
             </div>
 
+            <!-- Password sign-in paused for this address: the ways forward this app offers besides waiting. -->
+            <div
+              v-if="isLogin && signInPausedMinutes > 0"
+              class="sign-in-paused mb-4"
+              role="status"
+              data-testid="auth-sign-in-paused"
+            >
+              <p class="mb-2">{{ t("jskit.auth.login.signInPaused.wait", { count: signInPausedMinutes }) }}</p>
+              <template v-if="canRequestPasswordRecovery || canRegister || canUseOAuth">
+                <p class="mb-2">{{ t("jskit.auth.login.signInPaused.instead") }}</p>
+                <div class="d-flex flex-wrap ga-2">
+                  <v-btn v-if="canRequestPasswordRecovery" variant="tonal" color="secondary" @click="switchMode('forgot')">
+                    {{ t("jskit.auth.login.signInPaused.resetPassword") }}
+                  </v-btn>
+                  <v-btn v-if="canRegister" variant="tonal" color="secondary" @click="switchMode('register')">
+                    {{ t("jskit.auth.login.signInPaused.register") }}
+                  </v-btn>
+                </div>
+                <p v-if="canUseOAuth" class="mt-2 mb-0">{{ t("jskit.auth.login.signInPaused.providers") }}</p>
+              </template>
+            </div>
+
+            <!-- A provider sign-in that took too long: start it again, to the same page. -->
+            <v-btn
+              v-if="oauthRetryProvider && (isLogin || isRegister)"
+              block
+              variant="tonal"
+              color="primary"
+              class="text-none mb-4"
+              data-testid="auth-oauth-retry"
+              :disabled="loading"
+              @click="startOAuthSignIn(oauthRetryProvider)"
+            >
+              {{ t("jskit.auth.login.oauth.tryAgain", { provider: oauthProviderName(oauthRetryProvider) }) }}
+            </v-btn>
+
             <div v-if="canUseOAuth && (isLogin || isRegister)" class="oauth-actions d-grid ga-2 mb-4">
               <v-btn
                 v-for="provider in oauthProviders"
@@ -397,8 +433,14 @@ const {
   resendRegisterConfirmationEmail,
   oauthProviderIcon,
   startOAuthSignIn,
-  oauthProviderButtonLabel
+  oauthProviderButtonLabel,
+  signInPausedMinutes,
+  oauthRetryProvider
 } = useLoginView({ fallbackReturnTo: props.fallbackReturnTo });
+
+function oauthProviderName(providerId) {
+  return oauthProviders.value.find((provider) => provider.id === providerId)?.label || providerId;
+}
 
 function togglePasswordVisibility() {
   showPassword.value = !showPassword.value;
@@ -511,5 +553,12 @@ function toggleConfirmPasswordVisibility() {
 
 .oauth-provider-button {
   justify-content: center;
+}
+
+.sign-in-paused {
+  border-radius: 12px;
+  background: rgb(var(--v-theme-surface-container-high));
+  color: rgb(var(--v-theme-on-surface));
+  padding: 16px;
 }
 </style>

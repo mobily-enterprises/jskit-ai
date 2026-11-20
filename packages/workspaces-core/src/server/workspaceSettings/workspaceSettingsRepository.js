@@ -4,7 +4,7 @@ import { normalizeRecordId } from "@jskit-ai/kernel/shared/support/normalize";
 import { WORKSPACE_SETTINGS_FIELD_KEYS } from "../../shared/resources/workspaceSettingsResource.js";
 import { resolveWorkspaceThemePalettes } from "../../shared/settings.js";
 
-function buildDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings) {
+function buildDefaultWorkspaceSettingsCreatePayload(workspaceId, { defaultInvitesEnabled, defaultInvitesRequireSameEmail, defaultColorSettings }) {
   const palettes = resolveWorkspaceThemePalettes(defaultColorSettings);
 
   return {
@@ -17,7 +17,8 @@ function buildDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesE
     darkSecondaryColor: palettes.dark.secondaryColor,
     darkSurfaceColor: palettes.dark.surfaceColor,
     darkSurfaceVariantColor: palettes.dark.surfaceVariantColor,
-    invitesEnabled: defaultInvitesEnabled
+    invitesEnabled: defaultInvitesEnabled,
+    invitesRequireSameEmail: defaultInvitesRequireSameEmail
   };
 }
 
@@ -29,9 +30,12 @@ function buildDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesE
  * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.workspaceSettings
  *   The workspace_settings table's handle.
  * @param {boolean} dependencies.defaultInvitesEnabled
+ * @param {boolean} dependencies.defaultInvitesRequireSameEmail
  * @param {object} dependencies.defaultColorSettings The configured colors that replace the theme's.
  */
-function createRepository({ workspaceSettings, defaultInvitesEnabled, defaultColorSettings }) {
+function createRepository({ workspaceSettings, defaultInvitesEnabled, defaultInvitesRequireSameEmail, defaultColorSettings }) {
+  const defaults = { defaultInvitesEnabled, defaultInvitesRequireSameEmail, defaultColorSettings };
+
   async function findByWorkspaceId(workspaceId, options = {}) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
@@ -55,7 +59,7 @@ function createRepository({ workspaceSettings, defaultInvitesEnabled, defaultCol
 
     try {
       await workspaceSettings.create(
-        buildDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId, defaultInvitesEnabled, defaultColorSettings),
+        buildDefaultWorkspaceSettingsCreatePayload(normalizedWorkspaceId, defaults),
         { ...options, returning: "none" }
       );
     } catch (error) {
@@ -66,6 +70,13 @@ function createRepository({ workspaceSettings, defaultInvitesEnabled, defaultCol
     }
 
     return findByWorkspaceId(normalizedWorkspaceId, options);
+  }
+
+  // Whether only an invitation's own address may accept the workspace's invitations: its setting, or the app's default
+  // while it has no settings yet. It reads them without making them.
+  async function findInvitesRequireSameEmail(workspaceId, options = {}) {
+    const settings = await findByWorkspaceId(workspaceId, options);
+    return settings ? settings.invitesRequireSameEmail === true : defaultInvitesRequireSameEmail;
   }
 
   async function updateSettingsByWorkspaceId(workspaceId, patch, options = {}) {
@@ -98,6 +109,7 @@ function createRepository({ workspaceSettings, defaultInvitesEnabled, defaultCol
     withTransaction: workspaceSettings.withTransaction,
     findByWorkspaceId,
     ensureForWorkspaceId,
+    findInvitesRequireSameEmail,
     updateSettingsByWorkspaceId
   });
 }

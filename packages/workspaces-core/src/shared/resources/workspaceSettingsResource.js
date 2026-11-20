@@ -85,10 +85,14 @@ const WORKSPACE_SETTINGS_FIELD_MESSAGES = deepFreeze({
   invitesEnabledInvalid: {
     code: "workspaces.settings.invitesEnabled.invalid",
     message: "invitesEnabled must be a boolean."
+  },
+  invitesRequireSameEmailInvalid: {
+    code: "workspaces.settings.invitesRequireSameEmail.invalid",
+    message: "invitesRequireSameEmail must be a boolean."
   }
 });
 
-const WORKSPACE_SETTINGS_FIELD_KEYS = deepFreeze([...WORKSPACE_SETTINGS_COLOR_FIELDS, "invitesEnabled"]);
+const WORKSPACE_SETTINGS_FIELD_KEYS = deepFreeze([...WORKSPACE_SETTINGS_COLOR_FIELDS, "invitesEnabled", "invitesRequireSameEmail"]);
 
 const workspaceSettingsBodySchema = createSchema({
   lightPrimaryColor: {
@@ -195,6 +199,15 @@ const workspaceSettingsBodySchema = createSchema({
       required: WORKSPACE_SETTINGS_FIELD_MESSAGES.invitesEnabledRequired,
       default: WORKSPACE_SETTINGS_FIELD_MESSAGES.invitesEnabledInvalid
     }
+  },
+  // Optional in every write, so a full write made before it existed stays valid; a new workspace takes the app's default.
+  invitesRequireSameEmail: {
+    type: "boolean",
+    required: false,
+    strictBoolean: true,
+    messages: {
+      default: WORKSPACE_SETTINGS_FIELD_MESSAGES.invitesRequireSameEmailInvalid
+    }
   }
 });
 
@@ -215,7 +228,11 @@ const workspaceSettingsViewSchema = createSchema({
   darkSurfaceVariantColor: { type: "string", required: true, minLength: 7, maxLength: 7, pattern: "^#[0-9A-Fa-f]{6}$" },
   invitesEnabled: { type: "boolean", required: true },
   invitesAvailable: { type: "boolean", required: true },
-  invitesEffective: { type: "boolean", required: true }
+  invitesEffective: { type: "boolean", required: true },
+  // Whether only the invited address may accept the workspace's invitations: true whenever the app keeps that rule
+  // for every workspace (invitesAnyAccountAvailable false).
+  invitesRequireSameEmail: { type: "boolean", required: true },
+  invitesAnyAccountAvailable: { type: "boolean", required: true }
 });
 
 const workspaceSettingsOutputSchema = createSchema({
@@ -322,6 +339,11 @@ const workspaceSettingsResource = defineTableResource({
       type: "boolean",
       defaultTo: true,
       storage: { column: "invites_enabled" }
+    },
+    invitesRequireSameEmail: {
+      type: "boolean",
+      defaultTo: false,
+      storage: { column: "invites_require_same_email" }
     },
     createdAt: {
       type: "dateTime",

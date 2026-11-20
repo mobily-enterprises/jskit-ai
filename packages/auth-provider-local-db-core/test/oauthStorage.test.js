@@ -18,8 +18,10 @@ test("provider sign-in and linking store identities and single-use attempts in t
   const { knex, backend } = await openSqliteLocalAuth(t);
   const service = createService({ backend, oauthProviders: [oidcProviderEntry(issuer)], profileProjector: noAppProfiles });
 
-  const { input, request } = await approveAtProvider(service);
+  const { input, request } = await approveAtProvider(service, { invitationToken: "inv-1" });
   assert.equal((await knex(LOCAL_AUTH_DB_TABLES.oauthAttempts).count({ count: "*" }))[0].count, 1);
+  assert.equal((await knex(LOCAL_AUTH_DB_TABLES.oauthAttempts).first("invitation_token")).invitation_token, "inv-1",
+    "the attempt keeps the invitation its sign-in started from");
   const result = await service.oauthComplete(input, request);
   assert.equal((await knex(LOCAL_AUTH_DB_TABLES.oauthAttempts).count({ count: "*" }))[0].count, 0);
   await assert.rejects(service.oauthComplete(input, request), { code: "auth.local.oauth.expired" });

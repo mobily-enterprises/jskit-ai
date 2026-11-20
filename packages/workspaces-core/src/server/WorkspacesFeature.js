@@ -86,6 +86,7 @@ const WorkspacesFeature = defineFeature({
       inviteMailer: inviteMailer
         ? createAppEnvironmentInviteMailer({ env, logger, mailer: inviteMailer })
         : unconfiguredWorkspaceInviteMailer,
+      logger,
       personalWorkspaceName: personalWorkspaceName ?? buildWorkspaceName,
       resources,
       userProfiles,

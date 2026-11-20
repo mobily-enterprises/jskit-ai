@@ -14,6 +14,9 @@ function lockedFor(seconds) {
     assert.equal(error.code, "auth.local.login.locked");
     assert.deepEqual(error.params, { count: Math.ceil(seconds / 60), retryAfterSeconds: seconds });
     assert.equal(error.headers["retry-after"], String(seconds));
+    const minutes = Math.ceil(seconds / 60);
+    assert.equal(error.message, `Password sign-in for this email address is paused for ${minutes} minute${minutes === 1 ? "" : "s"} ` +
+      "after too many failed attempts. Try again after that.", "it names the address, never an account");
     return true;
   };
 }

@@ -7,7 +7,8 @@ function normalizeWorkspaceInvitationsConfig(appConfig) {
 
   return Object.freeze({
     enabled: source.enabled !== false,
-    allowInPersonalMode: source.allowInPersonalMode !== false
+    allowInPersonalMode: source.allowInPersonalMode !== false,
+    anyAccount: source.anyAccount === true
   });
 }
 
@@ -27,6 +28,9 @@ function resolveWorkspaceInvitationsPolicy({ appConfig, tenancyProfile }) {
     enabled,
     workspaceEnabled,
     allowInPersonalMode: config.allowInPersonalMode,
+    // Any signed-in account holding an invitation's link may accept it, unless its workspace requires the invited
+    // address (invitesRequireSameEmail); off, only the account whose email is the invited one may.
+    anyAccount: enabled && config.anyAccount,
     tenancyMode
   });
 }

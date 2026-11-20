@@ -12,12 +12,7 @@ import { userProfileTableResource } from "@jskit-ai/users-core/shared/resources/
 import { userSettingsTableResource } from "@jskit-ai/users-core/shared/resources/userSettingsResource";
 import { UsersExtensionsProvider } from "@jskit-ai/users-core/server/UsersExtensionsProvider";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
-import usersInitial from "../../users-core/migrations/users_core_generic_initial.cjs";
-import usersUsername from "../../users-core/migrations/users_core_profile_username.cjs";
-import usersUpdatedAt from "../../users-core/migrations/users_core_profile_updated_at.cjs";
-import workspacesInitial from "../migrations/workspaces_core_initial.cjs";
-import workspaceSettingsMigration from "../migrations/workspaces_core_workspace_settings_single_name_source.cjs";
-import workspaceColorMigration from "../migrations/workspaces_core_workspaces_drop_color.cjs";
+import { WORKSPACES_TEST_MIGRATIONS } from "./support/workspacesMigrations.js";
 import { createWorkspaceRecords, createWorkspacesRuntime } from "../src/server/WorkspacesFeature.js";
 import { ROLE_CONTEXT_TABLES, createStandaloneRoleContext } from "../src/server/standaloneRoleContext.js";
 import { noInviteAcceptanceParticipant } from "../src/server/workspacePendingInvitations/noInviteAcceptanceParticipant.js";
@@ -38,7 +33,7 @@ import { createWorkspaceRoleCatalog } from "../src/shared/roles.js";
 import { verifyInvitationTransactions } from "./support/invitationTransactions.js";
 
 const TABLES = [
-  "workspace_invites", "workspace_settings", "workspace_memberships", "workspaces", "user_settings", "users"
+  "workspace_memberships", "workspace_invites", "workspace_settings", "workspaces", "user_settings", "users"
 ];
 const databaseUrl = process.env.JSKIT_REPOSITORY_TEST_DATABASE_URL;
 
@@ -122,9 +117,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       await knex.raw("PRAGMA foreign_keys = ON");
     }
     ownsTables = true;
-    for (const migration of [
-      usersInitial, usersUsername, usersUpdatedAt, workspacesInitial, workspaceSettingsMigration, workspaceColorMigration
-    ]) {
+    for (const migration of WORKSPACES_TEST_MIGRATIONS) {
       await migration.up(knex);
     }
     // The tables owned as UsersIdentityProvider and WorkspacesFeature own them.
@@ -142,9 +135,13 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
     workspaceTable = resources.workspaces;
     ({ workspaces, memberships } = createWorkspaceRecords(resources));
     invites = createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
-    memberPages = createMemberPagesRepository({ workspaceMemberships: resources.workspaceMemberships, userProfiles: profiles });
+    memberPages = createMemberPagesRepository({
+      workspaceMemberships: resources.workspaceMemberships,
+      workspaceInvites: resources.workspaceInvites,
+      userProfiles: profiles
+    });
     settings = createSettingsRepository({
-      workspaceSettings: resources.workspaceSettings, defaultInvitesEnabled: false, defaultColorSettings: {}
+      workspaceSettings: resources.workspaceSettings, defaultInvitesEnabled: false, defaultInvitesRequireSameEmail: false, defaultColorSettings: {}
     });
   });
 
@@ -780,6 +777,7 @@ describe(`users and workspaces repositories on migrated ${databaseLabel}`, () =>
       inviteMailer: unconfiguredWorkspaceInviteMailer,
       inviteEmailTemplate: renderDefaultWorkspaceInviteEmail,
       inviteAcceptanceParticipant: noInviteAcceptanceParticipant,
+      logger: silentLogger,
       personalWorkspaceName: buildWorkspaceName,
       resources: workspaceResources,
       userProfiles: profiles,

@@ -153,6 +153,7 @@ function mapOAuthAttempt(record) {
     nonce: text(record.nonce),
     codeVerifier: text(record.codeVerifier),
     returnTo: text(record.returnTo),
+    invitationToken: text(record.invitationToken),
     createdAt: readDateTime(record.createdAt),
     expiresAt: readDateTime(record.expiresAt)
   };
@@ -254,6 +255,7 @@ function oauthAttemptRecord(input = {}) {
     nonce: text(input.nonce),
     codeVerifier: text(input.codeVerifier),
     returnTo: text(input.returnTo),
+    invitationToken: input.invitationToken ? String(input.invitationToken) : null,
     expiresAt: requiredDateTime(input.expiresAt),
     createdAt: requiredDateTime(input.createdAt)
   };

@@ -99,8 +99,8 @@ const WorkspacesIntegrationsProvider = defineProvider({
     usersExtensions.registerProfileSyncLifecycleContributor({
       contributorId: "workspaces.provisioning",
       order: 100,
-      async afterIdentityProfileSynced({ profile, options }) {
-        await workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser(profile, options);
+      async afterIdentityProfileSynced({ profile, invitation, options }) {
+        await workspaceService.ensureProvisionedWorkspaceForAuthenticatedUser(profile, options, { invitation });
       }
     });
 

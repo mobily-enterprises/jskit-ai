@@ -75,3 +75,36 @@ test("staging without STAGING_EMAIL_TO logs each invitation, and production send
   assert.equal((await production.mailer.sendWorkspaceInvite(INVITE, {})).status, "sent");
   assert.deepEqual(production.sent[0].invite, INVITE);
 });
+
+const NOTICE = Object.freeze({
+  inviteId: "7",
+  invite: { id: "7", email: "guest@example.com", roleSid: "member" },
+  inviter: { id: "2", email: "owner@example.com", displayName: "Olga" },
+  member: { id: "9", email: "other@example.com", displayName: "Otto" },
+  workspace: { id: "3", slug: "books", name: "Books" },
+  locale: "en",
+  message: Object.freeze({ subject: "Otto joined Books", text: "Otto accepted.", html: "<p>Otto accepted.</p>" })
+});
+
+test("the notice that another address accepted is sent as invitations are, only by a mailer that sends it", async () => {
+  const noticesSent = [];
+  const withNotice = createAppEnvironmentInviteMailer({
+    env: { ...SERVER_NODE_ENV, APP_ENV: "staging", STAGING_EMAIL_TO: "qa@example.test" },
+    logger: { info() {}, warn() {}, error() {}, debug() {} },
+    mailer: {
+      async sendWorkspaceInvite() {},
+      async sendInviteAcceptedByOtherAddress(notice, options) {
+        noticesSent.push({ notice, options });
+        return { status: "sent" };
+      }
+    }
+  });
+  assert.deepEqual(await withNotice.sendInviteAcceptedByOtherAddress(NOTICE, { context: "c" }), { status: "sent" });
+  assert.equal(noticesSent.length, 1);
+  assert.equal(noticesSent[0].notice.inviter.email, "qa@example.test", "staging sends it to STAGING_EMAIL_TO");
+  assert.match(noticesSent[0].notice.message.text, /^Staging: this email was for owner@example\.com\./u);
+  assert.deepEqual(noticesSent[0].options, { context: "c" });
+
+  const { mailer: withoutNotice } = mailerIn({ APP_ENV: "development" });
+  assert.equal(Object.hasOwn(withoutNotice, "sendInviteAcceptedByOtherAddress"), false);
+});

@@ -218,3 +218,11 @@ test("auth session and oauth start commands expose explicit nested response sche
   assert.equal(oauthStartResponseSchema.properties.returnTo.type, "string");
   assert.equal(oauthStartResponseSchema.properties.url.type, "string");
 });
+
+test("oauth start takes the invitation a sign-in starts from, as optional text of at most 2048 characters", () => {
+  const query = authLoginOAuthStartCommand.operation.query.schema;
+  assert.deepEqual(query.patch({ returnTo: "/invite/tok", invitationToken: "inv-1" }).validatedObject,
+    { returnTo: "/invite/tok", invitationToken: "inv-1" });
+  assert.deepEqual(query.patch({ returnTo: "/home" }).errors, {});
+  assert.ok(query.patch({ invitationToken: "x".repeat(2049) }).errors.invitationToken, "too long is refused");
+});

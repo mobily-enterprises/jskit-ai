@@ -43,6 +43,14 @@ In `workspaces` mode the product chooses one of two styles:
 - **Personal workspace plus shared workspaces** (`autoProvision: true`): every
   user, including people who signed up through an invitation, owns one personal
   workspace and can also join or create others.
+- **A workspace for those who came on their own** (`autoProvision:
+  "unless-member"`): a sign-in gives the person a personal workspace only when
+  they are an active member of no workspace and the sign-in carries no
+  invitation. An account made from an invitation (registering through one, or a
+  provider sign-in started from one) gets none, and joins the inviting
+  workspace instead. A member of any workspace gets none either. An invitation
+  that cannot be used (expired, used, withdrawn) counts as none, so its person
+  still gets a workspace.
 
 ```js
 // config/public.js
@@ -105,8 +113,8 @@ The package migrations create and own these tables:
 | Table | Columns that applications use |
 | --- | --- |
 | `workspaces` | `id`, `slug` (unique), `name`, `owner_user_id`, `is_personal`, `avatar_url`, `deleted_at` |
-| `workspace_memberships` | `workspace_id`, `user_id`, `role_sid`, `status`; one row per workspace and user |
-| `workspace_settings` | One row per workspace keyed by `workspace_id`: the eight palette colours and `invites_enabled` |
+| `workspace_memberships` | `workspace_id`, `user_id`, `role_sid`, `status`, `accepted_invite_id` (the invitation the member last joined through, null when none; set null when that invitation is deleted); one row per workspace and user |
+| `workspace_settings` | One row per workspace keyed by `workspace_id`: the eight palette colours, `invites_enabled` and `invites_require_same_email` |
 | `workspace_invites` | `workspace_id`, `email`, `role_sid`, `status`, `token_hash`, `invited_by_user_id`, `expires_at`, `accepted_at`, `revoked_at` |
 
 Application records that belong to a workspace use a non-null `workspace_id`
@@ -199,7 +207,7 @@ method takes the call's `options` last and joins the transaction of the
 | Capability | Methods |
 | --- | --- |
 | `workspaces` | `findById(id, options)`, `findBySlug(slug, options)` (a deleted workspace is not found, though its slug stays taken), `listSlugsIn`, `findPersonalByOwnerUserId`, `listForUserId(userId, options)`, `insert`, `updateById`, `lock(workspaceId, options)`, `transferOwnership({ workspaceId, toUserId, previousOwnerRoleSid }, options)` |
-| `workspaces.memberships` | `findByWorkspaceIdAndUserId`, `ensureOwnerMembership`, `upsertMembership(workspaceId, userId, patch, options)`, `addMember({ workspaceId, userId, roleSid }, options)`, `activeMemberIds(workspaceId, options)`, `listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listActiveWorkspaceIdsByUserId`, `listActiveWorkspaceIdsByUserIds`, `listActiveWorkspaceIdsByUserIdsAmong(userIds, workspaceIds, options)`, `joinSource({ alias, filters }, options)` |
+| `workspaces.memberships` | `findByWorkspaceIdAndUserId`, `ensureOwnerMembership`, `upsertMembership(workspaceId, userId, patch, options)`, `addMember({ workspaceId, userId, roleSid }, options)`, `activeMemberIds(workspaceId, options)`, `listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listActiveWorkspaceIdsByUserId`, `listActiveWorkspaceIdsByUserIds`, `listActiveWorkspaceIdsByUserIdsAmong(userIds, workspaceIds, options)`, `hasActiveMembership(userId, options)` (whether the user is an active member of any workspace, reading at most one membership), `joinSource({ alias, filters }, options)` |
 
 `addMember` makes the user an active member with the role (`member` when none
 is given), adding the membership or reactivating it. `activeMemberIds` answers
@@ -218,6 +226,12 @@ the workspace's row lock until the caller's transaction ends, so work that must
 not interleave for one workspace takes turns; it runs only inside a
 transaction, given its `txOptions`, and answers `{ id }`, or `null` when there
 is no such workspace.
+
+Each member summary (`listActiveByWorkspaceId`, `findActiveByWorkspaceIdAndUserId`, `listMembers`,
+`listMembersPage`, `getMember` and the members list route) answers `invitedEmail`: the address of the invitation
+the member last joined through when it is not their account's email, else `""`. The membership keeps a reference
+to that invitation, not a copy of its address, and each acceptance replaces it, so a later invitation accepted with
+the account's own address clears it.
 
 To check one person's membership, for example a notification recipient, call
 `workspaces.services.members.getMember(workspace, userId, options)`. It answers
@@ -259,6 +273,70 @@ and `changed`. It publishes no event: the `workspace.workspaces.create` and
 application that keeps its own copy of workspace facts updates that copy from
 the answer. The method checks no permission: the application decides who may
 transfer a workspace before calling it.
+
+### Deleting a workspace
+
+`workspaces.services.directory.deleteWorkspace(workspaceId, options)` deletes a
+workspace in the caller's transaction when `options` carries one, otherwise in
+a transaction of its own. The database's cascades take its memberships, settings
+and invitations with it, and an application table whose `workspace_id` has no
+cascade refuses the delete, which rolls the caller's transaction back. It
+answers `true`, or `false` when there was no such workspace. Like
+`transferOwnership` it publishes no event, calls no participant and checks no
+permission: the application decides who may delete a workspace, and which
+workspaces it may delete, before calling it. An acceptance participant may call
+it, for example to remove the joining person's own untouched personal
+workspace, inside the acceptance's transaction.
+
+### Who may accept an invitation
+
+By default only the account whose email is the invited address may accept an
+invitation (403 `workspaces.invite.emailMismatchUser` for any other).
+`config.workspaceInvitations.anyAccount: true` lets any signed-in account holding
+the link accept it, after saying so:
+
+```js
+// config/server.js
+config.workspaceInvitations = { enabled: true, anyAccount: true };
+// Optional: whether new workspaces still require the invited address (default false).
+config.workspaceSettings = { defaults: { invitesEnabled: true, invitesRequireSameEmail: false } };
+```
+
+- The invited address, in any letter case, accepts as before.
+- Another address in a workspace whose `invitesRequireSameEmail` setting is on
+  is refused with 403 `workspaces.invite.emailMismatchUser`.
+- Another address in any other workspace must confirm: the redeem request's
+  `acceptAs` attribute names the signed-in account's email. Without it, or with
+  another value, redeeming answers 409 `workspaces.invite.differentEmailUnconfirmed`
+  (`params.email`, the account's address, and `params.maskedEmail`, the invited
+  one) and changes nothing.
+- Refusing stays the invited address's alone, and an invitation is still used
+  once.
+
+`GET /api/workspace/invitations/resolve` answers `requiresSameEmail`, true unless
+another address may join. The invitation page (`/invite/:token`) shows another
+address "This invitation was sent to i*****@example.com. You're signed in as
+other@example.com." with **Join as other@example.com** and **Use a different
+account** (sign out, then sign in, back to the invitation). Where only the invited
+address may accept, it shows only **Use a different account**. Each workspace's
+`invitesRequireSameEmail` is a workspace setting
+(`PATCH /api/w/:workspaceSlug/settings`, permission `workspace.settings.update`).
+Reads answer the effective value, which is always true while `anyAccount` is
+off, and `invitesAnyAccountAvailable` says whether the application turned
+`anyAccount` on.
+
+The account signing in from such a link is not refused either: the invitation
+context resolver gives a registration or a provider sign-in the invitation
+whatever the account's address, unless its workspace requires the invited one.
+
+After an acceptance by another address commits, the inviter is told: the
+invitation mailer's optional `sendInviteAcceptedByOtherAddress(notice, options)`
+receives `{ inviteId, invite: { id, email, roleSid }, inviter: { id, email,
+displayName }, member: { id, email, displayName }, workspace: { id, slug, name },
+locale, message }`, where `message` is the rendered `{ subject, text, html }`
+(`jskit.workspaces.inviteAcceptedEmail.*`, in the inviter's saved locale). A mailer
+without the method sends nothing. A failure is logged and never undoes the
+acceptance. The environment's delivery rules apply as they do to invitations.
 
 ### Invitation email
 
@@ -444,7 +522,7 @@ authorization and role checks. Do not pass arbitrary HTTP input as options.
 | `workspaces.services.members.prepareInvite(workspace, actor, payload, txOptions)` | Runs only inside a transaction, given its `txOptions`. Validates the invitation role, replaces pending invitations for that workspace/email, and returns `{ createdInviteId, inviteTokenPreview }`. Never sends. |
 | `workspaces.services.members.sendInvite(workspace, actor, prepared, options)` | Refuses to run inside a transaction: it delivers after the preparation's transaction commits. Reloads the committed pending invitation and workspace display data, validates expiry and token correspondence, and sends that invitation without replacement. |
 | `workspaces.services.members.createInvite(workspace, actor, payload, options)` | Owns preparation and commit, then calls `sendInvite`, and answers with `sendInvite`'s result as JSON:API data (`returnJsonApiData`, read it from `.value`), as the invite action sends it. Refuses to run inside a transaction. |
-| `workspaces.invite-acceptance-participant` (optional capability) | One application function receiving `({ invite, user }, options)` inside the acceptance transaction. Without it, acceptance activates the membership only. |
+| `workspaces.invite-acceptance-participant` (optional capability) | One application function receiving `({ invite, user, workspace }, options)` inside the acceptance transaction: the invitation and the signed-in user as read, and the workspace's `{ id, slug, name, ownerUserId }`. Without it, acceptance activates the membership only. |
 | `workspaces.workspace-created-participant` (optional capability) | One application function receiving `({ workspace, owner }, options)` inside a new workspace's creation transaction. Without it, creation writes the workspace, its owner's membership and its settings only. |
 
 `sendInvite` accepts `{ createdInviteId, inviteTokenPreview }` from preparation or
@@ -539,7 +617,7 @@ exactly once. Revocation after sending starts cannot recall a message.
 Register one callback during feature setup to call the required application
 services. Non-functions throw `TypeError`; duplicate registration throws, and
 registration closes when acceptance/refusal first begins. The callback's invite,
-user and options are shallow frozen. JSKIT owns the transaction and passes the
+user, workspace and options are shallow frozen. JSKIT owns the transaction and passes the
 callback the `txOptions` that carry it and the request's `context`.
 
 Acceptance checks authentication, recipient email, pending state and expiry under
@@ -562,10 +640,15 @@ participant. Acceptance and refusal refuse to run inside the caller's
 transaction; revocation can join one or open its own.
 
 Acceptance/refusal return 401 for unauthenticated access, 403 for a recipient
-email mismatch and 404 for a missing or handled invitation. A matching recipient's
-expired invitation is revoked and committed before returning 409 with
+email mismatch, 409 `workspaces.invite.differentEmailUnconfirmed` for another
+address that has not confirmed (see [Who may accept an invitation](#who-may-accept-an-invitation))
+and 404 for a missing or handled invitation. An expired invitation is marked
+`expired` and committed before returning 409 `workspaces.invite.expired` with
 `transactionOutcome: "committed"`, without activating membership or calling the
-participant. A failed revocation commit retains its transaction error. Delivery
+participant. From then on it reads `expired` when resolved, and every later
+accept or refuse answers the same 409. So does an invitation that a newer one to
+the same address replaced. `revoked` means only that the workspace withdrew it.
+A failed commit of the expiry retains its transaction error. Delivery
 returns 404 for missing, foreign or handled invitations, 409 for expiry and 400
 for a token mismatch.
 

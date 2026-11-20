@@ -5,18 +5,13 @@ import { defineFeature } from "@jskit-ai/kernel/server/features";
 import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
 import { UsersExtensionsProvider } from "@jskit-ai/users-core/server/UsersExtensionsProvider";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
-import usersInitial from "../../users-core/migrations/users_core_generic_initial.cjs";
-import usersUsername from "../../users-core/migrations/users_core_profile_username.cjs";
-import usersUpdatedAt from "../../users-core/migrations/users_core_profile_updated_at.cjs";
-import workspacesInitial from "../migrations/workspaces_core_initial.cjs";
-import workspaceSettingsMigration from "../migrations/workspaces_core_workspace_settings_single_name_source.cjs";
-import workspaceColorMigration from "../migrations/workspaces_core_workspaces_drop_color.cjs";
+import { WORKSPACES_TEST_MIGRATIONS } from "./support/workspacesMigrations.js";
 import { WorkspaceRecordsFeature } from "../src/test/WorkspaceRecordsFeature.js";
 
 test("an app feature's test starts it beside the users and workspaces owners and reaches their records", async (t) => {
   const knex = knexLib({ client: "better-sqlite3", connection: { filename: ":memory:" }, useNullAsDefault: true });
   t.after(() => knex.destroy());
-  for (const migration of [usersInitial, usersUsername, usersUpdatedAt, workspacesInitial, workspaceSettingsMigration, workspaceColorMigration]) {
+  for (const migration of WORKSPACES_TEST_MIGRATIONS) {
     await migration.up(knex);
   }
   // An app feature that reads a workspace's members through workspaces.core's owner API.

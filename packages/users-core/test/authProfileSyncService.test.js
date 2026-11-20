@@ -231,3 +231,31 @@ test("an ordinary request's profile check (onlyWhenChanged) reads a matching pro
   await service.syncIdentityProfile(identity("Ada Lovelace"));
   assert.deepEqual(calls.splice(0), ["transaction", "find in transaction", "ensure settings", "lifecycle"]);
 });
+
+test("the invitation a sign-in carries reaches every lifecycle contributor, kept out of the transaction's options", async () => {
+  const seen = [];
+  const stored = { id: "21", authProvider: "local", authProviderUserSid: "u-21", email: "ivy@example.com", displayName: "Ivy" };
+  const service = createService({
+    userProfilesRepository: {
+      async findByIdentity() { return null; },
+      async upsert() { return stored; },
+      async withTransaction(options, work) { return work({ trx: "tx", ...(options.context ? { context: options.context } : {}) }); }
+    },
+    userSettingsRepository: { async ensureForUserId() {} },
+    resolveLifecycleContributors: () => [{
+      contributorId: "test.lifecycle",
+      async afterIdentityProfileSynced({ invitation, options }) {
+        seen.push({ invitation, options });
+      }
+    }]
+  });
+  const invitation = { token: "opaque", workspaceId: "3", email: "ivy@example.com" };
+
+  await service.syncIdentityProfile(stored, { source: "workspace-invite", invitation });
+  await service.syncIdentityProfile(stored);
+
+  assert.deepEqual(seen, [
+    { invitation, options: { trx: "tx" } },
+    { invitation: null, options: { trx: "tx" } }
+  ]);
+});

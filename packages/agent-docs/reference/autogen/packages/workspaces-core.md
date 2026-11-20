@@ -41,7 +41,7 @@ Exports
 
 ### `src/server/common/repositories/workspaceMemberPagesRepository.js`
 Exports
-- `createRepository({ workspaceMemberships, userProfiles })`
+- `createRepository({ workspaceMemberships, workspaceInvites, userProfiles })`
 Local functions
 - `encodeCursor(row)`
 - `decodeCursor(cursor)`
@@ -182,6 +182,7 @@ Exports
 - `type WorkspacesServerI18n`
 - `type WorkspaceInviteMailer`
 - `type WorkspaceInviteEmailTemplate`
+- `type WorkspaceInviteAcceptance`
 - `type WorkspaceInviteAcceptanceParticipant`
 - `type WorkspaceCreatedParticipant`
 - `type PersonalWorkspaceName`
@@ -216,10 +217,9 @@ Exports
 
 ### `src/server/workspaceMembers/defaultWorkspaceInviteEmail.js`
 Exports
+- `escapeHtml(value)`
 - `formatInviteExpiry(expiresAt, locale, timeZone)`
 - `renderDefaultWorkspaceInviteEmail({ inviteUrl, workspace, inviter, roleSid, roleLabel, expiresAt, locale = "en", timeZone = "UTC", t })`
-Local functions
-- `escapeHtml(value)`
 
 ### `src/server/workspaceMembers/unconfiguredWorkspaceInviteMailer.js`
 Exports
@@ -253,6 +253,11 @@ Local functions
 - `memberUserIdRequiredError()`
 - `inviteIdRequiredError()`
 
+### `src/server/workspacePendingInvitations/inviterNotice.js`
+Exports
+- `createInviterNotice({ inviteMailer, userProfiles, userSettings, i18n, logger })`
+- `renderInviteAcceptedByOtherAddressEmail({ acceptance, t })`
+
 ### `src/server/workspacePendingInvitations/noInviteAcceptanceParticipant.js`
 Exports
 - `noInviteAcceptanceParticipant()`
@@ -270,7 +275,7 @@ Local functions
 
 ### `src/server/workspacePendingInvitations/workspacePendingInvitationsService.js`
 Exports
-- `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog, acceptanceParticipant })`
+- `createService({ workspaceInvitesRepository, workspaceMembershipsRepository, workspacesRepository, workspaceSettingsRepository, roleCatalog, acceptanceParticipant, invitationsAnyAccount, notifyInviter })`
 
 ### `src/server/WorkspaceRoleGrantsProvider.js`
 Exports
@@ -282,9 +287,9 @@ Exports
 
 ### `src/server/workspaceSettings/workspaceSettingsRepository.js`
 Exports
-- `createRepository({ workspaceSettings, defaultInvitesEnabled, defaultColorSettings })`
+- `createRepository({ workspaceSettings, defaultInvitesEnabled, defaultInvitesRequireSameEmail, defaultColorSettings })`
 Local functions
-- `buildDefaultWorkspaceSettingsCreatePayload(workspaceId, defaultInvitesEnabled, defaultColorSettings)`
+- `buildDefaultWorkspaceSettingsCreatePayload(workspaceId, { defaultInvitesEnabled, defaultInvitesRequireSameEmail, defaultColorSettings })`
 
 ### `src/server/workspaceSettings/workspaceSettingsRoutes.js`
 Exports
@@ -292,7 +297,7 @@ Exports
 
 ### `src/server/workspaceSettings/workspaceSettingsService.js`
 Exports
-- `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled, roleCatalog })`
+- `createService({ workspaceSettingsRepository, workspaceInvitationsEnabled, workspaceInvitationsAnyAccount, roleCatalog })`
 
 ### `src/server/WorkspacesFeature.js`
 Exports
@@ -316,7 +321,7 @@ Exports
 - `WORKSPACES_TABLES`
 - `createWorkspaceDirectory({ config, personalWorkspaceName, resources, userProfiles, workspaceCreatedParticipant, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
 - `createWorkspaceRecords(resources)`
-- `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, personalWorkspaceName, resources, userProfiles, userSettings, workspaceCreatedParticipant, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
+- `createWorkspacesRuntime({ appRoot, config, env, inviteMailer, inviteEmailTemplate, inviteAcceptanceParticipant, logger, personalWorkspaceName, resources, userProfiles, userSettings, workspaceCreatedParticipant, workspaces: workspacesRepository, workspaceMemberships: workspaceMembershipsRepository })`
 Local functions
 - `requirePositiveInteger(value, label)`
 - `requireBoolean(value, label)`
@@ -453,9 +458,11 @@ Exports
 - `WORKSPACE_SLUG_POLICY_NONE`
 - `WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME`
 - `WORKSPACE_SLUG_POLICY_USER_SELECTED`
+- `WORKSPACE_AUTO_PROVISION_UNLESS_MEMBER`
 - `resolveTenancyProfile(appConfig = {})`
 - `isWorkspacesTenancyMode(value = "")`
 Local functions
+- `resolveAutoProvisionOverride(value)`
 - `resolveWorkspacePolicyOverrides(appConfig = {})`
 - `resolveWorkspacePolicy(mode, overrides = {})`
 
@@ -475,11 +482,19 @@ Exports
 Exports
 - None
 
+### `migrations/workspaces_core_memberships_accepted_invite.cjs`
+Exports
+- None
+
 ### `migrations/workspaces_core_person_indexes.cjs`
 Exports
 - None
 Local functions
 - `foreignKeysAreIndexed(knex)`
+
+### `migrations/workspaces_core_settings_invites_require_same_email.cjs`
+Exports
+- None
 
 ### `migrations/workspaces_core_workspace_settings_single_name_source.cjs`
 Exports

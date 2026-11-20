@@ -106,6 +106,17 @@ function createRepository({ workspaceInvites, workspaces }) {
     return invite?.tokenHash === normalizeText(tokenHash) ? invite : null;
   }
 
+  // The invite a token names in any status, or null; never a locking read, inside a transaction too.
+  async function findByTokenHash(tokenHash, options = {}) {
+    const normalizedTokenHash = normalizeText(tokenHash);
+    if (!normalizedTokenHash) {
+      return null;
+    }
+
+    const rows = await queryInvites({ tokenHash: normalizedTokenHash }, { ...options, lock: false });
+    return normalizeInviteRecord(rows[0] || null);
+  }
+
   async function findByTokenHashWithWorkspace(tokenHash, options = {}) {
     const normalizedTokenHash = normalizeText(tokenHash);
     if (!normalizedTokenHash) {
@@ -289,15 +300,9 @@ function createRepository({ workspaceInvites, workspaces }) {
         });
       }
       const updatedAt = new Date().toISOString();
-      await patchInvite(
-        id,
-        {
-          status,
-          [status === "accepted" ? "acceptedAt" : "revokedAt"]: updatedAt,
-          updatedAt
-        },
-        txOptions
-      );
+      // An accepted invite records when it was accepted and a revoked one when; an expired one only its status.
+      const stamp = { accepted: { acceptedAt: updatedAt }, revoked: { revokedAt: updatedAt } }[status] ?? {};
+      await patchInvite(id, { status, ...stamp, updatedAt }, txOptions);
     });
   }
 
@@ -307,6 +312,11 @@ function createRepository({ workspaceInvites, workspaces }) {
 
   async function revokeById(inviteId, options = {}) {
     return transitionPendingById(inviteId, "revoked", options);
+  }
+
+  // A pending invite whose time ran out: it reads "expired" from then on, as one the workspace withdrew reads "revoked".
+  async function markExpiredById(inviteId, options = {}) {
+    return transitionPendingById(inviteId, "expired", options);
   }
 
   async function findPendingByIdForWorkspace(inviteId, workspaceId, options = {}) {
@@ -339,6 +349,7 @@ function createRepository({ workspaceInvites, workspaces }) {
     lockWorkspaceForInvitations,
     findById,
     findPendingByTokenHash,
+    findByTokenHash,
     findByTokenHashWithWorkspace,
     listPendingByEmail,
     listPendingByWorkspaceIdWithWorkspace,
@@ -347,6 +358,7 @@ function createRepository({ workspaceInvites, workspaces }) {
     expirePendingByWorkspaceIdAndEmail,
     markAcceptedById,
     revokeById,
+    markExpiredById,
     findPendingByIdForWorkspace
   });
 }

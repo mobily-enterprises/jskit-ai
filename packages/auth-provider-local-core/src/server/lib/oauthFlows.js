@@ -18,6 +18,7 @@ const OAUTH_REDIRECT_PATH = "/auth/login";
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
  * @param {import("../types.js").AuthLocalConfig} dependencies.config
  * @param {import("../types.js").AuthLocalFirstAccountSetup} dependencies.firstAccountSetup
+ * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} dependencies.invitationContextResolver
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {Map<string, import("../types.js").AuthLocalOAuthProvider>} dependencies.oauthProvidersById
  * @param {import("@jskit-ai/auth-core/server/types").AuthProfileProjector} dependencies.profileProjector
@@ -28,6 +29,7 @@ function createLocalOAuthFlows({
   backend,
   config,
   firstAccountSetup,
+  invitationContextResolver,
   logger,
   oauthProvidersById,
   profileProjector,
@@ -50,9 +52,10 @@ function createLocalOAuthFlows({
 
   /**
    * The attempt (state, nonce, PKCE verifier) is stored server-side under the
-   * hash of a random key that only the starting browser holds in a cookie.
+   * hash of a random key that only the starting browser holds in a cookie. A
+   * sign-in started from an invitation keeps its token, for the sign-in's end.
    */
-  async function beginOAuthAttempt(provider, { intent, userId = "", returnTo }) {
+  async function beginOAuthAttempt(provider, { intent, userId = "", returnTo, invitationToken = "" }) {
     const browserKey = randomToken(32);
     const attempt = {
       browserKeyHash: sha256Base64url(browserKey),
@@ -63,6 +66,7 @@ function createLocalOAuthFlows({
       nonce: randomToken(32),
       codeVerifier: randomToken(32),
       returnTo: normalizeReturnToPath(returnTo, { fallback: "/", allowedOrigins: [appOrigin] }),
+      invitationToken: String(invitationToken || "").trim(),
       expiresAt: isoFromNow(OAUTH_ATTEMPT_TTL_SECONDS)
     };
     const url = await oauthClients.authorizationUrl(provider, { ...attempt, redirectUri: oauthRedirectUri });
@@ -74,7 +78,11 @@ function createLocalOAuthFlows({
   }
 
   async function oauthStart(input) {
-    return beginOAuthAttempt(requireOAuthProvider(input.provider), { intent: "login", returnTo: input.returnTo });
+    return beginOAuthAttempt(requireOAuthProvider(input.provider), {
+      intent: "login",
+      returnTo: input.returnTo,
+      invitationToken: input.invitationToken
+    });
   }
 
   async function startProviderLink(request, input) {
@@ -98,11 +106,33 @@ function createLocalOAuthFlows({
   }
 
   /**
+   * The invitation a sign-in started from, as the invitation context resolver resolves it for the account, or null.
+   * An invitation never fails a sign-in: one it refuses (used, expired, withdrawn, for another address) is none.
+   * @param {string} token
+   * @param {string} email
+   */
+  async function signInInvitation(token, email) {
+    if (!token) {
+      return null;
+    }
+    try {
+      return await invitationContextResolver.resolveInvitationContext({ token, email });
+    } catch (error) {
+      // A refusal (4xx) is expected; anything else is worth a look.
+      if (!(error?.statusCode >= 400 && error.statusCode < 500)) {
+        logger.warn({ error }, "The invitation a provider sign-in started from could not be read; it signs in without it.");
+      }
+      return null;
+    }
+  }
+
+  /**
    * Subject first, then a verified email that matches an existing user, then a
-   * new user created like register; profile sync then provisions it as usual.
+   * new user created like register; profile sync then provisions it as usual,
+   * told of the invitation the sign-in started from.
    * The sign-in, and the refusal of a disabled account, are sign-in events.
    */
-  async function signInWithOAuthIdentity(identity, request) {
+  async function signInWithOAuthIdentity(identity, request, invitationToken = "") {
     await firstAccountSetup.start();
     const result = await backend.withTransaction(async (tx) => {
       const linked = await tx.identities.findByProviderSubject(identity.provider, identity.providerSubject);
@@ -143,8 +173,10 @@ function createLocalOAuthFlows({
       firstAccountSetup.accountCreated();
     }
     sessions.recordSignInEvent("signedIn", { ...method, userId: result.user.id, email: result.user.email }, request);
+    const invitation = await signInInvitation(invitationToken, result.user.email);
+    const profileOptions = invitation ? { source: invitation.source || "workspace-invite", invitation } : {};
     return {
-      ...(await buildAuthPayload({ user: result.user, session: result.session, profileProjector })),
+      ...(await buildAuthPayload({ user: result.user, session: result.session, profileProjector, profileOptions })),
       registered: result.registered
     };
   }
@@ -208,7 +240,7 @@ function createLocalOAuthFlows({
     const identity = await oauthClients.verifiedIdentity(provider, { callbackUrl, attempt });
     const result = attempt.intent === "link"
       ? await linkOAuthIdentity(request, attempt, identity, provider)
-      : await signInWithOAuthIdentity(identity, request);
+      : await signInWithOAuthIdentity(identity, request, attempt.invitationToken);
     return { ...result, provider: provider.id, returnTo: attempt.returnTo };
   }
 

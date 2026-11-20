@@ -9,13 +9,8 @@ import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatab
 import { startTestFeatures } from "@jskit-ai/resource-runtime/test";
 import { UsersExtensionsProvider } from "@jskit-ai/users-core/server/UsersExtensionsProvider";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
-import usersInitial from "../../../users-core/migrations/users_core_generic_initial.cjs";
-import usersUsername from "../../../users-core/migrations/users_core_profile_username.cjs";
-import usersUpdatedAt from "../../../users-core/migrations/users_core_profile_updated_at.cjs";
+import { WORKSPACES_TEST_MIGRATIONS } from "./workspacesMigrations.js";
 import indexesByUser from "../../migrations/workspaces_core_indexes_by_user.cjs";
-import workspacesInitial from "../../migrations/workspaces_core_initial.cjs";
-import workspaceSettingsMigration from "../../migrations/workspaces_core_workspace_settings_single_name_source.cjs";
-import workspaceColorMigration from "../../migrations/workspaces_core_workspaces_drop_color.cjs";
 import { WorkspaceRecordsFeature } from "../../src/test/WorkspaceRecordsFeature.js";
 
 // A person's workspaces are read through an index on every dialect: the statements workspaces.listForUserId (their
@@ -23,7 +18,6 @@ import { WorkspaceRecordsFeature } from "../../src/test/WorkspaceRecordsFeature.
 // by the database's own planner. On SQLite and PostgreSQL the indexes are workspaces_core_indexes_by_user's; on
 // MariaDB/MySQL they are the ones InnoDB made for the foreign keys, and the migration changes nothing.
 
-const EARLIER_MIGRATIONS = [usersInitial, usersUsername, usersUpdatedAt, workspacesInitial, workspaceSettingsMigration, workspaceColorMigration];
 const PEOPLE = 60;
 // The index each read uses, by dialect: the migration's own, or InnoDB's for the foreign key.
 const READS = Object.freeze({
@@ -152,7 +146,7 @@ function indexesByUserCases(open, { dialect, database = true, skip = false }) {
   test(`a person's memberships and owned workspaces are read through an index (${dialect})`, { skip }, async (t) => {
     if (database) requireTestDatabase(process.env);
     const knex = await open(t);
-    for (const migration of EARLIER_MIGRATIONS) await migration.up(knex);
+    for (const migration of WORKSPACES_TEST_MIGRATIONS) await migration.up(knex);
     await indexesByUser.up(knex);
     const person = await seed(knex);
     if (dialect === "postgres") await knex.raw("analyze");

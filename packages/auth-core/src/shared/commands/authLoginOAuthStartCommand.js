@@ -31,7 +31,9 @@ const authLoginOAuthStartParamsValidator = deepFreeze({
 
 const authLoginOAuthStartQueryValidator = deepFreeze({
   schema: createSchema({
-    returnTo: { ...oauthReturnToFieldDefinition, required: false }
+    returnTo: { ...oauthReturnToFieldDefinition, required: false },
+    // The invitation the sign-in starts from, which the provider's sign-in hands to its end (local auth does).
+    invitationToken: { type: "string", required: false, minLength: 1, maxLength: 2048 }
   }),
   mode: "patch",
   messages: AUTH_LOGIN_OAUTH_START_MESSAGES

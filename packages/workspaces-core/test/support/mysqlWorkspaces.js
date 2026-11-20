@@ -5,12 +5,7 @@ import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
 import { createUsersExtensions } from "@jskit-ai/users-core/server/usersExtensions";
-import usersInitial from "../../../users-core/migrations/users_core_generic_initial.cjs";
-import usersUsername from "../../../users-core/migrations/users_core_profile_username.cjs";
-import usersUpdatedAt from "../../../users-core/migrations/users_core_profile_updated_at.cjs";
-import workspacesInitial from "../../migrations/workspaces_core_initial.cjs";
-import workspaceSettingsMigration from "../../migrations/workspaces_core_workspace_settings_single_name_source.cjs";
-import workspaceColorMigration from "../../migrations/workspaces_core_workspaces_drop_color.cjs";
+import { WORKSPACES_TEST_MIGRATIONS } from "./workspacesMigrations.js";
 import { createWorkspaceRecords } from "../../src/server/WorkspacesFeature.js";
 import { createRepository as createInvitesRepository } from "../../src/server/common/repositories/workspaceInvitesRepository.js";
 import { createRepository as createMemberPagesRepository } from "../../src/server/common/repositories/workspaceMemberPagesRepository.js";
@@ -24,7 +19,6 @@ import { createWorkspaceRoleCatalog } from "../../src/shared/roles.js";
 // The migrated users and workspaces tables in a MariaDB/MySQL database of the test file's own, named after
 // TEST_DB_NAME with the file's suffix, so the characterization files run in parallel. The database is made on first
 // use and dropped when the file ends. Each test keeps to its own users and workspaces (names carry the test's tag).
-const MIGRATIONS = [usersInitial, usersUsername, usersUpdatedAt, workspacesInitial, workspaceSettingsMigration, workspaceColorMigration];
 
 // The roles the characterization uses: an owner, and assignable admin and member roles.
 const ROLE_CATALOG = createWorkspaceRoleCatalog({
@@ -64,7 +58,7 @@ async function openDatabase(suffix, cleanups) {
   });
   await admin.raw("DROP DATABASE IF EXISTS ??", [name]);
   await admin.raw("CREATE DATABASE ??", [name]);
-  for (const migration of MIGRATIONS) await migration.up(knex);
+  for (const migration of WORKSPACES_TEST_MIGRATIONS) await migration.up(knex);
   // The users and workspaces tables, owned as UsersIdentityProvider and WorkspacesFeature own them.
   const runtime = await createTestResourceRuntime({ knex, logger: silentLogger });
   const usersExtensions = createUsersExtensions();
@@ -91,11 +85,16 @@ async function openDatabase(suffix, cleanups) {
     roleCatalog: ROLE_CATALOG,
     workspaces: records.workspaces,
     memberships: records.memberships,
-    memberPages: createMemberPagesRepository({ workspaceMemberships: resources.workspaceMemberships, userProfiles: profiles }),
+    memberPages: createMemberPagesRepository({
+      workspaceMemberships: resources.workspaceMemberships,
+      workspaceInvites: resources.workspaceInvites,
+      userProfiles: profiles
+    }),
     invites: createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces: records.workspaces }),
     settings: createSettingsRepository({
       workspaceSettings: resources.workspaceSettings,
       defaultInvitesEnabled: true,
+      defaultInvitesRequireSameEmail: false,
       defaultColorSettings: {}
     }),
     // A user whose email and identity carry `name`.

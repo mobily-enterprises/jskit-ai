@@ -67,7 +67,8 @@
           "register": "Register with {provider}",
           "continue": "Continue with {provider}",
           "continueAs": "Continue with {provider} as {name}",
-          "providerFallback": "OAuth provider"
+          "providerFallback": "OAuth provider",
+          "tryAgain": "Try again with {provider}"
         },
         "forgotPassword": "Forgot password?",
         "useOtp": "Use one-time code",
@@ -75,6 +76,13 @@
         "backToSignIn": "Back to sign in",
         "rememberedPassword": "Remembered your password?",
         "otherMethod": "Want to use another method?",
+        "signInPaused": {
+          "wait": "Password sign-in for this email address is paused. You can try again in {count} minute. | Password sign-in for this email address is paused. You can try again in {count} minutes.",
+          "instead": "Or, without waiting:",
+          "resetPassword": "Reset your password",
+          "register": "Create an account",
+          "providers": "You can also continue with a provider below."
+        },
         "passwordsMismatch": "Passwords do not match.",
         "resetSent": "Password reset instructions sent.",
         "otpSent": "One-time code sent. Check your inbox.",
@@ -93,7 +101,8 @@
           "oauthProviderInvalid": "OAuth provider id is invalid.",
           "oauthReturnToInvalid": "OAuth return path is invalid.",
           "oauthStartFailed": "Unable to start OAuth sign-in.",
-          "initializeFailed": "Unable to initialize sign in."
+          "initializeFailed": "Unable to initialize sign in.",
+          "oauthCompleteTimedOut": "Signing in with the provider took too long, so it was stopped. Try again."
         }
       },
       "oauth": {

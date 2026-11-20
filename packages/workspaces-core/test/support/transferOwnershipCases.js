@@ -6,12 +6,7 @@ import { silentLogger } from "@jskit-ai/kernel/server/runtime/logger";
 import { expectFlatQueries, startTestFeatures } from "@jskit-ai/resource-runtime/test";
 import { UsersExtensionsProvider } from "@jskit-ai/users-core/server/UsersExtensionsProvider";
 import { UsersIdentityProvider } from "@jskit-ai/users-core/server/UsersIdentityProvider";
-import usersInitial from "../../../users-core/migrations/users_core_generic_initial.cjs";
-import usersUsername from "../../../users-core/migrations/users_core_profile_username.cjs";
-import usersUpdatedAt from "../../../users-core/migrations/users_core_profile_updated_at.cjs";
-import workspacesInitial from "../../migrations/workspaces_core_initial.cjs";
-import workspaceSettingsMigration from "../../migrations/workspaces_core_workspace_settings_single_name_source.cjs";
-import workspaceColorMigration from "../../migrations/workspaces_core_workspaces_drop_color.cjs";
+import { WORKSPACES_TEST_MIGRATIONS } from "./workspacesMigrations.js";
 import { WORKSPACES_TABLES, createWorkspaceRecords } from "../../src/server/workspacesRuntime.js";
 import { createRepository as createInvitesRepository } from "../../src/server/common/repositories/workspaceInvitesRepository.js";
 import { buildWorkspaceName, createService as createDirectoryService } from "../../src/server/common/services/workspaceDirectoryService.js";
@@ -23,7 +18,6 @@ import { resolveTenancyProfile } from "../../src/shared/tenancyProfile.js";
 // workspaces.transferOwnership on the migrated users and workspaces tables: the moves it makes, what it refuses with
 // nothing changed, the caller's transaction, two transfers at once and its statements among few and many members.
 
-const MIGRATIONS = [usersInitial, usersUsername, usersUpdatedAt, workspacesInitial, workspaceSettingsMigration, workspaceColorMigration];
 const NOT_ACTIVE = "workspaces.member.newOwnerNotActive";
 const NOT_FOUND = "workspaces.workspace.notFound";
 // expectFlatQueries() runs only against a test database, which TEST_DB_NAME names: SQLite's in-memory one is one.
@@ -88,7 +82,7 @@ function transferOwnershipCases(open, { dialect, database = true, skip = false }
     if (database) requireTestDatabase(process.env);
     const knex = await open(t);
     if (!native) await knex.raw("PRAGMA foreign_keys = ON");
-    for (const migration of MIGRATIONS) await migration.up(knex);
+    for (const migration of WORKSPACES_TEST_MIGRATIONS) await migration.up(knex);
     const started = await startTestFeatures({
       knex,
       logger: silentLogger,
@@ -101,7 +95,7 @@ function transferOwnershipCases(open, { dialect, database = true, skip = false }
     const { workspaces, memberships } = createWorkspaceRecords(resources);
     const invites = createInvitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
     const settings = createSettingsRepository({
-      workspaceSettings: resources.workspaceSettings, defaultInvitesEnabled: true, defaultColorSettings: {}
+      workspaceSettings: resources.workspaceSettings, defaultInvitesEnabled: true, defaultInvitesRequireSameEmail: false, defaultColorSettings: {}
     });
     const transfer = (input, options) => workspaces.transferOwnership(input, options);
 

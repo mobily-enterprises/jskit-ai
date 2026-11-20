@@ -194,6 +194,43 @@ test("a refused sign-in reports the server's error and leaves the form usable", 
   await finish(api);
 });
 
+test("a paused password sign-in names the email address and shows the ways forward the app offers", options, async () => {
+  const message = "Password sign-in for this email address is paused for 2 minutes after too many failed attempts. Try again after that.";
+  const api = await openApp({
+    routes: { "POST /api/login": { status: 429, json: { error: message, code: "auth.local.login.locked", params: { count: 2, retryAfterSeconds: 90 } } } }
+  });
+  const { page } = api;
+  await page.goto("/auth/login");
+  await signIn(page, "ada@example.com", "wrong password");
+  await expect.poll(async () => (await reports(page)).at(-1)?.message).toBe(message);
+  const paused = page.getByTestId("auth-sign-in-paused");
+  await expect(paused).toContainText("Password sign-in for this email address is paused. You can try again in 2 minutes.");
+  await expect(paused).toContainText("You can also continue with a provider below.");
+  await expect(paused.getByRole("button", { name: "Create an account" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Continue with Google" })).toBeVisible();
+  await paused.getByRole("button", { name: "Reset your password" }).click();
+  await expect(page.getByTestId("auth-sign-in-paused")).toHaveCount(0);
+  await expect(page.getByText("Reset your password")).toBeVisible();
+  await finish(api);
+});
+
+test("a provider sign-in cancelled at the provider keeps the page and the invitation it started from", options, async () => {
+  const api = await openApp({ routes: { "GET /api/oauth/google/start": { contentType: "text/html", body: "<p>Provider</p>" } } });
+  const { page } = api;
+  await page.goto("/auth/login?returnTo=/home&invitationToken=inv-1");
+  await page.getByRole("button", { name: "Continue with Google" }).click();
+  await page.getByText("Provider").waitFor();
+  assert.equal(api.requests.at(-1).search, "?returnTo=%2Fhome&invitationToken=inv-1");
+
+  // The provider's Cancel returns to the one fixed address, which names neither.
+  await page.goto("/auth/login?error=access_denied&error_description=Sign-in%20was%20cancelled.&state=s1");
+  await expect.poll(async () => (await reports(page)).at(-1)?.message).toBe("Sign-in was cancelled.");
+  await page.getByRole("button", { name: "Continue with Google" }).click();
+  await page.getByText("Provider").waitFor();
+  assert.equal(api.requests.at(-1).search, "?returnTo=%2Fhome&invitationToken=inv-1");
+  await finish(api);
+});
+
 test("a signed-in visitor leaves the sign-in page, on opening it and when a session starts elsewhere", options, async () => {
   const signedIn = await openApp({ session: SIGNED_IN });
   await signedIn.page.goto("/auth/login?returnTo=/home");

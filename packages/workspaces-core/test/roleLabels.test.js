@@ -109,6 +109,7 @@ test("Members and Invitations response validation preserves labels and saved rol
 test("Workspace Settings response validation preserves configured labels", async () => {
   const service = createSettingsService({
     workspaceInvitationsEnabled: true,
+    workspaceInvitationsAnyAccount: false,
     roleCatalog: catalog,
     workspaceSettingsRepository: {
       async ensureForWorkspaceId() {
@@ -137,7 +138,11 @@ test("pending and resolved invitation responses derive labels while acceptance s
       async withTransaction(options, work) { return work({ ...options, trx: {} }); },
       async markAcceptedById() {}
     },
-    workspaceMembershipsRepository: { async upsertMembership(_workspaceId, _userId, patch) { membership = patch; } }
+    workspaceMembershipsRepository: { async upsertMembership(_workspaceId, _userId, patch) { membership = patch; } },
+    workspacesRepository: { async findById(workspaceId) { return { id: workspaceId, slug: "acme", name: "Acme", ownerUserId: "1" }; } },
+    workspaceSettingsRepository: { async findInvitesRequireSameEmail() { return true; } },
+    invitationsAnyAccount: false,
+    async notifyInviter() {}
   });
   const user = { id: "11", email: invite.email };
   const pending = output(workspacePendingInvitationsContract, "list", { pendingInvites: await service.listPendingInvitesForUser(user) });
@@ -146,7 +151,7 @@ test("pending and resolved invitation responses derive labels while acceptance s
   assert.equal(resolved.roleLabel, "Operator");
   assert.equal(resolved.roleSid, "safety_manager");
   await service.acceptInviteByToken({ user, token });
-  assert.deepEqual(membership, { roleSid: "safety_manager", status: "active" });
+  assert.deepEqual(membership, { roleSid: "safety_manager", status: "active", acceptedInviteId: "10" });
   assert.equal(Object.hasOwn(invite, "roleLabel"), false);
 });
 

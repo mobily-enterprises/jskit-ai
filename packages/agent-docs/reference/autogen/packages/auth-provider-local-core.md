@@ -176,7 +176,7 @@ Local functions
 
 ### `src/server/lib/oauthFlows.js`
 Exports
-- `createLocalOAuthFlows({ backend, config, firstAccountSetup, logger, oauthProvidersById, profileProjector, securityStatus, sessions })`
+- `createLocalOAuthFlows({ backend, config, firstAccountSetup, invitationContextResolver, logger, oauthProvidersById, profileProjector, securityStatus, sessions })`
 
 ### `src/server/lib/passSignIn.js`
 Exports
@@ -341,8 +341,8 @@ Exports
 Exports
 - `APP_URL`
 - `ATTEMPT_COOKIE`
-- `approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false } = {})`
-- `createService({ backend, oauthProviders, profileProjector, firstAccountSetup, env = {} })`
+- `approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false, invitationToken } = {})`
+- `createService({ backend, oauthProviders, profileProjector, firstAccountSetup, env = {}, invitationContextResolver, logger })`
 - `oidcProviderEntry(issuer, { id = "google", label = "Google" } = {})`
 - `sessionCookies(session)`
 - `startFakeGitHub({ user = { id: 4242, login: "ada", name: "Ada Lovelace" }, emails } = {})`

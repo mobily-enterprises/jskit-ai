@@ -13,6 +13,7 @@ import { normalizeAuthReturnToPath } from "../../lib/returnToPath.js";
 import { normalizeEmailAddress } from "./identityHelpers.js";
 import { readRememberedAccountHint } from "./rememberedAccountStorage.js";
 import { stripOAuthParamsFromLocation } from "./oauthCallbackUrl.js";
+import { forgetOAuthStart, readOAuthStart, rememberOAuthStart } from "./oauthStartStorage.js";
 import { completeOAuthPopupSignIn } from "../../runtime/popupOAuthLaunchClient.js";
 import { ensureCommandSectionValid } from "./validationHelpers.js";
 import { resolveRegisterCompletionState } from "./registerCompletion.js";
@@ -93,7 +94,8 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
   async function request(path, options = {}) {
     return authHttpRequest(path, {
       method: options.method || "GET",
-      ...(options.body ? { body: options.body } : {})
+      ...(options.body ? { body: options.body } : {}),
+      ...(options.signal ? { signal: options.signal } : {})
     });
   }
 
@@ -253,6 +255,10 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
         body: loginPayload
       });
     } catch (error) {
+      // Password sign-in paused for this address: the page shows the other ways forward beside the refusal.
+      if (error?.code === "auth.local.login.locked") {
+        state.signInPausedMinutes.value = Math.max(1, Number(error.params?.count) || 1);
+      }
       // The right password for a registration still waiting for its email:
       // show how to confirm it instead of a failed sign-in.
       if (error?.code !== "auth.login.emailUnconfirmed") {
@@ -274,16 +280,23 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
   }
 
   async function handleOAuthCallbackIfPresent() {
+    // The provider sign-in this tab started: a provider that returns to one fixed address brings back neither the page
+    // asked for nor the invitation, which a cancelled or failed sign-in still needs.
+    const started = readOAuthStart();
     const callbackResult = await completeOAuthCallbackFromCurrentLocation({
-      fallbackReturnTo: state.requestedReturnTo.value,
+      fallbackReturnTo: started?.returnTo || state.requestedReturnTo.value,
       allowedReturnToOrigins: state.allowedReturnToOrigins.value,
-      defaultProvider: resolveDefaultOAuthProvider(),
+      defaultProvider: started?.provider || resolveDefaultOAuthProvider(),
       request,
       refreshSession
     });
 
     if (callbackResult.handled !== true) {
       return false;
+    }
+    forgetOAuthStart();
+    if (started?.invitationToken && !String(state.invitationToken.value || "").trim()) {
+      state.invitationToken.value = started.invitationToken;
     }
 
     state.requestedReturnTo.value = normalizeAuthReturnToPath(
@@ -316,6 +329,9 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
       replacePage(state.requestedReturnTo.value);
     } catch (error) {
       setErrorMessage(serverMessage(error, t("jskit.auth.login.error.oauthCompleteFailed")));
+      if (callbackResult.timedOut === true) {
+        state.oauthRetryProvider.value = callbackResult.provider || started?.provider || "";
+      }
       stripOAuthParamsFromLocation();
     } finally {
       state.loading.value = false;
@@ -507,8 +523,11 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
     const paramsPayload = {
       provider
     };
+    const invitationToken = String(state.invitationToken.value || "").trim();
     const queryPayload = {
-      returnTo: state.requestedReturnTo.value
+      returnTo: state.requestedReturnTo.value,
+      // A sign-in from an invitation keeps it to the end, where the account is set up.
+      ...(invitationToken ? { invitationToken } : {})
     };
     try {
       ensureCommandSectionValid(
@@ -530,6 +549,8 @@ export function useLoginViewActions({ state, validation, queryClient, errorRunti
 
     const params = new URLSearchParams(queryPayload);
     const oauthStartPath = buildAuthOauthStartPath(provider);
+    state.oauthRetryProvider.value = "";
+    rememberOAuthStart({ provider, returnTo: queryPayload.returnTo, invitationToken });
     try {
       await oauthLaunchClient.open({
         url: `${oauthStartPath}?${params.toString()}`

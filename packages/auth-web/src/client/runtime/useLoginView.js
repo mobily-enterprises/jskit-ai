@@ -90,6 +90,8 @@ function useLoginView({ fallbackReturnTo = "/" } = {}) {
     oauthProviderButtonLabel: actions.oauthProviderButtonLabel,
     errorMessage: state.errorMessage,
     infoMessage: state.infoMessage,
+    signInPausedMinutes: state.signInPausedMinutes,
+    oauthRetryProvider: state.oauthRetryProvider,
     canSubmit: validation.canSubmit,
     submitLabel: state.submitLabel
   };

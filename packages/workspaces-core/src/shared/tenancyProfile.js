@@ -9,6 +9,18 @@ import { isRecord } from "@jskit-ai/kernel/shared/support/normalize";
 const WORKSPACE_SLUG_POLICY_NONE = "none";
 const WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME = "immutable_username";
 const WORKSPACE_SLUG_POLICY_USER_SELECTED = "user_selected";
+// autoProvision's third value: a personal workspace only for a person who is no active member of any workspace and
+// whose sign-in carries no invitation they can use.
+const WORKSPACE_AUTO_PROVISION_UNLESS_MEMBER = "unless-member";
+
+function resolveAutoProvisionOverride(value) {
+  if (value === undefined || typeof value === "boolean" || value === WORKSPACE_AUTO_PROVISION_UNLESS_MEMBER) {
+    return value ?? null;
+  }
+  throw new TypeError(
+    `tenancyPolicy.workspace.autoProvision must be true, false or "${WORKSPACE_AUTO_PROVISION_UNLESS_MEMBER}". Received: ${String(value)}`
+  );
+}
 
 function resolveWorkspacePolicyOverrides(appConfig = {}) {
   const tenancyPolicy = isRecord(appConfig.tenancyPolicy) ? appConfig.tenancyPolicy : {};
@@ -16,7 +28,7 @@ function resolveWorkspacePolicyOverrides(appConfig = {}) {
 
   return Object.freeze({
     allowSelfCreate: typeof workspacePolicy.allowSelfCreate === "boolean" ? workspacePolicy.allowSelfCreate : null,
-    autoProvision: typeof workspacePolicy.autoProvision === "boolean" ? workspacePolicy.autoProvision : null
+    autoProvision: resolveAutoProvisionOverride(workspacePolicy.autoProvision)
   });
 }
 
@@ -41,7 +53,7 @@ function resolveWorkspacePolicy(mode, overrides = {}) {
 
   return Object.freeze({
     enabled: true,
-    autoProvision: overrides.autoProvision === true,
+    autoProvision: overrides.autoProvision ?? false,
     allowSelfCreate: overrides.allowSelfCreate === true,
     slugPolicy: WORKSPACE_SLUG_POLICY_USER_SELECTED
   });
@@ -69,6 +81,7 @@ export {
   WORKSPACE_SLUG_POLICY_NONE,
   WORKSPACE_SLUG_POLICY_IMMUTABLE_USERNAME,
   WORKSPACE_SLUG_POLICY_USER_SELECTED,
+  WORKSPACE_AUTO_PROVISION_UNLESS_MEMBER,
   resolveTenancyProfile,
   isWorkspacesTenancyMode
 };

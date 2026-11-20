@@ -69,3 +69,14 @@ test("workspace invitations policy disables invitations when app config disables
 
   assert.equal(policy.enabled, false);
 });
+
+test("workspace invitations policy lets any account accept only when the app opts in and invitations are on", () => {
+  const workspaces = { mode: "workspaces", workspace: { enabled: true } };
+  assert.equal(resolveWorkspaceInvitationsPolicy({ appConfig: {}, tenancyProfile: workspaces }).anyAccount, false);
+  assert.equal(resolveWorkspaceInvitationsPolicy({ appConfig: { workspaceInvitations: { anyAccount: "yes" } }, tenancyProfile: workspaces }).anyAccount, false);
+  assert.equal(resolveWorkspaceInvitationsPolicy({ appConfig: { workspaceInvitations: { anyAccount: true } }, tenancyProfile: workspaces }).anyAccount, true);
+  assert.equal(resolveWorkspaceInvitationsPolicy({
+    appConfig: { workspaceInvitations: { anyAccount: true, enabled: false } },
+    tenancyProfile: workspaces
+  }).anyAccount, false);
+});

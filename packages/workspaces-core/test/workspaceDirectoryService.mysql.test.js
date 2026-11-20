@@ -257,3 +257,77 @@ test("get and update read the context first and save only the patchable fields",
     errorWith(404, "workspaces.workspace.notFound"));
   assert.equal((await db.workspaces.findById(workspace.id)).name, "Renamed");
 });
+
+test('"unless-member" provisions a personal workspace only for someone in no workspace who signs in without an invitation', async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const directory = directoryOf(db, { tenancyMode: "workspaces", tenancyPolicy: { workspace: { autoProvision: "unless-member" } } });
+  const ownedBy = (user) => countWhere(db, "workspaces", { owner_user_id: user.id });
+
+  const alone = await db.createProfile("unless-ada");
+  const made = await directory.ensureProvisionedWorkspaceForAuthenticatedUser(alone);
+  assert.equal(made.ownerUserId, alone.id, "no membership and no invitation: a workspace of their own");
+  assert.equal(made.isPersonal, true);
+
+  const host = await db.createProfile("unless-host");
+  const team = await db.workspaces.insert({ slug: "unless-team", name: "Team", ownerUserId: host.id });
+  const member = await db.createProfile("unless-bea");
+  await db.memberships.addMember({ workspaceId: team.id, userId: member.id });
+  assert.equal(await directory.ensureProvisionedWorkspaceForAuthenticatedUser(member), null);
+  assert.equal(await ownedBy(member), 0, "an active member of another workspace gets none");
+
+  const invited = await db.createProfile("unless-cal");
+  const invitation = { token: "opaque", workspaceId: team.id, email: "invited@example.test" };
+  assert.equal(await directory.ensureProvisionedWorkspaceForAuthenticatedUser(invited, {}, { invitation }), null);
+  assert.equal(await ownedBy(invited), 0, "an account from an invitation gets none");
+
+  // An invitation the resolver refused reaches provisioning as none; one passed through unresolved names no workspace.
+  for (const unusable of [null, { token: "opaque", source: "workspace-invite" }]) {
+    const someone = await db.createProfile(`unless-${unusable ? "dot" : "eve"}`);
+    assert.equal((await directory.ensureProvisionedWorkspaceForAuthenticatedUser(someone, {}, { invitation: unusable })).ownerUserId,
+      someone.id);
+  }
+
+  const removed = await db.createProfile("unless-fay");
+  await db.memberships.upsertMembership(team.id, removed.id, { roleSid: "member", status: "revoked" });
+  assert.equal((await directory.ensureProvisionedWorkspaceForAuthenticatedUser(removed)).ownerUserId, removed.id,
+    "a membership that is no longer active does not count");
+});
+
+test("deleteWorkspace deletes the workspace in the caller's transaction, which a rollback undoes", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const directory = directoryOf(db, TEAMS);
+  const owner = await db.createProfile("delete-gus");
+  const workspace = (await directory.createWorkspaceForAuthenticatedUser(owner, { name: "Doomed", slug: "delete-doomed" })).value;
+
+  await assert.rejects(db.workspaces.withTransaction({}, async (txOptions) => {
+    assert.equal(await directory.deleteWorkspace(workspace.id, txOptions), true);
+    assert.equal(await db.workspaces.findById(workspace.id, txOptions), null, "gone inside the transaction");
+    throw new Error("Roll the deletion back");
+  }), /Roll the deletion back/u);
+  assert.equal((await db.workspaces.findById(workspace.id)).id, workspace.id, "the rollback keeps it");
+  assert.equal(await countWhere(db, "workspace_memberships", { workspace_id: workspace.id }), 1);
+});
+
+test("deleteWorkspace leaves no memberships, settings or invites of the workspace, and answers false for a missing one", async () => {
+  requireTestDatabase(process.env);
+  const db = await database.open();
+  const directory = directoryOf(db, TEAMS);
+  const owner = await db.createProfile("delete-hal");
+  const member = await db.createProfile("delete-ina");
+  const workspace = (await directory.createWorkspaceForAuthenticatedUser(owner, { name: "Gone", slug: "delete-gone" })).value;
+  const kept = (await directory.createWorkspaceForAuthenticatedUser(owner, { name: "Kept", slug: "delete-kept" })).value;
+  await db.memberships.addMember({ workspaceId: workspace.id, userId: member.id });
+  const invite = await db.invites.insert({ workspaceId: workspace.id, email: "later@example.test", tokenHash: "h".repeat(64), invitedByUserId: owner.id });
+  await db.memberships.upsertMembership(workspace.id, member.id, { acceptedInviteId: invite.id });
+
+  assert.equal(await db.workspaces.withTransaction({}, (txOptions) => directory.deleteWorkspace(workspace.id, txOptions)), true);
+
+  assert.equal(await db.workspaces.findById(workspace.id), null);
+  for (const table of ["workspace_memberships", "workspace_settings", "workspace_invites"]) {
+    assert.equal(await countWhere(db, table, { workspace_id: workspace.id }), 0, `no ${table} rows left`);
+  }
+  assert.equal(await countWhere(db, "workspace_memberships", { workspace_id: kept.id }), 1, "another workspace keeps its own");
+  assert.equal(await directory.deleteWorkspace(workspace.id), false, "a missing workspace answers false");
+});

@@ -9,7 +9,8 @@ const workspaceMembershipsResource = defineTableResource({
   ownership: "public",
   foreignKeys: [
     { columns: ["workspaceId"], referencedTableName: "workspaces" },
-    { columns: ["userId"], referencedTableName: "users" }
+    { columns: ["userId"], referencedTableName: "users" },
+    { columns: ["acceptedInviteId"], referencedTableName: "workspace_invites" }
   ],
   searchSchema: {
     workspace: { type: "id", actualField: "workspace_id", filterOperator: "=" },
@@ -51,6 +52,15 @@ const workspaceMembershipsResource = defineTableResource({
       defaultTo: "active",
       search: true,
       setter: (value) => normalizeLowerText(value)
+    },
+    // The invitation the member last joined through: its address is the member's invitedEmail when it is not their
+    // account's. Null for an owner's membership, one an application added, and one older than the column.
+    acceptedInviteId: {
+      type: "id",
+      nullable: true,
+      belongsTo: "workspaceInvites",
+      as: "acceptedInvite",
+      storage: { column: "accepted_invite_id" }
     },
     createdAt: {
       type: "dateTime",

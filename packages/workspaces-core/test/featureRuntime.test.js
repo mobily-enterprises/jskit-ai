@@ -15,7 +15,7 @@ function runtimeConfig() {
   return {
     appPublicUrl: "http://localhost:5173",
     tenancyMode: "workspaces",
-    tenancyPolicy: { workspace: { allowSelfCreate: true } },
+    tenancyPolicy: { workspace: { allowSelfCreate: true, autoProvision: "unless-member" } },
     workspaceInvitations: { enabled: true },
     workspaceMembers: { defaults: { inviteExpiresInMs: 86400000 } },
     workspaceSettings: { defaults: { invitesEnabled: true } },
@@ -122,6 +122,14 @@ test("WorkspacesFeature assembles workspace behavior and explicit integrations",
   assert.deepEqual(authExtensions.diagnostics().invitationContextResolverIds, ["workspaces.invitation"]);
   assert.deepEqual(authExtensions.diagnostics().policyContextResolverIds, ["workspaces.policy"]);
   assert.deepEqual(audienceContributors.map((entry) => entry.id), ["workspaces.memberships"]);
+
+  // Sign-in provisioning is told the invitation the sign-in carries: with "unless-member" one naming a workspace means
+  // no workspace of one's own, decided before any read (this database has no tables, so a read would fail).
+  const [provisioning] = usersExtensions.profileSyncLifecycleContributors();
+  const profile = { id: "5", email: "ivy@example.com", displayName: "Ivy" };
+  await provisioning.afterIdentityProfileSynced({ profile, created: true, invitation: { workspaceId: "3" }, options: {} });
+  await assert.rejects(provisioning.afterIdentityProfileSynced({ profile, created: true, invitation: null, options: {} }),
+    /workspace_memberships/u, "without an invitation it reads the person's memberships");
 });
 
 test("workspace realtime audiences are the actor's active memberships", async () => {

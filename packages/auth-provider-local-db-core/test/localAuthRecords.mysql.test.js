@@ -270,8 +270,8 @@ test("identities and provider sign-in attempts: links by provider subject, and a
   const created = await backend.withTransaction((tx) => tx.oauthAttempts.create(attempt("key-one", "2026-12-01T00:00:00.000Z")));
   assert.deepEqual(created, {
     browserKeyHash: "key-one", provider: "google", intent: "login", userId: "", state: "state-key-one", nonce: "nonce",
-    codeVerifier: "verifier", returnTo: "/home", createdAt: CREATED, expiresAt: "2026-12-01T00:00:00.000Z"
-  }, "an attempt without a user keeps none");
+    codeVerifier: "verifier", returnTo: "/home", invitationToken: "", createdAt: CREATED, expiresAt: "2026-12-01T00:00:00.000Z"
+  }, "an attempt without a user or an invitation keeps neither");
   await backend.withTransaction((tx) => tx.oauthAttempts.create(attempt("key-link", "2026-12-01T00:00:00.000Z", { intent: "link", userId: "usr_ada" })));
 
   const taken = await Promise.all([1, 2, 3].map(() => backend.withTransaction((tx) => tx.oauthAttempts.take("key-one"))));
@@ -279,6 +279,9 @@ test("identities and provider sign-in attempts: links by provider subject, and a
   assert.equal(await backend.withTransaction((tx) => tx.oauthAttempts.take("key-one")), null);
   assert.equal(await backend.withTransaction((tx) => tx.oauthAttempts.take("")), null);
   assert.equal((await backend.withTransaction((tx) => tx.oauthAttempts.take("key-link"))).userId, "usr_ada");
+  await backend.withTransaction((tx) => tx.oauthAttempts.create(attempt("key-invite", "2026-12-01T00:00:00.000Z", { invitationToken: "inv-1" })));
+  assert.equal((await backend.withTransaction((tx) => tx.oauthAttempts.take("key-invite"))).invitationToken, "inv-1",
+    "a sign-in started from an invitation keeps it");
 
   await backend.withTransaction(async (tx) => {
     await tx.oauthAttempts.create(attempt("key-old", "2026-11-01T00:00:00.000Z"));

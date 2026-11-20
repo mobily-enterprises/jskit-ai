@@ -21,14 +21,16 @@ function decodeCursor(cursor) {
 
 /**
  * A workspace's members a page at a time, with their users' names and emails: the members list of
- * `workspaces.core`. A page is one statement on the memberships joined to users.profiles' join source, so it reads
- * a page of rows however many members the workspace has.
+ * `workspaces.core`. A page is one statement on the memberships joined to users.profiles' join source and to the
+ * invitations they were accepted through, so it reads a page of rows however many members the workspace has.
  * @param {object} dependencies
  * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.workspaceMemberships
  *   The workspace_memberships table's handle.
+ * @param {import("@jskit-ai/resource-runtime/server/types").ResourceHandle} dependencies.workspaceInvites
+ *   The workspace_invites table's handle.
  * @param {Pick<import("@jskit-ai/users-core/server/types").UsersProfiles, "joinSource">} dependencies.userProfiles
  */
-function createRepository({ workspaceMemberships, userProfiles }) {
+function createRepository({ workspaceMemberships, workspaceInvites, userProfiles }) {
   /**
    * One page of the workspace's active members by display name (then user id), each as listActiveByWorkspaceId
    * summarizes it: `{ members, next }`, where `next` is the cursor of the page after, or null on the last page.
@@ -36,7 +38,8 @@ function createRepository({ workspaceMemberships, userProfiles }) {
    * @param {{ size: number, after?: string }} page At most the memberships handle's pageLimits().request members.
    * @param {object} [options]
    */
-  // Knex: report - one page of a workspace's active members with their users' names and emails, by display name
+  // Knex: report - one page of a workspace's active members with their users' names and emails and the address they
+  // were invited at, by display name
   async function listActivePage(workspaceId, { size, after }, options = {}) {
     const normalizedWorkspaceId = normalizeRecordId(workspaceId, { fallback: null });
     if (!normalizedWorkspaceId) {
@@ -48,6 +51,8 @@ function createRepository({ workspaceMemberships, userProfiles }) {
     const profiles = user.query
       .select({ userId: user.column("id"), shown: user.column("displayName"), mail: user.column("email") })
       .as("p");
+    const invite = await workspaceInvites.joinSource({ alias: "i", filters: { workspace: normalizedWorkspaceId } }, options);
+    const invites = invite.query.select({ inviteId: invite.column("id"), invitedAt: invite.column("email") }).as("a");
     const { query } = await workspaceMemberships.scopedQuery(
       { alias: "m", filters: { workspace: normalizedWorkspaceId, status: "active" } },
       options
@@ -55,12 +60,14 @@ function createRepository({ workspaceMemberships, userProfiles }) {
     const memberUserId = workspaceMemberships.column("userId", "m");
     query
       .join(profiles, "p.userId", memberUserId)
+      .leftJoin(invites, "a.inviteId", workspaceMemberships.column("acceptedInviteId", "m"))
       .select({
         user_id: memberUserId,
         role_sid: workspaceMemberships.column("roleSid", "m"),
         status: workspaceMemberships.column("status", "m"),
         display_name: "p.shown",
-        email: "p.mail"
+        email: "p.mail",
+        invited_email: "a.invitedAt"
       })
       .orderBy(["p.shown", memberUserId])
       .limit(limit + 1);

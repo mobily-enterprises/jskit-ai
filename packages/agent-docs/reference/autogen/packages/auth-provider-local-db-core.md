@@ -128,6 +128,10 @@ Exports
 Exports
 - None
 
+### `migrations/auth_local_db_oauth_invitation.cjs`
+Exports
+- None
+
 ### `migrations/auth_local_db_oauth-collation.cjs`
 Exports
 - None

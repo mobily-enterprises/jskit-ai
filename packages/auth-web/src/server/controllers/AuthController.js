@@ -94,9 +94,10 @@ class AuthController {
   async oauthStart(request, reply) {
     const provider = request.params?.provider;
     const returnTo = request.query?.returnTo;
+    const invitationToken = request.query?.invitationToken;
     let result;
     try {
-      result = await this.service.oauthStart(request, { provider, returnTo });
+      result = await this.service.oauthStart(request, { provider, returnTo, ...(invitationToken ? { invitationToken } : {}) });
     } catch (error) {
       if (!(error instanceof AppError) || error.statusCode === 500) {
         throw error;

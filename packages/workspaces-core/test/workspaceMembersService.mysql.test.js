@@ -166,9 +166,9 @@ test("updateMemberRole and removeMember change an active member of their workspa
   assert.deepEqual(Object.keys(updated.value), ["workspace", "members", "nextCursor", "roleCatalog"]);
   assert.deepEqual(updated.value.workspace, membersWorkspace(workspace));
   assert.deepEqual(updated.value.members, [
-    { userId: members.ann.id, roleSid: "admin", status: "active", displayName: "roles-ann", email: "roles-ann@example.test", isOwner: false },
-    { userId: members.bea.id, roleSid: "member", status: "active", displayName: "roles-bea", email: "roles-bea@example.test", isOwner: false },
-    { userId: owner.id, roleSid: "owner", status: "active", displayName: "roles-owner", email: "roles-owner@example.test", isOwner: true }
+    { userId: members.ann.id, roleSid: "admin", status: "active", displayName: "roles-ann", email: "roles-ann@example.test", invitedEmail: "", isOwner: false },
+    { userId: members.bea.id, roleSid: "member", status: "active", displayName: "roles-bea", email: "roles-bea@example.test", invitedEmail: "", isOwner: false },
+    { userId: owner.id, roleSid: "owner", status: "active", displayName: "roles-owner", email: "roles-owner@example.test", invitedEmail: "", isOwner: true }
   ], "active members, by name, with the owner marked");
   assert.equal((await db.memberships.findByWorkspaceIdAndUserId(workspace.id, members.ann.id)).roleSid, "admin");
   assert.equal((await db.memberships.findByWorkspaceIdAndUserId(other.id, members.ann.id)).roleSid, "member",

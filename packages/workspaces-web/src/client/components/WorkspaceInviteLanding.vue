@@ -31,23 +31,48 @@
             </div>
           </div>
 
-          <v-alert v-if="emailMismatch" type="warning" variant="tonal" class="mb-5">
-            {{ t("jskit.workspaces.inviteLanding.signInToAccept", { email: inviteEmailLabel }) }}
+          <!-- Signed in with another address: this workspace may let that account join, once it says so, or not. -->
+          <v-alert
+            v-if="choice === 'joinAs'"
+            type="info"
+            variant="tonal"
+            class="mb-5"
+            data-testid="invite-landing-other-account"
+          >
+            {{ t("jskit.workspaces.inviteLanding.sentToOther", { invited: inviteEmailLabel, email: authEmail }) }}
+          </v-alert>
+          <v-alert
+            v-else-if="choice === 'invitedAddressOnly'"
+            type="warning"
+            variant="tonal"
+            class="mb-5"
+            data-testid="invite-landing-other-account"
+          >
+            {{ t("jskit.workspaces.inviteLanding.invitedAddressOnly", { invited: inviteEmailLabel, email: authEmail }) }}
           </v-alert>
 
-          <div v-if="!isAuthenticated" class="workspace-invite-landing__actions">
+          <div v-if="choice === 'signIn'" class="workspace-invite-landing__actions">
             <v-btn color="primary" :href="registerUrl">{{ t("jskit.workspaces.inviteLanding.createAccount") }}</v-btn>
             <v-btn variant="outlined" color="secondary" :href="loginUrl">{{ t("jskit.workspaces.inviteLanding.signIn") }}</v-btn>
           </div>
 
           <div v-else class="workspace-invite-landing__actions">
             <v-btn
+              v-if="choice !== 'invitedAddressOnly'"
               color="primary"
-              :disabled="emailMismatch || isRedeeming"
+              :disabled="isRedeeming"
               :loading="isRedeeming"
               @click="acceptInvite"
             >
-              {{ t("jskit.workspaces.inviteLanding.accept") }}
+              {{ choice === "joinAs" ? t("jskit.workspaces.inviteLanding.joinAs", { email: authEmail }) : t("jskit.workspaces.inviteLanding.accept") }}
+            </v-btn>
+            <v-btn
+              v-if="choice !== 'accept'"
+              :variant="choice === 'invitedAddressOnly' ? 'flat' : 'outlined'"
+              :color="choice === 'invitedAddressOnly' ? 'primary' : 'secondary'"
+              :href="switchAccountUrl"
+            >
+              {{ t("jskit.workspaces.inviteLanding.useDifferentAccount") }}
             </v-btn>
           </div>
 
@@ -68,6 +93,7 @@ import {
   WORKSPACE_INVITE_REDEEM_TRANSPORT
 } from "@jskit-ai/workspaces-core/shared/jsonApiTransports";
 import { httpWebClient } from "@jskit-ai/http-web/client/lib/httpClient";
+import { inviteLandingChoice, inviteRedeemPayload } from "../lib/inviteLandingChoice.js";
 import { useJskitText } from "../i18n.js";
 
 const { t } = useJskitText();
@@ -119,9 +145,12 @@ const loadError = computed(() => inviteResource.loadError.value);
 const isRedeeming = computed(() => Boolean(redeemResource.isSaving.value));
 const redeemError = computed(() => redeemResource.saveError.value);
 const isTerminal = computed(() => ["expired", "accepted", "revoked", "not_found"].includes(status.value));
-const emailMismatch = computed(() =>
-  Boolean(isAuthenticated.value && inviteEmail.value && authEmail.value && inviteEmail.value !== authEmail.value)
-);
+const choice = computed(() => inviteLandingChoice({
+  authenticated: isAuthenticated.value,
+  authEmail: authEmail.value,
+  inviteEmail: inviteEmail.value,
+  requiresSameEmail: invite.value.requiresSameEmail
+}));
 const terminalTitle = computed(() => {
   if (status.value === "expired") {
     return t("jskit.workspaces.inviteLanding.expiredTitle");
@@ -148,6 +177,8 @@ const terminalMessage = computed(() => {
 });
 const loginUrl = computed(() => buildAuthUrl("login"));
 const registerUrl = computed(() => buildAuthUrl("register"));
+// Signing out comes back to sign-in, then here.
+const switchAccountUrl = computed(() => `/auth/signout?${new URLSearchParams({ returnTo: invitePath.value }).toString()}`);
 
 function buildAuthUrl(mode) {
   const params = new URLSearchParams({
@@ -166,14 +197,11 @@ async function refreshInvite() {
 }
 
 async function acceptInvite() {
-  if (!token.value || emailMismatch.value || isRedeeming.value) {
+  if (!token.value || isRedeeming.value || !["accept", "joinAs"].includes(choice.value)) {
     return;
   }
 
-  await redeemResource.save({
-    token: token.value,
-    decision: "accept"
-  });
+  await redeemResource.save(inviteRedeemPayload({ choice: choice.value, token: token.value, authEmail: authEmail.value }));
   await authStore.refresh();
   const workspaceSlug = String(workspace.value.slug || "").trim();
   if (workspaceSlug) {

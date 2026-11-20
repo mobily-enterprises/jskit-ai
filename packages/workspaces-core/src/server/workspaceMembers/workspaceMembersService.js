@@ -105,6 +105,7 @@ function createService({
       status: normalizeLowerText(member.status || "active") || "active",
       displayName: normalizeText(member.displayName),
       email: normalizeLowerText(member.email),
+      invitedEmail: normalizeLowerText(member.invitedEmail),
       isOwner: userId === normalizeRecordId(workspace.ownerUserId, { fallback: "" }) || roleSid === OWNER_ROLE_ID
     };
   }

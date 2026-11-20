@@ -67,6 +67,13 @@ export async function verifyInvitationTransactions(t, db) {
     }
   })]);
   const { workspaces, memberships } = createWorkspaceRecords(resources);
+  // The pending invitations service's other collaborators, where only the invited address accepts (no anyAccount).
+  const INVITED_ADDRESS_ONLY = Object.freeze({
+    workspacesRepository: workspaces,
+    workspaceSettingsRepository: { async findInvitesRequireSameEmail() { return true; } },
+    invitationsAnyAccount: false,
+    async notifyInviter() {}
+  });
   const invites = invitesRepository({ workspaceInvites: resources.workspaceInvites, workspaces });
   const roleCatalog = createWorkspaceRoleCatalog({ roleCatalog: {
     workspace: { defaultInviteRole: "member" },
@@ -109,7 +116,8 @@ export async function verifyInvitationTransactions(t, db) {
     let participant = noInviteAcceptanceParticipant;
     const pending = pendingService({
       workspaceInvitesRepository: inviteRepository, workspaceMembershipsRepository: memberships, roleCatalog: createWorkspaceRoleCatalog(),
-      acceptanceParticipant: (...args) => participant(...args)
+      acceptanceParticipant: (...args) => participant(...args),
+      ...INVITED_ADDRESS_ONLY
     });
     const options = { context: { actor: user, channel: "api", permissions: ["workspace.members.invite"] } };
     const payload = { email: user.email, roleSid: "member" };
@@ -321,7 +329,8 @@ export async function verifyInvitationTransactions(t, db) {
       let called = false;
       const pending = pendingService({
         workspaceInvitesRepository: invites, workspaceMembershipsRepository: memberships, roleCatalog: createWorkspaceRoleCatalog(),
-        acceptanceParticipant: async () => { called = true; }
+        acceptanceParticipant: async () => { called = true; },
+        ...INVITED_ADDRESS_ONLY
       });
       const membershipBefore = await memberships.findByWorkspaceIdAndUserId(f.workspace.id, f.user.id);
       await assert.rejects(pending.acceptInviteByToken({
@@ -330,7 +339,7 @@ export async function verifyInvitationTransactions(t, db) {
       }), (error) => [401, 403, 404, 409].includes(error.status));
       assert.equal(called, false);
       assert.deepEqual(await memberships.findByWorkspaceIdAndUserId(f.workspace.id, f.user.id), membershipBefore);
-      if (state === "expired") assert.equal((await f.invitation(prepared)).status, "revoked");
+      if (state === "expired") assert.equal((await f.invitation(prepared)).status, "expired");
     });
   }
 
@@ -472,7 +481,8 @@ export async function verifyInvitationTransactions(t, db) {
           if (acceptanceWins && competitor === "replace") assert.equal(loser.status, "fulfilled", loser.reason?.stack);
           else {
             assert.equal(loser.status, "rejected");
-            assert.equal(loser.reason.status, 404, loser.reason.stack);
+            // A replaced invitation is stored expired, and redeeming it says so.
+            assert.equal(loser.reason.status, competitor === "replace" ? 409 : 404, loser.reason.stack);
           }
           assert.notEqual(connections[0], connections[1], "Competing units own independent database connections");
           assert.equal(participation, acceptanceWins ? 1 : 0);

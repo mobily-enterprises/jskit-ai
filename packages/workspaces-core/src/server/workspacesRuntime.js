@@ -14,6 +14,7 @@ import { createWorkspaceMemberContexts } from "./common/services/workspaceMember
 import { createWorkspacesServerI18n } from "./i18n.js";
 import { createWorkspaceInviteUrlBuilder } from "./workspaceMembers/workspaceInviteUrls.js";
 import { createService as createWorkspaceMembersService } from "./workspaceMembers/workspaceMembersService.js";
+import { createInviterNotice } from "./workspacePendingInvitations/inviterNotice.js";
 import { createService as createWorkspacePendingInvitationsService } from "./workspacePendingInvitations/workspacePendingInvitationsService.js";
 import { createRepository as createWorkspaceSettingsRepository } from "./workspaceSettings/workspaceSettingsRepository.js";
 import { createService as createWorkspaceSettingsService } from "./workspaceSettings/workspaceSettingsService.js";
@@ -101,6 +102,10 @@ function createWorkspaceDirectory({
       config?.workspaceSettings?.defaults?.invitesEnabled,
       "runtime.config.workspaceSettings.defaults.invitesEnabled"
     ),
+    defaultInvitesRequireSameEmail: requireBoolean(
+      config?.workspaceSettings?.defaults?.invitesRequireSameEmail ?? false,
+      "runtime.config.workspaceSettings.defaults.invitesRequireSameEmail"
+    ),
     defaultColorSettings: requireWorkspaceColorDefaults(config?.workspaceSettings?.defaults)
   });
   const workspaceService = createWorkspaceService({
@@ -133,6 +138,7 @@ function createWorkspaceDirectory({
  * @param {import("./types.js").WorkspaceInviteMailer} dependencies.inviteMailer
  * @param {import("./types.js").WorkspaceInviteEmailTemplate} dependencies.inviteEmailTemplate
  * @param {import("./types.js").WorkspaceInviteAcceptanceParticipant} dependencies.inviteAcceptanceParticipant
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} dependencies.logger
  * @param {import("./types.js").PersonalWorkspaceName} dependencies.personalWorkspaceName
  * @param {import("./types.js").WorkspacesResources} dependencies.resources The handles of the tables `workspaces.core` owns.
  * @param {import("@jskit-ai/users-core/server/types").UsersProfiles} dependencies.userProfiles
@@ -148,6 +154,7 @@ function createWorkspacesRuntime({
   inviteMailer,
   inviteEmailTemplate,
   inviteAcceptanceParticipant,
+  logger,
   personalWorkspaceName,
   resources,
   userProfiles,
@@ -168,6 +175,7 @@ function createWorkspacesRuntime({
   const { tenancyProfile, roleCatalog, workspaceSettingsRepository, workspaceService } = directory;
   const invitationsPolicy = resolveWorkspaceInvitationsPolicy({ appConfig: config, tenancyProfile });
   const invitationsEnabled = invitationsPolicy.enabled === true;
+  const i18n = createWorkspacesServerI18n({ appRoot });
   const workspaceInvitesRepository = createWorkspaceInvitesRepository({
     workspaceInvites: resources.workspaceInvites,
     workspaces: workspacesRepository
@@ -175,13 +183,18 @@ function createWorkspacesRuntime({
   const workspacePendingInvitationsService = createWorkspacePendingInvitationsService({
     workspaceInvitesRepository,
     workspaceMembershipsRepository,
+    workspacesRepository,
+    workspaceSettingsRepository,
     roleCatalog,
-    acceptanceParticipant: inviteAcceptanceParticipant
+    acceptanceParticipant: inviteAcceptanceParticipant,
+    invitationsAnyAccount: invitationsPolicy.anyAccount,
+    notifyInviter: createInviterNotice({ inviteMailer, userProfiles, userSettings, i18n, logger })
   });
   const workspaceMembersService = createWorkspaceMembersService({
     workspaceMembershipsRepository,
     workspaceMemberPagesRepository: createWorkspaceMemberPagesRepository({
       workspaceMemberships: resources.workspaceMemberships,
+      workspaceInvites: resources.workspaceInvites,
       userProfiles
     }),
     workspaceInvitesRepository,
@@ -194,13 +207,14 @@ function createWorkspacesRuntime({
     inviteUrlBuilder: createWorkspaceInviteUrlBuilder({ appConfig: config, env }),
     workspaceInviteMailer: inviteMailer,
     workspaceInviteEmailTemplate: inviteEmailTemplate,
-    i18n: createWorkspacesServerI18n({ appRoot }),
+    i18n,
     userProfilesRepository: userProfiles,
     userSettingsRepository: userSettings
   });
   const workspaceSettingsService = createWorkspaceSettingsService({
     workspaceSettingsRepository,
     workspaceInvitationsEnabled: invitationsEnabled,
+    workspaceInvitationsAnyAccount: invitationsPolicy.anyAccount,
     roleCatalog
   });
 

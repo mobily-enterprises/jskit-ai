@@ -20,6 +20,36 @@ async function noRefreshedSession() {
   return null;
 }
 
+// How long completing a provider's sign-in may take, the server's exchange with the provider and the session read
+// together, before the page says so and offers to start again; without it a provider or network that never answers
+// left the sign-in page loading for ever.
+const OAUTH_COMPLETE_TIMEOUT_MS = 20_000;
+
+class OAuthCompleteTimeout extends Error {}
+
+/**
+ * Runs `work(signal)`, aborting its signal and rejecting with OAuthCompleteTimeout once `timeoutMs` has passed.
+ * @template T
+ * @param {number} timeoutMs
+ * @param {(signal: AbortSignal) => Promise<T>} work
+ * @returns {Promise<T>}
+ */
+async function withinTimeLimit(timeoutMs, work) {
+  const controller = new AbortController();
+  let timer;
+  const expired = new Promise((_resolve, reject) => {
+    timer = setTimeout(() => {
+      controller.abort();
+      reject(new OAuthCompleteTimeout());
+    }, timeoutMs);
+  });
+  try {
+    return await Promise.race([work(controller.signal), expired]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 // The params of a sign-in error the server explained by redirect (error_params).
 function readErrorParams(value = "") {
   try {
@@ -103,7 +133,8 @@ async function completeOAuthCallbackFromUrl({
   allowedReturnToOrigins = [],
   defaultProvider = "",
   request = authHttpRequest,
-  refreshSession = noRefreshedSession
+  refreshSession = noRefreshedSession,
+  timeoutMs = OAUTH_COMPLETE_TIMEOUT_MS
 } = {}) {
   const callbackParams = readOAuthCallbackParamsFromUrl(url);
   if (!callbackParams) {
@@ -163,11 +194,10 @@ async function completeOAuthCallbackFromUrl({
       t("jskit.auth.oauth.invalidCallback")
     );
 
-    const oauthResult = await request(AUTH_PATHS.OAUTH_COMPLETE, {
-      method: "POST",
-      body: payload
+    const { oauthResult, session } = await withinTimeLimit(timeoutMs, async (signal) => {
+      const completed = await request(AUTH_PATHS.OAUTH_COMPLETE, { method: "POST", body: payload, signal });
+      return { oauthResult: completed, session: await refreshSession() };
     });
-    const session = await refreshSession();
     if (!session?.authenticated) {
       throw new Error(inactiveSessionMessage(session));
     }
@@ -184,12 +214,18 @@ async function completeOAuthCallbackFromUrl({
       session
     });
   } catch (error) {
+    const timedOut = error instanceof OAuthCompleteTimeout;
     return Object.freeze({
       handled: true,
       completed: false,
+      // The sign-in took too long: the page offers to start it again with the same provider.
+      timedOut,
+      provider,
       returnTo,
       callbackParams,
-      errorMessage: serverMessage(error, t("jskit.auth.login.error.oauthCompleteFailed"))
+      errorMessage: timedOut
+        ? t("jskit.auth.login.error.oauthCompleteTimedOut")
+        : serverMessage(error, t("jskit.auth.login.error.oauthCompleteFailed"))
     });
   }
 }
@@ -202,6 +238,7 @@ async function completeOAuthCallbackFromCurrentLocation(options = {}) {
 }
 
 export {
+  OAUTH_COMPLETE_TIMEOUT_MS,
   completeOAuthCallbackFromCurrentLocation,
   completeOAuthCallbackFromUrl,
   readOAuthCallbackParamsFromUrl

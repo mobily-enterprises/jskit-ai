@@ -75,6 +75,11 @@ export function useLoginViewState({ placementContext, fallbackReturnTo = "/", si
   const registrationConfirmPending = ref(false);
   const errorMessage = ref("");
   const infoMessage = ref("");
+  // The minutes password sign-in is paused for the typed email address, after the server refused it for too many
+  // failed attempts; 0 otherwise. The page then shows the other ways forward it offers.
+  const signInPausedMinutes = ref(0);
+  // The provider of a sign-in that took too long to complete, offered to start again; "" otherwise.
+  const oauthRetryProvider = ref("");
   const pendingEmailConfirmationMessage = ref("");
   const pendingEmailConfirmationAddress = ref("");
   // In development without an email sender, the confirmation link itself.
@@ -166,6 +171,8 @@ export function useLoginViewState({ placementContext, fallbackReturnTo = "/", si
   function clearTransientMessages() {
     errorMessage.value = "";
     infoMessage.value = "";
+    signInPausedMinutes.value = 0;
+    oauthRetryProvider.value = "";
   }
 
   function resetTransientValidationState() {
@@ -340,6 +347,8 @@ export function useLoginViewState({ placementContext, fallbackReturnTo = "/", si
     registrationConfirmPending,
     errorMessage,
     infoMessage,
+    signInPausedMinutes,
+    oauthRetryProvider,
     pendingEmailConfirmationMessage,
     pendingEmailConfirmationAddress,
     confirmationUrl,

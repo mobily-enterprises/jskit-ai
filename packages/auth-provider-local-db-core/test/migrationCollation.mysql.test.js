@@ -161,6 +161,7 @@ test("a database the released migrations left half-migrated recovers on the next
   // The state the refused key left, as dogandgroom's database measured it.
   assert.deepEqual(await recorded(knex), [
     ...EARLY,
+    "auth_local_db_oauth_invitation.cjs",
     "auth_local_db_sessions_metadata.cjs",
     "auth_local_db_used_passes.cjs",
     "auth_local_db_users_disabled_message.cjs",

@@ -69,7 +69,8 @@ test("completeOAuthCallbackFromUrl exchanges code callbacks and refreshes the se
   assert.equal(result.handled, true);
   assert.equal(result.completed, true);
   assert.equal(result.returnTo, "/w/acme");
-  assert.deepEqual(calls, [
+  assert.ok(calls[0]?.options.signal instanceof AbortSignal, "the completion request can be abandoned");
+  assert.deepEqual(calls.map(({ path, options: { signal: _signal, ...options } }) => ({ path, options })), [
     {
       path: "/api/oauth/complete",
       options: {
@@ -257,4 +258,43 @@ test("completeOAuthCallbackFromUrl forwards state and iss, and takes the page fr
   assert.deepEqual(calls, [{ provider: "oidc", code: "abc", state: "st-1", iss: "https://accounts.example.test" }]);
   assert.equal(result.completed, true);
   assert.equal(result.returnTo, "/reports");
+});
+
+test("completeOAuthCallbackFromUrl stops a completion that takes too long, the request or the session read, and says so", async () => {
+  const never = (signal) => new Promise((_resolve, reject) => signal?.addEventListener("abort", () => reject(signal.reason)));
+  const url = "/auth/login?oauthProvider=google&oauthReturnTo=%2Fw%2Facme&code=abc";
+  let requestSignal = null;
+
+  const hungRequest = await completeOAuthCallbackFromUrl({
+    url,
+    timeoutMs: 20,
+    request: async (_path, options) => {
+      requestSignal = options.signal;
+      return never(options.signal);
+    },
+    refreshSession: async () => ({ authenticated: true })
+  });
+  const hungSession = await completeOAuthCallbackFromUrl({
+    url,
+    timeoutMs: 20,
+    request: async () => ({ email: "ada@example.com" }),
+    refreshSession: () => never(null)
+  });
+
+  for (const result of [hungRequest, hungSession]) {
+    assert.equal(result.handled, true);
+    assert.equal(result.completed, false);
+    assert.equal(result.timedOut, true);
+    assert.equal(result.provider, "google");
+    assert.equal(result.returnTo, "/w/acme");
+    assert.equal(result.errorMessage, "Signing in with the provider took too long, so it was stopped. Try again.");
+  }
+  assert.equal(requestSignal.aborted, true, "the request is abandoned at the limit");
+
+  const refused = await completeOAuthCallbackFromUrl({
+    url,
+    timeoutMs: 1000,
+    request: async () => { throw new Error("This sign-in took too long or started in another browser. Start again."); }
+  });
+  assert.equal(refused.timedOut, false, "a refusal in time is not a time-out");
 });

@@ -80,4 +80,4 @@ function renderDefaultWorkspaceInviteEmail({
   };
 }
 
-export { formatInviteExpiry, renderDefaultWorkspaceInviteEmail };
+export { escapeHtml, formatInviteExpiry, renderDefaultWorkspaceInviteEmail };

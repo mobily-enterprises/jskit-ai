@@ -5,7 +5,7 @@ import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
 import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/kernel/shared/support/normalize";
 import { WORKSPACE_PATCH_FIELD_KEYS } from "../../../shared/resources/workspaceResource.js";
 import { listCatalogRolePermissions } from "../../../shared/roles.js";
-import { TENANCY_MODE_NONE } from "../../../shared/tenancyProfile.js";
+import { TENANCY_MODE_NONE, WORKSPACE_AUTO_PROVISION_UNLESS_MEMBER } from "../../../shared/tenancyProfile.js";
 import { mapWorkspaceSummary } from "../formatters/workspaceFormatter.js";
 
 const WORKSPACE_SLUG_CANDIDATE_LIMIT = 1000;
@@ -193,13 +193,30 @@ function createService({
     return returnJsonApiData({ items: await listWorkspacesForUser(user, options), nextCursor: null });
   }
 
-  async function ensureProvisionedWorkspaceForAuthenticatedUser(user, options = {}) {
+  /**
+   * The signed-in user's personal workspace, made when missing, as `tenancyPolicy.workspace.autoProvision` says:
+   * always with `true`, never with `false` (null). With "unless-member" only for a user who is no active member of
+   * any workspace and whose sign-in carries no invitation naming a workspace (`signIn.invitation`, as the auth
+   * invitation context resolver resolved it): a person joining a workspace by an invitation gets no workspace of
+   * their own (null).
+   * @param {{ id?: unknown } | null} user
+   * @param {object} [options]
+   * @param {{ invitation?: { workspaceId?: string } | null }} [signIn]
+   */
+  async function ensureProvisionedWorkspaceForAuthenticatedUser(user, options = {}, { invitation = null } = {}) {
     const normalizedUserId = normalizeRecordId(user?.id, { fallback: null });
     if (!normalizedUserId) {
       throw new AppError(400, "Invalid authenticated user payload.", { code: "workspaces.user.invalidPayload" });
     }
 
-    if (workspacePolicy.autoProvision !== true) {
+    if (workspacePolicy.autoProvision === WORKSPACE_AUTO_PROVISION_UNLESS_MEMBER) {
+      if (normalizeRecordId(invitation?.workspaceId, { fallback: null })) {
+        return null;
+      }
+      if (await workspaceMembershipsRepository.hasActiveMembership(normalizedUserId, options)) {
+        return null;
+      }
+    } else if (workspacePolicy.autoProvision !== true) {
       return null;
     }
 
@@ -207,6 +224,18 @@ function createService({
       ...user,
       id: normalizedUserId
     }, options);
+  }
+
+  /**
+   * Deletes a workspace, in the caller's transaction when `options` carries one: its row, and through the database's
+   * cascades its memberships, settings and invites. False when there was no such workspace, true otherwise. Like
+   * transferOwnership it publishes no event, and it runs no participant: the caller decides when a workspace may go.
+   * @param {unknown} workspaceId
+   * @param {object} [options]
+   * @returns {Promise<boolean>}
+   */
+  async function deleteWorkspace(workspaceId, options = {}) {
+    return workspacesRepository.deleteById(workspaceId, options);
   }
 
   /**
@@ -396,6 +425,7 @@ function createService({
   return Object.freeze({
     ensurePersonalWorkspaceForUser,
     ensureProvisionedWorkspaceForAuthenticatedUser,
+    deleteWorkspace,
     createWorkspaceForAuthenticatedUser,
     getWorkspaceForAuthenticatedUser,
     updateWorkspaceForAuthenticatedUser,

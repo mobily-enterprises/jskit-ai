@@ -138,8 +138,14 @@ that email must wait 30 seconds before its next attempt; each further failure
 doubles the wait, up to an hour (NIST SP 800-63B's example). While it waits,
 sign-in is refused, even with the right password, with status 429, the code
 `auth.local.login.locked` (`params.count` minutes, `params.retryAfterSeconds`)
-and `Retry-After`. Emails without an account are counted the same way, so the
-wait says nothing about which accounts exist. A successful sign-in forgets the
+and `Retry-After`: "Password sign-in for this email address is paused for 2
+minutes after too many failed attempts. Try again after that." Emails without an
+account are counted the same way, and the refusal names the email address,
+never an account, so the wait says nothing about which accounts exist.
+`DefaultLoginView` then shows the wait and, beside it, the other ways forward
+the app offers: **Reset your password** where password recovery is set up,
+**Create an account** where registration is open to this visitor, and its
+provider buttons where providers are configured. A successful sign-in forgets the
 failures, and so does a day without one. Waits are temporary and password
 recovery is never blocked: completing a password reset ends the wait, so an
 attacker who keeps an account waiting cannot keep its owner out. The failures
@@ -876,6 +882,15 @@ Security behavior:
   email claim is refused.
 - `returnTo` must be on the application's own origin; anything else returns to
   `/`.
+- A sign-in started from an invitation (`invitationToken` on
+  `GET /api/oauth/:provider/start`, which `DefaultLoginView` sends when its
+  address has one) keeps the token with its attempt. At the end the invitation
+  context resolver (workspace invitations, for example) resolves it for the
+  signed-in account, and profile synchronization receives the result, as a
+  registration's invitation is received, so provisioning knows the account came
+  from an invitation. An invitation the resolver refuses (used, expired,
+  withdrawn, or for another address where that matters) never fails the
+  sign-in, which continues as one with no invitation.
 
 A sign-in matches the provider subject first. Otherwise a verified email that
 matches an existing user signs that user in and links the provider identity,
@@ -938,6 +953,18 @@ opens sign-in without one, so that landing applies after it too. A browser the
 shell found signed in at boot is shown no form: the page checks the session
 again and sends it on, and shows the form only if the session has ended. A
 confirmation link or a provider's callback still shows its own state.
+
+A provider sign-in returns to the one fixed `/auth/login` address, with
+neither the page asked for nor the invitation. `DefaultLoginView` therefore
+keeps `{ provider, returnTo, invitationToken }` in the starting tab's session
+storage when it starts one, and reads it back on the callback. After a Cancel
+at the provider or a failed sign-in, the page still returns to that page and
+keeps the invitation, so starting again goes where the first attempt meant to
+go. Where the browser refuses storage, sign-in works as before, without that
+way back. Completing the callback (`POST /api/oauth/complete` and the session
+read after it) is limited to 20 seconds. Past that, the page stops it, says
+"Signing in with the provider took too long, so it was stopped. Try again.",
+and offers **Try again with** the same provider, to the same page.
 
 Never restyle the views' own classes (`.login-screen`, `.auth-card`) or wrap
 them in a frame of the app's; the brand slot is the one way in.

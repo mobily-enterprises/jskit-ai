@@ -4,6 +4,8 @@ import { OWNER_ROLE_ID } from "../../../shared/roles.js";
 
 // A bulk read's users per query, so its "in" list stays well inside every database's limits.
 const USER_IDS_PER_QUERY = 1000;
+// A member summary's reads: the membership with its user and the invitation it was accepted through.
+const MEMBER_SUMMARY_INCLUDES = Object.freeze(["user", "acceptedInvite"]);
 
 function normalizeMembershipRecord(payload) {
   if (!payload) {
@@ -16,6 +18,7 @@ function normalizeMembershipRecord(payload) {
     userId: normalizeDbRecordId(payload?.user?.id || payload?.userId, { fallback: null }),
     roleSid: normalizeLowerText(payload.roleSid || "member") || "member",
     status: normalizeLowerText(payload.status || "active") || "active",
+    acceptedInviteId: normalizeDbRecordId(payload?.acceptedInvite?.id || payload?.acceptedInviteId, { fallback: null }),
     createdAt: payload.createdAt ? toIsoString(payload.createdAt) : null,
     updatedAt: payload.updatedAt ? toIsoString(payload.updatedAt) : null
   };
@@ -26,16 +29,20 @@ function normalizeMemberSummaryRow(row) {
     return null;
   }
 
+  const email = normalizeLowerText(row.email);
+  const invitedEmail = normalizeLowerText(row.invited_email);
   return {
     userId: normalizeDbRecordId(row.user_id, { fallback: "" }),
     roleSid: normalizeLowerText(row.role_sid || "member") || "member",
     status: normalizeLowerText(row.status || "active") || "active",
     displayName: normalizeText(row.display_name),
-    email: normalizeLowerText(row.email)
+    email,
+    // The address of the invitation the member last joined through, when it is not their account's email.
+    invitedEmail: invitedEmail === email ? "" : invitedEmail
   };
 }
 
-// A membership read with its user included, as a member summary.
+// A membership read with its user and the invitation it was accepted through included, as a member summary.
 function memberSummaryFromMembership(row) {
   if (!row) {
     return null;
@@ -46,7 +53,8 @@ function memberSummaryFromMembership(row) {
     role_sid: row.roleSid,
     status: row.status,
     display_name: row.user?.displayName,
-    email: row.user?.email
+    email: row.user?.email,
+    invited_email: row.acceptedInvite?.email
   });
 }
 
@@ -140,13 +148,20 @@ function createRepository({ workspaceMemberships }) {
     const existing = await findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     const roleSid = normalizeLowerText(patch?.roleSid ?? existing?.roleSid) || "member";
     const status = normalizeLowerText(patch?.status ?? existing?.status) || "active";
+    // The invitation an acceptance makes the membership through, which replaces the one it was accepted through before.
+    const acceptedInvite = patch?.acceptedInviteId === undefined
+      ? {}
+      : { acceptedInviteId: normalizeRecordId(patch.acceptedInviteId, { fallback: null }) };
 
     if (!existing) {
-      await createMembership({ roleSid, status, workspaceId: normalizedWorkspaceId, userId: normalizedUserId }, options);
+      await createMembership(
+        { roleSid, status, ...acceptedInvite, workspaceId: normalizedWorkspaceId, userId: normalizedUserId },
+        options
+      );
       return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
     }
 
-    await patchMembership(existing.id, { roleSid, status }, options);
+    await patchMembership(existing.id, { roleSid, status, ...acceptedInvite }, options);
     return findByWorkspaceIdAndUserId(normalizedWorkspaceId, normalizedUserId, options);
   }
 
@@ -186,7 +201,7 @@ function createRepository({ workspaceMemberships }) {
       return [];
     }
 
-    const rows = await queryMemberships({ workspace: normalizedWorkspaceId, ...filters }, options, { include: ["user"] });
+    const rows = await queryMemberships({ workspace: normalizedWorkspaceId, ...filters }, options, { include: MEMBER_SUMMARY_INCLUDES });
     const members = rows.map(memberSummaryFromMembership).filter(Boolean);
 
     members.sort((left, right) => String(left.displayName || "").localeCompare(String(right.displayName || "")));
@@ -224,7 +239,7 @@ function createRepository({ workspaceMemberships }) {
         status: "active"
       },
       options,
-      { include: ["user"] }
+      { include: MEMBER_SUMMARY_INCLUDES }
     );
 
     return memberSummaryFromMembership(rows[0] || null);
@@ -240,6 +255,20 @@ function createRepository({ workspaceMemberships }) {
     return rows
       .map((row) => normalizeDbRecordId(row.workspaceId, { fallback: null }))
       .filter(Boolean);
+  }
+
+  // Whether the user is an active member of any workspace, in one read of at most one membership.
+  async function hasActiveMembership(userId, options = {}) {
+    const normalizedUserId = normalizeRecordId(userId, { fallback: null });
+    if (!normalizedUserId) {
+      return false;
+    }
+
+    const { records } = await workspaceMemberships.query(
+      { filters: { user: normalizedUserId, status: "active" }, fields: ["status"], page: { size: 1 } },
+      options
+    );
+    return records.length > 0;
   }
 
   /**
@@ -318,7 +347,8 @@ function createRepository({ workspaceMemberships }) {
     findActiveByWorkspaceIdAndUserId,
     listActiveWorkspaceIdsByUserId,
     listActiveWorkspaceIdsByUserIds,
-    listActiveWorkspaceIdsByUserIdsAmong
+    listActiveWorkspaceIdsByUserIdsAmong,
+    hasActiveMembership
   });
 }
 

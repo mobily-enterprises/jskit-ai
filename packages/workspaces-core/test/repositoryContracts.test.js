@@ -41,6 +41,7 @@ const repositoryFactories = {
   settings: (handle) => createWorkspaceSettingsRepository({
     workspaceSettings: handle,
     defaultInvitesEnabled: true,
+    defaultInvitesRequireSameEmail: false,
     defaultColorSettings: {}
   })
 };

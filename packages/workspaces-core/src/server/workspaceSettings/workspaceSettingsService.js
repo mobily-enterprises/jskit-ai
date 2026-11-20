@@ -8,9 +8,11 @@ import { cloneWorkspaceRoleCatalog } from "../../shared/roles.js";
  * @param {object} dependencies
  * @param {import("../types.js").WorkspaceSettingsRepository} dependencies.workspaceSettingsRepository
  * @param {boolean} dependencies.workspaceInvitationsEnabled
+ * @param {boolean} dependencies.workspaceInvitationsAnyAccount Whether a workspace may let any account accept its
+ *   invitations (config.workspaceInvitations.anyAccount).
  * @param {import("../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
  */
-function createService({ workspaceSettingsRepository, workspaceInvitationsEnabled, roleCatalog }) {
+function createService({ workspaceSettingsRepository, workspaceInvitationsEnabled, workspaceInvitationsAnyAccount, roleCatalog }) {
   async function readWorkspaceSettings(workspace, options = {}) {
     const settingsRecord = await workspaceSettingsRepository.ensureForWorkspaceId(workspace.id, {
       ...options,
@@ -24,6 +26,9 @@ function createService({ workspaceSettingsRepository, workspaceInvitationsEnable
     settings.invitesEnabled = invitesEnabled;
     settings.invitesAvailable = workspaceInvitationsEnabled;
     settings.invitesEffective = invitesEnabled;
+    // Without anyAccount only the invited address accepts, whatever the workspace saved.
+    settings.invitesRequireSameEmail = !workspaceInvitationsAnyAccount || settings.invitesRequireSameEmail === true;
+    settings.invitesAnyAccountAvailable = workspaceInvitationsAnyAccount;
 
     return {
       workspace: {

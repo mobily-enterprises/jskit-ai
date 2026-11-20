@@ -51,6 +51,15 @@ Exports
 - `stripOAuthParamsFromLocation()`
 - `readOAuthCallbackParamsFromLocation()`
 
+### `src/client/composables/loginView/oauthStartStorage.js`
+Exports
+- `OAUTH_START_KEY`
+- `forgetOAuthStart()`
+- `readOAuthStart()`
+- `rememberOAuthStart({ provider, returnTo, invitationToken = "" })`
+Local functions
+- `tabStorage()`
+
 ### `src/client/composables/loginView/registerCompletion.js`
 Exports
 - `resolveRegisterCompletionState(registerResult)`
@@ -235,11 +244,13 @@ Local functions
 
 ### `src/client/runtime/oauthCallbackRuntime.js`
 Exports
+- `OAUTH_COMPLETE_TIMEOUT_MS`
 - `completeOAuthCallbackFromCurrentLocation(options = {})`
-- `completeOAuthCallbackFromUrl({ url = "", fallbackReturnTo = "/", allowedReturnToOrigins = [], defaultProvider = "", request = authHttpRequest, refreshSession = noRefreshedSession } = {})`
+- `completeOAuthCallbackFromUrl({ url = "", fallbackReturnTo = "/", allowedReturnToOrigins = [], defaultProvider = "", request = authHttpRequest, refreshSession = noRefreshedSession, timeoutMs = OAUTH_COMPLETE_TIMEOUT_MS } = {})`
 - `readOAuthCallbackParamsFromUrl(url = "")`
 Local functions
 - `noRefreshedSession()`
+- `withinTimeLimit(timeoutMs, work)`
 - `readErrorParams(value = "")`
 - `buildOAuthCompletePayload({ callbackParams = null, provider = "", hasSessionPair = false } = {})`
 
@@ -341,6 +352,7 @@ Exports
 Exports
 - None
 Local functions
+- `oauthProviderName(providerId)`
 - `togglePasswordVisibility()`
 - `toggleConfirmPasswordVisibility()`
 

@@ -43,6 +43,8 @@ const invitationResolveOutputSchema = createSchema({
   roleSid: { type: "string", required: true },
   roleLabel: { type: "string", required: false },
   expiresAt: { type: "string", required: false, nullable: true, minLength: 1 },
+  // False when any signed-in account may accept the invitation, confirming first when its email is another.
+  requiresSameEmail: { type: "boolean", required: true },
   workspace: {
     type: "object",
     required: true,

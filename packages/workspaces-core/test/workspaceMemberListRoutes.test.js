@@ -20,7 +20,7 @@ const config = Object.freeze({
   appPublicUrl: "http://localhost:5173",
   tenancyMode: "workspaces",
   tenancyPolicy: { workspace: { allowSelfCreate: true } },
-  workspaceInvitations: { enabled: true },
+  workspaceInvitations: { enabled: true, anyAccount: true },
   workspaceMembers: { defaults: { inviteExpiresInMs: 86400000 } },
   workspaceSettings: { defaults: { invitesEnabled: true } },
   surfaceDefaultId: "app",
@@ -87,7 +87,13 @@ async function membersApp(t) {
   const workspace = await workspaces.services.directory.ensurePersonalWorkspaceForUser(owner);
   await workspaces.services.directory.ensurePersonalWorkspaceForUser(outsider);
   await memberships.addMember({ workspaceId: workspace.id, userId: member.id });
-  await memberships.addMember({ workspaceId: workspace.id, userId: guest.id, roleSid: "guest" });
+  // The guest joined through an invitation sent to another of their addresses.
+  const guestInvite = await workspaces.services.members.createInvite(workspace, owner, { email: "guest.work@example.com", roleSid: "guest" });
+  await workspaces.services.pendingInvitations.acceptInviteByToken({
+    user: guest,
+    token: guestInvite.value.inviteTokenPreview,
+    acceptAs: guest.email
+  });
   for (const email of ["ivy@example.com", "jon@example.com", "kim@example.com"]) {
     await workspaces.services.members.createInvite(workspace, owner, { email, roleSid: "member" });
   }
@@ -130,6 +136,7 @@ test("the members list answers its first page and each next page through its rou
     for (const request of [page(20), page()]) {
       const all = listAttributes(await get(user, "members", request), "workspace-members", workspace);
       assert.deepEqual(displayNames(all), ["guest", "member", "owner"]);
+      assert.deepEqual(all.members.map(({ invitedEmail }) => invitedEmail), ["guest.work@example.com", "", ""]);
       assert.equal(all.nextCursor, null);
       assert.equal(all.workspace.slug, workspace.slug);
       assert.ok(all.roleCatalog.roles.length > 0);

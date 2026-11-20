@@ -8,10 +8,25 @@ import { normalizeLowerText, normalizeRecordId, normalizeText } from "@jskit-ai/
  * @param {object} dependencies
  * @param {import("../types.js").WorkspaceInvitesRepository} dependencies.workspaceInvitesRepository
  * @param {import("../types.js").WorkspaceMembershipsRepository} dependencies.workspaceMembershipsRepository
+ * @param {import("../types.js").WorkspacesRepository} dependencies.workspacesRepository
+ * @param {import("../types.js").WorkspaceSettingsRepository} dependencies.workspaceSettingsRepository
  * @param {import("../types.js").WorkspaceRoleCatalog} dependencies.roleCatalog
  * @param {import("../types.js").WorkspaceInviteAcceptanceParticipant} dependencies.acceptanceParticipant
+ * @param {boolean} dependencies.invitationsAnyAccount Whether any signed-in account may accept an invitation
+ *   (config.workspaceInvitations.anyAccount), unless its workspace requires the invited address.
+ * @param {(acceptance: import("../types.js").WorkspaceInviteAcceptance, options: object) => Promise<void>} dependencies.notifyInviter
+ *   Tells the inviter that another address accepted their invitation, after the acceptance committed.
  */
-function createService({ workspaceInvitesRepository, workspaceMembershipsRepository, roleCatalog, acceptanceParticipant }) {
+function createService({
+  workspaceInvitesRepository,
+  workspaceMembershipsRepository,
+  workspacesRepository,
+  workspaceSettingsRepository,
+  roleCatalog,
+  acceptanceParticipant,
+  invitationsAnyAccount,
+  notifyInviter
+}) {
   function roleLabelMetadata(roleSid) {
     const role = roleCatalog.roles.find((entry) => entry.id === (normalizeLowerText(roleSid || "member") || "member"));
     const label = typeof role?.label === "string" ? role.label.trim() : "";
@@ -19,10 +34,10 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
   }
 
   // Acceptance and refusal own their transaction (outermost): related writes belong in the acceptance participant.
-  async function withInviteTransaction(user, token, options, work) {
+  async function withInviteTransaction(user, token, decision, options, work) {
     // Locate outside the transaction to avoid a stale MySQL repeatable-read
     // snapshot. The callback validates again under the workspace/invite locks.
-    const initial = await requirePendingInviteForUserByToken(user, token, options);
+    const initial = await requirePendingInviteForUserByToken(user, token, decision, options);
     // work receives the locking options its repository reads take, and the transaction's own options.
     const result = await workspaceInvitesRepository.withTransaction({ ...options, outermost: true }, (txOptions) => work({
       ...txOptions,
@@ -30,11 +45,24 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
       workspaceId: initial.invite.workspaceId,
       inviteId: initial.invite.id
     }, txOptions));
-    // Commit expiry revocation before reporting the rejection.
+    // Commit the invitation's expiry before reporting the rejection.
     if (result.expired) {
-      throw Object.assign(new AppError(409, "Invitation has expired.", { code: "workspaces.invite.expired" }), { transactionOutcome: "committed" });
+      throw Object.assign(invitationExpiredError(), { transactionOutcome: "committed" });
     }
     return result;
+  }
+
+  function invitationExpiredError() {
+    return new AppError(409, "Invitation has expired.", { code: "workspaces.invite.expired" });
+  }
+
+  function sameEmail(left, right) {
+    return normalizeLowerText(left) === normalizeLowerText(right);
+  }
+
+  // Whether only the invitation's own address may accept it: always without anyAccount, else as its workspace says.
+  async function requiresSameEmail(workspaceId, options) {
+    return !invitationsAnyAccount || workspaceSettingsRepository.findInvitesRequireSameEmail(workspaceId, options);
   }
 
   function requireAuthenticatedInviteUser(user) {
@@ -94,6 +122,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
         maskedEmail: "",
         roleSid: "",
         expiresAt: null,
+        requiresSameEmail: true,
         workspace: {
           id: "",
           slug: "",
@@ -112,6 +141,7 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
       roleSid: normalizeLowerText(invite.roleSid || "member") || "member",
       ...roleLabelMetadata(invite.roleSid),
       expiresAt: invite.expiresAt || null,
+      requiresSameEmail: invite.requiresSameEmail,
       workspace: {
         id: normalizeRecordId(invite.workspaceId, { fallback: "" }),
         slug: normalizeText(invite.workspaceSlug),
@@ -144,21 +174,43 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     };
   }
 
-  async function requirePendingInviteForUserByToken(user, token, options = {}) {
+  /**
+   * The pending invitation the token names and the signed-in user who decides it. None is 404, or 409 expired for an
+   * invitation that expired. The invited address decides it; another account only accepts it, only with anyAccount
+   * and only where its workspace does not require the invited address (403 otherwise), and only once it confirmed it
+   * joins as itself: `acceptAs` is its own email (409 workspaces.invite.differentEmailUnconfirmed otherwise).
+   * @param {object} user
+   * @param {string} token
+   * @param {{ decision: "accept" | "refuse", acceptAs?: string }} decision
+   * @param {object} [options]
+   */
+  async function requirePendingInviteForUserByToken(user, token, { decision, acceptAs }, options = {}) {
     const actor = requireAuthenticatedInviteUser(user);
     const tokenHash = requireInviteTokenHash(token);
 
     const invite = await workspaceInvitesRepository.findPendingByTokenHash(tokenHash, options);
     if (!invite) {
+      if ((await workspaceInvitesRepository.findByTokenHash(tokenHash, options))?.status === "expired") {
+        throw invitationExpiredError();
+      }
       throw new AppError(404, "Invitation not found or already handled.", {
         code: "workspaces.invite.invitationNotFoundOrHandled"
       });
     }
 
-    if (normalizeLowerText(invite.email) !== normalizeLowerText(actor.email)) {
-      throw new AppError(403, "Invitation email does not match authenticated user.", {
-        code: "workspaces.invite.emailMismatchUser"
-      });
+    if (!sameEmail(invite.email, actor.email)) {
+      if (decision !== "accept" || await requiresSameEmail(invite.workspaceId, options)) {
+        throw new AppError(403, "Invitation email does not match authenticated user.", {
+          code: "workspaces.invite.emailMismatchUser"
+        });
+      }
+      if (!sameEmail(acceptAs, actor.email)) {
+        const params = { email: normalizeLowerText(actor.email), maskedEmail: maskInviteEmail(invite.email) };
+        throw new AppError(409, `This invitation was sent to ${params.maskedEmail}. Confirm that you want to join as ${params.email}.`, {
+          code: "workspaces.invite.differentEmailUnconfirmed",
+          params
+        });
+      }
     }
 
     return {
@@ -188,19 +240,29 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     const tokenHash = requireInviteTokenHash(token);
     const invite = await workspaceInvitesRepository.findByTokenHashWithWorkspace(tokenHash, options);
 
-    return mapResolvedInvite(invite, token);
+    return mapResolvedInvite(
+      invite && { ...invite, requiresSameEmail: await requiresSameEmail(invite.workspaceId, options) },
+      token
+    );
   }
 
   async function resolveInviteByToken(token, options = {}) {
     return returnJsonApiData(await findInviteByToken(token, options));
   }
 
+  /**
+   * The invitation a registration or a sign-in carries, for the auth provider: refused when it is not pending, and
+   * when it was sent to another address unless any account may accept it there. Its `email` is always the
+   * invitation's own, so an account registering with another address still confirms it.
+   * @param {{ token: string, email: string }} invitation
+   * @param {object} [options]
+   */
   async function resolveInviteContextForAuth({ token, email }, options = {}) {
     const resolved = await findInviteByToken(token, options);
     if (resolved.status !== "pending") {
       throw new AppError(409, "Invitation is not available.", { code: "workspaces.invite.notAvailable" });
     }
-    if (normalizeLowerText(resolved.email) !== normalizeLowerText(email)) {
+    if (!sameEmail(resolved.email, email) && resolved.requiresSameEmail) {
       throw new AppError(403, "Invitation email does not match account email.", {
         code: "workspaces.invite.emailMismatchAccount"
       });
@@ -225,10 +287,10 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     return workspaceId;
   }
 
-  async function resolveInviteActionInput(user, token, options, methodName) {
-    const resolvedInvite = await requirePendingInviteForUserByToken(user, token, options);
+  async function resolveInviteActionInput(user, token, decision, options, methodName) {
+    const resolvedInvite = await requirePendingInviteForUserByToken(user, token, decision, options);
     if (resolvedInvite.invite.expiresAt && new Date(resolvedInvite.invite.expiresAt).getTime() < Date.now()) {
-      await workspaceInvitesRepository.revokeById(resolvedInvite.invite.id, options);
+      await workspaceInvitesRepository.markExpiredById(resolvedInvite.invite.id, options);
       return { expired: true };
     }
 
@@ -238,11 +300,47 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
     };
   }
 
-  async function acceptInviteByToken({ user, token }, options = {}) {
-    return withInviteTransaction(user, token, options, async (transactionOptions, txOptions) => {
+  // What an acceptance tells its participant and, when another address accepted, the inviter: the invitation and the
+  // user as read (the fields named here always), and the workspace they join.
+  function describeAcceptance(invite, user, workspace) {
+    return Object.freeze({
+      invite: Object.freeze({
+        ...invite,
+        id: normalizeRecordId(invite.id, { fallback: "" }),
+        email: normalizeLowerText(invite.email),
+        workspaceId: normalizeRecordId(invite.workspaceId, { fallback: "" }),
+        invitedByUserId: normalizeRecordId(invite.invitedByUserId, { fallback: null }),
+        roleSid: normalizeLowerText(invite.roleSid || "member") || "member"
+      }),
+      user: Object.freeze({
+        ...user,
+        id: normalizeRecordId(user.id, { fallback: "" }),
+        email: normalizeLowerText(user.email),
+        displayName: normalizeText(user.displayName)
+      }),
+      workspace: Object.freeze({
+        id: normalizeRecordId(workspace.id, { fallback: "" }),
+        slug: normalizeText(workspace.slug),
+        name: normalizeText(workspace.name || workspace.slug),
+        ownerUserId: normalizeRecordId(workspace.ownerUserId, { fallback: "" })
+      })
+    });
+  }
+
+  /**
+   * Accepts the invitation the token names for the signed-in user, in one transaction of its own: the membership,
+   * the acceptance participant's writes and the invitation's state commit or roll back together. When the user's
+   * email is not the invited one (see requirePendingInviteForUserByToken), the inviter is told once it committed.
+   * @param {{ user: object, token: string, acceptAs?: string }} input
+   * @param {object} [options]
+   */
+  async function acceptInviteByToken({ user, token, acceptAs }, options = {}) {
+    const decision = { decision: "accept", acceptAs };
+    const accepted = await withInviteTransaction(user, token, decision, options, async (transactionOptions, txOptions) => {
       const resolved = await resolveInviteActionInput(
         user,
         token,
+        decision,
         transactionOptions,
         "workspacePendingInvitationsService.acceptInviteByToken"
       );
@@ -253,24 +351,30 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
       await workspaceMembershipsRepository.upsertMembership(
         workspaceId,
         resolvedInvite.user.id,
-        { roleSid: resolvedInvite.invite.roleSid, status: "active" },
+        { roleSid: resolvedInvite.invite.roleSid, status: "active", acceptedInviteId: resolvedInvite.invite.id },
         transactionOptions
       );
+      const workspace = await workspacesRepository.findById(workspaceId, txOptions);
+      const acceptance = describeAcceptance(resolvedInvite.invite, resolvedInvite.user, workspace);
       // Repository locking options stay internal to this service: the participant gets the transaction's own options.
-      await acceptanceParticipant({
-        invite: Object.freeze({ ...resolvedInvite.invite }),
-        user: Object.freeze({ ...resolvedInvite.user })
-      }, txOptions);
+      await acceptanceParticipant(acceptance, txOptions);
       await workspaceInvitesRepository.markAcceptedById(resolvedInvite.invite.id, transactionOptions);
-      return { decision: "accepted", workspaceId };
+      return { decision: "accepted", workspaceId, acceptance };
     });
+    const { acceptance, ...answer } = accepted;
+    if (acceptance.invite.email !== acceptance.user.email) {
+      await notifyInviter(acceptance, options);
+    }
+    return answer;
   }
 
   async function refuseInviteByToken({ user, token }, options = {}) {
-    return withInviteTransaction(user, token, options, async (transactionOptions) => {
+    const decision = { decision: "refuse" };
+    return withInviteTransaction(user, token, decision, options, async (transactionOptions) => {
       const resolved = await resolveInviteActionInput(
         user,
         token,
+        decision,
         transactionOptions,
         "workspacePendingInvitationsService.refuseInviteByToken"
       );
@@ -284,9 +388,9 @@ function createService({ workspaceInvitesRepository, workspaceMembershipsReposit
   }
 
   // Accepts the invitation a token names when the user decided "accept", and refuses it otherwise.
-  async function redeemInviteByToken(user, { token, decision }, options = {}) {
+  async function redeemInviteByToken(user, { token, decision, acceptAs }, options = {}) {
     return returnJsonApiData(decision === "accept"
-      ? await acceptInviteByToken({ user, token }, options)
+      ? await acceptInviteByToken({ user, token, acceptAs }, options)
       : await refuseInviteByToken({ user, token }, options));
   }
 

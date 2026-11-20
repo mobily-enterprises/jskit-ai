@@ -132,15 +132,19 @@ function oidcProviderEntry(issuer, { id = "google", label = "Google" } = {}) {
  * @param {import("../src/server/types.js").AuthLocalFirstAccountSetup} [dependencies.firstAccountSetup]
  * @param {Record<string, string>} [dependencies.env] Environment values over the test ones, such as another
  *   APP_PUBLIC_URL.
+ * @param {import("@jskit-ai/auth-core/server/types").AuthInvitationContextResolver} [dependencies.invitationContextResolver]
+ * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} [dependencies.logger]
  */
-function createService({ backend, oauthProviders, profileProjector, firstAccountSetup, env = {} }) {
+function createService({ backend, oauthProviders, profileProjector, firstAccountSetup, env = {}, invitationContextResolver, logger }) {
   const options = localServiceOptions({ env: { APP_PUBLIC_URL: APP_URL, ...env } });
   return createLocalAuthService({
     ...options,
     backend,
     config: { ...options.config, oauthProviders, oauthEnabled: oauthProviders.length > 0 },
     profileProjector,
-    firstAccountSetup
+    firstAccountSetup,
+    ...(invitationContextResolver && { invitationContextResolver }),
+    ...(logger && { logger })
   });
 }
 
@@ -153,10 +157,10 @@ function sessionCookies(session) {
  * the provider approve it, and returns the callback input and browser request.
  * @param {ReturnType<typeof createService>} service
  */
-async function approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false } = {}) {
+async function approveAtProvider(service, { provider = "google", returnTo = "/home", cookies = {}, link = false, invitationToken } = {}) {
   const started = link
     ? await service.startProviderLink({ cookies }, { provider, returnTo })
-    : await service.oauthStart({ provider, returnTo });
+    : await service.oauthStart({ provider, returnTo, ...(invitationToken && { invitationToken }) });
   const callback = await followAuthorization(started.url, { redirectPrefix: REDIRECT_URI });
   return {
     started,

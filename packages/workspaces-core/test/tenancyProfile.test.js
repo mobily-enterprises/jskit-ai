@@ -81,3 +81,19 @@ test("resolveTenancyProfile lets workspace mode opt into a personal workspace fo
     true
   );
 });
+
+test("resolveTenancyProfile keeps workspace mode's \"unless-member\" provisioning and refuses any other value", () => {
+  const unlessMember = { workspace: { autoProvision: "unless-member" } };
+  assert.equal(
+    resolveTenancyProfile({ tenancyMode: TENANCY_MODE_WORKSPACES, tenancyPolicy: unlessMember }).workspace.autoProvision,
+    "unless-member"
+  );
+  assert.equal(
+    resolveTenancyProfile({ tenancyMode: TENANCY_MODE_PERSONAL, tenancyPolicy: unlessMember }).workspace.autoProvision,
+    true
+  );
+  assert.throws(
+    () => resolveTenancyProfile({ tenancyMode: TENANCY_MODE_WORKSPACES, tenancyPolicy: { workspace: { autoProvision: "yes" } } }),
+    /tenancyPolicy\.workspace\.autoProvision must be true, false or "unless-member"\. Received: yes/
+  );
+});

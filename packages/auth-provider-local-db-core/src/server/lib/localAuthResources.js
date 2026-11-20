@@ -117,6 +117,8 @@ const localAuthOAuthAttemptResource = defineTableResource({
     nonce: text,
     codeVerifier: text,
     returnTo: text,
+    // The invitation a sign-in started from, for its end; null for one started without.
+    invitationToken: { ...text, nullable: true },
     expiresAt: dateTime,
     createdAt: dateTime
   },

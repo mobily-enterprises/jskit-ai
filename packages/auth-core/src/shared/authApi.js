@@ -39,17 +39,18 @@ function createApi({ request }) {
     return request(AUTH_PATHS.LOGIN_OTP_VERIFY, { method: "POST", body: payload });
   }
 
+  // The provider's start address, with the page to return to and the invitation the sign-in starts from, when given.
   function oauthStartUrl(provider, options = {}) {
     const oauthStartPath = buildAuthOauthStartPath(provider);
-    const returnTo = String(options.returnTo || "").trim();
-    if (!returnTo) {
-      return oauthStartPath;
+    const params = new URLSearchParams();
+    for (const name of ["returnTo", "invitationToken"]) {
+      const value = String(options[name] || "").trim();
+      if (value) {
+        params.set(name, value);
+      }
     }
-
-    const params = new URLSearchParams({
-      returnTo
-    });
-    return `${oauthStartPath}?${params.toString()}`;
+    const query = params.toString();
+    return query ? `${oauthStartPath}?${query}` : oauthStartPath;
   }
 
   function oauthComplete(payload) {

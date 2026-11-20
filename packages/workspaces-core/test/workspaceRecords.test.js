@@ -42,6 +42,7 @@ test("ensureOwnerMembership makes an existing membership an active owner by a pa
     userId: "9",
     roleSid: "owner",
     status: "active",
+    acceptedInviteId: null,
     createdAt: toIsoString("2026-03-09 00:26:35.710"),
     updatedAt: toIsoString(patches[0].changes.updatedAt)
   });

@@ -269,6 +269,23 @@ function createRepository({ workspaces, workspaceMemberships }) {
   }
 
   /**
+   * Deletes the workspace's row, in the caller's transaction when `options` carries one. The database's cascades take
+   * its memberships, settings and invites with it; a table of the application's own that references the workspace
+   * without a cascade refuses the delete. Answers false when there was no such workspace, true otherwise. It
+   * publishes no event: an application keeping its own copy of workspace facts updates it from the answer.
+   * @param {unknown} workspaceId
+   * @param {object} [options]
+   * @returns {Promise<boolean>}
+   */
+  async function deleteById(workspaceId, options = {}) {
+    const id = normalizeRecordId(workspaceId, { fallback: null });
+    if (!id) {
+      throw new TypeError(`workspaces.deleteById() requires a workspace id. Received: ${String(workspaceId)}`);
+    }
+    return (await workspaces.delete(id, { ...options, missing: "skip" })) !== null;
+  }
+
+  /**
    * Hands a workspace to another of its active members, in the caller's transaction when `options` carries one (the
    * txOptions of withTransaction), otherwise in one of its own. It locks the workspace's row first and reads the
    * workspace through that lock, then locks the new and the previous owner's memberships, so two transfers of one
@@ -370,6 +387,7 @@ function createRepository({ workspaces, workspaceMemberships }) {
     updateById,
     listForUserId,
     lock,
+    deleteById,
     transferOwnership
   });
 }

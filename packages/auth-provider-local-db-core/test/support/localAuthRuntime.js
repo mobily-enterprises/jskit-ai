@@ -5,6 +5,7 @@ import { createTestResourceRuntime } from "@jskit-ai/resource-runtime/test";
 import { defineTableResource } from "@jskit-ai/resource-core/shared/tableResource";
 import initialMigration from "../../migrations/auth_local_db_initial.cjs";
 import oauthMigration from "../../migrations/auth_local_db_oauth.cjs";
+import oauthInvitationMigration from "../../migrations/auth_local_db_oauth_invitation.cjs";
 import protectionMigration from "../../migrations/auth_local_db_protection.cjs";
 import sessionsMetadataMigration from "../../migrations/auth_local_db_sessions_metadata.cjs";
 import usedPassesMigration from "../../migrations/auth_local_db_used_passes.cjs";
@@ -18,6 +19,7 @@ import { AuthLocalDatabaseBackendProvider } from "../../src/server/providers/Aut
 const LOCAL_AUTH_MIGRATIONS = Object.freeze([
   initialMigration,
   oauthMigration,
+  oauthInvitationMigration,
   protectionMigration,
   sessionsMetadataMigration,
   usedPassesMigration,
