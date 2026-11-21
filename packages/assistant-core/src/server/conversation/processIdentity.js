@@ -155,9 +155,23 @@ export function createConversationProcessIdentity({
     return entry ? entry.slice(name.length + 1) : "";
   }
 
-  /** One process's record, or null when it has gone or is a zombie. */
+  /**
+   * One process's record, or null when it has gone, is hidden from this user or is a zombie. A stat read that
+   * fails for any other reason (out of file descriptors, say) throws: a live process left out of the scan would
+   * let its group look exited.
+   */
   async function linuxProcessRecord(name) {
-    const statValue = await readFile(`/proc/${name}/stat`, "utf8").catch(() => "");
+    let statValue;
+    try {
+      statValue = await readFile(`/proc/${name}/stat`, "utf8");
+    } catch (error) {
+      // ENOENT: gone before the open; ESRCH: reaped between the open and the read; EACCES or EPERM: another
+      // user's process under hidepid, which hidepid=invisible leaves out of the listing altogether.
+      if (["EACCES", "ENOENT", "EPERM", "ESRCH"].includes(String(error?.code || ""))) {
+        return null;
+      }
+      throw error;
+    }
     const processStat = linuxProcessStat(statValue);
     if (!processStat || processStat.state === "Z") {
       return null;
@@ -182,10 +196,12 @@ export function createConversationProcessIdentity({
     };
   }
 
+  /** Every process's record; throws when /proc cannot be listed or a process cannot be read. */
   async function linuxProcessRecords() {
-    const names = (await readdir("/proc", {
-      withFileTypes: true
-    }).catch(() => [])).filter((entry) => entry.isDirectory() && /^\d+$/u.test(entry.name)).map((entry) => entry.name);
+    // Names only, as every numeric entry is a process directory. Listed with entry types, /proc gives a process
+    // being reaped mid-listing no type, Node then lstat's that entry, and once the process has gone the lstat's
+    // ENOENT rejects the whole listing: read as no processes at all, a live group looked exited.
+    const names = (await readdir("/proc")).filter((name) => /^\d+$/u.test(name));
     // Every process is read, since a runtime's processes can leave its group. Read one at a time, each of the
     // scan's two reads per process waited behind the host's other file work, and on a busy host a scan took a
     // third of a second; a bounded batch keeps the open files few and the reads overlapped.
@@ -296,11 +312,10 @@ export function createConversationProcessIdentity({
       };
     }
     const identity = metadata.processIdentity;
+    // A process table that could not be read proves nothing either way, on either platform.
     const records = identity.platform !== hostIdentityPlatform
       ? null
-      : platform === "darwin"
-        ? await darwinProcessRecords().catch(() => null)
-        : await linuxProcessRecords();
+      : await (platform === "darwin" ? darwinProcessRecords() : linuxProcessRecords()).catch(() => null);
     if (!records) {
       return {
         processGroupIds: [],

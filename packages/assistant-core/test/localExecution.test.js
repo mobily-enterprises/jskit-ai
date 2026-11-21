@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import fsPromises, { lstat } from "node:fs/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { test } from "node:test";
 import { createConversationProcessIdentity } from "../src/server/conversation/processIdentity.js";
 
@@ -147,4 +149,106 @@ test("the host platform captures, inspects and stops a real owned process group"
   const stopped = await identity.stop(owned, { termTimeoutMs: 2000 });
   assert.equal(stopped.processExitVerified, true);
   assert.deepEqual(stopped.signaledProcessGroups, [child.pid]);
+});
+
+/**
+ * Runs `work` while node:fs/promises' `name` is `replacement`, which is given the original function first,
+ * as the Linux inspection reads /proc through that module.
+ */
+async function withFsPromises(name, replacement, work) {
+  const original = fsPromises[name];
+  fsPromises[name] = (...args) => replacement(original, ...args);
+  syncBuiltinESMExports();
+  try {
+    return await work();
+  } finally {
+    fsPromises[name] = original;
+    syncBuiltinESMExports();
+  }
+}
+
+/** An owned real process group and its captured identity. */
+async function ownedLinuxGroup(t) {
+  const token = randomUUID();
+  const child = await liveGroup(t, { [TOKEN_ENV]: token, [HASH_ENV]: commandHash });
+  const identity = createConversationProcessIdentity();
+  const captured = await identity.capture({ commandHash, pid: child.pid, runtimeToken: token });
+  return { child, identity, owned: { pid: child.pid, processState: "running", processIdentity: captured } };
+}
+
+/** The pid of a process that has exited and been reaped, so /proc no longer has it. */
+async function reapedPid() {
+  const child = spawn(process.execPath, ["-e", ""], { stdio: "ignore" });
+  await new Promise((resolve, reject) => { child.once("exit", resolve); child.once("error", reject); });
+  return child.pid;
+}
+
+function processGroupIsRunning(processGroupId) {
+  try {
+    process.kill(-processGroupId, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+const linuxOnly = { skip: process.platform !== "linux" };
+
+test("a /proc listing broken by a process reaped mid-listing does not make a live group look exited", linuxOnly, async (t) => {
+  const { child, identity, owned } = await ownedLinuxGroup(t);
+  const reaped = await reapedPid();
+  // /proc lists a process being reaped mid-listing without an entry type. A listing asked for entry types then
+  // lstat's that entry itself, and with the process gone the lstat's ENOENT rejects the whole listing.
+  const stopped = await withFsPromises("readdir", async (readdir, target, options) => {
+    if (String(target) === "/proc" && options?.withFileTypes) {
+      await lstat(`/proc/${reaped}`);
+    }
+    return readdir(target, options);
+  }, () => identity.stop(owned, { termTimeoutMs: 2000 }));
+  assert.equal(stopped.stopped, true, JSON.stringify(stopped));
+  assert.equal(stopped.processExitVerified, true);
+  assert.deepEqual(stopped.signaledProcessGroups, [child.pid]);
+});
+
+test("a /proc table that cannot be listed is ambiguous, never exit proof", linuxOnly, async (t) => {
+  const { child, identity, owned } = await ownedLinuxGroup(t);
+  const tooManyFiles = Object.assign(new Error("EMFILE: too many open files, scandir '/proc'"), { code: "EMFILE" });
+  const [inspection, stopped] = await withFsPromises("readdir", async (readdir, target, options) => {
+    if (String(target) === "/proc") {
+      throw tooManyFiles;
+    }
+    return readdir(target, options);
+  }, async () => [
+    await identity.inspect(owned),
+    await identity.stop(owned, { processIdentitySettleTimeoutMs: 50 })
+  ]);
+  assert.deepEqual(inspection, { processGroupIds: [], status: "ambiguous" });
+  assert.deepEqual(stopped, { identityStatus: "ambiguous", processExitVerified: false, stopped: false });
+  assert.equal(processGroupIsRunning(child.pid), true);
+  assert.deepEqual(await identity.inspect(owned), { processGroupIds: [child.pid], status: "exact" });
+});
+
+test("a live member whose stat cannot be read keeps its group from looking exited", linuxOnly, async (t) => {
+  const { child, identity, owned } = await ownedLinuxGroup(t);
+  const failingStat = (code, pid) => async (readFile, target, ...rest) => {
+    if (String(target) === `/proc/${pid}/stat`) {
+      throw Object.assign(new Error(`${code}: /proc/${pid}/stat`), { code });
+    }
+    return readFile(target, ...rest);
+  };
+  const [inspection, stopped] = await withFsPromises("readFile", failingStat("EMFILE", child.pid), async () => [
+    await identity.inspect(owned),
+    await identity.stop(owned, { processIdentitySettleTimeoutMs: 50 })
+  ]);
+  assert.deepEqual(inspection, { processGroupIds: [], status: "ambiguous" });
+  assert.deepEqual(stopped, { identityStatus: "ambiguous", processExitVerified: false, stopped: false });
+  assert.equal(processGroupIsRunning(child.pid), true);
+  // A process that has gone (ENOENT, ESRCH) or that hidepid hides from this user (EACCES, EPERM) is left out as before.
+  for (const code of ["ENOENT", "ESRCH", "EACCES", "EPERM"]) {
+    assert.deepEqual(
+      await withFsPromises("readFile", failingStat(code, process.pid), () => identity.inspect(owned)),
+      { processGroupIds: [child.pid], status: "exact" },
+      code
+    );
+  }
 });
