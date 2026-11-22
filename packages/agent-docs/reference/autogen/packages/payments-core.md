@@ -25,8 +25,8 @@ Local functions
 Exports
 - `createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize, appEnv, topUps, clock = Date.now })`
 Local functions
-- `requestIdentifier(requestId)`
-- `billingEmail(email)`
+- `checkRequestId(requestId)`
+- `checkBillingEmail(email)`
 - `providerUnavailable(error)`
 
 ### `src/server/errors.js`

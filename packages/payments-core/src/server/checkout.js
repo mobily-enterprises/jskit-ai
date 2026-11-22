@@ -6,13 +6,11 @@ import { SETTLED_TOP_UP, checkTopUpAmount, composedTopUps, nextTopUpStatus, topU
 const REQUEST_ID = /^[A-Za-z0-9_-]{1,100}$/;
 const TOP_UP_ID = /^[0-9a-f]{64}$/u;
 
-function requestIdentifier(requestId) {
+function checkRequestId(requestId) {
   if (typeof requestId !== "string" || !REQUEST_ID.test(requestId)) throw new PaymentError("payment_request_invalid", "Supply a stable checkout request identifier.");
-  return requestId;
 }
-function billingEmail(email) {
+function checkBillingEmail(email) {
   if (typeof email !== "string" || email.length > 320 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new PaymentError("payment_input_invalid", "Supply the authenticated billing contact's email.", 422, { messageCode: "payments.input.billingEmail" });
-  return email;
 }
 // A provider failure is shown as one safe sentence; the provider's own error stays the cause, for the application's log.
 function providerUnavailable(error) {
@@ -85,8 +83,8 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     const scope = await allowed(actor, subjectId, "checkout");
     requireRealMoneyAllowed();
     adapter.validatePlan(planId);
-    requestIdentifier(requestId);
-    billingEmail(email);
+    checkRequestId(requestId);
+    checkBillingEmail(email);
     const identity = fingerprint(scope);
     const customerId = await perform(scope, async (tx) => tx.state.customerId
       ? { cached: true, result: tx.state.customerId }
@@ -171,9 +169,9 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     await allowed(actor, subjectId, "topUp");
     const { offer } = requireTopUps();
     requireRealMoneyAllowed();
-    requestIdentifier(requestId);
+    checkRequestId(requestId);
     checkTopUpAmount(offer, amount);
-    if (email !== null) billingEmail(email);
+    if (email !== null) checkBillingEmail(email);
     if (description !== null && (typeof description !== "string" || !description || description.length > 500)) {
       throw new PaymentError("payment_input_invalid", "Describe the top-up in at most 500 characters, or leave the description out.", 422, { messageCode: "payments.input.topUpDescription" });
     }
@@ -201,9 +199,9 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
   // provider's outcome moves its status on (nextTopUpStatus), and only the move to paid calls the application's
   // credit, in the same transaction: a second report of the same payment, from either door, finds it paid and
   // credits nothing, and a credit that fails rolls the move back, so the next report credits it. null: the facts
-  // are about no top-up of this merchant, or a Checkout session other than the one written down for it.
+  // are about no top-up of this merchant, or a Checkout session other than the one written down for it. Its callers,
+  // confirmTopUp and webhook, have found top-ups composed.
   async function settle(facts) {
-    const { credit } = requireTopUps();
     return store.withTopUp(merchant, facts.topUpId, async (held) => {
       const saved = held.topUp;
       if (!saved || (saved.sessionId ?? facts.sessionId) !== facts.sessionId) return null;
@@ -215,7 +213,7 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
         if (facts.amount !== saved.amount || facts.currency !== saved.currency) {
           throw new PaymentError("payment_provider_result_invalid", "The amount paid differs from the top-up's amount, so it was not credited.", 502, { messageCode: "payments.provider.topUpAmount" });
         }
-        await credit({ reference: `top-up:${saved.id}`, subjectId: saved.subjectId, amount: saved.amount, currency: saved.currency }, held.options);
+        await prepaid.credit({ reference: `top-up:${saved.id}`, subjectId: saved.subjectId, amount: saved.amount, currency: saved.currency }, held.options);
         saved.paymentIntentId = facts.paymentIntentId;
       }
       if (status !== saved.status) Object.assign(saved, { status, settledAt: SETTLED_TOP_UP.includes(status) ? clock() : null });
@@ -241,7 +239,10 @@ function createPaymentCheckoutService({ adapter, store, payments, merchantScope,
     if (prepaid) {
       // A Checkout session naming no top-up of this merchant, another system's on the same account say, is acknowledged and left.
       const facts = adapter.topUpEvent(event);
-      if (facts) return (TOP_UP_ID.test(facts.topUpId) && await settle(facts)) || { ignored: true };
+      if (facts) {
+        const settled = TOP_UP_ID.test(facts.topUpId) ? await settle(facts) : null;
+        return settled ?? { ignored: true };
+      }
     }
     const identity = adapter.eventIdentity(event);
     if (!identity) return { ignored: true };

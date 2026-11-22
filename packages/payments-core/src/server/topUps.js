@@ -27,7 +27,7 @@ function nextTopUpStatus(status, outcome) {
 }
 
 /**
- * The amount, checked: a whole number of the currency's smallest unit within the application's limits.
+ * Checks the amount: a whole number of the currency's smallest unit within the application's limits.
  * @param {import("./types.js").PaymentTopUpOffer} offer
  * @param {unknown} amount
  */
@@ -35,7 +35,6 @@ function checkTopUpAmount(offer, amount) {
   if (!Number.isSafeInteger(amount) || amount < offer.minimumAmount || amount > offer.maximumAmount) {
     throw new PaymentError("payment_top_up_amount_invalid", "Choose a top-up amount within this application's limits, in the currency's smallest unit.", 422);
   }
-  return amount;
 }
 
 /**

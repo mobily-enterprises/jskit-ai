@@ -41,7 +41,7 @@ const limits = computed(() => ({ minimum: money(props.offer.minimumAmount), maxi
 const amountErrors = computed(() => entered.value.trim() && !inRange.value ? [t("jskit.payments.topUp.amountInvalid", limits.value)] : []);
 const status = computed(() => props.topUp?.status ?? "");
 const waiting = computed(() => ["starting", "open"].includes(status.value));
-const paidAmount = computed(() => ({ amount: props.topUp ? money(props.topUp.amount) : "" }));
+const topUpAmount = computed(() => ({ amount: props.topUp ? money(props.topUp.amount) : "" }));
 
 function choose(minor) {
   entered.value = (minor / 10 ** fractionDigits()).toFixed(fractionDigits());
@@ -81,7 +81,7 @@ onBeforeUnmount(() => window.removeEventListener("focus", returned));
     </div>
     <div v-else-if="waiting && paymentPage === 'opened'" role="status">
       <p><strong>{{ t('jskit.payments.topUp.waiting') }}</strong></p>
-      <p>{{ t('jskit.payments.topUp.waitingNote', paidAmount) }}</p>
+      <p>{{ t('jskit.payments.topUp.waitingNote', topUpAmount) }}</p>
       <div class="payment-top-up__actions">
         <v-btn variant="flat" color="primary" :disabled="pending" @click="emit('check')">{{ t('jskit.payments.topUp.check') }}</v-btn>
         <v-btn variant="tonal" :disabled="pending || !topUp.url" @click="emit('open-payment')">{{ t('jskit.payments.topUp.openAgain') }}</v-btn>
@@ -89,7 +89,7 @@ onBeforeUnmount(() => window.removeEventListener("focus", returned));
       </div>
     </div>
     <div v-else-if="waiting" role="status">
-      <p>{{ paymentPage === 'blocked' ? t('jskit.payments.topUp.blocked') : t('jskit.payments.topUp.notComplete', paidAmount) }}</p>
+      <p>{{ paymentPage === 'blocked' ? t('jskit.payments.topUp.blocked') : t('jskit.payments.topUp.notComplete', topUpAmount) }}</p>
       <div class="payment-top-up__actions">
         <v-btn variant="flat" color="primary" :disabled="pending || !topUp.url" @click="emit('open-payment')">{{ t('jskit.payments.topUp.openPayment') }}</v-btn>
         <v-btn variant="tonal" :disabled="pending" @click="emit('check')">{{ t('jskit.payments.topUp.check') }}</v-btn>
@@ -97,18 +97,18 @@ onBeforeUnmount(() => window.removeEventListener("focus", returned));
       </div>
     </div>
     <div v-else-if="status === 'processing'" role="status">
-      <p>{{ t('jskit.payments.topUp.processing', paidAmount) }}</p>
+      <p>{{ t('jskit.payments.topUp.processing', topUpAmount) }}</p>
       <div class="payment-top-up__actions">
         <v-btn variant="tonal" :disabled="pending" @click="emit('check')">{{ t('jskit.payments.topUp.check') }}</v-btn>
         <v-btn variant="text" :disabled="pending" @click="emit('dismiss')">{{ t('jskit.payments.topUp.done') }}</v-btn>
       </div>
     </div>
     <div v-else-if="status === 'paid'" role="status">
-      <p>{{ t('jskit.payments.topUp.paid', paidAmount) }}</p>
+      <p>{{ t('jskit.payments.topUp.paid', topUpAmount) }}</p>
       <v-btn variant="tonal" :disabled="pending" @click="emit('dismiss')">{{ t('jskit.payments.topUp.again') }}</v-btn>
     </div>
     <div v-else role="alert">
-      <p>{{ status === 'expired' ? t('jskit.payments.topUp.expired', paidAmount) : t('jskit.payments.topUp.failed', paidAmount) }}</p>
+      <p>{{ status === 'expired' ? t('jskit.payments.topUp.expired', topUpAmount) : t('jskit.payments.topUp.failed', topUpAmount) }}</p>
       <v-btn variant="tonal" :disabled="pending" @click="emit('dismiss')">{{ t('jskit.payments.topUp.tryAgain') }}</v-btn>
     </div>
   </section>
