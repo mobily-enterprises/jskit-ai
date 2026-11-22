@@ -1,6 +1,6 @@
 {
   "name": "@jskit-ai/assistant-runtime",
-  "version": "0.2.84",
+  "version": "0.2.85",
   "type": "module",
   "scripts": {
     "test": "jskit test"
@@ -15,7 +15,7 @@
     "./locales/en.json": "./locales/en.json"
   },
   "dependencies": {
-    "@jskit-ai/assistant-core": "0.2.78",
+    "@jskit-ai/assistant-core": "0.2.79",
     "@jskit-ai/resource-core": "0.1.223",
     "json-rest-schema": "^1.0.20"
   },
