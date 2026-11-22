@@ -255,12 +255,14 @@ export function createClaudeConversationGoals({ conversationId, readHistory, int
  *   process: ClaudeConversationProcessHost,
  *   onEvent: ClaudeConversationEventHandler,
  *   createError?: ClaudeConversationErrorFactory,
- *   disconnectedMessage?: string
- * }} options
+ *   disconnectedMessage?: string,
+ *   interruptTimeoutMs?: number
+ * }} options `interruptTimeoutMs` bounds a Stop's wait for Claude to end its turn
+ *   before the owner stops the process instead (the native turn's default when absent).
  */
 export function createClaudeConversationOwner({
   configRoot, store, preparation, process, onEvent, createError = claudeTurnFailure,
-  disconnectedMessage = "Claude was interrupted when the application disconnected."
+  disconnectedMessage = "Claude was interrupted when the application disconnected.", interruptTimeoutMs
 }) {
   const entries = new Map();
   const applicationCall = new AsyncLocalStorage();
@@ -531,9 +533,13 @@ export function createClaudeConversationOwner({
     return { ...entry.nativeTurn.readResult(), ok: true, started: true };
   }
 
-  async function interrupt(entry) {
+  // A person's Stop keeps the process (see the native turn's cancel). A turn
+  // that outlives its wait, at its time limit or when its caller goes away,
+  // still ends with its process (keepProcess: false).
+  async function interrupt(entry, { keepProcess = true } = {}) {
     if (!entry.turn?.active) return { ok: true, interrupted: false, turn: snapshot(entry) };
-    await entry.nativeTurn.cancel(entry.process?.client, () => entry.nativeTurn.stopProcess());
+    await entry.nativeTurn.cancel(entry.process?.client, () => entry.nativeTurn.stopProcess(),
+      { timeoutMs: interruptTimeoutMs, keepProcess });
     return { ok: true, interrupted: true, thread: { id: entry.id }, turn: snapshot(entry) };
   }
 
@@ -602,7 +608,7 @@ export function createClaudeConversationOwner({
     return waitForClaudeConversationTurn({ state: entry,
       stop: reason => entry.nativeTurn.stopProcess(reason),
       read: async current => read(await acquire(context, current.conversationId || current.threadId), current),
-      interrupt: () => interrupt(entry)
+      interrupt: () => interrupt(entry, { keepProcess: false })
     }, input, { signal: context.signal, defaultTimeoutMs: entry.persistent ? Infinity : 180_000,
       maximumTimeoutMs: entry.profile?.limits.timeoutMs || Infinity, createError,
       interruptedMessage: disconnectedMessage });

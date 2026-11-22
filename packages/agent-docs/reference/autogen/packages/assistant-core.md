@@ -366,6 +366,7 @@ Local functions
 - `ignoreClaudeFrame()`
 - `ignoreClaudeFailure()`
 - `reportNoProgress()`
+- `ignoreResponse()`
 
 ### `src/server/conversation/claudeCommandRun.js`
 Exports
@@ -374,6 +375,7 @@ Exports
 ### `src/server/conversation/claudeEntryStop.js`
 Exports
 - `setClaudeTurnState(entry, state, message = "")`
+- `recordClaudeEntryInterrupted({ entry, onEvent, updateState, readResult, resolveCompletion }, reason = "", settled = () => {})`
 - `stopClaudeEntryProcess(turn, reason = "", { preparing = false } = {})`
 
 ### `src/server/conversation/claudeHistory.js`
@@ -413,7 +415,6 @@ Local functions
 - `liveClaudeBlock(messages, messageId, frame, role)`
 - `claudeResultError(frame, output)`
 - `claudeResultMessage(frame, turnId, result)`
-- `retainStoppedClaudeMessages(messages, pendingAssistantMessages)`
 
 ### `src/server/conversation/claudeProcess.js`
 Exports
@@ -475,7 +476,7 @@ Exports
 - `waitForClaudeConversationTurn(conversation, input = {}, { signal, defaultTimeoutMs = 180_000, maximumTimeoutMs = Infinity, createError = claudeTurnFailure, interruptedMessage = "Claude was interrupted when the application disconnected." } = {})`
 - `runClaudeRenewalTurn(conversation, { clientMessageId, prompt, outputSchema, expectedThreadId, forbiddenThreadId, requireFreshHistory = false, timeoutMs = 180_000 }, { createError = claudeTurnFailure, unreadableCode = "assistant_claude_turn_unreadable", failedCode = "assistant_claude_turn_failed", acceptedField = "inputAccepted" } = {})`
 - `createClaudeConversationGoals({ conversationId, readHistory, interrupt, send, readRetainedGoal, saveRetainedGoal })`
-- `createClaudeConversationOwner({ configRoot, store, preparation, process, onEvent, createError = claudeTurnFailure, disconnectedMessage = "Claude was interrupted when the application disconnected." })`
+- `createClaudeConversationOwner({ configRoot, store, preparation, process, onEvent, createError = claudeTurnFailure, disconnectedMessage = "Claude was interrupted when the application disconnected.", interruptTimeoutMs })`
 - `type ClaudeConversationEntry`
 - `type ClaudeConversationStore`
 - `type ClaudeConversationPreparation`
@@ -486,6 +487,16 @@ Local functions
 - `nativeWorkSettled(entry)`
 - `promptCanStillArrive(entry, uuid)`
 - `runsNativeWork(entry)`
+
+### `src/server/conversation/claudeTurnStop.js`
+Exports
+- `createClaudeStopState()`
+- `stopClaudeTurn(turn, client, stopProcess, { timeoutMs = CLAUDE_INTERRUPT_TIMEOUT_MS, keepProcess = true } = {})`
+- `retainStoppedClaudeMessages(messages, pendingAssistantMessages)`
+- `CLAUDE_INTERRUPT_TIMEOUT_MS`
+Local functions
+- `interruptClaudeTurn(client, { waiting, runningLoop, timeoutMs })`
+- `interruptThenStopClaude(interrupt, stopProcess)`
 
 ### `src/server/conversation/codexAccountReader.js`
 Exports

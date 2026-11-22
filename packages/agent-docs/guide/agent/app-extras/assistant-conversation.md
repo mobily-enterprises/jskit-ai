@@ -4929,6 +4929,32 @@ Only explicit **Stop** (and goal Pause, Block and Cancel) sends the interrupt
 control. The client keeps its capability-gated targeted Send now control for an
 explicit action, but conversation steering does not use it.
 
+A person's **Stop** ends Claude's running turn as Esc does in Claude Code and
+keeps the process. A native-representation conversation's Stop (the provider's
+`cancel`) reaches the retained owner this way, and the person's running command
+then settles with the interrupted turn. Claude's drain loop starts queued input as soon as an
+interrupted turn ends, so the retained owner first writes `cancel_async_message`
+for each of the turn's inputs Claude has not begun, then the `interrupt` control
+with `spare_background_tasks: true`, which leaves background agents and commands
+running (a plain interrupt ends them). It waits for the result of the loop that
+was under way where Claude wrote its receipt, then records the turn
+`interrupted`, keeping displayed partial output as commentary. Background tasks
+stay counted: their progress does not reopen the stopped turn, while their
+report, which Claude answers in a loop of its own, does. The next message goes
+to the same process, and a selection change between turns (another model or
+effort with the same instructions and tools) applies to it through
+`apply_flag_settings` and `set_model`; changed instructions, instruction mode or
+live-update identity still start a new process, which ends its background tasks.
+The owner stops the process instead, through its verified stop, when Claude does
+not answer and end the turn within `interruptTimeoutMs` (an owner option, 15
+seconds by default), when an input of the turn may still run (Claude could not
+answer its withdrawal, or its receipt still lists it), and for a runtime binding,
+a turn without a live process, lost observation, a stop already under way or a
+closing owner. Goal Pause and Block, a canonical conversation's Stop (which
+aborts its running command), a wait that reaches its time limit or loses its
+caller, session and conversation close and account changes still stop the
+process.
+
 Native Claude `system/local_command_output` messages retain their origin in
 `data.native` (`engineId`, `type`, `subtype`). Transcript writers preserve supplied
 message data for agent messages as well as user messages. A consuming application

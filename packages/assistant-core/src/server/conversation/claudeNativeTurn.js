@@ -3,6 +3,7 @@ import { claudeMessageBlocks } from "./claudeHistory.js";
 import { setClaudeTurnState, stopClaudeEntryProcess } from "./claudeEntryStop.js";
 import { createClaudeConversationAdapter } from "./providers/claude.js";
 import { createClaudeSteeringBackground } from "./claudeSteeringBackground.js";
+import { createClaudeStopState, retainStoppedClaudeMessages, stopClaudeTurn } from "./claudeTurnStop.js";
 
 // messageCode names the sentence, since one turn-failure code covers several.
 export function claudeTurnFailure(message, { code = "assistant_claude_turn_failed", messageCode } = {}) {
@@ -100,21 +101,6 @@ function claudeResultMessage(frame, turnId, result) {
     } : {}) };
 }
 
-// Verified process cleanup can precede Claude's terminal generation frame.
-// Retain already displayed text for the transcript reader, with each block's
-// input/output identity and no completed-answer receipt.
-function retainStoppedClaudeMessages(messages, pendingAssistantMessages) {
-  for (const pending of pendingAssistantMessages.values()) for (const block of pending) {
-    if (block.outputId && block.outputId !== block.id) messages.delete(block.outputId);
-    messages.set(block.id, { ...block, role: "commentary" });
-  }
-  for (const [id, block] of messages) {
-    if (block.complete === false && block.role === "assistant" && block.text) {
-      messages.set(id, { ...block, complete: true, role: "commentary" });
-    }
-  }
-}
-
 /**
  * The owner's control of one native process, as a native turn uses it.
  * @typedef {import("./providers/claude.js").ClaudeProcessControl & {
@@ -154,6 +140,9 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
   const waitingSteers = new Set();
   let steeringClient = null;
   const tasks = new Set();
+  const stopState = createClaudeStopState();
+  // The steps of this turn a person's Stop runs (see stopClaudeTurn).
+  const turnStop = { ...entryStop, interrupt, stopState, inFlight, startedInputs, isStopped: () => stopped };
   const steeringBackground = createClaudeSteeringBackground({ publish, running: taskId => tasks.has(taskId) && !stopped && !cancelling,
     counts: () => ({ pendingCommands: inFlight.size, backgroundTasks: tasks.size }) });
   let turnId = "";
@@ -395,6 +384,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
 
   async function receiveFrame(frame, emit, hold) {
     await emit({ type: "provider-event", event: frame });
+    if (continuesClaudeTurn(frame)) stopState.loopStarted();
     if (continuesClaudeTurn(frame) && turnId && !cancelling) {
       const wasActive = active;
       if (outcome || !active) {
@@ -418,6 +408,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       if ((frame.state === "started" || frame.type === "user") && inFlight.has(uuid)) {
         currentCommandId = uuid;
         startedInputs.add(uuid);
+        stopState.loopStarted();
       }
       if (frame.state !== "queued") waitingSteers.delete(uuid);
       if (frame.state === "completed") {
@@ -468,13 +459,14 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       // Inventory removal can precede the task notification and the main model's
       // response to it. A foreground result written while that worker was live
       // cannot complete this follow-up or retire its admitted application tools.
-      if (tasks.size < previousTaskCount) outcome = null;
+      // A Stop's outcome stands: the stopped turn wrote no result to undo.
+      if (tasks.size < previousTaskCount && !stopState.isHalted()) outcome = null;
       if (phase === "background" && !outcome) {
         phase = "";
         await emit({ type: "phase", phase });
       }
       if (["background_tasks_changed", "task_started", "task_notification", "task_updated"].includes(frame.subtype)) {
-        if (tasks.size && turnId && !active && !cancelling) {
+        if (tasks.size && turnId && !active && !cancelling && !stopState.isHalted()) {
           generation++;
           active = true;
           clearFinalAssistantResult();
@@ -549,6 +541,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
       inFlight.delete(currentCommandId);
       for (const uuid of startedInputs) inFlight.delete(uuid);
       startedInputs.clear();
+      stopState.loopEnded();
       if (cancelling) return;
       const status = interrupted ? "interrupted" : failed ? "failed" : "completed";
       outcome = { status, error: message };
@@ -582,32 +575,34 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     }
   }
 
-  function stop(reason = "Claude stopped before acknowledging the prompt.") {
+  // Retires the turn's inputs, keeping its displayed output; a Stop that kept the process (processLives) spares its tasks.
+  function stop(reason = "Claude stopped before acknowledging the prompt.", { processLives = false } = {}) {
     generation++;
     epoch++;
-    stopped = true;
+    stopped = !processLives;
     invalidateFinalAssistantResult();
-    for (const pending of admissions.values()) {
-      pending.reject(claudeTurnFailure(reason));
-    }
+    for (const pending of admissions.values()) pending.reject(claudeTurnFailure(reason));
     admissions.clear();
     inFlight.clear();
     startedInputs.clear();
     waitingSteers.clear();
     steeringClient = null;
-    tasks.clear();
+    if (!processLives) tasks.clear();
     retainStoppedClaudeMessages(messages, pendingAssistantMessages);
     pendingAssistantMessages.clear();
     assistantRoles.clear();
-    if (active) outcome = { status: "interrupted", error: reason };
+    if (active || processLives) outcome = { status: "interrupted", error: processLives ? "" : reason };
     active = false;
     phase = "";
+    cancelling = false;
+    stopState.turnStopped(processLives);
   }
 
-  async function interrupt(client) {
+  // Claude's interrupt: the plain one, or a person's Stop's own (send; see stopClaudeTurn).
+  async function interrupt(client, send = () => client.interrupt()) {
     cancelling = true;
     clearFinalAssistantResult();
-    if (client) await client.interrupt();
+    if (client) return send();
     // The process host still must drain its owned scope and call stop().
   }
 
@@ -624,6 +619,7 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     currentCommandId = "";
     cancelling = false;
     stopped = false;
+    stopState.turnBegun();
     active = true;
     return epoch;
   }
@@ -696,16 +692,9 @@ export function createClaudeConversationTurn({ conversationId, onEvent, process,
     return lease;
   }
 
-  async function cancel(client, stopProcess) {
-    try {
-      await interrupt(client);
-    } catch {
-      // A verified managed-scope stop also handles an unresponsive control pipe.
-    } finally {
-      // A control acknowledgement is not a process-exit proof. Draining also
-      // cancels queued steering prompts and native background tools.
-      await stopProcess();
-    }
+  // A person's Stop (see stopClaudeTurn).
+  function cancel(client, stopProcess, options) {
+    return stopClaudeTurn(turnStop, client, stopProcess, options);
   }
 
   return Object.freeze({

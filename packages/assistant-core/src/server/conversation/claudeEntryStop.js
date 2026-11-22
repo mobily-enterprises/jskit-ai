@@ -10,13 +10,38 @@ export function setClaudeTurnState(entry, state, message = "") {
 }
 
 /**
+ * Records a retained entry's interrupted turn: the host's interrupted checkpoint
+ * and saved state, then the turn's completion, and then `settled`. A checkpoint
+ * the host refuses still records the interruption, with the refusal as its
+ * message, and the refusal is thrown after `settled`.
+ */
+export async function recordClaudeEntryInterrupted({ entry, onEvent, updateState, readResult, resolveCompletion }, reason = "", settled = () => {}) {
+  if (entry.turn?.active) {
+    try { await updateState("interrupted", reason); }
+    catch (error) {
+      // The native turn has ended (its process stopped, or Claude ended it) even
+      // when the host refuses its checkpoint. Retain that refusal without
+      // publishing a completed answer or active work.
+      setClaudeTurnState(entry, "interrupted", error.message);
+      await onEvent({ type: "save" });
+      await onEvent({ type: "state", state: "interrupted", active: false, message: error.message });
+      resolveCompletion(readResult());
+      settled();
+      throw error;
+    }
+  } else await onEvent({ type: "save" });
+  resolveCompletion(readResult());
+  settled();
+}
+
+/**
  * Stops an entry's Claude process for the entry's turn (`turn` carries the
  * entry, its host and the turn's own steps): proves the process exit, stops
  * the turn and runs the host's interrupted checkpoint. A Stop while another
  * is pending joins it.
  */
 export async function stopClaudeEntryProcess(turn, reason = "", { preparing = false } = {}) {
-  const { entry, bound, process, onEvent, read, stop, updateState, readResult, resolveCompletion } = turn;
+  const { entry, bound, process, onEvent, read, stop, readResult, resolveCompletion } = turn;
   clearTimeout(entry.goalToolStop?.timer);
   entry.goalToolStop = null;
   if (!preparing) entry.preparationRevision++;
@@ -61,21 +86,9 @@ export async function stopClaudeEntryProcess(turn, reason = "", { preparing = fa
       if (entry.startupCleanup === startup) entry.startupCleanup = null;
       return entry.exitProof;
     }
-    if (entry.turn?.active) {
-      try { await updateState("interrupted", reason); }
-      catch (error) {
-        // Native cleanup is verified even when the host refuses its checkpoint.
-        // Retain that refusal without publishing a completed answer or active work.
-        setClaudeTurnState(entry, "interrupted", error.message);
-        await onEvent({ type: "save" });
-        await onEvent({ type: "state", state: "interrupted", active: false, message: error.message });
-        resolveCompletion(readResult());
-        if (entry.startupCleanup === startup) entry.startupCleanup = null;
-        throw error;
-      }
-    } else await onEvent({ type: "save" });
-    resolveCompletion(readResult());
-    if (entry.startupCleanup === startup) entry.startupCleanup = null;
+    await recordClaudeEntryInterrupted(turn, reason, () => {
+      if (entry.startupCleanup === startup) entry.startupCleanup = null;
+    });
     return entry.exitProof;
   };
   entry.stopPending = operation().catch(error => { if (bound) error.cleanupFailed = true; throw error; })

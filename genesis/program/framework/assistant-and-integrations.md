@@ -155,7 +155,14 @@ and Claude reads the steer at its next step. Background workers continue. A
 refused control leaves the steer waiting for the tool call and is reported as the
 `steering_background_failed` diagnostic. One native result can finish every
 input Claude has started reading. Explicit Stop is the only
-interrupt and retains its cancellation behavior. The retained
+interrupt. A person's Stop ends the turn as Esc does in Claude Code and keeps
+the process: it withdraws the turn's inputs Claude has not begun, interrupts
+with Claude's `spare_background_tasks`, waits for the loop under way at the
+interrupt's receipt and records the turn interrupted. Background tasks run on
+and report, and the next message, with any model or effort change, goes to the
+same process. When Claude does not end the turn in time or an input may still
+run, and for a runtime binding, a canonical conversation's Stop, a wait's time
+limit and a closing owner, Stop still stops the process. The retained
 host receives normalized continuation and diagnostic events without prompt or
 response contents, and continues to own persistence and operator logging.
 Older completion checkpoints cannot overwrite a newer native continuation.

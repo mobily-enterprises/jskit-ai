@@ -71,6 +71,9 @@ async function ignoreClaudeFailure() {}
 /** A control request whose caller follows none of its stages. */
 function reportNoProgress() {}
 
+/** A control request whose caller reads its answer only when the request resolves. */
+function ignoreResponse() {}
+
 /**
  * The Claude Code CLI's JSON stream: ordered native events, control requests both ways and user messages.
  * @param {object} options
@@ -131,7 +134,7 @@ function createClaudeJsonClient({
   async function request(request, options = {}) {
     if (failure || closed) throw failure || claudeProtocolError("Claude connection is closed.", { messageCode: "assistant.claude.connectionClosed" });
     const requestId = randomUUID();
-    const { onProgress = reportNoProgress } = options;
+    const { onProgress = reportNoProgress, onResponse = ignoreResponse } = options;
     function progress(stage) {
       try { onProgress(stage); }
       catch { /* Diagnostic observers cannot change protocol completion. */ }
@@ -144,7 +147,7 @@ function createClaudeJsonClient({
           code: "assistant_claude_control_timeout", params: { request: request.subtype }
         }));
       }, options.timeoutMs ?? timeoutMs);
-      requests.set(requestId, { resolve, reject, received: () => progress("response_received") });
+      requests.set(requestId, { resolve, reject, received: () => progress("response_received"), respond: onResponse });
     });
     // Install both observers before a write can fail or an immediate reply arrives.
     try {
@@ -198,7 +201,11 @@ function createClaudeJsonClient({
           if (!pending) continue; // A timed-out request may still get a reply.
           requests.delete(response.request_id);
           pending.received();
-          if (response.subtype === "success") pending.resolve(response.response || {});
+          if (response.subtype === "success") {
+            // Read here, before later frames are queued (see interrupt).
+            pending.respond(response.response || {});
+            pending.resolve(response.response || {});
+          }
           else pending.reject(claudeProtocolError(String(response.error || "Claude control request failed.")));
         } else if (frame.type === "control_request") {
           receiveControl(frame);
@@ -252,9 +259,25 @@ function createClaudeJsonClient({
     return request({ subtype: "initialize", ...(hooks ? { hooks } : {}) }, options);
   }
 
-  /** Stops the current native turn. */
-  function interrupt() {
-    return request({ subtype: "interrupt" });
+  /**
+   * Claude's interrupt, which ends the running turn. With `spareBackgroundTasks`
+   * its background agents and commands keep running, as after Esc in Claude
+   * Code. A control response passes the ordered event queue, so `onReceipt`
+   * runs in that queue at the receipt's place: after the frames Claude wrote
+   * before it are handled and before any later one, where the turn's state
+   * says whether a turn was under way when the interrupt landed.
+   */
+  async function interrupt({ spareBackgroundTasks = false, timeoutMs, onReceipt } = {}) {
+    let ordered;
+    const receipt = await request({ subtype: "interrupt", ...(spareBackgroundTasks ? { spare_background_tasks: true } : {}) }, {
+      ...(timeoutMs === undefined ? {} : { timeoutMs }),
+      ...(onReceipt ? { onResponse: value => {
+        ordered = events.then(() => onReceipt(value));
+        void ordered.catch(() => {});
+      } } : {})
+    });
+    if (ordered) await ordered;
+    return receipt;
   }
 
   /** Settles every control request the CLI sent. */

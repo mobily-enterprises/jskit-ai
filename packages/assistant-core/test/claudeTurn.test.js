@@ -400,6 +400,107 @@ test("Claude output before a queued follow-up keeps its input identity after the
     [["FIRST-PARTIAL", "first"], ["SECOND-OK", "second"]]);
 });
 
+// A person's Stop ends the turn as Esc does in Claude Code (owner, 2026-11-23).
+// A Stop that also stopped the process ended a background Agent the person
+// was waiting for.
+test("a person's Stop ends Claude's turn and keeps its process, where a background task runs on and reports", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("stopped-request");
+  await f.frame({ type: "stream_event", event: { type: "message_start", message: { id: "stopped-api" } } });
+  await f.startTask("background-agent");
+  const native = f.entry.process;
+  assert.equal((await f.owner.interrupt(f.entry)).interrupted, true);
+  assert.deepEqual(f.behavior.requests.filter(request => request.subtype === "interrupt").map(request => request.spareBackgroundTasks), [true],
+    "Claude's interrupt spares its background tasks");
+  assert.equal(native.stops, 0, "Stop does not stop the Claude process");
+  assert.equal(f.entry.process, native);
+  assert.deepEqual([f.entry.turn.state, f.entry.turn.active], ["interrupted", false]);
+  assert.equal(f.entry.nativeTurn.read().backgroundTasks, 1, "The background agent still runs, and is counted");
+  await f.frame({ type: "system", subtype: "task_updated", task_id: "background-agent", patch: { status: "running" } });
+  assert.equal(f.entry.turn.active, false, "Its progress does not reopen the stopped turn");
+  // Its report reaches the same process, and Claude answers it in a loop of its own.
+  await f.frame({ type: "system", subtype: "task_notification", task_id: "background-agent", status: "completed" });
+  await f.frame({ type: "user", uuid: "agent-report", origin: { kind: "task-notification" } });
+  assert.equal(f.entry.turn.active, true);
+  await f.frame({ type: "result", subtype: "success", result: "The background agent finished." });
+  assert.deepEqual([f.entry.turn.state, f.entry.nativeTurn.read().backgroundTasks, native.stops], ["completed", 0, 0]);
+});
+
+test("a background task's report Claude starts right after the interrupted turn does not hold up the Stop", { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("stopped-before-report");
+  await f.frame({ type: "stream_event", event: { type: "message_start", message: { id: "stopped-api" } } });
+  f.behavior.reportAfterInterrupt = true;
+  const native = f.entry.process;
+  await f.owner.interrupt(f.entry);
+  // Waiting for the report's loop too would run out the Stop's time and stop the process.
+  assert.equal(native.stops, 0, "Stop waits for the interrupted loop only");
+  assert.equal(f.entry.turn.state, "interrupted");
+  // Claude's answer to the report reopens the turn on the same process.
+  await f.frame({ type: "assistant", uuid: "report-answer", message: { id: "report-api", stop_reason: "end_turn",
+    content: [{ type: "text", text: "The agent's report is in." }] } });
+  assert.equal(f.entry.turn.active, true);
+  await f.frame({ type: "result", subtype: "success", result: "The agent's report is in." });
+  assert.deepEqual([f.entry.turn.state, native.stops], ["completed", 0]);
+});
+
+for (const answer of ["never", "without ending the turn"]) test(`a Stop Claude does not answer in time stops the process instead, answered ${answer}`, { timeout: 5_000 }, async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("unanswered-stop");
+  await f.frame({ type: "stream_event", event: { type: "message_start", message: { id: "unanswered-api" } } });
+  const native = f.entry.process;
+  native.client.interrupt = answer === "never" ? () => new Promise(() => {}) : async () => ({});
+  let timer;
+  try {
+    await Promise.race([f.owner.interrupt(f.entry), new Promise((_, reject) => {
+      timer = setTimeout(() => reject(new Error("Stop waited on an interrupt Claude never answered")), 2_000);
+    })]);
+  } finally { clearTimeout(timer); }
+  assert.equal(native.stops, 1, "The process stops when its interrupt does not end the turn");
+  assert.equal(f.entry.process, null);
+  assert.deepEqual([f.entry.turn.state, f.entry.turn.active], ["interrupted", false]);
+});
+
+test("a Stop withdraws a queued steer first, so Claude never runs it after the interrupted turn", async t => {
+  const f = await publishedClaudeFixture(t);
+  await f.send("running-request");
+  await f.frame({ type: "stream_event", event: { type: "message_start", message: { id: "running-api" } } });
+  f.queue();
+  assert.equal((await f.send("queued-steer")).deliveryMode, "steer");
+  const steer = claudeNativeMessageId("queued-steer");
+  assert.deepEqual([...f.behavior.queued.keys()], [steer], "Claude holds the steer behind its running tool call");
+  const native = f.entry.process;
+  await f.owner.interrupt(f.entry);
+  assert.deepEqual(f.behavior.requests.filter(request => ["cancel_async_message", "interrupt"].includes(request.subtype))
+    .map(request => request.message_uuid || request.subtype), [steer, "interrupt"], "Withdrawn before the interrupt, in order on the pipe");
+  assert.deepEqual(f.behavior.ran || [], [], "Claude's drain loop runs nothing after the Stop");
+  assert.equal(native.stops, 0);
+  assert.deepEqual([f.entry.turn.state, f.entry.nativeTurn.read().pendingCommands], ["interrupted", 0]);
+});
+
+// Auto routes the message after a Stop fresh, often from Junior to Senior: here
+// the same model at a higher effort, which Claude applies to the running process.
+test("after a Stop the next message goes to the same process, which switches selection in place", async t => {
+  const f = await publishedClaudeFixture(t);
+  f.behavior.selection = { model: "opus", effort: "medium" };
+  await f.send("junior-request");
+  const native = f.entry.process;
+  await f.owner.interrupt(f.entry);
+  f.behavior.selection = { model: "opus", effort: "high" };
+  const before = f.behavior.requests.length;
+  await f.send("senior-request");
+  assert.equal(f.processes.length, 1, "No second Claude process");
+  assert.equal(f.entry.process, native);
+  assert.equal(native.stops, 0);
+  assert.deepEqual(f.behavior.requests.slice(before).filter(request => ["apply_flag_settings", "set_model"].includes(request.subtype))
+    .map(({ process, ...request }) => (assert.equal(process, native), request)), [
+    { subtype: "apply_flag_settings", settings: { effortLevel: "high" } },
+    { subtype: "set_model", model: "opus" }
+  ]);
+  assert.equal(f.behavior.nativeInputs.length, 2, "Both messages were written to the one process");
+  assert.equal(f.entry.nativeTurn.read().active, true);
+});
+
 for (const savedFrame of [false, true]) test(`verified Claude Stop retains partial output for transcript reads, savedFrame=${savedFrame}`, async t => {
   const f = await publishedClaudeFixture(t);
   await f.send("stopped-request");
@@ -1156,9 +1257,12 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
   const saved = new Map();
   const messages = [];
   const processes = [];
-  const behavior = { account: "account-a", publication };
+  // requests: every control request; tasks: Claude's running background tasks;
+  // queued: inputs Claude acknowledged but has not begun (see queue()).
+  const behavior = { account: "account-a", publication, requests: [], tasks: new Set(), queued: new Map() };
   let beforeState;
-  const owner = createClaudeConversationOwner({ configRoot: root,
+  // A Stop waits this long for Claude to end its turn before stopping the process.
+  const owner = createClaudeConversationOwner({ configRoot: root, interruptTimeoutMs: 250,
     store: {
       ...(releaseExecution ? { releaseExecution } : {}),
       select() {}, read: (_context, id) => saved.get(id),
@@ -1171,15 +1275,31 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
       context: async () => context,
       entry: () => ({ options: { mainId: conversationId }, check() {} }),
       check() {}, account: () => ({ identity: behavior.account, providerId }),
-      async configuration() { await behavior.configure?.(); return { systemPrompt: behavior.systemPrompt || "Retained host instructions", settings: {}, model: providerId === "deepseek" ? "deepseek-flash" : "sonnet" }; },
+      async configuration() {
+        await behavior.configure?.();
+        const model = providerId === "deepseek" ? "deepseek-flash" : "sonnet";
+        // A selection (Junior or Senior, say) is one model and effort, with the same tools.
+        const selection = behavior.selection ? { settings: { effortLevel: behavior.selection.effort }, model: behavior.selection.model,
+          contextIdentity: JSON.stringify(behavior.selection), liveUpdateIdentity: "same-tools" } : { settings: {}, model };
+        return { systemPrompt: behavior.systemPrompt || "Retained host instructions", ...selection };
+      },
       async message(_entry, _input, { message }) { return message; }
     },
     process: {
       configure() { return {}; },
       async create(options) {
-        const native = { executionId: `execution-${processes.length}`, options,
-          async stop() { return { scopeEmpty: true, exited: true }; },
-          client: { async request() { return {}; },
+        // Claude Code 2.1.330's answers: an interrupt's receipt precedes the
+        // interrupted turn's result, a plain one ends background tasks, and its
+        // drain loop then runs every input still queued.
+        const native = { executionId: `execution-${processes.length}`, options, stops: 0,
+          async stop() { native.stops++; return { scopeEmpty: true, exited: true }; },
+          client: { async request(request) {
+              behavior.requests.push({ process: native, ...request });
+              if (request.subtype !== "cancel_async_message") return {};
+              const cancelled = behavior.queued.delete(request.message_uuid);
+              if (cancelled) await options.onEvent({ type: "command_lifecycle", command_uuid: request.message_uuid, state: "cancelled" });
+              return { cancelled, message_uuid: request.message_uuid };
+            },
             async send(_message, input) {
               (behavior.nativeInputs ||= []).push(_message);
               await options.onEvent({ type: "user", uuid: input.messageId, session_id: options.sessionId });
@@ -1211,8 +1331,28 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
                 void behavior.goalAttachmentWork.catch(() => {});
               }
             },
-            async interrupt() {
+            async interrupt(control = {}) {
+              behavior.requests.push({ process: native, subtype: "interrupt", spareBackgroundTasks: control.spareBackgroundTasks === true });
+              const receipt = { still_queued: [...behavior.queued.keys()] };
+              await control.onReceipt?.(receipt);
+              if (control.spareBackgroundTasks !== true) for (const taskId of behavior.tasks) {
+                await options.onEvent({ type: "system", subtype: "task_notification", task_id: taskId, status: "killed" });
+              }
+              if (control.spareBackgroundTasks !== true) behavior.tasks.clear();
               await options.onEvent({ type: "result", subtype: "success", result: "", terminal_reason: "aborted_streaming" });
+              // A background task's report that waited in the queue starts Claude's next loop.
+              if (behavior.reportAfterInterrupt) {
+                await options.onEvent({ type: "user", uuid: "queued-report", session_id: options.sessionId, origin: { kind: "task-notification" } });
+                await options.onEvent({ type: "stream_event", session_id: options.sessionId, event: { type: "message_start", message: { id: "report-api" } } });
+              }
+              for (const [uuid, text] of behavior.queued) {
+                behavior.queued.delete(uuid);
+                behavior.ran = [...behavior.ran || [], uuid];
+                await options.onEvent({ type: "command_lifecycle", command_uuid: uuid, state: "started" });
+                await options.onEvent({ type: "user", uuid, session_id: options.sessionId });
+                await options.onEvent({ type: "result", subtype: "success", result: `Answered: ${text}` });
+              }
+              return receipt;
             } }
         };
         processes.push(native);
@@ -1246,7 +1386,18 @@ async function publishedClaudeFixture(t, { publication = true, providerId = "ant
   const send = (id = "request") => owner.send(entry, { message: "Explain", messageId: id });
   const frame = input => entry.process.options.onEvent({ session_id: conversationId, ...input });
   const final = () => owner.readFinalAssistantResult(context.key, conversationId, entry.turn?.id || "");
-  return { owner, context, conversationId, messages, processes, behavior, send, frame, final,
+  // A background task Claude starts, such as an Agent it runs in the background.
+  const startTask = taskId => { behavior.tasks.add(taskId); return frame({ type: "system", subtype: "task_started", task_id: taskId }); };
+  // The next send is a steer Claude acknowledges and holds behind its running tool call.
+  const queue = () => {
+    const send = entry.process.client.send;
+    entry.process.client.send = async (message, input) => {
+      entry.process.client.send = send;
+      behavior.queued.set(input.messageId, message);
+      await frame({ type: "command_lifecycle", command_uuid: input.messageId, state: "queued" });
+    };
+  };
+  return { owner, context, conversationId, messages, processes, behavior, send, frame, final, startTask, queue,
     get entry() { return entry; }, setBeforeState(callback) { beforeState = callback; },
     async reopen() { entry = await owner.open(context, { mainId: conversationId }); return entry; } };
 }
@@ -2402,11 +2553,28 @@ test("Claude supplied common checkpoint failure preserves original refusal and n
 });
 
 
+// Vibe64's Stop reaches the owner as the conversation's cancel, while the
+// person's command still runs.
+test("a person's Stop of a running command keeps Claude's process and its background task", async t => {
+  const f = await claudeSuppliedToolFixture(t);
+  const running = f.owner.run(f.control, f.command("stopped-command"), f.options);
+  while (!f.accepted.length) await new Promise(resolve => setImmediate(resolve));
+  await f.startTask("background-agent");
+  const native = f.entry.process;
+  await f.owner.cancel(f.control, { context: f.context, ...f.options });
+  await running;
+  assert.equal(native.stops, 0, "Neither the Stop nor the command's end stops the process");
+  assert.equal(f.entry.process, native);
+  assert.deepEqual([f.entry.turn.state, f.entry.turn.active, f.entry.nativeTurn.read().backgroundTasks], ["interrupted", false, 1]);
+});
+
 test("Claude failed Stop retains cleanup for an explicit retry without a hidden second attempt", async t => {
   const f = await claudeSuppliedToolFixture(t);
   const running = f.owner.run(f.control, f.command("stop-retry"), f.options);
   const failedRun = assert.rejects(running, error => error.cleanupFailed === true);
   while (!f.accepted.length) await new Promise(resolve => setImmediate(resolve));
+  // Claude answers the interrupt without ending its turn, so the Stop stops the process.
+  f.entry.process.client.interrupt = async () => ({});
   let stops = 0;
   let allowed = false;
   t.after(() => { allowed = true; });
