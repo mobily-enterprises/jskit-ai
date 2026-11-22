@@ -28,9 +28,28 @@ Local functions
 - `checkout(plan)`
 - `loadHistory(collection, after = null)`
 
+### `src/client/components/PaymentTopUp.vue`
+Exports
+- None
+Local functions
+- `locale()`
+- `currencyFormat()`
+- `fractionDigits()`
+- `money(minor)`
+- `parseAmount(text)`
+- `choose(minor)`
+- `submit()`
+- `returned()`
+
 ### `src/client/i18n.js`
 Exports
 - `useJskitText`
+
+### `src/client/openPaymentPage.js`
+Exports
+- `openPaymentPage(url, page = globalThis.window)`
+Local functions
+- `isFramed(page)`
 
 ### fixtures
 

@@ -126,15 +126,24 @@ const historicalPriceBindings = Object.fromEntries(published.history
   .map((plan) => [plan.priceId, plan.planId]));
 const adapter = createStripePaymentAdapter({
   apiKey, webhookSecret, environment, providerAccountId: binding.providerAccountId,
-  priceBindings, historicalPriceBindings
+  priceBindings, historicalPriceBindings,
+  // A live key (sk_live_, rk_live_) is refused unless APP_ENV is production; test keys work everywhere.
+  appEnv: appEnvironment(process.env)
 });
 const catalogue = createPaymentCatalogue({ store, adapter, scope: merchantScope, configuration });
 const checkout = createPaymentCheckoutService({
   adapter, store, payments, merchantScope, returnUrl, authorize: authorizeBilling,
   // Only production (APP_ENV) takes real money; elsewhere the live payment environment is refused.
-  appEnv: appEnvironment(process.env)
+  appEnv: appEnvironment(process.env),
+  // Only when the configuration declares topUps: the application's balance gains each paid top-up once.
+  ...(configuration.topUps ? { topUps: { offer: configuration.topUps, credit: creditBalance } } : {})
 });
 ```
+
+`creditBalance({reference, subjectId, amount, currency}, options)` is the
+application's own: it adds a paid top-up to the subject's balance, writing
+through `options` (its handles join the settling transaction), and is called
+once per paid top-up.
 
 The returned objects stay inside the backend. Never serialize the environment,
 adapter or secret-bearing startup variables to the client. `authorizeBilling`
@@ -150,7 +159,11 @@ publication, rebuild this composition from the current bindings (or restart the
 app) before accepting checkout requests. An empty catalogue cannot sell a plan.
 
 Map authenticated checkout and portal routes to the corresponding `checkout`
-methods. Map the webhook route to `checkout.webhook({rawBody, signature})`,
+methods, and, with top-ups, a route that starts one
+(`checkout.topUp({actor, subjectId, amount, requestId})`) and the return page's
+confirmation (`checkout.confirmTopUp({actor, subjectId, topUpId})`, with
+`topUpId` from the `paymentTopUp` query parameter, `TOP_UP_RETURN_PARAMETER`
+from `@jskit-ai/payments-core/shared/topUps`). Map the webhook route to `checkout.webhook({rawBody, signature})`,
 preserving the unmodified request Buffer. Enforce features using
 `payments.requireFeature({...merchantScope, subjectId}, 'export')`; debit credits
 using a stable business-operation reference. A successful checkout redirect is
@@ -218,7 +231,8 @@ application responsibilities; focused package tests use controlled fixtures.
 ## Customer-facing billing page
 
 The optional `@jskit-ai/payments-web` package owns the reusable Vue/Vuetify
-`PaymentAccount` view. Its README specifies the props, emitted actions and
+`PaymentAccount` and `PaymentTopUp` views, and `openPaymentPage(url)`, which
+opens a Checkout URL in this tab, or in a new one when the app runs framed. Its README specifies the props, emitted actions and
 existing JSKIT HTTP-hook composition. Node-only consumers do not install Vue.
 `checkout.account({actor, subjectId})` authorizes action `account`, then returns
 balance, features, subscriptions and a `hasCustomer` flag without provider customer

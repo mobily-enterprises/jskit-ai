@@ -414,7 +414,7 @@ const stripeDefinition = Object.freeze({
   "https://docs.stripe.com/keys/restricted-api-keys", [
     "Select the intended Stripe account and sandbox or live mode, then open the API keys page.",
     "Choose Create restricted key, start from zero permissions, name it and allow Balance read access.",
-    "If configuring application payments, Balance read alone is insufficient. The current payment library also reads the account, invoices and subscriptions, writes customers, products and prices, and creates Checkout and customer portal sessions. Grant those resource permissions for your account. Leave unrelated resources and connected-account permissions disabled. Review failed requests in the key's request logs if Stripe reports missing permissions.",
+    "If configuring application payments, Balance read alone is insufficient. The current payment library also reads the account, invoices, subscriptions and Checkout sessions, writes customers, products and prices, and creates Checkout and customer portal sessions. Grant those resource permissions for your account. Leave unrelated resources and connected-account permissions disabled. Review failed requests in the key's request logs if Stripe reports missing permissions.",
     "Create the key, complete verification and copy it into Env. A publishable key cannot read balances.",
     "Save its reference here. This fragment reads the key owner's balance; payment collection and connected merchant onboarding require further integration."
   ]),
@@ -422,7 +422,7 @@ const stripeDefinition = Object.freeze({
   "url": "https://docs.stripe.com/webhooks",
   "steps": [
     "Open Stripe and select the matching sandbox or live account. Complete the API-key instructions for this connection; keep secret keys in backend Env.",
-    "Open Workbench → Webhooks → Add destination. Select events for your account and the snapshot webhook endpoint type. Add invoice.paid, invoice.payment_failed, invoice.payment_action_required and customer.subscription.created, updated and deleted. Set the endpoint's API version to the version supported by your application's Stripe SDK.",
+    "Open Workbench → Webhooks → Add destination. Select events for your account and the snapshot webhook endpoint type. Add invoice.paid, invoice.payment_failed, invoice.payment_action_required and customer.subscription.created, updated and deleted. If your application sells top-ups, also add checkout.session.completed, checkout.session.async_payment_succeeded, checkout.session.async_payment_failed and checkout.session.expired. Set the endpoint's API version to the version supported by your application's Stripe SDK.",
     "Enter the suggested webhook URL only after your application implements that route. Create the destination, reveal its signing secret, and use Set signing secret in Env above. Each environment needs its own destination and secret.",
     "Configure the customer portal in Stripe's Billing settings. Your application creates an authenticated portal session for its own customer's account.",
     "Before live payments, finish Stripe's business verification and review its account restrictions. A successful API-key check is not proof that charges or payouts are enabled."

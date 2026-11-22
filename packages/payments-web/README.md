@@ -1,9 +1,9 @@
 # Application billing UI
 
-`@jskit-ai/payments-web` supplies a Vue/Vuetify account component for generated or
+`@jskit-ai/payments-web` supplies Vue/Vuetify account and top-up components for generated or
 hand-written JavaScript applications. It has no hosted-editor, provider SDK,
 credential, file-discovery or HTTP dependency; its only JSKIT peer is
-`@jskit-ai/kernel`, for the client text helper. The application mounts it in
+`@jskit-ai/kernel`, for the client text helper. The application mounts them in
 its existing billing page or semantic placement. It does not register routes or
 change shell navigation automatically. This worktree package is not yet published.
 
@@ -64,6 +64,51 @@ its reconciled account contains an open subscription, while allowing recovery of
 an already completed request ID. Before webhook reconciliation, separate checkout
 sessions can still be open at the provider; retain one request ID for an ongoing
 purchase intent. Application authorization remains mandatory on every request.
+
+## Top-ups
+
+Import `PaymentTopUp` from `@jskit-ai/payments-web/client/components/PaymentTopUp`
+and `openPaymentPage` from `@jskit-ai/payments-web/client/openPaymentPage`, for
+an application whose payment configuration declares `topUps`
+(`@jskit-ai/payments-core`'s README, "Prepaid top-ups").
+
+| Prop | Meaning |
+|---|---|
+| `offer` | Required: the validated configuration's `topUps` (`currency`, `minimumAmount`, `maximumAmount`, in the currency's smallest unit) |
+| `presets` | Suggested amounts, in the currency's smallest unit |
+| `canTopUp` | App authorization display hint, false by default; never replaces server authorization |
+| `pending` | A top-up or confirmation request in progress |
+| `topUp` | The server's answer `{topUpId, status, amount, currency, url}`, or null before one starts |
+| `paymentPage` | `openPaymentPage`'s answer for this top-up (`opened`, `blocked`, `redirected`), or `""` when the page was not opened from here, as on the return page |
+| `locale` | Optional locale for amounts; defaults to the app's active language |
+
+The component emits:
+
+- `top-up(amount)`: start a top-up of `amount`, an integer in the currency's
+  smallest unit within the offer's limits, read exactly from the digits typed
+  (`12.5` dollars is `1250`).
+- `open-payment()`: open `topUp.url` (again): call `openPaymentPage(topUp.url)`
+  from this click, which lets a blocked tab open.
+- `check()`: ask the server about the top-up (`confirmTopUp`). It is also
+  emitted when a framed page waiting for its payment tab regains focus.
+- `dismiss()`: clear the top-up and show the amount chooser again.
+
+`openPaymentPage(url, page = window)` goes to the payment page where the page
+can show it. Unframed, this tab navigates there (`"redirected"`). Framed (a
+Vibe64 Preview pane, any embedding page), where Stripe Checkout refuses to load,
+it calls `window.open(url, "_blank")` and sets the new tab's `opener` to null
+itself (`"opened"`), or reports `"blocked"` when the browser refused the tab.
+It passes no `noopener` feature, with which `window.open` answers null even
+for a tab that opened. Only http(s) URLs open.
+
+Composition: the start route calls `checkoutService.topUp({actor, subjectId,
+amount, requestId})` with a request ID kept for that intent; on success set
+`topUp` and `paymentPage = openPaymentPage(topUp.url)`. The return page reads
+the `paymentTopUp` query parameter (`TOP_UP_RETURN_PARAMETER`) and calls
+`checkoutService.confirmTopUp({actor, subjectId, topUpId})`, binding its answer
+to `topUp` with `paymentPage` left `""`. A `check` calls the same confirmation.
+The server decides every outcome: a paid status comes only from the provider's
+facts, and the balance the app shows is its own, re-read after `credited`.
 
 ## Application composition
 
@@ -140,7 +185,11 @@ the documented JSON account/plan display shape and actions.
 
 The focused package test compiles and mounts the Vue component with lightweight
 host controls and checks loaded, pending, overdue, unauthorized, error/retry and
-loading behavior. A separate browser fixture uses real Vuetify and controlled
+loading behavior. `paymentTopUp.test.js` mounts `PaymentTopUp` the same way
+(amount parsing and limits, presets, a zero-decimal currency, the framed wait
+with its focus check, the blocked tab, the return page and each final state),
+and `openPaymentPage.test.js` checks the framed, unframed, blocked and refused
+URL cases against stand-in windows; neither runs a real browser. A separate browser fixture uses real Vuetify and controlled
 component inputs, without a generated application or provider connection:
 
 ```sh

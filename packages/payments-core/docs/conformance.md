@@ -28,6 +28,9 @@ For each named payment environment:
 4. For Paddle, require the integration's `settings.environment` to equal the
    payment environment, and require `taxCategory` and `publicClientTokenRef` in
    the payment binding. Their values already passed the payment schema.
+5. With `topUps`, refuse every environment bound to a Paddle integration (top-ups
+   are Stripe Checkout payments), and refuse a `minimumAmount` above
+   `maximumAmount`.
 
 The examples distinguish malformed prices/credits/features and inline secrets
 from structurally valid but unresolved or mismatched merchant connections.
@@ -63,6 +66,30 @@ from another tenant, expiry exactly at period end, expired refunds, promotional
 credits and rejection of overspending. Credit expiry and feature access are
 separate assertions. An expired allowance never becomes a fresh grant on retry.
 
+## Top-up sequence
+
+`topUpScenario` supplies a configuration with `topUps`, a merchant and subject
+scope, and `steps` run in order against a fresh database, with a controlled
+provider in place of Stripe:
+
+- `topUp` starts a top-up for the step's subject (`subjectId`, else the
+  scenario's) with `input` (`amount`, `requestId`), authorized by that subject.
+  `topUp` names it for later steps. The controlled provider answers each new
+  Checkout session with an id of its own.
+- `settle` reports `facts` (`outcome`, `amount`, `currency`) for the named
+  top-up's session through `door`: `webhook` as a verified provider event,
+  `return` as the return page's confirmation, for which the server reads those
+  facts from the provider. Both doors settle through the same operation.
+- `credits` lists every credit the application's credit function received, in
+  order, as `subjectId`, `amount` and `currency`.
+
+`expect` and `error` work as in the account sequence. The sequence covers the
+amount limits, a repeated request and a conflicting one, an unpaid return, a
+bank payment still processing, a paid amount that differs from the top-up's
+(refused, nothing credited), the return and the webhook reporting one payment
+(credited once), a late failure after payment, another subject's top-up with the
+same request id, and failed and expired top-ups that a later report never moves.
+
 ## Framework and CLI ownership
 
 A Laravel application uses its own JSON parser/validator, policies, models,
@@ -78,11 +105,13 @@ preserve these same values rather than inventing a different hosted payment form
 
 ## Evidence boundaries
 
-The package's `test/conformance.test.js` checks all configuration examples and
-the full account sequence against the actual JSKIT service and SQLite storage.
-An independent Python draft-07 validator plus the explicit reference rules also
-checked the 11 configuration examples without importing Node or JSKIT. This
-establishes independent interpretation of configuration, not a PHP payment engine.
+The package's `test/conformance.test.js` checks all configuration examples, the
+full account sequence and the top-up sequence against the actual JSKIT service
+and SQLite storage. An independent Python draft-07 validator plus the explicit
+reference rules also checked the first 11 configuration examples without
+importing Node or JSKIT; the five top-up examples added later have been checked
+by the JSKIT test only. This establishes independent interpretation of
+configuration, not a PHP payment engine.
 
 Native Laravel execution, cross-process MySQL/PostgreSQL transactions, raw webhook
 delivery and real provider checkout are separate evidence. These examples do not

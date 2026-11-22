@@ -2,9 +2,10 @@
   "name": "@jskit-ai/payments-core",
   "version": "0.2.37",
   "type": "module",
-  "description": "Application-owned payment configuration, subscription access and transactional usage credits.",
+  "description": "Application-owned payment configuration, subscription access, prepaid top-ups and transactional usage credits.",
   "exports": {
     "./shared": "./src/shared/configuration.js",
+    "./shared/topUps": "./src/shared/topUps.js",
     "./configuration.schema.json": "./contracts/configuration.schema.json",
     "./conformance.json": "./contracts/conformance.json",
     "./docs/contract.md": "./docs/contract.md",
@@ -50,6 +51,9 @@
             },
             {
               "tableName": "payment_catalogues"
+            },
+            {
+              "tableName": "payment_top_ups"
             }
           ]
         }

@@ -453,3 +453,15 @@ companions and changes nothing. A table holding rows that a conversion could
 not keep whole stops the migration and changes nothing, naming the table
 ([Database layer](./database-layer.md#a-new-table-takes-the-collation-of-the-tables-already-there)).
 Do not change the database's default to get past the failure.
+
+## The Stripe adapter takes APP_ENV
+
+`createStripePaymentAdapter` (`@jskit-ai/payments-core/server/stripe`) now
+requires `appEnv: appEnvironment(env)`, as `createPaymentCheckoutService`
+does, and throws a TypeError naming it when it is missing. With it, a live
+Stripe key (`sk_live_`, `rk_live_`) is refused unless `APP_ENV` is
+`production`, with `payment_live_key_refused`; test keys work in every
+environment. Pass the same `appEnv` to both. The payment package's new
+migration, `payments_core_top_ups.cjs`, adds the `payment_top_ups` table its
+prepaid top-ups keep; run `npm run db:migrate` after updating, whether or not
+the application sells top-ups.

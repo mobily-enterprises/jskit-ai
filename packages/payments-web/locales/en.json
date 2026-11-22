@@ -49,6 +49,30 @@
           "empty": "No billing records found.",
           "nextPage": "Next billing page"
         }
+      },
+      "topUp": {
+        "region": "Top up credits",
+        "amountLabel": "Amount ({currency})",
+        "amountHint": "From {minimum} to {maximum}",
+        "amountInvalid": "Enter an amount from {minimum} to {maximum}.",
+        "submit": "Top up",
+        "notAllowed": "A billing administrator can top up this account.",
+        "redirecting": "Opening the payment page…",
+        "waiting": "Waiting for your payment…",
+        "waitingNote": "Pay {amount} in the new tab. This page checks again when you come back to it.",
+        "blocked": "Your browser blocked the payment tab. Open it from here.",
+        "notComplete": "The payment of {amount} is not complete yet.",
+        "openPayment": "Open the payment page",
+        "openAgain": "Open the payment page again",
+        "check": "Check payment",
+        "cancel": "Cancel",
+        "processing": "Your payment of {amount} is being processed. The credits arrive when it clears.",
+        "paid": "{amount} was added to your balance.",
+        "failed": "The payment of {amount} failed. Nothing was added.",
+        "expired": "The payment page for {amount} expired. Nothing was added.",
+        "again": "Top up again",
+        "tryAgain": "Try again",
+        "done": "Done"
       }
     }
   }

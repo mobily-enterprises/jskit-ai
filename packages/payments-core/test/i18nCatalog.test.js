@@ -74,6 +74,8 @@ test("configuration errors carry codes whose English matches each field error", 
     "payments.configuration.paddleClientToken",
     "payments.configuration.paddleEnvironment",
     "payments.configuration.paddleTaxCategory",
-    "payments.configuration.sharedConnectionRequired"
+    "payments.configuration.paddleTopUps",
+    "payments.configuration.sharedConnectionRequired",
+    "payments.configuration.topUpRange"
   ]);
 });

@@ -23,7 +23,11 @@ Local functions
 
 ### `src/server/checkout.js`
 Exports
-- `createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize, appEnv })`
+- `createPaymentCheckoutService({ adapter, store, payments, merchantScope, returnUrl, authorize, appEnv, topUps, clock = Date.now })`
+Local functions
+- `requestIdentifier(requestId)`
+- `billingEmail(email)`
+- `providerUnavailable(error)`
 
 ### `src/server/errors.js`
 Exports
@@ -43,6 +47,7 @@ Exports
 - `paymentCatalogueResource`
 - `paymentCustomerResource`
 - `paymentEntryResource`
+- `paymentTopUpResource`
 Local functions
 - `key(column)`
 
@@ -57,6 +62,7 @@ Local functions
 - `accountKey(scope)`
 - `customerKey(scope, customerId)`
 - `entryKey(account, reference)`
+- `topUpKey(scope, topUpId)`
 
 ### `src/server/PaymentStoreFeature.js`
 Exports
@@ -93,10 +99,21 @@ Exports
 
 ### `src/server/stripe.js`
 Exports
-- `createStripePaymentAdapter({ apiKey, webhookSecret, environment, providerAccountId, priceBindings, historicalPriceBindings = {}, client = new Stripe(apiKey, { maxNetworkRetries: 0 }) })`
+- `createStripePaymentAdapter({ apiKey, appEnv, apiBaseUrl = "", webhookSecret, environment, providerAccountId, priceBindings, historicalPriceBindings = {}, client = new Stripe(apiKey, stripeClientSettings(appEnv, apiBaseUrl)) })`
 Local functions
 - `id(value)`
 - `invalid()`
+- `invalidTopUp()`
+- `stripeClientSettings(appEnv, apiBaseUrl)`
+
+### `src/server/topUps.js`
+Exports
+- `SETTLED_TOP_UP`
+- `checkTopUpAmount(offer, amount)`
+- `composedTopUps(topUps, adapter, store)`
+- `nextTopUpStatus(status, outcome)`
+- `topUpReturnUrl(returnUrl, topUpId)`
+- `topUpView({ id, status, amount, currency, url })`
 
 ### `src/server/types.js`
 Exports
@@ -110,7 +127,14 @@ Exports
 - `type PaymentAccountState`
 - `type PaymentAccountTransaction`
 - `type PaymentCatalogueState`
+- `type PaymentTopUp`
+- `type PaymentTransactionOptions`
+- `type PaymentTopUpTransaction`
 - `type PaymentStore`
+- `type PaymentTopUpOffer`
+- `type PaymentTopUpCredit`
+- `type PaymentTopUps`
+- `type PaymentTopUpFacts`
 - `type PaymentProviderPage`
 - `type PaymentProviderPrice`
 - `type PaymentProviderAdapter`
@@ -119,8 +143,18 @@ Exports
 Exports
 - `validatePaymentConfiguration(document)`
 
+### `src/shared/topUps.js`
+Exports
+- `TOP_UP_RETURN_PARAMETER`
+
 ### migrations
 
 ### `migrations/payments_core_initial.cjs`
 Exports
 - None
+
+### `migrations/payments_core_top_ups.cjs`
+Exports
+- None
+Local functions
+- `createTopUps(knex)`

@@ -2271,7 +2271,7 @@
     {
       "packageId": "@jskit-ai/payments-core",
       "version": "0.2.37",
-      "description": "Application-owned payment configuration, subscription access and transactional usage credits.",
+      "description": "Application-owned payment configuration, subscription access, prepaid top-ups and transactional usage credits.",
       "jskit": {
         "kind": "runtime",
         "migrations": {
@@ -2294,6 +2294,9 @@
                 },
                 {
                   "tableName": "payment_catalogues"
+                },
+                {
+                  "tableName": "payment_top_ups"
                 }
               ]
             }

@@ -27,7 +27,6 @@
     },
     "plans": {
       "type": "object",
-      "minProperties": 1,
       "maxProperties": 100,
       "propertyNames": {
         "$ref": "#/definitions/id"
@@ -35,8 +34,33 @@
       "additionalProperties": {
         "$ref": "#/definitions/plan"
       }
+    },
+    "topUps": {
+      "$ref": "#/definitions/topUps"
     }
   },
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "plans": {
+          "type": "object",
+          "minProperties": 1
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": [
+        "topUps"
+      ],
+      "properties": {
+        "topUps": {
+          "type": "object"
+        }
+      }
+    }
+  ],
   "definitions": {
     "id": {
       "type": "string",
@@ -141,6 +165,37 @@
           "type": "integer",
           "minimum": 0,
           "maximum": 1000000000
+        }
+      }
+    },
+    "topUps": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "currency",
+        "minimumAmount",
+        "maximumAmount"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "minimumAmount": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 99999999
+        },
+        "maximumAmount": {
+          "type": "integer",
+          "minimum": 50,
+          "maximum": 99999999
         }
       }
     }

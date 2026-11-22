@@ -468,6 +468,201 @@
       },
       "schemaValid": true,
       "configurationValid": false
+    },
+    {
+      "id": "stripe-top-ups",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {},
+            "topUps": {
+              "name": "Credits",
+              "currency": "USD",
+              "minimumAmount": 100,
+              "maximumAmount": 50000
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": true
+    },
+    {
+      "id": "paddle-top-ups",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "paddle",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            },
+            "settings": {
+              "environment": "sandbox"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL",
+                "taxCategory": "saas",
+                "publicClientTokenRef": "env:PADDLE_CLIENT_TOKEN"
+              }
+            },
+            "plans": {
+              "pro": {
+                "name": "Pro",
+                "amount": 1200,
+                "currency": "USD",
+                "interval": "month",
+                "features": [
+                  "export"
+                ],
+                "renewalCredits": 100
+              }
+            },
+            "topUps": {
+              "name": "Credits",
+              "currency": "USD",
+              "minimumAmount": 100,
+              "maximumAmount": 50000
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": false
+    },
+    {
+      "id": "top-up-below-stripe-minimum",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {},
+            "topUps": {
+              "name": "Credits",
+              "currency": "USD",
+              "minimumAmount": 49,
+              "maximumAmount": 50000
+            }
+          }
+        }
+      },
+      "schemaValid": false,
+      "configurationValid": false
+    },
+    {
+      "id": "top-up-range-inverted",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {},
+            "topUps": {
+              "name": "Credits",
+              "currency": "USD",
+              "minimumAmount": 5000,
+              "maximumAmount": 1000
+            }
+          }
+        }
+      },
+      "schemaValid": true,
+      "configurationValid": false
+    },
+    {
+      "id": "nothing-to-sell",
+      "document": {
+        "integrations": {
+          "billing": {
+            "provider": "stripe",
+            "accountMode": "shared",
+            "authentication": {
+              "method": "api-key",
+              "secretRef": "env:STRIPE_KEY"
+            }
+          }
+        },
+        "extensions": {
+          "payments": {
+            "version": 1,
+            "environments": {
+              "sandbox": {
+                "integrationId": "billing",
+                "providerAccountId": "acct_fixture",
+                "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+                "returnUrlRef": "env:BILLING_RETURN_URL"
+              }
+            },
+            "plans": {}
+          }
+        }
+      },
+      "schemaValid": false,
+      "configurationValid": false
     }
   ],
   "accountScenario": {
@@ -712,6 +907,295 @@
           "balance": 20,
           "features": []
         }
+      }
+    ]
+  },
+  "topUpScenario": {
+    "document": {
+      "integrations": {
+        "billing": {
+          "provider": "stripe",
+          "accountMode": "shared",
+          "authentication": {
+            "method": "api-key",
+            "secretRef": "env:STRIPE_KEY"
+          }
+        }
+      },
+      "extensions": {
+        "payments": {
+          "version": 1,
+          "environments": {
+            "sandbox": {
+              "integrationId": "billing",
+              "providerAccountId": "acct_fixture",
+              "webhookSecretRef": "env:STRIPE_WEBHOOK_SECRET",
+              "returnUrlRef": "env:BILLING_RETURN_URL"
+            }
+          },
+          "plans": {
+            "pro": {
+              "name": "Pro",
+              "amount": 1200,
+              "currency": "USD",
+              "interval": "month",
+              "features": [
+                "export"
+              ],
+              "renewalCredits": 100
+            }
+          },
+          "topUps": {
+            "name": "Credits",
+            "currency": "USD",
+            "minimumAmount": 100,
+            "maximumAmount": 50000
+          }
+        }
+      }
+    },
+    "scope": {
+      "applicationId": "app-fixture",
+      "integrationId": "billing",
+      "providerAccountId": "acct_fixture",
+      "environment": "sandbox",
+      "subjectId": "tenant-a"
+    },
+    "steps": [
+      {
+        "operation": "topUp",
+        "topUp": "first",
+        "input": {
+          "amount": 99,
+          "requestId": "top-up-one"
+        },
+        "error": "payment_top_up_amount_invalid"
+      },
+      {
+        "operation": "topUp",
+        "topUp": "first",
+        "input": {
+          "amount": 500,
+          "requestId": "top-up-one"
+        },
+        "expect": {
+          "status": "open",
+          "amount": 500,
+          "currency": "USD"
+        }
+      },
+      {
+        "operation": "topUp",
+        "topUp": "first",
+        "input": {
+          "amount": 700,
+          "requestId": "top-up-one"
+        },
+        "error": "payment_reference_conflict"
+      },
+      {
+        "operation": "topUp",
+        "topUp": "first",
+        "input": {
+          "amount": 500,
+          "requestId": "top-up-one"
+        },
+        "expect": {
+          "status": "open",
+          "amount": 500,
+          "currency": "USD"
+        }
+      },
+      {
+        "operation": "settle",
+        "topUp": "first",
+        "door": "return",
+        "facts": {
+          "outcome": "open",
+          "amount": 500,
+          "currency": "USD"
+        },
+        "expect": {
+          "status": "open",
+          "credited": false
+        }
+      },
+      {
+        "operation": "settle",
+        "topUp": "first",
+        "door": "webhook",
+        "facts": {
+          "outcome": "processing",
+          "amount": 500,
+          "currency": "USD"
+        },
+        "expect": {
+          "status": "processing",
+          "credited": false
+        }
+      },
+      {
+        "operation": "settle",
+        "topUp": "first",
+        "door": "webhook",
+        "facts": {
+          "outcome": "paid",
+          "amount": 400,
+          "currency": "USD"
+        },
+        "error": "payment_provider_result_invalid"
+      },
+      {
+        "operation": "credits",
+        "expect": []
+      },
+      {
+        "operation": "settle",
+        "topUp": "first",
+        "door": "return",
+        "facts": {
+          "outcome": "paid",
+          "amount": 500,
+          "currency": "USD"
+        },
+        "expect": {
+          "status": "paid",
+          "credited": true
+        }
+      },
+      {
+        "operation": "settle",
+        "topUp": "first",
+        "door": "webhook",
+        "facts": {
+          "outcome": "paid",
+          "amount": 500,
+          "currency": "USD"
+        },
+        "expect": {
+          "status": "paid",
+          "credited": false
+        }
+      },
+      {
+        "operation": "settle",
+        "topUp": "first",
+        "door": "webhook",
+        "facts": {
+          "outcome": "failed",
+          "amount": 500,
+          "currency": "USD"
+        },
+        "expect": {
+          "status": "paid",
+          "credited": false
+        }
+      },
+      {
+        "operation": "credits",
+        "expect": [
+          {
+            "subjectId": "tenant-a",
+            "amount": 500,
+            "currency": "USD"
+          }
+        ]
+      },
+      {
+        "operation": "topUp",
+        "topUp": "other",
+        "subjectId": "tenant-b",
+        "input": {
+          "amount": 300,
+          "requestId": "top-up-one"
+        },
+        "expect": {
+          "status": "open",
+          "amount": 300,
+          "currency": "USD"
+        }
+      },
+      {
+        "operation": "settle",
+        "topUp": "other",
+        "subjectId": "tenant-b",
+        "door": "webhook",
+        "facts": {
+          "outcome": "failed",
+          "amount": 300,
+          "currency": "USD"
+        },
+        "expect": {
+          "status": "failed",
+          "credited": false
+        }
+      },
+      {
+        "operation": "settle",
+        "topUp": "other",
+        "subjectId": "tenant-b",
+        "door": "webhook",
+        "facts": {
+          "outcome": "expired",
+          "amount": 300,
+          "currency": "USD"
+        },
+        "expect": {
+          "status": "failed",
+          "credited": false
+        }
+      },
+      {
+        "operation": "topUp",
+        "topUp": "third",
+        "subjectId": "tenant-b",
+        "input": {
+          "amount": 300,
+          "requestId": "top-up-two"
+        },
+        "expect": {
+          "status": "open"
+        }
+      },
+      {
+        "operation": "settle",
+        "topUp": "third",
+        "subjectId": "tenant-b",
+        "door": "return",
+        "facts": {
+          "outcome": "expired",
+          "amount": 300,
+          "currency": "USD"
+        },
+        "expect": {
+          "status": "expired",
+          "credited": false
+        }
+      },
+      {
+        "operation": "settle",
+        "topUp": "third",
+        "subjectId": "tenant-b",
+        "door": "webhook",
+        "facts": {
+          "outcome": "processing",
+          "amount": 300,
+          "currency": "USD"
+        },
+        "expect": {
+          "status": "expired",
+          "credited": false
+        }
+      },
+      {
+        "operation": "credits",
+        "expect": [
+          {
+            "subjectId": "tenant-a",
+            "amount": 500,
+            "currency": "USD"
+          }
+        ]
       }
     ]
   }

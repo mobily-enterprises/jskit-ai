@@ -6,9 +6,11 @@ is required to run them. PHP applications implement the same documented
 contract using their own framework; they do not install this runtime.
 
 Current implementation: a strict payment declaration, transactional Knex
-storage, subscription feature checks, usage credits, official-SDK Stripe and
-Paddle webhook verification, subscription reconciliation, checkout and customer
-portal adapters, and an explicitly authorized checkout composition service.
+storage, subscription feature checks, usage credits, prepaid top-ups (one-off
+Stripe Checkout payments credited once to the application's own balance),
+official-SDK Stripe and Paddle webhook verification, subscription
+reconciliation, checkout and customer portal adapters, and an explicitly
+authorized checkout composition service.
 Reviewed catalogue publication preserves environment-bound product/price IDs and
 records ambiguous provider writes for recovery. Editor execution wiring and
 automatic merchant onboarding remain separate unfinished work.
@@ -24,6 +26,9 @@ they are not an editor configuration database.
 Public API imports:
 
 - `@jskit-ai/payments-core/shared`: `validatePaymentConfiguration(document)`.
+- `@jskit-ai/payments-core/shared/topUps`: `TOP_UP_RETURN_PARAMETER`
+  (`"paymentTopUp"`), the return URL's query parameter naming the top-up a
+  person comes back from.
 - `@jskit-ai/payments-core/server/storage`: `PaymentStoreFeature`, the payment
   tables' one owner: registered in the server providers, it owns them through
   `runtime.resources` and provides the payment store as `payments.store`. A
@@ -38,8 +43,8 @@ The app authorizes billing identities and mounts its own routes. A billable
 subject may be a user or an organization. Never derive that subject from an
 untrusted customer ID or webhook metadata. The checkout service requires an
 `authorize(actor, { subjectId, action })` function that returns exactly `true`.
-The app must distinguish `account`, `history`, `checkout`, `portal` and
-administrator-only `reconcile`. `history` reads customer-scoped subscriptions
+The app must distinguish `account`, `history`, `checkout`, `portal`, `topUp`
+and administrator-only `reconcile`. `history` reads customer-scoped subscriptions
 and invoice/transaction pages with no provider writes; its contract and CLI
 composition are in [standalone setup](docs/standalone.md#provider-billing-history-from-an-app-or-cli).
 Core grant/debit/reconciliation methods are trusted server APIs, not public
@@ -67,8 +72,15 @@ For concrete file loading, Env resolution and provider composition, see
    Create one Stripe or Paddle adapter using `apiKey`, `webhookSecret`,
    `environment`, `providerAccountId` (Stripe), `taxCategory` (Paddle), and `priceBindings`. Account
    identity in this configuration is not a claim of provider verification.
+   The Stripe adapter also takes `appEnv` (`appEnvironment(env)`), and refuses
+   a live key (`sk_live_`, `rk_live_`) unless it is `production`
+   (`payment_live_key_refused`); test keys work everywhere. Development and
+   tests may point it at a stand-in for Stripe's API with `apiBaseUrl` (an
+   origin such as `http://127.0.0.1:12111`), which other environments refuse.
 5. Create the checkout service with `adapter`, `store`, `payments`,
-   `merchantScope`, `returnUrl`, and the app's `authorize` function.
+   `merchantScope`, `returnUrl`, `appEnv` and the app's `authorize` function,
+   plus `topUps: { offer: configuration.topUps, credit }` when it sells top-ups
+   ([Prepaid top-ups](#prepaid-top-ups)).
 6. Authenticated app routes call `checkout({actor, subjectId, email, planId,
    requestId})` or `portal({actor, subjectId})`. Keep the returned checkout
    request ID stable on transport retries; begin a new request for an expired
@@ -91,6 +103,51 @@ Checkout and a return page. Both providers' customer portals remain provider
 hosted. Provider account registration and Paddle domain approval are separate
 setup tasks; a successful API request does not prove approval.
 
+## Prepaid top-ups
+
+A configuration with `topUps` (see [the contract](docs/contract.md#prepaid-top-ups))
+sells one-off Stripe Checkout payments of an amount the person chooses within
+its limits, credited once to the application's own balance:
+
+```js
+const checkout = createPaymentCheckoutService({
+  adapter, store, payments, merchantScope, returnUrl, authorize, appEnv: appEnvironment(env),
+  topUps: {
+    offer: configuration.topUps,
+    // Inside the transaction that marks the top-up paid; write with `options` so both commit or neither does.
+    credit: ({ reference, subjectId, amount, currency }, options) => balances.add({ reference, subjectId, amount, currency }, options)
+  }
+});
+```
+
+The checkout service then has:
+
+- `topUp({actor, subjectId, amount, requestId, email?, description?})`:
+  authorizes action `topUp`, checks the amount (an integer in the currency's
+  smallest unit, within `minimumAmount`..`maximumAmount`), writes the top-up
+  down and opens its Checkout payment. Answers
+  `{topUpId, status, amount, currency, url}`; navigate to `url` (in a framed
+  page, `@jskit-ai/payments-web`'s `openPaymentPage(url)` opens it in a new
+  tab). The same `requestId` answers the same top-up.
+- `confirmTopUp({actor, subjectId, topUpId})`: the return page's call, with the
+  `paymentTopUp` query parameter Checkout returns with. It authorizes action
+  `topUp`, reads the session from Stripe with the server's key and settles it.
+  Answers the same shape plus `credited`, true only for the call that credited.
+- `webhook({rawBody, signature})` settles the top-ups' Checkout events
+  (`checkout.session.completed`, `checkout.session.async_payment_succeeded`,
+  `checkout.session.async_payment_failed`, `checkout.session.expired`) through
+  the same path, before subscription events.
+
+`credit` is called once per paid top-up with a stable `reference`
+(`top-up:<topUpId>`), the subject the top-up was written down for, the amount
+and the currency, and the options of the transaction that settles it. Its
+handle calls take those options (spread under the application's own context
+where it needs one) and join that transaction. It runs again only after its
+transaction rolled back, so it writes nothing outside it; a balance kept
+elsewhere must be idempotent on the reference. Composing top-ups with a Paddle
+adapter, or without `offer` or `credit`, throws a TypeError naming the fix; a
+service composed without them answers `topUp` with `payment_top_ups_unavailable`.
+
 ## Failures and evidence
 
 Checkout writes an intent before contacting the provider. A crash or ambiguous
@@ -112,7 +169,12 @@ features or allowances.
 Focused fixture evidence currently covers raw signatures with both official
 SDKs, storage rollback, duplicate grants/renewals, subject/environment isolation,
 concurrent debit requests, expired refunds, checkout authorization, uncertain
-writes and explicit recovery. SQLite fixtures do not establish PostgreSQL/MySQL
+writes and explicit recovery. Top-ups are tested through the real Stripe SDK
+against a stand-in for Stripe's API (`test/support/fakeStripe.js`): checkout
+creation and authorization, limits, each webhook outcome, the return page's
+confirmation, foreign and tampered sessions, a failing credit, and live-key and
+stand-in refusals; `test/topUps.mysql.test.js` races the webhook and the return
+page over one payment on MariaDB and sees it credited once. SQLite fixtures do not establish PostgreSQL/MySQL
 multi-process locking behavior. Live provider accounts and full generated-app
 acceptance have not been exercised.
 
@@ -133,7 +195,9 @@ existing subscribers; publication does not cancel their subscriptions.
 
 Configure Stripe deliveries for `invoice.paid`, `invoice.payment_failed`,
 `invoice.payment_action_required`, and the `customer.subscription.*` lifecycle
-used by the application. Configure Paddle for `transaction.completed` and
+used by the application, and, for top-ups, `checkout.session.completed`,
+`checkout.session.async_payment_succeeded`,
+`checkout.session.async_payment_failed` and `checkout.session.expired`. Configure Paddle for `transaction.completed` and
 `subscription.*` lifecycle deliveries. The provider adapter selects relevant
 subscription events only after signature verification; signed standalone
 invoices/transactions are ignored before application customer lookup.

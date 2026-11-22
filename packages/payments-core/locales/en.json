@@ -18,7 +18,13 @@
       "payment_insufficient_credits": "Not enough credits for this action.",
       "payment_debit_missing": "No debit exists for this reference.",
       "payment_customer_unbound": "Bind this provider customer before processing its events.",
-      "payment_sandbox_only": "Only production takes real payments: use the sandbox payment environment."
+      "payment_sandbox_only": "Only production takes real payments: use the sandbox payment environment.",
+      "payment_live_key_refused": "A live Stripe key takes real payments, and only APP_ENV=production takes them: use a test key (sk_test_ or rk_test_) in this environment.",
+      "payment_stand_in_refused": "A stand-in for Stripe's API works only in development and tests: remove apiBaseUrl in this environment.",
+      "payment_top_ups_unavailable": "This application takes no top-ups.",
+      "payment_top_up_amount_invalid": "Choose a top-up amount within this application's limits, in the currency's smallest unit.",
+      "payment_top_up_missing": "This account has no such top-up.",
+      "payment_provider_unavailable": "The payment provider did not answer. Try again: repeating this request is safe."
     },
     "payments": {
       "scope": {
@@ -37,18 +43,22 @@
         "recoveryObjectId": "Supply the exact provider object ID to recover.",
         "reference": "Use a nonempty business reference of at most 150 characters.",
         "creditQuantity": "Use a positive integer credit quantity, at most one billion.",
-        "timestamp": "Use an integer UTC timestamp in milliseconds."
+        "timestamp": "Use an integer UTC timestamp in milliseconds.",
+        "topUpDescription": "Describe the top-up in at most 500 characters, or leave the description out."
       },
       "reference": {
         "otherPlan": "The checkout request already selected another plan.",
-        "differentInputs": "This business reference was already used with different inputs."
+        "differentInputs": "This business reference was already used with different inputs.",
+        "otherAmount": "The top-up request already chose another amount."
       },
       "provider": {
         "checkAccount": "Check the {provider} account, price mapping and subscription shape.",
         "unsupportedEvent": "The event is not a supported subscription payment for this customer.",
         "objectIdMissing": "The provider did not return an object ID.",
         "subscriptionBinding": "Check the provider subscription and logical price binding.",
-        "renewalBinding": "Check the renewal's logical price binding."
+        "renewalBinding": "Check the renewal's logical price binding.",
+        "topUpSession": "Check the Stripe account and the top-up's Checkout session.",
+        "topUpAmount": "The amount paid differs from the top-up's amount, so it was not credited."
       },
       "webhook": {
         "rawBodyRequired": "Supply the unmodified webhook request bytes.",
@@ -60,7 +70,9 @@
         "sharedConnectionRequired": "Select a shared Stripe or Paddle connection with a backend API-key Env reference for {environment}.",
         "paddleEnvironment": "Select a Paddle connection configured for {environment}.",
         "paddleTaxCategory": "Choose the Paddle tax category for the products this app sells.",
-        "paddleClientToken": "Set the Env reference for this environment's Paddle public client token."
+        "paddleClientToken": "Set the Env reference for this environment's Paddle public client token.",
+        "paddleTopUps": "Top-ups take Stripe Checkout payments: select a Stripe connection for {environment}, or remove topUps.",
+        "topUpRange": "Make the largest top-up at least the smallest."
       },
       "catalogue": {
         "reviewFirst": "Review the current catalogue and resolve provider drift or unfinished requests first.",

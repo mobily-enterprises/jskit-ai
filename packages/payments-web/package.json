@@ -5,6 +5,8 @@
   "description": "Application-owned billing views for JSKIT Vue applications.",
   "exports": {
     "./client/components/PaymentAccount": "./src/client/components/PaymentAccount.vue",
+    "./client/components/PaymentTopUp": "./src/client/components/PaymentTopUp.vue",
+    "./client/openPaymentPage": "./src/client/openPaymentPage.js",
     "./locales/en.json": "./locales/en.json"
   },
   "peerDependencies": {

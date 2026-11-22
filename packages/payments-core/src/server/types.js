@@ -50,7 +50,37 @@
  */
 
 /**
- * Where payment accounts and catalogues are kept: the store PaymentStoreFeature
+ * One prepaid top-up, as the store keeps it. Its subject is the one the application authorized when it started the
+ * top-up: a provider's event or a return page only names the top-up.
+ * @typedef {object} PaymentTopUp
+ * @property {string} id
+ * @property {string} subjectId
+ * @property {string} requestId
+ * @property {number} amount In the currency's smallest unit.
+ * @property {string} currency
+ * @property {"starting" | "open" | "processing" | "paid" | "failed" | "expired"} status
+ * @property {string | null} sessionId The provider's Checkout session, once it answered.
+ * @property {string | null} url Its Checkout page.
+ * @property {string | null} paymentIntentId The provider's payment, once paid.
+ * @property {number} createdAt UTC milliseconds.
+ * @property {number | null} settledAt When it became paid, failed or expired.
+ */
+
+/**
+ * The options of a transaction a store's lock holds, which handle calls take to join it.
+ * @typedef {Readonly<{ context?: object | null, trx: object }>} PaymentTransactionOptions
+ */
+
+/**
+ * A top-up held under the store's lock while work runs: the top-up, which the work changes in place (null when there
+ * is none), and the options of the transaction the lock holds.
+ * @typedef {object} PaymentTopUpTransaction
+ * @property {PaymentTopUp | null} topUp
+ * @property {PaymentTransactionOptions} options
+ */
+
+/**
+ * Where payment accounts, catalogues and top-ups are kept: the store PaymentStoreFeature
  * provides as `payments.store`, or the application's own store. Each `with*` call runs its work under the
  * record's lock and saves the state the work leaves.
  * @typedef {object} PaymentStore
@@ -61,6 +91,47 @@
  * @property {(scope: PaymentMerchantScope, customerId: string) => Promise<string | null>} resolveCustomer The subject a provider customer is bound to.
  * @property {(scope: PaymentMerchantScope) => Promise<PaymentCatalogueState>} inspectCatalogue
  * @property {<T>(scope: PaymentMerchantScope, work: (state: PaymentCatalogueState) => Promise<T>) => Promise<T>} withCatalogue
+ * @property {(scope: PaymentMerchantScope, topUpId: string) => Promise<PaymentTopUp | null>} inspectTopUp
+ * @property {(scope: PaymentMerchantScope, topUp: PaymentTopUp) => Promise<PaymentTopUp>} createTopUp
+ *   Writes a top-up down unless one with its id exists, and answers the stored one.
+ * @property {<T>(scope: PaymentMerchantScope, topUpId: string, work: (held: PaymentTopUpTransaction) => Promise<T>) => Promise<T>} withTopUp
+ */
+
+/**
+ * An application's prepaid top-ups: the validated configuration's `topUps`.
+ * @typedef {object} PaymentTopUpOffer
+ * @property {string} name The product name on the Checkout page.
+ * @property {string} currency
+ * @property {number} minimumAmount In the currency's smallest unit.
+ * @property {number} maximumAmount
+ */
+
+/**
+ * The application's own balance gains a paid top-up, inside the transaction that settles it. Pass `options` to the
+ * handle calls that write the credit (`balances.withTransaction({ ...options, joinOnly: true }, work)`, or
+ * `{ ...options, context }` under the application's own context): they join that transaction, so the credit and the
+ * top-up's move to paid commit together or not at all. It is called once per paid top-up, and again only when its
+ * transaction rolled back (the credit failed, or the database ran the transaction again as a deadlock victim), so
+ * write nothing outside the transaction. `reference` is stable per top-up, for the application's ledger.
+ * @typedef {(credit: { reference: string, subjectId: string, amount: number, currency: string }, options: PaymentTransactionOptions) => Promise<void>} PaymentTopUpCredit
+ */
+
+/**
+ * Top-ups a checkout service takes.
+ * @typedef {object} PaymentTopUps
+ * @property {PaymentTopUpOffer} offer
+ * @property {PaymentTopUpCredit} credit
+ */
+
+/**
+ * What a provider says of a top-up's Checkout session.
+ * @typedef {object} PaymentTopUpFacts
+ * @property {string} topUpId The top-up the session names, a pointer the stored top-up must confirm.
+ * @property {string} sessionId
+ * @property {"open" | "processing" | "paid" | "failed" | "expired"} outcome
+ * @property {number} amount What the session took, in the currency's smallest unit.
+ * @property {string} currency
+ * @property {string | null} paymentIntentId
  */
 
 /**
@@ -100,6 +171,10 @@
  * @property {(request: { id: string, name: string, requestId: string }) => Promise<{ id: string }>} renameProduct
  * @property {(priceId: string) => Promise<PaymentProviderPrice>} readPrice
  * @property {(request: { productId: string, amount: number, currency: string, interval: string, requestId: string }) => Promise<{ id: string }>} createPrice
+ * @property {(request: { topUpId: string, amount: number, currency: string, name: string, description: string | null, email: string | null, returnUrl: string, requestId: string }) => Promise<PaymentProviderPage>} [createTopUpCheckout]
+ *   Stripe only: a one-off Checkout payment for a top-up.
+ * @property {(sessionId: string) => Promise<PaymentTopUpFacts>} [retrieveTopUpCheckout] Stripe only.
+ * @property {(event: any) => PaymentTopUpFacts | null} [topUpEvent] Stripe only: a verified event's top-up facts.
  */
 
 export {};

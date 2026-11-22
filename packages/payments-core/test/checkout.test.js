@@ -16,7 +16,7 @@ const secret = 'test-signing-secret';
 
 test('official SDK signature verification rejects mutation and expired delivery for both providers', async () => {
   const stripeClient = new Stripe('sk_test_fixture', { maxNetworkRetries: 0 });
-  const stripe = createStripePaymentAdapter({ client: stripeClient, webhookSecret: secret, environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: { pro: 'price_a' } });
+  const stripe = createStripePaymentAdapter({ appEnv: 'test', client: stripeClient, webhookSecret: secret, environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: { pro: 'price_a' } });
   const raw = Buffer.from(JSON.stringify({ id: 'evt_a', type: 'customer.created', livemode: false, data: { object: { id: 'cus_a' } } }));
   const header = stripeClient.webhooks.generateTestHeaderString({ payload: raw.toString(), secret });
   assert.equal((await stripe.verifyEvent(raw, header)).id, 'evt_a');
@@ -86,7 +86,7 @@ test('Stripe reconciliation loads current subscription and validates invoice acc
   const subscription = { id: 'sub_a', customer: 'cus_a', livemode: false, status: 'active', items: { has_more: false, data: [{ quantity: 1, price: { id: 'price_a' }, current_period_end: 20000 }] } };
   const invoice = { id: 'in_a', customer: 'cus_a', livemode: false, status: 'paid', billing_reason: 'subscription_cycle', parent: { subscription_details: { subscription: 'sub_a' } }, lines: { has_more: false, data: [{ quantity: 1, parent: { subscription_item_details: { proration: false } }, pricing: { price_details: { price: 'price_a' } }, period: { end: 20000 } }] } };
   const client = { accounts: { retrieve: async () => ({ id: 'acct_a' }) }, balance: { retrieve: async () => ({ livemode: false }) }, subscriptions: { retrieve: async () => subscription }, invoices: { retrieve: async () => invoice } };
-  const adapter = createStripePaymentAdapter({ client, webhookSecret: secret, environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: { pro: 'price_a' } });
+  const adapter = createStripePaymentAdapter({ appEnv: 'test', client, webhookSecret: secret, environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: { pro: 'price_a' } });
   const event = { type: 'invoice.paid', data: { object: { id: 'in_a' } } };
   assert.equal((await adapter.loadEvent(event)).renewal.planId, 'pro');
   invoice.status = 'open';
@@ -109,7 +109,7 @@ test('Stripe reconciliation loads current subscription and validates invoice acc
 
 test('signed standalone Stripe invoices are ignored before customer lookup; malformed and tampered events fail', async () => {
   const client = new Stripe('sk_test_fixture', { maxNetworkRetries: 0 });
-  const adapter = createStripePaymentAdapter({ client, webhookSecret: secret, environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: {} });
+  const adapter = createStripePaymentAdapter({ appEnv: 'test', client, webhookSecret: secret, environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: {} });
   let reconciliations = 0;
   const service = createPaymentCheckoutService({ appEnv: 'test', adapter, merchantScope: scope, returnUrl: 'https://app.example/billing', authorize: async () => false,
     payments: { async reconcileEvent() { reconciliations++; } } });
@@ -180,7 +180,7 @@ test('signed subscription lifecycle updates app access without crossing subjects
         plans: { pro: { features: ['export'], renewalCredits: 100 } }
       } });
       const adapter = provider === 'stripe'
-        ? createStripePaymentAdapter({ webhookSecret: secret, environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: { pro: 'price_a' }, client: {
+        ? createStripePaymentAdapter({ appEnv: 'test', webhookSecret: secret, environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: { pro: 'price_a' }, client: {
           webhooks: stripeSdk.webhooks,
           accounts: { retrieve: async () => ({ id: 'acct_a' }) }, balance: { retrieve: async () => ({ livemode: false }) },
           subscriptions: { retrieve: async () => { loads++; return { id: 'sub_a', customer: customerId, livemode: false, status, items: { has_more: false, data: [{ quantity: 1, price: { id: 'price_a' }, current_period_end: end / 1000 }] } }; } }

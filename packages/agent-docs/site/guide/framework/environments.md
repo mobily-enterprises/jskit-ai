@@ -167,9 +167,14 @@ receives its email and SMS, and reads it through
   `createConnectorsFeature` reads `APP_ENV` itself; give
   `createConnectionService` and `createPaymentCheckoutService`
   `appEnv: appEnvironment(env)`, which they require.
-- Payment checkout and the billing portal in the live payment environment are
-  refused outside production with `payment_sandbox_only`; the sandbox
-  environment works everywhere.
+- Payment checkout, top-ups and the billing portal in the live payment
+  environment are refused outside production with `payment_sandbox_only`; the
+  sandbox environment works everywhere.
+- A live Stripe key (`sk_live_`, `rk_live_`) is refused outside production:
+  `createStripePaymentAdapter` requires `appEnv: appEnvironment(env)` and
+  throws `payment_live_key_refused`, naming the fix (a test key). Test keys
+  work in every environment. Its `apiBaseUrl`, a stand-in for Stripe's API
+  that keeps tests off Stripe, is taken only in development and test.
 
 Supabase sends its own authentication emails from Supabase's servers; JSKIT
 cannot redirect them. Point development and staging at a separate Supabase

@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- `PaymentTopUp` (`./client/components/PaymentTopUp`): choose a top-up amount within the offer's limits (emitted in the currency's smallest unit), then each state of the top-up: waiting for the payment tab on a framed page (checking again when the page regains focus), a blocked tab, an unfinished payment on the return page, processing, paid, failed and expired. New messages `jskit.payments.topUp.*` (22).
+- `openPaymentPage(url, page?)` (`./client/openPaymentPage`): goes to a Checkout URL in this tab, or, on a framed page (a Preview pane), opens it with `window.open(url, "_blank")` and cuts the new tab's opener itself, answering `"redirected"`, `"opened"` or `"blocked"`.
+
 - Plans show as filled Material 3 cards (`surface-container-highest`) instead of bordered boxes.
 
 ## 0.2.0 - 2026-10-29

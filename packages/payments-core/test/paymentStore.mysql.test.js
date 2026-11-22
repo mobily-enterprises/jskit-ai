@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import knexLib from "knex";
 import { requireTestDatabase } from "@jskit-ai/database-runtime/server/testDatabases";
-import migration from "../migrations/payments_core_initial.cjs";
+import { migratePayments } from "./support/migrations.js";
 import { createPaymentService } from "../src/server/service.js";
 import { validatePaymentConfiguration } from "../src/shared/configuration.js";
 import { checkForeignKeys } from "@jskit-ai/resource-runtime/server";
@@ -30,7 +30,7 @@ async function ownDatabase(context, suffix) {
     await admin.raw("DROP DATABASE IF EXISTS ??", [name]);
     await admin.destroy();
   });
-  await migration.up(knex);
+  await migratePayments(knex);
   return knex;
 }
 
@@ -67,7 +67,7 @@ test("the store refuses incomplete scopes and identities before any work runs", 
   requireTestDatabase(process.env);
   const store = await createTestPaymentStore(await ownDatabase(context, "da_pay_refusals"));
   assert.ok(Object.isFrozen(store));
-  assert.deepEqual(Object.keys(store), ["inspect", "withAccount", "bindCustomer", "resolveCustomer", "inspectCatalogue", "withCatalogue"]);
+  assert.deepEqual(Object.keys(store), ["inspect", "withAccount", "bindCustomer", "resolveCustomer", "inspectCatalogue", "withCatalogue", "inspectTopUp", "createTopUp", "withTopUp"]);
 
   for (const [changes, message] of [
     [{ applicationId: "" }, "Payment scope requires applicationId."],

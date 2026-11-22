@@ -54,7 +54,16 @@ function validatePaymentConfiguration(document) {
         fieldErrors.push({ path: `${path}/publicClientTokenRef`, message: "Set the Env reference for this environment's Paddle public client token.",
           code: "payments.configuration.paddleClientToken", params: {} });
       }
+      // Top-ups are one-off Stripe Checkout payments; nothing takes them through Paddle.
+      if (value.topUps) {
+        fieldErrors.push({ path: `${path}/integrationId`, message: `Top-ups take Stripe Checkout payments: select a Stripe connection for ${environment}, or remove topUps.`,
+          code: "payments.configuration.paddleTopUps", params: { environment } });
+      }
     }
+  }
+  if (value.topUps && value.topUps.minimumAmount > value.topUps.maximumAmount) {
+    fieldErrors.push({ path: "extensions.payments/topUps/maximumAmount", message: "Make the largest top-up at least the smallest.",
+      code: "payments.configuration.topUpRange", params: {} });
   }
   if (fieldErrors.length) throw new PaymentConfigurationError(fieldErrors[0].message, fieldErrors, {
     messageCode: fieldErrors[0].code, messageParams: fieldErrors[0].params

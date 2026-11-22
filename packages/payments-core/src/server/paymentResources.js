@@ -59,8 +59,21 @@ const paymentCatalogueResource = defineTableResource({
   }
 });
 
+// One prepaid top-up under one merchant, keyed by the merchant and the top-up: its state as JSON, holding the billable
+// subject it was written down for, so a provider's event never names whose balance it credits.
+const paymentTopUpResource = defineTableResource({
+  name: "paymentTopUps",
+  tableName: "payment_top_ups",
+  ownership: "public",
+  idProperty: "top_up_key",
+  schema: {
+    id: key("top_up_key"),
+    payload: text
+  }
+});
+
 // The feature's owns entries: each key is an opaque fingerprint, not a numeric id.
-const PAYMENT_TABLES = Object.freeze([paymentAccountResource, paymentEntryResource, paymentCustomerResource, paymentCatalogueResource]
+const PAYMENT_TABLES = Object.freeze([paymentAccountResource, paymentEntryResource, paymentCustomerResource, paymentCatalogueResource, paymentTopUpResource]
   .map((resource) => Object.freeze({ resource, normalizeId: normalizeOpaqueId })));
 
 export {
@@ -68,5 +81,6 @@ export {
   paymentAccountResource,
   paymentCatalogueResource,
   paymentCustomerResource,
-  paymentEntryResource
+  paymentEntryResource,
+  paymentTopUpResource
 };

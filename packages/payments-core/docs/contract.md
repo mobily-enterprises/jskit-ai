@@ -48,6 +48,13 @@ payment environment are refused with `payment_sandbox_only` (409), before any
 provider write; the sandbox environment works everywhere. Pass
 `appEnv: appEnvironment(env)` to `createPaymentCheckoutService`.
 
+A live Stripe key (`sk_live_`, `rk_live_`) is refused outside production as
+well: `createStripePaymentAdapter` takes `appEnv` and throws
+`payment_live_key_refused` (409) unless it is `production`. Test keys work in
+every environment. Its `apiBaseUrl`, a stand-in for Stripe's API so that tests
+never reach Stripe, is taken only in `development` and `test`
+(`payment_stand_in_refused`, 409, elsewhere).
+
 An amount is an integer in the currency's smallest unit. ISO-looking currency
 syntax is not evidence the provider accepts that currency. Initial plans are
 one recurring item, quantity one, monthly or yearly. Logical plan IDs are source
@@ -74,10 +81,58 @@ Cancellation removes feature access but does not revoke an existing credit lot
 before its recorded expiry. Monetary refunds/chargebacks do not yet implement
 automatic credit clawback: that remains explicit application reconciliation.
 
-A trusted app can grant top-up or promotional usage units with `grantCredits`:
+## Prepaid top-ups
+
+`topUps`, beside `plans`, lets a person pay a one-off amount they choose into the
+application's own balance:
+
+```json
+"topUps": { "name": "Credits", "currency": "USD", "minimumAmount": 100, "maximumAmount": 50000 }
+```
+
+`name` is the product line on the payment page. Amounts are integers in the
+currency's smallest unit; Stripe takes nothing below 50, and `minimumAmount`
+must not exceed `maximumAmount`. A configuration sells plans, top-ups or both:
+`plans` may be empty only when `topUps` is present. Top-ups are one-off Stripe
+Checkout payments: an environment bound to a Paddle connection fails validation
+at its `integrationId` with `payments.configuration.paddleTopUps`.
+
+A top-up is written down before the provider hears of it, for the billable
+subject the application authorized (action `topUp`) and the amount it chose
+within the limits (`payment_top_up_amount_invalid`, 422, outside them). One
+request ID is one top-up: a repeated request answers it, and the same request
+ID with another amount is `payment_reference_conflict`. Its Checkout payment
+comes back to the application's return URL with `?paymentTopUp=<topUpId>`,
+paid or not. That parameter only names the top-up; it is never evidence.
+
+Two doors settle a top-up, and both take one path. The verified webhook carries
+the provider's signed facts; the return page asks the server to confirm, and the
+server reads the Checkout session from the provider with its own key. Neither
+door names a subject: the top-up written down at checkout is the authority, and
+an event for a session not made for one of this merchant's top-ups is
+acknowledged and ignored. Under the top-up's row lock the reported outcome moves
+its status (`open`, `processing` for a bank payment that has not cleared, then
+`paid`, `failed` or `expired`); paid wins over every other status, and failed or
+expired never undo a payment. Only the move to `paid` credits, by calling the
+application's credit function inside the same database transaction, with a
+stable reference `top-up:<topUpId>`, the amount and the currency, after checking
+that the provider took exactly the top-up's amount and currency. Whichever door
+comes second finds the top-up paid and credits nothing. A credit that fails
+rolls the settlement back, and the next report credits it.
+
+The application's balance is its own: a balance in its database writes the
+credit through the transaction options it is given, so the credit and the
+settlement commit together; a balance kept elsewhere must stay idempotent on the
+reference, since the call can run again after a rolled-back attempt.
+
+A trusted app can grant promotional or other usage units with `grantCredits`:
 positive integer `units`, stable business `reference`, and either an explicit
 millisecond expiry or `null` for no expiry. This call does not collect money or
-prove payment. Only call it after the app's own verified funding/business event.
+prove payment. Only call it after the app's own verified funding/business event,
+such as a top-up's credit call. It commits in a transaction of its own, once per
+reference, so a credit function that grants through it is idempotent on the
+top-up's reference but not atomic with the settlement; on a database with one
+connection (SQLite in tests) it would wait for the settlement's own.
 
 Debits consume the soonest-expiring valid lot first and cannot create a negative
 balance. A stable reference denotes one business action. Reusing it with a
@@ -103,6 +158,8 @@ must preserve these observable behaviors:
 | Inspect account | Authenticated access to the billable subject; balance, features, subscriptions; no remote mutation |
 | Billing history | Explicit billing-read policy for the subject; app-resolved customer, one filtered provider page, bounded display fields; no grant or mutation |
 | Checkout | Billing-management policy, configured logical plan, trusted contact email and stable request ID; provider URL |
+| Top up | `topUp` policy for the subject, an amount within the configured limits and a stable request ID; the top-up recorded before the provider is asked; provider URL |
+| Settle a top-up | Verified webhook facts or the provider's session read with the server's key; the recorded top-up's subject and amount; status and credit committed together, once |
 | Portal | Billing-management policy, server-bound customer; provider URL |
 | Verify webhook | Raw bytes and signing secret for the exact environment; no reliance on a browser session |
 | Reconcile event | Verified event, server customer binding, fresh provider facts and atomic receipt/state/grant |

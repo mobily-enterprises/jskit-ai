@@ -67,7 +67,7 @@ test('Stripe history uses customer-filtered single pages, includes canceled subs
   const client = { accounts: { retrieve: async () => ({ id: accountId }) }, balance: { retrieve: async () => ({ livemode: false }) },
     invoices: { list: async (query) => { queries.push(query); return { data: [invoice], has_more: true }; } },
     subscriptions: { list: async (query) => { queries.push(query); return { data: [{ id: 'sub_a', customer: 'cus_a', livemode: false, created: 1700000000, status: 'canceled', metadata: { hidden: true } }], has_more: false }; } } };
-  const adapter = createStripePaymentAdapter({ client, webhookSecret: 'fixture', environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: {} });
+  const adapter = createStripePaymentAdapter({ appEnv: 'test', client, webhookSecret: 'fixture', environment: 'sandbox', providerAccountId: 'acct_a', priceBindings: {} });
   const result = await adapter.readHistory({ customerId: 'cus_a', collection: 'transactions', after: 'in_previous' });
   assert.deepEqual(queries[0], { customer: 'cus_a', limit: 20, starting_after: 'in_previous' });
   assert.deepEqual(result, { collection: 'transactions', items: [{ id: 'in_a', kind: 'invoice', status: 'open', createdAt: '2023-11-14T22:13:20.000Z', currency: 'USD', totalMinor: '1200', paidMinor: '0' }], nextCursor: 'in_a' });
