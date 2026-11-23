@@ -103,7 +103,9 @@ function mapUser(record) {
     emailVerifiedAt: readDateTime(record.emailVerifiedAt),
     disabled: record.disabled === true || record.disabled === 1 || record.disabled === "1",
     disabledMessage: text(record.disabledMessage),
-    pendingEmail: text(record.pendingEmail)
+    pendingEmail: text(record.pendingEmail),
+    passwordChangedAt: readDateTime(record.passwordChangedAt),
+    emailChangedAt: readDateTime(record.emailChangedAt)
   };
 }
 
@@ -122,7 +124,9 @@ function mapSession(record) {
     secondFactorAt: readDateTime(record.secondFactorAt),
     ip: text(record.ip),
     userAgent: text(record.userAgent),
-    lastSeenAt: readDateTime(record.lastSeenAt)
+    lastSeenAt: readDateTime(record.lastSeenAt),
+    signInIp: text(record.signInIp),
+    signInUserAgent: text(record.signInUserAgent)
   };
 }
 
@@ -227,6 +231,8 @@ function sessionRecord(input = {}) {
     ip: input.ip ? String(input.ip) : null,
     userAgent: input.userAgent ? String(input.userAgent) : null,
     lastSeenAt: optionalDateTime(input.lastSeenAt),
+    signInIp: input.signInIp ? String(input.signInIp) : null,
+    signInUserAgent: input.signInUserAgent ? String(input.signInUserAgent) : null,
     createdAt,
     updatedAt: requiredDateTime(input.updatedAt, createdAt)
   };
@@ -289,8 +295,11 @@ function userRecords(users, options) {
     async hasAny() {
       return (await users.query({ page: { size: 1 } }, options)).records.length > 0;
     },
+    // A reset and a change alike: the password changed now.
     async updatePassword(userId, passwordRecord) {
-      return mapUser(await patchExisting(users, userId, { ...writePassword(passwordRecord), updatedAt: requiredDateTime() }, options));
+      const now = requiredDateTime();
+      const changes = { ...writePassword(passwordRecord), passwordChangedAt: now, updatedAt: now };
+      return mapUser(await patchExisting(users, userId, changes, options));
     },
     async updateProfile(userId, updates = {}) {
       const changes = { updatedAt: requiredDateTime() };
@@ -324,10 +333,11 @@ function userRecords(users, options) {
       const changes = { pendingEmail: text(pendingEmail) || null, updatedAt: requiredDateTime() };
       return mapUser(await patchExisting(users, userId, changes, options));
     },
-    // The email changes to an address its link proved, confirmed from now; another account's email is refused.
+    // The email changes to an address its link proved, confirmed and changed from now; another account's email is
+    // refused.
     async updateEmail(userId, email) {
       const now = requiredDateTime();
-      const changes = { email: text(email), pendingEmail: null, emailVerifiedAt: now, updatedAt: now };
+      const changes = { email: text(email), pendingEmail: null, emailVerifiedAt: now, emailChangedAt: now, updatedAt: now };
       try {
         return mapUser(await patchExisting(users, userId, changes, options));
       } catch (error) {
@@ -419,7 +429,8 @@ function sessionRecords(sessions, options) {
         { ...options, returning: "count" }
       );
     },
-    // The session seen again: when, and from where when the request said; a missing one changes nothing.
+    // The session seen again: when, and from where when the request said; a missing one changes nothing. Where it was
+    // signed in from never changes.
     async touch(sessionId, { lastSeenAt, ip, userAgent } = {}) {
       const id = text(sessionId);
       if (!id) {
@@ -691,7 +702,7 @@ function createLocalDbOwners({ resources, identities, context }) {
     // options.exceptSessionId keeps that session.
     revokeForUser: (userId, { exceptSessionId, ...options } = {}) => records(options).sessions.revokeForUser(userId, { exceptSessionId }),
     // The account's live sessions, the newest first, each with where (ip, userAgent) and when (lastSeenAt) it was
-    // last seen.
+    // last seen, and where it was signed in from (signInIp, signInUserAgent).
     listForUser: (userId, options = {}) => records(options).sessions.listForUser(userId),
     deleteExpired: (now, options = {}) => records(options).sessions.deleteExpired(now)
   });

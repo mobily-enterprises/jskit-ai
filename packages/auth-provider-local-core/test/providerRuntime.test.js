@@ -270,6 +270,7 @@ test("local file auth login-as issues native cookies for an existing user", asyn
   assert.equal(authenticated.authenticated, true);
   assert.equal(authenticated.actor.email, "ada@example.com");
   assert.equal(authenticated.sessionPurpose, "dev-auth");
+  assert.equal(authenticated.signIn.purpose, "dev-auth", "a development sign-in says so where its sign-in is told");
 });
 
 test("local login-as never invokes the mutating profile projector", async () => {

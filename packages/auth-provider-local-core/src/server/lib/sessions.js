@@ -34,6 +34,35 @@ function requestClient(request) {
 }
 
 /**
+ * How a session was signed in, as an authenticated request's answer gives it: when (`at`, the session's creation, which
+ * a refresh never renews), from where (`ip` and `userAgent`, the request that signed it in, each "" when unknown, as
+ * for a session from before sessions kept them or one signed in without a request) and why (`purpose`).
+ * @param {{ createdAt?: string, signInIp?: string, signInUserAgent?: string, purpose?: string }} session
+ * @returns {import("@jskit-ai/auth-core/server/types").AuthSessionSignIn}
+ */
+function sessionSignIn(session) {
+  return Object.freeze({
+    at: session.createdAt || "",
+    ip: session.signInIp || "",
+    userAgent: session.signInUserAgent || "",
+    purpose: session.purpose || "normal"
+  });
+}
+
+/**
+ * When the account's password and email last changed, as an authenticated request's answer gives it: each "" when it
+ * has not since local auth kept it.
+ * @param {{ passwordChangedAt?: string, emailChangedAt?: string }} user
+ * @returns {import("@jskit-ai/auth-core/server/types").AuthCredentialsChangedAt}
+ */
+function credentialsChangedAt(user) {
+  return Object.freeze({
+    password: user.passwordChangedAt || "",
+    email: user.emailChangedAt || ""
+  });
+}
+
+/**
  * The `auth.local.sign-in-events` default when no feature provides one: local auth logs each sign-in event.
  * @param {import("@jskit-ai/kernel/server/types").RuntimeLogger} logger
  * @returns {import("../types.js").AuthLocalSignInEvents}
@@ -107,12 +136,15 @@ function buildSessionPayload({ user, session, refreshToken, secret }) {
 /**
  * The sessions of local auth: creating one, authenticating a request from its
  * cookies, writing and clearing those cookies, and revoking sessions. An
- * authenticated request's answer names its session (`sessionId`) and when the
- * session last proved its second factor (`secondFactorAt`, "" when it has not).
- * A session keeps where it was last seen from (`ip`, `userAgent`) and when
- * (`lastSeenAt`): the request that signed it in, then one that finds it more
- * than five minutes later. Each sign-in, and each refused one, is an event for
- * the application's `auth.local.sign-in-events` (recordSignInEvent).
+ * authenticated request's answer names its session (`sessionId`), when the
+ * session last proved its second factor (`secondFactorAt`, "" when it has not),
+ * how it was signed in (`signIn`) and when the account's password and email
+ * last changed (`credentialsChangedAt`). A session keeps where it was last seen
+ * from (`ip`, `userAgent`) and when (`lastSeenAt`): the request that signed it
+ * in, then one that finds it more than five minutes later. It also keeps where
+ * it was signed in from (`signInIp`, `signInUserAgent`), written once and never
+ * again. Each sign-in, and each refused one, is an event for the application's
+ * `auth.local.sign-in-events` (recordSignInEvent).
  * @param {object} dependencies
  * @param {boolean} dependencies.appProfileProjection True when the application keeps profiles.
  * @param {import("../types.js").AuthLocalBackend} dependencies.backend
@@ -134,21 +166,24 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
   const RECOVERY_TOKEN_COOKIE = hostOnlyCookieName(RECOVERY_TOKEN_COOKIE_NAME, isStagingOrProduction);
 
   /**
-   * A new session of the user, seen now from where the request that signs it in comes from.
+   * A new session of the user, signed in and seen now from where the request that signs it in comes from.
    * @param {import("../types.js").AuthLocalBackendTransaction} tx
    * @param {{ id: string }} user
    * @param {{ purpose?: string, ttlSeconds?: number, request?: object | null }} [options]
    */
   async function createSessionForUser(tx, user, { purpose = "normal", ttlSeconds = REFRESH_TTL_SECONDS, request = null } = {}) {
     const refreshToken = randomToken(36);
+    const client = requestClient(request);
     const session = await tx.sessions.create({
       id: createId("ses"),
       userId: user.id,
       tokenHash: sha256Base64url(refreshToken),
       purpose,
       expiresAt: isoFromNow(ttlSeconds),
-      ...requestClient(request),
-      lastSeenAt: new Date().toISOString()
+      ...client,
+      lastSeenAt: new Date().toISOString(),
+      signInIp: client.ip,
+      signInUserAgent: client.userAgent
     });
     return buildSessionPayload({
       user,
@@ -160,7 +195,7 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
 
   /**
    * A session found more than five minutes after it was last seen is seen again now, from where the request comes
-   * from; a request that does not say keeps where it was last seen from.
+   * from; a request that does not say keeps where it was last seen from. Where it was signed in from stays.
    * @param {import("../types.js").AuthLocalBackendTransaction} tx
    * @param {{ id: string, lastSeenAt?: string }} session
    * @param {object | null} request
@@ -273,6 +308,8 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
             sessionId: resolved.session.id,
             secondFactorAt: resolved.session.secondFactorAt || "",
             sessionPurpose: resolved.session.purpose || "normal",
+            signIn: sessionSignIn(resolved.session),
+            credentialsChangedAt: credentialsChangedAt(resolved.user),
             clearSession: false,
             transientFailure: false
           };
@@ -318,6 +355,8 @@ function createLocalSessions({ appProfileProjection, backend, config, deliveries
       sessionId: resolved.session.id,
       secondFactorAt: resolved.session.secondFactorAt || "",
       sessionPurpose: resolved.session.purpose || "normal",
+      signIn: sessionSignIn(resolved.session),
+      credentialsChangedAt: credentialsChangedAt(resolved.user),
       clearSession: false,
       transientFailure: false
     };

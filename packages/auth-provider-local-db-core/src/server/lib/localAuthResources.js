@@ -48,7 +48,11 @@ const localAuthUserResource = defineTableResource({
     createdAt: dateTime,
     updatedAt: dateTime,
     emailVerifiedAt: optionalDateTime,
-    pendingEmail: { ...text, nullable: true }
+    pendingEmail: { ...text, nullable: true },
+    // When the password was last reset or changed, and the email last changed to a confirmed address: null when
+    // unknown.
+    passwordChangedAt: optionalDateTime,
+    emailChangedAt: optionalDateTime
   }
 });
 
@@ -69,6 +73,9 @@ const localAuthSessionResource = defineTableResource({
     ip: { ...text, nullable: true },
     userAgent: { ...text, nullable: true },
     lastSeenAt: optionalDateTime,
+    // Where the session was signed in from, written once: null when unknown.
+    signInIp: { ...text, nullable: true },
+    signInUserAgent: { ...text, nullable: true },
     createdAt: dateTime,
     updatedAt: dateTime
   },

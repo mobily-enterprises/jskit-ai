@@ -106,6 +106,8 @@ function authPolicyPlugin(deps = {}, options = {}) {
     fastify.decorateRequest("membership", null);
     fastify.decorateRequest("permissions", null);
     fastify.decorateRequest("secondFactorAt", "");
+    fastify.decorateRequest("sessionSignIn", null);
+    fastify.decorateRequest("credentialsChangedAt", null);
 
     fastify.addHook("preHandler", async (request, reply) => {
       const pathname = request.raw.url || request.url || "/";
@@ -151,6 +153,8 @@ function authPolicyPlugin(deps = {}, options = {}) {
 
       request.user = actorResolution.actor;
       request.secondFactorAt = actorResolution.secondFactorAt;
+      request.sessionSignIn = actorResolution.sessionSignIn;
+      request.credentialsChangedAt = actorResolution.credentialsChangedAt;
       request.workspace = null;
       request.membership = null;
       request.permissions = [];

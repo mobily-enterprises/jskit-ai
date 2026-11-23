@@ -150,6 +150,9 @@ Local functions
 - `assertFunction(value, name)`
 - `ignorePolicyDenial()`
 - `resolveNoPolicyContext()`
+- `textOr(value)`
+- `normalizeSessionSignIn(value)`
+- `normalizeCredentialsChangedAt(value)`
 
 ### `src/server/lib/errors.js`
 Exports
@@ -239,6 +242,8 @@ Exports
 - `type AuthCapabilities`
 - `type AuthActor`
 - `type AuthRequestResult`
+- `type AuthSessionSignIn`
+- `type AuthCredentialsChangedAt`
 - `type AuthProfileProjector`
 - `type AuthInvitationContextResolver`
 - `type AuthRealtimePolicy`

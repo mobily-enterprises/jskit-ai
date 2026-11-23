@@ -255,6 +255,8 @@ Exports
 Local functions
 - `nowSeconds()`
 - `requestClient(request)`
+- `sessionSignIn(session)`
+- `credentialsChangedAt(user)`
 - `unauthenticatedAuthResult(clearSession = false)`
 - `clearCookieOptions(config)`
 - `buildAccessToken({ user, session, secret, ttlSeconds = ACCESS_TTL_SECONDS })`
@@ -379,6 +381,14 @@ Exports
 - `requestFrom(ip, userAgent, cookies = {})`
 Local functions
 - `sessionCookies(session)`
+
+### `test-support/signInFactsScenario.js`
+Exports
+- `FIREFOX`
+- `PHONE`
+- `exerciseSignInFacts(t, backend)`
+Local functions
+- `signInFactsService(backend, env = {})`
 
 ### `test-support/signInThrottleScenario.js`
 Exports

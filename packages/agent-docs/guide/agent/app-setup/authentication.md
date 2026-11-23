@@ -325,6 +325,68 @@ an application that keeps an audit log installs the
 `auth.local.second-factor-events` capability, a function given each event after
 it is stored. Without one, local auth logs them.
 
+## How a session was signed in (local auth)
+
+An action that grants much (root on a machine, say) can ask more of the
+session that requests it than that it is signed in: that it was signed in
+recently, from the browser and network now asking, as an ordinary sign-in, and
+that the account's password and email have not just changed. Local auth keeps
+what that needs, and the auth policy hands it to every route that signs its
+caller in, beside `request.secondFactorAt`:
+
+- `request.sessionSignIn` is `{ at, ip, userAgent, purpose }`: when the
+  session was signed in (`at`, its creation, which refreshing the session
+  never renews), the address (`request.ip` of the request that signed it in,
+  so set `TRUSTED_PROXIES` behind a proxy) and browser (its `User-Agent`, at
+  most 512 characters) it was signed in from, and why (`purpose`: `normal` for
+  an ordinary sign-in, by password, registration, a confirmation link, a
+  provider or a one-time pass; `dev-auth` for a development sign-in; or what an
+  application's own `auth.local.sessions` `update` set). They are written once,
+  when the session is created, and never again: the session's `ip` and
+  `userAgent` (where it was last seen) move with later requests, these do not.
+- `request.credentialsChangedAt` is `{ password, email }`: when the account's
+  password last changed (a reset or a change, also `auth.local.accounts`'
+  `updatePassword`) and when its email last changed to a confirmed address
+  (using an email-change link). Registering, confirming a new account's email
+  and asking for an email change set neither.
+
+Each value is ISO text, or "" when unknown. Both are null on a public route
+and with a provider that keeps neither (OIDC, Supabase). A session's `ip` and
+`userAgent` are "" when it was signed in without a request (the server's own
+code), or before local auth kept them: **every session signed in before this
+release has none**. Refuse such a session, so its person signs in again; a
+change from before this release is "" too.
+
+```js
+import { AppError } from "@jskit-ai/kernel/server/runtime/errors";
+
+const HOUR = 3_600_000;
+
+// The browser as the session keeps it: its User-Agent's first 512 characters.
+const browserOf = (request) => String(request.headers["user-agent"] || "").slice(0, 512);
+
+function requireFreshSignIn(request) {
+  const signIn = request.sessionSignIn;
+  const fresh = signIn && signIn.purpose === "normal" && signIn.ip && signIn.userAgent &&
+    Date.now() - Date.parse(signIn.at) <= 12 * HOUR && signIn.userAgent === browserOf(request);
+  if (!fresh) {
+    throw new AppError(403, "Sign in again on this device.", { code: "app.signInAgain" });
+  }
+  const changed = request.credentialsChangedAt;
+  if ([changed?.password, changed?.email].some((at) => at && Date.now() - Date.parse(at) < 72 * HOUR)) {
+    throw new AppError(403, "Your password or email changed recently.", { code: "app.recentlyChanged" });
+  }
+}
+```
+
+How near `request.ip` must be to `signIn.ip` (the same address, a /24, a
+/56) is the application's decision, as is how it trusts its proxies. The
+database backend keeps them in `auth_local_sessions.sign_in_ip` and
+`sign_in_user_agent` and `auth_local_users.password_changed_at` and
+`email_changed_at` (migration `auth_local_db_sign_in_facts`; run
+`npm run db:migrate`), null for rows from before it; the file store in two more
+fields of each session and account line, reading older lines as unknown.
+
 ## Email confirmation (local auth)
 
 Local auth confirms the email address of each account it registers by
@@ -482,7 +544,12 @@ error.
 `markEmailVerified` records that the account proved it owns its email address,
 for example by using an emailed link, in the `email_verified_at` column (run
 `npm run db:migrate`); the first proof is kept, and the account answers it as
-`emailVerifiedAt` (empty until then). `deleteExpired` deletes the sessions that
+`emailVerifiedAt` (empty until then). An account also answers
+`passwordChangedAt` and `emailChangedAt`, which `updatePassword` and a used
+email-change link set (see "How a session was signed in" above), and a session
+`signInIp` and `signInUserAgent`, which `create` takes and nothing changes
+after; an application that signs a person in with its own sessions passes the
+request's address and browser there. `deleteExpired` deletes the sessions that
 expired by `now` and answers how many.
 
 `disable` stops an account signing in, for example while an application
@@ -843,7 +910,8 @@ operations answer
 `AUTH_OPERATION_UNSUPPORTED`. A sender needs `APP_PUBLIC_URL`, which its links
 name. The database backend keeps the waiting change in
 `auth_local_users.pending_email` (migration `auth_local_db_users_pending_email`)
-and sets `email_verified_at` when the link is used.
+and sets `email_verified_at` and `email_changed_at` when the link is used; the
+account's sessions then answer that time as `request.credentialsChangedAt.email`.
 
 ## Google, Microsoft and GitHub sign-in with local auth
 

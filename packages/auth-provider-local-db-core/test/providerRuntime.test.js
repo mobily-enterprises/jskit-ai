@@ -268,6 +268,7 @@ test("local database auth uses the shared native login-as session contract", asy
   assert.equal(authenticated.authenticated, true);
   assert.equal(authenticated.actor.email, "preview-db@example.com");
   assert.equal(authenticated.sessionPurpose, "dev-auth");
+  assert.equal(authenticated.signIn.purpose, "dev-auth", "a development sign-in says so where its sign-in is told");
 });
 
 // The application's profiles, read and synchronized on the database's own pool outside local auth's transactions, as

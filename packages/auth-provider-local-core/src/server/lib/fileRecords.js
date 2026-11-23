@@ -21,8 +21,9 @@ function parseUsers(content) {
   const users = [];
   for (const line of String(content || "").split("\n").filter(Boolean)) {
     const parts = splitLine(line, "user");
-    // Twelve fields, or thirteen since an account keeps its waiting email change.
-    if (parts.length !== 12 && parts.length !== 13) {
+    // Twelve fields, thirteen since an account keeps its waiting email change, or fifteen since it keeps when its
+    // password and email last changed.
+    if (parts.length !== 12 && parts.length !== 13 && parts.length !== 15) {
       throw new Error("Invalid user record field count.");
     }
     users.push({
@@ -38,7 +39,9 @@ function parseUsers(content) {
       createdAt: decodeField(parts[9]),
       updatedAt: decodeField(parts[10]),
       disabled: parts[11] === "1",
-      pendingEmail: decodeField(parts[12])
+      pendingEmail: decodeField(parts[12]),
+      passwordChangedAt: decodeField(parts[13]),
+      emailChangedAt: decodeField(parts[14])
     });
   }
   return users;
@@ -61,7 +64,9 @@ function serializeUsers(users) {
         encodeField(user.createdAt),
         encodeField(user.updatedAt),
         user.disabled ? "1" : "0",
-        encodeField(user.pendingEmail)
+        encodeField(user.pendingEmail),
+        encodeField(user.passwordChangedAt),
+        encodeField(user.emailChangedAt)
       ].join(":")
     )
     .join("\n") + (users.length > 0 ? "\n" : "");
@@ -72,8 +77,9 @@ function parseSessions(content) {
   for (const line of String(content || "").split("\n").filter(Boolean)) {
     const parts = splitLine(line, "session");
     // A session written before second factors has no tenth field: it has not proved one. One written before sessions
-    // kept where they were seen has no eleventh to thirteenth: nobody knows where or when it was last seen.
-    if (parts.length !== 9 && parts.length !== 10 && parts.length !== 13) {
+    // kept where they were seen has no eleventh to thirteenth: nobody knows where or when it was last seen. One written
+    // before sessions kept where they were signed in from has no fourteenth and fifteenth: nobody knows.
+    if (parts.length !== 9 && parts.length !== 10 && parts.length !== 13 && parts.length !== 15) {
       throw new Error("Invalid session record field count.");
     }
     sessions.push({
@@ -87,7 +93,9 @@ function parseSessions(content) {
       secondFactorAt: decodeField(parts[9] || ""),
       ip: decodeField(parts[10] || ""),
       userAgent: decodeField(parts[11] || ""),
-      lastSeenAt: decodeField(parts[12] || "")
+      lastSeenAt: decodeField(parts[12] || ""),
+      signInIp: decodeField(parts[13] || ""),
+      signInUserAgent: decodeField(parts[14] || "")
     });
   }
   return sessions;
@@ -110,7 +118,9 @@ function serializeSessions(sessions) {
         encodeField(session.secondFactorAt || ""),
         encodeField(session.ip || ""),
         encodeField(session.userAgent || ""),
-        encodeField(session.lastSeenAt || "")
+        encodeField(session.lastSeenAt || ""),
+        encodeField(session.signInIp || ""),
+        encodeField(session.signInUserAgent || "")
       ].join(":")
     )
     .join("\n") + (sessions.length > 0 ? "\n" : "");

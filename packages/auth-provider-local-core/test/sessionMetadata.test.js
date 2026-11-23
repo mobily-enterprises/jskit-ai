@@ -33,6 +33,8 @@ test("a session the file backend stored before it kept where sessions are seen r
     secondFactorAt: "",
     ip: "",
     userAgent: "",
-    lastSeenAt: ""
+    lastSeenAt: "",
+    signInIp: "",
+    signInUserAgent: ""
   });
 });
