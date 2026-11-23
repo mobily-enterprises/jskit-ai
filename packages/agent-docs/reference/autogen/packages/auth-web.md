@@ -177,6 +177,8 @@ Exports
 
 ### `src/client/runtime/authCallbackUrlParams.js`
 Exports
+- `OAUTH_CALLBACK_PARAM_KEYS`
+- `isOAuthCallback(callbackUrlParams)`
 - `readAuthCallbackParam(callbackUrlParams, key)`
 - `readAuthCallbackUrlParams(url = "")`
 - `stripAuthCallbackParamsFromUrl(url = "", keys = [])`
@@ -209,7 +211,6 @@ Local functions
 - `evaluateAuthGuard({ guard, context, loginRoute, authState = DEFAULT_AUTH_STATE })`
 - `installGuardEvaluator({ loginRoute = DEFAULT_LOGIN_ROUTE, getAuthState })`
 - `normalizeRuntimePath(value, fallback)`
-- `hasOAuthCallbackParams({ search = "", hash = "" } = {})`
 - `stripOAuthCallbackParamsFromSearch(search = "")`
 - `redirectOAuthCallbackToLoginRoute(loginRoute)`
 - `isDocumentVisible()`

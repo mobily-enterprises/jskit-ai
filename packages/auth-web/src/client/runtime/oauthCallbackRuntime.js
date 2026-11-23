@@ -7,6 +7,7 @@ import { AUTH_PATHS } from "@jskit-ai/auth-core/shared/authPaths";
 import { normalizeAuthReturnToPath } from "../lib/returnToPath.js";
 import { authHttpRequest } from "./authHttpClient.js";
 import {
+  isOAuthCallback,
   readAuthCallbackParam,
   readAuthCallbackUrlParams
 } from "./authCallbackUrlParams.js";
@@ -62,7 +63,7 @@ function readErrorParams(value = "") {
 
 function readOAuthCallbackParamsFromUrl(url = "") {
   const callbackUrlParams = readAuthCallbackUrlParams(url);
-  if (!callbackUrlParams) {
+  if (!isOAuthCallback(callbackUrlParams)) {
     return null;
   }
 
@@ -85,10 +86,6 @@ function readOAuthCallbackParamsFromUrl(url = "") {
   const errorDescriptionCode = String(readAuthCallbackParam(callbackUrlParams, "error_code")).trim();
   const errorDescriptionParams = readErrorParams(readAuthCallbackParam(callbackUrlParams, "error_params"));
   const hasSessionPair = Boolean(accessToken && refreshToken);
-
-  if (!code && !hasSessionPair && !errorCode) {
-    return null;
-  }
 
   return Object.freeze({
     code,

@@ -3,6 +3,7 @@ import {
   OAUTH_QUERY_PARAM_RETURN_TO
 } from "@jskit-ai/auth-core/shared/oauthCallbackParams";
 import { readOAuthCallbackParamsFromUrl } from "../../runtime/oauthCallbackRuntime.js";
+import { OAUTH_CALLBACK_PARAM_KEYS } from "../../runtime/authCallbackUrlParams.js";
 import { pageLocation } from "../../browser.js";
 
 function stripOAuthParamsFromLocation() {
@@ -12,27 +13,7 @@ function stripOAuthParamsFromLocation() {
   }
 
   const nextUrl = new URL(location.href);
-  const oauthParamKeys = [
-    "code",
-    "access_token",
-    "refresh_token",
-    "provider_token",
-    "expires_in",
-    "expires_at",
-    "token_type",
-    "state",
-    "iss",
-    "sb",
-    "type",
-    "error",
-    "error_description",
-    "error_code",
-    "error_params",
-    "errorCode",
-    "errorDescription",
-    OAUTH_QUERY_PARAM_PROVIDER,
-    OAUTH_QUERY_PARAM_RETURN_TO
-  ];
+  const oauthParamKeys = [...OAUTH_CALLBACK_PARAM_KEYS, OAUTH_QUERY_PARAM_PROVIDER, OAUTH_QUERY_PARAM_RETURN_TO];
 
   oauthParamKeys.forEach((key) => {
     nextUrl.searchParams.delete(key);

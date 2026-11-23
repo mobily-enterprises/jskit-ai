@@ -1,5 +1,27 @@
 const AUTH_CALLBACK_URL_BASE = "https://jskit.invalid";
 
+// The params a provider's or Supabase's sign-in callback brings to the page.
+const OAUTH_CALLBACK_PARAM_KEYS = Object.freeze([
+  "code",
+  "access_token",
+  "refresh_token",
+  "provider_token",
+  "expires_in",
+  "expires_at",
+  "token_type",
+  "state",
+  "iss",
+  "sb",
+  "type",
+  "error",
+  "error_code",
+  "error_description",
+  "error_params",
+  "errorCode",
+  "errorDescription",
+  "token_hash"
+]);
+
 function readAuthCallbackUrlParams(url = "") {
   const normalizedUrl = String(url || "").trim();
   if (!normalizedUrl) {
@@ -31,6 +53,18 @@ function readAuthCallbackParam(callbackUrlParams, key) {
   ).trim();
 }
 
+/**
+ * Whether the params are a sign-in callback, which the sign-in page completes: an authorization code, an access and
+ * refresh token pair, or an error. The other callback params only come with one of these, so alone they are the page's
+ * own: a list filtered by `?state=all` or `?type=x` is no callback.
+ * @param {ReturnType<typeof readAuthCallbackUrlParams>} callbackUrlParams
+ * @returns {boolean}
+ */
+function isOAuthCallback(callbackUrlParams) {
+  const param = (key) => readAuthCallbackParam(callbackUrlParams, key);
+  return Boolean(param("code") || (param("access_token") && param("refresh_token")) || param("error") || param("errorCode"));
+}
+
 function stripAuthCallbackParamsFromUrl(url = "", keys = []) {
   const callbackUrlParams = readAuthCallbackUrlParams(url);
   if (!callbackUrlParams) {
@@ -50,6 +84,8 @@ function stripAuthCallbackParamsFromUrl(url = "", keys = []) {
 }
 
 export {
+  OAUTH_CALLBACK_PARAM_KEYS,
+  isOAuthCallback,
   readAuthCallbackParam,
   readAuthCallbackUrlParams,
   stripAuthCallbackParamsFromUrl

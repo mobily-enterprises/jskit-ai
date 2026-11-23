@@ -7,6 +7,7 @@ import { createListenerSubscription } from "@jskit-ai/kernel/shared/support/list
 import { normalizePermissionList } from "@jskit-ai/kernel/shared/support/permissions";
 import { normalizeAuthCapabilities } from "@jskit-ai/auth-core/shared/authCapabilities";
 import { pageDocument, pageLocation, pageWindow } from "../browser.js";
+import { OAUTH_CALLBACK_PARAM_KEYS, isOAuthCallback, readAuthCallbackUrlParams } from "./authCallbackUrlParams.js";
 
 const AUTH_POLICY_AUTHENTICATED = "authenticated";
 const DEFAULT_SESSION_PATH = AUTH_PATHS.SESSION;
@@ -16,24 +17,6 @@ const DEFAULT_REFRESH_ON_FOREGROUND = false;
 const DEFAULT_REFRESH_ON_RECONNECT = false;
 const DEFAULT_REALTIME_REFRESH_EVENTS = Object.freeze(["users.bootstrap.changed", "auth.session.changed"]);
 const OAUTH_QUERY_PARAM_RETURN_TO = "returnTo";
-const OAUTH_CALLBACK_PARAM_KEYS = Object.freeze([
-  "code",
-  "access_token",
-  "refresh_token",
-  "provider_token",
-  "expires_in",
-  "expires_at",
-  "token_type",
-  "state",
-  "sb",
-  "type",
-  "error",
-  "error_code",
-  "error_description",
-  "errorCode",
-  "errorDescription",
-  "token_hash"
-]);
 const KEEP_PREVIOUS_AUTH_STATE = Symbol("keepPreviousAuthState");
 const DEFAULT_AUTH_STATE = Object.freeze({
   authenticated: false,
@@ -269,12 +252,6 @@ function normalizeRuntimePath(value, fallback) {
   return raw || fallback;
 }
 
-function hasOAuthCallbackParams({ search = "", hash = "" } = {}) {
-  const searchParams = new URLSearchParams(String(search || ""));
-  const hashParams = new URLSearchParams(String(hash || "").replace(/^#/, ""));
-  return OAUTH_CALLBACK_PARAM_KEYS.some((key) => searchParams.has(key) || hashParams.has(key));
-}
-
 function stripOAuthCallbackParamsFromSearch(search = "") {
   const params = new URLSearchParams(String(search || ""));
   OAUTH_CALLBACK_PARAM_KEYS.forEach((key) => {
@@ -304,7 +281,9 @@ function redirectOAuthCallbackToLoginRoute(loginRoute) {
 
   const currentSearch = String(location.search || "");
   const currentHash = String(location.hash || "");
-  if (!hasOAuthCallbackParams({ search: currentSearch, hash: currentHash })) {
+  // A callback that landed here, as on Supabase's Site URL, goes to the sign-in page, which completes it; the page's
+  // own query, such as a list's ?state=all, keeps it here.
+  if (!isOAuthCallback(readAuthCallbackUrlParams(`${currentPathname}${currentSearch}${currentHash}`))) {
     return false;
   }
 

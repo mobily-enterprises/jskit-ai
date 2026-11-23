@@ -1039,6 +1039,17 @@ read after it) is limited to 20 seconds. Past that, the page stops it, says
 "Signing in with the provider took too long, so it was stopped. Try again.",
 and offers **Try again with** the same provider, to the same page.
 
+A callback that lands on another page, as on Supabase's Site URL when Supabase
+refuses the redirect address, is sent on to `/auth/login` with its params, and
+the sign-in page completes it and returns to that page. A callback is what the
+sign-in page completes: an authorization `code`, an `access_token` and
+`refresh_token` pair, or an `error` (or `errorCode`). The params that come with
+one (`state`, `type`, `token_type`, `expires_in` and the like) prove nothing
+alone, so a page whose own query names them, such as a list filtered by
+`?state=all` or `?type=build`, keeps its query on a link or a reload. A signed-in
+page's own `?code=` or `?error=` still reads as a callback; name such a filter
+otherwise.
+
 Never restyle the views' own classes (`.login-screen`, `.auth-card`) or wrap
 them in a frame of the app's; the brand slot is the one way in.
 
